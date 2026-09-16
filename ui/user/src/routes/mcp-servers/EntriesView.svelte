@@ -226,21 +226,26 @@
 		/>
 	{/if}
 	{#if mcpServersAndEntries.current.isInitialized}
-		{#if filteredTableData.length === 0}
+		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
+			<Search
+				value={query}
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+				onChange={updateSearchQuery}
+				placeholder="Search MCP servers..."
+			/>
+		</div>
+
+		{#if filteredTableData.length === 0 && !query}
 			{#if noDataContent}
 				<div class="flex flex-col gap-px">
 					{@render noDataContent?.()}
 				</div>
 			{/if}
-		{:else}
-			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
-				<Search
-					value={query}
-					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-					onChange={updateSearchQuery}
-					placeholder="Search MCP servers..."
-				/>
+		{:else if filteredTableData.length === 0 && query}
+			<div class="flex flex-col gap-px">
+				<div class="text-sm text-muted-content">No results found for "{query}".</div>
 			</div>
+		{:else}
 			<Table
 				data={filteredTableData}
 				remeasureKey={tunnelConnectionsKey}
