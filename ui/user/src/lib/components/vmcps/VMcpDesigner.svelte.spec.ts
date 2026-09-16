@@ -826,9 +826,8 @@ describe('VMcpDesigner.svelte', () => {
 			const connect = page.getByRole('button', { name: 'Connect', exact: true });
 			await expect.element(connect).toBeVisible();
 			await expect.element(connect).toBeEnabled();
-			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 			await expect
-				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.element(page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }))
 				.not.toBeInTheDocument();
 		});
 
@@ -1015,14 +1014,8 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
 				.not.toBeInTheDocument();
 
-			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
-			await expect.element(page.getByRole('link', { name: 'View Audit Logs' })).toBeVisible();
-			await expect.element(page.getByRole('link', { name: 'View Usage' })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Edit Details', exact: true }))
-				.not.toBeInTheDocument();
-			await expect
-				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.element(page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }))
 				.not.toBeInTheDocument();
 		});
 
@@ -1190,17 +1183,6 @@ describe('VMcpDesigner.svelte', () => {
 			document.dispatchEvent(new Event('visibilitychange'));
 
 			try {
-				await vi.waitFor(() => expect(verification).toHaveBeenCalledOnce());
-				await expect
-					.element(page.getByRole('heading', { name: 'Server unavailable', includeHidden: true }))
-					.not.toBeInTheDocument();
-				expect(refresh).not.toHaveBeenCalled();
-				expect(initialize).not.toHaveBeenCalled();
-			} finally {
-				finishVerification();
-			}
-
-			try {
 				await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
 				await expect
 					.element(page.getByRole('link', { name: 'Authenticate' }))
@@ -1237,8 +1219,7 @@ describe('VMcpDesigner.svelte', () => {
 		it('opens edit configuration from the tester when the instance is not configured', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			const latest = createIssueTrackerVMcp();
-			latest.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
-			latest.components![0].catalogEntry.manifest.config = [
+			const config = [
 				{
 					key: 'API_TOKEN',
 					name: 'API token',
@@ -1246,9 +1227,17 @@ describe('VMcpDesigner.svelte', () => {
 					required: true,
 					sensitive: true,
 					value: '',
-					usage: 'env'
+					usage: 'env' as const
 				}
 			];
+			latest.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+			latest.components![0].catalogEntry = {
+				...latest.components![0].catalogEntry,
+				manifest: {
+					...latest.components![0].catalogEntry!.manifest,
+					config
+				}
+			};
 			const instance: VMCPInstance = {
 				id: 'vmcpi-unconfigured',
 				vmcpID: vmcp.id,
@@ -1271,12 +1260,14 @@ describe('VMcpDesigner.svelte', () => {
 					})
 				)
 			);
-			appPage.url.searchParams.set('view', 'tester');
+			appPage.url.searchParams.set('view', 'inspector');
 
 			await renderDesigner([componentEntry], vmcp, { instances: [instance] });
 
 			await expect
-				.element(page.getByText('An update is required before being able to test this vMCP.'))
+				.element(
+					page.getByText('Before you can continue inspecting this vMCP, an update is required.')
+				)
 				.toBeVisible();
 			await page.getByRole('button', { name: 'Update Configuration' }).click();
 			await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();

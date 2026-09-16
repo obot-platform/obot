@@ -87,9 +87,20 @@
 		flow.close();
 	}
 
+	function dialogReady(dialog: VMcpToolDialog | undefined) {
+		if (!dialog) return true;
+		if (dialog === 'added-create') return Boolean(addedCreateDialog);
+		if (dialog === 'setup') return Boolean(setupDialog);
+		if (dialog === 'edit') return Boolean(editDialog);
+		if (dialog === 'actions') return Boolean(componentActionsDialog);
+		if (dialog === 'configure') return Boolean(configurationDialog);
+		return true;
+	}
+
 	$effect(() => {
 		const next = flow.dialog;
 		if (next === renderedDialog) return;
+		if (!dialogReady(next)) return;
 
 		synchronizing = true;
 		closeDialog(renderedDialog);

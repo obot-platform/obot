@@ -29,17 +29,22 @@ function createUnconfiguredVmcp() {
 		userID: getProfileResponse.id
 	});
 	vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
-	vmcp.components![0].catalogEntry.manifest.config = [
-		{
-			key: 'API_TOKEN',
-			name: 'API token',
-			description: 'Token',
-			required: true,
-			sensitive: true,
-			value: '',
-			usage: 'env'
+	vmcp.components![0].catalogEntry = {
+		manifest: {
+			...vmcp.components![0].catalogEntry!.manifest,
+			config: [
+				{
+					key: 'API_TOKEN',
+					name: 'API token',
+					description: 'Token',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'env'
+				}
+			]
 		}
-	];
+	};
 	return vmcp;
 }
 
@@ -70,13 +75,16 @@ async function renderCard(options: {
 				displayName: 'Issue Tracker vMCP',
 				userID: options.userID
 			});
+	const instances = options.instances ?? [];
 	await preparePageData({
 		profile: createMockProfile(options.groups)
 	});
+	worker.use(http.get('/api/vmcp-instances', () => HttpResponse.json({ items: instances })));
 	vmcpInstances.current = {
-		items: options.instances ?? [],
+		items: instances,
 		loading: false
 	};
+	await vmcpInstances.refresh();
 	return render(VMcpCardHost, {
 		vmcp,
 		selectAriaLabel: 'Open Issue Tracker vMCP',
@@ -105,8 +113,16 @@ function createNeedsUpdateVmcp() {
 	);
 }
 
-async function expectDeleteVisible(visible: boolean) {
-	await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+function actionsButton() {
+	return page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' });
+}
+
+async function expectDeleteVisible(visible: boolean, actionsVisible = true) {
+	if (!actionsVisible) {
+		await expect.element(actionsButton()).not.toBeInTheDocument();
+		return;
+	}
+	await actionsButton().click();
 	const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
 	if (visible) {
 		await expect.element(deleteButton).toBeVisible();
@@ -126,7 +142,8 @@ async function expectConnectEnabled(enabled: boolean) {
 }
 
 describe('VMcpCard.svelte', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
+		await vmcpInstances.refresh();
 		mcpServersAndEntries.current = {
 			entries: [],
 			servers: [],
@@ -158,7 +175,8 @@ describe('VMcpCard.svelte', () => {
 			groups: [Group.USER],
 			userID: 'someone-else',
 			deleteVisible: false,
-			connectEnabled: false
+			connectEnabled: false,
+			actionsVisible: false
 		},
 		{
 			name: "hides delete and disables connect for a readonly admin viewing someone else's vMCP",
@@ -172,7 +190,8 @@ describe('VMcpCard.svelte', () => {
 			groups: [Group.USER],
 			userID: undefined,
 			deleteVisible: false,
-			connectEnabled: true
+			connectEnabled: true,
+			actionsVisible: false
 		},
 		{
 			name: 'lets an admin delete and connect to an unowned vMCP',
@@ -193,12 +212,14 @@ describe('VMcpCard.svelte', () => {
 			groups: [Group.USER],
 			userID: '',
 			deleteVisible: false,
-			connectEnabled: true
+			connectEnabled: true,
+			actionsVisible: false
 		}
-	] as const)('$name', async ({ groups, userID, deleteVisible, connectEnabled }) => {
+	] as const)('$name', async ({ groups, userID, deleteVisible, connectEnabled, ...rest }) => {
+		const actionsVisible = 'actionsVisible' in rest ? rest.actionsVisible : true;
 		await renderCard({ groups: [...groups], userID });
 		await expectConnectEnabled(connectEnabled);
-		await expectDeleteVisible(deleteVisible);
+		await expectDeleteVisible(deleteVisible, actionsVisible);
 	});
 
 	it('shows reset when connected and deletes a single instance', async () => {
@@ -363,12 +384,12 @@ describe('VMcpCard.svelte', () => {
 		};
 
 		await renderCard({
-			groups: [Group.USER],
+			groups: [Group.ADMIN],
 			userID: 'someone-else',
 			vmcp
 		});
 
-		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await actionsButton().click();
 		await page.getByRole('button', { name: 'View Diff', exact: true }).click();
 		await expect.element(page.getByText('Issue Tracker vMCP | vmcp-1')).toBeVisible();
 	});
@@ -380,10 +401,7 @@ describe('VMcpCard.svelte', () => {
 			vmcp: createNeedsUpdateVmcp()
 		});
 
-		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
-		await expect
-			.element(page.getByRole('button', { name: 'Update vMCP', exact: true }))
-			.not.toBeInTheDocument();
+		await expect.element(actionsButton()).not.toBeInTheDocument();
 	});
 
 	it('opens instance selection when resetting with multiple connections', async () => {
@@ -557,7 +575,7 @@ describe('VMcpCard.svelte', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'Select Connection to Configure' }))
 			.toBeVisible();
-		await page.getByText('vmcpi-2', { exact: true }).click();
+		await page.getByRole('button', { name: 'Select connection' }).nth(1).click();
 		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
 		expect(revealed).toHaveBeenCalledWith('vmcpi-2');
 		expect(revealed).not.toHaveBeenCalledWith('vmcpi-1');

@@ -1,9 +1,9 @@
 import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
 import { type VMCP, type VMCPInstance } from '$lib/services';
-import { profile, vmcpInstances } from '$lib/stores';
+import { vmcpInstances } from '$lib/stores';
 import { createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
-import { getLicenseResponse } from '../../../tests/mocks/data';
+import { getProfileResponse, getLicenseResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpTester from './VMcpTester.svelte';
 import { http, HttpResponse } from 'msw';
@@ -46,7 +46,7 @@ function createInstance(status?: VMCPInstance['status']): VMCPInstance {
 	return {
 		id: 'vmcpi-1',
 		vmcpID: vmcp.id,
-		userID: profile.current.id,
+		userID: getProfileResponse.id,
 		created: '2026-01-01T00:00:00.000Z',
 		type: 'vmcpinstance',
 		status
@@ -57,6 +57,7 @@ async function renderVMcpTester(
 	overrides: Record<string, unknown>,
 	options?: {
 		instance?: VMCPInstance | null;
+		onLaunch?: () => void;
 		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
 	}
 ) {
@@ -72,7 +73,7 @@ async function renderVMcpTester(
 
 	return render(VMcpTester, {
 		vmcp,
-		onLaunch: vi.fn(),
+		onLaunch: options?.onLaunch ?? vi.fn(),
 		openEditInstanceConfiguration: options?.openEditInstanceConfiguration
 	});
 }
@@ -144,7 +145,9 @@ describe('VMcpTester', () => {
 		);
 
 		await expect
-			.element(page.getByText('An update is required before being able to test this vMCP.'))
+			.element(
+				page.getByText('Before you can continue inspecting this vMCP, an update is required.')
+			)
 			.toBeVisible();
 		await page.getByRole('button', { name: 'Update Configuration' }).click();
 		expect(openEditInstanceConfiguration).toHaveBeenCalledWith(vmcp, instance);
@@ -152,9 +155,7 @@ describe('VMcpTester', () => {
 
 	it('starts a session when the vMCP has no instance', async () => {
 		const onLaunch = vi.fn();
-		await preparePageData({});
-		vmcpInstances.current = { items: [], loading: false };
-		await render(VMcpTester, { vmcp, onLaunch });
+		await renderVMcpTester({}, { instance: null, onLaunch });
 
 		await expect
 			.element(page.getByText('Start your vMCP to use chat and inspect tools.'))
