@@ -5,7 +5,12 @@
 	import { CREATE_VMCP_DROP_ID } from '$lib/runes/vmcps/entryDrag.svelte';
 	import './vmcpGraph.css';
 	import { Layers, Plus } from '@lucide/svelte';
+	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
+
+	const CREATE_VMCP_DRAG_HINT_ID = 'create-vmcp-drag-hint';
+	const CREATE_VMCP_DRAG_HINT_TITLE_ID = 'create-vmcp-drag-hint-title';
+	const CREATE_VMCP_DRAG_HINT_DESCRIPTION_ID = 'create-vmcp-drag-hint-description';
 
 	interface Props {
 		drag: EntryDrag;
@@ -14,14 +19,39 @@
 
 	let { drag, embedded = false }: Props = $props();
 	let linked = $derived(drag.isLinked(CREATE_VMCP_DROP_ID));
+	let triggerButton = $state<HTMLButtonElement | null>(null);
+	let hintPanelEl = $state<HTMLElement | null>(null);
 
-	const { tooltip, ref, toggle } = popover({
+	const { tooltip, ref, toggle, open } = popover({
 		placement: 'right',
-		offset: 12
+		offset: 12,
+		onOpenChange(isOpen) {
+			if (!isOpen) triggerButton?.focus();
+		}
 	});
 
 	$effect(() => {
 		if (drag.active) toggle(false);
+	});
+
+	$effect(() => {
+		if (!open || !hintPanelEl) return;
+		void tick().then(() => {
+			hintPanelEl
+				?.querySelector<HTMLButtonElement>('button[aria-label="Dismiss drag and drop tip"]')
+				?.focus();
+		});
+	});
+
+	$effect(() => {
+		if (!open) return;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape') return;
+			event.stopPropagation();
+			toggle(false);
+		};
+		document.addEventListener('keydown', onKeyDown);
+		return () => document.removeEventListener('keydown', onKeyDown);
 	});
 </script>
 
@@ -35,6 +65,10 @@
 	<button
 		id="create-vmcp-button"
 		type="button"
+		bind:this={triggerButton}
+		aria-haspopup="dialog"
+		aria-expanded={open}
+		aria-controls={CREATE_VMCP_DRAG_HINT_ID}
 		class={twMerge(
 			'cursor-default bg-base-100 group dark:bg-base-300 dark:border-base-400 shadow-md rounded-lg border',
 			embedded ? 'border-base-300 border-dashed' : 'border-transparent',
@@ -65,6 +99,19 @@
 	</button>
 </div>
 
-<div use:tooltip class="z-40">
-	<VMcpDragHint onDismiss={() => toggle(false)} />
+<div
+	bind:this={hintPanelEl}
+	use:tooltip
+	id={CREATE_VMCP_DRAG_HINT_ID}
+	role="dialog"
+	aria-labelledby={CREATE_VMCP_DRAG_HINT_TITLE_ID}
+	aria-describedby={CREATE_VMCP_DRAG_HINT_DESCRIPTION_ID}
+	tabindex="-1"
+	class="z-40"
+>
+	<VMcpDragHint
+		titleId={CREATE_VMCP_DRAG_HINT_TITLE_ID}
+		descriptionId={CREATE_VMCP_DRAG_HINT_DESCRIPTION_ID}
+		onDismiss={() => toggle(false)}
+	/>
 </div>

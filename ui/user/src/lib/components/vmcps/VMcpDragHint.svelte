@@ -5,10 +5,17 @@
 
 	interface Props {
 		class?: string;
+		titleId?: string;
+		descriptionId?: string;
 		onDismiss?: () => void;
 	}
 
-	let { class: klass, onDismiss }: Props = $props();
+	let {
+		class: klass,
+		titleId = 'vmcp-drag-hint-title',
+		descriptionId = 'vmcp-drag-hint-description',
+		onDismiss
+	}: Props = $props();
 </script>
 
 <div class={twMerge('w-60', klass)}>
@@ -21,7 +28,10 @@
 		></div>
 
 		<div class="flex items-start justify-between gap-2">
-			<p class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase">
+			<p
+				id={titleId}
+				class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
+			>
 				Drag &amp; Drop
 			</p>
 			<button
@@ -36,7 +46,7 @@
 
 		<VMcpDragDropStage class="mt-2" />
 
-		<p class="text-muted-content mt-2 text-xs font-light">
+		<p id={descriptionId} class="text-muted-content mt-2 text-xs font-light">
 			Drag a server from the panel anywhere onto the canvas to build a vMCP.
 		</p>
 	</div>

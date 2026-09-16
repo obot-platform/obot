@@ -272,11 +272,7 @@
 					<button
 						type="button"
 						class="btn btn-primary btn-xs text-xs"
-						aria-label={isLast
-							? 'Finish tour'
-							: isFirst
-								? 'Start tour'
-								: 'Go to next tip'}
+						aria-label={isLast ? 'Finish tour' : isFirst ? 'Start tour' : 'Go to next tip'}
 						onclick={advance}
 					>
 						{isLast ? 'Done' : isFirst ? 'Start Tour' : 'Next'}
