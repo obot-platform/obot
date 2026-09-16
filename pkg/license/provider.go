@@ -45,13 +45,12 @@ const (
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
 
-	defaultPollInterval  = 24 * time.Hour
-	licenseSetMaxRetries = 3
-	keygenProduct        = "18a762f2-5281-45cf-93fc-e45e2d932094"
-	keygenAccount        = "7565373b-6069-4a0b-9495-9777d9db3fd9"
-	keygenAPIURL         = "https://api.keygen.sh"
-	keygenAPIPrefix      = "v1"
-	keygenAPIVersion     = "1.8"
+	defaultPollInterval = 24 * time.Hour
+	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
+	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
+	keygenAPIURL        = "https://api.keygen.sh"
+	keygenAPIPrefix     = "v1"
+	keygenAPIVersion    = "1.8"
 )
 
 var (
@@ -63,6 +62,8 @@ var (
 
 	// ErrInvalidLicense indicates the provided license key could not be validated.
 	ErrInvalidLicense = errors.New("license key is invalid")
+
+	errLicenseKeyChanged = errors.New("license key changed while it was being updated")
 )
 
 // Config contains the Keygen settings needed to validate an Obot license.
@@ -231,67 +232,58 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	for range licenseSetMaxRetries {
-		// Community licenses historically lived in the primary property. Preserve
-		// one there as a fallback before overwriting it so existing installations
-		// gain the new fallback behavior without a separate data migration.
-		currentSnapshot, err := p.loadLicenseKey(ctx)
+	// Community licenses historically lived in the primary property. Preserve
+	// one there as a fallback before overwriting it so existing installations
+	// gain the new fallback behavior without a separate data migration.
+	currentSnapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
+	}
+	preserveCommunity := false
+	if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
+		community, err := p.isCommunityLicense(ctx, currentSnapshot)
 		if err != nil {
 			return err
 		}
-		preserveCommunity := false
-		if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
-			community, err := p.isCommunityLicense(ctx, currentSnapshot)
-			if err != nil {
-				return err
-			}
-			preserveCommunity = community
-		}
-
-		var updatedAt time.Time
-		snapshotChanged := false
-		err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
-			var expectedPrimaryVersion *time.Time
-			if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
-				expectedPrimaryVersion = &currentSnapshot.updatedAt
-			}
-			matches, err := p.gatewayClient.PropertyVersionMatchesTx(tx, LicenseKeyPropertyKey, expectedPrimaryVersion)
-			if err != nil {
-				return err
-			}
-			if !matches {
-				snapshotChanged = true
-				return nil
-			}
-
-			if preserveCommunity {
-				if _, err := p.gatewayClient.SetPropertyTx(ctx, tx, CommunityLicenseKeyPropertyKey, currentSnapshot.key); err != nil {
-					return fmt.Errorf("failed to preserve Community license key: %w", err)
-				}
-			}
-			property, err := p.gatewayClient.SetPropertyTx(ctx, tx, LicenseKeyPropertyKey, licenseKey)
-			if err != nil {
-				return err
-			}
-			updatedAt = property.UpdatedAt
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		if snapshotChanged {
-			continue
-		}
-
-		p.setCachedState(licenseKeySnapshot{
-			key:         licenseKey,
-			updatedAt:   updatedAt,
-			propertyKey: LicenseKeyPropertyKey,
-		}, entitlements)
-		return nil
+		preserveCommunity = community
 	}
 
-	return fmt.Errorf("license key changed while it was being updated")
+	var updatedAt time.Time
+	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
+		var expectedPrimaryVersion *time.Time
+		if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
+			expectedPrimaryVersion = &currentSnapshot.updatedAt
+		}
+		matches, err := p.gatewayClient.PropertyVersionMatchesTx(tx, LicenseKeyPropertyKey, expectedPrimaryVersion)
+		if err != nil {
+			return err
+		}
+		if !matches {
+			return errLicenseKeyChanged
+		}
+
+		if preserveCommunity {
+			if _, err := p.gatewayClient.SetPropertyTx(ctx, tx, CommunityLicenseKeyPropertyKey, currentSnapshot.key); err != nil {
+				return fmt.Errorf("failed to preserve Community license key: %w", err)
+			}
+		}
+		property, err := p.gatewayClient.SetPropertyTx(ctx, tx, LicenseKeyPropertyKey, licenseKey)
+		if err != nil {
+			return err
+		}
+		updatedAt = property.UpdatedAt
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	p.setCachedState(licenseKeySnapshot{
+		key:         licenseKey,
+		updatedAt:   updatedAt,
+		propertyKey: LicenseKeyPropertyKey,
+	}, entitlements)
+	return nil
 }
 
 // SetCommunityLicenseKey validates and stores an issued Community key in its

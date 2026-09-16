@@ -771,7 +771,7 @@ func TestSetLicenseKeyReplacesDefinitivelyRejectedLegacyLicense(t *testing.T) {
 	}
 }
 
-func TestSetLicenseKeyDoesNotRestoreLegacyCommunityLicenseDeletedByAnotherReplica(t *testing.T) {
+func TestSetLicenseKeyFailsWhenLegacyCommunityLicenseIsDeletedByAnotherReplica(t *testing.T) {
 	communityLookupStarted := make(chan struct{}, 1)
 	releaseCommunityLookup := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -829,16 +829,12 @@ func TestSetLicenseKeyDoesNotRestoreLegacyCommunityLicenseDeletedByAnotherReplic
 		t.Fatalf("remove legacy Community license: %v", err)
 	}
 	close(releaseCommunityLookup)
-	if err := <-setDone; err != nil {
-		t.Fatalf("SetLicenseKey(): %v", err)
+	if err := <-setDone; !errors.Is(err, errLicenseKeyChanged) {
+		t.Fatalf("SetLicenseKey() error = %v, want %v", err, errLicenseKeyChanged)
 	}
 
-	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
-	if err != nil {
-		t.Fatalf("get primary property: %v", err)
-	}
-	if primary.Value != "enterprise-license" {
-		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
+	if _, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("primary property error = %v, want record not found", err)
 	}
 	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("Community fallback error = %v, want record not found", err)
