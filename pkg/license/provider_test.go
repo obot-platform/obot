@@ -452,14 +452,14 @@ func TestRemoveEnterpriseLicenseFallsBackToCommunityLicense(t *testing.T) {
 	}
 
 	if err := provider.RemoveLicenseKey(ctx); err != nil {
-		t.Fatalf("expected community fallback to remain removable: %v", err)
+		t.Fatalf("expected repeated removal to succeed: %v", err)
 	}
 	licenseKey, err = provider.LicenseKey(ctx)
 	if err != nil {
-		t.Fatalf("expected empty license key lookup to succeed: %v", err)
+		t.Fatalf("expected fallback license key lookup to succeed: %v", err)
 	}
-	if licenseKey != "" {
-		t.Fatalf("license key = %q after deleting fallback, want empty", licenseKey)
+	if licenseKey != "community-license" {
+		t.Fatalf("license key = %q after repeated removal, want community fallback", licenseKey)
 	}
 }
 
@@ -717,14 +717,14 @@ func TestRemoveLicenseKeyAllowsInvalidFallback(t *testing.T) {
 	}
 
 	if err := provider.RemoveLicenseKey(ctx); err != nil {
-		t.Fatalf("remove invalid fallback: %v", err)
+		t.Fatalf("repeat primary removal: %v", err)
 	}
 	licenseKey, err = provider.LicenseKey(ctx)
 	if err != nil {
-		t.Fatalf("get license key after deleting fallback: %v", err)
+		t.Fatalf("get invalid fallback after repeated removal: %v", err)
 	}
-	if licenseKey != "" {
-		t.Fatalf("license key after deleting fallback = %q, want empty", licenseKey)
+	if licenseKey != "invalid-community-license" {
+		t.Fatalf("license key after repeated removal = %q, want invalid-community-license", licenseKey)
 	}
 }
 

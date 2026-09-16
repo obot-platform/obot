@@ -173,16 +173,26 @@ func (p *Provider) MachineFingerprint() string {
 // PrimaryLicenseKeyExists reports whether a database-managed primary license
 // prevents Community enrollment, regardless of whether that key is valid.
 func (p *Provider) PrimaryLicenseKeyExists(ctx context.Context) (bool, error) {
+	snapshot, err := p.loadPrimaryLicenseKey(ctx)
+	return snapshot.propertyKey != "", err
+}
+
+func (p *Provider) loadPrimaryLicenseKey(ctx context.Context) (licenseKeySnapshot, error) {
 	if p.gatewayClient == nil {
-		return false, nil
+		return licenseKeySnapshot{}, nil
 	}
-	if _, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey); err != nil {
+	property, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
+			return licenseKeySnapshot{}, nil
 		}
-		return false, fmt.Errorf("failed to get primary license key property: %w", err)
+		return licenseKeySnapshot{}, fmt.Errorf("failed to get primary license key property: %w", err)
 	}
-	return true, nil
+	return licenseKeySnapshot{
+		key:         strings.TrimSpace(property.Value),
+		updatedAt:   property.UpdatedAt,
+		propertyKey: LicenseKeyPropertyKey,
+	}, nil
 }
 
 func (p *Provider) LicenseKeyViaConfiguration() bool {
@@ -350,9 +360,8 @@ func (p *Provider) Validate(ctx context.Context) error {
 	return p.refresh(ctx, true)
 }
 
-// RemoveLicenseKey removes the currently effective database license. Removing
-// a primary key exposes the preserved Community property; calling this again
-// while that fallback is effective removes the Community license itself.
+// RemoveLicenseKey removes the primary database license. A preserved Community
+// property becomes effective afterward and is not affected by repeated calls.
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -363,17 +372,25 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	snapshot, err := p.loadLicenseKey(ctx)
+	snapshot, err := p.loadPrimaryLicenseKey(ctx)
 	if err != nil {
 		return err
 	}
-	propertyKey := snapshot.propertyKey
-	if propertyKey == "" {
-		p.setCachedState(licenseKeySnapshot{}, nil)
+	if snapshot.propertyKey == "" {
 		return nil
 	}
 
-	if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
+	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
+		matches, err := p.gatewayClient.PropertyVersionMatchesTx(tx, LicenseKeyPropertyKey, &snapshot.updatedAt)
+		if err != nil {
+			return err
+		}
+		if !matches {
+			return errLicenseKeyChanged
+		}
+		return p.gatewayClient.DeletePropertyTx(tx, LicenseKeyPropertyKey)
+	})
+	if err != nil {
 		return err
 	}
 	p.setCachedState(licenseKeySnapshot{}, nil)
