@@ -137,7 +137,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 	if !profile.Permissions.AllowAllComponents {
 		t.Fatal("default profile must allow all tools")
 	}
-	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeUser || profile.Subjects[0].ID != "user-1" {
+	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeGroup || profile.Subjects[0].ID != GroupAdmin {
 		t.Fatalf("unexpected default profile subjects: %#v", profile.Subjects)
 	}
 }
