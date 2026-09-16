@@ -441,17 +441,8 @@ func (c *Client) ensureIdentityProviderData(ctx context.Context, id *types.Ident
 
 	// Ensure groups and group memberships are up to date. ensureGroups makes its own HTTP call to
 	// the auth provider (outside any transaction) and persists results in its own transaction.
-	groupsLastChecked := id.AuthProviderGroupsLastChecked
 	if err := c.ensureGroups(ctx, id); err != nil {
 		return fmt.Errorf("failed to update groups for identity: %w", err)
-	}
-	if !groupsLastChecked.Equal(id.AuthProviderGroupsLastChecked) {
-		// Groups were updated, so we should update the last checked time on the identity.
-		if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			return c.encryptAndUpdateIdentity(ctx, tx, *id)
-		}); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -494,7 +485,8 @@ func (c *Client) encryptAndUpdateIdentity(ctx context.Context, tx *gorm.DB, id t
 		return fmt.Errorf("failed to encrypt identity: %w", err)
 	}
 
-	if err := tx.Updates(&id).Error; err != nil {
+	// Omit the group check column to prevent resetting the window
+	if err := tx.Omit(groupsLastCheckedColumn).Updates(&id).Error; err != nil {
 		return fmt.Errorf("failed to update identity: %w", err)
 	}
 

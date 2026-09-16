@@ -431,7 +431,9 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if err := tx.Updates(u).Error; err != nil {
 			return err
 		}
-		return tx.Updates(&identity).Error
+
+		// Omit the group check column to prevent resetting the window
+		return tx.Omit(groupsLastCheckedColumn).Updates(&identity).Error
 	})
 }
 
