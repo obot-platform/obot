@@ -463,6 +463,42 @@ func TestRemoveEnterpriseLicenseFallsBackToCommunityLicense(t *testing.T) {
 	}
 }
 
+func TestPrimaryLicenseKeyExists(t *testing.T) {
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	provider := &Provider{gatewayClient: gatewayClient}
+
+	exists, err := provider.PrimaryLicenseKeyExists(ctx)
+	if err != nil {
+		t.Fatalf("check absent primary property: %v", err)
+	}
+	if exists {
+		t.Fatal("primary property unexpectedly exists")
+	}
+
+	if _, err := gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, "community-license"); err != nil {
+		t.Fatalf("seed Community property: %v", err)
+	}
+	exists, err = provider.PrimaryLicenseKeyExists(ctx)
+	if err != nil {
+		t.Fatalf("check primary with Community property: %v", err)
+	}
+	if exists {
+		t.Fatal("Community property reported as primary")
+	}
+
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "enterprise-license"); err != nil {
+		t.Fatalf("seed primary property: %v", err)
+	}
+	exists, err = provider.PrimaryLicenseKeyExists(ctx)
+	if err != nil {
+		t.Fatalf("check present primary property: %v", err)
+	}
+	if !exists {
+		t.Fatal("primary property reported as absent")
+	}
+}
+
 func TestSetCommunityLicenseKeyRejectsExistingPrimary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")

@@ -102,13 +102,18 @@ func hasEmailDomainSuffix(address string) bool {
 }
 
 func (h *LicenseHandler) communityEligibilityError(ctx context.Context) error {
+	if h.licenseProvider.LicenseKeyViaConfiguration() {
+		return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
+	}
+	if exists, err := h.licenseProvider.PrimaryLicenseKeyExists(ctx); err != nil {
+		return err
+	} else if exists {
+		return apitypes.NewErrAlreadyExists("a primary license key already exists")
+	}
 	if ok, err := h.licenseProvider.HasValidLicense(ctx); err != nil {
 		return err
 	} else if ok {
 		return apitypes.NewErrAlreadyExists("a valid license is already active")
-	}
-	if h.licenseProvider.LicenseKeyViaConfiguration() {
-		return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 	}
 	return nil
 }

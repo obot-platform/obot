@@ -170,6 +170,21 @@ func (p *Provider) MachineFingerprint() string {
 	return p.machineFingerprint
 }
 
+// PrimaryLicenseKeyExists reports whether a database-managed primary license
+// prevents Community enrollment, regardless of whether that key is valid.
+func (p *Provider) PrimaryLicenseKeyExists(ctx context.Context) (bool, error) {
+	if p.gatewayClient == nil {
+		return false, nil
+	}
+	if _, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get primary license key property: %w", err)
+	}
+	return true, nil
+}
+
 func (p *Provider) LicenseKeyViaConfiguration() bool {
 	return p.configuredLicenseKey != ""
 }
