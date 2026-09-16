@@ -3,6 +3,7 @@
 		type ResponsiveDialogAnimate
 	} from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import LocalAuthInitialUserForm from '$lib/components/admin/LocalAuthInitialUserForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
@@ -96,19 +97,10 @@
 	let deleteUsers = new SvelteSet<LocalAuthUser['id']>();
 
 	let shakeTimeout: ReturnType<typeof setTimeout> | undefined;
-	let configurePromise: Promise<boolean> | undefined;
 	let initialUserDialogOpen = $state(false);
-
-	let initialEmail = $state('');
-	let initialPassword = $state('');
-	let initialPasswordConfirm = $state('');
-	let initialUserError = $state<string>();
+	let initialUserCount = $state(0);
 
 	const DRAFT_EMAIL_ID = 'local-user-email-draft';
-	const INITIAL_EMAIL_ID = 'initial-user-email';
-	const INITIAL_PASSWORD_ID = 'initial-user-password';
-	const INITIAL_PASSWORD_CONFIRM_ID = 'initial-user-password-confirm';
-	const INITIAL_USER_ERROR_ID = 'local-auth-initial-user-error';
 	const DRAFT_PASSWORD_ID = 'local-user-password-draft';
 	const DRAFT_CONFIRM_ID = 'local-user-confirm-draft';
 	const NEW_USER_ERROR_ID = 'local-auth-new-user-error';
@@ -128,10 +120,6 @@
 		userError = undefined;
 		newUserError = undefined;
 		draftError = undefined;
-		initialUserError = undefined;
-		initialEmail = '';
-		initialPassword = '';
-		initialPasswordConfirm = '';
 		newUsers = [];
 		draftingNewUser = false;
 		draftEmail = '';
@@ -147,10 +135,7 @@
 	}
 
 	function openBootstrapSetup() {
-		if (!initialUserDialogOpen) {
-			resetDialogState();
-			configurePromise = autoConfigure();
-		}
+		initialUserCount = 0;
 		initialUserDialogOpen = true;
 		createInitialUserDialog?.open();
 	}
@@ -170,68 +155,6 @@
 		dialog?.close();
 		initialUserDialogOpen = false;
 		createInitialUserDialog?.close();
-	}
-
-	async function autoConfigure(): Promise<boolean> {
-		configuring = true;
-		configError = undefined;
-		try {
-			const err = await onConfigure({ [DOMAINS_KEY]: '*' });
-			if (err) {
-				configError = err;
-				return false;
-			}
-			return true;
-		} finally {
-			configuring = false;
-		}
-	}
-
-	async function ensureConfigured(): Promise<boolean> {
-		if (configurePromise) {
-			const ok = await configurePromise;
-			if (ok) return true;
-		}
-		configurePromise = autoConfigure();
-		return configurePromise;
-	}
-
-	async function handleCreateInitialUser(e: SubmitEvent) {
-		e.preventDefault();
-		if (readonly || saving) {
-			if (readonly) close();
-			return;
-		}
-
-		const email = initialEmail.trim();
-		if (!email || !initialPassword || !initialPasswordConfirm) {
-			initialUserError = 'Fill out the required email and password fields.';
-			return;
-		}
-		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			initialUserError = `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
-			return;
-		}
-		if (initialPassword !== initialPasswordConfirm) {
-			initialUserError = 'The passwords do not match.';
-			return;
-		}
-
-		saving = true;
-		initialUserError = undefined;
-		try {
-			if (!(await ensureConfigured())) {
-				return;
-			}
-
-			await AdminService.createLocalAuthUser(email, initialPassword, false);
-			await refreshUsers();
-			close();
-		} catch (err) {
-			initialUserError = errorMessage(err, 'Failed to create the initial user.');
-		} finally {
-			saving = false;
-		}
 	}
 
 	async function handleContinue(e?: SubmitEvent) {
@@ -978,115 +901,24 @@
 	class="w-xl"
 	onClose={() => {
 		initialUserDialogOpen = false;
-		onClose?.(users.length);
+		onClose?.(initialUserCount);
 	}}
 	{animate}
 	disableClickOutside
 	hideClose
 >
-	{#snippet titleContent()}
-		{@render setupTitle()}
-	{/snippet}
-
-	<div class="notification-info flex flex-col items-start gap-1 mb-4">
-		<div class="flex items-center gap-1">
-			<p class="text-sm font-semibold">Set up your initial owner account to get started!</p>
-		</div>
-		<div>
-			<p class="text-xs font-light">
-				You will have an opportunity later to configure Obot with other authentication providers
-				such as Gmail, GitHub, Okta, Entra, etc.
-			</p>
-		</div>
-	</div>
-
-	<form class="flex flex-col gap-4" onsubmit={handleCreateInitialUser}>
-		{#if configError}
-			<div class="notification-error flex items-center gap-2" role="alert">
-				<CircleAlert class="text-error size-5 shrink-0" />
-				<p class="text-sm font-light">{configError}</p>
-			</div>
-		{/if}
-
-		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_EMAIL_ID}>
-			Email
-			<input
-				id={INITIAL_EMAIL_ID}
-				class="text-input-filled"
-				type="email"
-				bind:value={
-					() => initialEmail,
-					(v) => {
-						initialEmail = v;
-						initialUserError = undefined;
-					}
-				}
-				autocomplete="email"
-				required
-				disabled={saving}
-				aria-invalid={initialUserError ? 'true' : undefined}
-				aria-describedby={initialUserError ? INITIAL_USER_ERROR_ID : undefined}
-				class:error={!!initialUserError}
-			/>
-		</label>
-
-		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_ID}>
-			Password
-			<SensitiveInput
-				name={INITIAL_PASSWORD_ID}
-				bind:value={initialPassword}
-				autocomplete="new-password"
-				minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
-				oninput={() => (initialUserError = undefined)}
-				required
-				disabled={saving}
-				error={!!initialUserError}
-				data1pIgnore={false}
-			/>
-			<span class="text-muted-content pt-0.5 text-xs min-h-4">
-				Minimum of {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters is required.
-			</span>
-		</label>
-
-		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_CONFIRM_ID}>
-			Confirm password
-			<SensitiveInput
-				name={INITIAL_PASSWORD_CONFIRM_ID}
-				bind:value={initialPasswordConfirm}
-				autocomplete="new-password"
-				minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
-				oninput={() => (initialUserError = undefined)}
-				required
-				disabled={saving}
-				error={!!initialUserError}
-				data1pIgnore={false}
-			/>
-		</label>
-
-		<p
-			id={INITIAL_USER_ERROR_ID}
-			class="text-error text-xs font-light min-h-4"
-			role={initialUserError ? 'alert' : undefined}
-			aria-hidden={initialUserError ? undefined : true}
-		>
-			{initialUserError ?? ''}
-		</p>
-
-		<div class="flex justify-between">
-			<div>
-				{#if additionalActions}
-					{@render additionalActions?.()}
-				{/if}
-			</div>
-			<button class="btn btn-primary" type="submit" disabled={saving}>
-				{#if saving}
-					<Loading class="size-4" />
-				{:else}
-					Continue
-				{/if}
-			</button>
-		</div>
-	</form>
+	{#if initialUserDialogOpen}
+		<LocalAuthInitialUserForm
+			{provider}
+			{readonly}
+			{onConfigure}
+			{additionalActions}
+			onCreated={(count) => {
+				initialUserCount = count;
+				close();
+			}}
+		/>
+	{/if}
 </ResponsiveDialog>
 
 {#snippet setupTitle()}
@@ -1101,7 +933,7 @@
 		{:else}
 			<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		{required ? 'Set Up Owner Account' : `Set Up ${provider?.name}`}
+		Set Up {provider?.name}
 	</div>
 {/snippet}
 

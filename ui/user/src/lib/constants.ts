@@ -17,6 +17,8 @@ export const UNAUTHORIZED_PATHS = new Set([
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
 
+export const SEEN_SPLASH_DIALOG_KEY = 'seenSplashDialog';
+
 export const CommonModelProviderIds = {
 	OLLAMA: 'ollama-model-provider',
 	GENERIC_RESPONSES: 'generic-responses-model-provider',

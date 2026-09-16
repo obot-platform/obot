@@ -4,7 +4,11 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
+	import {
+		ADMIN_AGENT_DISABLED_MESSAGE,
+		SEEN_SPLASH_DIALOG_KEY,
+		USER_AGENT_DISABLED_MESSAGE
+	} from '$lib/constants';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, NanobotService, UserService } from '$lib/services';
 	import {
@@ -117,7 +121,7 @@
 
 	async function handleBootstrapLogout() {
 		try {
-			localStorage.removeItem('seenSplashDialog');
+			localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
 			clearProductAnalyticsConsentDeferral();
 			await AdminService.bootstrapLogout();
 			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
@@ -128,7 +132,7 @@
 
 	async function handleLogout() {
 		try {
-			localStorage.removeItem('seenSplashDialog');
+			localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
 			clearProductAnalyticsConsentDeferral();
 			window.location.href = '/oauth2/sign_out?rd=/';
 		} catch (err) {

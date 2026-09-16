@@ -543,8 +543,9 @@ export async function listDeviceSkillOccurrences(
 
 // EULA
 
-export async function getEula() {
+export async function getEula(opts?: RequestOptions) {
 	const response = (await doGet('/eula', {
+		...opts,
 		dontLogErrors: true
 	})) as {
 		accepted: boolean;

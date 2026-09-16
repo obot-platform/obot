@@ -13,7 +13,7 @@ import { redirect } from '@sveltejs/kit';
 
 function getAdminRedirectPath(profile?: Profile, hasVMCPs?: boolean): string {
 	if (profile?.isBootstrapUser?.()) {
-		return '/identity-access?view=auth-providers';
+		return '/admin/setup';
 	}
 
 	if (profile?.isOwner?.() && !hasVMCPs) {

@@ -3,6 +3,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import LocalAuthConfigure from '$lib/components/admin/LocalAuthConfigure.svelte';
+	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
@@ -701,66 +702,15 @@
 		<h3 class="text-lg font-semibold">Next Step: Owner Setup</h3>
 	{/snippet}
 
-	<div class="flex flex-col gap-2">
-		{#if isLocalSetup}
-			<p>
-				{#if setupLocalUserEmail}
-					Finish setting up Obot by signing in as <b>{setupLocalUserEmail}</b>.
-				{:else}
-					Finish setting up Obot by signing in with one of your local accounts.
-				{/if}
-			</p>
-			<p>This account then becomes the <b>owner</b> of this Obot installation.</p>
-		{:else if explicitOwners.length > 0}
-			<p>You'll need to continue setup with an owner account.</p>
-			<p>The following user(s) have been explicitly assigned the Owner role:</p>
-			<ul class="list-disc px-8">
-				{#each explicitOwners as owner (owner)}
-					<li>{owner}</li>
-				{/each}
-			</ul>
-			<p>
-				Log in to the system as one of the explicit owners -- you'll be redirected after
-				authenticating.
-			</p>
-			<p>
-				Or log into a different account with your configured auth provider. After authentication,
-				you'll be asked to confirm the owner before proceeding.
-			</p>
-		{:else}
-			<p>
-				You'll need to set up an initial owner for the system. Login with your configured auth
-				provider to continue.
-			</p>
-		{/if}
-
-		<div class="my-4 flex flex-col gap-2">
-			<a class="btn btn-secondary w-full" href={setupTempLoginUrl} rel="external">
-				{#if configuringAuthProvider?.icon}
-					<img
-						class="h-6 w-6 rounded-full bg-base-100 p-1 dark:bg-gray-600"
-						src={configuringAuthProvider.icon}
-						alt={configuringAuthProvider.name}
-					/>
-				{/if}
-				<span class="text-center text-sm font-light">
-					{#if isLocalSetup && setupLocalUserEmail}
-						Sign in as {setupLocalUserEmail}
-					{:else}
-						Continue with {configuringAuthProvider?.name}
-					{/if}
-				</span>
-			</a>
-			{#if isLocalSetup}
-				<p class="text-muted-content text-center text-xs font-light">
-					Want to change your owner account?
-					<button type="button" class="text-link underline" onclick={handleManageLocalUsers}>
-						Click here
-					</button>
-				</p>
-			{/if}
-		</div>
-	</div>
+	<OwnerSetupPrompt
+		{isLocalSetup}
+		localUserEmail={setupLocalUserEmail}
+		{explicitOwners}
+		provider={configuringAuthProvider}
+		tempLoginUrl={setupTempLoginUrl}
+		onManageLocalUsers={isLocalSetup ? handleManageLocalUsers : undefined}
+		showTitle={false}
+	/>
 </ResponsiveDialog>
 
 <LicenseProviderDialog

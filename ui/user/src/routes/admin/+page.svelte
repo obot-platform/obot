@@ -3,6 +3,7 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
@@ -49,7 +50,7 @@
 		class="bg-base-200 default-scrollbar-thin dark:bg-base-100 relative flex h-svh w-full grow flex-col overflow-y-auto"
 	>
 		<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full" unauthorized />
-		<div class="flex min-h-1 w-full grow items-center justify-center">
+		<div class="flex min-h-1 w-full grow items-center justify-center p-4 md:p-0">
 			{#await fetchBootstrapStatus}
 				<div class="size-10">
 					<Loading class="size-8" />
@@ -92,7 +93,7 @@
 						onclick={async () => {
 							await AdminService.bootstrapLogout();
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
-							localStorage.removeItem('seenSplashDialog');
+							localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
 							clearProductAnalyticsConsentDeferral();
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}

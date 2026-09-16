@@ -1,23 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { getSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
-	import { AdminService, Group } from '$lib/services';
+	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { getSeenTimestamp } from '$lib/localstate';
+	import { Group } from '$lib/services';
 	import { productTelemetryConsent, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import {
-		deferProductAnalyticsConsent,
-		isProductAnalyticsConsentDeferred
-	} from '$lib/stores/productTelemetryConsent.svelte';
+	import { isProductAnalyticsConsentDeferred } from '$lib/stores/productTelemetryConsent.svelte';
 	import setupSplash from '$lib/stores/setupSplash.svelte';
-	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
-	import Logo from '../Logo.svelte';
+	import { goto } from '$lib/url';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import SetupSplashContent from './SetupSplashContent.svelte';
 	import { onDestroy, onMount } from 'svelte';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let loading = $state(false);
-	let shareProductUsage = $state(true);
 	let productAnalyticsDeferred = $state(true);
 	let splashOpened = $state(false);
 
@@ -27,9 +22,8 @@
 		setupSplash.blocking = false;
 	});
 
-	const authProviderPath = '/identity-access';
+	const setupPath = '/admin/setup';
 	const modelProviderPath = '/models?view=model-providers';
-	const seenSplashDialogKey = 'seenSplashDialog';
 
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
@@ -39,13 +33,11 @@
 	const requiresModelProviderConfiguration = $derived(
 		version.current.agentsEnabled !== false && !storeData.modelProviderConfigured
 	);
-	const isOnAuthProvidersPage = $derived(
-		page.url.pathname === authProviderPath && view === 'auth-providers'
-	);
 	const isOnProductAnalyticsSettings = $derived(
 		page.url.pathname === '/admin/product-analytics' ||
 			(page.url.pathname === '/admin/platform' && view === 'product-analytics')
 	);
+	const isOnSetupPage = $derived(page.url.pathname === setupPath);
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	const needsProductAnalyticsConsent = $derived(
 		profile.current.groups.includes(Group.ADMIN) &&
@@ -80,7 +72,7 @@
 		}
 
 		const { seenAt: firstTimeViewed } = getSeenTimestamp(
-			seenSplashDialogKey,
+			SEEN_SPLASH_DIALOG_KEY,
 			profile.current.created
 		);
 
@@ -89,7 +81,7 @@
 			!firstTimeViewed &&
 			(isBootstrapUser || isOwner) &&
 			(!isAuthProviderConfigured || requiresModelProviderConfiguration || !storeData.eulaAccepted);
-		if (needsSetup || needsProductAnalyticsConsent) {
+		if ((needsSetup && !isOnSetupPage) || needsProductAnalyticsConsent) {
 			splashOpened = true;
 			setupSplash.blocking = true;
 			dialog?.open();
@@ -101,55 +93,25 @@
 		}
 	});
 
-	async function handleAcceptEula() {
-		if (storeData.eulaAccepted) return;
-		const response = await AdminService.acceptEula();
-		adminConfigStore.updateEula(response.accepted);
-	}
-
-	async function handleProductAnalyticsConsent() {
-		if (!needsProductAnalyticsConsent) return;
-
-		try {
-			const response = await AdminService.updateProductTelemetryConsent(shareProductUsage);
-			productTelemetryConsent.setConsent(response.consent ?? shareProductUsage);
-		} catch (_err) {
-			// The shared HTTP client surfaces the standard error notification. Do not block onboarding
-			// for an optional analytics preference; ask again after the next session begins.
-			deferProductAnalyticsConsent();
-			productAnalyticsDeferred = true;
-		}
-	}
-
 	async function finishOnboarding() {
 		if (isBootstrapUser) {
-			if (isOnAuthProvidersPage) {
-				setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
-				return;
-			}
-
 			if (!isAuthProviderConfigured) {
-				goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
+				goto(setupPath);
 			} else if (requiresModelProviderConfiguration) {
 				goto(modelProviderPath);
 			}
-		} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
+			return;
+		}
+
+		if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
 			goto(modelProviderPath);
 		}
 	}
 
 	async function handleContinue() {
-		loading = true;
-		try {
-			await handleProductAnalyticsConsent();
-			await handleAcceptEula();
-			markSeenTimestamp(seenSplashDialogKey);
-			dialog?.close();
-			releaseSplashBlock();
-			await finishOnboarding();
-		} finally {
-			loading = false;
-		}
+		dialog?.close();
+		releaseSplashBlock();
+		await finishOnboarding();
 	}
 </script>
 
@@ -163,71 +125,5 @@
 	}}
 	onClose={releaseSplashBlock}
 >
-	<div class="flex w-full items-center justify-center">
-		<Logo class="size-18" />
-	</div>
-	<h2 class="mb-8 text-center text-2xl font-semibold">Welcome to Obot!</h2>
-
-	<div class="w-fit self-center px-4">
-		{#if !version.current.authEnabled}
-			<p class="mb-4">
-				<span class="text-muted-content">Auth is disabled.</span>
-				<a
-					href="https://docs.obot.ai/installation/enabling-authentication"
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="text-link">Learn more</a
-				>
-			</p>
-		{/if}
-		<p>By continuing, you agree to the following:</p>
-
-		<div class="flex items-center gap-2 text-sm pt-4">
-			<div class="mx-2">&#8226;</div>
-			<span>
-				I agree to Obot's
-				<a
-					href="https://obot.ai/eul"
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="text-link">EULA</a
-				>
-			</span>
-		</div>
-		{#if needsProductAnalyticsConsent}
-			<div class="flex items-start gap-2 pt-4 text-sm">
-				<input
-					id="share-product-usage"
-					type="checkbox"
-					class="checkbox checkbox-sm shrink-0 checked:checkbox-primary"
-					bind:checked={shareProductUsage}
-					disabled={loading}
-				/>
-				<span class="italic">
-					<label for="share-product-usage">
-						I agree to share my product usage data to help improve Obot (optional)
-					</label>
-					<br />
-					<a
-						href="https://docs.obot.ai/configuration/product-analytics"
-						rel="external noopener noreferrer"
-						target="_blank"
-						class="text-link">Learn more</a
-					>
-				</span>
-			</div>
-		{/if}
-	</div>
-
-	<button
-		class="btn btn-primary mt-8 flex justify-center text-center"
-		disabled={loading}
-		onclick={handleContinue}
-	>
-		{#if loading}
-			<Loading class="size-4" />
-		{:else}
-			Continue
-		{/if}
-	</button>
+	<SetupSplashContent onContinue={handleContinue} />
 </ResponsiveDialog>
