@@ -205,8 +205,18 @@ func Default(ctx context.Context, client kclient.Client, namespace string, model
 // are credited with both OpenAI protocols: their endpoints generally serve both,
 // and being too narrow here would hide a model that works. Being too broad
 // fails later at the endpoint, with an error naming the format -- which is the
-// better failure of the two.
+// better failure of the two. Dedicated routes that require a per-model dialect,
+// such as Databricks, are excluded when that declaration is missing or invalid.
 func APIsFor(provider, dialect string) []string {
+	if provider == system.DatabricksModelProvider {
+		switch dialect {
+		case "OpenAIResponses", "OpenResponses":
+			return []string{APIOpenAIResponses}
+		default:
+			return nil
+		}
+	}
+
 	switch dialect {
 	case "AnthropicMessages":
 		return []string{APIAnthropic}
@@ -219,8 +229,6 @@ func APIsFor(provider, dialect string) []string {
 	switch provider {
 	case system.AnthropicModelProvider:
 		return []string{APIAnthropic}
-	case system.DatabricksModelProvider:
-		return []string{APIOpenAIResponses}
 	case system.OpenAIModelProvider,
 		system.GenericResponsesModelProvider,
 		system.AmazonBedrockModelProvider,
