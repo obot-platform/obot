@@ -886,7 +886,10 @@ export async function getUser(
 
 // Version
 
-export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
+export async function getVersion(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<Version> {
 	const version = (await doGet('/version', opts)) as Version;
 	return version;
 }
