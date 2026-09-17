@@ -2,7 +2,7 @@
 
 set -e
 
-# Combine .envrc files from providers, enterprise-providers, and encryption-bins
+# Combine .envrc files from providers and encryption-bins
 server_versions=""
 provider_registries=""
 

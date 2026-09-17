@@ -51,14 +51,6 @@ jobs:
           event-type: release
           client-payload: '{"tag": "${{ github.ref_name }}"}'
 
-      - name: Trigger tools repo tag workflow
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.ENTERPRISE_TOOLS_DISPATCH_PAT }}
-          repository: obot-platform/enterprise-providers
-          event-type: release
-          client-payload: '{"tag": "${{ github.ref_name }}"}'
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
