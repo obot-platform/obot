@@ -1094,6 +1094,94 @@ func TestVMCPComponentSnapshots(t *testing.T) {
 	}
 }
 
+func TestVMCPSnapshotLoadingPrunesDisallowedProfileTools(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		tools       []string
+		want        []string
+		wantError   bool
+		noOverrides bool
+	}{
+		{
+			name:        "no overrides preserves profile tools",
+			tools:       []string{"disabled", "echo", "unknown"},
+			want:        []string{"disabled", "echo", "unknown"},
+			noOverrides: true,
+		},
+		{
+			name:  "mixed tools",
+			tools: []string{"disabled", "echo", "unknown"},
+			want:  []string{"echo"},
+		},
+		{
+			name:  "all removed grants nothing",
+			tools: []string{"disabled"},
+			want:  []string{},
+		},
+		{
+			name: "all tools",
+		},
+		{
+			name:  "empty tools",
+			tools: []string{},
+			want:  []string{},
+		},
+		{
+			name:  "wildcard",
+			tools: []string{"*", "disabled"},
+			want:  []string{"*"},
+		},
+		{
+			name:      "malformed tool remains invalid",
+			tools:     []string{""},
+			want:      []string{""},
+			wantError: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+			manifest := testVMCPManifest()
+			manifest.Components[0].ID = "component"
+			manifest.Components[0].ToolOverrides = []types.ToolOverride{
+				{Name: "echo", Enabled: true},
+				{Name: "disabled", Enabled: false},
+			}
+			if tc.noOverrides {
+				manifest.Components[0].ToolOverrides = nil
+			}
+			manifest.Profiles = []types.VMCPProfile{{
+				Name:     "profile",
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}},
+				Permissions: types.VMCPProfilePermissions{
+					AllowedComponents: map[string]types.VMCPComponentSet{"component": {AllowedTools: tc.tools}},
+				},
+			}}
+			if err := vmcpHandlerForTest(t, storage).loadComponentSnapshots(api.Context{
+				Request: httptest.NewRequest(http.MethodPost, "/api/vmcps", nil),
+				Storage: storage,
+				User:    &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
+			}, &manifest, "", nil); err != nil {
+				t.Fatal(err)
+			}
+			if err := manifest.Validate(); (err != nil) != tc.wantError {
+				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
+			}
+			// Check persisted semantics, including empty versus unrestricted grants.
+			data, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded types.VMCPManifest
+			if err := json.Unmarshal(data, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if got := decoded.Profiles[0].Permissions.AllowedComponents["component"].AllowedTools; !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("profile tools = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	handler := vmcpHandlerForTest(t, storage)

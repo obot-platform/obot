@@ -273,6 +273,16 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 		component.Configuration = slices.DeleteFunc(component.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
 			return static[policy.Key]
 		})
+		for _, profile := range manifest.Profiles {
+			grant, ok := profile.Permissions.AllowedComponents[component.ID]
+			if !ok || component.ID == "" {
+				continue
+			}
+			grant.AllowedTools = slices.DeleteFunc(grant.AllowedTools, func(name string) bool {
+				return name != "" && manifest.ValidateToolReference(types.VMCPToolReference{ComponentID: component.ID, Name: name}) != nil
+			})
+			profile.Permissions.AllowedComponents[component.ID] = grant
+		}
 	}
 	return nil
 }
