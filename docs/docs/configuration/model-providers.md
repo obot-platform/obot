@@ -61,12 +61,12 @@ Setting a default model here does not automatically grant users access to it. Us
 
 #### Databricks
 
-Use the **Databricks** provider to access the pay-per-token foundation models available in a Databricks workspace. Configure:
+Use the **Databricks** provider to access compatible foundation model serving endpoints in a Databricks workspace. Configure:
 
-- **Workspace URL** — the workspace origin, such as `https://dbc-xxxxxxxx-xxxx.cloud.databricks.com`.
+- **Workspace URL** — the workspace origin, such as `dbc-xxxxxxxx-xxxx.cloud.databricks.com`. You can omit the scheme; Obot uses HTTPS.
 - **Personal Access Token** — a token with permission to list and query serving endpoints.
 
-Obot discovers ready, built-in `databricks-*` chat endpoints from the Databricks Serving Endpoints API. Only models that support the Databricks Open Responses API or OpenAI Responses API are available; Chat Completions-only models are not supported. The exact endpoint name is retained so it can be matched to Databricks pricing from models.dev.
+Obot discovers endpoints from the Databricks Serving Endpoints API. An endpoint is available when it is ready, has the `llm/v1/chat` task, and every served entity supports the same Responses API. Obot supports the Databricks Open Responses API and OpenAI Responses API. Endpoints that support only Chat Completions, omit API support metadata, or have no Responses API in common across all served entities are not available. The serving endpoint name becomes the model ID in Obot.
 
 See the Databricks documentation for the [Open Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
 

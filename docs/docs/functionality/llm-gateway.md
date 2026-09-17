@@ -124,7 +124,7 @@ curl $OPENAI_BASE_URL/v1/models \
 
 ### Databricks
 
-The Databricks route exposes `/v1/responses` for models supported by the Databricks Open Responses API or OpenAI Responses API. Chat Completions-only models are not supported.
+The Databricks route exposes `/v1/responses` for discovered serving endpoints that support the Databricks Open Responses API or OpenAI Responses API. Chat Completions-only endpoints are not available. Use the serving endpoint name returned by `/v1/models` as the model ID.
 
 ```bash
 export OPENAI_BASE_URL="https://obot.example.com/api/llm-proxy/databricks"
@@ -133,7 +133,7 @@ export OPENAI_API_KEY="$(obot login --url https://obot.example.com --scope llm -
 curl $OPENAI_BASE_URL/v1/responses \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"databricks-claude-sonnet-4-5","input":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"YOUR_DATABRICKS_ENDPOINT_NAME","input":[{"role":"user","content":"hi"}]}'
 ```
 
 List the Databricks models you can access with `GET $OPENAI_BASE_URL/v1/models`. See the Databricks documentation for the [Open Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
