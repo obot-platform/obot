@@ -3,6 +3,7 @@ package mcp
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/safehttp"
@@ -35,7 +36,7 @@ func (sm *SessionManager) HTTPClientForServer(server ServerConfig, opts HTTPClie
 
 	remoteValidationConfig, allowedHosts := sm.RemoteConfigForBackend()
 
-	return safehttp.NewClient(safehttp.Options{
+	clientOptions := safehttp.Options{
 		BlockLoopback:  !remoteValidationConfig.AllowLocalhostMCP,
 		BlockPrivateIP: !remoteValidationConfig.AllowPrivateIPMCP,
 		BlockLinkLocal: !remoteValidationConfig.AllowLinkLocalMCP,
@@ -43,5 +44,13 @@ func (sm *SessionManager) HTTPClientForServer(server ServerConfig, opts HTTPClie
 		Timeout:        opts.Timeout,
 		Headers:        headers,
 		TokenSource:    opts.TokenSource,
-	}), nil
+	}
+	if k, ok := sm.backend.(*kubernetesBackend); ok && server.MCPServerName != "" {
+		serviceURL := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)
+		if server.URL == serviceURL || strings.HasPrefix(server.URL, serviceURL+"/") {
+			// Endpoint routing can lag deployment readiness. Retry only connection establishment.
+			clientOptions.DialRetryTimeout = 10 * time.Second
+		}
+	}
+	return safehttp.NewClient(clientOptions), nil
 }

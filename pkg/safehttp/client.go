@@ -2,12 +2,14 @@ package safehttp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -22,6 +24,8 @@ type (
 		Timeout        time.Duration
 		Headers        http.Header
 		TokenSource    oauth2.TokenSource
+		// DialRetryTimeout bounds retries of transient TCP failures before any HTTP bytes are sent.
+		DialRetryTimeout time.Duration
 	}
 
 	checkingTransport struct {
@@ -32,8 +36,9 @@ type (
 	}
 
 	safeDialer struct {
-		dialer   *net.Dialer
-		resolver *net.Resolver
+		dialer           *net.Dialer
+		resolver         *net.Resolver
+		dialRetryTimeout time.Duration
 
 		blockLoopback  bool
 		blockPrivateIP bool
@@ -59,12 +64,13 @@ func NewClient(options Options) *http.Client {
 func NewSafeTransport(options Options) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	dialer := &safeDialer{
-		dialer:         &net.Dialer{},
-		resolver:       net.DefaultResolver,
-		blockLoopback:  options.BlockLoopback,
-		blockPrivateIP: options.BlockPrivateIP,
-		blockLinkLocal: options.BlockLinkLocal,
-		allowList:      parseAllowList(options.AllowList),
+		dialer:           &net.Dialer{},
+		resolver:         net.DefaultResolver,
+		blockLoopback:    options.BlockLoopback,
+		blockPrivateIP:   options.BlockPrivateIP,
+		blockLinkLocal:   options.BlockLinkLocal,
+		allowList:        parseAllowList(options.AllowList),
+		dialRetryTimeout: options.DialRetryTimeout,
 	}
 	transport.DialContext = dialer.DialContext
 
@@ -121,6 +127,31 @@ func sameOriginAsInitialRequest(req *http.Request, target *url.URL) bool {
 }
 
 func (d *safeDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	if d.dialRetryTimeout <= 0 {
+		return d.dialOnce(ctx, network, address)
+	}
+	ctx, cancel := context.WithTimeout(ctx, d.dialRetryTimeout)
+	defer cancel()
+	for {
+		attemptCtx, cancelAttempt := context.WithTimeout(ctx, time.Second)
+		conn, err := d.dialOnce(attemptCtx, network, address)
+		cancelAttempt()
+		if err == nil {
+			return conn, nil
+		}
+		var netErr net.Error
+		if !errors.Is(err, syscall.ECONNREFUSED) && !errors.Is(err, syscall.EHOSTUNREACH) && !errors.Is(err, syscall.ENETUNREACH) && (!errors.As(err, &netErr) || !netErr.Timeout()) {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("%w: last dial error: %w", ctx.Err(), err)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func (d *safeDialer) dialOnce(ctx context.Context, network, address string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, err

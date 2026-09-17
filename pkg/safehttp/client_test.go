@@ -1,14 +1,91 @@
 package safehttp
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"testing"
+	"time"
 
 	"golang.org/x/oauth2"
 )
+
+func TestClientRetriesConnectionFailuresWithoutReplayingRequest(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		retryTimeout time.Duration
+		dialErrors   []error
+		wantDials    int
+		wantRequests int32
+		wantErr      error
+	}{
+		{
+			name:         "transient routing failures",
+			retryTimeout: time.Second,
+			dialErrors:   []error{syscall.ECONNREFUSED, syscall.EHOSTUNREACH, syscall.ENETUNREACH},
+			wantDials:    4,
+			wantRequests: 1,
+		},
+		{
+			name:       "retries disabled by default",
+			dialErrors: []error{syscall.ECONNREFUSED},
+			wantDials:  1,
+			wantErr:    syscall.ECONNREFUSED,
+		},
+		{
+			name:         "permanent failure is not retried",
+			retryTimeout: time.Second,
+			dialErrors:   []error{syscall.EPERM},
+			wantDials:    1,
+			wantErr:      syscall.EPERM,
+		},
+		{
+			name:         "retry budget expires",
+			retryTimeout: 10 * time.Millisecond,
+			dialErrors:   []error{syscall.ECONNREFUSED},
+			wantDials:    1,
+			wantErr:      context.DeadlineExceeded,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				if r.Method != http.MethodPost {
+					t.Errorf("method = %s, want POST", r.Method)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer server.Close()
+			client := NewClient(Options{DialRetryTimeout: tt.retryTimeout})
+			transport := client.Transport.(checkingTransport)
+			defer transport.base.(*http.Transport).CloseIdleConnections()
+			var dials atomic.Int32
+			transport.dialer.dialer.Control = func(string, string, syscall.RawConn) error {
+				attempt := int(dials.Add(1))
+				if attempt <= len(tt.dialErrors) {
+					return tt.dialErrors[attempt-1]
+				}
+				return nil
+			}
+			resp, err := client.Post(server.URL, "application/json", strings.NewReader(`{"method":"initialize"}`))
+			if resp != nil {
+				resp.Body.Close()
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Post() error = %v, want %v", err, tt.wantErr)
+			}
+			if int(dials.Load()) != tt.wantDials || requests.Load() != tt.wantRequests {
+				t.Fatalf("dials = %d, requests = %d; want %d dials and %d requests", dials.Load(), requests.Load(), tt.wantDials, tt.wantRequests)
+			}
+		})
+	}
+}
 
 func TestClientBlocksLoopbackLiteralIP(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {

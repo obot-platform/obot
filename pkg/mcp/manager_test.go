@@ -1,9 +1,11 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"syscall"
 	"testing"
 	"time"
 
@@ -88,6 +90,66 @@ func TestHTTPClientForServer(t *testing.T) {
 		mcpClusterDomain: "cluster.local",
 		serviceFQDN:      "obot.obot-system.svc.cluster.local",
 	}
+
+	t.Run("Kubernetes service URL dial retries", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		server.Close() // Refuse connections so retrying clients reach the request deadline.
+		serverURL, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		localBackend := &kubernetesBackend{
+			mcpNamespace:     backend.mcpNamespace,
+			mcpClusterDomain: backend.mcpClusterDomain,
+			serviceFQDN:      serverURL.Host,
+		}
+
+		for _, tt := range []struct {
+			name      string
+			url       string
+			wantRetry bool
+		}{
+			{
+				name:      "service URL",
+				url:       "http://test-server.obot-mcp.svc.cluster.local",
+				wantRetry: true,
+			},
+			{
+				name:      "service URL with path",
+				url:       "http://test-server.obot-mcp.svc.cluster.local/mcp",
+				wantRetry: true,
+			},
+			{
+				name: "remote URL",
+				url:  "https://example.com/mcp",
+			},
+			{
+				name: "remote URL sharing service prefix",
+				url:  "http://test-server.obot-mcp.svc.cluster.local.example.com/mcp",
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				client, err := (&SessionManager{backend: localBackend}).HTTPClientForServer(ServerConfig{
+					MCPServerName: "test-server",
+					URL:           tt.url,
+				}, HTTPClientOptions{})
+				require.NoError(t, err)
+				ctx, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
+				defer cancel()
+				// Exercise the configured client against a local closed port without cluster DNS.
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+				require.NoError(t, err)
+				resp, err := client.Do(req)
+				if resp != nil {
+					resp.Body.Close()
+				}
+				if tt.wantRetry {
+					require.ErrorIs(t, err, context.DeadlineExceeded)
+				} else {
+					require.ErrorIs(t, err, syscall.ECONNREFUSED)
+					require.NotErrorIs(t, err, context.DeadlineExceeded)
+				}
+			})
+		}
+	})
 
 	t.Run("direct server", func(t *testing.T) {
 		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(ServerConfig{}, HTTPClientOptions{Timeout: timeout})
