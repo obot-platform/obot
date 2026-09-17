@@ -4,10 +4,61 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type captureRoundTripper struct {
 	req *http.Request
+}
+
+func TestIsProvider(t *testing.T) {
+	t.Parallel()
+	if !IsProvider(system.DatabricksModelProvider) {
+		t.Fatal("Databricks provider was not recognized")
+	}
+	if IsProvider(system.OpenAIModelProvider) {
+		t.Fatal("OpenAI provider was recognized as Databricks")
+	}
+}
+
+func TestResponsesPath(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		dialect llmtypes.Dialect
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "OpenAI Responses",
+			dialect: llmtypes.DialectOpenAIResponses,
+			want:    "responses",
+		},
+		{
+			name:    "Open Responses",
+			dialect: llmtypes.DialectOpenResponses,
+			want:    "open-responses",
+		},
+		{
+			name:    "unsupported",
+			dialect: llmtypes.DialectOpenAIChatCompletions,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := ResponsesPath(test.dialect)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("ResponsesPath() error = %v, wantErr %v", err, test.wantErr)
+			}
+			if got != test.want {
+				t.Errorf("ResponsesPath() = %q, want %q", got, test.want)
+			}
+		})
+	}
 }
 
 func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

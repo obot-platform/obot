@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 const (
@@ -16,6 +19,23 @@ const (
 type transport struct {
 	token string
 	next  http.RoundTripper
+}
+
+// IsProvider reports whether providerName identifies the Databricks model provider.
+func IsProvider(providerName string) bool {
+	return providerName == system.DatabricksModelProvider
+}
+
+// ResponsesPath returns the Databricks serving endpoint path for a Responses dialect.
+func ResponsesPath(dialect llmtypes.Dialect) (string, error) {
+	switch dialect {
+	case llmtypes.DialectOpenAIResponses:
+		return "responses", nil
+	case llmtypes.DialectOpenResponses:
+		return "open-responses", nil
+	default:
+		return "", fmt.Errorf("unsupported Databricks model dialect %q", dialect)
+	}
 }
 
 // BaseURL validates and returns the configured Databricks workspace URL.

@@ -58,13 +58,8 @@ func (b databricksProviderBackend) upstreamURL(req *http.Request, credEnv map[st
 	}
 
 	dialect := llmtypes.Dialect(model.Spec.Manifest.Dialect)
-	var upstreamPath string
-	switch dialect {
-	case llmtypes.DialectOpenAIResponses:
-		upstreamPath = "responses"
-	case llmtypes.DialectOpenResponses:
-		upstreamPath = "open-responses"
-	default:
+	upstreamPath, err := databricks.ResponsesPath(dialect)
+	if err != nil {
 		return url.URL{}, "", types2.NewErrBadRequest("Databricks model %q has unsupported dialect %q", model.Name, dialect)
 	}
 
