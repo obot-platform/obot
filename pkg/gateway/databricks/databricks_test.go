@@ -22,13 +22,38 @@ func TestBaseURL(t *testing.T) {
 		value   string
 		wantErr bool
 	}{
-		{name: "workspace", value: "https://example.cloud.databricks.com/"},
-		{name: "custom domain", value: "https://models.example.com"},
-		{name: "missing", wantErr: true},
-		{name: "http", value: "http://example.com", wantErr: true},
-		{name: "path", value: "https://example.com/path", wantErr: true},
-		{name: "query", value: "https://example.com?token=value", wantErr: true},
-		{name: "userinfo", value: "https://user@example.com", wantErr: true},
+		{
+			name:  "workspace",
+			value: "https://example.cloud.databricks.com/",
+		},
+		{
+			name:  "custom domain",
+			value: "https://models.example.com",
+		},
+		{
+			name:    "missing",
+			wantErr: true,
+		},
+		{
+			name:    "http",
+			value:   "http://example.com",
+			wantErr: true,
+		},
+		{
+			name:    "path",
+			value:   "https://example.com/path",
+			wantErr: true,
+		},
+		{
+			name:    "query",
+			value:   "https://example.com?token=value",
+			wantErr: true,
+		},
+		{
+			name:    "userinfo",
+			value:   "https://user@example.com",
+			wantErr: true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -47,10 +72,23 @@ func TestTransport(t *testing.T) {
 		url      string
 		wantAuth string
 	}{
-		{name: "workspace", url: "https://workspace.example/serving-endpoints/responses", wantAuth: "Bearer secret"},
-		{name: "IPv4 discovery daemon", url: "http://127.0.0.1:1234/v1/models"},
-		{name: "IPv6 discovery daemon", url: "http://[::1]:1234/v1/models"},
-		{name: "localhost discovery daemon", url: "http://localhost:1234/v1/models"},
+		{
+			name:     "workspace",
+			url:      "https://workspace.example/serving-endpoints/responses",
+			wantAuth: "Bearer secret",
+		},
+		{
+			name: "IPv4 discovery daemon",
+			url:  "http://127.0.0.1:1234/v1/models",
+		},
+		{
+			name: "IPv6 discovery daemon",
+			url:  "http://[::1]:1234/v1/models",
+		},
+		{
+			name: "localhost discovery daemon",
+			url:  "http://localhost:1234/v1/models",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

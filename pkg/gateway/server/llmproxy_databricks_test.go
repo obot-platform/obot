@@ -42,12 +42,47 @@ func TestDatabricksProviderBackend(t *testing.T) {
 		wantURL   string
 		wantError bool
 	}{
-		{name: "models", method: http.MethodGet, path: "v1/models", wantURL: "http://127.0.0.1:1234/v1/models"},
-		{name: "OpenAI Responses", method: http.MethodPost, path: "v1/responses", dialect: llmtypes.DialectOpenAIResponses, model: databricksModel("gpt", llmtypes.DialectOpenAIResponses), wantURL: "https://workspace.example/serving-endpoints/responses"},
-		{name: "OpenResponses", method: http.MethodPost, path: "v1/responses", dialect: llmtypes.DialectOpenResponses, model: databricksModel("claude", llmtypes.DialectOpenResponses), wantURL: "https://workspace.example/serving-endpoints/open-responses"},
-		{name: "missing model", method: http.MethodPost, path: "v1/responses", wantError: true},
-		{name: "unsupported dialect", method: http.MethodPost, path: "v1/responses", model: databricksModel("chat", llmtypes.DialectOpenAIChatCompletions), wantError: true},
-		{name: "unsupported path", method: http.MethodPost, path: "v1/chat/completions", wantError: true},
+		{
+			name:    "models",
+			method:  http.MethodGet,
+			path:    "v1/models",
+			wantURL: "http://127.0.0.1:1234/v1/models",
+		},
+		{
+			name:    "OpenAI Responses",
+			method:  http.MethodPost,
+			path:    "v1/responses",
+			dialect: llmtypes.DialectOpenAIResponses,
+			model:   databricksModel("gpt", llmtypes.DialectOpenAIResponses),
+			wantURL: "https://workspace.example/serving-endpoints/responses",
+		},
+		{
+			name:    "OpenResponses",
+			method:  http.MethodPost,
+			path:    "v1/responses",
+			dialect: llmtypes.DialectOpenResponses,
+			model:   databricksModel("claude", llmtypes.DialectOpenResponses),
+			wantURL: "https://workspace.example/serving-endpoints/open-responses",
+		},
+		{
+			name:      "missing model",
+			method:    http.MethodPost,
+			path:      "v1/responses",
+			wantError: true,
+		},
+		{
+			name:      "unsupported dialect",
+			method:    http.MethodPost,
+			path:      "v1/responses",
+			model:     databricksModel("chat", llmtypes.DialectOpenAIChatCompletions),
+			wantError: true,
+		},
+		{
+			name:      "unsupported path",
+			method:    http.MethodPost,
+			path:      "v1/chat/completions",
+			wantError: true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			req := httptest.NewRequest(test.method, "http://gateway.local", nil)
