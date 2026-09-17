@@ -99,8 +99,15 @@ func TestCheckLicenseSignalsAfterSuccessfulValidation(t *testing.T) {
 		validateErr  error
 		wantRevision int64
 	}{
-		{name: "success", wantRevision: 5},
-		{name: "not configured", validateErr: license.ErrNotConfigured, wantRevision: 4},
+		{
+			name:         "success",
+			wantRevision: 5,
+		},
+		{
+			name:         "not configured",
+			validateErr:  license.ErrNotConfigured,
+			wantRevision: 4,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			daemonSync := &v1.ProviderSync{

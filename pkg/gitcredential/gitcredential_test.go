@@ -24,12 +24,35 @@ func TestNormalizeHost(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{name: "hostname", value: " GitHub.COM ", want: "github.com"},
-		{name: "host with port", value: "Git.Example.com:8443", want: "git.example.com:8443"},
-		{name: "scheme", value: "https://github.com", wantErr: "must not include"},
-		{name: "path", value: "github.com/org", wantErr: "must not include"},
-		{name: "empty", wantErr: "required"},
-		{name: "invalid port", value: "github.com:99999", wantErr: "invalid"},
+		{
+			name:  "hostname",
+			value: " GitHub.COM ",
+			want:  "github.com",
+		},
+		{
+			name:  "host with port",
+			value: "Git.Example.com:8443",
+			want:  "git.example.com:8443",
+		},
+		{
+			name:    "scheme",
+			value:   "https://github.com",
+			wantErr: "must not include",
+		},
+		{
+			name:    "path",
+			value:   "github.com/org",
+			wantErr: "must not include",
+		},
+		{
+			name:    "empty",
+			wantErr: "required",
+		},
+		{
+			name:    "invalid port",
+			value:   "github.com:99999",
+			wantErr: "invalid",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

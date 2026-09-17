@@ -67,8 +67,12 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 
 func TestRenderAgentSkillsRejectsIncompleteTemplateData(t *testing.T) {
 	tests := []TemplateData{
-		{InstallDestination: "~/.claude/skills"},
-		{AgentID: "claude-code"},
+		{
+			InstallDestination: "~/.claude/skills",
+		},
+		{
+			AgentID: "claude-code",
+		},
 	}
 
 	for _, data := range tests {

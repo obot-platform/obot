@@ -48,18 +48,33 @@ func TestMigrateCompositeFilters(t *testing.T) {
 			wantAdded: true,
 		},
 		{
-			name:      "entry catalog",
-			resources: []types.Resource{{Type: types.ResourceTypeMcpCatalog, ID: "default"}},
+			name: "entry catalog",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeMcpCatalog,
+					ID:   "default",
+				},
+			},
 			wantAdded: true,
 		},
 		{
-			name:      "connection catalog",
-			resources: []types.Resource{{Type: types.ResourceTypeMcpCatalog, ID: "connection-catalog"}},
+			name: "connection catalog",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeMcpCatalog,
+					ID:   "connection-catalog",
+				},
+			},
 			wantAdded: true,
 		},
 		{
-			name:      "wildcard",
-			resources: []types.Resource{{Type: types.ResourceTypeSelector, ID: "*"}},
+			name: "wildcard",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeSelector,
+					ID:   "*",
+				},
+			},
 			wantAdded: true,
 		},
 		{
@@ -78,12 +93,22 @@ func TestMigrateCompositeFilters(t *testing.T) {
 			wantAdded: true,
 		},
 		{
-			name:      "unrelated",
-			resources: []types.Resource{{Type: types.ResourceTypeMCPServer, ID: "ms1other"}},
+			name: "unrelated",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeMCPServer,
+					ID:   "ms1other",
+				},
+			},
 		},
 		{
-			name:      "wrong resource type",
-			resources: []types.Resource{{Type: types.ResourceTypeMCPServer, ID: entry.Name}},
+			name: "wrong resource type",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeMCPServer,
+					ID:   entry.Name,
+				},
+			},
 		},
 		{
 			name:      "other namespace",

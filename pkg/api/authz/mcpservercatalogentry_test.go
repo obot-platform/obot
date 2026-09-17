@@ -41,8 +41,16 @@ func TestAllMCPCatalogEntryAuthorizationUsesAccessControlRules(t *testing.T) {
 		userID  string
 		allowed bool
 	}{
-		{name: "user with entry ACR is allowed", userID: "allowed-user", allowed: true},
-		{name: "user without entry ACR is denied", userID: "other-user", allowed: false},
+		{
+			name:    "user with entry ACR is allowed",
+			userID:  "allowed-user",
+			allowed: true,
+		},
+		{
+			name:    "user without entry ACR is denied",
+			userID:  "other-user",
+			allowed: false,
+		},
 	}
 
 	for _, tt := range tests {

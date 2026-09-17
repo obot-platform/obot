@@ -28,15 +28,24 @@ func TestResponseWritersStayHijackable(t *testing.T) {
 		name string
 		wrap func(http.ResponseWriter) http.ResponseWriter
 	}{
-		{"headers", func(rw http.ResponseWriter) http.ResponseWriter {
-			return &headersResponseWriter{ResponseWriter: rw}
-		}},
-		{"audit", func(rw http.ResponseWriter) http.ResponseWriter {
-			return &responseWriter{ResponseWriter: rw}
-		}},
-		{"audit over headers", func(rw http.ResponseWriter) http.ResponseWriter {
-			return &responseWriter{ResponseWriter: &headersResponseWriter{ResponseWriter: rw}}
-		}},
+		{
+			name: "headers",
+			wrap: func(rw http.ResponseWriter) http.ResponseWriter {
+				return &headersResponseWriter{ResponseWriter: rw}
+			},
+		},
+		{
+			name: "audit",
+			wrap: func(rw http.ResponseWriter) http.ResponseWriter {
+				return &responseWriter{ResponseWriter: rw}
+			},
+		},
+		{
+			name: "audit over headers",
+			wrap: func(rw http.ResponseWriter) http.ResponseWriter {
+				return &responseWriter{ResponseWriter: &headersResponseWriter{ResponseWriter: rw}}
+			},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := &hijackableRecorder{ResponseRecorder: httptest.NewRecorder()}

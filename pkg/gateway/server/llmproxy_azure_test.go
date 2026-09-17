@@ -114,13 +114,34 @@ func TestResolveAzureRouteDialect(t *testing.T) {
 		want    llmtypes.Dialect
 		wantErr bool
 	}{
-		{path: "messages", want: llmtypes.DialectAnthropicMessages},
-		{path: "v1/messages", want: llmtypes.DialectAnthropicMessages},
-		{path: "responses", want: llmtypes.DialectOpenAIResponses},
-		{path: "v1/responses/response-id", want: llmtypes.DialectOpenAIResponses},
-		{path: "v1/models", want: llmtypes.DialectOpenAIResponses},
-		{path: "openai/v1/models", want: llmtypes.DialectOpenAIResponses},
-		{path: "openai/v1/responses", wantErr: true},
+		{
+			path: "messages",
+			want: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			path: "v1/messages",
+			want: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			path: "responses",
+			want: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			path: "v1/responses/response-id",
+			want: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			path: "v1/models",
+			want: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			path: "openai/v1/models",
+			want: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			path:    "openai/v1/responses",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {

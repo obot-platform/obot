@@ -19,7 +19,11 @@ func TestAuthProviderStatus(t *testing.T) {
 		{
 			name: "configured when requirements are satisfied",
 			authProvider: authProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 			),
@@ -31,7 +35,11 @@ func TestAuthProviderStatus(t *testing.T) {
 		{
 			name: "missing entitlement does not make provider unconfigured",
 			authProvider: authProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				[]string{"ENTITLEMENT"},
 			),
@@ -44,7 +52,11 @@ func TestAuthProviderStatus(t *testing.T) {
 		{
 			name: "missing credential value is not configured",
 			authProvider: authProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 			),
@@ -57,7 +69,11 @@ func TestAuthProviderStatus(t *testing.T) {
 		{
 			name: "nil credential uses status missing configuration",
 			authProvider: authProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				[]string{"API_KEY"},
 				nil,
 			),
@@ -70,7 +86,11 @@ func TestAuthProviderStatus(t *testing.T) {
 		{
 			name: "nil credential falls back to required configuration when status is empty",
 			authProvider: authProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 			),
@@ -105,7 +125,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "configured when requirements are satisfied and models are current",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 				2,
@@ -119,7 +143,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "configured when requirements are satisfied and models are stale",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 				1,
@@ -133,7 +161,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "missing entitlement does not make provider unconfigured",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				[]string{"ENTITLEMENT"},
 				2,
@@ -150,7 +182,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "missing credential value is not configured and skips model population status",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 				2,
@@ -166,7 +202,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "nil credential uses status missing configuration",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				[]string{"API_KEY"},
 				nil,
 				2,
@@ -182,7 +222,11 @@ func TestModelProviderStatus(t *testing.T) {
 		{
 			name: "nil credential falls back to required configuration when status is empty",
 			modelProvider: modelProvider(
-				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
+				[]types.ProviderConfigurationParameter{
+					{
+						Name: "API_KEY",
+					},
+				},
 				nil,
 				nil,
 				2,

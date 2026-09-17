@@ -20,12 +20,30 @@ func TestIsGitRepoURL(t *testing.T) {
 		url  string
 		want bool
 	}{
-		{"https://github.com/org/repo", true},
-		{"https://gitlab.com/org/repo", true},
-		{"https://example.com/org/repo.git", true},
-		{"https://self-hosted.example.com/org/repo.git", true},
-		{"https://example.com/some/raw/file.yaml", false},
-		{"https://example.com/catalog.json", false},
+		{
+			url:  "https://github.com/org/repo",
+			want: true,
+		},
+		{
+			url:  "https://gitlab.com/org/repo",
+			want: true,
+		},
+		{
+			url:  "https://example.com/org/repo.git",
+			want: true,
+		},
+		{
+			url:  "https://self-hosted.example.com/org/repo.git",
+			want: true,
+		},
+		{
+			url:  "https://example.com/some/raw/file.yaml",
+			want: false,
+		},
+		{
+			url:  "https://example.com/catalog.json",
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -128,7 +146,10 @@ func TestCloneAuthAttempts(t *testing.T) {
 			name:  "explicit token only",
 			token: "repo-token",
 			want: []cloneAuthAttempt{
-				{name: "token", token: "repo-token"},
+				{
+					name:  "token",
+					token: "repo-token",
+				},
 			},
 		},
 		{
@@ -136,21 +157,31 @@ func TestCloneAuthAttempts(t *testing.T) {
 			token:         "repo-token",
 			fallbackToken: "fallback-token",
 			want: []cloneAuthAttempt{
-				{name: "token", token: "repo-token"},
+				{
+					name:  "token",
+					token: "repo-token",
+				},
 			},
 		},
 		{
 			name: "anonymous only",
 			want: []cloneAuthAttempt{
-				{name: "anonymous"},
+				{
+					name: "anonymous",
+				},
 			},
 		},
 		{
 			name:          "anonymous then fallback token",
 			fallbackToken: "fallback-token",
 			want: []cloneAuthAttempt{
-				{name: "anonymous"},
-				{name: "fallback token", token: "fallback-token"},
+				{
+					name: "anonymous",
+				},
+				{
+					name:  "fallback token",
+					token: "fallback-token",
+				},
 			},
 		},
 	}
@@ -168,16 +199,51 @@ func TestValidateRef(t *testing.T) {
 		ref     string
 		wantErr bool
 	}{
-		{name: "branch", ref: "main"},
-		{name: "nested branch", ref: "feature/git-sync"},
-		{name: "tag", ref: "v1.2.3"},
-		{name: "commit sha", ref: "0123456789abcdef0123456789abcdef01234567"},
-		{name: "empty", wantErr: true},
-		{name: "path traversal", ref: "feature/../main", wantErr: true},
-		{name: "leading dash", ref: "-main", wantErr: true},
-		{name: "contains colon", ref: "main:other", wantErr: true},
-		{name: "contains whitespace", ref: "main branch", wantErr: true},
-		{name: "trimmed whitespace", ref: " main", wantErr: true},
+		{
+			name: "branch",
+			ref:  "main",
+		},
+		{
+			name: "nested branch",
+			ref:  "feature/git-sync",
+		},
+		{
+			name: "tag",
+			ref:  "v1.2.3",
+		},
+		{
+			name: "commit sha",
+			ref:  "0123456789abcdef0123456789abcdef01234567",
+		},
+		{
+			name:    "empty",
+			wantErr: true,
+		},
+		{
+			name:    "path traversal",
+			ref:     "feature/../main",
+			wantErr: true,
+		},
+		{
+			name:    "leading dash",
+			ref:     "-main",
+			wantErr: true,
+		},
+		{
+			name:    "contains colon",
+			ref:     "main:other",
+			wantErr: true,
+		},
+		{
+			name:    "contains whitespace",
+			ref:     "main branch",
+			wantErr: true,
+		},
+		{
+			name:    "trimmed whitespace",
+			ref:     " main",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -24,9 +24,20 @@ func TestAvailability(t *testing.T) {
 		available bool
 		reason    string
 	}{
-		{name: "kubernetes with no static secrets", k8s: true, available: true},
-		{name: "empty static names do not disable", k8s: true, static: []string{"", " "}, available: true},
-		{name: "non-kubernetes backend disabled"},
+		{
+			name:      "kubernetes with no static secrets",
+			k8s:       true,
+			available: true,
+		},
+		{
+			name:      "empty static names do not disable",
+			k8s:       true,
+			static:    []string{"", " "},
+			available: true,
+		},
+		{
+			name: "non-kubernetes backend disabled",
+		},
 		{
 			name:   "static secrets disabled",
 			k8s:    true,
@@ -69,28 +80,94 @@ func TestNormalizeRegistryServer(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{input: "ghcr.io", want: "ghcr.io"},
-		{input: "https://GHCR.IO/", want: "ghcr.io"},
-		{input: "LOCALHOST:5000", want: "localhost:5000"},
-		{input: "127.0.0.1", want: "127.0.0.1"},
-		{input: "127.0.0.1:5000", want: "127.0.0.1:5000"},
-		{input: "[::1]", want: "[::1]"},
-		{input: "https://[::1]:5000", want: "[::1]:5000"},
-		{input: "", wantErr: true},
-		{input: "   ", wantErr: true},
-		{input: "ghcr.io foo", wantErr: true},
-		{input: "ghcr.io/foo", wantErr: true},
-		{input: "https://ghcr.io/owner", wantErr: true},
-		{input: "https://user@ghcr.io", wantErr: true},
-		{input: "https://", wantErr: true},
-		{input: "ftp://ghcr.io", wantErr: true},
-		{input: "bad_host", wantErr: true},
-		{input: "ghcr.io:abc", wantErr: true},
-		{input: "ghcr.io:0", wantErr: true},
-		{input: "ghcr.io:", wantErr: true},
-		{input: "ghcr.io:99999", wantErr: true},
-		{input: "[::1]:", wantErr: true},
-		{input: "2001:db8::1", wantErr: true},
+		{
+			input: "ghcr.io",
+			want:  "ghcr.io",
+		},
+		{
+			input: "https://GHCR.IO/",
+			want:  "ghcr.io",
+		},
+		{
+			input: "LOCALHOST:5000",
+			want:  "localhost:5000",
+		},
+		{
+			input: "127.0.0.1",
+			want:  "127.0.0.1",
+		},
+		{
+			input: "127.0.0.1:5000",
+			want:  "127.0.0.1:5000",
+		},
+		{
+			input: "[::1]",
+			want:  "[::1]",
+		},
+		{
+			input: "https://[::1]:5000",
+			want:  "[::1]:5000",
+		},
+		{
+			input:   "",
+			wantErr: true,
+		},
+		{
+			input:   "   ",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io foo",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io/foo",
+			wantErr: true,
+		},
+		{
+			input:   "https://ghcr.io/owner",
+			wantErr: true,
+		},
+		{
+			input:   "https://user@ghcr.io",
+			wantErr: true,
+		},
+		{
+			input:   "https://",
+			wantErr: true,
+		},
+		{
+			input:   "ftp://ghcr.io",
+			wantErr: true,
+		},
+		{
+			input:   "bad_host",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io:abc",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io:0",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io:",
+			wantErr: true,
+		},
+		{
+			input:   "ghcr.io:99999",
+			wantErr: true,
+		},
+		{
+			input:   "[::1]:",
+			wantErr: true,
+		},
+		{
+			input:   "2001:db8::1",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

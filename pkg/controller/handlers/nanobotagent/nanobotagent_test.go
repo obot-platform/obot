@@ -117,10 +117,26 @@ func TestNanobotParseModelProviderNamedRoutes(t *testing.T) {
 		dialect     llmtypes.Dialect
 		wantBaseURL string
 	}{
-		{system.AnthropicModelProvider, llmtypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
-		{system.OpenAIModelProvider, llmtypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
-		{system.OpenAIModelProvider, llmtypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy/openai/v1"},
-		{system.GenericResponsesModelProvider, llmtypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
+		{
+			provider:    system.AnthropicModelProvider,
+			dialect:     llmtypes.DialectAnthropicMessages,
+			wantBaseURL: "https://obot.example.com/api/llm-proxy/anthropic/v1",
+		},
+		{
+			provider:    system.OpenAIModelProvider,
+			dialect:     llmtypes.DialectOpenAIResponses,
+			wantBaseURL: "https://obot.example.com/api/llm-proxy/openai/v1",
+		},
+		{
+			provider:    system.OpenAIModelProvider,
+			dialect:     llmtypes.DialectOpenAIChatCompletions,
+			wantBaseURL: "https://obot.example.com/api/llm-proxy/openai/v1",
+		},
+		{
+			provider:    system.GenericResponsesModelProvider,
+			dialect:     llmtypes.DialectOpenResponses,
+			wantBaseURL: "https://obot.example.com/api/llm-proxy/generic-responses/v1",
+		},
 	} {
 		model := resolvedLLMModel{
 			Name:            "some-model",
@@ -148,9 +164,21 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		wantDialect   llmtypes.Dialect
 		wantBaseURL   string
 	}{
-		{system.OpenAIModelProvider, llmtypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
-		{system.AnthropicModelProvider, llmtypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic/v1"},
-		{system.GenericResponsesModelProvider, llmtypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
+		{
+			modelProvider: system.OpenAIModelProvider,
+			wantDialect:   llmtypes.DialectOpenAIResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/openai/v1",
+		},
+		{
+			modelProvider: system.AnthropicModelProvider,
+			wantDialect:   llmtypes.DialectAnthropicMessages,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/anthropic/v1",
+		},
+		{
+			modelProvider: system.GenericResponsesModelProvider,
+			wantDialect:   llmtypes.DialectOpenResponses,
+			wantBaseURL:   "https://obot.example.com/api/llm-proxy/generic-responses/v1",
+		},
 	} {
 		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
 		p, qualifiedName, err := h.parseModelProvider(model)

@@ -162,8 +162,14 @@ func TestValidateSystemCatalogManifestRejectsInvalidSourceURLs(t *testing.T) {
 		name      string
 		sourceURL string
 	}{
-		{"bare slash", "/"},
-		{"double slash", "//"},
+		{
+			name:      "bare slash",
+			sourceURL: "/",
+		},
+		{
+			name:      "double slash",
+			sourceURL: "//",
+		},
 	}
 
 	for _, tt := range tests {

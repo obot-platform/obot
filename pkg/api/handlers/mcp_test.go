@@ -1527,12 +1527,14 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			name: "required env resolved binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{
-					Key:           "TOKEN",
-					Required:      true,
-					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					Usage:         types.Env,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						Usage:         types.Env,
+					},
+				},
 			},
 			client: newClient(t, secret("s", map[string][]byte{"k": []byte("v")})),
 		},
@@ -1540,12 +1542,14 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			name: "required env missing binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{
-					Key:           "TOKEN",
-					Required:      true,
-					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					Usage:         types.Env,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						Usage:         types.Env,
+					},
+				},
 			},
 			client:     newClient(t),
 			wantFields: []string{"env TOKEN"},
@@ -1554,11 +1558,13 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			name: "non-required env missing binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{
-					Key:           "TOKEN",
-					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					Usage:         types.Env,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						Usage:         types.Env,
+					},
+				},
 			},
 			client:     newClient(t),
 			wantFields: []string{"env TOKEN"},
@@ -1567,12 +1573,14 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			name: "required env empty binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{
-					Key:           "TOKEN",
-					Required:      true,
-					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					Usage:         types.Env,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						Usage:         types.Env,
+					},
+				},
 			},
 			client:     newClient(t, secret("s", map[string][]byte{"k": []byte("")})),
 			wantFields: []string{"env TOKEN"},
@@ -1584,12 +1592,14 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 				RemoteConfig: &types.RemoteCatalogConfig{
 					FixedURL: "https://example.com",
 				},
-				Config: []types.MCPConfig{{
-					Key:           "X-Api-Key",
-					Required:      true,
-					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					Usage:         types.Header,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "X-Api-Key",
+						Required:      true,
+						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+						Usage:         types.Header,
+					},
+				},
 			},
 			client:     newClient(t),
 			wantFields: []string{"header X-Api-Key"},

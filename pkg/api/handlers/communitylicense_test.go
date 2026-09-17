@@ -187,7 +187,8 @@ func TestCreateCommunityLicenseValidatesAndNormalizesInput(t *testing.T) {
 		},
 		{
 			name: "whitespace email",
-			body: `{"name":"Ada","email":"   "}`},
+			body: `{"name":"Ada","email":"   "}`,
+		},
 		{
 			name: "invalid email",
 			body: `{"name":"Ada","email":"not-an-email"}`,
@@ -236,8 +237,14 @@ func TestCreateCommunityLicenseEligibility(t *testing.T) {
 		name     string
 		provider *fakeCommunityLicenseProvider
 	}{
-		{name: "valid license", provider: &fakeCommunityLicenseProvider{key: "existing", valid: true}},
-		{name: "configured invalid license", provider: &fakeCommunityLicenseProvider{key: "configured", configured: true}},
+		{
+			name:     "valid license",
+			provider: &fakeCommunityLicenseProvider{key: "existing", valid: true},
+		},
+		{
+			name:     "configured invalid license",
+			provider: &fakeCommunityLicenseProvider{key: "configured", configured: true},
+		},
 	}
 
 	for _, tt := range tests {
@@ -259,8 +266,14 @@ func TestCreateCommunityLicensePropagatesEligibilityLookupError(t *testing.T) {
 		name        string
 		validErrors []error
 	}{
-		{name: "initial check", validErrors: []error{lookupErr}},
-		{name: "check after reservation", validErrors: []error{nil, lookupErr}},
+		{
+			name:        "initial check",
+			validErrors: []error{lookupErr},
+		},
+		{
+			name:        "check after reservation",
+			validErrors: []error{nil, lookupErr},
+		},
 	}
 
 	for _, tt := range tests {

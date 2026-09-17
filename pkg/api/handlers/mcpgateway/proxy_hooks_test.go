@@ -62,10 +62,24 @@ func TestMCPProxyHooksScopeByMethodNameAndDirection(t *testing.T) {
 		request   string
 		wantCalls int
 	}{
-		{name: "method selector", request: `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`, wantCalls: 1},
-		{name: "method and name selector", request: `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"echo"}}`, wantCalls: 1},
-		{name: "different tool name", request: `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search"}}`},
-		{name: "different method", request: `{"jsonrpc":"2.0","id":4,"method":"prompts/list","params":{}}`},
+		{
+			name:      "method selector",
+			request:   `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`,
+			wantCalls: 1,
+		},
+		{
+			name:      "method and name selector",
+			request:   `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"echo"}}`,
+			wantCalls: 1,
+		},
+		{
+			name:    "different tool name",
+			request: `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search"}}`,
+		},
+		{
+			name:    "different method",
+			request: `{"jsonrpc":"2.0","id":4,"method":"prompts/list","params":{}}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -220,9 +234,19 @@ func TestMCPProxyHookAuditSavesEachMutationCombination(t *testing.T) {
 		mutateRequest  bool
 		mutateResponse bool
 	}{
-		{name: "request only", mutateRequest: true},
-		{name: "response only", mutateResponse: true},
-		{name: "request and response", mutateRequest: true, mutateResponse: true},
+		{
+			name:          "request only",
+			mutateRequest: true,
+		},
+		{
+			name:           "response only",
+			mutateResponse: true,
+		},
+		{
+			name:           "request and response",
+			mutateRequest:  true,
+			mutateResponse: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, _ string) (mcp.SessionMessageHook, bool, error) {
@@ -331,8 +355,17 @@ func TestMCPProxyHooksRejectRequestAndDisallowedMutation(t *testing.T) {
 		response           mcp.SessionMessageHook
 		wantErrorSubstring string
 	}{
-		{name: "explicit rejection", response: mcp.SessionMessageHook{Accept: false, Reason: "blocked by policy"}, wantErrorSubstring: "blocked by policy"},
-		{name: "disallowed mutation", mutateDisallowed: true, response: mcp.SessionMessageHook{Accept: true, Mutated: true, Reason: "redaction"}, wantErrorSubstring: "mutation not allowed"},
+		{
+			name:               "explicit rejection",
+			response:           mcp.SessionMessageHook{Accept: false, Reason: "blocked by policy"},
+			wantErrorSubstring: "blocked by policy",
+		},
+		{
+			name:               "disallowed mutation",
+			mutateDisallowed:   true,
+			response:           mcp.SessionMessageHook{Accept: true, Mutated: true, Reason: "redaction"},
+			wantErrorSubstring: "mutation not allowed",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

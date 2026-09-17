@@ -19,19 +19,77 @@ func TestValidate(t *testing.T) {
 		development bool
 		wantError   string
 	}{
-		{name: "https production", repoURL: "https://example.com/obot/agents.git"},
-		{name: "https development", repoURL: "https://example.com/obot/agents.git", development: true},
-		{name: "absolute path development", repoURL: "/home/developer/src/obot-agents", development: true},
-		{name: "file URL development", repoURL: "file:///home/developer/src/obot-agents", development: true},
-		{name: "localhost file URL development", repoURL: "file://localhost/home/developer/src/obot-agents", development: true},
-		{name: "absolute path production", repoURL: "/home/developer/src/obot-agents", wantError: "must be an https URL"},
-		{name: "file URL production", repoURL: "file:///home/developer/src/obot-agents", wantError: "must be an https URL"},
-		{name: "relative path development", repoURL: "../obot-agents", development: true, wantError: "must be an https URL"},
-		{name: "remote file host development", repoURL: "file://example.com/repo", development: true, wantError: "host must be empty or localhost"},
-		{name: "file query development", repoURL: "file:///repo?ref=main", development: true, wantError: "must not include"},
-		{name: "displayName still required in development", repoURL: "/home/developer/src/obot-agents", development: true, wantError: "displayName is required"},
-		{name: "ref still validated in development", repoURL: "/home/developer/src/obot-agents", development: true, ref: "--upload-pack=evil", wantError: "must not begin with '-'"},
-		{name: "valid ref in development", repoURL: "/home/developer/src/obot-agents", development: true, ref: "main"},
+		{
+			name:    "https production",
+			repoURL: "https://example.com/obot/agents.git",
+		},
+		{
+			name:        "https development",
+			repoURL:     "https://example.com/obot/agents.git",
+			development: true,
+		},
+		{
+			name:        "absolute path development",
+			repoURL:     "/home/developer/src/obot-agents",
+			development: true,
+		},
+		{
+			name:        "file URL development",
+			repoURL:     "file:///home/developer/src/obot-agents",
+			development: true,
+		},
+		{
+			name:        "localhost file URL development",
+			repoURL:     "file://localhost/home/developer/src/obot-agents",
+			development: true,
+		},
+		{
+			name:      "absolute path production",
+			repoURL:   "/home/developer/src/obot-agents",
+			wantError: "must be an https URL",
+		},
+		{
+			name:      "file URL production",
+			repoURL:   "file:///home/developer/src/obot-agents",
+			wantError: "must be an https URL",
+		},
+		{
+			name:        "relative path development",
+			repoURL:     "../obot-agents",
+			development: true,
+			wantError:   "must be an https URL",
+		},
+		{
+			name:        "remote file host development",
+			repoURL:     "file://example.com/repo",
+			development: true,
+			wantError:   "host must be empty or localhost",
+		},
+		{
+			name:        "file query development",
+			repoURL:     "file:///repo?ref=main",
+			development: true,
+			wantError:   "must not include",
+		},
+		{
+			name:        "displayName still required in development",
+			repoURL:     "/home/developer/src/obot-agents",
+			development: true,
+			wantError:   "displayName is required",
+		},
+		{
+			name:        "ref still validated in development",
+			repoURL:     "/home/developer/src/obot-agents",
+			development: true,
+			ref:         "--upload-pack=evil",
+			wantError:   "must not begin with '-'",
+		},
+		{
+			name:        "valid ref in development",
+			repoURL:     "/home/developer/src/obot-agents",
+			development: true,
+			ref:         "main",
+		},
 	}
 
 	for _, tt := range tests {

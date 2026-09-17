@@ -15,11 +15,29 @@ func TestParseResourceMaximumField(t *testing.T) {
 		want    *resource.Quantity
 		wantErr bool
 	}{
-		{name: "empty"},
-		{name: "CPU", value: "500m", want: new(resource.MustParse("500m"))},
-		{name: "memory", value: "2Gi", want: new(resource.MustParse("2Gi"))},
-		{name: "invalid", value: "invalid", wantErr: true},
-		{name: "negative", value: "-1", wantErr: true},
+		{
+			name: "empty",
+		},
+		{
+			name:  "CPU",
+			value: "500m",
+			want:  new(resource.MustParse("500m")),
+		},
+		{
+			name:  "memory",
+			value: "2Gi",
+			want:  new(resource.MustParse("2Gi")),
+		},
+		{
+			name:    "invalid",
+			value:   "invalid",
+			wantErr: true,
+		},
+		{
+			name:    "negative",
+			value:   "-1",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

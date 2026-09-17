@@ -42,8 +42,16 @@ func TestSharingTransitions(t *testing.T) {
 		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).Build()
 	req := router.Request{Ctx: t.Context(), Client: client, Object: vmcp}
 	instances := []*v1.VMCPInstance{
-		{Name: "vmcpi1one", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}},
-		{Name: "vmcpi1two", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "2", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}},
+		{
+			Name:      "vmcpi1one",
+			Namespace: "default",
+			Spec:      v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		},
+		{
+			Name:      "vmcpi1two",
+			Namespace: "default",
+			Spec:      v1.VMCPInstanceSpec{UserID: "2", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		},
 	}
 	for _, tc := range []struct {
 		name            string

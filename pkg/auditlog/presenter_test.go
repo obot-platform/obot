@@ -17,12 +17,42 @@ func TestClassifyMCPOutcome(t *testing.T) {
 		err    string
 		want   api.AuditLogOutcomeStatus
 	}{
-		{"denied takes precedence", 403, "server error", api.AuditLogOutcomeStatusDenied},
-		{"timeout", 504, "", api.AuditLogOutcomeStatusTimeout},
-		{"error", 200, "MCP error", api.AuditLogOutcomeStatusFailure},
-		{"http failure", 500, "", api.AuditLogOutcomeStatusFailure},
-		{"success", 200, "", api.AuditLogOutcomeStatusSuccess},
-		{"unmatched request", 0, "", api.AuditLogOutcomeStatusUnknown},
+		{
+			name:   "denied takes precedence",
+			status: 403,
+			err:    "server error",
+			want:   api.AuditLogOutcomeStatusDenied,
+		},
+		{
+			name:   "timeout",
+			status: 504,
+			err:    "",
+			want:   api.AuditLogOutcomeStatusTimeout,
+		},
+		{
+			name:   "error",
+			status: 200,
+			err:    "MCP error",
+			want:   api.AuditLogOutcomeStatusFailure,
+		},
+		{
+			name:   "http failure",
+			status: 500,
+			err:    "",
+			want:   api.AuditLogOutcomeStatusFailure,
+		},
+		{
+			name:   "success",
+			status: 200,
+			err:    "",
+			want:   api.AuditLogOutcomeStatusSuccess,
+		},
+		{
+			name:   "unmatched request",
+			status: 0,
+			err:    "",
+			want:   api.AuditLogOutcomeStatusUnknown,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -99,8 +129,14 @@ func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
 		name       string
 		apiKeyName string
 	}{
-		{name: "named key", apiKeyName: "CLI token"},
-		{name: "unnamed key", apiKeyName: "ok1-7-42-*****"},
+		{
+			name:       "named key",
+			apiKeyName: "CLI token",
+		},
+		{
+			name:       "unnamed key",
+			apiKeyName: "ok1-7-42-*****",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			log := gatewaytypes.MCPAuditLog{

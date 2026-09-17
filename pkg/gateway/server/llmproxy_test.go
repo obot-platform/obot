@@ -114,10 +114,30 @@ func TestModifyResponse_WrapGate(t *testing.T) {
 		statusCode  int
 		wantWrapped bool
 	}{
-		{"anthropic messages", "/v1/messages", http.StatusOK, true},
-		{"openai responses", "/v1/responses", http.StatusOK, true},
-		{"unknown path", "/v1/embeddings", http.StatusOK, false},
-		{"non-200 status", "/v1/messages", http.StatusBadRequest, false},
+		{
+			name:        "anthropic messages",
+			path:        "/v1/messages",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
+		{
+			name:        "openai responses",
+			path:        "/v1/responses",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
+		{
+			name:        "unknown path",
+			path:        "/v1/embeddings",
+			statusCode:  http.StatusOK,
+			wantWrapped: false,
+		},
+		{
+			name:        "non-200 status",
+			path:        "/v1/messages",
+			statusCode:  http.StatusBadRequest,
+			wantWrapped: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -456,34 +476,34 @@ func TestExtractModelFromBody(t *testing.T) {
 		want string
 	}{
 		{
-			"top-level model (OpenAI/Anthropic request)",
-			`{"model":"gpt-4o","messages":[]}`,
-			"gpt-4o",
+			name: "top-level model (OpenAI/Anthropic request)",
+			body: `{"model":"gpt-4o","messages":[]}`,
+			want: "gpt-4o",
 		},
 		{
-			"nested under message",
-			`{"type":"message_start","message":{"model":"claude-sonnet-4-20250514"}}`,
-			"claude-sonnet-4-20250514",
+			name: "nested under message",
+			body: `{"type":"message_start","message":{"model":"claude-sonnet-4-20250514"}}`,
+			want: "claude-sonnet-4-20250514",
 		},
 		{
-			"nested under response",
-			`{"type":"response.completed","response":{"model":"gpt-4o"}}`,
-			"gpt-4o",
+			name: "nested under response",
+			body: `{"type":"response.completed","response":{"model":"gpt-4o"}}`,
+			want: "gpt-4o",
 		},
 		{
-			"top-level takes precedence over nested",
-			`{"model":"top-level","message":{"model":"nested"}}`,
-			"top-level",
+			name: "top-level takes precedence over nested",
+			body: `{"model":"top-level","message":{"model":"nested"}}`,
+			want: "top-level",
 		},
 		{
-			"empty body",
-			`{}`,
-			"",
+			name: "empty body",
+			body: `{}`,
+			want: "",
 		},
 		{
-			"no model anywhere",
-			`{"messages":[{"role":"user","content":"hello"}]}`,
-			"",
+			name: "no model anywhere",
+			body: `{"messages":[{"role":"user","content":"hello"}]}`,
+			want: "",
 		},
 	}
 
@@ -603,9 +623,20 @@ func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 		credEnv map[string]string
 		wantErr bool
 	}{
-		{name: "missing key", credEnv: map[string]string{}, wantErr: true},
-		{name: "empty key", credEnv: map[string]string{apiKeyEnv: ""}, wantErr: true},
-		{name: "configured key", credEnv: map[string]string{apiKeyEnv: "provider-key"}},
+		{
+			name:    "missing key",
+			credEnv: map[string]string{},
+			wantErr: true,
+		},
+		{
+			name:    "empty key",
+			credEnv: map[string]string{apiKeyEnv: ""},
+			wantErr: true,
+		},
+		{
+			name:    "configured key",
+			credEnv: map[string]string{apiKeyEnv: "provider-key"},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := (apiKeyLLMProviderBackend{}).transport(provider, tt.credEnv)
@@ -624,9 +655,17 @@ func TestAPIKeyBackendUpstreamURLDialect(t *testing.T) {
 		provider string
 		want     llmtypes.Dialect
 	}{
-		{provider: system.AnthropicModelProvider, want: llmtypes.DialectAnthropicMessages},
-		{provider: system.OpenAIModelProvider, want: llmtypes.DialectOpenAIResponses},
-		{provider: "other"},
+		{
+			provider: system.AnthropicModelProvider,
+			want:     llmtypes.DialectAnthropicMessages,
+		},
+		{
+			provider: system.OpenAIModelProvider,
+			want:     llmtypes.DialectOpenAIResponses,
+		},
+		{
+			provider: "other",
+		},
 	} {
 		t.Run(tt.provider, func(t *testing.T) {
 			_, got, err := (apiKeyLLMProviderBackend{providerName: tt.provider}).upstreamURL(nil, nil)
@@ -649,11 +688,30 @@ func TestGenericResponsesBackendUpstreamURL(t *testing.T) {
 		wantURL string
 		wantErr bool
 	}{
-		{name: "configured", baseURL: "https://models.example/v1/", wantURL: "https://models.example/v1"},
-		{name: "local HTTP", baseURL: "http://localhost:11434/v1", wantURL: "http://localhost:11434/v1"},
-		{name: "missing", wantErr: true},
-		{name: "relative", baseURL: "localhost:11434/v1", wantErr: true},
-		{name: "unsupported scheme", baseURL: "ftp://models.example/v1", wantErr: true},
+		{
+			name:    "configured",
+			baseURL: "https://models.example/v1/",
+			wantURL: "https://models.example/v1",
+		},
+		{
+			name:    "local HTTP",
+			baseURL: "http://localhost:11434/v1",
+			wantURL: "http://localhost:11434/v1",
+		},
+		{
+			name:    "missing",
+			wantErr: true,
+		},
+		{
+			name:    "relative",
+			baseURL: "localhost:11434/v1",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported scheme",
+			baseURL: "ftp://models.example/v1",
+			wantErr: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			u, dialect, err := backend.upstreamURL(nil, map[string]string{genericResponsesBaseURLEnv: tt.baseURL})
@@ -679,8 +737,14 @@ func TestGenericResponsesTransportHeaders(t *testing.T) {
 		key      string
 		wantAuth string
 	}{
-		{name: "configured key", key: "provider-key", wantAuth: "Bearer provider-key"},
-		{name: "no key"},
+		{
+			name:     "configured key",
+			key:      "provider-key",
+			wantAuth: "Bearer provider-key",
+		},
+		{
+			name: "no key",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			capture := &captureRoundTripper{}
@@ -838,10 +902,22 @@ func TestBedrockRouteDialect(t *testing.T) {
 		wantDialect string
 		wantErr     bool
 	}{
-		{dialect: llmtypes.DialectAnthropicMessages, wantDialect: "anthropic"},
-		{dialect: llmtypes.DialectOpenAIResponses, wantDialect: "openai"},
-		{dialect: llmtypes.DialectOpenAIChatCompletions, wantErr: true},
-		{dialect: "", wantErr: true},
+		{
+			dialect:     llmtypes.DialectAnthropicMessages,
+			wantDialect: "anthropic",
+		},
+		{
+			dialect:     llmtypes.DialectOpenAIResponses,
+			wantDialect: "openai",
+		},
+		{
+			dialect: llmtypes.DialectOpenAIChatCompletions,
+			wantErr: true,
+		},
+		{
+			dialect: "",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -865,17 +941,71 @@ func TestResolveBedrockRouteDialect(t *testing.T) {
 		wantDialect llmtypes.Dialect
 		wantErr     bool
 	}{
-		{name: "messages without version", path: "messages", wantPath: "messages", wantDialect: llmtypes.DialectAnthropicMessages},
-		{name: "unprefixed messages", path: "v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectAnthropicMessages},
-		{name: "prefixed messages", path: "anthropic/v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectAnthropicMessages},
-		{name: "responses without version", path: "responses", wantPath: "responses", wantDialect: llmtypes.DialectOpenAIResponses},
-		{name: "unprefixed responses", path: "v1/responses", wantPath: "v1/responses", wantDialect: llmtypes.DialectOpenAIResponses},
-		{name: "prefixed responses", path: "openai/v1/responses", wantPath: "v1/responses", wantDialect: llmtypes.DialectOpenAIResponses},
-		{name: "unprefixed models", path: "v1/models", wantPath: "v1/models"},
-		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: llmtypes.DialectAnthropicMessages},
-		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: llmtypes.DialectOpenAIResponses},
-		{name: "prefix determines dialect", path: "openai/v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectOpenAIResponses},
-		{name: "unsupported path", path: "v1/chat/completions", wantPath: "v1/chat/completions", wantErr: true},
+		{
+			name:        "messages without version",
+			path:        "messages",
+			wantPath:    "messages",
+			wantDialect: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			name:        "unprefixed messages",
+			path:        "v1/messages",
+			wantPath:    "v1/messages",
+			wantDialect: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			name:        "prefixed messages",
+			path:        "anthropic/v1/messages",
+			wantPath:    "v1/messages",
+			wantDialect: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			name:        "responses without version",
+			path:        "responses",
+			wantPath:    "responses",
+			wantDialect: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			name:        "unprefixed responses",
+			path:        "v1/responses",
+			wantPath:    "v1/responses",
+			wantDialect: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			name:        "prefixed responses",
+			path:        "openai/v1/responses",
+			wantPath:    "v1/responses",
+			wantDialect: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			name:     "unprefixed models",
+			path:     "v1/models",
+			wantPath: "v1/models",
+		},
+		{
+			name:        "anthropic models",
+			path:        "anthropic/v1/models",
+			wantPath:    "v1/models",
+			wantDialect: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			name:        "openai models",
+			path:        "openai/v1/models",
+			wantPath:    "v1/models",
+			wantDialect: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			name:        "prefix determines dialect",
+			path:        "openai/v1/messages",
+			wantPath:    "v1/messages",
+			wantDialect: llmtypes.DialectOpenAIResponses,
+		},
+		{
+			name:     "unsupported path",
+			path:     "v1/chat/completions",
+			wantPath: "v1/chat/completions",
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -942,8 +1072,14 @@ func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
 		path    string
 		dialect llmtypes.Dialect
 	}{
-		{path: "anthropic/v1/models", dialect: llmtypes.DialectAnthropicMessages},
-		{path: "openai/v1/models", dialect: llmtypes.DialectOpenAIResponses},
+		{
+			path:    "anthropic/v1/models",
+			dialect: llmtypes.DialectAnthropicMessages,
+		},
+		{
+			path:    "openai/v1/models",
+			dialect: llmtypes.DialectOpenAIResponses,
+		},
 	} {
 		t.Run(string(tt.dialect), func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
@@ -987,16 +1123,56 @@ func TestBedrockRequestUpstreamPath(t *testing.T) {
 		path string
 		want string
 	}{
-		{name: "messages without version", path: "messages", want: "/anthropic/v1/messages"},
-		{name: "unprefixed messages", path: "v1/messages", want: "/anthropic/v1/messages"},
-		{name: "Bedrock-aware messages", path: "anthropic/v1/messages", want: "/anthropic/v1/messages"},
-		{name: "Codex responses without version", path: "responses", want: "/openai/v1/responses"},
-		{name: "unprefixed responses", path: "v1/responses", want: "/openai/v1/responses"},
-		{name: "Bedrock-aware responses", path: "openai/v1/responses", want: "/openai/v1/responses"},
-		{name: "prefix and endpoint mismatch", path: "openai/v1/messages", want: "/openai/v1/messages"},
-		{name: "unprefixed models", path: "v1/models", want: "/v1/models"},
-		{name: "Anthropic-prefixed models", path: "anthropic/v1/models", want: "/v1/models"},
-		{name: "OpenAI-prefixed models", path: "openai/v1/models", want: "/v1/models"},
+		{
+			name: "messages without version",
+			path: "messages",
+			want: "/anthropic/v1/messages",
+		},
+		{
+			name: "unprefixed messages",
+			path: "v1/messages",
+			want: "/anthropic/v1/messages",
+		},
+		{
+			name: "Bedrock-aware messages",
+			path: "anthropic/v1/messages",
+			want: "/anthropic/v1/messages",
+		},
+		{
+			name: "Codex responses without version",
+			path: "responses",
+			want: "/openai/v1/responses",
+		},
+		{
+			name: "unprefixed responses",
+			path: "v1/responses",
+			want: "/openai/v1/responses",
+		},
+		{
+			name: "Bedrock-aware responses",
+			path: "openai/v1/responses",
+			want: "/openai/v1/responses",
+		},
+		{
+			name: "prefix and endpoint mismatch",
+			path: "openai/v1/messages",
+			want: "/openai/v1/messages",
+		},
+		{
+			name: "unprefixed models",
+			path: "v1/models",
+			want: "/v1/models",
+		},
+		{
+			name: "Anthropic-prefixed models",
+			path: "anthropic/v1/models",
+			want: "/v1/models",
+		},
+		{
+			name: "OpenAI-prefixed models",
+			path: "openai/v1/models",
+			want: "/v1/models",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1179,62 +1355,82 @@ func TestExtractContentString(t *testing.T) {
 		content any
 		want    string
 	}{
-		{"plain string", "Hello world", "Hello world"},
-		{"nil", nil, ""},
-		{"integer", 42, ""},
-		{"empty string", "", ""},
 		{
-			"array with single text part",
-			[]any{
-				map[string]any{"type": "text", "text": "Hello"},
-			},
-			"Hello",
+			name:    "plain string",
+			content: "Hello world",
+			want:    "Hello world",
 		},
 		{
-			"array with multiple text parts",
-			[]any{
+			name:    "nil",
+			content: nil,
+			want:    "",
+		},
+		{
+			name:    "integer",
+			content: 42,
+			want:    "",
+		},
+		{
+			name:    "empty string",
+			content: "",
+			want:    "",
+		},
+		{
+			name: "array with single text part",
+			content: []any{
+				map[string]any{"type": "text", "text": "Hello"},
+			},
+			want: "Hello",
+		},
+		{
+			name: "array with multiple text parts",
+			content: []any{
 				map[string]any{"type": "text", "text": "Hello"},
 				map[string]any{"type": "text", "text": "World"},
 			},
-			"Hello\nWorld",
+			want: "Hello\nWorld",
 		},
 		{
-			"array with mixed content types",
-			[]any{
+			name: "array with mixed content types",
+			content: []any{
 				map[string]any{"type": "text", "text": "Describe this image"},
 				map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/img.png"}},
 			},
-			"Describe this image",
+			want: "Describe this image",
 		},
 		{
-			"array with no text parts",
-			[]any{
+			name: "array with no text parts",
+			content: []any{
 				map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/img.png"}},
 			},
-			"",
+			want: "",
 		},
-		{"empty array", []any{}, ""},
 		{
-			"Responses API input_text",
-			[]any{
+			name:    "empty array",
+			content: []any{},
+			want:    "",
+		},
+		{
+			name: "Responses API input_text",
+			content: []any{
 				map[string]any{"type": "input_text", "text": "What is the weather?"},
 			},
-			"What is the weather?",
+			want: "What is the weather?",
 		},
 		{
-			"Responses API output_text",
-			[]any{
+			name: "Responses API output_text",
+			content: []any{
 				map[string]any{"type": "output_text", "text": "It is sunny."},
 			},
-			"It is sunny.",
+			want: "It is sunny.",
 		},
 		{
-			"Responses API mixed input/output",
-			[]any{
+			name: "Responses API mixed input/output",
+			content: []any{
 				map[string]any{"type": "input_text", "text": "Question"},
 				map[string]any{"type": "output_text", "text": "Answer"},
 			},
-			"Question\nAnswer",
+			want: "Question\nAnswer",
 		},
 	}
 
@@ -1255,38 +1451,38 @@ func TestExtractRawMessages(t *testing.T) {
 		wantLen int
 	}{
 		{
-			"Anthropic messages",
-			map[string]any{
+			name: "Anthropic messages",
+			bodyMap: map[string]any{
 				"messages": []any{
 					map[string]any{"role": "user", "content": "Hello"},
 				},
 			},
-			1,
+			wantLen: 1,
 		},
 		{
-			"Responses API input array",
-			map[string]any{
+			name: "Responses API input array",
+			bodyMap: map[string]any{
 				"input": []any{
 					map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "Hello"}}},
 				},
 			},
-			1,
+			wantLen: 1,
 		},
 		{
-			"Responses API string input",
-			map[string]any{
+			name: "Responses API string input",
+			bodyMap: map[string]any{
 				"input": "Hello",
 			},
-			0,
+			wantLen: 0,
 		},
 		{
-			"empty body",
-			map[string]any{},
-			0,
+			name:    "empty body",
+			bodyMap: map[string]any{},
+			wantLen: 0,
 		},
 		{
-			"messages takes priority over input",
-			map[string]any{
+			name: "messages takes priority over input",
+			bodyMap: map[string]any{
 				"messages": []any{
 					map[string]any{"role": "user", "content": "from messages"},
 				},
@@ -1294,7 +1490,7 @@ func TestExtractRawMessages(t *testing.T) {
 					map[string]any{"role": "user", "content": "from input"},
 				},
 			},
-			1,
+			wantLen: 1,
 		},
 	}
 
@@ -1720,29 +1916,29 @@ func TestIsAnthropicToolCallEvent(t *testing.T) {
 		want bool
 	}{
 		{
-			"content_block_start with tool_use",
-			`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_123","name":"get_weather","input":{}}}`,
-			true,
+			name: "content_block_start with tool_use",
+			data: `{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_123","name":"get_weather","input":{}}}`,
+			want: true,
 		},
 		{
-			"content_block_delta with input_json_delta",
-			`{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"city\":"}}`,
-			true,
+			name: "content_block_delta with input_json_delta",
+			data: `{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"city\":"}}`,
+			want: true,
 		},
 		{
-			"content_block_start with text",
-			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
-			false,
+			name: "content_block_start with text",
+			data: `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+			want: false,
 		},
 		{
-			"content_block_delta with text_delta",
-			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`,
-			false,
+			name: "content_block_delta with text_delta",
+			data: `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`,
+			want: false,
 		},
 		{
-			"OpenAI Responses API format",
-			`{"type":"response.output_item.added","item":{"type":"function_call","name":"get_weather"}}`,
-			false,
+			name: "OpenAI Responses API format",
+			data: `{"type":"response.output_item.added","item":{"type":"function_call","name":"get_weather"}}`,
+			want: false,
 		},
 	}
 
@@ -1900,11 +2096,31 @@ func TestIsResponsesAPIToolCallEvent(t *testing.T) {
 		data string
 		want bool
 	}{
-		{"output_item.added with function_call", `{"type":"response.output_item.added","item":{"type":"function_call","name":"foo"}}`, true},
-		{"function_call_arguments.delta", `{"type":"response.function_call_arguments.delta","delta":"{\"x\":"}`, true},
-		{"output_item.added with message", `{"type":"response.output_item.added","item":{"type":"message","role":"assistant"}}`, false},
-		{"response.created", `{"type":"response.created"}`, false},
-		{"Anthropic format", `{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"foo"}}`, false},
+		{
+			name: "output_item.added with function_call",
+			data: `{"type":"response.output_item.added","item":{"type":"function_call","name":"foo"}}`,
+			want: true,
+		},
+		{
+			name: "function_call_arguments.delta",
+			data: `{"type":"response.function_call_arguments.delta","delta":"{\"x\":"}`,
+			want: true,
+		},
+		{
+			name: "output_item.added with message",
+			data: `{"type":"response.output_item.added","item":{"type":"message","role":"assistant"}}`,
+			want: false,
+		},
+		{
+			name: "response.created",
+			data: `{"type":"response.created"}`,
+			want: false,
+		},
+		{
+			name: "Anthropic format",
+			data: `{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"foo"}}`,
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

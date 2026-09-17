@@ -146,13 +146,47 @@ func TestOAuthDebuggerAuthStyle(t *testing.T) {
 		staticClient    bool
 		expected        oauth2.AuthStyle
 	}{
-		{name: "static confidential client", method: "client_secret_basic", hasClientSecret: true, staticClient: true, expected: oauth2.AuthStyleAutoDetect},
-		{name: "static public client", method: "client_secret_basic", staticClient: true, expected: oauth2.AuthStyleAutoDetect},
-		{name: "dynamic public client", method: "client_secret_basic", expected: oauth2.AuthStyleInParams},
-		{name: "dynamic confidential client basic", method: "client_secret_basic", hasClientSecret: true, expected: oauth2.AuthStyleInHeader},
-		{name: "dynamic confidential client post", method: "client_secret_post", hasClientSecret: true, expected: oauth2.AuthStyleInParams},
-		{name: "dynamic confidential client unspecified", hasClientSecret: true, expected: oauth2.AuthStyleAutoDetect},
-		{name: "dynamic confidential client private key", method: "private_key_jwt", hasClientSecret: true, expected: oauth2.AuthStyleAutoDetect},
+		{
+			name:            "static confidential client",
+			method:          "client_secret_basic",
+			hasClientSecret: true,
+			staticClient:    true,
+			expected:        oauth2.AuthStyleAutoDetect,
+		},
+		{
+			name:         "static public client",
+			method:       "client_secret_basic",
+			staticClient: true,
+			expected:     oauth2.AuthStyleAutoDetect,
+		},
+		{
+			name:     "dynamic public client",
+			method:   "client_secret_basic",
+			expected: oauth2.AuthStyleInParams,
+		},
+		{
+			name:            "dynamic confidential client basic",
+			method:          "client_secret_basic",
+			hasClientSecret: true,
+			expected:        oauth2.AuthStyleInHeader,
+		},
+		{
+			name:            "dynamic confidential client post",
+			method:          "client_secret_post",
+			hasClientSecret: true,
+			expected:        oauth2.AuthStyleInParams,
+		},
+		{
+			name:            "dynamic confidential client unspecified",
+			hasClientSecret: true,
+			expected:        oauth2.AuthStyleAutoDetect,
+		},
+		{
+			name:            "dynamic confidential client private key",
+			method:          "private_key_jwt",
+			hasClientSecret: true,
+			expected:        oauth2.AuthStyleAutoDetect,
+		},
 	}
 
 	for _, tt := range tests {

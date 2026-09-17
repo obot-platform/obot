@@ -19,58 +19,108 @@ func TestApplyToolOverrides(t *testing.T) {
 		{
 			name: "no overrides - tools unchanged",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
 			},
 			toolOverrides: nil,
 			expected: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
 			},
 		},
 		{
 			name: "disable tool - filtered out",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "delete-repo", Description: "Deletes a repository"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "delete-repo",
+					Description: "Deletes a repository",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", Enabled: true},
-				{Name: "delete-repo", Enabled: false},
+				{
+					Name:    "create-issue",
+					Enabled: true,
+				},
+				{
+					Name:    "delete-repo",
+					Enabled: false,
+				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
 				// delete-repo is filtered out because Enabled: false
 			},
 		},
 		{
 			name: "rename tool",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", OverrideName: "new-issue", Enabled: true},
+				{
+					Name:         "create-issue",
+					OverrideName: "new-issue",
+					Enabled:      true,
+				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "new-issue", Description: "Creates an issue"},
+				{
+					Name:        "new-issue",
+					Description: "Creates an issue",
+				},
 			},
 		},
 		{
 			name: "override description",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", OverrideDescription: "Custom description", Enabled: true},
+				{
+					Name:                "create-issue",
+					OverrideDescription: "Custom description",
+					Enabled:             true,
+				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Custom description"},
+				{
+					Name:        "create-issue",
+					Description: "Custom description",
+				},
 			},
 		},
 		{
 			name: "rename and override description",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
 				{
@@ -81,40 +131,86 @@ func TestApplyToolOverrides(t *testing.T) {
 				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "new-issue", Description: "Custom description"},
+				{
+					Name:        "new-issue",
+					Description: "Custom description",
+				},
 			},
 		},
 		{
 			name: "allowlist only overridden tools included",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "delete-repo", Description: "Deletes a repository"},
-				{Name: "list-repos", Description: "Lists repositories"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "delete-repo",
+					Description: "Deletes a repository",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", OverrideName: "new-issue", Enabled: true},
-				{Name: "delete-repo", Enabled: false},
+				{
+					Name:         "create-issue",
+					OverrideName: "new-issue",
+					Enabled:      true,
+				},
+				{
+					Name:    "delete-repo",
+					Enabled: false,
+				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "new-issue", Description: "Creates an issue"},
+				{
+					Name:        "new-issue",
+					Description: "Creates an issue",
+				},
 				// list-repos is excluded because it's not in the override list
 			},
 		},
 		{
 			name: "allowlist with enabled only",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
-				{Name: "delete-repo", Description: "Deletes a repository"},
-				{Name: "update-issue", Description: "Updates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
+				{
+					Name:        "delete-repo",
+					Description: "Deletes a repository",
+				},
+				{
+					Name:        "update-issue",
+					Description: "Updates an issue",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", Enabled: true},
-				{Name: "list-repos", Enabled: true},
+				{
+					Name:    "create-issue",
+					Enabled: true,
+				},
+				{
+					Name:    "list-repos",
+					Enabled: true,
+				},
 			},
 			expected: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
 				// delete-repo and update-issue are excluded because they're not in the override list
 			},
 		},
@@ -122,7 +218,10 @@ func TestApplyToolOverrides(t *testing.T) {
 			name:  "empty tools array",
 			tools: []types.MCPServerTool{},
 			toolOverrides: []types.ToolOverride{
-				{Name: "some-tool", Enabled: false},
+				{
+					Name:    "some-tool",
+					Enabled: false,
+				},
 			},
 			expected: []types.MCPServerTool{},
 		},
@@ -139,7 +238,11 @@ func TestApplyToolOverrides(t *testing.T) {
 				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", OverrideName: "new-issue", Enabled: true},
+				{
+					Name:         "create-issue",
+					OverrideName: "new-issue",
+					Enabled:      true,
+				},
 			},
 			expected: []types.MCPServerTool{
 				{
@@ -155,59 +258,117 @@ func TestApplyToolOverrides(t *testing.T) {
 		{
 			name: "tool prefix with no overrides - prefix applied to all tools",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
 			},
 			toolOverrides: nil,
 			toolPrefix:    "gh_",
 			expected: []types.MCPServerTool{
-				{Name: "gh_create-issue", Description: "Creates an issue"},
-				{Name: "gh_list-repos", Description: "Lists repositories"},
+				{
+					Name:        "gh_create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "gh_list-repos",
+					Description: "Lists repositories",
+				},
 			},
 		},
 		{
 			name: "tool prefix combined with override name",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", OverrideName: "new-issue", Enabled: true},
+				{
+					Name:         "create-issue",
+					OverrideName: "new-issue",
+					Enabled:      true,
+				},
 			},
 			toolPrefix: "gh_",
 			expected: []types.MCPServerTool{
-				{Name: "gh_new-issue", Description: "Creates an issue"},
+				{
+					Name:        "gh_new-issue",
+					Description: "Creates an issue",
+				},
 			},
 		},
 		{
 			name: "tool prefix does not leak onto disabled tools",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "delete-repo", Description: "Deletes a repository"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "delete-repo",
+					Description: "Deletes a repository",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", Enabled: true},
-				{Name: "delete-repo", Enabled: false},
+				{
+					Name:    "create-issue",
+					Enabled: true,
+				},
+				{
+					Name:    "delete-repo",
+					Enabled: false,
+				},
 			},
 			toolPrefix: "gh_",
 			expected: []types.MCPServerTool{
-				{Name: "gh_create-issue", Description: "Creates an issue"},
+				{
+					Name:        "gh_create-issue",
+					Description: "Creates an issue",
+				},
 			},
 		},
 		{
 			name: "tool prefix on allowlist-only tools",
 			tools: []types.MCPServerTool{
-				{Name: "create-issue", Description: "Creates an issue"},
-				{Name: "list-repos", Description: "Lists repositories"},
-				{Name: "delete-repo", Description: "Deletes a repository"},
+				{
+					Name:        "create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "list-repos",
+					Description: "Lists repositories",
+				},
+				{
+					Name:        "delete-repo",
+					Description: "Deletes a repository",
+				},
 			},
 			toolOverrides: []types.ToolOverride{
-				{Name: "create-issue", Enabled: true},
-				{Name: "list-repos", Enabled: true},
+				{
+					Name:    "create-issue",
+					Enabled: true,
+				},
+				{
+					Name:    "list-repos",
+					Enabled: true,
+				},
 			},
 			toolPrefix: "gh_",
 			expected: []types.MCPServerTool{
-				{Name: "gh_create-issue", Description: "Creates an issue"},
-				{Name: "gh_list-repos", Description: "Lists repositories"},
+				{
+					Name:        "gh_create-issue",
+					Description: "Creates an issue",
+				},
+				{
+					Name:        "gh_list-repos",
+					Description: "Lists repositories",
+				},
 			},
 		},
 	}
