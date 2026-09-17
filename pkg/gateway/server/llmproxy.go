@@ -222,7 +222,8 @@ func shouldWrapLLMResponse(resp *http.Response) bool {
 		return false
 	}
 	switch resp.Request.URL.Path {
-	case "/v1/messages", "/anthropic/v1/messages", "/v1/responses", "/openai/v1/responses":
+	case "/v1/messages", "/anthropic/v1/messages", "/v1/responses", "/openai/v1/responses",
+		"/serving-endpoints/responses", "/serving-endpoints/open-responses":
 		return true
 	default:
 		return false

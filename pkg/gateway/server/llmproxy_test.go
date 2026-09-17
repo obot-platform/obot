@@ -116,6 +116,18 @@ func TestModifyResponse_WrapGate(t *testing.T) {
 	}{
 		{"anthropic messages", "/v1/messages", http.StatusOK, true},
 		{"openai responses", "/v1/responses", http.StatusOK, true},
+		{
+			name:        "Databricks OpenAI Responses",
+			path:        "/serving-endpoints/responses",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
+		{
+			name:        "Databricks Open Responses",
+			path:        "/serving-endpoints/open-responses",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
 		{"unknown path", "/v1/embeddings", http.StatusOK, false},
 		{"non-200 status", "/v1/messages", http.StatusBadRequest, false},
 	}
