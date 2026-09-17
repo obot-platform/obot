@@ -2,7 +2,6 @@ package databricks
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,8 +16,9 @@ const (
 )
 
 type transport struct {
-	token string
-	next  http.RoundTripper
+	token        string
+	workspaceURL url.URL
+	next         http.RoundTripper
 }
 
 // IsProvider reports whether providerName identifies the Databricks model provider.
@@ -61,9 +61,13 @@ func BaseURL(credEnv map[string]string) (url.URL, error) {
 	return *u, nil
 }
 
-// Transport returns a transport that authenticates workspace requests while
-// ensuring provider credentials are never sent to the local discovery daemon.
+// Transport authenticates only requests to the configured workspace origin,
+// ensuring provider credentials are not sent to discovery or redirect targets.
 func Transport(credEnv map[string]string, next http.RoundTripper) (http.RoundTripper, error) {
+	workspaceURL, err := BaseURL(credEnv)
+	if err != nil {
+		return nil, err
+	}
 	token := strings.TrimSpace(credEnv[TokenEnv])
 	if token == "" {
 		return nil, fmt.Errorf("credential %q is missing or empty", TokenEnv)
@@ -71,22 +75,19 @@ func Transport(credEnv map[string]string, next http.RoundTripper) (http.RoundTri
 	if next == nil {
 		next = http.DefaultTransport
 	}
-	return transport{token: token, next: next}, nil
+	return transport{
+		token:        token,
+		workspaceURL: workspaceURL,
+		next:         next,
+	}, nil
 }
 
 func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Del("Authorization")
 	req.Header.Del("X-Api-Key")
-	if !isLoopback(req.URL.Hostname()) {
+	if strings.EqualFold(req.URL.Scheme, t.workspaceURL.Scheme) &&
+		strings.EqualFold(req.URL.Host, t.workspaceURL.Host) {
 		req.Header.Set("Authorization", "Bearer "+t.token)
 	}
 	return t.next.RoundTrip(req)
-}
-
-func isLoopback(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

@@ -13,6 +13,10 @@ type captureRoundTripper struct {
 	req *http.Request
 }
 
+type redirectRoundTripper struct {
+	requests []*http.Request
+}
+
 func TestIsProvider(t *testing.T) {
 	t.Parallel()
 	if !IsProvider(system.DatabricksModelProvider) {
@@ -64,6 +68,28 @@ func TestResponsesPath(t *testing.T) {
 func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	c.req = req
 	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Header: make(http.Header)}, nil
+}
+
+func (r *redirectRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	captured := req.Clone(req.Context())
+	captured.Header = req.Header.Clone()
+	r.requests = append(r.requests, captured)
+	if len(r.requests) == 1 {
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header: http.Header{
+				"Location": []string{"https://redirect.example/target"},
+			},
+			Body:    http.NoBody,
+			Request: req,
+		}, nil
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       http.NoBody,
+		Request:    req,
+	}, nil
 }
 
 func TestBaseURL(t *testing.T) {
@@ -143,6 +169,18 @@ func TestTransport(t *testing.T) {
 			wantAuth: "Bearer secret",
 		},
 		{
+			name: "different host",
+			url:  "https://redirect.example/serving-endpoints/responses",
+		},
+		{
+			name: "different port",
+			url:  "https://workspace.example:8443/serving-endpoints/responses",
+		},
+		{
+			name: "HTTP downgrade",
+			url:  "http://workspace.example/serving-endpoints/responses",
+		},
+		{
 			name: "IPv4 discovery daemon",
 			url:  "http://127.0.0.1:1234/v1/models",
 		},
@@ -158,7 +196,10 @@ func TestTransport(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			capture := &captureRoundTripper{}
-			transport, err := Transport(map[string]string{TokenEnv: "secret"}, capture)
+			transport, err := Transport(map[string]string{
+				WorkspaceURLEnv: "https://workspace.example",
+				TokenEnv:        "secret",
+			}, capture)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -178,9 +219,39 @@ func TestTransport(t *testing.T) {
 	}
 }
 
+func TestTransportDoesNotAuthenticateCrossOriginRedirect(t *testing.T) {
+	t.Parallel()
+
+	capture := &redirectRoundTripper{}
+	transport, err := Transport(map[string]string{
+		WorkspaceURLEnv: "https://workspace.example",
+		TokenEnv:        "secret",
+	}, capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := (&http.Client{Transport: transport}).Get("https://workspace.example/start")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+
+	if len(capture.requests) != 2 {
+		t.Fatalf("requests = %d, want 2", len(capture.requests))
+	}
+	if got := capture.requests[0].Header.Get("Authorization"); got != "Bearer secret" {
+		t.Errorf("initial Authorization = %q, want bearer token", got)
+	}
+	if got := capture.requests[1].Header.Get("Authorization"); got != "" {
+		t.Errorf("redirect Authorization = %q, want empty", got)
+	}
+}
+
 func TestTransportRequiresToken(t *testing.T) {
 	t.Parallel()
-	if _, err := Transport(nil, nil); err == nil {
+	if _, err := Transport(map[string]string{
+		WorkspaceURLEnv: "https://workspace.example",
+	}, nil); err == nil {
 		t.Fatal("Transport() error = nil, want error")
 	}
 }
