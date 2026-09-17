@@ -116,10 +116,28 @@ func TestAPIKeyListEndpointsHideRevokedKeysUnlessRequested(t *testing.T) {
 		admin        bool
 		wantKeyCount int
 	}{
-		{name: "user default", path: "/api/api-keys", wantKeyCount: 1},
-		{name: "user show revoked", path: "/api/api-keys?show_revoked=true", wantKeyCount: 2},
-		{name: "admin default", path: "/api/admin-api-keys", admin: true, wantKeyCount: 1},
-		{name: "admin show revoked", path: "/api/admin-api-keys?show_revoked=true", admin: true, wantKeyCount: 2},
+		{
+			name:         "user default",
+			path:         "/api/api-keys",
+			wantKeyCount: 1,
+		},
+		{
+			name:         "user show revoked",
+			path:         "/api/api-keys?show_revoked=true",
+			wantKeyCount: 2,
+		},
+		{
+			name:         "admin default",
+			path:         "/api/admin-api-keys",
+			admin:        true,
+			wantKeyCount: 1,
+		},
+		{
+			name:         "admin show revoked",
+			path:         "/api/admin-api-keys?show_revoked=true",
+			admin:        true,
+			wantKeyCount: 2,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodGet, tt.path, nil, userInfo)

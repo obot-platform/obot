@@ -320,8 +320,15 @@ func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
 		apiKeyName string
 		wantName   string
 	}{
-		{name: "named", apiKeyName: "CLI token", wantName: "CLI token"},
-		{name: "unnamed", wantName: "ok1-7-42-*****"},
+		{
+			name:       "named",
+			apiKeyName: "CLI token",
+			wantName:   "CLI token",
+		},
+		{
+			name:     "unnamed",
+			wantName: "ok1-7-42-*****",
+		},
 	}
 
 	for _, tt := range tests {

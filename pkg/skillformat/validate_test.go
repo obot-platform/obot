@@ -13,21 +13,81 @@ func TestValidateName(t *testing.T) {
 		input     string
 		expectErr bool
 	}{
-		{"valid simple", "my-skill", false},
-		{"valid single char", "a", false},
-		{"valid with numbers", "skill-123", false},
-		{"valid all numbers", "123", false},
-		{"valid max length", strings.Repeat("a", 64), false},
-		{"empty", "", true},
-		{"too long", strings.Repeat("a", 65), true},
-		{"uppercase", "My-Skill", true},
-		{"leading hyphen", "-leading", true},
-		{"trailing hyphen", "trailing-", true},
-		{"consecutive hyphens", "double--hyphen", true},
-		{"space", "has space", true},
-		{"underscore", "has_underscore", true},
-		{"dot", "has.dot", true},
-		{"only hyphen", "-", true},
+		{
+			name:      "valid simple",
+			input:     "my-skill",
+			expectErr: false,
+		},
+		{
+			name:      "valid single char",
+			input:     "a",
+			expectErr: false,
+		},
+		{
+			name:      "valid with numbers",
+			input:     "skill-123",
+			expectErr: false,
+		},
+		{
+			name:      "valid all numbers",
+			input:     "123",
+			expectErr: false,
+		},
+		{
+			name:      "valid max length",
+			input:     strings.Repeat("a", 64),
+			expectErr: false,
+		},
+		{
+			name:      "empty",
+			input:     "",
+			expectErr: true,
+		},
+		{
+			name:      "too long",
+			input:     strings.Repeat("a", 65),
+			expectErr: true,
+		},
+		{
+			name:      "uppercase",
+			input:     "My-Skill",
+			expectErr: true,
+		},
+		{
+			name:      "leading hyphen",
+			input:     "-leading",
+			expectErr: true,
+		},
+		{
+			name:      "trailing hyphen",
+			input:     "trailing-",
+			expectErr: true,
+		},
+		{
+			name:      "consecutive hyphens",
+			input:     "double--hyphen",
+			expectErr: true,
+		},
+		{
+			name:      "space",
+			input:     "has space",
+			expectErr: true,
+		},
+		{
+			name:      "underscore",
+			input:     "has_underscore",
+			expectErr: true,
+		},
+		{
+			name:      "dot",
+			input:     "has.dot",
+			expectErr: true,
+		},
+		{
+			name:      "only hyphen",
+			input:     "-",
+			expectErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -46,10 +106,26 @@ func TestValidateDescription(t *testing.T) {
 		input     string
 		expectErr bool
 	}{
-		{"valid", "A valid description", false},
-		{"valid max length", strings.Repeat("x", 1024), false},
-		{"empty", "", true},
-		{"too long", strings.Repeat("x", 1025), true},
+		{
+			name:      "valid",
+			input:     "A valid description",
+			expectErr: false,
+		},
+		{
+			name:      "valid max length",
+			input:     strings.Repeat("x", 1024),
+			expectErr: false,
+		},
+		{
+			name:      "empty",
+			input:     "",
+			expectErr: true,
+		},
+		{
+			name:      "too long",
+			input:     strings.Repeat("x", 1025),
+			expectErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,9 +242,24 @@ func TestValidateNameMatchesDir(t *testing.T) {
 		dirName   string
 		expectErr bool
 	}{
-		{"match", "my-skill", "my-skill", false},
-		{"mismatch", "my-skill", "other-skill", true},
-		{"case mismatch", "my-skill", "My-Skill", true},
+		{
+			name:      "match",
+			fmName:    "my-skill",
+			dirName:   "my-skill",
+			expectErr: false,
+		},
+		{
+			name:      "mismatch",
+			fmName:    "my-skill",
+			dirName:   "other-skill",
+			expectErr: true,
+		},
+		{
+			name:      "case mismatch",
+			fmName:    "my-skill",
+			dirName:   "My-Skill",
+			expectErr: true,
+		},
 	}
 
 	for _, tt := range tests {

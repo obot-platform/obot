@@ -9,13 +9,34 @@ func TestResponseFormatForRequestPath(t *testing.T) {
 		path string
 		want responseFormat
 	}{
-		{path: "/v1/messages", want: responseFormatAnthropicMessages},
-		{path: "/anthropic/v1/messages", want: responseFormatAnthropicMessages},
-		{path: "/api/llm-proxy/aws-bedrock/anthropic/v1/messages", want: responseFormatAnthropicMessages},
-		{path: "/v1/responses", want: responseFormatOpenAIResponses},
-		{path: "/openai/v1/responses", want: responseFormatOpenAIResponses},
-		{path: "/api/llm-proxy/aws-bedrock/openai/v1/responses", want: responseFormatOpenAIResponses},
-		{path: "/v1/models", want: responseFormatUnknown},
+		{
+			path: "/v1/messages",
+			want: responseFormatAnthropicMessages,
+		},
+		{
+			path: "/anthropic/v1/messages",
+			want: responseFormatAnthropicMessages,
+		},
+		{
+			path: "/api/llm-proxy/aws-bedrock/anthropic/v1/messages",
+			want: responseFormatAnthropicMessages,
+		},
+		{
+			path: "/v1/responses",
+			want: responseFormatOpenAIResponses,
+		},
+		{
+			path: "/openai/v1/responses",
+			want: responseFormatOpenAIResponses,
+		},
+		{
+			path: "/api/llm-proxy/aws-bedrock/openai/v1/responses",
+			want: responseFormatOpenAIResponses,
+		},
+		{
+			path: "/v1/models",
+			want: responseFormatUnknown,
+		},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			if got := responseFormatForRequestPath(tc.path); got != tc.want {

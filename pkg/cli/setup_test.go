@@ -593,8 +593,16 @@ func TestSetupStatusSetupCompleteRequiresConfiguredURLAndValidToken(t *testing.T
 		tokenValid    bool
 		setupComplete bool
 	}{
-		{name: "valid token", tokenValid: true, setupComplete: true},
-		{name: "invalid token", tokenValid: false, setupComplete: false},
+		{
+			name:          "valid token",
+			tokenValid:    true,
+			setupComplete: true,
+		},
+		{
+			name:          "invalid token",
+			tokenValid:    false,
+			setupComplete: false,
+		},
 	}
 
 	for _, tt := range tests {

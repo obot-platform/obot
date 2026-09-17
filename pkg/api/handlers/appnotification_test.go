@@ -78,17 +78,50 @@ func TestValidateBannerText(t *testing.T) {
 		name string
 		text string
 	}{
-		{"plain text", "Hello world"},
-		{"bold", "**important** notice"},
-		{"italic underscore", "_emphasis_ here"},
-		{"italic asterisk", "*emphasis* here"},
-		{"strikethrough", "~~gone~~ now"},
-		{"plain text without special chars", "no special chars here"},
-		{"http link", "[click](http://example.com)"},
-		{"https link", "[click](https://example.com/a/b?c=d#e)"},
-		{"multiple links", "[a](https://a.com) and [b](https://b.com)"},
-		{"hyphen mid-line is not a list", "well-known issue is resolved"},
-		{"asterisk mid-line", "5 * 5 equals 25"},
+		{
+			name: "plain text",
+			text: "Hello world",
+		},
+		{
+			name: "bold",
+			text: "**important** notice",
+		},
+		{
+			name: "italic underscore",
+			text: "_emphasis_ here",
+		},
+		{
+			name: "italic asterisk",
+			text: "*emphasis* here",
+		},
+		{
+			name: "strikethrough",
+			text: "~~gone~~ now",
+		},
+		{
+			name: "plain text without special chars",
+			text: "no special chars here",
+		},
+		{
+			name: "http link",
+			text: "[click](http://example.com)",
+		},
+		{
+			name: "https link",
+			text: "[click](https://example.com/a/b?c=d#e)",
+		},
+		{
+			name: "multiple links",
+			text: "[a](https://a.com) and [b](https://b.com)",
+		},
+		{
+			name: "hyphen mid-line is not a list",
+			text: "well-known issue is resolved",
+		},
+		{
+			name: "asterisk mid-line",
+			text: "5 * 5 equals 25",
+		},
 	}
 	for _, tt := range validTexts {
 		t.Run("valid/"+tt.name, func(t *testing.T) {
@@ -100,27 +133,90 @@ func TestValidateBannerText(t *testing.T) {
 		name string
 		text string
 	}{
-		{"fenced code block", "```code```"},
-		{"image", "![alt](https://example.com/img.png)"},
-		{"html tag", "<b>bold</b>"},
-		{"self closing html tag", "<br/>"},
-		{"heading", "# Heading"},
-		{"heading indented", "   ## Heading"},
-		{"blockquote", "> quoted"},
-		{"unordered list dash", "- item"},
-		{"unordered list asterisk", "* item"},
-		{"unordered list plus", "+ item"},
-		{"ordered list", "1. item"},
-		{"horizontal rule dashes", "---"},
-		{"horizontal rule stars", "***"},
-		{"reference style link", "[text][ref]"},
-		{"table row", "| a | b |"},
-		{"link with non http scheme", "[click](ftp://example.com)"},
-		{"link with javascript scheme", "[click](javascript:alert(1))"},
-		{"link with relative url", "[click](/relative/path)"},
-		{"link with empty label", "[   ](https://example.com)"},
-		{"backslash outside link", "escaped \\* not a list"},
-		{"backtick outside link", "use `code` here"},
+		{
+			name: "fenced code block",
+			text: "```code```",
+		},
+		{
+			name: "image",
+			text: "![alt](https://example.com/img.png)",
+		},
+		{
+			name: "html tag",
+			text: "<b>bold</b>",
+		},
+		{
+			name: "self closing html tag",
+			text: "<br/>",
+		},
+		{
+			name: "heading",
+			text: "# Heading",
+		},
+		{
+			name: "heading indented",
+			text: "   ## Heading",
+		},
+		{
+			name: "blockquote",
+			text: "> quoted",
+		},
+		{
+			name: "unordered list dash",
+			text: "- item",
+		},
+		{
+			name: "unordered list asterisk",
+			text: "* item",
+		},
+		{
+			name: "unordered list plus",
+			text: "+ item",
+		},
+		{
+			name: "ordered list",
+			text: "1. item",
+		},
+		{
+			name: "horizontal rule dashes",
+			text: "---",
+		},
+		{
+			name: "horizontal rule stars",
+			text: "***",
+		},
+		{
+			name: "reference style link",
+			text: "[text][ref]",
+		},
+		{
+			name: "table row",
+			text: "| a | b |",
+		},
+		{
+			name: "link with non http scheme",
+			text: "[click](ftp://example.com)",
+		},
+		{
+			name: "link with javascript scheme",
+			text: "[click](javascript:alert(1))",
+		},
+		{
+			name: "link with relative url",
+			text: "[click](/relative/path)",
+		},
+		{
+			name: "link with empty label",
+			text: "[   ](https://example.com)",
+		},
+		{
+			name: "backslash outside link",
+			text: "escaped \\* not a list",
+		},
+		{
+			name: "backtick outside link",
+			text: "use `code` here",
+		},
 	}
 	for _, tt := range invalidTexts {
 		t.Run("invalid/"+tt.name, func(t *testing.T) {

@@ -48,11 +48,31 @@ func TestResolveModelReference(t *testing.T) {
 		wantName     string
 		wantNotFound bool
 	}{
-		{name: "resource name", reference: model.Name, wantName: model.Name},
-		{name: "default alias", reference: "llm", wantName: model.Name},
-		{name: "provider native ID", reference: model.Spec.Manifest.TargetModel, wantName: model.Name},
-		{name: "catalog model name is not a reference", reference: model.Spec.Manifest.Name, wantNotFound: true},
-		{name: "unknown reference", reference: "openai/unknown", wantNotFound: true},
+		{
+			name:      "resource name",
+			reference: model.Name,
+			wantName:  model.Name,
+		},
+		{
+			name:      "default alias",
+			reference: "llm",
+			wantName:  model.Name,
+		},
+		{
+			name:      "provider native ID",
+			reference: model.Spec.Manifest.TargetModel,
+			wantName:  model.Name,
+		},
+		{
+			name:         "catalog model name is not a reference",
+			reference:    model.Spec.Manifest.Name,
+			wantNotFound: true,
+		},
+		{
+			name:         "unknown reference",
+			reference:    "openai/unknown",
+			wantNotFound: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := helper.ResolveModelReference(t.Context(), client, namespace, provider, tt.reference)

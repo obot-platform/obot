@@ -518,16 +518,56 @@ func TestSanitizeNameFragment(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{name: "simple lowercase", input: "my-skill", expected: "my-skill"},
-		{name: "slashes to dashes", input: "a/b/c", expected: "a-b-c"},
-		{name: "underscores to dashes", input: "a_b", expected: "a-b"},
-		{name: "dots to dashes", input: "v1.0", expected: "v1-0"},
-		{name: "spaces to dashes", input: "a b", expected: "a-b"},
-		{name: "uppercase lowered", input: "UPPER", expected: "upper"},
-		{name: "consecutive specials collapsed", input: "a//b", expected: "a-b"},
-		{name: "leading trailing stripped", input: "/path/", expected: "path"},
-		{name: "empty string", input: "", expected: ""},
-		{name: "mixed special chars", input: "My_Skill.v2/Sub Dir", expected: "my-skill-v2-sub-dir"},
+		{
+			name:     "simple lowercase",
+			input:    "my-skill",
+			expected: "my-skill",
+		},
+		{
+			name:     "slashes to dashes",
+			input:    "a/b/c",
+			expected: "a-b-c",
+		},
+		{
+			name:     "underscores to dashes",
+			input:    "a_b",
+			expected: "a-b",
+		},
+		{
+			name:     "dots to dashes",
+			input:    "v1.0",
+			expected: "v1-0",
+		},
+		{
+			name:     "spaces to dashes",
+			input:    "a b",
+			expected: "a-b",
+		},
+		{
+			name:     "uppercase lowered",
+			input:    "UPPER",
+			expected: "upper",
+		},
+		{
+			name:     "consecutive specials collapsed",
+			input:    "a//b",
+			expected: "a-b",
+		},
+		{
+			name:     "leading trailing stripped",
+			input:    "/path/",
+			expected: "path",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "mixed special chars",
+			input:    "My_Skill.v2/Sub Dir",
+			expected: "my-skill-v2-sub-dir",
+		},
 	}
 
 	for _, tt := range tests {

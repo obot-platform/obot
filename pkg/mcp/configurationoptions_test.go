@@ -79,7 +79,12 @@ func TestValidateCatalogEntryManifestConfigUsage(t *testing.T) {
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-				Config:       []types.MCPConfig{{Key: "Authorization", Usage: types.Header}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "Authorization",
+						Usage: types.Header,
+					},
+				},
 			},
 		},
 		{
@@ -87,7 +92,12 @@ func TestValidateCatalogEntryManifestConfigUsage(t *testing.T) {
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime:   types.RuntimeNPX,
 				NPXConfig: &types.NPXRuntimeConfig{Package: "test-server"},
-				Config:    []types.MCPConfig{{Key: "Authorization", Usage: types.Header}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "Authorization",
+						Usage: types.Header,
+					},
+				},
 			},
 		},
 		{
@@ -95,7 +105,12 @@ func TestValidateCatalogEntryManifestConfigUsage(t *testing.T) {
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime:   types.RuntimeUVX,
 				UVXConfig: &types.UVXRuntimeConfig{Package: "test-server"},
-				Config:    []types.MCPConfig{{Key: "Authorization", Usage: types.Header}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "Authorization",
+						Usage: types.Header,
+					},
+				},
 			},
 		},
 		{
@@ -107,7 +122,12 @@ func TestValidateCatalogEntryManifestConfigUsage(t *testing.T) {
 					Port:  8080,
 					Path:  "/mcp",
 				},
-				Config: []types.MCPConfig{{Key: "Authorization", Usage: types.Header}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "Authorization",
+						Usage: types.Header,
+					},
+				},
 			},
 		},
 		{
@@ -115,7 +135,14 @@ func TestValidateCatalogEntryManifestConfigUsage(t *testing.T) {
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-				Config:       []types.MCPConfig{{Key: "Authorization", Usage: types.Header, Value: "Bearer token", Sensitive: true}},
+				Config: []types.MCPConfig{
+					{
+						Key:       "Authorization",
+						Usage:     types.Header,
+						Value:     "Bearer token",
+						Sensitive: true,
+					},
+				},
 			},
 		},
 	}

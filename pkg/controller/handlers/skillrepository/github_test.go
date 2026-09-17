@@ -102,14 +102,42 @@ func TestSafeJoinWithin(t *testing.T) {
 		relPath string
 		wantErr string
 	}{
-		{name: "simple relative", relPath: "skills/my-skill"},
-		{name: "dot path", relPath: "."},
-		{name: "empty path", relPath: ""},
-		{name: "nested valid", relPath: "a/b/c"},
-		{name: "traversal ../", relPath: "../escape", wantErr: "escapes"},
-		{name: "traversal ../../", relPath: "../../etc", wantErr: "escapes"},
-		{name: "absolute path", relPath: "/etc/passwd", wantErr: "escapes"},
-		{name: "nested traversal", relPath: "a/../../escape", wantErr: "escapes"},
+		{
+			name:    "simple relative",
+			relPath: "skills/my-skill",
+		},
+		{
+			name:    "dot path",
+			relPath: ".",
+		},
+		{
+			name:    "empty path",
+			relPath: "",
+		},
+		{
+			name:    "nested valid",
+			relPath: "a/b/c",
+		},
+		{
+			name:    "traversal ../",
+			relPath: "../escape",
+			wantErr: "escapes",
+		},
+		{
+			name:    "traversal ../../",
+			relPath: "../../etc",
+			wantErr: "escapes",
+		},
+		{
+			name:    "absolute path",
+			relPath: "/etc/passwd",
+			wantErr: "escapes",
+		},
+		{
+			name:    "nested traversal",
+			relPath: "a/../../escape",
+			wantErr: "escapes",
+		},
 	}
 
 	for _, tt := range tests {

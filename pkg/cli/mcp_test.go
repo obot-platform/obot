@@ -164,8 +164,14 @@ func TestMCPSearchRegistryAuthErrors(t *testing.T) {
 		status int
 		want   string
 	}{
-		{status: http.StatusUnauthorized, want: `registry search requires login; run "obot login" first`},
-		{status: http.StatusForbidden, want: "authenticated user is not authorized to access the registry endpoint"},
+		{
+			status: http.StatusUnauthorized,
+			want:   `registry search requires login; run "obot login" first`,
+		},
+		{
+			status: http.StatusForbidden,
+			want:   "authenticated user is not authorized to access the registry endpoint",
+		},
 	}
 
 	for _, tt := range tests {

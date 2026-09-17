@@ -400,15 +400,30 @@ func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 		{
 			name: "user-defined headers",
 			config: []types.MCPConfig{
-				{Key: "X-Tenant-ID", Usage: types.Header, UserAllowed: true, Required: true},
-				{Key: "X-Account-ID", Usage: types.Header, UserAllowed: true},
+				{
+					Key:         "X-Tenant-ID",
+					Usage:       types.Header,
+					UserAllowed: true,
+					Required:    true,
+				},
+				{
+					Key:         "X-Account-ID",
+					Usage:       types.Header,
+					UserAllowed: true,
+				},
 			},
 			expected: []string{"X-Tenant-ID", "X-Account-ID"},
 		},
 		{
 			name: "per-user values are not shared",
 			config: []types.MCPConfig{
-				{Key: "X-Tenant-ID", Usage: types.Header, UserAllowed: true, Required: true, Value: "tenant"},
+				{
+					Key:         "X-Tenant-ID",
+					Usage:       types.Header,
+					UserAllowed: true,
+					Required:    true,
+					Value:       "tenant",
+				},
 			},
 			expected: []string{"X-Tenant-ID"},
 		},
@@ -459,7 +474,11 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "static header only",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "Bearer static-token"},
+				{
+					Usage: types.Header,
+					Key:   "Authorization",
+					Value: "Bearer static-token",
+				},
 			},
 			credEnv:         map[string]string{},
 			expectedHeaders: []string{"Authorization=Bearer static-token"},
@@ -468,7 +487,11 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "user-configurable header only",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "X-API-Key", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "X-API-Key",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"X-API-Key": "user-key"},
 			expectedHeaders: []string{"X-API-Key=user-key"},
@@ -477,8 +500,16 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "mixed static and user-configurable",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "Bearer static-token"},
-				{Usage: types.Header, Key: "X-API-Key", Required: true},
+				{
+					Usage: types.Header,
+					Key:   "Authorization",
+					Value: "Bearer static-token",
+				},
+				{
+					Usage:    types.Header,
+					Key:      "X-API-Key",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"X-API-Key": "user-key"},
 			expectedHeaders: []string{"Authorization=Bearer static-token", "X-API-Key=user-key"},
@@ -487,8 +518,16 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "missing required user-configurable header",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "Bearer static-token"},
-				{Usage: types.Header, Key: "X-API-Key", Required: true},
+				{
+					Usage: types.Header,
+					Key:   "Authorization",
+					Value: "Bearer static-token",
+				},
+				{
+					Usage:    types.Header,
+					Key:      "X-API-Key",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{},
 			expectedHeaders: []string{"Authorization=Bearer static-token"},
@@ -497,8 +536,16 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "optional user-configurable header missing",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "Bearer static-token"},
-				{Usage: types.Header, Key: "X-Optional", Required: false},
+				{
+					Usage: types.Header,
+					Key:   "Authorization",
+					Value: "Bearer static-token",
+				},
+				{
+					Usage:    types.Header,
+					Key:      "X-Optional",
+					Required: false,
+				},
 			},
 			credEnv:         map[string]string{},
 			expectedHeaders: []string{"Authorization=Bearer static-token"},
@@ -507,7 +554,11 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "static header overrides credential",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "Bearer static-token"},
+				{
+					Usage: types.Header,
+					Key:   "Authorization",
+					Value: "Bearer static-token",
+				},
 			},
 			credEnv:         map[string]string{"Authorization": "Bearer user-token"},
 			expectedHeaders: []string{"Authorization=Bearer static-token"},
@@ -516,7 +567,12 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "empty static value falls back to credential",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Value:    "",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"Authorization": "Bearer user-token"},
 			expectedHeaders: []string{"Authorization=Bearer user-token"},
@@ -525,7 +581,12 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 		{
 			name: "empty credential value is ignored",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Value:    "",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"Authorization": ""},
 			expectedHeaders: []string{},
@@ -644,7 +705,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "header with prefix applied to user value",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Prefix: "Bearer ", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"Authorization": "my-token"},
 			expectedHeaders: []string{"Authorization=Bearer my-token"},
@@ -653,7 +719,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "header with prefix not applied to static value",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Value: "static-token", Prefix: "Bearer "},
+				{
+					Usage:  types.Header,
+					Key:    "Authorization",
+					Value:  "static-token",
+					Prefix: "Bearer ",
+				},
 			},
 			credEnv:         map[string]string{},
 			expectedHeaders: []string{"Authorization=static-token"},
@@ -662,7 +733,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "env var with Bearer prefix",
 			env: []types.MCPConfig{
-				{Usage: types.Env, Key: "API_KEY", Prefix: "Bearer ", Required: true},
+				{
+					Usage:    types.Env,
+					Key:      "API_KEY",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"API_KEY": "secret-key-123"},
 			expectedEnv:     []string{"API_KEY=Bearer secret-key-123"},
@@ -671,7 +747,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "env var with sk- prefix (OpenAI style)",
 			env: []types.MCPConfig{
-				{Usage: types.Env, Key: "OPENAI_API_KEY", Prefix: "sk-", Required: true},
+				{
+					Usage:    types.Env,
+					Key:      "OPENAI_API_KEY",
+					Prefix:   "sk-",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"OPENAI_API_KEY": "proj-abc123xyz"},
 			expectedEnv:     []string{"OPENAI_API_KEY=sk-proj-abc123xyz"},
@@ -680,12 +761,31 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "multiple headers and env vars with different prefixes",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Prefix: "Bearer ", Required: true},
-				{Usage: types.Header, Key: "X-API-Key", Prefix: "Key ", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
+				{
+					Usage:    types.Header,
+					Key:      "X-API-Key",
+					Prefix:   "Key ",
+					Required: true,
+				},
 			},
 			env: []types.MCPConfig{
-				{Usage: types.Env, Key: "TOKEN", Prefix: "Token ", Required: true},
-				{Usage: types.Env, Key: "SECRET", Required: true}, // No prefix
+				{
+					Usage:    types.Env,
+					Key:      "TOKEN",
+					Prefix:   "Token ",
+					Required: true,
+				},
+				{
+					Usage:    types.Env,
+					Key:      "SECRET",
+					Required: true,
+				}, // No prefix
 			},
 			credEnv: map[string]string{
 				"Authorization": "auth-token",
@@ -700,7 +800,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "prefix not applied when value is empty",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Prefix: "Bearer ", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{},
 			expectedHeaders: []string{},
@@ -709,7 +814,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "prefix not duplicated when user already included it in header",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Prefix: "Bearer ", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"Authorization": "Bearer my-token"},
 			expectedHeaders: []string{"Authorization=Bearer my-token"},
@@ -718,7 +828,12 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "prefix not duplicated when user already included it in env var",
 			env: []types.MCPConfig{
-				{Usage: types.Env, Key: "API_KEY", Prefix: "sk-", Required: true},
+				{
+					Usage:    types.Env,
+					Key:      "API_KEY",
+					Prefix:   "sk-",
+					Required: true,
+				},
 			},
 			credEnv:         map[string]string{"API_KEY": "sk-proj-abc123"},
 			expectedEnv:     []string{"API_KEY=sk-proj-abc123"},
@@ -727,11 +842,26 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "mixed - some with prefix already included, some without",
 			headers: []types.MCPConfig{
-				{Usage: types.Header, Key: "Authorization", Prefix: "Bearer ", Required: true},
+				{
+					Usage:    types.Header,
+					Key:      "Authorization",
+					Prefix:   "Bearer ",
+					Required: true,
+				},
 			},
 			env: []types.MCPConfig{
-				{Usage: types.Env, Key: "API_KEY", Prefix: "sk-", Required: true},
-				{Usage: types.Env, Key: "TOKEN", Prefix: "Token ", Required: true},
+				{
+					Usage:    types.Env,
+					Key:      "API_KEY",
+					Prefix:   "sk-",
+					Required: true,
+				},
+				{
+					Usage:    types.Env,
+					Key:      "TOKEN",
+					Prefix:   "Token ",
+					Required: true,
+				},
 			},
 			credEnv: map[string]string{
 				"Authorization": "Bearer already-has-it",
@@ -819,7 +949,11 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "Authorization", Value: "Bearer token-with-special!@#$%^&*()characters"},
+					{
+						Usage: types.Header,
+						Key:   "Authorization",
+						Value: "Bearer token-with-special!@#$%^&*()characters",
+					},
 				},
 			},
 			credEnv:         map[string]string{},

@@ -53,22 +53,49 @@ func TestRestrictComponentTools(t *testing.T) {
 		disabled    bool
 	}{
 		{
-			name:        "component wildcard preserves enabled and disabled overrides",
-			component:   ComponentServer{Tools: []types.ToolOverride{renamed, {Name: "delete", Enabled: false}}},
+			name: "component wildcard preserves enabled and disabled overrides",
+			component: ComponentServer{Tools: []types.ToolOverride{
+				renamed,
+				{
+					Name:    "delete",
+					Enabled: false,
+				},
+			}},
 			componentID: "docs",
-			allowed:     []types.VMCPToolReference{{ComponentID: "docs", Name: "*"}},
-			want:        []types.ToolOverride{renamed, {Name: "delete", Enabled: false}},
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "docs",
+					Name:        "*",
+				},
+			},
+			want: []types.ToolOverride{
+				renamed,
+				{
+					Name:    "delete",
+					Enabled: false,
+				},
+			},
 		},
 		{
 			name:        "component wildcard without overrides stays unrestricted",
 			componentID: "docs",
-			allowed:     []types.VMCPToolReference{{ComponentID: "docs", Name: "*"}},
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "docs",
+					Name:        "*",
+				},
+			},
 		},
 		{
 			name:        "wildcard on another component grants nothing",
 			componentID: "docs",
-			allowed:     []types.VMCPToolReference{{ComponentID: "other", Name: "*"}},
-			disabled:    true,
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "other",
+					Name:        "*",
+				},
+			},
+			disabled: true,
 		},
 		{
 			name:      "all preserves overrides",
@@ -81,30 +108,65 @@ func TestRestrictComponentTools(t *testing.T) {
 			disabled: true,
 		},
 		{
-			name:        "grants original name despite prefix and rename",
-			component:   ComponentServer{ToolPrefix: "docs", Tools: []types.ToolOverride{renamed, {Name: "delete", Enabled: false}}},
+			name: "grants original name despite prefix and rename",
+			component: ComponentServer{ToolPrefix: "docs", Tools: []types.ToolOverride{
+				renamed,
+				{
+					Name:    "delete",
+					Enabled: false,
+				},
+			}},
 			componentID: "docs-component",
-			allowed:     []types.VMCPToolReference{{ComponentID: "docs-component", Name: "find"}, {ComponentID: "docs-component", Name: "delete"}},
-			want:        []types.ToolOverride{renamed},
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "docs-component",
+					Name:        "find",
+				},
+				{
+					ComponentID: "docs-component",
+					Name:        "delete",
+				},
+			},
+			want: []types.ToolOverride{renamed},
 		},
 		{
 			name:        "same named tool on another component does not grant access",
 			component:   ComponentServer{Tools: []types.ToolOverride{renamed}},
 			componentID: "docs-component",
-			allowed:     []types.VMCPToolReference{{ComponentID: "other-component", Name: "find"}},
-			disabled:    true,
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "other-component",
+					Name:        "find",
+				},
+			},
+			disabled: true,
 		},
 		{
 			name:        "creates override for granted upstream tool",
 			componentID: "docs-component",
-			allowed:     []types.VMCPToolReference{{ComponentID: "docs-component", Name: "find"}},
-			want:        []types.ToolOverride{{Name: "find", Enabled: true}},
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "docs-component",
+					Name:        "find",
+				},
+			},
+			want: []types.ToolOverride{
+				{
+					Name:    "find",
+					Enabled: true,
+				},
+			},
 		},
 		{
 			name:        "wrong component has no grant",
 			componentID: "docs-component",
-			allowed:     []types.VMCPToolReference{{ComponentID: "files-component", Name: "find"}},
-			disabled:    true,
+			allowed: []types.VMCPToolReference{
+				{
+					ComponentID: "files-component",
+					Name:        "find",
+				},
+			},
+			disabled: true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -383,18 +445,33 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 			userID: ownerID,
 			profiles: []types.VMCPProfile{
 				{
-					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: otherID}},
+					Subjects: []types.Subject{
+						{
+							Type: types.SubjectTypeUser,
+							ID:   otherID,
+						},
+					},
 					Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"search-component": {AllowedTools: []string{"find"}}}},
 				},
 			},
-			wantTools: []types.ToolOverride{{Name: "find", Enabled: true}},
+			wantTools: []types.ToolOverride{
+				{
+					Name:    "find",
+					Enabled: true,
+				},
+			},
 		},
 		{
 			name:   "non-owner is denied by a profile granting everyone every tool",
 			userID: otherID,
 			profiles: []types.VMCPProfile{
 				{
-					Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					Subjects: []types.Subject{
+						{
+							Type: types.SubjectTypeSelector,
+							ID:   "*",
+						},
+					},
 					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				},
 			},

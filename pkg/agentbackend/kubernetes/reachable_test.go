@@ -23,11 +23,23 @@ func TestLoopbackIsRewrittenToTheNode(t *testing.T) {
 	client := nodeClient(corev1.NodeAddress{Type: corev1.NodeInternalIP, Address: "172.26.119.21"}).Build()
 
 	for _, tt := range []struct{ in, want string }{
-		{"http://localhost:8080", "http://172.26.119.21:8080"},
-		{"http://127.0.0.1:8080", "http://172.26.119.21:8080"},
-		{"http://localhost:8080/", "http://172.26.119.21:8080/"},
+		{
+			in:   "http://localhost:8080",
+			want: "http://172.26.119.21:8080",
+		},
+		{
+			in:   "http://127.0.0.1:8080",
+			want: "http://172.26.119.21:8080",
+		},
+		{
+			in:   "http://localhost:8080/",
+			want: "http://172.26.119.21:8080/",
+		},
 		// No port: the scheme's default is implied and must stay implied.
-		{"http://localhost", "http://172.26.119.21"},
+		{
+			in:   "http://localhost",
+			want: "http://172.26.119.21",
+		},
 	} {
 		got, err := ReachableServerURL(context.Background(), client, tt.in)
 		if err != nil {

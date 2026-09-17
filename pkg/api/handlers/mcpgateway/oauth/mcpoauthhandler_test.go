@@ -43,8 +43,14 @@ func TestStaticOAuthLookupUsesCurrentReferencedCredential(t *testing.T) {
 			Secrets: map[string]string{"CLIENT_ID": "client", "CLIENT_SECRET": secret},
 		}))
 		for _, handler := range []mcpOAuthHandler{
-			{gatewayClient: gw, credentialContext: ref},
-			{gatewayClient: gw, catalogEntryName: "source"},
+			{
+				gatewayClient:     gw,
+				credentialContext: ref,
+			},
+			{
+				gatewayClient:    gw,
+				catalogEntryName: "source",
+			},
 		} {
 			id, got, err := handler.Lookup(t.Context())
 			require.NoError(t, err)

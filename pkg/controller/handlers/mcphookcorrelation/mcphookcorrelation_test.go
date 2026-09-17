@@ -21,8 +21,16 @@ func TestCleanup(t *testing.T) {
 		deleted   bool
 		delay     time.Duration
 	}{
-		{name: "retains recent correlation", createdAt: now.Add(-23 * time.Hour), delay: time.Hour},
-		{name: "deletes expired correlation", createdAt: now.Add(-25 * time.Hour), deleted: true},
+		{
+			name:      "retains recent correlation",
+			createdAt: now.Add(-23 * time.Hour),
+			delay:     time.Hour,
+		},
+		{
+			name:      "deletes expired correlation",
+			createdAt: now.Add(-25 * time.Hour),
+			deleted:   true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			correlation := &v1.MCPHookCorrelation{

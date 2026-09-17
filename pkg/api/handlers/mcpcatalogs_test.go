@@ -99,10 +99,13 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			name:             "returns capacity for matching deployments",
 			entryCatalogName: "catalog-1",
 			entryRuntime:     types.RuntimeContainerized,
-			servers: []v1.MCPServer{{
-				Name: "server-1", Namespace: system.DefaultNamespace,
-				Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
-			}},
+			servers: []v1.MCPServer{
+				{
+					Name:      "server-1",
+					Namespace: system.DefaultNamespace,
+					Spec:      v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
+				},
+			},
 			providerInfo:    types.MCPCapacityInfo{Source: types.CapacitySourceDeployments, ActiveDeployments: 1},
 			wantServerNames: []string{"server-1"},
 			wantResponse:    types.MCPCapacityInfo{Source: types.CapacitySourceDeployments, ActiveDeployments: 1},
@@ -112,8 +115,16 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			entryCatalogName: "catalog-1",
 			entryRuntime:     types.RuntimeContainerized,
 			servers: []v1.MCPServer{
-				{Name: "template-server", Namespace: system.DefaultNamespace, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1", Template: true}},
-				{Name: "server-1", Namespace: system.DefaultNamespace, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"}},
+				{
+					Name:      "template-server",
+					Namespace: system.DefaultNamespace,
+					Spec:      v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1", Template: true},
+				},
+				{
+					Name:      "server-1",
+					Namespace: system.DefaultNamespace,
+					Spec:      v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
+				},
 			},
 			providerInfo:    types.MCPCapacityInfo{ActiveDeployments: 1},
 			wantServerNames: []string{"server-1"},

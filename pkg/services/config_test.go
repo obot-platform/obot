@@ -26,21 +26,75 @@ func TestNewAgentBackend(t *testing.T) {
 		// Unset follows the MCP runtime rather than defaulting on its own, so a
 		// deployment names its backend once. There is no docker agent backend,
 		// so a docker MCP runtime lands on fake.
-		{name: "unset follows a docker MCP runtime", mcpBackend: "docker", wantKind: "fake", wantActive: true},
-		{name: "unset with no MCP runtime configured", wantKind: "fake", wantActive: true},
-		{name: "unset follows a kubernetes MCP runtime", mcpBackend: "kubernetes", wantErr: true},
-		{name: "unset follows the k8s alias", mcpBackend: "k8s", wantErr: true},
-		{name: "development defaults fake", devMode: true, wantKind: "fake", wantActive: true},
+		{
+			name:       "unset follows a docker MCP runtime",
+			mcpBackend: "docker",
+			wantKind:   "fake",
+			wantActive: true,
+		},
+		{
+			name:       "unset with no MCP runtime configured",
+			wantKind:   "fake",
+			wantActive: true,
+		},
+		{
+			name:       "unset follows a kubernetes MCP runtime",
+			mcpBackend: "kubernetes",
+			wantErr:    true,
+		},
+		{
+			name:       "unset follows the k8s alias",
+			mcpBackend: "k8s",
+			wantErr:    true,
+		},
+		{
+			name:       "development defaults fake",
+			devMode:    true,
+			wantKind:   "fake",
+			wantActive: true,
+		},
 		// An explicit value always wins over the MCP runtime, in both directions.
-		{name: "explicit disabled under a kubernetes MCP runtime", kind: "disabled", mcpBackend: "kubernetes", wantKind: "disabled"},
-		{name: "explicit disabled in development", kind: "disabled", devMode: true, wantKind: "disabled"},
-		{name: "explicit fake", kind: "FAKE", wantKind: "fake", wantActive: true},
+		{
+			name:       "explicit disabled under a kubernetes MCP runtime",
+			kind:       "disabled",
+			mcpBackend: "kubernetes",
+			wantKind:   "disabled",
+		},
+		{
+			name:     "explicit disabled in development",
+			kind:     "disabled",
+			devMode:  true,
+			wantKind: "disabled",
+		},
+		{
+			name:       "explicit fake",
+			kind:       "FAKE",
+			wantKind:   "fake",
+			wantActive: true,
+		},
 		// The Kubernetes backend needs a cluster, so selecting it without one
 		// has to fail at startup rather than at the first reconcile.
-		{name: "kubernetes without a cluster", kind: "kubernetes", wantErr: true},
-		{name: "explicit kubernetes under a docker MCP runtime", kind: "kubernetes", mcpBackend: "docker", wantErr: true},
-		{name: "discobox removed", kind: "discobox", wantErr: true},
-		{name: "unknown", kind: "other", wantErr: true},
+		{
+			name:    "kubernetes without a cluster",
+			kind:    "kubernetes",
+			wantErr: true,
+		},
+		{
+			name:       "explicit kubernetes under a docker MCP runtime",
+			kind:       "kubernetes",
+			mcpBackend: "docker",
+			wantErr:    true,
+		},
+		{
+			name:    "discobox removed",
+			kind:    "discobox",
+			wantErr: true,
+		},
+		{
+			name:    "unknown",
+			kind:    "other",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -162,9 +216,20 @@ func TestLeaderElectionRESTConfig(t *testing.T) {
 		timeout  time.Duration
 		expected time.Duration
 	}{
-		{name: "unset", expected: leaderElectionRequestTimeout},
-		{name: "longer", timeout: time.Minute, expected: leaderElectionRequestTimeout},
-		{name: "shorter", timeout: time.Second, expected: time.Second},
+		{
+			name:     "unset",
+			expected: leaderElectionRequestTimeout,
+		},
+		{
+			name:     "longer",
+			timeout:  time.Minute,
+			expected: leaderElectionRequestTimeout,
+		},
+		{
+			name:     "shorter",
+			timeout:  time.Second,
+			expected: time.Second,
+		},
 	}
 
 	for _, tt := range tests {

@@ -105,12 +105,42 @@ func TestAPIKeyRetentionDays(t *testing.T) {
 		llmDays       int
 		wantRetention int
 	}{
-		{name: "MCP is longer", mcpDays: 90, llmDays: 30, wantRetention: 90},
-		{name: "LLM is longer", mcpDays: 30, llmDays: 90, wantRetention: 90},
-		{name: "equal", mcpDays: 90, llmDays: 90, wantRetention: 90},
-		{name: "MCP cleanup disabled", mcpDays: 0, llmDays: 90, wantRetention: 0},
-		{name: "LLM cleanup disabled", mcpDays: 90, llmDays: 0, wantRetention: 0},
-		{name: "negative disables cleanup", mcpDays: -1, llmDays: 90, wantRetention: 0},
+		{
+			name:          "MCP is longer",
+			mcpDays:       90,
+			llmDays:       30,
+			wantRetention: 90,
+		},
+		{
+			name:          "LLM is longer",
+			mcpDays:       30,
+			llmDays:       90,
+			wantRetention: 90,
+		},
+		{
+			name:          "equal",
+			mcpDays:       90,
+			llmDays:       90,
+			wantRetention: 90,
+		},
+		{
+			name:          "MCP cleanup disabled",
+			mcpDays:       0,
+			llmDays:       90,
+			wantRetention: 0,
+		},
+		{
+			name:          "LLM cleanup disabled",
+			mcpDays:       90,
+			llmDays:       0,
+			wantRetention: 0,
+		},
+		{
+			name:          "negative disables cleanup",
+			mcpDays:       -1,
+			llmDays:       90,
+			wantRetention: 0,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := apiKeyRetentionDays(tt.mcpDays, tt.llmDays); got != tt.wantRetention {
@@ -182,9 +212,18 @@ func TestRetentionDeletesPropagateCanceledContext(t *testing.T) {
 		name   string
 		delete func() error
 	}{
-		{name: "MCP audit logs", delete: func() error { return c.deleteOldMCPAuditLogs(ctx, now, 90) }},
-		{name: "LLM audit logs", delete: func() error { return c.deleteOldLLMAuditLogs(ctx, now, 90) }},
-		{name: "revoked API keys", delete: func() error { return c.deleteOldRevokedAPIKeys(ctx, now, 90) }},
+		{
+			name:   "MCP audit logs",
+			delete: func() error { return c.deleteOldMCPAuditLogs(ctx, now, 90) },
+		},
+		{
+			name:   "LLM audit logs",
+			delete: func() error { return c.deleteOldLLMAuditLogs(ctx, now, 90) },
+		},
+		{
+			name:   "revoked API keys",
+			delete: func() error { return c.deleteOldRevokedAPIKeys(ctx, now, 90) },
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.delete(); !errors.Is(err, context.Canceled) {

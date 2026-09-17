@@ -11,12 +11,34 @@ func TestParseUintList(t *testing.T) {
 		values []string
 		want   []uint
 	}{
-		{name: "no values"},
-		{name: "repeated values", values: []string{"42", "7", "9"}, want: []uint{42, 7, 9}},
-		{name: "comma-separated values", values: []string{"42,7,9"}, want: []uint{42, 7, 9}},
-		{name: "trims whitespace", values: []string{" 42, 7 ", " 9 "}, want: []uint{42, 7, 9}},
-		{name: "ignores blank values", values: []string{"", "  ", ",", "42,,7"}, want: []uint{42, 7}},
-		{name: "ignores invalid and zero values", values: []string{"invalid", "-1", "0", "42"}, want: []uint{42}},
+		{
+			name: "no values",
+		},
+		{
+			name:   "repeated values",
+			values: []string{"42", "7", "9"},
+			want:   []uint{42, 7, 9},
+		},
+		{
+			name:   "comma-separated values",
+			values: []string{"42,7,9"},
+			want:   []uint{42, 7, 9},
+		},
+		{
+			name:   "trims whitespace",
+			values: []string{" 42, 7 ", " 9 "},
+			want:   []uint{42, 7, 9},
+		},
+		{
+			name:   "ignores blank values",
+			values: []string{"", "  ", ",", "42,,7"},
+			want:   []uint{42, 7},
+		},
+		{
+			name:   "ignores invalid and zero values",
+			values: []string{"invalid", "-1", "0", "42"},
+			want:   []uint{42},
+		},
 	}
 
 	for _, tt := range tests {

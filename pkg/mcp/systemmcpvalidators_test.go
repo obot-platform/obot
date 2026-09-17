@@ -175,13 +175,16 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 				NPXConfig: &types.NPXRuntimeConfig{
 					Package: "@example/server",
 				},
-				Config: []types.MCPConfig{{Usage: types.Env,
-					Key: "API_KEY",
-					SecretBinding: &types.MCPSecretBinding{
-						Name: "my-secret",
-						Key:  "token",
+				Config: []types.MCPConfig{
+					{
+						Usage: types.Env,
+						Key:   "API_KEY",
+						SecretBinding: &types.MCPSecretBinding{
+							Name: "my-secret",
+							Key:  "token",
+						},
 					},
-				}},
+				},
 			},
 			expectError:         true,
 			expectedErrContains: "secretBinding is not supported for system MCP servers",
@@ -193,14 +196,16 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://example.com/mcp",
 				},
-				Config: []types.MCPConfig{{
-					Usage: types.Header,
-					Key:   "Authorization",
-					SecretBinding: &types.MCPSecretBinding{
-						Name: "my-secret",
-						Key:  "token",
+				Config: []types.MCPConfig{
+					{
+						Usage: types.Header,
+						Key:   "Authorization",
+						SecretBinding: &types.MCPSecretBinding{
+							Name: "my-secret",
+							Key:  "token",
+						},
 					},
-				}},
+				},
 			},
 			expectError:         true,
 			expectedErrContains: "secretBinding is not supported for system MCP servers",

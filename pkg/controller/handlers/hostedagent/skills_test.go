@@ -99,13 +99,28 @@ func TestSkillFilesArePlacedInTheSandbox(t *testing.T) {
 // place files outside the skills directory.
 func TestSkillNameCannotEscapeTheSkillsDirectory(t *testing.T) {
 	for _, tt := range []struct{ name, want string }{
-		{"pdf", "pdf"},
-		{"../../etc/passwd", "etc-passwd"},
-		{"a/b", "a-b"},
-		{"..", "skill"},
+		{
+			name: "pdf",
+			want: "pdf",
+		},
+		{
+			name: "../../etc/passwd",
+			want: "etc-passwd",
+		},
+		{
+			name: "a/b",
+			want: "a-b",
+		},
+		{
+			name: "..",
+			want: "skill",
+		},
 		// With no manifest name the object name is used, which is still a
 		// stable, unique directory.
-		{"", "sk1"},
+		{
+			name: "",
+			want: "sk1",
+		},
 	} {
 		skill := &v1.Skill{
 			Name: "sk1",

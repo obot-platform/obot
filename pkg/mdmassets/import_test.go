@@ -106,9 +106,23 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestImportRejectsUnsafeArchiveEntries(t *testing.T) {
 	tests := []tar.Header{
-		{Name: "../manifest.json", Mode: 0o644, Size: 2, Typeflag: tar.TypeReg},
-		{Name: "/manifest.json", Mode: 0o644, Size: 2, Typeflag: tar.TypeReg},
-		{Name: "root/link", Linkname: "root/manifest.json", Typeflag: tar.TypeSymlink},
+		{
+			Name:     "../manifest.json",
+			Mode:     0o644,
+			Size:     2,
+			Typeflag: tar.TypeReg,
+		},
+		{
+			Name:     "/manifest.json",
+			Mode:     0o644,
+			Size:     2,
+			Typeflag: tar.TypeReg,
+		},
+		{
+			Name:     "root/link",
+			Linkname: "root/manifest.json",
+			Typeflag: tar.TypeSymlink,
+		},
 	}
 	for _, header := range tests {
 		t.Run(strings.ReplaceAll(header.Name, "/", "_"), func(t *testing.T) {

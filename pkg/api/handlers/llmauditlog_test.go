@@ -67,13 +67,37 @@ func TestParseLLMAuditLogOptsHideModelsRequests(t *testing.T) {
 		value string
 		want  bool
 	}{
-		{name: "absent defaults false"},
-		{name: "false", value: "false"},
-		{name: "invalid", value: "invalid"},
-		{name: "true", value: "true", want: true},
-		{name: "uppercase true", value: "TRUE", want: true},
-		{name: "one", value: "1", want: true},
-		{name: "short true", value: "t", want: true},
+		{
+			name: "absent defaults false",
+		},
+		{
+			name:  "false",
+			value: "false",
+		},
+		{
+			name:  "invalid",
+			value: "invalid",
+		},
+		{
+			name:  "true",
+			value: "true",
+			want:  true,
+		},
+		{
+			name:  "uppercase true",
+			value: "TRUE",
+			want:  true,
+		},
+		{
+			name:  "one",
+			value: "1",
+			want:  true,
+		},
+		{
+			name:  "short true",
+			value: "t",
+			want:  true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			query := url.Values{}
@@ -94,13 +118,40 @@ func TestHideModelsRequestsFilterOptions(t *testing.T) {
 		paths []string
 		want  []string
 	}{
-		{name: "no path", want: []string{"false", "true"}},
-		{name: "non-models path", paths: []string{"/api/llm-proxy/openai/v1/responses"}, want: []string{"false", "true"}},
-		{name: "models path", paths: []string{"/api/llm-proxy/openai/models"}, want: []string{"false"}},
-		{name: "models path with trailing slash", paths: []string{"/api/llm-proxy/openai/models/"}, want: []string{"false"}},
-		{name: "nested models path", paths: []string{"/api/llm-proxy/openai/v1/models"}, want: []string{"false"}},
-		{name: "specific model path", paths: []string{"/api/llm-proxy/openai/models/model-1"}, want: []string{"false", "true"}},
-		{name: "mixed paths", paths: []string{"/api/llm-proxy/openai/v1/responses", "/api/llm-proxy/openai/models"}, want: []string{"false"}},
+		{
+			name: "no path",
+			want: []string{"false", "true"},
+		},
+		{
+			name:  "non-models path",
+			paths: []string{"/api/llm-proxy/openai/v1/responses"},
+			want:  []string{"false", "true"},
+		},
+		{
+			name:  "models path",
+			paths: []string{"/api/llm-proxy/openai/models"},
+			want:  []string{"false"},
+		},
+		{
+			name:  "models path with trailing slash",
+			paths: []string{"/api/llm-proxy/openai/models/"},
+			want:  []string{"false"},
+		},
+		{
+			name:  "nested models path",
+			paths: []string{"/api/llm-proxy/openai/v1/models"},
+			want:  []string{"false"},
+		},
+		{
+			name:  "specific model path",
+			paths: []string{"/api/llm-proxy/openai/models/model-1"},
+			want:  []string{"false", "true"},
+		},
+		{
+			name:  "mixed paths",
+			paths: []string{"/api/llm-proxy/openai/v1/responses", "/api/llm-proxy/openai/models"},
+			want:  []string{"false"},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hideModelsRequestsFilterOptions(tt.paths)
