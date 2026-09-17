@@ -65,6 +65,20 @@ func TestBaseURL(t *testing.T) {
 	}
 }
 
+func TestBaseURLDefaultsToHTTPS(t *testing.T) {
+	t.Parallel()
+
+	got, err := BaseURL(map[string]string{
+		WorkspaceURLEnv: "example.cloud.databricks.com",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.String() != "https://example.cloud.databricks.com" {
+		t.Fatalf("BaseURL() = %q, want %q", got.String(), "https://example.cloud.databricks.com")
+	}
+}
+
 func TestTransport(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

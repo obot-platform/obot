@@ -24,6 +24,9 @@ func BaseURL(credEnv map[string]string) (url.URL, error) {
 	if raw == "" {
 		return url.URL{}, fmt.Errorf("credential %q is missing or empty", WorkspaceURLEnv)
 	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
 	u, err := url.Parse(raw)
 	if err != nil {
 		return url.URL{}, fmt.Errorf("parse Databricks workspace URL: %w", err)
