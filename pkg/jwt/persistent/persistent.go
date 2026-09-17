@@ -17,7 +17,6 @@ import (
 
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -226,16 +225,13 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		} else {
 			extra["auth_provider_groups"] = authGroupIDs
 
-			// If this token is scoped to the user's groups, then resolve the effective role.
-			if slices.Contains(groups, types.GroupBasic) {
-				// Resolve effective role by merging individual + group roles
-				if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
-					slog.Warn("failed to look up user for role resolution", "userID", tokenContext.UserID, "error", err)
-				} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
-					slog.Warn("failed to resolve effective role for user", "userID", tokenContext.UserID, "error", err)
-				} else {
-					extra["obot_groups"] = effectiveRole.RoleGroups()
-				}
+			// Resolve effective role by merging individual + group roles
+			if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
+				slog.Warn("failed to look up user for role resolution", "userID", tokenContext.UserID, "error", err)
+			} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
+				slog.Warn("failed to resolve effective role for user", "userID", tokenContext.UserID, "error", err)
+			} else {
+				extra["obot_groups"] = effectiveRole.RoleGroups()
 			}
 		}
 	}

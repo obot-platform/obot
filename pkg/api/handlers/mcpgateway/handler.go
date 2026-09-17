@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	"net/http/httputil"
@@ -119,6 +120,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 	ctx, cancel := context.WithCancel(ctx)
 
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
+		Logger:            slog.Default(),
 		DSN:               dsn,
 		ForwardClientInfo: true,
 		ClientInfo: &gomcp.Implementation{
