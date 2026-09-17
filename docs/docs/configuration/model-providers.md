@@ -66,9 +66,9 @@ Use the **Databricks** provider to access the pay-per-token foundation models av
 - **Workspace URL** — the workspace origin, such as `https://dbc-xxxxxxxx-xxxx.cloud.databricks.com`.
 - **Personal Access Token** — a token with permission to list and query serving endpoints.
 
-Obot discovers ready, built-in `databricks-*` chat endpoints from the Databricks Serving Endpoints API. Native GPT endpoints use Databricks' OpenAI Responses passthrough; Claude, Gemini, GPT OSS, and other Databricks-hosted open models use Databricks OpenResponses. The exact endpoint name is retained so it can be matched to Databricks pricing from models.dev.
+Obot discovers ready, built-in `databricks-*` chat endpoints from the Databricks Serving Endpoints API. Only models that support the Databricks Open Responses API or OpenAI Responses API are available; Chat Completions-only models are not supported. The exact endpoint name is retained so it can be matched to Databricks pricing from models.dev.
 
-OpenResponses conversations are stateless: clients must send the full conversation on each request. Feature support for reasoning, structured output, tools, images, and documents varies by model. See the Databricks documentation for [OpenResponses models](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses models](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
+See the Databricks documentation for the [Open Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
 
 #### Azure
 

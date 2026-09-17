@@ -124,7 +124,7 @@ curl $OPENAI_BASE_URL/v1/models \
 
 ### Databricks
 
-The Databricks route exposes a single Responses-shaped API. Obot selects the Databricks upstream after resolving the requested model: native GPT models use the OpenAI Responses endpoint, while Claude, Gemini, `databricks-gpt-oss-*`, and other Databricks-hosted open models use OpenResponses.
+The Databricks route exposes `/v1/responses` for models supported by the Databricks Open Responses API or OpenAI Responses API. Chat Completions-only models are not supported.
 
 ```bash
 export OPENAI_BASE_URL="https://obot.example.com/api/llm-proxy/databricks"
@@ -136,7 +136,7 @@ curl $OPENAI_BASE_URL/v1/responses \
   -d '{"model":"databricks-claude-sonnet-4-5","input":[{"role":"user","content":"hi"}]}'
 ```
 
-List the Databricks models you can access with `GET $OPENAI_BASE_URL/v1/models`. Databricks OpenResponses is stateless and supports a focused subset of Responses features; native GPT requests support the full Databricks OpenAI Responses passthrough.
+List the Databricks models you can access with `GET $OPENAI_BASE_URL/v1/models`. See the Databricks documentation for the [Open Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
 
 ### Amazon Bedrock
 
