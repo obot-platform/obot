@@ -42,7 +42,8 @@ async function renderIdentityAccessPage({
 	view = 'auth-providers',
 	groups,
 	apiKeys = [],
-	users = []
+	users = [],
+	currentAuthProvider
 }: {
 	authProviders?: AuthProvider[];
 	authEnabled?: boolean;
@@ -51,8 +52,10 @@ async function renderIdentityAccessPage({
 	groups?: string[];
 	apiKeys?: APIKey[];
 	users?: PageData['users'];
+	currentAuthProvider?: string;
 } = {}) {
 	const profile = createMockProfile(groups);
+	profile.currentAuthProvider = currentAuthProvider;
 	if (bootstrap) {
 		profile.username = 'bootstrap';
 		profile.isBootstrapUser = () => true;
@@ -280,8 +283,12 @@ describe('Identity & Access Page', () => {
 			const verifiedGoogle: AuthProvider = { ...stagedGoogle, verifiedEmail: 'owner@example.com' };
 
 			// Switching is an owner operation, so every case below renders as one.
-			const renderAsOwner = (authProviders: AuthProvider[]) =>
-				renderIdentityAccessPage({ authProviders, groups: [Group.ADMIN, Group.OWNER] });
+			const renderAsOwner = (authProviders: AuthProvider[], currentAuthProvider?: string) =>
+				renderIdentityAccessPage({
+					authProviders,
+					groups: [Group.ADMIN, Group.OWNER],
+					currentAuthProvider
+				});
 
 			// Deconfiguring the provider serving logins is refused by the server, since it would leave
 			// nobody able to sign in, so the card must not offer it either.
@@ -315,12 +322,20 @@ describe('Identity & Access Page', () => {
 					.element(page.getByRole('button', { name: /^Sign in with/, exact: false }))
 					.toBeVisible();
 				await expect
-					.element(page.getByRole('button', { name: 'Unstage', exact: true }))
+					.element(page.getByRole('button', { name: 'Discard staged switch', exact: true }))
 					.toBeVisible();
 				// Completing the switch is not reachable until a sign-in has been recorded.
 				await expect
 					.element(page.getByRole('button', { name: /^Switch to/, exact: false }))
 					.not.toBeInTheDocument();
+			});
+
+			it('returns to the configuration form from the sign-in step', async () => {
+				await renderAsOwner([localConfigured, stagedGoogle]);
+
+				await page.getByRole('button', { name: 'Configuration', exact: true }).click();
+
+				await expect.element(page.getByText('Required Configuration')).toBeVisible();
 			});
 
 			it('opens on the switch step once the server reports a verified identity', async () => {
@@ -333,6 +348,45 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(page.getByRole('button', { name: /^Switch to/, exact: false }))
 					.toBeVisible();
+			});
+
+			it('locks the configuration once an account is verified', async () => {
+				await renderAsOwner([localConfigured, verifiedGoogle]);
+
+				await expect
+					.element(page.getByRole('button', { name: 'Configuration', exact: true }))
+					.not.toBeInTheDocument();
+
+				await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+				await expect.element(page.getByText(/becomes the owner of Obot/)).toBeVisible();
+				await expect
+					.element(page.getByRole('button', { name: 'Configuration', exact: true }))
+					.not.toBeInTheDocument();
+			});
+
+			it('warns that discarding signs you out when on the verified session', async () => {
+				await renderAsOwner([localConfigured, verifiedGoogle], verifiedGoogle.id);
+
+				await page.getByRole('button', { name: 'Discard staged switch', exact: true }).click();
+
+				await expect.element(page.getByText(/so this signs you out/)).toBeVisible();
+			});
+
+			it('does not warn about signing out while on the outgoing provider', async () => {
+				await renderAsOwner([localConfigured, verifiedGoogle], localConfigured.id);
+
+				await page.getByRole('button', { name: 'Discard staged switch', exact: true }).click();
+
+				await expect.element(page.getByText(/Discard the switch to Google/)).toBeVisible();
+				await expect.element(page.getByText(/signs you out/)).not.toBeInTheDocument();
+			});
+
+			it('asks for confirmation before completing the switch', async () => {
+				await renderAsOwner([localConfigured, verifiedGoogle]);
+
+				await page.getByRole('button', { name: /^Switch to/, exact: false }).click();
+
+				await expect.element(page.getByText(/Switch to Google\?/)).toBeVisible();
 			});
 
 			// Local manages its users in its own dialog, which stands in for the first step of a switch.
