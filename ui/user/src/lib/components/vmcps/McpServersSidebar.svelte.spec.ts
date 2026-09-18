@@ -244,7 +244,7 @@ describe('McpServersSidebar.svelte', () => {
 			await renderSidebar({ entries: [githubDev, slackChat, plain] });
 
 			await clickNative(page.getByCSS('#mcp-server-settings-button'));
-			await page.getByRole('combobox', { name: 'Filter By' }).click();
+			await page.getByRole('combobox', { name: 'Filter By', exact: false }).click();
 			await page.getByRole('button', { name: 'devtools', exact: true }).click();
 			await tick();
 
@@ -252,7 +252,7 @@ describe('McpServersSidebar.svelte', () => {
 			await expect.element(card('Slack')).not.toBeInTheDocument();
 			await expect.element(card('Plain')).not.toBeInTheDocument();
 
-			await page.getByRole('combobox', { name: 'Filter By' }).click();
+			await page.getByRole('combobox', { name: 'Filter By', exact: false }).click();
 			await page.getByRole('button', { name: 'communication', exact: true }).click();
 			await tick();
 

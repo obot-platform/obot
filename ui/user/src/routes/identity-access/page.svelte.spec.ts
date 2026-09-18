@@ -262,7 +262,7 @@ describe('Identity & Access Page', () => {
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
 			await expect.element(ownerLoginPrompt()).toBeVisible();
-			const signIn = page.getByRole('link', { name: 'Sign in as owner@example.com' });
+			const signIn = page.getByRole('link', { name: /Sign in as owner@example.com/ });
 			await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 		});
 
@@ -279,7 +279,7 @@ describe('Identity & Access Page', () => {
 
 			await expect.element(ownerLoginPrompt()).toBeVisible();
 			await expect
-				.element(page.getByRole('link', { name: 'Sign in as owner@example.com' }))
+				.element(page.getByRole('link', { name: /Sign in as owner@example.com/ }))
 				.toBeVisible();
 		});
 
@@ -305,7 +305,7 @@ describe('Identity & Access Page', () => {
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
 			await expect.element(ownerLoginPrompt()).toBeVisible();
-			await expect.element(page.getByRole('link', { name: 'Continue with Local' })).toBeVisible();
+			await expect.element(page.getByRole('link', { name: /Continue with Local/ })).toBeVisible();
 		});
 	});
 

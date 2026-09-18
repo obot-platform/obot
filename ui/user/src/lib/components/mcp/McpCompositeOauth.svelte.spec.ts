@@ -113,7 +113,9 @@ describe('McpCompositeOauth', () => {
 		);
 
 		render(McpCompositeOauth, { compositeMcpId: id });
-		await expect.element(page.getByText('Unable to load authentication')).toBeVisible();
+		await expect
+			.element(page.getByText('Unable to load authentication', { exact: false }))
+			.toBeVisible();
 
 		document.dispatchEvent(new Event('visibilitychange'));
 
@@ -181,7 +183,9 @@ describe('McpCompositeOauth', () => {
 		await page.getByRole('link', { name: 'Authenticate' }).click();
 		document.dispatchEvent(new Event('visibilitychange'));
 		await vi.waitFor(() => expect(calls).toBe(2));
-		await expect.element(page.getByText('Authentication check failed')).toBeVisible();
+		await expect
+			.element(page.getByText('Authentication check failed', { exact: false }))
+			.toBeVisible();
 
 		await page.getByRole('button', { name: 'Retry' }).click();
 		await vi.waitFor(() => expect(calls).toBe(3));

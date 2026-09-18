@@ -91,7 +91,7 @@ describe('ToolsInspector', () => {
 
 	it('scrolls a long tool detail on its own without resizing the card', async () => {
 		const { session, card } = renderInspector();
-		await page.getByRole('button', { name: 'tool_0' }).click();
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
 
 		await expect.element(page.getByRole('button', { name: 'Call' })).toBeVisible();
 		expect(card.getBoundingClientRect().height).toBe(CARD_HEIGHT);
@@ -108,7 +108,7 @@ describe('ToolsInspector', () => {
 	it('resets the argument form when Refresh changes a tool schema under the same name', async () => {
 		const { session } = renderInspector(2);
 
-		await page.getByRole('button', { name: 'tool_0' }).click();
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
 		await page.getByLabelText('value').fill('typed');
 
 		const [first, ...rest] = session.cache.tools.items;
@@ -131,14 +131,14 @@ describe('ToolsInspector', () => {
 
 	it('locks the tool list while a workflow runs so results stay with their tool', async () => {
 		const { session } = renderInspector(3);
-		await page.getByRole('button', { name: 'tool_0' }).click();
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
 		await expect.element(page.getByRole('button', { name: 'Call' })).toBeVisible();
 
 		const workflow = session.beginWorkflow('direct', 'tool call');
-		await expect.element(page.getByRole('button', { name: 'tool_1' })).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: 'tool_1', exact: false })).toBeDisabled();
 
 		session.finishWorkflow(workflow);
-		await expect.element(page.getByRole('button', { name: 'tool_1' })).toBeEnabled();
+		await expect.element(page.getByRole('button', { name: 'tool_1', exact: false })).toBeEnabled();
 
 		session.close();
 	});
