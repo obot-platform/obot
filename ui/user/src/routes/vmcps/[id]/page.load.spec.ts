@@ -1,7 +1,7 @@
+import { version as versionStore } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { createMockProfile } from '../../../tests/helpers/pageData';
 import { getVersionResponse } from '../../../tests/mocks/data';
-import { version as versionStore } from '$lib/stores';
 import { load } from './+page';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
