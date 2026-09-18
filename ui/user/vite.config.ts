@@ -40,7 +40,8 @@ export default defineConfig(({ mode }) => {
 			// Only reachable via lazily-imported route nodes, so Vite would otherwise
 			// discover them mid-navigation and re-bundle, failing in-flight route
 			// imports with a 504.
-			include: ['d3', 'd3-time-format', 'date-fns', 'es-toolkit']
+			include: ['d3', 'd3-time-format', 'date-fns', 'es-toolkit'],
+			exclude: ['@lucide/svelte']
 		},
 		test: {
 			projects: [
