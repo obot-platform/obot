@@ -131,6 +131,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					Path:   "/",
 					MaxAge: -1,
 				})
+				auth.ClearAuthProviderVerifyCookie(rw)
 				// Refresh the page so that the cookie deletes.
 				http.Redirect(rw, req, req.URL.String(), http.StatusFound)
 				return

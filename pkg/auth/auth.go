@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"net/http"
 	"time"
 )
 
@@ -44,6 +45,16 @@ type GroupInfo struct {
 
 type authProviderURLKey struct{}
 type authProviderGroupIDPrefixKey struct{}
+
+func ClearAuthProviderVerifyCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     AuthProviderVerifyCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+}
 
 // ContextWithProviderURL adds the auth provider URL to the context
 func ContextWithProviderURL(ctx context.Context, url string) context.Context {

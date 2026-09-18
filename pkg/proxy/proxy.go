@@ -110,6 +110,15 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 	return stagedProxy.authenticateRequest(req)
 }
 
+func overridesVerificationPin(r *http.Request, verification string) bool {
+	if verification == "" || r.URL.Path != "/oauth2/start" {
+		return false
+	}
+
+	requested := r.URL.Query().Get(ObotAuthProviderQueryParam)
+	return requested != "" && requested != verification
+}
+
 func (pm *Manager) HandlerFunc(ctx api.Context) error {
 	pm.ServeHTTP(ctx.User, ctx.ResponseWriter, ctx.Request)
 	return nil
@@ -161,10 +170,17 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		provider string
 		err      error
 	)
-	if requested := pm.stagedVerificationProvider(r); requested != "" {
+	verification := pm.stagedVerificationProvider(r)
+
+	if overridesVerificationPin(r, verification) {
+		auth.ClearAuthProviderVerifyCookie(w)
+		verification = ""
+	}
+
+	if verification != "" {
 		// A verification deliberately signs in through a provider other than the caller's, so it is
 		// the only case where the provider a request names beats the one its session uses.
-		provider = requested
+		provider = verification
 		if r.URL.Path == "/oauth2/callback" {
 			clearCurrentAuthProviderCookie(w)
 		}

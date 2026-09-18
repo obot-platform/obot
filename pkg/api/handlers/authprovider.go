@@ -314,20 +314,8 @@ func (ap *AuthProviderHandler) Unstage(req api.Context) error {
 		return fmt.Errorf("failed to clear the verification for the discarded provider: %w", err)
 	}
 
-	clearAuthProviderVerifyCookie(req)
+	auth.ClearAuthProviderVerifyCookie(req.ResponseWriter)
 	return nil
-}
-
-// clearAuthProviderVerifyCookie retires the verification pin once the staged provider has been
-// activated or discarded, so the window cannot be reused.
-func clearAuthProviderVerifyCookie(req api.Context) {
-	http.SetCookie(req.ResponseWriter, &http.Cookie{
-		Name:     auth.AuthProviderVerifyCookie,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-	})
 }
 
 // Verify starts a one-time login through the staged provider, authorized only for the owner
@@ -418,7 +406,7 @@ func (ap *AuthProviderHandler) Activate(req api.Context) error {
 		return fmt.Errorf("failed to clear the verification after the switch: %w", err)
 	}
 
-	clearAuthProviderVerifyCookie(req)
+	auth.ClearAuthProviderVerifyCookie(req.ResponseWriter)
 	return nil
 }
 

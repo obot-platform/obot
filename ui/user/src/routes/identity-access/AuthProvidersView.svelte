@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import LocalAuthConfigure from '$lib/components/admin/LocalAuthConfigure.svelte';
@@ -8,6 +9,7 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import {
 		CommonAuthProviderIds,
 		PAGE_TRANSITION_DURATION,
@@ -20,7 +22,7 @@
 	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { clearUrlParams } from '$lib/url';
-	import { TriangleAlert, Info, CircleAlert } from '@lucide/svelte';
+	import { TriangleAlert, Info, CircleAlert, ArrowLeft, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -31,6 +33,14 @@
 	}: { authProviders: AuthProvider[]; authEnabled?: boolean } = $props();
 	let authProviders = $state(untrack(() => initialAuthProviders));
 	let licenseRequiredProvider = $state<AuthProvider>();
+
+	const SWITCH_STEPS = ['configure', 'signin', 'switch'] as const;
+	type SwitchStep = (typeof SWITCH_STEPS)[number];
+	const SWITCH_STEP_LABELS: Record<SwitchStep, string> = {
+		configure: 'Configure',
+		signin: 'Sign in',
+		switch: 'Switch'
+	};
 
 	function sortAuthProviders(authProviders: AuthProvider[]) {
 		return [...authProviders].sort((a, b) => {
@@ -71,20 +81,29 @@
 	let switchError = $state<string>();
 	let switching = $state(false);
 
-	// Set when the owner goes back to edit a staged provider's settings, which is how a rejected
-	// sign-in gets fixed. Local intent rather than server state, so it overrides the derived step.
-	let editingStagedCredentials = $state(false);
-	// Which step of a switch the dialog shows. Every input is server state, so a refresh, a second
-	// tab, and another administrator all see the same step, with nothing carried in the URL.
-	let switchStep = $derived.by(() => {
-		if (!configuringAuthProvider || editingStagedCredentials) return 'configure';
-		const staged = authProviders.find((provider) => provider.id === configuringAuthProvider!.id);
-		if (!staged?.staged) return 'configure';
-		return staged.verifiedEmail ? 'switch' : 'signin';
-	});
 	let switchVerifiedEmail = $derived(
 		authProviders.find((provider) => provider.id === configuringAuthProvider?.id)?.verifiedEmail
 	);
+	let configurationLocked = $derived(!!switchVerifiedEmail);
+	let signedInAsVerifiedAccount = $derived(
+		!!switchVerifiedEmail && profile.current.currentAuthProvider === configuringAuthProvider?.id
+	);
+	let steppedBackTo = $state<SwitchStep>();
+	// Which step of a switch the dialog shows. Every input is server state, so a refresh, a second
+	// tab, and another administrator all see the same step, with nothing carried in the URL.
+	let switchStep = $derived.by<SwitchStep>(() => {
+		if (!configuringAuthProvider) return 'configure';
+		const staged = authProviders.find((provider) => provider.id === configuringAuthProvider!.id);
+		if (!staged?.staged) return 'configure';
+		const reached: SwitchStep = staged.verifiedEmail ? 'switch' : 'signin';
+		if (steppedBackTo === 'configure' && configurationLocked) return reached;
+		if (steppedBackTo && SWITCH_STEPS.indexOf(steppedBackTo) < SWITCH_STEPS.indexOf(reached)) {
+			return steppedBackTo;
+		}
+		return reached;
+	});
+	let confirmDiscardSwitch = $state(false);
+	let confirmSwitch = $state(false);
 	// A switch is only offered when this provider would replace a different one. Configuring the
 	// first provider on a fresh install stays the plain form.
 	let isOwner = $derived(!!profile.current.isOwner?.());
@@ -272,7 +291,7 @@
 					// Staging alone changes nothing about who serves logins, so the dialog stays open
 					// and moves to the sign-in step rather than looking finished.
 					switchError = undefined;
-					editingStagedCredentials = false;
+					steppedBackTo = undefined;
 					return;
 				}
 				providerConfigure?.close();
@@ -334,9 +353,11 @@
 		switchError = undefined;
 		try {
 			await AdminService.activateAuthProvider(stagedProvider.id);
+			confirmSwitch = false;
 			providerConfigure?.close();
 			await refreshAuthProviders();
 		} catch (err) {
+			confirmSwitch = false;
 			switchError = parseErrorContent(err).message;
 		} finally {
 			switching = false;
@@ -349,9 +370,15 @@
 		switchError = undefined;
 		try {
 			await AdminService.unstageAuthProvider(stagedProvider.id);
+			confirmDiscardSwitch = false;
+			if (signedInAsVerifiedAccount) {
+				reloadPage();
+				return;
+			}
 			providerConfigure?.close();
 			await refreshAuthProviders();
 		} catch (err) {
+			confirmDiscardSwitch = false;
 			switchError = parseErrorContent(err).message;
 		} finally {
 			switching = false;
@@ -413,7 +440,9 @@
 			return;
 		}
 
-		editingStagedCredentials = false;
+		steppedBackTo = undefined;
+		confirmDiscardSwitch = false;
+		confirmSwitch = false;
 		switchError = undefined;
 		configuringAuthProvider = authProvider;
 		try {
@@ -451,14 +480,17 @@
 
 	// Local's first step lives in its own dialog, so going back from the sign-in step has to hand
 	// control there instead of rendering a parameter form Local does not have.
-	function handleEditStagedCredentials() {
-		if (configuringAuthProvider?.id === CommonAuthProviderIds.LOCAL) {
+	function goToSwitchStep(step: SwitchStep) {
+		if (step === 'configure' && configurationLocked) return;
+
+		switchError = undefined;
+		if (step === 'configure' && configuringAuthProvider?.id === CommonAuthProviderIds.LOCAL) {
 			providerConfigure?.close();
 			localAuthConfigureOpen = true;
 			localAuthConfigure?.open();
 			return;
 		}
-		editingStagedCredentials = true;
+		steppedBackTo = step;
 	}
 
 	async function handleLocalAuthClose(userCount: number) {
@@ -478,7 +510,7 @@
 		);
 		if (local && userCount > 0) {
 			configuringAuthProvider = local;
-			editingStagedCredentials = false;
+			steppedBackTo = undefined;
 			switchError = undefined;
 			providerConfigure?.open();
 		}
@@ -533,9 +565,10 @@
 </div>
 
 {#snippet switchSteps()}
-	{@const done = { configure: 0, signin: 1, switch: 2 }[switchStep] ?? 0}
+	{@const done = SWITCH_STEPS.indexOf(switchStep)}
 	<ol class="flex items-center gap-2 px-4 pb-4">
-		{#each ['Configure', 'Sign in', 'Switch'] as label, index (label)}
+		{#each SWITCH_STEPS as step, index (step)}
+			{@const label = SWITCH_STEP_LABELS[step]}
 			{#if index > 0}
 				<li class="bg-base-400 h-px min-w-3 grow" aria-hidden="true"></li>
 			{/if}
@@ -607,7 +640,14 @@
 
 {#snippet switchFooter(submit: () => void)}
 	{#if switchStep !== 'configure'}
-		<button class="btn" disabled={switching} onclick={handleUnstageProvider}> Unstage </button>
+		<IconButton
+			variant="danger"
+			disabled={switching}
+			tooltip={{ text: 'Discard staged switch', disablePortal: true }}
+			onclick={() => (confirmDiscardSwitch = true)}
+		>
+			<Trash2 class="size-5" />
+		</IconButton>
 	{/if}
 	<div class="grow"></div>
 	{#if switchStep === 'configure'}
@@ -616,12 +656,19 @@
 		</button>
 		<button class="btn btn-primary" disabled={loading} onclick={submit}>Continue</button>
 	{:else if switchStep === 'signin'}
-		<button class="btn" disabled={switching} onclick={handleEditStagedCredentials}> Back </button>
+		{#if !configurationLocked}
+			<button class="btn" disabled={switching} onclick={() => goToSwitchStep('configure')}>
+				<ArrowLeft class="size-4" /> Configuration
+			</button>
+		{/if}
 		<button class="btn btn-primary" disabled={switching} onclick={handleVerifyStagedProvider}>
 			Sign in with {configuringAuthProvider?.name}
 		</button>
 	{:else}
-		<button class="btn btn-primary" disabled={switching} onclick={handleActivateStagedProvider}>
+		<button class="btn" disabled={switching} onclick={() => goToSwitchStep('signin')}>
+			<ArrowLeft class="size-4" /> Sign in
+		</button>
+		<button class="btn btn-primary" disabled={switching} onclick={() => (confirmSwitch = true)}>
 			Switch to {configuringAuthProvider?.name}
 		</button>
 	{/if}
@@ -684,6 +731,32 @@
 	bootstrap={isBootstrapUser}
 	onClose={handleLocalAuthClose}
 	switching={atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL}
+/>
+
+<Confirm
+	show={confirmSwitch}
+	title="Complete switch"
+	msg="Switch to {configuringAuthProvider?.name}?"
+	note="This cannot be undone. Everyone signs in through {configuringAuthProvider?.name} afterwards."
+	submitText="Switch to {configuringAuthProvider?.name}"
+	cancelText="Cancel"
+	loading={switching}
+	onsuccess={handleActivateStagedProvider}
+	oncancel={() => (confirmSwitch = false)}
+/>
+
+<Confirm
+	show={confirmDiscardSwitch}
+	title="Discard switch"
+	msg="Discard the switch to {configuringAuthProvider?.name}?"
+	note={signedInAsVerifiedAccount
+		? `You are signed in with ${configuringAuthProvider?.name} as ${switchVerifiedEmail}, so this signs you out. The staged settings are removed and ${activeProvider?.name ?? 'the current provider'} keeps serving logins.`
+		: `The staged ${configuringAuthProvider?.name} settings are removed. ${activeProvider?.name ?? 'The current provider'} keeps serving logins either way.`}
+	submitText="Discard switch"
+	cancelText="Keep editing"
+	loading={switching}
+	onsuccess={handleUnstageProvider}
+	oncancel={() => (confirmDiscardSwitch = false)}
 />
 
 <ProviderDeconfigureConfirm
