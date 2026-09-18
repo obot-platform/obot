@@ -77,3 +77,17 @@ func TestAttributeMCPAuditLogAPIKeyReturnsTransientLookupError(t *testing.T) {
 		t.Fatalf("transient lookup error produced attribution: ID %v, name %q", input.APIKeyID, input.APIKeyName)
 	}
 }
+
+func TestDisabledMCPAuditSkipsAttribution(t *testing.T) {
+	gatewayClient := newAuditLogTestGatewayClient(t, true)
+	if gatewayClient.MCPAuditLogEnabled() {
+		t.Fatal("MCP auditing should be disabled")
+	}
+
+	NewAuditLogHandler(gatewayClient).CollectMCPAuditEntry(auditlogs.MCPAuditLog{
+		Metadata:    map[string]string{"mcpID": "mcp-1"},
+		APIKey:      auditlogs.RedactAPIKey("ok1-7-42-abcdefghijklmnopqrstuvwxyz"),
+		CallType:    "tools/call",
+		RequestBody: json.RawMessage(`{"name":"search"}`),
+	})
+}
