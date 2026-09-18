@@ -11,15 +11,15 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Group, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import type { VMcpSortBy } from '$lib/services/vmcps/types';
+	import type { VMcpListSettingsFilters, VMcpSortBy } from '$lib/services/vmcps/types';
 	import {
 		buildVMcpComponentFilterOptions,
 		filterVMcps,
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { mcpServersAndEntries, profile, responsive } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
+	import { goto, setFilterUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Layers, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 
@@ -35,12 +35,26 @@
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
 
+	const sortByValues: VMcpSortBy[] = ['name', 'created', 'componentServers'];
+
+	function getInitialFilters(): VMcpListSettingsFilters {
+		const urlSortBy = page.url.searchParams.get('sortBy');
+		return {
+			showMyVMcpsOnly: page.url.searchParams.get('showMyVMcpsOnly') === 'true',
+			sortBy: sortByValues.includes(urlSortBy as VMcpSortBy) ? (urlSortBy as VMcpSortBy) : 'name',
+			query: page.url.searchParams.get('query') || '',
+			componentFilterBy: page.url.searchParams.get('components') || '',
+			statusFilterBy: page.url.searchParams.get('status') || ''
+		};
+	}
+
 	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
 	let isLoading = $state(false);
-	let showMyVMcpsOnly = $state(false);
-	let sortBy = $state<VMcpSortBy>('name');
-	let query = $state('');
-	let componentFilterBy = $state('');
+	let showMyVMcpsOnly = $state(untrack(() => getInitialFilters().showMyVMcpsOnly));
+	let sortBy = $state<VMcpSortBy>(untrack(() => getInitialFilters().sortBy));
+	let query = $state(untrack(() => getInitialFilters().query));
+	let componentFilterBy = $state(untrack(() => getInitialFilters().componentFilterBy));
+	let statusFilterBy = $state(untrack(() => getInitialFilters().statusFilterBy));
 	let vmcps = $derived.by(() => {
 		if (showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
@@ -79,9 +93,14 @@
 				vmcps,
 				{
 					query,
-					components: componentFilterBy
+					components: componentFilterBy,
+					status: statusFilterBy
 				},
-				usersMap
+				usersMap,
+				{
+					instances: vmcpInstances.current.items,
+					userId: profile.current.id
+				}
 			),
 			sortBy,
 			query,
@@ -119,6 +138,33 @@
 
 	function openVMcp(vmcp: VMCP) {
 		goto(`/vmcps/${vmcp.id}`);
+	}
+
+	function handleChange(property: keyof VMcpListSettingsFilters, values: string[]) {
+		switch (property) {
+			case 'showMyVMcpsOnly':
+				showMyVMcpsOnly = values.includes('true');
+				setFilterUrlParams(property, values);
+				break;
+			case 'sortBy':
+				sortBy = sortByValues.includes(values[0] as VMcpSortBy)
+					? (values[0] as VMcpSortBy)
+					: 'name';
+				setFilterUrlParams(property, values);
+				break;
+			case 'query':
+				query = values[0] || '';
+				setUrlParamAndUpdateUrl(page.url, 'query', values[0] || null);
+				break;
+			case 'componentFilterBy':
+				componentFilterBy = values.join(',');
+				setFilterUrlParams('components', values);
+				break;
+			case 'statusFilterBy':
+				statusFilterBy = values.join(',');
+				setFilterUrlParams('status', values);
+				break;
+		}
 	}
 </script>
 
@@ -173,10 +219,14 @@
 		<Loading class="text-primary" />
 	{:else}
 		<VMcpListSettings
-			bind:showMyVMcpsOnly
-			bind:sortBy
-			bind:query
-			bind:componentFilterBy
+			filters={{
+				showMyVMcpsOnly,
+				sortBy,
+				query,
+				componentFilterBy,
+				statusFilterBy
+			}}
+			onChange={handleChange}
 			{componentFilterOptions}
 		/>
 		<VMcpList

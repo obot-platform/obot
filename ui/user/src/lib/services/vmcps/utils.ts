@@ -24,9 +24,11 @@ import type {
 	Point,
 	RectLike,
 	VMcpComponentView,
+	VMcpFilterContext,
 	VMcpFilterOption,
 	VMcpFilters,
-	VMcpSortBy
+	VMcpSortBy,
+	VMcpStatusFilter
 } from './types';
 
 export function joinComponentLabels(parts: Array<string | undefined>) {
@@ -84,6 +86,35 @@ export function vmcpHasUserAllowedConfiguration(vmcp: VMCP) {
 
 export function vmcpInstanceNeedsUserConfiguration(instance?: VMCPInstance) {
 	return Boolean(instance?.status?.missingRequiredConfiguration?.length);
+}
+
+export function vmcpUserInstances(
+	vmcp: VMCP,
+	instances: VMCPInstance[],
+	userId: string
+): VMCPInstance[] {
+	return instances.filter(
+		(instance) => instance.vmcpID === vmcp.id && instance.userID === userId && !instance.deleted
+	);
+}
+
+export function vmcpMatchesStatusFilter(
+	vmcp: VMCP,
+	status: VMcpStatusFilter,
+	instances: VMCPInstance[],
+	userId: string
+): boolean {
+	const myInstances = vmcpUserInstances(vmcp, instances, userId);
+	switch (status) {
+		case 'needs-update':
+			return vmcpNeedsUpdate(vmcp);
+		case 'not-configured':
+			return myInstances.some((instance) => vmcpInstanceNeedsUserConfiguration(instance));
+		case 'connected':
+			return myInstances.length > 0;
+		case 'not-connected':
+			return myInstances.length === 0;
+	}
 }
 
 export function vmcpOutdatedComponents(vmcp: VMCP): VMCPComponent[] {
@@ -337,20 +368,45 @@ function matchesVMcpQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser
 	return queryMatchScore(vmcp, query, owners) > 0;
 }
 
-export function matchesVMcpFilters(vmcp: VMCP, filters: VMcpFilters, owners: Map<string, OrgUser>) {
+export function matchesVMcpFilters(
+	vmcp: VMCP,
+	filters: VMcpFilters,
+	owners: Map<string, OrgUser>,
+	context?: VMcpFilterContext
+) {
 	const query = (filters.query ?? '').trim();
 	const componentIds = parseSelectedFilterIds(filters.components ?? '');
-	if (!query && componentIds.length === 0) return true;
+	const statusIds = parseSelectedFilterIds(filters.status ?? '');
+	if (!query && componentIds.length === 0 && statusIds.length === 0) return true;
 	const matchesComponents =
 		componentIds.length === 0 || componentIds.some((id) => componentServerIds(vmcp).includes(id));
-	return matchesVMcpQuery(vmcp, query, owners) && matchesComponents;
+	const matchesStatus =
+		statusIds.length === 0 ||
+		Boolean(
+			context?.userId &&
+			statusIds.some((status) =>
+				vmcpMatchesStatusFilter(
+					vmcp,
+					status as VMcpStatusFilter,
+					context.instances ?? [],
+					context.userId!
+				)
+			)
+		);
+	return matchesVMcpQuery(vmcp, query, owners) && matchesComponents && matchesStatus;
 }
 
-export function filterVMcps(vmcps: VMCP[], filters: VMcpFilters, owners: Map<string, OrgUser>) {
+export function filterVMcps(
+	vmcps: VMCP[],
+	filters: VMcpFilters,
+	owners: Map<string, OrgUser>,
+	context?: VMcpFilterContext
+) {
 	const query = (filters.query ?? '').trim();
 	const componentIds = parseSelectedFilterIds(filters.components ?? '');
-	if (!query && componentIds.length === 0) return vmcps;
-	return vmcps.filter((vmcp) => matchesVMcpFilters(vmcp, filters, owners));
+	const statusIds = parseSelectedFilterIds(filters.status ?? '');
+	if (!query && componentIds.length === 0 && statusIds.length === 0) return vmcps;
+	return vmcps.filter((vmcp) => matchesVMcpFilters(vmcp, filters, owners, context));
 }
 
 export function buildVMcpComponentFilterOptions(

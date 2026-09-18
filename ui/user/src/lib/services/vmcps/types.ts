@@ -1,4 +1,4 @@
-import type { MCPServerTool, ToolOverride, VMCP, VMCPComponent } from '../user/types';
+import type { MCPServerTool, ToolOverride, VMCP, VMCPComponent, VMCPInstance } from '../user/types';
 
 export interface VMcpComponentView {
 	key: string;
@@ -35,7 +35,23 @@ export type VMcpConnectOptions = {
 
 export type VMcpFilterOption = { id: string; label: string; disabled?: boolean };
 
+export type VMcpStatusFilter = 'needs-update' | 'not-configured' | 'connected' | 'not-connected';
+
 export type VMcpFilters = {
 	query?: string;
 	components?: string;
+	status?: string;
+};
+
+export type VMcpListSettingsFilters = {
+	showMyVMcpsOnly: boolean;
+	sortBy: VMcpSortBy;
+	query: string;
+	componentFilterBy: string;
+	statusFilterBy: string;
+};
+
+export type VMcpFilterContext = {
+	instances?: VMCPInstance[];
+	userId?: string;
 };
