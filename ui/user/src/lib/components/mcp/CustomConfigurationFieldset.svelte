@@ -207,8 +207,7 @@
 						disabled={readonly}
 						rows={(data.value ?? '').split('\n').length + 1}
 						aria-required={!readonly ? 'true' : undefined}
-						aria-invalid={missingValue}
-					></textarea>
+						aria-invalid={missingValue}></textarea>
 				{:else}
 					<input
 						id={`env-value-${id}`}

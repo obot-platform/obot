@@ -92,8 +92,7 @@
 						value={skill.description}
 						class="text-input-filled mt-0.5"
 						disabled
-						use:autoHeight
-					></textarea>
+						use:autoHeight></textarea>
 				</div>
 			</div>
 		</div>

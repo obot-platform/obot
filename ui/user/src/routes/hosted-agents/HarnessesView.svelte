@@ -178,8 +178,7 @@
 				id="harness-description"
 				bind:value={harnessForm.description}
 				class="text-input-filled"
-				rows="2"
-			></textarea>
+				rows="2"></textarea>
 		</div>
 		<div class="flex flex-col gap-2">
 			<label for="harness-image" class="text-sm font-light">Docker Image</label>

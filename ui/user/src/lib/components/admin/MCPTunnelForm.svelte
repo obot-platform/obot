@@ -155,8 +155,7 @@
 				class="text-input-filled dark:bg-base-100 min-h-28 resize-y"
 				bind:value={manifest.description}
 				disabled={readonly}
-				placeholder="Describe where this tunnel connects."
-			></textarea>
+				placeholder="Describe where this tunnel connects."></textarea>
 		</div>
 
 		<div class="flex flex-col gap-3">

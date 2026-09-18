@@ -102,8 +102,7 @@
 			value={rawValue}
 			{disabled}
 			aria-invalid={Boolean(rawParseError)}
-			oninput={(event) => updateRaw(event.currentTarget.value)}
-		></textarea>
+			oninput={(event) => updateRaw(event.currentTarget.value)}></textarea>
 	{/if}
 
 	{#if rawParseError}

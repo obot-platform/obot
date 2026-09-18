@@ -187,8 +187,7 @@
 						class="text-input-filled mt-0.5 min-h-24 resize-y"
 						placeholder="Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'"
 						disabled={readonly}
-						rows="3"
-					></textarea>
+						rows="3"></textarea>
 				</div>
 
 				<div class="flex flex-col gap-2">

@@ -241,8 +241,7 @@
 					class={twMerge(
 						'text-input-filled h-32 min-h-32 resize-y overflow-auto whitespace-pre-wrap',
 						highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
-					)}
-				></textarea>
+					)}></textarea>
 			{:else}
 				<input
 					type="text"

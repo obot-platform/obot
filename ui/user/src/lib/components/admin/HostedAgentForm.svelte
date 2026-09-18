@@ -245,8 +245,7 @@
 					bind:value={agent.description}
 					class="text-input-filled"
 					rows="3"
-					disabled={readonly}
-				></textarea>
+					disabled={readonly}></textarea>
 			</div>
 
 			<div class="flex flex-col gap-2">

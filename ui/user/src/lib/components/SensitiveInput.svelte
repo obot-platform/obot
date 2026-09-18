@@ -211,8 +211,7 @@
 								}
 							}
 							onfocus={handleFocus}
-							{onkeydown}
-						></textarea>
+							{onkeydown}></textarea>
 
 						{@render maskedValue()}
 					</div>
@@ -274,8 +273,7 @@
 								}
 							}
 							onfocus={handleFocus}
-							{onkeydown}
-						></textarea>
+							{onkeydown}></textarea>
 
 						{@render maskedValue()}
 					</div>

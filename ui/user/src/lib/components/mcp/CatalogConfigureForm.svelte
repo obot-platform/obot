@@ -583,8 +583,7 @@
 																'border-error bg-error/20 ring-error focus:ring-1'
 														)}
 														onpointerdown={startTextareaResize}
-														onmousedown={startTextareaResize}
-													></textarea>
+														onmousedown={startTextareaResize}></textarea>
 												{:else}
 													<input
 														type="text"
@@ -804,8 +803,7 @@
 											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 										)}
 										onpointerdown={startTextareaResize}
-										onmousedown={startTextareaResize}
-									></textarea>
+										onmousedown={startTextareaResize}></textarea>
 								{:else}
 									<input
 										type="text"
