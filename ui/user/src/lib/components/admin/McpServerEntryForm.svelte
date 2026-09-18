@@ -69,6 +69,7 @@
 		server?: MCPCatalogServer;
 		type?: LaunchServerType;
 		readonly?: boolean;
+		onAddFromTools?: () => void;
 		onCancel?: () => void;
 		onSubmit?: (id: string, isMultiUserEntry: boolean, message?: string) => void;
 		hasExistingConfigured?: boolean;
@@ -88,6 +89,7 @@
 		entity = 'catalog',
 		type,
 		readonly,
+		onAddFromTools,
 		onCancel,
 		onSubmit,
 		hasExistingConfigured,
@@ -162,6 +164,7 @@
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
 	let showUpdateExistingDeploymentsConfirm = $state(false);
+	let showUpdateExistingVmcps = $state(false);
 	let selectedDeploymentsToView = $state<MCPCatalogServer[]>([]);
 
 	let serverInstancesLoading = $state(false);
@@ -604,8 +607,13 @@
 					.then((response) => {
 						resolvedConfiguredServers = response.filter((s) => !s.deleted);
 						refreshToolsDisplay();
-						if (response.length > 0 && response.some((instance) => instance)) {
+						const isAllVmcps = response.every(
+							(s) => !!(s.vmcpComponentID || s.vmcpID || s.vmcpInstanceID)
+						);
+						if (response.length > 0 && !isAllVmcps) {
 							showUpdateExistingDeploymentsConfirm = true;
+						} else {
+							showUpdateExistingVmcps = true;
 						}
 					})
 					.catch(() => {});
@@ -1085,50 +1093,68 @@
 				previewOverride={previewToolsOverride}
 			>
 				{#snippet noToolsContent()}
-					<div
-						class="mt-12 flex w-lg max-w-full flex-col items-center gap-4 self-center text-center"
-					>
-						<Wrench class="text-muted-content size-24 opacity-50" />
-						{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
-							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
-							<p class="text-muted-content text-sm font-light">
-								Looks like this MCP server doesn't have any tools available currently.
+					{#if onAddFromTools}
+						<div class="mt-8 paper max-w-sm self-center items-center justify-items-center">
+							<div class="rounded-full bg-primary/10 p-2 w-fit">
+								<Wrench class="text-primary size-6" />
+							</div>
+							<h4 class="text-lg font-semibold">Tool Info Unavailable</h4>
+							<p class="text-sm font-light text-center">
+								Connect to this server to get an up-to-date list of the tools.
 							</p>
-						{:else if !readonly && !connectOnly}
-							<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
-							{#if !isMultiTenant}
-								<button
-									class="btn btn-primary flex items-center gap-1 text-sm"
-									onclick={handleInitTemporaryInstance}
-									disabled={saving}
-								>
-									{#if saving}
-										<Loading class="size-4" />
-									{:else}
-										Populate Tool Preview
-									{/if}
-								</button>
-							{/if}
-							{#if !error}
-								<p class="text-muted-content text-sm font-light">
-									{#if isMultiTenant}
-										Tools will populate when a server is deployed for the catalog entry.
-									{:else if type === 'remote'}
-										Click above to connect to the remote MCP server to populate capabilities and
-										tools for preview.
-									{:else}
-										Click above to set up a temporary instance that will populate capabilities and
-										tools for preview. Otherwise, tools will populate when the user first deploys a
-										server for the catalog entry.
-									{/if}
-								</p>
-							{/if}
-						{/if}
-					</div>
-					{#if error && showButtonInlineError}
-						<div class="mt-4 w-full">
-							{@render errorSnippet()}
+							<button
+								class="btn btn-primary w-full flex items-center gap-1 text-sm"
+								onclick={onAddFromTools}
+							>
+								Add to vMCP
+							</button>
 						</div>
+					{:else}
+						<div
+							class="mt-12 flex w-lg max-w-full flex-col items-center gap-4 self-center text-center"
+						>
+							<Wrench class="text-muted-content size-24 opacity-50" />
+							{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
+								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+								<p class="text-muted-content text-sm font-light">
+									Looks like this MCP server doesn't have any tools available currently.
+								</p>
+							{:else if !readonly && !connectOnly}
+								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+								{#if !isMultiTenant}
+									<button
+										class="btn btn-primary flex items-center gap-1 text-sm"
+										onclick={handleInitTemporaryInstance}
+										disabled={saving}
+									>
+										{#if saving}
+											<Loading class="size-4" />
+										{:else}
+											Populate Tool Preview
+										{/if}
+									</button>
+								{/if}
+								{#if !error}
+									<p class="text-muted-content text-sm font-light">
+										{#if isMultiTenant}
+											Tools will populate when a server is deployed for the catalog entry.
+										{:else if type === 'remote'}
+											Click above to connect to the remote MCP server to populate capabilities and
+											tools for preview.
+										{:else}
+											Click above to set up a temporary instance that will populate capabilities and
+											tools for preview. Otherwise, tools will populate when the user first deploys
+											a server for the catalog entry.
+										{/if}
+									</p>
+								{/if}
+							{/if}
+						</div>
+						{#if error && showButtonInlineError}
+							<div class="mt-4 w-full">
+								{@render errorSnippet()}
+							</div>
+						{/if}
 					{/if}
 				{/snippet}
 			</McpServerTools>
@@ -1321,5 +1347,28 @@
 				the MCP Management "Deployments" page.
 			</p>
 		{/if}
+	{/snippet}
+</Confirm>
+
+<Confirm
+	title="Update vMCPs"
+	msg="Update existing vMCPs now?"
+	show={showUpdateExistingVmcps}
+	onsuccess={() => {
+		showUpdateExistingVmcps = false;
+		goto(`/vmcps?components=${entry?.id}&status=needs-update`);
+	}}
+	oncancel={() => {
+		showUpdateExistingVmcps = false;
+	}}
+	cancelText="Skip"
+	submitText="Go to vMCPs"
+	type="info"
+>
+	{#snippet note()}
+		<p class="text-sm font-light">
+			There are existing vMCP9(s) using this MCP server that need to be updated. Would you like to
+			take care of this now?
+		</p>
 	{/snippet}
 </Confirm>

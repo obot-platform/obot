@@ -9,9 +9,17 @@ import type { PageData } from './$types';
 import VMcpsPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return {
+		...actual,
+		replaceState: vi.fn()
+	};
+});
 
 const componentEntry = createMCPCatalogEntry({
 	id: 'entry-github',

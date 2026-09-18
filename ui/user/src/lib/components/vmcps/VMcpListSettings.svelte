@@ -2,33 +2,38 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { VMCP_SORT_OPTIONS } from '$lib/services/vmcps/constants';
-	import type { VMcpFilterOption, VMcpSortBy } from '$lib/services/vmcps/types';
+	import { VMCP_SORT_OPTIONS, VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
+	import type { VMcpFilterOption, VMcpListSettingsFilters } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
 	import { Funnel, X } from '@lucide/svelte';
 
 	const BUTTON_ID = 'vmcp-settings-button';
 	const SORT_LABEL_ID = 'vmcp-sort-by-label';
+	const STATUS_FILTER_LABEL_ID = 'vmcp-filter-by-status-label';
 	const SERVER_FILTER_LABEL_ID = 'vmcp-filter-by-server-label';
 	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
 
 	interface Props {
-		showMyVMcpsOnly?: boolean;
-		sortBy?: VMcpSortBy;
-		query?: string;
-		componentFilterBy?: string;
+		filters: VMcpListSettingsFilters;
+		onChange: (property: keyof VMcpListSettingsFilters, values: string[]) => void;
 		componentFilterOptions?: VMcpFilterOption[];
 	}
 
-	let {
-		showMyVMcpsOnly = $bindable(false),
-		sortBy = $bindable('name'),
-		componentFilterBy = $bindable(''),
-		query = $bindable(''),
-		componentFilterOptions = []
-	}: Props = $props();
+	let { filters, onChange, componentFilterOptions = [] }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let componentDraft = $state<string | number | undefined>('');
+	let statusDraft = $state<string | number | undefined>('');
+
+	let activeFilterPills = $derived([
+		...pillsFor(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy).map((item) => ({
+			...item,
+			property: 'statusFilterBy' as const
+		})),
+		...pillsFor(componentFilterOptions, filters.componentFilterBy).map((item) => ({
+			...item,
+			property: 'componentFilterBy' as const
+		}))
+	]);
 
 	function addFilter(selected: string, id: string) {
 		const ids = parseSelectedFilterIds(selected);
@@ -57,8 +62,8 @@
 <div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 	<div class="flex items-center gap-2">
 		<Search
-			value={query}
-			onChange={(value) => (query = value)}
+			value={filters.query}
+			onChange={(value) => onChange('query', value ? [value] : [])}
 			placeholder="Search vMCPs..."
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 		/>
@@ -66,6 +71,34 @@
 			<Funnel class="size-4" /> Filters
 		</button>
 	</div>
+	{#if activeFilterPills.length > 0}
+		<div class="mt-2 flex flex-wrap gap-1">
+			{#each activeFilterPills as item (`${item.property}-${item.id}`)}
+				<div class="filter-primary">
+					<span>{item.label}</span>
+					<button
+						type="button"
+						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
+						aria-label="Remove {item.label}"
+						onclick={() =>
+							onChange(
+								item.property,
+								parseSelectedFilterIds(
+									removeFilter(
+										item.property === 'statusFilterBy'
+											? filters.statusFilterBy
+											: filters.componentFilterBy,
+										String(item.id)
+									)
+								)
+							)}
+					>
+						<X class="size-3" />
+					</button>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <ResponsiveDialog bind:this={dialog} title="vMCPs Settings" class="md:w-md">
@@ -74,7 +107,12 @@
 			<input
 				type="checkbox"
 				class="checkbox checkbox-xs rounded-sm"
-				bind:checked={showMyVMcpsOnly}
+				checked={filters.showMyVMcpsOnly}
+				onchange={(event) =>
+					onChange(
+						'showMyVMcpsOnly',
+						(event.currentTarget as HTMLInputElement).checked ? ['true'] : []
+					)}
 			/>
 			Show my vMCPs only
 		</label>
@@ -86,13 +124,42 @@
 			<Select
 				id="vmcp-sort-by"
 				options={VMCP_SORT_OPTIONS}
-				bind:selected={sortBy}
+				selected={filters.sortBy}
 				placeholder="Sort by"
 				ariaLabelledby={SORT_LABEL_ID}
 				class={selectClasses}
 				classes={{ root: 'grow', option: 'text-sm' }}
+				onSelect={(option) => onChange('sortBy', [String(option.id)])}
 			/>
 		</div>
+
+		<label
+			id={STATUS_FILTER_LABEL_ID}
+			for="vmcp-filter-by-status"
+			class="divider my-2 text-xs uppercase"
+		>
+			Filter By Status
+		</label>
+		<Select
+			id="vmcp-filter-by-status"
+			options={unusedOptions(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy)}
+			bind:selected={statusDraft}
+			placeholder="Filter by status"
+			ariaLabelledby={STATUS_FILTER_LABEL_ID}
+			class={selectClasses}
+			classes={{ root: 'grow', option: 'text-sm' }}
+			onSelect={(option) => {
+				onChange(
+					'statusFilterBy',
+					parseSelectedFilterIds(addFilter(filters.statusFilterBy, String(option.id)))
+				);
+				statusDraft = '';
+			}}
+		/>
+		{@render dialogFilterPills(
+			pillsFor(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy),
+			'statusFilterBy'
+		)}
 
 		<label
 			id={SERVER_FILTER_LABEL_ID}
@@ -103,7 +170,7 @@
 		</label>
 		<Select
 			id="vmcp-filter-by-server"
-			options={unusedOptions(componentFilterOptions, componentFilterBy)}
+			options={unusedOptions(componentFilterOptions, filters.componentFilterBy)}
 			bind:selected={componentDraft}
 			searchInDropdown
 			placeholder="Filter by MCP server"
@@ -112,29 +179,45 @@
 			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
 			onSelect={(option) => {
-				componentFilterBy = addFilter(componentFilterBy, String(option.id));
+				onChange(
+					'componentFilterBy',
+					parseSelectedFilterIds(addFilter(filters.componentFilterBy, String(option.id)))
+				);
 				componentDraft = '';
 			}}
 		/>
-		{@render filterPills(pillsFor(componentFilterOptions, componentFilterBy), (id) => {
-			componentFilterBy = removeFilter(componentFilterBy, id);
-		})}
+		{@render dialogFilterPills(
+			pillsFor(componentFilterOptions, filters.componentFilterBy),
+			'componentFilterBy'
+		)}
 	</div>
 </ResponsiveDialog>
 
-{#snippet filterPills(items: VMcpFilterOption[], onRemove: (id: string) => void)}
+{#snippet dialogFilterPills(
+	items: VMcpFilterOption[],
+	property: 'statusFilterBy' | 'componentFilterBy'
+)}
 	{#if items.length > 0}
 		<ul class="mt-2 flex flex-wrap gap-1">
 			{#each items as item (item.id)}
-				<li
-					class="bg-base-400/50 dark:bg-base-400 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs"
-				>
+				<li class="filter-primary">
 					<span>{item.label}</span>
 					<button
 						type="button"
 						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
 						aria-label="Remove {item.label}"
-						onclick={() => onRemove(String(item.id))}
+						onclick={() =>
+							onChange(
+								property,
+								parseSelectedFilterIds(
+									removeFilter(
+										property === 'statusFilterBy'
+											? filters.statusFilterBy
+											: filters.componentFilterBy,
+										String(item.id)
+									)
+								)
+							)}
 					>
 						<X class="size-3" />
 					</button>

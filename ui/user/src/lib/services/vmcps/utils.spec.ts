@@ -225,6 +225,60 @@ describe('filterVMcps', () => {
 		).toEqual(['vmcp-shared']);
 	});
 
+	it('filters by connection status for the current user', () => {
+		const connected = createVMCP({ id: 'vmcp-connected', displayName: 'Connected vMCP' });
+		const disconnected = createVMCP({ id: 'vmcp-disconnected', displayName: 'Disconnected vMCP' });
+		const instances = [
+			{
+				id: 'vmcpi-1',
+				vmcpID: 'vmcp-connected',
+				userID: 'user-1',
+				created: '2026-01-01T00:00:00.000Z'
+			}
+		];
+
+		expect(
+			filterVMcps([connected, disconnected], { status: 'connected' }, owners, {
+				instances,
+				userId: 'user-1'
+			}).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-connected']);
+		expect(
+			filterVMcps([connected, disconnected], { status: 'not-connected' }, owners, {
+				instances,
+				userId: 'user-1'
+			}).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-disconnected']);
+	});
+
+	it('filters by update and configuration status', () => {
+		const needsUpdate = createVMCP({ id: 'vmcp-update', displayName: 'Needs Update' });
+		needsUpdate.status = { components: [{ name: 'GitHub', needsUpdate: true }] };
+		const notConfigured = createVMCP({ id: 'vmcp-config', displayName: 'Not Configured' });
+		const instances = [
+			{
+				id: 'vmcpi-1',
+				vmcpID: 'vmcp-config',
+				userID: 'user-1',
+				created: '2026-01-01T00:00:00.000Z',
+				status: { missingRequiredConfiguration: ['component.API_TOKEN'] }
+			}
+		];
+
+		expect(
+			filterVMcps([needsUpdate, notConfigured], { status: 'needs-update' }, owners, {
+				instances,
+				userId: 'user-1'
+			}).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-update']);
+		expect(
+			filterVMcps([needsUpdate, notConfigured], { status: 'not-configured' }, owners, {
+				instances,
+				userId: 'user-1'
+			}).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-config']);
+	});
+
 	it('safely handles owners without username or email', () => {
 		const incompleteOwners = new Map([
 			[
