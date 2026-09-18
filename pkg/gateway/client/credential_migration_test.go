@@ -1,10 +1,37 @@
 package client
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"time"
 
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/stretchr/testify/require"
 )
+
+func TestMigrateKinmIfNotRun(t *testing.T) {
+	c := newTestClient(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	sqlDB, err := c.db.WithContext(ctx).DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	attempts := 0
+	failure := errors.New("migration failed")
+	migrate := func() error {
+		attempts++
+		if attempts == 1 {
+			return failure
+		}
+		// The callback must be able to use the database's only connection.
+		return c.db.WithContext(ctx).Exec("SELECT 1").Error
+	}
+	require.ErrorIs(t, c.MigrateKinmIfNotRun(ctx, "test_once", migrate), failure)
+	require.NoError(t, c.MigrateKinmIfNotRun(ctx, "test_once", migrate))
+	require.NoError(t, c.MigrateKinmIfNotRun(ctx, "test_once", migrate))
+	require.Equal(t, 2, attempts)
+}
 
 func TestMigrateToolReferenceCredentialContexts(t *testing.T) {
 	c := newTestClient(t)

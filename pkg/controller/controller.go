@@ -129,6 +129,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate composite MCP servers: %w", err)
 	}
 
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "vmcp_default_admin_obot_groups", func() error {
+		return migrateVMCPDefaultAdminGroups(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate vMCP default admin groups: %w", err)
+	}
+
 	return nil
 }
 

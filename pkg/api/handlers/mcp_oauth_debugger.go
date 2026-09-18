@@ -29,7 +29,7 @@ const (
 
 // RegisterOAuthDebuggerClient registers an OAuth client for an MCP server and saves it for later debugger steps.
 func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 
 // GetOAuthDebuggerAuthorizationURL creates fresh pending OAuth state and returns the remote authorization URL.
 func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
-	server, _, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, _, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
 
 // ExchangeOAuthDebuggerToken exchanges the debugger authorization code and stores the token like the quick MCP OAuth flow.
 func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}

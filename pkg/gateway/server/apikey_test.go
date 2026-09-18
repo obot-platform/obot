@@ -20,7 +20,7 @@ func TestCreateAPIKeyScopedToVMCP(t *testing.T) {
 			s, gatewayClient := newTokenRequestTestServer(t)
 			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default"}
 			if allowed {
-				vmcp.Spec.Manifest.Profiles = []clienttypes.VMCPProfile{{Subjects: []clienttypes.Subject{{Type: clienttypes.SubjectTypeGroup, ID: "team"}}}}
+				vmcp.Spec.Manifest.Profiles = []clienttypes.VMCPProfile{{Subjects: []clienttypes.Subject{{Type: clienttypes.SubjectTypeObotGroup, ID: "team"}}}}
 			}
 			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodPost, "/api/api-keys", createAPIKeyRequest{
 				Name:         "vMCP key",

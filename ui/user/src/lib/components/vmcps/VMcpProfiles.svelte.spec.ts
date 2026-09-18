@@ -528,6 +528,23 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
 	});
 
+	it('labels Obot groups on the profile card and in the editor', async () => {
+		const vmcp = createVMcp('vmcp-obot-group');
+		vmcp.profiles = [
+			{
+				name: 'default',
+				subjects: [{ type: 'obotGroup', id: 'admin' }],
+				vmcpPermissions: { allowAllComponents: true }
+			}
+		];
+		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+		await expect.element(page.getByText('Obot Admin', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Edit default' }).click();
+		await expect.element(page.getByText('Obot Admin', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('admin', { exact: true })).not.toBeInTheDocument();
+	});
+
 	it('shows a group name on the profile card instead of its directory id', async () => {
 		const group = { id: 'entra/engineering-oid', name: 'Platform Engineering' };
 		worker.use(

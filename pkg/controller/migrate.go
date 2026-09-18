@@ -143,6 +143,38 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 	return nil
 }
 
+func migrateVMCPDefaultAdminGroups(ctx context.Context, client kclient.Client) error {
+	var vmcps v1.VMCPList
+	if err := client.List(ctx, &vmcps); err != nil {
+		return err
+	}
+
+	for i := range vmcps.Items {
+		vmcp := &vmcps.Items[i]
+		var changed bool
+		for j := range vmcp.Spec.Manifest.Profiles {
+			profile := &vmcp.Spec.Manifest.Profiles[j]
+			if profile.Name != "default" || !profile.Permissions.AllowAllComponents {
+				continue
+			}
+			for k := range profile.Subjects {
+				subject := &profile.Subjects[k]
+				if subject.Type == types.SubjectTypeGroup && subject.ID == types.GroupAdmin {
+					subject.Type = types.SubjectTypeObotGroup
+					changed = true
+				}
+			}
+		}
+		if changed {
+			if err := client.Update(ctx, vmcp); err != nil {
+				return fmt.Errorf("failed to migrate vMCP %s/%s: %w", vmcp.Namespace, vmcp.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) error {
 	var models v1.ModelList
 	if err := client.List(ctx, &models); err != nil {

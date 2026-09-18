@@ -331,7 +331,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User.GetUID())
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User)
 	if err != nil {
 		return err
 	}
@@ -557,7 +557,7 @@ func (h *handler) oauthComplete(req api.Context) error {
 }
 
 func (h *handler) ensureMCPAuthComplete(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest) error {
-	mcpID, mcpServer, mcpServerConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User.GetUID())
+	mcpID, mcpServer, mcpServerConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), oauthAppAuthRequest.Spec.MCPID, req.User)
 	if err != nil {
 		return err
 	}

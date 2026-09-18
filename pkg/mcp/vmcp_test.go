@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -242,7 +243,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		httpListenPort: vmcpTestListenPort,
 	}
 
-	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
@@ -450,7 +451,7 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 				httpListenPort: vmcpTestListenPort,
 			}
 
-			serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, tt.userID)
+			serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: tt.userID})
 			if err != nil {
 				t.Fatalf("ServerConfigForVMCP() error = %v", err)
 			}
@@ -475,7 +476,7 @@ func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(vmcp)
 	manager := &SessionManager{storageClient: storage}
-	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, "user"); err == nil || !strings.Contains(err.Error(), "without components") {
+	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"}); err == nil || !strings.Contains(err.Error(), "without components") {
 		t.Fatalf("expected empty VMCP connection error, got %v", err)
 	}
 	var instances v1.VMCPInstanceList
@@ -534,7 +535,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 		httpListenPort: vmcpTestListenPort,
 	}
 
-	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
 	if err != nil {
 		t.Fatalf("first ServerConfigForVMCP() error = %v", err)
 	}
@@ -544,7 +545,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	if first.ConfigHash != "configuration-revision" {
 		t.Fatalf("configuration hash = %q, want controller revision", first.ConfigHash)
 	}
-	second, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	second, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
 	if err != nil {
 		t.Fatalf("second ServerConfigForVMCP() error = %v", err)
 	}
@@ -642,7 +643,7 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 	}()
 	manager := &SessionManager{storageClient: signalingStorage}
 
-	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
@@ -784,7 +785,7 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, userID)
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
 		if err != nil {
 			t.Fatal(err)
 		}

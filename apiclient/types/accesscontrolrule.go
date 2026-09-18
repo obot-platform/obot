@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	SubjectTypeGroup    SubjectType = "group"
-	SubjectTypeUser     SubjectType = "user"
-	SubjectTypeSelector SubjectType = "selector"
+	SubjectTypeGroup     SubjectType = "group"
+	SubjectTypeObotGroup SubjectType = "obotGroup"
+	SubjectTypeUser      SubjectType = "user"
+	SubjectTypeSelector  SubjectType = "selector"
 
 	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
 	ResourceTypeMCPServer             ResourceType = "mcpServer"
@@ -62,9 +63,9 @@ func (a AccessControlRuleManifest) Validate() error {
 
 func (s Subject) Validate() error {
 	switch s.Type {
-	case SubjectTypeUser, SubjectTypeGroup:
+	case SubjectTypeUser, SubjectTypeGroup, SubjectTypeObotGroup:
 		if s.ID == "" {
-			return fmt.Errorf("user ID is required")
+			return fmt.Errorf("subject ID is required")
 		}
 		return nil
 	case SubjectTypeSelector:

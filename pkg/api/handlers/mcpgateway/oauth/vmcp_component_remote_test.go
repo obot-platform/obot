@@ -17,6 +17,7 @@ import (
 	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -133,10 +134,10 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 		}
 		req := vmcpComponentRequest(storage, instance.Name, component.Name)
 		req.GatewayClient = gateway
-		_, config, err := manager.ServerForAction(t.Context(), connection.Name, "42")
+		_, config, err := manager.ServerForAction(t.Context(), connection.Name, &kuser.DefaultInfo{UID: "42"})
 		require.NoError(t, err)
 		require.Equal(t, connection.Name, config.MCPServerInstanceID, "gateway must select the connection's token")
-		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, "42")
+		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, &kuser.DefaultInfo{UID: "42"})
 		require.NoError(t, err)
 		for _, check := range []func() error{
 			func() error { return h.checkVMCPComponentAuth(req) },

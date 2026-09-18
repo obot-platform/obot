@@ -85,6 +85,8 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		effectiveRole = gatewayUser.Role
 	}
 
+	extra["obot_groups"] = effectiveRole.Groups()
+
 	resp.User = &user.DefaultInfo{
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),

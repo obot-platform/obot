@@ -1,3 +1,4 @@
+import type { AccessControlRuleSubject } from '../user/types';
 import type { ChatSession } from './chat/index.svelte';
 
 export interface Agent {
@@ -506,7 +507,7 @@ export type PublishedArtifactVersion = {
 	version: number;
 	description: string;
 	createdAt: string;
-	subjects?: { type: 'user' | 'group' | 'selector'; id: string }[];
+	subjects?: AccessControlRuleSubject[];
 };
 
 export type PublishedArtifact = {
@@ -526,7 +527,7 @@ export type PublishedArtifact = {
 export interface PublishedArtifactUpdateRequest {
 	description?: string;
 	version?: number;
-	subjects?: { type: 'user' | 'group' | 'selector'; id: string }[];
+	subjects?: AccessControlRuleSubject[];
 }
 
 export interface InstallArtifactResponse {

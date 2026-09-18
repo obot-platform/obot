@@ -114,6 +114,86 @@ func (c *Client) UserByIDIncludeDeleted(ctx context.Context, id string) (*types.
 	return u, c.decryptUser(ctx, u)
 }
 
+// UserByIDWithEffectiveRole returns the user with the corresponding ID with their effiective role
+// and auth provider groups.
+func (c *Client) UserByIDWithEffectiveRole(ctx context.Context, id uint) (*types.User, []string, error) {
+	u, groupIDs, err := c.getUserAndGroupIDs(ctx, id, "", "")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	role, err := c.ResolveUserEffectiveRole(ctx, u, groupIDs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve effective role: %w", err)
+	}
+
+	u.Role = role
+	return u, groupIDs, nil
+}
+
+// UserInfoByID returns a user.Info object for the given user ID,
+// suitable for use with ACR helper methods. This fetches the user
+// and their group memberships from the database.
+func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, error) {
+	u, groupIDs, err := c.UserByIDWithEffectiveRole(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kuser.DefaultInfo{
+		Name:   u.Username,
+		UID:    fmt.Sprintf("%d", u.ID),
+		Groups: u.Role.Groups(),
+		Extra: map[string][]string{
+			"obot_groups":          u.Role.Groups(),
+			"auth_provider_groups": groupIDs,
+			"email":                {u.Email},
+		},
+	}, nil
+}
+
+// getUserAndGroupIDs fetches a user and their group memberships.
+// If authProviderNamespace and authProviderName are provided, only groups from that provider are returned.
+// Otherwise, all groups are returned.
+func (c *Client) getUserAndGroupIDs(ctx context.Context, userID any, authProviderNamespace, authProviderName string) (*types.User, []string, error) {
+	var (
+		u        = new(types.User)
+		groupIDs []string
+	)
+
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get the user
+		if err := tx.Where("id = ? AND deleted_at IS NULL", userID).First(u).Error; err != nil {
+			return err
+		}
+
+		// Build the group query
+		query := tx.Table("groups").
+			Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
+			Where("group_memberships.user_id = ?", userID)
+
+		// Filter by auth provider if specified
+		if authProviderNamespace != "" && authProviderName != "" {
+			query = query.Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", authProviderNamespace, authProviderName)
+		}
+
+		// Get the group IDs
+		if err := query.Pluck("groups.id", &groupIDs).Error; err != nil {
+			return fmt.Errorf("failed to list auth provider groups for user: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+
+	if err := c.decryptUser(ctx, u); err != nil {
+		return nil, nil, err
+	}
+
+	return u, groupIDs, nil
+}
+
 // UserFromProviderUserID returns a user by their provider user ID
 func (c *Client) UserFromProviderUserID(ctx context.Context, providerNamespace, providerName, providerUserID string) (*types.User, error) {
 	u := new(types.User)
@@ -638,73 +718,6 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 	}
 
 	return errors.Join(errs...)
-}
-
-// UserInfoByID returns a user.Info object for the given user ID,
-// suitable for use with ACR helper methods. This fetches the user
-// and their group memberships from the database.
-func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, error) {
-	u, groupIDs, err := c.getUserAndGroupIDs(ctx, userID, "", "")
-	if err != nil {
-		return nil, err
-	}
-
-	role, err := c.ResolveUserEffectiveRole(ctx, u, groupIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve effective role: %w", err)
-	}
-
-	return &kuser.DefaultInfo{
-		Name:   u.Username,
-		UID:    fmt.Sprintf("%d", u.ID),
-		Groups: role.Groups(),
-		Extra: map[string][]string{
-			"auth_provider_groups": groupIDs,
-			"email":                {u.Email},
-		},
-	}, nil
-}
-
-// getUserAndGroupIDs fetches a user and their group memberships.
-// If authProviderNamespace and authProviderName are provided, only groups from that provider are returned.
-// Otherwise, all groups are returned.
-func (c *Client) getUserAndGroupIDs(ctx context.Context, userID any, authProviderNamespace, authProviderName string) (*types.User, []string, error) {
-	var (
-		u        = new(types.User)
-		groupIDs []string
-	)
-
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Get the user
-		if err := tx.Where("id = ? AND deleted_at IS NULL", userID).First(u).Error; err != nil {
-			return err
-		}
-
-		// Build the group query
-		query := tx.Table("groups").
-			Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
-			Where("group_memberships.user_id = ?", userID)
-
-		// Filter by auth provider if specified
-		if authProviderNamespace != "" && authProviderName != "" {
-			query = query.Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", authProviderNamespace, authProviderName)
-		}
-
-		// Get the group IDs
-		if err := query.Pluck("groups.id", &groupIDs).Error; err != nil {
-			return fmt.Errorf("failed to list auth provider groups for user: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return nil, nil, err
-	}
-
-	if err := c.decryptUser(ctx, u); err != nil {
-		return nil, nil, err
-	}
-
-	return u, groupIDs, nil
 }
 
 func userDataCtx(user *types.User) value.Context {

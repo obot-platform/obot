@@ -19,8 +19,8 @@ import (
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcptester"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,7 +29,7 @@ const (
 )
 
 type mcpTesterServerActionResolver interface {
-	ServerForActionWithConnectID(context.Context, string, string) (string, v1.MCPServer, mcp.ServerConfig, error)
+	ServerForActionWithConnectID(context.Context, string, kuser.Info) (string, v1.MCPServer, mcp.ServerConfig, error)
 }
 
 type mcpTesterHTTPClient interface {
@@ -77,7 +77,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "you do not have permission to connect to this MCP server", false)
 	}
 
-	_, server, _, err := h.serverResolver.ServerForActionWithConnectID(req.Context(), mcpServerID, principal.ResourceOwnerID(req.User))
+	_, server, _, err := h.serverResolver.ServerForActionWithConnectID(req.Context(), mcpServerID, req.User)
 	if err != nil {
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "the MCP server is not available to this user", false)
 	}

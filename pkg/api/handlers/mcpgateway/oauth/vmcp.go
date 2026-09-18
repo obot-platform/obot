@@ -47,7 +47,7 @@ func (h *handler) checkVMCPComponentAuth(req api.Context) error {
 	}
 	connectID := component.Name
 	if component.Spec.VMCPID != "" && component.Spec.Manifest.Runtime == types.RuntimeRemote {
-		config, err := h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), req.PathValue("mcp_id"), req.User.GetUID())
+		config, err := h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), req.PathValue("mcp_id"), req.User)
 		if err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func (h *handler) vmcpComponentAuthURL(req api.Context, component v1.MCPServer, 
 	if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 		return "", nil
 	}
-	server, config, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), connectID, req.User.GetUID())
+	server, config, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), connectID, req.User)
 	if err != nil {
 		return "", fmt.Errorf("failed to get component server config: %w", err)
 	}
@@ -87,7 +87,7 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 		vMCPID             = req.PathValue("mcp_id")
 		oauthAuthRequestID = req.URL.Query().Get("oauth_auth_request")
 	)
-	_, vMCPServer, compositeConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), vMCPID, req.User.GetUID())
+	_, vMCPServer, compositeConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), vMCPID, req.User)
 	if err != nil {
 		return fmt.Errorf("failed to get vMCP server: %w", err)
 	}

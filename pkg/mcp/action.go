@@ -12,12 +12,14 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,20 +60,21 @@ func (sm *SessionManager) IDAndAudienceFromConnectURL(ctx context.Context, id, u
 	}
 }
 
-func (sm *SessionManager) ServerForActionWithConnectID(ctx context.Context, id, userID string) (string, v1.MCPServer, ServerConfig, error) {
-	id, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
+func (sm *SessionManager) ServerForActionWithConnectID(ctx context.Context, id string, user kuser.Info) (string, v1.MCPServer, ServerConfig, error) {
+	id, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, user, false)
 	return id, server, config, err
 }
 
-func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx context.Context, id, userID string) (string, v1.MCPServer, ServerConfig, []string, error) {
-	return sm.serverForActionWithConnectID(ctx, id, userID, true)
+func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx context.Context, id string, user kuser.Info) (string, v1.MCPServer, ServerConfig, []string, error) {
+	return sm.serverForActionWithConnectID(ctx, id, user, true)
 }
 
-func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, userID string, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
+func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id string, user kuser.Info, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
+	userID := principal.ResourceOwnerID(user)
 	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
 		return "", v1.MCPServer{}, ServerConfig{}, nil, err
 	} else if vmcp != nil {
-		server, config, err := sm.serverForVMCPAction(ctx, id, userID, vmcp, instance)
+		server, config, err := sm.serverForVMCPAction(ctx, id, user, vmcp, instance)
 		if err != nil {
 			return "", v1.MCPServer{}, ServerConfig{}, nil, err
 		}
@@ -95,15 +98,16 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, 
 	}
 }
 
-func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string) (v1.MCPServer, ServerConfig, error) {
+func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user kuser.Info) (v1.MCPServer, ServerConfig, error) {
+	userID := principal.ResourceOwnerID(user)
 	if system.IsMCPServerInstanceID(id) {
-		_, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
+		_, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, user, false)
 		return server, config, err
 	}
 	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
 		return v1.MCPServer{}, ServerConfig{}, err
 	} else if vmcp != nil {
-		return sm.serverForVMCPAction(ctx, id, userID, vmcp, instance)
+		return sm.serverForVMCPAction(ctx, id, user, vmcp, instance)
 	}
 
 	var server v1.MCPServer
@@ -115,8 +119,12 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string
 	return server, serverConfig, err
 }
 
-func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id, userID string, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {
-	config, err := sm.serverConfigForVMCP(ctx, vmcp, instance, userID)
+func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id string, user kuser.Info, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {
+	user, err := sm.vmcpResourceOwner(ctx, user)
+	if err != nil {
+		return v1.MCPServer{}, ServerConfig{}, err
+	}
+	config, err := sm.serverConfigForVMCP(ctx, vmcp, instance, user)
 	if err != nil {
 		return v1.MCPServer{}, ServerConfig{}, err
 	}

@@ -7,6 +7,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
@@ -23,6 +24,10 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName: "Action VMCP",
+				Profiles: []types.VMCPProfile{{
+					Subjects:    []types.Subject{{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				}},
 				Components: []types.VMCPComponent{
 					{
 						ID:              componentID,
@@ -72,7 +77,8 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		storageClient:  storageClient,
 	}
 
-	gotID, gotServer, gotConfig, err := manager.ServerForActionWithConnectID(t.Context(), vmcpID, userID)
+	user := &kuser.DefaultInfo{UID: userID, Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+	gotID, gotServer, gotConfig, err := manager.ServerForActionWithConnectID(t.Context(), vmcpID, user)
 	require.NoError(t, err)
 	require.Equal(t, vmcpID, gotID)
 	require.Equal(t, vmcpID, gotServer.Name)
@@ -81,10 +87,17 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 	require.Equal(t, vmcp.Spec.Manifest.DisplayName, gotConfig.MCPServerDisplayName)
 	require.Len(t, gotConfig.Components, 1)
 	require.Equal(t, componentServer.Name, gotConfig.Components[0].Name)
+	require.False(t, gotConfig.Components[0].DisableTools)
 
-	_, _, secondConfig, err := manager.ServerForActionWithConnectID(t.Context(), vmcpID, userID)
+	_, _, secondConfig, err := manager.ServerForActionWithConnectID(t.Context(), vmcpID, user)
 	require.NoError(t, err)
 	require.Equal(t, gotConfig, secondConfig)
+	_, actionConfig, err := manager.ServerForAction(t.Context(), vmcpID, user)
+	require.NoError(t, err)
+	require.Equal(t, gotConfig, actionConfig)
+	connectConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, user)
+	require.NoError(t, err)
+	require.Equal(t, gotConfig, connectConfig)
 
 	var instances v1.VMCPInstanceList
 	require.NoError(t, storageClient.List(t.Context(), &instances))

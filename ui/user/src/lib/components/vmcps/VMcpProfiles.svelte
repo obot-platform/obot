@@ -442,6 +442,14 @@
 	}
 
 	function subjectDisplay(subject: AccessControlRuleSubject) {
+		if (subject.type === 'obotGroup') {
+			return {
+				name: `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`,
+				group: true,
+				iconURL: undefined,
+				role: undefined
+			};
+		}
 		if (subject.type === 'selector') {
 			const name = subject.id === EVERYONE_GROUP.id ? EVERYONE_GROUP.name : subject.id;
 			return { name, group: true, iconURL: undefined, role: undefined };

@@ -21,6 +21,7 @@ func TestUserInfoByIDEffectiveRole(t *testing.T) {
 	info, err := c.UserInfoByID(t.Context(), u.ID)
 	require.NoError(t, err)
 	require.ElementsMatch(t, apitypes.RoleAdmin.Groups(), info.GetGroups())
+	require.ElementsMatch(t, apitypes.RoleAdmin.Groups(), info.GetExtra()["obot_groups"])
 	require.Equal(t, u.Username, info.GetName())
 	require.Equal(t, []string{"team"}, info.GetExtra()["auth_provider_groups"])
 	require.Equal(t, []string{u.Email}, info.GetExtra()["email"])
@@ -29,6 +30,7 @@ func TestUserInfoByIDEffectiveRole(t *testing.T) {
 	info, err = c.UserInfoByID(t.Context(), u.ID)
 	require.NoError(t, err)
 	require.ElementsMatch(t, apitypes.RoleBasic.Groups(), info.GetGroups())
+	require.ElementsMatch(t, apitypes.RoleBasic.Groups(), info.GetExtra()["obot_groups"])
 
 	// A role lookup failure must not silently return incomplete authorization data.
 	require.NoError(t, db.Migrator().DropTable(&types.GroupRoleAssignment{}))

@@ -43,6 +43,9 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 			Name:   "nobody",
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: gatewayUser.Role.Groups(),
+			Extra: map[string][]string{
+				"obot_groups": gatewayUser.Role.Groups(),
+			},
 		},
 	}, true, nil
 }

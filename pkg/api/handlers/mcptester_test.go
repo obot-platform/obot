@@ -39,7 +39,7 @@ func (f fakeMCPTesterModelAccess) UserHasAccessToModel(kuser.Info, string) (bool
 	return f.allowed, nil
 }
 
-func (f *fakeMCPTesterServerResolver) ServerForActionWithConnectID(_ context.Context, _, _ string) (string, v1.MCPServer, mcp.ServerConfig, error) {
+func (f *fakeMCPTesterServerResolver) ServerForActionWithConnectID(_ context.Context, _ string, _ kuser.Info) (string, v1.MCPServer, mcp.ServerConfig, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++

@@ -23,15 +23,15 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 
 // MatchingProfiles uses both Obot and authentication-provider groups.
 func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
-	groups := slices.Clone(u.GetGroups())
-	groups = append(groups, u.GetExtra()["obot_groups"]...)
-	groups = append(groups, u.GetExtra()["auth_provider_groups"]...)
+	obotGroups := u.GetExtra()["obot_groups"]
+	idpGroups := u.GetExtra()["auth_provider_groups"]
 	var matching []types.VMCPProfile
 	for _, profile := range profiles {
 		for _, subject := range profile.Subjects {
 			if (subject.Type == types.SubjectTypeSelector && subject.ID == "*") ||
 				(subject.Type == types.SubjectTypeUser && subject.ID == u.GetUID()) ||
-				(subject.Type == types.SubjectTypeGroup && slices.Contains(groups, subject.ID)) {
+				(subject.Type == types.SubjectTypeObotGroup && slices.Contains(obotGroups, subject.ID)) ||
+				(subject.Type == types.SubjectTypeGroup && slices.Contains(idpGroups, subject.ID)) {
 				matching = append(matching, profile)
 				break
 			}

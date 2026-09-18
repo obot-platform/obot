@@ -204,7 +204,10 @@ func TestVMCPAuthorization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			groups := append([]string{types.GroupAPI}, tt.groups...)
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			got := authorizer.Authorize(req, &user.DefaultInfo{Name: tt.userID, UID: tt.userID, Groups: groups})
+			got := authorizer.Authorize(req, &user.DefaultInfo{
+				Name: tt.userID, UID: tt.userID, Groups: groups,
+				Extra: map[string][]string{"auth_provider_groups": tt.groups},
+			})
 			if got != tt.allowed {
 				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
 			}
@@ -240,6 +243,8 @@ func TestUserCanReadVMCP(t *testing.T) {
 			},
 		},
 	}
+	sharedWithObotGroupProfile := sharedWithGroupProfile.DeepCopy()
+	sharedWithObotGroupProfile.Spec.Manifest.Profiles[0].Subjects[0].Type = types.SubjectTypeObotGroup
 	sharedWithWildcardProfile := &v1.VMCP{
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
@@ -302,13 +307,13 @@ func TestUserCanReadVMCP(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "group profile grants shared VMCP",
+			name: "generic groups do not grant shared VMCP",
 			user: &user.DefaultInfo{
 				UID:    "owner-role",
 				Groups: []string{types.GroupOwner, "team-a"},
 			},
 			vmcp: sharedWithGroupProfile,
-			want: true,
+			want: false,
 		},
 		{
 			name: "Obot group extra grants shared VMCP",
@@ -318,7 +323,7 @@ func TestUserCanReadVMCP(t *testing.T) {
 					"obot_groups": {"team-a"},
 				},
 			},
-			vmcp: sharedWithGroupProfile,
+			vmcp: sharedWithObotGroupProfile,
 			want: true,
 		},
 		{

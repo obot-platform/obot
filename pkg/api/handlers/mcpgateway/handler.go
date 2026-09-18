@@ -392,10 +392,10 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return h.ensureSystemServerIsDeployed(req, mcpID)
 	}
 	if system.IsVMCPID(mcpID) || system.IsVMCPInstanceID(mcpID) {
-		return h.mcpSessionManager.ServerConfigForVMCP(req.Context(), mcpID, principal.ResourceOwnerID(req.User))
+		return h.mcpSessionManager.ServerConfigForVMCP(req.Context(), mcpID, req.User)
 	}
 
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), mcpID, principal.ResourceOwnerID(req.User))
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), mcpID, req.User)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to get mcp server config: %w", err)
 	}

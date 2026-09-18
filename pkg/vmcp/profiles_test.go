@@ -23,12 +23,12 @@ func TestAllowedToolsUnionsAllMatchingProfiles(t *testing.T) {
 	profiles := []types.VMCPProfile{
 		{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}},
 		{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "role"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"role": {AllowedTools: []string{"tool"}}}}},
-		{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "owner"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"gmail": {AllowedTools: []string{"send"}}}}},
+		{Subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "owner"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"gmail": {AllowedTools: []string{"send"}}}}},
 		{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}, "gmail": {AllowedTools: []string{"read"}}}}},
 		{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}},
 		{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "other"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 	}
-	wantGrant := []types.VMCPToolReference{tool("everything", "echo"), tool("gmail", "read"), tool("gmail", "send"), tool("role", "tool")}
+	wantGrant := []types.VMCPToolReference{tool("everything", "echo"), tool("gmail", "read"), tool("gmail", "send")}
 	if got := AllowedTools(u, profiles, nil); !reflect.DeepEqual(got, wantGrant) {
 		t.Fatalf("union = %v", got)
 	}

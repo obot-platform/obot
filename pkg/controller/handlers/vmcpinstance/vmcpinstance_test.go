@@ -70,7 +70,7 @@ func TestDeleteUnauthorized(t *testing.T) {
 		},
 		{
 			name:     "obot group matches",
-			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
+			subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "team"}},
 			extra:    map[string][]string{"obot_groups": {"team"}},
 		},
 		{
@@ -164,7 +164,7 @@ func TestReconcileToolSelection(t *testing.T) {
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
-		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
 		UserID:   "1",

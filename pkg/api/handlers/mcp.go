@@ -471,7 +471,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User)
 	if err != nil {
 		return err
 	}
@@ -490,7 +490,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 		}
 
 		for i, component := range componentServers {
-			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
+			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User)
 			if err != nil {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
 			}
@@ -539,7 +539,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User)
 	if err != nil {
 		return err
 	}
@@ -565,7 +565,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 			if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
-			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
+			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User)
 			if err != nil {
 				return fmt.Errorf("failed to load vMCP component server %s: %w", component.Name, err)
 			}
@@ -606,7 +606,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User)
 	if err != nil {
 		return err
 	}
@@ -1081,7 +1081,7 @@ func mcpActionID(req api.Context) string {
 }
 
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, *gomcp.ServerCapabilities, error) {
-	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
+	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User)
 	if err != nil {
 		return server, serverConfig, nil, err
 	}
@@ -2405,7 +2405,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	mcpServerID := mcpActionID(req)
 
 	if system.IsVMCPID(mcpServerID) {
-		server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpServerID, req.User.GetUID())
+		server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpServerID, req.User)
 		if err != nil {
 			return err
 		}
@@ -2428,7 +2428,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 				continue
 			}
 
-			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
+			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User)
 			if err != nil {
 				return fmt.Errorf("failed to get config for vMCP component server %s: %w", component.Name, err)
 			}
@@ -2480,7 +2480,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}
@@ -2535,7 +2535,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}
@@ -2667,7 +2667,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}
@@ -2887,7 +2887,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return err
 	}

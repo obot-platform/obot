@@ -137,6 +137,23 @@ func (c *Client) moveCredentialToNameContext(ctx context.Context, credential *ga
 	return nil
 }
 
+// MigrateKinmIfNotRun runs f unless the named migration has already succeeded.
+// It does not hold a transaction open, so f can access storage through other clients.
+func (c *Client) MigrateKinmIfNotRun(ctx context.Context, name string, f func() error) error {
+	db := c.db.WithContext(ctx)
+
+	var migration gatewaytypes.Migration
+	if err := db.Where("name = ?", name).First(&migration).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if err := f(); err != nil {
+		return err
+	}
+
+	return db.Create(&gatewaytypes.Migration{Name: name}).Error
+}
+
 func (c *Client) migrateIfNotRun(ctx context.Context, name string, f func(*gorm.DB) error) error {
 	db := c.db.WithContext(ctx)
 

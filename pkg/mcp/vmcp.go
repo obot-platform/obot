@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -20,7 +21,8 @@ import (
 // the aggregate configuration consumed by the MCP gateway. VMCPs are backed by
 // the MCPServers created by the VMCPInstance controller; the VMCP itself never
 // gets launched as a runtime.
-func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userID string) (ServerConfig, error) {
+func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID string, user kuser.Info) (ServerConfig, error) {
+	userID := principal.ResourceOwnerID(user)
 	vmcp, resolvedInstance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, vmcpID, userID)
 	if err != nil {
 		return ServerConfig{}, err
@@ -29,10 +31,33 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 		return ServerConfig{}, fmt.Errorf("unknown VMCP %q", vmcpID)
 	}
 
-	return sm.serverConfigForVMCP(ctx, vmcp, resolvedInstance, userID)
+	user, err = sm.vmcpResourceOwner(ctx, user)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+	return sm.serverConfigForVMCP(ctx, vmcp, resolvedInstance, user)
 }
 
-func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, userID string) (ServerConfig, error) {
+// Hosted agents use their owner's connection and profile grants after the API
+// authorizes the agent's own access. People already have their full identity.
+func (sm *SessionManager) vmcpResourceOwner(ctx context.Context, user kuser.Info) (kuser.Info, error) {
+	ownerID := principal.ResourceOwnerID(user)
+	if ownerID == user.GetUID() {
+		return user, nil
+	}
+	id, err := strconv.ParseUint(ownerID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid VMCP owner ID: %w", err)
+	}
+	owner, err := sm.gatewayClient.UserInfoByID(ctx, uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("resolve VMCP owner: %w", err)
+	}
+	return owner, nil
+}
+
+func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (ServerConfig, error) {
+	userID := user.GetUID()
 	if len(vmcp.Spec.Manifest.Components) == 0 {
 		return ServerConfig{}, types.NewErrBadRequest("cannot connect to a VMCP without components")
 	}
@@ -143,30 +168,6 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	allowedTools := []types.VMCPToolReference{}
 	switch vmcp.Spec.UserID {
 	case "":
-		// Resolve current group membership for group profiles, including action paths
-		// that have only the resource owner's ID rather than an authenticated request.
-		var (
-			needsGroups bool
-			user        kuser.Info = &kuser.DefaultInfo{UID: userID}
-		)
-
-		for _, profile := range vmcp.Spec.Manifest.Profiles {
-			for _, subject := range profile.Subjects {
-				needsGroups = needsGroups || subject.Type == types.SubjectTypeGroup
-			}
-		}
-
-		if needsGroups {
-			id, err := strconv.ParseUint(userID, 10, 64)
-			if err != nil {
-				return ServerConfig{}, fmt.Errorf("invalid VMCP user ID: %w", err)
-			}
-			user, err = sm.gatewayClient.UserInfoByID(ctx, uint(id))
-			if err != nil {
-				return ServerConfig{}, fmt.Errorf("resolve VMCP user groups: %w", err)
-			}
-		}
-
 		allowedTools = vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
 	case userID:
 		allowedTools = types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)

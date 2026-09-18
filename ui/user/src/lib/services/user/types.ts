@@ -24,7 +24,7 @@ export interface AccessControlRuleResource {
 	id: string;
 }
 export interface AccessControlRuleSubject {
-	type: 'user' | 'group' | 'selector';
+	type: 'user' | 'group' | 'obotGroup' | 'selector';
 	id: string;
 }
 export interface AccessControlRuleManifest {

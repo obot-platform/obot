@@ -116,13 +116,13 @@ func TestVMCPComponentToolReferences(t *testing.T) {
 }
 
 func TestVMCPManifestDefault(t *testing.T) {
-	manifest := VMCPManifest{
-		Components: []VMCPComponent{{
-			Configuration: []VMCPConfigurationPolicy{{Key: "TOKEN"}},
-		}},
-	}
+	manifest := validVMCPManifest()
+	manifest.Components[0].Configuration = []VMCPConfigurationPolicy{{Key: "TOKEN"}}
 
 	manifest.Default(false, "user-1")
+	if err := manifest.Validate(); err != nil {
+		t.Fatalf("default manifest validation failed: %v", err)
+	}
 
 	if got := manifest.Components[0].Configuration[0].Policy; got != VMCPConfigurationPolicyProhibited {
 		t.Fatalf("default configuration policy = %q, want %q", got, VMCPConfigurationPolicyProhibited)
@@ -137,7 +137,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 	if !profile.Permissions.AllowAllComponents {
 		t.Fatal("default profile must allow all tools")
 	}
-	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeGroup || profile.Subjects[0].ID != GroupAdmin {
+	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeObotGroup || profile.Subjects[0].ID != GroupAdmin {
 		t.Fatalf("unexpected default profile subjects: %#v", profile.Subjects)
 	}
 }
@@ -187,6 +187,40 @@ func TestVMCPProfileWithoutAllowAllComponentsMayGrantNoTools(t *testing.T) {
 	}
 	if len(manifest.Profiles[0].Permissions.AllowedComponents) != 0 {
 		t.Fatalf("AllowedTools = %#v, want empty", manifest.Profiles[0].Permissions.AllowedComponents)
+	}
+}
+
+func TestVMCPProfileSubjects(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		subject   Subject
+		wantError bool
+	}{
+		{
+			name:    "Obot group",
+			subject: Subject{Type: SubjectTypeObotGroup, ID: GroupAdmin},
+		},
+		{
+			name:      "Obot group requires ID",
+			subject:   Subject{Type: SubjectTypeObotGroup},
+			wantError: true,
+		},
+		{
+			name:      "unknown subject type",
+			subject:   Subject{Type: "unknown", ID: GroupAdmin},
+			wantError: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validVMCPManifest()
+			manifest.Profiles = []VMCPProfile{{
+				Name:     "profile",
+				Subjects: []Subject{tc.subject},
+			}}
+			if err := manifest.Validate(); (err != nil) != tc.wantError {
+				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
+			}
+		})
 	}
 }
 

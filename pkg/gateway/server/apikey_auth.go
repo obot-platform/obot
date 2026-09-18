@@ -183,7 +183,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	// Get the user from the database
-	u, err := a.client.UserByID(req.Context(), fmt.Sprintf("%d", apiKey.UserID))
+	u, authProviderGroups, err := a.client.UserByIDWithEffectiveRole(req.Context(), apiKey.UserID)
 	if err != nil {
 		return nil, false, nil
 	}
@@ -198,11 +198,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		principal.APIKeyNameExtra: {attribution.Name},
 	}
 
-	// Look up auth provider group memberships so that group-based access
-	// rules (e.g. skill access policies) work for API-key-authenticated
-	// requests such as those made by nanobot.
-	if authGroupIDs, err := a.client.ListGroupIDsForUser(req.Context(), u.ID); err == nil {
-		extra["auth_provider_groups"] = authGroupIDs
+	if authProviderGroups != nil {
+		extra["auth_provider_groups"] = authProviderGroups
 	}
 
 	return &authenticator.Response{

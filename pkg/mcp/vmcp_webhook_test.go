@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -80,7 +81,7 @@ func TestVMCPInstancesInheritWebhooks(t *testing.T) {
 		if err := storage.Create(t.Context(), server); err != nil {
 			t.Fatal(err)
 		}
-		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, userID)
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, &kuser.DefaultInfo{UID: userID})
 		if err != nil {
 			t.Fatal(err)
 		}

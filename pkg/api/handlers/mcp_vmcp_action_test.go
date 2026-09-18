@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -415,12 +416,12 @@ func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 	var previousScope string
 	for _, i := range []int{0, 1, 0} {
 		instance := []*v1.VMCPInstance{first, second}[i]
-		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, instance.Spec.UserID)
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, &kuser.DefaultInfo{UID: instance.Spec.UserID})
 		require.NoError(t, err)
 		require.Equal(t, instance.Name, cfg.MCPServerName)
 		require.Equal(t, connections[i].Name, cfg.Components[0].ConnectID())
 		require.Equal(t, system.LocalMCPConnectURL(connections[i].Name, 8080), mcp.MMMCPConfig(cfg, nil).Servers[0].URL)
-		id, resolved, componentConfig, err := manager.ServerForActionWithConnectID(t.Context(), connections[i].Name, instance.Spec.UserID)
+		id, resolved, componentConfig, err := manager.ServerForActionWithConnectID(t.Context(), connections[i].Name, &kuser.DefaultInfo{UID: instance.Spec.UserID})
 		require.NoError(t, err)
 		require.Equal(t, connections[i].Name, id)
 		require.Equal(t, server.Name, resolved.Name)
@@ -431,7 +432,7 @@ func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 		}
 		previousScope = componentConfig.Scope
 	}
-	_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), connections[0].Name, "other")
+	_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), connections[0].Name, &kuser.DefaultInfo{UID: "other"})
 	require.Error(t, err)
 
 	// Revoking the policy must remove projected secrets, including values cached in Config.

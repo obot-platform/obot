@@ -106,7 +106,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 					limit <- struct{}{}
 				}()
 
-				_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), mcpServerConfig.Components[i].ConnectID(), req.User.GetUID())
+				_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), mcpServerConfig.Components[i].ConnectID(), req.User)
 				if err != nil {
 					return
 				}

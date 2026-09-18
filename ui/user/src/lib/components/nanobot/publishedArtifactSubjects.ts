@@ -1,7 +1,6 @@
-export type PublishedArtifactSubject = {
-	type: 'user' | 'group' | 'selector';
-	id: string;
-};
+import type { AccessControlRuleSubject } from '$lib/services';
+
+export type PublishedArtifactSubject = AccessControlRuleSubject;
 
 export function hasAllUsersSubject(subjects?: PublishedArtifactSubject[]): boolean {
 	return !!subjects?.some((subject) => subject.type === 'selector' && subject.id === '*');
