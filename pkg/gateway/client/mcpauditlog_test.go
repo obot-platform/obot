@@ -233,8 +233,14 @@ func TestInsertMCPAuditLogsCorrelatesConcurrentSessionlessExchangesWithReusedReq
 		name string
 		ids  []string
 	}{
-		{name: "first request responds first", ids: []string{"exchange-a", "exchange-b"}},
-		{name: "second request responds first", ids: []string{"exchange-b", "exchange-a"}},
+		{
+			name: "first request responds first",
+			ids:  []string{"exchange-a", "exchange-b"},
+		},
+		{
+			name: "second request responds first",
+			ids:  []string{"exchange-b", "exchange-a"},
+		},
 	} {
 		t.Run(responseOrder.name, func(t *testing.T) {
 			c := newTestClient(t)
@@ -950,9 +956,25 @@ func TestGetMCPAuditLogsFiltersByAPIKeyID(t *testing.T) {
 	now := time.Now().UTC()
 	keyOne, keyTwo := uint(42), uint(77)
 	for _, log := range []types.MCPAuditLog{
-		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, APIKeyID: &keyOne, APIKeyName: "CLI token", MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
-		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, APIKeyID: &keyTwo, APIKeyName: "Automation", MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
-		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
+		{
+			CreatedAt:  now,
+			SourceType: types2.AuditLogSourceTypeMCP,
+			APIKeyID:   &keyOne,
+			APIKeyName: "CLI token",
+			MCPFields:  &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"},
+		},
+		{
+			CreatedAt:  now,
+			SourceType: types2.AuditLogSourceTypeMCP,
+			APIKeyID:   &keyTwo,
+			APIKeyName: "Automation",
+			MCPFields:  &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"},
+		},
+		{
+			CreatedAt:  now,
+			SourceType: types2.AuditLogSourceTypeMCP,
+			MCPFields:  &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"},
+		},
 	} {
 		if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{log}); err != nil {
 			t.Fatalf("insert MCP audit log: %v", err)
@@ -1090,11 +1112,26 @@ func TestGetMCPAuditLogsUnifiedFilters(t *testing.T) {
 			outcome string
 			want    int
 		}{
-			{"success", 2}, // MCP 200 + local success
-			{"denied", 1},  // MCP 403
-			{"timeout", 1}, // MCP 504
-			{"failure", 2}, // MCP 500 + local failure
-			{"unknown", 0}, // none recorded
+			{
+				outcome: "success",
+				want:    2,
+			}, // MCP 200 + local success
+			{
+				outcome: "denied",
+				want:    1,
+			}, // MCP 403
+			{
+				outcome: "timeout",
+				want:    1,
+			}, // MCP 504
+			{
+				outcome: "failure",
+				want:    2,
+			}, // MCP 500 + local failure
+			{
+				outcome: "unknown",
+				want:    0,
+			}, // none recorded
 		}
 		for _, tc := range cases {
 			if got := count(t, MCPAuditLogOptions{Outcome: []string{tc.outcome}}); got != tc.want {
@@ -1205,9 +1242,17 @@ func TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns(t *testi
 		want        []string
 	}{
 		// List view: headers are dropped too.
-		{name: "list drops headers", keepHeaders: false, want: append(slices.Clone(sensitive), headers...)},
+		{
+			name:        "list drops headers",
+			keepHeaders: false,
+			want:        append(slices.Clone(sensitive), headers...),
+		},
 		// Detail view: headers are kept (returned redacted).
-		{name: "detail keeps headers", keepHeaders: true, want: sensitive},
+		{
+			name:        "detail keeps headers",
+			keepHeaders: true,
+			want:        sensitive,
+		},
 	}
 
 	for _, tt := range tests {

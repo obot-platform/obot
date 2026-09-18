@@ -250,9 +250,21 @@ func TestEnforcementDecideConnectorCallRoundTrips(t *testing.T) {
 		entry     string
 		wantAllow bool
 	}{
-		{"exact display name", "claude.ai Linear", true},
-		{"case-insensitive", "CLAUDE.AI LINEAR", true},
-		{"different connector", "claude.ai Notion", false},
+		{
+			name:      "exact display name",
+			entry:     "claude.ai Linear",
+			wantAllow: true,
+		},
+		{
+			name:      "case-insensitive",
+			entry:     "CLAUDE.AI LINEAR",
+			wantAllow: true,
+		},
+		{
+			name:      "different connector",
+			entry:     "claude.ai Notion",
+			wantAllow: false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gatewayClient := newEnforcementTestGatewayClient(t)
@@ -297,12 +309,36 @@ func TestSanitizeUnresolvedReason(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{"empty", "", ""},
-		{"whitespace only", "  \t\n ", ""},
-		{"trimmed", "  not a supported runner  ", "not a supported runner"},
-		{"kept whole", "npx flag --registry is not allowed", "npx flag --registry is not allowed"},
-		{"truncated", long, long[:maxUnresolvedReasonRunes]},
-		{"truncated on a rune boundary", multibyte, strings.Repeat("é", maxUnresolvedReasonRunes)},
+		{
+			name: "empty",
+			raw:  "",
+			want: "",
+		},
+		{
+			name: "whitespace only",
+			raw:  "  \t\n ",
+			want: "",
+		},
+		{
+			name: "trimmed",
+			raw:  "  not a supported runner  ",
+			want: "not a supported runner",
+		},
+		{
+			name: "kept whole",
+			raw:  "npx flag --registry is not allowed",
+			want: "npx flag --registry is not allowed",
+		},
+		{
+			name: "truncated",
+			raw:  long,
+			want: long[:maxUnresolvedReasonRunes],
+		},
+		{
+			name: "truncated on a rune boundary",
+			raw:  multibyte,
+			want: strings.Repeat("é", maxUnresolvedReasonRunes),
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sanitizeUnresolvedReason(tt.raw)
@@ -342,18 +378,63 @@ func TestTruncateRunes(t *testing.T) {
 		maximum int
 		want    string
 	}{
-		{"empty", "", 8, ""},
-		{"under the limit", "abc", 8, "abc"},
-		{"exactly at the limit", "abcd", 4, "abcd"},
-		{"over the limit", "abcdef", 4, "abcd"},
-		{"zero limit", "abc", 0, ""},
-		{"multibyte cut on a rune boundary", "héllo wörld", 4, "héll"},
-		{"multibyte kept whole", "日本語", 8, "日本語"},
-		{"multibyte cut mid-string", "日本語テキスト", 3, "日本語"},
+		{
+			name:    "empty",
+			raw:     "",
+			maximum: 8,
+			want:    "",
+		},
+		{
+			name:    "under the limit",
+			raw:     "abc",
+			maximum: 8,
+			want:    "abc",
+		},
+		{
+			name:    "exactly at the limit",
+			raw:     "abcd",
+			maximum: 4,
+			want:    "abcd",
+		},
+		{
+			name:    "over the limit",
+			raw:     "abcdef",
+			maximum: 4,
+			want:    "abcd",
+		},
+		{
+			name:    "zero limit",
+			raw:     "abc",
+			maximum: 0,
+			want:    "",
+		},
+		{
+			name:    "multibyte cut on a rune boundary",
+			raw:     "héllo wörld",
+			maximum: 4,
+			want:    "héll",
+		},
+		{
+			name:    "multibyte kept whole",
+			raw:     "日本語",
+			maximum: 8,
+			want:    "日本語",
+		},
+		{
+			name:    "multibyte cut mid-string",
+			raw:     "日本語テキスト",
+			maximum: 3,
+			want:    "日本語",
+		},
 		// Runes, not grapheme clusters. Written decomposed on purpose: cutting
 		// between a base letter and its combining mark is still a valid-UTF-8
 		// cut, which is all an audit field needs.
-		{"combining marks are counted per rune", "e\u0301e\u0301", 3, "e\u0301e"},
+		{
+			name:    "combining marks are counted per rune",
+			raw:     "e\u0301e\u0301",
+			maximum: 3,
+			want:    "e\u0301e",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := truncateRunes(tt.raw, tt.maximum)
@@ -419,13 +500,25 @@ func TestEnforcementDecideWithoutDeviceIdentityDeniesWithoutLogging(t *testing.T
 		name  string
 		extra map[string][]string
 	}{
-		{"no extra at all", nil},
-		{"empty extra", map[string][]string{}},
-		{"configuration id but no device id", map[string][]string{"mdm_configuration_id": {"1"}}},
-		{"device id but unparseable configuration id", map[string][]string{
-			"device_id":            {"device-1"},
-			"mdm_configuration_id": {"not-a-number"},
-		}},
+		{
+			name:  "no extra at all",
+			extra: nil,
+		},
+		{
+			name:  "empty extra",
+			extra: map[string][]string{},
+		},
+		{
+			name:  "configuration id but no device id",
+			extra: map[string][]string{"mdm_configuration_id": {"1"}},
+		},
+		{
+			name: "device id but unparseable configuration id",
+			extra: map[string][]string{
+				"device_id":            {"device-1"},
+				"mdm_configuration_id": {"not-a-number"},
+			},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gatewayClient := newEnforcementTestGatewayClient(t)
@@ -560,13 +653,41 @@ func TestEnforcementObotHostedRequiresFullOrigin(t *testing.T) {
 		callURL    string
 		obotHosted bool
 	}{
-		{"exact origin", "https://obot.example.com/mcp/foo", true},
-		{"explicit default port", "https://obot.example.com:443/mcp/foo", true},
-		{"host case-insensitive", "https://OBOT.EXAMPLE.COM/mcp/foo", true},
-		{"different port", "https://obot.example.com:8443/mcp/foo", false},
-		{"scheme mismatch", "http://obot.example.com/mcp/foo", false},
-		{"scheme mismatch with explicit port", "http://obot.example.com:443/mcp/foo", false},
-		{"foreign host", "https://evil.example.com/mcp/foo", false},
+		{
+			name:       "exact origin",
+			callURL:    "https://obot.example.com/mcp/foo",
+			obotHosted: true,
+		},
+		{
+			name:       "explicit default port",
+			callURL:    "https://obot.example.com:443/mcp/foo",
+			obotHosted: true,
+		},
+		{
+			name:       "host case-insensitive",
+			callURL:    "https://OBOT.EXAMPLE.COM/mcp/foo",
+			obotHosted: true,
+		},
+		{
+			name:       "different port",
+			callURL:    "https://obot.example.com:8443/mcp/foo",
+			obotHosted: false,
+		},
+		{
+			name:       "scheme mismatch",
+			callURL:    "http://obot.example.com/mcp/foo",
+			obotHosted: false,
+		},
+		{
+			name:       "scheme mismatch with explicit port",
+			callURL:    "http://obot.example.com:443/mcp/foo",
+			obotHosted: false,
+		},
+		{
+			name:       "foreign host",
+			callURL:    "https://evil.example.com/mcp/foo",
+			obotHosted: false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gatewayClient := newEnforcementTestGatewayClient(t)
@@ -652,8 +773,16 @@ func TestEnforcementDecideRecordsPackageIdentityWithoutCommandArguments(t *testi
 		source  types.AllowlistServerPackageSource
 		command string
 	}{
-		{"npm", types.AllowlistServerPackageSourceNPM, "npx -y @scope/server --api-key=sk-secret"},
-		{"pypi", types.AllowlistServerPackageSourcePyPI, "env TOKEN=tok-secret uvx some-server --token sk-secret"},
+		{
+			name:    "npm",
+			source:  types.AllowlistServerPackageSourceNPM,
+			command: "npx -y @scope/server --api-key=sk-secret",
+		},
+		{
+			name:    "pypi",
+			source:  types.AllowlistServerPackageSourcePyPI,
+			command: "env TOKEN=tok-secret uvx some-server --token sk-secret",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gatewayClient := newEnforcementTestGatewayClient(t)
@@ -714,19 +843,71 @@ func TestSanitizeServerURL(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{"empty", "", ""},
-		{"already clean", "https://gitmcp.io/docs", "https://gitmcp.io/docs"},
-		{"explicit port kept", "https://gitmcp.io:8443/docs", "https://gitmcp.io:8443/docs"},
-		{"trailing slash kept", "https://gitmcp.io/docs/", "https://gitmcp.io/docs/"},
-		{"query dropped", "https://gitmcp.io/docs?api_key=secret", "https://gitmcp.io/docs"},
-		{"bare query marker dropped", "https://gitmcp.io/docs?", "https://gitmcp.io/docs"},
-		{"fragment dropped", "https://gitmcp.io/docs#secret", "https://gitmcp.io/docs"},
-		{"userinfo dropped", "https://user:pass@gitmcp.io/docs", "https://gitmcp.io/docs"},
-		{"user only dropped", "https://user@gitmcp.io/docs", "https://gitmcp.io/docs"},
-		{"all three dropped", "https://user:pass@gitmcp.io/docs?k=v#f", "https://gitmcp.io/docs"},
-		{"escaped path preserved", "https://gitmcp.io/a%20b?k=v", "https://gitmcp.io/a%20b"},
-		{"unparseable cut at query", "https://exa mple.com/docs?k=secret", "https://exa mple.com/docs"},
-		{"unparseable without query kept", "https://exa mple.com/docs", "https://exa mple.com/docs"},
+		{
+			name: "empty",
+			raw:  "",
+			want: "",
+		},
+		{
+			name: "already clean",
+			raw:  "https://gitmcp.io/docs",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "explicit port kept",
+			raw:  "https://gitmcp.io:8443/docs",
+			want: "https://gitmcp.io:8443/docs",
+		},
+		{
+			name: "trailing slash kept",
+			raw:  "https://gitmcp.io/docs/",
+			want: "https://gitmcp.io/docs/",
+		},
+		{
+			name: "query dropped",
+			raw:  "https://gitmcp.io/docs?api_key=secret",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "bare query marker dropped",
+			raw:  "https://gitmcp.io/docs?",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "fragment dropped",
+			raw:  "https://gitmcp.io/docs#secret",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "userinfo dropped",
+			raw:  "https://user:pass@gitmcp.io/docs",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "user only dropped",
+			raw:  "https://user@gitmcp.io/docs",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "all three dropped",
+			raw:  "https://user:pass@gitmcp.io/docs?k=v#f",
+			want: "https://gitmcp.io/docs",
+		},
+		{
+			name: "escaped path preserved",
+			raw:  "https://gitmcp.io/a%20b?k=v",
+			want: "https://gitmcp.io/a%20b",
+		},
+		{
+			name: "unparseable cut at query",
+			raw:  "https://exa mple.com/docs?k=secret",
+			want: "https://exa mple.com/docs",
+		},
+		{
+			name: "unparseable without query kept",
+			raw:  "https://exa mple.com/docs",
+			want: "https://exa mple.com/docs",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := sanitizeServerURL(tt.raw); got != tt.want {
@@ -742,14 +923,46 @@ func TestSanitizeServerCommand(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{"empty", "", ""},
-		{"whitespace only", "   \t ", ""},
-		{"bare executable", "npx", "npx"},
-		{"flags dropped", "npx -y @scope/server --api-key=sk-secret", "npx"},
-		{"inline env dropped", "env TOKEN=sk-secret uvx some-server", "env"},
-		{"absolute path kept", "/usr/local/bin/my-server --token sk-secret", "/usr/local/bin/my-server"},
-		{"leading whitespace ignored", "  uvx  some-server  ", "uvx"},
-		{"tab separated", "node\tserver.js\t--key=sk-secret", "node"},
+		{
+			name: "empty",
+			raw:  "",
+			want: "",
+		},
+		{
+			name: "whitespace only",
+			raw:  "   \t ",
+			want: "",
+		},
+		{
+			name: "bare executable",
+			raw:  "npx",
+			want: "npx",
+		},
+		{
+			name: "flags dropped",
+			raw:  "npx -y @scope/server --api-key=sk-secret",
+			want: "npx",
+		},
+		{
+			name: "inline env dropped",
+			raw:  "env TOKEN=sk-secret uvx some-server",
+			want: "env",
+		},
+		{
+			name: "absolute path kept",
+			raw:  "/usr/local/bin/my-server --token sk-secret",
+			want: "/usr/local/bin/my-server",
+		},
+		{
+			name: "leading whitespace ignored",
+			raw:  "  uvx  some-server  ",
+			want: "uvx",
+		},
+		{
+			name: "tab separated",
+			raw:  "node\tserver.js\t--key=sk-secret",
+			want: "node",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := sanitizeServerCommand(tt.raw); got != tt.want {
@@ -765,13 +978,41 @@ func TestParseEnforcementDecisionOptionsConfigurationID(t *testing.T) {
 		query string
 		want  []uint
 	}{
-		{"absent", "", nil},
-		{"empty value", "mdm_configuration_id=", nil},
-		{"single", "mdm_configuration_id=7", []uint{7}},
-		{"zero", "mdm_configuration_id=0", []uint{0}},
-		{"repeated", "mdm_configuration_id=3&mdm_configuration_id=5", []uint{3, 5}},
-		{"comma separated", "mdm_configuration_id=3,5,11", []uint{3, 5, 11}},
-		{"whitespace padded", "mdm_configuration_id=%203%20,%205%20", []uint{3, 5}},
+		{
+			name:  "absent",
+			query: "",
+			want:  nil,
+		},
+		{
+			name:  "empty value",
+			query: "mdm_configuration_id=",
+			want:  nil,
+		},
+		{
+			name:  "single",
+			query: "mdm_configuration_id=7",
+			want:  []uint{7},
+		},
+		{
+			name:  "zero",
+			query: "mdm_configuration_id=0",
+			want:  []uint{0},
+		},
+		{
+			name:  "repeated",
+			query: "mdm_configuration_id=3&mdm_configuration_id=5",
+			want:  []uint{3, 5},
+		},
+		{
+			name:  "comma separated",
+			query: "mdm_configuration_id=3,5,11",
+			want:  []uint{3, 5, 11},
+		},
+		{
+			name:  "whitespace padded",
+			query: "mdm_configuration_id=%203%20,%205%20",
+			want:  []uint{3, 5},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			query, err := url.ParseQuery(tt.query)
@@ -792,12 +1033,30 @@ func TestParseEnforcementDecisionOptionsConfigurationID(t *testing.T) {
 		name  string
 		query string
 	}{
-		{"non-numeric", "mdm_configuration_id=abc"},
-		{"sql-ish", "mdm_configuration_id=1%3Bdrop"},
-		{"fractional", "mdm_configuration_id=1.5"},
-		{"negative", "mdm_configuration_id=-1"},
-		{"overflows uint64", "mdm_configuration_id=99999999999999999999"},
-		{"one bad value among good ones", "mdm_configuration_id=3,abc"},
+		{
+			name:  "non-numeric",
+			query: "mdm_configuration_id=abc",
+		},
+		{
+			name:  "sql-ish",
+			query: "mdm_configuration_id=1%3Bdrop",
+		},
+		{
+			name:  "fractional",
+			query: "mdm_configuration_id=1.5",
+		},
+		{
+			name:  "negative",
+			query: "mdm_configuration_id=-1",
+		},
+		{
+			name:  "overflows uint64",
+			query: "mdm_configuration_id=99999999999999999999",
+		},
+		{
+			name:  "one bad value among good ones",
+			query: "mdm_configuration_id=3,abc",
+		},
 	} {
 		t.Run("rejects "+tt.name, func(t *testing.T) {
 			query, err := url.ParseQuery(tt.query)
@@ -1301,15 +1560,51 @@ func TestEnforcementDecideBoundsDeviceSuppliedStrings(t *testing.T) {
 		value string
 		max   int
 	}{
-		{"agent", row.Agent, maxIdentifierRunes},
-		{"tool", row.Tool, maxIdentifierRunes},
-		{"kind", row.Kind, maxIdentifierRunes},
-		{"serverName", row.ServerName, maxIdentifierRunes},
-		{"unresolvedReason", row.UnresolvedReason, maxUnresolvedReasonRunes},
-		{"server.url", row.Server.URL, maxServerURLRunes},
-		{"server.connector", row.Server.Connector, maxIdentifierRunes},
-		{"server.package.name", row.Server.Package.Name, maxIdentifierRunes},
-		{"server.package.version", row.Server.Package.Version, maxIdentifierRunes},
+		{
+			name:  "agent",
+			value: row.Agent,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "tool",
+			value: row.Tool,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "kind",
+			value: row.Kind,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "serverName",
+			value: row.ServerName,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "unresolvedReason",
+			value: row.UnresolvedReason,
+			max:   maxUnresolvedReasonRunes,
+		},
+		{
+			name:  "server.url",
+			value: row.Server.URL,
+			max:   maxServerURLRunes,
+		},
+		{
+			name:  "server.connector",
+			value: row.Server.Connector,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "server.package.name",
+			value: row.Server.Package.Name,
+			max:   maxIdentifierRunes,
+		},
+		{
+			name:  "server.package.version",
+			value: row.Server.Package.Version,
+			max:   maxIdentifierRunes,
+		},
 	} {
 		if n := utf8.RuneCountInString(f.value); n > f.max {
 			t.Errorf("%s stored %d runes, want at most %d", f.name, n, f.max)

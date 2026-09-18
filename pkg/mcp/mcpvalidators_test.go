@@ -757,8 +757,16 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "Authorization", Value: "Bearer token"},
-					{Usage: types.Header, Key: "Content-Type", Value: "application/json"},
+					{
+						Usage: types.Header,
+						Key:   "Authorization",
+						Value: "Bearer token",
+					},
+					{
+						Usage: types.Header,
+						Key:   "Content-Type",
+						Value: "application/json",
+					},
 				},
 			},
 			expectError: false,
@@ -798,7 +806,11 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "", Value: "some-value"},
+					{
+						Usage: types.Header,
+						Key:   "",
+						Value: "some-value",
+					},
 				},
 			},
 			expectError: true,
@@ -813,7 +825,11 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "   ", Value: "some-value"},
+					{
+						Usage: types.Header,
+						Key:   "   ",
+						Value: "some-value",
+					},
 				},
 			},
 			expectError: true,
@@ -828,7 +844,12 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "Authorization", Value: "Bearer token", Sensitive: true},
+					{
+						Usage:     types.Header,
+						Key:       "Authorization",
+						Value:     "Bearer token",
+						Sensitive: true,
+					},
 				},
 			},
 		},
@@ -840,7 +861,13 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 					URL: "https://example.com/mcp",
 				},
 				Config: []types.MCPConfig{
-					{Usage: types.Header, Key: "API-Key", Value: "", Sensitive: true, Required: true},
+					{
+						Usage:     types.Header,
+						Key:       "API-Key",
+						Value:     "",
+						Sensitive: true,
+						Required:  true,
+					},
 				},
 			},
 			expectError: false,
@@ -1133,8 +1160,13 @@ func TestValidateRemoteManifestAllowMissingURL(t *testing.T) {
 			wantErr: "localhost URL",
 		},
 		{
-			name:    "missing URL still validates headers",
-			fields:  []types.MCPConfig{{Usage: types.Header, Value: "value"}},
+			name: "missing URL still validates headers",
+			fields: []types.MCPConfig{
+				{
+					Usage: types.Header,
+					Value: "value",
+				},
+			},
 			options: ValidationOptions{AllowMissingURL: true},
 			wantErr: "header key cannot be empty",
 		},
@@ -1143,7 +1175,12 @@ func TestValidateRemoteManifestAllowMissingURL(t *testing.T) {
 			config: types.RemoteRuntimeConfig{
 				IsTemplate: true,
 			},
-			fields:  []types.MCPConfig{{Usage: types.Header, Value: "value"}},
+			fields: []types.MCPConfig{
+				{
+					Usage: types.Header,
+					Value: "value",
+				},
+			},
 			wantErr: "header key cannot be empty",
 		},
 	}
@@ -1598,7 +1635,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "X-Foo", Value: "bar"}},
+				Config: []types.MCPConfig{
+					{
+						Usage: types.Header,
+						Key:   "X-Foo",
+						Value: "bar",
+					},
+				},
 			},
 			gitManaged: false,
 			backend:    "docker",
@@ -1608,7 +1651,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "DD-API-KEY", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Header,
+						Key:           "DD-API-KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: false,
 			backend:    "kubernetes",
@@ -1619,7 +1668,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "DD-API-KEY", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Header,
+						Key:           "DD-API-KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1628,7 +1683,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "bound env accepted for admin-managed multi-user server",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
-				Config:  []types.MCPConfig{{Usage: types.Env, Key: "DD_API_KEY", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Env,
+						Key:           "DD_API_KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			adminManaged: true,
 			backend:      "kubernetes",
@@ -1637,9 +1698,14 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "bound multi-user header is rejected",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
-				Config: []types.MCPConfig{{
-					Key: "X-API-Key", Usage: types.Header, UserAllowed: true, SecretBinding: binding,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "X-API-Key",
+						Usage:         types.Header,
+						UserAllowed:   true,
+						SecretBinding: binding,
+					},
+				},
 			},
 			adminManaged: true,
 			backend:      "kubernetes",
@@ -1650,7 +1716,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "DD-API-KEY", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Header,
+						Key:           "DD-API-KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "docker",
@@ -1661,7 +1733,14 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "DD-API-KEY", Value: "literal", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Header,
+						Key:           "DD-API-KEY",
+						Value:         "literal",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1672,7 +1751,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{},
-				Config:       []types.MCPConfig{{Usage: types.Header, Key: "DD-API-KEY", SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod"}}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Header,
+						Key:           "DD-API-KEY",
+						SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod"},
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1681,8 +1766,14 @@ func TestValidateSecretBindings(t *testing.T) {
 		{
 			name: "bound env under remote runtime is rejected",
 			manifest: types.MCPServerManifest{
-				Runtime:      types.RuntimeRemote,
-				Config:       []types.MCPConfig{{Usage: types.Env, Key: "DD_API_KEY", SecretBinding: binding}},
+				Runtime: types.RuntimeRemote,
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Env,
+						Key:           "DD_API_KEY",
+						SecretBinding: binding,
+					},
+				},
 				RemoteConfig: &types.RemoteRuntimeConfig{},
 			},
 			gitManaged: true,
@@ -1693,7 +1784,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "file-backed env with secret binding is accepted",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
-				Config:  []types.MCPConfig{{Key: "DD_API_KEY", SecretBinding: binding, Usage: types.File}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "DD_API_KEY",
+						SecretBinding: binding,
+						Usage:         types.File,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1702,7 +1799,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "bound env accepted for git-managed containerized",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
-				Config:  []types.MCPConfig{{Usage: types.Env, Key: "DD_API_KEY", SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Env,
+						Key:           "DD_API_KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1711,9 +1814,13 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "env binding is accepted",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{Usage: types.Env,
-					Key: "DD_API_KEY", SecretBinding: binding,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Usage:         types.Env,
+						Key:           "DD_API_KEY",
+						SecretBinding: binding,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1722,10 +1829,12 @@ func TestValidateSecretBindings(t *testing.T) {
 			name: "dynamicFile is accepted",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{{
-					Key:   "DD_API_KEY",
-					Usage: types.DynamicFile,
-				}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "DD_API_KEY",
+						Usage: types.DynamicFile,
+					},
+				},
 			},
 			gitManaged: true,
 			backend:    "kubernetes",
@@ -1757,7 +1866,13 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 			name: "urlTemplate referencing non-bound env is allowed",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
-				Config:  []types.MCPConfig{{Key: "HOST", Usage: types.Env, Required: true}},
+				Config: []types.MCPConfig{
+					{
+						Key:      "HOST",
+						Usage:    types.Env,
+						Required: true,
+					},
+				},
 				RemoteConfig: &types.RemoteCatalogConfig{
 					URLTemplate: "https://${HOST}/mcp",
 				},
@@ -1767,7 +1882,14 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 			name: "urlTemplate referencing secret-bound env is rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, Required: true, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						Required:      true,
+						SecretBinding: binding,
+					},
+				},
 				RemoteConfig: &types.RemoteCatalogConfig{
 					URLTemplate: "https://example.com/${TOKEN}/mcp",
 				},
@@ -1778,7 +1900,14 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 			name: "no urlTemplate with bound env passes to core check",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, Required: true, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						Required:      true,
+						SecretBinding: binding,
+					},
+				},
 			},
 		},
 	}
@@ -1809,7 +1938,13 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 			name: "admin-managed non-git catalog entry allows env binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						SecretBinding: binding,
+					},
+				},
 			},
 			adminManaged: true,
 		},
@@ -1817,7 +1952,13 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 			name: "non-admin non-git catalog entry rejects env binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						SecretBinding: binding,
+					},
+				},
 			},
 			wantErr: "administrator-managed vMCPs",
 		},
@@ -1825,7 +1966,13 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 			name: "admin-managed non-git catalog entry allows env binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						SecretBinding: binding,
+					},
+				},
 			},
 			adminManaged: true,
 		},
@@ -1833,7 +1980,13 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 			name: "admin-managed non-git remote catalog entry allows header binding",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
-				Config:  []types.MCPConfig{{Key: "Authorization", Usage: types.Header, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "Authorization",
+						Usage:         types.Header,
+						SecretBinding: binding,
+					},
+				},
 			},
 			adminManaged: true,
 		},
@@ -1864,7 +2017,13 @@ func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
 			name: "env config adminAdded rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Config:  []types.MCPConfig{{Key: "TOKEN", Usage: types.Env, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						SecretBinding: binding,
+					},
+				},
 			},
 			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
 		},
@@ -1872,7 +2031,13 @@ func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
 			name: "header config adminAdded rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
-				Config:  []types.MCPConfig{{Key: "Authorization", Usage: types.Header, SecretBinding: binding}},
+				Config: []types.MCPConfig{
+					{
+						Key:           "Authorization",
+						Usage:         types.Header,
+						SecretBinding: binding,
+					},
+				},
 			},
 			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
 		},
@@ -1958,7 +2123,14 @@ func TestValidateTemplateReferences_Server(t *testing.T) {
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://example.com/mcp",
 				},
-				Config: []types.MCPConfig{optional, {Usage: types.Header, Key: "Authorization", Value: "Bearer ${TAG}"}},
+				Config: []types.MCPConfig{
+					optional,
+					{
+						Usage: types.Header,
+						Key:   "Authorization",
+						Value: "Bearer ${TAG}",
+					},
+				},
 			},
 			wantErr: "must be required=true",
 		},
@@ -2046,7 +2218,13 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime:      types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-				Config:       []types.MCPConfig{{Key: "Authorization", Usage: types.Header, Value: "Bearer ${TAG}"}},
+				Config: []types.MCPConfig{
+					{
+						Key:   "Authorization",
+						Usage: types.Header,
+						Value: "Bearer ${TAG}",
+					},
+				},
 			},
 			wantErr: "undeclared",
 		},

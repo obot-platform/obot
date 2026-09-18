@@ -57,9 +57,18 @@ func TestConnectURL(t *testing.T) {
 		base string
 		want string
 	}{
-		{base: "http://obot.example", want: "ws://obot.example/tunnel/connect"},
-		{base: "https://obot.example/api/", want: "wss://obot.example/tunnel/connect"},
-		{base: "https://obot.example/prefix/api", want: "wss://obot.example/prefix/tunnel/connect"},
+		{
+			base: "http://obot.example",
+			want: "ws://obot.example/tunnel/connect",
+		},
+		{
+			base: "https://obot.example/api/",
+			want: "wss://obot.example/tunnel/connect",
+		},
+		{
+			base: "https://obot.example/prefix/api",
+			want: "wss://obot.example/prefix/tunnel/connect",
+		},
 	}
 	for _, test := range tests {
 		got, err := ConnectURL(test.base)
@@ -1094,11 +1103,31 @@ func TestBridgeURLRejectsInvalidInput(t *testing.T) {
 		tunnelName string
 		targetURL  string
 	}{
-		{name: "invalid tunnel name", tunnelName: "Office", targetURL: "https://example.test/mcp"},
-		{name: "special tunnel scheme", tunnelName: "office", targetURL: "https+tunnel://office@example.test/mcp"},
-		{name: "unsupported target scheme", tunnelName: "office", targetURL: "ftp://example.test/mcp"},
-		{name: "missing target hostname", tunnelName: "office", targetURL: "https:///mcp"},
-		{name: "target user information", tunnelName: "office", targetURL: "https://user@example.test/mcp"},
+		{
+			name:       "invalid tunnel name",
+			tunnelName: "Office",
+			targetURL:  "https://example.test/mcp",
+		},
+		{
+			name:       "special tunnel scheme",
+			tunnelName: "office",
+			targetURL:  "https+tunnel://office@example.test/mcp",
+		},
+		{
+			name:       "unsupported target scheme",
+			tunnelName: "office",
+			targetURL:  "ftp://example.test/mcp",
+		},
+		{
+			name:       "missing target hostname",
+			tunnelName: "office",
+			targetURL:  "https:///mcp",
+		},
+		{
+			name:       "target user information",
+			tunnelName: "office",
+			targetURL:  "https://user@example.test/mcp",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := manager.BridgeURL(test.tunnelName, test.targetURL); err == nil {

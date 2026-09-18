@@ -128,13 +128,38 @@ func TestModelAllowedForAgent(t *testing.T) {
 		modelID    string
 		want       bool
 	}{
-		{"exact match", []string{"m1-abc", "m1-def"}, "m1-abc", true},
-		{"not configured", []string{"m1-abc"}, "m1-def", false},
-		{"wildcard", []string{"*"}, "m1-anything", true},
-		{"nothing configured denies", nil, "m1-abc", false},
+		{
+			name:       "exact match",
+			configured: []string{"m1-abc", "m1-def"},
+			modelID:    "m1-abc",
+			want:       true,
+		},
+		{
+			name:       "not configured",
+			configured: []string{"m1-abc"},
+			modelID:    "m1-def",
+			want:       false,
+		},
+		{
+			name:       "wildcard",
+			configured: []string{"*"},
+			modelID:    "m1-anything",
+			want:       true,
+		},
+		{
+			name:       "nothing configured denies",
+			configured: nil,
+			modelID:    "m1-abc",
+			want:       false,
+		},
 		// Documented gap: alias references are not resolved yet, and denying is
 		// the safe direction while that is true.
-		{"alias reference is not expanded", []string{"obot://llm"}, "m1-abc", false},
+		{
+			name:       "alias reference is not expanded",
+			configured: []string{"obot://llm"},
+			modelID:    "m1-abc",
+			want:       false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := modelAllowedForAgent(tt.configured, tt.modelID); got != tt.want {

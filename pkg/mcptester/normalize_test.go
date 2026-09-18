@@ -139,8 +139,12 @@ func TestNormalizeStreamRejectsCallsOutsideTheRequestSnapshot(t *testing.T) {
 		want   string
 	}{
 		{
-			name:  "tool not advertised",
-			tools: []types.MCPTesterTool{{Name: "lookup"}},
+			name: "tool not advertised",
+			tools: []types.MCPTesterTool{
+				{
+					Name: "lookup",
+				},
+			},
 			stream: []string{
 				`data: {"type":"response.output_item.done","output_index":0,"item":{"id":"item-1","call_id":"call-1","type":"function_call","name":"delete","arguments":"{}"}}`,
 				`data: {"type":"response.completed"}`,
@@ -157,8 +161,12 @@ func TestNormalizeStreamRejectsCallsOutsideTheRequestSnapshot(t *testing.T) {
 			want: "not provided in this request",
 		},
 		{
-			name:  "duplicate call ID",
-			tools: []types.MCPTesterTool{{Name: "lookup"}},
+			name: "duplicate call ID",
+			tools: []types.MCPTesterTool{
+				{
+					Name: "lookup",
+				},
+			},
 			stream: []string{
 				`data: {"type":"response.output_item.done","output_index":0,"item":{"id":"item-1","call_id":"call-1","type":"function_call","name":"lookup","arguments":"{}"}}`,
 				`data: {"type":"response.output_item.done","output_index":1,"item":{"id":"item-2","call_id":"call-1","type":"function_call","name":"lookup","arguments":"{}"}}`,

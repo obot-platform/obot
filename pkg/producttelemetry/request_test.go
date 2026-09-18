@@ -321,8 +321,16 @@ func TestBuildRequestIdentityFailures(t *testing.T) {
 		key     string
 		wantErr string
 	}{
-		{name: "installation ID", key: upgrade.InstallationIDPropertyKey, wantErr: "get installation ID"},
-		{name: "license machine ID", key: license.LicenseMachineIDPropertyKey, wantErr: "get license machine ID"},
+		{
+			name:    "installation ID",
+			key:     upgrade.InstallationIDPropertyKey,
+			wantErr: "get installation ID",
+		},
+		{
+			name:    "license machine ID",
+			key:     license.LicenseMachineIDPropertyKey,
+			wantErr: "get license machine ID",
+		},
 	}
 
 	for _, testCase := range tests {

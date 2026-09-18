@@ -151,10 +151,27 @@ func TestObserveInstanceDetectsPodSchedulingChanges(t *testing.T) {
 		observed         Options
 		observedRevision string
 	}{
-		{name: "unchanged", applied: configured, observed: configured, observedRevision: desired.Revision},
-		{name: "added", applied: empty, observed: configured},
-		{name: "changed", applied: configured, observed: changed},
-		{name: "removed", applied: configured, observed: empty},
+		{
+			name:             "unchanged",
+			applied:          configured,
+			observed:         configured,
+			observedRevision: desired.Revision,
+		},
+		{
+			name:     "added",
+			applied:  empty,
+			observed: configured,
+		},
+		{
+			name:     "changed",
+			applied:  configured,
+			observed: changed,
+		},
+		{
+			name:     "removed",
+			applied:  configured,
+			observed: empty,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			appliedBackend, err := New(nil, nil, tt.applied)
@@ -216,8 +233,14 @@ func TestInstanceObjectsApplyRuntimeClass(t *testing.T) {
 		runtimeClassName string
 		want             *string
 	}{
-		{name: "configured", runtimeClassName: "gvisor", want: new("gvisor")},
-		{name: "unset"},
+		{
+			name:             "configured",
+			runtimeClassName: "gvisor",
+			want:             new("gvisor"),
+		},
+		{
+			name: "unset",
+		},
 	}
 
 	for _, tt := range tests {
@@ -640,11 +663,31 @@ func TestVolumeIsDedicated(t *testing.T) {
 		filesystem int64
 		want       bool
 	}{
-		{"exactly the claim", claim, true},
-		{"rounded up by the provisioner", claim + (1 << 30), true},
-		{"host filesystem dwarfs the claim", 1081101176832, false},
-		{"unknown filesystem size", 0, false},
-		{"unknown claim size", claim, true},
+		{
+			name:       "exactly the claim",
+			filesystem: claim,
+			want:       true,
+		},
+		{
+			name:       "rounded up by the provisioner",
+			filesystem: claim + (1 << 30),
+			want:       true,
+		},
+		{
+			name:       "host filesystem dwarfs the claim",
+			filesystem: 1081101176832,
+			want:       false,
+		},
+		{
+			name:       "unknown filesystem size",
+			filesystem: 0,
+			want:       false,
+		},
+		{
+			name:       "unknown claim size",
+			filesystem: claim,
+			want:       true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := volumeIsDedicated(tt.filesystem, claim); got != tt.want {

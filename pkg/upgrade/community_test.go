@@ -82,8 +82,16 @@ func TestCommunityLicenseIssue(t *testing.T) {
 
 	client := NewCommunityLicenseIssuer(propertyClient, server.URL+"/root/", server.Client())
 	for _, request := range []CommunityLicenseRequest{
-		{Name: "  Ada Lovelace  ", Email: " ada@example.com ", Company: "   "},
-		{Name: "Grace Hopper", Email: "grace@example.com", Company: "  US Navy  "},
+		{
+			Name:    "  Ada Lovelace  ",
+			Email:   " ada@example.com ",
+			Company: "   ",
+		},
+		{
+			Name:    "Grace Hopper",
+			Email:   "grace@example.com",
+			Company: "  US Navy  ",
+		},
 	} {
 		got, err := client.Issue(t.Context(), request)
 		if err != nil {

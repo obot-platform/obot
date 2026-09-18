@@ -14,11 +14,26 @@ func TestJSONCoerce(t *testing.T) {
 		name string
 		in   any
 	}{
-		{name: "map", in: map[string]any{"name": "obot"}},
-		{name: "string", in: `{"name":"obot"}`},
-		{name: "string pointer", in: new(`{"name":"obot"}`)},
-		{name: "bytes", in: []byte(`{"name":"obot"}`)},
-		{name: "same type", in: jsonCoerceValue{Name: "obot"}},
+		{
+			name: "map",
+			in:   map[string]any{"name": "obot"},
+		},
+		{
+			name: "string",
+			in:   `{"name":"obot"}`,
+		},
+		{
+			name: "string pointer",
+			in:   new(`{"name":"obot"}`),
+		},
+		{
+			name: "bytes",
+			in:   []byte(`{"name":"obot"}`),
+		},
+		{
+			name: "same type",
+			in:   jsonCoerceValue{Name: "obot"},
+		},
 	}
 
 	for _, tt := range tests {

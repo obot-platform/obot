@@ -42,8 +42,14 @@ func TestCompositeUpstreamClientIdentity(t *testing.T) {
 	}))
 	defer frontend.Close()
 	for _, want := range []gomcp.Implementation{
-		{Name: "first-client", Version: "1.2.3"},
-		{Name: "second-client", Version: "4.5.6"},
+		{
+			Name:    "first-client",
+			Version: "1.2.3",
+		},
+		{
+			Name:    "second-client",
+			Version: "4.5.6",
+		},
 	} {
 		client := gomcp.NewClient(&want, nil)
 		session, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{Endpoint: frontend.URL, DisableStandaloneSSE: true}, nil)

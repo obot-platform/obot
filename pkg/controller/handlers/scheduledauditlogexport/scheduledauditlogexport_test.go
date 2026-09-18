@@ -63,12 +63,36 @@ func TestGetScheduleAndTimezone(t *testing.T) {
 		in   v1.Schedule
 		want string
 	}{
-		{name: "hourly", in: v1.Schedule{Interval: "hourly", Minute: 15}, want: "15 * * * *"},
-		{name: "daily", in: v1.Schedule{Interval: "daily", Hour: 2, Minute: 30}, want: "30 2 * * *"},
-		{name: "weekly", in: v1.Schedule{Interval: "weekly", Hour: 3, Minute: 45, Weekday: 1}, want: "45 3 * * 1"},
-		{name: "monthly first day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 0}, want: "5 4 1 * *"},
-		{name: "monthly last day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: -1}, want: "5 4 L * *"},
-		{name: "monthly specific day", in: v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 12}, want: "5 4 12 * *"},
+		{
+			name: "hourly",
+			in:   v1.Schedule{Interval: "hourly", Minute: 15},
+			want: "15 * * * *",
+		},
+		{
+			name: "daily",
+			in:   v1.Schedule{Interval: "daily", Hour: 2, Minute: 30},
+			want: "30 2 * * *",
+		},
+		{
+			name: "weekly",
+			in:   v1.Schedule{Interval: "weekly", Hour: 3, Minute: 45, Weekday: 1},
+			want: "45 3 * * 1",
+		},
+		{
+			name: "monthly first day",
+			in:   v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 0},
+			want: "5 4 1 * *",
+		},
+		{
+			name: "monthly last day",
+			in:   v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: -1},
+			want: "5 4 L * *",
+		},
+		{
+			name: "monthly specific day",
+			in:   v1.Schedule{Interval: "monthly", Hour: 4, Minute: 5, Day: 12},
+			want: "5 4 12 * *",
+		},
 	}
 
 	for _, tt := range tests {

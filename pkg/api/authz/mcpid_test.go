@@ -426,12 +426,42 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 		userID  string
 		allowed bool
 	}{
-		{name: "server owner is allowed", mcpID: "ms1workspace", userID: "owner-uid", allowed: true},
-		{name: "server shared user is allowed", mcpID: "ms1workspace", userID: "shared-user-uid", allowed: true},
-		{name: "server unrelated user is denied", mcpID: "ms1workspace", userID: "other-uid", allowed: false},
-		{name: "entry workspace owner is allowed", mcpID: "workspace-entry", userID: "owner-uid", allowed: true},
-		{name: "entry shared user is allowed", mcpID: "workspace-entry", userID: "shared-user-uid", allowed: true},
-		{name: "entry unrelated user is denied", mcpID: "workspace-entry", userID: "other-uid", allowed: false},
+		{
+			name:    "server owner is allowed",
+			mcpID:   "ms1workspace",
+			userID:  "owner-uid",
+			allowed: true,
+		},
+		{
+			name:    "server shared user is allowed",
+			mcpID:   "ms1workspace",
+			userID:  "shared-user-uid",
+			allowed: true,
+		},
+		{
+			name:    "server unrelated user is denied",
+			mcpID:   "ms1workspace",
+			userID:  "other-uid",
+			allowed: false,
+		},
+		{
+			name:    "entry workspace owner is allowed",
+			mcpID:   "workspace-entry",
+			userID:  "owner-uid",
+			allowed: true,
+		},
+		{
+			name:    "entry shared user is allowed",
+			mcpID:   "workspace-entry",
+			userID:  "shared-user-uid",
+			allowed: true,
+		},
+		{
+			name:    "entry unrelated user is denied",
+			mcpID:   "workspace-entry",
+			userID:  "other-uid",
+			allowed: false,
+		},
 	}
 
 	for _, tt := range tests {

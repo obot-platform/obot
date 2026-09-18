@@ -69,15 +69,51 @@ func TestEmailDomainAllowed(t *testing.T) {
 		domains, email string
 		want           bool
 	}{
-		{"*", "user@example.com", true},
-		{"example.com", "user@example.com", true},
-		{"example.com", "user@EXAMPLE.com", false}, // emails are normalized before this check
-		{"example.com, other.com", "user@other.com", true},
-		{"@example.com", "user@example.com", true},
-		{"example.com", "user@notexample.com", false},
-		{"example.com", "user@evil.com", false},
-		{"", "user@example.com", false},
-		{"*", "not-an-email", false},
+		{
+			domains: "*",
+			email:   "user@example.com",
+			want:    true,
+		},
+		{
+			domains: "example.com",
+			email:   "user@example.com",
+			want:    true,
+		},
+		{
+			domains: "example.com",
+			email:   "user@EXAMPLE.com",
+			want:    false,
+		}, // emails are normalized before this check
+		{
+			domains: "example.com, other.com",
+			email:   "user@other.com",
+			want:    true,
+		},
+		{
+			domains: "@example.com",
+			email:   "user@example.com",
+			want:    true,
+		},
+		{
+			domains: "example.com",
+			email:   "user@notexample.com",
+			want:    false,
+		},
+		{
+			domains: "example.com",
+			email:   "user@evil.com",
+			want:    false,
+		},
+		{
+			domains: "",
+			email:   "user@example.com",
+			want:    false,
+		},
+		{
+			domains: "*",
+			email:   "not-an-email",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {

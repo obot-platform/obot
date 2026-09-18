@@ -42,15 +42,49 @@ func TestValidateClientIDMetadataDocumentURL(t *testing.T) {
 		url     string
 		wantErr bool
 	}{
-		{name: "valid", url: "https://client.example/oauth/client.json"},
-		{name: "query is allowed", url: "https://client.example/oauth/client.json?v=1"},
-		{name: "http rejected", url: "http://client.example/oauth/client.json", wantErr: true},
-		{name: "missing path rejected", url: "https://client.example", wantErr: true},
-		{name: "root path rejected", url: "https://client.example/", wantErr: true},
-		{name: "fragment rejected", url: "https://client.example/oauth/client.json#frag", wantErr: true},
-		{name: "userinfo rejected", url: "https://user@client.example/oauth/client.json", wantErr: true},
-		{name: "dot segment rejected", url: "https://client.example/oauth/../client.json", wantErr: true},
-		{name: "encoded dot segment rejected", url: "https://client.example/oauth/%2e%2e/client.json", wantErr: true},
+		{
+			name: "valid",
+			url:  "https://client.example/oauth/client.json",
+		},
+		{
+			name: "query is allowed",
+			url:  "https://client.example/oauth/client.json?v=1",
+		},
+		{
+			name:    "http rejected",
+			url:     "http://client.example/oauth/client.json",
+			wantErr: true,
+		},
+		{
+			name:    "missing path rejected",
+			url:     "https://client.example",
+			wantErr: true,
+		},
+		{
+			name:    "root path rejected",
+			url:     "https://client.example/",
+			wantErr: true,
+		},
+		{
+			name:    "fragment rejected",
+			url:     "https://client.example/oauth/client.json#frag",
+			wantErr: true,
+		},
+		{
+			name:    "userinfo rejected",
+			url:     "https://user@client.example/oauth/client.json",
+			wantErr: true,
+		},
+		{
+			name:    "dot segment rejected",
+			url:     "https://client.example/oauth/../client.json",
+			wantErr: true,
+		},
+		{
+			name:    "encoded dot segment rejected",
+			url:     "https://client.example/oauth/%2e%2e/client.json",
+			wantErr: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

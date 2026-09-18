@@ -87,12 +87,30 @@ func TestClassifyDeploymentPodReasons(t *testing.T) {
 		reason string
 		state  agentbackend.State
 	}{
-		{"CrashLoopBackOff", agentbackend.StateError},
-		{"ImagePullBackOff", agentbackend.StateError},
-		{"InvalidImageName", agentbackend.StateError},
-		{"CreateContainerConfigError", agentbackend.StateError},
-		{"ContainerCreating", agentbackend.StatePending},
-		{"PodInitializing", agentbackend.StatePending},
+		{
+			reason: "CrashLoopBackOff",
+			state:  agentbackend.StateError,
+		},
+		{
+			reason: "ImagePullBackOff",
+			state:  agentbackend.StateError,
+		},
+		{
+			reason: "InvalidImageName",
+			state:  agentbackend.StateError,
+		},
+		{
+			reason: "CreateContainerConfigError",
+			state:  agentbackend.StateError,
+		},
+		{
+			reason: "ContainerCreating",
+			state:  agentbackend.StatePending,
+		},
+		{
+			reason: "PodInitializing",
+			state:  agentbackend.StatePending,
+		},
 	} {
 		t.Run(tt.reason, func(t *testing.T) {
 			pod := waitingPod(tt.reason, "detail")

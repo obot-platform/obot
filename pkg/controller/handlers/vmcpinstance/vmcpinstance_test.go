@@ -61,27 +61,52 @@ func TestDeleteUnauthorized(t *testing.T) {
 			deleted: true,
 		},
 		{
-			name:     "user matches second profile",
-			subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+			name: "user matches second profile",
+			subjects: []types.Subject{
+				{
+					Type: types.SubjectTypeUser,
+					ID:   "1",
+				},
+			},
 		},
 		{
-			name:     "wildcard matches",
-			subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			name: "wildcard matches",
+			subjects: []types.Subject{
+				{
+					Type: types.SubjectTypeSelector,
+					ID:   "*",
+				},
+			},
 		},
 		{
-			name:     "obot group matches",
-			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
-			extra:    map[string][]string{"obot_groups": {"team"}},
+			name: "obot group matches",
+			subjects: []types.Subject{
+				{
+					Type: types.SubjectTypeGroup,
+					ID:   "team",
+				},
+			},
+			extra: map[string][]string{"obot_groups": {"team"}},
 		},
 		{
-			name:     "provider group matches",
-			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
-			extra:    map[string][]string{"auth_provider_groups": {"team"}},
+			name: "provider group matches",
+			subjects: []types.Subject{
+				{
+					Type: types.SubjectTypeGroup,
+					ID:   "team",
+				},
+			},
+			extra: map[string][]string{"auth_provider_groups": {"team"}},
 		},
 		{
-			name:     "group membership lost",
-			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
-			deleted:  true,
+			name: "group membership lost",
+			subjects: []types.Subject{
+				{
+					Type: types.SubjectTypeGroup,
+					ID:   "team",
+				},
+			},
+			deleted: true,
 		},
 		{
 			name:     "personal VMCP needs no profiles",

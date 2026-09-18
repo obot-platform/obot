@@ -43,7 +43,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "direct user skill grant",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeUser,
+						ID:   "user1",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkill,
+						ID:   "sk1",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -52,7 +62,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "group repository grant",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "skr1"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeGroup,
+						ID:   "eng",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkillRepository,
+						ID:   "skr1",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -61,7 +81,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "global wildcard grant",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, []types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeSelector,
+						ID:   "*",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSelector,
+						ID:   "*",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -70,7 +100,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "wildcard subject repo scoped grant",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "skr1"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeSelector,
+						ID:   "*",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkillRepository,
+						ID:   "skr1",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -79,7 +119,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "different skill does not grant access",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk2"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeUser,
+						ID:   "user1",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkill,
+						ID:   "sk2",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -88,7 +138,17 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "different group does not grant access",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeGroup, ID: "ops"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "skr1"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeGroup,
+						ID:   "ops",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkillRepository,
+						ID:   "skr1",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",
@@ -97,8 +157,28 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 		{
 			name: "multiple matching rules still grant access",
 			rules: []*v1.SkillAccessRule{
-				newRule("rule1", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "skr1"}}),
-				newRule("rule2", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+				newRule("rule1", []types.Subject{
+					{
+						Type: types.SubjectTypeGroup,
+						ID:   "eng",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkillRepository,
+						ID:   "skr1",
+					},
+				}),
+				newRule("rule2", []types.Subject{
+					{
+						Type: types.SubjectTypeUser,
+						ID:   "user1",
+					},
+				}, []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkill,
+						ID:   "sk1",
+					},
+				}),
 			},
 			skillID: "sk1",
 			repoID:  "skr1",

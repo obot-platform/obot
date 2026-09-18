@@ -285,7 +285,9 @@ func TestValidateAuditLogExportFiltersRequiresSourceTypes(t *testing.T) {
 	for _, filters := range []*types.AuditLogExportFilters{
 		nil,
 		{},
-		{SourceTypes: []types.AuditLogSourceType{}},
+		{
+			SourceTypes: []types.AuditLogSourceType{},
+		},
 	} {
 		if err := validateAuditLogExportFilters(filters); err == nil {
 			t.Fatalf("expected empty sourceTypes to be rejected for filters %#v", filters)

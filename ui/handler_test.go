@@ -83,13 +83,33 @@ func TestCacheHeaders(t *testing.T) {
 		urlPath  string
 		expected string
 	}{
-		{"hashed asset", "/_app/immutable/nodes/0.abc123.js", "public, max-age=31536000, immutable"},
-		{"index", "/", "no-cache"},
-		{"mcp-servers entry point", "/mcp-servers", "no-cache"},
-		{"SPA fallback", "/some/client/side/route", "no-cache"},
+		{
+			name:     "hashed asset",
+			urlPath:  "/_app/immutable/nodes/0.abc123.js",
+			expected: "public, max-age=31536000, immutable",
+		},
+		{
+			name:     "index",
+			urlPath:  "/",
+			expected: "no-cache",
+		},
+		{
+			name:     "mcp-servers entry point",
+			urlPath:  "/mcp-servers",
+			expected: "no-cache",
+		},
+		{
+			name:     "SPA fallback",
+			urlPath:  "/some/client/side/route",
+			expected: "no-cache",
+		},
 		// Not content-hashed, so it must not be marked immutable. Left without a
 		// directive rather than forced to revalidate on every request.
-		{"favicon", "/favicon.ico", ""},
+		{
+			name:     "favicon",
+			urlPath:  "/favicon.ico",
+			expected: "",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(t, tt.urlPath, chromeUA)

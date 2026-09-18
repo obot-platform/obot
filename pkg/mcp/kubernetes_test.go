@@ -769,8 +769,12 @@ func TestAnalyzePodStatus(t *testing.T) {
 			name: "running mcp container remains retryable",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
-					Phase:             corev1.PodRunning,
-					ContainerStatuses: []corev1.ContainerStatus{{Name: "mcp"}},
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name: "mcp",
+						},
+					},
 				},
 			},
 			wantRetryable:   true,
@@ -781,12 +785,14 @@ func TestAnalyzePodStatus(t *testing.T) {
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodPending,
-					ContainerStatuses: []corev1.ContainerStatus{{
-						Name: "mcp",
-						State: corev1.ContainerState{
-							Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name: "mcp",
+							State: corev1.ContainerState{
+								Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+							},
 						},
-					}},
+					},
 				},
 			},
 			wantRetryable:   true,
@@ -798,11 +804,13 @@ func TestAnalyzePodStatus(t *testing.T) {
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodPending,
-					Conditions: []corev1.PodCondition{{
-						Type:   corev1.PodScheduled,
-						Status: corev1.ConditionFalse,
-						Reason: corev1.PodReasonUnschedulable,
-					}},
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodScheduled,
+							Status: corev1.ConditionFalse,
+							Reason: corev1.PodReasonUnschedulable,
+						},
+					},
 				},
 			},
 			wantRetryable:   true,
@@ -814,12 +822,14 @@ func TestAnalyzePodStatus(t *testing.T) {
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodRunning,
-					ContainerStatuses: []corev1.ContainerStatus{{
-						Name: "mcp",
-						State: corev1.ContainerState{
-							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff", Message: "back-off restarting failed container"},
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name: "mcp",
+							State: corev1.ContainerState{
+								Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff", Message: "back-off restarting failed container"},
+							},
 						},
-					}},
+					},
 				},
 			},
 			wantErr:         ErrPodCrashLoopBackOff,
@@ -863,13 +873,15 @@ func TestAnalyzePodStatus(t *testing.T) {
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodRunning,
-					ContainerStatuses: []corev1.ContainerStatus{{
-						Name:         "mcp",
-						RestartCount: 4,
-						State: corev1.ContainerState{
-							Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name:         "mcp",
+							RestartCount: 4,
+							State: corev1.ContainerState{
+								Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
+							},
 						},
-					}},
+					},
 				},
 			},
 			wantErr:         ErrPodCrashLoopBackOff,
@@ -1315,16 +1327,19 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	managedSecrets := []v1.ImagePullSecret{
 		{
-			Name: "managed-b", Namespace: system.DefaultNamespace,
-			Spec: v1.ImagePullSecretSpec{Enabled: true},
+			Name:      "managed-b",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.ImagePullSecretSpec{Enabled: true},
 		},
 		{
-			Name: "disabled", Namespace: system.DefaultNamespace,
-			Spec: v1.ImagePullSecretSpec{Enabled: false},
+			Name:      "disabled",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.ImagePullSecretSpec{Enabled: false},
 		},
 		{
-			Name: "managed-a", Namespace: system.DefaultNamespace,
-			Spec: v1.ImagePullSecretSpec{Enabled: true},
+			Name:      "managed-a",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.ImagePullSecretSpec{Enabled: true},
 		},
 	}
 

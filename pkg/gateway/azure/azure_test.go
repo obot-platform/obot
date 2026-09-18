@@ -143,10 +143,28 @@ func TestTransportMissingCredentials(t *testing.T) {
 		creds    map[string]string
 		want     string
 	}{
-		{name: "API key", provider: system.AzureModelProvider, want: APIKeyEnv},
-		{name: "tenant", provider: system.AzureEntraModelProvider, want: TenantIDEnv},
-		{name: "client ID", provider: system.AzureEntraModelProvider, creds: map[string]string{TenantIDEnv: "tenant"}, want: ClientIDEnv},
-		{name: "client secret", provider: system.AzureEntraModelProvider, creds: map[string]string{TenantIDEnv: "tenant", ClientIDEnv: "client"}, want: ClientSecretEnv},
+		{
+			name:     "API key",
+			provider: system.AzureModelProvider,
+			want:     APIKeyEnv,
+		},
+		{
+			name:     "tenant",
+			provider: system.AzureEntraModelProvider,
+			want:     TenantIDEnv,
+		},
+		{
+			name:     "client ID",
+			provider: system.AzureEntraModelProvider,
+			creds:    map[string]string{TenantIDEnv: "tenant"},
+			want:     ClientIDEnv,
+		},
+		{
+			name:     "client secret",
+			provider: system.AzureEntraModelProvider,
+			creds:    map[string]string{TenantIDEnv: "tenant", ClientIDEnv: "client"},
+			want:     ClientSecretEnv,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
