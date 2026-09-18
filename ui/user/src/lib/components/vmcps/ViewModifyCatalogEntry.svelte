@@ -225,12 +225,13 @@
 					hideTitleBarAction
 					entry={catalogEntry}
 					type={catalogEntryFormType}
-					readonly
+					readonly={isAdminReadonly || Boolean(catalogEntry?.sourceURL)}
 					id={serverScopeID}
 					entity={serverScopeEntity}
 					limitViews={['overview', 'tools']}
 					isDialogView
 					onAddFromTools={handleAddToVMcp}
+					disableAddFromTools={alreadyAdded}
 				/>
 			{/if}
 			{#if showAddToVMcp}

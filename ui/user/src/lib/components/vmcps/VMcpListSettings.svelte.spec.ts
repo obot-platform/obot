@@ -41,6 +41,6 @@ describe('VMcpListSettings.svelte', () => {
 		await openFilters();
 
 		await expect.element(page.getByText(/^Filter By Status$/)).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Filter by status' })).toBeVisible();
+		await expect.element(page.getByRole('combobox', { name: 'Filter By Status' })).toBeVisible();
 	});
 });
