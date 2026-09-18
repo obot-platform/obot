@@ -138,7 +138,7 @@ describe('vMCP OAuth consent configuration', () => {
 		await expect.element(page.getByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Configure' }).click();
 		await expect.element(page.getByLabelText('Token')).toHaveValue('');
-		await expect.element(page.getByLabelText('API key')).toHaveValue('saved-key');
+		await expect.element(page.getByLabelText('API key', { exact: false })).toHaveValue('saved-key');
 		await expect.element(page.getByLabelText('Fixed')).not.toBeInTheDocument();
 		await expect.element(page.getByText('Enable')).not.toBeInTheDocument();
 
@@ -157,7 +157,9 @@ describe('vMCP OAuth consent configuration', () => {
 				'component-slack': { 'X-Api-Key': 'saved-key' }
 			}
 		});
-		await expect.element(page.getByText('third-party OAuth authorization').first()).toBeVisible();
+		await expect
+			.element(page.getByText('third-party OAuth authorization', { exact: false }).first())
+			.toBeVisible();
 	});
 
 	it('allows optional configuration before OAuth and reports save failures', async () => {
@@ -176,10 +178,12 @@ describe('vMCP OAuth consent configuration', () => {
 		await expect.element(page.getByRole('button', { name: 'Configure' })).toBeVisible();
 		await page.getByRole('button', { name: 'Configure' }).click();
 		await expect.element(page.getByLabelText('Token')).toHaveValue('saved-token');
-		await page.getByLabelText('API key').fill('key');
+		await page.getByLabelText('API key', { exact: false }).fill('key');
 		await page.getByRole('button', { name: 'Save' }).click();
 
-		await expect.element(page.getByText('Unable to save configuration').first()).toBeVisible();
+		await expect
+			.element(page.getByText('Unable to save configuration', { exact: false }).first())
+			.toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
 	});
 

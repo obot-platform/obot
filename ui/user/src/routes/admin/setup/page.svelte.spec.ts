@@ -153,7 +153,7 @@ describe('Setup page', () => {
 		});
 
 		await expect.element(page.getByText('Next Step: Owner Setup', { exact: true })).toBeVisible();
-		const signIn = page.getByRole('link', { name: 'Sign in as ada@example.com' });
+		const signIn = page.getByRole('link', { name: /Sign in as ada@example.com/ });
 		await expect.element(signIn).toBeVisible();
 		await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 	});
@@ -173,7 +173,7 @@ describe('Setup page', () => {
 			expect(initiateTempLogin).toHaveBeenCalledOnce();
 		});
 		await expect
-			.element(page.getByRole('link', { name: 'Sign in as owner@example.com' }))
+			.element(page.getByRole('link', { name: /Sign in as owner@example.com/ }))
 			.toBeVisible();
 	});
 });

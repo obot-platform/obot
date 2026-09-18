@@ -48,13 +48,13 @@ describe('McpContent', () => {
 		const preview = page.getByLabelText('Text preview');
 		const fullText = page.getByLabelText('Full text');
 		await expect.element(preview).toBeVisible();
-		await expect.element(preview).toHaveTextContent('Preview starts here.');
-		await expect.element(preview).not.toHaveTextContent('Full content ends here.');
+		await expect.element(preview).toMatchTextContent('Preview starts here.');
+		await expect.element(preview).not.toMatchTextContent('Full content ends here.');
 		await expect.element(fullText).not.toBeInTheDocument();
 
 		await page.getByText('Show full text', { exact: true }).click();
 		await expect.element(fullText).toBeVisible();
-		await expect.element(fullText).toHaveTextContent('Full content ends here.');
+		await expect.element(fullText).toMatchTextContent('Full content ends here.');
 		await expect.element(preview).not.toBeInTheDocument();
 
 		await page.getByRole('button', { name: 'Show less' }).click();
@@ -69,7 +69,7 @@ describe('McpContent', () => {
 		await expect.element(page.getByLabelText('Text content')).toBeVisible();
 		await expect
 			.element(page.getByLabelText('Text content'))
-			.toHaveTextContent('Expanded content ends here.');
+			.toMatchTextContent('Expanded content ends here.');
 		await expect.element(page.getByText('Show full text', { exact: true })).not.toBeInTheDocument();
 	});
 

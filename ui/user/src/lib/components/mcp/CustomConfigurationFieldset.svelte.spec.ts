@@ -131,7 +131,7 @@ describe('CustomConfigurationFieldset.svelte', () => {
 		});
 
 		await expect
-			.element(page.getByRole('textbox', { name: 'Key' }))
+			.element(page.getByRole('textbox', { name: 'Key', exact: false }))
 			.not.toHaveAttribute('aria-required');
 		await expect.element(page.getByLabelText('Static Value')).not.toHaveAttribute('aria-required');
 	});

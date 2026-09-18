@@ -1211,7 +1211,11 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Start Session' }).click();
 
 			await expect
-				.element(page.getByText('This will begin the initial setup process for this server.'))
+				.element(
+					page.getByText('This will begin the initial setup process for this server.', {
+						exact: false
+					})
+				)
 				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
 		});

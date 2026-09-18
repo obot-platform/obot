@@ -749,7 +749,7 @@ describe('MCP Tester page', () => {
 		await expect.element(testerSection(/Chat Approval needed/)).toBeVisible();
 		await expect
 			.element(page.getByLabelText('lookup arguments'))
-			.toHaveTextContent('"query": "safe"');
+			.toMatchTextContent('"query": "safe"');
 		await expect
 			.element(page.getByRole('button', { name: /Always allow/ }))
 			.not.toBeInTheDocument();
@@ -850,14 +850,14 @@ describe('MCP Tester page', () => {
 					.getByRole('article', { name: 'first tool call' })
 					.getByRole('region', { name: 'first result' })
 			)
-			.toHaveTextContent('first result content');
+			.toMatchTextContent('first result content');
 		await expect
 			.element(
 				page
 					.getByRole('article', { name: 'second tool call' })
 					.getByRole('region', { name: 'second result' })
 			)
-			.toHaveTextContent('second result content');
+			.toMatchTextContent('second result content');
 		await expect
 			.element(page.getByRole('article', { name: 'Tool result' }))
 			.not.toBeInTheDocument();
@@ -1132,7 +1132,7 @@ describe('MCP Tester page', () => {
 		});
 		render(TesterPage, { data });
 
-		await expect.element(page.getByRole('alert')).toHaveTextContent('Connection failed');
+		await expect.element(page.getByRole('alert')).toMatchTextContent('Connection failed');
 		// The failed handshake is inspectable even though the session never connected.
 		await expect
 			.element(page.getByRole('button', { name: /transport .*Streamable HTTP error/ }))
