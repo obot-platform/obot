@@ -469,8 +469,7 @@
 											e.stopPropagation();
 											nextStep();
 										}
-									}}
-								></textarea>
+									}}></textarea>
 							{/key}
 						{/if}
 					</div>

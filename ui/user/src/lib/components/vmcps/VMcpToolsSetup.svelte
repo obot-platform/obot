@@ -369,8 +369,7 @@
 								class="input-text-filled w-full min-h-32 resize-y"
 								bind:value={previewConfig[field.key]}
 								required={field.required}
-								disabled={loading}
-							></textarea>
+								disabled={loading}></textarea>
 						{:else}
 							<input
 								id={`preview-${field.key}`}

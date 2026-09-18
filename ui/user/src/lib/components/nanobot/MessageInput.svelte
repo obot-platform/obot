@@ -240,8 +240,7 @@
 				{placeholder}
 				class="placeholder:text-muted-content max-h-32 min-h-10 w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none"
 				rows="1"
-				bind:this={textareaRef}
-			></textarea>
+				bind:this={textareaRef}></textarea>
 
 			{#if uploadErrors.length > 0}
 				<div

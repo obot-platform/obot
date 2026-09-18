@@ -411,8 +411,7 @@
 												class:error
 												class="text-input-filled min-h-[120px] resize-y"
 												disabled={readonly}
-												rows="5"
-											></textarea>
+												rows="5"></textarea>
 										{:else}
 											<input
 												type="text"
@@ -467,8 +466,7 @@
 												bind:value={form[parameter.name]}
 												class="text-input-filled min-h-[120px] resize-y"
 												disabled={readonly}
-												rows="5"
-											></textarea>
+												rows="5"></textarea>
 										{:else}
 											<input
 												type="text"

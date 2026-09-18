@@ -223,8 +223,7 @@
 				class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
 				bind:value={form.description}
 				aria-required="true"
-				oninput={() => updateRequired('description')}
-			></textarea>
+				oninput={() => updateRequired('description')}></textarea>
 			{#if showRequired.description}
 				<p class="text-error text-xs" role="alert">Description is required</p>
 			{/if}

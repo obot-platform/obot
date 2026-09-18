@@ -317,8 +317,7 @@
 								<textarea
 									class="text-input-filled h-24 resize-none text-xs"
 									bind:value={tool.overrideDescription}
-									placeholder="Enter tool description..."
-								></textarea>
+									placeholder="Enter tool description..."></textarea>
 							</div>
 
 							<div class="mt-2 flex justify-end">

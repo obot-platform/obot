@@ -116,8 +116,7 @@
 						id="instance-description"
 						bind:value={description}
 						class="text-input-filled"
-						rows="2"
-					></textarea>
+						rows="2"></textarea>
 				</div>
 				<div class="flex flex-col gap-2">
 					<label for="instance-icon" class="text-sm font-light">Icon URL</label>

@@ -35,11 +35,11 @@ describe('McpTextResult', () => {
 			'{"id":9007199254740993,"value":1e400,"key":1,"key":2,"escaped":"\\u0061\\"[,]","empty":[{},[]]}';
 		render(McpTextResult, { text });
 		const full = page.getByLabelText('Full text', { exact: true });
-		await expect.element(full).toHaveTextContent('9007199254740993');
-		await expect.element(full).toHaveTextContent('1e400');
-		await expect.element(full).toHaveTextContent('"key": 1, "key": 2');
-		await expect.element(full).toHaveTextContent('"escaped": "\\u0061\\"[,]"');
-		await expect.element(full).toHaveTextContent('"empty": [ {}, [] ]');
+		await expect.element(full).toMatchTextContent('9007199254740993');
+		await expect.element(full).toMatchTextContent('1e400');
+		await expect.element(full).toMatchTextContent('"key": 1, "key": 2');
+		await expect.element(full).toMatchTextContent('"escaped": "\\u0061\\"[,]"');
+		await expect.element(full).toMatchTextContent('"empty": [ {}, [] ]');
 	});
 
 	it('formats valid JSON and can show its original whitespace', async () => {
@@ -152,7 +152,7 @@ describe('McpTextResult', () => {
 		await page.getByRole('button', { name: 'Fullscreen', exact: true }).click();
 		await expect
 			.element(page.getByLabelText('Full text', { exact: true }))
-			.toHaveTextContent('Response line 100');
+			.toMatchTextContent('Response line 100');
 		await page.getByRole('button', { name: 'Close fullscreen' }).click();
 		await expect.element(page.getByLabelText('Text preview')).toBeVisible();
 		await expect.element(page.getByLabelText('Full text', { exact: true })).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('McpTextResult', () => {
 		render(McpContent, props);
 		await page.getByRole('button', { name: 'Show full text', exact: true }).click();
 		props.content = { type: 'text', text: `New result\n${longText}` };
-		await expect.element(page.getByLabelText('Text preview')).toHaveTextContent('New result');
+		await expect.element(page.getByLabelText('Text preview')).toMatchTextContent('New result');
 		await expect.element(page.getByLabelText('Full text', { exact: true })).not.toBeInTheDocument();
 	});
 
@@ -175,7 +175,7 @@ describe('McpTextResult', () => {
 		await expect.element(page.getByRole('dialog')).toBeVisible();
 		expect(document.body.style.overflow).toBe('hidden');
 		props.content = { type: 'text', text: `Replacement\n${longText}` };
-		await expect.element(page.getByLabelText('Text preview')).toHaveTextContent('Replacement');
+		await expect.element(page.getByLabelText('Text preview')).toMatchTextContent('Replacement');
 		expect(document.body.style.overflow).toBe(previousOverflow);
 		await expect.element(page.getByRole('dialog', { includeHidden: true })).not.toBeVisible();
 	});

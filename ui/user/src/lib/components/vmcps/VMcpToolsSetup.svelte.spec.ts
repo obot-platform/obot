@@ -201,7 +201,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 		const result = await openSetup();
 		await fillConfiguration();
 		await page.getByRole('button', { name: 'Configure Tools' }).click();
-		await expect.element(page.getByRole('alert')).toHaveTextContent('Invalid credentials');
+		await expect.element(page.getByRole('alert')).toMatchTextContent('Invalid credentials');
 		await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeEnabled();
 		await page.getByLabelText('API token', { exact: false }).fill('corrected-secret');
 		await page.getByRole('button', { name: 'Configure Tools' }).click();

@@ -37,10 +37,14 @@ async function renderDialog(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpC
 	return result;
 }
 
+function introSetupText() {
+	return page.getByText('This will begin the initial setup process for this server.', {
+		exact: false
+	});
+}
+
 async function continueFromIntro() {
-	await expect
-		.element(page.getByText('This will begin the initial setup process for this server.'))
-		.toBeVisible();
+	await expect.element(introSetupText()).toBeVisible();
 	await page.getByRole('button', { name: 'Continue' }).click();
 }
 
@@ -57,13 +61,9 @@ describe('ConnectVMcp.svelte', () => {
 	it('opens the connect dialog and starts setup from Preconfigure when there is no instance', async () => {
 		await renderDialog(configurableVMcp());
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
-		await expect
-			.element(page.getByText('This will begin the initial setup process for this server.'))
-			.not.toBeVisible();
+		await expect.element(introSetupText()).not.toBeVisible();
 		await page.getByRole('button', { name: 'Preconfigure server' }).click();
-		await expect
-			.element(page.getByText('This will begin the initial setup process for this server.'))
-			.toBeVisible();
+		await expect.element(introSetupText()).toBeVisible();
 		await expect
 			.element(
 				page.getByText('Additional configuration details may also be required', { exact: false })
@@ -164,7 +164,9 @@ describe('ConnectVMcp.svelte', () => {
 		expect(configureInstance).toHaveBeenCalledWith({
 			components: { 'component-entry-default': { API_TOKEN: 'secret-token' } }
 		} satisfies VMCPConfiguration);
-		await expect.element(page.getByText('This server has already been configured.')).toBeVisible();
+		await expect
+			.element(page.getByText('This server has already been configured.', { exact: false }))
+			.toBeVisible();
 	});
 
 	it('shows launch progress and an error when launch fails', async () => {
@@ -205,10 +207,10 @@ describe('ConnectVMcp.svelte', () => {
 		);
 
 		await renderDialog(vmcp, existing);
+		await expect.element(introSetupText()).not.toBeVisible();
 		await expect
-			.element(page.getByText('This will begin the initial setup process for this server.'))
-			.not.toBeVisible();
-		await expect.element(page.getByText('This server has already been configured.')).toBeVisible();
+			.element(page.getByText('This server has already been configured.', { exact: false }))
+			.toBeVisible();
 		await page.getByRole('button', { name: 'Edit configuration' }).click();
 		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
 	});

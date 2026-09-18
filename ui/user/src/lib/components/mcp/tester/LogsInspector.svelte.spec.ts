@@ -248,8 +248,8 @@ describe('LogsInspector', () => {
 
 		const alert = page.getByRole('alert');
 		await expect.element(alert).toBeVisible();
-		await expect.element(alert).toHaveTextContent('Connection failed');
-		await expect.element(alert).toHaveTextContent('fetch failed');
+		await expect.element(alert).toMatchTextContent('Connection failed');
+		await expect.element(alert).toMatchTextContent('fetch failed');
 		// The failed handshake is still inspectable even though the session never connected.
 		await expect
 			.element(page.getByRole('button', { name: /transport .*fetch failed/ }))

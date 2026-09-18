@@ -81,8 +81,7 @@
 				bind:value={draft}
 				bind:this={textareaElement}
 				oninput={autoResize}
-				onkeydown={handleKeydown}
-			></textarea>
+				onkeydown={handleKeydown}></textarea>
 		</label>
 		<button
 			type="button"
