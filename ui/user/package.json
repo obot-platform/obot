@@ -42,7 +42,7 @@
 		"@eslint/js": "^10.0.1",
 		"@faker-js/faker": "^10.5.0",
 		"@floating-ui/dom": "^1.7.6",
-		"@lucide/svelte": "^1.47.0",
+		"@lucide/svelte": "^1.21.0",
 		"@milkdown/crepe": "^7.21.2",
 		"@milkdown/kit": "^7.21.2",
 		"@sveltejs/adapter-node": "^5.5.7",

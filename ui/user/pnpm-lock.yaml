@@ -134,7 +134,7 @@ importers:
         specifier: ^1.7.6
         version: 1.7.6
       '@lucide/svelte':
-        specifier: ^1.47.0
+        specifier: ^1.21.0
         version: 1.47.0(svelte@5.57.0(@typescript-eslint/types@8.61.0))
       '@milkdown/crepe':
         specifier: ^7.21.2
@@ -5530,7 +5530,7 @@ snapshots:
       '@vue/shared': 3.5.32
       estree-walker: 2.0.2
       magic-string: 0.30.21
-      postcss: 8.5.26
+      postcss: 8.5.28
       source-map-js: 1.2.1
 
   '@vue/compiler-ssr@3.5.32':
