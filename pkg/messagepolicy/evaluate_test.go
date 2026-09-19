@@ -112,6 +112,78 @@ func TestCallLLMGenericResponses(t *testing.T) {
 	assert.Equal(t, []any{map[string]any{"role": "user", "content": "Hello"}}, gotBody["input"])
 }
 
+func TestCallLLMDatabricksResponses(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name     string
+		dialect  llmtypes.Dialect
+		wantPath string
+	}{
+		{
+			name:     "OpenAI Responses",
+			dialect:  llmtypes.DialectOpenAIResponses,
+			wantPath: "/serving-endpoints/responses",
+		},
+		{
+			name:     "Open Responses",
+			dialect:  llmtypes.DialectOpenResponses,
+			wantPath: "/serving-endpoints/open-responses",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var gotBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != test.wantPath {
+					t.Errorf("path = %q, want %q", r.URL.Path, test.wantPath)
+				}
+				_ = json.NewDecoder(r.Body).Decode(&gotBody)
+				w.Header().Set("Content-Type", "text/event-stream")
+				_, _ = io.WriteString(w, "data: {\"type\":\"response.output_text.delta\",\"delta\":\"COMPLIANT\"}\n\n")
+			}))
+			defer server.Close()
+
+			result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
+				targetModel:  "databricks-model",
+				providerName: system.DatabricksModelProvider,
+				providerURL:  server.URL + "/serving-endpoints",
+				dialect:      string(test.dialect),
+			}, []chatMessage{
+				{
+					Role:    "system",
+					Content: "Review policy",
+				},
+				{
+					Role:    "user",
+					Content: "Hello",
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, "COMPLIANT", result)
+			assert.Equal(t, "databricks-model", gotBody["model"])
+			assert.Equal(t, "Review policy", gotBody["instructions"])
+			assert.Equal(t, true, gotBody["stream"])
+		})
+	}
+}
+
+func TestCallLLMDatabricksRejectsUnsupportedDialect(t *testing.T) {
+	t.Parallel()
+
+	_, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
+		targetModel:  "databricks-model",
+		providerName: system.DatabricksModelProvider,
+		dialect:      string(llmtypes.DialectAnthropicMessages),
+	}, nil)
+	if err == nil {
+		t.Fatal("callLLM() error = nil, want unsupported dialect error")
+	}
+}
+
 func TestCallLLMAzureAnthropicMessages(t *testing.T) {
 	var (
 		gotPath    string
