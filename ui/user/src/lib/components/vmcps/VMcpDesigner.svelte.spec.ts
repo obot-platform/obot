@@ -337,9 +337,13 @@ describe('VMcpDesigner.svelte', () => {
 			await modify.click();
 			await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeDisabled();
 			await page.getByLabelText('API token', { exact: false }).fill('preview-secret');
+			await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeEnabled();
 			await page.getByRole('button', { name: 'Configure Tools' }).click();
+			await vi.waitFor(() => expect(preview).toHaveBeenCalledWith({ API_TOKEN: 'preview-secret' }));
+			await expect
+				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
+				.toBeVisible();
 			await expect.element(page.getByText('create_issue', { exact: true }).first()).toBeVisible();
-			expect(preview).toHaveBeenCalledWith({ API_TOKEN: 'preview-secret' });
 			await page.getByRole('switch', { name: 'Enabled' }).nth(1).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
 			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
