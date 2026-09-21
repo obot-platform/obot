@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { DEFAULT_MCP_CATALOG_ID, MCP_PUBLISHER_ALL_OPTION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -12,12 +12,13 @@
 		type OrgGroup,
 		type AccessControlRuleSubject
 	} from '$lib/services';
-	import { mcpServersAndEntries } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import AccessControlRuleForm from './AccessControlRuleForm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Circle, CircleCheck } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;
@@ -37,7 +38,10 @@
 
 	let selectedRules = $state<string[]>([]);
 	let savingRules = $state(false);
-	let updatingBeforeCreate = $state(false);
+	let creating = $state(false);
+	let createNewRuleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let accessControlRule = $state<AccessControlRule | undefined>(undefined);
+	let skipReopenSelectDialog = $state(false);
 
 	export async function open() {
 		accessControlRules =
@@ -103,6 +107,47 @@
 		close();
 	}
 
+	function getCreateRuleInitialState(): AccessControlRule {
+		if (!entry) {
+			return { displayName: '', resources: [], id: '', created: '' };
+		}
+
+		const type = 'isCatalogEntry' in entry ? 'mcpServerCatalogEntry' : 'mcpServer';
+		return {
+			id: '',
+			displayName: '',
+			created: '',
+			resources: [{ id: entry.id, type }]
+		};
+	}
+
+	async function openCreateRuleDialog() {
+		dialog?.close();
+		creating = true;
+		await mcpServersAndEntries.refreshAll();
+		accessControlRule = getCreateRuleInitialState();
+		creating = false;
+		createNewRuleDialog?.open();
+	}
+
+	function handleCreateRuleCancel() {
+		createNewRuleDialog?.close();
+	}
+
+	function handleCreateDialogClose() {
+		if (skipReopenSelectDialog) {
+			skipReopenSelectDialog = false;
+			return;
+		}
+		dialog?.open();
+	}
+
+	function handleRuleCreated() {
+		skipReopenSelectDialog = true;
+		createNewRuleDialog?.close();
+		close();
+	}
+
 	function convertSubjectToDisplayName(subject: AccessControlRuleSubject | undefined): string {
 		if (!subject) return '';
 
@@ -118,18 +163,6 @@
 
 		if (subject.id === '*') return 'All Obot Users';
 		return '';
-	}
-
-	async function handleCreateNewRule() {
-		updatingBeforeCreate = true;
-		if (entry) {
-			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
-		}
-
-		await mcpServersAndEntries.refreshAll();
-		updatingBeforeCreate = false;
-
-		goto('/mcp-servers?view=access-policies&new=true');
 	}
 </script>
 
@@ -231,11 +264,32 @@
 </ResponsiveDialog>
 
 {#snippet createAccessPolicyButton()}
-	<button class="btn btn-primary" onclick={handleCreateNewRule} disabled={updatingBeforeCreate}>
-		{#if updatingBeforeCreate}
+	<button class="btn btn-primary" disabled={creating} onclick={openCreateRuleDialog}>
+		{#if creating}
 			<Loading class="size-4" />
 		{:else}
 			Create Access Policy
 		{/if}
 	</button>
 {/snippet}
+
+<ResponsiveDialog
+	bind:this={createNewRuleDialog}
+	title="Create Access Policy"
+	class="md:w-4xl bg-base-200 dark:bg-base-100"
+	classes={{ content: 'max-h-dvh overflow-y-auto' }}
+	onClose={handleCreateDialogClose}
+>
+		{#if entry && accessControlRule}
+			<AccessControlRuleForm
+				accessControlRule={accessControlRule}
+				{entity}
+				id={id ?? DEFAULT_MCP_CATALOG_ID}
+				mcpEntriesContextFn={profile.current.isAdmin ? () => mcpServersAndEntries.current : getPoweruserWorkspace}
+				all={entity === 'workspace' ? MCP_PUBLISHER_ALL_OPTION : undefined}
+				animate={false}
+				onCreate={handleRuleCreated}
+				onCancel={handleCreateRuleCancel}
+			/>
+		{/if}
+</ResponsiveDialog>
