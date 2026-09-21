@@ -10,6 +10,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,16 +56,20 @@ func TestVMCPStaticOAuthCredentialRotation(t *testing.T) {
 			Secrets: map[string]string{"CLIENT_ID": "static-client", "CLIENT_SECRET": secret},
 		}))
 		for _, server := range servers {
-			id, got, err := (*MCPHandler)(nil).lookupStaticOAuthClient(ctx, server)
+			credentialRef, _, err := vmcpconfig.ServerOAuthCredentialReference(ctx.Context(), storage, server)
 			require.NoError(t, err)
-			require.Equal(t, "static-client", id)
-			require.Equal(t, secret, got)
+			credential, err := gw.RevealCredential(t.Context(), []string{credentialRef}, system.StaticOAuthCredentialName)
+			require.NoError(t, err)
+			require.Equal(t, "static-client", credential.Secrets["CLIENT_ID"])
+			require.Equal(t, secret, credential.Secrets["CLIENT_SECRET"])
 		}
 	}
 	require.NoError(t, storage.Delete(t.Context(), entry))
 	for _, server := range servers[:2] {
-		_, secret, err := (*MCPHandler)(nil).lookupStaticOAuthClient(ctx, server)
+		credentialRef, _, err := vmcpconfig.ServerOAuthCredentialReference(ctx.Context(), storage, server)
 		require.NoError(t, err)
-		require.Equal(t, "rotated-secret", secret)
+		credential, err := gw.RevealCredential(t.Context(), []string{credentialRef}, system.StaticOAuthCredentialName)
+		require.NoError(t, err)
+		require.Equal(t, "rotated-secret", credential.Secrets["CLIENT_SECRET"])
 	}
 }

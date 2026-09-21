@@ -232,16 +232,17 @@ func (in *MCPServer) DeleteRefs() []Ref {
 }
 
 func (in *MCPServer) ValidConnectURLs(base string) []string {
-	var urls []string
-	if in.Spec.IsSingleUser() && in.Spec.VMCPID == "" && in.Spec.VMCPInstanceID == "" {
-		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
-	}
-	return append(urls, system.MCPConnectURL(base, in.Name))
+	return []string{system.MCPConnectURL(base, in.Name)}
 }
 
 // IsSingleUser returns true if this is a single-user MCP server.
 func (s MCPServerSpec) IsSingleUser() bool {
-	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == "" && s.VMCPID == ""
+	return s.VMCPInstanceID != "" || s.NanobotAgentID != ""
+}
+
+// IsMultiUser returns true if this is a multi-user MCP server.
+func (s MCPServerSpec) IsMultiUser() bool {
+	return s.VMCPID != ""
 }
 
 // IsOwnedBy returns true if the given user created this server and it is not

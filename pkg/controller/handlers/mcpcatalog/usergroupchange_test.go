@@ -35,10 +35,18 @@ func TestDeleteUnauthorizedServersForUserPreservesVMCPComponents(t *testing.T) {
 	component.Name = "component"
 	component.Spec.VMCPInstanceID = "vmcpi1dedicated"
 	component.Spec.VMCPComponentID = "one"
+	catalogServer := standalone.DeepCopy()
+	catalogServer.Name = "catalog-server"
+	catalogServer.Spec.MCPCatalogID = system.DefaultCatalog
+
+	workspaceServer := standalone.DeepCopy()
+	workspaceServer.Name = "workspace-server"
+	workspaceServer.Spec.PowerUserWorkspaceID = "workspace"
+
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).
 		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.MCPServer).Spec.UserID}
-		}).WithObjects(entry, standalone, component).Build()
+		}).WithObjects(entry, standalone, component, catalogServer, workspaceServer).Build()
 	// No remaining ACR grants access to the live catalog entry.
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
 		"selectors":           cache.MetaNamespaceIndexFunc,
@@ -49,5 +57,7 @@ func TestDeleteUnauthorizedServersForUserPreservesVMCPComponents(t *testing.T) {
 
 	require.NoError(t, h.deleteUnauthorizedServersForUser(t.Context(), client, system.DefaultNamespace, "1", user))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(component), &v1.MCPServer{}))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(catalogServer), &v1.MCPServer{}))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(workspaceServer), &v1.MCPServer{}))
 	require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(standalone), &v1.MCPServer{})))
 }

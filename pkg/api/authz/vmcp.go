@@ -127,6 +127,10 @@ func (a *Authorizer) checkVMCPInstance(req *http.Request, resources *Resources, 
 		return false, err
 	}
 
+	if req.Method == http.MethodPost && req.URL.Path == "/api/vmcp-instances/"+resources.VMCPInstanceID+"/tester/chat" {
+		return userCanConnectToMCP(req.Context(), a.uncached, a.acrHelper, u, resources.VMCPInstanceID, resources)
+	}
+
 	if IsVMCPAdministrator(u) {
 		resources.Authorizated.VMCPInstance = &instance
 		return true, nil

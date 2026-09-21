@@ -157,7 +157,7 @@ func TestMCPTesterChatRechecksConnectionAuthorizationOnEveryRequest(t *testing.T
 		t.Fatalf("first status = %d, want 200", first.Code)
 	}
 
-	var stored v1.MCPServer
+	var stored v1.VMCPInstance
 	if err := storage.Get(t.Context(), kclient.ObjectKey{
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -181,7 +181,7 @@ func TestMCPTesterChatRechecksConnectionAuthorizationOnEveryRequest(t *testing.T
 
 func TestMCPTesterChatDefaultModelFailuresAreDistinctAndDoNotUseModelProxy(t *testing.T) {
 	server := mcpTesterServer("user-1")
-	missingStorage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
+	missingStorage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mcpTesterVMCPObjects(server)...).Build()
 	missingResolver := &fakeMCPTesterServerResolver{server: *server}
 	missingHandler := NewMCPTesterHandler(missingStorage, missingResolver, nil, fakeMCPTesterModelAccess{allowed: true}, "http://unused.invalid", nil)
 	missing := runMCPTesterChat(t, missingHandler, "user-1", `{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`)
@@ -274,8 +274,8 @@ func TestMCPTesterChatPropagatesCancellationToProxy(t *testing.T) {
 	handler := NewMCPTesterHandler(storage, resolver, nil, fakeMCPTesterModelAccess{allowed: true}, "http://obot.internal", client)
 
 	ctx, cancel := context.WithCancel(t.Context())
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/"+server.Name+"/tester/chat", bytes.NewBufferString(`{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`)).WithContext(ctx)
-	request.SetPathValue("mcp_server_id", server.Name)
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/"+server.Name+"/tester/chat", bytes.NewBufferString(`{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`)).WithContext(ctx)
+	request.SetPathValue("vmcp_instance_id", server.Name)
 	recorder := httptest.NewRecorder()
 	done := make(chan error, 1)
 	go func() {
@@ -298,8 +298,8 @@ func TestMCPTesterChatPropagatesCancellationToProxy(t *testing.T) {
 
 func runMCPTesterChat(t *testing.T, handler *MCPTesterHandler, userID, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", bytes.NewBufferString(body))
-	request.SetPathValue("mcp_server_id", "ms1tester")
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/vmcpi1tester/tester/chat", bytes.NewBufferString(body))
+	request.SetPathValue("vmcp_instance_id", "vmcpi1tester")
 	request.Header.Set("Authorization", "Bearer user-token")
 	recorder := httptest.NewRecorder()
 	err := handler.Chat(api.Context{
@@ -332,7 +332,7 @@ func assertMCPTesterError(t *testing.T, recorder *httptest.ResponseRecorder, sta
 
 func mcpTesterServer(owner string) *v1.MCPServer {
 	return &v1.MCPServer{
-		Name:      "ms1tester",
+		Name:      "vmcpi1tester",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			UserID: owner,
@@ -368,5 +368,51 @@ func mcpTesterStorage(t *testing.T, server *v1.MCPServer, active bool) kclient.C
 			},
 		},
 	}
-	return fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server, model, alias).Build()
+	return fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(append(mcpTesterVMCPObjects(server), model, alias)...).Build()
+}
+
+func mcpTesterVMCPObjects(server *v1.MCPServer) []kclient.Object {
+	return []kclient.Object{
+		&v1.VMCP{
+			Name:      "vmcp1tester",
+			Namespace: server.Namespace,
+			Spec: v1.VMCPSpec{
+				UserID: server.Spec.UserID,
+				Manifest: types.VMCPManifest{
+					DisplayName: server.Spec.Manifest.Name,
+					Components:  []types.VMCPComponent{{ID: "component"}},
+				},
+			},
+		},
+		&v1.VMCPInstance{
+			Name:      server.Name,
+			Namespace: server.Namespace,
+			Spec: v1.VMCPInstanceSpec{
+				UserID:   server.Spec.UserID,
+				Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1tester"},
+			},
+		},
+	}
+}
+
+func TestMCPTesterChatDeniesAdministratorWithoutConnectionAccess(t *testing.T) {
+	server := mcpTesterServer("owner")
+	resolver := &fakeMCPTesterServerResolver{server: *server}
+	handler := NewMCPTesterHandler(mcpTesterStorage(t, server, true), resolver, nil, fakeMCPTesterModelAccess{allowed: true}, "http://unused.invalid", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/"+server.Name+"/tester/chat", nil)
+	request.SetPathValue("vmcp_instance_id", server.Name)
+	recorder := httptest.NewRecorder()
+
+	if err := handler.Chat(api.Context{
+		ResponseWriter: recorder,
+		Request:        request,
+		User:           &kuser.DefaultInfo{UID: "admin", Groups: []string{types.GroupAPI, types.GroupAdmin}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	assertMCPTesterError(t, recorder, http.StatusForbidden, types.MCPTesterErrorAccessDenied)
+	if resolver.callCount() != 0 {
+		t.Fatal("unauthorized administrator reached the server resolver")
+	}
 }

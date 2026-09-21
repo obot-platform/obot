@@ -9,14 +9,11 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcptester"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 type failingModelProxySettings struct{}
@@ -181,112 +178,5 @@ func TestModelProxyUsageAPI(t *testing.T) {
 	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
 	if len(keys) != 2 {
 		t.Fatal("disabled or unavailable usage sent an outbound request")
-	}
-}
-
-func TestTesterRechecksModelProxySwitch(t *testing.T) {
-	store := newHandlerTestGateway(t)
-	providers := &fakeTesterProviders{}
-	endpoint, err := mcptester.ParseModelProxyURL("https://model-service.obot.ai", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	h := &MCPTesterHandler{modelProxy: MCPTesterModelProxyOptions{URL: endpoint, Providers: providers, Settings: store}}
-
-	for _, enabled := range []bool{true, false, true} {
-		if err := store.SetModelProxyEnabled(t.Context(), enabled); err != nil {
-			t.Fatal(err)
-		}
-
-		if got, err := h.modelProxyEnabled(t.Context()); err != nil || got != enabled {
-			t.Fatalf("model proxy = %v, %v, want %v", got, err, enabled)
-		}
-	}
-
-	h.modelProxy.Settings = failingModelProxySettings{}
-	if enabled, err := h.modelProxyEnabled(t.Context()); err == nil || enabled {
-		t.Fatal("settings failure did not prevent model proxy use")
-	}
-
-	providers.configured = true
-	if enabled, err := h.modelProxyEnabled(t.Context()); err != nil || enabled {
-		t.Fatal("settings failure affected configured provider")
-	}
-}
-
-func TestDisablingModelProxyAllowsActiveStreamToFinish(t *testing.T) {
-	started := make(chan struct{})
-	release := make(chan struct{})
-
-	var calls atomic.Int32
-	var canceled atomic.Bool
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
-		w.(http.Flusher).Flush()
-		if calls.Add(1) == 1 {
-			close(started)
-
-			select {
-			case <-release:
-			case <-r.Context().Done():
-				canceled.Store(true)
-				return
-			}
-		}
-
-		_, _ = io.WriteString(w, "data: {\"type\":\"response.completed\"}\n\n")
-	}))
-	defer upstream.Close()
-
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	h := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "key"}, upstream)
-	store := newHandlerTestGateway(t)
-	h.modelProxy.Settings = store
-	r := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody)).WithContext(ctx)
-	r.SetPathValue("mcp_server_id", "ms1tester")
-	w := httptest.NewRecorder()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- h.Chat(api.Context{Request: r, ResponseWriter: w, User: &kuser.DefaultInfo{UID: "user-1"}})
-	}()
-
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("stream did not start")
-	}
-
-	if err := store.SetModelProxyEnabled(t.Context(), false); err != nil {
-		t.Fatal(err)
-	}
-
-	close(release)
-
-	select {
-	case err := <-done:
-		if err != nil || canceled.Load() || !strings.Contains(w.Body.String(), `"type":"completion"`) {
-			t.Fatalf("active stream did not finish: %s, %v", w.Body, err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("stream did not finish")
-	}
-
-	h.modelResolver = fakeMCPTesterModelAccess{allowed: false}
-	assertMCPTesterError(t, runMCPTesterChat(t, h, "user-1", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
-	if calls.Load() != 1 {
-		t.Fatal("disabled continuation contacted proxy")
-	}
-
-	if err := store.SetModelProxyEnabled(t.Context(), true); err != nil {
-		t.Fatal(err)
-	}
-
-	if response := runMCPTesterChat(t, h, "user-1", modelProxyChatBody); response.Code != http.StatusOK || calls.Load() != 2 {
-		t.Fatalf("reenabled continuation failed: %s", response.Body)
 	}
 }

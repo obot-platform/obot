@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,12 +17,10 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
 		spec           v1.MCPServerSpec
-		wantRevealed   string
 		wantConfigured string
 	}{
 		{
 			name:           "personal",
-			wantRevealed:   "requester-token",
 			wantConfigured: "owner-token",
 		},
 		{
@@ -32,7 +29,6 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 				MCPCatalogID: "catalog",
 				VMCPID:       "vmcp",
 			},
-			wantRevealed:   "vmcp-token",
 			wantConfigured: "vmcp-token",
 		},
 		{
@@ -41,7 +37,6 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 				MCPCatalogID:   "catalog",
 				VMCPInstanceID: "instance",
 			},
-			wantRevealed:   "instance-token",
 			wantConfigured: "instance-token",
 		},
 	} {
@@ -63,7 +58,7 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/server/reveal", nil)
+			request := httptest.NewRequest(http.MethodGet, "/api/mcp-servers/server", nil)
 			request.SetPathValue("mcp_server_id", server.Name)
 			request.SetPathValue("catalog_id", server.Spec.MCPCatalogID)
 			recorder := httptest.NewRecorder()
@@ -73,16 +68,6 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 				Storage:        newVMCPTestStorage(&server),
 				GatewayClient:  gatewayClient,
 				User:           &user.DefaultInfo{UID: "requester"},
-			}
-			if err := (&MCPHandler{}).Reveal(ctx); err != nil {
-				t.Fatal(err)
-			}
-			var revealed map[string]string
-			if err := json.NewDecoder(recorder.Body).Decode(&revealed); err != nil {
-				t.Fatal(err)
-			}
-			if revealed["TOKEN"] != tc.wantRevealed {
-				t.Fatalf("Reveal returned %v, want TOKEN=%q", revealed, tc.wantRevealed)
 			}
 			configured, err := credentialEnvForMCPServer(ctx, server, "")
 			if err != nil {

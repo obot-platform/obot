@@ -161,7 +161,7 @@ describe('MCP Tester page', () => {
 				http.get(`/api/oauth/vmcp/${connectID}/components/calendar`, () => {
 					return HttpResponse.json(componentCheck());
 				}),
-				http.post(`/api/mcp-servers/${connectID}/tester/chat`, () =>
+				http.post(`/api/vmcp-instances/${connectID}/tester/chat`, () =>
 					chatStream(
 						{ type: 'assistant_message_start' },
 						{ type: 'text_delta', delta: 'Your calendar is connected.' },
@@ -254,7 +254,7 @@ describe('MCP Tester page', () => {
 			),
 			http.get(`/api/oauth/vmcp/${connectID}/components/calendar`, () => HttpResponse.json({})),
 			http.delete(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 204 })),
-			http.post(`/api/mcp-servers/${connectID}/tester/chat`, async ({ request }) => {
+			http.post(`/api/vmcp-instances/${connectID}/tester/chat`, async ({ request }) => {
 				requests(await request.json());
 				return chatStream(
 					{ type: 'assistant_message_start' },
@@ -360,15 +360,18 @@ describe('MCP Tester page', () => {
 	it('allows licensed installations without a provider to chat through the Tester backend', async () => {
 		const requests = vi.fn();
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, async ({ request }) => {
-				requests(await request.json());
+			http.post(
+				`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`,
+				async ({ request }) => {
+					requests(await request.json());
 
-				return chatStream(
-					{ type: 'assistant_message_start' },
-					{ type: 'text_delta', delta: 'Testing without a configured provider' },
-					{ type: 'completion', reason: 'stop' }
-				);
-			})
+					return chatStream(
+						{ type: 'assistant_message_start' },
+						{ type: 'text_delta', delta: 'Testing without a configured provider' },
+						{ type: 'completion', reason: 'stop' }
+					);
+				}
+			)
 		);
 
 		await renderTester('chat', {}, undefined, {
@@ -498,7 +501,7 @@ describe('MCP Tester page', () => {
 		'displays $code from the backend without offering immediate retry',
 		async ({ code, status, message }) => {
 			worker.use(
-				http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, () =>
+				http.post(`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`, () =>
 					HttpResponse.json({ error: { code, message, retryable: false } }, { status })
 				)
 			);
@@ -594,17 +597,20 @@ describe('MCP Tester page', () => {
 	it('sends with Enter and safely renders streamed Markdown', async () => {
 		const requests = vi.fn();
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, async ({ request }) => {
-				requests(await request.json());
-				return chatStream(
-					{ type: 'assistant_message_start' },
-					{
-						type: 'text_delta',
-						delta: '**Connected** [docs](https://example.com) <script>unsafe()</script>'
-					},
-					{ type: 'completion', reason: 'stop' }
-				);
-			})
+			http.post(
+				`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`,
+				async ({ request }) => {
+					requests(await request.json());
+					return chatStream(
+						{ type: 'assistant_message_start' },
+						{
+							type: 'text_delta',
+							delta: '**Connected** [docs](https://example.com) <script>unsafe()</script>'
+						},
+						{ type: 'completion', reason: 'stop' }
+					);
+				}
+			)
 		);
 		await renderTester('chat', {}, undefined, chatModelData);
 
@@ -634,7 +640,7 @@ describe('MCP Tester page', () => {
 
 	it('re-enables the composer after the assistant response completes', async () => {
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, () =>
+			http.post(`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`, () =>
 				chatStream(
 					{ type: 'assistant_message_start' },
 					{ type: 'text_delta', delta: 'First response complete.' },
@@ -657,7 +663,7 @@ describe('MCP Tester page', () => {
 	it('keeps a partial failure visible and replaces it on Retry', async () => {
 		let attempts = 0;
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, () => {
+			http.post(`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`, () => {
 				attempts += 1;
 				return attempts === 1
 					? chatStream(
@@ -701,24 +707,27 @@ describe('MCP Tester page', () => {
 		const modelRequests: unknown[] = [];
 		const toolCalls = vi.fn();
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, async ({ request }) => {
-				modelRequests.push(await request.json());
-				if (modelRequests.length === 1) {
+			http.post(
+				`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`,
+				async ({ request }) => {
+					modelRequests.push(await request.json());
+					if (modelRequests.length === 1) {
+						return chatStream(
+							{ type: 'assistant_message_start' },
+							{
+								type: 'tool_calls',
+								calls: [{ id: 'call-lookup', name: 'lookup', arguments: { query: 'safe' } }]
+							},
+							{ type: 'completion', reason: 'tool_calls' }
+						);
+					}
 					return chatStream(
 						{ type: 'assistant_message_start' },
-						{
-							type: 'tool_calls',
-							calls: [{ id: 'call-lookup', name: 'lookup', arguments: { query: 'safe' } }]
-						},
-						{ type: 'completion', reason: 'tool_calls' }
+						{ type: 'text_delta', delta: 'The lookup returned one result.' },
+						{ type: 'completion', reason: 'stop' }
 					);
 				}
-				return chatStream(
-					{ type: 'assistant_message_start' },
-					{ type: 'text_delta', delta: 'The lookup returned one result.' },
-					{ type: 'completion', reason: 'stop' }
-				);
-			})
+			)
 		);
 		await renderTester(
 			'chat',
@@ -788,27 +797,30 @@ describe('MCP Tester page', () => {
 		const modelRequests: unknown[] = [];
 		const executionOrder: string[] = [];
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, async ({ request }) => {
-				modelRequests.push(await request.json());
-				if (modelRequests.length === 1) {
+			http.post(
+				`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`,
+				async ({ request }) => {
+					modelRequests.push(await request.json());
+					if (modelRequests.length === 1) {
+						return chatStream(
+							{ type: 'assistant_message_start' },
+							{
+								type: 'tool_calls',
+								calls: [
+									{ id: 'call-first', name: 'first', arguments: { order: 1 } },
+									{ id: 'call-second', name: 'second', arguments: { order: 2 } }
+								]
+							},
+							{ type: 'completion', reason: 'tool_calls' }
+						);
+					}
 					return chatStream(
 						{ type: 'assistant_message_start' },
-						{
-							type: 'tool_calls',
-							calls: [
-								{ id: 'call-first', name: 'first', arguments: { order: 1 } },
-								{ id: 'call-second', name: 'second', arguments: { order: 2 } }
-							]
-						},
-						{ type: 'completion', reason: 'tool_calls' }
+						{ type: 'text_delta', delta: 'Both tools completed.' },
+						{ type: 'completion', reason: 'stop' }
 					);
 				}
-				return chatStream(
-					{ type: 'assistant_message_start' },
-					{ type: 'text_delta', delta: 'Both tools completed.' },
-					{ type: 'completion', reason: 'stop' }
-				);
-			})
+			)
 		);
 		await renderTester(
 			'chat',
@@ -869,7 +881,7 @@ describe('MCP Tester page', () => {
 
 	it('confirms New Chat before clearing an existing in-memory conversation', async () => {
 		worker.use(
-			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, () =>
+			http.post(`/api/vmcp-instances/${fixtures.serverSingle.id}/tester/chat`, () =>
 				chatStream(
 					{ type: 'assistant_message_start' },
 					{ type: 'text_delta', delta: 'Temporary answer' },

@@ -206,14 +206,17 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 	server1 := newMCPServer("server-1", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
 	server1.Spec.MCPServerCatalogEntryName = entry.Name
 	server1.Spec.UserID = "user1"
+	server1.Spec.VMCPInstanceID = "vmcpi1first"
 
 	server2 := newMCPServer("server-2", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
 	server2.Spec.MCPServerCatalogEntryName = entry.Name
 	server2.Spec.UserID = "user1"
+	server2.Spec.VMCPInstanceID = "vmcpi1second"
 
 	server3 := newMCPServer("server-3", types.MCPServerManifest{Runtime: types.RuntimeContainerized})
 	server3.Spec.MCPServerCatalogEntryName = entry.Name
 	server3.Spec.UserID = "user2"
+	server3.Spec.VMCPInstanceID = "vmcpi1third"
 
 	client := newFakeClient(entry, server1, server2, server3)
 	err := (&Handler{}).EnsureUserCount(router.Request{

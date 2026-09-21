@@ -62,8 +62,8 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 			continue
 		}
 
-		// Skip multi-user servers - we only care about a user's own single-user servers
-		if !server.Spec.IsSingleUser() {
+		// This cleanup handles legacy personal servers; IsSingleUser identifies vMCP instances.
+		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
 			continue
 		}
 

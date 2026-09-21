@@ -9,7 +9,7 @@ import type { GetPromptResult, ReadResourceResult } from '@modelcontextprotocol/
 import { describe, expect, it, vi } from 'vitest';
 
 const server = {
-	id: 'ms1tester',
+	id: 'vmcpi1tester',
 	configured: true,
 	deploymentStatus: 'Available',
 	manifest: {
@@ -92,7 +92,8 @@ describe('MCPTesterChat', () => {
 			}
 		});
 		const requests: Array<Record<string, unknown>> = [];
-		const chatFetch = vi.fn<typeof fetch>(async (_input, init) => {
+		const chatFetch = vi.fn<typeof fetch>(async (input, init) => {
+			expect(input).toBe(`/api/vmcp-instances/${server.id}/tester/chat`);
 			requests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
 			return stream(
 				{ type: 'assistant_message_start' },

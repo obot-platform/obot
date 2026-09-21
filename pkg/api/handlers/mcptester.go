@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcptester"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,7 +72,11 @@ func NewMCPTesterHandlerWithModelProxy(storage kclient.Client, serverResolver mc
 // Chat handles one stateless model continuation for the MCP Tester. It checks
 // current MCP and model access on every call and never executes MCP tools.
 func (h *MCPTesterHandler) Chat(req api.Context) error {
-	mcpServerID := req.PathValue("mcp_server_id")
+	mcpServerID := req.PathValue("vmcp_instance_id")
+	if !system.IsVMCPInstanceID(mcpServerID) {
+		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "a vMCP instance is required", false)
+	}
+
 	authorized, err := authz.UserCanConnectToMCP(req.Context(), h.storage, h.accessHelper, req.User, mcpServerID)
 	if err != nil || !authorized {
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "you do not have permission to connect to this MCP server", false)

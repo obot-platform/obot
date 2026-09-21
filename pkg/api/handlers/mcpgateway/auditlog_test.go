@@ -880,7 +880,10 @@ func newAuditLogScopeTestFixture(t *testing.T, userID string) (storage.Client, [
 	objects := []kclient.Object{
 		&v1.MCPServer{
 			Name: "mcp-owned", Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerSpec{UserID: userID},
+			Spec: v1.MCPServerSpec{
+				UserID:         userID,
+				VMCPInstanceID: "vmcpi-owned",
+			},
 		},
 		&v1.MCPServer{
 			Name: "mcp-workspace", Namespace: system.DefaultNamespace,

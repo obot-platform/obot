@@ -4,31 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ServerInstancesHandler struct {
-	acrHelper *accesscontrolrule.Helper
 	serverURL string
 }
 
-func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, serverURL string) *ServerInstancesHandler {
+func NewServerInstancesHandler(serverURL string) *ServerInstancesHandler {
 	return &ServerInstancesHandler{
-		acrHelper: acrHelper,
 		serverURL: serverURL,
 	}
 }
@@ -91,193 +83,6 @@ func (h *ServerInstancesHandler) GetServerInstance(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerInstance(instance, credEnv, h.serverURL, slug))
-}
-
-func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
-	var input struct {
-		MCPServerID string `json:"mcpServerID"`
-	}
-	if err := req.Read(&input); err != nil {
-		return types.NewErrBadRequest("failed to read server name: %v", err)
-	}
-
-	var server v1.MCPServer
-	if err := req.Get(&server, input.MCPServerID); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("MCP server not found")
-		}
-		return fmt.Errorf("failed to get MCP server: %v", err)
-	}
-
-	if !req.UserIsAdmin() {
-		// Make sure the non-admin user is allowed to create an instance for this server.
-		var (
-			hasAccess bool
-			err       error
-		)
-
-		if server.Spec.IsCatalogServer() {
-			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
-		}
-		if err != nil {
-			return err
-		}
-		if !hasAccess {
-			return types.NewErrNotFound("MCP server not found")
-		}
-	}
-
-	var entryName string
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-			return err
-		}
-		entryName = entry.Name
-	}
-
-	instance := v1.MCPServerInstance{
-		Name:       fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
-		Namespace:  req.Namespace(),
-		Finalizers: []string{v1.MCPServerInstanceFinalizer},
-		Spec: v1.MCPServerInstanceSpec{
-			UserID:                    req.User.GetUID(),
-			MCPServerName:             input.MCPServerID,
-			MCPCatalogName:            server.Spec.MCPCatalogID,
-			MCPServerCatalogEntryName: entryName,
-			PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
-			Config:                    server.Spec.Manifest.UserConfig(),
-		},
-	}
-
-	if err := req.Create(&instance); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return types.NewErrAlreadyExists("MCP server instance already exists")
-		}
-		return fmt.Errorf("failed to create MCP server instance: %v", err)
-	}
-
-	slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, instance)
-	if err != nil {
-		return fmt.Errorf("failed to determine slug: %v", err)
-	}
-
-	return req.WriteCreated(ConvertMCPServerInstance(instance, nil, h.serverURL, slug))
-}
-
-func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
-	var mcpServerInstance v1.MCPServerInstance
-	if err := kclient.IgnoreNotFound(req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id"))); err != nil {
-		return fmt.Errorf("failed to get MCP server instance: %v", err)
-	}
-
-	if mcpServerInstance.Spec.CompositeName != "" {
-		return types.NewErrBadRequest("cannot delete MCP server instance with associated to composite %q; delete the composite instead", mcpServerInstance.Spec.CompositeName)
-	}
-
-	return req.Delete(&v1.MCPServerInstance{
-		Name:      req.PathValue("mcp_server_instance_id"),
-		Namespace: req.Namespace(),
-	})
-}
-
-func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
-	var mcpServerInstance v1.MCPServerInstance
-	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
-		return err
-	}
-
-	if err := req.GatewayClient.DeleteMCPOAuthTokens(req.Context(), req.User.GetUID(), mcpServerInstance.Name); err != nil {
-		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
-	}
-
-	req.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error {
-	var mcpServerInstance v1.MCPServerInstance
-	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
-		return err
-	}
-	if mcpServerInstance.Spec.VMCPInstanceID != "" {
-		return types.NewErrBadRequest("configure this component through its vMCP instance")
-	}
-
-	var envVars map[string]string
-	if err := req.Read(&envVars); err != nil {
-		return err
-	}
-	if mcpServerInstance.Spec.Config != nil {
-		missing, err := mcp.ValidateConfiguredOptions(mcpServerInstance.Spec.Config, envVars)
-		if err != nil {
-			return types.NewErrBadRequest("invalid configuration: %v", err)
-		}
-		if len(missing) > 0 {
-			return types.NewErrBadRequest("invalid configuration: %q requires a selection", missing[0])
-		}
-	}
-
-	for key, val := range envVars {
-		val = strings.TrimSpace(val)
-		if val == "" {
-			delete(envVars, key)
-		}
-	}
-
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: MCPServerInstanceCredentialContext(mcpServerInstance),
-		Name:    mcpServerInstance.Name,
-		Secrets: envVars,
-	}); err != nil {
-		return fmt.Errorf("failed to create configuration: %w", err)
-	}
-
-	slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, mcpServerInstance)
-	if err != nil {
-		return fmt.Errorf("failed to determine slug: %v", err)
-	}
-
-	return req.Write(ConvertMCPServerInstance(mcpServerInstance, envVars, h.serverURL, slug))
-}
-
-func (h *ServerInstancesHandler) DeconfigureServerInstance(req api.Context) error {
-	var mcpServerInstance v1.MCPServerInstance
-	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
-		return err
-	}
-	if mcpServerInstance.Spec.VMCPInstanceID != "" {
-		return types.NewErrBadRequest("configure this component through its vMCP instance")
-	}
-
-	if _, err := req.GatewayClient.DeleteCredential(
-		req.Context(),
-		MCPServerInstanceCredentialContext(mcpServerInstance), mcpServerInstance.Name,
-	); err != nil {
-		return fmt.Errorf("failed to delete configuration: %w", err)
-	}
-
-	slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, mcpServerInstance)
-	if err != nil {
-		return fmt.Errorf("failed to determine slug: %v", err)
-	}
-
-	return req.Write(ConvertMCPServerInstance(mcpServerInstance, nil, h.serverURL, slug))
-}
-
-func (h *ServerInstancesHandler) RevealConfig(req api.Context) error {
-	var mcpServerInstance v1.MCPServerInstance
-	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
-		return err
-	}
-
-	credEnv, err := mcpServerInstanceCredEnv(req, mcpServerInstance)
-	if err != nil {
-		return err
-	}
-	return req.Write(credEnv)
 }
 
 func ConvertMCPServerInstance(instance v1.MCPServerInstance, credEnv map[string]string, serverURL, slug string) types.MCPServerInstance {
