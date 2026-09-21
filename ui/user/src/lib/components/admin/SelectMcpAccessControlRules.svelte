@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DEFAULT_MCP_CATALOG_ID, MCP_PUBLISHER_ALL_OPTION } from '$lib/constants';
+	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -13,12 +14,11 @@
 		type AccessControlRuleSubject
 	} from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import AccessControlRuleForm from './AccessControlRuleForm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import AccessControlRuleForm from './AccessControlRuleForm.svelte';
 	import { Circle, CircleCheck } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;
@@ -135,6 +135,7 @@
 	}
 
 	function handleCreateDialogClose() {
+		accessControlRule = undefined;
 		if (skipReopenSelectDialog) {
 			skipReopenSelectDialog = false;
 			return;
@@ -280,16 +281,18 @@
 	classes={{ content: 'max-h-dvh overflow-y-auto' }}
 	onClose={handleCreateDialogClose}
 >
-		{#if entry && accessControlRule}
-			<AccessControlRuleForm
-				accessControlRule={accessControlRule}
-				{entity}
-				id={id ?? DEFAULT_MCP_CATALOG_ID}
-				mcpEntriesContextFn={profile.current.isAdmin ? () => mcpServersAndEntries.current : getPoweruserWorkspace}
-				all={entity === 'workspace' ? MCP_PUBLISHER_ALL_OPTION : undefined}
-				animate={false}
-				onCreate={handleRuleCreated}
-				onCancel={handleCreateRuleCancel}
-			/>
-		{/if}
+	{#if entry && accessControlRule}
+		<AccessControlRuleForm
+			{accessControlRule}
+			{entity}
+			id={id ?? DEFAULT_MCP_CATALOG_ID}
+			mcpEntriesContextFn={profile.current.isAdmin
+				? () => mcpServersAndEntries.current
+				: getPoweruserWorkspace}
+			all={entity === 'workspace' ? MCP_PUBLISHER_ALL_OPTION : undefined}
+			animate={false}
+			onCreate={handleRuleCreated}
+			onCancel={handleCreateRuleCancel}
+		/>
+	{/if}
 </ResponsiveDialog>

@@ -186,11 +186,7 @@
 	}
 </script>
 
-<div
-	class="flex h-full w-full flex-col gap-4"
-	out:fly={flyRightOut}
-	in:fly={flyRightIn}
->
+<div class="flex h-full w-full flex-col gap-4" out:fly={flyRightOut} in:fly={flyRightIn}>
 	<div class="flex grow flex-col gap-4" out:fly={flyLeftOut} in:fly={flyLeftIn}>
 		{#if topContent}
 			{@render topContent()}
