@@ -272,7 +272,7 @@
 		<div class="flex items-center gap-3">
 			<IconButton
 				tooltip={{ text: 'Refresh tools', disablePortal: true, placement: 'right' }}
-				onclick={flow.refreshTools}
+				onclick={() => flow.refreshTools()}
 				class="dark:hover:bg-base-300"
 			>
 				<RefreshCcw class="size-4" />

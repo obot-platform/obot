@@ -398,10 +398,21 @@ export function createVMcpToolFlow() {
 		openSetup(vmcp, component, true);
 	}
 
-	function refreshTools() {
-		const vmcp = modifyingVMcp;
-		const component = configuringComponent;
-		if (vmcp && component) openSetup(vmcp, component, true, true);
+	function refreshTools(
+		component?: VMCPComponent,
+		vmcp?: VMCP,
+		onCollected?: (config: VMCPComponent) => void
+	) {
+		if (vmcp && onCollected && component?.catalogEntry) {
+			if (!configure(vmcp, component, true, true)) return;
+			collecting = true;
+			collectTools = onCollected;
+			dialog = 'setup';
+			return;
+		}
+		const currentVMcp = modifyingVMcp;
+		const currentComponent = configuringComponent;
+		if (currentVMcp && currentComponent) openSetup(currentVMcp, currentComponent, true, true);
 	}
 
 	async function saveEditedTools() {

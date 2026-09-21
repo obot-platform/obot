@@ -23,6 +23,7 @@
 </script>
 
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
@@ -71,6 +72,7 @@
 	let expanded = $state<Record<string, boolean>>({});
 	let loadedVMcpId = $state<string>();
 	let confirmDeleteProfile = $state<{ id: string; name: string }>();
+	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
 	const EVERYONE_GROUP: OrgGroup = { id: '*', name: 'All Obot Users' };
 	const GROUP_PAGE_SIZE = 50;
@@ -133,6 +135,7 @@
 		error = '';
 		expanded = {};
 		resolvedGroups = [];
+		confirmDisableGrant = undefined;
 	});
 
 	$effect(() => {
@@ -232,17 +235,20 @@
 			const grant = componentGrant(resource);
 			if (grant) allowedComponents[resource.id] = grant;
 		}
+		const vmcpPermissions: NonNullable<VMCPProfile['vmcpPermissions']> = {};
+		if (profile.allowAllComponents) vmcpPermissions.allowAllComponents = true;
+		if (!profile.allowAllComponents || Object.keys(allowedComponents).length > 0) {
+			vmcpPermissions.allowedComponents = allowedComponents;
+		}
 		return {
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
-			vmcpPermissions: {
-				allowedComponents,
-				allowAllComponents: profile.allowAllComponents
-			}
+			vmcpPermissions
 		};
 	}
 
 	function componentGrant(resource: ProfileResource): VMCPComponentSet | undefined {
+		if (!resource.grant) return undefined;
 		const names = [...enabledToolNames(resource.toolOverrides)];
 		if (
 			resource.initialEnabledTools &&
@@ -252,8 +258,29 @@
 			return resource.grant;
 		}
 		return {
-			allowedTools: names,
+			allowedTools: names
 		};
+	}
+
+	function baselineTools(id: string) {
+		const component = componentServers.find((candidate) => componentId(candidate) === id);
+		return component ? clampToComponent(initialTools(component), id) : [];
+	}
+
+	function grantMatchingTools(id: string, tools: ToolOverride[]): VMCPComponentSet {
+		const names = [...enabledToolNames(tools)];
+		const component = componentServers.find((candidate) => componentId(candidate) === id);
+		const previewNames = component ? initialTools(component).map((tool) => tool.name) : [];
+		const grantsEveryPreviewTool =
+			previewNames.length > 0 &&
+			previewNames.length === names.length &&
+			previewNames.every((name) => names.includes(name));
+		return { allowedTools: previewNames.length === 0 || grantsEveryPreviewTool ? null : names };
+	}
+
+	function hasExistingAllowedTools(resource: ProfileResource) {
+		const allowed = componentGrant(resource)?.allowedTools;
+		return Array.isArray(allowed) && allowed.length > 0;
 	}
 
 	function grantableToolNames(id: string) {
@@ -311,9 +338,12 @@
 			resources: componentServers
 				.map((component) => {
 					const id = componentId(component);
+					const toolOverrides = clampToComponent(initialTools(component), id);
 					return {
 						id,
-						toolOverrides: clampToComponent(initialTools(component), id)
+						toolOverrides,
+						initialEnabledTools: [...enabledToolNames(toolOverrides)],
+						grant: grantMatchingTools(id, toolOverrides)
 					};
 				})
 				.filter((resource) => resource.id)
@@ -332,6 +362,7 @@
 		editingId = undefined;
 		error = '';
 		expanded = {};
+		confirmDisableGrant = undefined;
 	}
 
 	export function leaveEditor() {
@@ -534,6 +565,54 @@
 		return draft?.resources.find((resource) => resource.id === id);
 	}
 
+	function applyComponentGrant(id: string, enabled: boolean, removeOverrides = false) {
+		if (!draft) return;
+		if (!enabled) expanded[id] = false;
+		draft.resources = draft.resources.map((resource) => {
+			if (resource.id !== id) return resource;
+			if (!enabled) {
+				if (!removeOverrides) return { ...resource, grant: undefined };
+				const toolOverrides = baselineTools(id);
+				return {
+					...resource,
+					grant: undefined,
+					toolOverrides,
+					initialEnabledTools: [...enabledToolNames(toolOverrides)]
+				};
+			}
+			const current = resource.toolOverrides.length ? resource.toolOverrides : baselineTools(id);
+			const baseline = baselineTools(id);
+			const toolOverrides =
+				current.every((tool) => tool.enabled === false) &&
+				baseline.some((tool) => tool.enabled !== false)
+					? baseline
+					: current;
+			return {
+				...resource,
+				toolOverrides,
+				initialEnabledTools: [...enabledToolNames(toolOverrides)],
+				grant: grantMatchingTools(id, toolOverrides)
+			};
+		});
+	}
+
+	function setComponentGrant(id: string, name: string, enabled: boolean) {
+		if (readonly || !draft) return;
+		const resource = resourceFor(id);
+		if (!resource || Boolean(resource.grant) === enabled) return;
+		if (!enabled && hasExistingAllowedTools(resource)) {
+			confirmDisableGrant = { id, name };
+			return;
+		}
+		applyComponentGrant(id, enabled);
+	}
+
+	function confirmDisableComponent() {
+		if (!confirmDisableGrant) return;
+		applyComponentGrant(confirmDisableGrant.id, false, true);
+		confirmDisableGrant = undefined;
+	}
+
 	const effectiveNameDuplicates = $derived(
 		duplicateToolNames(
 			compositeEffectiveToolNames(
@@ -593,15 +672,17 @@
 				);
 				const profileEnabled = enabledToolNames(modifiableTools(resource));
 				const changed =
-					[...profileEnabled].some((name) => !componentEnabled.has(name)) ||
-					[...componentEnabled].some((name) => !profileEnabled.has(name));
+					Boolean(resource.grant) &&
+					([...profileEnabled].some((name) => !componentEnabled.has(name)) ||
+						[...componentEnabled].some((name) => !profileEnabled.has(name)));
 				return {
 					id: resource.id,
 					name: component ? componentName(component) : resource.id,
 					icon: component?.catalogEntry?.manifest?.icon,
 					enabled,
 					total,
-					changed
+					changed,
+					grant: resource.grant
 				};
 			})
 			.sort((a, b) => Number(b.changed) - Number(a.changed));
@@ -612,33 +693,52 @@
 		};
 	}
 
+	function applyCollectedTools(component: VMCPComponent, config: VMCPComponent) {
+		if (!draft) return;
+		const id = componentId(component);
+		const policyToolOverrides = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
+		const componentToolOverrides = policyToolOverrides.map((tool) => ({
+			...tool,
+			enabled: true
+		}));
+		const toolOverrides = clampToComponent(policyToolOverrides, id);
+		const enabledNames = [...enabledToolNames(toolOverrides)];
+		applyComponentToolOverrides(id, componentToolOverrides);
+		draft.resources = draft.resources.map((resource) =>
+			resource.id === id
+				? {
+						...resource,
+						toolOverrides,
+						initialEnabledTools: enabledNames,
+						grant: { allowedTools: enabledNames }
+					}
+				: resource
+		);
+		expanded[id] = true;
+	}
+
 	function refineTools(event: MouseEvent, component: VMCPComponent) {
 		event.preventDefault();
 		event.stopPropagation();
 		if (readonly || !vmcp) return;
-		toolFlow.collectComponentTools(component, vmcp, (config) => {
-			if (!draft) return;
-			const id = componentId(component);
-			const policyToolOverrides = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
-			const componentToolOverrides = policyToolOverrides.map((tool) => ({
-				...tool,
-				enabled: true
-			}));
-			const toolOverrides = clampToComponent(policyToolOverrides, id);
-			const enabledNames = [...enabledToolNames(toolOverrides)];
-			applyComponentToolOverrides(id, componentToolOverrides);
-			draft.resources = draft.resources.map((resource) =>
-				resource.id === id
-					? {
-							...resource,
-							toolOverrides,
-							initialEnabledTools: enabledNames,
-							grant: { allowedTools: enabledNames }
-						}
-					: resource
-			);
-			expanded[id] = true;
-		});
+		toolFlow.collectComponentTools(component, vmcp, (config) =>
+			applyCollectedTools(component, config)
+		);
+	}
+
+	function refreshProfileTools(component: VMCPComponent) {
+		if (readonly || !vmcp) return;
+		const resource = resourceFor(componentId(component));
+		toolFlow.refreshTools(
+			{
+				...component,
+				toolOverrides: (resource?.toolOverrides ?? component.toolOverrides)?.map((tool) => ({
+					...tool
+				}))
+			},
+			vmcp,
+			(config) => applyCollectedTools(component, config)
+		);
 	}
 </script>
 
@@ -671,6 +771,22 @@
 		{/if}
 	{/if}
 </div>
+
+<Confirm
+	show={Boolean(confirmDisableGrant)}
+	onsuccess={confirmDisableComponent}
+	oncancel={() => (confirmDisableGrant = undefined)}
+	msg="Are you sure you want to disable this server?"
+	title="Disable Server"
+	submitText="Disable"
+	type="info"
+>
+	{#snippet note()}
+		{@const name = confirmDisableGrant?.name ?? 'this server'}
+		You currently have tool overrides set for {name}. Disabling this server will also remove these
+		overrides.
+	{/snippet}
+</Confirm>
 
 <Confirm
 	show={Boolean(confirmDeleteProfile)}
@@ -779,8 +895,28 @@
 						{#each componentServers as component (componentId(component))}
 							{@const id = componentId(component)}
 							{@const resource = resourceFor(id)}
-							<div class="border-base-300 dark:border-base-400 overflow-hidden rounded-lg border">
+							{@const name = componentName(component)}
+							{@const granted = Boolean(resource?.grant)}
+							<div
+								class="border-base-300 dark:border-base-400 flex min-w-0 grow flex-col overflow-hidden rounded-lg border"
+							>
 								{#snippet componentIdentity()}
+									<div class="flex h-10 shrink-0 items-center">
+										<input
+											type="checkbox"
+											class="toggle toggle-xs relative z-10"
+											checked={granted}
+											disabled={readonly || !resource}
+											aria-label={granted ? `Disable ${name}` : `Enable ${name}`}
+											use:tooltip={{ text: granted ? `Disable ${name}` : `Enable ${name}` }}
+											onclick={(event) => event.stopPropagation()}
+											onchange={(event) => {
+												const next = event.currentTarget.checked;
+												event.currentTarget.checked = granted;
+												setComponentGrant(id, name, next);
+											}}
+										/>
+									</div>
 									{#if component.catalogEntry?.manifest?.icon}
 										<img src={component.catalogEntry.manifest.icon} alt="" class="size-5" />
 									{:else}
@@ -788,9 +924,11 @@
 											<Server class="size-5" />
 										</div>
 									{/if}
-									<span class="grow font-medium text-sm">{componentName(component)}</span>
+									<span class="grow font-medium text-sm">
+										{name}
+									</span>
 								{/snippet}
-								{#if resource && resource.toolOverrides.length > 0}
+								{#if resource && resource.grant && resource.toolOverrides.length > 0}
 									<button
 										type="button"
 										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
@@ -813,7 +951,7 @@
 											{/if}
 										</span>
 									</button>
-								{:else if resource}
+								{:else if resource && resource.grant}
 									<button
 										type="button"
 										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
@@ -830,8 +968,16 @@
 										</span>
 									</button>
 								{:else}
-									<div class="flex items-center gap-3 py-1 pl-3 pr-1">
+									<div
+										class={twMerge(
+											'flex w-full items-center gap-3 py-1 px-3 h-12 justify-between',
+											resource && !resource.grant && 'opacity-50'
+										)}
+									>
 										{@render componentIdentity()}
+										<span class="text-muted-content shrink-0 text-xs">
+											{resource && !resource.grant ? 'Disabled' : ''}
+										</span>
 									</div>
 								{/if}
 								{#if resource && resource.toolOverrides.length > 0 && expanded[id]}
@@ -845,6 +991,7 @@
 											componentId={id}
 											lockedTools={lockedToolNames(resource)}
 											lockedReason="Disabled on this vMCP."
+											onRefresh={readonly ? undefined : () => refreshProfileTools(component)}
 											{effectiveNameDuplicates}
 											{readonly}
 										/>
@@ -1006,7 +1153,10 @@
 										{#each resources.items as resource (resource.id)}
 											<li
 												title={resource.name}
-												class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 group-hover:border-primary/40 flex shrink-0 items-center gap-2 rounded-md border pr-2 transition-colors"
+												class={twMerge(
+													'bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 group-hover:border-primary/40 flex shrink-0 items-center gap-2 rounded-md border pr-2 transition-colors',
+													!resource.grant && 'opacity-50'
+												)}
 											>
 												<McpServerIcon
 													icon={resource.icon}
@@ -1023,7 +1173,9 @@
 												>
 													{resource.changed
 														? `${resource.enabled} of ${resource.total}`
-														: 'Default'}
+														: resource.grant
+															? 'Default'
+															: 'Disabled'}
 												</span>
 											</li>
 										{/each}

@@ -30,7 +30,9 @@
 		/>
 	</div>
 {:else}
-	<div class="bg-primary/10 text-primary rounded-md p-2 shrink-0">
-		<Server class="size-5" />
+	<div class="bg-primary/10 text-primary rounded-md rounded-r-none p-2 shrink-0">
+		<Server
+			{width}
+			{height} />
 	</div>
 {/if}

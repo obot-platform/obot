@@ -4,6 +4,7 @@
 	import { conflictIssue, effectiveToolName, toolNameIssue } from '$lib/services/user/mcp';
 	import Search from '../Search.svelte';
 	import ToolNameIssueIcon from '../mcp/ToolNameIssueIcon.svelte';
+	import { RefreshCcw } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -14,6 +15,7 @@
 		lockedTools?: Set<string>;
 		lockedReason?: string;
 		effectiveNameDuplicates?: Set<string>;
+		onRefresh?: () => void;
 	}
 
 	let {
@@ -22,7 +24,8 @@
 		readonly,
 		lockedTools,
 		lockedReason,
-		effectiveNameDuplicates = new Set()
+		effectiveNameDuplicates = new Set(),
+		onRefresh
 	}: Props = $props();
 
 	let search = $state('');
@@ -59,7 +62,21 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div class="flex w-full justify-end">
+	<Search
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+		onChange={(val) => (search = val)}
+		placeholder="Search tools..."
+	/>
+
+	<div class="flex w-full justify-end items-center px-2 ">
+		<div>
+			{#if onRefresh}
+				<button type="button" class="btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline" onclick={onRefresh}>
+					<RefreshCcw class="size-4" /> Refresh tools
+				</button>
+			{/if}
+		</div>
+		<div class="divider divider-horizontal mx-2"></div>
 		<Toggle
 			checked={allUnlockedToolsEnabled}
 			disabled={readonly || unlockedTools.length === 0}
@@ -68,15 +85,11 @@
 			labelInline
 			disablePortal
 			classes={{
-				label: 'text-sm gap-2'
+				label: 'text-xs gap-2'
 			}}
 		/>
 	</div>
-	<Search
-		class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-		onChange={(val) => (search = val)}
-		placeholder="Search tools..."
-	/>
+
 	{#each orderedTools as tool (tool.name)}
 		{@const currentName = (tool.overrideName || '').trim() || tool.name}
 		{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}
