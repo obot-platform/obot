@@ -207,9 +207,7 @@
 				.map((component) => {
 					const id = componentId(component);
 					const tools = initialTools(component);
-					const grant = permissions?.allowAllComponents
-						? { allowedTools: null }
-						: permissions?.allowedComponents?.[id];
+					const grant = permissions?.allowedComponents?.[id];
 					const names = grant?.allowedTools;
 					const toolOverrides = clampToComponent(
 						grant && (names == null || names.includes('*'))
@@ -234,16 +232,13 @@
 			const grant = componentGrant(resource);
 			if (grant) allowedComponents[resource.id] = grant;
 		}
-		const allowAllComponents =
-			profile.allowAllComponents &&
-			profile.resources.every((resource) => {
-				const grant = allowedComponents[resource.id];
-				return grant && grant.allowedTools == null;
-			});
 		return {
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
-			vmcpPermissions: allowAllComponents ? { allowAllComponents } : { allowedComponents }
+			vmcpPermissions: {
+				allowedComponents,
+				allowAllComponents: profile.allowAllComponents
+			}
 		};
 	}
 
@@ -257,7 +252,7 @@
 			return resource.grant;
 		}
 		return {
-			allowedTools: resource.toolOverrides.some((tool) => tool.enabled === false) ? names : null
+			allowedTools: names,
 		};
 	}
 
@@ -393,6 +388,18 @@
 		return saved;
 	}
 
+	function componentsWithLocalToolOverrides(components: VMCPComponent[]) {
+		return components.map((component) => {
+			const id = componentId(component);
+			const local = vmcp?.components?.find((candidate) => componentId(candidate) === id);
+			if (!local?.toolOverrides?.length) return component;
+			return {
+				...component,
+				toolOverrides: local.toolOverrides.map((tool) => ({ ...tool }))
+			};
+		});
+	}
+
 	async function persistProfiles(next: Profile[], message: string) {
 		if (readonly || !vmcp) return false;
 		saving = true;
@@ -400,6 +407,7 @@
 			const latest = await UserService.getVMCP(vmcp.id);
 			const updated = await UserService.updateVMCP(latest.id, {
 				...vmcpManifest(latest),
+				components: componentsWithLocalToolOverrides(latest.components ?? []),
 				profiles: next.map(profileToManifest)
 			});
 			profiles = next;
@@ -552,25 +560,6 @@
 		if (target) target.toolOverrides = toolOverrides;
 	}
 
-	async function persistComponentTools(id: string, toolOverrides: ToolOverride[]) {
-		if (readonly || !vmcp) return;
-		saving = true;
-		try {
-			const latest = await UserService.getVMCP(vmcp.id);
-			const updated = await UserService.updateVMCP(latest.id, {
-				...vmcpManifest(latest),
-				components: (latest.components ?? []).map((component) =>
-					componentId(component) === id ? { ...component, toolOverrides } : component
-				)
-			});
-			onUpdated?.(updated);
-		} catch {
-			error = 'Failed to update tools for this server.';
-		} finally {
-			saving = false;
-		}
-	}
-
 	function getDisplayListText(names: string[]) {
 		if (names.length <= 1) return names[0] ?? '';
 		const rest = names.slice(0, names.length > 5 ? 4 : -1);
@@ -635,17 +624,20 @@
 				...tool,
 				enabled: true
 			}));
+			const toolOverrides = clampToComponent(policyToolOverrides, id);
+			const enabledNames = [...enabledToolNames(toolOverrides)];
 			applyComponentToolOverrides(id, componentToolOverrides);
 			draft.resources = draft.resources.map((resource) =>
 				resource.id === id
 					? {
 							...resource,
-							toolOverrides: clampToComponent(policyToolOverrides, id)
+							toolOverrides,
+							initialEnabledTools: enabledNames,
+							grant: { allowedTools: enabledNames }
 						}
 					: resource
 			);
 			expanded[id] = true;
-			void persistComponentTools(id, componentToolOverrides);
 		});
 	}
 </script>

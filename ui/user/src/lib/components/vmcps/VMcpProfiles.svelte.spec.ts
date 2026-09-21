@@ -350,11 +350,25 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('list_issues')).toBeVisible();
 		await expect.element(page.getByText('list_pulls')).toBeVisible();
 		await expect.element(toolSwitch()).toBeChecked();
+
+		await page.getByLabelText('Name').fill('Refined tools');
+		await assignEveryone();
+		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
-		expect((saved.mock.calls[0][0] as VMCPManifest).components?.[0].toolOverrides).toEqual([
+		const manifest = saved.mock.calls[0][0] as VMCPManifest;
+		expect(manifest.components?.[0].toolOverrides).toEqual([
 			{ name: 'list_issues', enabled: true },
 			{ name: 'list_pulls', enabled: true }
 		]);
+		expect(savedProfiles(saved)[1]).toMatchObject({
+			name: 'Refined tools',
+			vmcpPermissions: {
+				allowedComponents: {
+					github: { allowedTools: ['list_issues', 'list_pulls'] }
+				}
+			}
+		});
 	});
 
 	it('does not offer refine when the server already has tools', async () => {
