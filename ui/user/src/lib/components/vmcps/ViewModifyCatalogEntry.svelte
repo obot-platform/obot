@@ -230,7 +230,7 @@
 					entity={serverScopeEntity}
 					limitViews={['overview', 'tools']}
 					isDialogView
-					onAddFromTools={showAddToVMcp ? handleAddToVMcp : undefined}
+					onAddFromTools={onAddToVMcp ? handleAddToVMcp : undefined}
 					disableAddFromTools={alreadyAdded}
 				/>
 			{/if}

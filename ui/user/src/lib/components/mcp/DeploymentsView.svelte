@@ -296,8 +296,12 @@
 		}
 	}
 
+	function isVMcpServer(server: MCPCatalogServer) {
+		return Boolean(server.vmcpComponentID || server.vmcpID || server.vmcpInstanceID);
+	}
+
 	function canTriggerUpdate(server: MCPCatalogServer) {
-		if (server.vmcpComponentID) return false;
+		if (isVMcpServer(server)) return false;
 		if (!isMultiUserServer(server)) return true;
 		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
 	}
@@ -307,7 +311,7 @@
 	}
 
 	function canDeleteServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
-		if (server.vmcpComponentID) return false;
+		if (isVMcpServer(server)) return false;
 		return !!(server.isMyServer || (hasAdminAccess && !readonly));
 	}
 
@@ -668,7 +672,7 @@
 							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: d.vmcpComponentID
+										text: isVMcpServer(d)
 											? 'In order to update, update the vMCP.'
 											: 'This deployment needs an update. View Diff to see the changes.',
 										classes: ['wrap-break-word', 'w-58']
@@ -701,7 +705,7 @@
 				{/snippet}
 
 				{#snippet actions(d)}
-					{@const isVmcpComponent = !!d.vmcpComponentID}
+					{@const isVmcpComponent = isVMcpServer(d)}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
