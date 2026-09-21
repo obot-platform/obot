@@ -633,7 +633,7 @@
 
 						if (response.length > 0) {
 							const belongsToVmcps = response.filter(
-								(s) => !!(s.vmcpComponentID || s.vmcpID || s.vmcpInstanceID)
+								(s) => !s.deleted && !!(s.vmcpComponentID || s.vmcpID || s.vmcpInstanceID)
 							);
 							showUpdateExistingVmcps = belongsToVmcps.length > 0;
 							showUpdateExistingDeploymentsConfirm = response.length > belongsToVmcps.length;
