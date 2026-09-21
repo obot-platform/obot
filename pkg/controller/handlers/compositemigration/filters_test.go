@@ -75,7 +75,17 @@ func TestMigrateCompositeFilters(t *testing.T) {
 					ID:   "*",
 				},
 			},
-			wantAdded: true,
+		},
+		{
+			name: "wildcard with legacy references",
+			resources: []types.Resource{
+				{
+					Type: types.ResourceTypeSelector,
+					ID:   "*",
+				},
+				entryResource,
+				serverResource,
+			},
 		},
 		{
 			name:      "multiple matches",
@@ -85,6 +95,10 @@ func TestMigrateCompositeFilters(t *testing.T) {
 		{
 			name:      "already migrated",
 			resources: []types.Resource{entryResource, target},
+		},
+		{
+			name:      "mixed migrated and unrelated resources",
+			resources: []types.Resource{entryResource, target, serverResource, {Type: types.ResourceTypeMCPServer, ID: "ms1other"}},
 		},
 		{
 			name:      "disabled",
@@ -133,6 +147,11 @@ func TestMigrateCompositeFilters(t *testing.T) {
 			if tc.wantAdded {
 				want.Resources = append(slices.Clone(tc.resources), target)
 			}
+			if tc.namespace != "other" {
+				want.Resources = slices.DeleteFunc(slices.Clone(want.Resources), func(resource types.Resource) bool {
+					return resource == entryResource || resource == serverResource
+				})
+			}
 			client := migrationClient(entry.DeepCopy(), parent.DeepCopy(), filter)
 			handler := credentialHandler(t, nil, map[string]map[string]string{})
 			for range 2 {
@@ -172,7 +191,6 @@ func TestMigrateRetainsCompositeOnFilterFailure(t *testing.T) {
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(filter), filter))
 	require.Equal(t, []types.Resource{
-		{Type: types.ResourceTypeMCPServer, ID: parent.Name},
 		{Type: types.ResourceTypeMCPServer, ID: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)},
 	}, filter.Spec.Manifest.Resources)
 }

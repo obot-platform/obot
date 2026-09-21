@@ -35,7 +35,13 @@ func DetectDrift(req router.Request, _ router.Response) error {
 				Manifest:         entry.Spec.Manifest,
 				UnsupportedTools: entry.Spec.UnsupportedTools,
 			}
-			status.NeedsUpdate = utils.Digest(component.CatalogEntry) != utils.Digest(current)
+			// Migration strips fixed configuration values from the deployed snapshot.
+			// Compare against the original source so genuine value changes still count.
+			digest := component.SourceDigest
+			if digest == "" {
+				digest = utils.Digest(component.CatalogEntry)
+			}
+			status.NeedsUpdate = digest != utils.Digest(current)
 		}
 		statuses = append(statuses, status)
 	}

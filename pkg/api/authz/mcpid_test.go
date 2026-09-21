@@ -346,13 +346,13 @@ func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 }
 
 func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerCatalogEntry{
+	storage := newMCPIDIsAuthorizedTestStorage(&v1.MCPServerCatalogEntry{
 		Name:      "entry-test",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: "catalog-a",
 		},
-	}).Build()
+	})
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
 		Name:      "acr1entry",
 		Namespace: system.DefaultNamespace,
@@ -384,7 +384,7 @@ func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 }
 
 func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+	storage := newMCPIDIsAuthorizedTestStorage(
 		&v1.MCPServer{
 			Name:      "ms1workspace",
 			Namespace: system.DefaultNamespace,
@@ -407,7 +407,7 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 				UserID: "owner-uid",
 			},
 		},
-	).Build()
+	)
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
 		Name:      "acr1workspace",
 		Namespace: system.DefaultNamespace,
