@@ -73,6 +73,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy().proxy)
 	mux.HandleFunc("/api/llm-proxy/azure/{path...}", s.newAzureLLMProviderProxy(system.AzureModelProvider).proxy)
 	mux.HandleFunc("/api/llm-proxy/azure-entra/{path...}", s.newAzureLLMProviderProxy(system.AzureEntraModelProvider).proxy)
+	mux.HandleFunc("/api/llm-proxy/databricks/{path...}", s.newDatabricksLLMProviderProxy().proxy)
 
 	// API Keys for MCP server access - user's own keys
 	mux.HandleFunc("POST /api/api-keys", wrap(s.createAPIKey))

@@ -35,7 +35,8 @@ export const CommonModelProviderIds = {
 	GEMINI_VERTEX: 'gemini-vertex-model-provider',
 	GENERIC_OPENAI: 'generic-openai-model-provider',
 	AZURE: 'azure-model-provider',
-	AZURE_ENTRA: 'azure-entra-model-provider'
+	AZURE_ENTRA: 'azure-entra-model-provider',
+	DATABRICKS: 'databricks-model-provider'
 };
 
 export const RecommendedModelProviders = [
@@ -44,7 +45,8 @@ export const RecommendedModelProviders = [
 	CommonModelProviderIds.AMAZON_BEDROCK,
 	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 	CommonModelProviderIds.AZURE,
-	CommonModelProviderIds.AZURE_ENTRA
+	CommonModelProviderIds.AZURE_ENTRA,
+	CommonModelProviderIds.DATABRICKS
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';

@@ -37,7 +37,7 @@ func (genericResponsesProviderBackend) modelProviderName() string {
 	return system.GenericResponsesModelProvider
 }
 
-func (genericResponsesProviderBackend) upstreamURL(_ *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error) {
+func (genericResponsesProviderBackend) upstreamURL(_ *http.Request, credEnv map[string]string, _ *v1.Model) (url.URL, llmtypes.Dialect, error) {
 	rawURL := strings.TrimSpace(credEnv[genericResponsesBaseURLEnv])
 	u, err := url.Parse(rawURL)
 	if err != nil {

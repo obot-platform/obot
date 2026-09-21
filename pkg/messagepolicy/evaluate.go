@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
+	"github.com/obot-platform/obot/pkg/gateway/databricks"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -250,6 +251,18 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		}
 		providerURL = u.String()
 		httpClient = &http.Client{Transport: transport}
+	} else if databricks.IsProvider(modelProvider.Name) {
+		u, err := databricks.BaseURL(credEnv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Databricks model provider URL: %w", err)
+		}
+		transport, err := databricks.Transport(credEnv, http.DefaultTransport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure Databricks model provider transport: %w", err)
+		}
+		u.Path = "/serving-endpoints"
+		providerURL = u.String()
+		httpClient = &http.Client{Transport: transport}
 	} else {
 		u, err := h.dispatcher.URLForModelProvider(ctx, system.DefaultNamespace, model.Spec.Manifest.ModelProvider)
 		if err != nil {
@@ -279,6 +292,14 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 // callLLM makes a streaming LLM call to the resolved model provider, using the
 // appropriate API format for the provider's dialect.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	if databricks.IsProvider(resolved.providerName) {
+		switch llmtypes.Dialect(resolved.dialect) {
+		case llmtypes.DialectOpenAIResponses, llmtypes.DialectOpenResponses:
+			return h.callLLMOpenAIResponses(ctx, resolved, messages)
+		default:
+			return "", fmt.Errorf("unsupported dedicated model provider dialect %q", resolved.dialect)
+		}
+	}
 	if bedrock.IsProvider(resolved.providerName) || azure.IsProvider(resolved.providerName) {
 		switch llmtypes.Dialect(resolved.dialect) {
 		case llmtypes.DialectAnthropicMessages:
@@ -314,7 +335,15 @@ func (h *Helper) callLLMAnthropicMessages(ctx context.Context, resolved *resolve
 
 func (h *Helper) callLLMOpenAIResponses(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
 	systemPrompt, input := splitSystemMessages(messages)
-	return h.callStreamingLLM(ctx, resolved, "/responses", openAIResponsesRequest{
+	endpoint := "/responses"
+	if databricks.IsProvider(resolved.providerName) {
+		responsesPath, err := databricks.ResponsesPath(llmtypes.Dialect(resolved.dialect))
+		if err != nil {
+			return "", err
+		}
+		endpoint = "/" + responsesPath
+	}
+	return h.callStreamingLLM(ctx, resolved, endpoint, openAIResponsesRequest{
 		Model:        resolved.targetModel,
 		Instructions: systemPrompt,
 		Input:        input,

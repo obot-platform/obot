@@ -53,7 +53,7 @@ The **LLM Gateway** sidebar section also groups the administrator pages that pow
 
 To use the gateway you need:
 
-1. **A configured provider.** An administrator must configure a supported [Model Provider](../configuration/model-providers.md) with valid credentials. This includes OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra.
+1. **A configured provider.** An administrator must configure a supported [Model Provider](../configuration/model-providers.md) with valid credentials. This includes OpenAI, Anthropic, Databricks, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra.
 2. **Model access.** An administrator must grant you access to one or more of those models through a [Model Access Policy](./model-access-policies.md). The [Models page](#the-models-page) reflects exactly what you can call.
 3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](../installation/cli-setup.md).
 
@@ -121,6 +121,22 @@ To list the Generic Responses models you can access:
 curl $OPENAI_BASE_URL/v1/models \
   -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
+
+### Databricks
+
+The Databricks route exposes `/v1/responses` for discovered serving endpoints that support the Databricks Open Responses API or OpenAI Responses API. Chat Completions-only endpoints are not available. Use the serving endpoint name returned by `/v1/models` as the model ID.
+
+```bash
+export OPENAI_BASE_URL="https://obot.example.com/api/llm-proxy/databricks"
+export OPENAI_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
+
+curl $OPENAI_BASE_URL/v1/responses \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"YOUR_DATABRICKS_ENDPOINT_NAME","input":[{"role":"user","content":"hi"}]}'
+```
+
+List the Databricks models you can access with `GET $OPENAI_BASE_URL/v1/models`. See the Databricks documentation for the [Open Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses API](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
 
 ### Amazon Bedrock
 
@@ -490,12 +506,12 @@ See the Codex documentation for details:
 
 ## Limitations
 
-- **Supported gateway providers.** External LLM Gateway clients can use OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra providers. Other configured providers such as Google Vertex are not exposed through provider-specific gateway routes yet.
+- **Supported gateway providers.** External LLM Gateway clients can use OpenAI, Anthropic, Databricks, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra providers. Other configured providers such as Google Vertex are not exposed through provider-specific gateway routes yet.
 - **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](./model-access-policies.md), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name shown on the [Models page](#the-models-page) exactly as displayed.
 - **Azure model discovery is OpenAI-only.** The Azure `/v1/models` and `/openai/v1/models` routes return accessible `OpenAIResponses` deployments. Microsoft Foundry does not expose an Anthropic Models API, so pass `AnthropicMessages` deployment names explicitly.
 - **Claude Code model discovery caveats.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later for the standard Anthropic gateway path. Claude Code's Bedrock Mantle mode may not populate the `/model` picker from Obot, so pass `--model` or select an enabled Mantle model manually.
-- **OpenAI-compatible routes use the Responses API.** The OpenAI, Generic Responses Compatible, Bedrock, and Azure OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
+- **Responses-compatible routes use the Responses API.** The OpenAI, Databricks, Generic Responses Compatible, Bedrock, and Azure OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
 - **Usage and policies still apply.** Requests count toward Obot [token usage](./audit-logs-and-usage.md) and, where configured, are subject to [Message Policies](./message-policies.md).
 - **Audit logs can be exported.** Administrators can create one-time or scheduled exports for LLM gateway audit logs. See [Audit Log Export](../configuration/audit-log-export.md).
 

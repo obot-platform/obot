@@ -116,6 +116,18 @@ func TestModifyResponse_WrapGate(t *testing.T) {
 	}{
 		{"anthropic messages", "/v1/messages", http.StatusOK, true},
 		{"openai responses", "/v1/responses", http.StatusOK, true},
+		{
+			name:        "Databricks OpenAI Responses",
+			path:        "/serving-endpoints/responses",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
+		{
+			name:        "Databricks Open Responses",
+			path:        "/serving-endpoints/open-responses",
+			statusCode:  http.StatusOK,
+			wantWrapped: true,
+		},
 		{"unknown path", "/v1/embeddings", http.StatusOK, false},
 		{"non-200 status", "/v1/messages", http.StatusBadRequest, false},
 	}
@@ -629,7 +641,7 @@ func TestAPIKeyBackendUpstreamURLDialect(t *testing.T) {
 		{provider: "other"},
 	} {
 		t.Run(tt.provider, func(t *testing.T) {
-			_, got, err := (apiKeyLLMProviderBackend{providerName: tt.provider}).upstreamURL(nil, nil)
+			_, got, err := (apiKeyLLMProviderBackend{providerName: tt.provider}).upstreamURL(nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -656,7 +668,7 @@ func TestGenericResponsesBackendUpstreamURL(t *testing.T) {
 		{name: "unsupported scheme", baseURL: "ftp://models.example/v1", wantErr: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			u, dialect, err := backend.upstreamURL(nil, map[string]string{genericResponsesBaseURLEnv: tt.baseURL})
+			u, dialect, err := backend.upstreamURL(nil, map[string]string{genericResponsesBaseURLEnv: tt.baseURL}, nil)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("upstreamURL() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -923,7 +935,7 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
 			req.SetPathValue("path", tt.path)
 			backend := bedrockMantleProviderBackend{apiKey: true}
-			got, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			got, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -950,7 +962,7 @@ func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
 			req.SetPathValue("path", tt.path)
 
 			backend := bedrockMantleProviderBackend{apiKey: true}
-			u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -969,7 +981,7 @@ func TestBedrockUnprefixedModelsListUsesRootUpstreamPath(t *testing.T) {
 	req.SetPathValue("path", "v1/models")
 
 	backend := bedrockMantleProviderBackend{apiKey: true}
-	u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+	u, dialect, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1005,7 +1017,7 @@ func TestBedrockRequestUpstreamPath(t *testing.T) {
 			req.SetPathValue("path", tt.path)
 
 			backend := bedrockMantleProviderBackend{apiKey: true}
-			u, _, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"})
+			u, _, err := backend.upstreamURL(req, map[string]string{bedrock.APIKeyRegionEnv: "us-east-1"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -25,7 +25,7 @@ func (a apiKeyLLMProviderBackend) modelProviderName() string {
 	return a.providerName
 }
 
-func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) (url.URL, llmtypes.Dialect, error) {
+func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string, *v1.Model) (url.URL, llmtypes.Dialect, error) {
 	switch a.providerName {
 	case system.AnthropicModelProvider:
 		return a.u, llmtypes.DialectAnthropicMessages, nil

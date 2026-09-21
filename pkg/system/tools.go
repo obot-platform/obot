@@ -9,6 +9,7 @@ const (
 	AmazonBedrockAPIKeyModelProvider = "amazon-bedrock-api-key-model-provider"
 	AzureModelProvider               = "azure-model-provider"
 	AzureEntraModelProvider          = "azure-entra-model-provider"
+	DatabricksModelProvider          = "databricks-model-provider"
 
 	// LocalAuthProvider is the built-in username/password auth provider, implemented in
 	// pkg/localauth. It runs in-process instead of as a daemon from the provider registry.
