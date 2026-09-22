@@ -157,7 +157,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	originalSourceURLs := slices.Clone(manifest.SourceURLs)
-	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, []string{h.defaultCatalogPath}); err != nil {
+	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, h.defaultCatalogPath); err != nil {
 		return err
 	}
 	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)

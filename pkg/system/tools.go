@@ -22,7 +22,6 @@ const (
 
 	DefaultNamespace       = "default"
 	DefaultCatalog         = "default"
-	VMCPCatalogPrefix      = "vc1"
 	DefaultSkillRepository = "default"
 	DefaultAgentCatalog    = "default"
 	DefaultModelInfoSource = "default"

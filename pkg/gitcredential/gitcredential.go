@@ -191,21 +191,6 @@ func References(ctx context.Context, storageClient kclient.Client, namespace, cr
 			}
 		}
 	}
-
-	var vmcpCatalogs v1.VMCPCatalogList
-	if err := storageClient.List(ctx, &vmcpCatalogs, kclient.InNamespace(namespace)); err != nil {
-		return references, fmt.Errorf("failed to list vMCP catalogs: %w", err)
-	}
-	for _, catalog := range vmcpCatalogs.Items {
-		for sourceURL, id := range catalog.Spec.SourceURLGitCredentialIDs {
-			if id == credentialID {
-				references.VMCPCatalogs = append(references.VMCPCatalogs, v1.GitCredentialReference{
-					ID:          catalog.Name,
-					DisplayName: sourceURL,
-				})
-			}
-		}
-	}
 	// Catalog references come from maps, so sort every group to keep status updates deterministic.
 	sortReferences := func(references []v1.GitCredentialReference) {
 		sort.Slice(references, func(i, j int) bool {
@@ -218,6 +203,5 @@ func References(ctx context.Context, storageClient kclient.Client, namespace, cr
 	sortReferences(references.SkillRepositories)
 	sortReferences(references.MCPCatalogs)
 	sortReferences(references.SystemMCPCatalogs)
-	sortReferences(references.VMCPCatalogs)
 	return references, nil
 }

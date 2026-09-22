@@ -37,8 +37,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPServerInstanceList{},
 		&VMCP{},
 		&VMCPList{},
-		&VMCPCatalog{},
-		&VMCPCatalogList{},
 		&VMCPInstance{},
 		&VMCPInstanceList{},
 		&MCPClientSession{},

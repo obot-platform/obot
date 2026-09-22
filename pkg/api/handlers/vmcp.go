@@ -123,9 +123,6 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
-	if vmcp.IsGitManaged() {
-		return types.NewErrBadRequest("VMCP is not editable")
-	}
 	manifest.Default(vmcp.Spec.UserID != "", req.User.GetUID())
 
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
@@ -171,9 +168,6 @@ func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return err
 	}
-	if vmcp.IsGitManaged() {
-		return types.NewErrBadRequest("VMCP is not editable")
-	}
 	if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil); err != nil {
 		return err
 	}
@@ -211,9 +205,6 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
-	}
-	if vmcp.IsGitManaged() {
-		return types.NewErrBadRequest("VMCP is not editable")
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
@@ -297,17 +288,11 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 }
 
 func (*VMCPHandler) Delete(req api.Context) error {
-	var vmcp v1.VMCP
-	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to get VMCP: %w", err)
-	}
-	if vmcp.IsGitManaged() {
-		return types.NewErrBadRequest("VMCP is not editable and cannot be manually deleted")
-	}
-	return req.Delete(&vmcp)
+	vmcpID := req.PathValue("vmcp_id")
+	return req.Delete(&v1.VMCP{
+		Name:      vmcpID,
+		Namespace: req.Namespace(),
+	})
 }
 
 func vmcpConfiguration(components []types.VMCPComponent, secrets map[string]string, policyType types.VMCPConfigurationPolicyType) types.VMCPConfiguration {
@@ -369,10 +354,6 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 		VMCPManifest:            manifest,
 		UserID:                  vmcp.Spec.UserID,
 		CreatorUserID:           vmcp.Spec.CreatorUserID,
-		SourceURL:               vmcp.Spec.SourceURL,
-		VMCPCatalogName:         vmcp.Spec.VMCPCatalogName,
-		Detached:                vmcp.Spec.Detached,
-		Editable:                !vmcp.IsGitManaged(),
 		StaticConfigurationHash: vmcp.Spec.StaticConfigurationHash,
 		Status: types.VMCPStatus{
 			Ready:      vmcp.Status.Ready,

@@ -72,7 +72,7 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
 	originalSourceURLs := slices.Clone(manifest.SourceURLs)
-	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, []string{h.defaultCatalogPath}); err != nil {
+	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
 		return err
 	}
 	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
@@ -108,7 +108,7 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
 	originalSourceURLs := slices.Clone(manifest.SourceURLs)
-	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, []string{h.defaultCatalogPath}); err != nil {
+	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
 		return err
 	}
 	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
@@ -274,12 +274,13 @@ func getSystemCatalogEntry(req api.Context) (*v1.SystemMCPServerCatalogEntry, er
 	return &entry, nil
 }
 
-func normalizeAndValidateCatalogSourceURLs(sourceURLs, localPaths []string) error {
+func validateSystemCatalogManifest(manifest *types.SystemMCPCatalogManifest, localPath string) error {
+	return normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, localPath)
+}
+
+func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string) error {
 	for i, urlStr := range sourceURLs {
-		if urlStr == "" {
-			continue
-		}
-		if slices.Contains(localPaths, urlStr) {
+		if urlStr == "" || urlStr == localPath {
 			continue
 		}
 		if !strings.Contains(urlStr, "://") {

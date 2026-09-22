@@ -80,7 +80,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPSessionManager, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	modelInfoSources := handlers.NewModelInfoSourceHandler()
 	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath, services.MCPSessionManager)
-	vmcpCatalogs := handlers.NewVMCPCatalogHandler(services.DefaultVMCPCatalogPaths)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	gitCredentials := handlers.NewGitCredentialHandler()
@@ -432,14 +431,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.GetEntry)
 	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.DeleteEntry)
-
-	// VMCP Catalogs (admin only)
-	mux.HandleFunc("GET /api/vmcp-catalogs", vmcpCatalogs.List)
-	mux.HandleFunc("POST /api/vmcp-catalogs", vmcpCatalogs.Create)
-	mux.HandleFunc("GET /api/vmcp-catalogs/{catalog_id}", vmcpCatalogs.Get)
-	mux.HandleFunc("PUT /api/vmcp-catalogs/{catalog_id}", vmcpCatalogs.Update)
-	mux.HandleFunc("DELETE /api/vmcp-catalogs/{catalog_id}", vmcpCatalogs.Delete)
-	mux.HandleFunc("POST /api/vmcp-catalogs/{catalog_id}/refresh", vmcpCatalogs.Refresh)
 
 	// Registry API
 	mux.HandleFunc("GET /v0.1/servers", registryHandler.ListServers)

@@ -1111,26 +1111,6 @@ func (in VMCP) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPCatalog) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPCatalog"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPCatalogList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPCatalogList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPCatalogSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPCatalogSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPCatalogStatus) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPCatalogStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VMCPComponentStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPComponentStatus"
 }

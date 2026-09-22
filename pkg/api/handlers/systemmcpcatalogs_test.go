@@ -129,41 +129,35 @@ func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
 	assert.Equal(t, resources, entry.Manifest.Resources)
 }
 
-func TestNormalizeAndValidateCatalogSourceURLs_AllowsConfiguredLocalPath(t *testing.T) {
-	sourceURLs := []string{"/tmp/system-catalog"}
+func TestValidateSystemCatalogManifest_AllowsConfiguredLocalPath(t *testing.T) {
+	manifest := &types.SystemMCPCatalogManifest{
+		SourceURLs: []string{"/tmp/system-catalog"},
+	}
 
-	if err := normalizeAndValidateCatalogSourceURLs(sourceURLs, []string{"/tmp/system-catalog"}); err != nil {
+	if err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog"); err != nil {
 		t.Fatalf("expected configured local path to be allowed, got %v", err)
 	}
 
-	if sourceURLs[0] != "/tmp/system-catalog" {
-		t.Fatalf("expected local path to remain unchanged, got %q", sourceURLs[0])
+	if manifest.SourceURLs[0] != "/tmp/system-catalog" {
+		t.Fatalf("expected local path to remain unchanged, got %q", manifest.SourceURLs[0])
 	}
 }
 
-func TestValidateVMCPCatalogManifest_AllowsConfiguredLocalPaths(t *testing.T) {
-	manifest := &types.VMCPCatalogManifest{
-		SourceURLs: []string{"/tmp/vmcp-catalog-a", "/tmp/vmcp-catalog-b"},
+func TestValidateSystemCatalogManifest_NormalizesNonLocalSourceURLs(t *testing.T) {
+	manifest := &types.SystemMCPCatalogManifest{
+		SourceURLs: []string{"example.com/system-catalog.yaml"},
 	}
 
-	if err := validateVMCPCatalogManifest(manifest, "/tmp/vmcp-catalog-a, /tmp/vmcp-catalog-b"); err != nil {
-		t.Fatalf("expected configured local paths to be allowed, got %v", err)
-	}
-}
-
-func TestNormalizeAndValidateCatalogSourceURLs_NormalizesNonLocalSourceURLs(t *testing.T) {
-	sourceURLs := []string{"example.com/system-catalog.yaml"}
-
-	if err := normalizeAndValidateCatalogSourceURLs(sourceURLs, []string{"/tmp/system-catalog"}); err != nil {
+	if err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog"); err != nil {
 		t.Fatalf("expected remote source URL to validate, got %v", err)
 	}
 
-	if sourceURLs[0] != "https://example.com/system-catalog.yaml" {
-		t.Fatalf("expected source URL to be normalized, got %q", sourceURLs[0])
+	if manifest.SourceURLs[0] != "https://example.com/system-catalog.yaml" {
+		t.Fatalf("expected source URL to be normalized, got %q", manifest.SourceURLs[0])
 	}
 }
 
-func TestNormalizeAndValidateCatalogSourceURLsRejectsInvalidSourceURLs(t *testing.T) {
+func TestValidateSystemCatalogManifestRejectsInvalidSourceURLs(t *testing.T) {
 	tests := []struct {
 		name      string
 		sourceURL string
@@ -180,13 +174,14 @@ func TestNormalizeAndValidateCatalogSourceURLsRejectsInvalidSourceURLs(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := normalizeAndValidateCatalogSourceURLs([]string{tt.sourceURL}, []string{"/tmp/system-catalog"})
+			manifest := &types.SystemMCPCatalogManifest{SourceURLs: []string{tt.sourceURL}}
+			err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
 			assert.ErrorContains(t, err, "invalid catalog source URL")
 		})
 	}
 }
 
-func TestNormalizeAndValidateCatalogSourceURLsRejectsDuplicateSourceIDs(t *testing.T) {
+func TestValidateSystemCatalogManifestRejectsDuplicateSourceIDs(t *testing.T) {
 	tests := []struct {
 		name       string
 		sourceURLs []string
@@ -203,7 +198,9 @@ func TestNormalizeAndValidateCatalogSourceURLsRejectsDuplicateSourceIDs(t *testi
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := normalizeAndValidateCatalogSourceURLs(tt.sourceURLs, []string{"/tmp/system-catalog"})
+			manifest := &types.SystemMCPCatalogManifest{SourceURLs: tt.sourceURLs}
+
+			err := validateSystemCatalogManifest(manifest, "/tmp/system-catalog")
 
 			assert.ErrorContains(t, err, `duplicate catalog source ID "example.com/catalog"`)
 		})

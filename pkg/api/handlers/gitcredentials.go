@@ -169,7 +169,6 @@ func convertGitCredential(credential v1.GitCredential, configured bool) types.Gi
 			SkillRepositories: convertUses(credential.Status.References.SkillRepositories),
 			MCPCatalogs:       convertUses(credential.Status.References.MCPCatalogs),
 			SystemMCPCatalogs: convertUses(credential.Status.References.SystemMCPCatalogs),
-			VMCPCatalogs:      convertUses(credential.Status.References.VMCPCatalogs),
 		},
 	}
 }

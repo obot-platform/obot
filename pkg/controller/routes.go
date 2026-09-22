@@ -119,8 +119,6 @@ func (c *Controller) setupRoutes() {
 
 	// SystemMCPCatalog
 	root.Type(&v1.SystemMCPCatalog{}).HandlerFunc(mcpCatalog.SyncSystem)
-	root.Type(&v1.VMCPCatalog{}).HandlerFunc(mcpCatalog.SyncVMCP)
-	root.Type(&v1.VMCPCatalog{}).FinalizeFunc(v1.VMCPCatalogFinalizer, mcpCatalog.RemoveVMCPCatalog)
 
 	// SkillRepository
 	root.Type(&v1.SkillRepository{}).HandlerFunc(skillRepository.Sync)

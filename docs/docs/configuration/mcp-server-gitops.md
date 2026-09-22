@@ -109,44 +109,6 @@ obot mcp validate-catalog-yaml servers/github.yaml
 
 Explicit file arguments are validated directly, without applying directory filters.
 
-## vMCP catalogs
-
-vMCP definitions sync independently from MCP catalog entries. A vMCP source must contain only vMCP definitions; an MCP catalog source must contain only catalog entries. Both support Git URLs and local directories or files. Directories use the same `.obotcatalogs` and `.ignoreobotcatalogs` selection rules as MCP catalogs. A standalone source file contains a YAML or JSON list.
-
-Set `OBOT_SERVER_DEFAULT_VMCPCATALOG_PATHS` to a comma-delimited list of Git URLs or local paths, for example `https://github.com/example/vmcps,/etc/obot/vmcps`. The default is empty. This setting seeds the default vMCP catalog only when it does not already exist, including when its source list is empty. Later changes to the setting do not update that catalog. Administrators can manage sources through `/api/vmcp-catalogs` and request synchronization with `POST /api/vmcp-catalogs/{catalog_id}/refresh`. Sync status and source errors are returned by the catalog API.
-
-Each component references an existing synced MCP catalog entry using `entryKey: sourceURLOrPath::entryKey`. Profile tool maps use that same full entry key. Obot derives a stable internal component ID from it; source files do not specify runtime IDs or snapshots.
-
-```yaml
-displayName: Engineering
-description: Tools for the engineering team
-components:
-  - name: github
-    entryKey: https://github.com/example/mcp-catalog::github
-    configuration:
-      - key: AUTHORIZATION
-        policy: userAllowed
-    toolOverrides:
-      - name: list_issues
-        enabled: true
-profiles:
-  - name: engineers
-    subjects:
-      - type: selector
-        id: "*"
-    vmcpPermissions:
-      allowedComponents:
-        "https://github.com/example/mcp-catalog::github":
-          allowedTools:
-            - list_issues
-```
-
-A vMCP has no top-level `entryKey`. Its display name identifies it within its source. Renaming it creates a new vMCP and applies the removal rules below to the old one. Component names are labels; component entry keys identify their configuration and profile grants. A component entry key may appear only once in a vMCP.
-
-Sync resolves every component reference and reports an error if a reference is missing or ambiguous. A changed vMCP definition adopts snapshots of the resolved entries. If only the MCP catalog entries change, the existing vMCP snapshots remain unchanged. Configuration keys, tool overrides, and profile tool names do not need to exist in the current upstream server. Fixed configuration values are stored in vMCP credentials and omitted from the persisted manifest and API responses.
-
-While a vMCP is source-managed, its API response has `editable: false`, and API edits, snapshot upgrades, and deletion are rejected. Removing its definition or source deletes it only when no vMCP instances reference it. Otherwise it becomes `detached: true` and `editable: true`, preserving its snapshots and instances for subsequent API management. Detached vMCPs are no longer pruned; restoring the source definition resumes source management. A failed source sync preserves existing vMCPs instead of treating missing results as deletions.
-
 ## Configuration Format
 
 MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:
