@@ -294,6 +294,7 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 func TestCloneAuthAttempts(t *testing.T) {
 	tests := []struct {
 		name          string
+		host          string
 		token         string
 		fallbackToken string
 		want          []cloneAuthAttempt
@@ -303,8 +304,9 @@ func TestCloneAuthAttempts(t *testing.T) {
 			token: "repo-token",
 			want: []cloneAuthAttempt{
 				{
-					name:  "token",
-					token: "repo-token",
+					name:     "token",
+					token:    "repo-token",
+					username: "x-access-token",
 				},
 			},
 		},
@@ -314,13 +316,15 @@ func TestCloneAuthAttempts(t *testing.T) {
 			fallbackToken: "fallback-token",
 			want: []cloneAuthAttempt{
 				{
-					name:  "token",
-					token: "repo-token",
+					name:     "token",
+					token:    "repo-token",
+					username: "x-access-token",
 				},
 			},
 		},
 		{
-			name: "anonymous only",
+			name: "Bitbucket without token stays anonymous",
+			host: "bitbucket.org",
 			want: []cloneAuthAttempt{
 				{
 					name: "anonymous",
@@ -335,8 +339,9 @@ func TestCloneAuthAttempts(t *testing.T) {
 					name: "anonymous",
 				},
 				{
-					name:  "fallback token",
-					token: "fallback-token",
+					name:     "fallback token",
+					token:    "fallback-token",
+					username: "x-access-token",
 				},
 			},
 		},
@@ -344,7 +349,7 @@ func TestCloneAuthAttempts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, cloneAuthAttempts(tt.token, tt.fallbackToken))
+			assert.Equal(t, tt.want, cloneAuthAttempts(tt.host, tt.token, tt.fallbackToken))
 		})
 	}
 }
@@ -547,7 +552,7 @@ func TestCloneBitbucketAPIToken(t *testing.T) {
 	t.Setenv("GITHUB_AUTH_TOKEN", "")
 	originalTransport := client.Protocols["https"]
 	t.Cleanup(func() { client.InstallProtocol("https", originalTransport) })
-	stop := errors.New("stop after inspecting clone request")
+	stop := context.Canceled // Cancellation must stop before trying another username.
 	requests := 0
 	client.InstallProtocol("https", githttp.NewClient(&http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -602,12 +607,12 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
 		},
 		{
-			name:          "invalid token stops after both usernames",
+			name:          "invalid token exhausts usernames and refs",
 			ref:           "v1.0.0",
 			host:          "bitbucket.org",
 			status:        http.StatusUnauthorized,
 			rejectBoth:    true,
-			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-bitbucket-api-token-auth", "x-token-auth", "x-token-auth"},
 		},
 		{
 			name:          "fallback token supports repository tokens",
@@ -617,10 +622,10 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			wantUsernames: []string{"", "x-bitbucket-api-token-auth", "x-token-auth"},
 		},
 		{
-			name:          "server errors do not change username",
+			name:          "server errors also try repository token username",
 			host:          "bitbucket.org",
 			status:        http.StatusInternalServerError,
-			wantUsernames: []string{"x-bitbucket-api-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
 		},
 		{
 			name:          "other hosts do not use Bitbucket usernames",
