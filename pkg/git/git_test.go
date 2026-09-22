@@ -578,3 +578,99 @@ func TestCloneBitbucketAPIToken(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
+	tests := []struct {
+		name          string
+		host          string
+		ref           string
+		status        int
+		rejectBoth    bool
+		fallbackToken bool
+		wantUsernames []string
+	}{
+		{
+			name:          "retry unauthorized with repository token username",
+			host:          "bitbucket.org",
+			status:        http.StatusUnauthorized,
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
+		},
+		{
+			name:          "retry forbidden with repository token username",
+			host:          "bitbucket.org",
+			status:        http.StatusForbidden,
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
+		},
+		{
+			name:          "invalid token stops after both usernames",
+			ref:           "v1.0.0",
+			host:          "bitbucket.org",
+			status:        http.StatusUnauthorized,
+			rejectBoth:    true,
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth"},
+		},
+		{
+			name:          "fallback token supports repository tokens",
+			host:          "bitbucket.org",
+			status:        http.StatusUnauthorized,
+			fallbackToken: true,
+			wantUsernames: []string{"", "x-bitbucket-api-token-auth", "x-token-auth"},
+		},
+		{
+			name:          "server errors do not change username",
+			host:          "bitbucket.org",
+			status:        http.StatusInternalServerError,
+			wantUsernames: []string{"x-bitbucket-api-token-auth"},
+		},
+		{
+			name:          "other hosts do not use Bitbucket usernames",
+			host:          "git.example.com",
+			status:        http.StatusUnauthorized,
+			wantUsernames: []string{"x-access-token"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := "test-repository-token"
+			t.Setenv("GITHUB_AUTH_TOKEN", "")
+			if tt.fallbackToken {
+				t.Setenv("GITHUB_AUTH_TOKEN", token)
+				token = ""
+			}
+			originalTransport := client.Protocols["https"]
+			t.Cleanup(func() { client.InstallProtocol("https", originalTransport) })
+			stop := errors.New("authenticated request reached repository")
+			var usernames []string
+			client.InstallProtocol("https", githttp.NewClient(&http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					username, password, ok := req.BasicAuth()
+					usernames = append(usernames, username)
+					assert.Equal(t, tt.host, req.URL.Host)
+					assert.Equal(t, "/org/repo.git/info/refs", req.URL.Path)
+					if username != "" {
+						assert.True(t, ok)
+						assert.Equal(t, "test-repository-token", password)
+					}
+					if username == "x-token-auth" && !tt.rejectBoth {
+						return nil, stop
+					}
+					return &http.Response{
+						StatusCode: tt.status,
+						Header:     make(http.Header),
+						Body:       io.NopCloser(strings.NewReader(http.StatusText(tt.status))),
+						Request:    req,
+					}, nil
+				}),
+			}))
+			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/org/repo.git", token, tt.ref)
+			if cleanup != nil {
+				cleanup()
+			}
+			require.Error(t, err)
+			assert.Equal(t, tt.wantUsernames, usernames)
+			if !tt.rejectBoth && tt.wantUsernames[len(tt.wantUsernames)-1] == "x-token-auth" {
+				assert.ErrorIs(t, err, stop)
+			}
+		})
+	}
+}

@@ -19,6 +19,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
 )
@@ -32,8 +33,9 @@ var (
 )
 
 type cloneAuthAttempt struct {
-	name  string
-	token string
+	name     string
+	token    string
+	username string
 }
 
 type cloneRefAttempt struct {
@@ -187,7 +189,15 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 	attempts := cloneAuthAttempts(token, fallbackToken)
 	refAttempts := cloneRefAttempts(resolvedRef, ref != "")
 	attemptErrs := make([]error, 0, len(attempts)*len(refAttempts))
-	for _, attempt := range attempts {
+	// Authentication failures can enqueue a Bitbucket repository-token retry.
+	for i := 0; i < len(attempts); i++ {
+		attempt := attempts[i]
+		if attempt.username == "" {
+			attempt.username = "x-access-token" // Accepted by GitHub and GitLab.
+			if u.Hostname() == "bitbucket.org" {
+				attempt.username = "x-bitbucket-api-token-auth"
+			}
+		}
 		for _, refAttempt := range refAttempts {
 			tempDir, err := os.MkdirTemp(parentDir, "clone-*")
 			if err != nil {
@@ -202,12 +212,8 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 			}
 
 			if attempt.token != "" {
-				username := "x-access-token" // Accepted as a dummy username by GitHub and GitLab.
-				if u.Hostname() == "bitbucket.org" {
-					username = "x-bitbucket-api-token-auth"
-				}
 				cloneOptions.Auth = &githttp.BasicAuth{
-					Username: username,
+					Username: attempt.username,
 					Password: attempt.token,
 				}
 			}
@@ -229,6 +235,20 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 				if isContextError(cloneErr) {
 					cleanupFn()
 					return "", "", nil, fmt.Errorf("failed to clone repository: %w", cloneErr)
+				}
+				if u.Hostname() == "bitbucket.org" && attempt.token != "" &&
+					(errors.Is(cloneErr, transport.ErrAuthenticationRequired) || errors.Is(cloneErr, transport.ErrAuthorizationFailed)) {
+					// Repository access tokens use a different username from personal API
+					// tokens. Retry with a fresh clone directory and the same token.
+					if attempt.username == "x-bitbucket-api-token-auth" {
+						attempts = append(attempts, cloneAuthAttempt{
+							name:     attempt.name + " (repository access token)",
+							token:    attempt.token,
+							username: "x-token-auth",
+						})
+					}
+					// Trying another ref cannot resolve rejected credentials.
+					break
 				}
 				continue
 			}
