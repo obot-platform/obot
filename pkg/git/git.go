@@ -62,14 +62,14 @@ func cloneAuthAttempts(token, fallbackToken string) []cloneAuthAttempt {
 }
 
 // IsGitRepoURL returns true if the URL points to a git repository on a known
-// hosting platform (GitHub, GitLab) or ends with ".git".
+// hosting platform (GitHub, GitLab, Bitbucket) or ends with ".git".
 func IsGitRepoURL(repoURL string) bool {
 	u, err := url.Parse(repoURL)
 	if err != nil {
 		return false
 	}
 	switch u.Host {
-	case "github.com", "gitlab.com":
+	case "github.com", "gitlab.com", "bitbucket.org":
 		return true
 	}
 	// Treat any HTTPS URL that contains ".git" as a path segment boundary as a git repo
@@ -169,8 +169,12 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 			}
 
 			if attempt.token != "" {
+				username := "x-access-token" // Accepted as a dummy username by GitHub and GitLab.
+				if u.Hostname() == "bitbucket.org" {
+					username = "x-bitbucket-api-token-auth"
+				}
 				cloneOptions.Auth = &githttp.BasicAuth{
-					Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
+					Username: username,
 					Password: attempt.token,
 				}
 			}
@@ -235,8 +239,8 @@ func repoSizeLimitMB(limit int) (int, error) {
 
 // parseGitURL parses a git repository URL and returns the clone URL and branch.
 // It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
-// .git suffix as the repo boundary. For GitHub and GitLab, URLs without a .git
-// suffix are also accepted for backward compatibility.
+// .git suffix as the repo boundary. For GitHub, GitLab, and Bitbucket, URLs
+// without a .git suffix are also accepted.
 // Returns (cloneURL, branch, error).
 func parseGitURL(repoURL string) (string, string, error) {
 	u, err := url.Parse(repoURL)
@@ -274,7 +278,7 @@ func parseGitURL(repoURL string) (string, string, error) {
 	// Subgroups without .git are not supported; use the .git suffix form instead.
 	if repoPath == "" {
 		switch u.Host {
-		case "github.com", "gitlab.com":
+		case "github.com", "gitlab.com", "bitbucket.org":
 			repoPath = strings.Join(parts[:2], "/") + ".git"
 			if len(parts) > 2 {
 				branch = strings.Join(parts[2:], "/")

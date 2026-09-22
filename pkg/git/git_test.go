@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -29,6 +30,10 @@ func TestIsGitRepoURL(t *testing.T) {
 		},
 		{
 			url:  "https://gitlab.com/org/repo",
+			want: true,
+		},
+		{
+			url:  "https://bitbucket.org/org/repo",
 			want: true,
 		},
 		{
@@ -113,9 +118,28 @@ func TestParseGitURL(t *testing.T) {
 			wantBranch: "my-branch",
 		},
 		{
-			name:    "bitbucket without .git",
-			url:     "https://bitbucket.org/org/repo",
-			wantErr: true,
+			name:       "bitbucket without .git",
+			url:        "https://bitbucket.org/org/repo",
+			wantClone:  "https://bitbucket.org/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "bitbucket with .git",
+			url:        "https://bitbucket.org/org/repo.git",
+			wantClone:  "https://bitbucket.org/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "bitbucket with branch",
+			url:        "https://bitbucket.org/org/repo/feature/catalog",
+			wantClone:  "https://bitbucket.org/org/repo.git",
+			wantBranch: "feature/catalog",
+		},
+		{
+			name:       "bitbucket with .git and branch",
+			url:        "https://bitbucket.org/org/repo.git/feature/catalog",
+			wantClone:  "https://bitbucket.org/org/repo.git",
+			wantBranch: "feature/catalog",
 		},
 		{
 			name:    "unknown host without .git is rejected",
@@ -385,6 +409,43 @@ func TestCloneConfiguredSizeLimit(t *testing.T) {
 			_, _, _, err = Clone(t.Context(), "https://"+host+"/example/repo", "token", "", 250)
 			assert.ErrorIs(t, err, context.Canceled)
 			assert.True(t, cloneAttempted)
+		})
+	}
+}
+
+// Exercise the credentials sent by Clone through the real go-git HTTP transport.
+func TestCloneBitbucketAPIToken(t *testing.T) {
+	t.Setenv("GITHUB_AUTH_TOKEN", "")
+	originalTransport := client.Protocols["https"]
+	t.Cleanup(func() { client.InstallProtocol("https", originalTransport) })
+	stop := errors.New("stop after inspecting clone request")
+	requests := 0
+	client.InstallProtocol("https", githttp.NewClient(&http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			requests++
+			assert.Equal(t, "bitbucket.org", req.URL.Host)
+			assert.Equal(t, "/org/repo.git/info/refs", req.URL.Path)
+			username, password, ok := req.BasicAuth()
+			assert.True(t, ok)
+			assert.Equal(t, "x-bitbucket-api-token-auth", username)
+			assert.Equal(t, "test-api-token", password)
+			return nil, stop
+		}),
+	}))
+	for _, repoURL := range []string{
+		"https://bitbucket.org/org/repo.git",
+		"https://bitbucket.org/org/repo",
+		"https://bitbucket.org/org/repo/feature/catalog",
+		"https://bitbucket.org/org/repo.git/feature/catalog",
+	} {
+		t.Run(repoURL, func(t *testing.T) {
+			requests = 0
+			_, _, cleanup, err := Clone(context.Background(), repoURL, "test-api-token", "")
+			if cleanup != nil {
+				cleanup()
+			}
+			assert.ErrorIs(t, err, stop)
+			assert.Equal(t, 1, requests)
 		})
 	}
 }
