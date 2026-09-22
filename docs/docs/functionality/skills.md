@@ -4,13 +4,13 @@ title: Skills
 
 ## Overview
 
-Skills are reusable, structured instructions that agents can discover and install to expand their capabilities. Each skill is a self-contained package stored in a GitHub repository, containing a `SKILL.md` file with a description, metadata, and the instructions themselves. Obot indexes skills from configured sources and makes them available to agents based on access policies.
+Skills are reusable, structured instructions that agents can discover and install to expand their capabilities. Each skill is a self-contained package stored in a Git repository, containing a `SKILL.md` file with a description, metadata, and the instructions themselves. Obot indexes skills from configured sources and makes them available to agents based on access policies.
 
 Administrators manage skill sources and control who can access which skills. Agents search, install, and use skills during conversations.
 
 ## What Is a Skill?
 
-A skill is a directory in a GitHub repository that contains a `SKILL.md` file. This file uses YAML frontmatter to define the skill's identity—its name, description, license, and compatibility requirements—followed by markdown content with the actual instructions.
+A skill is a directory in a Git repository that contains a `SKILL.md` file. This file uses YAML frontmatter to define the skill's identity—its name, description, license, and compatibility requirements—followed by markdown content with the actual instructions.
 
 Skills can also include supporting files alongside the `SKILL.md`, such as helper scripts or reference data. When an agent installs a skill, the entire directory is downloaded.
 
@@ -26,7 +26,7 @@ Obot follows the Agent Skills standard. See [agentskills.io](https://agentskills
 
 ## Skill Sources
 
-Skill sources are GitHub repositories that contain one or more skills. When you add a source, Obot scans the repository for directories containing `SKILL.md` files and indexes each valid skill it finds. Sources are synced automatically every hour and can also be refreshed manually.
+Skill sources are Git repositories that contain one or more skills. When you add a source, Obot scans the repository for directories containing `SKILL.md` files and indexes each valid skill it finds. Sources are synced automatically every hour and can also be refreshed manually.
 
 To manage skill sources, go to **Obot Agent Management > Skills** and select the **Sources** tab.
 
@@ -34,9 +34,11 @@ To manage skill sources, go to **Obot Agent Management > Skills** and select the
 
 1. Click **Add Source URL**
 2. Enter a **Name** for the source
-3. Provide the **GitHub URL** of the repository (must be an HTTPS GitHub URL)
-4. Optionally specify a **Ref** (branch, tag, or commit hash) — if omitted, the default branch is used
+3. Provide the **Repository URL** (HTTPS)
+4. Optionally specify a **Ref** (branch, tag, or commit hash) — if omitted, Obot uses the branch in the URL or `main`
 5. Save the source
+
+GitHub, GitLab, and Bitbucket Cloud URLs work with or without a `.git` suffix. For example, `https://bitbucket.org/workspace/repo` is a valid source. Self-hosted Git repositories require a `.git` suffix. See [supported Git URL formats and private repository authentication](../configuration/mcp-server-gitops.md#supported-url-formats) for details.
 
 After saving, Obot fetches the repository and discovers skills. The sync status appears next to the source entry, showing whether the sync is in progress, how many skills were found, or any errors that occurred.
 
@@ -60,7 +62,7 @@ The skills list shows every valid skill found across all configured sources. Eac
 - **Filter** by source repository
 - **Click a skill** to view its full metadata, including repository URL, commit reference, license, and compatibility
 
-Skills in this view are read-only. Their content is managed in the source GitHub repository—to update a skill, push changes to the repository and sync the source.
+Skills in this view are read-only. Their content is managed in the source Git repository—to update a skill, push changes to the repository and sync the source.
 
 :::note
 Skills that fail validation (for example, due to a malformed `SKILL.md`) still appear in the list but are marked with a warning icon and a description of the validation error.

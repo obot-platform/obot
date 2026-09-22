@@ -44,7 +44,7 @@ func NormalizeRepositoryURL(repoURL string) (string, error) {
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	switch u.Host {
-	case "github.com", "gitlab.com":
+	case "github.com", "gitlab.com", "bitbucket.org":
 		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 			return "", fmt.Errorf("repository URL must include an owner and repository")
 		}

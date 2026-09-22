@@ -28,6 +28,27 @@ func TestValidateRepositoryURL(t *testing.T) {
 			url:  "https://gitlab.com/owner/repo",
 		},
 		{
+			name: "valid Bitbucket HTTPS URL",
+			url:  "https://bitbucket.org/owner/repo",
+		},
+		{
+			name: "valid Bitbucket URL without scheme",
+			url:  "bitbucket.org/owner/repo",
+		},
+		{
+			name: "valid Bitbucket .git URL",
+			url:  "https://bitbucket.org/owner/repo.git",
+		},
+		{
+			name: "valid Bitbucket branch URL",
+			url:  "https://bitbucket.org/owner/repo/feature/skills",
+		},
+		{
+			name:    "Bitbucket owner only rejected",
+			url:     "https://bitbucket.org/owner",
+			wantErr: "owner and repository",
+		},
+		{
 			name: "valid GitHub URL with ref path",
 			url:  "https://github.com/owner/repo/main",
 		},
