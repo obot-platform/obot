@@ -117,7 +117,6 @@ describe('VMcpProfiles.svelte', () => {
 				allowedComponents: { github: { allowedTools: [] } }
 			},
 			expected: {
-				allowAllComponents: true,
 				allowedComponents: { github: { allowedTools: [] } }
 			}
 		},
@@ -207,7 +206,6 @@ describe('VMcpProfiles.svelte', () => {
 				name: 'Support engineers',
 				subjects: [{ type: 'selector', id: '*' }],
 				vmcpPermissions: {
-					allowAllComponents: true,
 					allowedComponents: { github: { allowedTools: ['list_issues'] } }
 				}
 			}
@@ -373,7 +371,6 @@ describe('VMcpProfiles.svelte', () => {
 		expect(savedProfiles(saved)[1]).toMatchObject({
 			name: 'Refined tools',
 			vmcpPermissions: {
-				allowAllComponents: true,
 				allowedComponents: {
 					github: { allowedTools: ['list_issues', 'list_pulls'] }
 				}
@@ -590,8 +587,6 @@ describe('VMcpProfiles.svelte', () => {
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 
 		await page.getByRole('button', { name: 'Edit mixed' }).click();
-		await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
-		await page.getByRole('checkbox', { name: 'Allow All Components' }).click();
 		await expect
 			.element(page.getByRole('checkbox', { name: 'Allow All Components' }))
 			.not.toBeChecked();
@@ -758,7 +753,7 @@ describe('VMcpProfiles.svelte', () => {
 		await page.getByRole('button', { name: 'Edit default' }).click();
 		await expect
 			.element(page.getByRole('checkbox', { name: 'Allow All Components' }))
-			.toBeChecked();
+			.not.toBeChecked();
 		await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
 		await expect.element(page.getByText('0 of 2 tools')).toBeVisible();
 	});

@@ -16,6 +16,7 @@
 		lockedReason?: string;
 		effectiveNameDuplicates?: Set<string>;
 		onRefresh?: () => void;
+		onToolsChange?: () => void;
 	}
 
 	let {
@@ -25,7 +26,8 @@
 		lockedTools,
 		lockedReason,
 		effectiveNameDuplicates = new Set(),
-		onRefresh
+		onRefresh,
+		onToolsChange
 	}: Props = $props();
 
 	let search = $state('');
@@ -42,6 +44,7 @@
 		tools = tools.map((tool) =>
 			tool.removed || lockedTools?.has(tool.name) ? tool : { ...tool, enabled }
 		);
+		onToolsChange?.();
 	}
 
 	const orderedTools = $derived.by(() => {
@@ -149,6 +152,7 @@
 							onChange={(checked) => {
 								if (unavailable) return;
 								tool.enabled = checked;
+								onToolsChange?.();
 							}}
 							label={tool.enabled ? 'Disable tool' : 'Enable tool'}
 							disablePortal

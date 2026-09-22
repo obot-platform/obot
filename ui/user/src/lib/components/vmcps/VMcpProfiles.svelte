@@ -238,16 +238,19 @@
 	}
 
 	function profileToManifest(profile: Profile): VMCPProfile {
+		if (profile.allowAllComponents && profileIsRefined(profile)) {
+			materializeExplicitGrants(profile);
+		}
 		const allowedComponents: Record<string, VMCPComponentSet> = {};
-		for (const resource of profile.resources) {
-			const grant = componentGrant(resource, profile.allowAllComponents);
-			if (grant) allowedComponents[resource.id] = grant;
+		if (!profile.allowAllComponents) {
+			for (const resource of profile.resources) {
+				const grant = componentGrant(resource);
+				if (grant) allowedComponents[resource.id] = grant;
+			}
 		}
 		const vmcpPermissions: NonNullable<VMCPProfile['vmcpPermissions']> = {};
 		if (profile.allowAllComponents) vmcpPermissions.allowAllComponents = true;
-		if (!profile.allowAllComponents || Object.keys(allowedComponents).length > 0) {
-			vmcpPermissions.allowedComponents = allowedComponents;
-		}
+		else vmcpPermissions.allowedComponents = allowedComponents;
 		return {
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
@@ -263,25 +266,43 @@
 		return !current.every((name) => base.includes(name));
 	}
 
-	function componentGrant(
-		resource: ProfileResource,
-		allowAllComponents = false
-	): VMCPComponentSet | undefined {
+	function grantIsRestrictive(grant: VMCPComponentSet | undefined) {
+		if (!grant) return false;
+		const names = grant.allowedTools;
+		return Array.isArray(names) && !names.includes('*');
+	}
+
+	function profileIsRefined(profile: ProfileManifest) {
+		return profile.resources.some(
+			(resource) =>
+				grantIsRestrictive(resource.grant) ||
+				toolGrantDiffersFromBaseline(resource.id, resource.toolOverrides)
+		);
+	}
+
+	function materializeExplicitGrants(profile: ProfileManifest) {
+		profile.allowAllComponents = false;
+		profile.resources = profile.resources.map((resource) => {
+			if (resource.grant !== undefined) return resource;
+			return {
+				...resource,
+				grant: explicitComponentGrant(resource.id, resource),
+				initialEnabledTools: [...enabledToolNames(resource.toolOverrides)]
+			};
+		});
+	}
+
+	function componentGrant(resource: ProfileResource): VMCPComponentSet | undefined {
+		if (resource.grant === undefined) return undefined;
 		const names = [...enabledToolNames(resource.toolOverrides)];
-		if (resource.grant !== undefined) {
-			if (
-				resource.initialEnabledTools &&
-				names.length === resource.initialEnabledTools.length &&
-				names.every((name, index) => name === resource.initialEnabledTools?.[index])
-			) {
-				return resource.grant;
-			}
-			return { allowedTools: names };
+		if (
+			resource.initialEnabledTools &&
+			names.length === resource.initialEnabledTools.length &&
+			names.every((name, index) => name === resource.initialEnabledTools?.[index])
+		) {
+			return resource.grant;
 		}
-		if (allowAllComponents && toolGrantDiffersFromBaseline(resource.id, resource.toolOverrides)) {
-			return { allowedTools: names };
-		}
-		return undefined;
+		return { allowedTools: names };
 	}
 
 	function baselineTools(id: string) {
@@ -315,7 +336,7 @@
 	}
 
 	function hasExistingAllowedTools(resource: ProfileResource) {
-		const allowed = componentGrant(resource, draft?.allowAllComponents)?.allowedTools;
+		const allowed = componentGrant(resource)?.allowedTools;
 		return Array.isArray(allowed) && allowed.length > 0;
 	}
 
@@ -362,6 +383,30 @@
 		}
 	});
 
+	function refineAllowAllIfNeeded(profile: ProfileManifest) {
+		if (!profile.allowAllComponents || !profileIsRefined(profile)) return;
+		materializeExplicitGrants(profile);
+	}
+
+	function setAllowAllComponents(enabled: boolean) {
+		const profile = draft;
+		if (readonly || !profile || profile.allowAllComponents === enabled) return;
+		if (!enabled) {
+			profile.allowAllComponents = false;
+			return;
+		}
+		profile.resources = profile.resources.map((resource) => {
+			const toolOverrides = baselineTools(resource.id);
+			return {
+				...resource,
+				grant: undefined,
+				toolOverrides,
+				initialEnabledTools: [...enabledToolNames(toolOverrides)]
+			};
+		});
+		profile.allowAllComponents = true;
+	}
+
 	function createProfile() {
 		if (readonly) return;
 		editingId = undefined;
@@ -390,6 +435,7 @@
 		error = '';
 		expanded = {};
 		draft = cloneProfile(profile);
+		refineAllowAllIfNeeded(draft);
 	}
 
 	$effect(() => {
@@ -772,6 +818,7 @@
 					}
 				: resource
 		);
+		refineAllowAllIfNeeded(draft);
 		expanded[id] = true;
 	}
 
@@ -948,17 +995,17 @@
 					<div>
 						<p class="text-sm font-semibold">Allow All Components</p>
 						<p class="text-muted-content text-sm font-light">
-							Grant every MCP server and all enabled tools in this profile. Individual servers can
-							still be restricted below.
+							Grant every MCP server and all enabled tools.
 						</p>
 					</div>
 					<input
 						id="allow-all-components"
 						type="checkbox"
 						class="toggle toggle-sm shrink-0"
-						bind:checked={draft.allowAllComponents}
+						checked={draft.allowAllComponents}
 						disabled={readonly}
 						aria-label="Allow All Components"
+						onchange={(event) => setAllowAllComponents(event.currentTarget.checked)}
 					/>
 				</label>
 				<div class="divider mt-3 mb-6"></div>
@@ -1068,6 +1115,7 @@
 											lockedTools={lockedToolNames(resource)}
 											lockedReason="Disabled on this vMCP."
 											onRefresh={readonly ? undefined : () => refreshProfileTools(component)}
+											onToolsChange={() => draft && refineAllowAllIfNeeded(draft)}
 											{effectiveNameDuplicates}
 											{readonly}
 										/>
