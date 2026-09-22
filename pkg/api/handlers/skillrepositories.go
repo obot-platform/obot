@@ -11,6 +11,7 @@ import (
 	skillrepo "github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	gitpkg "github.com/obot-platform/obot/pkg/git"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -189,7 +190,7 @@ func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifes
 		return nil, nil, types.NewErrBadRequest("repoURL is required")
 	}
 	var err error
-	manifest.RepoURL, err = skillrepo.NormalizeRepositoryURL(originalRepoURL)
+	manifest.RepoURL, err = gitpkg.NormalizeRepositoryURL(originalRepoURL)
 	if err != nil {
 		return nil, nil, types.NewErrBadRequest("invalid repoURL: %v", err)
 	}

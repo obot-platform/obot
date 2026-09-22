@@ -11,6 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/client"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -158,6 +159,134 @@ func TestParseGitURL(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantClone, cloneURL)
 			assert.Equal(t, tt.wantBranch, branch)
+		})
+	}
+}
+
+func TestNormalizeRepositoryURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		want    string
+		wantErr string
+	}{
+		{
+			name: "valid GitHub HTTPS URL",
+			url:  "https://github.com/owner/repo",
+			want: "https://github.com/owner/repo",
+		},
+		{
+			name: "valid GitHub URL without scheme",
+			url:  "github.com/owner/repo",
+			want: "https://github.com/owner/repo",
+		},
+		{
+			name: "valid GitLab HTTPS URL",
+			url:  "https://gitlab.com/owner/repo",
+			want: "https://gitlab.com/owner/repo",
+		},
+		{
+			name: "valid Bitbucket HTTPS URL",
+			url:  "https://bitbucket.org/owner/repo",
+			want: "https://bitbucket.org/owner/repo",
+		},
+		{
+			name: "valid Bitbucket URL without scheme",
+			url:  "bitbucket.org/owner/repo",
+			want: "https://bitbucket.org/owner/repo",
+		},
+		{
+			name: "valid Bitbucket .git URL",
+			url:  "https://bitbucket.org/owner/repo.git",
+			want: "https://bitbucket.org/owner/repo.git",
+		},
+		{
+			name: "valid Bitbucket branch URL",
+			url:  "https://bitbucket.org/owner/repo/feature/skills",
+			want: "https://bitbucket.org/owner/repo/feature/skills",
+		},
+		{
+			name:    "Bitbucket owner only rejected",
+			url:     "https://bitbucket.org/owner",
+			wantErr: "owner and repository",
+		},
+		{
+			name: "valid GitHub URL with ref path",
+			url:  "https://github.com/owner/repo/main",
+			want: "https://github.com/owner/repo/main",
+		},
+		{
+			name: "valid GitLab subgroup with .git suffix",
+			url:  "https://gitlab.com/group/subgroup/repo.git/main",
+			want: "https://gitlab.com/group/subgroup/repo.git/main",
+		},
+		{
+			name: "valid with .git suffix",
+			url:  "https://example.com/owner/repo.git",
+			want: "https://example.com/owner/repo.git",
+		},
+		{
+			name:    "HTTP scheme rejected",
+			url:     "http://github.com/owner/repo",
+			wantErr: "HTTPS",
+		},
+		{
+			name:    "SSH scheme rejected",
+			url:     "ssh://github.com/owner/repo",
+			wantErr: "HTTPS",
+		},
+		{
+			name:    "non-git HTTPS URL",
+			url:     "https://example.com/some/page",
+			wantErr: "does not appear to be a git repository",
+		},
+		{
+			name:    "GitHub owner only rejected",
+			url:     "https://github.com/owner",
+			wantErr: "owner and repository",
+		},
+		{
+			name:    "GitLab owner only rejected",
+			url:     "https://gitlab.com/owner",
+			wantErr: "owner and repository",
+		},
+		{
+			name:    "embedded credentials rejected",
+			url:     "https://token@github.com/owner/repo",
+			wantErr: "must not include credentials",
+		},
+		{
+			name:    "non-GitHub host without .git rejected",
+			url:     "https://example.com/owner/repo",
+			wantErr: "does not appear to be a git repository",
+		},
+		{
+			name: "surrounding whitespace",
+			url:  "  bitbucket.org/owner/repo/feature/skills  ",
+			want: "https://bitbucket.org/owner/repo/feature/skills",
+		},
+		{
+			name:    "invalid embedded branch",
+			url:     "https://bitbucket.org/owner/repo/../main",
+			wantErr: "invalid branch name",
+		},
+		{
+			name:    "empty string",
+			url:     "",
+			wantErr: "HTTPS",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			normalized, err := NormalizeRepositoryURL(tt.url)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, normalized)
 		})
 	}
 }

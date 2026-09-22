@@ -61,6 +61,42 @@ func cloneAuthAttempts(token, fallbackToken string) []cloneAuthAttempt {
 	return []cloneAuthAttempt{{name: "anonymous"}}
 }
 
+// NormalizeRepositoryURL validates an HTTPS Git repository URL, trims surrounding
+// whitespace, and adds the HTTPS scheme when omitted. It preserves the repository
+// path and any embedded branch so stored URLs and credential keys remain stable.
+func NormalizeRepositoryURL(repoURL string) (string, error) {
+	repoURL = strings.TrimSpace(repoURL)
+	if repoURL != "" && !strings.Contains(repoURL, "://") {
+		repoURL = "https://" + repoURL
+	}
+	u, err := url.Parse(repoURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid repository URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return "", fmt.Errorf("repository URL must use HTTPS")
+	}
+	if u.User != nil {
+		return "", fmt.Errorf("repository URL must not include credentials")
+	}
+	if !IsGitRepoURL(repoURL) {
+		return "", fmt.Errorf("repository URL does not appear to be a git repository")
+	}
+	if _, _, err := parseGitURL(repoURL); err != nil {
+		return "", err
+	}
+	return repoURL, nil
+}
+
+func isKnownGitHost(host string) bool {
+	switch host {
+	case "github.com", "gitlab.com", "bitbucket.org":
+		return true
+	default:
+		return false
+	}
+}
+
 // IsGitRepoURL returns true if the URL points to a git repository on a known
 // hosting platform (GitHub, GitLab, Bitbucket) or ends with ".git".
 func IsGitRepoURL(repoURL string) bool {
@@ -68,8 +104,7 @@ func IsGitRepoURL(repoURL string) bool {
 	if err != nil {
 		return false
 	}
-	switch u.Host {
-	case "github.com", "gitlab.com", "bitbucket.org":
+	if isKnownGitHost(u.Host) {
 		return true
 	}
 	// Treat any HTTPS URL that contains ".git" as a path segment boundary as a git repo
@@ -91,11 +126,9 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 		return "", "", nil, err
 	}
 
-	if strings.HasPrefix(repoURL, "http://") {
-		return "", "", nil, fmt.Errorf("only HTTPS is supported for git repositories")
-	}
-	if !strings.HasPrefix(repoURL, "https://") {
-		repoURL = "https://" + repoURL
+	repoURL, err = NormalizeRepositoryURL(repoURL)
+	if err != nil {
+		return "", "", nil, err
 	}
 
 	u, err := url.Parse(repoURL)
@@ -249,8 +282,8 @@ func parseGitURL(repoURL string) (string, string, error) {
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("repository URL must include an owner and repository")
 	}
 
 	var (
@@ -277,8 +310,7 @@ func parseGitURL(repoURL string) (string, string, error) {
 	// For known git hosting platforms, support URLs without .git suffix.
 	// Subgroups without .git are not supported; use the .git suffix form instead.
 	if repoPath == "" {
-		switch u.Host {
-		case "github.com", "gitlab.com", "bitbucket.org":
+		if isKnownGitHost(u.Host) {
 			repoPath = strings.Join(parts[:2], "/") + ".git"
 			if len(parts) > 2 {
 				branch = strings.Join(parts[2:], "/")
@@ -286,7 +318,7 @@ func parseGitURL(repoURL string) (string, string, error) {
 					return "", "", fmt.Errorf("invalid branch name: %w", err)
 				}
 			}
-		default:
+		} else {
 			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
 		}
 	}

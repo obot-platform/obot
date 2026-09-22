@@ -8,7 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/agentcatalog"
-	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
+	gitpkg "github.com/obot-platform/obot/pkg/git"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -149,7 +149,7 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 	}
 
 	var err error
-	repoURL, err = skillrepository.NormalizeRepositoryURL(repoURL)
+	repoURL, err = gitpkg.NormalizeRepositoryURL(repoURL)
 	if err != nil {
 		return fmt.Errorf("invalid default skill repository URL: %w", err)
 	}

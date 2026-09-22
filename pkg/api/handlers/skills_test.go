@@ -110,6 +110,17 @@ func TestParseSkillRepositoryRequest(t *testing.T) {
 	assert.Contains(t, err.Error(), "ref must not be empty")
 }
 
+func TestParseBitbucketSkillRepositoryRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/skill-repositories", strings.NewReader(`{"displayName":"Skills","repoURL":"bitbucket.org/workspace/skills","sourceURLCredentials":{"bitbucket.org/workspace/skills":"secret"}}`))
+	manifest, credentials, err := parseSkillRepositoryRequest(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "https://bitbucket.org/workspace/skills", manifest.RepoURL)
+	assert.Equal(t, map[string]string{"https://bitbucket.org/workspace/skills": "secret"}, credentials)
+}
+
 func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.Skill{
