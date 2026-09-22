@@ -285,7 +285,7 @@
 				{/snippet}
 			</Table>
 		{:else}
-			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center mx-auto">
 				<Layers class="text-muted-content size-24 opacity-25" />
 				<h4 class="text-muted-content text-lg font-semibold">No deployments found</h4>
 				<p class="text-muted-content text-sm font-light">

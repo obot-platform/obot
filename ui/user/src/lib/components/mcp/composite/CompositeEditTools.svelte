@@ -213,7 +213,7 @@
 			{/if}
 		</div>
 		<div
-			class="flex w-full justify-end"
+			class="flex w-full justify-end pr-2.5"
 			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}
 		>
 			<Toggle
@@ -268,19 +268,11 @@
 								</p>
 							{/if}
 						</div>
-						<div class="flex shrink-0 items-center gap-2">
+						<div class="flex shrink-0 items-center gap-1">
 							<!-- Enabled/disabled toggle for this tool -->
-							<Toggle
-								checked={tool.enabled}
-								onChange={(checked) => {
-									tool.enabled = checked;
-								}}
-								label="Enabled"
-								disablePortal
-							/>
 							<button
 								type="button"
-								class="btn btn-secondary btn-sm px-3 py-1"
+								class="btn btn-secondary btn-xs px-3 py-1"
 								onclick={() => {
 									// When expanding, initialize inputs with current effective values
 									if (!expandedTools[tool.id]) {
@@ -293,6 +285,15 @@
 							>
 								{expandedTools[tool.id] ? 'Hide details' : 'Customize'}
 							</button>
+							<div class="divider divider-horizontal mx-0"></div>
+							<Toggle
+								checked={tool.enabled}
+								onChange={(checked) => {
+									tool.enabled = checked;
+								}}
+								label={`${tool.enabled ? 'Disable Tool' : 'Enable Tool'}`}
+								disablePortal
+							/>
 						</div>
 					</div>
 
