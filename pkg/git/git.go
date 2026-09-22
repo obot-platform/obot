@@ -162,10 +162,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 			}
 
 			if attempt.token != "" {
-				cloneOptions.Auth = &githttp.BasicAuth{
-					Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
-					Password: attempt.token,
-				}
+				cloneOptions.Auth = cloneTokenAuth(u, attempt.token)
 			}
 
 			limitedFS := &sizeLimitedFS{
@@ -214,6 +211,18 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 
 	cleanupFn()
 	return "", "", nil, fmt.Errorf("failed to clone repository after %d attempt(s): %w", len(attemptErrs), errors.Join(attemptErrs...))
+}
+
+func cloneTokenAuth(u *url.URL, token string) *githttp.BasicAuth {
+	username := "x-access-token" // Accepted as a dummy username by GitHub and GitLab.
+	if strings.EqualFold(u.Hostname(), "bitbucket.org") {
+		// Bitbucket Cloud repository access tokens require this username.
+		username = "x-token-auth"
+	}
+	return &githttp.BasicAuth{
+		Username: username,
+		Password: token,
+	}
 }
 
 // parseGitURL parses a git repository URL and returns the clone URL and branch.

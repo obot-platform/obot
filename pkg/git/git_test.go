@@ -3,10 +3,12 @@ package git
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -113,6 +115,51 @@ func TestParseGitURL(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantClone, cloneURL)
 			assert.Equal(t, tt.wantBranch, branch)
+		})
+	}
+}
+
+func TestCloneTokenAuth(t *testing.T) {
+	tests := []struct {
+		url      string
+		username string
+	}{
+		{
+			url:      "https://bitbucket.org/workspace/repo.git",
+			username: "x-token-auth",
+		},
+		{
+			url:      "https://BITBUCKET.ORG:443/workspace/repo.git",
+			username: "x-token-auth",
+		},
+		{
+			url:      "https://github.com/org/repo.git",
+			username: "x-access-token",
+		},
+		{
+			url:      "https://gitlab.com/org/repo.git",
+			username: "x-access-token",
+		},
+		{
+			url:      "https://git.example.com/org/repo.git",
+			username: "x-access-token",
+		},
+		{
+			url:      "https://bitbucket.org.example.com/org/repo.git",
+			username: "x-access-token",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			u, err := url.Parse(tt.url)
+			require.NoError(t, err)
+			req, err := http.NewRequest(http.MethodGet, tt.url, nil)
+			require.NoError(t, err)
+			cloneTokenAuth(u, "repository-token").SetAuth(req)
+			username, password, ok := req.BasicAuth()
+			require.True(t, ok)
+			assert.Equal(t, tt.username, username)
+			assert.Equal(t, "repository-token", password)
 		})
 	}
 }
