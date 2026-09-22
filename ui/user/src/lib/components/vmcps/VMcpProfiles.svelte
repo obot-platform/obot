@@ -201,6 +201,11 @@
 		};
 	}
 
+	function isResourceGranted(profile: ProfileManifest, resource: ProfileResource) {
+		if (profile.allowAllComponents) return true;
+		return resource.grant !== undefined;
+	}
+
 	function profileFromManifest(manifest: VMCPProfile): Profile {
 		const permissions = manifest.vmcpPermissions;
 		return {
@@ -213,9 +218,10 @@
 					const id = componentId(component);
 					const tools = initialTools(component);
 					const grant = permissions?.allowedComponents?.[id];
-					const names = grant?.allowedTools;
+					const effectiveGrant = grant ?? (permissions?.allowAllComponents ? {} : undefined);
+					const names = effectiveGrant?.allowedTools;
 					const toolOverrides = clampToComponent(
-						grant && (names == null || names.includes('*'))
+						effectiveGrant && (names == null || names.includes('*'))
 							? tools
 							: tools.map((tool) => ({ ...tool, enabled: (names ?? []).includes(tool.name) })),
 						id
@@ -234,7 +240,7 @@
 	function profileToManifest(profile: Profile): VMCPProfile {
 		const allowedComponents: Record<string, VMCPComponentSet> = {};
 		for (const resource of profile.resources) {
-			const grant = componentGrant(resource);
+			const grant = componentGrant(resource, profile.allowAllComponents);
 			if (grant) allowedComponents[resource.id] = grant;
 		}
 		const vmcpPermissions: NonNullable<VMCPProfile['vmcpPermissions']> = {};
@@ -249,19 +255,33 @@
 		};
 	}
 
-	function componentGrant(resource: ProfileResource): VMCPComponentSet | undefined {
-		if (!resource.grant) return undefined;
+	function toolGrantDiffersFromBaseline(id: string, tools: ToolOverride[]) {
+		const baseline = baselineTools(id);
+		const current = [...enabledToolNames(tools)];
+		const base = [...enabledToolNames(baseline)];
+		if (current.length !== base.length) return true;
+		return !current.every((name) => base.includes(name));
+	}
+
+	function componentGrant(
+		resource: ProfileResource,
+		allowAllComponents = false
+	): VMCPComponentSet | undefined {
 		const names = [...enabledToolNames(resource.toolOverrides)];
-		if (
-			resource.initialEnabledTools &&
-			names.length === resource.initialEnabledTools.length &&
-			names.every((name, index) => name === resource.initialEnabledTools?.[index])
-		) {
-			return resource.grant;
+		if (resource.grant !== undefined) {
+			if (
+				resource.initialEnabledTools &&
+				names.length === resource.initialEnabledTools.length &&
+				names.every((name, index) => name === resource.initialEnabledTools?.[index])
+			) {
+				return resource.grant;
+			}
+			return { allowedTools: names };
 		}
-		return {
-			allowedTools: names
-		};
+		if (allowAllComponents && toolGrantDiffersFromBaseline(resource.id, resource.toolOverrides)) {
+			return { allowedTools: names };
+		}
+		return undefined;
 	}
 
 	function baselineTools(id: string) {
@@ -271,17 +291,31 @@
 
 	function grantMatchingTools(id: string, tools: ToolOverride[]): VMCPComponentSet {
 		const names = [...enabledToolNames(tools)];
-		const component = componentServers.find((candidate) => componentId(candidate) === id);
-		const previewNames = component ? initialTools(component).map((tool) => tool.name) : [];
-		const grantsEveryPreviewTool =
-			previewNames.length > 0 &&
-			previewNames.length === names.length &&
-			previewNames.every((name) => names.includes(name));
-		return { allowedTools: previewNames.length === 0 || grantsEveryPreviewTool ? null : names };
+		return { allowedTools: names };
+	}
+
+	function explicitComponentGrant(id: string, resource: ProfileResource): VMCPComponentSet {
+		if (!toolGrantDiffersFromBaseline(id, resource.toolOverrides)) return {};
+		return grantMatchingTools(id, resource.toolOverrides);
+	}
+
+	function materializeAllowListExcept(profile: ProfileManifest, excludedId: string) {
+		profile.allowAllComponents = false;
+		profile.resources = profile.resources.map((resource) => {
+			if (resource.id === excludedId) {
+				return { ...resource, grant: undefined };
+			}
+			if (resource.grant !== undefined) return resource;
+			return {
+				...resource,
+				grant: explicitComponentGrant(resource.id, resource),
+				initialEnabledTools: [...enabledToolNames(resource.toolOverrides)]
+			};
+		});
 	}
 
 	function hasExistingAllowedTools(resource: ProfileResource) {
-		const allowed = componentGrant(resource)?.allowedTools;
+		const allowed = componentGrant(resource, draft?.allowAllComponents)?.allowedTools;
 		return Array.isArray(allowed) && allowed.length > 0;
 	}
 
@@ -344,8 +378,7 @@
 					return {
 						id,
 						toolOverrides,
-						initialEnabledTools: [...enabledToolNames(toolOverrides)],
-						grant: grantMatchingTools(id, toolOverrides)
+						initialEnabledTools: [...enabledToolNames(toolOverrides)]
 					};
 				})
 				.filter((resource) => resource.id)
@@ -578,9 +611,20 @@
 	}
 
 	function applyComponentGrant(id: string, enabled: boolean, removeOverrides = false) {
-		if (!draft) return;
+		const profile = draft;
+		if (!profile) return;
 		if (!enabled) expanded[id] = false;
-		draft.resources = draft.resources.map((resource) => {
+		if (!enabled && profile.allowAllComponents) {
+			materializeAllowListExcept(profile, id);
+			if (!removeOverrides) return;
+			const resource = profile.resources.find((entry) => entry.id === id);
+			if (!resource) return;
+			const toolOverrides = baselineTools(id);
+			resource.toolOverrides = toolOverrides;
+			resource.initialEnabledTools = [...enabledToolNames(toolOverrides)];
+			return;
+		}
+		profile.resources = profile.resources.map((resource) => {
 			if (resource.id !== id) return resource;
 			if (!enabled) {
 				if (!removeOverrides) return { ...resource, grant: undefined };
@@ -599,11 +643,11 @@
 				baseline.some((tool) => tool.enabled !== false)
 					? baseline
 					: current;
+			const next = { ...resource, toolOverrides };
 			return {
-				...resource,
-				toolOverrides,
+				...next,
 				initialEnabledTools: [...enabledToolNames(toolOverrides)],
-				grant: grantMatchingTools(id, toolOverrides)
+				grant: explicitComponentGrant(id, next)
 			};
 		});
 	}
@@ -611,7 +655,7 @@
 	function setComponentGrant(id: string, name: string, enabled: boolean) {
 		if (readonly || !draft) return;
 		const resource = resourceFor(id);
-		if (!resource || Boolean(resource.grant) === enabled) return;
+		if (!resource || isResourceGranted(draft, resource) === enabled) return;
 		if (!enabled && hasExistingAllowedTools(resource)) {
 			confirmDisableGrant = { id, name };
 			return;
@@ -646,11 +690,6 @@
 		return modifiableTools(resource).filter((tool) => tool.enabled !== false).length;
 	}
 
-	function applyComponentToolOverrides(id: string, toolOverrides: ToolOverride[]) {
-		const target = componentServers.find((candidate) => componentId(candidate) === id);
-		if (target) target.toolOverrides = toolOverrides;
-	}
-
 	function getDisplayListText(names: string[]) {
 		if (names.length <= 1) return names[0] ?? '';
 		const rest = names.slice(0, names.length > 5 ? 4 : -1);
@@ -683,8 +722,9 @@
 						: []
 				);
 				const profileEnabled = enabledToolNames(modifiableTools(resource));
+				const granted = isResourceGranted(profile, resource);
 				const changed =
-					Boolean(resource.grant) &&
+					granted &&
 					([...profileEnabled].some((name) => !componentEnabled.has(name)) ||
 						[...componentEnabled].some((name) => !profileEnabled.has(name)));
 				return {
@@ -694,7 +734,7 @@
 					enabled,
 					total,
 					changed,
-					grant: resource.grant
+					granted
 				};
 			})
 			.sort((a, b) => Number(b.changed) - Number(a.changed));
@@ -719,14 +759,9 @@
 				delete copy.removed;
 				return copy;
 			});
-		const componentToolOverrides = live.map((tool) => ({
-			...tool,
-			enabled: true
-		}));
 		const liveOverrides = clampToComponent(live, id);
 		const toolOverrides = [...liveOverrides, ...removed];
 		const enabledNames = [...enabledToolNames(liveOverrides)];
-		applyComponentToolOverrides(id, componentToolOverrides);
 		draft.resources = draft.resources.map((resource) =>
 			resource.id === id
 				? {
@@ -909,6 +944,24 @@
 						Further modify the tools available for each MCP server in this profile below.
 					</p>
 				</div>
+				<label for="allow-all-components" class="flex items-center justify-between gap-4">
+					<div>
+						<p class="text-sm font-semibold">Allow All Components</p>
+						<p class="text-muted-content text-sm font-light">
+							Grant every MCP server and all enabled tools in this profile. Individual servers can
+							still be restricted below.
+						</p>
+					</div>
+					<input
+						id="allow-all-components"
+						type="checkbox"
+						class="toggle toggle-sm shrink-0"
+						bind:checked={draft.allowAllComponents}
+						disabled={readonly}
+						aria-label="Allow All Components"
+					/>
+				</label>
+				<div class="divider mt-3 mb-6"></div>
 				{#if componentServers.length === 0}
 					<div class="text-muted-content rounded-lg p-5 text-center text-sm">
 						No MCP servers available.
@@ -919,7 +972,7 @@
 							{@const id = componentId(component)}
 							{@const resource = resourceFor(id)}
 							{@const name = componentName(component)}
-							{@const granted = Boolean(resource?.grant)}
+							{@const granted = resource ? isResourceGranted(draft, resource) : false}
 							<div
 								class="border-base-300 dark:border-base-400 flex min-w-0 grow flex-col overflow-hidden rounded-lg border"
 							>
@@ -951,7 +1004,7 @@
 										{name}
 									</span>
 								{/snippet}
-								{#if resource && resource.grant && resource.toolOverrides.length > 0}
+								{#if resource && granted && resource.toolOverrides.length > 0}
 									<button
 										type="button"
 										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
@@ -974,7 +1027,7 @@
 											{/if}
 										</span>
 									</button>
-								{:else if resource && resource.grant}
+								{:else if resource && granted}
 									<button
 										type="button"
 										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
@@ -994,12 +1047,12 @@
 									<div
 										class={twMerge(
 											'flex w-full items-center gap-3 py-1 px-3 h-12 justify-between',
-											resource && !resource.grant && 'opacity-50'
+											resource && !granted && 'opacity-50'
 										)}
 									>
 										{@render componentIdentity()}
 										<span class="text-muted-content shrink-0 text-xs">
-											{resource && !resource.grant ? 'Disabled' : ''}
+											{resource && !granted ? 'Disabled' : ''}
 										</span>
 									</div>
 								{/if}
@@ -1181,7 +1234,7 @@
 												title={resource.name}
 												class={twMerge(
 													'bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 group-hover:border-primary/40 flex shrink-0 items-center gap-2 rounded-md border pr-2 transition-colors',
-													!resource.grant && 'opacity-50'
+													!resource.granted && 'opacity-50'
 												)}
 											>
 												<McpServerIcon
@@ -1199,7 +1252,7 @@
 												>
 													{resource.changed
 														? `${resource.enabled} of ${resource.total}`
-														: resource.grant
+														: resource.granted
 															? 'Default'
 															: 'Disabled'}
 												</span>
