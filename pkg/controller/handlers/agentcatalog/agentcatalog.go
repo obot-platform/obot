@@ -59,7 +59,7 @@ type sourceFetcher interface {
 	Fetch(ctx context.Context, repoURL, ref string) (*fetchedSource, error)
 }
 
-type gitSourceFetcher struct{}
+type gitSourceFetcher struct{ maxRepoSizeMB int }
 
 type Handler struct {
 	fetcher sourceFetcher
@@ -78,14 +78,14 @@ type sourceDefinition struct {
 	kind string
 }
 
-func (gitSourceFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetchedSource, error) {
+func (f gitSourceFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetchedSource, error) {
 	if localPath, ok, err := localRepositoryPath(repoURL); err != nil {
 		return nil, err
 	} else if ok {
 		return fetchLocalRepository(localPath, ref)
 	}
 
-	dir, commitSHA, cleanup, err := gitpkg.Clone(ctx, repoURL, "", ref)
+	dir, commitSHA, cleanup, err := gitpkg.Clone(ctx, repoURL, "", ref, f.maxRepoSizeMB)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +96,9 @@ func (gitSourceFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetche
 	}, nil
 }
 
-func New() *Handler {
+func New(maxRepoSizeMB int) *Handler {
 	return &Handler{
-		fetcher: gitSourceFetcher{},
+		fetcher: gitSourceFetcher{maxRepoSizeMB: maxRepoSizeMB},
 		now:     time.Now,
 	}
 }

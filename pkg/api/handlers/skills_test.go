@@ -338,7 +338,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 		},
 	)
 
-	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 		newSkillRule("rule-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-direct"}}),
 	))
@@ -396,7 +396,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	)
 
 	// user1 has access only to repo-1 via skill access rules
-	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
 		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
 
@@ -483,10 +483,11 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	require.NoError(t, os.MkdirAll(tempDir+"/scripts", 0o755))
 	require.NoError(t, os.WriteFile(tempDir+"/scripts/run.sh", []byte("echo hi\n"), 0o755))
 
-	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
-	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string, maxRepoSizeMB int) (func(), string, error) {
+		assert.Equal(t, 100, maxRepoSizeMB)
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Equal(t, "skills/postgres-helper", got.Spec.RelativePath)
 		assert.Equal(t, "private-token", token)
@@ -538,10 +539,11 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 	tempDir := t.TempDir()
 	require.NoError(t, os.WriteFile(tempDir+"/SKILL.md", want, 0o644))
 
-	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
-	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string) (func(), string, error) {
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string, maxRepoSizeMB int) (func(), string, error) {
+		assert.Equal(t, 100, maxRepoSizeMB)
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Empty(t, token)
 		return func() {}, tempDir, nil

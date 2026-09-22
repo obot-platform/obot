@@ -9,11 +9,11 @@ import (
 	"github.com/obot-platform/obot/pkg/git"
 )
 
-func readGitCatalogEntries[T any](ctx context.Context, catalogURL, token string) ([]T, error) {
-	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", readCatalogDirectory[T])
+func readGitCatalogEntries[T any](ctx context.Context, catalogURL, token string, maxRepoSizeMB int) ([]T, error) {
+	return readGitCatalogEntriesFromSubdir(ctx, catalogURL, token, "", readCatalogDirectory[T], maxRepoSizeMB)
 }
 
-func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL, token, subdir string, readDir func(string) ([]T, error)) ([]T, error) {
+func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL, token, subdir string, readDir func(string) ([]T, error), maxRepoSizeMB int) ([]T, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
 	}
@@ -26,7 +26,7 @@ func readGitCatalogEntriesFromSubdir[T any](ctx context.Context, catalogURL, tok
 		subdir = cleanSubdir
 	}
 
-	dir, _, cleanup, err := git.Clone(ctx, catalogURL, token, "")
+	dir, _, cleanup, err := git.Clone(ctx, catalogURL, token, "", maxRepoSizeMB)
 	if err != nil {
 		return nil, err
 	}

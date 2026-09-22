@@ -101,11 +101,11 @@ type defaultDesiredBuilder struct {
 	Skills      *skillFetcher
 }
 
-func New(backend agentbackend.InstanceBackend, credentials CredentialIssuer, serverURL, internalURL string) *Handler {
+func New(backend agentbackend.InstanceBackend, credentials CredentialIssuer, serverURL, internalURL string, maxRepoSizeMB int) *Handler {
 	return NewWithBuilder(backend, credentials, defaultDesiredBuilder{
 		ServerURL:   serverURL,
 		InternalURL: internalURL,
-		Skills:      newSkillFetcher(),
+		Skills:      newSkillFetcher(maxRepoSizeMB),
 	})
 }
 

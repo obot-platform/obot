@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/mail"
 	"net/url"
 	"os"
@@ -97,6 +98,7 @@ type (
 )
 
 type Config struct {
+	GitMaxRepoSizeMB                               int      `usage:"Maximum git repository size in MB" default:"100" name:"git-max-repo-size-mb" env:"OBOT_SERVER_GIT_MAX_REPO_SIZE_MB"`
 	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables the model proxy" default:"https://model-service.obot.ai"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
@@ -180,6 +182,7 @@ type Config struct {
 }
 
 type Services struct {
+	GitMaxRepoSizeMB      int
 	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
 	StorageClient         storage.Client
 	StorageDB             *kinmdb.Factory
@@ -506,6 +509,9 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
+	if config.GitMaxRepoSizeMB <= 0 || int64(config.GitMaxRepoSizeMB) > math.MaxInt64/(1024*1024) {
+		return nil, fmt.Errorf("git-max-repo-size-mb must be positive and no greater than %d", int64(math.MaxInt64)/(1024*1024))
+	}
 	modelProxyURL, err := mcptester.ParseModelProxyURL(config.ModelProxyURL, config.DevMode)
 	if err != nil {
 		return nil, err
@@ -1388,6 +1394,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		LocalAuthProvider:            localAuthProvider,
 
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
+		GitMaxRepoSizeMB:               config.GitMaxRepoSizeMB,
 		MDMAssetSource:                 config.MDMAssetSource,
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,

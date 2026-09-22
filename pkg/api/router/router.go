@@ -97,7 +97,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	hostedAgentPoolDefaults := handlers.NewHostedAgentPoolDefaultsHandler()
 	hostedAgentPoolAssignments := handlers.NewHostedAgentPoolAssignmentHandler()
 	hostedAgentAccessRules := handlers.NewHostedAgentAccessRuleHandler()
-	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
+	skills := handlers.NewSkillHandler(services.GitMaxRepoSizeMB, services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)

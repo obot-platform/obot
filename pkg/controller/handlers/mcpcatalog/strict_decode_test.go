@@ -63,7 +63,7 @@ func TestReadCatalogManifestsStrict(t *testing.T) {
 			}))
 			defer server.Close()
 			for _, source := range []string{file, server.URL} {
-				entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), server.Client(), source, "")
+				entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), server.Client(), source, "", 100)
 				if test.wantErr {
 					require.Error(t, err)
 					require.Empty(t, entries)
@@ -95,7 +95,7 @@ func TestReadMCPCatalogRetainsPartialResultsAndReportsIncompleteSource(t *testin
 
 			// Both schema and syntax errors must survive every reader layer
 			// alongside valid entries, so sync can identify an incomplete source.
-			entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), http.DefaultClient, dir, "")
+			entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), http.DefaultClient, dir, "", 100)
 			require.ErrorContains(t, err, "legacy.yaml")
 			require.ErrorContains(t, err, "Broken.yaml")
 			require.Len(t, entries, 1)

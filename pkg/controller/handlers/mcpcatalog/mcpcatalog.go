@@ -50,6 +50,7 @@ const (
 )
 
 type Handler struct {
+	maxRepoSizeMB             int
 	defaultCatalogPath        string
 	defaultSystemCatalogPath  string
 	httpClient                *http.Client
@@ -66,13 +67,14 @@ type userInfo struct {
 	role types.Role
 }
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcp.ValidationOptions{
 		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 	}
 
 	return &Handler{
+		maxRepoSizeMB:            maxRepoSizeMB,
 		defaultCatalogPath:       defaultCatalogPath,
 		defaultSystemCatalogPath: defaultSystemCatalogPath,
 		gatewayClient:            gatewayClient,
@@ -455,7 +457,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
-	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
 
 	systemObjs := make([]kclient.Object, 0, len(entries))
 	errs := []error{err}
@@ -497,7 +499,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
-	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
 
 	objs := make([]kclient.Object, 0, len(entries))
 	errs := []error{err}
@@ -555,10 +557,10 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	return objs, errors.Join(errs...)
 }
 
-func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {
+func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string, maxRepoSizeMB int) ([]T, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if git.IsGitRepoURL(sourceURL) {
-			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
+			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token, maxRepoSizeMB)
 			if err != nil {
 				return entries, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}

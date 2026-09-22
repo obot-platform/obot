@@ -32,9 +32,9 @@ type Handler struct {
 	gatewayClient *gclient.Client
 }
 
-func New(gatewayClient *gclient.Client) *Handler {
+func New(gatewayClient *gclient.Client, maxRepoSizeMB int) *Handler {
 	return &Handler{
-		fetcher:       newGitRepositoryFetcher(),
+		fetcher:       newGitRepositoryFetcher(maxRepoSizeMB),
 		now:           time.Now,
 		gatewayClient: gatewayClient,
 	}
@@ -266,8 +266,8 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 	return fetched, skillDir, nil
 }
 
-func MaterializeSkillSource(ctx context.Context, skill *v1.Skill, token string) (func(), string, error) {
-	fetched, skillDir, err := materializeSkillSource(ctx, newGitRepositoryFetcher(), skill, token)
+func MaterializeSkillSource(ctx context.Context, skill *v1.Skill, token string, maxRepoSizeMB int) (func(), string, error) {
+	fetched, skillDir, err := materializeSkillSource(ctx, newGitRepositoryFetcher(maxRepoSizeMB), skill, token)
 	if err != nil {
 		return nil, "", err
 	}

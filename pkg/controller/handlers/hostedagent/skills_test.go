@@ -15,7 +15,7 @@ import (
 )
 
 // fakeRepo writes a skill directory and returns a clone function serving it.
-func fakeRepo(t *testing.T, files map[string]string) (func(context.Context, string, string, string) (string, string, func(), error), *int) {
+func fakeRepo(t *testing.T, files map[string]string) (func(context.Context, string, string, string, int) (string, string, func(), error), *int) {
 	t.Helper()
 	dir := t.TempDir()
 	for name, content := range files {
@@ -28,7 +28,7 @@ func fakeRepo(t *testing.T, files map[string]string) (func(context.Context, stri
 		}
 	}
 	calls := 0
-	return func(context.Context, string, string, string) (string, string, func(), error) {
+	return func(context.Context, string, string, string, int) (string, string, func(), error) {
 		calls++
 		return dir, "sha", func() {}, nil
 	}, &calls

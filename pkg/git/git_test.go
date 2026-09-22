@@ -1,11 +1,14 @@
 package git
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v5/plumbing/transport/client"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -309,4 +312,79 @@ func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
 		err := checkGitLabRepoSize(t.Context(), "gitlab.com", "example/repo", 100, "token")
 		assert.ErrorIs(t, err, errRepoTooLarge)
 	})
+}
+
+func TestRepoSizeLimitMB(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   int
+		want    int
+		wantErr bool
+	}{
+		{
+			name: "default",
+			want: 100,
+		},
+		{
+			name:  "custom",
+			value: 250,
+			want:  250,
+		},
+		{
+			name:    "negative",
+			value:   -1,
+			wantErr: true,
+		},
+		{
+			name:    "byte overflow",
+			value:   8796093022208,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limit, err := repoSizeLimitMB(tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, limit)
+			}
+		})
+	}
+}
+
+// Verify Clone forwards the configured limit to both provider pre-checks:
+// the same 200 MB repository is rejected at 100 MB but reaches cloning at 250 MB.
+func TestCloneConfiguredSizeLimit(t *testing.T) {
+	originalHTTPS := client.Protocols["https"]
+	t.Cleanup(func() { client.InstallProtocol("https", originalHTTPS) })
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+	t.Setenv("GITHUB_AUTH_TOKEN", "")
+	for _, host := range []string{"github.com", "gitlab.com"} {
+		t.Run(host, func(t *testing.T) {
+			cloneAttempted := false
+			http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host == "api.github.com" || strings.HasPrefix(req.URL.Path, "/api/v4/") {
+					body := `{"size":204800,"statistics":{"repository_size":209715200}}`
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(body)),
+						Header:     make(http.Header),
+					}, nil
+				}
+				cloneAttempted = true
+				return nil, context.Canceled
+			})
+			client.InstallProtocol("https", githttp.NewClient(&http.Client{Transport: http.DefaultTransport}))
+			_, _, _, err := Clone(t.Context(), "https://"+host+"/example/repo", "token", "", 100)
+			assert.ErrorIs(t, err, errRepoTooLarge)
+			assert.False(t, cloneAttempted)
+
+			_, _, _, err = Clone(t.Context(), "https://"+host+"/example/repo", "token", "", 250)
+			assert.ErrorIs(t, err, context.Canceled)
+			assert.True(t, cloneAttempted)
+		})
+	}
 }

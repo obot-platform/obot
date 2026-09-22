@@ -75,7 +75,7 @@ func TestReadGitCatalog(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			entries, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](t.Context(), test.catalog, "")
+			entries, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](t.Context(), test.catalog, "", 100)
 			assert.Error(t, err)
 			assert.Empty(t, entries)
 			if test.legacySchema {

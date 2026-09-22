@@ -38,17 +38,19 @@ const (
 // cannot change, and reconciliation is frequent enough that cloning every pass
 // would be untenable.
 type skillFetcher struct {
-	mu    sync.Mutex
-	cache map[string][]agentbackend.File
+	maxRepoSizeMB int
+	mu            sync.Mutex
+	cache         map[string][]agentbackend.File
 
 	// clone is injectable so tests do not need a git server.
-	clone func(ctx context.Context, repoURL, token, ref string) (string, string, func(), error)
+	clone func(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (string, string, func(), error)
 }
 
-func newSkillFetcher() *skillFetcher {
+func newSkillFetcher(maxRepoSizeMB int) *skillFetcher {
 	return &skillFetcher{
-		cache: map[string][]agentbackend.File{},
-		clone: gitpkg.Clone,
+		cache:         map[string][]agentbackend.File{},
+		clone:         gitpkg.Clone,
+		maxRepoSizeMB: maxRepoSizeMB,
 	}
 }
 
@@ -156,7 +158,7 @@ func (f *skillFetcher) fetch(ctx context.Context, skill *v1.Skill, mount string)
 	if ref == "" {
 		ref = skill.Spec.RepoRef
 	}
-	dir, _, cleanup, err := f.clone(ctx, skill.Spec.RepoURL, "", ref)
+	dir, _, cleanup, err := f.clone(ctx, skill.Spec.RepoURL, "", ref, f.maxRepoSizeMB)
 	if err != nil {
 		return nil, fmt.Errorf("clone %s: %w", skill.Spec.RepoURL, err)
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,7 +24,7 @@ import (
 )
 
 const (
-	maxRepoSizeMB = 100
+	defaultMaxRepoSizeMB = 100
 )
 
 var (
@@ -83,7 +84,13 @@ func IsGitRepoURL(repoURL string) bool {
 // The repoURL may embed a branch via the path (e.g. github.com/org/repo.git/mybranch).
 // If ref is non-empty it overrides any branch embedded in the URL.
 // If token is empty, Clone tries anonymous clone before retrying with GITHUB_AUTH_TOKEN.
-func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitSHA string, cleanup func(), err error) {
+// A zero maxRepoSizeMB uses the default 100 MB repository size limit.
+func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (dir string, commitSHA string, cleanup func(), err error) {
+	maxRepoSizeMB, err = repoSizeLimitMB(maxRepoSizeMB)
+	if err != nil {
+		return "", "", nil, err
+	}
+
 	if strings.HasPrefix(repoURL, "http://") {
 		return "", "", nil, fmt.Errorf("only HTTPS is supported for git repositories")
 	}
@@ -170,7 +177,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 
 			limitedFS := &sizeLimitedFS{
 				Filesystem: osfs.New(tempDir),
-				maxBytes:   maxRepoSizeMB * 1024 * 1024,
+				maxBytes:   int64(maxRepoSizeMB) * 1024 * 1024,
 			}
 			storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
 
@@ -214,6 +221,16 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 
 	cleanupFn()
 	return "", "", nil, fmt.Errorf("failed to clone repository after %d attempt(s): %w", len(attemptErrs), errors.Join(attemptErrs...))
+}
+
+func repoSizeLimitMB(limit int) (int, error) {
+	if limit == 0 {
+		return defaultMaxRepoSizeMB, nil
+	}
+	if limit < 0 || int64(limit) > math.MaxInt64/(1024*1024) {
+		return 0, fmt.Errorf("git repository size limit must be positive and no greater than %d MB", int64(math.MaxInt64)/(1024*1024))
+	}
+	return limit, nil
 }
 
 // parseGitURL parses a git repository URL and returns the clone URL and branch.
