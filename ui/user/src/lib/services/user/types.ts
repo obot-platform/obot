@@ -786,7 +786,7 @@ export interface ToolOverride {
 	 * Do not persist this field.
 	 */
 	removed?: boolean;
-};
+}
 
 // MCP servers
 

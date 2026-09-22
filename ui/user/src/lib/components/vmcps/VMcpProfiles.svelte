@@ -1160,6 +1160,7 @@
 						class="absolute inset-0 rounded-xl"
 						aria-label={`${readonly ? 'View' : 'Edit'} ${profile.name}`}
 						onclick={() => {
+							editProfile(profile);
 							setUrlParamAndUpdateUrl(page.url, 'profile', profile.name);
 						}}
 					></button>

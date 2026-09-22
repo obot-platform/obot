@@ -8,6 +8,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return {
+		...actual,
+		goto: () => Promise.resolve()
+	};
+});
+
 function createVMcp(id: string, withPreview = true) {
 	const github = createMCPCatalogEntry({
 		id: 'github',

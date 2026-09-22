@@ -24,6 +24,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return {
+		...actual,
+		goto: () => Promise.resolve()
+	};
+});
+
 const componentEntry = createMCPCatalogEntry({
 	id: 'entry-github',
 	name: 'GitHub',
@@ -251,7 +259,7 @@ describe('VMcpDesigner.svelte', () => {
 			await componentBlock().click();
 			await chooseModifyTools();
 
-			await page.getByRole('switch', { name: 'Enabled' }).nth(1).click();
+			await page.getByRole('switch', { name: 'Enable Tool' }).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalled());
@@ -435,7 +443,8 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
 				.toBeVisible();
 			await expect.element(page.getByText('create_issue', { exact: true }).first()).toBeVisible();
-			await page.getByRole('switch', { name: 'Enabled' }).nth(1).click();
+			expect(preview).toHaveBeenCalledWith({ API_TOKEN: 'preview-secret' });
+			await page.getByRole('switch', { name: 'Disable Tool' }).nth(1).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
 			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
 			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
@@ -496,8 +505,11 @@ describe('VMcpDesigner.svelte', () => {
 				.toHaveValue('userAllowed');
 
 			await page.getByRole('button', { name: 'Cancel' }).click();
-			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
 
+			await componentBlock().click();
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Preconfigured');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');

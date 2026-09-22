@@ -115,8 +115,6 @@
 	let search = $state('');
 	let expandedTools = $state<Record<string, boolean>>({});
 	let profileToolImpact = $state<ProfileToolImpact[]>([]);
-	// Tool names that were enabled when the editor opened. Only a disable in this session
-	// can remove a tool from a profile grant.
 	let initiallyEnabledToolNames = new Set<string>();
 
 	// Track initial state to detect changes
@@ -358,7 +356,6 @@
 									type="button"
 									class="btn btn-secondary btn-xs px-3 py-1"
 									onclick={() => {
-										// When expanding, initialize inputs with current effective values
 										if (!expandedTools[tool.id]) {
 											tool.overrideName = (tool.overrideName || '').trim() || tool.name;
 											tool.overrideDescription =
