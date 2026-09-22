@@ -77,8 +77,18 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 }
 
 func (c *Credentials) RemoveVMCPStaticConfigurationCredentials(req router.Request, _ router.Response) error {
-	_, err := c.gatewayClient.DeleteCredential(req.Ctx, vmcp.StaticConfigurationCredentialContext(req.Name), vmcp.ConfigurationCredentialName())
-	return err
+	credentials, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
+		CredentialContexts: []string{vmcp.StaticConfigurationCredentialContext(req.Name)},
+	})
+	if err != nil {
+		return err
+	}
+	for _, credential := range credentials {
+		if _, err := c.gatewayClient.DeleteCredential(req.Ctx, credential.Context, credential.Name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Credentials) RemoveVMCPInstanceConfigurationCredentials(req router.Request, _ router.Response) error {

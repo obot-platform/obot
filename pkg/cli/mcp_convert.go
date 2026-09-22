@@ -12,7 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/spf13/cobra"
 	"go.yaml.in/yaml/v3"
-	strict "sigs.k8s.io/yaml"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 var (
@@ -116,6 +116,13 @@ func convertCatalogYAML(data []byte) ([]byte, error) {
 		if entry.Kind != yaml.MappingNode {
 			return nil, fmt.Errorf("entry %d: expected a mapping", i)
 		}
+		var fields any
+		if err := entry.Decode(&fields); err != nil {
+			return nil, fmt.Errorf("entry %d: %w", i, err)
+		}
+		if kind := catalogYAMLField(entry, "type"); kind != nil && kind.Value == "vmcp" {
+			continue
+		}
 		if field := catalogYAMLField(entry, "runtime"); field != nil {
 			var runtime types.Runtime
 			if err := field.Decode(&runtime); err != nil {
@@ -190,16 +197,19 @@ func convertCatalogYAML(data []byte) ([]byte, error) {
 	if err := encoder.Encode(&document); err != nil {
 		return nil, err
 	}
-	// Strict decoding rejects unsupported legacy composites and unknown fields
-	// rather than silently dropping data. Validate config keys across all sources.
+	// Validate config keys across all sources. The YAML nodes preserve fields
+	// this version of Obot does not recognize.
 	for i, entry := range entries {
+		if kind := catalogYAMLField(entry, "type"); kind != nil && kind.Value == "vmcp" {
+			continue
+		}
 		data, err := yaml.Marshal(entry)
 		if err != nil {
 			return nil, err
 		}
 		if catalogYAMLField(entry, "systemMCPServerType") != nil || catalogYAMLField(entry, "filterConfig") != nil {
 			var manifest types.SystemMCPServerCatalogEntryManifest
-			if err := strict.UnmarshalStrict(data, &manifest); err != nil {
+			if err := k8syaml.Unmarshal(data, &manifest); err != nil {
 				return nil, fmt.Errorf("entry %d: %w", i, err)
 			}
 			mcpcatalog.NormalizeSystemManifest(&manifest)
@@ -209,7 +219,7 @@ func convertCatalogYAML(data []byte) ([]byte, error) {
 			continue
 		}
 		var manifest types.MCPServerCatalogEntryManifest
-		if err := strict.UnmarshalStrict(data, &manifest); err != nil {
+		if err := k8syaml.Unmarshal(data, &manifest); err != nil {
 			return nil, fmt.Errorf("entry %d: %w", i, err)
 		}
 		mcpcatalog.NormalizeManifest(&manifest)

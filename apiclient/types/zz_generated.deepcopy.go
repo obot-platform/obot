@@ -7470,6 +7470,11 @@ func (in *VMCP) DeepCopyInto(out *VMCP) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
 	in.VMCPManifest.DeepCopyInto(&out.VMCPManifest)
+	if in.Adopted != nil {
+		in, out := &in.Adopted, &out.Adopted
+		*out = new(bool)
+		**out = **in
+	}
 	in.Status.DeepCopyInto(&out.Status)
 }
 

@@ -6,11 +6,12 @@ import (
 	"errors"
 	"maps"
 	"testing"
+	"time"
 
-	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -26,16 +28,72 @@ func TestMigrationNamePreservesUUID(t *testing.T) {
 	require.Equal(t, "vmcp150241b93-4d53-5183-abcc-f9645245cdd7", migrationName("vmcp1", "default", "catalog"))
 }
 
+func TestMigrateUsesCatalogVMCPName(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		sourceURL string
+		detached  bool
+		entryKey  string
+	}{
+		{
+			name:      "catalog synced",
+			entryKey:  "stable-key",
+			sourceURL: "https://github.com/example/catalog",
+		},
+		{
+			name:      "formerly catalog synced",
+			sourceURL: "https://github.com/example/catalog",
+			detached:  true,
+		},
+		{
+			name: "locally created",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := migrationEntry(t)
+			entry.Spec.SourceURL = tc.sourceURL
+			entry.Spec.Detached = tc.detached
+			entry.Spec.Manifest.EntryKey = tc.entryKey
+			var legacy legacyManifest
+			require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Preserve the legacy snapshot used by storage.
+			legacy.EntryKey = tc.entryKey
+			var err error
+			entry.Spec.LegacyCompositeManifest, err = json.Marshal(legacy) //nolint:staticcheck // Preserve the legacy snapshot used by storage.
+			require.NoError(t, err)
+			client := migrationClient(entry)
+			handler := credentialHandler(t, nil, map[string]map[string]string{})
+
+			require.NoError(t, handler.MigrateAll(t.Context(), client))
+			require.NoError(t, handler.MigrateAll(t.Context(), client))
+
+			targetName := migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)
+			if tc.sourceURL != "" {
+				targetName = mcpcatalog.VMCPName(entry.Spec.MCPCatalogName, tc.sourceURL, tc.entryKey, entry.Spec.Manifest.Name)
+			}
+			var target v1.VMCP
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{
+				Namespace: entry.Namespace,
+				Name:      targetName,
+			}, &target))
+			if tc.sourceURL != "" {
+				require.NotNil(t, target.Spec.Adopted)
+				require.False(t, *target.Spec.Adopted)
+			} else {
+				require.Nil(t, target.Spec.Adopted)
+			}
+			require.Empty(t, target.Spec.SourceURL)
+			require.Equal(t, entry.Name, target.Spec.LegacySlug)
+		})
+	}
+}
+
 func TestBuildVMCPSkipsMCPServerCatalogEntryID(t *testing.T) {
 	entry := migrationEntry(t)
 	var legacy legacyManifest
 	require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Exercise the legacy migration input.
 	legacy.CompositeConfig.ComponentServers[0].CatalogEntryID = system.MCPServerPrefix + "invalid"
 
-	target, _, skipped, err := (&Handler{}).buildVMCP(router.Request{
-		Ctx:    t.Context(),
-		Client: migrationClient(),
-	}, entry, legacy)
+	target, _, skipped, err := (&Handler{}).buildVMCP(t.Context(), migrationClient(), entry, legacy)
 	require.NoError(t, err)
 	require.Equal(t, []string{system.MCPServerPrefix + "invalid"}, skipped)
 	require.Len(t, target.Spec.Manifest.Components, 1)
@@ -74,10 +132,7 @@ func TestBuildVMCPHandlesInvalidManifests(t *testing.T) {
 			legacy.CompositeConfig.ComponentServers[0].CatalogEntryID = tc.id
 			legacy.CompositeConfig.ComponentServers[0].Manifest.Runtime = tc.runtime
 
-			target, _, skipped, err := (&Handler{}).buildVMCP(router.Request{
-				Ctx:    t.Context(),
-				Client: migrationClient(),
-			}, entry, legacy)
+			target, _, skipped, err := (&Handler{}).buildVMCP(t.Context(), migrationClient(), entry, legacy)
 			require.NoError(t, err)
 			require.Equal(t, []string{tc.id}, skipped)
 			require.Len(t, target.Spec.Manifest.Components, len(tc.wantIDs))
@@ -120,7 +175,7 @@ func TestMigrateRetainsSourceForUnknownInstanceComponent(t *testing.T) {
 	client := migrationClient(entry, parent)
 	handler := credentialHandler(t, nil, map[string]map[string]string{})
 
-	require.ErrorContains(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil), `component "historical" no longer exists in migrated vMCP`)
+	require.ErrorContains(t, handler.Migrate(t.Context(), client, entry), `component "historical" no longer exists in migrated vMCP`)
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), parent))
 	require.True(t, parent.DeletionTimestamp.IsZero())
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), entry))
@@ -142,7 +197,7 @@ func TestMigrateSkipsInvalidInstanceComponents(t *testing.T) {
 	client := migrationClient(entry, parent)
 	handler := credentialHandler(t, nil, map[string]map[string]string{})
 
-	require.NoError(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil))
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
 	var instances v1.VMCPInstanceList
 	require.NoError(t, client.List(t.Context(), &instances))
 	require.Len(t, instances.Items, 1)
@@ -171,6 +226,22 @@ func TestMigrateAllFailureAndRetry(t *testing.T) {
 	handler.upsert = upsert
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
+}
+
+func TestMigrateAllLeavesDeletingSourceToControllers(t *testing.T) {
+	entry := migrationEntry(t)
+	entry.Finalizers = []string{v1.MCPServerCatalogEntryFinalizer}
+	entry.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	parent := migrationParent(t, "connection")
+	client := migrationClient(entry, parent)
+	handler := credentialHandler(t, nil, map[string]map[string]string{})
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), parent))
+	require.True(t, parent.DeletionTimestamp.IsZero())
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Empty(t, targets.Items)
 }
 
 func TestMigrateAllRejectsOrphanComposite(t *testing.T) {
@@ -271,8 +342,7 @@ func TestMigrateCompositeConnections(t *testing.T) {
 	client := migrationClient(objects...)
 	destination := map[string]map[string]string{}
 	handler := credentialHandler(t, source, destination)
-	req := router.Request{Ctx: t.Context(), Client: client, Object: entry}
-	require.NoError(t, handler.Migrate(req, nil))
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
 	var target v1.VMCP
 	targetName := migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Namespace: entry.Namespace, Name: targetName}, &target))
@@ -310,7 +380,7 @@ func TestMigrateCompositeConnections(t *testing.T) {
 		t.Fatal("retry overwrote a destination credential")
 		return nil
 	}
-	require.NoError(t, handler.Migrate(req, nil))
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
 }
 
 func TestMigrateRetainsSourceOnCredentialFailure(t *testing.T) {
@@ -327,7 +397,7 @@ func TestMigrateRetainsSourceOnCredentialFailure(t *testing.T) {
 				}
 				return nil
 			}
-			err := handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil)
+			err := handler.Migrate(t.Context(), client, entry)
 			require.ErrorContains(t, err, "credential unavailable")
 			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{}))
 			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), &v1.MCPServer{}))
@@ -342,7 +412,7 @@ func TestMigrateNoConnectionsDoesNotGrantWildcard(t *testing.T) {
 	entry := migrationEntry(t)
 	client := migrationClient(entry)
 	handler := credentialHandler(t, nil, map[string]map[string]string{})
-	require.NoError(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil))
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
 	var targets v1.VMCPList
 	require.NoError(t, client.List(t.Context(), &targets))
 	require.Len(t, targets.Items, 1)
@@ -361,7 +431,7 @@ func TestMigrateRetainsSourceOnOAuthCopyFailure(t *testing.T) {
 		require.NotEmpty(t, target)
 		return errors.New("OAuth copy failed")
 	}
-	require.ErrorContains(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil), "OAuth copy failed")
+	require.ErrorContains(t, handler.Migrate(t.Context(), client, entry), "OAuth copy failed")
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{}))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), &v1.MCPServer{}))
 }
@@ -402,7 +472,7 @@ func TestMigrateSharedConfigurationAndUserHeaders(t *testing.T) {
 		"default-shared/shared":                     {"ADMIN_TOKEN": "admin-secret"},
 		"user1-shared-connection/shared-connection": {"USER_TOKEN": "user-secret"},
 	}, destination)
-	require.NoError(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil))
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
 	var target v1.VMCP
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Namespace: entry.Namespace, Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)}, &target))
 	require.False(t, target.Spec.Manifest.Components[0].ForceSingleUser)

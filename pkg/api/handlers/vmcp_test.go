@@ -17,11 +17,13 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -389,71 +391,90 @@ func TestConvertVMCPRedactsSensitiveConfigurationValues(t *testing.T) {
 }
 
 func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
-	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
-	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPHandler(nil)
-	admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
-	manifest := testVMCPManifest()
-	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
-		{
-			Key:    "TOKEN",
-			Policy: types.VMCPConfigurationPolicyFixed,
-			Value:  "old-token",
-		},
-		{
-			Key:    "REGION",
-			Policy: types.VMCPConfigurationPolicyFixed,
-			Value:  "old-region",
-		},
-		{
-			Key:    "USER",
-			Policy: types.VMCPConfigurationPolicyFixed,
-		},
-	}
-	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
-	for _, token := range []string{"new-token", ""} {
-		var stored v1.VMCP
-		key := kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}
-		if err := storage.Get(t.Context(), key, &stored); err != nil {
-			t.Fatal(err)
-		}
-		manifest := stored.Spec.Manifest
-		manifest.Components[0].Configuration[0].Value = token
-		body, err := json.Marshal(manifest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
-		request.SetPathValue("vmcp_id", created.ID)
-		if err := handler.Update(api.Context{
-			Request:        request,
-			ResponseWriter: httptest.NewRecorder(),
-			Storage:        storage,
-			GatewayClient:  gatewayClient,
-			User:           admin,
-		}); err != nil {
-			t.Fatal(err)
-		}
-		credential, err := gatewayClient.RevealCredential(t.Context(),
-			[]string{vmcpconfig.StaticConfigurationCredentialContext(created.ID)},
-			vmcpconfig.ConfigurationCredentialName(),
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := map[string]string{
-			vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "TOKEN"):  "new-token",
-			vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "REGION"): "old-region",
-		}
-		if !reflect.DeepEqual(credential.Secrets, want) {
-			t.Fatalf("static configuration = %v, want %v", credential.Secrets, want)
-		}
-		if err := storage.Get(t.Context(), key, &stored); err != nil {
-			t.Fatal(err)
-		}
-		if stored.Spec.StaticConfigurationHash != utils.Digest(want) {
-			t.Fatal("static configuration hash does not reflect preserved values")
-		}
+	for _, versioned := range []bool{false, true} {
+		t.Run(fmt.Sprintf("versioned=%t", versioned), func(t *testing.T) {
+			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+			gatewayClient := newHandlerTestGateway(t)
+			handler := NewVMCPHandler(nil)
+			admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
+			manifest := testVMCPManifest()
+			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
+				{
+					Key:    "TOKEN",
+					Policy: types.VMCPConfigurationPolicyFixed,
+					Value:  "old-token",
+				},
+				{
+					Key:    "REGION",
+					Policy: types.VMCPConfigurationPolicyFixed,
+					Value:  "old-region",
+				},
+				{
+					Key:    "USER",
+					Policy: types.VMCPConfigurationPolicyFixed,
+				},
+			}
+			created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
+			if versioned {
+				var stored v1.VMCP
+				require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}, &stored))
+				credential, err := gatewayClient.RevealCredential(t.Context(), []string{vmcpconfig.StaticConfigurationCredentialContext(created.ID)}, vmcpconfig.ConfigurationCredentialName())
+				require.NoError(t, err)
+				vmcpconfig.VersionStaticConfiguration(&stored, credential.Secrets)
+				require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+					Context: vmcpconfig.StaticConfigurationCredentialContext(created.ID),
+					Name:    vmcpconfig.StaticConfigurationCredentialName(&stored),
+					Secrets: credential.Secrets,
+				}))
+				require.NoError(t, storage.Update(t.Context(), &stored))
+			}
+
+			for _, token := range []string{"new-token", ""} {
+				var stored v1.VMCP
+				key := kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}
+				if err := storage.Get(t.Context(), key, &stored); err != nil {
+					t.Fatal(err)
+				}
+				manifest := stored.Spec.Manifest
+				manifest.Components[0].Configuration[0].Value = token
+				body, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+				request.SetPathValue("vmcp_id", created.ID)
+				if err := handler.Update(api.Context{
+					Request:        request,
+					ResponseWriter: httptest.NewRecorder(),
+					Storage:        storage,
+					GatewayClient:  gatewayClient,
+					User:           admin,
+				}); err != nil {
+					t.Fatal(err)
+				}
+				require.NoError(t, storage.Get(t.Context(), key, &stored))
+				credential, err := gatewayClient.RevealCredential(t.Context(),
+					[]string{vmcpconfig.StaticConfigurationCredentialContext(created.ID)},
+					vmcpconfig.StaticConfigurationCredentialName(&stored),
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := map[string]string{
+					vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "TOKEN"):  "new-token",
+					vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "REGION"): "old-region",
+				}
+				if !reflect.DeepEqual(credential.Secrets, want) {
+					t.Fatalf("static configuration = %v, want %v", credential.Secrets, want)
+				}
+				if err := storage.Get(t.Context(), key, &stored); err != nil {
+					t.Fatal(err)
+				}
+				if stored.Spec.StaticConfigurationHash != utils.Digest(want) {
+					t.Fatal("static configuration hash does not reflect preserved values")
+				}
+			}
+		})
 	}
 }
 

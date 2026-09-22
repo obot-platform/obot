@@ -2,6 +2,7 @@ package mcpcatalog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -113,6 +115,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		return fmt.Errorf("failed to update catalog status: %w", err)
 	}
 
+	var syncCompleted bool
 	defer func() {
 		// Fetch the catalog again
 		var catalog v1.MCPCatalog
@@ -121,6 +124,9 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			return
 		}
 
+		if syncCompleted {
+			catalog.Status.LastSyncTime = metav1.Now()
+		}
 		catalog.Status.IsSyncing = false
 		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
 			slog.Error("failed to update catalog status", "error", err)
@@ -160,20 +166,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for sourceURL, errMsg := range conflictErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
+	toAdd, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd)
+	if err != nil {
+		return err
+	}
+	for sourceURL, errMsg := range vmcpErrors {
+		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+	}
 
-	mcpCatalog.Status.LastSyncTime = metav1.Now()
 	if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
 		return fmt.Errorf("failed to update catalog status: %w", err)
-	}
-	if forceSync {
-		delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
-		if mcpCatalog.Annotations == nil {
-			mcpCatalog.Annotations = make(map[string]string, 1)
-		}
-		mcpCatalog.Annotations[forceSyncStartupAnnotation] = startupSyncGeneration
-		if err := req.Client.Update(req.Ctx, mcpCatalog); err != nil {
-			return fmt.Errorf("failed to update catalog: %w", err)
-		}
 	}
 
 	// We want to refresh this every hour.
@@ -185,19 +187,40 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// Apply must not prune because its informer may still observe stale ownership metadata and
 	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
+	applyObjects := func() error {
+		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+			return err
+		}
+		if forceSync {
+			delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
+			if mcpCatalog.Annotations == nil {
+				mcpCatalog.Annotations = make(map[string]string, 1)
+			}
+			mcpCatalog.Annotations[forceSyncStartupAnnotation] = startupSyncGeneration
+			if err := req.Client.Update(req.Ctx, mcpCatalog); err != nil {
+				return fmt.Errorf("failed to update catalog: %w", err)
+			}
+		}
+
+		syncCompleted = true
+		return nil
+	}
 
 	// Missing entries cannot be reconciled safely from a partial desired set.
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
 		slog.Info("Applying MCP catalog entries without reconciling missing entries due to source errors", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sourceErrors", len(mcpCatalog.Status.SyncErrors))
-		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+		return applyObjects()
 	}
 
 	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
 		return err
 	}
+	if err := reconcileRemovedVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
+		return err
+	}
 
 	slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
-	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	return applyObjects()
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -358,6 +381,11 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 	})
 }
 
+// sourceRef builds an explicit source::entryKey reference.
+func sourceRef(sourceID, entryKey string) string {
+	return sourceID + catalogReferenceSeparator + entryKey
+}
+
 // parseSourceRef returns the source/key pair for either an explicit
 // source::entryKey reference or a same-source shorthand entryKey.
 func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
@@ -457,11 +485,22 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
-	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
+	entries, err := readCatalogManifests[json.RawMessage](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
 
 	systemObjs := make([]kclient.Object, 0, len(entries))
 	errs := []error{err}
-	for _, entry := range entries {
+	for _, item := range entries {
+		if err := catalogvalidation.ValidateConfigurationFields(item); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		var entry types.SystemMCPServerCatalogEntryManifest
+		if err := yaml.Unmarshal(item, &entry); err != nil {
+			errs = append(errs, fmt.Errorf("invalid system catalog entry: %w", err))
+			continue
+		}
+
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories")
 		}
@@ -499,12 +538,80 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
-	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
+	items, err := readCatalogManifests[json.RawMessage](ctx, h.httpClient, sourceURL, token, h.maxRepoSizeMB)
 
-	objs := make([]kclient.Object, 0, len(entries))
+	objs := make([]kclient.Object, 0, len(items))
 	errs := []error{err}
 	uniqueEntryKeys := make(map[string]struct{})
-	for _, entry := range entries {
+	uniqueVMCPKeys := make(map[string]struct{})
+	for _, item := range items {
+		var header struct {
+			Type     string `json:"type"`
+			EntryKey string `json:"entryKey"`
+		}
+		if err := yaml.Unmarshal(item, &header); err != nil {
+			errs = append(errs, fmt.Errorf("invalid catalog item: %w", err))
+			continue
+		}
+
+		if header.Type == "vmcp" {
+			manifest, err := catalogvalidation.DecodeVMCPManifest(item)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("invalid vMCP catalog item: %w", err))
+				continue
+			}
+
+			if manifest.DisplayName == "" {
+				errs = append(errs, fmt.Errorf("vMCP displayName is required"))
+				continue
+			}
+			if err := catalogvalidation.ValidateEntryKey(header.EntryKey); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			key := header.EntryKey
+			if key == "" {
+				key = catalogvalidation.SanitizeName(manifest.DisplayName)
+				if key == "" {
+					key = utils.Digest(manifest.DisplayName)[:12]
+				}
+			}
+			if _, exists := uniqueVMCPKeys[key]; exists {
+				errs = append(errs, fmt.Errorf("duplicate vMCP source entry key %q", key))
+				continue
+			}
+			uniqueVMCPKeys[key] = struct{}{}
+
+			manifest.Default(false, "")
+			objs = append(objs, &v1.VMCP{
+				Name:       catalogvalidation.VMCPName(catalogName, sourceURL, key, manifest.DisplayName),
+				Namespace:  system.DefaultNamespace,
+				Finalizers: []string{v1.VMCPFinalizer},
+				Spec: v1.VMCPSpec{
+					SourceURL: sourceURL,
+					Manifest:  manifest,
+				},
+			})
+
+			continue
+		}
+
+		if header.Type != "" && header.Type != "entry" {
+			errs = append(errs, fmt.Errorf("unsupported catalog item type %q", header.Type))
+			continue
+		}
+
+		if err := catalogvalidation.ValidateConfigurationFields(item); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		var entry types.MCPServerCatalogEntryManifest
+		if err := yaml.Unmarshal(item, &entry); err != nil {
+			errs = append(errs, fmt.Errorf("invalid catalog entry: %w", err))
+			continue
+		}
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
@@ -588,8 +695,8 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
 		}
 
-		var entries []T
-		if err = yaml.UnmarshalStrict(contents, &entries); err != nil {
+		entries, err := decodeCatalogManifestList[T](contents)
+		if err != nil {
 			return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 		}
 		return entries, nil
@@ -612,9 +719,24 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 		return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 	}
 
-	var entries []T
-	if err = yaml.UnmarshalStrict(contents, &entries); err != nil {
+	entries, err := decodeCatalogManifestList[T](contents)
+	if err != nil {
 		return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+	}
+	return entries, nil
+}
+
+func decodeCatalogManifestList[T any](contents []byte) ([]T, error) {
+	// Strict decoding into any rejects duplicate keys without rejecting unknown fields.
+	var shape any
+	if err := yaml.UnmarshalStrict(contents, &shape); err != nil {
+		return nil, err
+	}
+
+	// Decode through JSON tags and retain scalar-to-string conversions.
+	var entries []T
+	if err := yaml.Unmarshal(contents, &entries); err != nil {
+		return nil, err
 	}
 	return entries, nil
 }
@@ -631,7 +753,7 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 		if walkErr != nil {
 			return nil, fmt.Errorf("failed to walk repository files: %w", walkErr)
 		}
-		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path, true)
+		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path)
 		if err == nil {
 			entries = append(entries, fileEntries...)
 			continue

@@ -38,6 +38,22 @@ func ConfigurationCredentialName() string {
 	return configurationCredentialName
 }
 
+func StaticConfigurationCredentialName(vmcp *v1.VMCP) string {
+	if vmcp.Spec.StaticConfigurationCredentialName != "" {
+		return vmcp.Spec.StaticConfigurationCredentialName
+	}
+	return ConfigurationCredentialName()
+}
+
+// VersionStaticConfiguration lets a manifest and its credential revision be
+// published together without overwriting credentials used by the old manifest.
+// ponytail: retain revisions until vMCP deletion for cached readers and retries;
+// add revision garbage collection if rotation volume warrants it.
+func VersionStaticConfiguration(vmcp *v1.VMCP, configuration map[string]string) {
+	SetStaticConfigurationHashes(vmcp, configuration)
+	vmcp.Spec.StaticConfigurationCredentialName = ConfigurationCredentialName() + "-" + vmcp.Spec.StaticConfigurationHash
+}
+
 // StaticConfigurationCredentialContext scopes fixed configuration to a VMCP.
 func StaticConfigurationCredentialContext(vmcpID string) string {
 	return "vmcp/" + vmcpID

@@ -102,13 +102,14 @@ func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t
 
 func TestVMCPComponentToolPreviewUserConfiguration(t *testing.T) {
 	vmcp := vmcpToolPreviewTestObject("vmcp1user-preview")
+	vmcp.Spec.StaticConfigurationCredentialName = "configuration-revision"
 	component := &vmcp.Spec.Manifest.Components[0]
 	component.CatalogEntry.Manifest.Config[1].Required = true
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp).Build()
 	gateway := newHandlerTestGateway(t)
 	credential := gatewaytypes.Credential{
 		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
-		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
 		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "TOKEN"): "fixed-token"},
 	}
 	require.NoError(t, gateway.UpsertCredential(t.Context(), credential))

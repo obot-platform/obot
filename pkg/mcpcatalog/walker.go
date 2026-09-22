@@ -71,36 +71,31 @@ func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 	}, usingObotCatalogsFile, nil
 }
 
-func DecodeCatalogFile[T any](path string, strict bool) ([]T, bool, error) {
+func DecodeCatalogFile[T any](path string) ([]T, bool, error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return nil, false, err
 	}
 
+	// Strict decoding into any detects the shape and rejects duplicate keys, not unknown fields.
 	var shape any
-	if err := yaml.Unmarshal(contents, &shape); err != nil {
+	if err := yaml.UnmarshalStrict(contents, &shape); err != nil {
 		return nil, false, err
 	}
 	if shape == nil {
-		if strict {
-			return nil, false, fmt.Errorf("catalog file is empty")
-		}
-		return nil, true, nil
+		return nil, false, fmt.Errorf("catalog file is empty")
 	}
 
-	decode := yaml.Unmarshal
-	if strict {
-		decode = yaml.UnmarshalStrict
-	}
+	// Decode through JSON tags and retain scalar-to-string conversions.
 	if _, ok := shape.([]any); ok {
 		var entries []T
-		if err := decode(contents, &entries); err != nil {
+		if err := yaml.Unmarshal(contents, &entries); err != nil {
 			return nil, true, err
 		}
 		return entries, true, nil
 	}
 	var entry T
-	if err := decode(contents, &entry); err != nil {
+	if err := yaml.Unmarshal(contents, &entry); err != nil {
 		return nil, false, err
 	}
 	return []T{entry}, false, nil

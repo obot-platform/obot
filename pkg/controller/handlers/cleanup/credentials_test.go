@@ -188,12 +188,22 @@ func TestRemoveVMCPConfigurationCredentials(t *testing.T) {
 				Secrets: map[string]string{"secret": "value"},
 			}))
 
+			if _, ok := tt.object.(*v1.VMCP); ok {
+				require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+					Context: tt.context,
+					Name:    "configuration-previous-revision",
+					Secrets: map[string]string{"secret": "old-value"},
+				}))
+			}
+
 			cleanup := NewCredentials(nil, gatewayClient, "")
 			req := router.Request{Ctx: t.Context(), Name: tt.object.GetName(), Object: tt.object}
 			require.NoError(t, tt.cleanup(cleanup, req, &router.ResponseWrapper{}))
 			require.NoError(t, tt.cleanup(cleanup, req, &router.ResponseWrapper{}), "cleanup must be retry-safe")
 
 			assert.False(t, credentialExists(t, gatewayClient, tt.context, vmcp.ConfigurationCredentialName()))
+			assert.False(t, credentialExists(t, gatewayClient, tt.context, "configuration-previous-revision"))
+
 			assert.True(t, credentialExists(t, gatewayClient, "unrelated", vmcp.ConfigurationCredentialName()))
 		})
 	}

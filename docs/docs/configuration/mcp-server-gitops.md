@@ -6,11 +6,7 @@ title: MCP Server GitOps
 
 Obot supports managing MCP servers through Git repositories, enabling GitOps workflows. Instead of manually adding MCP servers one at a time, administrators can source server configurations from Git repositories. This supports collaborative workflows with proper code review, versioning, and automated validation processes.
 
-:::note vMCP GitOps
-
-In this release, GitOps synchronizes MCP catalog entries that can be used as [vMCP components](../functionality/virtual-mcps.md). It does not synchronize vMCP definitions, profiles, configuration policies, or tool selections. Direct vMCP GitOps synchronization is planned for a future release.
-
-:::
+Catalog sources can also define [vMCPs](../functionality/virtual-mcps.md) whose components refer to entries in those sources.
 
 ### Key Benefits
 
@@ -143,6 +139,67 @@ description: |
 ```
 
 The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source, DNS-friendly, and cannot contain `::`.
+
+### vMCP definitions
+
+Set top-level `type: vmcp` to synchronize a vMCP. An omitted or empty `type` means `entry`. A vMCP uses the [vMCP manifest fields](../functionality/virtual-mcps.md), plus an optional `entryKey` that keeps its identity stable when its display name changes:
+
+```yaml
+type: vmcp
+entryKey: research
+displayName: Research
+components:
+  - name: Search
+    mcpServerCatalogEntryKey: search
+```
+
+Each component's `mcpServerCatalogEntryKey` names an entry's `entryKey` in the same source. To refer to an entry in another source of the same catalog, use `sourceID::entryKey`, where `sourceID` is the source URL without `http://` or `https://` and trailing slashes. Catalog entries used as vMCP components therefore need an `entryKey`. A vMCP can be in its own file or in a YAML/JSON list alongside entries.
+
+For example, to reference `entryKey: search` from the catalog source `https://github.com/example/shared-catalog/`:
+
+```yaml
+components:
+  - name: Search
+    mcpServerCatalogEntryKey: github.com/example/shared-catalog::search
+```
+
+If a profile uses `allowedComponents`, give each referenced component an `id` and use that ID as the map key. Keep component IDs stable across updates so saved configuration stays associated with the same component.
+
+```yaml
+type: vmcp
+entryKey: research
+displayName: Research
+components:
+  - id: search-component
+    name: Search
+    mcpServerCatalogEntryKey: search
+profiles:
+  - name: everyone
+    subjects:
+      - type: selector
+        id: "*"
+    vmcpPermissions:
+      allowedComponents:
+        search-component:
+          allowedTools: null # Allow all enabled tools for this component.
+```
+
+When replacing a migrated composite with a catalog vMCP, keep the same `entryKey` and catalog source. Migration and sync use these to generate the same vMCP ID, preserving existing connections and credentials. Sync marks the vMCP as `adopted` when it takes over management. If the original entry had no `entryKey`, retain its name as the vMCP's `displayName` for matching.
+
+For example, if the original composite had `entryKey: email` and `name: Email`, publish this replacement in the same catalog source after migration:
+
+```yaml
+type: vmcp
+entryKey: email
+displayName: Email
+components:
+  - name: Gmail
+    mcpServerCatalogEntryKey: obot-gmail
+  - name: Outlook
+    mcpServerCatalogEntryKey: obot-outlook
+```
+
+The source must also contain entries with `entryKey: obot-gmail` and `entryKey: obot-outlook`. If the original composite had no `entryKey`, omit `entryKey: email` above and keep `displayName: Email` unchanged.
 
 ### Tool Previews
 

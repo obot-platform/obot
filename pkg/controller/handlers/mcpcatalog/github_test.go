@@ -39,27 +39,27 @@ npxConfig:
 }
 
 func TestReadGitCatalog(t *testing.T) {
-	// This fixture repository uses the legacy schema. Valid Git URLs must
-	// reach strict decoding and reject its entries, not fail at URL parsing.
+	// This fixture repository uses the legacy schema and has one malformed
+	// JSON file. Valid Git URLs must still read the usable entries.
 	for _, test := range []struct {
-		name         string
-		catalog      string
-		legacySchema bool
+		name     string
+		catalog  string
+		validURL bool
 	}{
 		{
-			name:         "HTTPS legacy catalog",
-			catalog:      "https://github.com/obot-platform/test-mcp-catalog",
-			legacySchema: true,
+			name:     "HTTPS legacy catalog",
+			catalog:  "https://github.com/obot-platform/test-mcp-catalog",
+			validURL: true,
 		},
 		{
-			name:         "legacy catalog without protocol",
-			catalog:      "github.com/obot-platform/test-mcp-catalog",
-			legacySchema: true,
+			name:     "legacy catalog without protocol",
+			catalog:  "github.com/obot-platform/test-mcp-catalog",
+			validURL: true,
 		},
 		{
-			name:         "legacy catalog with git suffix",
-			catalog:      "https://github.com/obot-platform/test-mcp-catalog.git",
-			legacySchema: true,
+			name:     "legacy catalog with git suffix",
+			catalog:  "https://github.com/obot-platform/test-mcp-catalog.git",
+			validURL: true,
 		},
 		{
 			name:    "invalid protocol",
@@ -76,10 +76,12 @@ func TestReadGitCatalog(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			entries, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](t.Context(), test.catalog, "", 100)
-			assert.Error(t, err)
-			assert.Empty(t, entries)
-			if test.legacySchema {
-				assert.ErrorContains(t, err, "unknown field")
+			if test.validURL {
+				assert.ErrorContains(t, err, "invalid.obot.json")
+				assert.NotEmpty(t, entries)
+			} else {
+				assert.Error(t, err)
+				assert.Empty(t, entries)
 			}
 		})
 	}

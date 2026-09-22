@@ -5574,8 +5574,20 @@ func (in *VMCPList) DeepCopyObject() runtime.Object {
 func (in *VMCPSpec) DeepCopyInto(out *VMCPSpec) {
 	*out = *in
 	in.Manifest.DeepCopyInto(&out.Manifest)
+	if in.Adopted != nil {
+		in, out := &in.Adopted, &out.Adopted
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ComponentStaticConfigurationHashes != nil {
 		in, out := &in.ComponentStaticConfigurationHashes, &out.ComponentStaticConfigurationHashes
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.ComponentCatalogReferences != nil {
+		in, out := &in.ComponentCatalogReferences, &out.ComponentCatalogReferences
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val

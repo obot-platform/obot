@@ -70,6 +70,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	staticConfiguration, err := h.revealVMCPConfiguration(
 		req,
 		vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		vmcpconfig.StaticConfigurationCredentialName(&vmcp),
 	)
 	if err != nil {
 		return fmt.Errorf("reveal static configuration for VMCP %q: %w", vmcp.Name, err)
@@ -79,6 +80,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		userConfiguration, err = h.revealVMCPConfiguration(
 			req,
 			vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+			vmcpconfig.ConfigurationCredentialName(),
 		)
 		if err != nil {
 			return fmt.Errorf("reveal user configuration for VMCP instance %q: %w", instance.Name, err)
@@ -144,10 +146,10 @@ func resolvedComponentURL(component types.VMCPComponent, server *v1.MCPServer, c
 	return url, true
 }
 
-func (h *Handler) revealVMCPConfiguration(req router.Request, credentialContext string) (map[string]string, error) {
+func (h *Handler) revealVMCPConfiguration(req router.Request, credentialContext, credentialName string) (map[string]string, error) {
 	credential, err := h.gatewayClient.RevealCredential(req.Ctx,
 		[]string{credentialContext},
-		vmcpconfig.ConfigurationCredentialName(),
+		credentialName,
 	)
 	if err == nil {
 		return credential.Secrets, nil

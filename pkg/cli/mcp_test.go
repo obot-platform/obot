@@ -290,6 +290,34 @@ func TestMCPValidateCatalogYAMLSupportsEntryArrays(t *testing.T) {
 	}
 }
 
+func TestMCPValidateCatalogYAMLSupportsVMCPs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	content := `- entryKey: search
+  name: Search
+  shortDescription: Search
+  description: Search
+  icon: icon
+  runtime: npx
+  npxConfig:
+    package: search
+    args: [123]
+- type: vmcp
+  entryKey: bundle
+  displayName: Bundle
+  components:
+    - name: Search
+      mcpServerCatalogEntryKey: search
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMCPValidateCatalogYAMLAggregatesErrors(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
@@ -297,7 +325,7 @@ func TestMCPValidateCatalogYAMLAggregatesErrors(t *testing.T) {
 name: Second
 runtime: npx`,
 		"unknown-field.yaml": `name: Unknown
-entryKey: shared
+entryKey: unique
 shortDescription: Unknown
 description: Unknown
 icon: icon
@@ -332,15 +360,51 @@ npxConfig:
 	}
 	for _, expected := range []string{
 		"duplicate-key.yaml",
-		"key \"name\" already set",
-		"unknown-field.yaml",
-		"unknown field \"unknownField\"",
+		"name",
 		"unsupported runtime",
 		"duplicate source entry key \"shared\"",
 	} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error = %v, want %q", err, expected)
 		}
+	}
+}
+
+func TestMCPValidateCatalogYAMLRejectsLegacyConfiguration(t *testing.T) {
+	for _, command := range []string{"validate-catalog-yaml", "validate-system-catalog-yaml"} {
+		t.Run(command, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "entry.yaml")
+			if err := os.WriteFile(path, []byte("name: Legacy\nenv: []\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, path)
+			if err == nil || !strings.Contains(err.Error(), "top-level config") {
+				t.Fatalf("expected legacy configuration error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestMCPValidateCatalogYAMLAllowsUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	content := `name: Test
+entryKey: test
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+unknownField: true
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -442,20 +506,37 @@ config:
 		t.Fatal("expected validation errors")
 	}
 	for _, expected := range []string{
-		"unknown-field.yaml",
-		"unknown field \"unknownField\"",
 		"missing-filter-config.yaml",
 		"filterConfig is required",
 		"invalid-name.yaml",
 		"invalid system catalog entry name after sanitization",
-		"legacy-schema.yaml",
-		"unknown field \"env\"",
 		"invalid-config.yaml",
 		"invalid usage \"unknown\" for config key \"TOKEN\"",
 	} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error = %v, want %q", err, expected)
 		}
+	}
+}
+
+func TestMCPValidateSystemCatalogYAMLAllowsUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	content := `name: Test
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+unknownField: true
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", path)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -18845,6 +18845,18 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"sourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"adopted": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -18887,7 +18899,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the immutable, server-assigned identity used to scope component configuration.",
+							Description: "ID is the immutable identity used to scope component configuration. The API assigns it; catalog manifests may declare it for profile references.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -29741,6 +29753,12 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"sourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"legacySlug": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -29751,6 +29769,13 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPManifest"),
+						},
+					},
+					"adopted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Adopted is nil when adoption is unsupported, false when awaiting catalog adoption, and true after catalog sync has taken over the vMCP.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"userID": {
@@ -29773,9 +29798,31 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 							Format: "",
 						},
 					},
+					"staticConfigurationCredentialName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StaticConfigurationCredentialName selects an immutable configuration revision. Empty selects the legacy configuration credential.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"componentStaticConfigurationHashes": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ComponentStaticConfigurationHashes retire migrated overrides only for the changed component.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"componentCatalogReferences": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentCatalogReferences maps component IDs to normalized sourceID::entryKey references.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,

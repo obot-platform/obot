@@ -47,7 +47,7 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 		if status.ConfigurationCheckHash != checkHash {
 			if !revealed {
 				var err error
-				credential, err = h.revealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.ConfigurationCredentialName())
+				credential, err = h.revealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.StaticConfigurationCredentialName(vmcp))
 				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return err
 				}

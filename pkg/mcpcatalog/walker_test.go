@@ -197,23 +197,24 @@ func TestWalkCatalogFilesFallsBackWhenPatternLineIsTooLong(t *testing.T) {
 	require.Equal(t, []string{validPath}, paths)
 }
 
-func TestDecodeCatalogFileStrictness(t *testing.T) {
+func TestDecodeCatalogFileAllowsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(`name: First
-name: Second
+unknownField: true
 runtime: npx
 npxConfig:
   package: test
 `), 0o600))
 
-	entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, false)
+	entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path)
 	require.NoError(t, err)
 	require.False(t, isArray)
 	require.Len(t, entries, 1)
-	require.Equal(t, "Second", entries[0].Name)
+	require.Equal(t, "First", entries[0].Name)
 
-	_, _, err = DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
-	require.ErrorContains(t, err, `key "name" already set`)
+	require.NoError(t, os.WriteFile(path, []byte("name: First\nname: Second\n"), 0o600))
+	_, _, err = DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path)
+	require.Error(t, err)
 }
 
 func TestNormalizeManifest(t *testing.T) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,9 +32,10 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 		}}},
 	}
 	tests := []struct {
-		name    string
-		secrets map[string]string
-		want    types.VMCPConfiguration
+		name      string
+		versioned bool
+		secrets   map[string]string
+		want      types.VMCPConfiguration
 	}{
 		{
 			name: "configured",
@@ -47,6 +49,12 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 			}},
 		},
 		{
+			name:      "versioned configuration",
+			versioned: true,
+			secrets:   map[string]string{vmcpconfig.ConfigurationKey("fixed", "TOKEN"): "versioned-value"},
+			want:      types.VMCPConfiguration{Components: map[string]map[string]string{"fixed": {"TOKEN": "versioned-value"}}},
+		},
+		{
 			name: "missing credential",
 			want: types.VMCPConfiguration{Components: map[string]map[string]string{}},
 		},
@@ -54,11 +62,15 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			vmcp := vmcp.DeepCopy()
+			if tt.versioned {
+				vmcpconfig.VersionStaticConfiguration(vmcp, tt.secrets)
+			}
 			gatewayClient := newHandlerTestGateway(t)
 			if tt.secrets != nil {
 				require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
 					Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
-					Name:    vmcpconfig.ConfigurationCredentialName(),
+					Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
 					Secrets: tt.secrets,
 				}))
 			}
@@ -79,35 +91,48 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 }
 
 func TestVMCPDeconfigureDeletesConfigurationAndPublishesHashes(t *testing.T) {
-	component := types.VMCPComponent{ID: "component", Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}}}
-	vmcp := &v1.VMCP{Name: "vmcp-deconfigure", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}}}
-	secrets := map[string]string{vmcpconfig.ConfigurationKey(component.ID, "TOKEN"): "secret"}
-	vmcpconfig.SetStaticConfigurationHashes(vmcp, secrets)
-	storage := newVMCPTestStorage(vmcp)
-	gatewayClient := newHandlerTestGateway(t)
-	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
-		Name:    vmcpconfig.ConfigurationCredentialName(),
-		Secrets: secrets,
-	}))
+	for _, versioned := range []bool{false, true} {
+		t.Run(fmt.Sprintf("versioned=%t", versioned), func(t *testing.T) {
+			component := types.VMCPComponent{ID: "component", Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}}}
+			vmcp := &v1.VMCP{Name: "vmcp-deconfigure", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}}}
+			secrets := map[string]string{vmcpconfig.ConfigurationKey(component.ID, "TOKEN"): "secret"}
+			vmcpconfig.SetStaticConfigurationHashes(vmcp, secrets)
+			if versioned {
+				vmcpconfig.VersionStaticConfiguration(vmcp, secrets)
+			}
+			storage := newVMCPTestStorage(vmcp)
+			gatewayClient := newHandlerTestGateway(t)
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+				Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
+				Secrets: secrets,
+			}))
 
-	request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/deconfigure", nil)
-	request.SetPathValue("vmcp_id", vmcp.Name)
-	require.NoError(t, NewVMCPHandler(nil).Deconfigure(api.Context{
-		ResponseWriter: httptest.NewRecorder(),
-		Request:        request,
-		Storage:        storage,
-		GatewayClient:  gatewayClient,
-	}))
+			request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/deconfigure", nil)
+			request.SetPathValue("vmcp_id", vmcp.Name)
+			require.NoError(t, NewVMCPHandler(nil).Deconfigure(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        request,
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+			}))
 
-	_, err := gatewayClient.RevealCredential(t.Context(), []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.ConfigurationCredentialName())
-	var notFound gateway.CredentialNotFoundError
-	require.ErrorAs(t, err, &notFound)
-	var updated v1.VMCP
-	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &updated))
-	emptyHash := utils.Digest(map[string]string{})
-	assert.Equal(t, emptyHash, updated.Spec.StaticConfigurationHash)
-	assert.Equal(t, emptyHash, updated.Spec.ComponentStaticConfigurationHashes[component.ID])
+			var updated v1.VMCP
+			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &updated))
+			credential, err := gatewayClient.RevealCredential(t.Context(), []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.StaticConfigurationCredentialName(&updated))
+			if versioned {
+				require.NoError(t, err)
+				require.Empty(t, credential.Secrets)
+			} else {
+				var notFound gateway.CredentialNotFoundError
+				require.ErrorAs(t, err, &notFound)
+			}
+
+			emptyHash := utils.Digest(map[string]string{})
+			assert.Equal(t, emptyHash, updated.Spec.StaticConfigurationHash)
+			assert.Equal(t, emptyHash, updated.Spec.ComponentStaticConfigurationHashes[component.ID])
+		})
+	}
 }
 
 func TestVMCPInstanceDeconfigureDeletesConfigurationAndTriggersSync(t *testing.T) {

@@ -1068,7 +1068,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("vMCP component has no catalog-entry snapshot")
 	}
 
-	staticConfiguration, err := h.vmcpStaticConfiguration(req, vmcp.Name, *component)
+	staticConfiguration, err := h.vmcpStaticConfiguration(req, &vmcp, *component)
 	if err != nil {
 		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
@@ -1129,15 +1129,15 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 	return vmcp, *component, server, serverConfig, nil
 }
 
-func (h *MCPCatalogHandler) vmcpStaticConfiguration(req api.Context, vmcpID string, component types.VMCPComponent) (map[string]string, error) {
+func (h *MCPCatalogHandler) vmcpStaticConfiguration(req api.Context, vmcp *v1.VMCP, component types.VMCPComponent) (map[string]string, error) {
 	configuration := map[string]string{}
 	if h.gatewayClient == nil {
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 	credential, err := h.gatewayClient.RevealCredential(
 		req.Context(),
-		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcpID)},
-		vmcpconfig.ConfigurationCredentialName(),
+		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
+		vmcpconfig.StaticConfigurationCredentialName(vmcp),
 	)
 	if err != nil {
 		if errors.As(err, &gclient.CredentialNotFoundError{}) {

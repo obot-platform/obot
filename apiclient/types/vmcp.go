@@ -18,6 +18,8 @@ type VMCP struct {
 	Metadata                `json:",inline"`
 	VMCPManifest            `json:",inline"`
 	LegacySlug              string     `json:"legacySlug,omitempty"`
+	SourceURL               string     `json:"sourceURL,omitempty"`
+	Adopted                 *bool      `json:"adopted,omitempty"`
 	UserID                  string     `json:"userID,omitempty"`
 	CreatorUserID           string     `json:"creatorUserID,omitempty"`
 	StaticConfigurationHash string     `json:"staticConfigurationHash,omitempty"`
@@ -37,7 +39,8 @@ type VMCPManifest struct {
 // Runtime resolution uses CatalogEntry rather than resolving the source live.
 // The API populates MCPCatalogID, CatalogEntry, and SourceDigest from the entry ID.
 type VMCPComponent struct {
-	// ID is the immutable, server-assigned identity used to scope component configuration.
+	// ID is the immutable identity used to scope component configuration. The API
+	// assigns it; catalog manifests may declare it for profile references.
 	ID                      string                        `json:"id,omitempty"`
 	Name                    string                        `json:"name"`
 	MCPCatalogID            string                        `json:"mcpCatalogID"`

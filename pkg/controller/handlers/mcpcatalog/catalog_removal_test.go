@@ -324,6 +324,7 @@ func newCatalogFakeClient(objects ...kclient.Object) kclient.WithWatch {
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServerCatalogEntry"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPCatalog"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPServerCatalogEntry"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("VMCP"), meta.RESTScopeNamespace)
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
 		WithStatusSubresource(&v1.MCPCatalog{}, &v1.SystemMCPCatalog{}).

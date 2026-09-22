@@ -81,7 +81,7 @@ func TestMCPConvertCatalogYAML(t *testing.T) {
 	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "convert-catalog-yaml", path)
 	require.NoError(t, err)
 	require.Contains(t, stdout, "Converted 1 catalog files.")
-	entries, array, err := mcpcatalog.DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
+	entries, array, err := mcpcatalog.DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path)
 	require.NoError(t, err)
 	require.True(t, array)
 	require.Len(t, entries, 2)
@@ -141,7 +141,7 @@ remoteConfig:
 	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "convert-catalog-yaml", path)
 	require.NoError(t, err)
 	require.Contains(t, stdout, "Converted 1 catalog files.")
-	entries, _, err := mcpcatalog.DecodeCatalogFile[types.SystemMCPServerCatalogEntryManifest](path, true)
+	entries, _, err := mcpcatalog.DecodeCatalogFile[types.SystemMCPServerCatalogEntryManifest](path)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	require.Equal(t, []types.MCPConfig{
@@ -200,10 +200,6 @@ func TestMCPConvertCatalogYAMLRejectsWithoutWriting(t *testing.T) {
 			data: "runtime: composite\nserverUserType: singleUser\ncompositeConfig: {}\n",
 		},
 		{
-			name: "unknown field",
-			data: "runtime: npx\nserverUserType: singleUser\nunknown: value\n",
-		},
-		{
 			name: "duplicate config keys",
 			data: "env: [{key: TOKEN}]\nremoteConfig:\n  headers: [{key: TOKEN}]\n",
 		},
@@ -228,6 +224,46 @@ func TestMCPConvertCatalogYAMLRejectsWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestMCPConvertCatalogYAMLPreservesUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	content := "runtime: npx\nserverUserType: singleUser\nunknown: value\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "convert-catalog-yaml", path)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "unknown: value")
+	require.NotContains(t, string(data), "serverUserType")
+}
+
+func TestMCPConvertCatalogYAMLSkipsVMCPs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	content := `- type: entry
+  name: Search
+  runtime: npx
+  serverUserType: singleUser
+  env:
+    - key: TOKEN
+- type: vmcp
+  displayName: Bundle
+  components:
+    - name: Search
+      mcpServerCatalogEntryKey: search
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "convert-catalog-yaml", path)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "usage: env")
+	require.Contains(t, string(data), "type: vmcp")
+	require.Contains(t, string(data), "mcpServerCatalogEntryKey: search")
+}
+
 func TestMCPConvertCatalogYAMLPartialMigration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog")
 	require.NoError(t, os.WriteFile(path, []byte(`runtime: npx
@@ -243,7 +279,7 @@ serverUserType: singleUser
 `), 0o600))
 	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "convert-catalog-yaml", path)
 	require.NoError(t, err)
-	entries, _, err := mcpcatalog.DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
+	entries, _, err := mcpcatalog.DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path)
 	require.NoError(t, err)
 	require.Len(t, entries[0].Config, 2)
 	require.Equal(t, types.Interpolated, entries[0].Config[0].Usage)

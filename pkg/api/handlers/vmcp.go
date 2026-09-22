@@ -172,7 +172,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}
 
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
-	credentialName := vmcpconfig.ConfigurationCredentialName()
+	credentialName := vmcpconfig.StaticConfigurationCredentialName(&vmcp)
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, credentialName)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
@@ -180,16 +180,20 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
+	vmcp.Spec.Manifest = manifest
+	if vmcp.Spec.StaticConfigurationCredentialName != "" {
+		vmcpconfig.VersionStaticConfiguration(&vmcp, staticConfiguration)
+	} else {
+		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
+	}
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: credentialContext,
-		Name:    credentialName,
+		Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
 		Secrets: staticConfiguration,
 	}); err != nil {
 		return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 	}
-	vmcp.Spec.Manifest = manifest
-	vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP: %w", err)
 	}
@@ -225,7 +229,7 @@ func (*VMCPHandler) Reveal(req api.Context) error {
 
 	credential, err := req.GatewayClient.RevealCredential(req.Context(),
 		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
-		vmcpconfig.ConfigurationCredentialName(),
+		vmcpconfig.StaticConfigurationCredentialName(&vmcp),
 	)
 	if err != nil {
 		if _, ok := errors.AsType[gclient.CredentialNotFoundError](err); !ok {
@@ -240,6 +244,23 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	// Publish an empty revision so a failed update leaves the active credentials intact.
+	if vmcp.Spec.StaticConfigurationCredentialName != "" {
+		vmcpconfig.VersionStaticConfiguration(&vmcp, map[string]string{})
+		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+			Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+			Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
+			Secrets: map[string]string{},
+		}); err != nil {
+			return fmt.Errorf("failed to clear VMCP configuration: %w", err)
+		}
+		if err := req.Update(&vmcp); err != nil {
+			return fmt.Errorf("failed to update vMCP configuration hashes: %v", err)
+		}
+
+		return req.Write(convertVMCP(vmcp))
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
@@ -385,6 +406,8 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 	}
 	return types.VMCP{
 		LegacySlug:              vmcp.Spec.LegacySlug,
+		SourceURL:               vmcp.Spec.SourceURL,
+		Adopted:                 vmcp.Spec.Adopted,
 		Metadata:                MetadataFrom(&vmcp),
 		VMCPManifest:            manifest,
 		UserID:                  vmcp.Spec.UserID,
