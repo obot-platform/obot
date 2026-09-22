@@ -55,7 +55,7 @@ func newParseTestHandler(t *testing.T) *Handler {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
 
-	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true, false, nil, nil)
+	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true, false, nil, nil, false, nil)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	return &Handler{gatewayClient: client}

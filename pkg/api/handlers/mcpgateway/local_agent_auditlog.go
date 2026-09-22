@@ -19,6 +19,10 @@ func NewLocalAgentAuditLogHandler() *LocalAgentAuditLogHandler {
 
 // Submit handles POST /api/local-agent-audit-logs for completed local-agent tool calls.
 func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
+	if !req.GatewayClient.LocalAgentAuditLogEnabled() {
+		return nil
+	}
+
 	var input types.LocalAgentToolCallAuditLogSubmitRequest
 	if err := req.Read(&input); err != nil {
 		return types.NewErrBadRequest("failed to read input: %v", err)

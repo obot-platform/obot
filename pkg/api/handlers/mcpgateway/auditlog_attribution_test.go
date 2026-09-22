@@ -79,7 +79,7 @@ func TestAttributeMCPAuditLogAPIKeyReturnsTransientLookupError(t *testing.T) {
 }
 
 func TestDisabledMCPAuditSkipsAttribution(t *testing.T) {
-	gatewayClient := newAuditLogTestGatewayClient(t, true)
+	gatewayClient := newAuditLogTestGatewayClient(t, true, false)
 	if gatewayClient.MCPAuditLogEnabled() {
 		t.Fatal("MCP auditing should be disabled")
 	}

@@ -137,6 +137,8 @@ type Config struct {
 	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	LLMAuditLogMaxBodyBytes              *int   `usage:"Maximum original bytes retained per LLM audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
 	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
+	DisableLocalAgentAuditLog            bool   `usage:"Disable persistence of new local-agent audit logs" default:"false"`
+	LocalAgentAuditLogMaxBodyBytes       *int   `usage:"Maximum original bytes retained per local-agent audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
 	DeviceScanRetentionDays              int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	EnableHostedAgents                   bool   `usage:"Enable Hosted Agents features" default:"false"`
@@ -520,6 +522,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, errors.New("llmaudit-log-max-body-bytes must be non-negative")
 	}
 
+	if config.LocalAgentAuditLogMaxBodyBytes != nil && *config.LocalAgentAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("local-agent-audit-log-max-body-bytes must be non-negative")
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -688,6 +694,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.DisableMCPAuditLog,
 		config.MCPAuditLogMaxBodyBytes,
 		config.LLMAuditLogMaxBodyBytes,
+		config.DisableLocalAgentAuditLog,
+		config.LocalAgentAuditLogMaxBodyBytes,
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {

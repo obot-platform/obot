@@ -23,3 +23,12 @@ func TestRejectNegativeLLMAuditBodyLimit(t *testing.T) {
 	_, err := New(t.Context(), config)
 	require.EqualError(t, err, "llmaudit-log-max-body-bytes must be non-negative")
 }
+
+func TestRejectNegativeLocalAgentAuditBodyLimit(t *testing.T) {
+	config := Config{
+		LocalAgentAuditLogMaxBodyBytes: new(-1),
+	}
+
+	_, err := New(t.Context(), config)
+	require.EqualError(t, err, "local-agent-audit-log-max-body-bytes must be non-negative")
+}

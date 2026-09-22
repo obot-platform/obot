@@ -97,12 +97,13 @@ LLM audit logs can be exported as one-time or scheduled JSONL exports using the 
 
 ## Body storage controls
 
-MCP and LLM audit bodies are stored in full by default. Configure their limits independently:
+MCP, LLM, and local-agent audit bodies are stored in full by default. Configure their limits independently:
 
 | Audit logs | Environment variable | CLI flag | Bodies covered |
 | --- | --- | --- | --- |
 | MCP | `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES` | `--mcpaudit-log-max-body-bytes` | Request, response, mutated-request, and original-response |
 | LLM | `OBOT_SERVER_LLMAUDIT_LOG_MAX_BODY_BYTES` | `--llmaudit-log-max-body-bytes` | Request, policy-modified request, and response |
+| Local agent | `OBOT_SERVER_LOCAL_AGENT_AUDIT_LOG_MAX_BODY_BYTES` | `--local-agent-audit-log-max-body-bytes` | Request, response, and raw event |
 
 Leave a setting unset for unlimited bodies, set it to `0` to omit bodies, or use a positive byte count to limit the original payload retained per body. For example, `65536` retains at most 64 KiB per body. Negative values are invalid.
 
@@ -122,14 +123,15 @@ Body limits affect new entries only; they do not shrink existing records or chan
 
 ## Disabling audit logs
 
-To stop collecting and persisting new entries entirely, use the corresponding disable setting:
+To stop saving new audit logs, use the corresponding disable setting:
 
 | Audit logs | Environment variable | CLI flag |
 | --- | --- | --- |
 | MCP | `OBOT_SERVER_DISABLE_MCPAUDIT_LOG=true` | `--disable-mcpaudit-log` |
 | LLM | `OBOT_SERVER_DISABLE_LLMAUDIT_LOG=true` | `--disable-llmaudit-log` |
+| Local agent | `OBOT_SERVER_DISABLE_LOCAL_AGENT_AUDIT_LOG=true` | `--disable-local-agent-audit-log` |
 
-Disabling collection also stops new audit-derived usage data for that log type. Historical logs remain readable and exportable, and retention cleanup continues. MCP, LLM, and local-agent logging are configured independently.
+Disabling collection also stops new audit-derived usage data for that log type. Historical logs remain readable and exportable, and retention cleanup continues. Each disable setting applies only to its corresponding log type. Disabling local-agent audit logs in Obot does not disable logging on devices.
 
 ## Usage
 

@@ -64,7 +64,7 @@ func newOAuthTokenTestServices(t *testing.T, objects ...kclient.Object) (storage
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
 
-	gatewayClient := gatewayclient.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true, false, nil, nil)
+	gatewayClient := gatewayclient.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true, false, nil, nil, false, nil)
 	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
 	require.NoError(t, db.WithContext(t.Context()).Create(&gatewaytypes.User{
 		ID:       42,

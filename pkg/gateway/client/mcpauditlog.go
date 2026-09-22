@@ -315,10 +315,15 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	})
 }
 
+// LocalAgentAuditLogEnabled reports whether submitted local-agent audit entries are stored.
+func (c *Client) LocalAgentAuditLogEnabled() bool {
+	return !c.localAgentAuditDisabled
+}
+
 // InsertLocalAgentAuditLogs persists completed local-agent tool-call audit logs.
 // Duplicate idempotency keys are treated as successful no-ops for transport retries.
 func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
-	if len(logs) == 0 {
+	if !c.LocalAgentAuditLogEnabled() || len(logs) == 0 {
 		return nil
 	}
 
@@ -332,6 +337,16 @@ func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCP
 		if err := log.ValidateSourceFields(); err != nil {
 			return fmt.Errorf("invalid local agent audit log source fields: %w", err)
 		}
+
+		// Validation above ensures the local-agent fields are non-nil. Copy them
+		// before limiting bodies or encrypting caller-owned data.
+		local := *log.LocalAgentToolCallFields
+		local.GitRemotes = slices.Clone(local.GitRemotes)
+		log.LocalAgentToolCallFields = &local
+		local.RequestBody = limitAuditBody(local.RequestBody, c.localAgentAuditMaxBodyBytes)
+		local.ResponseBody = limitAuditBody(local.ResponseBody, c.localAgentAuditMaxBodyBytes)
+		local.RawEvent = limitAuditBody(local.RawEvent, c.localAgentAuditMaxBodyBytes)
+
 		if err := c.encryptMCPAuditLog(ctx, &log); err != nil {
 			return fmt.Errorf("failed to encrypt local agent audit log: %w", err)
 		}
