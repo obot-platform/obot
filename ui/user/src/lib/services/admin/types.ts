@@ -822,6 +822,8 @@ export type CompositeServerToolRow = {
 	description?: string;
 	overrideDescription?: string;
 	enabled: boolean;
+	/** Present only in the editor after a refresh. The server no longer returns this tool. */
+	removed?: boolean;
 };
 
 // MCP filters

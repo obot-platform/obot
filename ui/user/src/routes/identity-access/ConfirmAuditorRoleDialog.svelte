@@ -33,7 +33,7 @@
 	msg={`Grant ${groupAssignment?.group.name} the Auditor role?`}
 >
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4 text-center">
+		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
 				{#if auditorReadonlyAdminRoles.includes(roleId)}
 					All members of this group will have read-only access to the admin system and can see

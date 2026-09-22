@@ -48,7 +48,7 @@
 	msg={`Grant ${groupAssignment?.group.name} the Impersonator role?`}
 >
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4 text-center">
+		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
 				Impersonator grants elevated cross-user access so members of this group can connect to other
 				users' Obot Agents.

@@ -1,9 +1,15 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-	import type { CompositeServerToolRow, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import type {
+		CompositeServerToolRow,
+		MCPCatalogEntry,
+		MCPCatalogServer,
+		VMCPProfile
+	} from '$lib/services';
 	import {
 		conflictIssue,
 		duplicateToolNames,
@@ -27,6 +33,8 @@
 		onSuccess?: () => void;
 		tools?: CompositeServerToolRow[];
 		toolPrefix?: string;
+		profiles?: VMCPProfile[];
+		componentId?: string;
 		// Effective names of enabled tools from OTHER components of the composite,
 		// so the modal can flag cross-component final-name conflicts live as the
 		// admin edits overrides or the prefix.
@@ -35,10 +43,17 @@
 		additionalActions?: Snippet;
 	}
 
+	type ProfileToolImpact = {
+		name: string;
+		tools: string[];
+	};
+
 	let {
 		configuringEntry,
 		tools = [],
 		toolPrefix = $bindable(),
+		profiles,
+		componentId,
 		otherEffectiveNames,
 		otherToolPrefixes,
 		onClose,
@@ -99,22 +114,36 @@
 	let confirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let expandedTools = $state<Record<string, boolean>>({});
+	let profileToolImpact = $state<ProfileToolImpact[]>([]);
+	// Tool names that were enabled when the editor opened. Only a disable in this session
+	// can remove a tool from a profile grant.
+	let initiallyEnabledToolNames = new Set<string>();
 
 	// Track initial state to detect changes
 	let initialConfigState = $state<string>('');
 
-	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
+	let actionableTools = $derived(tools.filter((tool) => !tool.removed));
+	let allToolsEnabled = $derived(
+		actionableTools.length > 0 && actionableTools.every((tool) => tool.enabled)
+	);
 	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
-	let visibleTools = $derived(
-		tools.filter(
+	let visibleTools = $derived.by(() => {
+		const query = search.toLowerCase();
+		const matched = tools.filter(
 			(tool) =>
-				tool.name?.toLowerCase().includes(search.toLowerCase()) ||
-				tool.overrideName?.toLowerCase().includes(search.toLowerCase()) ||
-				tool.description?.toLowerCase().includes(search.toLowerCase()) ||
-				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase())
-		)
-	);
+				tool.name?.toLowerCase().includes(query) ||
+				tool.overrideName?.toLowerCase().includes(query) ||
+				tool.description?.toLowerCase().includes(query) ||
+				tool.overrideDescription?.toLowerCase().includes(query)
+		);
+		const available: CompositeServerToolRow[] = [];
+		const removed: CompositeServerToolRow[] = [];
+		for (const tool of matched) {
+			(tool.removed ? removed : available).push(tool);
+		}
+		return removed.length > 0 ? [...available, ...removed] : matched;
+	});
 
 	// Check if there are any changes compared to initial state
 	let hasChanges = $derived.by(() => {
@@ -125,10 +154,60 @@
 	export function open() {
 		// Capture initial state when dialog opens
 		initialConfigState = JSON.stringify({ tools, toolPrefix: toolPrefix ?? '' });
+		initiallyEnabledToolNames = new Set(
+			tools.filter((tool) => tool.enabled).map((tool) => tool.name)
+		);
+		profileToolImpact = [];
 		dialog?.open();
 	}
 
+	function toolLabel(tool: CompositeServerToolRow) {
+		return (tool.overrideName || '').trim() || tool.name;
+	}
+
+	function profileImpacts(): ProfileToolImpact[] {
+		if (!componentId) return [];
+		const disabling = tools.filter(
+			(tool) => tool.enabled === false && initiallyEnabledToolNames.has(tool.name)
+		);
+		if (disabling.length === 0) return [];
+
+		const impacts: ProfileToolImpact[] = [];
+		for (const profile of profiles ?? []) {
+			const allowed = profile.vmcpPermissions?.allowedComponents?.[componentId]?.allowedTools;
+			if (!Array.isArray(allowed)) continue;
+			const matched = disabling.filter((tool) => allowed.includes(tool.name));
+			if (matched.length === 0) continue;
+			impacts.push({
+				name: profile.name || 'Unnamed profile',
+				tools: matched.map(toolLabel)
+			});
+		}
+		return impacts;
+	}
+
+	function handleSave() {
+		const impacts = profileImpacts();
+		if (impacts.length === 0) {
+			onSuccess?.();
+			dialog?.close();
+			return;
+		}
+		profileToolImpact = impacts;
+	}
+
+	function confirmSave() {
+		profileToolImpact = [];
+		onSuccess?.();
+		dialog?.close();
+	}
+
+	function cancelSave() {
+		profileToolImpact = [];
+	}
+
 	export function close() {
+		profileToolImpact = [];
 		dialog?.close();
 	}
 
@@ -212,24 +291,28 @@
 				</p>
 			{/if}
 		</div>
-		<div
-			class="flex w-full justify-end pr-2.5"
-			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}
-		>
-			<Toggle
-				checked={allToolsEnabled}
-				onChange={(checked) => {
-					tools.forEach((tool) => {
-						tool.enabled = checked;
-					});
-				}}
-				label="Enable All Tools"
-				labelInline
-				classes={{
-					label: 'text-sm gap-2'
-				}}
-				disablePortal
-			/>
+		<div class="flex w-full justify-end items-center pr-2.5 gap-1">
+			<div>
+				{#if additionalActions}
+					{@render additionalActions()}
+				{/if}
+			</div>
+			<div class="divider divider-horizontal mx-0"></div>
+			<div id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}>
+				<Toggle
+					checked={allToolsEnabled}
+					disabled={actionableTools.length === 0}
+					onChange={(checked) => {
+						for (const tool of actionableTools) tool.enabled = checked;
+					}}
+					label="Enable All Tools"
+					labelInline
+					classes={{
+						label: 'text-sm gap-2'
+					}}
+					disablePortal
+				/>
+			</div>
 		</div>
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
@@ -244,7 +327,7 @@
 			{@const effectiveName = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
 			{@const conflict = tool.enabled ? conflictIssue(effectiveName, conflictSet) : undefined}
 			<div
-				class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
+				class={`dark:bg-base-300 dark:border-base-400 bg-base-100 flex items-start gap-2 rounded border border-transparent p-2 shadow-sm ${tool.removed ? 'opacity-50' : ''}`}
 				id={`edit-tool-${tool.id}`}
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
@@ -269,26 +352,30 @@
 							{/if}
 						</div>
 						<div class="flex shrink-0 items-center gap-1">
-							<!-- Enabled/disabled toggle for this tool -->
-							<button
-								type="button"
-								class="btn btn-secondary btn-xs px-3 py-1"
-								onclick={() => {
-									// When expanding, initialize inputs with current effective values
-									if (!expandedTools[tool.id]) {
-										tool.overrideName = (tool.overrideName || '').trim() || tool.name;
-										tool.overrideDescription =
-											(tool.overrideDescription || '').trim() || tool.description;
-									}
-									expandedTools[tool.id] = !expandedTools[tool.id];
-								}}
-							>
-								{expandedTools[tool.id] ? 'Hide details' : 'Customize'}
-							</button>
-							<div class="divider divider-horizontal mx-0"></div>
+							{#if !tool.removed}
+								<!-- Enabled/disabled toggle for this tool -->
+								<button
+									type="button"
+									class="btn btn-secondary btn-xs px-3 py-1"
+									onclick={() => {
+										// When expanding, initialize inputs with current effective values
+										if (!expandedTools[tool.id]) {
+											tool.overrideName = (tool.overrideName || '').trim() || tool.name;
+											tool.overrideDescription =
+												(tool.overrideDescription || '').trim() || tool.description;
+										}
+										expandedTools[tool.id] = !expandedTools[tool.id];
+									}}
+								>
+									{expandedTools[tool.id] ? 'Hide details' : 'Customize'}
+								</button>
+								<div class="divider divider-horizontal mx-0"></div>
+							{/if}
 							<Toggle
 								checked={tool.enabled}
+								disabled={tool.removed}
 								onChange={(checked) => {
+									if (tool.removed) return;
 									tool.enabled = checked;
 								}}
 								label={`${tool.enabled ? 'Disable Tool' : 'Enable Tool'}`}
@@ -296,6 +383,9 @@
 							/>
 						</div>
 					</div>
+					{#if tool.removed}
+						<p class="text-muted-content text-[11px] italic">This tool is no longer available.</p>
+					{/if}
 
 					{#if isCustomized}
 						<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
@@ -339,22 +429,14 @@
 			</div>
 		{/each}
 	</div>
-	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-between gap-2 p-4">
-		<div>
-			{#if additionalActions}
-				{@render additionalActions()}
-			{/if}
-		</div>
+	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
 		<div class="flex gap-2 items-center">
 			<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
 			<button
 				id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
 				class="btn btn-primary"
 				disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
-				onclick={() => {
-					onSuccess?.();
-					dialog?.close();
-				}}>Confirm</button
+				onclick={handleSave}>Confirm</button
 			>
 		</div>
 	</div>
@@ -372,3 +454,34 @@
 		<button class="btn btn-error" onclick={confirmDiscard}> Discard Changes </button>
 	</div>
 </ResponsiveDialog>
+
+<Confirm
+	show={profileToolImpact.length > 0}
+	onsuccess={confirmSave}
+	oncancel={cancelSave}
+	title="Confirm Save"
+	submitText="Save"
+	type="info"
+	msg="Are you sure you want to save these changes?"
+>
+	{#snippet note()}
+		<p>The following profile(s) will be impacted by these changes:</p>
+
+		<table class="table table-xs my-4">
+			<thead class="text-xs">
+				<tr>
+					<th>Name</th>
+					<th>Affected Tool(s)</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each profileToolImpact as profile, index (index)}
+					<tr>
+						<td>{profile.name}</td>
+						<td>{profile.tools.join(', ')}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	{/snippet}
+</Confirm>

@@ -482,7 +482,7 @@
 		</div>
 	{/snippet}
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4">
+		<div class="my-4 flex flex-col gap-4">
 			<p>
 				Once you've established your first admin or owner user, the bootstrap user currently being
 				used will be disabled. Upon completing this action, you'll be logged out and asked to log in

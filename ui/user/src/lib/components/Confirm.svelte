@@ -114,7 +114,7 @@
 			<div
 				class={twMerge(
 					'self-center text-center font-light',
-					!onsuccess && !hideCancelButton && 'mb-4',
+					(onsuccess || hideCancelButton) && 'mb-4',
 					classes?.note
 				)}
 			>

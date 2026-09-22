@@ -987,7 +987,8 @@ export function toolOverridesFromRows(rows: CompositeServerToolRow[]): ToolOverr
 			description: row.description,
 			overrideName,
 			overrideDescription,
-			enabled: row.enabled
+			enabled: row.removed ? false : row.enabled,
+			...(row.removed ? { removed: true } : {})
 		};
 	});
 }

@@ -255,10 +255,12 @@
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{`Update ${updateName}?`}
+			Continue with update?
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<p class="text-sm font-light">The vMCP and its components will be updated to latest version.</p>
+		<p class="text-sm font-light">
+			{updateName} and its components will be updated to the latest version.
+		</p>
 	{/snippet}
 </Confirm>

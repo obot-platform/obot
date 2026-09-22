@@ -30,14 +30,18 @@
 
 	let search = $state('');
 
-	const unlockedTools = $derived(tools.filter((tool) => !lockedTools?.has(tool.name)));
+	const unlockedTools = $derived(
+		tools.filter((tool) => !tool.removed && !lockedTools?.has(tool.name))
+	);
 
 	const allUnlockedToolsEnabled = $derived(
 		unlockedTools.length > 0 && unlockedTools.every((tool) => tool.enabled !== false)
 	);
 
 	function setUnlockedToolsEnabled(enabled: boolean) {
-		tools = tools.map((tool) => (lockedTools?.has(tool.name) ? tool : { ...tool, enabled }));
+		tools = tools.map((tool) =>
+			tool.removed || lockedTools?.has(tool.name) ? tool : { ...tool, enabled }
+		);
 	}
 
 	const orderedTools = $derived.by(() => {
@@ -51,13 +55,15 @@
 						tool.overrideDescription?.toLowerCase().includes(query)
 				)
 			: tools;
-		if (!lockedTools?.size) return filtered;
-		const unlocked: ToolOverride[] = [];
+		const available: ToolOverride[] = [];
 		const locked: ToolOverride[] = [];
+		const removed: ToolOverride[] = [];
 		for (const tool of filtered) {
-			(lockedTools.has(tool.name) ? locked : unlocked).push(tool);
+			if (tool.removed) removed.push(tool);
+			else if (lockedTools?.has(tool.name)) locked.push(tool);
+			else available.push(tool);
 		}
-		return locked.length > 0 ? [...unlocked, ...locked] : filtered;
+		return locked.length > 0 || removed.length > 0 ? [...available, ...locked, ...removed] : filtered;
 	});
 </script>
 
@@ -96,12 +102,13 @@
 		{@const name = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
 		{@const conflict =
 			tool.enabled !== false ? conflictIssue(name, effectiveNameDuplicates) : undefined}
-		{@const locked = lockedTools?.has(tool.name) ?? false}
+		{@const unavailable = tool.removed === true}
+		{@const locked = !unavailable && (lockedTools?.has(tool.name) ?? false)}
 
 		<div
 			class={twMerge(
 				'dark:bg-base-300 dark:border-base-400 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm',
-				locked && 'opacity-50'
+				(locked || unavailable) && 'opacity-50'
 			)}
 		>
 			<div class="flex min-w-0 grow flex-col gap-2">
@@ -121,15 +128,20 @@
 								{currentDescription}
 							</p>
 						{/if}
-						{#if locked && lockedReason}
+						{#if unavailable}
+							<p class="text-muted-content mt-1 text-[11px] italic">
+								This tool is no longer available.
+							</p>
+						{:else if locked && lockedReason}
 							<p class="text-muted-content mt-1 text-[11px] italic">{lockedReason}</p>
 						{/if}
 					</div>
 					<div class="flex shrink-0 items-center gap-2">
 						<Toggle
 							checked={tool.enabled === true}
-							disabled={readonly || locked}
+							disabled={readonly || locked || unavailable}
 							onChange={(checked) => {
+								if (unavailable) return;
 								tool.enabled = checked;
 							}}
 							label={tool.enabled ? 'Disable tool' : 'Enable tool'}

@@ -1,16 +1,17 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-	import { UserService } from '$lib/services';
+	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
+	import { goto, setUrlParam } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
-	import { ArrowRightLeft, RefreshCcw, Server, Settings2, Trash2 } from '@lucide/svelte';
+	import { ArrowRightLeft, RefreshCcw, Server, Settings2 } from '@lucide/svelte';
 	import { tick } from 'svelte';
 
 	interface Props {
@@ -26,6 +27,7 @@
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
+	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
 	const lastComponentTooltip = 'VMCP requires at least one component.';
 
@@ -80,10 +82,6 @@
 
 	function handleDialogClose(dialog: VMcpToolDialog) {
 		if (synchronizing || flow.dialog !== dialog) return;
-		if (dialog === 'configure') {
-			flow.returnToActions();
-			return;
-		}
 		flow.close();
 	}
 
@@ -95,6 +93,75 @@
 		if (dialog === 'actions') return Boolean(componentActionsDialog);
 		if (dialog === 'configure') return Boolean(configurationDialog);
 		return true;
+	}
+
+	function droppedToolNames(
+		previous: ToolOverride[] | undefined,
+		next: ToolOverride[] | undefined
+	) {
+		const previousByName = new Map((previous ?? []).map((tool) => [tool.name, tool]));
+		const nextByName = new Map((next ?? []).map((tool) => [tool.name, tool]));
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const dropped = new Set<string>();
+		for (const [name, tool] of previousByName) {
+			const updated = nextByName.get(name);
+			const wasEnabled = tool.enabled !== false;
+			const stillEnabled = Boolean(updated && updated.enabled !== false && !updated.removed);
+			if ((wasEnabled && !stillEnabled) || !updated || updated.removed) dropped.add(name);
+		}
+		for (const [name, tool] of nextByName) {
+			if (!previousByName.has(name) && (tool.removed || tool.enabled === false)) dropped.add(name);
+		}
+		return dropped;
+	}
+
+	function profilesAffectedByToolSave(
+		componentId: string | undefined,
+		previous: ToolOverride[] | undefined,
+		next: ToolOverride[] | undefined,
+		profiles: VMCPProfile[] | undefined
+	) {
+		if (!componentId || !profiles?.length) return [];
+		const dropped = droppedToolNames(previous, next);
+		if (dropped.size === 0) return [];
+		return profiles.filter((profile) => {
+			const allowed = profile.vmcpPermissions?.allowedComponents?.[componentId]?.allowedTools;
+			return Array.isArray(allowed) && allowed.some((name) => dropped.has(name));
+		});
+	}
+
+	async function saveAndOfferProfileUpdate(
+		config: {
+			toolPrefix?: string;
+			toolOverrides?: ToolOverride[];
+		},
+		offerProfileUpdate: boolean
+	) {
+		const component = flow.configuringComponent;
+		if (!component) return;
+		const affected = offerProfileUpdate
+			? profilesAffectedByToolSave(
+					flow.configuringComponentId,
+					component.toolOverrides,
+					config.toolOverrides,
+					flow.modifyingVMcp?.profiles
+				)
+			: [];
+		const saved = await flow.saveTools({
+			...component,
+			toolPrefix: config.toolPrefix,
+			toolOverrides: config.toolOverrides
+		});
+		if (saved && affected.length > 0) pendingAffectedProfiles = affected;
+	}
+
+	function openAffectedProfiles() {
+		const targets = pendingAffectedProfiles;
+		pendingAffectedProfiles = [];
+		const url = new URL(page.url);
+		setUrlParam(url, 'view', 'profiles');
+		setUrlParam(url, 'profile', targets.length === 1 ? targets[0].name : null);
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	$effect(() => {
@@ -109,6 +176,25 @@
 		queueMicrotask(() => (synchronizing = false));
 	});
 </script>
+
+<Confirm
+	show={pendingAffectedProfiles.length > 0}
+	onsuccess={openAffectedProfiles}
+	oncancel={() => (pendingAffectedProfiles = [])}
+	type="info"
+	title="Update Profile(s)?"
+	submitText={pendingAffectedProfiles.length === 1 ? 'Update Profile' : 'Go to Profiles'}
+	cancelText="Skip"
+	msg="Update existing profile(s) now?"
+>
+	{#snippet note()}
+		<p class="text-sm font-light">
+			{pendingAffectedProfiles.length === 1 ? 'Your profile is' : 'There are existing profile(s)'} affected
+			by the tool changes. It is recommended to check the profiles and modify to the updated tool changes.
+			Would you like to do this now?
+		</p>
+	{/snippet}
+</Confirm>
 
 <Confirm
 	show={Boolean(flow.pendingRemoval)}
@@ -191,21 +277,9 @@
 	otherToolPrefixes={flow.otherToolPrefixes}
 	onCancel={flow.close}
 	onSuccess={(config) => {
-		const component = flow.configuringComponent;
-		if (!component) return;
-		void flow.saveTools({
-			...component,
-			toolPrefix: config.toolPrefix,
-			toolOverrides: config.toolOverrides
-		});
+		void saveAndOfferProfileUpdate(config, flow.refresh);
 	}}
->
-	{#snippet additionalActions()}
-		{#if flow.modifyingExistingComponent && !flow.collecting}
-			{@render removeComponentButton()}
-		{/if}
-	{/snippet}
-</VMcpToolsSetup>
+/>
 
 <ResponsiveDialog
 	class="md:w-sm"
@@ -261,6 +335,8 @@
 	bind:this={editDialog}
 	configuringEntry={flow.configuringEntry}
 	tools={flow.tools}
+	profiles={flow.modifyingVMcp?.profiles}
+	componentId={flow.configuringComponentId}
 	bind:toolPrefix={flow.toolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
 	otherToolPrefixes={flow.otherToolPrefixes}
@@ -270,13 +346,12 @@
 >
 	{#snippet additionalActions()}
 		<div class="flex items-center gap-3">
-			<IconButton
-				tooltip={{ text: 'Refresh tools', disablePortal: true, placement: 'right' }}
+			<button
 				onclick={() => flow.refreshTools()}
-				class="dark:hover:bg-base-300"
+				class="btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline"
 			>
-				<RefreshCcw class="size-4" />
-			</IconButton>
+				<RefreshCcw class="size-4" /> Refresh tools
+			</button>
 		</div>
 	{/snippet}
 </CompositeEditTools>
@@ -292,25 +367,4 @@
 		{/if}
 		{flow.addedServer?.component.manifest.name}
 	</span>
-{/snippet}
-
-{#snippet removeComponentButton()}
-	<div
-		use:tooltip={isLastComponent
-			? { text: lastComponentTooltip, disablePortal: true, placement: 'right' }
-			: undefined}
-	>
-		<IconButton
-			tooltip={{
-				text: isLastComponent ? lastComponentTooltip : 'Delete MCP Server',
-				disablePortal: true,
-				placement: 'right'
-			}}
-			onclick={flow.promptRemove}
-			variant="danger2"
-			disabled={isLastComponent}
-		>
-			<Trash2 class="size-4" />
-		</IconButton>
-	</div>
 {/snippet}

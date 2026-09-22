@@ -25,7 +25,7 @@
 	msg={`Assign the Owner role to ${groupAssignment?.group.name}?`}
 >
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4">
+		<div class="my-4 flex flex-col gap-4">
 			<p class="text-left text-warning">
 				Warning: Assigning the Owner role to a group grants extensive privileges.
 			</p>

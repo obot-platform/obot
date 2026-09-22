@@ -23,6 +23,7 @@
 </script>
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
@@ -33,6 +34,7 @@
 	import { vmcpManifest } from '$lib/services/vmcps/utils';
 	import { success } from '$lib/stores/success';
 	import { resolveSubjects } from '$lib/subjectResolver';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
@@ -357,7 +359,16 @@
 		draft = cloneProfile(profile);
 	}
 
+	$effect(() => {
+		const requested = page.url.searchParams.get('profile');
+		if (!requested) return;
+		const match = profiles.find((profile) => profile.name === requested);
+		if (!match) return;
+		editProfile(match);
+	});
+
 	function cancelEditing() {
+		setUrlParamAndUpdateUrl(page.url, 'profile', null);
 		draft = undefined;
 		editingId = undefined;
 		error = '';
@@ -368,6 +379,7 @@
 	export function leaveEditor() {
 		if (!draft) return false;
 		cancelEditing();
+		setUrlParamAndUpdateUrl(page.url, 'profile', null);
 		return true;
 	}
 
@@ -696,13 +708,24 @@
 	function applyCollectedTools(component: VMCPComponent, config: VMCPComponent) {
 		if (!draft) return;
 		const id = componentId(component);
-		const policyToolOverrides = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
-		const componentToolOverrides = policyToolOverrides.map((tool) => ({
+		const incoming = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
+		const removed = incoming
+			.filter((tool) => tool.removed)
+			.map((tool) => ({ ...tool, enabled: false as const }));
+		const live = incoming
+			.filter((tool) => !tool.removed)
+			.map((tool) => {
+				const copy = { ...tool };
+				delete copy.removed;
+				return copy;
+			});
+		const componentToolOverrides = live.map((tool) => ({
 			...tool,
 			enabled: true
 		}));
-		const toolOverrides = clampToComponent(policyToolOverrides, id);
-		const enabledNames = [...enabledToolNames(toolOverrides)];
+		const liveOverrides = clampToComponent(live, id);
+		const toolOverrides = [...liveOverrides, ...removed];
+		const enabledNames = [...enabledToolNames(liveOverrides)];
 		applyComponentToolOverrides(id, componentToolOverrides);
 		draft.resources = draft.resources.map((resource) =>
 			resource.id === id
@@ -1136,7 +1159,9 @@
 						type="button"
 						class="absolute inset-0 rounded-xl"
 						aria-label={`${readonly ? 'View' : 'Edit'} ${profile.name}`}
-						onclick={() => editProfile(profile)}
+						onclick={() => {
+							setUrlParamAndUpdateUrl(page.url, 'profile', profile.name);
+						}}
 					></button>
 					<div class="pointer-events-none relative">
 						<div class="flex items-start justify-between gap-3">

@@ -568,8 +568,10 @@
 					)}
 					onclick={() => {
 						setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');
-					}}>Profiles</button
+					}}
 				>
+					Profiles
+				</button>
 			{/if}
 			{#if canAccessTester}
 				<button

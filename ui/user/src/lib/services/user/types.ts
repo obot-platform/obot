@@ -781,7 +781,12 @@ export interface ToolOverride {
 	 * Whether this tool is included in the virtual MCP's allowlist.
 	 */
 	enabled?: boolean;
-}
+	/**
+	 * Client-only. Set when a refresh finds this tool is no longer returned by the server.
+	 * Do not persist this field.
+	 */
+	removed?: boolean;
+};
 
 // MCP servers
 

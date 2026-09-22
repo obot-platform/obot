@@ -121,8 +121,10 @@
 		const existingByName = new Map(existingTools.map((tool) => [tool.name, tool]));
 		const hasStoredOverrides = Boolean(component?.toolOverrides?.length);
 		const id = componentID(component);
+		const preview = entry.manifest.toolPreview ?? [];
+		const previewNames = new Set(preview.map((tool) => tool.name));
 
-		return (entry.manifest.toolPreview ?? []).map((previewTool) => {
+		const rows = preview.map((previewTool) => {
 			const existing = existingByName.get(previewTool.name);
 			const description = existing?.description ?? previewTool.description;
 			return {
@@ -132,9 +134,30 @@
 				overrideName: existing?.overrideName ?? previewTool.name,
 				overrideDescription:
 					existing?.overrideDescription ?? existing?.description ?? previewTool.description,
-				enabled: existing?.enabled ?? !hasStoredOverrides
+				enabled: existing?.enabled ?? !hasStoredOverrides,
+				removed: false
 			};
 		});
+
+		for (const previous of component?.toolOverrides ?? []) {
+			if (!previous.name || previewNames.has(previous.name)) continue;
+			const existing = existingByName.get(previous.name);
+			rows.push({
+				id: existing?.id ?? `${id}-${previous.name}`,
+				name: previous.name,
+				description: existing?.description ?? previous.description,
+				overrideName: existing?.overrideName ?? previous.overrideName ?? previous.name,
+				overrideDescription:
+					existing?.overrideDescription ??
+					previous.overrideDescription ??
+					existing?.description ??
+					previous.description,
+				enabled: false,
+				removed: true
+			});
+		}
+
+		return rows;
 	}
 
 	function handleVisibilityChange() {
