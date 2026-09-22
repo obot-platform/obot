@@ -62,7 +62,7 @@ func newBootstrapTestClientWithDB(t *testing.T) (*client.Client, *gorm.DB, conte
 		}).
 		Build()
 
-	c := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true, false, nil, nil)
+	c := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true, false, nil, nil, false, nil)
 	t.Cleanup(func() {
 		cancel()
 		_ = c.Close()

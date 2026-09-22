@@ -955,10 +955,10 @@ func seedMCPAuditLogs(t *testing.T, gatewayClient *gatewayclient.Client, logs ..
 func newLocalAgentAuditLogTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	t.Helper()
 
-	return newAuditLogTestGatewayClient(t, false)
+	return newAuditLogTestGatewayClient(t, false, false)
 }
 
-func newAuditLogTestGatewayClient(t *testing.T, mcpAuditDisabled bool) *gatewayclient.Client {
+func newAuditLogTestGatewayClient(t *testing.T, mcpAuditDisabled, localAgentAuditDisabled bool) *gatewayclient.Client {
 	t.Helper()
 
 	storageServices, err := sservices.New(sservices.Config{
@@ -976,7 +976,7 @@ func newAuditLogTestGatewayClient(t *testing.T, mcpAuditDisabled bool) *gatewayc
 		t.Fatalf("failed to migrate gateway db: %v", err)
 	}
 
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, mcpAuditDisabled, nil, nil)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, mcpAuditDisabled, nil, nil, localAgentAuditDisabled, nil)
 	t.Cleanup(func() {
 		_ = c.Close()
 	})
@@ -1029,5 +1029,16 @@ func validLocalAgentAuditLogInput(occurredAt time.Time, idempotencyKey string, s
 			Response:    types.LocalAgentToolCallAuditLogPayload{Body: json.RawMessage(`{"ok":true}`)},
 			RawEvent:    json.RawMessage(`{"native":true}`),
 		},
+	}
+}
+
+func TestDisabledLocalAgentAuditSkipsSubmissionBody(t *testing.T) {
+	client := newAuditLogTestGatewayClient(t, false, true)
+	// A nil request proves disabled submissions are accepted before body parsing.
+	if err := NewLocalAgentAuditLogHandler().Submit(api.Context{GatewayClient: client}); err != nil {
+		t.Fatal(err)
+	}
+	if !client.MCPAuditLogEnabled() || !client.LLMAuditLogEnabled() {
+		t.Fatal("disabling local-agent audit logs must not disable MCP or LLM logs")
 	}
 }
