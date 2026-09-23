@@ -26,9 +26,10 @@ import { page, userEvent } from 'vitest/browser';
 
 vi.mock('$app/navigation', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/navigation')>();
+	const { applyTestGoto } = await import('../../../tests/helpers/navigation');
 	return {
 		...actual,
-		goto: () => Promise.resolve()
+		goto: (url: string | URL) => applyTestGoto(url)
 	};
 });
 

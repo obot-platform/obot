@@ -1,18 +1,20 @@
+import { page as appPage } from '$app/state';
 import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 import type { VMCP, VMCPManifest, VMCPProfilePermissions } from '$lib/services';
 import { createVMCP, createVMCPComponent, createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpProfiles from './VMcpProfiles.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 vi.mock('$app/navigation', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/navigation')>();
+	const { applyTestGoto } = await import('../../../tests/helpers/navigation');
 	return {
 		...actual,
-		goto: () => Promise.resolve()
+		goto: (url: string | URL) => applyTestGoto(url)
 	};
 });
 
@@ -104,6 +106,9 @@ function createVMcpWithDisabledTool(id: string) {
 }
 
 describe('VMcpProfiles.svelte', () => {
+	afterEach(() => {
+		appPage.url.searchParams.delete('profile');
+	});
 	it.each<{
 		name: string;
 		permissions: VMCPProfilePermissions;
@@ -210,6 +215,18 @@ describe('VMcpProfiles.svelte', () => {
 				}
 			}
 		]);
+	});
+
+	it('opens the profile selected in the URL', async () => {
+		const vmcp = createVMcp('vmcp-profile-from-url');
+		appPage.url.searchParams.set('profile', 'default');
+
+		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+		await expect.element(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
+		await expect
+			.element(page.getByPlaceholder('ex. Marketing, Engineering, etc.'))
+			.toHaveValue('default');
 	});
 
 	it('edits and deletes an existing profile', async () => {

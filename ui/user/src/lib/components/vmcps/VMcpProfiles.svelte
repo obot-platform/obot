@@ -63,7 +63,8 @@
 	let { vmcp, toolFlow, onUpdated, readonly = false }: Props = $props();
 	let profiles = $state<Profile[]>([]);
 	let draft = $state<ProfileManifest>();
-	let editingId = $state<string>();
+	let editingId = $derived(page.url.searchParams.get('profile'));
+	let loadedProfileId = $state<string>();
 	let saving = $state(false);
 	let error = $state('');
 	let directoryUsers = $state<OrgUser[]>([]);
@@ -133,7 +134,7 @@
 		if (!switched) return;
 		profiles = (vmcp.profiles ?? []).map(profileFromManifest);
 		draft = undefined;
-		editingId = undefined;
+		loadedProfileId = undefined;
 		error = '';
 		expanded = {};
 		resolvedGroups = [];
@@ -210,7 +211,7 @@
 		const permissions = manifest.vmcpPermissions;
 		return {
 			allowAllComponents: permissions?.allowAllComponents ?? false,
-			id: crypto.randomUUID(),
+			id: manifest.name,
 			name: manifest.name,
 			users: (manifest.subjects ?? []).map((subject) => ({ ...subject })),
 			resources: componentServers
@@ -409,7 +410,6 @@
 
 	function createProfile() {
 		if (readonly) return;
-		editingId = undefined;
 		error = '';
 		expanded = {};
 		draft = {
@@ -431,34 +431,40 @@
 	}
 
 	function editProfile(profile: Profile) {
-		editingId = profile.id;
 		error = '';
 		expanded = {};
 		draft = cloneProfile(profile);
 		refineAllowAllIfNeeded(draft);
+		loadedProfileId = profile.id;
 	}
 
-	$effect(() => {
-		const requested = page.url.searchParams.get('profile');
-		if (!requested) return;
-		const match = profiles.find((profile) => profile.name === requested);
-		if (!match) return;
-		editProfile(match);
-	});
-
-	function cancelEditing() {
-		setUrlParamAndUpdateUrl(page.url, 'profile', null);
+	function closeEditor() {
 		draft = undefined;
-		editingId = undefined;
+		loadedProfileId = undefined;
 		error = '';
 		expanded = {};
 		confirmDisableGrant = undefined;
 	}
 
+	$effect(() => {
+		const id = editingId;
+		if (!id) {
+			if (untrack(() => loadedProfileId)) untrack(closeEditor);
+			return;
+		}
+		const match = profiles.find((profile) => profile.id === id);
+		if (!match || untrack(() => loadedProfileId) === match.id) return;
+		untrack(() => editProfile(match));
+	});
+
+	function cancelEditing() {
+		setUrlParamAndUpdateUrl(page.url, 'profile', null);
+		closeEditor();
+	}
+
 	export function leaveEditor() {
 		if (!draft) return false;
 		cancelEditing();
-		setUrlParamAndUpdateUrl(page.url, 'profile', null);
 		return true;
 	}
 
@@ -479,8 +485,8 @@
 		}
 
 		const profile: Profile = {
-			id: editingId ?? crypto.randomUUID(),
-			...cloneProfile({ ...draft, name })
+			...cloneProfile({ ...draft, name }),
+			id: name
 		};
 		const next = editingId
 			? profiles.map((candidate) => (candidate.id === editingId ? profile : candidate))
@@ -1261,8 +1267,7 @@
 						class="absolute inset-0 rounded-xl"
 						aria-label={`${readonly ? 'View' : 'Edit'} ${profile.name}`}
 						onclick={() => {
-							editProfile(profile);
-							setUrlParamAndUpdateUrl(page.url, 'profile', profile.name);
+							setUrlParamAndUpdateUrl(page.url, 'profile', profile.id);
 						}}
 					></button>
 					<div class="pointer-events-none relative">

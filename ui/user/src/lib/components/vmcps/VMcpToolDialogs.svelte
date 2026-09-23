@@ -160,7 +160,8 @@
 		pendingAffectedProfiles = [];
 		const url = new URL(page.url);
 		setUrlParam(url, 'view', 'profiles');
-		setUrlParam(url, 'profile', targets.length === 1 ? targets[0].name : null);
+		const profileId = targets.length === 1 ? targets[0].name : null;
+		setUrlParam(url, 'profile', profileId);
 		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
