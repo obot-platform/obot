@@ -112,6 +112,7 @@ func startObotApplication() (*obotApplication, error) {
 
 func integrationServerConfig(httpPort, storagePort int, workDir string) services.Config {
 	config := services.Config{
+		GitMaxRepoSizeMB:                  100,
 		HTTPListenPort:                    httpPort,
 		DevMode:                           true,
 		ElectionFile:                      filepath.Join(workDir, "election"),
