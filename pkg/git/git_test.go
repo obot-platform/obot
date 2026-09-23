@@ -38,6 +38,18 @@ func TestIsGitRepoURL(t *testing.T) {
 			want: true,
 		},
 		{
+			url:  "https://GitHub.com/org/repo",
+			want: true,
+		},
+		{
+			url:  "https://GitLab.com/org/repo",
+			want: true,
+		},
+		{
+			url:  "https://Bitbucket.org/org/repo",
+			want: true,
+		},
+		{
 			url:  "https://example.com/org/repo.git",
 			want: true,
 		},
@@ -143,6 +155,12 @@ func TestParseGitURL(t *testing.T) {
 			wantBranch: "feature/catalog",
 		},
 		{
+			name:       "mixed-case Bitbucket host preserves repository and branch case",
+			url:        "https://Bitbucket.org/Org/Repo/Feature/Catalog",
+			wantClone:  "https://Bitbucket.org/Org/Repo.git",
+			wantBranch: "Feature/Catalog",
+		},
+		{
 			name:    "unknown host without .git is rejected",
 			url:     "https://self-hosted.example.com/org/repo",
 			wantErr: true,
@@ -184,6 +202,11 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 			name: "valid GitLab HTTPS URL",
 			url:  "https://gitlab.com/owner/repo",
 			want: "https://gitlab.com/owner/repo",
+		},
+		{
+			name: "mixed-case host preserves credential key",
+			url:  "Bitbucket.org/Org/Repo",
+			want: "https://Bitbucket.org/Org/Repo",
 		},
 		{
 			name: "valid Bitbucket HTTPS URL",
@@ -601,6 +624,12 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
 		},
 		{
+			name:          "mixed-case Bitbucket host uses all token usernames",
+			host:          "Bitbucket.org",
+			status:        http.StatusUnauthorized,
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
+		},
+		{
 			name:          "retry forbidden with repository token username",
 			host:          "bitbucket.org",
 			status:        http.StatusForbidden,
@@ -673,7 +702,7 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			}
 			require.Error(t, err)
 			assert.Equal(t, tt.wantUsernames, usernames)
-			if !tt.rejectAll && tt.host == "bitbucket.org" {
+			if !tt.rejectAll && strings.EqualFold(tt.host, "bitbucket.org") {
 				assert.ErrorIs(t, err, stop)
 			}
 		})

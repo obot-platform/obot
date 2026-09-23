@@ -60,7 +60,7 @@ func cloneAuthAttempts(host, token, fallbackToken string) []cloneAuthAttempt {
 	if token == "" {
 		return attempts
 	}
-	if host == "bitbucket.org" {
+	if strings.EqualFold(host, "bitbucket.org") {
 		attempts = append(attempts,
 			cloneAuthAttempt{
 				name:     name + " (personal API token)",
@@ -109,7 +109,7 @@ func NormalizeRepositoryURL(repoURL string) (string, error) {
 }
 
 func isKnownGitHost(host string) bool {
-	switch host {
+	switch strings.ToLower(host) {
 	case "github.com", "gitlab.com", "bitbucket.org":
 		return true
 	default:
