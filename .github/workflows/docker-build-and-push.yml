@@ -92,8 +92,20 @@ jobs:
       - name: Setup crane
         uses: imjasonh/setup-crane@v0.5
 
-      - name: Copy images to latest tag
+      - name: Check if tag is the newest release
+        id: newest
         if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+        run: |
+          # Only the highest stable tag should move latest, so a patch release on an
+          # older minor line (e.g. v0.25.6 after v0.26.0) does not take it back.
+          newest=$(git ls-remote --tags --refs origin 'v*' | sed 's|.*refs/tags/||' | grep -ve '-' | sort -V | tail -n 1)
+          echo "Newest stable tag: ${newest}"
+          if [ "${newest}" = "${{ github.ref_name }}" ]; then
+            echo "is_newest=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Copy images to latest tag
+        if: ${{ steps.newest.outputs.is_newest == 'true' }}
         run: |
           crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
           crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
