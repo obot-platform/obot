@@ -56,6 +56,8 @@
 	let componentFilterBy = $state(untrack(() => getInitialFilters().componentFilterBy));
 	let statusFilterBy = $state(untrack(() => getInitialFilters().statusFilterBy));
 	let variant = $state<'grid' | 'table'>('grid');
+	let selecting = $state(false);
+
 	let vmcps = $derived.by(() => {
 		if (showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
@@ -220,6 +222,7 @@
 		<Loading class="text-primary" />
 	{:else}
 		<VMcpListSettings
+			bind:selecting
 			filters={{
 				showMyVMcpsOnly,
 				sortBy,
@@ -232,6 +235,7 @@
 			{variant}
 		/>
 		<VMcpList
+			bind:selecting
 			items={sortedVMcps}
 			components={vmcpComponents}
 			onSelect={openVMcp}

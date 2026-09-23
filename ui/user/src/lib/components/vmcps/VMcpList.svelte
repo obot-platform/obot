@@ -19,7 +19,7 @@
 	import VMcpMenuActions from './VMcpMenuActions.svelte';
 	import VMcpStatusBadge from './VMcpStatusBadge.svelte';
 	import { Ellipsis, MessageCircle, Plug, Trash2 } from '@lucide/svelte';
-	import type { Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		items: VMCP[];
@@ -32,6 +32,7 @@
 		noDataContent?: Snippet;
 		usersMap: Map<string, OrgUser>;
 		variant?: 'grid' | 'table';
+		selecting?: boolean;
 	}
 
 	let {
@@ -44,7 +45,8 @@
 		onUpdate,
 		noDataContent,
 		usersMap,
-		variant = 'grid'
+		variant = 'grid',
+		selecting = $bindable(false)
 	}: Props = $props();
 
 	let items = $derived(initialItems.map(translateItem));
@@ -52,6 +54,9 @@
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 	let pendingBulkDelete = $state<VMCP[]>();
 	let bulkDeleting = $state(false);
+	let selected = $state<Record<string, Item>>({});
+	let selectedCount = $derived(Object.keys(selected).length);
+	let selectableCount = $derived(items.filter(canSelectRow).length);
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -108,6 +113,32 @@
 		toggle(false);
 	}
 
+	function toggleSelected(card: Item) {
+		if (selected[card.id]) {
+			delete selected[card.id];
+			return;
+		}
+		selected[card.id] = card;
+	}
+
+	$effect(() => {
+		if (selecting) return;
+		if (Object.keys(selected).length === 0) return;
+		selected = {};
+	});
+
+	$effect(() => {
+		const ids = new Set(items.map((item) => item.id));
+		for (const id of Object.keys(selected)) {
+			if (!ids.has(id)) delete selected[id];
+		}
+	});
+
+	function exitSelecting() {
+		selected = {};
+		selecting = false;
+	}
+
 	async function handleBulkDelete() {
 		if (!pendingBulkDelete?.length) return;
 		bulkDeleting = true;
@@ -116,6 +147,7 @@
 			for (const vmcp of deleted) {
 				await UserService.deleteVMCP(vmcp.id);
 				onDeleted?.(vmcp);
+				delete selected[vmcp.id];
 			}
 			success.add(
 				deleted.length === 1
@@ -127,6 +159,7 @@
 		} finally {
 			bulkDeleting = false;
 			pendingBulkDelete = undefined;
+			selecting = false;
 		}
 	}
 
@@ -219,7 +252,7 @@
 	}
 </script>
 
-<div class="@container">
+<div class="@container {variant === 'grid' && selecting ? 'pb-16' : ''}">
 	{#if items.length === 0}
 		<div class="flex h-full items-center justify-center">
 			{#if noDataContent}
@@ -240,6 +273,33 @@
 		{/if}
 	{/if}
 </div>
+
+{#if variant === 'grid' && selecting}
+	{@const deletable = Object.values(selected).filter(canSelectRow)}
+	<div class="flex grow"></div>
+	<div
+		class="border-base-300 bg-base-100 dark:border-base-400 dark:bg-base-300 sticky inset-x-0 bottom-4 z-50 flex items-center gap-4 rounded-full px-4 py-2 shadow-sm"
+		role="toolbar"
+		aria-label="Selected vMCP actions"
+	>
+		<p class="text-muted-content pl-4 text-sm font-semibold">
+			{selectedCount} of {selectableCount} selected
+		</p>
+		<div class="flex grow items-center justify-end gap-2">
+			<button
+				class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+				onclick={() => (pendingBulkDelete = deletable.map((row) => row.vmcp))}
+				disabled={deletable.length === 0}
+			>
+				<Trash2 class="size-4" /> Delete
+				{#if deletable.length > 0}
+					<span class="pill-primary">{deletable.length}</span>
+				{/if}
+			</button>
+			<button class="btn btn-secondary text-sm font-normal" onclick={exitSelecting}>Cancel</button>
+		</div>
+	</div>
+{/if}
 
 <VMcpActions bind:this={vmcpActions} />
 
@@ -393,8 +453,19 @@
 {#snippet vmcpCard(card: Item)}
 	<VMcpCard
 		vmcp={card.vmcp}
-		selectAriaLabel={`Open ${card.vmcp.displayName || 'Untitled vMCP'}`}
-		onSelect={() => onSelect?.(card.vmcp)}
+		selectAriaLabel={selecting
+			? `Select ${card.displayName}`
+			: `Open ${card.displayName || 'Untitled vMCP'}`}
+		selected={Boolean(selected[card.id])}
+		{selecting}
+		onSelect={() => {
+			if (!selecting) {
+				onSelect?.(card.vmcp);
+				return;
+			}
+			if (!canSelectRow(card)) return;
+			toggleSelected(card);
+		}}
 		onConnect={(options) =>
 			onConnect
 				? onConnect(card.vmcp, options)
