@@ -155,3 +155,18 @@ export function isWebURL(value: string) {
 		return false;
 	}
 }
+
+// Git source URLs encode the branch after .git; Bitbucket's web UI uses /src/.
+export function gitSourceBrowserURL(value: string): string {
+	try {
+		const url = new URL(value);
+		if (url.protocol !== 'https:' || url.hostname !== 'bitbucket.org') return value;
+		const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\.git(?:\/(.*))?$/);
+		if (!match) return value;
+		const [, workspace, repository, branch] = match;
+		url.pathname = `/${workspace}/${repository}${branch ? `/src/${branch.replace(/\/$/, '')}/` : '/'}`;
+		return url.toString();
+	} catch {
+		return value;
+	}
+}
