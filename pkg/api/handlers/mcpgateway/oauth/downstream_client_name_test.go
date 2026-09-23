@@ -96,6 +96,70 @@ func TestDownstreamOAuthClientName(t *testing.T) {
 		require.Error(t, err)
 		assert.Empty(t, name)
 	})
+
+	for _, tt := range []struct {
+		name          string
+		serverURL     string
+		authRequestID string
+		want          string
+		wantErr       bool
+	}{
+		{
+			name:          "Figma with Cursor client",
+			serverURL:     figmaMCPURL,
+			authRequestID: dcrAuthRequestID,
+			want:          figmaOAuthClientName,
+		},
+		{
+			name:      "Figma without downstream client",
+			serverURL: figmaMCPURL,
+			want:      figmaOAuthClientName,
+		},
+		{
+			name:          "Figma with missing auth request",
+			serverURL:     figmaMCPURL,
+			authRequestID: "does-not-exist",
+			want:          figmaOAuthClientName,
+		},
+		{
+			name:          "other server with Cursor client",
+			serverURL:     "https://example.com/mcp",
+			authRequestID: dcrAuthRequestID,
+			want:          "Cursor",
+		},
+		{
+			name:      "other server without downstream client",
+			serverURL: "https://example.com/mcp",
+		},
+		{
+			name:          "Figma URL with trailing slash",
+			serverURL:     figmaMCPURL + "/",
+			authRequestID: dcrAuthRequestID,
+			want:          "Cursor",
+		},
+		{
+			name:          "Figma subdomain",
+			serverURL:     "https://mcp.figma.com.evil.example/mcp",
+			authRequestID: dcrAuthRequestID,
+			want:          "Cursor",
+		},
+		{
+			name:          "other server with missing auth request",
+			serverURL:     "https://example.com/mcp",
+			authRequestID: "does-not-exist",
+			wantErr:       true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			name, err := factory.oauthClientNameForServer(req, tt.serverURL, tt.authRequestID)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, name)
+		})
+	}
 }
 
 func oauthClientWithName(name string) v1.OAuthClient {

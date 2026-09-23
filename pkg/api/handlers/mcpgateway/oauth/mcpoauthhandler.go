@@ -22,7 +22,9 @@ import (
 )
 
 const (
-	obotOAuthClientName = "Obot MCP OAuth"
+	obotOAuthClientName  = "Obot MCP OAuth"
+	figmaMCPURL          = "https://mcp.figma.com/mcp"
+	figmaOAuthClientName = "Claude Code"
 )
 
 type MCPOAuthHandlerFactory struct {
@@ -178,7 +180,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	if err != nil {
 		return "", err
 	}
-	oauthClientName, err := f.downstreamOAuthClientName(req, oauthAppAuthRequestID)
+	oauthClientName, err := f.oauthClientNameForServer(req, mcpServerConfig.URL, oauthAppAuthRequestID)
 	if err != nil {
 		return "", err
 	}
@@ -258,6 +260,14 @@ func (f *MCPOAuthHandlerFactory) componentServersForAuth(req api.Context, mcpSer
 	}
 
 	return nil, nil
+}
+
+func (f *MCPOAuthHandlerFactory) oauthClientNameForServer(req api.Context, serverURL, oauthAuthRequestID string) (string, error) {
+	if serverURL == figmaMCPURL {
+		return figmaOAuthClientName, nil
+	}
+
+	return f.downstreamOAuthClientName(req, oauthAuthRequestID)
 }
 
 func (f *MCPOAuthHandlerFactory) downstreamOAuthClientName(req api.Context, oauthAuthRequestID string) (string, error) {
