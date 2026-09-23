@@ -6,6 +6,7 @@
 		VMCPProfile,
 		VMCPComponentSet
 	} from '$lib/services';
+	import { getDisplayListText } from '$lib/services/vmcps/utils';
 
 	type ProfileResource = {
 		id: string;
@@ -751,13 +752,6 @@
 
 	function enabledToolCount(resource: ProfileResource) {
 		return modifiableTools(resource).filter((tool) => tool.enabled !== false).length;
-	}
-
-	function getDisplayListText(names: string[]) {
-		if (names.length <= 1) return names[0] ?? '';
-		const rest = names.slice(0, names.length > 5 ? 4 : -1);
-		const last = names.length > 5 ? `${names.length - 4} others` : names.at(-1);
-		return `${rest.join(', ')} and ${last}`;
 	}
 
 	function profileUsersDisplayText(profile: Profile) {

@@ -7,8 +7,7 @@ import type {
 	OrgUser,
 	VMCP,
 	VMCPInstance,
-	VMCPManifest,
-	VMCPProfile
+	VMCPManifest
 } from '$lib/services';
 import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
@@ -727,20 +726,25 @@ export function getToolCounts(componentServers: VMcpComponentView[]) {
 	return { enabled, total, approximate };
 }
 
-export function getProfilesDisplayText(profiles?: VMCPProfile[]) {
-	if (!profiles) return '';
-
-	const names = profiles.map((profile) => profile.name);
+export function getDisplayListText(names: string[], maxLength: number = 5) {
 	if (names.length <= 1) return names[0] ?? '';
-
-	const rest = names.slice(0, names.length > 5 ? 4 : -1);
-	const last = names.length > 5 ? `${names.length - 4} others` : names.at(-1);
+	const rest = names.slice(0, names.length > maxLength ? maxLength - 1 : -1);
+	const last = names.length > maxLength ? `${names.length - maxLength} others` : names.at(-1);
 	return `${rest.join(', ')} and ${last}`;
 }
 
-export function getVMcpCreator(vmcp: VMCP, usersMap: Map<string, OrgUser>) {
+export function getVMcpCreator(
+	vmcp: VMCP,
+	usersMap: Map<string, OrgUser>,
+	prefix: string = 'Created by'
+) {
+	let creator = '';
 	if (vmcp.creatorUserID) {
-		return `Created by ${vmcp.creatorUserID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.creatorUserID)}`;
+		creator =
+			vmcp.creatorUserID === profile.current.id
+				? 'me'
+				: getUserDisplayName(usersMap, vmcp.creatorUserID);
 	}
-	return ' ';
+
+	return prefix ? `${prefix} ${creator}` : creator;
 }
