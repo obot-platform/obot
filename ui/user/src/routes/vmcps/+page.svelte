@@ -55,6 +55,7 @@
 	let query = $state(untrack(() => getInitialFilters().query));
 	let componentFilterBy = $state(untrack(() => getInitialFilters().componentFilterBy));
 	let statusFilterBy = $state(untrack(() => getInitialFilters().statusFilterBy));
+	let variant = $state<'grid' | 'table'>('grid');
 	let vmcps = $derived.by(() => {
 		if (showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
@@ -228,36 +229,45 @@
 			}}
 			onChange={handleChange}
 			{componentFilterOptions}
+			{variant}
 		/>
 		<VMcpList
 			items={sortedVMcps}
 			components={vmcpComponents}
 			onSelect={openVMcp}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
+			onDeleted={(deleted) => {
+				listedVMcps = listedVMcps.filter((vmcp) => vmcp.id !== deleted.id);
+			}}
 			onUpdate={(updated) => {
 				listedVMcps = listedVMcps.map((vmcp) => (vmcp.id === updated.id ? updated : vmcp));
 			}}
 			{usersMap}
+			{variant}
 		>
 			{#snippet noDataContent()}
-				<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<Layers class="text-muted-content size-24 opacity-25" />
-					<div>
-						<h4 class="text-muted-content text-lg font-semibold">
-							{profile.current.hasAdminAccess?.() ? 'Create a vMCP!' : 'No vMCPs available'}
-						</h4>
-						<p class="text-muted-content text-sm font-light">
-							{profile.current.hasAdminAccess?.()
-								? 'Click below to get started.'
-								: "Looks like there aren't any vMCPs available yet."}
-						</p>
+				{#if query}
+					<p class="text-muted-content text-sm font-light">No vMCPs found matching your query.</p>
+				{:else}
+					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+						<Layers class="text-muted-content size-24 opacity-25" />
+						<div>
+							<h4 class="text-muted-content text-lg font-semibold">
+								{profile.current.hasAdminAccess?.() ? 'Create a vMCP!' : 'No vMCPs available'}
+							</h4>
+							<p class="text-muted-content text-sm font-light">
+								{profile.current.hasAdminAccess?.()
+									? 'Click below to get started.'
+									: "Looks like there aren't any vMCPs available yet."}
+							</p>
+						</div>
+						{#if canCreate}
+							<button class="btn btn-primary" onclick={openCreate}>
+								<Plus class="size-4" /> Create vMCP Now
+							</button>
+						{/if}
 					</div>
-					{#if canCreate}
-						<button class="btn btn-primary" onclick={openCreate}>
-							<Plus class="size-4" /> Create vMCP Now
-						</button>
-					{/if}
-				</div>
+				{/if}
 			{/snippet}
 		</VMcpList>
 	{/if}
