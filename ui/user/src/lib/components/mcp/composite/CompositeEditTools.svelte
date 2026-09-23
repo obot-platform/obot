@@ -289,13 +289,19 @@
 				</p>
 			{/if}
 		</div>
+		<Search
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+			onChange={(val) => (search = val)}
+			placeholder="Search tools..."
+		/>
+
 		<div class="flex w-full justify-end items-center pr-2.5 gap-1">
-			<div>
-				{#if additionalActions}
+			{#if additionalActions}
+				<div>
 					{@render additionalActions()}
-				{/if}
-			</div>
-			<div class="divider divider-horizontal mx-0"></div>
+				</div>
+				<div class="divider divider-horizontal mx-0"></div>
+			{/if}
 			<div id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}>
 				<Toggle
 					checked={allToolsEnabled}
@@ -312,11 +318,6 @@
 				/>
 			</div>
 		</div>
-		<Search
-			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-			onChange={(val) => (search = val)}
-			placeholder="Search tools..."
-		/>
 		{#each visibleTools as tool (tool.id)}
 			{@const currentName = (tool.overrideName || '').trim() || tool.name}
 			{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}

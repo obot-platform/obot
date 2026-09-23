@@ -460,10 +460,5 @@
 	onCancel={cancelEditor}
 	onClose={cancelEditor}
 	onSuccess={save}
->
-	{#snippet additionalActions()}
-		{#if additionalActionsSnippet}
-			{@render additionalActionsSnippet()}
-		{/if}
-	{/snippet}
-</CompositeEditTools>
+	additionalActions={additionalActionsSnippet}
+/>
