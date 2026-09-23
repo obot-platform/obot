@@ -9,9 +9,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
+vi.mock('$app/state', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/state')>();
+	const { createAppState } = await import('../../../tests/helpers/navigation.svelte');
+	return createAppState(actual);
+});
+
 vi.mock('$app/navigation', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/navigation')>();
-	const { applyTestGoto } = await import('../../../tests/helpers/navigation');
+	const { applyTestGoto } = await import('../../../tests/helpers/navigation.svelte');
 	return {
 		...actual,
 		goto: (url: string | URL) => applyTestGoto(url)
