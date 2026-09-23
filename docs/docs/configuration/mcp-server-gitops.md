@@ -63,7 +63,7 @@ To pull from a private repository, enter a **Personal access token** in the opti
 - **Bitbucket Cloud personal API token**: `read:repository:bitbucket`, belonging to a user with access to the repository. See [Atlassian's API token documentation](https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/).
 - **Bitbucket Cloud repository access token**: **Repositories → Read** on the catalog repository. Create one under the repository's **Settings → Security → Access tokens**. See [Atlassian's repository access token documentation](https://support.atlassian.com/bitbucket-cloud/docs/create-a-repository-access-token/).
 
-For private Bitbucket Cloud repositories, enter either token type in the **Personal access token** field. Use a repository URL such as `https://bitbucket.org/workspace/repo`; no username or token is needed in the URL. Obot first tries its default token username, then the personal API-token and repository access-token usernames if needed. Public Bitbucket Cloud repositories do not require a token.
+For private Bitbucket Cloud repositories, enter either token type in the **Personal access token** field. Use a repository URL such as `https://bitbucket.org/workspace/repo`; no username or token is needed in the URL. For Bitbucket, Obot tries the personal API-token username first, then the repository access-token username, and finally its default token username if needed. Public Bitbucket Cloud repositories do not require a token.
 
 If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable.
 

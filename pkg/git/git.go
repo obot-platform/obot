@@ -60,13 +60,8 @@ func cloneAuthAttempts(host, token, fallbackToken string) []cloneAuthAttempt {
 	if token == "" {
 		return attempts
 	}
-	attempts = append(attempts, cloneAuthAttempt{
-		name:     name,
-		token:    token,
-		username: "x-access-token",
-	})
 	if host == "bitbucket.org" {
-		return append(attempts,
+		attempts = append(attempts,
 			cloneAuthAttempt{
 				name:     name + " (personal API token)",
 				token:    token,
@@ -79,7 +74,11 @@ func cloneAuthAttempts(host, token, fallbackToken string) []cloneAuthAttempt {
 			},
 		)
 	}
-	return attempts
+	return append(attempts, cloneAuthAttempt{
+		name:     name,
+		token:    token,
+		username: "x-access-token",
+	})
 }
 
 // NormalizeRepositoryURL validates an HTTPS Git repository URL, trims surrounding

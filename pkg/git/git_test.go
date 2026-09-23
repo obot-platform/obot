@@ -561,7 +561,7 @@ func TestCloneBitbucketCancellation(t *testing.T) {
 			assert.Equal(t, "/org/repo.git/info/refs", req.URL.Path)
 			username, password, ok := req.BasicAuth()
 			assert.True(t, ok)
-			assert.Equal(t, "x-access-token", username)
+			assert.Equal(t, "x-bitbucket-api-token-auth", username)
 			assert.Equal(t, "test-api-token", password)
 			return nil, stop
 		}),
@@ -598,13 +598,13 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			name:          "retry unauthorized with repository token username",
 			host:          "bitbucket.org",
 			status:        http.StatusUnauthorized,
-			wantUsernames: []string{"x-access-token", "x-bitbucket-api-token-auth", "x-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
 		},
 		{
 			name:          "retry forbidden with repository token username",
 			host:          "bitbucket.org",
 			status:        http.StatusForbidden,
-			wantUsernames: []string{"x-access-token", "x-bitbucket-api-token-auth", "x-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
 		},
 		{
 			name:          "invalid token exhausts usernames and refs",
@@ -612,20 +612,20 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			host:          "bitbucket.org",
 			status:        http.StatusUnauthorized,
 			rejectAll:     true,
-			wantUsernames: []string{"x-access-token", "x-access-token", "x-bitbucket-api-token-auth", "x-bitbucket-api-token-auth", "x-token-auth", "x-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-bitbucket-api-token-auth", "x-token-auth", "x-token-auth", "x-access-token", "x-access-token"},
 		},
 		{
 			name:          "fallback token supports repository tokens",
 			host:          "bitbucket.org",
 			status:        http.StatusUnauthorized,
 			fallbackToken: true,
-			wantUsernames: []string{"", "x-access-token", "x-bitbucket-api-token-auth", "x-token-auth"},
+			wantUsernames: []string{"", "x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
 		},
 		{
 			name:          "server errors also try repository token username",
 			host:          "bitbucket.org",
 			status:        http.StatusInternalServerError,
-			wantUsernames: []string{"x-access-token", "x-bitbucket-api-token-auth", "x-token-auth"},
+			wantUsernames: []string{"x-bitbucket-api-token-auth", "x-token-auth", "x-access-token"},
 		},
 		{
 			name:          "other hosts do not use Bitbucket usernames",
@@ -673,7 +673,7 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 			}
 			require.Error(t, err)
 			assert.Equal(t, tt.wantUsernames, usernames)
-			if !tt.rejectAll && tt.wantUsernames[len(tt.wantUsernames)-1] == "x-token-auth" {
+			if !tt.rejectAll && tt.host == "bitbucket.org" {
 				assert.ErrorIs(t, err, stop)
 			}
 		})
