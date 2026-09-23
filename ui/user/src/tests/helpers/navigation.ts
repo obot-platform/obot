@@ -1,4 +1,4 @@
-import { page as pageState } from '../../../node_modules/@sveltejs/kit/src/runtime/client/state.svelte.js';
+import { page as pageState } from '$app/state';
 
 export function applyTestGoto(url: string | URL): Promise<void> {
 	const value = String(url);
@@ -12,6 +12,6 @@ export function applyTestGoto(url: string | URL): Promise<void> {
 		const queryIndex = value.indexOf('?');
 		next.search = queryIndex >= 0 ? value.slice(queryIndex) : '';
 	}
-	pageState.url = next;
+	pageState.url = next as unknown as URL & { pathname: `/${string}` | `/${string}/${string}` };
 	return Promise.resolve();
 }

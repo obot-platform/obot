@@ -63,7 +63,17 @@
 	let { vmcp, toolFlow, onUpdated, readonly = false }: Props = $props();
 	let profiles = $state<Profile[]>([]);
 	let draft = $state<ProfileManifest>();
-	let editingId = $derived(page.url.searchParams.get('profile'));
+	let editingId = $derived.by(() => {
+		const profileParam = page.url.searchParams.get('profile');
+		if (!profileParam) {
+			return undefined;
+		}
+		const profileById = profiles.find((profile) => profile.id === profileParam);
+		if (profileById) {
+			return profileById.id;
+		}
+		return undefined;
+	});
 	let loadedProfileId = $state<string>();
 	let saving = $state(false);
 	let error = $state('');
@@ -238,7 +248,8 @@
 		};
 	}
 
-	function profileToManifest(profile: Profile): VMCPProfile {
+	function profileToManifest(target: Profile): VMCPProfile {
+		let profile = { ...target };
 		if (profile.allowAllComponents && profileIsRefined(profile)) {
 			materializeExplicitGrants(profile);
 		}
