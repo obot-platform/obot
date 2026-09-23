@@ -126,7 +126,7 @@ func integrationServerConfig(httpPort, storagePort int, workDir string) services
 		AuthenticatedRateLimit:            200,
 		AuditLogsMode:                     "off",
 		MCPRuntimeBackend:                 "docker",
-		MCPBaseImage:                      "ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.26.0",
+		MCPBaseImage:                      "ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.26.1",
 		MCPSecretBindingAllowedLabel:      "obot.obot.ai/allow-secret-binding",
 		SingleUserIdleServerShutdownHours: -1,
 		MultiUserIdleServerShutdownHours:  -1,
