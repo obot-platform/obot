@@ -59,6 +59,7 @@ type MCPHandler struct {
 	serverURL                 string
 	secretBindingAllowedLabel string
 	forceDynamicClient        bool
+	attestationPolicy         mcp.AttestationPolicy
 
 	// shutdownMCPServer is only injected for testing
 	shutdownMCPServer func(string) error
@@ -73,8 +74,9 @@ type urlTemplateConfigurationError struct {
 	key string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string, forceDynamicClient bool, attestationPolicy mcp.AttestationPolicy) *MCPHandler {
 	return &MCPHandler{
+		attestationPolicy:         attestationPolicy,
 		mcpSessionManager:         mcpLoader,
 		mcpOAuthChecker:           mcpOAuthChecker,
 		acrHelper:                 acrHelper,
@@ -243,7 +245,26 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserID:               powerUserID,
 		NeedsUpdate:               entry.Status.NeedsUpdate,
 		OAuthCredentialConfigured: entry.Status.OAuthCredentialConfigured,
+		AttestationStatus:         convertAttestationStatus(entry.Status.Attestation),
 		ConnectURL:                defaultCatalogEntryConnectURL(serverURL, entry),
+	}
+}
+
+func convertAttestationStatus(status *v1.MCPAttestationStatus) *types.MCPAttestationStatus {
+	if status == nil {
+		return nil
+	}
+	return &types.MCPAttestationStatus{
+		Verified:     status.Verified,
+		SubjectMatch: status.SubjectMatch,
+		Score:        status.Score,
+		Grade:        status.Grade,
+		FailCount:    status.FailCount,
+		FailedChecks: status.FailedChecks,
+		Instrument:   status.Instrument,
+		RanAt:        v1.NewTime(status.RanAt),
+		CheckedAt:    v1.NewTime(status.CheckedAt),
+		Error:        status.Error,
 	}
 }
 
@@ -1349,6 +1370,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		// Block server creation if OAuth is required but not configured
 		if entryRequiresStaticOAuthCreds(catalogEntry) {
 			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
+		}
+
+		// Block server creation if the entry's attestation is missing, unverified, stale, or fails policy.
+		if err := m.attestationPolicy.Admit(catalogEntry, utils.Digest(catalogEntry.Spec.Manifest)); err != nil {
+			return types.NewErrBadRequest("%v", err)
 		}
 
 		// Catalog entries no longer declare a sharing mode. They are mapped to the

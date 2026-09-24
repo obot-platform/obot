@@ -113,6 +113,8 @@ type Config struct {
 	MCPOAuthClientExpiration       string   `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPOAuthClientNativeExceptions []string `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
 	ForceDynamicClient             bool     `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
+	MCPAttestationMinScore         float64  `usage:"Minimum scout attestation score (0-100) a catalog entry's attestation must carry before servers can be created from it; 0 disables the score gate" default:"0" env:"OBOT_SERVER_MCP_ATTESTATION_MIN_SCORE"`
+	MCPAttestationDenyFailIn       []string `usage:"Comma-separated check categories (for example auth,protocol) in which a failed scout check blocks server creation from an attested catalog entry" env:"OBOT_SERVER_MCP_ATTESTATION_DENY_FAIL_IN"`
 	ProductAnalyticsForceEnabled   bool     `usage:"Force-enable product analytics and disable the consent API" default:"false"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
@@ -238,6 +240,7 @@ type Services struct {
 	MCPOAuthClientSecretExpiration time.Duration
 	MCPOAuthClientNativeExceptions []string
 	ForceDynamicClient             bool
+	MCPAttestationPolicy           mcp.AttestationPolicy
 	ProductTelemetryConsent        *producttelemetry.Consent
 	ProductTelemetryPublisher      *producttelemetry.Publisher
 
@@ -548,6 +551,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 	if oauthClientExpiration < time.Minute {
 		return nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
+	}
+
+	attestationPolicy, err := mcp.NewAttestationPolicy(config.MCPAttestationMinScore, config.MCPAttestationDenyFailIn)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MCP attestation policy: %w", err)
 	}
 
 	runtimeIsK8s := mcp.IsKubernetesBackend(config.MCPRuntimeBackend)
@@ -1398,6 +1406,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
+		MCPAttestationPolicy:           attestationPolicy,
 		ProductTelemetryConsent:        telemetryConsent,
 		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, licenseProvider, config.MCPRuntimeBackend),
 		AccessControlRuleHelper:        acrHelper,

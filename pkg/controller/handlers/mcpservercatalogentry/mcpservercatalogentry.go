@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 	"uuid"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -20,6 +24,17 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// attestationRecheckInterval is how often a verified attestation is fetched again, so a
+	// statement re-published at the same URL after a new scout run is picked up without the
+	// manifest changing.
+	attestationRecheckInterval = 24 * time.Hour
+	// attestationRetryInterval is how often a failed verification is retried. A statement
+	// that was unreachable or wrong is not retried on every event: that would be a loop of
+	// outbound requests driven by the entry's own status updates.
+	attestationRetryInterval = 10 * time.Minute
+)
+
 type credentialClient interface {
 	RevealCredential(ctx context.Context, contexts []string, name string) (gatewaytypes.Credential, error)
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
@@ -27,14 +42,67 @@ type credentialClient interface {
 
 // Handler handles operations for MCP server catalog entries
 type Handler struct {
-	gatewayClient *gclient.Client
+	gatewayClient     *gclient.Client
+	attestationClient *http.Client
 }
 
-// NewHandler creates a new Handler with the given gateway client.
-func NewHandler(gatewayClient *gclient.Client) *Handler {
+// NewHandler creates a new Handler with the given gateway client. Attestations are fetched
+// with the same local-network restrictions that apply to remote MCP servers.
+func NewHandler(gatewayClient *gclient.Client, remoteURLValidationConfig mcp.RemoteMCPURLValidationConfig) *Handler {
 	return &Handler{
 		gatewayClient: gatewayClient,
+		attestationClient: safehttp.NewClient(safehttp.Options{
+			BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
+			BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
+			BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,
+			Timeout:        mcp.AttestationFetchTimeout,
+		}),
 	}
+}
+
+// ReconcileAttestation keeps Status.Attestation in step with Spec.Manifest.Attestation. The
+// result is keyed on the manifest hash, so an edited entry is re-verified before it can be
+// admitted again, and refreshed on an interval so a re-published statement is noticed.
+func (h *Handler) ReconcileAttestation(req router.Request, resp router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	ref := entry.Spec.Manifest.Attestation
+
+	if ref == nil {
+		if entry.Status.Attestation != nil {
+			entry.Status.Attestation = nil
+			return req.Client.Status().Update(req.Ctx, entry)
+		}
+		return nil
+	}
+
+	hash := utils.Digest(entry.Spec.Manifest)
+	if current := entry.Status.Attestation; current != nil && current.ManifestHash == hash && current.CheckedAt != nil {
+		interval := attestationRetryInterval
+		if current.Verified && current.SubjectMatch {
+			interval = attestationRecheckInterval
+		}
+		if remaining := interval - time.Since(current.CheckedAt.Time); remaining > 0 {
+			resp.RetryAfter(remaining)
+			return nil
+		}
+	}
+
+	var endpoint string
+	if entry.Spec.Manifest.RemoteConfig != nil {
+		endpoint = entry.Spec.Manifest.RemoteConfig.FixedURL
+	}
+	status := mcp.VerifyAttestation(req.Ctx, h.attestationClient, ref.URL, endpoint)
+	status.ManifestHash = hash
+	entry.Status.Attestation = &status
+
+	if status.Verified && status.SubjectMatch {
+		slog.Info("Verified MCP catalog entry attestation", "entry", entry.Name, "score", status.Score, "grade", status.Grade, "failed", status.FailCount)
+		resp.RetryAfter(attestationRecheckInterval)
+	} else {
+		slog.Warn("MCP catalog entry attestation not verified", "entry", entry.Name, "error", status.Error)
+		resp.RetryAfter(attestationRetryInterval)
+	}
+	return req.Client.Status().Update(req.Ctx, entry)
 }
 
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.

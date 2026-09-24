@@ -53,6 +53,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rancher/remotedialer v0.6.2-0.20260812153830-1c09457bfdb3
 	github.com/rs/cors v1.11.1
+	github.com/sebastienrousseau/scout-reporting v0.0.4
 	github.com/sethvargo/go-limiter v1.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2

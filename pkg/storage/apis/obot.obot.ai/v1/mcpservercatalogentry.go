@@ -53,6 +53,26 @@ type MCPServerCatalogEntryStatus struct {
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this remote catalog entry.
 	// Only relevant when Runtime is "remote" and RemoteConfig.StaticOAuthRequired is true.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	// Attestation is the result of verifying Spec.Manifest.Attestation. Nil when the manifest
+	// references no attestation or the controller has not checked it yet.
+	Attestation *MCPAttestationStatus `json:"attestation,omitempty"`
+}
+
+// MCPAttestationStatus records what the controller found at Spec.Manifest.Attestation.URL.
+// See types.MCPAttestationStatus for the field meanings; this adds the manifest hash the
+// check was made for, so a stale result is never mistaken for a current one.
+type MCPAttestationStatus struct {
+	ManifestHash string       `json:"manifestHash,omitempty"`
+	Verified     bool         `json:"verified"`
+	SubjectMatch bool         `json:"subjectMatch"`
+	Score        float64      `json:"score,omitempty"`
+	Grade        string       `json:"grade,omitempty"`
+	FailCount    int          `json:"failCount,omitempty"`
+	FailedChecks []string     `json:"failedChecks,omitempty"`
+	Instrument   string       `json:"instrument,omitempty"`
+	RanAt        *metav1.Time `json:"ranAt,omitempty"`
+	CheckedAt    *metav1.Time `json:"checkedAt,omitempty"`
+	Error        string       `json:"error,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

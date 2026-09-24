@@ -848,6 +848,10 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		}
 	}
 
+	if err := ValidateAttestationRef(manifest); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {
 		return validator.ValidateCatalogConfig(ctx, manifest)
 	}
