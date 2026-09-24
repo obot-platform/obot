@@ -705,6 +705,7 @@ function mcpConfigKey(name: string, id: string, used: Set<string>) {
 }
 
 export function vmcpLocalhostCallbackPaths(vmcp: VMCP): string[] {
+	if (vmcp.localhostCallbackPaths) return vmcp.localhostCallbackPaths;
 	return [
 		...new Set(
 			(vmcp.components ?? []).flatMap((component) =>
