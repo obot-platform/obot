@@ -792,5 +792,5 @@
 	licenseKey={license.current.licenseKey}
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={handleCommunitySubmit}
-	signUpMessage="Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter."
+	signUpMessage="Register once to get free access to all additional providers supported by Obot."
 />

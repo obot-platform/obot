@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CommunitySignUpForm from '$lib/components/admin/license/CommunitySignUpForm.svelte';
@@ -8,11 +9,7 @@
 	import PromptsInspector from '$lib/components/mcp/tester/PromptsInspector.svelte';
 	import ResourcesInspector from '$lib/components/mcp/tester/ResourcesInspector.svelte';
 	import ToolsInspector from '$lib/components/mcp/tester/ToolsInspector.svelte';
-	import {
-		COMMUNITY_ENTITLEMENT,
-		ENTERPRISE_ENTITLEMENT,
-		SETUP_COMMUNITY_SIGNUP_BANNER_COPY
-	} from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
@@ -75,10 +72,10 @@
 	);
 
 	const sections: Array<{ id: TesterSection; label: string }> = [
-		{ id: 'chat', label: 'Chat' },
 		{ id: 'tools', label: 'Tools' },
 		{ id: 'prompts', label: 'Prompts' },
 		{ id: 'resources', label: 'Resources' },
+		{ id: 'chat', label: 'Chat' },
 		{ id: 'logs', label: 'MCP Log' }
 	];
 
@@ -315,10 +312,17 @@
 										id="mcp-tester-community-signup-heading"
 										class="shrink-0 text-lg font-semibold"
 									>
-										Unlock Chat & More!
+										Unlock MCP Inspector Chat
 									</h2>
 									<p class="max-w-md text-sm font-light">
-										{SETUP_COMMUNITY_SIGNUP_BANNER_COPY}
+										Register once to get free access to the MCP Inspector Chat, powered by
+										<b class="font-medium">Obot’s model service</b>.
+									</p>
+									<p class="max-w-md text-sm font-light">
+										Prefer not to register? You can still use this feature by
+										<a class="text-link" href={resolve('/models?view=model-providers')}>
+											configuring your own model provider
+										</a>.
 									</p>
 								</div>
 								<div

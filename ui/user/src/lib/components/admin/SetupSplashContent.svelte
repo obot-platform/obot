@@ -73,7 +73,7 @@
 <div class="flex w-full items-center justify-center">
 	<Logo class="size-18" />
 </div>
-<h2 class="mb-8 text-center text-2xl font-semibold">Welcome to Obot!</h2>
+<h2 class="mb-6 text-center text-2xl font-semibold">Welcome to Obot!</h2>
 
 <div class="w-fit self-center px-4">
 	{#if !version.current.authEnabled}
@@ -87,20 +87,15 @@
 			>
 		</p>
 	{/if}
-	<p>By continuing, you agree to the following:</p>
-
-	<div class="flex items-center gap-2 pt-4 text-sm">
-		<div class="mx-2">&#8226;</div>
-		<span>
-			I agree to Obot's
-			<a
-				href="https://obot.ai/eul"
-				rel="external noopener noreferrer"
-				target="_blank"
-				class="text-link">EULA</a
-			>
-		</span>
-	</div>
+	<p>
+		By continuing, I agree to Obot's
+		<a
+			href="https://obot.ai/eul"
+			rel="external noopener noreferrer"
+			target="_blank"
+			class="text-link">EULA</a
+		>.
+	</p>
 	{#if needsProductAnalyticsConsent}
 		<div class="flex items-start gap-2 pt-4 text-sm">
 			<input
@@ -110,18 +105,17 @@
 				bind:checked={shareProductUsage}
 				disabled={loading}
 			/>
-			<span class="italic">
-				<label for="share-product-usage">
-					I agree to share my product usage data to help improve Obot (optional)
-				</label>
+			<label for="share-product-usage" class="leading-tight">
+				Share product usage data
 				<br />
+				<span class="text-muted-content">Help improve Obot by sharing usage data.</span>
 				<a
 					href="https://docs.obot.ai/configuration/product-analytics"
 					rel="external noopener noreferrer"
 					target="_blank"
 					class="text-link">Learn more</a
 				>
-			</span>
+			</label>
 		</div>
 	{/if}
 </div>

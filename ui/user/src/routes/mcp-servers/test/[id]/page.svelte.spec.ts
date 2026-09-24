@@ -1,5 +1,5 @@
 import { page as appPage } from '$app/state';
-import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
+import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 import { preparePageData } from '../../../../tests/helpers/pageData';
 import { createMcpServerDetailsFixtures, getLicenseResponse } from '../../../../tests/mocks/data';
@@ -169,7 +169,7 @@ describe('MCP Tester page', () => {
 					)
 				)
 			);
-			appPage.url.searchParams.delete('tab');
+			appPage.url.searchParams.set('tab', 'chat');
 			const data = await preparePageData<PageData>({
 				...chatModelData,
 				server: {
@@ -321,7 +321,7 @@ describe('MCP Tester page', () => {
 		}
 	});
 
-	it('initializes the shell and defaults an invalid tab to Chat', async () => {
+	it('initializes the shell and defaults an invalid tab to Tools', async () => {
 		await renderTester('not-a-tab');
 
 		const serverName = fixtures.serverSingle.manifest.name;
@@ -329,12 +329,7 @@ describe('MCP Tester page', () => {
 		await expect.element(serverNameHeadings.first()).toBeVisible();
 		await expect.element(serverNameHeadings.nth(1)).toBeVisible();
 		expect(document.title).toBe(`Obot | MCP Tester | ${serverName}`);
-		await expect.element(testerSection('Chat')).toHaveClass(/page-tab-active/);
-		await expect
-			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
-			.toBeVisible();
-		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
+		await expect.element(testerSection('Tools')).toHaveClass(/page-tab-active/);
 		await expect
 			.element(page.getByRole('link', { name: `Back to ${serverName}` }))
 			.toHaveAttribute(
@@ -403,9 +398,18 @@ describe('MCP Tester page', () => {
 		});
 
 		await expect
-			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
+			.element(page.getByRole('heading', { name: 'Unlock MCP Inspector Chat', exact: true }))
 			.toBeVisible();
-		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
+		await expect
+			.element(
+				page.getByText(
+					/Register once to get free access to the MCP Inspector Chat, powered by Obot’s model service/
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'configuring your own model provider' }))
+			.toHaveAttribute('href', '/models?view=model-providers');
 		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 		await expect
 			.element(page.getByRole('region', { name: 'Chat composer' }))

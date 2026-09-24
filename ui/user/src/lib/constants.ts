@@ -461,6 +461,3 @@ export const MODEL_PROVIDERS_ENTITLEMENT = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
 
 export const COMMUNITY_SIGNUP_BANNER_COPY =
 	'Register your email to unlock all remaining IDPs and to receive the Obot Community Newsletter!';
-
-export const SETUP_COMMUNITY_SIGNUP_BANNER_COPY =
-	'Register once to get the free Obot Community Newsletter plus unlimited free access to Enterprise IdP providers and the Obot-powered chat for MCP Inspector.';

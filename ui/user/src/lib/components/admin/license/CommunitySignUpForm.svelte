@@ -74,7 +74,7 @@
 	{#if showHeader}
 		<div class="flex flex-col gap-1">
 			<h4 class="text-center text-lg font-semibold">Get Access Now!</h4>
-			<p class="text-center text-sm font-light text-muted-content">
+			<p class="text-center text-sm font-light">
 				{signUpMessage || 'Register your email below to gain access to additional features!'}
 			</p>
 		</div>

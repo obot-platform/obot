@@ -493,7 +493,7 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(
 						signup.getByText(
-							/Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter/,
+							/Register once to get free access to all additional providers supported by Obot/,
 							{
 								exact: false
 							}

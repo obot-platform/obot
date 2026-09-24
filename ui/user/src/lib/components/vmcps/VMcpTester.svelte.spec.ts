@@ -1,4 +1,5 @@
-import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
+import { page as appPage } from '$app/state';
+import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { type VMCP, type VMCPInstance } from '$lib/services';
 import { vmcpInstances } from '$lib/stores';
 import { createVMCP } from '../../../tests/helpers/mcp';
@@ -99,9 +100,16 @@ async function renderVMcpTester(
 		onLaunch?: () => void;
 		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
 		connectFailureStatus?: number;
+		tab?: string;
 	}
 ) {
 	await preparePageData(overrides);
+
+	if (options?.tab) {
+		appPage.url.searchParams.set('tab', options.tab);
+	} else {
+		appPage.url.searchParams.delete('tab');
+	}
 
 	const target = options?.vmcp ?? vmcp;
 	const instance =
@@ -129,45 +137,63 @@ afterEach(() => {
 
 describe('VMcpTester', () => {
 	it('offers Chat through the model service when no model provider is configured', async () => {
-		await renderVMcpTester({
-			models: [],
-			defaultModelAliases: [],
-			version: {
-				hasModelProvider: false,
-				hasValidLicense: true,
-				mcpTesterModelProxyAvailable: true
-			}
-		});
+		await renderVMcpTester(
+			{
+				models: [],
+				defaultModelAliases: [],
+				version: {
+					hasModelProvider: false,
+					hasValidLicense: true,
+					mcpTesterModelProxyAvailable: true
+				}
+			},
+			{ tab: 'chat' }
+		);
 
 		await expect.element(page.getByRole('region', { name: 'Chat composer' })).toBeVisible();
 	});
 
 	it('requires a valid license when no model provider is configured', async () => {
-		await renderVMcpTester({
-			models: [],
-			defaultModelAliases: [],
-			version: { hasModelProvider: false, hasValidLicense: false }
-		});
+		await renderVMcpTester(
+			{
+				models: [],
+				defaultModelAliases: [],
+				version: { hasModelProvider: false, hasValidLicense: false }
+			},
+			{ tab: 'chat' }
+		);
 
 		await expect
-			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
+			.element(page.getByRole('heading', { name: 'Unlock MCP Inspector Chat', exact: true }))
 			.toBeVisible();
-		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
+		await expect
+			.element(
+				page.getByText(
+					/Register once to get free access to the MCP Inspector Chat, powered by Obot’s model service/
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'configuring your own model provider' }))
+			.toHaveAttribute('href', '/models?view=model-providers');
 		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 	});
 
 	it('keeps the default model alias message when a model provider is configured', async () => {
-		await renderVMcpTester({
-			models: [],
-			defaultModelAliases: [],
-			license: {
-				...getLicenseResponse,
-				licenseKey: 'community-license-key',
-				enterprise: true,
-				entitlements: [COMMUNITY_ENTITLEMENT]
+		await renderVMcpTester(
+			{
+				models: [],
+				defaultModelAliases: [],
+				license: {
+					...getLicenseResponse,
+					licenseKey: 'community-license-key',
+					enterprise: true,
+					entitlements: [COMMUNITY_ENTITLEMENT]
+				},
+				version: { hasModelProvider: true, hasValidLicense: true }
 			},
-			version: { hasModelProvider: true, hasValidLicense: true }
-		});
+			{ tab: 'chat' }
+		);
 
 		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 		await expect
