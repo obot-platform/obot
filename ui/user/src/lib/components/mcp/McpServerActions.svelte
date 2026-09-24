@@ -29,6 +29,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import HowToConnect from './HowToConnect.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
@@ -508,11 +509,20 @@
 		{:else}
 			<div class="mt-4 flex flex-col gap-3">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					id="server-action-connection-url"
-					label="Connection URL"
-					value={entry?.connectURL ?? server?.connectURL ?? ''}
-				/>
+				{#if server?.manifest.remoteConfig?.localhostCallbackEnabled || entry?.manifest.remoteConfig?.localhostCallbackEnabled}
+					<HowToConnect
+						localhostCallback
+						id={entry?.id ?? server?.id ?? 'server'}
+						displayName={entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
+						url={entry?.connectURL ?? server?.connectURL ?? ''}
+					/>
+				{:else}
+					<CopyField
+						id="server-action-connection-url"
+						label="Connection URL"
+						value={entry?.connectURL ?? server?.connectURL ?? ''}
+					/>
+				{/if}
 			</div>
 		{/if}
 		<div class="flex grow"></div>

@@ -3,7 +3,10 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { VMCP } from '$lib/services';
 	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import { buildConnectAllSnippets } from '$lib/services/vmcps/utils';
+	import {
+		buildConnectAllSnippets,
+		vmcpRequiresLocalhostCallback
+	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
@@ -57,6 +60,18 @@
 				No vMCPs currently have a connection URL to copy.
 			</p>
 		{:else if selectedConnectAllSnippet}
+			{#if vmcps.some(vmcpRequiresLocalhostCallback)}
+				<p class="text-sm text-muted-content">
+					Some vMCPs require localhost OAuth. <a
+						class="link"
+						href="https://docs.obot.ai/installation/cli-setup"
+						target="_blank"
+						rel="noreferrer">Install the Obot CLI</a
+					>
+					and make <code>obot</code> available on your PATH. Run your browser and the CLI on the same
+					computer.
+				</p>
+			{/if}
 			{#if connectAllSnippets.length > 1}
 				<div role="tablist" class="tabs tabs-box" aria-label="Configuration files">
 					{#each connectAllSnippets as snippet (snippet.id)}
