@@ -18,6 +18,10 @@
 	}
 
 	let { chat, session }: Props = $props();
+	const suggestedPrompts = [
+		'Help me test this MCP Server',
+		'What tools are available from this MCP Server?'
+	];
 	let messagesElement: HTMLElement;
 	let latestMessageContent = $derived.by(() => {
 		const latest = chat.timeline.at(-1);
@@ -153,6 +157,21 @@
 	{/if}
 
 	<ToolApprovalPrompt {chat} />
+
+	{#if chat.timeline.length === 0}
+		<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Suggested messages">
+			{#each suggestedPrompts as prompt (prompt)}
+				<button
+					type="button"
+					class="border-base-300 bg-base-100 hover:bg-base-200 rounded-2xl border px-4 py-2 text-left text-sm transition-colors disabled:opacity-50"
+					disabled={!chat.canSend}
+					onclick={() => void chat.send(prompt)}
+				>
+					{prompt}
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	<ChatComposer {chat} {session} />
 </div>

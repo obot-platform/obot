@@ -133,6 +133,39 @@ function transcriptCalls() {
 }
 
 describe('Chat', () => {
+	it.each(['Help me test this MCP Server', 'What tools are available from this MCP Server?'])(
+		'sends the suggested prompt %s',
+		async (prompt) => {
+			const session = new MCPTesterSession(
+				server,
+				{ name: 'obot-mcp-tester', version: 'test' },
+				mcpFetch()
+			);
+			await session.initialize();
+			vi.spyOn(session, 'snapshotChatTools').mockResolvedValue([]);
+			const chatFetch = vi.fn<typeof fetch>(async () =>
+				sse({ type: 'assistant_message_start' }, { type: 'completion', reason: 'stop' })
+			);
+			const chat = new MCPTesterChat(session, server.id, chatFetch);
+			render(Chat, { chat, session });
+
+			const suggestions = page.getByRole('group', { name: 'Suggested messages' });
+			const composer = page.getByRole('textbox', { name: 'Message' });
+			expect(
+				suggestions.element().compareDocumentPosition(composer.element()) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy();
+
+			await page.getByRole('button', { name: prompt }).click();
+			await vi.waitFor(() => expect(chatFetch).toHaveBeenCalledTimes(1));
+			expect(chat.messages.at(-1)?.content).toEqual([{ type: 'text', text: prompt }]);
+			await expect.element(page.getByRole('article', { name: 'User message' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: prompt })).not.toBeInTheDocument();
+
+			session.close();
+		}
+	);
+
 	it('renders the assistant response in its own bordered card with markdown styling', async () => {
 		const session = await renderChatWithResponse();
 		const article = page.getByRole('article', { name: 'Assistant message' });
