@@ -65,14 +65,20 @@ func newBootstrapTestClient(t *testing.T) (*client.Client, context.Context) {
 func ensureOwner(t *testing.T, c *client.Client, username, email, authProviderName string) {
 	t.Helper()
 
+	ensureUserWithRole(t, c, username, email, authProviderName, types2.RoleOwner)
+}
+
+func ensureUserWithRole(t *testing.T, c *client.Client, username, email, authProviderName string, role types2.Role) {
+	t.Helper()
+
 	if _, err := c.EnsureIdentityWithRole(t.Context(), &gwtypes.Identity{
 		Email:                 email,
 		AuthProviderName:      authProviderName,
 		AuthProviderNamespace: "default",
 		ProviderUsername:      username,
 		ProviderUserID:        username,
-	}, "", types2.RoleOwner, client.UserLimit{Unlimited: true}); err != nil {
-		t.Fatalf("failed to ensure owner identity: %v", err)
+	}, "", role, client.UserLimit{Unlimited: true}); err != nil {
+		t.Fatalf("failed to ensure user identity: %v", err)
 	}
 }
 
@@ -127,6 +133,26 @@ func TestBootstrapEnabledDependsOnConfiguredProviderOwner(t *testing.T) {
 	}
 	if setupEnabled {
 		t.Fatal("expected setup disabled when a configured auth provider owner exists, even with bootstrap force-enabled")
+	}
+}
+
+func TestSetupDisabledForOwnerWithAdditionalRoles(t *testing.T) {
+	c, ctx := newBootstrapTestClient(t)
+
+	ensureUserWithRole(t, c, "combined-owner", "combined-owner@example.com", "configured-provider", types2.RoleOwner|types2.RoleAuditor)
+
+	b := &Bootstrap{
+		authEnabled:        true,
+		gatewayClient:      c,
+		authProviderGetter: staticAuthProviderGetter("configured-provider"),
+	}
+
+	setupEnabled, err := b.SetupEnabled(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if setupEnabled {
+		t.Fatal("expected setup disabled for a configured-provider owner with additional roles")
 	}
 }
 
