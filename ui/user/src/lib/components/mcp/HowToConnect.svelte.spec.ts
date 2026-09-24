@@ -12,14 +12,17 @@ it('installs the CLI mapping for localhost callbacks', async () => {
 	await expect
 		.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
 		.toHaveAttribute('href', 'https://docs.obot.ai/installation/cli-setup');
-	const cursorLink = page.getByRole('link', { name: 'Add to Cursor' });
+	const cursorLink = page.getByRole('link', { name: /Add to Cursor$/ });
 	await expect.element(cursorLink).toBeVisible();
 	const cursor = new URL(cursorLink.element().getAttribute('href')!);
 	expect(JSON.parse(atob(cursor.searchParams.get('config')!))).toEqual({
 		command: 'obot',
 		args: ['mcp', 'connect', url]
 	});
-	const vscode = page.getByRole('link', { name: 'Add to VS Code' }).element().getAttribute('href')!;
+	const vscode = page
+		.getByRole('link', { name: /Add to VS Code$/ })
+		.element()
+		.getAttribute('href')!;
 	expect(JSON.parse(decodeURIComponent(vscode.split('?')[1]))).toEqual({
 		name: 'Vercel',
 		type: 'stdio',
@@ -40,7 +43,7 @@ it('installs the CLI mapping for localhost callbacks', async () => {
 it('keeps HTTP installation for connections without localhost callbacks', async () => {
 	await preparePageData();
 	await render(HowToConnect, { id: 'remote', displayName: 'Remote', url });
-	const cursorLink = page.getByRole('link', { name: 'Add to Cursor' });
+	const cursorLink = page.getByRole('link', { name: /Add to Cursor$/ });
 	await expect.element(cursorLink).toBeVisible();
 	const cursor = new URL(cursorLink.element().getAttribute('href')!);
 	expect(JSON.parse(atob(cursor.searchParams.get('config')!))).toEqual({ type: 'http', url });

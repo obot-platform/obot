@@ -1035,6 +1035,8 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	server.Spec.Manifest.Config = slices.Clone(entry.Spec.Manifest.Config)
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
 	serverRemote.TunnelName = entryRemote.TunnelName
+	serverRemote.LocalhostCallbackEnabled = entryRemote.LocalhostCallbackEnabled
+	serverRemote.LocalhostCallbackPath = entryRemote.LocalhostCallbackPath
 	switch {
 	case entryRemote.Hostname != "":
 		serverRemote.Hostname = entryRemote.Hostname

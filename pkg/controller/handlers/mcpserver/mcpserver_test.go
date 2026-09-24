@@ -2135,3 +2135,17 @@ func TestEnsureMCPCatalogIDRecordsScopeForSnapshotBackedServers(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoteConfigLocalhostCallbackDrift(t *testing.T) {
+	server := &types.RemoteRuntimeConfig{}
+	entry := &types.RemoteCatalogConfig{LocalhostCallbackEnabled: true}
+	require.True(t, remoteConfigHasDrifted(server, entry))
+	server.LocalhostCallbackEnabled = true
+	require.False(t, remoteConfigHasDrifted(server, entry))
+	entry.LocalhostCallbackPath = "/custom"
+	require.True(t, remoteConfigHasDrifted(server, entry))
+	server.LocalhostCallbackPath = entry.LocalhostCallbackPath
+	require.False(t, remoteConfigHasDrifted(server, entry))
+	entry.LocalhostCallbackEnabled = false
+	require.True(t, remoteConfigHasDrifted(server, entry))
+}
