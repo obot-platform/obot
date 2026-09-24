@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
+	"github.com/obot-platform/obot/pkg/mcp"
 )
 
 const (
@@ -22,11 +23,12 @@ type callbackResult struct {
 }
 
 type callbackHandler struct {
-	gateway     *url.URL
-	openBrowser func(string) error
-	mu          sync.Mutex
-	state       string
-	result      chan callbackResult
+	gateway       *url.URL
+	providerPaths map[string]struct{}
+	openBrowser   func(string) error
+	mu            sync.Mutex
+	state         string
+	result        chan callbackResult
 }
 
 func (h *callbackHandler) fetch(ctx context.Context, args *auth.AuthorizationArgs) (*auth.AuthorizationResult, error) {
@@ -68,6 +70,16 @@ func (h *callbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path != obotCallbackPath {
+		if _, allowed := h.providerPaths[r.URL.Path]; !allowed {
+			http.Error(w, "unexpected OAuth callback path; check --callback-path", http.StatusNotFound)
+			return
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.result == nil {
+			http.Error(w, "no active OAuth authorization", http.StatusBadRequest)
+			return
+		}
 		q := r.URL.Query()
 		if q.Get("state") == "" || (q.Get("code") == "" && q.Get("error") == "") {
 			http.Error(w, "missing OAuth callback parameters", http.StatusBadRequest)
@@ -117,4 +129,25 @@ func gatewayBaseURL(connectURL string) (*url.URL, error) {
 	}
 	u.Path, u.RawPath = prefix, ""
 	return u, nil
+}
+
+func allowedCallbackPaths(paths []string) (map[string]struct{}, error) {
+	if len(paths) == 0 {
+		paths = []string{mcp.DefaultLocalhostCallbackPath}
+	}
+	allowed := make(map[string]struct{}, len(paths))
+	for _, value := range paths {
+		if value == "" {
+			return nil, fmt.Errorf("callback path cannot be empty")
+		}
+		if err := mcp.ValidateLocalhostCallbackPath(value); err != nil {
+			return nil, fmt.Errorf("invalid --callback-path: %w", err)
+		}
+		u, err := url.Parse(value)
+		if err != nil {
+			return nil, err
+		}
+		allowed[u.Path] = struct{}{}
+	}
+	return allowed, nil
 }

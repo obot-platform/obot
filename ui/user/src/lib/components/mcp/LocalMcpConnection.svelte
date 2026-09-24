@@ -2,8 +2,14 @@
 	import { getLocalMcpConfig } from '$lib/services/user/mcp';
 	import CopyField from '../CopyField.svelte';
 
-	let { id, url }: { id: string; url: string } = $props();
-	let config = $derived(JSON.stringify({ mcpServers: { [id]: getLocalMcpConfig(url) } }, null, 2));
+	let {
+		id,
+		url,
+		callbackPaths = []
+	}: { id: string; url: string; callbackPaths?: string[] } = $props();
+	let config = $derived(
+		JSON.stringify({ mcpServers: { [id]: getLocalMcpConfig(url, callbackPaths) } }, null, 2)
+	);
 </script>
 
 <details class="my-4">

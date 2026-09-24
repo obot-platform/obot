@@ -54,3 +54,56 @@ it('keeps HTTP installation for connections without localhost callbacks', async 
 		.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
 		.not.toBeInTheDocument();
 });
+
+it('includes custom callback paths in install links, commands, and JSON', async () => {
+	await preparePageData();
+	await render(HowToConnect, {
+		id: 'custom',
+		displayName: 'Custom',
+		url,
+		localhostCallback: true,
+		callbackPaths: ['/custom/callback', '/oauth/callback', '/custom/callback']
+	});
+	const args = [
+		'mcp',
+		'connect',
+		url,
+		'--callback-path',
+		'/custom/callback',
+		'--callback-path',
+		'/oauth/callback'
+	];
+	const cursorLink = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(cursorLink).toBeVisible();
+	const cursor = new URL(cursorLink.element().getAttribute('href')!);
+	expect(JSON.parse(atob(cursor.searchParams.get('config')!))).toEqual({ command: 'obot', args });
+	const vscode = page
+		.getByRole('link', { name: /Add to VS Code$/ })
+		.element()
+		.getAttribute('href')!;
+	expect(JSON.parse(decodeURIComponent(vscode.split('?')[1]))).toEqual({
+		name: 'Custom',
+		type: 'stdio',
+		command: 'obot',
+		args
+	});
+	await expect
+		.element(page.getByCSS('#command-codex'))
+		.toHaveValue(
+			`codex mcp add "custom" -- obot mcp connect "${url}" --callback-path '/custom/callback' --callback-path '/oauth/callback'`
+		);
+	await expect
+		.element(page.getByCSS('#command-claude'))
+		.toHaveValue(
+			`claude mcp add --transport stdio "custom" -- obot mcp connect "${url}" --callback-path '/custom/callback' --callback-path '/oauth/callback'`
+		);
+	await page.getByText('Connect with the Obot CLI (localhost OAuth)', { exact: true }).click();
+	await expect
+		.element(page.getByCSS('#local-mcp-config-custom'))
+		.toHaveTextContent(
+			JSON.stringify({ mcpServers: { custom: { command: 'obot', args } } }, null, 2).replace(
+				/\s+/g,
+				' '
+			)
+		);
+});

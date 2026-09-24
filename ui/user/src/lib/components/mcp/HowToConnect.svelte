@@ -17,6 +17,7 @@
 		displayName: string;
 		url: string;
 		localhostCallback?: boolean;
+		callbackPaths?: string[];
 		onLaunch?: () => void;
 		onEdit?: () => void;
 		onReauthenticate?: () => void;
@@ -27,6 +28,7 @@
 		displayName,
 		url,
 		localhostCallback = false,
+		callbackPaths = [],
 		onLaunch,
 		onEdit,
 		onReauthenticate
@@ -71,7 +73,13 @@
 		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map(
 			(client) => ({
 				client,
-				link: getAiClientMagicLink(client, displayName, connectUrl, localhostCallback)
+				link: getAiClientMagicLink(
+					client,
+					displayName,
+					connectUrl,
+					localhostCallback,
+					callbackPaths
+				)
 			})
 		);
 	}
@@ -81,7 +89,7 @@
 		const preferred = prefs.length ? new Set(prefs) : new Set(COMMAND_SUPPORTED_AI_CLIENTS);
 		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map((client) => ({
 			client,
-			command: getAiClientCommand(client, id, url, localhostCallback)
+			command: getAiClientCommand(client, id, url, localhostCallback, callbackPaths)
 		}));
 	}
 
@@ -198,7 +206,7 @@
 	{/if}
 
 	{#if localhostCallback}
-		<LocalMcpConnection {id} {url} />
+		<LocalMcpConnection {id} {url} {callbackPaths} />
 	{/if}
 
 	{#if !localhostCallback && (onLaunch || onEdit || onReauthenticate)}

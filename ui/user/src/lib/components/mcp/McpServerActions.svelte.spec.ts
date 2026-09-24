@@ -49,3 +49,19 @@ for (const kind of ['entry', 'server'] as const) {
 		});
 	}
 }
+
+it('includes the custom callback path in post-launch configuration', async () => {
+	await preparePageData();
+	const entry = createMCPCatalogEntry({ id: 'custom-entry', name: 'Custom', runtime: 'remote' });
+	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	entry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	await render(McpServerActions, { entry, promptInitialLaunch: true });
+	await expect
+		.element(page.getByCSS('#command-codex'))
+		.toHaveValue(
+			`codex mcp add "custom-entry" -- obot mcp connect "${entry.connectURL}" --callback-path '/custom/callback'`
+		);
+});

@@ -393,3 +393,29 @@ it('uses the CLI when any vMCP component requires a localhost callback', async (
 		.element(page.getByRole('button', { name: 'Preconfigure server' }))
 		.not.toBeInTheDocument();
 });
+
+it('includes all distinct vMCP provider callback paths in installation', async () => {
+	const vmcp = configurableVMcp();
+	const first = vmcp.components![0];
+	first.catalogEntry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const second = structuredClone(first);
+	second.id = 'second';
+	second.name = 'second';
+	second.catalogEntry.manifest.remoteConfig!.localhostCallbackPath = '';
+	vmcp.components!.push(second);
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.args.slice(3)).toEqual([
+		'--callback-path',
+		'/custom/callback',
+		'--callback-path',
+		'/oauth/callback'
+	]);
+});

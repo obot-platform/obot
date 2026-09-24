@@ -85,3 +85,27 @@ it('uses the CLI instead of a direct URL for a localhost callback server', async
 	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
 	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
 });
+
+it('passes the catalog callback path to client installation', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	entry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.args).toEqual([
+		'mcp',
+		'connect',
+		entry.connectURL,
+		'--callback-path',
+		'/custom/callback'
+	]);
+});

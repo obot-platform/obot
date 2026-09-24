@@ -1103,23 +1103,44 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }
 
-export function getLocalMcpConfig(url: string) {
-	return { command: 'obot', args: ['mcp', 'connect', url] };
+export function getLocalhostCallbackPaths(config?: {
+	localhostCallbackEnabled?: boolean;
+	localhostCallbackPath?: string;
+}): string[] {
+	return config?.localhostCallbackEnabled
+		? [config.localhostCallbackPath || '/oauth/callback']
+		: [];
+}
+
+export function getLocalMcpConfig(url: string, callbackPaths: string[] = []) {
+	const paths = [...new Set(callbackPaths)];
+	const flags =
+		paths.length === 1 && paths[0] === '/oauth/callback'
+			? []
+			: paths.flatMap((path) => ['--callback-path', path]);
+	return { command: 'obot', args: ['mcp', 'connect', url, ...flags] };
 }
 
 export function getAiClientCommand(
 	client: AiClient,
 	id: string,
 	url: string,
-	localhostCallback = false
+	localhostCallback = false,
+	callbackPaths: string[] = []
 ): string {
 	const idArg = JSON.stringify(id);
 	const urlArg = JSON.stringify(url);
 
 	if (localhostCallback) {
+		// Quote paths as literal shell arguments, including spaces and shell metacharacters.
+		const flags = getLocalMcpConfig(url, callbackPaths)
+			.args.slice(3)
+			.map((arg) => (arg === '--callback-path' ? arg : "'" + arg.replaceAll("'", "'\"'\"'") + "'"))
+			.join(' ');
+		const suffix = flags ? ` ${flags}` : '';
 		const commands = {
-			[AiClient.Claude]: `claude mcp add --transport stdio ${idArg} -- obot mcp connect ${urlArg}`,
-			[AiClient.Codex]: `codex mcp add ${idArg} -- obot mcp connect ${urlArg}`
+			[AiClient.Claude]: `claude mcp add --transport stdio ${idArg} -- obot mcp connect ${urlArg}${suffix}`,
+			[AiClient.Codex]: `codex mcp add ${idArg} -- obot mcp connect ${urlArg}${suffix}`
 		};
 		return commands[client as keyof typeof commands] ?? '';
 	}
@@ -1134,9 +1155,12 @@ export function getAiClientCommand(
 function generateCursorMagicLink(
 	displayName: string,
 	url: string,
-	localhostCallback: boolean
+	localhostCallback: boolean,
+	callbackPaths: string[]
 ): string {
-	const cursorConfig = localhostCallback ? getLocalMcpConfig(url) : { type: 'http', url };
+	const cursorConfig = localhostCallback
+		? getLocalMcpConfig(url, callbackPaths)
+		: { type: 'http', url };
 	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify(cursorConfig));
 	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(displayName)}&config=${encodeURIComponent(cursorBase64)}`;
 }
@@ -1144,11 +1168,14 @@ function generateCursorMagicLink(
 function generateVsCodeMagicLink(
 	displayName: string,
 	url: string,
-	localhostCallback: boolean
+	localhostCallback: boolean,
+	callbackPaths: string[]
 ): string {
 	const vscodeConfig = {
 		name: displayName,
-		...(localhostCallback ? { type: 'stdio', ...getLocalMcpConfig(url) } : { type: 'http', url })
+		...(localhostCallback
+			? { type: 'stdio', ...getLocalMcpConfig(url, callbackPaths) }
+			: { type: 'http', url })
 	};
 	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(vscodeConfig))}`;
 }
@@ -1157,13 +1184,14 @@ export function getAiClientMagicLink(
 	client: AiClient,
 	displayName: string,
 	url: string,
-	localhostCallback = false
+	localhostCallback = false,
+	callbackPaths: string[] = []
 ): string {
 	const fn = {
 		[AiClient.Cursor]: generateCursorMagicLink,
 		[AiClient.VSCode]: generateVsCodeMagicLink
 	};
 	return fn[client as keyof typeof fn]
-		? fn[client as keyof typeof fn](displayName, url, localhostCallback)
+		? fn[client as keyof typeof fn](displayName, url, localhostCallback, callbackPaths)
 		: '';
 }

@@ -90,3 +90,33 @@ for (const local of [true, false]) {
 		}
 	});
 }
+
+it('includes component callback paths in bulk JSON, TOML, and enterprise allowlists', () => {
+	const vmcps = connections();
+	const local = vmcps[1];
+	const component = local.components![0];
+	component.catalogEntry.manifest.remoteConfig!.localhostCallbackPath = '/custom/callback';
+	const second = structuredClone(component);
+	second.id = 'second';
+	second.catalogEntry.manifest.remoteConfig!.localhostCallbackPath = '';
+	local.components!.push(second, structuredClone(component));
+	const args = [
+		...stdio.args,
+		'--callback-path',
+		'/custom/callback',
+		'--callback-path',
+		'/oauth/callback'
+	];
+	for (const client of COMMON_AI_CLIENTS) {
+		const value = buildConnectAllSnippets(client.id, vmcps, false)[0].value;
+		if (client.id === AiClient.Codex) {
+			expect(value).toContain(`args = ${JSON.stringify(args)}`);
+		} else {
+			const servers = JSON.parse(value)[client.id === AiClient.VSCode ? 'servers' : 'mcpServers'];
+			expect(servers.Local.args).toEqual(args);
+			expect(servers.Remote).toEqual(http);
+		}
+	}
+	const policy = JSON.parse(buildConnectAllSnippets(AiClient.Claude, vmcps, true)[0].value);
+	expect(policy.allowedMcpServers[1]).toEqual({ serverCommand: ['obot', ...args] });
+});

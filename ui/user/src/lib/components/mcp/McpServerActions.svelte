@@ -12,6 +12,7 @@
 	} from '$lib/services';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import {
+		getLocalhostCallbackPaths,
 		deleteMcpServerDeployment,
 		disconnectMcpServerUser,
 		hasEditableConfiguration,
@@ -512,6 +513,10 @@
 				{#if server?.manifest.remoteConfig?.localhostCallbackEnabled || entry?.manifest.remoteConfig?.localhostCallbackEnabled}
 					<HowToConnect
 						localhostCallback
+						callbackPaths={[
+							...getLocalhostCallbackPaths(server?.manifest.remoteConfig),
+							...getLocalhostCallbackPaths(entry?.manifest.remoteConfig)
+						]}
 						id={entry?.id ?? server?.id ?? 'server'}
 						displayName={entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
 						url={entry?.connectURL ?? server?.connectURL ?? ''}

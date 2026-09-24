@@ -12,6 +12,7 @@
 		Group
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
 	import {
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
@@ -980,6 +981,9 @@
 			</div>
 			<HowToConnect
 				{localhostCallback}
+				callbackPaths={getLocalhostCallbackPaths(
+					server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig
+				)}
 				bind:this={howToConnect}
 				{url}
 				id={generateIdFromName(displayName)}

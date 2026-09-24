@@ -13,7 +13,11 @@ import type {
 import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import { AiClient } from '../user/constants';
-import { getLocalMcpConfig, getManifestConfiguration } from '../user/mcp';
+import {
+	getLocalMcpConfig,
+	getLocalhostCallbackPaths,
+	getManifestConfiguration
+} from '../user/mcp';
 import {
 	COMPONENT_LABEL_SEPARATOR,
 	MCP_SERVER_POPULARITY_ORDER,
@@ -635,10 +639,18 @@ function mcpConfigKey(name: string, id: string, used: Set<string>) {
 	return key;
 }
 
+export function vmcpLocalhostCallbackPaths(vmcp: VMCP): string[] {
+	return [
+		...new Set(
+			(vmcp.components ?? []).flatMap((component) =>
+				getLocalhostCallbackPaths(component.catalogEntry?.manifest?.remoteConfig)
+			)
+		)
+	];
+}
+
 export function vmcpRequiresLocalhostCallback(vmcp: VMCP) {
-	return (vmcp.components ?? []).some(
-		(component) => component.catalogEntry?.manifest?.remoteConfig?.localhostCallbackEnabled
-	);
+	return vmcpLocalhostCallbackPaths(vmcp).length > 0;
 }
 
 function connectionMcpServers(vmcps: VMCP[]) {
@@ -653,7 +665,7 @@ function connectionMcpServers(vmcps: VMCP[]) {
 		if (!url) continue;
 		servers[mcpConfigKey(vmcp.displayName || vmcp.id, vmcp.id, used)] =
 			vmcpRequiresLocalhostCallback(vmcp)
-				? { type: 'stdio', ...getLocalMcpConfig(url) }
+				? { type: 'stdio', ...getLocalMcpConfig(url, vmcpLocalhostCallbackPaths(vmcp)) }
 				: { type: 'http', url };
 	}
 	return servers;
