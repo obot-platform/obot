@@ -326,16 +326,15 @@ func parseGitURL(repoURL string) (string, string, error) {
 	// For known git hosting platforms, support URLs without .git suffix.
 	// Subgroups without .git are not supported; use the .git suffix form instead.
 	if repoPath == "" {
-		if isKnownGitHost(u.Host) {
-			repoPath = strings.Join(parts[:2], "/") + ".git"
-			if len(parts) > 2 {
-				branch = strings.Join(parts[2:], "/")
-				if err := validateBranchName(branch); err != nil {
-					return "", "", fmt.Errorf("invalid branch name: %w", err)
-				}
-			}
-		} else {
+		if !isKnownGitHost(u.Host) {
 			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
+		}
+		repoPath = strings.Join(parts[:2], "/") + ".git"
+		if len(parts) > 2 {
+			branch = strings.Join(parts[2:], "/")
+			if err := validateBranchName(branch); err != nil {
+				return "", "", fmt.Errorf("invalid branch name: %w", err)
+			}
 		}
 	}
 
