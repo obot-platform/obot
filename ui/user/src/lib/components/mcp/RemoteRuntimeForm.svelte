@@ -16,6 +16,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Label from './CatalogFormLabel.svelte';
 	import CustomConfigurationOptions from './CustomConfigurationOptions.svelte';
+	import LocalhostCallbackForm from './LocalhostCallbackForm.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
@@ -670,3 +671,5 @@
 			: m.mcps_catalog_remote_remote_advanced()}
 	</button>
 {/if}
+
+<LocalhostCallbackForm bind:config {readonly} />

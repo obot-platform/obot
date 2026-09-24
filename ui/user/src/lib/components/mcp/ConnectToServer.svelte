@@ -86,6 +86,11 @@
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
+	let localhostCallback = $derived(
+		Boolean(
+			(server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig)?.localhostCallbackEnabled
+		)
+	);
 	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
 
 	let manifest = $derived(server?.manifest || entry?.manifest);
@@ -938,14 +943,17 @@
 		{#if url}
 			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					bind:this={connectionUrlField}
-					value={url}
-					id="connectURL"
-					label={m.mcps_servers_connection_url()}
-				/>
+				{#if !localhostCallback}
+					<CopyField
+						bind:this={connectionUrlField}
+						value={url}
+						id="connectURL"
+						label={m.mcps_servers_connection_url()}
+					/>
+				{/if}
 			</div>
 			<HowToConnect
+				{localhostCallback}
 				bind:this={howToConnect}
 				{url}
 				id={generateIdFromName(displayName)}
