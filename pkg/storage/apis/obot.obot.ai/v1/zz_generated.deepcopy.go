@@ -1899,6 +1899,11 @@ func (in *MCPAttestationStatus) DeepCopyInto(out *MCPAttestationStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.FailedCategories != nil {
+		in, out := &in.FailedCategories, &out.FailedCategories
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.RanAt != nil {
 		in, out := &in.RanAt, &out.RanAt
 		*out = (*in).DeepCopy()

@@ -189,8 +189,11 @@ type MCPAttestationStatus struct {
 	Grade string  `json:"grade,omitempty"`
 	// FailCount is the number of checks the statement records as failed.
 	FailCount int `json:"failCount,omitempty"`
-	// FailedChecks lists the ids of failed checks, bounded.
+	// FailedChecks lists the ids of failed checks, bounded, for display.
 	FailedChecks []string `json:"failedChecks,omitempty"`
+	// FailedCategories lists every category (id prefix or phase) a failed check is in.
+	// It is complete, and it is what the admission policy judges.
+	FailedCategories []string `json:"failedCategories,omitempty"`
 	// Instrument names the tool and version that produced the statement.
 	Instrument string `json:"instrument,omitempty"`
 	// RanAt is when the evaluation ran, per the statement.

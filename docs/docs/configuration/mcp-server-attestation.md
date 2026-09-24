@@ -57,6 +57,7 @@ Obot verifies the statement when the entry is created or its manifest changes, r
     "grade": "B",
     "failCount": 1,
     "failedChecks": ["protocol.origin"],
+    "failedCategories": ["protocol"],
     "instrument": "scout 0.0.4",
     "ranAt": "2026-09-22T12:00:00Z",
     "checkedAt": "2026-09-23T08:14:02Z"
@@ -73,7 +74,7 @@ Server creation from an entry with an `attestation` reference is refused with a 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
 | `OBOT_SERVER_MCP_ATTESTATION_MIN_SCORE` | Minimum score (0-100) the statement must carry. `0` disables the score gate. | `0` |
-| `OBOT_SERVER_MCP_ATTESTATION_DENY_FAIL_IN` | Comma-separated check categories in which a failed check refuses admission. A category is the part of a check id before the first dot, such as `auth` or `protocol`. | - |
+| `OBOT_SERVER_MCP_ATTESTATION_DENY_FAIL_IN` | Comma-separated check categories in which a failed check refuses admission. A failed check is in a category when the part of its id before the first dot, or its phase, equals it, such as `auth` or `protocol`. The policy reads `failedCategories`, which covers every failed check; `failedChecks` is capped at 32 ids for display. | - |
 
 For example, to require a score of at least 80 and refuse servers with any failed authentication or protocol check:
 

@@ -255,16 +255,17 @@ func convertAttestationStatus(status *v1.MCPAttestationStatus) *types.MCPAttesta
 		return nil
 	}
 	return &types.MCPAttestationStatus{
-		Verified:     status.Verified,
-		SubjectMatch: status.SubjectMatch,
-		Score:        status.Score,
-		Grade:        status.Grade,
-		FailCount:    status.FailCount,
-		FailedChecks: status.FailedChecks,
-		Instrument:   status.Instrument,
-		RanAt:        v1.NewTime(status.RanAt),
-		CheckedAt:    v1.NewTime(status.CheckedAt),
-		Error:        status.Error,
+		Verified:         status.Verified,
+		SubjectMatch:     status.SubjectMatch,
+		Score:            status.Score,
+		Grade:            status.Grade,
+		FailCount:        status.FailCount,
+		FailedChecks:     status.FailedChecks,
+		FailedCategories: status.FailedCategories,
+		Instrument:       status.Instrument,
+		RanAt:            v1.NewTime(status.RanAt),
+		CheckedAt:        v1.NewTime(status.CheckedAt),
+		Error:            status.Error,
 	}
 }
 

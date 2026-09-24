@@ -9631,7 +9631,21 @@ func schema_obot_platform_obot_apiclient_types_MCPAttestationStatus(ref common.R
 					},
 					"failedChecks": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailedChecks lists the ids of failed checks, bounded.",
+							Description: "FailedChecks lists the ids of failed checks, bounded, for display.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"failedCategories": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailedCategories lists every category (id prefix or phase) a failed check is in. It is complete, and it is what the admission policy judges.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -22995,6 +23009,20 @@ func schema_storage_apis_obotobotai_v1_MCPAttestationStatus(ref common.Reference
 					"failedChecks": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"failedCategories": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailedCategories is every category a failed check is in, complete; the policy judges this, never the capped FailedChecks.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

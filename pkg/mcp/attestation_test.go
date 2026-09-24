@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -157,10 +159,11 @@ func TestVerifyAttestationUnreachable(t *testing.T) {
 
 func TestAttestationPolicyEvaluate(t *testing.T) {
 	verified := v1.MCPAttestationStatus{
-		Verified:     true,
-		SubjectMatch: true,
-		Score:        88,
-		FailedChecks: []string{"protocol.origin"},
+		Verified:         true,
+		SubjectMatch:     true,
+		Score:            88,
+		FailedChecks:     []string{"protocol.origin"},
+		FailedCategories: []string{"protocol"},
 	}
 	tests := []struct {
 		name    string
@@ -197,7 +200,7 @@ func TestAttestationPolicyEvaluate(t *testing.T) {
 			name:    "fail in denied category",
 			policy:  AttestationPolicy{DenyFailIn: []string{"protocol"}},
 			status:  verified,
-			wantErr: "denied category: protocol.origin",
+			wantErr: "denied category: protocol",
 		},
 		{
 			name:   "fail in another category",
@@ -355,4 +358,73 @@ func TestValidateAttestationRef(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+// TestVerifyAttestationRecordsEveryFailedCategory is the bypass the review found:
+// the display list of ids is capped, so a denied failure placed after the cap by
+// the statement's publisher must still reach the policy through the categories.
+func TestVerifyAttestationRecordsEveryFailedCategory(t *testing.T) {
+	serve := func(t *testing.T, s *attestation.Statement) v1.MCPAttestationStatus {
+		t.Helper()
+		body, err := s.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, url := serveStatement(t, body, http.StatusOK)
+		return VerifyAttestation(t.Context(), http.DefaultClient, url, attestedEndpoint)
+	}
+
+	t.Run("denied failure after the display cap", func(t *testing.T) {
+		s := validStatement()
+		s.Predicate.Verdicts = nil
+		for i := range attestationMaxFailedChecks + 8 {
+			s.Predicate.Verdicts = append(s.Predicate.Verdicts, attestation.Verdict{
+				ID: fmt.Sprintf("catalog.check_%02d", i), Phase: "catalog", Status: "fail",
+			})
+		}
+		s.Predicate.Verdicts = append(s.Predicate.Verdicts, attestation.Verdict{ID: "auth.token_audience", Phase: "auth", Status: "fail"})
+		s.Predicate.Counts = attestation.Counts{Fail: len(s.Predicate.Verdicts)}
+		status := serve(t, s)
+		if !status.Verified || len(status.FailedChecks) != attestationMaxFailedChecks {
+			t.Fatalf("verified=%v, %d ids kept: %s", status.Verified, len(status.FailedChecks), status.Error)
+		}
+		if slices.Contains(status.FailedChecks, "auth.token_audience") {
+			t.Fatal("the test needs the denied failure beyond the display cap")
+		}
+		err := AttestationPolicy{DenyFailIn: []string{"auth"}}.Evaluate(status)
+		if err == nil || !strings.Contains(err.Error(), "denied category: auth") {
+			t.Fatalf("a failure in a denied category was admitted: %v", err)
+		}
+	})
+
+	t.Run("category matched by phase", func(t *testing.T) {
+		s := validStatement()
+		s.Predicate.Verdicts = []attestation.Verdict{{ID: "stdio.post_init_writes", Phase: "resilience", Status: "fail"}}
+		s.Predicate.Counts = attestation.Counts{Fail: 1}
+		status := serve(t, s)
+		if got := status.FailedCategories; !slices.Equal(got, []string{"resilience", "stdio"}) {
+			t.Fatalf("categories = %v", got)
+		}
+		if err := (AttestationPolicy{DenyFailIn: []string{"resilience"}}).Evaluate(status); err == nil {
+			t.Fatal("a failure whose phase is denied was admitted")
+		}
+	})
+
+	t.Run("too many categories is refused, not truncated", func(t *testing.T) {
+		s := validStatement()
+		s.Predicate.Verdicts = nil
+		for i := range attestationMaxFailedCategories + 1 {
+			s.Predicate.Verdicts = append(s.Predicate.Verdicts, attestation.Verdict{
+				ID: fmt.Sprintf("c%03d.x", i), Phase: fmt.Sprintf("c%03d", i), Status: "fail",
+			})
+		}
+		s.Predicate.Counts = attestation.Counts{Fail: len(s.Predicate.Verdicts)}
+		status := serve(t, s)
+		if status.Verified || !strings.Contains(status.Error, "categories") {
+			t.Fatalf("verified=%v error=%q", status.Verified, status.Error)
+		}
+		if err := (AttestationPolicy{}).Evaluate(status); err == nil {
+			t.Fatal("an inflated statement was admitted by the zero policy")
+		}
+	})
 }

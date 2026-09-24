@@ -44,13 +44,13 @@ func TestCreateServerAdmitsOnAttestation(t *testing.T) {
 		{
 			name:    "fails policy",
 			policy:  mcp.AttestationPolicy{DenyFailIn: []string{"auth"}},
-			status:  &v1.MCPAttestationStatus{ManifestHash: hash, Verified: true, SubjectMatch: true, FailedChecks: []string{"auth.unauthenticated_tools"}},
-			wantErr: "denied category: auth.unauthenticated_tools",
+			status:  &v1.MCPAttestationStatus{ManifestHash: hash, Verified: true, SubjectMatch: true, FailedChecks: []string{"auth.unauthenticated_tools"}, FailedCategories: []string{"auth"}},
+			wantErr: "denied category: auth",
 		},
 		{
 			name:   "passes policy",
 			policy: mcp.AttestationPolicy{MinScore: 80, DenyFailIn: []string{"auth"}},
-			status: &v1.MCPAttestationStatus{ManifestHash: hash, Verified: true, SubjectMatch: true, Score: 91, FailedChecks: []string{"protocol.origin"}},
+			status: &v1.MCPAttestationStatus{ManifestHash: hash, Verified: true, SubjectMatch: true, Score: 91, FailedChecks: []string{"protocol.origin"}, FailedCategories: []string{"protocol"}},
 		},
 	}
 	for _, tt := range tests {

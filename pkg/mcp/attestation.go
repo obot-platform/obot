@@ -23,9 +23,15 @@ const (
 	AttestationMaxBytes = 1 << 20
 	// AttestationFetchTimeout bounds one fetch, independent of the client's own timeout.
 	AttestationFetchTimeout = 15 * time.Second
-	// attestationMaxFailedChecks bounds the ids copied into the status. The server that
-	// published the statement chose them, so they are untrusted input.
+	// attestationMaxFailedChecks bounds the ids copied into the status for display. The
+	// server that published the statement chose them, so they are untrusted input. The
+	// policy never reads this list: it reads FailedCategories, which is complete.
 	attestationMaxFailedChecks = 32
+	// attestationMaxFailedCategories bounds the distinct categories a statement may fail
+	// in. scout has about a dozen phases and id prefixes, so a statement listing more is
+	// not one scout wrote; it is refused as unverified rather than truncated, because a
+	// truncated set is exactly what would let a denied category slip past the policy.
+	attestationMaxFailedCategories = 64
 	// attestationTransport is the only transport a catalog entry can attest: a remote
 	// entry is reached over HTTP, and scout records it as such.
 	attestationTransport = "http"
@@ -36,8 +42,9 @@ const (
 type AttestationPolicy struct {
 	// MinScore is the lowest statement score admitted; 0 disables the gate.
 	MinScore float64
-	// DenyFailIn lists check categories (the id prefix before the first dot, or the
-	// phase) in which a failed check refuses admission.
+	// DenyFailIn lists check categories in which a failed check refuses admission. A
+	// failed check is in a category when its id prefix before the first dot, or its
+	// phase, equals it.
 	DenyFailIn []string
 }
 
@@ -144,6 +151,10 @@ func VerifyAttestation(ctx context.Context, client *http.Client, statementURL, e
 		status.Grade = predicate.Score.Grade
 	}
 	status.FailCount = predicate.Counts.Fail
+	// Every failed verdict is read, in whatever order the publisher chose: the category
+	// set is what the policy judges, so it must be complete. Only the display list of ids
+	// is capped.
+	categories := map[string]bool{}
 	for _, verdict := range predicate.Verdicts {
 		if verdict.Status != "fail" {
 			continue
@@ -151,8 +162,21 @@ func VerifyAttestation(ctx context.Context, client *http.Client, statementURL, e
 		if len(status.FailedChecks) < attestationMaxFailedChecks {
 			status.FailedChecks = append(status.FailedChecks, verdict.ID)
 		}
+		for _, category := range failedCategories(verdict) {
+			categories[category] = true
+		}
 	}
 	slices.Sort(status.FailedChecks)
+	if len(categories) > attestationMaxFailedCategories {
+		status.Verified = false
+		status.FailedChecks = nil
+		status.Error = fmt.Sprintf("attestation records failures in %d categories, more than the %d a scout statement can have", len(categories), attestationMaxFailedCategories)
+		return status
+	}
+	for category := range categories {
+		status.FailedCategories = append(status.FailedCategories, category)
+	}
+	slices.Sort(status.FailedCategories)
 
 	if !statement.Covers(attestationTransport, endpoint) {
 		status.Error = fmt.Sprintf("attestation is about %s %s, not %s", predicate.Target.Transport, predicate.Target.Endpoint, endpoint)
@@ -191,9 +215,9 @@ func (p AttestationPolicy) Evaluate(status v1.MCPAttestationStatus) error {
 		return fmt.Errorf("catalog entry attestation score %v is below the required minimum %v", status.Score, p.MinScore)
 	}
 	var denied []string
-	for _, id := range status.FailedChecks {
-		if p.denies(id) {
-			denied = append(denied, id)
+	for _, category := range status.FailedCategories {
+		if slices.Contains(p.DenyFailIn, category) {
+			denied = append(denied, category)
 		}
 	}
 	if len(denied) > 0 {
@@ -202,9 +226,18 @@ func (p AttestationPolicy) Evaluate(status v1.MCPAttestationStatus) error {
 	return nil
 }
 
-func (p AttestationPolicy) denies(checkID string) bool {
-	category, _, _ := strings.Cut(strings.ToLower(checkID), ".")
-	return slices.Contains(p.DenyFailIn, category)
+// failedCategories are the categories a failed verdict belongs to: its id prefix before
+// the first dot and its phase, lower-cased, without repeats.
+func failedCategories(verdict attestation.Verdict) []string {
+	prefix, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(verdict.ID)), ".")
+	phase := strings.ToLower(strings.TrimSpace(verdict.Phase))
+	var out []string
+	for _, c := range []string{prefix, phase} {
+		if c != "" && !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func fetchAttestation(ctx context.Context, client *http.Client, statementURL string) ([]byte, error) {
