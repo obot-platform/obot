@@ -9,6 +9,8 @@ import {
 	type ImagePullSecretCapability,
 	type K8sSettings,
 	type License,
+	type ModelProxySettings,
+	type ModelProxyUsage,
 	type ProductTelemetryConsent
 } from '$lib/services';
 import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
@@ -20,13 +22,14 @@ const views = new Set([
 	'notifications',
 	'product-analytics',
 	'mcp-config',
+	'model-proxy',
 	'registry-connections',
 	'git-credentials'
 ]);
 
 let hasHydratedAppNotification = false;
 
-export const load: PageLoad = async ({ fetch, parent, url }) => {
+export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 	const {
 		profile,
 		version,
@@ -51,6 +54,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let capability: ImagePullSecretCapability = { available: false };
 	let imagePullSecrets: ImagePullSecret[] = [];
 	let gitCredentials: GitCredential[] = [];
+	let modelProxySettings: ModelProxySettings | undefined;
+	let modelProxyUsage: ModelProxyUsage | undefined;
 	let productTelemetryConsent: ProductTelemetryConsent | undefined = initialProductTelemetryConsent;
 
 	switch (view) {
@@ -118,6 +123,26 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				handleRouteError(err, '/admin/platform?view=registry-connections', profile);
 			}
 			break;
+		case 'model-proxy':
+			depends('model-proxy:usage');
+			try {
+				modelProxySettings = await AdminService.getModelProxySettings({
+					fetch,
+					dontLogErrors: true
+				});
+			} catch (err) {
+				handleRouteError(err, '/admin/platform?view=model-proxy', profile);
+			}
+
+			try {
+				modelProxyUsage = await AdminService.getModelProxyUsage({
+					fetch,
+					dontLogErrors: true
+				});
+			} catch {
+				modelProxyUsage = undefined;
+			}
+			break;
 	}
 
 	return {
@@ -128,6 +153,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		capability,
 		imagePullSecrets,
 		gitCredentials,
+		modelProxySettings,
+		modelProxyUsage,
 		productTelemetryConsent,
 		productTelemetryConsentAvailable
 	};

@@ -112,7 +112,7 @@
 	}
 </script>
 
-<div class="relative h-full w-full @container flex flex-col gap-4" in:fade={{ duration }}>
+<div class="relative h-full w-full @container flex flex-col gap-2" in:fade={{ duration }}>
 	<div class="paper gap-0.5">
 		<div>
 			<p class="text-sm font-medium mb-2">Banner Preview</p>
@@ -229,26 +229,19 @@
 			</div>
 		</div>
 	</div>
-	<div class="flex grow"></div>
 	{#if !isAdminReadonly}
-		<div
-			class="bg-base-200 text-muted-content dark:bg-base-100 sticky bottom-0 left-0 z-50 flex w-full justify-end gap-2 py-4"
-		>
-			<div class="flex w-full justify-end gap-2">
-				<button
-					class="btn btn-secondary text-sm"
-					onclick={() => {
-						appNotification = withBanner(appNotificationStore.current ?? initialAppNotification);
-						bannerTextValidationError = null;
-					}}
-					disabled={saving}
-				>
-					Cancel
-				</button>
-				<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}>
-					Save
-				</button>
-			</div>
+		<div class="paper flex-row justify-end py-2 gap-2">
+			<button
+				class="btn btn-secondary text-sm"
+				onclick={() => {
+					appNotification = withBanner(appNotificationStore.current ?? initialAppNotification);
+					bannerTextValidationError = null;
+				}}
+				disabled={saving}
+			>
+				Cancel
+			</button>
+			<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}> Save </button>
 		</div>
 	{/if}
 </div>

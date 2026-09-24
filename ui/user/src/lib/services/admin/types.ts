@@ -1049,6 +1049,28 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 	metadata?: Record<string, string>;
 }
 
+// Model proxy
+
+export interface ModelProxySettings {
+	enabled: boolean;
+	url: string;
+}
+
+export interface ModelProxySettingsUpdateManifest {
+	enabled: boolean;
+}
+
+export interface ModelProxyTokenUsage {
+	max: number;
+	used: number;
+}
+
+export interface ModelProxyUsage {
+	input: ModelProxyTokenUsage;
+	output: ModelProxyTokenUsage;
+	resetAt: string;
+}
+
 // Models
 
 export const ModelUsage = {
