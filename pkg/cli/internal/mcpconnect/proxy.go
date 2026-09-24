@@ -96,12 +96,6 @@ func bridge(ctx context.Context, local gomcp.Connection, endpoint string, handle
 				return
 			case msg := <-messages:
 				if req, ok := msg.(*jsonrpc.Request); ok && req.Method == "initialize" {
-					var params struct {
-						ProtocolVersion string `json:"protocolVersion"`
-					}
-					if err := json.Unmarshal(req.Params, &params); err == nil {
-						transport.setVersion(params.ProtocolVersion)
-					}
 					initMu.Lock()
 					initializeID, initializing = req.ID, true
 					initMu.Unlock()

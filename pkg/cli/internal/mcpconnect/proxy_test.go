@@ -49,6 +49,7 @@ func TestBridgePreservesMessages(t *testing.T) {
 		w.Header().Set("Mcp-Session-Id", "session1")
 		result := `{"ok":true}`
 		if request.Method == "initialize" {
+			require.Empty(t, r.Header.Get("MCP-Protocol-Version"))
 			result = `{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"actual","version":"1"}}`
 		} else {
 			require.Equal(t, "2025-11-25", r.Header.Get("MCP-Protocol-Version"))
@@ -66,7 +67,7 @@ func TestBridgePreservesMessages(t *testing.T) {
 	defer client.Close()
 	done := make(chan error, 1)
 	go func() { done <- bridge(ctx, local, gateway.URL, nil, http.DefaultTransport) }()
-	initialize := wire(t, `{"jsonrpc":"2.0","id":"init-original","method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"real client","version":"1"},"capabilities":{"roots":{"listChanged":true}}}}`)
+	initialize := wire(t, `{"jsonrpc":"2.0","id":"init-original","method":"initialize","params":{"protocolVersion":"2099-01-01","clientInfo":{"name":"real client","version":"1"},"capabilities":{"roots":{"listChanged":true}}}}`)
 	require.NoError(t, client.Write(ctx, initialize))
 	result, err := client.Read(ctx)
 	require.NoError(t, err)

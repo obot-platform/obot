@@ -33,12 +33,12 @@ func authenticate(ctx context.Context, endpoint string, handler auth.OAuthHandle
 		return fmt.Errorf("probe MCP authentication: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return handler.Authorize(ctx, req, resp)
 	}
 	// Servers may require a session ID for GET or disable standalone SSE.
 	// Authentication for those responses is deferred to the actual MCP request.
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusMethodNotAllowed {
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
 	return fmt.Errorf("probe MCP authentication: HTTP %d", resp.StatusCode)

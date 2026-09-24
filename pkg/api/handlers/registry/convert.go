@@ -78,7 +78,12 @@ func ConvertMCPServerToRegistry(
 
 	// For configured servers, add remote with mcp-connect URL
 	// All Obot servers are exposed as streamable-http remotes regardless of underlying runtime
-	if isPersonalServer && convertedServer.Configured && !convertedServer.NeedsURL && convertedServer.ConnectURL != "" {
+	if remote := server.Spec.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
+		meta.Obot = &obottypes.RegistryObotMeta{
+			ConfigurationRequired: true,
+			ConfigurationMessage:  "This server requires the Obot CLI. Please visit the Obot UI for connection instructions.",
+		}
+	} else if isPersonalServer && convertedServer.Configured && !convertedServer.NeedsURL && convertedServer.ConnectURL != "" {
 		// This is a personal server that is configured and ready to go.
 		serverDetail.Remotes = []obottypes.RegistryServerRemote{
 			{
@@ -214,6 +219,12 @@ func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 	}
 
 	if manifest.Runtime == obottypes.RuntimeRemote && manifest.RemoteConfig != nil {
+		// Localhost OAuth requires the Obot CLI callback relay. Registry clients
+		// cannot use this entry as a direct HTTP remote.
+		if manifest.RemoteConfig.LocalhostCallbackEnabled {
+			return true
+		}
+
 		if manifest.RemoteConfig.StaticOAuthRequired && !entry.Status.OAuthCredentialConfigured {
 			return true
 		}

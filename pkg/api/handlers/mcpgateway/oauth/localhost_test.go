@@ -21,12 +21,12 @@ import (
 )
 
 func TestLocalhostRedirectURL(t *testing.T) {
-	const hosted = "https://obot.example/oauth/mcp/callback"
 	for _, tt := range []struct {
 		name     string
 		redirect string
 		path     string
 		want     string
+		wantErr  bool
 	}{
 		{
 			name:     "localhost",
@@ -53,26 +53,45 @@ func TestLocalhostRedirectURL(t *testing.T) {
 		{
 			name:     "remote",
 			redirect: "http://example.com:1234/callback",
-			want:     hosted,
+			wantErr:  true,
 		},
 		{
 			name:     "userinfo",
 			redirect: "http://user@localhost:1234/callback",
-			want:     hosted,
+			wantErr:  true,
 		},
 		{
 			name:     "no port",
 			redirect: "http://localhost/callback",
-			want:     hosted,
+			wantErr:  true,
 		},
 		{
 			name:     "reserved path",
-			redirect: "http://localhost:1234/callback",
+			redirect: "http://localhost:1234/oauth/obot/callback",
 			path:     "/oauth/obot/callback",
-			want:     hosted,
+			wantErr:  true,
+		},
+		{
+			name:     "other loopback client",
+			redirect: "http://localhost:1234/callback",
+			wantErr:  true,
+		},
+		{
+			name:     "HTTPS",
+			redirect: "https://localhost:1234/oauth/obot/callback",
+			wantErr:  true,
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) { require.Equal(t, tt.want, localhostRedirectURL(hosted, tt.redirect, tt.path)) })
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := localhostRedirectURL(tt.redirect, tt.path)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Empty(t, got)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, got)
+			}
+		})
 	}
 }
 
@@ -99,6 +118,8 @@ func TestUpstreamRedirectUsesOriginatingVMCPRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://obot.example.com/oauth/mcp/callback", got)
 	config.LocalhostCallbackEnabled = true
+	_, err = fixture.factory.upstreamRedirectURL(req, config, "")
+	require.ErrorContains(t, err, "obot mcp connect")
 	request.Spec.UserID++
 	require.NoError(t, fixture.storage.Update(t.Context(), request))
 	_, err = fixture.factory.upstreamRedirectURL(req, config, request.Name)
