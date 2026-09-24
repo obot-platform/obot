@@ -33,7 +33,7 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 	if errorStr != "" {
 		// Clean up the pending state before returning the error
 		_ = sm.gatewayClient.DeleteMCPOAuthPendingState(ctx, ps.HashedState)
-		return "", "", fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
+		return ps.OAuthAuthRequestID, ps.MCPID, fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
 	}
 
 	conf := &oauth2.Config{
