@@ -880,6 +880,9 @@ export const convertServerRuntimeFormDataToManifest = (
 			if (baseData.remoteServerConfig) {
 				serverManifest.manifest.remoteConfig = {
 					url: baseData.remoteServerConfig.url,
+					localhostCallbackEnabled: baseData.remoteServerConfig.localhostCallbackEnabled,
+					localhostCallbackPath:
+						baseData.remoteServerConfig.localhostCallbackPath?.trim() || undefined,
 					tunnelName: baseData.remoteServerConfig.tunnelName
 				};
 			}
@@ -1100,9 +1103,26 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }
 
-export function getAiClientCommand(client: AiClient, id: string, url: string): string {
+export function getLocalMcpConfig(url: string) {
+	return { command: 'obot', args: ['mcp', 'connect', url] };
+}
+
+export function getAiClientCommand(
+	client: AiClient,
+	id: string,
+	url: string,
+	localhostCallback = false
+): string {
 	const idArg = JSON.stringify(id);
 	const urlArg = JSON.stringify(url);
+
+	if (localhostCallback) {
+		const commands = {
+			[AiClient.Claude]: `claude mcp add --transport stdio ${idArg} -- obot mcp connect ${urlArg}`,
+			[AiClient.Codex]: `codex mcp add ${idArg} -- obot mcp connect ${urlArg}`
+		};
+		return commands[client as keyof typeof commands] ?? '';
+	}
 
 	const commands = {
 		[AiClient.Claude]: `claude mcp add --transport http ${idArg} ${urlArg}`,
@@ -1111,28 +1131,39 @@ export function getAiClientCommand(client: AiClient, id: string, url: string): s
 	return commands[client as keyof typeof commands] ?? '';
 }
 
-function generateCursorMagicLink(displayName: string, url: string): string {
-	const cursorConfig = {
-		type: 'http',
-		url: url
-	};
+function generateCursorMagicLink(
+	displayName: string,
+	url: string,
+	localhostCallback: boolean
+): string {
+	const cursorConfig = localhostCallback ? getLocalMcpConfig(url) : { type: 'http', url };
 	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify(cursorConfig));
 	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(displayName)}&config=${encodeURIComponent(cursorBase64)}`;
 }
 
-function generateVsCodeMagicLink(displayName: string, url: string): string {
+function generateVsCodeMagicLink(
+	displayName: string,
+	url: string,
+	localhostCallback: boolean
+): string {
 	const vscodeConfig = {
 		name: displayName,
-		type: 'http',
-		url: url
+		...(localhostCallback ? { type: 'stdio', ...getLocalMcpConfig(url) } : { type: 'http', url })
 	};
 	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(vscodeConfig))}`;
 }
 
-export function getAiClientMagicLink(client: AiClient, displayName: string, url: string): string {
+export function getAiClientMagicLink(
+	client: AiClient,
+	displayName: string,
+	url: string,
+	localhostCallback = false
+): string {
 	const fn = {
 		[AiClient.Cursor]: generateCursorMagicLink,
 		[AiClient.VSCode]: generateVsCodeMagicLink
 	};
-	return fn[client as keyof typeof fn] ? fn[client as keyof typeof fn](displayName, url) : '';
+	return fn[client as keyof typeof fn]
+		? fn[client as keyof typeof fn](displayName, url, localhostCallback)
+		: '';
 }

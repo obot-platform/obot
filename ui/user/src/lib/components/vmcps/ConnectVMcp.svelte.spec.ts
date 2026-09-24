@@ -379,3 +379,17 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
 	});
 });
+
+it('uses the CLI when any vMCP component requires a localhost callback', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.components![0].catalogEntry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	await renderDialog(vmcp);
+	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
+	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Preconfigure server' }))
+		.not.toBeInTheDocument();
+});

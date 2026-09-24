@@ -46,6 +46,11 @@
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
 
+	let localhostCallback = $derived(
+		vmcp?.components?.some(
+			(component) => component.catalogEntry?.manifest?.remoteConfig?.localhostCallbackEnabled
+		) ?? false
+	);
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
@@ -442,15 +447,18 @@
 	{/snippet}
 
 	{#if connectURL}
-		<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
-			<CopyField
-				bind:this={connectionUrlField}
-				value={connectURL}
-				id="connectURL"
-				label="Connection URL"
-			/>
-		</div>
+		{#if !localhostCallback}
+			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+				<CopyField
+					bind:this={connectionUrlField}
+					value={connectURL}
+					id="connectURL"
+					label="Connection URL"
+				/>
+			</div>
+		{/if}
 		<HowToConnect
+			{localhostCallback}
 			bind:this={howToConnect}
 			url={connectURL}
 			id={generateIdFromName(displayName)}

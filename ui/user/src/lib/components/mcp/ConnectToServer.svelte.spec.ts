@@ -71,3 +71,17 @@ describe('ConnectToServer setup completion', () => {
 		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeVisible();
 	}, 4000);
 });
+
+it('uses the CLI instead of a direct URL for a localhost callback server', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/vercel';
+	entry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
+	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
+});

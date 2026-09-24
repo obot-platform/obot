@@ -245,6 +245,8 @@
 								headers:
 									getManifestConfiguration(manifest).headers.map((h) => ({ ...h, value: '' })) ??
 									[],
+								localhostCallbackEnabled: manifest.remoteConfig.localhostCallbackEnabled,
+								localhostCallbackPath: manifest.remoteConfig.localhostCallbackPath,
 								tunnelName: manifest.remoteConfig.tunnelName
 							}
 						: { url: '', headers: [] };
@@ -509,6 +511,8 @@
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
 						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired,
+						localhostCallbackEnabled: baseData.remoteConfig.localhostCallbackEnabled,
+						localhostCallbackPath: baseData.remoteConfig.localhostCallbackPath?.trim() || undefined,
 						tunnelName: baseData.remoteConfig.tunnelName?.trim() || undefined
 					};
 				}

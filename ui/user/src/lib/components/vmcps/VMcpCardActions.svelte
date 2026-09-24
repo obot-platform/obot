@@ -73,16 +73,18 @@
 			>
 				Connect
 			</button>
-			<CopyButton
-				tooltipText="Copy Connect URL"
-				text={connectURL}
-				noButtonText
-				classes={{
-					button:
-						'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
-				}}
-				disabled={hasLicenseEntitlementViolations || disabled}
-			/>
+			{#if connectURL}
+				<CopyButton
+					tooltipText="Copy Connect URL"
+					text={connectURL}
+					noButtonText
+					classes={{
+						button:
+							'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
+					}}
+					disabled={hasLicenseEntitlementViolations || disabled}
+				/>
+			{/if}
 		</div>
 	</div>
 	{#if !hideTest}

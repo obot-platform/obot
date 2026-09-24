@@ -245,6 +245,8 @@
 					formData.remoteServerConfig = manifest.remoteConfig
 						? {
 								url: manifest.remoteConfig.url ?? '',
+								localhostCallbackEnabled: manifest.remoteConfig.localhostCallbackEnabled,
+								localhostCallbackPath: manifest.remoteConfig.localhostCallbackPath,
 								headers:
 									getManifestConfiguration(manifest).headers.map((h) => ({ ...h, value: '' })) ?? []
 							}
