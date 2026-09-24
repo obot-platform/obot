@@ -465,34 +465,56 @@ func TestCloneRefAttempts(t *testing.T) {
 }
 
 func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
-	originalTransport := http.DefaultTransport
-	t.Cleanup(func() { http.DefaultTransport = originalTransport })
-
-	t.Run("GitHub", func(t *testing.T) {
-		http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"size": 204800}`)),
-				Header:     make(http.Header),
-			}, nil
-		})
-
-		err := checkGitHubRepoSize(t.Context(), "example", "repo", 100, "")
-		assert.ErrorIs(t, err, errRepoTooLarge)
+	originalHTTP := http.DefaultTransport
+	originalGit := client.Protocols["https"]
+	t.Cleanup(func() {
+		http.DefaultTransport = originalHTTP
+		client.InstallProtocol("https", originalGit)
 	})
+	client.InstallProtocol("https", githttp.NewClient(&http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			t.Error("oversized repository should be rejected before cloning")
+			return nil, context.Canceled
+		}),
+	}))
 
-	t.Run("GitLab", func(t *testing.T) {
-		http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"statistics":{"repository_size":209715200}}`)),
-				Header:     make(http.Header),
-			}, nil
+	tests := []struct {
+		host string
+		body string
+	}{
+		{
+			host: "github.com",
+			body: `{"size":204800}`,
+		},
+		{
+			host: "GitHub.com",
+			body: `{"size":204800}`,
+		},
+		{
+			host: "gitlab.com",
+			body: `{"statistics":{"repository_size":209715200}}`,
+		},
+		{
+			host: "GitLab.com",
+			body: `{"statistics":{"repository_size":209715200}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(tt.body)),
+					Header:     make(http.Header),
+				}, nil
+			})
+			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/example/repo.git", "token", "")
+			if cleanup != nil {
+				cleanup()
+			}
+			assert.ErrorIs(t, err, errRepoTooLarge)
 		})
-
-		err := checkGitLabRepoSize(t.Context(), "gitlab.com", "example/repo", 100, "token")
-		assert.ErrorIs(t, err, errRepoTooLarge)
-	})
+	}
 }
 
 func TestRepoSizeLimitMB(t *testing.T) {

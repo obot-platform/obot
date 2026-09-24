@@ -178,7 +178,7 @@ func Clone(ctx context.Context, repoURL, token, ref string, maxRepoSizeMB int) (
 	// for the clone to start. The sizeLimitedFS below acts as a hard fallback.
 	repoPath := strings.TrimPrefix(cloneURL, "https://"+u.Host+"/")
 	repoPath = strings.TrimSuffix(repoPath, ".git")
-	switch u.Host {
+	switch strings.ToLower(u.Host) {
 	case "github.com":
 		parts := strings.SplitN(repoPath, "/", 2)
 		if len(parts) == 2 {
