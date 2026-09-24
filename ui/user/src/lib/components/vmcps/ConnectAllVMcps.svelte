@@ -4,7 +4,11 @@
 	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
 	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import { buildConnectAllSnippets, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import {
+		buildConnectAllSnippets,
+		vmcpConnectURL,
+		vmcpRequiresLocalhostCallback
+	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
@@ -61,6 +65,18 @@
 				{m.vmcps_connect_all_none()}
 			</p>
 		{:else if selectedConnectAllSnippet}
+			{#if vmcps.some(vmcpRequiresLocalhostCallback)}
+				<p class="text-sm text-muted-content">
+					Some vMCPs require localhost OAuth. <a
+						class="link"
+						href="https://docs.obot.ai/installation/cli-setup"
+						target="_blank"
+						rel="noreferrer">Install the Obot CLI</a
+					>
+					and make <code>obot</code> available on your PATH. Run your browser and the CLI on the same
+					computer.
+				</p>
+			{/if}
 			{#if connectAllSnippets.length > 1}
 				<div role="tablist" class="tabs tabs-box" aria-label={m.vmcps_configuration_files()}>
 					{#each connectAllSnippets as snippet (snippet.id)}
