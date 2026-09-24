@@ -13,7 +13,6 @@
 	import { TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
 		settings: ModelProxySettings;
@@ -27,11 +26,9 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isModelProxyConfigured = $derived(!!settings.url);
-	let canSave = $derived(!isAdminReadonly && !saving && isModelProxyConfigured);
-
-	$effect(() => {
-		console.log(usage);
-	});
+	let canSave = $derived(
+		!isAdminReadonly && !saving && (isModelProxyConfigured || (settings.enabled && !enabled))
+	);
 
 	async function handleSave(event: SubmitEvent) {
 		event.preventDefault();
@@ -64,7 +61,7 @@
 					<p class="font-semibold">Missing URL Configuration</p>
 				</div>
 				<span class="font-light break-all">
-					The service base URL is missing. Please configure it to enable the model proxy.</span
+					The service base URL is missing. This configuration is required to use the model proxy.</span
 				>
 			</div>
 		</div>
@@ -85,13 +82,7 @@
 				{/if}
 			</div>
 			<div class="divider my-0"></div>
-			<label
-				for="enable-model-proxy"
-				class={twMerge(
-					'flex items-start justify-between gap-4',
-					!isModelProxyConfigured && 'opacity-50'
-				)}
-			>
+			<label for="enable-model-proxy" class="flex items-start justify-between gap-4">
 				<div class="text-sm">
 					<div class="font-medium">Enable Model Proxy</div>
 					<p class="mt-0.5 text-xs font-light text-muted-content">
@@ -104,7 +95,7 @@
 					type="checkbox"
 					class="toggle toggle-sm"
 					bind:checked={enabled}
-					disabled={isAdminReadonly || saving || !isModelProxyConfigured}
+					disabled={isAdminReadonly || saving || (!isModelProxyConfigured && !enabled)}
 				/>
 			</label>
 		</div>
@@ -118,14 +109,21 @@
 </form>
 
 {#snippet usageCard(title: string, usage?: ModelProxyTokenUsage)}
-	{@const percentageRemaining = usage ? ((usage.max - usage.used) / usage.max) * 100 : 0}
 	<div class="flex flex-col gap-2 border border-base-300 dark:border-base-400 rounded-md p-4">
 		<p class="text-xs font-medium">{title}</p>
 
-		{#if usage}
+		{#if usage && usage.max > 0}
+			{@const remaining = usage.max - usage.used}
+			{@const percentageRemaining = (remaining / usage.max) * 100}
 			<div in:fade={{ duration }} class="w-full">
-				<p class="font-semibold">{percentageRemaining}% remaining</p>
-				<progress class="progress progress-primary" value={usage.used} max={usage.max}></progress>
+				<p class="font-semibold">
+					{percentageRemaining < 0 ? 0 : percentageRemaining.toFixed(1)}% remaining
+				</p>
+				<progress
+					class="progress progress-primary"
+					value={remaining < 0 ? 0 : remaining}
+					max={usage.max}
+				></progress>
 			</div>
 		{:else}
 			<p in:fade={{ duration }} class="text-sm text-muted-content">N/A</p>
