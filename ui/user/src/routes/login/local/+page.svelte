@@ -58,6 +58,7 @@
 				autocomplete="username"
 				bind:value={email}
 				required
+				{@attach (node: HTMLInputElement) => node.focus()}
 			/>
 		</label>
 
