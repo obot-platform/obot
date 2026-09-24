@@ -264,7 +264,21 @@
 					id: 'models',
 					label: 'Models',
 					href: '/models'
-				}
+				},
+				...(version.current.messagePoliciesEnabled
+					? [
+							{
+								id: 'message-policies',
+								label: 'Message Policies',
+								href: '/admin/message-policies'
+							},
+							{
+								id: 'policy-violations',
+								label: 'Message Policy Violations',
+								href: '/admin/policy-violations'
+							}
+						]
+					: [])
 			]
 		},
 		{
