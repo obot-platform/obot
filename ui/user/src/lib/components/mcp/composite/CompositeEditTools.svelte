@@ -239,7 +239,7 @@
 	bind:this={dialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
-	class="bg-base-200 md:w-(--breakpoint-xl) md:max-w-(--breakpoint-xl)"
+	class="bg-base-200 md:max-w-(--breakpoint-xl)"
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >

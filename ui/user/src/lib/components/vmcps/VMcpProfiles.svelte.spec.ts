@@ -92,6 +92,10 @@ async function expandServerTools() {
 	await page.getByRole('button', { name: 'Expand' }).click();
 }
 
+async function enableServer(name = 'GitHub') {
+	await page.getByRole('checkbox', { name: `Enable ${name}` }).click();
+}
+
 function toolSwitch(index = 0) {
 	return page.getByRole('switch', { name: /^(Enable|Disable) tool$/ }).nth(index);
 }
@@ -191,8 +195,12 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await expect.element(page.getByRole('heading', { name: 'Create profile' })).toBeVisible();
+		await expect
+			.element(page.getByRole('checkbox', { name: 'Allow All Access' }))
+			.not.toBeChecked();
 
 		await page.getByLabelText('Name').fill('Support engineers');
+		await enableServer();
 		await expect.element(page.getByText('2 of 2 tools')).toBeVisible();
 		await expect.element(page.getByText('list_issues')).not.toBeInTheDocument();
 		await expandServerTools();
@@ -378,6 +386,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await page.getByRole('button', { name: 'Refine tools' }).click();
 
 		expect(collectComponentTools).toHaveBeenCalledOnce();
@@ -428,6 +437,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 		await page.getByRole('button', { name: 'Refresh tools' }).click();
 
@@ -447,6 +457,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expect.element(page.getByText('2 of 2 tools')).toBeVisible();
 		await expect
 			.element(page.getByRole('button', { name: 'Refine tools' }))
@@ -466,6 +477,7 @@ describe('VMcpProfiles.svelte', () => {
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 
 		await expect.element(toolSwitch(0)).toBeChecked();
@@ -485,6 +497,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByLabelText('Name').fill('Support engineers');
+		await enableServer();
 		await expect.element(page.getByText('1 of 1 tools')).toBeVisible();
 		await expandServerTools();
 		await expect.element(toolSwitch(1)).not.toBeChecked();
@@ -495,8 +508,9 @@ describe('VMcpProfiles.svelte', () => {
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 		expect(savedProfiles(saved)[1]).toMatchObject({
 			name: 'Support engineers',
-			vmcpPermissions: { allowAllComponents: true }
+			vmcpPermissions: { allowedComponents: { github: {} } }
 		});
+		expect(savedProfiles(saved)[1].vmcpPermissions?.allowAllComponents).toBeUndefined();
 	});
 
 	it('keeps a tool the vMCP has disabled off and out of reach', async () => {
@@ -506,6 +520,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByLabelText('Name').fill('Support engineers');
+		await enableServer();
 		await expandServerTools();
 
 		const disabled = toolSwitch(1);
@@ -520,8 +535,9 @@ describe('VMcpProfiles.svelte', () => {
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 		expect(savedProfiles(saved)[1]).toMatchObject({
 			name: 'Support engineers',
-			vmcpPermissions: { allowAllComponents: true }
+			vmcpPermissions: { allowedComponents: { github: {} } }
 		});
+		expect(savedProfiles(saved)[1].vmcpPermissions?.allowAllComponents).toBeUndefined();
 	});
 
 	it('collapses and expands the tool override list', async () => {
@@ -531,6 +547,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 		await expect.element(page.getByText('list_issues')).toBeVisible();
 
@@ -549,6 +566,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await page.getByText('2 of 2 tools').click();
 		await expect.element(page.getByText('list_issues')).toBeVisible();
 
@@ -563,6 +581,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 		await toolSwitch(1).click();
 
@@ -595,7 +614,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('GitHub')).not.toBeInTheDocument();
 	});
 
-	it('shows only allowedComponents servers as enabled when Allow All Components is off', async () => {
+	it('shows only allowedComponents servers as enabled when Allow All Access is off', async () => {
 		const vmcp = createVMcp('vmcp-allow-all-toggle-off');
 		vmcp.profiles = [
 			{
@@ -611,7 +630,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Edit mixed' }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Allow All Components' }))
+			.element(page.getByRole('checkbox', { name: 'Allow All Access' }))
 			.not.toBeChecked();
 		await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
 		await expect.element(page.getByText('1 of 2 tools')).toBeVisible();
@@ -633,7 +652,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('0 of 2 tools')).toBeVisible();
 	});
 
-	it('shows every server disabled when Allow All Components is turned off without overrides', async () => {
+	it('hides MCP server selection while Allow All Access is on and shows servers disabled after it is turned off', async () => {
 		const vmcp = createVMcp('vmcp-allow-all-toggle-off-default');
 		vmcp.profiles = [
 			{
@@ -645,8 +664,12 @@ describe('VMcpProfiles.svelte', () => {
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 
 		await page.getByRole('button', { name: 'Edit default' }).click();
-		await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
-		await page.getByRole('checkbox', { name: 'Allow All Components' }).click();
+		const allowAll = page.getByRole('checkbox', { name: 'Allow All Access' });
+		await expect.element(allowAll).toBeChecked();
+		await expect
+			.element(page.getByRole('checkbox', { name: 'Disable GitHub' }))
+			.not.toBeInTheDocument();
+		await allowAll.click();
 		await expect.element(page.getByRole('checkbox', { name: 'Enable GitHub' })).not.toBeChecked();
 		await expect.element(page.getByText('Disabled', { exact: true })).toBeVisible();
 	});
@@ -743,13 +766,17 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await expect
+			.element(page.getByRole('checkbox', { name: 'Allow All Access' }))
+			.not.toBeChecked();
+		await enableServer();
 		const disable = page.getByRole('checkbox', { name: 'Disable GitHub' });
 		await expect.element(disable).toBeChecked();
 		await disable.click();
 
 		await expect.element(page.getByText('Disable Server')).not.toBeVisible();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Allow All Components' }))
+			.element(page.getByRole('checkbox', { name: 'Allow All Access' }))
 			.not.toBeChecked();
 		await expect.element(page.getByText('Disabled', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('2 of 2 tools')).not.toBeInTheDocument();
@@ -775,7 +802,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Edit default' }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Allow All Components' }))
+			.element(page.getByRole('checkbox', { name: 'Allow All Access' }))
 			.not.toBeChecked();
 		await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
 		await expect.element(page.getByText('0 of 2 tools')).toBeVisible();
@@ -828,6 +855,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 		await toolSwitch(1).click();
 		await expect.element(page.getByText('1 of 2 tools')).toBeVisible();
@@ -846,6 +874,7 @@ describe('VMcpProfiles.svelte', () => {
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await enableServer();
 		await expandServerTools();
 
 		await expect.element(page.getByPlaceholder('Search tools...')).toBeVisible();

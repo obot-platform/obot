@@ -424,7 +424,7 @@
 		error = '';
 		expanded = {};
 		draft = {
-			allowAllComponents: true,
+			allowAllComponents: false,
 			name: '',
 			users: [],
 			resources: componentServers
@@ -1008,11 +1008,16 @@
 						Further modify the tools available for each MCP server in this profile below.
 					</p>
 				</div>
-				<label for="allow-all-components" class="flex items-center justify-between gap-4">
+				<label
+					for="allow-all-components"
+					class="mb-4 flex items-center justify-between gap-4 p-4 border border-base-300 dark:border-base-400 rounded-lg"
+				>
 					<div>
-						<p class="text-sm font-semibold">Allow All Components</p>
-						<p class="text-muted-content text-sm font-light">
-							Grant every MCP server and all enabled tools.
+						<p class="text-sm font-semibold">Allow All Access</p>
+						<p class="text-xs text-muted-content leading-tight font-light">
+							Grants access to all MCP servers and enabled tools applied to the vMCP.
+							<br class="hidden md:block" />
+							This includes current and any MCP servers added in the future.
 						</p>
 					</div>
 					<input
@@ -1021,126 +1026,127 @@
 						class="toggle toggle-sm shrink-0"
 						checked={draft.allowAllComponents}
 						disabled={readonly}
-						aria-label="Allow All Components"
+						aria-label="Allow All Access"
 						onchange={(event) => setAllowAllComponents(event.currentTarget.checked)}
 					/>
 				</label>
-				<div class="divider mt-3 mb-6"></div>
-				{#if componentServers.length === 0}
-					<div class="text-muted-content rounded-lg p-5 text-center text-sm">
-						No MCP servers available.
-					</div>
-				{:else}
-					<div class="flex flex-col gap-1">
-						{#each componentServers as component (componentId(component))}
-							{@const id = componentId(component)}
-							{@const resource = resourceFor(id)}
-							{@const name = componentName(component)}
-							{@const granted = resource ? isResourceGranted(draft, resource) : false}
-							<div
-								class="border-base-300 dark:border-base-400 flex min-w-0 grow flex-col overflow-hidden rounded-lg border"
-							>
-								{#snippet componentIdentity()}
-									<div class="flex h-10 shrink-0 items-center">
-										<input
-											type="checkbox"
-											class="toggle toggle-xs relative z-10"
-											checked={granted}
-											disabled={readonly || !resource}
-											aria-label={granted ? `Disable ${name}` : `Enable ${name}`}
-											use:tooltip={{ text: granted ? `Disable ${name}` : `Enable ${name}` }}
-											onclick={(event) => event.stopPropagation()}
-											onchange={(event) => {
-												const next = event.currentTarget.checked;
-												event.currentTarget.checked = granted;
-												setComponentGrant(id, name, next);
-											}}
-										/>
-									</div>
-									{#if component.catalogEntry?.manifest?.icon}
-										<img src={component.catalogEntry.manifest.icon} alt="" class="size-5" />
+				{#if !draft.allowAllComponents}
+					{#if componentServers.length === 0}
+						<div class="text-muted-content rounded-lg p-5 text-center text-sm">
+							No MCP servers available.
+						</div>
+					{:else}
+						<div class="flex flex-col gap-1">
+							{#each componentServers as component (componentId(component))}
+								{@const id = componentId(component)}
+								{@const resource = resourceFor(id)}
+								{@const name = componentName(component)}
+								{@const granted = resource ? isResourceGranted(draft, resource) : false}
+								<div
+									class="border-base-300 dark:border-base-400 flex min-w-0 grow flex-col overflow-hidden rounded-lg border"
+								>
+									{#snippet componentIdentity()}
+										<div class="flex h-10 shrink-0 items-center">
+											<input
+												type="checkbox"
+												class="toggle toggle-xs relative z-10"
+												checked={granted}
+												disabled={readonly || !resource}
+												aria-label={granted ? `Disable ${name}` : `Enable ${name}`}
+												use:tooltip={{ text: granted ? `Disable ${name}` : `Enable ${name}` }}
+												onclick={(event) => event.stopPropagation()}
+												onchange={(event) => {
+													const next = event.currentTarget.checked;
+													event.currentTarget.checked = granted;
+													setComponentGrant(id, name, next);
+												}}
+											/>
+										</div>
+										{#if component.catalogEntry?.manifest?.icon}
+											<img src={component.catalogEntry.manifest.icon} alt="" class="size-5" />
+										{:else}
+											<div class="icon">
+												<Server class="size-5" />
+											</div>
+										{/if}
+										<span class="grow font-medium text-sm">
+											{name}
+										</span>
+									{/snippet}
+									{#if resource && granted && resource.toolOverrides.length > 0}
+										<button
+											type="button"
+											class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
+											aria-expanded={Boolean(expanded[id])}
+											aria-label={expanded[id] ? 'Collapse' : 'Expand'}
+											onclick={() => (expanded[id] = !expanded[id])}
+										>
+											{@render componentIdentity()}
+											<span class="text-muted-content text-xs">
+												{enabledToolCount(resource)} of {modifiableTools(resource).length} tools
+											</span>
+											<span
+												class="text-muted-content flex size-8 shrink-0 items-center justify-center"
+												aria-hidden="true"
+											>
+												{#if expanded[id]}
+													<ChevronUp class="size-4" />
+												{:else}
+													<ChevronDown class="size-4" />
+												{/if}
+											</span>
+										</button>
+									{:else if resource && granted}
+										<button
+											type="button"
+											class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
+											aria-label="Refine tools"
+											onclick={(event) => refineTools(event, component)}
+											disabled={readonly}
+										>
+											{@render componentIdentity()}
+											<span
+												class="text-muted-content flex size-8 shrink-0 items-center justify-center"
+												aria-hidden="true"
+											>
+												<Split class="size-4" />
+											</span>
+										</button>
 									{:else}
-										<div class="icon">
-											<Server class="size-5" />
+										<div
+											class={twMerge(
+												'flex w-full items-center gap-3 py-1 px-3 h-12 justify-between',
+												resource && !granted && 'opacity-50'
+											)}
+										>
+											{@render componentIdentity()}
+											<span class="text-muted-content shrink-0 text-xs">
+												{resource && !granted ? 'Disabled' : ''}
+											</span>
 										</div>
 									{/if}
-									<span class="grow font-medium text-sm">
-										{name}
-									</span>
-								{/snippet}
-								{#if resource && granted && resource.toolOverrides.length > 0}
-									<button
-										type="button"
-										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
-										aria-expanded={Boolean(expanded[id])}
-										aria-label={expanded[id] ? 'Collapse' : 'Expand'}
-										onclick={() => (expanded[id] = !expanded[id])}
-									>
-										{@render componentIdentity()}
-										<span class="text-muted-content text-xs">
-											{enabledToolCount(resource)} of {modifiableTools(resource).length} tools
-										</span>
-										<span
-											class="text-muted-content flex size-8 shrink-0 items-center justify-center"
-											aria-hidden="true"
+									{#if resource && resource.toolOverrides.length > 0 && expanded[id]}
+										<div
+											in:slide={{ axis: 'y', duration: 150 }}
+											class="border-base-300 bg-base-200/35 dark:bg-base-200 flex flex-col border-t p-2"
 										>
-											{#if expanded[id]}
-												<ChevronUp class="size-4" />
-											{:else}
-												<ChevronDown class="size-4" />
-											{/if}
-										</span>
-									</button>
-								{:else if resource && granted}
-									<button
-										type="button"
-										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
-										aria-label="Refine tools"
-										onclick={(event) => refineTools(event, component)}
-										disabled={readonly}
-									>
-										{@render componentIdentity()}
-										<span
-											class="text-muted-content flex size-8 shrink-0 items-center justify-center"
-											aria-hidden="true"
-										>
-											<Split class="size-4" />
-										</span>
-									</button>
-								{:else}
-									<div
-										class={twMerge(
-											'flex w-full items-center gap-3 py-1 px-3 h-12 justify-between',
-											resource && !granted && 'opacity-50'
-										)}
-									>
-										{@render componentIdentity()}
-										<span class="text-muted-content shrink-0 text-xs">
-											{resource && !granted ? 'Disabled' : ''}
-										</span>
-									</div>
-								{/if}
-								{#if resource && resource.toolOverrides.length > 0 && expanded[id]}
-									<div
-										in:slide={{ axis: 'y', duration: 150 }}
-										class="border-base-300 bg-base-200/35 dark:bg-base-200 flex flex-col border-t p-2"
-									>
-										<VMcpProfileToolsOverride
-											bind:tools={resource.toolOverrides}
-											toolPrefix={component.toolPrefix}
-											componentId={id}
-											lockedTools={lockedToolNames(resource)}
-											lockedReason="Disabled on this vMCP."
-											onRefresh={readonly ? undefined : () => refreshProfileTools(component)}
-											onToolsChange={() => draft && refineAllowAllIfNeeded(draft)}
-											{effectiveNameDuplicates}
-											{readonly}
-										/>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
+											<VMcpProfileToolsOverride
+												bind:tools={resource.toolOverrides}
+												toolPrefix={component.toolPrefix}
+												componentId={id}
+												lockedTools={lockedToolNames(resource)}
+												lockedReason="Disabled on this vMCP."
+												onRefresh={readonly ? undefined : () => refreshProfileTools(component)}
+												onToolsChange={() => draft && refineAllowAllIfNeeded(draft)}
+												{effectiveNameDuplicates}
+												{readonly}
+											/>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</section>
 
