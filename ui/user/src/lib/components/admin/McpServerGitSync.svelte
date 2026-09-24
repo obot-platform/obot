@@ -200,7 +200,7 @@
 {/snippet}
 
 <dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4 h-91.5 max-h-dvh flex flex-col">
+	<div class="dialog-container w-full max-w-md p-4 h-96 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
