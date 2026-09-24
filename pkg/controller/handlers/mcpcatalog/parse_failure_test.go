@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/require"
@@ -58,7 +59,7 @@ func newParseTestHandler(t *testing.T) *Handler {
 	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
-	return &Handler{gatewayClient: client}
+	return New("", "", client, nil, &mcp.SessionManager{}, 0)
 }
 
 func TestCatalogParseFailureSyncLifecycle(t *testing.T) {

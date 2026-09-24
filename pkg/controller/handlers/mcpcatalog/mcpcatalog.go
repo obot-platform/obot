@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/openapi"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -57,6 +58,10 @@ var (
 	startupSyncGeneration = "1/" + version.Tag
 )
 
+type openAPIImporter interface {
+	Import(context.Context, types.OpenAPIRuntimeConfig) (*openapi.Result, error)
+}
+
 type Handler struct {
 	maxRepoSizeMB             int
 	defaultCatalogPath        string
@@ -67,6 +72,7 @@ type Handler struct {
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
 	mcpSessionManager         *mcp.SessionManager
+	openAPIImporter           openAPIImporter
 }
 
 // userInfo is a wrapper around kuser.Info that includes the user's role.
@@ -82,21 +88,23 @@ type discardResponse struct{}
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcpSessionManager.ValidationOptions()
+	safeHTTPOptions := safehttp.Options{
+		BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
+		BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
+		BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,
+	}
 
 	return &Handler{
-		maxRepoSizeMB:            maxRepoSizeMB,
-		defaultCatalogPath:       defaultCatalogPath,
-		defaultSystemCatalogPath: defaultSystemCatalogPath,
-		gatewayClient:            gatewayClient,
-		httpClient: safehttp.NewClient(safehttp.Options{
-			BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
-			BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
-			BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,
-		}),
+		maxRepoSizeMB:             maxRepoSizeMB,
+		defaultCatalogPath:        defaultCatalogPath,
+		defaultSystemCatalogPath:  defaultSystemCatalogPath,
+		gatewayClient:             gatewayClient,
+		httpClient:                safehttp.NewClient(safeHTTPOptions),
 		accessControlRuleHelper:   accessControlRuleHelper,
 		remoteURLValidationConfig: validationOptions,
 		mcpBackend:                mcpSessionManager.MCPRuntimeBackend(),
 		mcpSessionManager:         mcpSessionManager,
+		openAPIImporter:           openapi.NewImporter(safeHTTPOptions, false),
 	}
 }
 
@@ -710,6 +718,21 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		catalogvalidation.NormalizeManifest(&entry)
+		if entry.Runtime == types.RuntimeOpenAPI {
+			if entry.OpenAPIConfig == nil {
+				errs = append(errs, fmt.Errorf("catalog entry %s: openAPIConfig is required", entry.Name))
+				continue
+			}
+			// Always import the source, even when Git and info.version are unchanged.
+			// Never forward catalog credentials to the schema URL or trust a snapshot
+			// supplied by Git. Failed imports leave the last good entry untouched.
+			result, err := h.openAPIImporter.Import(ctx, *entry.OpenAPIConfig)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to import OpenAPI schema for catalog entry %s: %w", entry.Name, err))
+				continue
+			}
+			entry.OpenAPIConfig.Schema = &types.OpenAPISchema{Raw: result.Schema}
+		}
 		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{
 			MCP:        validationOptions,
 			MCPBackend: h.mcpBackend,
