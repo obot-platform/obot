@@ -315,7 +315,7 @@
 										Unlock MCP Inspector Chat
 									</h2>
 									<p class="max-w-md text-sm font-light">
-										Register once to get free access to the MCP Inspector Chat, powered by
+										Register to get free access to the MCP Inspector Chat, powered by
 										<b class="font-medium">Obot’s model service</b>.
 									</p>
 									<p class="max-w-md text-sm font-light">

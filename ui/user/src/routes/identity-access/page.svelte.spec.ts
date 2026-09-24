@@ -493,7 +493,7 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(
 						signup.getByText(
-							/Register once to get free access to all additional providers supported by Obot/,
+							/Register to get free access to all additional providers supported by Obot/,
 							{
 								exact: false
 							}
