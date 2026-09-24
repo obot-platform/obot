@@ -98,7 +98,7 @@ type (
 )
 
 type Config struct {
-	GitMaxRepoSizeMB                               int      `usage:"Maximum git repository size in MB" default:"100" name:"git-max-repo-size-mb" env:"OBOT_SERVER_GIT_MAX_REPO_SIZE_MB"`
+	GitMaxRepoSizeMB                               int      `usage:"Maximum git repository size in MB" default:"100" name:"git-max-repo-size-mb"`
 	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables the model proxy" default:"https://model-service.obot.ai"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
