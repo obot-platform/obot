@@ -501,6 +501,9 @@ func (v RemoteValidator) ValidateSystemConfig(ctx context.Context, manifest type
 }
 
 func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.RemoteRuntimeConfig) error {
+	if err := ValidateLocalhostCallbackPath(config.LocalhostCallbackPath); err != nil {
+		return err
+	}
 	config.TunnelName = strings.TrimSpace(config.TunnelName)
 	if config.TunnelName != "" &&
 		(config.IsTemplate || strings.TrimSpace(config.URLTemplate) != "" || len(extractEnvRefs(config.URL)) > 0) {
@@ -547,6 +550,9 @@ func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.
 }
 
 func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config types.RemoteCatalogConfig) error {
+	if err := ValidateLocalhostCallbackPath(config.LocalhostCallbackPath); err != nil {
+		return err
+	}
 	// Either FixedURL, Hostname, or URLTemplate must be provided, but only one
 	hasFixedURL := strings.TrimSpace(config.FixedURL) != ""
 	hasHostname := strings.TrimSpace(config.Hostname) != ""
@@ -947,10 +953,12 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 			AllowMissingURL:              options.AllowMissingURL,
 			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
 		}).validateRemoteCatalogConfig(ctx, types.RemoteCatalogConfig{
-			FixedURL:            manifest.RemoteConfig.FixedURL,
-			URLTemplate:         manifest.RemoteConfig.URLTemplate,
-			Hostname:            manifest.RemoteConfig.Hostname,
-			StaticOAuthRequired: manifest.RemoteConfig.StaticOAuthRequired,
+			FixedURL:                 manifest.RemoteConfig.FixedURL,
+			URLTemplate:              manifest.RemoteConfig.URLTemplate,
+			Hostname:                 manifest.RemoteConfig.Hostname,
+			LocalhostCallbackEnabled: manifest.RemoteConfig.LocalhostCallbackEnabled,
+			LocalhostCallbackPath:    manifest.RemoteConfig.LocalhostCallbackPath,
+			StaticOAuthRequired:      manifest.RemoteConfig.StaticOAuthRequired,
 		})
 	}
 	if validator, ok := getRuntimeValidators(options)[manifest.Runtime]; ok {

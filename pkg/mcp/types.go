@@ -43,11 +43,13 @@ type ServerConfig struct {
 	Files   []File   `json:"files"`
 
 	// Remote configuration.
-	URL                     string   `json:"url"`
-	TunnelName              string   `json:"tunnelName,omitempty"`
-	Headers                 []string `json:"headers"`
-	PassthroughHeaderNames  []string `json:"passthroughHeaderNames"`
-	PassthroughHeaderValues []string `json:"passthroughHeaderValues"`
+	LocalhostCallbackEnabled bool     `json:"localhostCallbackEnabled,omitempty"`
+	LocalhostCallbackPath    string   `json:"localhostCallbackPath,omitempty"`
+	URL                      string   `json:"url"`
+	TunnelName               string   `json:"tunnelName,omitempty"`
+	Headers                  []string `json:"headers"`
+	PassthroughHeaderNames   []string `json:"passthroughHeaderNames"`
+	PassthroughHeaderValues  []string `json:"passthroughHeaderValues"`
 
 	// Containerized configuration.
 	ContainerImage string `json:"containerImage"`
@@ -308,6 +310,8 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	}
 
 	serverConfig.URL = remoteConfig.URL
+	serverConfig.LocalhostCallbackEnabled = remoteConfig.LocalhostCallbackEnabled
+	serverConfig.LocalhostCallbackPath = remoteConfig.LocalhostCallbackPath
 	serverConfig.TunnelName = remoteConfig.TunnelName
 	serverConfig.Headers = make([]string, 0, len(config))
 

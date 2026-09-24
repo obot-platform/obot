@@ -50,6 +50,7 @@ type mcpOAuthHandler struct {
 	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
 	catalogEntryName  string
 	credentialContext string
+	redirectURL       string
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -180,6 +181,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	if err != nil {
 		return "", err
 	}
+	oauthHandler.redirectURL, err = f.upstreamRedirectURL(req, mcpServerConfig, oauthAppAuthRequestID)
+	if err != nil {
+		return "", err
+	}
 	oauthClientName, err := f.oauthClientNameForServer(req, mcpServerConfig.URL, oauthAppAuthRequestID)
 	if err != nil {
 		return "", err
@@ -191,7 +196,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
 			OAuthClientName:               oauthClientName,
-			OAuthClientIDMetadataDocument: f.cimdDocumentURL,
+			OAuthRedirectURL:              oauthHandler.redirectURL,
+			OAuthClientIDMetadataDocument: f.clientMetadataForRedirect(oauthHandler.redirectURL),
 			ClientName:                    obotOAuthClientName,
 			TokenStorage:                  f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
 			CallbackHandler:               oauthHandler,
@@ -308,13 +314,16 @@ func (f *MCPOAuthHandlerFactory) staticOAuthPending(ctx context.Context, mcpServ
 }
 
 func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfig mcp.ServerConfig, oauthHandler *mcpOAuthHandler) (string, error) {
+	callbackURL := oauthHandler.redirectURL
+	if callbackURL == "" {
+		callbackURL = system.MCPOAuthCallbackURL(f.baseURL)
+	}
 	metadata, err := f.mcpSessionManager.GetOAuthMetadata(ctx, serverConfig,
-		"Obot MCP Gateway", system.MCPOAuthCallbackURL(f.baseURL), true)
+		"Obot MCP Gateway", callbackURL, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to discover OAuth metadata for static OAuth server: %w", err)
 	}
 
-	callbackURL := system.MCPOAuthCallbackURL(f.baseURL)
 	authorizationServer, registration, err := staticOAuthMetadata(metadata, callbackURL)
 	if err != nil {
 		return "", err

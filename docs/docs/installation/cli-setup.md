@@ -146,3 +146,28 @@ Pass `--clients agents`, `--clients claude-code`, `--clients agents,claude-code`
 ### Existing URL mismatch
 
 If setup reports that another Obot URL is already configured, pass `--yes` to replace the stored default URL.
+
+## Connect an MCP client through the local CLI
+
+Use `obot mcp connect <URL>` as a STDIO server command in your MCP client's configuration:
+
+```json
+{
+  "mcpServers": {
+    "obot": {
+      "command": "obot",
+      "args": ["mcp", "connect", "https://obot.example.com/mcp-connect/<connection-id>"]
+    }
+  }
+}
+```
+
+Copy the connection URL from Obot. Install a CLI version that includes `mcp connect` and ensure your MCP client can find `obot` on its `PATH`, or supply the full executable path.
+
+The CLI opens your browser to authenticate and relays MCP traffic through Obot. This connection uses OAuth independently of the API key stored by `obot setup`. Its Obot OAuth credentials are stored with restricted file permissions under the platform's user data directory in `obot/mcp-connect`; upstream provider credentials remain on the Obot server.
+
+For a provider that requires localhost OAuth redirects, enable **Localhost OAuth callback** in the remote server or catalog entry configuration. Leave the callback path blank for `/oauth/callback`, or enter the provider's required path. The CLI registers its own callback with Obot, receives the provider callback on the same local port, and redirects the browser back to Obot to finish authentication.
+
+Run the CLI on the same computer as your browser. It binds an available loopback port; providers that require a fixed port are not supported. Hosted callbacks remain the default when the setting is disabled. A browser-only connection cannot supply the local relay needed by a localhost-only provider.
+
+The MCP client manages the CLI process. Diagnostics use stderr, while stdout is reserved for MCP messages. If the browser cannot open automatically, the CLI prints an authorization URL to stderr. Authentication times out after five minutes; retry the connection to start again.
