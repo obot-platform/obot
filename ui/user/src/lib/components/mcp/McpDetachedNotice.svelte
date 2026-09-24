@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { isWebURL } from '$lib/url';
+	import { gitSourceBrowserURL, isWebURL } from '$lib/url';
 	import { Unplug } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -49,7 +49,7 @@
 				{#if sourceURL}
 					{#if isWebURL(sourceURL)}
 						<a
-							href={sourceURL}
+							href={gitSourceBrowserURL(sourceURL)}
 							target="_blank"
 							rel="external noopener noreferrer"
 							class="text-link mt-1 inline-block"

@@ -6,7 +6,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type MCPCatalog } from '$lib/services';
-	import { isWebURL } from '$lib/url';
+	import { gitSourceBrowserURL, isWebURL } from '$lib/url';
 	import { TriangleAlert, Link2, Pencil, Trash2, Info } from '@lucide/svelte';
 	import { fade, slide } from 'svelte/transition';
 
@@ -92,7 +92,12 @@
 				{#if property === 'url'}
 					<div class="flex items-center gap-2">
 						{#if isWebURL(d.url)}
-							<a href={d.url} target="_blank" rel="noopener noreferrer external" class="text-link">
+							<a
+								href={gitSourceBrowserURL(d.url)}
+								target="_blank"
+								rel="noopener noreferrer external"
+								class="text-link"
+							>
 								{d.url}
 							</a>
 						{:else}

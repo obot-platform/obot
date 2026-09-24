@@ -46,9 +46,11 @@ Connection URLs for MCP servers are derived from catalog entry names. Git-synced
 | GitLab | `https://gitlab.com/org/repo` or `https://gitlab.com/org/repo.git` |
 | GitLab with branch | `https://gitlab.com/org/repo/my-branch` |
 | GitLab with subgroups | `https://gitlab.com/group/subgroup/repo.git` |
+| Bitbucket Cloud | `https://bitbucket.org/workspace/repo.git` |
+| Bitbucket Cloud with branch | `https://bitbucket.org/workspace/repo.git/my-branch` |
 | Self-hosted | `https://git.example.com/org/repo.git` |
 
-For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required. To specify a branch on GitHub or GitLab, append it after the repo name (e.g. `/my-branch`). GitLab subgroup repositories require the `.git` suffix to distinguish the subgroup path from a branch name.
+For GitHub and GitLab a `.git` suffix is optional. For Bitbucket Cloud and self-hosted instances it is required. To specify a branch, append it after the repository path (e.g. `/my-branch`, after `.git` when required). GitLab subgroup repositories require the `.git` suffix to distinguish the subgroup path from a branch name. If no branch is specified, Obot uses `main`.
 
 ### Private repositories
 
@@ -58,6 +60,7 @@ To pull from a private repository, enter a **Personal access token** in the opti
 
 - **GitHub**: `repo` (read access is sufficient)
 - **GitLab**: `read_repository` (clone access) + `read_api` (pre-clone size check)
+- **Bitbucket Cloud**: A repository access token with **Repository Read** permission. Enter it in the token field; Obot uses the `x-token-auth` username for HTTPS cloning. Personal API tokens, which require a different username, are not supported by this authentication method.
 
 If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable.
 
