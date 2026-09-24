@@ -80,7 +80,9 @@ func TestOAuthRegistrationRelayAndTokenReuse(t *testing.T) {
 	gatewayURL = gateway.URL
 	parsed, err := url.Parse(gatewayURL)
 	require.NoError(t, err)
-	callback := &callbackHandler{gateway: parsed, openBrowser: func(u string) error {
+	paths, err := allowedCallbackPaths([]string{"/provider/callback"})
+	require.NoError(t, err)
+	callback := &callbackHandler{gateway: parsed, providerPaths: paths, openBrowser: func(u string) error {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			return err

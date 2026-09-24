@@ -16,8 +16,12 @@ import (
 	"github.com/pkg/browser"
 )
 
-func Run(ctx context.Context, connectURL string) error {
+func Run(ctx context.Context, connectURL string, callbackPaths ...string) error {
 	gateway, err := gatewayBaseURL(connectURL)
+	if err != nil {
+		return err
+	}
+	paths, err := allowedCallbackPaths(callbackPaths)
 	if err != nil {
 		return err
 	}
@@ -29,7 +33,7 @@ func Run(ctx context.Context, connectURL string) error {
 	}
 	defer listener.Close()
 	redirectURL := fmt.Sprintf("http://localhost:%d%s", listener.Addr().(*net.TCPAddr).Port, obotCallbackPath)
-	callback := &callbackHandler{gateway: gateway, openBrowser: func(u string) error {
+	callback := &callbackHandler{gateway: gateway, providerPaths: paths, openBrowser: func(u string) error {
 		fmt.Fprintln(os.Stderr, "Opening browser to authenticate with Obot.")
 		browser.Stdout = os.Stderr
 		if err := browser.OpenURL(u); err != nil {

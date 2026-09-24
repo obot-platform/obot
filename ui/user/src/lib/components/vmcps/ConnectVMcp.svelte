@@ -13,6 +13,7 @@
 	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		resolveVMcpComponents,
 		vmcpComponentId,
@@ -521,6 +522,7 @@
 		{/if}
 		<HowToConnect
 			{localhostCallback}
+			callbackPaths={vmcp ? vmcpLocalhostCallbackPaths(vmcp) : []}
 			bind:this={howToConnect}
 			url={connectURL}
 			id={generateIdFromName(displayName)}
