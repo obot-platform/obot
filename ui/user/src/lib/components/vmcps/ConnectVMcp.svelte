@@ -47,11 +47,7 @@
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
 
-	let localhostCallback = $derived(
-		vmcp?.components?.some(
-			(component) => component.catalogEntry?.manifest?.remoteConfig?.localhostCallbackEnabled
-		) ?? false
-	);
+	let localhostCallback = $derived(vmcp ? vmcpLocalhostCallbackPaths(vmcp).length > 0 : false);
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);

@@ -632,6 +632,7 @@ export interface VMCPComponentStatus {
 }
 
 export interface VMCP extends VMCPManifest {
+	localhostCallbackPaths?: string[];
 	created: string;
 	creatorUserID?: string;
 	deleted?: string;

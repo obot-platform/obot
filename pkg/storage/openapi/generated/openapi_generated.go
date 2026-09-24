@@ -18770,6 +18770,20 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 				Description: "VMCP is a stable, optionally multi-component MCP endpoint definition.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"localhostCallbackPaths": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallbackPaths contains the effective callback paths for the requesting user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -18894,7 +18908,7 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"created", "displayName", "components"},
+				Required: []string{"localhostCallbackPaths", "created", "displayName", "components"},
 			},
 		},
 		Dependencies: []string{

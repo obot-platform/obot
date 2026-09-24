@@ -120,3 +120,15 @@ it('includes component callback paths in bulk JSON, TOML, and enterprise allowli
 	const policy = JSON.parse(buildConnectAllSnippets(AiClient.Claude, vmcps, true)[0].value);
 	expect(policy.allowedMcpServers[1]).toEqual({ serverCommand: ['obot', ...args] });
 });
+
+it('uses effective callback requirements instead of current components in bulk installation', () => {
+	const [remote, local] = connections();
+	remote.localhostCallbackPaths = ['/retained/callback'];
+	local.localhostCallbackPaths = [];
+	const config = JSON.parse(
+		buildConnectAllSnippets(AiClient.Cursor, [remote, local], false)[0].value
+	);
+	expect(config.mcpServers.Remote.command).toBe('obot');
+	expect(config.mcpServers.Remote.args.slice(3)).toEqual(['--callback-path', '/retained/callback']);
+	expect(config.mcpServers.Local).toEqual({ type: 'http', url: stdio.args[2] });
+});

@@ -61,8 +61,7 @@
 		afterHeaders
 	}: Props = $props();
 
-	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
-	// For servers, we always show the URL field (no advanced toggle needed)
+	// Keep configured advanced settings visible when editing.
 	let showAdvanced = $state(
 		untrack(() =>
 			Boolean(
@@ -71,7 +70,8 @@
 				((tunnels !== undefined || tunnelsLoading) &&
 					(config as RemoteCatalogConfigAdmin).tunnelName) ||
 				(config.headers && config.headers.length > 0) ||
-				(config as RemoteCatalogConfigAdmin).staticOAuthRequired
+				(config as RemoteCatalogConfigAdmin).staticOAuthRequired ||
+				config.localhostCallbackEnabled
 			)
 		)
 	);
@@ -639,25 +639,29 @@
 	{/if}
 {/if}
 
-{#if variant === 'catalog'}
-	<button
-		id={CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn}
-		type="button"
-		class="btn btn-text pl-0"
-		onclick={() => {
-			showAdvanced = !showAdvanced;
-
-			if (!showAdvanced) {
-				const catalogConfig = config as RemoteCatalogConfigAdmin;
-				catalogConfig.hostname = undefined;
-				catalogConfig.tunnelName = undefined;
-				catalogConfig.urlTemplate = undefined;
-				catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
-			}
-		}}
-	>
-		{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
-	</button>
+{#if showAdvanced}
+	<LocalhostCallbackForm bind:config {readonly} />
 {/if}
 
-<LocalhostCallbackForm bind:config {readonly} />
+<button
+	id={CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn}
+	type="button"
+	class="btn btn-text pl-0"
+	onclick={() => {
+		showAdvanced = !showAdvanced;
+
+		if (!showAdvanced && variant === 'catalog') {
+			const catalogConfig = config as RemoteCatalogConfigAdmin;
+			catalogConfig.hostname = undefined;
+			catalogConfig.tunnelName = undefined;
+			catalogConfig.urlTemplate = undefined;
+			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
+		}
+	}}
+>
+	{showAdvanced
+		? variant === 'catalog'
+			? 'Reset Default Configuration'
+			: 'Hide Advanced Configuration'
+		: 'Advanced Configuration'}
+</button>

@@ -419,3 +419,16 @@ it('includes all distinct vMCP provider callback paths in installation', async (
 		'/oauth/callback'
 	]);
 });
+
+it('installs with effective retained callback paths even when the current component uses HTTP', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/retained/callback'];
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.command).toBe('obot');
+	expect(config.args.slice(3)).toEqual(['--callback-path', '/retained/callback']);
+});

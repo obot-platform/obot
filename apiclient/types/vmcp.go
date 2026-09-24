@@ -15,6 +15,8 @@ const (
 
 // VMCP is a stable, optionally multi-component MCP endpoint definition.
 type VMCP struct {
+	// LocalhostCallbackPaths contains the effective callback paths for the requesting user.
+	LocalhostCallbackPaths  []string `json:"localhostCallbackPaths"`
 	Metadata                `json:",inline"`
 	VMCPManifest            `json:",inline"`
 	LegacySlug              string     `json:"legacySlug,omitempty"`

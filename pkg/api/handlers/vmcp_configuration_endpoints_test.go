@@ -94,6 +94,7 @@ func TestVMCPDeconfigureDeletesConfigurationAndPublishesHashes(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/deconfigure", nil)
 	request.SetPathValue("vmcp_id", vmcp.Name)
 	require.NoError(t, NewVMCPHandler(nil).Deconfigure(api.Context{
+		User:           &user.DefaultInfo{UID: "user-1"},
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        request,
 		Storage:        storage,

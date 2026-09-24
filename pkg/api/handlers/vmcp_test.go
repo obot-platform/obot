@@ -1381,3 +1381,62 @@ func TestVMCPComponentAccess(t *testing.T) {
 		}
 	}
 }
+
+func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
+	vmcp := &v1.VMCP{Name: "vmcp1paths", Namespace: system.DefaultNamespace}
+	component := types.VMCPComponent{ID: "provider"}
+	component.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/current"}
+	vmcp.Spec.Manifest.Components = []types.VMCPComponent{component}
+	legacy := *component.DeepCopy()
+	legacy.SourceDigest = utils.Digest([]any{component, ""})
+	legacy.CatalogEntry.Manifest.RemoteConfig.LocalhostCallbackPath = "/retained"
+	instance := &v1.VMCPInstance{Name: "vmcpi1paths", Namespace: system.DefaultNamespace}
+	instance.Spec.Manifest.VMCPID = vmcp.Name
+	instance.Spec.UserID = "owner"
+	instance.Spec.LegacyComponents = []types.VMCPComponent{legacy}
+	for _, tc := range []struct {
+		name     string
+		userID   string
+		disabled bool
+		want     []string
+	}{
+		{
+			name:   "retained callback",
+			userID: "owner",
+			want:   []string{"/retained"},
+		},
+		{
+			name:   "other users do not inherit snapshots",
+			userID: "other",
+			want:   []string{"/current"},
+		},
+		{
+			name:     "disabled components require no callbacks",
+			userID:   "owner",
+			disabled: true,
+			want:     []string{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			connection := instance.DeepCopy()
+			if tc.disabled {
+				connection.Spec.LegacyDisabledComponents = []string{component.ID}
+			}
+			req := api.Context{
+				Request: httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcp.Name, nil),
+				Storage: newVMCPTestStorage(vmcp, connection),
+				User:    &user.DefaultInfo{UID: tc.userID},
+			}
+			got, err := convertVMCPForUser(req, *vmcp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.LocalhostCallbackPaths, tc.want) {
+				t.Fatalf("callback paths = %v, want %v", got.LocalhostCallbackPaths, tc.want)
+			}
+			if got.Components[0].CatalogEntry.Manifest.RemoteConfig.LocalhostCallbackPath != "/current" {
+				t.Fatal("conversion changed the public component snapshot")
+			}
+		})
+	}
+}
