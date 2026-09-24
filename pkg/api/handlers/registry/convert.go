@@ -9,12 +9,15 @@ import (
 	obottypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ConvertMCPServerToRegistry converts an Obot MCPServer to a Registry ServerResponse
 // Uses the existing ConvertMCPServer function to ensure consistency with the rest of the codebase
 func ConvertMCPServerToRegistry(
 	ctx context.Context,
+	storage kclient.Reader,
 	server v1.MCPServer,
 	credEnv map[string]string,
 	serverURL string,
@@ -23,6 +26,10 @@ func ConvertMCPServerToRegistry(
 	userID string,
 	mimeFetcher *mimeFetcher,
 ) (obottypes.RegistryServerResponse, error) {
+	localhostCallback, err := serverRequiresLocalhostCallback(ctx, storage, server)
+	if err != nil {
+		return obottypes.RegistryServerResponse{}, err
+	}
 	// Use existing conversion function to get types.MCPServer
 	convertedServer := handlers.ConvertMCPServer(server, credEnv, serverURL, slug)
 
@@ -76,9 +83,8 @@ func ConvertMCPServerToRegistry(
 	isPersonalServer := convertedServer.UserID == userID && convertedServer.IsSingleUser()
 	isMultiUserServer := !convertedServer.IsSingleUser()
 
-	// For configured servers, add remote with mcp-connect URL
-	// All Obot servers are exposed as streamable-http remotes regardless of underlying runtime
-	if remote := server.Spec.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
+	// Advertise configured servers through HTTP unless OAuth requires the CLI relay.
+	if localhostCallback {
 		meta.Obot = &obottypes.RegistryObotMeta{
 			ConfigurationRequired: true,
 			ConfigurationMessage:  "This server requires the Obot CLI. Please visit the Obot UI for connection instructions.",
@@ -250,4 +256,37 @@ func guessRepoSource(repoURL string) string {
 		return "bitbucket"
 	}
 	return ""
+}
+
+// serverRequiresLocalhostCallback uses the same component snapshots as runtime
+// resolution, including snapshots retained by migrated vMCP connections.
+func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader, server v1.MCPServer) (bool, error) {
+	if remote := server.Spec.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
+		return true, nil
+	}
+	if server.Spec.Manifest.Runtime != obottypes.RuntimeVMCP {
+		return false, nil
+	}
+	vmcpID := server.Spec.VMCPID
+	var instance v1.VMCPInstance
+	if server.Spec.VMCPInstanceID != "" {
+		if err := storage.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.VMCPInstanceID}, &instance); err != nil {
+			return false, fmt.Errorf("resolve registry vMCP instance: %w", err)
+		}
+		vmcpID = instance.Spec.Manifest.VMCPID
+	}
+	var vmcp v1.VMCP
+	if err := storage.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: vmcpID}, &vmcp); err != nil {
+		return false, fmt.Errorf("resolve registry vMCP: %w", err)
+	}
+	components := vmcp.Spec.Manifest.Components
+	if instance.Name != "" {
+		components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	}
+	for _, component := range components {
+		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
+			return true, nil
+		}
+	}
+	return false, nil
 }
