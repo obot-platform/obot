@@ -98,39 +98,11 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 		return kclient.IgnoreNotFound(err)
 	}
 
-	allowed := []types.VMCPToolReference{}
-	switch vmcp.Spec.UserID {
-	case "":
-		// Register a trigger on group list changes so we recalculate when things change.
-		if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
-			Namespace:     instance.Namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-		}); err != nil {
-			return err
-		}
-
-		// Same for user role changes.
-		if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
-			Namespace:     instance.Namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-		}); err != nil {
-			return err
-		}
-
-		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
-		if err != nil {
-			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
-		}
-
-		u, err := h.userInfo(req.Ctx, uint(id))
-		if err != nil {
-			return err
-		}
-
-		allowed = vmcpconfig.AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
-	case instance.Spec.UserID:
-		allowed = types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
+	u, err := h.instanceUser(req, vmcp, *instance)
+	if err != nil {
+		return err
 	}
+	allowed := vmcpconfig.InstanceGrant(u, vmcp, *instance)
 
 	allowed = slices.DeleteFunc(allowed, func(ref types.VMCPToolReference) bool {
 		return vmcp.Spec.Manifest.ValidateToolReference(ref) != nil
@@ -146,6 +118,38 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 	return req.Client.Update(req.Ctx, instance)
 }
 
+// instanceUser resolves the instance user for evaluating shared VMCP profiles.
+// Profiles depend on the user's groups and role, so changes to either retrigger
+// the instance. Personal VMCPs do not use profiles, so they return a nil user.
+func (h *Handler) instanceUser(req router.Request, vmcp v1.VMCP, instance v1.VMCPInstance) (kuser.Info, error) {
+	if vmcp.Spec.UserID != "" {
+		return nil, nil
+	}
+
+	// Register a trigger on group list changes so we recalculate when things change.
+	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
+		Namespace:     instance.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+	}); err != nil {
+		return nil, err
+	}
+
+	// Same for user role changes.
+	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
+		Namespace:     instance.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+	}); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+	}
+
+	return h.userInfo(req.Ctx, uint(id))
+}
+
 // SyncUserConfigurationHash records the current instance credential without
 // exposing its values. Only values still allowed by the VMCP policy contribute
 // to the hash.
@@ -159,10 +163,17 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
+	u, err := h.instanceUser(req, vmcp, *instance)
+	if err != nil {
+		return err
+	}
+
 	configuration := map[string]string{}
 	effective := vmcp.Spec.Manifest
 	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
-	checkHash := utils.Digest([]any{effective.Components, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]})
+	// Components disabled for the user never require the user's configuration.
+	enabled := vmcpconfig.EnabledComponents(u, vmcp, slices.Clone(effective.Components))
+	checkHash := vmcpconfig.ConfigurationCheckHash(enabled, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
 	if instance.Status.ConfigurationCheckHash == checkHash {
 		return nil
 	}
@@ -177,7 +188,7 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 	}
 
 	var missing []string
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
+	for _, component := range enabled {
 		missing = append(missing, vmcpconfig.MissingRequiredConfiguration(component, configuration, true)...)
 	}
 	slices.Sort(missing)

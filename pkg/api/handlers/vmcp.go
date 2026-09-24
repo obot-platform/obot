@@ -38,7 +38,7 @@ func (*VMCPHandler) List(req api.Context) error {
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
 		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
-			items = append(items, convertVMCP(list.Items[itemIndex]))
+			items = append(items, convertVMCP(vmcpForUser(req, list.Items[itemIndex])))
 		}
 	}
 	return req.Write(types.VMCPList{Items: items})
@@ -49,7 +49,42 @@ func (*VMCPHandler) Get(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
-	return req.Write(convertVMCP(vmcp))
+	return req.Write(convertVMCP(vmcpForUser(req, vmcp)))
+}
+
+// vmcpForUser limits a shared VMCP to the components, tools, and profiles that
+// apply to the requesting user. Administrators and personal owners manage the definition,
+// and auditors review it, so they see all of it.
+func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
+	if req.UserIsAuditor() || authz.UserCanManageVMCP(req.User, &vmcp) {
+		return vmcp
+	}
+
+	vmcp = *vmcp.DeepCopy()
+	manifest := &vmcp.Spec.Manifest
+	manifest.Components = vmcpconfig.EnabledComponents(req.User, vmcp, manifest.Components)
+	// Only the profiles grant tools here. An instance's selection narrows its own
+	// connection, not the VMCP definition.
+	grant := vmcpconfig.AllowedTools(req.User, manifest.Profiles, nil)
+	for i := range manifest.Components {
+		component := &manifest.Components[i]
+		component.ToolOverrides, _ = vmcpconfig.GrantedToolOverrides(component.ID, component.ToolOverrides, grant)
+	}
+	manifest.Profiles = vmcpconfig.MatchingProfiles(req.User, manifest.Profiles)
+
+	// Component statuses are keyed by name. Readiness only reflects the visible components.
+	visible := make(map[string]struct{}, len(manifest.Components))
+	for _, component := range manifest.Components {
+		visible[component.Name] = struct{}{}
+	}
+	vmcp.Status.Components = slices.DeleteFunc(vmcp.Status.Components, func(status v1.VMCPComponentStatus) bool {
+		_, ok := visible[status.Name]
+		return !ok
+	})
+	vmcp.Status.Ready = len(vmcp.Status.Components) == len(manifest.Components) && !slices.ContainsFunc(vmcp.Status.Components, func(status v1.VMCPComponentStatus) bool {
+		return !status.Ready
+	})
+	return vmcp
 }
 
 func (h *VMCPHandler) Create(req api.Context) error {

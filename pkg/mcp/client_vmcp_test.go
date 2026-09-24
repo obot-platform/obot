@@ -121,8 +121,7 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	admin.Extra["obot_groups"] = types.RoleBasic.Groups()
 	aggregate, err = sm.serverConfigForVMCP(t.Context(), parent, instance, admin)
 	require.NoError(t, err)
-	require.Len(t, aggregate.Components, 1)
-	require.True(t, aggregate.Components[0].DisableTools, "losing the admin role must revoke its tools")
+	require.Empty(t, aggregate.Components, "losing the admin role must revoke its tools")
 
 	sm.gatewayClient = gateway
 	owner := &gatewaytypes.User{Username: "owner", Role: types.RoleAdmin}

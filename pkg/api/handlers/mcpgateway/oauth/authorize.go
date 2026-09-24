@@ -18,8 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
-	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/obot-platform/obot/pkg/wait"
 	"gorm.io/gorm"
 )
@@ -351,7 +349,10 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	// OAuth with credentials from before the user's save.
 	if vmcp != nil {
 		if syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]; syncHash != "" {
-			checkHash := utils.Digest([]any{vmcpconfig.ComponentsForInstance(*vmcp, *instance), syncHash})
+			checkHash, err := vmcpConfigurationCheckHash(req, *vmcp, *instance, syncHash)
+			if err != nil {
+				return err
+			}
 			instance, err = wait.For(req.Context(), req.Storage, instance, func(current *v1.VMCPInstance) (bool, error) {
 				return current.Status.ConfigurationCheckHash == checkHash, nil
 			})
@@ -433,7 +434,7 @@ func (h *handler) consent(req api.Context) error {
 	if vmcp != nil {
 		data := oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, nil, nil)
 		data.VMCPInstanceID = instance.Name
-		data.VMCPComponents = vmcpconfig.ComponentsForInstance(*vmcp, *instance)
+		data.VMCPComponents = vmcpConsentComponents(req.User, *vmcp, *instance)
 		return req.Write(data)
 	}
 	var (

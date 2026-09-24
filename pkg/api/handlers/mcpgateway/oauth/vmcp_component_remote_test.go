@@ -167,6 +167,83 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 	}
 }
 
+func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
+	var grantedCalls, disabledCalls atomic.Int32
+	server := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
+	transport := gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil)
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/disabled" {
+			disabledCalls.Add(1)
+		} else {
+			grantedCalls.Add(1)
+		}
+		transport.ServeHTTP(w, r)
+	}))
+	t.Cleanup(remote.Close)
+
+	vmcp := vmcpComponentVMCP(false)
+	vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, types.VMCPComponent{ID: "disabled"})
+	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{
+		AllowedComponents: map[string]types.VMCPComponentSet{"component": {}},
+	}
+	instance := vmcpComponentInstance("vmcpi1user", vmcp.Name)
+	objects := []kclient.Object{vmcp, instance}
+	for _, componentID := range []string{"component", "disabled"} {
+		component := vmcpComponentServer("ms1"+componentID, "", vmcp.Name)
+		component.Spec.VMCPComponentID = componentID
+		component.Spec.Manifest.Runtime = types.RuntimeRemote
+		component.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{URL: remote.URL + "/" + componentID}
+		objects = append(objects, component, &v1.MCPServerInstance{
+			Name:      "msi1" + componentID,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerInstanceSpec{
+				VMCPInstanceID:  instance.Name,
+				VMCPComponentID: componentID,
+				MCPServerName:   component.Name,
+				UserID:          "42",
+			},
+		})
+	}
+	storage := &vmcpOAuthInitialEventsClient{WithWatch: vmcpConsentStorage(objects...)}
+	gateway := vmcpConsentGateway(t)
+	tokens := mcp.NewGlobalTokenStore(gateway)
+	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "http://obot.example", 8080,
+		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
+		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+	require.NoError(t, err)
+	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
+	req := vmcpComponentRequest(storage, instance.Name, "ms1disabled")
+	req.GatewayClient = gateway
+
+	checks := func(t *testing.T) {
+		t.Helper()
+		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, &kuser.DefaultInfo{UID: "42"})
+		require.NoError(t, err)
+		recorder := httptest.NewRecorder()
+		req.ResponseWriter = recorder
+		require.NoError(t, h.checkVMCPAuth(req))
+		var pending []pendingComponentAuth
+		require.NoError(t, json.NewDecoder(recorder.Body).Decode(&pending))
+		require.Empty(t, pending)
+		authURL, err := h.oauthChecker.CheckForMCPAuth(req, aggregate, aggregateConfig, "42", instance.Name, "")
+		require.NoError(t, err)
+		require.Empty(t, authURL)
+	}
+
+	checks(t)
+	require.Positive(t, grantedCalls.Load())
+	require.Zero(t, disabledCalls.Load(), "a disabled component was probed for OAuth")
+	// A disabled component is not part of this connection, so it cannot be authenticated through it.
+	require.Error(t, h.checkVMCPComponentAuth(req))
+	require.Zero(t, disabledCalls.Load())
+
+	// Enabling the component makes it part of the OAuth check.
+	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{AllowAllComponents: true}
+	require.NoError(t, storage.Update(t.Context(), vmcp))
+	checks(t)
+	require.Positive(t, disabledCalls.Load())
+}
+
 func (c *vmcpOAuthInitialEventsClient) Watch(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) (watch.Interface, error) {
 	options := &kclient.ListOptions{}
 	options.ApplyOptions(opts)

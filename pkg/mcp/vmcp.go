@@ -94,7 +94,9 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
-	configuredComponents := vmcpaccess.ComponentsForInstance(*vmcp, *instance)
+	// Components disabled for the user are omitted entirely, so users never need
+	// to configure or authenticate servers they cannot use.
+	configuredComponents := vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance))
 	sharedComponents := make(map[string]struct{}, len(configuredComponents))
 	connectionsNeeded := make(map[string]struct{}, len(configuredComponents))
 	instanceComponents := make(map[string]struct{}, len(configuredComponents))
@@ -164,15 +166,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
-	// This needs to be non-nil because nil means that all supported tools are allowed.
-	allowedTools := []types.VMCPToolReference{}
-	switch vmcp.Spec.UserID {
-	case "":
-		allowedTools = vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
-	case userID:
-		allowedTools = types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
-	}
-
+	allowedTools := vmcpaccess.InstanceGrant(user, *vmcp, *instance)
 	for i := range components {
 		if err := restrictComponentTools(&components[i], allowedTools, configuredComponents[i].ID); err != nil {
 			return ServerConfig{}, err
@@ -207,25 +201,14 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}, nil
 }
 
-// Match stable component identities and original tool names. An empty
-// intersection must disable tools explicitly: no overrides means unrestricted.
+// An empty intersection must disable tools explicitly: no overrides means unrestricted.
 func restrictComponentTools(component *ComponentServer, allowed []types.VMCPToolReference, componentID string) error {
-	if allowed == nil || component.DisableTools || slices.Contains(allowed, types.VMCPToolReference{ComponentID: componentID, Name: "*"}) {
+	if component.DisableTools {
 		return nil
 	}
-	var tools []types.ToolOverride
-	if len(component.Tools) > 0 {
-		for _, tool := range component.Tools {
-			if tool.Enabled && slices.Contains(allowed, types.VMCPToolReference{ComponentID: componentID, Name: tool.Name}) {
-				tools = append(tools, tool)
-			}
-		}
-	} else {
-		for _, ref := range allowed {
-			if ref.ComponentID == componentID {
-				tools = append(tools, types.ToolOverride{Name: ref.Name, Enabled: true})
-			}
-		}
+	tools, restricted := vmcpaccess.GrantedToolOverrides(componentID, component.Tools, allowed)
+	if !restricted {
+		return nil
 	}
 	component.Tools = tools
 	component.DisableTools = len(tools) == 0

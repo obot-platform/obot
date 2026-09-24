@@ -665,6 +665,192 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	}
 }
 
+func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1shared",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{
+					{ID: "gmail", Name: "Gmail", ToolOverrides: []types.ToolOverride{
+						{Name: "send", OverrideName: "send_email", Enabled: true},
+						{Name: "read", Enabled: true},
+						{Name: "delete"},
+					}},
+					{ID: "outlook", Name: "Outlook", ToolOverrides: []types.ToolOverride{{Name: "send", Enabled: true}}},
+					{ID: "drive", Name: "Drive", ToolOverrides: []types.ToolOverride{
+						{Name: "list", Enabled: true},
+						{Name: "upload"},
+					}},
+					{ID: "calendar", Name: "Calendar"},
+					{ID: "tasks", Name: "Tasks", ToolOverrides: []types.ToolOverride{{Name: "create", Enabled: true}}},
+				},
+				Profiles: []types.VMCPProfile{
+					{
+						Name:     "user",
+						Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+						Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+							"gmail":    {AllowedTools: []string{"send", "delete"}},
+							"calendar": {AllowedTools: []string{"events"}},
+							"tasks":    {AllowedTools: []string{}},
+						}},
+					},
+					{
+						Name:        "team",
+						Subjects:    []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "team"}},
+						Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"drive": {}}},
+					},
+					{
+						Name:        "other",
+						Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "2"}},
+						Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+					},
+				},
+			},
+		},
+		Status: v1.VMCPStatus{
+			Ready: false,
+			Components: []v1.VMCPComponentStatus{
+				{Name: "Gmail", Ready: true},
+				{Name: "Outlook", Error: "static OAuth credentials are not configured"},
+				{Name: "Drive", Ready: true},
+			},
+		},
+	}
+	names := func(vmcp types.VMCP) (components, profiles, statuses []string, tools map[string][]types.ToolOverride) {
+		tools = map[string][]types.ToolOverride{}
+		for _, component := range vmcp.Components {
+			components = append(components, component.ID)
+			tools[component.ID] = component.ToolOverrides
+		}
+		for _, profile := range vmcp.Profiles {
+			profiles = append(profiles, profile.Name)
+		}
+		for _, status := range vmcp.Status.Components {
+			statuses = append(statuses, status.Name)
+		}
+		return components, profiles, statuses, tools
+	}
+	allTools := map[string][]types.ToolOverride{}
+	for _, component := range vmcp.Spec.Manifest.Components {
+		allTools[component.ID] = component.ToolOverrides
+	}
+
+	tests := []struct {
+		name           string
+		user           *user.DefaultInfo
+		wantComponents []string
+		wantProfiles   []string
+		wantStatuses   []string
+		wantTools      map[string][]types.ToolOverride
+		wantReady      bool
+	}{
+		{
+			name: "non-admin sees only their components and profiles",
+			user: &user.DefaultInfo{
+				UID:    "1",
+				Groups: []string{types.GroupAPI},
+				Extra:  map[string][]string{"obot_groups": {"team"}},
+			},
+			wantComponents: []string{"gmail", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team"},
+			wantStatuses:   []string{"Gmail", "Drive"},
+			wantTools: map[string][]types.ToolOverride{
+				// Disabled overrides stay hidden even when granted.
+				"gmail": {{Name: "send", OverrideName: "send_email", Enabled: true}},
+				// A grant of every tool keeps the definition's overrides.
+				"drive": {{Name: "list", Enabled: true}, {Name: "upload"}},
+				// Without overrides, the granted tools are listed.
+				"calendar": {{Name: "events", Enabled: true}},
+				// An entry without tools still shows the component, with no tools.
+				"tasks": nil,
+			},
+			wantReady: false,
+		},
+		{
+			name: "administrator sees the full definition",
+			user: &user.DefaultInfo{
+				UID:    "1",
+				Groups: []string{types.GroupAPI, types.GroupAdmin},
+			},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
+		},
+		{
+			name: "auditor sees the full definition",
+			user: &user.DefaultInfo{
+				UID:    "3",
+				Groups: []string{types.GroupAPI, types.GroupAuditor},
+			},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(vmcp.DeepCopy())
+			check := func(got types.VMCP) {
+				t.Helper()
+				components, profiles, statuses, tools := names(got)
+				if !slices.Equal(components, tt.wantComponents) || !slices.Equal(profiles, tt.wantProfiles) || !slices.Equal(statuses, tt.wantStatuses) {
+					t.Fatalf("components = %v, profiles = %v, statuses = %v; want %v, %v, %v", components, profiles, statuses, tt.wantComponents, tt.wantProfiles, tt.wantStatuses)
+				}
+				if !reflect.DeepEqual(tools, tt.wantTools) {
+					t.Fatalf("tools = %#v, want %#v", tools, tt.wantTools)
+				}
+				if got.Status.Ready != tt.wantReady {
+					t.Fatalf("ready = %v, want %v", got.Status.Ready, tt.wantReady)
+				}
+			}
+
+			listURL := "/api/vmcps"
+			if slices.Contains(tt.user.Groups, types.GroupAuditor) {
+				listURL += "?all=true"
+			}
+			recorder := httptest.NewRecorder()
+			if err := NewVMCPHandler(nil).List(api.Context{
+				ResponseWriter: recorder,
+				Request:        httptest.NewRequest(http.MethodGet, listURL, nil),
+				Storage:        storage,
+				User:           tt.user,
+			}); err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			var list types.VMCPList
+			if err := json.NewDecoder(recorder.Body).Decode(&list); err != nil {
+				t.Fatalf("decode list: %v", err)
+			}
+			if len(list.Items) != 1 {
+				t.Fatalf("VMCPs = %#v, want one", list.Items)
+			}
+			check(list.Items[0])
+
+			request := httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcp.Name, nil)
+			request.SetPathValue("vmcp_id", vmcp.Name)
+			recorder = httptest.NewRecorder()
+			if err := NewVMCPHandler(nil).Get(api.Context{
+				ResponseWriter: recorder,
+				Request:        request,
+				Storage:        storage,
+				User:           tt.user,
+			}); err != nil {
+				t.Fatalf("Get() error = %v", err)
+			}
+			var got types.VMCP
+			if err := json.NewDecoder(recorder.Body).Decode(&got); err != nil {
+				t.Fatalf("decode get: %v", err)
+			}
+			check(got)
+		})
+	}
+}
+
 func TestVMCPInstanceSelectionValidation(t *testing.T) {
 	for _, method := range []string{http.MethodPost, http.MethodPut} {
 		for _, selection := range []map[string]types.VMCPComponentSet{nil, {}, {"everything": {AllowedTools: []string{"echo"}}}, {"everything": {AllowedTools: []string{"forbidden"}}}} {

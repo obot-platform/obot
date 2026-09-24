@@ -295,6 +295,17 @@ func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllComponents(t *te
 	}
 }
 
+func allowAllProfiles() []types.VMCPProfile {
+	return []types.VMCPProfile{{
+		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+	}}
+}
+
+func staticUserInfo(u kuser.Info) func(context.Context, uint) (kuser.Info, error) {
+	return func(context.Context, uint) (kuser.Info, error) { return u, nil }
+}
+
 func TestSyncUserConfigurationHash(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {
@@ -321,6 +332,7 @@ func TestSyncUserConfigurationHash(t *testing.T) {
 						},
 					},
 				},
+				Profiles: allowAllProfiles(),
 			},
 		},
 	}
@@ -331,17 +343,18 @@ func TestSyncUserConfigurationHash(t *testing.T) {
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID: vmcp.Name,
 			},
-			UserID: "user-1",
+			UserID: "1",
 		},
 	}
-	client := fake.NewClientBuilder().
+	client := withUserChangeWatches(t, fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&v1.VMCPInstance{}).
-		WithObjects(vmcp, instance).
+		WithObjects(vmcp, instance), instance.Spec.UserID).
 		Build()
 	userKey := vmcpconfig.ConfigurationKey("component-one", "HEADER")
 	reveals := 0
 	handler := &Handler{
+		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
 		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
 			reveals++
 			if len(contexts) != 1 || contexts[0] != vmcpconfig.InstanceConfigurationCredentialContext(instance.Name) {
@@ -418,14 +431,16 @@ func TestSyncUserConfigurationHashUsesEmptyConfigurationWhenCredentialIsMissing(
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID: vmcp.Name,
 			},
+			UserID: "1",
 		},
 	}
-	client := fake.NewClientBuilder().
+	client := withUserChangeWatches(t, fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&v1.VMCPInstance{}).
-		WithObjects(vmcp, instance).
+		WithObjects(vmcp, instance), instance.Spec.UserID).
 		Build()
 	handler := &Handler{
+		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
 		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
 			return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{
 				Contexts: contexts,

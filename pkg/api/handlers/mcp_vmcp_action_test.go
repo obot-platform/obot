@@ -215,6 +215,10 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 					MCPCatalogID:            system.DefaultCatalog,
 					MCPServerCatalogEntryID: "entry-a",
 				}},
+				Profiles: []types.VMCPProfile{{
+					Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				}},
 			},
 		},
 	}

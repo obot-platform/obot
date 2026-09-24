@@ -93,6 +93,10 @@ func vmcpComponentVMCP(singleUser bool) *v1.VMCP {
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 			Components: []types.VMCPComponent{{ID: "component", ForceSingleUser: singleUser}},
+			Profiles: []types.VMCPProfile{{
+				Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+				Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+			}},
 		}},
 	}
 }

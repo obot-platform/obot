@@ -546,6 +546,40 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 	}
 }
 
+func TestServerConfigForVMCPOmitsDisabledComponents(t *testing.T) {
+	const userID = "1"
+	vmcp := &v1.VMCP{Name: "vmcp1disabled", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "enabled", Name: "enabled"}, {ID: "disabled", Name: "disabled"}},
+		Profiles: []types.VMCPProfile{{
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"enabled": {AllowedTools: []string{}}}},
+		}},
+	}}}
+	enabled := vmcpComponentServer("ms1enabled", "", "", "enabled", "enabled", "https://enabled.example.com/mcp")
+	enabled.Spec.VMCPID = vmcp.Name
+	disabled := vmcpComponentServer("ms1disabled", "", "", "disabled", "disabled", "https://disabled.example.com/mcp")
+	disabled.Spec.VMCPID = vmcp.Name
+	instance := &v1.VMCPInstance{
+		Name: "vmcpi1user", Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPInstanceSpec{UserID: userID, Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+	}
+	// Only the enabled component has a connection: a disabled component must not be waited on.
+	connection := &v1.MCPServerInstance{
+		Name: "msi1enabled", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerInstanceSpec{UserID: userID, VMCPInstanceID: instance.Name, VMCPComponentID: "enabled", MCPServerName: enabled.Name},
+	}
+	manager := &SessionManager{storageClient: newVMCPTestStorage(vmcp, instance, enabled, disabled, connection)}
+
+	cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An entry without tools still enables the component; a missing entry disables it.
+	if len(cfg.Components) != 1 || cfg.Components[0].Name != enabled.Name || !cfg.Components[0].DisableTools {
+		t.Fatalf("components = %#v, want only the enabled component with tools disabled", cfg.Components)
+	}
+}
+
 func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp1empty",
@@ -667,6 +701,10 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName: "Not Ready VMCP",
+				Profiles: []types.VMCPProfile{{
+					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				}},
 				Components: []types.VMCPComponent{
 					{
 						ID:              "first-component",
@@ -842,6 +880,7 @@ func (s *vmcpInitialEventsStorage) Watch(ctx context.Context, list kclient.Objec
 func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1multi", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "one", Name: "one"}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
 	}}}
 	shared := vmcpComponentServer("ms1shared", "", "", "one", "one", "https://example.com/mcp")
 	shared.Spec.VMCPID = vmcp.Name

@@ -2,9 +2,11 @@ package vmcp
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -85,5 +87,124 @@ func TestComponentWildcardSelections(t *testing.T) {
 		if got := AllowedTools(u, profiles, selection); !reflect.DeepEqual(got, want[:1]) {
 			t.Fatalf("empty component tools = %#v, want %#v", got, want[:1])
 		}
+	}
+}
+
+func TestEnabledComponents(t *testing.T) {
+	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
+	components := []types.VMCPComponent{{ID: "one"}, {ID: "two"}, {ID: "three"}}
+	profile := func(subject types.Subject, permissions types.VMCPProfilePermissions) types.VMCPProfile {
+		return types.VMCPProfile{Subjects: []types.Subject{subject}, Permissions: permissions}
+	}
+	user := types.Subject{Type: types.SubjectTypeUser, ID: "1"}
+	tests := []struct {
+		name      string
+		vmcpOwner string
+		profiles  []types.VMCPProfile
+		want      []string
+	}{
+		{
+			name:      "no matching profiles",
+			vmcpOwner: "",
+			profiles:  []types.VMCPProfile{profile(types.Subject{Type: types.SubjectTypeUser, ID: "2"}, types.VMCPProfilePermissions{AllowAllComponents: true})},
+			want:      []string{},
+		},
+		{
+			name:      "allow all components",
+			vmcpOwner: "",
+			profiles:  []types.VMCPProfile{profile(user, types.VMCPProfilePermissions{AllowAllComponents: true})},
+			want:      []string{"one", "two", "three"},
+		},
+		{
+			name:      "entries enable components even without tools",
+			vmcpOwner: "",
+			profiles: []types.VMCPProfile{profile(user, types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+				"one": {AllowedTools: []string{}},
+				"two": {AllowedTools: []string{"echo"}},
+			}})},
+			want: []string{"one", "two"},
+		},
+		{
+			name:      "profiles are additive",
+			vmcpOwner: "",
+			profiles: []types.VMCPProfile{
+				profile(user, types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"one": {}}}),
+				profile(types.Subject{Type: types.SubjectTypeObotGroup, ID: "team"}, types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"three": {}}}),
+			},
+			want: []string{"one", "three"},
+		},
+		{
+			name:      "personal VMCP ignores profiles",
+			vmcpOwner: "1",
+			profiles:  nil,
+			want:      []string{"one", "two", "three"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vmcp := v1.VMCP{Spec: v1.VMCPSpec{UserID: tt.vmcpOwner, Manifest: types.VMCPManifest{Profiles: tt.profiles}}}
+			got := []string{}
+			for _, component := range EnabledComponents(u, vmcp, slices.Clone(components)) {
+				got = append(got, component.ID)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("EnabledComponents() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInstanceGrant(t *testing.T) {
+	u := &kuser.DefaultInfo{UID: "1"}
+	selection := map[string]types.VMCPComponentSet{"one": {AllowedTools: []string{"echo"}}}
+	profiles := []types.VMCPProfile{{
+		Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"one": {}, "two": {}}},
+	}}
+	tests := []struct {
+		name      string
+		vmcpOwner string
+		selection map[string]types.VMCPComponentSet
+		want      []types.VMCPToolReference
+	}{
+		{
+			name:      "shared VMCP uses profiles",
+			vmcpOwner: "",
+			selection: nil,
+			want:      []types.VMCPToolReference{{ComponentID: "one", Name: "*"}, {ComponentID: "two", Name: "*"}},
+		},
+		{
+			name:      "shared VMCP narrows to selection",
+			vmcpOwner: "",
+			selection: selection,
+			want:      []types.VMCPToolReference{{ComponentID: "one", Name: "echo"}},
+		},
+		{
+			name:      "personal VMCP owner without selection",
+			vmcpOwner: "1",
+			selection: nil,
+			want:      nil,
+		},
+		{
+			name:      "personal VMCP owner selection",
+			vmcpOwner: "1",
+			selection: selection,
+			want:      []types.VMCPToolReference{{ComponentID: "one", Name: "echo"}},
+		},
+		{
+			name:      "personal VMCP of another user",
+			vmcpOwner: "2",
+			selection: nil,
+			want:      []types.VMCPToolReference{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vmcp := v1.VMCP{Spec: v1.VMCPSpec{UserID: tt.vmcpOwner, Manifest: types.VMCPManifest{Profiles: profiles}}}
+			instance := v1.VMCPInstance{Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{ComponentSet: tt.selection}}}
+			if got := InstanceGrant(u, vmcp, instance); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("InstanceGrant() = %#v, want %#v", got, tt.want)
+			}
+		})
 	}
 }

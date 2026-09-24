@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 // MissingRequiredConfiguration checks either administrator inputs or user inputs.
@@ -33,4 +34,10 @@ func MissingRequiredConfiguration(component types.VMCPComponent, values map[stri
 	}
 	slices.Sort(missing)
 	return slices.Compact(missing)
+}
+
+// ConfigurationCheckHash identifies the user configuration status of an instance.
+// Components must already be limited to those enabled for the instance user.
+func ConfigurationCheckHash(enabledComponents []types.VMCPComponent, configurationSyncHash string) string {
+	return utils.Digest([]any{enabledComponents, configurationSyncHash})
 }

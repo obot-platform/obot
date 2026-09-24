@@ -89,11 +89,40 @@ func TestVMCPConsentMissingConfigurationAllowsSavedRequiredAndOptionalEmpty(t *t
 	require.Empty(t, missing)
 }
 
+func TestVMCPConsentIgnoresDisabledComponents(t *testing.T) {
+	vmcp, instance := vmcpConsentConfigurationTarget()
+	disabled := vmcp.Spec.Manifest.Components[0]
+	disabled.ID = "disabled"
+	vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, disabled)
+	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{
+		AllowedComponents: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{}}},
+	}
+	req := vmcpConsentRequest(vmcpConsentStorage(vmcp, instance), vmcpConsentGateway(t))
+
+	missing, err := vmcpConsentMissingConfiguration(req, *vmcp, *instance)
+	require.NoError(t, err)
+	require.Equal(t, []string{vmcpconfig.ConfigurationKey("component", "REQUIRED")}, missing)
+
+	components := vmcpConsentComponents(req.User, *vmcp, *instance)
+	require.Len(t, components, 1)
+	require.Equal(t, "component", components[0].ID)
+
+	// Deselecting a component's tools does not disable it; only the profiles do.
+	instance.Spec.Manifest.ComponentSet = map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{}}}
+	missing, err = vmcpConsentMissingConfiguration(req, *vmcp, *instance)
+	require.NoError(t, err)
+	require.Equal(t, []string{vmcpconfig.ConfigurationKey("component", "REQUIRED")}, missing)
+	require.Len(t, vmcpConsentComponents(req.User, *vmcp, *instance), 1)
+}
+
 func vmcpConsentConfigurationTarget() (*v1.VMCP, *v1.VMCPInstance) {
 	return &v1.VMCP{
 		Name:      "vmcp1shared",
 		Namespace: system.DefaultNamespace,
-		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+		}}, Components: []types.VMCPComponent{{
 			ID: "component",
 			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{Config: []types.MCPConfig{
 				{Key: "REQUIRED", Required: true},
