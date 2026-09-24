@@ -508,7 +508,7 @@ func TestRepositorySizeChecksReturnSentinel(t *testing.T) {
 					Header:     make(http.Header),
 				}, nil
 			})
-			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/example/repo.git", "token", "")
+			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/example/repo.git", "token", "", 0)
 			if cleanup != nil {
 				cleanup()
 			}
@@ -619,7 +619,7 @@ func TestCloneBitbucketCancellation(t *testing.T) {
 	} {
 		t.Run(repoURL, func(t *testing.T) {
 			requests = 0
-			_, _, cleanup, err := Clone(context.Background(), repoURL, "test-api-token", "")
+			_, _, cleanup, err := Clone(context.Background(), repoURL, "test-api-token", "", 0)
 			if cleanup != nil {
 				cleanup()
 			}
@@ -718,7 +718,7 @@ func TestCloneBitbucketRepositoryTokenRetry(t *testing.T) {
 					}, nil
 				}),
 			}))
-			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/org/repo.git", token, tt.ref)
+			_, _, cleanup, err := Clone(t.Context(), "https://"+tt.host+"/org/repo.git", token, tt.ref, 0)
 			if cleanup != nil {
 				cleanup()
 			}
