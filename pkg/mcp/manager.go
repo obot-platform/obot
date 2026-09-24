@@ -121,6 +121,15 @@ type RemoteMCPURLValidationConfig struct {
 	AllowLinkLocalMCP bool
 }
 
+// SafeHTTPOptions applies the remote MCP address policy to HTTP clients and URL checks.
+func (c RemoteMCPURLValidationConfig) SafeHTTPOptions() safehttp.Options {
+	return safehttp.Options{
+		BlockLoopback:  !c.AllowLocalhostMCP,
+		BlockPrivateIP: !c.AllowPrivateIPMCP,
+		BlockLinkLocal: !c.AllowLinkLocalMCP,
+	}
+}
+
 func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)

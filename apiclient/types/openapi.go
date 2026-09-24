@@ -20,6 +20,23 @@ func (OpenAPISchema) OpenAPISchemaType() []string { return []string{"object"} }
 
 func (OpenAPISchema) OpenAPISchemaFormat() string { return "" }
 
+// OpenAPIImportResponse is a validated snapshot and suggested credential inputs.
+// Importing does not create a catalog entry or store credentials.
+type OpenAPIImportResponse struct {
+	Schema            *OpenAPISchema  `json:"schema"`
+	BaseURL           string          `json:"baseURL"`
+	SuggestedHeaders  []MCPConfig     `json:"suggestedHeaders"`
+	SuggestedMetadata OpenAPIMetadata `json:"suggestedMetadata"`
+}
+
+// OpenAPIMetadata contains editable catalog details suggested by a schema.
+type OpenAPIMetadata struct {
+	Name             string `json:"name,omitempty"`
+	Description      string `json:"description,omitempty"`
+	ShortDescription string `json:"shortDescription,omitempty"`
+	Icon             string `json:"icon,omitempty"`
+}
+
 // OpenAPISource identifies a document to import. Exactly one field must be set.
 // Content accepts JSON or YAML and is the upload/inline GitOps source.
 type OpenAPISource struct {
@@ -32,7 +49,8 @@ type OpenAPISource struct {
 type OpenAPIRuntimeConfig struct {
 	Source OpenAPISource `json:"source"`
 	// Schema is the normalized JSON snapshot used by running servers instead of
-	// Source. Callers accepting supplied snapshots must validate them before storage.
+	// Source. Output only: Obot imports Source on every save and sets this field.
+	// Requests and GitOps catalog entries that set it are rejected.
 	Schema  *OpenAPISchema `json:"schema,omitempty"`
 	BaseURL string         `json:"baseURL,omitempty"`
 	// EgressDomains restricts the hosted pod to these domains when network policy enforcement is enabled.

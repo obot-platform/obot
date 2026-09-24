@@ -1024,7 +1024,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 			missingRequired = field.Required && !field.Static && slices.Contains(server.Status.UnresolvedSecretBindings, field.Key)
 		} else {
 			configuredValue := credEnv[field.Key]
-			missingRequired = field.Required && !field.Static && configuredValue == ""
+			missingRequired = field.Required && !field.Static && field.Value == "" && configuredValue == ""
 			invalidSelection = configuredValue != "" && !mcp.ConfigurationOptionValueValid(field.ToHeader(), credEnv)
 		}
 		if missingRequired || invalidSelection {

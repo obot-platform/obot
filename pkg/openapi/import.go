@@ -33,9 +33,10 @@ type Importer struct {
 // Result contains the stored schema, resolved API destination, and suggested
 // credential inputs. MCP tools are generated and listed by the hosted wrapper.
 type Result struct {
-	Schema           json.RawMessage
-	BaseURL          string
-	SuggestedHeaders []types.MCPConfig
+	Schema            json.RawMessage
+	BaseURL           string
+	SuggestedHeaders  []types.MCPConfig
+	SuggestedMetadata types.OpenAPIMetadata
 }
 
 // NewImporter applies the configured network policy to schema fetches. devMode
@@ -69,6 +70,9 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	if err != nil {
 		return nil, err
 	}
+	if err := safehttp.ValidateURL(ctx, u.String(), i.options); err != nil {
+		return nil, fmt.Errorf("schema source URL is blocked: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -96,14 +100,6 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	return i.parse(ctx, data, config)
 }
 
-// ValidateSource enforces the source shape without fetching or parsing it.
-func ValidateSource(source types.OpenAPISource) error {
-	if (source.URL == "") == (source.Content == "") {
-		return fmt.Errorf("exactly one OpenAPI source URL or content is required")
-	}
-	return nil
-}
-
 // parse checks the resolved destination against the importer's transport and
 // network policies.
 // It makes no request to the destination.
@@ -112,8 +108,10 @@ func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIR
 	if err != nil {
 		return nil, err
 	}
-	if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
-		return nil, err
+	if result.BaseURL != "" {
+		if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -170,7 +168,15 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	decoder := yamlv3.NewDecoder(bytes.NewReader(data))
 	var node yamlv3.Node
 	if err := decoder.Decode(&node); err != nil {
-		return nil, nil, fmt.Errorf("schema must be a JSON or YAML document")
+		if err == io.EOF {
+			return nil, nil, fmt.Errorf("schema content is empty")
+		}
+		// Node parsing reports syntax and locations, not scalar contents, except
+		// for unknown anchors. Do not echo a caller-supplied anchor name.
+		if strings.HasPrefix(err.Error(), "yaml: unknown anchor ") {
+			return nil, nil, fmt.Errorf("schema references an unknown YAML anchor; aliases are unsupported")
+		}
+		return nil, nil, fmt.Errorf("schema must be a JSON or YAML document: %w", err)
 	}
 	if err := checkYAML(&node, 0); err != nil {
 		return nil, nil, err

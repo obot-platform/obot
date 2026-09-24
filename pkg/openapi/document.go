@@ -1,8 +1,11 @@
 package openapi
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -40,8 +43,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	loader.IsExternalRefsAllowed = false
 	document, err := loader.LoadFromData(canonical)
 	if err != nil {
-		// Loader errors may quote schema content. Do not expose embedded secrets.
-		return nil, fmt.Errorf("cannot parse OpenAPI document or resolve local references")
+		return nil, documentLoadError(canonical)
 	}
 
 	if !versionPattern.MatchString(document.OpenAPI) {
@@ -53,12 +55,14 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	if len(document.Webhooks) > 0 {
 		return nil, fmt.Errorf("OpenAPI webhooks are unsupported")
 	}
-
-	baseURL, err := findBaseURL(config.BaseURL, document.Servers)
+	baseURL, err := optionalBaseURL(config.BaseURL, document.Servers)
 	if err != nil {
 		return nil, err
 	}
-	result := &Result{BaseURL: baseURL}
+	result := &Result{
+		BaseURL:           baseURL,
+		SuggestedMetadata: suggestedMetadata(document.Info, config.Source.URL),
+	}
 
 	headers, err := securityHeaders(document)
 	if err != nil {
@@ -97,7 +101,9 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	return result, nil
 }
 
-func findBaseURL(configured string, servers openapi3.Servers) (string, error) {
+// optionalBaseURL selects a destination when one is available. Import may
+// precede configuration; deployment requires a destination.
+func optionalBaseURL(configured string, servers openapi3.Servers) (string, error) {
 	if configured != "" {
 		return destination(configured)
 	}
@@ -110,14 +116,30 @@ func findBaseURL(configured string, servers openapi3.Servers) (string, error) {
 			return base, nil
 		}
 	}
+	return "", nil
+}
 
-	return "", fmt.Errorf("no usable server URL; configure baseURL")
+// documentLoadError recovers structured JSON type errors that the loader flattens
+// into text when trying both JSON and YAML. Only type names are exposed: loader
+// messages, field names, and invalid values may contain caller-supplied secrets.
+func documentLoadError(canonical []byte) error {
+	var document openapi3.T
+	var mismatch *json.UnmarshalTypeError
+	if errors.As(json.Unmarshal(canonical, &document), &mismatch) && mismatch.Type != nil {
+		switch mismatch.Value {
+		case "array", "object", "bool", "string":
+			if mismatch.Type.Kind() == reflect.Struct {
+				return fmt.Errorf("invalid OpenAPI document: expected object for %s, got %s", strings.TrimSuffix(mismatch.Type.Name(), "Bis"), mismatch.Value)
+			}
+		}
+	}
+	return fmt.Errorf("cannot parse OpenAPI document or resolve local references")
 }
 
 // securityHeaders turns declared API-key and bearer schemes into editable Obot
 // header inputs. It deduplicates header names and suggests Obot's Bearer prefix;
 // it neither obtains credentials nor adds any values to the schema.
-// OAuth declarations remain in the snapshot but do not produce header inputs:
+// OAuth declarations are retained in the snapshot but do not produce inputs:
 // the hosted runtime does not perform OAuth flows.
 func securityHeaders(document *openapi3.T) ([]types.MCPConfig, error) {
 	var headers []types.MCPConfig

@@ -106,24 +106,23 @@ Example OpenAPI configuration:
 runtime: openapi
 openAPIConfig:
   source:
-    url: "https://schemas.example.com/openapi.json"
-  # Required schema snapshot (1 MiB maximum); used by running servers.
-  schema:
-    openapi: "3.0.3"
-    info:
-      title: Example API
-      version: "1.0.0"
-    servers:
-      - url: "https://api.example.com"
-      - url: "https://staging-api.example.com"
-    paths: {}
+    # Inline schema (1 MiB maximum); Obot imports it and stores a snapshot for running servers.
+    content: |
+      openapi: "3.0.3"
+      info:
+        title: Example API
+        version: "1.0.0"
+      servers:
+        - url: "https://api.example.com"
+        - url: "https://staging-api.example.com"
+      paths: {}
   egressDomains:
     - api.example.com
 ```
 
-OpenAPI uses `baseURL` when set, otherwise the first absolute HTTP(S) URL in `schema.servers`. This example uses only `api.example.com`, so staging needs no egress allowance.
+OpenAPI uses `baseURL` when set, otherwise the first absolute HTTP(S) URL in the schema's `servers`. This example uses only `api.example.com`, so staging needs no egress allowance.
 
-For restricted egress, include the selected destination's hostname in `egressDomains`. Setting `baseURL` does not grant access. Obot fetches `source.url` separately, so the schema host needs no allowance in the pod's egress policy.
+For restricted egress, include the selected destination's hostname in `egressDomains`. Setting `baseURL` does not grant access. If you use `source.url` instead of inline content, Obot fetches the schema separately, so the schema host needs no allowance in the pod's egress policy.
 
 Obot and the wrapper independently validate destinations; wrapper restrictions can cause startup or tool errors even if Obot accepts a destination. Obot requires HTTPS for API destinations and credential forwarding unless development mode is enabled.
 

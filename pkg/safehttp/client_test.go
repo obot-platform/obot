@@ -131,9 +131,9 @@ func TestClientBlocksLoopbackHostname(t *testing.T) {
 
 	_, err := NewClient(Options{BlockLoopback: true}).Get(strings.Replace(ts.URL, "127.0.0.1", "localhost", 1))
 	if err == nil {
-		t.Fatal("expected localhost to resolve to a blocked loopback IP")
+		t.Fatal("expected localhost hostname to be blocked")
 	}
-	if !strings.Contains(err.Error(), "blocked loopback IP") {
+	if !strings.Contains(err.Error(), "blocked loopback hostname") {
 		t.Fatalf("expected loopback error, got %v", err)
 	}
 }
@@ -240,7 +240,7 @@ func TestClientBlocksAllowListedHostnameWithMismatchedPort(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected localhost to be blocked when allow-list port mismatches")
 	}
-	if !strings.Contains(err.Error(), "blocked loopback IP") {
+	if !strings.Contains(err.Error(), "blocked loopback hostname") {
 		t.Fatalf("expected loopback error, got %v", err)
 	}
 }

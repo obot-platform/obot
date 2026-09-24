@@ -9,7 +9,68 @@ import (
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
+	"github.com/obot-platform/obot/pkg/safehttp"
 )
+
+func TestRemoteMCPAndOpenAPINetworkPoliciesMatch(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		url    string
+		config RemoteMCPURLValidationConfig
+	}{
+		{
+			name: "loopback blocked",
+			url:  "http://127.0.0.1",
+		},
+		{
+			name: "localhost alias blocked",
+			url:  "http://service.localhost",
+		},
+		{
+			name:   "loopback allowed",
+			url:    "http://127.0.0.1",
+			config: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
+		},
+		{
+			name: "private blocked",
+			url:  "http://10.0.0.1",
+		},
+		{
+			name:   "private allowed",
+			url:    "http://10.0.0.1",
+			config: RemoteMCPURLValidationConfig{AllowPrivateIPMCP: true},
+		},
+		{
+			name: "link local blocked",
+			url:  "http://169.254.1.1",
+		},
+		{
+			name:   "link local allowed",
+			url:    "http://169.254.1.1",
+			config: RemoteMCPURLValidationConfig{AllowLinkLocalMCP: true},
+		},
+		{
+			name: "unspecified blocked",
+			url:  "http://0.0.0.0",
+		},
+		{
+			name:   "unspecified allowed",
+			url:    "http://0.0.0.0",
+			config: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			remoteErr := ValidateRemoteMCPURL(t.Context(), test.url, test.config)
+			openAPIErr := safehttp.ValidateURL(t.Context(), test.url, test.config.SafeHTTPOptions())
+			if (remoteErr == nil) != (openAPIErr == nil) {
+				t.Fatalf("remote URL error = %v, OpenAPI URL error = %v", remoteErr, openAPIErr)
+			}
+			if test.name == "localhost alias blocked" && (openAPIErr == nil || !strings.Contains(openAPIErr.Error(), "blocked loopback hostname")) {
+				t.Fatalf("OpenAPI URL error = %v, want blocked loopback hostname", openAPIErr)
+			}
+		})
+	}
+}
 
 func TestAuthorizationErrorSurvivesSDKWrapping(t *testing.T) {
 	const challenge = `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource"`

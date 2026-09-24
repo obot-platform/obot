@@ -75,6 +75,8 @@ var (
 			"GET    /api/workspaces",
 		},
 		types.GroupPowerUser: {
+			"POST   /api/openapi-import",
+
 			"GET    /api/workspaces/{workspace_id}",
 			"GET    /api/workspaces/{workspace_id}/entries",
 			"POST   /api/workspaces/{workspace_id}/entries",

@@ -21,6 +21,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/openapi"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -45,6 +46,11 @@ type MCPCatalogHandler struct {
 	gatewayClient             *gclient.Client
 	acrHelper                 *accesscontrolrule.Helper
 	secretBindingAllowedLabel string
+	openAPIImporter           openAPIImporter
+}
+
+type openAPIImporter interface {
+	Import(context.Context, types.OpenAPIRuntimeConfig) (*openapi.Result, error)
 }
 
 type capacityInfoProvider interface {
@@ -52,6 +58,10 @@ type capacityInfoProvider interface {
 }
 
 func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
+	var validationOptions mcp.ValidationOptions
+	if sessionManager != nil {
+		validationOptions = sessionManager.ValidationOptions()
+	}
 	return &MCPCatalogHandler{
 		defaultCatalogPath:        defaultCatalogPath,
 		serverURL:                 serverURL,
@@ -62,6 +72,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBacken
 		gatewayClient:             gatewayClient,
 		acrHelper:                 acrHelper,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		openAPIImporter:           openapi.NewImporter(validationOptions.RemoteMCPURLValidationConfig.SafeHTTPOptions(), validationOptions.DevMode),
 	}
 }
 
@@ -330,6 +341,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 	mcpcatalog.NormalizeManifest(&manifest)
+	if err := h.prepareOpenAPIEntry(req.Context(), &manifest); err != nil {
+		return types.NewErrBadRequest("failed to prepare OpenAPI entry: %v", err)
+	}
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -439,6 +453,9 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 	mcpcatalog.NormalizeManifest(&manifest)
 
+	if err := h.prepareOpenAPIEntry(req.Context(), &manifest); err != nil {
+		return types.NewErrBadRequest("failed to prepare OpenAPI entry: %v", err)
+	}
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}

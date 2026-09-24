@@ -33,6 +33,9 @@ func ValidateSnapshotEnvironment(ctx context.Context, config types.OpenAPIRuntim
 	if err != nil {
 		return nil, err
 	}
+	if result.BaseURL == "" {
+		return nil, fmt.Errorf("no usable server URL; configure baseURL")
+	}
 	if err := ValidateDestination(ctx, result.BaseURL, options, devMode); err != nil {
 		return nil, err
 	}
@@ -62,6 +65,9 @@ func parseSnapshot(config types.OpenAPIRuntimeConfig) (*Result, error) {
 func Environment(result *Result, headers []types.MCPConfig, devMode bool) ([]string, error) {
 	if result == nil {
 		return nil, fmt.Errorf("a validated schema import is required")
+	}
+	if result.BaseURL == "" {
+		return nil, fmt.Errorf("no usable server URL; configure baseURL")
 	}
 
 	names := make([]string, 0, len(headers))

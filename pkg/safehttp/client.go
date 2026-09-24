@@ -196,6 +196,10 @@ func (d *safeDialer) dialOnce(ctx context.Context, network, address string) (net
 }
 
 func (d *safeDialer) checkHost(ctx context.Context, host, port string) ([]net.IP, error) {
+	normalizedHost := normalizeHost(host)
+	if d.blockLoopback && (normalizedHost == "localhost" || strings.HasSuffix(normalizedHost, ".localhost")) && !d.isAllowed(host, port) {
+		return nil, fmt.Errorf("address %s is a blocked loopback hostname", host)
+	}
 	ips, err := d.lookup(ctx, host)
 	if err != nil {
 		return nil, err

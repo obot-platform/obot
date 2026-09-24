@@ -553,7 +553,7 @@ openAPIConfig:
 
 #### Header input
 
-This shows how to configure an API token header. Frankfurter does not need this header; it is included only to demonstrate the configuration. Use a dummy value when trying this example, not a real token from another service. The example marks the input as required, so Obot will ask for a value.
+Configure API token headers as required, sensitive inputs:
 
 ```yaml
 name: Frankfurter with header input
@@ -573,11 +573,9 @@ config:
     prefix: "Bearer "
 ```
 
-Instead of `source.url`, use `source.content: |` with an inline JSON or YAML schema. Set exactly one source. Omit `config` for APIs without authentication. Configure any credential headers declared by the schema; GitOps does not automatically add them. Supply credentials through Obot, not in the catalog file. OAuth flows are not supported; OAuth declarations do not prevent importing a schema.
+Instead of `source.url`, use `source.content: |` with an inline JSON or YAML schema. Set exactly one source. Do not set `schema`; Obot generates it from the source, and entries that set it fail to sync. Omit `config` for APIs without authentication. Configure any credential headers declared by the schema; GitOps does not automatically add them. Supply credentials through Obot, not in the catalog file. OAuth flows are not supported; OAuth declarations do not prevent importing a schema.
 
-Every catalog sync imports the schema again, even if the Git revision or the schema's `info.version` has not changed. Obot stores a normalized JSON snapshot in `openAPIConfig.schema`; do not maintain this field in Git. Changes to the snapshot or runtime settings flag deployed servers for an explicit upgrade. Sync does not replace their deployed snapshots.
-
-If importing or validating a schema fails, the catalog reports a sync error and keeps its last good entry. Schema URLs must be publicly reachable HTTPS URLs without authentication or redirects. Catalog access tokens are never forwarded to schema URLs. Schemas are limited to 1 MiB and must be self-contained, without external references.
+If importing or validating a schema fails, the catalog reports a sync error and keeps its last good entry. Schema download URLs and parsed API target URLs use the same localhost, private-IP, and link-local restrictions configured for remote MCP servers. In production, schema URLs and API targets must use HTTPS. Schema URLs cannot include authentication or redirects, and catalog access tokens are never forwarded to them. Schemas are limited to 1 MiB and must be self-contained, without external references.
 
 The operator must configure the hosted OpenAPI wrapper image before deployment. The schema-import UI and source-aware CLI validation are separate from this sync support.
 
