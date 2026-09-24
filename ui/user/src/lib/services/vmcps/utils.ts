@@ -729,7 +729,7 @@ export function getToolCounts(componentServers: VMcpComponentView[]) {
 export function getDisplayListText(names: string[], maxLength: number = 5) {
 	if (names.length <= 1) return names[0] ?? '';
 	const rest = names.slice(0, names.length > maxLength ? maxLength - 1 : -1);
-	const last = names.length > maxLength ? `${names.length - maxLength} others` : names.at(-1);
+	const last = names.length > maxLength ? `${names.length - (maxLength - 1)} others` : names.at(-1);
 	return `${rest.join(', ')} and ${last}`;
 }
 
@@ -746,5 +746,5 @@ export function getVMcpCreator(
 				: getUserDisplayName(usersMap, vmcp.creatorUserID);
 	}
 
-	return prefix ? `${prefix} ${creator}` : creator;
+	return prefix && creator ? `${prefix} ${creator}` : creator;
 }

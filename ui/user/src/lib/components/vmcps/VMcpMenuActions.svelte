@@ -5,8 +5,8 @@
 		editVMcpInstanceConfiguration,
 		resetVMcpConnection,
 		updateVMcp,
-		vmcpActionProgress,
 		vmcpIsDisconnecting,
+		vmcpIsUpdating,
 		vmcpItemContext,
 		type OpenDiff,
 		type OpenEditInstanceConfiguration,
@@ -56,7 +56,7 @@
 			ctx.myInstances.map((instance) => instance.id)
 		)
 	);
-	let updating = $derived(vmcpActionProgress.updatingId === vmcp.id);
+	let updating = $derived(vmcpIsUpdating(vmcp.id));
 	let canEditInstanceConfiguration = $derived(
 		Boolean(openEditInstanceConfiguration) && ctx.canEditInstanceConfiguration
 	);

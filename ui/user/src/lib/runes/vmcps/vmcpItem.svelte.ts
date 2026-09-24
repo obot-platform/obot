@@ -7,6 +7,7 @@ import {
 import { errors, profile, vmcpInstances } from '$lib/stores';
 import { success } from '$lib/stores/success';
 import { poll } from '$lib/utils';
+import { SvelteSet } from 'svelte/reactivity';
 
 export type OpenSelectInstance = (
 	instances: VMCPInstance[],
@@ -20,10 +21,16 @@ export type OpenUpdateConfirm = (vmcp: VMCP, onConfirm: () => Promise<void>) => 
 
 export type OpenDiff = (vmcp: VMCP) => void;
 
-export const vmcpActionProgress = $state({
-	updatingId: undefined as string | undefined,
-	disconnectingId: undefined as string | undefined
-});
+export const vmcpActionProgress = {
+	updatingIds: new SvelteSet<string>(),
+	disconnectingIds: new SvelteSet<string>()
+};
+
+function startAction(ids: SvelteSet<string>, id: string) {
+	if (ids.has(id)) return false;
+	ids.add(id);
+	return true;
+}
 
 export function vmcpItemContext(vmcp: VMCP) {
 	const isCreator = Boolean(vmcp.userID && profile.current.id === vmcp.userID);
@@ -53,22 +60,24 @@ export function vmcpItemContext(vmcp: VMCP) {
 	};
 }
 
+export function vmcpIsUpdating(vmcpId: string) {
+	return vmcpActionProgress.updatingIds.has(vmcpId);
+}
+
 export function vmcpIsDisconnecting(vmcpId: string, instanceIds: string[]) {
-	const id = vmcpActionProgress.disconnectingId;
-	return id === vmcpId || instanceIds.some((instanceId) => instanceId === id);
+	const ids = vmcpActionProgress.disconnectingIds;
+	return ids.has(vmcpId) || instanceIds.some((instanceId) => ids.has(instanceId));
 }
 
 async function disconnectInstance(instanceID: string) {
-	vmcpActionProgress.disconnectingId = instanceID;
+	if (!startAction(vmcpActionProgress.disconnectingIds, instanceID)) return;
 	try {
 		await UserService.deleteVMCPInstance(instanceID);
 		vmcpInstances.remove(instanceID);
 	} catch {
 		errors.append('Failed to disconnect from vMCP.');
 	} finally {
-		if (vmcpActionProgress.disconnectingId === instanceID) {
-			vmcpActionProgress.disconnectingId = undefined;
-		}
+		vmcpActionProgress.disconnectingIds.delete(instanceID);
 	}
 }
 
@@ -95,12 +104,16 @@ export async function resetVMcpConnection(
 		return;
 	}
 
-	vmcpActionProgress.disconnectingId = vmcp.id;
-	await new Promise((resolve) => setTimeout(resolve, 1000));
-	if (vmcpActionProgress.disconnectingId === vmcp.id) {
-		vmcpActionProgress.disconnectingId = undefined;
+	if (!startAction(vmcpActionProgress.disconnectingIds, vmcp.id)) {
+		toggle(false);
+		return;
 	}
-	toggle(false);
+	try {
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	} finally {
+		vmcpActionProgress.disconnectingIds.delete(vmcp.id);
+		toggle(false);
+	}
 }
 
 export async function updateVMcp(
@@ -108,8 +121,8 @@ export async function updateVMcp(
 	onUpdated?: (vmcp: VMCP) => void,
 	isCancelled?: () => boolean
 ) {
+	if (!startAction(vmcpActionProgress.updatingIds, vmcp.id)) return;
 	const name = vmcp.displayName || 'Untitled vMCP';
-	vmcpActionProgress.updatingId = vmcp.id;
 	try {
 		await UserService.triggerVMCPUpdate(vmcp.id);
 		let updated: VMCP | undefined;
@@ -129,9 +142,7 @@ export async function updateVMcp(
 			errors.append('Failed to update vMCP.');
 		}
 	} finally {
-		if (vmcpActionProgress.updatingId === vmcp.id) {
-			vmcpActionProgress.updatingId = undefined;
-		}
+		vmcpActionProgress.updatingIds.delete(vmcp.id);
 	}
 }
 

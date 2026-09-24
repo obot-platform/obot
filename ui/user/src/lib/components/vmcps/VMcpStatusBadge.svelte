@@ -2,6 +2,7 @@
 	import {
 		editVMcpInstanceConfiguration,
 		updateVMcp,
+		vmcpIsUpdating,
 		vmcpItemContext,
 		type OpenEditInstanceConfiguration,
 		type OpenSelectInstance,
@@ -33,6 +34,7 @@
 
 	let destroyed = false;
 	let ctx = $derived(vmcpItemContext(vmcp));
+	let updating = $derived(vmcpIsUpdating(vmcp.id));
 	let canEditInstanceConfiguration = $derived(
 		Boolean(openEditInstanceConfiguration) && ctx.canEditInstanceConfiguration
 	);
@@ -46,6 +48,7 @@
 {#if openUpdateConfirm && ctx.needsUpdate && ctx.canUpdate}
 	<button
 		class={twMerge(badgeClass, 'badge-primary')}
+		disabled={updating}
 		onclick={(e) => {
 			e.stopPropagation();
 			openUpdateConfirm(vmcp, () => updateVMcp(vmcp, onUpdated, () => destroyed));
