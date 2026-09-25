@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -66,6 +67,44 @@ func TestDisplayLicenseKey(t *testing.T) {
 				t.Fatalf("displayLicenseKey() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDeleteLicenseReturnsCommunityFallbackStatus(t *testing.T) {
+	provider := &fakeCommunityLicenseProvider{
+		key:                "keygen/enterprise-12345678",
+		valid:              true,
+		entitlements:       []string{license.EnterpriseEntitlement},
+		removeKey:          "keygen/community-87654321",
+		removeEntitlements: []string{license.CommunityEntitlement},
+	}
+	handler := NewLicenseHandler(provider, nil)
+	recorder := httptest.NewRecorder()
+
+	err := handler.Delete(api.Context{
+		ResponseWriter: recorder,
+		Request:        httptest.NewRequest(http.MethodDelete, "/api/license", nil),
+		User: &user.DefaultInfo{
+			Name:   "admin",
+			Groups: apitypes.RoleAdmin.Groups(),
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected license deletion to succeed: %v", err)
+	}
+
+	var status LicenseStatus
+	if err := json.NewDecoder(recorder.Body).Decode(&status); err != nil {
+		t.Fatalf("failed to decode license status: %v", err)
+	}
+	if status.LicenseKey != "****87654321" {
+		t.Fatalf("license key = %q, want masked Community fallback", status.LicenseKey)
+	}
+	if status.Source != "database" || !status.Enterprise {
+		t.Fatalf("status = %#v, want valid database license", status)
+	}
+	if len(status.Entitlements) != 1 || status.Entitlements[0] != license.CommunityEntitlement {
+		t.Fatalf("entitlements = %v, want [%s]", status.Entitlements, license.CommunityEntitlement)
 	}
 }
 

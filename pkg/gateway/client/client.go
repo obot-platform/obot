@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"golang.org/x/sync/singleflight"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -61,6 +62,11 @@ type Client struct {
 	mcpOAuthTokenTrigger      func(context.Context, string) error
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
+}
+
+// Transaction runs related gateway operations in a single database transaction.
+func (c *Client) Transaction(ctx context.Context, fn func(*gorm.DB) error) error {
+	return c.db.WithContext(ctx).Transaction(fn)
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
