@@ -144,6 +144,7 @@ describe('Layout.svelte', () => {
 			await renderLayout([Group.ADMIN], { messagePoliciesEnabled: false });
 
 			await expandSection('ai-resources', '/models');
+			await expandSection('operations', '/audit-logs');
 			await expectNoLink('/admin/message-policies');
 			await expectNoLink('/admin/policy-violations');
 		});
@@ -154,6 +155,7 @@ describe('Layout.svelte', () => {
 			await renderLayout([Group.ADMIN], { messagePoliciesEnabled: true });
 
 			await expandSection('ai-resources', '/models');
+			await expandSection('operations', '/audit-logs');
 			await expectLink('/admin/message-policies');
 			await expectLink('/admin/policy-violations');
 		});
