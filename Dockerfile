@@ -1,5 +1,4 @@
 ARG PROVIDERS_IMAGE=ghcr.io/obot-platform/providers:latest
-ARG ENTERPRISE_PROVIDERS_IMAGE=ghcr.io/obot-platform/enterprise-providers:latest
 ARG ENCRYPTION_BINS_IMAGE=ghcr.io/obot-platform/providers/encryption-bins:latest
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
@@ -32,7 +31,6 @@ RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
 FROM ${PROVIDERS_IMAGE} AS providers
-FROM ${ENTERPRISE_PROVIDERS_IMAGE} AS enterprise-providers
 FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
 
 FROM final-base AS final
@@ -44,7 +42,6 @@ COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
 COPY --link --from=providers /obot-providers /obot-providers
-COPY --link --from=enterprise-providers /obot-providers /obot-providers
 COPY --link --from=encryption-bins /obot-providers /obot-providers
 COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
