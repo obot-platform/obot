@@ -347,8 +347,9 @@ func TestVMCPComponentToolPreviewConfigMissingResourcesAreSafe(t *testing.T) {
 			User:           testUser("user"),
 			GatewayClient:  handler.gatewayClient,
 		})
-		require.Error(t, err)
-		assert.True(t, types.IsNotFound(err))
+		var httpErr *types.ErrHTTP
+		require.ErrorAs(t, err, &httpErr)
+		assert.Equal(t, http.StatusNotFound, httpErr.Code)
 		assert.Contains(t, err.Error(), "vMCP component not found")
 	})
 }

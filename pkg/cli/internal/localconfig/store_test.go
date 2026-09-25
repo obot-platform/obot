@@ -158,38 +158,6 @@ func TestLoadMissingConfig(t *testing.T) {
 	}
 }
 
-func TestActiveAppURL(t *testing.T) {
-	useTestXDGConfigHome(t)
-
-	if err := Save(Config{DefaultURL: "https://stored.example.com"}); err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := ActiveAppURL(" https://explicit.example.com/ ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "https://explicit.example.com" {
-		t.Fatalf("expected explicit URL, got %q", got)
-	}
-
-	got, err = ActiveAppURL("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "https://stored.example.com" {
-		t.Fatalf("expected stored URL, got %q", got)
-	}
-}
-
-func TestActiveAppURLNoConfig(t *testing.T) {
-	useTestXDGConfigHome(t)
-
-	if _, err := ActiveAppURL(""); err == nil {
-		t.Fatalf("expected error")
-	}
-}
-
 func useTestXDGConfigHome(t *testing.T) string {
 	t.Helper()
 

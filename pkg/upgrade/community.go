@@ -15,7 +15,6 @@ import (
 const (
 	communityLicenseEndpoint         = "community-license"
 	communityLicenseRequestTimeout   = 10 * time.Second
-	communityLicenseTokenLifetime    = 5 * time.Minute
 	maxCommunityLicenseResponseBytes = 64 * 1024
 )
 

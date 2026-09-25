@@ -23,12 +23,6 @@ type Config struct {
 	DefaultURL string `json:"defaultURL,omitempty"`
 }
 
-// Store is the local configuration storage boundary.
-type Store interface {
-	Load() (Config, error)
-	Save(Config) error
-}
-
 type xdgStore struct{}
 
 // NormalizeAppURL returns the canonical Obot app URL used for local
@@ -77,23 +71,6 @@ func Load() (Config, error) {
 // Save writes the setup-managed CLI config to XDG config storage.
 func Save(cfg Config) error {
 	return xdgStore{}.Save(cfg)
-}
-
-// ActiveAppURL resolves the active app URL using an explicit value
-// first, then the stored default URL.
-func ActiveAppURL(explicit string) (string, error) {
-	if strings.TrimSpace(explicit) != "" {
-		return NormalizeAppURL(explicit)
-	}
-
-	cfg, err := Load()
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(cfg.DefaultURL) == "" {
-		return "", errors.New("no Obot URL configured")
-	}
-	return NormalizeAppURL(cfg.DefaultURL)
 }
 
 func (xdgStore) Load() (Config, error) {

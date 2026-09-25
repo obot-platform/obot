@@ -23,7 +23,6 @@ const (
 	// Supported local agents.
 	AgentClaudeCode = "claude_code"
 	AgentCodex      = "codex"
-	AgentVSCode     = "vscode"
 	AgentCursor     = "cursor"
 )
 

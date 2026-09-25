@@ -124,7 +124,7 @@ func TestNonSuccessSurfacesBoundedErrHTTP(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{BaseURL: srv.URL}
-	_, resp, err := c.doRequest(t.Context(), http.MethodGet, "/whatever", nil)
+	resp, err := c.doRequest(t.Context(), http.MethodGet, "/whatever", nil)
 	if resp != nil {
 		t.Error("a non-2xx returned a response alongside the error")
 	}

@@ -1040,15 +1040,6 @@ func parseProtectedResourceMetadata(reader io.Reader) (protectedResourceMetadata
 	return metadata, nil
 }
 
-// ParseOAuthResourceURL returns the resource identifier from protected-resource metadata.
-func ParseOAuthResourceURL(metadata json.RawMessage) (string, error) {
-	parsed, err := parseProtectedResourceMetadata(bytes.NewReader(metadata))
-	if err != nil {
-		return "", err
-	}
-	return string(parsed.Resource), nil
-}
-
 // parseResourceMetadata extracts the resource_metadata URL from a Bearer authenticate header
 func parseResourceMetadata(authenticateHeader string) string {
 	// Use regex to find resource_metadata parameter

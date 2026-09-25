@@ -224,7 +224,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	}
 
 	if gatewayUser != nil {
-		if _, err = req.GatewayClient.DeleteUser(req.Context(), strconv.FormatUint(uint64(gatewayUser.ID), 10)); err != nil {
+		if err = req.GatewayClient.DeleteUser(req.Context(), strconv.FormatUint(uint64(gatewayUser.ID), 10)); err != nil {
 			status := http.StatusInternalServerError
 			if _, ok := errors.AsType[*gateway.LastAdminError](err); ok {
 				status = http.StatusBadRequest

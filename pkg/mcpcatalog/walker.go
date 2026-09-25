@@ -21,9 +21,9 @@ const (
 // WalkCatalogFiles returns catalog manifest paths selected by .obotcatalogs and
 // .ignoreobotcatalogs, skipping hidden child directories. Traversal errors are
 // yielded in the second value.
-func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
-	patterns, usingObotCatalogsFile := catalogPatterns(root)
-	ignorePatterns, _ := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
+func WalkCatalogFiles(root string) (iter.Seq2[string, error], error) {
+	patterns := catalogPatterns(root)
+	ignorePatterns := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
 	return func(yield func(string, error) bool) {
 		fileCount := 0
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -68,7 +68,7 @@ func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 		if err != nil {
 			yield("", err)
 		}
-	}, usingObotCatalogsFile, nil
+	}, nil
 }
 
 func DecodeCatalogFile[T any](path string) ([]T, bool, error) {
@@ -101,14 +101,14 @@ func DecodeCatalogFile[T any](path string) ([]T, bool, error) {
 	return []T{entry}, false, nil
 }
 
-func catalogPatterns(root string) ([]string, bool) {
+func catalogPatterns(root string) []string {
 	return readCatalogPatterns(filepath.Join(root, ".obotcatalogs"), []string{"*.json", "*.yaml", "*.yml"})
 }
 
-func readCatalogPatterns(path string, defaults []string) ([]string, bool) {
+func readCatalogPatterns(path string, defaults []string) []string {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		return defaults, false
+		return defaults
 	}
 
 	var patterns []string
@@ -121,12 +121,12 @@ func readCatalogPatterns(path string, defaults []string) ([]string, bool) {
 	}
 	if err := scanner.Err(); err != nil {
 		slog.Warn("Failed to read file", "fileName", filepath.Base(path), "error", err)
-		return defaults, true
+		return defaults
 	}
 	if len(patterns) == 0 {
-		return defaults, true
+		return defaults
 	}
-	return patterns, true
+	return patterns
 }
 
 func matchesCatalogPattern(patterns []string, candidate string) bool {

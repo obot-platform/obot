@@ -583,7 +583,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			}
 			uniqueVMCPKeys[key] = struct{}{}
 
-			manifest.Default(false, "")
+			manifest.Default(false)
 			objs = append(objs, &v1.VMCP{
 				Name:       catalogvalidation.VMCPName(catalogName, sourceURL, key, manifest.DisplayName),
 				Namespace:  system.DefaultNamespace,
@@ -742,7 +742,7 @@ func decodeCatalogManifestList[T any](contents []byte) ([]T, error) {
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	files, _, err := catalogvalidation.WalkCatalogFiles(catalog)
+	files, err := catalogvalidation.WalkCatalogFiles(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}

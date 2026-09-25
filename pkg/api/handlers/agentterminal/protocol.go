@@ -18,7 +18,6 @@ import (
 //
 //	ChannelStdin    browser -> server
 //	ChannelStdout   server  -> browser
-//	ChannelStderr   server  -> browser
 //	ChannelControl  either direction
 const (
 	// ChannelStdin carries keystrokes toward the sandbox.
@@ -26,12 +25,6 @@ const (
 	// ChannelStdout carries console output. A session attached over a TTY
 	// merges its output onto this channel, because a TTY is a single stream.
 	ChannelStdout byte = 1
-	// ChannelStderr carries the sandbox's stderr. It is unused for a TTY
-	// session, where the kernel has already merged stderr into stdout, and is
-	// reserved for a non-TTY session that keeps the two streams apart. Errors
-	// about the session itself travel on the control channel instead, so this
-	// one only ever carries the sandbox's own output.
-	ChannelStderr byte = 2
 	// ChannelControl carries JSON messages that are about the session rather
 	// than its content.
 	ChannelControl byte = 3

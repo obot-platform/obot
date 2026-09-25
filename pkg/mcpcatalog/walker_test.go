@@ -20,7 +20,7 @@ func TestWalkCatalogFilesSkipsSymlinksAndIgnoredFiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte("ignored.yaml\n"), 0o600))
 	require.NoError(t, os.Symlink(validPath, filepath.Join(dir, "linked.yaml")))
 
-	files, _, err := WalkCatalogFiles(dir)
+	files, err := WalkCatalogFiles(dir)
 	require.NoError(t, err)
 	var paths []string
 	for path, err := range files {
@@ -50,9 +50,8 @@ func TestWalkCatalogFilesSkipsHiddenDirectories(t *testing.T) {
 
 			t.Chdir(dir)
 			for _, root := range []string{dir, "."} {
-				files, usingPatterns, err := WalkCatalogFiles(root)
+				files, err := WalkCatalogFiles(root)
 				require.NoError(t, err)
-				require.Equal(t, customPatterns, usingPatterns)
 
 				var paths []string
 				for path, err := range files {
@@ -143,7 +142,7 @@ func TestWalkCatalogFilesPatternSemantics(t *testing.T) {
 			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte(tt.ignores), 0o600))
 
-			files, _, err := WalkCatalogFiles(dir)
+			files, err := WalkCatalogFiles(dir)
 			require.NoError(t, err)
 
 			var paths []string
@@ -167,9 +166,8 @@ func TestWalkCatalogFilesFallsBackWhenPatternFilesCannotBeRead(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(dir, ".obotcatalogs"), 0o700))
 	require.NoError(t, os.Mkdir(filepath.Join(dir, ".ignoreobotcatalogs"), 0o700))
 
-	files, usingObotCatalogsFile, err := WalkCatalogFiles(dir)
+	files, err := WalkCatalogFiles(dir)
 	require.NoError(t, err)
-	require.False(t, usingObotCatalogsFile)
 
 	var paths []string
 	for path, err := range files {
@@ -185,9 +183,8 @@ func TestWalkCatalogFilesFallsBackWhenPatternLineIsTooLong(t *testing.T) {
 	require.NoError(t, os.WriteFile(validPath, []byte("name: Valid\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".obotcatalogs"), []byte(strings.Repeat("x", bufio.MaxScanTokenSize+1)), 0o600))
 
-	files, usingObotCatalogsFile, err := WalkCatalogFiles(dir)
+	files, err := WalkCatalogFiles(dir)
 	require.NoError(t, err)
-	require.True(t, usingObotCatalogsFile)
 
 	var paths []string
 	for path, err := range files {

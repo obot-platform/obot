@@ -48,10 +48,6 @@ type MCPTesterHandler struct {
 	modelProxyClient mcpTesterHTTPClient
 }
 
-func NewMCPTesterHandler(storage kclient.Client, serverResolver mcpTesterServerActionResolver, accessHelper *accesscontrolrule.Helper, modelResolver mcptester.ModelAccessResolver, serverURL string, httpClient *http.Client) *MCPTesterHandler {
-	return NewMCPTesterHandlerWithModelProxy(storage, serverResolver, accessHelper, modelResolver, serverURL, httpClient, MCPTesterModelProxyOptions{})
-}
-
 func NewMCPTesterHandlerWithModelProxy(storage kclient.Client, serverResolver mcpTesterServerActionResolver, accessHelper *accesscontrolrule.Helper, modelResolver mcptester.ModelAccessResolver, serverURL string, httpClient *http.Client, options MCPTesterModelProxyOptions) *MCPTesterHandler {
 	if httpClient == nil {
 		httpClient = http.DefaultClient

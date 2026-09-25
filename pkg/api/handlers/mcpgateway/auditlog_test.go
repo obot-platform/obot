@@ -240,27 +240,6 @@ func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t 
 	}
 }
 
-func TestAuditLogMetadataForPrincipalAddsAPIKeyAttribution(t *testing.T) {
-	base := map[string]string{"mcpID": "mcp-1"}
-	requestUser := &user.DefaultInfo{Extra: map[string][]string{
-		principal.APIKeyIDExtra:   {"42"},
-		principal.APIKeyNameExtra: {"CLI token"},
-	}}
-
-	got := auditLogMetadataForPrincipal(base, requestUser)
-
-	if got["mcpID"] != "mcp-1" || got[principal.APIKeyIDExtra] != "42" || got[principal.APIKeyNameExtra] != "CLI token" {
-		t.Fatalf("metadata = %#v, want server and API-key attribution", got)
-	}
-	if _, ok := base[principal.APIKeyIDExtra]; ok {
-		t.Fatalf("base metadata was mutated: %#v", base)
-	}
-	withoutKey := auditLogMetadataForPrincipal(base, &user.DefaultInfo{UID: "7"})
-	if _, ok := withoutKey[principal.APIKeyIDExtra]; ok {
-		t.Fatalf("ordinary principal gained API-key attribution: %#v", withoutKey)
-	}
-}
-
 func TestLocalAgentAuditLogSubmitAuthenticatedBatchSucceeds(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	occurredAt := time.Date(2026, 6, 30, 12, 0, 0, 0, time.UTC)

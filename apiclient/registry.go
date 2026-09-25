@@ -33,7 +33,7 @@ func (c *Client) ListRegistryServers(ctx context.Context, opts ListRegistryServe
 		path += "?" + encoded
 	}
 
-	_, resp, err := c.doRequestWithBaseURL(ctx, http.MethodGet, appBaseURLForAPIBaseURL(c.BaseURL), path, nil)
+	resp, err := c.doRequestWithBaseURL(ctx, http.MethodGet, appBaseURLForAPIBaseURL(c.BaseURL), path, nil)
 	if err != nil {
 		return types.RegistryServerList{}, err
 	}
