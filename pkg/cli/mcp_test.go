@@ -306,6 +306,7 @@ func TestMCPValidateCatalogYAMLSupportsVMCPs(t *testing.T) {
   displayName: Bundle
   components:
     - name: Search
+      id: search
       mcpServerCatalogEntryKey: search
 `
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
@@ -315,6 +316,24 @@ func TestMCPValidateCatalogYAMLSupportsVMCPs(t *testing.T) {
 	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMCPValidateCatalogYAMLRequiresVMCPComponentID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	content := `type: vmcp
+displayName: Email
+components:
+  - name: Gmail
+    mcpServerCatalogEntryKey: obot-gmail
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	if err == nil || !strings.Contains(err.Error(), `vMCP "Email" components[0] id is required`) {
+		t.Fatalf("error = %v, want missing vMCP component id error", err)
 	}
 }
 

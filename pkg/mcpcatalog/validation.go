@@ -141,6 +141,10 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 	}
 
 	for i := range manifest.Components {
+		if strings.TrimSpace(manifest.Components[i].ID) == "" {
+			return manifest, fmt.Errorf("vMCP %q components[%d] id is required", manifest.DisplayName, i)
+		}
+
 		if references.Components[i].EntryKey == "" {
 			name := manifest.DisplayName
 			if name == "" {
@@ -149,8 +153,10 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 			if name == "" {
 				name = "<unnamed>"
 			}
-			return manifest, fmt.Errorf("vMCP %q component %q mcpServerCatalogEntryKey is required", name, manifest.Components[i].Name)
+			return manifest, fmt.Errorf("vMCP %q component %q mcpServerCatalogEntryKey is required", name,
+				manifest.Components[i].ID)
 		}
+
 		manifest.Components[i].MCPServerCatalogEntryID = references.Components[i].EntryKey
 	}
 
