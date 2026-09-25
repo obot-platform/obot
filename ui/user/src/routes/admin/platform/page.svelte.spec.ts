@@ -1,7 +1,7 @@
 import { page as appPage } from '$app/state';
 import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import * as navigation from '$lib/navigation';
-import { Group, type ProductTelemetryConsent } from '$lib/services';
+import { Group, type ModelProxySettings, type ProductTelemetryConsent } from '$lib/services';
 import type {
 	ImagePullSecret,
 	ImagePullSecretCapability,
@@ -29,7 +29,8 @@ async function renderPlatformPage({
 	imagePullSecrets = [],
 	groups = [Group.ADMIN],
 	productAnalyticsAvailable = true,
-	productAnalyticsConsent = { consent: false }
+	productAnalyticsConsent = { consent: false },
+	modelProxySettings
 }: {
 	license?: License;
 	versionOverrides?: Partial<Version>;
@@ -40,6 +41,7 @@ async function renderPlatformPage({
 	groups?: string[];
 	productAnalyticsAvailable?: boolean;
 	productAnalyticsConsent?: ProductTelemetryConsent;
+	modelProxySettings?: ModelProxySettings;
 } = {}) {
 	appPage.url.searchParams.set('view', view);
 	if (create) {
@@ -58,6 +60,7 @@ async function renderPlatformPage({
 		gitCredentials: [],
 		productTelemetryConsentAvailable: productAnalyticsAvailable,
 		productTelemetryConsent: productAnalyticsConsent,
+		modelProxySettings,
 		version: {
 			...getVersionResponse,
 			...versionOverrides

@@ -32,7 +32,7 @@
 	}
 </script>
 
-<div class="relative flex h-full w-full flex-col gap-4 @container pt-4">
+<div class="relative flex h-full w-full flex-col gap-2 @container pt-4">
 	<div class="paper gap-5">
 		<div class="flex flex-col gap-2 text-sm font-light">
 			<p>
@@ -83,15 +83,6 @@
 				</span>
 			</label>
 		</fieldset>
-		<div class="flex justify-end">
-			<button
-				type="button"
-				class="btn btn-primary text-sm"
-				disabled={!canSave || saving}
-				onclick={handleSave}>Save</button
-			>
-		</div>
-
 		<p class="text-xs font-light text-muted-content">
 			Software update checks are separate and may send the installation ID and current version even
 			when product analytics is disabled.
@@ -102,5 +93,13 @@
 				rel="external noopener noreferrer">Learn more about update checks</a
 			>.
 		</p>
+	</div>
+	<div class="paper py-2 flex-row justify-end">
+		<button
+			type="button"
+			class="btn btn-primary text-sm"
+			disabled={!canSave || saving}
+			onclick={handleSave}>Save</button
+		>
 	</div>
 </div>

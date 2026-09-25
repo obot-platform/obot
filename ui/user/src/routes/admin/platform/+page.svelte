@@ -12,6 +12,7 @@
 	import BrandingView from './BrandingView.svelte';
 	import LicenseView from './LicenseView.svelte';
 	import McpConfigView from './McpConfigView.svelte';
+	import ModelProxyView from './ModelProxyView.svelte';
 	import NotificationsView from './NotificationsView.svelte';
 	import ProductAnalyticsView from './ProductAnalyticsView.svelte';
 	import RegistryConnectionsView from './RegistryConnectionsView.svelte';
@@ -52,6 +53,7 @@
 		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 			? [{ label: 'MCP Config', value: 'mcp-config', content: mcpConfig }]
 			: []),
+		{ label: 'Model Proxy', value: 'model-proxy', content: modelProxy },
 		...(version.current.engine === 'kubernetes'
 			? [
 					{
@@ -151,4 +153,10 @@
 
 {#snippet gitCredentials()}
 	<GitCredentialsView bind:this={gitCredentialsView} bind:gitCredentials={credentials} />
+{/snippet}
+
+{#snippet modelProxy()}
+	{#if data.modelProxySettings}
+		<ModelProxyView settings={data.modelProxySettings} usage={data.modelProxyUsage} />
+	{/if}
 {/snippet}

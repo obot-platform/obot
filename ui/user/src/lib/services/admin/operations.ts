@@ -42,6 +42,9 @@ import type {
 	MCPCatalogServerManifest,
 	ModelAccessPolicy,
 	ModelAccessPolicyManifest,
+	ModelProxySettings,
+	ModelProxySettingsUpdateManifest,
+	ModelProxyUsage,
 	AuthProvider,
 	MCPFilter,
 	MCPFilterManifest,
@@ -1654,6 +1657,23 @@ export async function validateModelProvider(
 		...opts,
 		dontLogErrors: true
 	});
+}
+
+// Model proxy
+
+export async function getModelProxySettings(opts?: RequestOptions): Promise<ModelProxySettings> {
+	return (await doGet('/model-proxy', opts)) as ModelProxySettings;
+}
+
+export async function getModelProxyUsage(opts?: RequestOptions): Promise<ModelProxyUsage> {
+	return (await doGet('/model-proxy/usage', opts)) as ModelProxyUsage;
+}
+
+export async function updateModelProxySettings(
+	settings: ModelProxySettingsUpdateManifest,
+	opts?: RequestOptions
+): Promise<ModelProxySettings> {
+	return (await doPut('/model-proxy', settings, opts)) as ModelProxySettings;
 }
 
 // Models
