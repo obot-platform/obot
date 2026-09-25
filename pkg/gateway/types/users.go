@@ -109,7 +109,7 @@ func (q UserQuery) Scope(db *gorm.DB) *gorm.DB {
 		db = db.Where("hashed_email = ?", hash.String(q.Email))
 	}
 	if q.Role != 0 {
-		db = db.Where("role = ?", q.Role)
+		db = db.Where("(role & ?) != 0", q.Role)
 	}
 
 	// Filter out soft-deleted users by default
