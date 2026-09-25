@@ -35,6 +35,10 @@ func (c *Consent) UserConfigurable() bool {
 	return c.forcedValue == nil
 }
 
+func (c *Consent) DisabledByOperator() bool {
+	return c.forcedValue != nil && !*c.forcedValue
+}
+
 // Get returns effective consent. A nil value means consent is undecided. When
 // consent is forced, Get returns the operator's choice without consulting persistence.
 func (c *Consent) Get(ctx context.Context) (*bool, error) {

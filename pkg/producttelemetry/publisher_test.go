@@ -303,3 +303,15 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 		t.Fatal("publisher did not stop after context cancellation")
 	}
 }
+
+func TestNewPublisherDoesNotStartWhenAnalyticsForcedOff(t *testing.T) {
+	t.Setenv("OBOT_FORCE_PRODUCT_TELEMETRY", "true")
+	consent := NewConsent(nil, new(false))
+	publisher := NewPublisher(t.Context(), consent, nil, nil, nil, "docker")
+
+	select {
+	case <-publisher.done:
+	default:
+		t.Fatal("publisher started despite analytics being forced off")
+	}
+}

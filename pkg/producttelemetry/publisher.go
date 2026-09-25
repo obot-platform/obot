@@ -40,7 +40,8 @@ type Publisher struct {
 	done            chan struct{}
 }
 
-// NewPublisher creates and immediately starts a product telemetry publisher.
+// NewPublisher creates a product telemetry publisher and starts it unless the
+// operator has disabled analytics.
 func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayclient.Client, storageClient storage.Client, licenseProvider licenseEntitlementProvider, engine string) *Publisher {
 	publisher := newPublisher(
 		consent,
@@ -50,6 +51,10 @@ func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayc
 		engine,
 		NewClient(upgrade.ServerBaseURL(), nil),
 	)
+	if consent.DisabledByOperator() {
+		close(publisher.done)
+		return publisher
+	}
 	publisher.start(ctx, version.Get().String(), os.Getenv("OBOT_FORCE_PRODUCT_TELEMETRY") == "true")
 	return publisher
 }
