@@ -49,6 +49,7 @@ export type VMcpListSettingsFilters = {
 	query: string;
 	componentFilterBy: string;
 	statusFilterBy: string;
+	variant: 'grid' | 'table';
 };
 
 export type VMcpFilterContext = {

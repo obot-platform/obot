@@ -9,9 +9,10 @@
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { getDisplayListText, getVMcpCreator } from '$lib/services/vmcps/utils';
-	import { errors, profile, version, vmcpInstances } from '$lib/stores';
+	import { errors, profile, responsive, version, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
+	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -101,17 +102,17 @@
 		return undefined;
 	}
 
-	function handleTest(vmcp: VMCP, toggle: (open?: boolean) => void) {
+	function handleTest(vmcp: VMCP, toggle?: (open?: boolean) => void) {
 		const hasConfiguredInstance = vmcpInstances.current.items.some(
 			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
 		);
 		if (hasConfiguredInstance) {
 			goto(`/vmcps/${vmcp.id}?view=inspector`);
-			toggle(false);
+			toggle?.(false);
 			return;
 		}
 		connectHandler(vmcp, { onConnected: () => goto(`/vmcps/${vmcp.id}?view=inspector`) });
-		toggle(false);
+		toggle?.(false);
 	}
 
 	function toggleSelected(card: Item) {
@@ -327,7 +328,7 @@
 	<div class="dark:bg-base-300 bg-base-100 rounded-md shadow-sm">
 		<Table
 			data={items}
-			fields={['displayName', 'description', 'owner', 'status', 'serverNames']}
+			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'Servers', property: 'serverNames' },
@@ -348,20 +349,23 @@
 				{#if property === 'displayName'}
 					<div class="flex min-w-0 items-center gap-2">
 						<VMcpIcon class="size-8" components={row.componentServers} />
-						<p class="truncate" title={row.displayName}>{row.displayName}</p>
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<span
-							class="shrink-0"
-							onclick={(e) => e.stopPropagation()}
-							onkeydown={(e) => e.stopPropagation()}
-						>
-							<VMcpCatalogSyncedIndicator vmcp={row.vmcp} />
-						</span>
+						<div class="min-w-0">
+							<div class="flex min-w-0 items-center gap-2">
+								<p class="truncate" title={row.displayName}>{row.displayName}</p>
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<span
+									class="shrink-0"
+									onclick={(e) => e.stopPropagation()}
+									onkeydown={(e) => e.stopPropagation()}
+								>
+									<VMcpCatalogSyncedIndicator vmcp={row.vmcp} />
+								</span>
+							</div>
+							<p class="text-muted-content line-clamp-1 text-xs" title={row.description}>
+								{stripMarkdownToText(row.description) || '—'}
+							</p>
+						</div>
 					</div>
-				{:else if property === 'description'}
-					<p class="line-clamp-1" title={row.description}>
-						{stripMarkdownToText(row.description) || '—'}
-					</p>
 				{:else if property === 'serverNames'}
 					{@const serverNames = getDisplayListText(row.serverNames, 3)}
 					{#if serverNames}
@@ -387,57 +391,81 @@
 
 			{#snippet actions(row)}
 				{@const ctx = vmcpItemContext(row.vmcp)}
-				{#if ctx.canConnect || ctx.hasActions}
-					<DotDotDot
-						class="hover:dark:bg-base-100/50"
-						classes={{ menu: 'min-w-48' }}
-						ariaLabel={`Actions for ${ctx.name}`}
-					>
-						{#snippet icon()}
-							<Ellipsis class="size-4" />
-						{/snippet}
+				<div class="flex items-center gap-2">
+					{#if !responsive.isMobile}
+						<button
+							class="btn rounded-md border border-base-300 dark:border-base-400 bg-primary/10 font-mono text-[10px] uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content"
+							onclick={(e) => {
+								e.stopPropagation();
+								connectHandler(row.vmcp);
+							}}
+							disabled={connectDisabled(ctx.canConnect)}
+							aria-disabled={connectDisabled(ctx.canConnect)}
+						>
+							Connect
+						</button>
+						<IconButton
+							tooltip={{ text: 'Test vMCP' }}
+							onclick={(e) => {
+								e.stopPropagation();
+								handleTest(row.vmcp);
+							}}
+						>
+							<MessageCircle class="size-4" />
+						</IconButton>
+					{/if}
+					{#if ctx.hasActions}
+						<DotDotDot
+							class="hover:dark:bg-base-100/50"
+							classes={{ menu: 'min-w-48' }}
+							ariaLabel={`Actions for ${ctx.name}`}
+						>
+							{#snippet icon()}
+								<Ellipsis class="size-4" />
+							{/snippet}
 
-						{#snippet children({ toggle })}
-							{#if ctx.canConnect}
-								<button
-									class="menu-button"
-									disabled={connectDisabled(ctx.canConnect)}
-									use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
-									onclick={(e) => {
-										e.stopPropagation();
-										connectHandler(row.vmcp);
-										toggle(false);
-									}}
-								>
-									<Plug class="size-4" /> Connect
-								</button>
-								<button
-									class="menu-button"
-									disabled={connectDisabled(ctx.canConnect)}
-									use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
-									onclick={(e) => {
-										e.stopPropagation();
-										handleTest(row.vmcp, toggle);
-									}}
-								>
-									<MessageCircle class="size-4" /> Test vMCP
-								</button>
-							{/if}
-							{#if ctx.hasActions}
-								<VMcpMenuActions
-									vmcp={row.vmcp}
-									{toggle}
-									onDelete={() => onDelete?.(row.vmcp)}
-									onUpdated={onUpdate}
-									openSelectInstance={vmcpActions?.openSelectInstance}
-									openDiff={vmcpActions?.openDiff}
-									openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-									openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
-								/>
-							{/if}
-						{/snippet}
-					</DotDotDot>
-				{/if}
+							{#snippet children({ toggle })}
+								{#if responsive.isMobile && ctx.canConnect}
+									<button
+										class="menu-button"
+										disabled={connectDisabled(ctx.canConnect)}
+										use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+										onclick={(e) => {
+											e.stopPropagation();
+											connectHandler(row.vmcp);
+											toggle(false);
+										}}
+									>
+										<Plug class="size-4" /> Connect
+									</button>
+									<button
+										class="menu-button"
+										disabled={connectDisabled(ctx.canConnect)}
+										use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+										onclick={(e) => {
+											e.stopPropagation();
+											handleTest(row.vmcp, toggle);
+										}}
+									>
+										<MessageCircle class="size-4" /> Test vMCP
+									</button>
+								{/if}
+								{#if ctx.hasActions}
+									<VMcpMenuActions
+										vmcp={row.vmcp}
+										{toggle}
+										onDelete={() => onDelete?.(row.vmcp)}
+										onUpdated={onUpdate}
+										openSelectInstance={vmcpActions?.openSelectInstance}
+										openDiff={vmcpActions?.openDiff}
+										openUpdateConfirm={vmcpActions?.openUpdateConfirm}
+										openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+									/>
+								{/if}
+							{/snippet}
+						</DotDotDot>
+					{/if}
+				</div>
 			{/snippet}
 
 			{#snippet tableSelectActions(currentSelected)}

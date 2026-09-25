@@ -20,7 +20,6 @@
 		filters: VMcpListSettingsFilters;
 		onChange: (property: keyof VMcpListSettingsFilters, values: string[]) => void;
 		componentFilterOptions?: VMcpFilterOption[];
-		variant?: 'grid' | 'table';
 		selecting?: boolean;
 	}
 
@@ -28,7 +27,6 @@
 		filters,
 		onChange,
 		componentFilterOptions = [],
-		variant = 'grid',
 		selecting = $bindable(false)
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -113,7 +111,7 @@
 </div>
 
 <div class="flex items-center justify-between md:justify-end gap-2">
-	{#if variant === 'grid'}
+	{#if filters.variant === 'grid'}
 		<div in:fade>
 			<DotDotDot placement="bottom-end">
 				{#snippet children({ toggle })}
@@ -133,17 +131,14 @@
 	{/if}
 	<div class="flex items-center gap-2">
 		<button
-			class={twMerge('btn', variant === 'grid' ? 'btn-active' : undefined)}
-			onclick={() => (variant = 'grid')}
+			class={twMerge('btn', filters.variant === 'grid' ? 'btn-active' : undefined)}
+			onclick={() => onChange('variant', ['grid'])}
 		>
 			<LayoutGrid class="size-4" /> Grid View
 		</button>
 		<button
-			class={twMerge('btn', variant === 'table' ? 'btn-active' : undefined)}
-			onclick={() => {
-				variant = 'table';
-				selecting = false;
-			}}
+			class={twMerge('btn', filters.variant === 'table' ? 'btn-active' : undefined)}
+			onclick={() => onChange('variant', ['table'])}
 		>
 			<Table class="size-4" /> Table View
 		</button>

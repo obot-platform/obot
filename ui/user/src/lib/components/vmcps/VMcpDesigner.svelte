@@ -374,7 +374,13 @@
 
 	function leaveDesigner() {
 		onBack?.();
-		if (!onBack) goto('/vmcps');
+		if (!onBack) {
+			if (history.length > 1) {
+				history.back();
+			} else {
+				goto('/vmcps', { replaceState: true });
+			}
+		}
 	}
 
 	function handleBack() {

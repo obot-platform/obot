@@ -44,22 +44,18 @@
 			sortBy: sortByValues.includes(urlSortBy as VMcpSortBy) ? (urlSortBy as VMcpSortBy) : 'name',
 			query: page.url.searchParams.get('query') || '',
 			componentFilterBy: page.url.searchParams.get('components') || '',
-			statusFilterBy: page.url.searchParams.get('status') || ''
+			statusFilterBy: page.url.searchParams.get('status') || '',
+			variant: (page.url.searchParams.get('variant') as 'grid' | 'table') || 'grid'
 		};
 	}
 
 	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
 	let isLoading = $state(false);
-	let showMyVMcpsOnly = $state(untrack(() => getInitialFilters().showMyVMcpsOnly));
-	let sortBy = $state<VMcpSortBy>(untrack(() => getInitialFilters().sortBy));
-	let query = $state(untrack(() => getInitialFilters().query));
-	let componentFilterBy = $state(untrack(() => getInitialFilters().componentFilterBy));
-	let statusFilterBy = $state(untrack(() => getInitialFilters().statusFilterBy));
-	let variant = $state<'grid' | 'table'>('grid');
+	let filters = $state(getInitialFilters());
 	let selecting = $state(false);
 
 	let vmcps = $derived.by(() => {
-		if (showMyVMcpsOnly) {
+		if (filters.showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
 		}
 		return listedVMcps;
@@ -95,9 +91,9 @@
 			filterVMcps(
 				vmcps,
 				{
-					query,
-					components: componentFilterBy,
-					status: statusFilterBy
+					query: filters.query,
+					components: filters.componentFilterBy,
+					status: filters.statusFilterBy
 				},
 				usersMap,
 				{
@@ -105,8 +101,8 @@
 					userId: profile.current.id
 				}
 			),
-			sortBy,
-			query,
+			filters.sortBy,
+			filters.query,
 			usersMap
 		)
 	);
@@ -146,26 +142,30 @@
 	function handleChange(property: keyof VMcpListSettingsFilters, values: string[]) {
 		switch (property) {
 			case 'showMyVMcpsOnly':
-				showMyVMcpsOnly = values.includes('true');
+				filters.showMyVMcpsOnly = values.includes('true');
 				setFilterUrlParams(property, values);
 				break;
 			case 'sortBy':
-				sortBy = sortByValues.includes(values[0] as VMcpSortBy)
+				filters.sortBy = sortByValues.includes(values[0] as VMcpSortBy)
 					? (values[0] as VMcpSortBy)
 					: 'name';
 				setFilterUrlParams(property, values);
 				break;
 			case 'query':
-				query = values[0] || '';
+				filters.query = values[0] || '';
 				setUrlParamAndUpdateUrl(page.url, 'query', values[0] || null);
 				break;
 			case 'componentFilterBy':
-				componentFilterBy = values.join(',');
+				filters.componentFilterBy = values.join(',');
 				setFilterUrlParams('components', values);
 				break;
 			case 'statusFilterBy':
-				statusFilterBy = values.join(',');
+				filters.statusFilterBy = values.join(',');
 				setFilterUrlParams('status', values);
+				break;
+			case 'variant':
+				filters.variant = values[0] as 'grid' | 'table';
+				setFilterUrlParams('variant', values);
 				break;
 		}
 	}
@@ -221,19 +221,7 @@
 	{#if isLoading}
 		<Loading class="text-primary" />
 	{:else}
-		<VMcpListSettings
-			bind:selecting
-			filters={{
-				showMyVMcpsOnly,
-				sortBy,
-				query,
-				componentFilterBy,
-				statusFilterBy
-			}}
-			onChange={handleChange}
-			{componentFilterOptions}
-			{variant}
-		/>
+		<VMcpListSettings bind:selecting {filters} onChange={handleChange} {componentFilterOptions} />
 		<VMcpList
 			bind:selecting
 			items={sortedVMcps}
@@ -247,10 +235,10 @@
 				listedVMcps = listedVMcps.map((vmcp) => (vmcp.id === updated.id ? updated : vmcp));
 			}}
 			{usersMap}
-			{variant}
+			variant={filters.variant}
 		>
 			{#snippet noDataContent()}
-				{#if query}
+				{#if filters.query}
 					<p class="text-muted-content text-sm font-light">No vMCPs found matching your query.</p>
 				{:else}
 					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
