@@ -131,6 +131,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
 	llmAuditLogs := handlers.NewLLMAuditLogHandler()
+	mockData := handlers.NewMockDataHandler(services.LicenseProvider)
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
@@ -153,6 +154,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
+	if services.EnableMockData {
+		mux.HandleFunc("POST /api/mock-data", mockData.Generate)
+	}
 
 	// License
 	mux.HandleFunc("GET /api/license", licenseHandler.Get)
