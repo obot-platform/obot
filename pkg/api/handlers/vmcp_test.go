@@ -197,6 +197,68 @@ func TestMigratedVMCPAllowsAdminToDisableComponentForceSingleUser(t *testing.T) 
 	}
 }
 
+func TestVMCPHandlerUpdateRejectsCatalogSyncedVMCP(t *testing.T) {
+	validBody, err := json.Marshal(testVMCPManifest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "valid manifest",
+			body: string(validBody),
+		},
+		{
+			name: "unreadable manifest",
+			body: "{not json",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1synced",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.VMCPSpec{
+					SourceURL: "https://example.com/catalog",
+					Manifest:  testVMCPManifest(),
+				},
+			}
+			storage := newVMCPTestStorage(vmcp)
+			storage.onUpdate = func(kclient.Object) { t.Fatal("rejected request updated a resource") }
+			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(tc.body))
+			request.SetPathValue("vmcp_id", vmcp.Name)
+			err := NewVMCPHandler(nil).Update(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				GatewayClient:  newHandlerTestGateway(t),
+				Request:        request,
+				Storage:        storage,
+				User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+			})
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.Contains(httpErr.Message, "catalog synced vMCP vmcp1synced cannot be updated via API") {
+				t.Fatalf("expected 400 for catalog synced vMCP, got %v", err)
+			}
+		})
+	}
+}
+
+func TestVMCPHandlerUpdateMissingVMCPReturnsGetError(t *testing.T) {
+	storage := newVMCPTestStorage()
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/missing", strings.NewReader("{not json"))
+	request.SetPathValue("vmcp_id", "missing")
+	err := NewVMCPHandler(nil).Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		GatewayClient:  newHandlerTestGateway(t),
+		Request:        request,
+		Storage:        storage,
+		User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to get VMCP") {
+		t.Fatalf("expected get error before reading the manifest, got %v", err)
+	}
+}
+
 func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)

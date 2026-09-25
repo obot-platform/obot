@@ -149,15 +149,20 @@ func (h *VMCPHandler) Create(req api.Context) error {
 }
 
 func (h *VMCPHandler) Update(req api.Context) error {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	if vmcp.Spec.SourceURL != "" {
+		return types.NewErrBadRequest("catalog synced vMCP %s cannot be updated via API", vmcp.Name)
+	}
+
 	var manifest types.VMCPManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 
-	var vmcp v1.VMCP
-	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
-		return fmt.Errorf("failed to get VMCP: %w", err)
-	}
 	manifest.Default(vmcp.Spec.UserID != "", req.User.GetUID())
 
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
