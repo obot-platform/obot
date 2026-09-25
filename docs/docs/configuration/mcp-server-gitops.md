@@ -150,6 +150,7 @@ entryKey: research
 displayName: Research
 components:
   - name: Search
+    id: search-component
     mcpServerCatalogEntryKey: search
 ```
 
@@ -160,10 +161,11 @@ For example, to reference `entryKey: search` from the catalog source `https://gi
 ```yaml
 components:
   - name: Search
+    id: search-component
     mcpServerCatalogEntryKey: github.com/example/shared-catalog::search
 ```
 
-If a profile uses `allowedComponents`, give each referenced component an `id` and use that ID as the map key. Keep component IDs stable across updates so saved configuration stays associated with the same component.
+Every component must have a nonblank `id`. If a profile uses `allowedComponents`, use that ID as the map key. Keep component IDs stable across updates so saved configuration stays associated with the same component. When adopting a migrated vMCP, use its existing component IDs.
 
 ```yaml
 type: vmcp
@@ -194,8 +196,10 @@ entryKey: email
 displayName: Email
 components:
   - name: Gmail
+    id: gmail-component
     mcpServerCatalogEntryKey: obot-gmail
   - name: Outlook
+    id: outlook-component
     mcpServerCatalogEntryKey: obot-outlook
 ```
 

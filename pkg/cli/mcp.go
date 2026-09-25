@@ -234,9 +234,6 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 						component.Name = component.MCPServerCatalogEntryID
 					}
 				}
-				if component.ID == "" {
-					component.ID = utils.Digest(component.Name)[:32]
-				}
 			}
 			if err := manifest.Validate(); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", label, err))

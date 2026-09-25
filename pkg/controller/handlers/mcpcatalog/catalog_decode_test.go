@@ -99,7 +99,7 @@ func TestReadMCPCatalogMixedJSON(t *testing.T) {
     "type": "vmcp",
     "entryKey": "bundle",
     "displayName": "Bundle",
-    "components": [{"name": "Search", "mcpServerCatalogEntryKey": "search"}]
+    "components": [{"id": "search", "name": "Search", "mcpServerCatalogEntryKey": "search"}]
   }
 ]`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -198,14 +198,34 @@ func TestReadMCPCatalogRequiresVMCPEntryKeyReference(t *testing.T) {
 	content := `- type: vmcp
   displayName: Email
   components:
-    - name: Gmail
+    - id: gmail
       mcpServerCatalogEntryID: obot-gmail
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
 	objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
-	require.ErrorContains(t, err, `component "Gmail" mcpServerCatalogEntryKey is required`)
+	require.ErrorContains(t, err, `vMCP "Email" component "gmail" mcpServerCatalogEntryKey is required`)
 	require.Empty(t, objects)
+}
+
+func TestReadMCPCatalogRequiresVMCPComponentID(t *testing.T) {
+	for _, id := range []string{"", "  "} {
+		t.Run(fmt.Sprintf("id=%q", id), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalog.yaml")
+			content := fmt.Sprintf(`- type: vmcp
+  displayName: Email
+  components:
+    - id: %q
+      name: Gmail
+      mcpServerCatalogEntryKey: obot-gmail
+`, id)
+			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+			objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+			require.ErrorContains(t, err, `vMCP "Email" components[0] id is required`)
+			require.Empty(t, objects)
+		})
+	}
 }
 
 func TestReadMCPCatalogRetainsPartialResultsAndReportsIncompleteSource(t *testing.T) {

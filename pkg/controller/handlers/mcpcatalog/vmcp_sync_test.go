@@ -46,6 +46,7 @@ entryKey: bundle
 displayName: Bundle
 components:
   - name: Search
+    id: search
     mcpServerCatalogEntryKey: search
     configuration:
       - key: TOKEN
@@ -151,6 +152,7 @@ entryKey: bundle
 displayName: Bundle
 components:
   - name: Search
+    id: search
     mcpServerCatalogEntryKey: missing
 `
 	require.NoError(t, os.WriteFile(vmcpPath, []byte(broken), 0o600))
@@ -227,6 +229,7 @@ entryKey: bundle
 displayName: Bundle
 components:
   - name: Search
+    id: original-component
     mcpServerCatalogEntryKey: search
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(entry), 0o600))
@@ -344,6 +347,7 @@ func TestCatalogSyncPreservesCredentialsOnApplyFailure(t *testing.T) {
   displayName: Bundle
   components:
     - name: Search
+      id: search
       mcpServerCatalogEntryKey: search
       configuration:
         - key: TOKEN
