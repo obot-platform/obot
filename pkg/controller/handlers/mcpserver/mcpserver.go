@@ -397,7 +397,9 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 
 	if entryConfig.Hostname != serverConfig.Hostname ||
 		entryConfig.URLTemplate != serverConfig.URLTemplate ||
-		entryConfig.TunnelName != serverConfig.TunnelName {
+		entryConfig.TunnelName != serverConfig.TunnelName ||
+		entryConfig.LocalhostCallbackEnabled != serverConfig.LocalhostCallbackEnabled ||
+		entryConfig.LocalhostCallbackPath != serverConfig.LocalhostCallbackPath {
 		return true
 	}
 

@@ -11,6 +11,7 @@
 	import { isAbortError } from '$lib/errors';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		resolveVMcpComponents,
 		vmcpComponentId,
@@ -46,6 +47,7 @@
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
 
+	let localhostCallback = $derived(vmcp ? vmcpLocalhostCallbackPaths(vmcp).length > 0 : false);
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
@@ -442,15 +444,19 @@
 	{/snippet}
 
 	{#if connectURL}
-		<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
-			<CopyField
-				bind:this={connectionUrlField}
-				value={connectURL}
-				id="connectURL"
-				label="Connection URL"
-			/>
-		</div>
+		{#if !localhostCallback}
+			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+				<CopyField
+					bind:this={connectionUrlField}
+					value={connectURL}
+					id="connectURL"
+					label="Connection URL"
+				/>
+			</div>
+		{/if}
 		<HowToConnect
+			{localhostCallback}
+			callbackPaths={vmcp ? vmcpLocalhostCallbackPaths(vmcp) : []}
 			bind:this={howToConnect}
 			url={connectURL}
 			id={generateIdFromName(displayName)}

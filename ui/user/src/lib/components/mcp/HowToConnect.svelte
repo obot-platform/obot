@@ -8,6 +8,7 @@
 	import { getAiClientCommand, getAiClientMagicLink } from '$lib/services/user/mcp';
 	import { userDeviceSettings } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
+	import LocalMcpConnection from './LocalMcpConnection.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -15,12 +16,23 @@
 		id: string;
 		displayName: string;
 		url: string;
+		localhostCallback?: boolean;
+		callbackPaths?: string[];
 		onLaunch?: () => void;
 		onEdit?: () => void;
 		onReauthenticate?: () => void;
 	}
 
-	let { id, displayName, url, onLaunch, onEdit, onReauthenticate }: Props = $props();
+	let {
+		id,
+		displayName,
+		url,
+		localhostCallback = false,
+		callbackPaths = [],
+		onLaunch,
+		onEdit,
+		onReauthenticate
+	}: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(displayName, url));
@@ -61,7 +73,13 @@
 		return MAGIC_LINK_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map(
 			(client) => ({
 				client,
-				link: getAiClientMagicLink(client, displayName, connectUrl)
+				link: getAiClientMagicLink(
+					client,
+					displayName,
+					connectUrl,
+					localhostCallback,
+					callbackPaths
+				)
 			})
 		);
 	}
@@ -71,7 +89,7 @@
 		const preferred = prefs.length ? new Set(prefs) : new Set(COMMAND_SUPPORTED_AI_CLIENTS);
 		return COMMAND_SUPPORTED_AI_CLIENTS.filter((client) => preferred.has(client)).map((client) => ({
 			client,
-			command: getAiClientCommand(client, id, url)
+			command: getAiClientCommand(client, id, url, localhostCallback, callbackPaths)
 		}));
 	}
 
@@ -83,6 +101,18 @@
 </script>
 
 <div class="w-full @container md:px-0 px-4">
+	{#if localhostCallback}
+		<p class="text-sm my-3">
+			This connection requires the Obot CLI for localhost OAuth callbacks.
+			<a
+				class="link"
+				href="https://docs.obot.ai/installation/cli-setup"
+				target="_blank"
+				rel="noopener noreferrer">Install the Obot CLI</a
+			>
+			and make <code>obot</code> available on your PATH. Run your browser and CLI on the same computer.
+		</p>
+	{/if}
 	{#if magicLinks.length > 0}
 		<div class="divider">Quick Install</div>
 		<div
@@ -175,7 +205,11 @@
 		</div>
 	{/if}
 
-	{#if onLaunch || onEdit || onReauthenticate}
+	{#if localhostCallback}
+		<LocalMcpConnection {id} {url} {callbackPaths} />
+	{/if}
+
+	{#if !localhostCallback && (onLaunch || onEdit || onReauthenticate)}
 		{#if onLaunch}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
 			<p class="text-xs text-center">

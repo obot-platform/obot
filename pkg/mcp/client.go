@@ -28,6 +28,8 @@ type Client struct {
 }
 
 type ClientOption struct {
+	// OAuthRedirectURL overrides the hosted callback for a validated loopback flow.
+	OAuthRedirectURL string
 	// OAuthClientName overrides ClientName only for dynamic client registration.
 	OAuthClientName string
 	// OAuthClientIDMetadataDocument is empty when CIMD must not be used.
@@ -223,7 +225,7 @@ func (sm *SessionManager) oauthHandlerForClient(httpClient *http.Client, serverN
 		clientOpts.TokenStorage,
 		serverName,
 		oauthClientName,
-		sm.baseURL+"/oauth/mcp/callback",
+		cmp.Or(clientOpts.OAuthRedirectURL, sm.baseURL+"/oauth/mcp/callback"),
 		clientOpts.OAuthClientIDMetadataDocument,
 	)
 }

@@ -63,6 +63,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Short = "Manage MCP servers"
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
+	c.AddCommand(cmd.Command(&MCPConnect{}))
 	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
 	c.AddCommand(cmd.Command(&MCPConvertCatalogYAML{}))
 	c.AddCommand(cmd.Command(&MCPValidateSystemCatalogYAML{}))

@@ -1035,6 +1035,8 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	server.Spec.Manifest.Config = slices.Clone(entry.Spec.Manifest.Config)
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
 	serverRemote.TunnelName = entryRemote.TunnelName
+	serverRemote.LocalhostCallbackEnabled = entryRemote.LocalhostCallbackEnabled
+	serverRemote.LocalhostCallbackPath = entryRemote.LocalhostCallbackPath
 	switch {
 	case entryRemote.Hostname != "":
 		serverRemote.Hostname = entryRemote.Hostname
@@ -3201,9 +3203,11 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 		if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
 			// Use the fixed URL from catalog entry.
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				URL:                 entry.Spec.Manifest.RemoteConfig.FixedURL,
-				TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
-				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
+				URL:                      entry.Spec.Manifest.RemoteConfig.FixedURL,
+				TunnelName:               entry.Spec.Manifest.RemoteConfig.TunnelName,
+				LocalhostCallbackEnabled: entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled,
+				LocalhostCallbackPath:    entry.Spec.Manifest.RemoteConfig.LocalhostCallbackPath,
+				StaticOAuthRequired:      entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
 			// Check if the server's current URL matches the new hostname requirement.
@@ -3220,26 +3224,32 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 				}
 
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					URL:                 currentURL,
-					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
-					TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
-					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
+					URL:                      currentURL,
+					Hostname:                 entry.Spec.Manifest.RemoteConfig.Hostname,
+					TunnelName:               entry.Spec.Manifest.RemoteConfig.TunnelName,
+					LocalhostCallbackEnabled: entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled,
+					LocalhostCallbackPath:    entry.Spec.Manifest.RemoteConfig.LocalhostCallbackPath,
+					StaticOAuthRequired:      entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			} else {
 				// No current URL, needs one.
 				server.Spec.NeedsURL = true
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
-					TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
-					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
+					Hostname:                 entry.Spec.Manifest.RemoteConfig.Hostname,
+					TunnelName:               entry.Spec.Manifest.RemoteConfig.TunnelName,
+					LocalhostCallbackEnabled: entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled,
+					LocalhostCallbackPath:    entry.Spec.Manifest.RemoteConfig.LocalhostCallbackPath,
+					StaticOAuthRequired:      entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				IsTemplate:          true,
-				URLTemplate:         entry.Spec.Manifest.RemoteConfig.URLTemplate,
-				TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
-				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
+				IsTemplate:               true,
+				URLTemplate:              entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				TunnelName:               entry.Spec.Manifest.RemoteConfig.TunnelName,
+				LocalhostCallbackEnabled: entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled,
+				LocalhostCallbackPath:    entry.Spec.Manifest.RemoteConfig.LocalhostCallbackPath,
+				StaticOAuthRequired:      entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		}
 	} else {

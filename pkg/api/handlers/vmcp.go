@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -38,7 +39,11 @@ func (*VMCPHandler) List(req api.Context) error {
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
 		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
-			items = append(items, convertVMCP(list.Items[itemIndex]))
+			converted, err := convertVMCPForUser(req, list.Items[itemIndex])
+			if err != nil {
+				return err
+			}
+			items = append(items, converted)
 		}
 	}
 	return req.Write(types.VMCPList{Items: items})
@@ -49,7 +54,11 @@ func (*VMCPHandler) Get(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
-	return req.Write(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 func (h *VMCPHandler) Create(req api.Context) error {
@@ -110,7 +119,11 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
-	return req.WriteCreated(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(converted)
 }
 
 func (h *VMCPHandler) Update(req api.Context) error {
@@ -158,7 +171,11 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP: %w", err)
 	}
-	return req.Write(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 // TriggerUpdate adopts current catalog snapshots in one resource update. It does
@@ -217,7 +234,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP configuration hashes: %w", err)
 	}
-	return req.Write(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent) error {
@@ -360,4 +381,33 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 			Components: componentStatuses,
 		},
 	}
+}
+
+// convertVMCPForUser exposes only callback paths from the same effective snapshots
+// used by runtime resolution, without exposing private legacy component configuration.
+func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
+	if err != nil {
+		return types.VMCP{}, fmt.Errorf("resolve vMCP callback paths: %w", err)
+	}
+	components := vmcp.Spec.Manifest.Components
+	if instance != nil {
+		components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
+	}
+	result := convertVMCP(vmcp)
+	result.LocalhostCallbackPaths = []string{}
+	for _, component := range components {
+		remote := component.CatalogEntry.Manifest.RemoteConfig
+		if remote == nil || !remote.LocalhostCallbackEnabled {
+			continue
+		}
+		path := remote.LocalhostCallbackPath
+		if path == "" {
+			path = mcp.DefaultLocalhostCallbackPath
+		}
+		if !slices.Contains(result.LocalhostCallbackPaths, path) {
+			result.LocalhostCallbackPaths = append(result.LocalhostCallbackPaths, path)
+		}
+	}
+	return result, nil
 }

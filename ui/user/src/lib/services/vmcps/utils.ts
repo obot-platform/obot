@@ -13,7 +13,11 @@ import type {
 import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import { AiClient } from '../user/constants';
-import { getManifestConfiguration } from '../user/mcp';
+import {
+	getLocalMcpConfig,
+	getLocalhostCallbackPaths,
+	getManifestConfiguration
+} from '../user/mcp';
 import {
 	COMPONENT_LABEL_SEPARATOR,
 	MCP_SERVER_POPULARITY_ORDER,
@@ -635,17 +639,35 @@ function mcpConfigKey(name: string, id: string, used: Set<string>) {
 	return key;
 }
 
-function httpMcpServers(vmcps: VMCP[]) {
+export function vmcpLocalhostCallbackPaths(vmcp: VMCP): string[] {
+	if (vmcp.localhostCallbackPaths) return vmcp.localhostCallbackPaths;
+	return [
+		...new Set(
+			(vmcp.components ?? []).flatMap((component) =>
+				getLocalhostCallbackPaths(component.catalogEntry?.manifest?.remoteConfig)
+			)
+		)
+	];
+}
+
+export function vmcpRequiresLocalhostCallback(vmcp: VMCP) {
+	return vmcpLocalhostCallbackPaths(vmcp).length > 0;
+}
+
+function connectionMcpServers(vmcps: VMCP[]) {
 	const used = new Set<string>();
-	const servers: Record<string, { type: 'http'; url: string }> = {};
+	const servers: Record<
+		string,
+		{ type: 'http'; url: string } | { type: 'stdio'; command: string; args: string[] }
+	> = {};
 	for (const vmcp of vmcps) {
 		const url = vmcpConnectURL(vmcp);
 		if ((vmcp.components ?? []).length === 0) continue;
 		if (!url) continue;
-		servers[mcpConfigKey(vmcp.displayName || vmcp.id, vmcp.id, used)] = {
-			type: 'http',
-			url
-		};
+		servers[mcpConfigKey(vmcp.displayName || vmcp.id, vmcp.id, used)] =
+			vmcpRequiresLocalhostCallback(vmcp)
+				? { type: 'stdio', ...getLocalMcpConfig(url, vmcpLocalhostCallbackPaths(vmcp)) }
+				: { type: 'http', url };
 	}
 	return servers;
 }
@@ -660,12 +682,15 @@ export function buildConnectAllSnippets(
 	vmcps: VMCP[],
 	admin: boolean
 ): { id: string; label: string; value: string }[] {
-	const servers = httpMcpServers(vmcps);
+	const servers = connectionMcpServers(vmcps);
 	if (clientId === AiClient.Codex) {
 		const value = Object.entries(servers)
 			.map(
 				([name, server]) =>
-					`[mcp_servers.${toTomlQuotedKey(name)}]\nurl = ${JSON.stringify(server.url)}`
+					`[mcp_servers.${toTomlQuotedKey(name)}]\n` +
+					(server.type === 'http'
+						? `url = ${JSON.stringify(server.url)}`
+						: `command = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}`)
 			)
 			.join('\n\n');
 		return [{ id: 'codex-config-toml', label: 'config.toml', value }];
@@ -683,7 +708,11 @@ export function buildConnectAllSnippets(
 
 	if (clientId === AiClient.Claude && admin) {
 		const config = {
-			allowedMcpServers: Object.values(servers).map((server) => ({ serverUrl: server.url }))
+			allowedMcpServers: Object.values(servers).map((server) =>
+				server.type === 'http'
+					? { serverUrl: server.url }
+					: { serverCommand: [server.command, ...server.args] }
+			)
 		};
 		return [
 			{

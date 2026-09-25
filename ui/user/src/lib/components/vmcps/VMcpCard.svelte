@@ -76,7 +76,13 @@
 	let descriptionHTML = $derived(
 		vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined
 	);
-	let connectURL = $derived(vmcpConnectURL(vmcp));
+	let connectURL = $derived(
+		vmcp.components?.some(
+			(component) => component.catalogEntry?.manifest.remoteConfig?.localhostCallbackEnabled
+		)
+			? undefined
+			: vmcpConnectURL(vmcp)
+	);
 	let connectButtonId = $derived(`btn-connect-to-server-${vmcp.id}`);
 	let needsUpdate = $derived(vmcpNeedsUpdate(vmcp));
 	let isCreator = $derived(Boolean(vmcp.userID && profile.current.id === vmcp.userID));

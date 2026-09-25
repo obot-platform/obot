@@ -379,3 +379,56 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
 	});
 });
+
+it('uses the CLI when any vMCP component requires a localhost callback', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.components![0].catalogEntry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	await renderDialog(vmcp);
+	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
+	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Preconfigure server' }))
+		.not.toBeInTheDocument();
+});
+
+it('includes all distinct vMCP provider callback paths in installation', async () => {
+	const vmcp = configurableVMcp();
+	const first = vmcp.components![0];
+	first.catalogEntry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const second = structuredClone(first);
+	second.id = 'second';
+	second.name = 'second';
+	second.catalogEntry.manifest.remoteConfig!.localhostCallbackPath = '';
+	vmcp.components!.push(second);
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.args.slice(3)).toEqual([
+		'--callback-path',
+		'/custom/callback',
+		'--callback-path',
+		'/oauth/callback'
+	]);
+});
+
+it('installs with effective retained callback paths even when the current component uses HTTP', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/retained/callback'];
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.command).toBe('obot');
+	expect(config.args.slice(3)).toEqual(['--callback-path', '/retained/callback']);
+});

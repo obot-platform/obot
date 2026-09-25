@@ -12,6 +12,7 @@
 		Group
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
 	import {
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
@@ -93,6 +94,11 @@
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
+	let localhostCallback = $derived(
+		Boolean(
+			(server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig)?.localhostCallbackEnabled
+		)
+	);
 	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
 
 	let manifest = $derived(server?.manifest || entry?.manifest);
@@ -964,14 +970,20 @@
 		{#if url}
 			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					bind:this={connectionUrlField}
-					value={url}
-					id="connectURL"
-					label="Connection URL"
-				/>
+				{#if !localhostCallback}
+					<CopyField
+						bind:this={connectionUrlField}
+						value={url}
+						id="connectURL"
+						label="Connection URL"
+					/>
+				{/if}
 			</div>
 			<HowToConnect
+				{localhostCallback}
+				callbackPaths={getLocalhostCallbackPaths(
+					server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig
+				)}
 				bind:this={howToConnect}
 				{url}
 				id={generateIdFromName(displayName)}

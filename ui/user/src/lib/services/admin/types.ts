@@ -702,11 +702,15 @@ export interface MCPCatalogEntryFieldManifest {
 	secretBinding?: MCPSecretBinding;
 }
 export interface RemoteRuntimeConfigAdmin {
+	localhostCallbackEnabled?: boolean;
+	localhostCallbackPath?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
 	tunnelName?: string;
 	url: string;
 }
 export interface RemoteCatalogConfigAdmin {
+	localhostCallbackEnabled?: boolean;
+	localhostCallbackPath?: string;
 	fixedURL?: string;
 	hostname?: string;
 	staticOAuthRequired?: boolean;
@@ -828,6 +832,8 @@ export type CompositeServerToolRow = {
 // MCP filters
 
 export interface MCPFilterRemoteRuntimeConfig {
+	localhostCallbackEnabled?: boolean;
+	localhostCallbackPath?: string;
 	url: string;
 	isTemplate?: boolean;
 	urlTemplate?: string;
