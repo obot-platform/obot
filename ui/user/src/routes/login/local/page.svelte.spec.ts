@@ -26,6 +26,7 @@ describe('local login page', () => {
 	it('focuses the email input on load', async () => {
 		render(LoginPage);
 
+		await expect.element(page.getByLabelText('Email')).toHaveAttribute('autofocus');
 		await expect.element(page.getByLabelText('Email')).toHaveFocus();
 	});
 

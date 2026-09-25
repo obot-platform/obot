@@ -50,15 +50,16 @@
 
 		<label class="flex flex-col gap-1 text-sm font-light" for="local-auth-email">
 			Email
+			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				id="local-auth-email"
 				class="text-input-filled"
 				type="email"
 				name="email"
 				autocomplete="username"
+				autofocus
 				bind:value={email}
 				required
-				{@attach (node: HTMLInputElement) => node.focus()}
 			/>
 		</label>
 
