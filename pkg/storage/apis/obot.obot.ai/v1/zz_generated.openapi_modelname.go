@@ -391,6 +391,11 @@ func (in K8sSettingsStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPAttestationStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPAttestationStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPCatalog) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPCatalog"
 }

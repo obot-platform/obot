@@ -179,6 +179,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.LogoPreferences":                           schema_obot_platform_obot_apiclient_types_LogoPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAllowedSecretBindingTarget":             schema_obot_platform_obot_apiclient_types_MCPAllowedSecretBindingTarget(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAllowedSecretBindingTargetList":         schema_obot_platform_obot_apiclient_types_MCPAllowedSecretBindingTargetList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAttestationRef":                         schema_obot_platform_obot_apiclient_types_MCPAttestationRef(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPAttestationStatus":                      schema_obot_platform_obot_apiclient_types_MCPAttestationStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                           schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                            schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
@@ -460,6 +462,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.K8sSettingsList{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
 		v1.K8sSettingsSpec{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
 		v1.K8sSettingsStatus{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref),
+		v1.MCPAttestationStatus{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_MCPAttestationStatus(ref),
 		v1.MCPCatalog{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
 		v1.MCPCatalogList{}.OpenAPIModelName():                                                    schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
 		v1.MCPCatalogSpec{}.OpenAPIModelName():                                                    schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
@@ -9561,6 +9564,134 @@ func schema_obot_platform_obot_apiclient_types_MCPAllowedSecretBindingTargetList
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPAttestationRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPAttestationRef points at an in-toto statement produced by scout (https://github.com/sebastienrousseau/scout) about the server this entry describes.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is where the statement is fetched from. It must be an https URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPAttestationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPAttestationStatus is the outcome of verifying a catalog entry's attestation. Verified and SubjectMatch are facts about the statement; whether those facts satisfy the server's admission policy is decided when a server is created.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"verified": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Verified is true when the statement was fetched and its structure validated.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"subjectMatch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SubjectMatch is true when the statement's subject digest covers the entry's fixedURL.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"score": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Score and Grade are copied from the statement when it carries a score.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"grade": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"failCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailCount is the number of checks the statement records as failed.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"failedChecks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailedChecks lists the ids of failed checks, bounded, for display.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"failedCategories": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailedCategories lists every category (id prefix or phase) a failed check is in. It is complete, and it is what the admission policy judges.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"instrument": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Instrument names the tool and version that produced the statement.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ranAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RanAt is when the evaluation ran, per the statement.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"checkedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckedAt is when Obot last verified the statement.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error explains why Verified or SubjectMatch is false.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"verified", "subjectMatch"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10587,6 +10718,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
+					"attestationStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AttestationStatus is set when the manifest references an attestation.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPAttestationStatus"),
+						},
+					},
 					"connectURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ConnectURL is the default URL clients can use to connect before configuring a personal server.",
@@ -10599,7 +10736,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPAttestationStatus", "github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -10755,12 +10892,18 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
 						},
 					},
+					"attestation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Attestation references a scout evaluation attestation for this entry. Only remote entries with a fixedURL can carry one.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPAttestationRef"),
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPAttestationRef", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -22818,6 +22961,109 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref common.ReferenceCal
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_MCPAttestationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPAttestationStatus records what the controller found at Spec.Manifest.Attestation.URL. See types.MCPAttestationStatus for the field meanings; this adds the manifest hash the check was made for, so a stale result is never mistaken for a current one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifestHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"verified": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"subjectMatch": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"score": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"number"},
+							Format: "double",
+						},
+					},
+					"grade": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"failCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"failedChecks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"failedCategories": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailedCategories is every category a failed check is in, complete; the policy judges this, never the capped FailedChecks.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"instrument": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ranAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"checkedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"verified", "subjectMatch"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_MCPCatalog(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23729,11 +23975,17 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 							Format:      "",
 						},
 					},
+					"attestation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Attestation is the result of verifying Spec.Manifest.Attestation. Nil when the manifest references no attestation or the controller has not checked it yet.",
+							Ref:         ref(v1.MCPAttestationStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
+			v1.MCPAttestationStatus{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

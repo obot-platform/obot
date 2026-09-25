@@ -126,6 +126,9 @@ type MCPServerCatalogEntry struct {
 	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
 	OAuthCredentialConfigured bool                          `json:"oauthCredentialConfigured,omitempty"`
 
+	// AttestationStatus is set when the manifest references an attestation.
+	AttestationStatus *MCPAttestationStatus `json:"attestationStatus,omitempty"`
+
 	// ConnectURL is the default URL clients can use to connect before configuring a personal server.
 	ConnectURL string `json:"connectURL,omitempty"`
 }
@@ -160,6 +163,45 @@ type MCPServerCatalogEntryManifest struct {
 	Config []MCPConfig `json:"config,omitempty"`
 
 	Resources *MCPResourceRequirements `json:"resources,omitempty"`
+
+	// Attestation references a scout evaluation attestation for this entry.
+	// Only remote entries with a fixedURL can carry one.
+	Attestation *MCPAttestationRef `json:"attestation,omitempty"`
+}
+
+// MCPAttestationRef points at an in-toto statement produced by scout
+// (https://github.com/sebastienrousseau/scout) about the server this entry describes.
+type MCPAttestationRef struct {
+	// URL is where the statement is fetched from. It must be an https URL.
+	URL string `json:"url"`
+}
+
+// MCPAttestationStatus is the outcome of verifying a catalog entry's attestation.
+// Verified and SubjectMatch are facts about the statement; whether those facts
+// satisfy the server's admission policy is decided when a server is created.
+type MCPAttestationStatus struct {
+	// Verified is true when the statement was fetched and its structure validated.
+	Verified bool `json:"verified"`
+	// SubjectMatch is true when the statement's subject digest covers the entry's fixedURL.
+	SubjectMatch bool `json:"subjectMatch"`
+	// Score and Grade are copied from the statement when it carries a score.
+	Score float64 `json:"score,omitempty"`
+	Grade string  `json:"grade,omitempty"`
+	// FailCount is the number of checks the statement records as failed.
+	FailCount int `json:"failCount,omitempty"`
+	// FailedChecks lists the ids of failed checks, bounded, for display.
+	FailedChecks []string `json:"failedChecks,omitempty"`
+	// FailedCategories lists every category (id prefix or phase) a failed check is in.
+	// It is complete, and it is what the admission policy judges.
+	FailedCategories []string `json:"failedCategories,omitempty"`
+	// Instrument names the tool and version that produced the statement.
+	Instrument string `json:"instrument,omitempty"`
+	// RanAt is when the evaluation ran, per the statement.
+	RanAt *Time `json:"ranAt,omitempty"`
+	// CheckedAt is when Obot last verified the statement.
+	CheckedAt *Time `json:"checkedAt,omitempty"`
+	// Error explains why Verified or SubjectMatch is false.
+	Error string `json:"error,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
