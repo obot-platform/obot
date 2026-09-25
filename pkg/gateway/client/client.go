@@ -37,6 +37,8 @@ type Client struct {
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
 	emailsWithExplicitRoles   map[string]types2.Role
+	mcpAuditDisabled          bool
+	mcpAuditMaxBodyBytes      *int
 	auditLock                 sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	kickAuditPersist          chan struct{}
@@ -46,6 +48,7 @@ type Client struct {
 	llmAuditEntries           chan llmAuditEntry
 	llmAuditBatchSize         int
 	llmAuditEnabled           bool
+	llmAuditMaxBodyBytes      *int
 	storageClient             kclient.Client
 	apiKeyCacheLock           sync.RWMutex
 	apiKeyCache               map[[32]byte]apiKeyValidationCacheEntry
@@ -61,9 +64,12 @@ type Client struct {
 	mcpOAuthTokenTrigger      func(context.Context, string) error
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
+
+	localAgentAuditDisabled     bool
+	localAgentAuditMaxBodyBytes *int
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled, mcpAuditDisabled bool, mcpAuditMaxBodyBytes, llmAuditMaxBodyBytes *int, localAgentAuditDisabled bool, localAgentAuditMaxBodyBytes *int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -76,6 +82,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
 		emailsWithExplicitRoles:   explicitRoleEmailsSet,
+		mcpAuditDisabled:          mcpAuditDisabled,
+		localAgentAuditDisabled:   localAgentAuditDisabled,
 		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:          make(chan struct{}),
 		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
@@ -95,7 +103,20 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 	}
 
-	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
+	if mcpAuditMaxBodyBytes != nil {
+		c.mcpAuditMaxBodyBytes = new(*mcpAuditMaxBodyBytes)
+	}
+	if llmAuditMaxBodyBytes != nil {
+		c.llmAuditMaxBodyBytes = new(*llmAuditMaxBodyBytes)
+	}
+	if localAgentAuditMaxBodyBytes != nil {
+		c.localAgentAuditMaxBodyBytes = new(*localAgentAuditMaxBodyBytes)
+	}
+
+	if !c.mcpAuditDisabled {
+		go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
+	}
+
 	go c.runEnforcementDecisionPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runLLMAuditPersistenceLoop(ctx, c.llmAuditBatchSize, auditLogPersistenceInterval)
 	go c.runPendingStateCleanup(ctx)

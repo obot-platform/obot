@@ -385,6 +385,15 @@ func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLo
 	if len(logs) == 0 {
 		return nil
 	}
+
+	// Apply the policy after stream aggregation so response IDs and complete
+	// response JSON are available, and before encryption expands the payloads.
+	for i := range logs {
+		logs[i].RequestBody = limitAuditBody(logs[i].RequestBody, c.llmAuditMaxBodyBytes)
+		logs[i].PolicyModifiedRequestBody = limitAuditBody(logs[i].PolicyModifiedRequestBody, c.llmAuditMaxBodyBytes)
+		logs[i].ResponseBody = limitAuditBody(logs[i].ResponseBody, c.llmAuditMaxBodyBytes)
+	}
+
 	if c.encryptionConfig != nil && c.encryptionConfig.Transformers[llmAuditLogGroupResource] != nil {
 		for i := range logs {
 			if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
