@@ -1,7 +1,6 @@
 <script lang="ts">
 	import {
 		PAGE_TRANSITION_DURATION,
-		ADMIN_SESSION_STORAGE,
 		DEFAULT_MCP_CATALOG_ID,
 		ADMIN_ALL_OPTION,
 		MCP_ACCESS_POLICY_FIELD_IDS
@@ -37,6 +36,7 @@
 		accessControlRule?: AccessControlRule;
 		onCreate?: (accessControlRule: AccessControlRule) => void;
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
+		onCancel?: () => void;
 		entity?: 'workspace' | 'catalog';
 		id?: string | null;
 		mcpEntriesContextFn: () => {
@@ -47,6 +47,7 @@
 		all?: { label: string; description: string };
 		readonly?: boolean;
 		isAdminView?: boolean;
+		animate?: boolean;
 	}
 
 	let {
@@ -54,14 +55,21 @@
 		accessControlRule: initialAccessControlRule,
 		onCreate,
 		onUpdate,
+		onCancel,
 		mcpEntriesContextFn,
 		readonly,
 		isAdminView,
 		all = ADMIN_ALL_OPTION,
 		id = DEFAULT_MCP_CATALOG_ID,
-		entity = 'catalog'
+		entity = 'catalog',
+		animate = true
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
+	const noTransition = { duration: 0 };
+	const flyRightOut = $derived(animate ? { x: 100, duration } : noTransition);
+	const flyRightIn = $derived(animate ? { x: 100, delay: duration } : noTransition);
+	const flyLeftOut = $derived(animate ? { x: -100, duration } : noTransition);
+	const flyLeftIn = $derived(animate ? { x: -100 } : noTransition);
 	let accessControlRule = $state(
 		untrack(
 			() =>
@@ -76,7 +84,6 @@
 	);
 
 	let saving = $state<boolean | undefined>();
-	let redirect = $state('');
 	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
 	let loadingUsersAndGroups = $state(false);
 
@@ -134,44 +141,6 @@
 		return () => controller.abort();
 	});
 
-	$effect(() => {
-		const initialAdditionId = sessionStorage.getItem(
-			ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION
-		);
-		if (
-			initialAdditionId &&
-			!mcpServerAndEntries.loading &&
-			(mcpServersMap.size > 0 || mcpEntriesMap.size > 0)
-		) {
-			// Check if this resource is already added to prevent duplicates
-			const existingResourceIds = new Set(
-				accessControlRule.resources?.map((resource) => resource.id) ?? []
-			);
-			if (!existingResourceIds.has(initialAdditionId)) {
-				const entry = mcpEntriesMap.get(initialAdditionId);
-				const workspaceScope = entity === 'workspace' ? `?wid=${id}` : '';
-
-				if (entry) {
-					accessControlRule.resources = [
-						...(accessControlRule.resources ?? []),
-						{ id: entry.id, type: 'mcpServerCatalogEntry' }
-					];
-					redirect = `/mcp-servers/c/${entry.id}${workspaceScope}`;
-				} else {
-					const server = mcpServersMap.get(initialAdditionId);
-					if (server) {
-						accessControlRule.resources = [
-							...(accessControlRule.resources ?? []),
-							{ id: server.id, type: 'mcpServer' }
-						];
-						redirect = `/mcp-servers/s/${server.id}${workspaceScope}`;
-					}
-				}
-			}
-			sessionStorage.removeItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION);
-		}
-	});
-
 	function convertMcpServersToTableData(resources: AccessControlRuleResource[]) {
 		const owner = initialAccessControlRule?.powerUserID
 			? getUserDisplayName(usersMap, initialAccessControlRule.powerUserID)
@@ -217,12 +186,8 @@
 	}
 </script>
 
-<div
-	class="flex h-full w-full flex-col gap-4"
-	out:fly={{ x: 100, duration }}
-	in:fly={{ x: 100, delay: duration }}
->
-	<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
+<div class="flex h-full w-full flex-col gap-4" out:fly={flyRightOut} in:fly={flyRightIn}>
+	<div class="flex grow flex-col gap-4" out:fly={flyLeftOut} in:fly={flyLeftIn}>
 		{#if topContent}
 			{@render topContent()}
 		{/if}
@@ -384,18 +349,16 @@
 	{#if !readonly}
 		<div
 			class="bg-base-200 text-muted-content dark:bg-base-100 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
-			out:fly={{ x: -100, duration }}
-			in:fly={{ x: -100 }}
+			out:fly={flyLeftOut}
+			in:fly={flyLeftIn}
 		>
 			<div class="flex w-full justify-end gap-4">
 				{#if !accessControlRule.id}
 					<button
 						class="btn btn-secondary"
 						onclick={() => {
-							if (redirect) {
-								goto(redirect);
-							} else if (profile.current.hasAdminAccess?.()) {
-								goto('/mcp-servers?view=access-policies');
+							if (onCancel) {
+								onCancel();
 							} else {
 								goto('/mcp-servers?view=access-policies');
 							}
@@ -415,11 +378,7 @@
 									? await UserService.createWorkspaceAccessControlRule(id, accessControlRule)
 									: await AdminService.createAccessControlRule(accessControlRule);
 							accessControlRule = response;
-							if (redirect) {
-								goto(redirect);
-							} else {
-								onCreate?.(response);
-							}
+							onCreate?.(response);
 							saving = false;
 						}}
 					>

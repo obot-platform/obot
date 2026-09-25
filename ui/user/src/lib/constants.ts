@@ -69,7 +69,6 @@ export const LOCAL_AUTH_MIN_PASSWORD_LENGTH = 12;
 export const BOOTSTRAP_USER_ID = 'bootstrap';
 
 export const ADMIN_SESSION_STORAGE = {
-	ACCESS_CONTROL_RULE_CREATION: 'access-control-rule-creation',
 	LAST_VISITED_MCP_SERVER: 'last-visited-mcp-server'
 } as const;
 
