@@ -13,7 +13,7 @@ Message Policies let administrators enforce content rules written in natural lan
 Message Policies are an **experimental feature** and are disabled by default.
 To enable them, set `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and restart Obot.
 
-When enabled, Obot adds **Message Policies** and **Message Policy Violations** under **Obot Agent Management** in the admin UI.
+When enabled, Obot adds **Message Policies** and **Message Policy Violations** under **AI Resources** and **Operations**. 
 
 ## How Policies Work
 
@@ -96,7 +96,7 @@ Blocked-content payloads are encrypted at rest when Obot encryption is configure
 
 ## Reviewing Violations
 
-When the feature is enabled, administrators can open **Obot Agent Management > Message Policy Violations** to review enforcement activity.
+When the feature is enabled, administrators can open **Operations > Message Policy Violations** to review enforcement activity.
 
 The violations view includes:
 
@@ -113,7 +113,7 @@ Only users with the **Auditor** role can see the stored blocked content in the v
 
 ## Managing Policies
 
-To manage policies, go to **Obot Agent Management > Message Policies**.
+To manage policies, go to **AI Resources > Message Policies**.
 
 ### Creating a Policy
 
