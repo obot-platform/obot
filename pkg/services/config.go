@@ -116,6 +116,7 @@ type Config struct {
 	MCPOAuthClientNativeExceptions []string `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
 	ForceDynamicClient             bool     `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
 	ProductAnalyticsForceEnabled   bool     `usage:"Force-enable product analytics and disable the consent API" default:"false"`
+	DisableProductAnalytics        bool     `usage:"Disable product analytics and the consent API" default:"false" env:"OBOT_SERVER_DISABLE_PRODUCT_ANALYTICS"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -1343,7 +1344,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	telemetryConsent := producttelemetry.NewConsent(gatewayClient, config.ProductAnalyticsForceEnabled)
+	telemetryConsent := producttelemetry.NewConsent(gatewayClient, forcedProductAnalyticsConsent(config))
 
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
@@ -1480,6 +1481,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	return svcs, nil
+}
+
+// forcedProductAnalyticsConsent returns nil for user-managed consent, or the
+// operator's forced value. Disabling analytics takes precedence over forcing it on.
+func forcedProductAnalyticsConsent(config Config) *bool {
+	if config.DisableProductAnalytics {
+		return new(false)
+	}
+	if config.ProductAnalyticsForceEnabled {
+		return new(true)
+	}
+	return nil
 }
 
 func migrateGPTScriptCredentials(ctx context.Context, gatewayClient *client.Client, gatewayDB *db.DB, dsn string) error {

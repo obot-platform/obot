@@ -12,7 +12,7 @@ import (
 
 func TestConsentPersistsTriStateAndChanges(t *testing.T) {
 	client := newConsentTestGatewayClient(t)
-	consent := NewConsent(client, false)
+	consent := NewConsent(client, nil)
 
 	value, err := consent.Get(t.Context())
 	if err != nil {
@@ -45,7 +45,7 @@ func TestConsentPersistsTriStateAndChanges(t *testing.T) {
 }
 
 func TestConsentForceEnabledNeedsNoPersistence(t *testing.T) {
-	consent := NewConsent(nil, true)
+	consent := NewConsent(nil, new(true))
 
 	got, err := consent.Get(t.Context())
 	if err != nil {
@@ -54,8 +54,31 @@ func TestConsentForceEnabledNeedsNoPersistence(t *testing.T) {
 	if got == nil || !*got {
 		t.Fatalf("Get() = %v, want true", got)
 	}
-	if err := consent.Set(t.Context(), false); !errors.Is(err, errConsentForceEnabled) {
-		t.Fatalf("Set(false) error = %v, want errConsentForceEnabled", err)
+	if err := consent.Set(t.Context(), false); !errors.Is(err, errConsentForced) {
+		t.Fatalf("Set(false) error = %v, want errConsentForced", err)
+	}
+}
+
+func TestConsentForcedDisabledOverridesPersistence(t *testing.T) {
+	client := newConsentTestGatewayClient(t)
+	if err := NewConsent(client, nil).Set(t.Context(), true); err != nil {
+		t.Fatalf("Set(true) error = %v", err)
+	}
+	consent := NewConsent(client, new(false))
+
+	got, err := consent.Get(t.Context())
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got == nil || *got {
+		t.Fatalf("Get() = %v, want false", got)
+	}
+	if err := consent.Set(t.Context(), true); !errors.Is(err, errConsentForced) {
+		t.Fatalf("Set(true) error = %v, want errConsentForced", err)
+	}
+	stored, err := NewConsent(client, nil).Get(t.Context())
+	if err != nil || stored == nil || !*stored {
+		t.Fatalf("stored consent = %v, error = %v; want true", stored, err)
 	}
 }
 
