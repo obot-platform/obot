@@ -188,6 +188,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		ConfigHash:           instance.Status.ConfigurationCheckHash,
 		MCPServerName:        connectID,
 		MCPServerDisplayName: vmcp.Spec.Manifest.DisplayName,
+		Audiences:            []string{system.MCPConnectURL(sm.baseURL, connectID), system.MCPConnectURL(sm.baseURL, vmcp.Name)},
 		UserID:               userID,
 		OwnerUserID:          vmcp.Spec.UserID,
 		MCPServerNamespace:   vmcp.Namespace,
