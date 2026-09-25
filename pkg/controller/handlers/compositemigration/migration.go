@@ -210,6 +210,8 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 	if entry.Spec.SourceURL != "" {
 		target.Name = mcpcatalog.VMCPName(entry.Spec.MCPCatalogName, entry.Spec.SourceURL, entry.Spec.Manifest.EntryKey, target.Spec.Manifest.DisplayName)
 		target.Spec.Adopted = new(false)
+		target.Spec.AdoptionSourceURL = entry.Spec.SourceURL
+		target.Spec.AdoptionEntryKey = mcpcatalog.VMCPEntryKey(entry.Spec.Manifest.EntryKey, target.Spec.Manifest.DisplayName)
 	}
 
 	var rules v1.AccessControlRuleList

@@ -26,7 +26,6 @@ import (
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -570,13 +569,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				continue
 			}
 
-			key := header.EntryKey
-			if key == "" {
-				key = catalogvalidation.SanitizeName(manifest.DisplayName)
-				if key == "" {
-					key = utils.Digest(manifest.DisplayName)[:12]
-				}
-			}
+			key := catalogvalidation.VMCPEntryKey(header.EntryKey, manifest.DisplayName)
 			if _, exists := uniqueVMCPKeys[key]; exists {
 				errs = append(errs, fmt.Errorf("duplicate vMCP source entry key %q", key))
 				continue
@@ -773,6 +766,11 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c kclient.Client) 
 			return url == "https://github.com/obot-platform/mcp-catalog"
 		}); i >= 0 {
 			existing.Spec.SourceURLs[i] = h.defaultCatalogPath
+			// Resync now so entries do not keep reporting the old source until the hourly sync.
+			if existing.Annotations == nil {
+				existing.Annotations = make(map[string]string, 1)
+			}
+			existing.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
 			if err := c.Update(ctx, &existing); err != nil {
 				return fmt.Errorf("failed to migrate default catalog: %w", err)
 			}
@@ -811,10 +809,15 @@ func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c kclient.Cl
 			return url == "https://github.com/obot-platform/system-mcp-catalog"
 		}); i >= 0 {
 			existing.Spec.SourceURLs[i] = h.defaultSystemCatalogPath
+			// Resync now so entries do not keep reporting the old source until the hourly sync.
+			if existing.Annotations == nil {
+				existing.Annotations = make(map[string]string, 1)
+			}
+			existing.Annotations[v1.SystemMCPCatalogSyncAnnotation] = "true"
 			if err := c.Update(ctx, &existing); err != nil {
 				return fmt.Errorf("failed to migrate default system catalog: %w", err)
 			}
-			slog.Info("Migrated default system MCP catalog source URL", "catalog", existing.Name, "source", h.defaultCatalogPath)
+			slog.Info("Migrated default system MCP catalog source URL", "catalog", existing.Name, "source", h.defaultSystemCatalogPath)
 		}
 
 		return nil

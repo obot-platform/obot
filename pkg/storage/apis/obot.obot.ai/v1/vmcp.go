@@ -36,6 +36,11 @@ type VMCPSpec struct {
 	// Adopted is nil when adoption is unsupported, false when awaiting catalog
 	// adoption, and true after catalog sync has taken over the vMCP.
 	Adopted *bool `json:"adopted,omitempty"`
+	// AdoptionSourceURL and AdoptionEntryKey are recorded by composite migration.
+	// They identify the catalog source and key a vMCP must be synced from for
+	// catalog sync to adopt it without changing its identity.
+	AdoptionSourceURL string `json:"adoptionSourceURL,omitempty"`
+	AdoptionEntryKey  string `json:"adoptionEntryKey,omitempty"`
 	// UserID is set for a personal VMCP and empty for an administrator-created shared VMCP.
 	UserID string `json:"userID,omitempty"`
 	// CreatorUserID is the user ID of the user who created the VMCP. It is used to determine which admin created a server.

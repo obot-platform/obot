@@ -239,6 +239,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Get)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/categories", mcpCatalogs.ListCategoriesForCatalog)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/refresh", mcpCatalogs.Refresh)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/orphaned-vmcps", mcpCatalogs.ListOrphanedVMCPs)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Update)
 
 	// ModelInfoSource (admin only)

@@ -165,7 +165,7 @@ components:
     mcpServerCatalogEntryKey: github.com/example/shared-catalog::search
 ```
 
-Every component must have a nonblank `id`. If a profile uses `allowedComponents`, use that ID as the map key. Keep component IDs stable across updates so saved configuration stays associated with the same component. When adopting a migrated vMCP, use its existing component IDs.
+Every component must have a nonblank `id`. If a profile uses `allowedComponents`, use that ID as the map key. Keep component IDs stable across updates so saved configuration stays associated with the same component. When adopting an [orphaned vMCP](#migrating-git-synced-composites-to-vmcps), use its existing component IDs.
 
 ```yaml
 type: vmcp
@@ -204,6 +204,8 @@ components:
 ```
 
 The source must also contain entries with `entryKey: obot-gmail` and `entryKey: obot-outlook`. If the original composite had no `entryKey`, omit `entryKey: email` above and keep `displayName: Email` unchanged.
+
+Rather than writing replacements by hand, use `obot mcp generate-vmcp-catalog-yaml` to generate them. See [Migrating Git-synced composites to vMCPs](#migrating-git-synced-composites-to-vmcps).
 
 ### Tool Previews
 
@@ -306,7 +308,7 @@ Catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtim
 
 ### Composite runtime removal
 
-Catalog entries with `runtime: composite` are no longer supported, including entries imported through GitOps. Remove composite definitions from catalog sources.
+Catalog entries with `runtime: composite` are no longer supported, including entries imported through GitOps. Obot converts existing composites to vMCPs when it upgrades. Replace the composite definitions in your catalog sources with vMCP definitions, as described in [Migrating Git-synced composites to vMCPs](#migrating-git-synced-composites-to-vmcps).
 
 #### Multi-user template with shared configuration
 
@@ -547,3 +549,94 @@ remoteConfig:
 ```
 
 This example demonstrates all the key components: descriptive content with markdown formatting, tool previews with parameter documentation, metadata classification, and remote runtime configuration with authentication headers.
+
+## Migrating Git-synced composites to vMCPs
+
+When Obot upgrades to a release without composite MCP servers, it converts every composite catalog entry to a [vMCP](../functionality/virtual-mcps.md) at startup. The vMCP keeps the composite's components, tool settings, access, configuration, and users' existing connections and credentials.
+
+Composites that you created in the Obot UI need no further action. A composite that was synced from a Git source becomes an **orphaned** vMCP: Obot keeps serving it, but no catalog source defines it. To manage it through GitOps again, publish a matching vMCP definition in the same source. On its next sync, Obot adopts the vMCP instead of creating a new one, so connections and credentials carry over.
+
+`obot mcp generate-vmcp-catalog-yaml` generates those definitions.
+
+### What the command does
+
+```bash
+obot mcp generate-vmcp-catalog-yaml <catalog-source-url> [path] [--mode stdout|file|dir] [--overwrite]
+```
+
+The command asks Obot for every orphaned vMCP in the default catalog that was migrated from a composite synced from `<catalog-source-url>`. It then writes one `type: vmcp` catalog item for each. Each item contains:
+
+- An explicit `entryKey`. This is the composite's original `entryKey`, or the key Obot derived from its name if it had none. Because the key is explicit, you can later rename the vMCP's `displayName` without losing its identity.
+- Each component's existing `id`, name, tool prefix, allowed tools, and tool overrides.
+- Configuration policies without their values. Sync keeps the fixed values Obot already stores for each component ID, so secrets never end up in your repository.
+- The vMCP's profiles, including an empty list if it has none. Omitting `profiles` would give the vMCP an admin-only default profile.
+- For each component, a `mcpServerCatalogEntryKey` that points to the entry the component uses. Entries in the same source are referenced by `entryKey` alone. Entries in another source of the catalog are referenced as `sourceID::entryKey`.
+
+The command only reads from Obot. It doesn't change Obot or your repository.
+
+### Before you begin
+
+- **Use an administrator account.** Sign in with the CLI first (for example, `obot login --url https://obot.example.com`), or set `OBOT_BASE_URL` and `OBOT_TOKEN`.
+- **Finish the upgrade and let the catalog sync.** Component references are built from the catalog entries' current sources. If a source URL changed, entries keep reporting the old URL until the catalog syncs. For example, an upgrade can move the default catalog to a new branch. Obot starts a sync automatically when an upgrade changes the default source URL. If you changed a source yourself, click **Sync** on **Admin → MCP Servers** and wait for it to finish. The command refuses to generate YAML for a component whose entry still reports a removed source.
+- **Know the exact source URL the composite came from.** It must be the URL configured in Obot, including any branch path such as `/v2-schema`. The scheme (`http://` or `https://`) and trailing slashes are ignored when matching.
+
+### Migrate a catalog source
+
+1. **Generate the vMCP YAML** from a checkout of the catalog repository:
+
+   ```bash
+   obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode dir ./vmcps
+   ```
+
+2. **Replace the composites.** In the same repository and branch, delete each `runtime: composite` definition and commit the matching generated file in its place. The vMCP must be published in the source that the composite came from: Obot derives the vMCP's identity from the catalog, source URL, and `entryKey`, so publishing it anywhere else creates a separate vMCP.
+3. **Review the YAML before committing.** Don't change `entryKey` or component `id` values. Changing either breaks the match with the orphaned vMCP or its stored configuration. You can edit display names, descriptions, tool settings, and profiles.
+4. **Validate the source:**
+
+   ```bash
+   obot mcp validate-catalog-yaml .
+   ```
+
+5. **Push the change** and click **Sync** on **Admin → MCP Servers**. If sync can't adopt a vMCP, the error appears next to the source on the **Git Source URLs** tab.
+6. **Confirm the adoption** by running the command again. When every vMCP from the source has been adopted, the command prints:
+
+   ```text
+   No orphaned vMCPs from https://github.com/example/catalog are awaiting catalog sync.
+   ```
+
+Once a vMCP is adopted, the catalog source manages it like any other synced item. Make future changes in the source. Removing the vMCP's definition from the source deletes the vMCP.
+
+### Output modes
+
+Use `--mode` to choose where the YAML goes:
+
+| Mode | Output |
+|------|--------|
+| `stdout` (default) | Every vMCP in one YAML list, printed to standard output. |
+| `file` | Every vMCP in one YAML list, written to the file at `[path]`. |
+| `dir` | Each vMCP in its own file in the `[path]` directory, named after its display name. If two vMCPs share a display name, the second file name also includes the `entryKey`. |
+
+```bash
+obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode file vmcps.yaml
+```
+
+The command never replaces an existing file unless you pass `--overwrite`. In `stdout` mode, only YAML goes to standard output and all messages go to standard error, so you can redirect the output to a file.
+
+The command generates YAML for every vMCP it can, even when some vMCPs can't be generated. It prints a `Skipping vMCP` message to standard error for each one it skips, then exits with an error. Scripts can therefore treat a nonzero exit status as "some vMCPs still need attention".
+
+### Troubleshooting
+
+**`No orphaned vMCPs from <url> are awaiting catalog sync.`**
+Either every orphaned vMCP from that source has already been adopted, or the URL doesn't match the source the composites were synced from. Check the URL on the **Git Source URLs** tab, including any branch path.
+
+**`Skipping vMCP "<name>": ...`**
+A catalog vMCP can only reference catalog entries that are synced from a Git source and have an `entryKey`. Fix the cause shown in the message, then run the command again:
+
+| Message ends with | Fix |
+|-------------------|-----|
+| `which has no entryKey; add an entryKey to that entry so the vMCP can reference it` | Add an `entryKey` to that entry in its source, sync the catalog, and run the command again. |
+| `which is no longer a source of catalog "default"; sync the catalog and generate the YAML again` | The entry still reports a source URL that the catalog no longer uses. Sync the catalog and run the command again. |
+| `which is not synced from a catalog source` | The component uses an entry created in the Obot UI. Move that entry into a Git source, or keep managing this vMCP in Obot. |
+| `uses multi-user MCP server ...` or `which no longer exists` | There is no catalog entry the definition can reference. Keep managing this vMCP in Obot. |
+
+**Sync reports `component catalog entry "<sourceID>::<entryKey>" was not found`**
+The reference doesn't match any entry in the catalog's current sources. This usually happens when a source URL changed after you generated the YAML, because `sourceID` includes the full source URL and branch path. Sync the catalog, then run the command again, or update the `sourceID` prefix in the published YAML.

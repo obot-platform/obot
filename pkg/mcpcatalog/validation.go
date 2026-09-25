@@ -30,14 +30,19 @@ type ValidationOptions struct {
 
 // VMCPName gives catalog sync and composite migration the same resource identity.
 func VMCPName(catalogName, sourceURL, entryKey, displayName string) string {
-	if entryKey == "" {
-		entryKey = SanitizeName(displayName)
-		if entryKey == "" {
-			entryKey = utils.Digest(displayName)[:12]
-		}
-	}
+	return name.SafeHashConcatName(system.VMCPPrefix, catalogName, utils.Digest(mcp.SourceIDForURL(sourceURL))[:12], VMCPEntryKey(entryKey, displayName))
+}
 
-	return name.SafeHashConcatName(system.VMCPPrefix, catalogName, utils.Digest(mcp.SourceIDForURL(sourceURL))[:12], entryKey)
+// VMCPEntryKey returns the key that identifies a vMCP within its source,
+// falling back to one derived from the display name.
+func VMCPEntryKey(entryKey, displayName string) string {
+	if entryKey != "" {
+		return entryKey
+	}
+	if key := SanitizeName(displayName); key != "" {
+		return key
+	}
+	return utils.Digest(displayName)[:12]
 }
 
 // SanitizeName converts a catalog entry name to the RFC 1123-compatible form

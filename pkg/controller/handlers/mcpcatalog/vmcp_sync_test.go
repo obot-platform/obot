@@ -10,6 +10,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
@@ -213,7 +214,7 @@ profiles:
 	require.Equal(t, "search-component", vmcps.Items[0].Spec.Manifest.Components[0].ID)
 }
 
-func TestCatalogSyncAdoptsMigratedVMCP(t *testing.T) {
+func TestCatalogSyncAdoptsOrphanedVMCP(t *testing.T) {
 	dir := t.TempDir()
 	entry := `entryKey: search
 name: Search
@@ -292,6 +293,80 @@ components:
 	require.Equal(t, "Renamed", vmcps.Items[0].Spec.Manifest.DisplayName)
 	require.True(t, vmcps.Items[0].Spec.Manifest.Components[0].ForceSingleUser)
 	require.Equal(t, new(true), vmcps.Items[0].Spec.Adopted)
+}
+
+func TestCatalogSyncAdoptsGeneratedVMCPCatalogYAML(t *testing.T) {
+	dir := t.TempDir()
+	entry := `entryKey: search
+name: Search
+shortDescription: Search
+description: Search
+icon: icon
+runtime: npx
+npxConfig:
+  package: search
+`
+	// This is the shape obot mcp generate-vmcp-catalog-yaml writes: explicit IDs keep
+	// the migrated component identity, and profiles refer to those IDs.
+	vmcp := `type: vmcp
+entryKey: bundle
+displayName: Bundle
+components:
+  - id: default-search
+    name: Search
+    mcpServerCatalogEntryKey: search
+profiles:
+  - name: everyone
+    subjects:
+      - type: selector
+        id: '*'
+    vmcpPermissions:
+      allowedComponents:
+        default-search:
+          allowedTools: null
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(entry), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "vmcp.yaml"), []byte(vmcp), 0o600))
+
+	catalog := testCatalog()
+	catalog.Spec.SourceURLs = []string{dir}
+	objects, err := (&Handler{}).readMCPCatalog(t.Context(), catalog.Name, dir, "")
+	require.NoError(t, err)
+
+	migrated := &v1.VMCP{
+		Name:      catalogvalidation.VMCPName(catalog.Name, dir, "bundle", "Bundle"),
+		Namespace: catalog.Namespace,
+		Spec: v1.VMCPSpec{
+			LegacySlug:        "old-slug",
+			Adopted:           new(false),
+			AdoptionSourceURL: dir,
+			AdoptionEntryKey:  "bundle",
+			Manifest: types.VMCPManifest{
+				DisplayName: "Bundle",
+				Components: []types.VMCPComponent{{
+					ID:                      "default-search",
+					Name:                    "Search",
+					ForceSingleUser:         true,
+					MCPServerCatalogEntryID: objects[0].GetName(),
+				}},
+			},
+		},
+	}
+	client := newCatalogFakeClient(catalog, migrated)
+	handler := newParseTestHandler(t)
+	require.NoError(t, handler.Sync(router.Request{Ctx: t.Context(), Client: client, Object: catalog}, &parseTestResponse{}))
+	require.Empty(t, catalog.Status.SyncErrors)
+
+	var vmcps v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Len(t, vmcps.Items, 1)
+	adopted := vmcps.Items[0]
+	require.Equal(t, migrated.Name, adopted.Name)
+	require.Equal(t, new(true), adopted.Spec.Adopted)
+	require.Equal(t, dir, adopted.Spec.SourceURL)
+	require.Equal(t, "default-search", adopted.Spec.Manifest.Components[0].ID)
+	require.True(t, adopted.Spec.Manifest.Components[0].ForceSingleUser)
+	require.Contains(t, adopted.Spec.Manifest.Profiles[0].Permissions.AllowedComponents, "default-search")
 }
 
 func TestCatalogSyncDoesNotOverwriteUnmanagedVMCP(t *testing.T) {

@@ -78,8 +78,14 @@ func TestMigrateUsesCatalogVMCPName(t *testing.T) {
 			if tc.sourceURL != "" {
 				require.NotNil(t, target.Spec.Adopted)
 				require.False(t, *target.Spec.Adopted)
+				require.Equal(t, tc.sourceURL, target.Spec.AdoptionSourceURL)
+				require.Equal(t, mcpcatalog.VMCPEntryKey(tc.entryKey, entry.Spec.Manifest.Name), target.Spec.AdoptionEntryKey)
+				// The recorded key alone must reproduce the name, even if the display name changes.
+				require.Equal(t, targetName, mcpcatalog.VMCPName(entry.Spec.MCPCatalogName, target.Spec.AdoptionSourceURL, target.Spec.AdoptionEntryKey, "renamed"))
 			} else {
 				require.Nil(t, target.Spec.Adopted)
+				require.Empty(t, target.Spec.AdoptionSourceURL)
+				require.Empty(t, target.Spec.AdoptionEntryKey)
 			}
 			require.Empty(t, target.Spec.SourceURL)
 			require.Equal(t, entry.Name, target.Spec.LegacySlug)

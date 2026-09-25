@@ -19,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -67,6 +66,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
 	c.AddCommand(cmd.Command(&MCPConvertCatalogYAML{}))
+	c.AddCommand(cmd.Command(&MCPGenerateVMCPCatalogYAML{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPValidateSystemCatalogYAML{}))
 }
 
@@ -212,13 +212,7 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 			if err := mcpcatalog.ValidateEntryKey(header.EntryKey); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", label, err))
 			}
-			key := header.EntryKey
-			if key == "" {
-				key = mcpcatalog.SanitizeName(manifest.DisplayName)
-				if key == "" {
-					key = utils.Digest(manifest.DisplayName)[:12]
-				}
-			}
+			key := mcpcatalog.VMCPEntryKey(header.EntryKey, manifest.DisplayName)
 			if previous, exists := seenVMCPKeys[key]; exists {
 				errs = append(errs, fmt.Errorf("%s: duplicate vMCP source entry key %q also used by %s", label, key, previous))
 			} else {

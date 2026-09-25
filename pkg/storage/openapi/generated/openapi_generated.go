@@ -291,6 +291,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                 schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                             schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem":                   schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref),
+		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItemList":               schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItemList(ref),
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                        schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                    schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
@@ -15208,6 +15210,82 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OrphanedVMCPCatalogItem is the catalog YAML that lets catalog sync take over an orphaned vMCP: one migrated from a catalog-synced composite entry that no catalog source defines yet.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"entryKey": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"yaml": {
+						SchemaProps: spec.SchemaProps{
+							Description: "YAML is a single catalog item. It is empty when Error is set.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error explains why the vMCP cannot be expressed as catalog YAML.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"vmcpID", "displayName", "entryKey"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItemList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -29776,6 +29854,19 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 							Description: "Adopted is nil when adoption is unsupported, false when awaiting catalog adoption, and true after catalog sync has taken over the vMCP.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"adoptionSourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AdoptionSourceURL and AdoptionEntryKey are recorded by composite migration. They identify the catalog source and key a vMCP must be synced from for catalog sync to adopt it without changing its identity.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"adoptionEntryKey": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"userID": {

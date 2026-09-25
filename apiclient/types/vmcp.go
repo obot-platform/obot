@@ -200,6 +200,21 @@ type VMCPComponentStatus struct {
 
 type VMCPList List[VMCP]
 
+// OrphanedVMCPCatalogItem is the catalog YAML that lets catalog sync take over
+// an orphaned vMCP: one migrated from a catalog-synced composite entry that no
+// catalog source defines yet.
+type OrphanedVMCPCatalogItem struct {
+	VMCPID      string `json:"vmcpID"`
+	DisplayName string `json:"displayName"`
+	EntryKey    string `json:"entryKey"`
+	// YAML is a single catalog item. It is empty when Error is set.
+	YAML string `json:"yaml,omitempty"`
+	// Error explains why the vMCP cannot be expressed as catalog YAML.
+	Error string `json:"error,omitempty"`
+}
+
+type OrphanedVMCPCatalogItemList List[OrphanedVMCPCatalogItem]
+
 type VMCPInstance struct {
 	LegacySlug           string `json:"legacySlug,omitempty"`
 	Metadata             `json:",inline"`
