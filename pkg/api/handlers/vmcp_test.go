@@ -678,6 +678,43 @@ func TestVMCPDeletesDeferCredentialCleanup(t *testing.T) {
 	}
 }
 
+func TestVMCPHandlerDeleteRejectsCatalogSyncedVMCP(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:       "vmcp1synced",
+		Namespace:  system.DefaultNamespace,
+		Finalizers: []string{v1.VMCPFinalizer},
+		Spec: v1.VMCPSpec{
+			SourceURL: "https://example.com/catalog",
+			Manifest:  testVMCPManifest(),
+		},
+	}
+	storage := newVMCPTestStorage(vmcp)
+	request := httptest.NewRequest(http.MethodDelete, "/api/vmcps/"+vmcp.Name, nil)
+	request.SetPathValue("vmcp_id", vmcp.Name)
+	err := NewVMCPHandler(nil).Delete(api.Context{Request: request, Storage: storage})
+	var httpErr *types.ErrHTTP
+	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.Contains(httpErr.Message, "cannot delete vMCP vmcp1synced synced from a catalog") {
+		t.Fatalf("expected 400 for catalog synced vMCP, got %v", err)
+	}
+
+	var persisted v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if !persisted.GetDeletionTimestamp().IsZero() {
+		t.Fatal("rejected request marked the vMCP for deletion")
+	}
+}
+
+func TestVMCPHandlerDeleteMissingVMCPSucceeds(t *testing.T) {
+	storage := newVMCPTestStorage()
+	request := httptest.NewRequest(http.MethodDelete, "/api/vmcps/missing", nil)
+	request.SetPathValue("vmcp_id", "missing")
+	if err := NewVMCPHandler(nil).Delete(api.Context{Request: request, Storage: storage}); err != nil {
+		t.Fatalf("expected deleting a missing vMCP to succeed, got %v", err)
+	}
+}
+
 func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	visible := &v1.VMCP{
 		Name:      "vmcp-visible",

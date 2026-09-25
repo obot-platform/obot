@@ -350,6 +350,18 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 
 func (*VMCPHandler) Delete(req api.Context) error {
 	vmcpID := req.PathValue("vmcp_id")
+
+	var vMCP v1.VMCP
+	if err := req.Get(&vMCP, vmcpID); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if vMCP.Spec.SourceURL != "" {
+		return types.NewErrBadRequest("cannot delete vMCP %s synced from a catalog", vmcpID)
+	}
+
 	return req.Delete(&v1.VMCP{
 		Name:      vmcpID,
 		Namespace: req.Namespace(),
