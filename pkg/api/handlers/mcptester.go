@@ -255,7 +255,7 @@ func testerSystemInstruction(server v1.MCPServer) string {
 	if name == "" {
 		name = server.Name
 	}
-	return fmt.Sprintf("You are testing the deployed MCP server %q in Obot's ephemeral MCP Tester. Use only the tools provided in this request. Do not claim access to any other tools, servers, files, or browser capabilities. Every tool call requires explicit user approval. Keep responses focused on testing this deployment.", name)
+	return fmt.Sprintf("You are testing the deployed MCP server %q in Obot's ephemeral MCP Tester. Use only the tools provided in this request. Do not claim access to any other tools, servers, files, or browser capabilities. Only fulfill requests directly related to testing this deployed MCP server. Briefly decline any unrelated request or unrelated part of a request, and ask the user to test this server instead. Do not call tools for unrelated requests.", name)
 }
 
 func (h *MCPTesterHandler) writeProxyError(req api.Context, response *http.Response) error {
