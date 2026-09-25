@@ -91,7 +91,7 @@ func TestPublisherReadsConsentBeforeEveryRun(t *testing.T) {
 func TestPublisherForceEnabledSendsReport(t *testing.T) {
 	var got clienttypes.ProductTelemetryRequest
 	publisher := newPublisher(
-		NewConsent(nil, true),
+		NewConsent(nil, new(true)),
 		newRequestGateway(),
 		testStorageClient(),
 		testEntitlements(),
@@ -105,6 +105,26 @@ func TestPublisherForceEnabledSendsReport(t *testing.T) {
 	publisher.runOnce(t.Context())
 	if got.InstallationID != "installation-id" {
 		t.Fatalf("installation ID = %q, want installation-id", got.InstallationID)
+	}
+}
+
+func TestPublisherForceDisabledDoesNotSendReport(t *testing.T) {
+	sendCalls := 0
+	publisher := newPublisher(
+		NewConsent(nil, new(false)),
+		newRequestGateway(),
+		testStorageClient(),
+		testEntitlements(),
+		"docker",
+		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
+			sendCalls++
+			return nil
+		}),
+	)
+
+	publisher.runOnce(t.Context())
+	if sendCalls != 0 {
+		t.Fatalf("send calls = %d, want 0", sendCalls)
 	}
 }
 
@@ -264,7 +284,7 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 	t.Setenv("OBOT_FORCE_PRODUCT_TELEMETRY", "true")
 
 	gatewayClient := newConsentTestGatewayClient(t)
-	consent := NewConsent(gatewayClient, false)
+	consent := NewConsent(gatewayClient, nil)
 	if err := consent.Set(t.Context(), true); err != nil {
 		t.Fatalf("enable consent: %v", err)
 	}
@@ -281,5 +301,14 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 	case <-publisher.done:
 	case <-time.After(time.Second):
 		t.Fatal("publisher did not stop after context cancellation")
+	}
+}
+
+func TestNewPublisherDoesNotStartWhenAnalyticsForcedOff(t *testing.T) {
+	t.Setenv("OBOT_FORCE_PRODUCT_TELEMETRY", "true")
+	consent := NewConsent(nil, new(false))
+	publisher := NewPublisher(t.Context(), consent, nil, nil, nil, "docker")
+	if publisher != nil {
+		t.Fatal("publisher created despite analytics being forced off")
 	}
 }

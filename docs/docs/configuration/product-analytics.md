@@ -19,7 +19,11 @@ is collected without explicit consent.
 Operators can override this choice with `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED=true`, which
 enables analytics and prevents users from opting out through Obot.
 
-Obot Cloud deployments are always opted in to product analytics.
+Set `OBOT_SERVER_DISABLE_PRODUCT_ANALYTICS=true` to disable product analytics and remove the consent
+prompt and settings controls. This takes precedence over
+`OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED`.
+
+Obot Cloud deployments are opted in to product analytics unless the operator disables analytics.
 
 ## Data included
 
@@ -54,4 +58,5 @@ When available, reports also contain these aggregate usage fields:
 
 The software upgrade check is independent of product-analytics consent. It sends the installation ID
 and current version once at startup and every 24 hours, even when analytics consent is undecided or
-disabled. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` to disable upgrade checks.
+disabled. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` to disable upgrade checks. Disabling product
+analytics does not disable upgrade checks.

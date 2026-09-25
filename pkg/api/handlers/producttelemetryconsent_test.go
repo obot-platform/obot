@@ -20,7 +20,7 @@ import (
 
 func TestProductTelemetryConsentGetStates(t *testing.T) {
 	client := newProductTelemetryConsentTestGatewayClient(t)
-	consent := producttelemetry.NewConsent(client, false)
+	consent := producttelemetry.NewConsent(client, nil)
 	handler := NewProductTelemetryConsentHandler(consent)
 
 	recorder := httptest.NewRecorder()
@@ -67,7 +67,7 @@ func TestProductTelemetryConsentGetStates(t *testing.T) {
 
 func TestProductTelemetryConsentUpdateChangesBothDirections(t *testing.T) {
 	client := newProductTelemetryConsentTestGatewayClient(t)
-	consent := producttelemetry.NewConsent(client, false)
+	consent := producttelemetry.NewConsent(client, nil)
 	handler := NewProductTelemetryConsentHandler(consent)
 
 	for _, want := range []bool{true, false} {
@@ -104,7 +104,7 @@ func TestProductTelemetryConsentUpdateChangesBothDirections(t *testing.T) {
 
 func TestProductTelemetryConsentUpdateRejectsMalformedInput(t *testing.T) {
 	client := newProductTelemetryConsentTestGatewayClient(t)
-	consent := producttelemetry.NewConsent(client, false)
+	consent := producttelemetry.NewConsent(client, nil)
 	handler := NewProductTelemetryConsentHandler(consent)
 	if err := consent.Set(t.Context(), true); err != nil {
 		t.Fatalf("Set(true) error = %v", err)
@@ -141,41 +141,57 @@ func TestProductTelemetryConsentUpdateRejectsMalformedInput(t *testing.T) {
 	}
 }
 
-func TestProductTelemetryConsentAPIIsNotFoundWhenForceEnabled(t *testing.T) {
-	client := newProductTelemetryConsentTestGatewayClient(t)
-	persisted := producttelemetry.NewConsent(client, false)
-	if err := persisted.Set(t.Context(), false); err != nil {
-		t.Fatalf("Set(false) error = %v", err)
-	}
-	handler := NewProductTelemetryConsentHandler(producttelemetry.NewConsent(client, true))
+func TestProductTelemetryConsentAPIIsNotFoundWhenForced(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		forcedValue bool
+	}{
+		{
+			name:        "enabled",
+			forcedValue: true,
+		},
+		{
+			name:        "disabled",
+			forcedValue: false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := newProductTelemetryConsentTestGatewayClient(t)
+			persisted := producttelemetry.NewConsent(client, nil)
+			if err := persisted.Set(t.Context(), false); err != nil {
+				t.Fatalf("Set(false) error = %v", err)
+			}
+			handler := NewProductTelemetryConsentHandler(producttelemetry.NewConsent(client, &test.forcedValue))
 
-	err := handler.Get(api.Context{
-		ResponseWriter: httptest.NewRecorder(),
-		Request:        httptest.NewRequest(http.MethodGet, "/api/product-telemetry-consent", nil),
-	})
-	var httpErr *types.ErrHTTP
-	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusNotFound {
-		t.Fatalf("Get() error = %v, want HTTP 404", err)
-	}
+			err := handler.Get(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        httptest.NewRequest(http.MethodGet, "/api/product-telemetry-consent", nil),
+			})
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusNotFound {
+				t.Fatalf("Get() error = %v, want HTTP 404", err)
+			}
 
-	err = handler.Update(api.Context{
-		ResponseWriter: httptest.NewRecorder(),
-		Request: httptest.NewRequest(
-			http.MethodPut,
-			"/api/product-telemetry-consent",
-			strings.NewReader(`{"consent":true}`),
-		),
-	})
-	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusNotFound {
-		t.Fatalf("Update() error = %v, want HTTP 404", err)
-	}
+			err = handler.Update(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request: httptest.NewRequest(
+					http.MethodPut,
+					"/api/product-telemetry-consent",
+					strings.NewReader(`{"consent":true}`),
+				),
+			})
+			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusNotFound {
+				t.Fatalf("Update() error = %v, want HTTP 404", err)
+			}
 
-	stored, err := persisted.Get(t.Context())
-	if err != nil {
-		t.Fatalf("Get() persisted value error = %v", err)
-	}
-	if stored == nil || *stored {
-		t.Fatalf("stored consent = %v, want false", stored)
+			stored, err := persisted.Get(t.Context())
+			if err != nil {
+				t.Fatalf("Get() persisted value error = %v", err)
+			}
+			if stored == nil || *stored {
+				t.Fatalf("stored consent = %v, want false", stored)
+			}
+		})
 	}
 }
 

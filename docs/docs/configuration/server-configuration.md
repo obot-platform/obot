@@ -89,6 +89,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPPOD_SECURITY_WARN` | Pod Security Standards level to warn about for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
 | `OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION` | Kubernetes version for the PSA warn policy. Only applies when using kubernetes backend. | `latest` |
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. | `false` |
+| `OBOT_SERVER_DISABLE_PRODUCT_ANALYTICS` | Disable product analytics and remove consent controls. Takes precedence over `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED`. | `false` |
 | `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED` | Force-enable [product analytics](./product-analytics.md) for the installation and remove the consent prompt and settings controls. | `false` |
 | `OBOT_SERVER_HIDE_K8S_DETAILS` | Hide Kubernetes configuration details such as the Server Scheduling page from the UI. | `false` |
 | `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |

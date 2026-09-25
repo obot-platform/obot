@@ -15,9 +15,8 @@ func NewProductTelemetryConsentHandler(consent *producttelemetry.Consent) *Produ
 }
 
 func (h *ProductTelemetryConsentHandler) Get(req api.Context) error {
-	// When consent is force-enabled (Obot Cloud), we respond 404 to signal that
-	// this feature is not available
-	if h.consent.ForceEnabled() {
+	// Return 404 when the operator manages consent so the UI hides the consent controls.
+	if !h.consent.UserConfigurable() {
 		return types.NewErrNotFound("")
 	}
 
@@ -29,9 +28,8 @@ func (h *ProductTelemetryConsentHandler) Get(req api.Context) error {
 }
 
 func (h *ProductTelemetryConsentHandler) Update(req api.Context) error {
-	// When consent is force-enabled (Obot Cloud), we respond 404 to signal that
-	// this feature is not available
-	if h.consent.ForceEnabled() {
+	// Return 404 when the operator manages consent so the UI hides the consent controls.
+	if !h.consent.UserConfigurable() {
 		return types.NewErrNotFound("")
 	}
 

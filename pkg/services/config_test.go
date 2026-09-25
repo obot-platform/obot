@@ -13,6 +13,47 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+func TestForcedProductAnalyticsConsent(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		config Config
+		want   *bool
+	}{
+		{
+			name: "user configurable",
+		},
+		{
+			name: "force enabled",
+			config: Config{
+				ProductAnalyticsForceEnabled: true,
+			},
+			want: new(true),
+		},
+		{
+			name: "force disabled",
+			config: Config{
+				DisableProductAnalytics: true,
+			},
+			want: new(false),
+		},
+		{
+			name: "force disabled wins",
+			config: Config{
+				ProductAnalyticsForceEnabled: true,
+				DisableProductAnalytics:      true,
+			},
+			want: new(false),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := forcedProductAnalyticsConsent(test.config)
+			if (got == nil) != (test.want == nil) || (got != nil && *got != *test.want) {
+				t.Fatalf("forced consent = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestNewAgentBackend(t *testing.T) {
 	tests := []struct {
 		name       string

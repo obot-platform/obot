@@ -15,31 +15,35 @@ const (
 )
 
 var (
-	errConsentForceEnabled = errors.New("product telemetry consent is force-enabled")
+	errConsentForced = errors.New("product telemetry consent is operator-managed")
 )
 
 // Consent persists and resolves the installation-wide product telemetry consent state.
 type Consent struct {
 	gatewayClient *client.Client
-	forceEnabled  bool
+	forcedValue   *bool
 }
 
-func NewConsent(gatewayClient *client.Client, forceEnabled bool) *Consent {
+func NewConsent(gatewayClient *client.Client, forcedValue *bool) *Consent {
 	return &Consent{
 		gatewayClient: gatewayClient,
-		forceEnabled:  forceEnabled,
+		forcedValue:   forcedValue,
 	}
 }
 
-func (c *Consent) ForceEnabled() bool {
-	return c.forceEnabled
+func (c *Consent) UserConfigurable() bool {
+	return c.forcedValue == nil
+}
+
+func (c *Consent) DisabledByOperator() bool {
+	return c.forcedValue != nil && !*c.forcedValue
 }
 
 // Get returns effective consent. A nil value means consent is undecided. When
-// consent is force-enabled, Get returns true without consulting persistence.
+// consent is forced, Get returns the operator's choice without consulting persistence.
 func (c *Consent) Get(ctx context.Context) (*bool, error) {
-	if c.forceEnabled {
-		return new(true), nil
+	if c.forcedValue != nil {
+		return new(*c.forcedValue), nil
 	}
 
 	property, err := c.gatewayClient.GetProperty(ctx, consentPropertyKey)
@@ -58,8 +62,8 @@ func (c *Consent) Get(ctx context.Context) (*bool, error) {
 }
 
 func (c *Consent) Set(ctx context.Context, value bool) error {
-	if c.forceEnabled {
-		return errConsentForceEnabled
+	if c.forcedValue != nil {
+		return errConsentForced
 	}
 
 	if _, err := c.gatewayClient.SetProperty(ctx, consentPropertyKey, strconv.FormatBool(value)); err != nil {
