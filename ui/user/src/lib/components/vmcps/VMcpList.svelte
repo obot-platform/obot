@@ -1,13 +1,25 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import type { OrgUser, VMCP } from '$lib/services';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { stripMarkdownToText } from '$lib/markdown';
+	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
+	import { UserService, type OrgUser, type VMCP } from '$lib/services';
+	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { getVMcpCreator } from '$lib/services/vmcps/utils';
+	import { getDisplayListText, getVMcpCreator } from '$lib/services/vmcps/utils';
+	import { errors, profile, version, vmcpInstances } from '$lib/stores';
+	import { success } from '$lib/stores/success';
+	import { goto } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
-	import type { Snippet } from 'svelte';
+	import VMcpMenuActions from './VMcpMenuActions.svelte';
+	import VMcpStatusBadge from './VMcpStatusBadge.svelte';
+	import { Ellipsis, MessageCircle, Plug, Trash2 } from '@lucide/svelte';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		items: VMCP[];
@@ -15,34 +27,140 @@
 		onSelect?: (vmcp: VMCP) => void;
 		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
+		onDeleted?: (vmcp: VMCP) => void;
 		onUpdate?: (vmcp: VMCP) => void;
 		noDataContent?: Snippet;
 		usersMap: Map<string, OrgUser>;
+		variant?: 'grid' | 'table';
+		selecting?: boolean;
 	}
 
 	let {
-		items,
+		items: initialItems,
 		components,
 		onSelect,
 		onConnect,
 		onDelete,
+		onDeleted,
 		onUpdate,
 		noDataContent,
-		usersMap
+		usersMap,
+		variant = 'grid',
+		selecting = $bindable(false)
 	}: Props = $props();
 
-	let cards = $derived(items.map(toCard));
+	let items = $derived(initialItems.map(translateItem));
 	let overflowHiddenById = $state<Record<string, number>>({});
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
+	let pendingBulkDelete = $state<VMCP[]>();
+	let bulkDeleting = $state(false);
+	let selected = $state<Record<string, Item>>({});
+	let selectedCount = $derived(Object.keys(selected).length);
+	let selectableCount = $derived(items.filter(canSelectRow).length);
 
-	type VMcpListCard = ReturnType<typeof toCard>;
+	let hasLicenseEntitlementViolations = $derived(
+		(version.current.licenseEntitlementViolations || []).length > 0
+	);
 
-	function toCard(item: VMCP) {
+	type Item = ReturnType<typeof translateItem>;
+
+	function translateItem(item: VMCP) {
+		const componentServers = components(item);
 		return {
 			id: item.id,
-			componentServers: components(item),
-			vmcp: item
+			componentServers,
+			vmcp: item,
+			displayName: item.displayName || 'Untitled vMCP',
+			description: item.description ?? '',
+			owner: getVMcpCreator(item, usersMap, '') ?? '',
+			serverNames: componentServers.map((component) => component.name),
+			status: ''
 		};
+	}
+
+	function canSelectRow(row: Item) {
+		return vmcpItemContext(row.vmcp).canDelete;
+	}
+
+	function connectHandler(vmcp: VMCP, options?: VMcpConnectOptions) {
+		if (onConnect) {
+			onConnect(vmcp, options);
+			return;
+		}
+		vmcpActions?.openConnect(vmcp, undefined, options);
+	}
+
+	function connectDisabled(canConnect: boolean) {
+		return hasLicenseEntitlementViolations || !canConnect;
+	}
+
+	function connectDisabledMessage(canConnect: boolean) {
+		if (hasLicenseEntitlementViolations) return MCP_CONNECTION_INVALID_LICENSE_MESSAGE;
+		if (!canConnect) return 'Cannot connect or test a personal vMCP';
+		return undefined;
+	}
+
+	function handleTest(vmcp: VMCP, toggle: (open?: boolean) => void) {
+		const hasConfiguredInstance = vmcpInstances.current.items.some(
+			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
+		);
+		if (hasConfiguredInstance) {
+			goto(`/vmcps/${vmcp.id}?view=inspector`);
+			toggle(false);
+			return;
+		}
+		connectHandler(vmcp, { onConnected: () => goto(`/vmcps/${vmcp.id}?view=inspector`) });
+		toggle(false);
+	}
+
+	function toggleSelected(card: Item) {
+		if (selected[card.id]) {
+			delete selected[card.id];
+			return;
+		}
+		selected[card.id] = card;
+	}
+
+	$effect(() => {
+		if (selecting) return;
+		if (Object.keys(selected).length === 0) return;
+		selected = {};
+	});
+
+	$effect(() => {
+		const ids = new Set(items.map((item) => item.id));
+		for (const id of Object.keys(selected)) {
+			if (!ids.has(id)) delete selected[id];
+		}
+	});
+
+	function exitSelecting() {
+		selected = {};
+		selecting = false;
+	}
+
+	async function handleBulkDelete() {
+		if (!pendingBulkDelete?.length) return;
+		bulkDeleting = true;
+		const deleted = pendingBulkDelete;
+		try {
+			for (const vmcp of deleted) {
+				await UserService.deleteVMCP(vmcp.id);
+				onDeleted?.(vmcp);
+				delete selected[vmcp.id];
+			}
+			success.add(
+				deleted.length === 1
+					? `${deleted[0].displayName || 'vMCP'} deleted.`
+					: `${deleted.length} vMCPs deleted.`
+			);
+		} catch {
+			errors.append('Failed to delete vMCP(s).');
+		} finally {
+			bulkDeleting = false;
+			pendingBulkDelete = undefined;
+			selecting = false;
+		}
 	}
 
 	function setOverflowHidden(cardId: string, hidden: number) {
@@ -134,8 +252,8 @@
 	}
 </script>
 
-<div class="@container">
-	{#if cards.length === 0}
+<div class="@container {variant === 'grid' && selecting ? 'pb-16' : ''}">
+	{#if items.length === 0}
 		<div class="flex h-full items-center justify-center">
 			{#if noDataContent}
 				{@render noDataContent()}
@@ -144,21 +262,210 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
-			{#each cards as card (card.id)}
-				{@render vmcpCard(card)}
-			{/each}
-		</div>
+		{#if variant === 'grid'}
+			<div class="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
+				{#each items as item (item.id)}
+					{@render vmcpCard(item)}
+				{/each}
+			</div>
+		{:else}
+			{@render table()}
+		{/if}
 	{/if}
 </div>
 
+{#if variant === 'grid' && selecting}
+	{@const deletable = Object.values(selected).filter(canSelectRow)}
+	<div class="flex grow"></div>
+	<div
+		class="border-base-300 bg-base-100 dark:border-base-400 dark:bg-base-300 sticky inset-x-0 bottom-4 z-50 flex items-center gap-4 rounded-full px-4 py-2 shadow-sm"
+		role="toolbar"
+		aria-label="Selected vMCP actions"
+	>
+		<p class="text-muted-content pl-4 text-sm font-semibold">
+			{selectedCount} of {selectableCount} selected
+		</p>
+		<div class="flex grow items-center justify-end gap-2">
+			<button
+				class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+				onclick={() => (pendingBulkDelete = deletable.map((row) => row.vmcp))}
+				disabled={deletable.length === 0}
+			>
+				<Trash2 class="size-4" /> Delete
+				{#if deletable.length > 0}
+					<span class="pill-primary">{deletable.length}</span>
+				{/if}
+			</button>
+			<button class="btn btn-secondary text-sm font-normal" onclick={exitSelecting}>Cancel</button>
+		</div>
+	</div>
+{/if}
+
 <VMcpActions bind:this={vmcpActions} />
 
-{#snippet vmcpCard(card: VMcpListCard)}
+<Confirm
+	show={Boolean(pendingBulkDelete?.length)}
+	onsuccess={handleBulkDelete}
+	oncancel={() => (pendingBulkDelete = undefined)}
+	msg=""
+	loading={bulkDeleting}
+	title="Confirm Delete"
+>
+	{#snippet note()}
+		Are you sure you want to delete
+		{#if pendingBulkDelete?.length === 1}
+			"<b>{pendingBulkDelete[0].displayName ?? 'this vMCP'}</b>"?
+		{:else}
+			<b>{pendingBulkDelete?.length ?? 0} vMCPs</b>?
+		{/if}
+		This cannot be undone.
+	{/snippet}
+</Confirm>
+
+{#snippet table()}
+	<div class="dark:bg-base-300 bg-base-100 rounded-md shadow-sm">
+		<Table
+			data={items}
+			fields={['displayName', 'description', 'owner', 'status', 'serverNames']}
+			headers={[
+				{ title: 'Name', property: 'displayName' },
+				{ title: 'Servers', property: 'serverNames' },
+				{ title: 'Created by', property: 'owner' }
+			]}
+			noDataMessage="No vMCPs available."
+			noAutoHideFields={['displayName']}
+			validateSelect={profile.current.isAdmin?.() ? undefined : canSelectRow}
+			disabledSelectMessage="You can only delete vMCPs you created."
+			remeasureKey={JSON.stringify(overflowHiddenById)}
+			setRowClasses={() => 'group'}
+			onClickRow={(row) => onSelect?.(row.vmcp)}
+			classes={{
+				root: 'rounded-none rounded-b-md shadow-none'
+			}}
+		>
+			{#snippet onRenderColumn(property, row)}
+				{#if property === 'displayName'}
+					<div class="flex min-w-0 items-center gap-2">
+						<VMcpIcon class="size-8" components={row.componentServers} />
+						<p class="truncate" title={row.displayName}>{row.displayName}</p>
+					</div>
+				{:else if property === 'description'}
+					<p class="line-clamp-1" title={row.description}>
+						{stripMarkdownToText(row.description) || '—'}
+					</p>
+				{:else if property === 'serverNames'}
+					{@const serverNames = getDisplayListText(row.serverNames, 3)}
+					{#if serverNames}
+						<p class="line-clamp-1" title={serverNames}>
+							{serverNames}
+						</p>
+					{:else}
+						<p class="line-clamp-1" title="—">—</p>
+					{/if}
+				{:else if property === 'status'}
+					<VMcpStatusBadge
+						vmcp={row.vmcp}
+						showEmpty
+						onUpdated={onUpdate}
+						openSelectInstance={vmcpActions?.openSelectInstance}
+						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
+						openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+					/>
+				{:else}
+					{row[property as keyof typeof row]}
+				{/if}
+			{/snippet}
+
+			{#snippet actions(row)}
+				{@const ctx = vmcpItemContext(row.vmcp)}
+				{#if ctx.canConnect || ctx.hasActions}
+					<DotDotDot
+						class="hover:dark:bg-base-100/50"
+						classes={{ menu: 'min-w-48' }}
+						ariaLabel={`Actions for ${ctx.name}`}
+					>
+						{#snippet icon()}
+							<Ellipsis class="size-4" />
+						{/snippet}
+
+						{#snippet children({ toggle })}
+							{#if ctx.canConnect}
+								<button
+									class="menu-button"
+									disabled={connectDisabled(ctx.canConnect)}
+									use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+									onclick={(e) => {
+										e.stopPropagation();
+										connectHandler(row.vmcp);
+										toggle(false);
+									}}
+								>
+									<Plug class="size-4" /> Connect
+								</button>
+								<button
+									class="menu-button"
+									disabled={connectDisabled(ctx.canConnect)}
+									use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+									onclick={(e) => {
+										e.stopPropagation();
+										handleTest(row.vmcp, toggle);
+									}}
+								>
+									<MessageCircle class="size-4" /> Test vMCP
+								</button>
+							{/if}
+							{#if ctx.hasActions}
+								<VMcpMenuActions
+									vmcp={row.vmcp}
+									{toggle}
+									onDelete={() => onDelete?.(row.vmcp)}
+									onUpdated={onUpdate}
+									openSelectInstance={vmcpActions?.openSelectInstance}
+									openDiff={vmcpActions?.openDiff}
+									openUpdateConfirm={vmcpActions?.openUpdateConfirm}
+									openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+								/>
+							{/if}
+						{/snippet}
+					</DotDotDot>
+				{/if}
+			{/snippet}
+
+			{#snippet tableSelectActions(currentSelected)}
+				{@const deletable = Object.values(currentSelected).filter(canSelectRow)}
+				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
+					<button
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+						onclick={() => (pendingBulkDelete = deletable.map((row) => row.vmcp))}
+						disabled={deletable.length === 0}
+					>
+						<Trash2 class="size-4" /> Delete
+						{#if deletable.length > 0}
+							<span class="pill-primary">{deletable.length}</span>
+						{/if}
+					</button>
+				</div>
+			{/snippet}
+		</Table>
+	</div>
+{/snippet}
+
+{#snippet vmcpCard(card: Item)}
 	<VMcpCard
 		vmcp={card.vmcp}
-		selectAriaLabel={`Open ${card.vmcp.displayName || 'Untitled vMCP'}`}
-		onSelect={() => onSelect?.(card.vmcp)}
+		selectAriaLabel={selecting
+			? `Select ${card.displayName}`
+			: `Open ${card.displayName || 'Untitled vMCP'}`}
+		selected={Boolean(selected[card.id])}
+		{selecting}
+		onSelect={() => {
+			if (!selecting) {
+				onSelect?.(card.vmcp);
+				return;
+			}
+			if (!canSelectRow(card)) return;
+			toggleSelected(card);
+		}}
 		onConnect={(options) =>
 			onConnect
 				? onConnect(card.vmcp, options)
@@ -196,13 +503,17 @@
 	</div>
 {/snippet}
 
-{#snippet serversPanel(card: VMcpListCard)}
+{#snippet serversPanel(card: Item)}
 	{@const hiddenCount = overflowHiddenById[card.id] ?? 0}
 	{@const overflowed = hiddenCount > 0 ? card.componentServers.slice(-hiddenCount) : []}
 	{#if card.componentServers.length === 0}
-		<p class="text-muted-content py-2 text-center text-xs italic">
-			No servers yet. Open this vMCP in the designer to add some.
-		</p>
+		{#if variant === 'table'}
+			<span class="text-muted-content text-xs italic">No servers</span>
+		{:else}
+			<p class="text-muted-content py-2 text-center text-xs italic">
+				No servers yet. Open this vMCP in the designer to add some.
+			</p>
+		{/if}
 	{:else}
 		<div
 			class="flex flex-nowrap items-center gap-2 overflow-hidden"
