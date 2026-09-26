@@ -2,6 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { localAgentProviderLabel } from '$lib/enforcement';
 	import type { AuditLogEvent } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
@@ -199,7 +200,11 @@
 						<div class="flex flex-col gap-1 px-4 text-sm font-light">
 							{@render field(
 								'Agent',
-								[details.agent?.provider, details.agent?.version].filter(Boolean).join(' / ')
+								details.agent?.provider
+									? [localAgentProviderLabel(details.agent.provider), details.agent.version]
+											.filter(Boolean)
+											.join(' / ')
+									: undefined
 							)}
 							{@render field(
 								'CLI',

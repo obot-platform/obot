@@ -17,9 +17,15 @@ import type {
 // this build has never heard of still renders readably.
 const AGENT_LABELS: Record<string, string> = {
 	claude_code: 'Claude Code',
+	'claude-code': 'Claude Code',
 	codex: 'Codex',
 	cursor: 'Cursor',
-	vscode: 'VS Code'
+	vscode: 'VS Code',
+	'vs-code': 'VS Code',
+	workbuddy: 'WorkBuddy',
+	zcode: 'ZCode',
+	opencode: 'OpenCode',
+	'open-code': 'OpenCode'
 };
 
 // Tool kinds the device-side classifier reports. Everything except "mcp" is a
@@ -40,6 +46,29 @@ function titleCase(value: string): string {
 		.filter(Boolean)
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(' ');
+}
+
+// localAgentProviderLabel formats the stable provider IDs used by local-agent
+// audit records while preserving unknown values. It is intentionally less
+// opinionated than agentLabel: a shared audit "client" value may also be an
+// arbitrary MCP client name, which should not be title-cased or otherwise
+// rewritten just because it is displayed alongside local-agent events.
+export function localAgentProviderLabel(agent?: string): string {
+	if (!agent) return 'Unknown';
+	return AGENT_LABELS[agent] ?? agent;
+}
+
+/**
+ * Format a value from the unified audit `client` filter. Unlike
+ * `localAgentProviderLabel`, this keeps the raw value visible because the
+ * backend field can contain either an MCP client name or a local-agent
+ * provider. This prevents values such as `claude-code` and `claude_code` from
+ * becoming indistinguishable in compliance filters and exports.
+ */
+export function auditClientFilterLabel(client?: string): string {
+	if (!client) return 'Unknown';
+	const label = localAgentProviderLabel(client);
+	return label === client ? client : `${client} · ${label}`;
 }
 
 export function agentLabel(agent?: string): string {

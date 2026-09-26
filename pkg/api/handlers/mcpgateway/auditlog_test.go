@@ -314,6 +314,46 @@ func TestLocalAgentAuditLogSubmitAuthenticatedBatchSucceeds(t *testing.T) {
 	}
 }
 
+func TestLocalAgentAuditLogSubmitAcceptsSupportedProviders(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	providers := []types.LocalAgentProvider{
+		types.LocalAgentProviderWorkBuddy,
+		types.LocalAgentProviderOpenCode,
+		types.LocalAgentProviderZCode,
+	}
+	for i, provider := range providers {
+		event := validLocalAgentAuditLogInput(time.Now().UTC(), fmt.Sprintf("provider-%d", i), types.AuditLogOutcomeStatusSuccess)
+		event.Details.Agent.Provider = provider
+		if err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(
+			t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event},
+			&user.DefaultInfo{UID: "42", Groups: []string{types.GroupAuthenticated}},
+		)); err != nil {
+			t.Fatalf("submit %s audit event: %v", provider, err)
+		}
+	}
+
+	logs, total, err := gatewayClient.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 || len(logs) != 3 {
+		t.Fatalf("stored local-agent logs = %d/%d, want 3/3", len(logs), total)
+	}
+	seen := map[types.LocalAgentProvider]bool{}
+	for _, log := range logs {
+		if log.LocalAgentToolCallFields != nil {
+			seen[log.LocalAgentToolCallFields.AgentProvider] = true
+		}
+	}
+	for _, provider := range providers {
+		if !seen[provider] {
+			t.Errorf("provider %q was not persisted; providers=%v", provider, seen)
+		}
+	}
+}
+
 func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
 	tests := []struct {
 		name       string

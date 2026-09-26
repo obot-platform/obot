@@ -11,7 +11,7 @@
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import { formatNumber } from '$lib/format';
+	import { formatDeviceClient, formatNumber } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
@@ -220,7 +220,7 @@
 		buildDeviceScanTopBuckets<DeviceClientStat>(
 			deviceScanStats?.clients,
 			(c) => c.name,
-			(c) => c.name,
+			(c) => formatDeviceClient(c.name),
 			(c) => c.deviceCount
 		)
 	);

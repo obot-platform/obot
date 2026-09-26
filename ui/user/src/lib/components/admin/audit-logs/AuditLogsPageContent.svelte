@@ -14,6 +14,7 @@
 	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
+	import { auditClientFilterLabel, localAgentProviderLabel } from '$lib/enforcement';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue } from '$lib/multiValue';
 	import { localState } from '$lib/runes/localState.svelte';
@@ -241,6 +242,12 @@
 		if (key === 'actor') return actorDisplay(value);
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
+		if (key === 'client' && value) {
+			return auditClientFilterLabel(value);
+		}
+		if (key === 'agent_provider' && value) {
+			return localAgentProviderLabel(value);
+		}
 		if (key === 'event_type') {
 			if (value === 'mcp_call') return 'Obot Gateway';
 			if (value === 'local_agent_tool_call') return 'Local Agent Hook';

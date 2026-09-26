@@ -10,6 +10,22 @@ import { page } from 'vitest/browser';
 
 afterEach(() => appPage.url.searchParams.delete('mcp_server'));
 
+test('keeps unified client IDs distinct in export options', async () => {
+	worker.use(
+		http.get('/api/mcp-audit-logs/filter-options/:filter', ({ params }) =>
+			HttpResponse.json({
+				options: params.filter === 'client' ? ['claude-code', 'claude_code'] : []
+			})
+		)
+	);
+	await preparePageData();
+	await render(CreateAuditLogExportForm, { onCancel: vi.fn(), onSubmit: vi.fn() });
+	await page.getByRole('button', { name: 'Advanced Options' }).click();
+	await page.getByCSS('#client').click();
+	await expect.element(page.getByText('claude-code · Claude Code', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('claude_code · Claude Code', { exact: true })).toBeVisible();
+});
+
 test('preserves comma-containing server names when creating and viewing exports', async () => {
 	const name = 'Outlook, Calendar';
 	appPage.url.searchParams.set('mcp_server', JSON.stringify([name]));

@@ -300,9 +300,12 @@ func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	case types2.LocalAgentProviderClaudeCode,
 		types2.LocalAgentProviderCodex,
 		types2.LocalAgentProviderVSCode,
-		types2.LocalAgentProviderCursor:
+		types2.LocalAgentProviderCursor,
+		types2.LocalAgentProviderWorkBuddy,
+		types2.LocalAgentProviderOpenCode,
+		types2.LocalAgentProviderZCode:
 	default:
-		return errors.New("local agent audit provider must be one of: claude_code, codex, vscode, cursor")
+		return errors.New("local agent audit provider must be one of: claude_code, codex, vscode, cursor, workbuddy, opencode, zcode")
 	}
 	switch local.OutcomeStatus {
 	case types2.AuditLogOutcomeStatusSuccess,
