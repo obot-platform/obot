@@ -131,6 +131,7 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 	}
 
 	var references struct {
+		EntryKey   string `json:"entryKey"`
 		Components []struct {
 			EntryKey string `json:"mcpServerCatalogEntryKey"`
 		} `json:"components"`
@@ -141,7 +142,14 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 
 	for i := range manifest.Components {
 		if references.Components[i].EntryKey == "" {
-			return manifest, fmt.Errorf("component %q mcpServerCatalogEntryKey is required", manifest.Components[i].Name)
+			name := manifest.DisplayName
+			if name == "" {
+				name = references.EntryKey
+			}
+			if name == "" {
+				name = "<unnamed>"
+			}
+			return manifest, fmt.Errorf("vMCP %q component %q mcpServerCatalogEntryKey is required", name, manifest.Components[i].Name)
 		}
 		manifest.Components[i].MCPServerCatalogEntryID = references.Components[i].EntryKey
 	}

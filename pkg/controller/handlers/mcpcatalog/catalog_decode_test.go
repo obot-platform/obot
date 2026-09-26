@@ -204,7 +204,28 @@ func TestReadMCPCatalogRequiresVMCPEntryKeyReference(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
 	objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
-	require.ErrorContains(t, err, `component "Gmail" mcpServerCatalogEntryKey is required`)
+	require.ErrorContains(t, err, `vMCP "Email" component "Gmail" mcpServerCatalogEntryKey is required`)
+	require.Empty(t, objects)
+
+	content = `- type: vmcp
+  entryKey: email
+  components:
+    - name: Gmail
+      mcpServerCatalogEntryID: obot-gmail
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	objects, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	require.ErrorContains(t, err, `vMCP "email" component "Gmail" mcpServerCatalogEntryKey is required`)
+	require.Empty(t, objects)
+
+	content = `- type: vmcp
+  components:
+    - name: Gmail
+      mcpServerCatalogEntryID: obot-gmail
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	objects, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	require.ErrorContains(t, err, `vMCP "<unnamed>" component "Gmail" mcpServerCatalogEntryKey is required`)
 	require.Empty(t, objects)
 }
 
