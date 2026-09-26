@@ -69,12 +69,6 @@ func ConnectURL(serverURL string) (string, error) {
 	return parsed.String(), nil
 }
 
-// Dial opens one authenticated websocket connection to an Obot instance.
-func Dial(ctx context.Context, serverURL, token string) (*websocket.Conn, error) {
-	connection, _, err := dial(ctx, serverURL, token)
-	return connection, err
-}
-
 func dial(ctx context.Context, serverURL, token string) (*websocket.Conn, string, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, "", errors.New("tunnel token is required")

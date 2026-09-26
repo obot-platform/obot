@@ -213,33 +213,55 @@ func TestMCPServerSpec_IsOwnedBy(t *testing.T) {
 	}
 }
 
-func TestMCPServerSpec_IsSingleUser(t *testing.T) {
-	tests := []struct {
-		name string
-		spec MCPServerSpec
-		want bool
+func TestMCPServerSpec_UserType(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		spec       MCPServerSpec
+		singleUser bool
+		multiUser  bool
 	}{
 		{
-			name: "no catalog/workspace: single-user",
-			spec: MCPServerSpec{MCPCatalogID: "", PowerUserWorkspaceID: ""},
-			want: true,
+			name: "no vMCP ownership",
 		},
 		{
-			name: "catalog set: multi-user",
+			name: "legacy catalog",
 			spec: MCPServerSpec{MCPCatalogID: "default"},
-			want: false,
 		},
 		{
-			name: "workspace set: multi-user",
-			spec: MCPServerSpec{PowerUserWorkspaceID: "ws-1"},
-			want: false,
+			name: "legacy workspace",
+			spec: MCPServerSpec{PowerUserWorkspaceID: "workspace"},
 		},
-	}
-
-	for _, tt := range tests {
+		{
+			name: "agent",
+			spec: MCPServerSpec{NanobotAgentID: "agent"},
+		},
+		{
+			name:      "vMCP",
+			spec:      MCPServerSpec{VMCPID: "vmcp"},
+			multiUser: true,
+		},
+		{
+			name:       "vMCP instance",
+			spec:       MCPServerSpec{VMCPInstanceID: "instance"},
+			singleUser: true,
+		},
+		{
+			name: "vMCP instance with legacy scope",
+			spec: MCPServerSpec{
+				VMCPInstanceID:       "instance",
+				MCPCatalogID:         "default",
+				PowerUserWorkspaceID: "workspace",
+			},
+			singleUser: true,
+		},
+	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.spec.IsSingleUser(); got != tt.want {
-				t.Errorf("MCPServerSpec.IsSingleUser() = %v, want %v", got, tt.want)
+			if got := tt.spec.IsSingleUser(); got != tt.singleUser {
+				t.Errorf("IsSingleUser() = %v, want %v", got, tt.singleUser)
+			}
+
+			if got := tt.spec.IsMultiUser(); got != tt.multiUser {
+				t.Errorf("IsMultiUser() = %v, want %v", got, tt.multiUser)
 			}
 		})
 	}

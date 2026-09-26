@@ -523,7 +523,7 @@ func TestTunnelAcceptsMultipleConnections(t *testing.T) {
 	manager, _, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 	serverURL := manager.bridgeBaseURL
-	connection, err := Dial(t.Context(), serverURL, testTunnelToken("office"))
+	connection, _, err := dial(t.Context(), serverURL, testTunnelToken("office"))
 	if err != nil {
 		t.Fatalf("second tunnel connection failed: %v", err)
 	}
@@ -544,7 +544,7 @@ func TestTunnelAcceptsMultipleConnections(t *testing.T) {
 func TestManagerDisconnectsAllTunnelConnections(t *testing.T) {
 	manager, _, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
-	connection, err := Dial(t.Context(), manager.bridgeBaseURL, testTunnelToken("office"))
+	connection, _, err := dial(t.Context(), manager.bridgeBaseURL, testTunnelToken("office"))
 	if err != nil {
 		t.Fatal(err)
 	}

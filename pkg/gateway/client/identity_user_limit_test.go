@@ -200,7 +200,7 @@ func TestEnsureIdentityWithRoleRecoversAfterUserDeletion(t *testing.T) {
 	_, err = ensureUserLimitTestIdentity(t.Context(), c, "user-2", "user-2@example.com", userLimit)
 	requireIdentityUserLimitForbiddenError(t, err)
 
-	if _, err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(first.ID), 10)); err != nil {
+	if err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(first.ID), 10)); err != nil {
 		t.Fatalf("deleting first user: %v", err)
 	}
 	if _, err := ensureUserLimitTestIdentity(t.Context(), c, "user-2", "user-2@example.com", userLimit); err != nil {
@@ -265,7 +265,7 @@ func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 	}, "", apitypes.RoleBasic, userLimit)
 	requireIdentityUserLimitForbiddenError(t, err)
 
-	if _, err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(activeUser.ID), 10)); err != nil {
+	if err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(activeUser.ID), 10)); err != nil {
 		t.Fatalf("deleting active user: %v", err)
 	}
 	if _, err := c.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{

@@ -35,7 +35,7 @@ func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types
 		path += "?" + encoded
 	}
 
-	_, resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return types.SkillList{}, err
 	}
@@ -46,7 +46,7 @@ func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types
 }
 
 func (c *Client) GetSkill(ctx context.Context, id string) (types.Skill, error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s", url.PathEscape(id)), nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s", url.PathEscape(id)), nil)
 	if err != nil {
 		return types.Skill{}, err
 	}
@@ -57,7 +57,7 @@ func (c *Client) GetSkill(ctx context.Context, id string) (types.Skill, error) {
 }
 
 func (c *Client) PreviewSkill(ctx context.Context, id string) ([]byte, error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s/preview", url.PathEscape(id)), nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s/preview", url.PathEscape(id)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (c *Client) PreviewSkill(ctx context.Context, id string) ([]byte, error) {
 }
 
 func (c *Client) DownloadSkill(ctx context.Context, id string) ([]byte, error) {
-	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s/download", url.PathEscape(id)), nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s/download", url.PathEscape(id)), nil)
 	if err != nil {
 		return nil, err
 	}

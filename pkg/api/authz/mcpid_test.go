@@ -346,13 +346,13 @@ func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 }
 
 func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerCatalogEntry{
+	storage := newMCPIDIsAuthorizedTestStorage(&v1.MCPServerCatalogEntry{
 		Name:      "entry-test",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: "catalog-a",
 		},
-	}).Build()
+	})
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
 		Name:      "acr1entry",
 		Namespace: system.DefaultNamespace,
@@ -384,7 +384,7 @@ func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 }
 
 func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+	storage := newMCPIDIsAuthorizedTestStorage(
 		&v1.MCPServer{
 			Name:      "ms1workspace",
 			Namespace: system.DefaultNamespace,
@@ -407,7 +407,7 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 				UserID: "owner-uid",
 			},
 		},
-	).Build()
+	)
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
 		Name:      "acr1workspace",
 		Namespace: system.DefaultNamespace,
@@ -942,36 +942,71 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	}
 }
 
-func TestMCPTesterChatAuthorizationUsesConnectionPermission(t *testing.T) {
+func TestLegacyMCPServerAPIsRejectRetiredActions(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.MCPServer{
-			Name:      "ms1tester",
+			Name:      "ms1legacy",
 			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerSpec{
-				UserID: "user-uid",
-			},
+			Spec:      v1.MCPServerSpec{UserID: "user-uid"},
+		},
+		&v1.MCPServerInstance{
+			Name:      "msi1legacy",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.MCPServerInstanceSpec{UserID: "user-uid"},
 		},
 	).Build()
 	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+	u := &user.DefaultInfo{UID: "user-uid", Groups: []string{types.GroupAPI, types.GroupPowerUser, types.GroupPowerUserPlus}}
 
-	allowedRequest := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", nil)
-	allowed := authorizer.Authorize(allowedRequest, &user.DefaultInfo{
-		Name:   "user",
-		UID:    "user-uid",
-		Groups: []string{types.GroupAPI},
-	})
-	if !allowed {
-		t.Fatal("authorized MCP user cannot access tester Chat")
+	for _, route := range []struct {
+		method string
+		path   string
+	}{
+		{
+			method: http.MethodGet,
+			path:   "/api/mcp-servers/ms1legacy/logs",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/mcp-servers/ms1legacy/restart",
+		},
+	} {
+		if !authorizer.Authorize(httptest.NewRequest(route.method, route.path, nil), u) {
+			t.Errorf("restored route %s %s should remain authorized", route.method, route.path)
+		}
 	}
 
-	deniedRequest := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", nil)
-	denied := authorizer.Authorize(deniedRequest, &user.DefaultInfo{
-		Name:   "management-only-user",
-		UID:    "management-only-uid",
-		Groups: []string{types.GroupAPI},
-	})
-	if denied {
-		t.Fatal("management-only user can access tester Chat")
+	for _, path := range []string{
+		"/api/mcp-servers", "/api/mcp-servers/ms1legacy",
+		"/api/mcp-server-instances", "/api/mcp-server-instances/msi1legacy",
+	} {
+		if !authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), u) {
+			t.Errorf("GET %s should remain authorized", path)
+		}
+		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+			if authorizer.Authorize(httptest.NewRequest(method, path, nil), u) {
+				t.Errorf("retired route %s %s is authorized", method, path)
+			}
+		}
+	}
+
+	for _, path := range []string{
+		"/api/mcp-servers/ms1legacy",
+		"/api/mcp-server-instances/msi1legacy",
+		"/api/all-mcps/servers/ms1legacy",
+		"/api/workspaces/workspace/servers/ms1legacy",
+		"/api/workspaces/workspace/entries/entry/servers/ms1legacy",
+	} {
+		for _, suffix := range []string{"launch", "check-oauth", "oauth-url", "oauth", "alias", "configure", "deconfigure", "reveal", "trigger-update", "update-url", "tools", "resources", "prompts", "tester/chat", "oauth-debugger/client"} {
+			for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete} {
+				req := httptest.NewRequest(method, path+"/"+suffix, nil)
+				for group, matcher := range authorizer.apiResources {
+					if _, matches := matcher.Match(req); matches {
+						t.Errorf("retired route %s %s is still granted to %s", method, req.URL.Path, group)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -1056,5 +1091,60 @@ func newMCPIDTestAuthorizer(t *testing.T, storage kclient.Client, acrs ...*v1.Ac
 		cache:     storage,
 		uncached:  storage,
 		acrHelper: accesscontrolrule.NewAccessControlRuleHelper(indexer, storage),
+	}
+}
+
+func TestVMCPTesterChatRequiresConnectionAccess(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1tester",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID: "owner",
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{ID: "component"}},
+			},
+		},
+	}
+	instance := &v1.VMCPInstance{
+		Name:      "vmcpi1tester",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPInstanceSpec{
+			UserID:   "owner",
+			Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp, instance).Build()
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+
+	for _, tc := range []struct {
+		name   string
+		uid    string
+		groups []string
+		want   bool
+	}{
+		{
+			name:   "owner",
+			uid:    "owner",
+			groups: []string{types.GroupAPI},
+			want:   true,
+		},
+		{
+			name:   "other user",
+			uid:    "other",
+			groups: []string{types.GroupAPI},
+		},
+		{
+			name:   "administrator without connection access",
+			uid:    "admin",
+			groups: []string{types.GroupAPI, types.GroupAdmin},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/"+instance.Name+"/tester/chat", nil)
+			got := authorizer.authorizeAPIResources(req, newUser(&user.DefaultInfo{UID: tc.uid, Groups: tc.groups}))
+			if got != tc.want {
+				t.Fatalf("Authorize() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +31,6 @@ import (
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -55,20 +53,6 @@ type Handler struct {
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string
-}
-
-func auditLogMetadataForPrincipal(metadata map[string]string, user user.Info) map[string]string {
-	result := maps.Clone(metadata)
-	attribution, ok := principal.APIKeyAttributionFromUser(user)
-	if !ok {
-		return result
-	}
-	if result == nil {
-		result = map[string]string{}
-	}
-	result[principal.APIKeyIDExtra] = strconv.FormatUint(uint64(attribution.ID), 10)
-	result[principal.APIKeyNameExtra] = attribution.Name
-	return result
 }
 
 func writeMCPJSONRPCError(w http.ResponseWriter, req *http.Request, rpcErr error) bool {

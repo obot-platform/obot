@@ -3,8 +3,6 @@ package skillformat
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -168,26 +166,4 @@ func DisplayName(slug string) string {
 		}
 	}
 	return strings.Join(words, " ")
-}
-
-// ValidateSkillDirectory validates a skill directory: checks that SKILL.md
-// exists, parses and validates its frontmatter, and ensures the frontmatter
-// name matches the directory name.
-func ValidateSkillDirectory(dirPath string) error {
-	skillFile := filepath.Join(dirPath, SkillMainFile)
-	content, err := os.ReadFile(skillFile)
-	if err != nil {
-		return fmt.Errorf("failed to read %s: %w", SkillMainFile, err)
-	}
-
-	fm, _, err := ParseAndValidateFrontmatter(string(content))
-	if err != nil {
-		return fmt.Errorf("invalid %s: %w", SkillMainFile, err)
-	}
-
-	if err := ValidateNameMatchesDir(fm.Name, filepath.Base(dirPath)); err != nil {
-		return err
-	}
-
-	return nil
 }

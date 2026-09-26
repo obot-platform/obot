@@ -104,10 +104,10 @@ func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanc
 	// sandbox's /mcp-connect URLs. A template names servers portably, as
 	// <source>::<key>, so leaving them unresolved here would have authorization
 	// compare a local request ID against a reference that can never equal it --
-	// denying an agent the very servers it was configured with.
-	mcpIDs, unresolved := hostedagentrefs.New(a.storage, system.DefaultNamespace).
+	// denying an agent the very servers it was configured with. A reference
+	// naming nothing installed here grants nothing.
+	mcpIDs, _ := hostedagentrefs.New(a.storage, system.DefaultNamespace).
 		MCPServers(req.Context(), slices.Concat(agent.Spec.Manifest.MCPServers, instance.Spec.Manifest.MCPServers))
-	_ = unresolved // a reference naming nothing installed here grants nothing
 	// Resolved by the same function the controller uses to write the sandbox's
 	// model endpoints, so the credential grants exactly the models the config
 	// offers. A second implementation could only ever disagree, and disagreeing

@@ -491,3 +491,20 @@ func TestMigrateSharedConfigurationAndUserHeaders(t *testing.T) {
 	require.Equal(t, map[string]string{vmcp.ConfigurationKey("shared", "USER_TOKEN"): "user-secret"}, destination[vmcp.InstanceConfigurationCredentialContext(instances.Items[0].Name)])
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(shared), &v1.MCPServer{}), "shared source remains available to other consumers")
 }
+
+func TestStaticConfigurationPreservesSourceDigest(t *testing.T) {
+	entry := migrationEntry(t)
+	var legacy legacyManifest
+	require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Test the migration snapshot.
+	legacy.CompositeConfig.ComponentServers[0].Manifest.Env[0].Value = "fixed-env"
+	legacy.CompositeConfig.ComponentServers[1].Manifest.RemoteConfig.Headers[0].Value = "fixed-header"
+	target, static, _, err := credentialHandler(t, nil, map[string]map[string]string{}).buildVMCP(t.Context(), migrationClient(entry), entry, legacy)
+	require.NoError(t, err)
+	for i, component := range target.Spec.Manifest.Components {
+		source := legacy.CompositeConfig.ComponentServers[i].Manifest.flattened()
+		require.Equal(t, utils.Digest(types.MCPServerCatalogEntrySnapshot{Manifest: source}), component.SourceDigest)
+		require.NotEqual(t, utils.Digest(component.CatalogEntry), component.SourceDigest)
+		require.Empty(t, component.CatalogEntry.Manifest.Config[0].Value)
+		require.Equal(t, source.Config[0].Value, static[vmcp.ConfigurationKey(component.ID, source.Config[0].Key)])
+	}
+}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
@@ -24,6 +25,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// MigrationName is the durable gateway marker for the composite migration.
+	MigrationName = "composite_mcp_to_vmcp"
 )
 
 type Handler struct {
@@ -121,6 +127,7 @@ func (h *Handler) Migrate(ctx context.Context, client kclient.Client, entry *v1.
 	if entry.Spec.Manifest.Runtime != types.RuntimeComposite || !entry.DeletionTimestamp.IsZero() {
 		return nil
 	}
+
 	var legacy legacyManifest
 	if err := json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy); err != nil { //nolint:staticcheck // This migration is the consumer of the deprecated snapshot.
 		return fmt.Errorf("decode legacy composite %q: %w", entry.Name, err)
@@ -173,53 +180,14 @@ func (h *Handler) Migrate(ctx context.Context, client kclient.Client, entry *v1.
 }
 
 func migrateFilters(ctx context.Context, client kclient.Client, entry *v1.MCPServerCatalogEntry, parents []v1.MCPServer, target v1.VMCP) error {
-	resources := map[types.Resource]struct{}{
-		{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name}: {},
-		{Type: types.ResourceTypeSelector, ID: "*"}:                     {},
-	}
-
-	if catalog := cmp.Or(entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID); catalog != "" {
-		resources[types.Resource{Type: types.ResourceTypeMcpCatalog, ID: catalog}] = struct{}{}
-	}
-
+	sources := []types.Resource{{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name}}
+	catalogs := []string{cmp.Or(entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID)}
 	for _, parent := range parents {
-		resources[types.Resource{Type: types.ResourceTypeMCPServer, ID: parent.Name}] = struct{}{}
-
-		if catalog := cmp.Or(
-			parent.Spec.MCPCatalogID,
-			parent.Status.MCPCatalogID,
-			parent.Spec.PowerUserWorkspaceID,
-			entry.Spec.MCPCatalogName,
-			entry.Spec.PowerUserWorkspaceID,
-		); catalog != "" {
-			resources[types.Resource{Type: types.ResourceTypeMcpCatalog, ID: catalog}] = struct{}{}
-		}
+		sources = append(sources, types.Resource{Type: types.ResourceTypeMCPServer, ID: parent.Name})
+		catalogs = append(catalogs, cmp.Or(parent.Spec.MCPCatalogID, parent.Status.MCPCatalogID, parent.Spec.PowerUserWorkspaceID))
 	}
-
-	var filters v1.MCPWebhookValidationList
-	if err := client.List(ctx, &filters, &kclient.ListOptions{Namespace: entry.Namespace}); err != nil {
-		return err
-	}
-
-	targetResource := types.Resource{Type: types.ResourceTypeMCPServer, ID: target.Name}
-	for i := range filters.Items {
-		filter := &filters.Items[i]
-
-		if slices.Contains(filter.Spec.Manifest.Resources, targetResource) ||
-			!slices.ContainsFunc(filter.Spec.Manifest.Resources, func(resource types.Resource) bool {
-				_, ok := resources[resource]
-				return ok
-			}) {
-			continue
-		}
-
-		filter.Spec.Manifest.Resources = append(filter.Spec.Manifest.Resources, targetResource)
-		if err := client.Update(ctx, filter); err != nil {
-			return fmt.Errorf("update filter %q: %w", filter.Name, err)
-		}
-	}
-
-	return nil
+	return catalogmigration.MigrateFilters(ctx, client, entry.Namespace,
+		[]types.Resource{{Type: types.ResourceTypeMCPServer, ID: target.Name}}, sources, catalogs)
 }
 
 func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v1.MCPServerCatalogEntry, legacy legacyManifest) (v1.VMCP, map[string]string, []string, error) {
@@ -329,6 +297,9 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 			component.Name = id
 		}
 
+		// Track the source before moving fixed values into credential storage.
+		component.SourceDigest = utils.Digest(component.CatalogEntry)
+
 		for i := range component.CatalogEntry.Manifest.Config {
 			item := &component.CatalogEntry.Manifest.Config[i]
 			policy := types.VMCPConfigurationPolicyUserAllowed
@@ -356,7 +327,6 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 		if shared != nil {
 			component.OAuthCredentialID = vmcp.StaticOAuthCredentialReference(manifest, shared.Spec.MCPServerCatalogEntryName)
 		}
-		component.SourceDigest = utils.Digest(component.CatalogEntry)
 		target.Spec.Manifest.Components = append(target.Spec.Manifest.Components, component)
 	}
 	vmcp.SetStaticConfigurationHashes(&target, static)

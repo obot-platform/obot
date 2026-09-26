@@ -197,30 +197,3 @@ func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) 
 
 	return nil
 }
-
-func mcpServerCredentialContext(server v1.MCPServer) string {
-	if server.Spec.IsCatalogServer() || server.Spec.IsPowerUserWorkspaceServer() {
-		return server.CredentialContext(server.Spec.UserID)
-	}
-	return ""
-}
-
-func extractAndClearMCPServerConfigValues(manifest *types.MCPServerManifest) (map[string]string, bool) {
-	configValues := make(map[string]string)
-	var changed bool
-
-	for i := range manifest.Config {
-		if manifest.Config[i].UserAllowed {
-			continue
-		}
-		if manifest.Config[i].Value != "" {
-			if manifest.Config[i].Key != "" {
-				configValues[manifest.Config[i].Key] = manifest.Config[i].Value
-			}
-			manifest.Config[i].Value = ""
-			changed = true
-		}
-	}
-
-	return configValues, changed
-}

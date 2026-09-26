@@ -1,8 +1,6 @@
 package skillformat
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -459,69 +457,4 @@ func TestFormatSkillMD(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestValidateSkillDirectory(t *testing.T) {
-	t.Run("valid directory", func(t *testing.T) {
-		dir := t.TempDir()
-		skillDir := filepath.Join(dir, "my-skill")
-		if err := os.MkdirAll(skillDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		content := "---\nname: my-skill\ndescription: A test skill.\n---\n# My Skill\n"
-		if err := os.WriteFile(filepath.Join(skillDir, SkillMainFile), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := ValidateSkillDirectory(skillDir); err != nil {
-			t.Errorf("ValidateSkillDirectory() unexpected error: %v", err)
-		}
-	})
-
-	t.Run("missing SKILL.md", func(t *testing.T) {
-		dir := t.TempDir()
-		skillDir := filepath.Join(dir, "my-skill")
-		if err := os.MkdirAll(skillDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		err := ValidateSkillDirectory(skillDir)
-		if err == nil {
-			t.Error("expected error for missing SKILL.md")
-		}
-	})
-
-	t.Run("name does not match directory", func(t *testing.T) {
-		dir := t.TempDir()
-		skillDir := filepath.Join(dir, "my-skill")
-		if err := os.MkdirAll(skillDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		content := "---\nname: other-skill\ndescription: A test skill.\n---\n"
-		if err := os.WriteFile(filepath.Join(skillDir, SkillMainFile), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-
-		err := ValidateSkillDirectory(skillDir)
-		if err == nil {
-			t.Error("expected error for name/directory mismatch")
-		}
-	})
-
-	t.Run("invalid frontmatter", func(t *testing.T) {
-		dir := t.TempDir()
-		skillDir := filepath.Join(dir, "my-skill")
-		if err := os.MkdirAll(skillDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		content := "---\nname: MY SKILL\ndescription: test.\n---\n"
-		if err := os.WriteFile(filepath.Join(skillDir, SkillMainFile), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-
-		err := ValidateSkillDirectory(skillDir)
-		if err == nil {
-			t.Error("expected error for invalid frontmatter")
-		}
-	})
 }

@@ -118,16 +118,13 @@ func TestRegistryDirectLookupExcludesVMCPComponents(t *testing.T) {
 	}
 }
 
-func TestRegistryDirectLookupIncludesOrdinaryServer(t *testing.T) {
+func TestRegistryDirectLookupExcludesLegacyPersonalServer(t *testing.T) {
 	server := registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{UserID: "user-1"})
 	h, ctx := registryTestHandlerAndContext(t, newRegistryTestStorage(server))
 
-	got, err := h.findMCPServer(ctx, server.Name, "com.example.obot")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Server.Name != "com.example.obot/ms1ordinary" {
-		t.Fatalf("findMCPServer() returned %q, want ordinary server", got.Server.Name)
+	_, err := h.findMCPServer(ctx, server.Name, "com.example.obot")
+	if err == nil {
+		t.Fatal("findMCPServer() found a legacy personal server without vMCP ownership")
 	}
 }
 

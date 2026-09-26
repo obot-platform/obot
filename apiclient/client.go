@@ -136,7 +136,7 @@ func TokenHasScopes(ctx context.Context, baseURL, token string, scopes []string)
 	return nil
 }
 
-func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
+func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Response, error) {
 	var body io.Reader
 
 	switch v := obj.(type) {
@@ -147,7 +147,7 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 	default:
 		data, err := json.Marshal(obj)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		body = bytes.NewBuffer(data)
 		headerKV = append(headerKV, "Content-Type", "application/json")
@@ -158,10 +158,10 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 // postCompressedJSON marshals obj and POSTs it zstd-compressed. Intended for
 // bodies big enough to be worth compressing on every call. The server must
 // decode Content-Encoding; there is no uncompressed fallback.
-func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
+func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Response, error) {
 	data, err := json.Marshal(obj)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Concurrency 1: no worker per CPU for a one-shot compression.
@@ -169,7 +169,7 @@ func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, h
 		zstd.WithEncoderLevel(zstd.SpeedBetterCompression),
 		zstd.WithEncoderConcurrency(1))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer encoder.Close()
 
@@ -177,11 +177,11 @@ func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, h
 		slices.Concat(headerKV, []string{"Content-Type", "application/json", "Content-Encoding", "zstd"})...)
 }
 
-func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Response, error) {
 	return c.doRequestWithBaseURL(ctx, method, c.BaseURL, path, body, headerKV...)
 }
 
-func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {
+func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path string, body io.Reader, headerKV ...string) (*http.Response, error) {
 	debug := slog.Default().Enabled(ctx, slog.LevelDebug)
 	if debug {
 		var (
@@ -191,7 +191,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		if body != nil {
 			dataBytes, err := io.ReadAll(body)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if utf8.Valid(dataBytes) {
 				data = string(dataBytes)
@@ -210,7 +210,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 
 	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(baseURL, "/")+path, body)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if c.Token == "" && c.tokenFetcher != nil {
@@ -219,7 +219,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 			Scopes: types.DefaultCLIAPIKeyScopes(),
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)
+			return nil, fmt.Errorf("failed to fetch token: %w", err)
 		}
 		c.Token = token
 	}
@@ -232,23 +232,23 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 	}
 
 	if len(headerKV)%2 != 0 {
-		return nil, nil, fmt.Errorf("length of headerKV must be even")
+		return nil, fmt.Errorf("length of headerKV must be even")
 	}
 	for i := 0; i < len(headerKV); i += 2 {
 		req.Header.Add(headerKV[i], headerKV[i+1])
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if resp.StatusCode > 399 {
-		return nil, nil, ErrorFromResponse(resp)
+		return nil, ErrorFromResponse(resp)
 	}
 	if debug && !slices.Contains(headerKV, "text/event-stream") {
 		var data string
 		dataBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if utf8.Valid(dataBytes) {
 			data = string(dataBytes)
@@ -258,7 +258,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		slog.Debug("HTTP Response", "method", method, "path", path, "body", data, "code", resp.StatusCode)
 		resp.Body = io.NopCloser(bytes.NewReader(dataBytes))
 	}
-	return req, resp, err
+	return resp, err
 }
 
 // ErrorFromResponse builds a bounded HTTP error from a response, consuming and closing its body.

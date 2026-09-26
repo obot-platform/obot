@@ -229,7 +229,7 @@ type VMCPInstanceStatus struct {
 type VMCPInstanceList List[VMCPInstance]
 
 // Default fills secure defaults that are omitted by clients.
-func (m *VMCPManifest) Default(personalServer bool, userID string) {
+func (m *VMCPManifest) Default(personalServer bool) {
 	m.DefaultConfigurationPolicies()
 
 	if personalServer {

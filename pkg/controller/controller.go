@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/compositemigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
@@ -125,8 +126,19 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure auth providers and model providers: %w", err)
 	}
 
-	if err := compositemigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient); err != nil {
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, compositemigration.MigrationName, func() error {
+		return compositemigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient)
+	}); err != nil {
 		return fmt.Errorf("failed to migrate composite MCP servers: %w", err)
+	}
+
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, catalogmigration.MigrationName, func() error {
+		return catalogmigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate standalone MCP servers: %w", err)
+	}
+	if err := catalogmigration.Cleanup(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to clean up legacy MCP servers: %w", err)
 	}
 
 	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "vmcp_default_admin_obot_groups", func() error {

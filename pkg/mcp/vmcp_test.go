@@ -303,11 +303,17 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	manager := &SessionManager{
 		storageClient:  storageClient,
 		httpListenPort: vmcpTestListenPort,
+		baseURL:        "https://obot.example.test",
 	}
 
 	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
+	}
+	// API clients mint a loopback token for the vMCP, which requires an audience.
+	wantAudiences := []string{"https://obot.example.test/mcp-connect/" + instanceID, "https://obot.example.test/mcp-connect/" + vmcpID}
+	if !slices.Equal(serverConfig.Audiences, wantAudiences) {
+		t.Fatalf("vMCP audiences = %v, want %v", serverConfig.Audiences, wantAudiences)
 	}
 	if serverConfig.Runtime != types.RuntimeVMCP {
 		t.Fatalf("vMCP runtime = %q, want %q", serverConfig.Runtime, types.RuntimeVMCP)

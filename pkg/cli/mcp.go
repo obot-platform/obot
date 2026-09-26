@@ -145,7 +145,7 @@ func validateCatalogPaths(paths []string, validateFile func(string) error) (int,
 			continue
 		}
 
-		files, _, err := mcpcatalog.WalkCatalogFiles(input)
+		files, err := mcpcatalog.WalkCatalogFiles(input)
 		if err != nil {
 			validationErr = errors.Join(validationErr, fmt.Errorf("%s: %w", input, err))
 			continue
@@ -225,7 +225,7 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 				seenVMCPKeys[key] = label
 			}
 
-			manifest.Default(false, "")
+			manifest.Default(false)
 			for index := range manifest.Components {
 				component := &manifest.Components[index]
 				if component.Name == "" {

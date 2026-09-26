@@ -241,7 +241,12 @@ func (in *MCPServer) ValidConnectURLs(base string) []string {
 
 // IsSingleUser returns true if this is a single-user MCP server.
 func (s MCPServerSpec) IsSingleUser() bool {
-	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == "" && s.VMCPID == ""
+	return s.VMCPInstanceID != ""
+}
+
+// IsMultiUser returns true if this is a multi-user MCP server.
+func (s MCPServerSpec) IsMultiUser() bool {
+	return s.VMCPID != ""
 }
 
 // IsOwnedBy returns true if the given user created this server and it is not

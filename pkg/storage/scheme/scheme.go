@@ -9,7 +9,7 @@ import (
 
 //nolint:revive
 var (
-	Scheme, Codecs, _, AddToScheme = restconfig.MustBuildScheme(
+	Scheme, _, _, AddToScheme = restconfig.MustBuildScheme(
 		v1.AddToScheme,
 		coordinationv1.AddToScheme,
 		corev1.AddToScheme,

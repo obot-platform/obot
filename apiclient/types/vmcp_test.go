@@ -119,7 +119,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 	manifest := validVMCPManifest()
 	manifest.Components[0].Configuration = []VMCPConfigurationPolicy{{Key: "TOKEN"}}
 
-	manifest.Default(false, "user-1")
+	manifest.Default(false)
 	if err := manifest.Validate(); err != nil {
 		t.Fatalf("default manifest validation failed: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 func TestVMCPManifestDefaultPreservesExplicitEmptyProfiles(t *testing.T) {
 	manifest := VMCPManifest{Profiles: []VMCPProfile{}}
 
-	manifest.Default(false, "user-1")
+	manifest.Default(false)
 
 	if manifest.Profiles == nil || len(manifest.Profiles) != 0 {
 		t.Fatalf("explicit empty profiles changed to %#v", manifest.Profiles)
@@ -161,7 +161,7 @@ func TestVMCPManifestDefaultPersonalServer(t *testing.T) {
 			}},
 		}
 
-		manifest.Default(true, "user-1")
+		manifest.Default(true)
 
 		if manifest.Profiles != nil {
 			t.Fatalf("personal server profiles = %#v, want nil", manifest.Profiles)

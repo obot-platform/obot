@@ -536,7 +536,7 @@ export class MCPTesterChat {
 
 		try {
 			const response = await this.#fetcher(
-				`/api/mcp-servers/${encodeURIComponent(this.#serverID)}/tester/chat`,
+				`/api/vmcp-instances/${encodeURIComponent(this.#serverID)}/tester/chat`,
 				{
 					method: 'POST',
 					credentials: 'same-origin',

@@ -287,8 +287,8 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 	handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "installation-secret"}, upstream)
 	handler.modelProxy.GatewayClient = client
 
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody))
-	request.SetPathValue("mcp_server_id", "ms1tester")
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/vmcpi1tester/tester/chat", strings.NewReader(modelProxyChatBody))
+	request.SetPathValue("vmcp_instance_id", "vmcpi1tester")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
 	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
 		request.Header.Set(key, value)
@@ -529,8 +529,8 @@ func TestTesterModelProxyAuditsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody)).WithContext(ctx)
-	request.SetPathValue("mcp_server_id", "ms1tester")
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/vmcpi1tester/tester/chat", strings.NewReader(modelProxyChatBody)).WithContext(ctx)
+	request.SetPathValue("vmcp_instance_id", "vmcpi1tester")
 
 	done := make(chan error, 1)
 	go func() {

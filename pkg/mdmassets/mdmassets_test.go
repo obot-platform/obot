@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 // fieldsSchema mirrors the fields object obot-sentry's build/manifest.json
@@ -191,53 +193,6 @@ func TestManifestCarriedThrough(t *testing.T) {
 	}
 }
 
-func TestValidateTemplatesCatchesMissingRenderInput(t *testing.T) {
-	dir := writeAssets(t, SchemaVersion)
-	mustWrite(t, filepath.Join(dir, "windows", "intune", "EXTRA.txt.tmpl"), "missing={{.notInSchema}}")
-	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest := strings.Replace(string(raw), `"windows/intune/obot-sentry.intunewin",
-        "windows/intune/INSTRUCTIONS.md.tmpl"`, `"windows/intune/obot-sentry.intunewin",
-        "windows/intune/INSTRUCTIONS.md.tmpl",
-        "windows/intune/EXTRA.txt.tmpl"`, 1)
-	mustWrite(t, filepath.Join(dir, "manifest.json"), manifest)
-	loader, err := NewFS(os.DirFS(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	configuration, err := loader.Find("intune", "windows")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := loader.ValidateTemplates(configuration, completedValues(t, loader), false); err == nil {
-		t.Fatal("missing template input was not detected before download")
-	}
-}
-
-func TestFind(t *testing.T) {
-	l, err := NewFS(os.DirFS(writeAssets(t, SchemaVersion)))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Sole-OS platforms resolve without an OS; explicit picks work; the
-	// rest error with the available list.
-	if c, err := l.Find("intune", ""); err != nil || c.OS != "windows" {
-		t.Errorf("Find(intune, \"\") = %+v, %v; want windows", c, err)
-	}
-	if c, err := l.Find("multi", "macos"); err != nil || c.OS != "macos" {
-		t.Errorf("Find(multi, macos) = %+v, %v; want macos", c, err)
-	}
-	if _, err := l.Find("multi", ""); err == nil {
-		t.Error("multi-OS platform without an OS should error")
-	}
-	if _, err := l.Find("android", ""); err == nil || !strings.Contains(err.Error(), "intune/windows") {
-		t.Errorf("unknown platform should error naming the available configurations, got %v", err)
-	}
-}
-
 // TestCompleteValues pins that fixed values, defaults, and bounds all
 // come from the manifest's fields schema, not server code.
 func TestCompleteValues(t *testing.T) {
@@ -297,10 +252,7 @@ func TestRenderInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := l.Find("intune", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := intuneConfiguration(t, l)
 	instructions, err := l.RenderInstructions(c, completedValues(t, l), false)
 	if err != nil {
 		t.Fatal(err)
@@ -351,10 +303,7 @@ func TestRenderEnforcementToggle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := l.Find("intune", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := intuneConfiguration(t, l)
 
 	values := map[string]any{"serverURL": "https://obot.example.com", "scanIntervalMinutes": 30}
 
@@ -405,10 +354,7 @@ func TestZip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := l.Find("intune", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := intuneConfiguration(t, l)
 
 	var buf bytes.Buffer
 	if err := l.Zip(&buf, c, completedValues(t, l), false); err != nil {
@@ -436,10 +382,7 @@ func TestZipRejectsUnknownTemplateField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := l.Find("intune", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := intuneConfiguration(t, l)
 	if err := l.Zip(&bytes.Buffer{}, c, completedValues(t, l), false); err == nil {
 		t.Error("template referencing an unknown field should error")
 	}
@@ -470,4 +413,15 @@ func keys(m map[string]string) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func intuneConfiguration(t *testing.T, l *Loader) types.MDMAssetConfiguration {
+	t.Helper()
+	for _, c := range l.Manifest().Configurations {
+		if c.Platform == "intune" && c.OS == "windows" {
+			return c
+		}
+	}
+	t.Fatal("intune/windows configuration not found")
+	return types.MDMAssetConfiguration{}
 }

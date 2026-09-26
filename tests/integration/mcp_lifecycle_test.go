@@ -25,17 +25,20 @@ const (
 	updatedIntegrationValue = "reconfigured"
 )
 
-// TestMCPServerLifecycle_NPXEverything exercises a single-user NPX MCP server
-// through the public Obot API. The Docker backend runs the pinned MCP Everything
-// package through mmmcp and proves create, configure, launch, invoke, restart,
-// reconfigure, and delete behavior across the full stack.
+// TestMCPServerLifecycle_NPXEverything exercises a personal vMCP with a single
+// NPX component through the public Obot API. The Docker backend runs the pinned
+// MCP Everything package through mmmcp and proves create, configure, launch,
+// invoke, restart, reconfigure, and delete behavior across the full stack.
 //
 // Docker and access to the npm and GHCR registries are required.
 func TestMCPServerLifecycle_NPXEverything(t *testing.T) {
 	h := harness.New(t)
 
 	var (
-		created              types.MCPServer
+		vmcp                 types.VMCP
+		instance             types.VMCPInstance
+		componentID          string
+		componentServerID    string
 		initialContainerID   string
 		restartedContainerID string
 	)
@@ -74,74 +77,87 @@ func TestMCPServerLifecycle_NPXEverything(t *testing.T) {
 		})
 		h.WaitForMCPCatalogEntryAccess(t, system.DefaultCatalog, entry.ID, 10*time.Second)
 
-		created = h.CreateMCPServerFromCatalogEntry(t, entry.ID)
-		if created.ID == "" {
-			t.Fatalf("server create returned empty ID: %+v", created)
+		vmcp = h.CreatePersonalVMCP(t, types.VMCPManifest{
+			DisplayName: h.MCPServerName("lifecycle"),
+			Components: []types.VMCPComponent{{
+				Name:                    "everything",
+				MCPCatalogID:            system.DefaultCatalog,
+				MCPServerCatalogEntryID: entry.ID,
+				Configuration: []types.VMCPConfigurationPolicy{{
+					Key:    integrationEnvKey,
+					Policy: types.VMCPConfigurationPolicyUserAllowed,
+				}},
+			}},
+		})
+		if vmcp.ID == "" || len(vmcp.Components) != 1 || vmcp.Components[0].ID == "" {
+			t.Fatalf("vMCP create returned unexpected result: %+v", vmcp)
 		}
-		t.Logf("created MCP server id=%s from catalog entry id=%s", created.ID, entry.ID)
+		componentID = vmcp.Components[0].ID
+		t.Logf("created vMCP id=%s component id=%s from catalog entry id=%s", vmcp.ID, componentID, entry.ID)
 
-		h.ConfigureMCPServer(t, created.ID, map[string]string{integrationEnvKey: integrationEnvValue})
-		configured := h.GetMCPServer(t, created.ID)
-		if !configured.Configured {
-			t.Fatalf("expected server to report Configured=true after configure, got %+v", configured)
+		instance = h.CreateVMCPInstance(t, vmcp.ID)
+		if instance.ID == "" {
+			t.Fatalf("vMCP instance create returned empty ID: %+v", instance)
 		}
+		h.ConfigureVMCPInstance(t, instance.ID, componentID, map[string]string{integrationEnvKey: integrationEnvValue})
+		instance = h.WaitForVMCPInstanceConfigured(t, instance.ID, "", 10*time.Second)
 	}) {
 		return
 	}
 
 	if !t.Run("launch", func(t *testing.T) {
-		h.LaunchMCPServer(t, created.ID)
-		details := h.WaitForMCPServerAvailable(t, created.ID, 2*time.Minute)
+		h.LaunchVMCP(t, vmcp.ID)
+		componentServerID = h.WaitForVMCPInstanceComponentServer(t, instance.ID, componentID, 30*time.Second)
+		details := h.WaitForMCPServerAvailable(t, componentServerID, 2*time.Minute)
 		if details.DeploymentName == "" || details.ReadyReplicas != 1 {
 			t.Fatalf("expected one ready deployment, got %+v", details)
 		}
-		initialContainerID = requireSingleDockerDeployment(t, created.ID)
+		initialContainerID = requireSingleDockerDeployment(t, componentServerID)
 	}) {
 		return
 	}
 
 	if !t.Run("invoke_tool", func(t *testing.T) {
 		var tools []types.MCPServerTool
-		h.Get(t, "/api/mcp-servers/"+created.ID+"/tools", &tools)
+		h.Get(t, "/api/vmcps/"+vmcp.ID+"/tools", &tools)
 		if len(tools) == 0 {
-			t.Fatalf("expected at least one tool on a running MCP server, got none")
+			t.Fatalf("expected at least one tool on a running vMCP, got none")
 		}
-		assertEchoToolCall(t, h.BaseURL, created.ID, "before restart")
-		assertEnvironmentValue(t, h.BaseURL, created.ID, integrationEnvValue)
+		assertEchoToolCall(t, h.BaseURL, vmcp.ID, "before restart")
+		assertEnvironmentValue(t, h.BaseURL, vmcp.ID, integrationEnvValue)
 	}) {
 		return
 	}
 
 	if !t.Run("restart", func(t *testing.T) {
-		h.RestartMCPServer(t, created.ID)
-		restartedContainerID = waitForDockerDeploymentReplaced(t, created.ID, initialContainerID, 2*time.Minute)
-		h.WaitForMCPServerAvailable(t, created.ID, 2*time.Minute)
-		assertEchoToolCall(t, h.BaseURL, created.ID, "after restart")
-		assertEnvironmentValue(t, h.BaseURL, created.ID, integrationEnvValue)
+		h.RestartMCPServer(t, componentServerID)
+		restartedContainerID = waitForDockerDeploymentReplaced(t, componentServerID, initialContainerID, 2*time.Minute)
+		h.WaitForMCPServerAvailable(t, componentServerID, 2*time.Minute)
+		assertEchoToolCall(t, h.BaseURL, vmcp.ID, "after restart")
+		assertEnvironmentValue(t, h.BaseURL, vmcp.ID, integrationEnvValue)
 	}) {
 		return
 	}
 
 	if !t.Run("reconfigure", func(t *testing.T) {
-		h.ConfigureMCPServer(t, created.ID, map[string]string{integrationEnvKey: updatedIntegrationValue})
-		waitForDockerDeploymentRemoved(t, created.ID, 2*time.Minute)
-		configured := h.GetMCPServer(t, created.ID)
-		if !configured.Configured {
-			t.Fatalf("expected server to remain configured after updating %s, got %+v", integrationEnvKey, configured)
-		}
-		h.LaunchMCPServer(t, created.ID)
-		waitForDockerDeploymentReplaced(t, created.ID, restartedContainerID, 2*time.Minute)
-		h.WaitForMCPServerAvailable(t, created.ID, 2*time.Minute)
-		assertEchoToolCall(t, h.BaseURL, created.ID, "after reconfigure")
-		assertEnvironmentValue(t, h.BaseURL, created.ID, updatedIntegrationValue)
+		// Configuration changes apply on the next launch, which replaces the
+		// component deployment whose configuration hash no longer matches.
+		h.ConfigureVMCPInstance(t, instance.ID, componentID, map[string]string{integrationEnvKey: updatedIntegrationValue})
+		instance = h.WaitForVMCPInstanceConfigured(t, instance.ID, instance.Status.UserConfigurationHash, 10*time.Second)
+		h.LaunchVMCP(t, vmcp.ID)
+		componentServerID = h.WaitForVMCPInstanceComponentServer(t, instance.ID, componentID, 30*time.Second)
+		waitForDockerDeploymentReplaced(t, componentServerID, restartedContainerID, 2*time.Minute)
+		h.WaitForMCPServerAvailable(t, componentServerID, 2*time.Minute)
+		assertEchoToolCall(t, h.BaseURL, vmcp.ID, "after reconfigure")
+		assertEnvironmentValue(t, h.BaseURL, vmcp.ID, updatedIntegrationValue)
 	}) {
 		return
 	}
 
 	t.Run("delete", func(t *testing.T) {
-		h.Delete(t, "/api/mcp-servers/"+created.ID)
-		h.WaitForMCPServerDeleted(t, created.ID, 30*time.Second)
-		waitForDockerDeploymentRemoved(t, created.ID, 30*time.Second)
+		h.Delete(t, "/api/vmcps/"+vmcp.ID)
+		h.WaitForDeleted(t, "/api/vmcps/"+vmcp.ID, 30*time.Second)
+		waitForDockerDeploymentRemoved(t, componentServerID, 30*time.Second)
 	})
 }
 

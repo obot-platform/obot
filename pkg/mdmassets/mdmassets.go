@@ -194,32 +194,6 @@ func (l *Loader) Manifest() types.MDMAssetManifest {
 	}
 }
 
-// Find returns the configuration for (platform, osName). An empty
-// osName matches when the platform has exactly one configuration. The
-// returned error names what is available and is safe to surface to the
-// admin.
-func (l *Loader) Find(platform, osName string) (types.MDMAssetConfiguration, error) {
-	var matches []types.MDMAssetConfiguration
-	for _, c := range l.manifest.Configurations {
-		if c.Platform == platform && (osName == "" || c.OS == osName) {
-			matches = append(matches, c)
-		}
-	}
-	switch len(matches) {
-	case 1:
-		return matches[0], nil
-	case 0:
-		var available []string
-		for _, c := range l.manifest.Configurations {
-			available = append(available, c.Platform+"/"+c.OS)
-		}
-		return types.MDMAssetConfiguration{}, fmt.Errorf("the MDM asset bundle has no %s configuration (available: %s)",
-			strings.TrimSuffix(platform+"/"+osName, "/"), strings.Join(available, ", "))
-	default:
-		return types.MDMAssetConfiguration{}, fmt.Errorf("platform %s targets multiple OSes; specify one", platform)
-	}
-}
-
 // CompleteValues drops nulls (null means unset), fills schema defaults,
 // and validates values in place — every rule comes from the manifest.
 // The returned error is safe to surface to the admin.
@@ -258,22 +232,6 @@ func (l *Loader) RenderInstructions(c types.MDMAssetConfiguration, values map[st
 		return "", err
 	}
 	return buf.String(), nil
-}
-
-// ValidateTemplates executes every rendered asset against completed values
-// without copying binary assets. This catches missing template inputs before a
-// deployment is saved instead of deferring the failure until download.
-func (l *Loader) ValidateTemplates(c types.MDMAssetConfiguration, values map[string]any, enforcementEnabled bool) error {
-	context := l.renderContext(values, enforcementEnabled)
-	for _, rel := range c.Assets {
-		if !strings.HasSuffix(path.Base(rel), ".tmpl") {
-			continue
-		}
-		if err := l.renderTemplate(io.Discard, rel, context); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // RenderAll completes and validates values once, then renders every target in

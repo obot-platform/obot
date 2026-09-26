@@ -94,7 +94,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}
 	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
 
-	manifest.Default(personalServer, req.User.GetUID())
+	manifest.Default(personalServer)
 	var userID string
 	if personalServer {
 		userID = req.User.GetUID()
@@ -163,7 +163,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 
-	manifest.Default(vmcp.Spec.UserID != "", req.User.GetUID())
+	manifest.Default(vmcp.Spec.UserID != "")
 
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)

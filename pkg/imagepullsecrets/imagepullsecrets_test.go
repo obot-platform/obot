@@ -535,11 +535,3 @@ func TestEffectiveSecretNames(t *testing.T) {
 		t.Fatalf("unexpected managed effective names: %v", got)
 	}
 }
-
-func TestImagePullSecretsHashIgnoresOrder(t *testing.T) {
-	first := Hash([]string{"b", "a", "b"})
-	second := Hash([]string{"a", "b"})
-	if first != second {
-		t.Fatalf("expected stable hash, got %q and %q", first, second)
-	}
-}

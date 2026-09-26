@@ -29,10 +29,6 @@ var (
 	envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
-type Config struct {
-	MCPServers map[string]ServerConfig `json:"mcpServers"`
-}
-
 type ServerConfig struct {
 	Runtime types.Runtime `json:"runtime"`
 

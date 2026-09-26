@@ -53,6 +53,7 @@ func newOAuthTokenTestServices(t *testing.T, objects ...kclient.Object) (storage
 	})
 	storage := clientfake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
+		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
 		WithIndex(&v1.OAuthAuthRequest{}, "spec.hashedAuthCode", func(obj kclient.Object) []string { return []string{obj.(*v1.OAuthAuthRequest).Spec.HashedAuthCode} }).
 		WithObjects(objects...).

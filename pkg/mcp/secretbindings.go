@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"sort"
-	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
@@ -165,23 +164,6 @@ func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace 
 		}
 	}
 	return missing, nil
-}
-
-// ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
-// before creating/updating/launching a server that users cannot fix.
-func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, config []types.MCPConfig, allowedLabel string) error {
-	missing, err := MissingSecretBindings(ctx, c, obotNamespace, config, allowedLabel)
-	if err != nil {
-		return err
-	}
-	if len(missing) > 0 {
-		fields := make([]string, 0, len(missing))
-		for _, field := range missing {
-			fields = append(fields, fmt.Sprintf("%s %q references %s/%s", field.Kind, field.Header.Key, obotNamespace, field.Binding.Name))
-		}
-		return fmt.Errorf("secret bindings reference unavailable Kubernetes Secrets: %s", strings.Join(fields, ", "))
-	}
-	return nil
 }
 
 func hasAnyBinding(config []types.MCPConfig) bool {

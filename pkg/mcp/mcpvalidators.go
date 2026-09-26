@@ -438,7 +438,7 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 }
 
 func (v RemoteValidator) ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error {
-	if err := validateConfigurationOptions(manifest.Config, ""); err != nil {
+	if err := validateConfigurationOptions(manifest.Config); err != nil {
 		return err
 	}
 	if manifest.Runtime != types.RuntimeRemote {
@@ -811,20 +811,11 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 	}
 }
 
-// ValidateCatalogEntryForRoute checks that a catalog entry is compatible with the
-// route used to create a server. catalogID and workspaceID come from the URL path.
-func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, catalogID, workspaceID string) error {
-	_ = manifest
-	_ = catalogID
-	_ = workspaceID
-	return nil
-}
-
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
 	if err := manifest.ValidateConfig(); err != nil {
 		return err
 	}
-	if err := validateCatalogConfigurationOptions(manifest, ""); err != nil {
+	if err := validateCatalogConfigurationOptions(manifest); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(manifest.ShortDescription) > maxShortDescriptionLength {
@@ -860,18 +851,18 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 }
 
 func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
-	if err := validateCatalogSyncedTunnelName(manifest, ""); err != nil {
+	if err := validateCatalogSyncedTunnelName(manifest); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifest, fieldPrefix string) error {
+func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
-			Field:   fieldPrefix + "remoteConfig.tunnelName",
+			Field:   "remoteConfig.tunnelName",
 			Message: "cannot be set on catalog-synced entries",
 		}
 	}
@@ -908,7 +899,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 	if err := manifest.ValidateConfig(); err != nil {
 		return err
 	}
-	if err := validateConfigurationOptions(manifest.Config, ""); err != nil {
+	if err := validateConfigurationOptions(manifest.Config); err != nil {
 		return err
 	}
 	for _, env := range manifest.Config {
@@ -975,7 +966,7 @@ func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemM
 			return fmt.Errorf("config %q: userAllowed is not supported for system MCP servers", config.Key)
 		}
 	}
-	if err := validateConfigurationOptions(manifest.Config, ""); err != nil {
+	if err := validateConfigurationOptions(manifest.Config); err != nil {
 		return err
 	}
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
@@ -1044,48 +1035,6 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 		}
 	}
 
-	return nil
-}
-
-// ValidateSecretBindings enforces the rules for secretBinding references on
-// env vars and headers. Bindings may appear on git-managed catalog entries,
-// multi-user catalog entries, or admin-managed multi-user servers. They require the kubernetes MCP runtime
-// backend, are mutually exclusive with a static value, require non-empty
-// name/key, and are rejected in unsupported combinations (env bindings under
-// remote runtime).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged, adminManaged bool, mcpBackend string) error {
-	check := func(kind, key string, h types.MCPHeader) error {
-		if h.SecretBinding == nil {
-			return nil
-		}
-		if !IsKubernetesBackend(mcpBackend) {
-			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
-		}
-		if !gitManaged && !adminManaged {
-			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries, multi-user catalog entries, or admin-managed multi-user servers", kind, key)
-		}
-		if h.Value != "" {
-			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
-		}
-		if h.SecretBinding.Name == "" || h.SecretBinding.Key == "" {
-			return fmt.Errorf("%s %q: secretBinding requires both name and key", kind, key)
-		}
-		return nil
-	}
-
-	for _, env := range manifest.Config {
-		if env.UserAllowed && env.SecretBinding != nil {
-			return fmt.Errorf("multi-user header %q: secretBinding is not supported for user-defined headers", env.Key)
-		}
-		if env.SecretBinding != nil {
-			if manifest.Runtime == types.RuntimeRemote && env.Usage != types.Header {
-				return fmt.Errorf("env %q: secretBinding on env vars is not supported for remote runtime", env.Key)
-			}
-		}
-		if err := check(string(env.Usage), env.Key, env.ToHeader()); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -1163,36 +1112,8 @@ func extractEnvRefs(s string) []string {
 	return out
 }
 
-// serverTemplateFields returns every command/args/URL string in a server
-// manifest that may carry ${VAR} references.
-func serverTemplateFields(m types.MCPServerManifest) []string {
-	var out []string
-	switch m.Runtime {
-	case types.RuntimeUVX:
-		if m.UVXConfig != nil {
-			out = append(out, m.UVXConfig.Command)
-			out = append(out, m.UVXConfig.Args...)
-		}
-	case types.RuntimeNPX:
-		if m.NPXConfig != nil {
-			out = append(out, m.NPXConfig.Args...)
-		}
-	case types.RuntimeContainerized:
-		if m.ContainerizedConfig != nil {
-			out = append(out, m.ContainerizedConfig.Image, m.ContainerizedConfig.Command)
-			out = append(out, m.ContainerizedConfig.Args...)
-		}
-	case types.RuntimeRemote:
-		if m.RemoteConfig != nil {
-			out = append(out, m.RemoteConfig.URL)
-		}
-	}
-	return out
-}
-
-// catalogTemplateFields is the catalog-entry counterpart to serverTemplateFields.
-// The remote runtime config differs from the server-side shape (FixedURL /
-// URLTemplate instead of URL), so we extract from those fields instead.
+// catalogTemplateFields returns every command/args/URL string in a catalog
+// entry manifest that may carry ${VAR} references.
 func catalogTemplateFields(m types.MCPServerCatalogEntryManifest) []string {
 	var out []string
 	switch m.Runtime {
@@ -1219,12 +1140,8 @@ func catalogTemplateFields(m types.MCPServerCatalogEntryManifest) []string {
 }
 
 // validateTemplateReferences enforces that every ${VAR} reference inside
-// fields resolves to an env entry marked Required=true. References to
-// undeclared env vars error only when requireDeclared is set — server
-// manifests auto-extract undeclared refs into Required=true env entries
-// elsewhere, so the server-side caller passes false; catalog-entry manifests
-// have no such fixup and pass true.
-func validateTemplateReferences(envs []types.MCPConfig, fields []string, requireDeclared bool) error {
+// fields resolves to a declared env entry marked Required=true.
+func validateTemplateReferences(envs []types.MCPConfig, fields []string) error {
 	required := make(map[string]bool, len(envs))
 	for _, env := range envs {
 		required[env.Key] = env.Required
@@ -1233,10 +1150,7 @@ func validateTemplateReferences(envs []types.MCPConfig, fields []string, require
 		for _, name := range extractEnvRefs(f) {
 			req, ok := required[name]
 			if !ok {
-				if requireDeclared {
-					return fmt.Errorf("template references undeclared env var %q; declare it under env with required=true", name)
-				}
-				continue
+				return fmt.Errorf("template references undeclared env var %q; declare it under env with required=true", name)
 			}
 			if !req {
 				return fmt.Errorf("env var %q is referenced from a command/args/URL template and must be required=true", name)
@@ -1246,28 +1160,13 @@ func validateTemplateReferences(envs []types.MCPConfig, fields []string, require
 	return nil
 }
 
-// ValidateTemplateReferences enforces that any ${VAR} reference inside a
-// server manifest's command/args/URL fields points to an env entry with
-// Required=true. Undeclared references are tolerated here because
-// addExtractedEnvVars in the server-create path auto-stamps a Required=true
-// entry for them; this validator catches the case where the user pre-supplied
-// the same key with Required=false, which today produces a literal
-// "${VAR}" string at runtime instead of a substituted value.
-func ValidateTemplateReferences(manifest types.MCPServerManifest) error {
-	fields := serverTemplateFields(manifest)
-	for _, config := range manifest.Config {
-		fields = append(fields, config.Value)
-	}
-	return validateTemplateReferences(manifest.Config, fields, false)
-}
-
-// ValidateTemplateReferencesCatalogEntry is the catalog-entry counterpart.
-// Catalog entries don't get the auto-extraction fixup, so undeclared
-// ${VAR} references are an error.
+// ValidateTemplateReferencesCatalogEntry enforces that any ${VAR} reference
+// inside a catalog entry manifest's command/args/URL fields points to a
+// declared env entry with Required=true.
 func ValidateTemplateReferencesCatalogEntry(manifest types.MCPServerCatalogEntryManifest) error {
 	fields := catalogTemplateFields(manifest)
 	for _, config := range manifest.Config {
 		fields = append(fields, config.Value)
 	}
-	return validateTemplateReferences(manifest.Config, fields, true)
+	return validateTemplateReferences(manifest.Config, fields)
 }

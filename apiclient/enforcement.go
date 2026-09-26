@@ -15,7 +15,7 @@ import (
 // own. A zero response has Decision == "", which a caller could otherwise read
 // as "not a deny"; the verdict is only meaningful when the error is nil.
 func (c *Client) Decide(ctx context.Context, req types.EnforcementDecisionRequest) (types.EnforcementDecisionResponse, error) {
-	_, resp, err := c.postJSON(ctx, "/enforcement/decisions", req)
+	resp, err := c.postJSON(ctx, "/enforcement/decisions", req)
 	if err != nil {
 		return types.EnforcementDecisionResponse{}, err
 	}

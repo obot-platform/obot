@@ -67,8 +67,7 @@ const (
 	// boundaries, not scheduling tiers, so they must not preempt one another.
 	poolPriorityValue = 1000
 
-	defaultContainerPort = 8099
-	defaultFSGroup       = 1000
+	defaultFSGroup = 1000
 )
 
 var (

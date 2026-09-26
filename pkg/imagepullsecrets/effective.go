@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/utils"
 )
 
 func EffectiveSecretNames(staticPullSecrets []string, managedSecrets []v1.ImagePullSecret) []string {
@@ -24,10 +23,6 @@ func EffectiveSecretNames(staticPullSecrets []string, managedSecrets []v1.ImageP
 	}
 
 	return CleanSecretNames(names)
-}
-
-func Hash(secretNames []string) string {
-	return utils.Digest(CleanSecretNames(secretNames))
 }
 
 func CleanSecretNames(names []string) []string {

@@ -12,7 +12,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ResolveConnectID resolves both current IDs and migrated composite aliases.
+// ResolveConnectID resolves both current IDs and migrated MCP aliases.
 // A nil VMCP means the ID still belongs to the legacy resource model.
 // Instance aliases always identify one connection, never another user's connection.
 func ResolveConnectID(ctx context.Context, client kclient.Client, id, userID string) (*v1.VMCP, *v1.VMCPInstance, error) {
@@ -32,29 +32,36 @@ func ResolveConnectID(ctx context.Context, client kclient.Client, id, userID str
 			return nil, nil, err
 		}
 	default:
-		// Existing legacy resources remain authoritative until migration finishes.
-		var old kclient.Object = new(v1.MCPServerCatalogEntry)
+		// Legacy server resources remain authoritative until migration removes them.
+		// Catalog entries remain as templates, so they must not hide migrated aliases.
+		var old kclient.Object
 		if system.IsMCPServerID(id) {
 			old = new(v1.MCPServer)
+		} else if system.IsMCPServerInstanceID(id) {
+			old = new(v1.MCPServerInstance)
 		}
-		if system.IsMCPServerInstanceID(id) || system.IsSystemMCPServerID(id) {
+		if system.IsSystemMCPServerID(id) {
 			return nil, nil, nil
 		}
-		if err := client.Get(ctx, key, old); err == nil {
-			return nil, nil, nil
-		} else if !apierrors.IsNotFound(err) {
-			return nil, nil, err
+		if old != nil {
+			if err := client.Get(ctx, key, old); err == nil {
+				return nil, nil, nil
+			} else if !apierrors.IsNotFound(err) {
+				return nil, nil, err
+			}
 		}
-		if system.IsMCPServerID(id) {
+
+		if system.IsMCPServerID(id) || system.IsMCPServerInstanceID(id) {
 			var instances v1.VMCPInstanceList
 			if err := client.List(ctx, &instances, kclient.InNamespace(key.Namespace), kclient.MatchingFields{"spec.legacySlug": id}); err != nil {
 				return nil, nil, err
 			}
-			if len(instances.Items) == 0 {
-				return nil, nil, nil
+			if len(instances.Items) > 0 {
+				instance = &instances.Items[0]
 			}
-			instance = &instances.Items[0]
-		} else {
+		}
+		// A legacy multi-user server names a shared vMCP rather than one connection.
+		if instance == nil {
 			var vmcps v1.VMCPList
 			if err := client.List(ctx, &vmcps, kclient.InNamespace(key.Namespace), kclient.MatchingFields{"spec.legacySlug": id}); err != nil {
 				return nil, nil, err

@@ -2,7 +2,6 @@ package types
 
 const (
 	PublishedArtifactTypeWorkflow PublishedArtifactType = "workflow"
-	PublishedArtifactTypeSkill    PublishedArtifactType = "skill"
 )
 
 // PublishedArtifactType represents the type of a published artifact.
