@@ -12,6 +12,9 @@ const (
 	LocalAgentProviderCodex      LocalAgentProvider = "codex"
 	LocalAgentProviderVSCode     LocalAgentProvider = "vscode"
 	LocalAgentProviderCursor     LocalAgentProvider = "cursor"
+	LocalAgentProviderWorkBuddy  LocalAgentProvider = "workbuddy"
+	LocalAgentProviderOpenCode   LocalAgentProvider = "opencode"
+	LocalAgentProviderZCode      LocalAgentProvider = "zcode"
 )
 
 type AuditLogSourceType string

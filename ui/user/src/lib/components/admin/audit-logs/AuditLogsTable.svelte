@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatAuditLogCredentialLabel } from '$lib/auditlogs';
 	import { VirtualPageTable } from '$lib/components/ui';
+	import { localAgentProviderLabel } from '$lib/enforcement';
 	import type { AuditLogEvent } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
@@ -94,6 +95,13 @@
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
 		return eventType === 'mcp_call' ? 'Obot Gateway' : 'Local Agent Hook';
+	}
+
+	function clientLabel(event: (typeof data)[number]): string {
+		if (!event.client) return '—';
+		return event.eventType === 'local_agent_tool_call'
+			? localAgentProviderLabel(event.client)
+			: event.client;
 	}
 
 	function formatDuration(ms?: number) {
@@ -282,7 +290,7 @@
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}
-						{@render td(d.client || '—')}
+						{@render td(clientLabel(d))}
 						{@render td(formatDuration(d.outcome.durationMs))}
 					</tr>
 				{/each}

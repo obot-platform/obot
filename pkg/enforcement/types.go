@@ -25,6 +25,9 @@ const (
 	AgentCodex      = "codex"
 	AgentVSCode     = "vscode"
 	AgentCursor     = "cursor"
+	AgentWorkBuddy  = "workbuddy"
+	AgentOpenCode   = "opencode"
+	AgentZCode      = "zcode"
 )
 
 // NormalizedCall is the parameter-free description of a single tool call that
@@ -32,7 +35,8 @@ const (
 // (resolving the target server from the agent's MCP config) and by the decision
 // endpoint before evaluation.
 type NormalizedCall struct {
-	// Agent is the coding agent that issued the call (claude_code | codex | vscode | cursor).
+	// Agent is the coding agent that issued the call (for example
+	// claude_code, codex, workbuddy, opencode, or zcode).
 	Agent string
 	// Tool is the runtime tool name (for an MCP call this is the tool within the server).
 	Tool string

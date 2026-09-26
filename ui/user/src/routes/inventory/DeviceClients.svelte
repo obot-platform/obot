@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { canonicalDeviceClientNameFilter, formatDeviceClient } from '$lib/format.js';
 	import {
 		AdminService,
 		UserService,
@@ -42,7 +43,7 @@
 	let rows = $derived(
 		clients.map((c) => ({
 			id: c.name ?? '',
-			name: c.name ?? '',
+			name: c.name ? formatDeviceClient(c.name) : '',
 			mcpServers: c.mcpServers ?? [],
 			mcpServerCount: c.mcpServers?.length ?? 0,
 			skills: c.skills ?? [],
@@ -88,7 +89,7 @@
 			clientsData = await AdminService.listDeviceClients({
 				limit: pageSize,
 				offset: idx * pageSize,
-				name: nameFilter,
+				name: canonicalDeviceClientNameFilter(nameFilter),
 				...getSortParams(sort, deviceClientSortFields, defaultClientSort)
 			});
 		} finally {
@@ -147,7 +148,7 @@
 		{initSort}
 		onSort={handleSort}
 		onClickRow={(d, isCtrlClick) => {
-			openUrl(resolve(`/inventory/clients/${encodeURIComponent(d.name)}`), isCtrlClick);
+			openUrl(resolve(`/inventory/clients/${encodeURIComponent(d.id)}`), isCtrlClick);
 		}}
 	>
 		{#snippet onRenderColumn(property, d)}

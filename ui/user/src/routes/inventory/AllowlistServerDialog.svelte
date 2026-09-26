@@ -214,9 +214,10 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					The connector's display name, matched without regard to case. Use this for MCP connectors
-					that expose no local URL or command, such as claude.ai Connectors (i.e. claude.ai Google
-					Calendar). claude.ai Connectors always have the format "claude.ai &lt;name&gt;".
+					The connector's stable identity, matched without regard to case. Use this for MCP
+					connectors that expose no local URL or package, such as claude.ai Connectors
+					(i.e. claude.ai Google Calendar) or a ZCode Plugin MCP server
+					(`zcode-plugin:&lt;plugin&gt;:&lt;server&gt;`).
 				</span>
 			</div>
 		{/if}

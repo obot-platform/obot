@@ -4,7 +4,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { formatDeviceCommand } from '$lib/format.js';
+	import { formatDeviceClient, formatDeviceCommand } from '$lib/format.js';
 	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
@@ -29,6 +29,7 @@
 	let hasMcpServers = $derived((client?.mcpServers?.length ?? 0) > 0);
 	let hasSkills = $derived((client?.skills?.length ?? 0) > 0);
 	let clientName = $derived(page.params.name ?? '');
+	let clientDisplayName = $derived(formatDeviceClient(clientName));
 
 	let activeTab = $state<Tab>('users');
 
@@ -36,11 +37,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {clientName}</title>
+	<title>Obot | {clientDisplayName}</title>
 </svelte:head>
 
 <Layout
-	title={clientName}
+	title={clientDisplayName}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -61,7 +62,7 @@
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
-						{detail.name}
+						{formatDeviceClient(detail.name)}
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span>{detail.users.length} user{detail.users.length === 1 ? '' : 's'}</span>

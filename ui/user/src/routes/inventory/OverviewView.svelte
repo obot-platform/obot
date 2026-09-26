@@ -5,6 +5,7 @@
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+	import { formatDeviceClient } from '$lib/format.js';
 	import {
 		AdminService,
 		type DeviceClientStat,
@@ -56,7 +57,7 @@
 		buildDeviceScanTopBuckets<DeviceClientStat>(
 			stats?.clients,
 			(c) => c.name,
-			(c) => c.name,
+			(c) => formatDeviceClient(c.name),
 			(c) => c.deviceCount
 		)
 	);
