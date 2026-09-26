@@ -229,6 +229,15 @@ export interface AuditLogEvent {
 	 * Present in list responses so the table can render the Client column without fetching details.
 	 */
 	client?: string;
+	/**
+	 * Hostname of the enrolled device that produced the event, resolved server-side from the
+	 * stamped device ID. Present in list responses so the table can label rows without
+	 * enabling `details`. Absent for events with no device actor.
+	 *
+	 * This is the registry hostname, not the client-reported `details.device.hostname`: the
+	 * reported value is encrypted at rest, so it is neither listed nor searchable.
+	 */
+	deviceHostname?: string;
 	details?: AuditLogDetails;
 }
 export interface McpAuditLogToolCallStatItem {
