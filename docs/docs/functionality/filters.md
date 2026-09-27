@@ -373,3 +373,26 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+## Credential filter
+
+The built-in Credential Filter uses a default action (Block, Redact, or Allow)
+and optional exceptions for exact credential rules. Block is the default. Search
+by provider, credential name, or rule ID to add an override. Changing the default
+preserves explicit overrides; removing an override restores inheritance.
+
+Any blocking match rejects the entire message. Allow affects only its rule;
+another matching rule can still block the same credential. Redaction enables
+gateway mutation automatically and replaces detected text with
+`[REDACTED_CREDENTIAL]`. It may also replace surrounding context or an entire
+field value. Redact findings in object keys or JSON-RPC identifiers block instead.
+
+Select both request and response directions where both need protection. Configure
+the gateway's existing failure setting to reject on filter transport or execution
+failures. Saving configuration does not establish protection until the managed
+filter deployment successfully initializes.
+
+Detection is pattern-based, without live credential validation or confidence
+thresholds. It can produce false positives and does not recognize every secret.
+Allow passes credentials unchanged; it does not create findings history. Policy
+is deployment configuration and cannot be overridden by tool arguments.

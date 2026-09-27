@@ -41,9 +41,12 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex shrink-0 items-center gap-2">
+				<div class="flex min-w-0 flex-col gap-1 py-1">
 					<p class="flex items-center gap-2">
 						{d.name}
+					</p>
+					<p class="text-sm font-light text-muted-content whitespace-normal line-clamp-3">
+						{d.manifest.shortDescription || stripMarkdownToText(d.manifest.description)}
 					</p>
 				</div>
 			{:else if property === 'created'}

@@ -2,7 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
-	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
+	import { MCP_FILTERS_FIELD_IDS, DEFAULT_SYSTEM_MCP_CATALOG_ID } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -29,8 +29,16 @@
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import CredentialFilterConfiguration from './CredentialFilterConfiguration.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import {
+		credentialCatalog,
+		credentialEnvironment,
+		credentialMutationRequired,
+		readCredentialPolicy,
+		validateCredentialPolicy
+	} from './credentialPolicy';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -96,6 +104,20 @@
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
 	);
+	let credentialConfigurationLoaded = $state(untrack(() => !initialFilter?.id));
+	let credentialLoadError = $state('');
+	let disableError = $state('');
+	let isCredentialFilter = $derived(
+		filter.toolName === 'filter_credentials' && !!mcpSystemCatalogEntryId
+	);
+	let credentialPolicy = $derived(readCredentialPolicy(runtimeFormData?.env ?? []));
+	let credentialError = $derived(
+		isCredentialFilter
+			? runtimeFormData?.containerizedConfig?.image !== credentialCatalog.image
+				? 'This credential filter version has no matching rule catalog. Update the UI catalog before editing this policy.'
+				: validateCredentialPolicy(credentialPolicy)
+			: undefined
+	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
@@ -138,7 +160,7 @@
 
 	onMount(() => {
 		if (initialFilterId) {
-			revealServerValues();
+			void revealServerValues();
 		}
 
 		function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -177,6 +199,8 @@
 				}));
 			}
 
+			credentialConfigurationLoaded = true;
+
 			// Update headers in the appropriate runtime config based on runtime type
 			if (runtimeFormData?.runtime === 'remote') {
 				if (runtimeFormData.remoteConfig?.headers) {
@@ -197,10 +221,15 @@
 			}
 		} catch (error) {
 			if (error instanceof HttpError && error.statusCode === 404) {
-				// ignore, 404 means no credentials were set
+				// 404 means no credentials were set.
+				credentialConfigurationLoaded = true;
 				return;
 			}
-			// Re-throw other errors
+			if (isCredentialFilter) {
+				credentialLoadError =
+					'Unable to load the saved credential policy. Reload this page before editing.';
+				return;
+			}
 			throw error;
 		}
 	}
@@ -365,11 +394,18 @@
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
 	) {
 		if (mcpServerManifest) {
-			const configValues = Object.fromEntries(
-				(mcpServerManifest.manifest.config ?? [])
-					.filter((field) => !field.userAllowed && field.key && field.value)
-					.map((field) => [field.key, field.value])
-			);
+			const configValues = isCredentialFilter
+				? {
+						...Object.fromEntries(
+							(runtimeFormData?.env ?? []).map((field) => [field.key, field.value ?? ''])
+						),
+						...credentialEnvironment(credentialPolicy)
+					}
+				: Object.fromEntries(
+						(mcpServerManifest.manifest.config ?? [])
+							.filter((field) => !field.userAllowed && field.key && field.value)
+							.map((field) => [field.key, field.value])
+					);
 
 			// Configure the server with the collected values if any exist
 			if (Object.keys(configValues).length > 0) {
@@ -393,7 +429,36 @@
 		return true;
 	}
 
+	async function disableCredentialFilter() {
+		if (!initialFilterId || !initialFilter || readonly) return;
+		saving = true;
+		disableError = '';
+		try {
+			// Use saved settings so disabling never applies unsaved policy changes.
+			const result = await AdminService.updateMCPFilter(initialFilterId, {
+				name: initialFilter.name,
+				resources: initialFilter.resources,
+				url: initialFilter.url,
+				selectors: initialFilter.selectors,
+				toolName: initialFilter.toolName,
+				allowedToMutate: initialFilter.allowedToMutate,
+				systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId,
+				disabled: true
+			});
+			onUpdate?.(result);
+		} catch (err) {
+			disableError = err instanceof Error ? err.message : 'Unable to disable filter';
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function handleSave() {
+		if (
+			isCredentialFilter &&
+			(!credentialConfigurationLoaded || credentialLoadError || credentialError)
+		)
+			return;
 		// Show validation errors if required fields are missing
 		if (
 			!filter.name.trim() ||
@@ -439,6 +504,20 @@
 		}, 10000);
 
 		try {
+			if (isCredentialFilter && mcpSystemCatalogEntryId) {
+				const entry = await AdminService.getSystemMCPCatalogEntry(
+					DEFAULT_SYSTEM_MCP_CATALOG_ID,
+					mcpSystemCatalogEntryId
+				);
+				if (
+					entry.manifest.containerizedConfig?.image !== credentialCatalog.image ||
+					entry.manifest.filterConfig?.toolName !== 'filter_credentials'
+				) {
+					throw new Error(
+						'The credential filter catalog entry has changed and no longer matches this UI. Update the UI catalog and reload before saving this policy.'
+					);
+				}
+			}
 			const mcpServerManifest = runtimeFormData
 				? convertServerRuntimeFormDataToManifest(runtimeFormData as RuntimeFormData)
 				: undefined;
@@ -459,7 +538,9 @@
 				secret: filter.secret || undefined,
 				selectors,
 				toolName: filter.toolName,
-				allowedToMutate: filter.allowedToMutate ?? false,
+				allowedToMutate:
+					!!filter.allowedToMutate ||
+					(isCredentialFilter && credentialMutationRequired(credentialPolicy)),
 				disabled: filter.disabled ?? false,
 				...(isPrebuiltEntry
 					? {
@@ -687,7 +768,27 @@
 					{/if}
 				{/if}
 
-				{#if runtimeFormData.runtime !== 'remote'}
+				{#if isCredentialFilter}
+					{#if readonly && initialFilterId}<p class="text-sm text-muted-content">
+							Saved credential policy is available only to administrators.
+						</p>{:else if credentialLoadError}<p role="alert" class="text-error">
+							{credentialLoadError}
+						</p>{:else if !credentialConfigurationLoaded}<p>
+							Loading saved credential policy...
+						</p>{:else}
+						{#if credentialError && runtimeFormData.containerizedConfig?.image !== credentialCatalog.image}<p
+								role="alert"
+								class="text-error"
+							>
+								{credentialError}
+							</p>{/if}
+						<CredentialFilterConfiguration
+							bind:config={runtimeFormData.env}
+							readonly={readonly ||
+								runtimeFormData.containerizedConfig?.image !== credentialCatalog.image}
+						/>
+					{/if}
+				{:else if runtimeFormData.runtime !== 'remote'}
 					<CustomConfigurationForm
 						bind:config={runtimeFormData.env}
 						{readonly}
@@ -711,6 +812,7 @@
 		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
+		{#if disableError}<p role="alert" class="text-error">{disableError}</p>{/if}
 		<div
 			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
 			out:fly={{ x: -100, duration }}
@@ -721,8 +823,15 @@
 					{#if initialFilter?.id}
 						<button
 							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
-							disabled={saving}
+							disabled={saving ||
+								(isCredentialFilter &&
+									filter.disabled &&
+									(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 							onclick={() => {
+								if (isCredentialFilter && !filter.disabled) {
+									void disableCredentialFilter();
+									return;
+								}
 								filter.disabled = !filter.disabled;
 								handleSave();
 							}}
@@ -751,7 +860,9 @@
 					<button
 						id={MCP_FILTERS_FIELD_IDS.saveBtn}
 						class="btn btn-primary text-sm"
-						disabled={saving}
+						disabled={saving ||
+							(isCredentialFilter &&
+								(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 						onclick={handleSave}
 					>
 						{#if saving}
