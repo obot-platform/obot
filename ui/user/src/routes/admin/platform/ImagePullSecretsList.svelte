@@ -1,20 +1,19 @@
 <script lang="ts">
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import type { ImagePullSecret } from '$lib/services';
+	import type { ImagePullSecret, ImagePullSecretType } from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
-	import { openUrl } from '$lib/utils.js';
 	import { displayName, statusClass, statusLabel, statusMessage } from './types';
-	import { Info, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from '@lucide/svelte';
+	import { Info, Plus, RefreshCw, ShieldCheck, Trash2 } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		imagePullSecrets: ImagePullSecret[];
 		mutationsDisabled?: boolean;
 		refreshing?: boolean;
-		onCreate: () => void;
+		onCreate?: (type: ImagePullSecretType) => void;
 		onEdit?: (secret: ImagePullSecret, isCtrlClick: boolean) => void;
 		onStatus: (secret: ImagePullSecret) => void;
 		onTest: (secret: ImagePullSecret) => void;
@@ -33,14 +32,6 @@
 		onRefresh,
 		onDelete
 	}: Props = $props();
-
-	function openEdit(secret: ImagePullSecret, isCtrlClick: boolean) {
-		if (onEdit) {
-			onEdit(secret, isCtrlClick);
-			return;
-		}
-		openUrl(`/admin/image-pull-secrets?id=${secret.id}`, isCtrlClick);
-	}
 
 	let tableData = $derived(
 		imagePullSecrets.map((item) => ({
@@ -63,89 +54,93 @@
 	}
 </script>
 
-{#if imagePullSecrets.length === 0}
-	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<KeyRound class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">No image pull secrets</h4>
-		{#if !mutationsDisabled}
+<div class="flex flex-col gap-8">
+	<section class="flex flex-col gap-3">
+		{@render sectionHeader('Basic Secrets', 'basic')}
+		<Table
+			data={basicSecrets}
+			fields={['displayName', 'detail', 'id']}
+			headers={[
+				{ title: 'Name', property: 'displayName' },
+				{ title: 'Registry', property: 'detail' },
+				{ title: 'Secret', property: 'id' }
+			]}
+			sortable={['displayName', 'detail', 'id']}
+			filterable={['displayName', 'detail']}
+			onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
+			noDataMessage="Click '+' to add a basic secret."
+		>
+			{#snippet actions(secret)}
+				<DotDotDot
+					ariaLabel={`Actions for ${displayName(secret)}`}
+					class="shrink-0 hover:dark:bg-base-100/50"
+				>
+					{#snippet children({ toggle })}
+						<button
+							class="menu-button"
+							disabled={mutationsDisabled || !canTest(secret)}
+							onclick={(e) => {
+								e.stopPropagation();
+								onTest(secret);
+								toggle(false);
+							}}
+						>
+							<ShieldCheck class="size-4" />
+							Test
+						</button>
+						<button
+							class="menu-button-destructive"
+							disabled={mutationsDisabled}
+							onclick={(e) => {
+								e.stopPropagation();
+								onDelete(secret);
+								toggle(false);
+							}}
+						>
+							<Trash2 class="size-4" />
+							Delete
+						</button>
+					{/snippet}
+				</DotDotDot>
+			{/snippet}
+			{#snippet onRenderColumn(property, secret)}
+				{#if property === 'displayName'}
+					{displayName(secret)}
+				{:else}
+					{String(secret[property as keyof typeof secret] ?? '-')}
+				{/if}
+			{/snippet}
+		</Table>
+	</section>
+
+	<section class="flex flex-col gap-3">
+		{@render sectionHeader('ECR Secrets', 'ecr')}
+		{@render ecrTable()}
+	</section>
+</div>
+
+{#snippet sectionHeader(title: string, type: ImagePullSecretType)}
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<div>
+			<h3 class="font-semibold">{title}</h3>
 			<p class="text-muted-content text-sm font-light">
-				Create a managed image pull secret to let Obot pull private MCP server images.
+				{type === 'basic'
+					? 'Basic secrets utilize username/password registry credentials.'
+					: 'ECR secrets utilize AWS IAM role-based ECR access information.'}
 			</p>
-			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={onCreate}>
+		</div>
+		{#if onCreate && !mutationsDisabled}
+			<button
+				type="button"
+				class="btn btn-primary flex items-center gap-2 text-sm"
+				onclick={() => onCreate?.(type)}
+			>
 				<Plus class="size-4" />
-				Create New Secret
+				{type === 'basic' ? 'Add Basic Secret' : 'Add ECR Secret'}
 			</button>
 		{/if}
 	</div>
-{:else}
-	<div class="flex flex-col gap-8">
-		{#if basicSecrets.length > 0}
-			<section class="flex flex-col gap-3">
-				<h2 class="text-lg font-semibold">Basic Secrets</h2>
-				<Table
-					data={basicSecrets}
-					fields={['displayName', 'detail', 'id']}
-					headers={[
-						{ title: 'Name', property: 'displayName' },
-						{ title: 'Registry', property: 'detail' },
-						{ title: 'Secret', property: 'id' }
-					]}
-					sortable={['displayName', 'detail', 'id']}
-					filterable={['displayName', 'detail']}
-					onClickRow={(row, isCtrlClick) => openEdit(row, isCtrlClick)}
-				>
-					{#snippet actions(secret)}
-						<DotDotDot
-							ariaLabel={`Actions for ${displayName(secret)}`}
-							class="shrink-0 hover:dark:bg-base-100/50"
-						>
-							{#snippet children({ toggle })}
-								<button
-									class="menu-button"
-									disabled={mutationsDisabled || !canTest(secret)}
-									onclick={(e) => {
-										e.stopPropagation();
-										onTest(secret);
-										toggle(false);
-									}}
-								>
-									<ShieldCheck class="size-4" />
-									Test
-								</button>
-								<button
-									class="menu-button-destructive"
-									disabled={mutationsDisabled}
-									onclick={(e) => {
-										e.stopPropagation();
-										onDelete(secret);
-										toggle(false);
-									}}
-								>
-									<Trash2 class="size-4" />
-									Delete
-								</button>
-							{/snippet}
-						</DotDotDot>
-					{/snippet}
-					{#snippet onRenderColumn(property, secret)}
-						{#if property === 'displayName'}
-							{displayName(secret)}
-						{:else}
-							{String(secret[property as keyof typeof secret] ?? '-')}
-						{/if}
-					{/snippet}
-				</Table>
-			</section>
-		{/if}
-
-		{#if ecrSecrets.length > 0}
-			<section class="flex flex-col gap-3">
-				<h2 class="text-lg font-semibold">ECR Secrets</h2>
-				{@render ecrTable()}
-			</section>
-		{/if}
-	</div>
-{/if}
+{/snippet}
 
 {#snippet ecrTable()}
 	<Table
@@ -161,7 +156,8 @@
 		]}
 		sortable={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess']}
 		filterable={['statusLabel']}
-		onClickRow={(row, isCtrlClick) => openEdit(row, isCtrlClick)}
+		onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
+		noDataMessage="Click '+' to add an ECR secret."
 	>
 		{#snippet actions(secret)}
 			<DotDotDot

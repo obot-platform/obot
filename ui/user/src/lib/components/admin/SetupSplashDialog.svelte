@@ -35,7 +35,8 @@
 	);
 	const isOnProductAnalyticsSettings = $derived(
 		page.url.pathname === '/admin/product-analytics' ||
-			(page.url.pathname === '/admin/platform' && view === 'product-analytics')
+			(page.url.pathname === '/admin/platform' &&
+				(view === 'product-analytics' || view === 'settings'))
 	);
 	const isOnSetupPage = $derived(page.url.pathname === setupPath);
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);

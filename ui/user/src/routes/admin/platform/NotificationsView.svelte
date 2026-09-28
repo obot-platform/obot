@@ -28,13 +28,37 @@
 		};
 	}
 
-	let { appNotification: initialAppNotification }: { appNotification: AppNotification } = $props();
+	let {
+		appNotification: initialAppNotification,
+		saving = false,
+		dirty = $bindable(false)
+	}: {
+		appNotification: AppNotification;
+		saving?: boolean;
+		dirty?: boolean;
+	} = $props();
+	let persisted = $state(untrack(() => withBanner(initialAppNotification)));
 	let appNotification = $state(untrack(() => withBanner(initialAppNotification)));
 
 	const duration = PAGE_TRANSITION_DURATION;
-	let saving = $state(false);
 	let bannerTextValidationError = $state<string | null>(null);
+	function bannerKey(notification: EditableAppNotification) {
+		const banner = notification.banner;
+		return JSON.stringify({
+			dismissible: banner.dismissible,
+			enabled: banner.enabled,
+			resetDismissed: banner.resetDismissed,
+			text: banner.text ?? '',
+			type: banner.type
+		});
+	}
+
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let isDirty = $derived(bannerKey(appNotification) !== bannerKey(persisted));
+
+	$effect(() => {
+		if (dirty !== isDirty) dirty = isDirty;
+	});
 
 	function hasOnlyAllowedMarkdown(text: string) {
 		const disallowedPatterns = [
@@ -76,7 +100,8 @@
 		return true;
 	}
 
-	function validate(banner: EditableAppNotification['banner']) {
+	export function validate() {
+		const banner = appNotification.banner;
 		const text = banner.text?.trim() ?? '';
 		if ((!text || !banner.type) && banner.enabled) {
 			bannerTextValidationError = 'This field is required.';
@@ -93,21 +118,25 @@
 		return true;
 	}
 
-	async function handleSave() {
-		if (!validate(appNotification.banner)) {
-			return;
-		}
-
+	export function reset() {
+		appNotification = withBanner(persisted);
 		bannerTextValidationError = null;
-		saving = true;
+	}
+
+	export async function save() {
+		if (!validate()) return false;
+
 		try {
 			const response = await AdminService.updateAppNotification(appNotification);
+			const next = withBanner(response);
+			persisted = next;
+			appNotification = withBanner(response);
 			appNotificationStore.initialize(response);
 			success.add('App notification updated successfully.');
+			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
-		} finally {
-			saving = false;
+			return false;
 		}
 	}
 </script>
@@ -137,7 +166,7 @@
 							onSelect={(selected) => {
 								appNotification.banner.type = selected.id as BannerType;
 							}}
-							disabled={isAdminReadonly}
+							disabled={isAdminReadonly || saving}
 							options={[
 								{ id: 'info', label: 'Info' },
 								{ id: 'warning', label: 'Warning' }
@@ -158,12 +187,12 @@
 					<MarkdownInput
 						bind:value={appNotification.banner.text}
 						class={twMerge(
-							'min-h-[120px]',
+							'min-h-30',
 							bannerTextValidationError && 'ring-2 ring-error border-error'
 						)}
 						classes={{ input: 'min-h-[120px]' }}
 						placeholder="Add banner text. Supports simple formatting and [text](https://example.com) links."
-						disabled={isAdminReadonly}
+						disabled={isAdminReadonly || saving}
 						disablePreview
 					/>
 					{#if bannerTextValidationError}
@@ -187,7 +216,7 @@
 						type="checkbox"
 						class="toggle toggle-sm"
 						bind:checked={appNotification.banner.dismissible}
-						disabled={isAdminReadonly}
+						disabled={isAdminReadonly || saving}
 					/>
 				</label>
 				<label for="reset-dismissed-toggle" class="flex items-center justify-between">
@@ -203,7 +232,7 @@
 						type="checkbox"
 						class="toggle toggle-sm"
 						bind:checked={appNotification.banner.resetDismissed}
-						disabled={isAdminReadonly || !appNotification.banner.dismissible}
+						disabled={isAdminReadonly || saving || !appNotification.banner.dismissible}
 					/>
 				</label>
 
@@ -220,7 +249,7 @@
 						class="toggle toggle-sm"
 						bind:checked={appNotification.banner.enabled}
 						id="enable-banner"
-						disabled={isAdminReadonly}
+						disabled={isAdminReadonly || saving}
 						onclick={() => {
 							bannerTextValidationError = null;
 						}}
@@ -229,19 +258,4 @@
 			</div>
 		</div>
 	</div>
-	{#if !isAdminReadonly}
-		<div class="paper flex-row justify-end py-2 gap-2">
-			<button
-				class="btn btn-secondary text-sm"
-				onclick={() => {
-					appNotification = withBanner(appNotificationStore.current ?? initialAppNotification);
-					bannerTextValidationError = null;
-				}}
-				disabled={saving}
-			>
-				Cancel
-			</button>
-			<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}> Save </button>
-		</div>
-	{/if}
 </div>

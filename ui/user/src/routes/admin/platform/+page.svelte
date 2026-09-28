@@ -1,27 +1,15 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout from '$lib/components/TabLayout.svelte';
-	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import type { GitCredential, ImagePullSecret, ImagePullSecretCapability } from '$lib/services';
 	import { profile, version } from '$lib/stores';
+	import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
 	import { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
-	import { goto } from '$lib/url';
 	import BrandingConfigurationSidebar from './BrandingConfigurationSidebar.svelte';
 	import BrandingView from './BrandingView.svelte';
 	import LicenseView from './LicenseView.svelte';
 	import McpConfigView from './McpConfigView.svelte';
-	import ModelProxyView from './ModelProxyView.svelte';
-	import NotificationsView from './NotificationsView.svelte';
-	import ProductAnalyticsView from './ProductAnalyticsView.svelte';
-	import RegistryConnectionsView from './RegistryConnectionsView.svelte';
-	import { Plus } from '@lucide/svelte';
+	import SettingsView from './SettingsView.svelte';
 	import { untrack } from 'svelte';
-	import { fade } from 'svelte/transition';
-
-	const duration = PAGE_TRANSITION_DURATION;
-	const REGISTRY_CONNECTIONS_PATH = '/admin/platform?view=registry-connections';
 
 	let { data } = $props();
 	let capability = $state<ImagePullSecretCapability>(
@@ -29,41 +17,19 @@
 	);
 	let imagePullSecrets = $state<ImagePullSecret[]>(untrack(() => data.imagePullSecrets ?? []));
 	let credentials = $state<GitCredential[]>(untrack(() => data.gitCredentials ?? []));
-	let registryView = $state<ReturnType<typeof RegistryConnectionsView>>();
-	let gitCredentialsView = $state<ReturnType<typeof GitCredentialsView>>();
-	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let creatingRegistryConnection = $derived(
-		page.url.searchParams.get('view') === 'registry-connections' &&
-			(page.url.searchParams.get('create') === 'true' || Boolean(page.url.searchParams.get('id')))
-	);
-	let registryFormTitle = $derived(
-		page.url.searchParams.get('create') === 'true'
-			? 'Create Image Pull Secret'
-			: 'Edit Image Pull Secret'
-	);
 	let brandingPreferences = $derived(data.appPreferences ?? compileAppPreferences());
+	let showProductAnalytics = $derived(
+		data.productTelemetryConsentAvailable === true && Boolean(profile.current.isAdmin?.())
+	);
+	let showRegistryConnections = $derived(version.current.engine === 'kubernetes');
 
 	let views = $derived([
 		{ label: 'License', value: 'license', content: license },
-		{ label: 'Branding', value: 'branding', content: branding },
-		{ label: 'Notifications', value: 'notifications', content: notifications },
-		...(data.productTelemetryConsentAvailable === true && profile.current.isAdmin?.()
-			? [{ label: 'Product Analytics', value: 'product-analytics', content: productAnalytics }]
-			: []),
+		{ label: 'Settings', value: 'settings', content: settings },
 		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 			? [{ label: 'MCP Config', value: 'mcp-config', content: mcpConfig }]
 			: []),
-		{ label: 'Model Proxy', value: 'model-proxy', content: modelProxy },
-		...(version.current.engine === 'kubernetes'
-			? [
-					{
-						label: 'Registry Connections',
-						value: 'registry-connections',
-						content: registryConnections
-					}
-				]
-			: []),
-		{ label: 'Git Credentials', value: 'git-credentials', content: gitCredentials }
+		{ label: 'Branding', value: 'branding', content: branding }
 	]);
 
 	$effect(() => {
@@ -74,56 +40,23 @@
 	$effect(() => {
 		credentials = data.gitCredentials ?? [];
 	});
-
-	function hideRegistryForm() {
-		goto(REGISTRY_CONNECTIONS_PATH, { replaceState: true, noScroll: true });
-	}
 </script>
 
 <svelte:head>
 	<title>Obot | Platform</title>
 </svelte:head>
 
-{#if creatingRegistryConnection}
-	<Layout title={registryFormTitle} showBackButton onBackButtonClick={hideRegistryForm}>
-		<div class="h-full w-full" in:fade={{ duration }}>
-			<RegistryConnectionsView bind:this={registryView} bind:capability bind:imagePullSecrets />
-		</div>
-	</Layout>
-{:else}
-	<TabLayout
-		title="Platform"
-		defaultView="license"
-		classes={{ container: 'pb-0', childrenContainer: 'max-w-none' }}
-		rightNavActions={navActions}
-		rightSidebar={viewSidebar}
-		{views}
-	/>
-{/if}
+<TabLayout
+	title="Platform"
+	defaultView="license"
+	classes={{ container: 'pb-0', childrenContainer: 'max-w-none' }}
+	rightSidebar={viewSidebar}
+	{views}
+/>
 
 {#snippet viewSidebar(view: string)}
 	{#if view === 'branding'}
 		<BrandingConfigurationSidebar initialAppPreferences={brandingPreferences} />
-	{/if}
-{/snippet}
-
-{#snippet navActions(view: string)}
-	{#if view === 'registry-connections' && !isAdminReadonly && capability.available}
-		<button
-			class="btn btn-primary flex items-center gap-2 text-sm"
-			onclick={() => registryView?.openCreateForm()}
-		>
-			<Plus class="size-4" />
-			Create New Secret
-		</button>
-	{:else if view === 'git-credentials' && !isAdminReadonly}
-		<button
-			class="btn btn-primary flex items-center gap-2 text-sm"
-			onclick={() => gitCredentialsView?.openCreate()}
-		>
-			<Plus class="size-4" />
-			Create Git Credential
-		</button>
 	{/if}
 {/snippet}
 
@@ -135,28 +68,20 @@
 	<BrandingView />
 {/snippet}
 
-{#snippet notifications()}
-	<NotificationsView appNotification={data.appNotification} />
-{/snippet}
-
-{#snippet productAnalytics()}
-	<ProductAnalyticsView consent={data.productTelemetryConsent ?? {}} />
-{/snippet}
-
 {#snippet mcpConfig()}
 	<McpConfigView k8sSettings={data.k8sSettings} />
 {/snippet}
 
-{#snippet registryConnections()}
-	<RegistryConnectionsView bind:this={registryView} bind:capability bind:imagePullSecrets />
-{/snippet}
-
-{#snippet gitCredentials()}
-	<GitCredentialsView bind:this={gitCredentialsView} bind:gitCredentials={credentials} />
-{/snippet}
-
-{#snippet modelProxy()}
-	{#if data.modelProxySettings}
-		<ModelProxyView settings={data.modelProxySettings} usage={data.modelProxyUsage} />
-	{/if}
+{#snippet settings()}
+	<SettingsView
+		appNotification={data.appNotification ?? defaultAppNotification}
+		{showProductAnalytics}
+		productTelemetryConsent={data.productTelemetryConsent}
+		modelProxySettings={data.modelProxySettings}
+		modelProxyUsage={data.modelProxyUsage}
+		{showRegistryConnections}
+		bind:capability
+		bind:imagePullSecrets
+		bind:gitCredentials={credentials}
+	/>
 {/snippet}

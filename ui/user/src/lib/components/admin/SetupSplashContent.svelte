@@ -23,7 +23,7 @@
 	const isOnProductAnalyticsSettings = $derived(
 		page.url.pathname === '/admin/product-analytics' ||
 			(page.url.pathname === '/admin/platform' &&
-				page.url.searchParams.get('view') === 'product-analytics')
+				['product-analytics', 'settings'].includes(page.url.searchParams.get('view') ?? ''))
 	);
 	const needsProductAnalyticsConsent = $derived(
 		profile.current.groups.includes(Group.ADMIN) &&

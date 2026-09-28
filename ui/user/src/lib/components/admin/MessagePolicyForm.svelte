@@ -25,7 +25,6 @@
 		onCreate?: (messagePolicy: MessagePolicy) => void;
 		onUpdate?: (messagePolicy: MessagePolicy) => void;
 		onCancel?: () => void;
-		/** When set on a new policy, direction is fixed and the selector is disabled. */
 		fixedDirection?: PolicyDirection;
 		listHref?: string;
 		readonly?: boolean;

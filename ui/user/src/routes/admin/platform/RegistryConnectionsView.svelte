@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import {
 		AdminService,
 		type ImagePullSecret,
 		type ImagePullSecretCapability,
 		type ImagePullSecretManifest,
-		type ImagePullSecretTestResponse
+		type ImagePullSecretTestResponse,
+		type ImagePullSecretType
 	} from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
-	import { profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
+	import { errors, profile } from '$lib/stores/index.js';
 	import { openUrl } from '$lib/utils.js';
 	import CapabilityBanner from './CapabilityBanner.svelte';
 	import ImagePullSecretForm from './ImagePullSecretForm.svelte';
@@ -20,19 +21,50 @@
 	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
 	import { untrack } from 'svelte';
 
-	const LIST_PATH = '/admin/platform?view=registry-connections';
+	const LIST_PATH = '/admin/platform?view=settings';
+	const draftPrefix = 'draft-';
+
+	type DraftCreate = {
+		id: string;
+		form: ImagePullSecretFormState;
+	};
 
 	interface Props {
 		capability: ImagePullSecretCapability;
 		imagePullSecrets: ImagePullSecret[];
+		dirty?: boolean;
+		saving?: boolean;
 	}
 
-	let { capability = $bindable(), imagePullSecrets = $bindable() }: Props = $props();
+	let {
+		capability = $bindable(),
+		imagePullSecrets = $bindable(),
+		dirty = $bindable(false),
+		saving: settingsSaving = false
+	}: Props = $props();
 
-	let form = $state<ImagePullSecretFormState>(untrack(() => defaultForm('basic')));
+	const initialCreate = untrack(() => page.url.searchParams.get('create') === 'true');
+	const initialId = untrack(() => (initialCreate ? null : page.url.searchParams.get('id')));
+
+	let mode = $state<'closed' | 'create' | 'edit'>(
+		initialCreate ? 'create' : initialId ? 'edit' : 'closed'
+	);
+	let editingId = $state<string | null>(initialId);
+	let form = $state<ImagePullSecretFormState>(
+		untrack(() => {
+			if (!initialId) return defaultForm('basic');
+			const secret = imagePullSecrets.find((item) => item.id === initialId);
+			return secret ? formFromSecret(secret) : defaultForm('basic');
+		})
+	);
 	let showECRAdvanced = $state(false);
+	let baseline = $state<ImagePullSecret[]>(untrack(() => cloneSecrets(imagePullSecrets)));
+	let pendingCreates = $state<DraftCreate[]>([]);
+	let pendingEdits = $state<Record<string, ImagePullSecretFormState>>({});
+	let pendingDeletes = $state<string[]>([]);
+	let editorDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
-	let saving = $state(false);
+	let requestPending = $state(false);
 	let testing = $state(false);
 	let refreshing = $state(false);
 	let statusLoading = $state(false);
@@ -44,10 +76,8 @@
 	let statusError = $state('');
 	let refreshMessage = $state('');
 	let testImage = $state('');
-	let activeFormKey = $state('');
 	let showRequired = $state(false);
 
-	let deletingSecret = $state<ImagePullSecret>();
 	let refreshingSecret = $state<ImagePullSecret>();
 	let testingSecret = $state<ImagePullSecret>();
 	let statusSecret = $state<ImagePullSecret>();
@@ -55,29 +85,168 @@
 	let testDialog = $state<ReturnType<typeof ImagePullSecretTestDialog>>();
 	let statusDialog = $state<ReturnType<typeof ImagePullSecretStatusDialog>>();
 
-	let selectedId = $derived(page.url.searchParams.get('id'));
-	let creatingSecret = $derived(page.url.searchParams.get('create') === 'true');
-	let currentSecret = $derived(imagePullSecrets.find((item) => item.id === selectedId));
-	let showForm = $derived(Boolean(creatingSecret || selectedId));
+	let currentSecret = $derived(
+		mode === 'edit' && editingId && !editingId.startsWith(draftPrefix)
+			? baseline.find((item) => item.id === editingId)
+			: undefined
+	);
+	let editingPersisted = $derived(Boolean(currentSecret));
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let mutationsDisabled = $derived(isReadonly || !capability.available);
+	let formLocked = $derived(mutationsDisabled || settingsSaving || requestPending);
 	let requiredErrors = $derived(showRequired ? requiredFieldErrors() : {});
+	let canStage = $derived(Object.keys(requiredFieldErrors()).length === 0);
+	let isDirty = $derived(
+		pendingCreates.length > 0 || Object.keys(pendingEdits).length > 0 || pendingDeletes.length > 0
+	);
+	let rows = $derived([
+		...pendingCreates.map((draft) => secretFromDraft(draft)),
+		...baseline
+			.filter((secret) => !pendingDeletes.includes(secret.id))
+			.map((secret) => {
+				const edit = pendingEdits[secret.id];
+				return edit ? secretFromForm(secret, edit) : secret;
+			})
+	]);
 
 	$effect(() => {
-		const key = creatingSecret ? 'new' : selectedId ? `edit:${selectedId}` : '';
-		if (key === activeFormKey) return;
-
-		activeFormKey = key;
-		testResult = undefined;
-		testError = '';
-		refreshMessage = '';
-		showRequired = false;
-		showECRAdvanced = false;
-		form = currentSecret ? formFromSecret(currentSecret) : defaultForm('basic');
+		if (dirty !== isDirty) dirty = isDirty;
 	});
 
-	export function openCreateForm() {
-		createNewSecret();
+	$effect(() => {
+		const incoming = imagePullSecrets;
+		if (
+			pendingCreates.length > 0 ||
+			Object.keys(pendingEdits).length > 0 ||
+			pendingDeletes.length > 0
+		) {
+			return;
+		}
+		baseline = cloneSecrets(incoming);
+	});
+
+	$effect(() => {
+		if (!editorDialog || mode === 'closed') return;
+		editorDialog.open();
+	});
+
+	function openEditor(
+		nextMode: 'create' | 'edit',
+		secret?: ImagePullSecret,
+		type: ImagePullSecretType = 'basic'
+	) {
+		mode = nextMode;
+		editingId = secret?.id ?? null;
+		showRequired = false;
+		showECRAdvanced = false;
+		refreshMessage = '';
+		form = secret ? formForSecret(secret) : defaultForm(type);
+		editorDialog?.open();
+	}
+
+	function openCreateForm(type: ImagePullSecretType) {
+		if (mutationsDisabled) return;
+		openEditor('create', undefined, type);
+	}
+
+	export function reset() {
+		pendingCreates = [];
+		pendingEdits = {};
+		pendingDeletes = [];
+		showRequired = false;
+		showECRAdvanced = false;
+		refreshMessage = '';
+		mode = 'closed';
+		editingId = null;
+		form = defaultForm('basic');
+		editorDialog?.close();
+	}
+
+	export function validate() {
+		return true;
+	}
+
+	function cloneSecrets(items: ImagePullSecret[]) {
+		return items.map((item) => ({
+			...item,
+			manifest: {
+				...item.manifest,
+				basic: item.manifest.basic ? { ...item.manifest.basic } : undefined,
+				ecr: item.manifest.ecr ? { ...item.manifest.ecr } : undefined
+			},
+			status: item.status ? { ...item.status } : undefined
+		}));
+	}
+
+	function formForSecret(secret?: ImagePullSecret) {
+		if (!secret) return defaultForm('basic');
+		const draft = pendingCreates.find((item) => item.id === secret.id);
+		if (draft) return { ...draft.form };
+		if (pendingEdits[secret.id]) return { ...pendingEdits[secret.id] };
+		const original = baseline.find((item) => item.id === secret.id) ?? secret;
+		return formFromSecret(original);
+	}
+
+	function secretFromForm(
+		secret: ImagePullSecret,
+		nextForm: ImagePullSecretFormState
+	): ImagePullSecret {
+		return {
+			...secret,
+			manifest: inputFromForm(nextForm),
+			status: {
+				...secret.status,
+				passwordConfigured: secret.status?.passwordConfigured || Boolean(nextForm.password)
+			}
+		};
+	}
+
+	function secretFromDraft(draft: DraftCreate): ImagePullSecret {
+		return secretFromForm(
+			{
+				id: draft.id,
+				manifest: inputFromForm(draft.form),
+				status: draft.form.password ? { passwordConfigured: true } : undefined
+			},
+			draft.form
+		);
+	}
+
+	function stageDelete(secret: ImagePullSecret) {
+		if (formLocked) return;
+		if (secret.id.startsWith(draftPrefix)) {
+			pendingCreates = pendingCreates.filter((draft) => draft.id !== secret.id);
+			return;
+		}
+		if (pendingDeletes.includes(secret.id)) return;
+		pendingDeletes = [...pendingDeletes, secret.id];
+		delete pendingEdits[secret.id];
+	}
+
+	function stageSecret() {
+		if (formLocked || !canStage) {
+			showRequired = true;
+			return;
+		}
+
+		const staged = { ...form };
+		if (!editingId || editingId.startsWith(draftPrefix)) {
+			const draft: DraftCreate = {
+				id: editingId ?? `${draftPrefix}${crypto.randomUUID()}`,
+				form: staged
+			};
+			pendingCreates = editingId
+				? pendingCreates.map((item) => (item.id === draft.id ? draft : item))
+				: [draft, ...pendingCreates];
+		} else {
+			const original = baseline.find((secret) => secret.id === editingId);
+			if (original && JSON.stringify(formFromSecret(original)) === JSON.stringify(staged)) {
+				delete pendingEdits[editingId];
+			} else {
+				pendingEdits = { ...pendingEdits, [editingId]: staged };
+			}
+		}
+		editorDialog?.close();
 	}
 
 	function requiredFieldErrors(): Record<string, string> {
@@ -97,28 +266,28 @@
 		return errors;
 	}
 
-	function inputFromForm(): ImagePullSecretManifest {
+	function inputFromForm(source: ImagePullSecretFormState = form): ImagePullSecretManifest {
 		const input: ImagePullSecretManifest = {
-			enabled: form.enabled,
-			type: form.type,
-			displayName: form.displayName.trim()
+			enabled: source.enabled,
+			type: source.type,
+			displayName: source.displayName.trim()
 		};
 
-		if (form.type === 'basic') {
+		if (source.type === 'basic') {
 			input.basic = {
-				server: form.server.trim(),
-				username: form.username.trim()
+				server: source.server.trim(),
+				username: source.username.trim()
 			};
-			if (form.password) {
-				input.basic.password = form.password;
+			if (source.password) {
+				input.basic.password = source.password;
 			}
 		} else {
 			input.ecr = {
-				roleARN: form.roleARN.trim(),
-				region: form.region.trim(),
-				issuerURL: form.issuerURL.trim(),
-				audience: form.audience.trim(),
-				refreshSchedule: form.refreshSchedule.trim()
+				roleARN: source.roleARN.trim(),
+				region: source.region.trim(),
+				issuerURL: source.issuerURL.trim(),
+				audience: source.audience.trim(),
+				refreshSchedule: source.refreshSchedule.trim()
 			};
 		}
 
@@ -143,29 +312,86 @@
 		imagePullSecrets = nextSecrets;
 	}
 
-	async function saveSecret() {
-		if (mutationsDisabled) return;
-		showRequired = true;
-		if (Object.keys(requiredFieldErrors()).length > 0) return;
+	export async function save() {
+		if (!isDirty || mutationsDisabled || requestPending) return false;
 
-		saving = true;
-		testResult = undefined;
-		testError = '';
+		requestPending = true;
+		const failedCreates: DraftCreate[] = [];
+		const failedEdits: Record<string, ImagePullSecretFormState> = {};
+		const failedDeletes: string[] = [];
+		const created: ImagePullSecret[] = [];
+		const deletedIds: string[] = [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const edited = new Map<string, ImagePullSecret>();
 		try {
-			const input = inputFromForm();
-			const saved = currentSecret
-				? await AdminService.updateImagePullSecret(currentSecret.id, input)
-				: await AdminService.createImagePullSecret(input);
-			upsertSecret(saved);
-			await refreshList();
-			goto(LIST_PATH, { replaceState: true, noScroll: true });
+			await Promise.all([
+				...pendingCreates.map(async (draft) => {
+					try {
+						created.push(
+							await AdminService.createImagePullSecret(inputFromForm(draft.form), {
+								dontLogErrors: true
+							})
+						);
+					} catch (error) {
+						failedCreates.push(draft);
+						errors.append(
+							error instanceof Error ? error.message : 'Unable to save image pull secret'
+						);
+					}
+				}),
+				...Object.entries(pendingEdits)
+					.filter(([id]) => !pendingDeletes.includes(id))
+					.map(async ([id, edit]) => {
+						try {
+							edited.set(
+								id,
+								await AdminService.updateImagePullSecret(id, inputFromForm(edit), {
+									dontLogErrors: true
+								})
+							);
+						} catch (error) {
+							failedEdits[id] = edit;
+							errors.append(
+								error instanceof Error ? error.message : 'Unable to save image pull secret'
+							);
+						}
+					}),
+				...pendingDeletes.map(async (id) => {
+					try {
+						await AdminService.deleteImagePullSecret(id, { dontLogErrors: true });
+						deletedIds.push(id);
+					} catch (error) {
+						failedDeletes.push(id);
+						errors.append(
+							error instanceof Error ? error.message : 'Unable to delete image pull secret'
+						);
+					}
+				})
+			]);
+
+			const next = [
+				...created,
+				...baseline
+					.filter((secret) => !deletedIds.includes(secret.id))
+					.map((secret) => edited.get(secret.id) ?? secret)
+			];
+			baseline = next;
+			imagePullSecrets = next;
+			pendingCreates = failedCreates;
+			pendingEdits = failedEdits;
+			pendingDeletes = failedDeletes;
+			return (
+				failedCreates.length === 0 &&
+				Object.keys(failedEdits).length === 0 &&
+				failedDeletes.length === 0
+			);
 		} finally {
-			saving = false;
+			requestPending = false;
 		}
 	}
 
 	function openTestDialog(secret: ImagePullSecret) {
-		if (!canTest(secret)) return;
+		if (!canTest(secret) || secret.id.startsWith(draftPrefix)) return;
 		testingSecret = secret;
 		testImage = '';
 		testResult = undefined;
@@ -225,7 +451,7 @@
 	}
 
 	async function refreshECR(secret: ImagePullSecret) {
-		if (mutationsDisabled) return;
+		if (mutationsDisabled || secret.id.startsWith(draftPrefix)) return;
 		refreshing = true;
 		refreshMessage = '';
 		try {
@@ -237,66 +463,82 @@
 		}
 	}
 
-	function createNewSecret() {
-		goto(`${LIST_PATH}&create=true`, { noScroll: true });
-	}
-
 	function editSecret(secret: ImagePullSecret, isCtrlClick: boolean) {
-		openUrl(`${LIST_PATH}&id=${secret.id}`, isCtrlClick);
+		if (isCtrlClick) {
+			openUrl(`${LIST_PATH}&id=${secret.id}`, true);
+			return;
+		}
+		openEditor('edit', secret);
 	}
 </script>
 
-{#if showForm}
-	<ImagePullSecretForm
-		bind:form
-		bind:showECRAdvanced
-		{capability}
-		{currentSecret}
-		{selectedId}
+<div class="flex flex-col gap-6">
+	{#if !capability.available}
+		<CapabilityBanner reason={capability.reason} />
+	{/if}
+	<ImagePullSecretsList
+		imagePullSecrets={rows}
 		{mutationsDisabled}
-		{saving}
 		{refreshing}
-		{refreshMessage}
-		{requiredErrors}
-		onSave={saveSecret}
-		onRefresh={refreshECR}
+		onCreate={openCreateForm}
+		onEdit={editSecret}
+		onStatus={openStatusDialog}
+		onTest={openTestDialog}
+		onRefresh={(secret) => (refreshingSecret = secret)}
+		onDelete={stageDelete}
 	/>
-{:else}
-	<div class="flex flex-col gap-6">
-		{#if !capability.available}
-			<CapabilityBanner reason={capability.reason} />
-		{/if}
-		<ImagePullSecretsList
-			{imagePullSecrets}
-			{mutationsDisabled}
-			{refreshing}
-			onCreate={createNewSecret}
-			onEdit={editSecret}
-			onStatus={openStatusDialog}
-			onTest={openTestDialog}
-			onRefresh={(secret) => (refreshingSecret = secret)}
-			onDelete={(secret) => (deletingSecret = secret)}
-		/>
-	</div>
-{/if}
+</div>
 
-<Confirm
-	msg={`Delete ${deletingSecret ? displayName(deletingSecret) : 'this image pull secret'}?`}
-	show={Boolean(deletingSecret)}
-	loading={saving}
-	onsuccess={async () => {
-		if (!deletingSecret) return;
-		saving = true;
-		try {
-			await AdminService.deleteImagePullSecret(deletingSecret.id);
-			imagePullSecrets = imagePullSecrets.filter((item) => item.id !== deletingSecret?.id);
-			deletingSecret = undefined;
-		} finally {
-			saving = false;
-		}
+<ResponsiveDialog
+	bind:this={editorDialog}
+	title={mode === 'edit'
+		? `Edit ${currentSecret ? displayName(currentSecret) : form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`
+		: `Add ${form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`}
+	class="w-full md:max-w-4xl"
+	onClose={() => {
+		mode = 'closed';
+		editingId = null;
+		showRequired = false;
 	}}
-	oncancel={() => (deletingSecret = undefined)}
-/>
+>
+	{#if mode !== 'closed'}
+		<div class="flex flex-col gap-4 p-4 md:p-0">
+			<ImagePullSecretForm
+				bind:form
+				bind:showECRAdvanced
+				{capability}
+				{currentSecret}
+				selectedId={editingPersisted ? editingId : null}
+				mutationsDisabled={formLocked}
+				saving={requestPending}
+				{refreshing}
+				{refreshMessage}
+				{requiredErrors}
+				hideSubmit
+				onSave={stageSecret}
+				onRefresh={refreshECR}
+			/>
+			<div class="flex justify-end gap-2">
+				<button
+					type="button"
+					class="btn btn-secondary text-sm"
+					disabled={formLocked}
+					onclick={() => editorDialog?.close()}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="btn btn-primary text-sm"
+					disabled={formLocked || !canStage}
+					onclick={stageSecret}
+				>
+					{mode === 'edit' ? 'Update' : 'Add'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</ResponsiveDialog>
 
 <Confirm
 	title="Refresh Image Pull Secret"

@@ -20,39 +20,46 @@
 	};
 
 	const duration = PAGE_TRANSITION_DURATION;
-	let { settings, usage }: Props = $props();
+	let {
+		settings,
+		usage,
+		saving = false,
+		dirty = $bindable(false)
+	}: Props & { saving?: boolean; dirty?: boolean } = $props();
+	let persistedEnabled = $state(untrack(() => settings.enabled));
 	let enabled = $state(untrack(() => settings.enabled));
-	let saving = $state(false);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isModelProxyConfigured = $derived(!!settings.url);
-	let canSave = $derived(
-		!isAdminReadonly && !saving && (isModelProxyConfigured || (settings.enabled && !enabled))
-	);
+	let isDirty = $derived(enabled !== persistedEnabled);
+	let canSave = $derived(isDirty && (isModelProxyConfigured || (settings.enabled && !enabled)));
 
-	async function handleSave(event: SubmitEvent) {
-		event.preventDefault();
-		if (!canSave) return;
+	$effect(() => {
+		if (dirty !== isDirty) dirty = isDirty;
+	});
 
-		saving = true;
+	export function reset() {
+		enabled = persistedEnabled;
+	}
+
+	export async function save() {
+		if (!canSave || isAdminReadonly) return false;
+
 		try {
 			const response = await AdminService.updateModelProxySettings({ enabled });
 			enabled = response.enabled;
+			persistedEnabled = response.enabled;
 			await invalidate('model-proxy:usage');
 			success.add('Model proxy settings updated successfully.');
+			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling
-		} finally {
-			saving = false;
+			return false;
 		}
 	}
 </script>
 
-<form
-	class="flex h-full w-full flex-col gap-4 @container"
-	in:fade={{ duration }}
-	onsubmit={handleSave}
->
+<div class="flex w-full flex-col gap-2 @container">
 	{#if !isModelProxyConfigured}
 		<div class="notification-alert text-sm">
 			<div class="flex grow flex-col gap-1">
@@ -99,14 +106,8 @@
 				/>
 			</label>
 		</div>
-
-		{#if !isAdminReadonly}
-			<div class="paper flex-row justify-end py-2">
-				<button type="submit" class="btn btn-primary" disabled={!canSave}>Save</button>
-			</div>
-		{/if}
 	</div>
-</form>
+</div>
 
 {#snippet usageCard(title: string, usage?: ModelProxyTokenUsage)}
 	<div class="flex flex-col gap-2 border border-base-300 dark:border-base-400 rounded-md p-4">

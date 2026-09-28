@@ -85,31 +85,42 @@ describe('Platform Page', () => {
 		vi.mocked(navigation.reloadPage).mockRestore();
 	});
 
-	describe('product analytics tab', () => {
-		it('shows Product Analytics inside Platform instead of the sidebar', async () => {
-			await renderPlatformPage({ view: 'product-analytics' });
+	describe('settings tab', () => {
+		it('shows product analytics inside Settings instead of its own tab', async () => {
+			await renderPlatformPage({ view: 'settings' });
 
 			await expect
-				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
+				.element(page.getByRole('button', { name: 'Settings', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Product Analytics', exact: true }))
 				.toBeVisible();
 			await expect
 				.element(page.getByText(/Share product usage data to help improve Obot\./))
 				.toBeVisible();
-		});
-
-		it('is hidden when consent controls are unavailable', async () => {
-			await renderPlatformPage({ productAnalyticsAvailable: false });
-
 			await expect
 				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
 				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
 		});
 
-		it('is hidden from read-only administrators', async () => {
-			await renderPlatformPage({ groups: [Group.AUDITOR] });
+		it('hides the product analytics section when consent controls are unavailable', async () => {
+			await renderPlatformPage({ view: 'settings', productAnalyticsAvailable: false });
 
 			await expect
-				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
+				.element(page.getByRole('heading', { name: 'Product Analytics', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('hides product analytics and the shared actions from read-only administrators', async () => {
+			await renderPlatformPage({ view: 'settings', groups: [Group.AUDITOR] });
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Product Analytics', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Save', exact: true }))
 				.not.toBeInTheDocument();
 		});
 	});
@@ -325,47 +336,63 @@ describe('Platform Page', () => {
 		});
 	});
 
-	describe('registry connections tab', () => {
-		it('hides the tab when the engine is not kubernetes', async () => {
+	describe('registry connections section', () => {
+		it('hides the section when the engine is not kubernetes', async () => {
 			await renderPlatformPage({
-				view: 'license',
+				view: 'settings',
 				capability: { available: true }
 			});
 
 			await expect
-				.element(page.getByRole('button', { name: 'Registry Connections', exact: true }))
+				.element(page.getByRole('heading', { name: 'Registry Connections', exact: true }))
 				.not.toBeInTheDocument();
 		});
 
-		it('renders image pull secrets as the tab content', async () => {
+		it('renders image pull secrets inside Settings', async () => {
 			await renderPlatformPage({
-				view: 'registry-connections',
+				view: 'settings',
 				capability: { available: true },
 				versionOverrides: { engine: 'kubernetes' }
 			});
 
 			await expect
-				.element(page.getByRole('button', { name: 'Registry Connections', exact: true }))
+				.element(page.getByRole('button', { name: 'Settings', exact: true }))
 				.toBeVisible();
-			await expect.element(page.getByText('No image pull secrets', { exact: true })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Create New Secret', exact: true }).first())
+				.element(page.getByRole('heading', { name: 'Registry Connections', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByText("Click '+' to add a basic secret.", { exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Add Basic Secret', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Add ECR Secret', exact: true }))
 				.toBeVisible();
 		});
 
-		it('opens the create form from the platform overlay', async () => {
+		it('opens the create form inside Settings', async () => {
 			await renderPlatformPage({
-				view: 'registry-connections',
+				view: 'settings',
 				create: true,
 				capability: { available: true },
 				versionOverrides: { engine: 'kubernetes' }
 			});
 
 			await expect
-				.element(page.getByRole('heading', { name: 'Create Image Pull Secret', exact: true }))
+				.element(page.getByRole('button', { name: 'Settings', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Registry Connections', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Add Basic Secret', exact: true }))
 				.toBeVisible();
 			await expect.element(page.getByText('Registry Server', { exact: true })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Create', exact: true })).toBeVisible();
+			await expect
+				.element(page.getByText("Click '+' to add a basic secret.", { exact: true }))
+				.toBeVisible();
 		});
 	});
 });

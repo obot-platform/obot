@@ -541,7 +541,7 @@
 						<p class="text-xs text-muted-content">
 							Need to add or modify a credential? <a
 								class="text-blue-500 hover:underline"
-								href={resolve('/admin/platform?view=git-credentials')}
+								href={resolve('/admin/platform?view=settings#git-credentials')}
 							>
 								Manage Credentials
 							</a>

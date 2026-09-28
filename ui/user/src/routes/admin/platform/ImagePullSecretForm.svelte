@@ -1,12 +1,7 @@
 <script lang="ts">
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import type {
-		ImagePullSecret,
-		ImagePullSecretCapability,
-		ImagePullSecretType
-	} from '$lib/services';
+	import type { ImagePullSecret, ImagePullSecretCapability } from '$lib/services';
 	import CapabilityBanner from './CapabilityBanner.svelte';
 	import ECRSetupGuide from './ECRSetupGuide.svelte';
 	import FieldLabel from './FieldLabel.svelte';
@@ -30,14 +25,10 @@
 		refreshing?: boolean;
 		refreshMessage?: string;
 		requiredErrors?: Record<string, string>;
+		hideSubmit?: boolean;
 		onSave: () => void;
 		onRefresh: (secret: ImagePullSecret) => void;
 	}
-
-	const typeOptions: { id: ImagePullSecretType; label: string }[] = [
-		{ id: 'basic', label: 'Basic' },
-		{ id: 'ecr', label: 'ECR' }
-	];
 
 	let {
 		form = $bindable(),
@@ -50,6 +41,7 @@
 		refreshing = false,
 		refreshMessage = '',
 		requiredErrors = {},
+		hideSubmit = false,
 		onSave,
 		onRefresh
 	}: Props = $props();
@@ -75,79 +67,62 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6">
-	{#if !capability.available}
-		<CapabilityBanner reason={capability.reason} />
-	{/if}
+{#if !capability.available}
+	<CapabilityBanner reason={capability.reason} />
+{/if}
 
-	{#if selectedId && !currentSecret}
-		<div class="notification-info flex items-center gap-3">
-			<Info class="size-5" />
-			<div>Image pull secret not found.</div>
+{#if selectedId && !currentSecret}
+	<div class="notification-info flex items-center gap-3">
+		<Info class="size-5" />
+		<div>Image pull secret not found.</div>
+	</div>
+{:else}
+	<form
+		class="flex flex-col gap-4"
+		novalidate
+		onsubmit={(e) => {
+			e.preventDefault();
+			if (!hideSubmit) onSave();
+		}}
+	>
+		<div class="flex flex-col gap-4">
+			<label class="flex flex-col gap-1">
+				<FieldLabel
+					label="Display Name"
+					help="Friendly name shown in the admin list. If omitted, Obot shows the generated secret ID."
+				/>
+				<input
+					class="input-text-filled"
+					bind:value={form.displayName}
+					disabled={mutationsDisabled}
+					placeholder={form.type === 'ecr' ? 'Production ECR access' : 'Production registry'}
+				/>
+			</label>
 		</div>
-	{:else}
-		<form
-			class="paper"
-			novalidate
-			onsubmit={(e) => {
-				e.preventDefault();
-				onSave();
-			}}
-		>
-			<div class="flex flex-col gap-4">
-				<div class="flex flex-col gap-1">
-					<FieldLabel
-						label="Type"
-						help="Choose Basic for username/password registry credentials, or ECR for AWS IAM role based ECR access."
-					/>
-					<Select
-						id="image-pull-secret-type"
-						class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
-						classes={{ root: 'w-full' }}
-						options={typeOptions}
-						selected={form.type}
-						disabled={Boolean(currentSecret) || mutationsDisabled}
-						onSelect={(option) => {
-							form.type = option.id as ImagePullSecretType;
-						}}
-					/>
-				</div>
-				<label class="flex flex-col gap-1">
-					<FieldLabel
-						label="Display Name"
-						help="Friendly name shown in the admin list. If omitted, Obot shows the generated secret ID."
-					/>
-					<input
-						class="input-text-filled"
-						bind:value={form.displayName}
-						disabled={mutationsDisabled}
-						placeholder={form.type === 'ecr' ? 'Production ECR access' : 'Production registry'}
-					/>
-				</label>
+
+		{#if form.type === 'basic'}
+			{@render basicFields()}
+		{:else}
+			{@render ecrFields()}
+		{/if}
+
+		{#if refreshMessage}
+			<div
+				class={twMerge(
+					'flex items-center gap-3 rounded-md border p-3 text-sm',
+					'border-green-500 bg-green-500/10 text-green-700 dark:text-green-300'
+				)}
+			>
+				<CircleCheck class="size-5" />
+				<span>{refreshMessage}</span>
 			</div>
+		{/if}
 
-			{#if form.type === 'basic'}
-				{@render basicFields()}
-			{:else}
-				{@render ecrFields()}
-			{/if}
+		{#if currentSecret}
+			{@render enabledToggle()}
+		{/if}
 
-			{#if refreshMessage}
-				<div
-					class={twMerge(
-						'flex items-center gap-3 rounded-md border p-3 text-sm',
-						'border-green-500 bg-green-500/10 text-green-700 dark:text-green-300'
-					)}
-				>
-					<CircleCheck class="size-5" />
-					<span>{refreshMessage}</span>
-				</div>
-			{/if}
-
-			{#if currentSecret}
-				{@render enabledToggle()}
-			{/if}
-
+		{#if !hideSubmit || (currentSecret && form.type === 'ecr')}
 			<div class="flex flex-wrap items-center justify-end gap-2">
 				{#if currentSecret && form.type === 'ecr'}
 					<button
@@ -160,38 +135,41 @@
 						Refresh Now
 					</button>
 				{/if}
-				<button
-					type="submit"
-					class="btn btn-primary flex items-center gap-1 text-sm"
-					disabled={mutationsDisabled || saving}
-				>
-					{#if saving}
-						<LoaderCircle class="size-4 animate-spin" />
-					{/if}
-					{currentSecret ? 'Save' : 'Create'}
-				</button>
+				{#if !hideSubmit}
+					<button
+						type="submit"
+						class="btn btn-primary flex items-center gap-1 text-sm"
+						disabled={mutationsDisabled || saving}
+					>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{/if}
+						{currentSecret ? 'Save' : 'Create'}
+					</button>
+				{/if}
 			</div>
-		</form>
-
-		{#if form.type === 'ecr'}
-			{#if issuerDiscoveryReason}
-				<div class="notification-info mt-5 flex items-center gap-3 text-sm">
-					<Info class="size-5" />
-					<div>
-						<p class="font-semibold">Issuer URL is required for ECR setup.</p>
-						<p>{issuerDiscoveryReason}</p>
-					</div>
-				</div>
-			{/if}
-			<ECRSetupGuide
-				{effectiveIssuerURL}
-				{effectiveAudience}
-				trustPolicyJSON={previewTrustPolicyJSON}
-				ecrPolicyJSON={previewECRPolicyJSON}
-			/>
 		{/if}
+	</form>
+
+	{#if form.type === 'ecr'}
+		<div class="divider my-0"></div>
+		{#if issuerDiscoveryReason}
+			<div class="notification-info mt-5 flex items-center gap-3 text-sm">
+				<Info class="size-5" />
+				<div>
+					<p class="font-semibold">Issuer URL is required for ECR setup.</p>
+					<p>{issuerDiscoveryReason}</p>
+				</div>
+			</div>
+		{/if}
+		<ECRSetupGuide
+			{effectiveIssuerURL}
+			{effectiveAudience}
+			trustPolicyJSON={previewTrustPolicyJSON}
+			ecrPolicyJSON={previewECRPolicyJSON}
+		/>
 	{/if}
-</div>
+{/if}
 
 {#snippet enabledToggle()}
 	<div class="border-base-300 dark:border-base-400 flex items-center gap-1 border-t pt-4 text-sm">
@@ -306,7 +284,7 @@
 			{/if}
 		</label>
 
-		<div class="border-base-300 dark:border-base-400 flex flex-col gap-4 border-t pt-4">
+		<div class="flex flex-col gap-4">
 			<button
 				type="button"
 				class="text-muted-content hover:text-base-content flex w-fit items-center gap-1 text-sm font-medium"

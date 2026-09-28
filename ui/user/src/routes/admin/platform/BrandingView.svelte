@@ -13,7 +13,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<div class="relative mb-8 h-full min-w-0 w-full @container" transition:fade={{ duration }}>
+<div class="relative mb-8 h-full min-w-0 w-full @container" in:fade={{ duration }}>
 	<div>
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">

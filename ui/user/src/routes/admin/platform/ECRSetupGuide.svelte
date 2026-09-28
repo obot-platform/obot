@@ -11,15 +11,15 @@
 	let { effectiveIssuerURL, effectiveAudience, trustPolicyJSON, ecrPolicyJSON }: Props = $props();
 </script>
 
-<section class="paper gap-5">
-	<div class="flex flex-col gap-1">
-		<h3 class="text-base font-semibold">AWS Setup Guide</h3>
-		<p class="text-muted-content text-sm">
-			Configure AWS to trust Obot's service account, then paste the role ARN above and save the
-			image pull secret in Obot.
-		</p>
-	</div>
+<div class="flex flex-col gap-1">
+	<h3 class="text-base font-semibold">AWS Setup Guide</h3>
+	<p class="text-muted-content text-sm">
+		Configure AWS to trust Obot's service account, then paste the role ARN above and save the image
+		pull secret in Obot.
+	</p>
+</div>
 
+<section class="flex flex-col gap-5">
 	<div class="divide-base-300 dark:divide-base-400 flex flex-col divide-y">
 		<div class="pb-5">
 			{@render setupStep(

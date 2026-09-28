@@ -1,15 +1,12 @@
 import { page as appPage } from '$app/state';
 import type { ImagePullSecret, ImagePullSecretCapability } from '$lib/services';
-import * as url from '$lib/url';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import RegistryConnectionsView from './RegistryConnectionsView.svelte';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
-
-vi.mock(import('$lib/url'), { spy: true });
 
 const availableCapability: ImagePullSecretCapability = { available: true };
 const unavailableCapability: ImagePullSecretCapability = {
@@ -27,16 +24,6 @@ const dockerHubSecret: ImagePullSecret = {
 	},
 	status: { passwordConfigured: true }
 };
-
-function mockImagePullSecretApis({
-	capability = availableCapability,
-	items = [] as ImagePullSecret[]
-} = {}) {
-	worker.use(
-		http.get('/api/image-pull-secrets/capability', () => HttpResponse.json(capability)),
-		http.get('/api/image-pull-secrets', () => HttpResponse.json({ items }))
-	);
-}
 
 async function renderRegistryConnections({
 	capability = availableCapability,
@@ -68,20 +55,18 @@ afterEach(() => {
 });
 
 describe('RegistryConnectionsView', () => {
-	beforeEach(() => {
-		vi.mocked(url.goto).mockImplementation(() => undefined as never);
-	});
-
-	afterEach(() => {
-		vi.mocked(url.goto).mockReset();
-	});
 	it('shows an empty state when no secrets exist', async () => {
 		await renderRegistryConnections();
 
-		await expect.element(page.getByText('No image pull secrets', { exact: true })).toBeVisible();
 		await expect
-			.element(page.getByRole('button', { name: 'Create New Secret', exact: true }))
+			.element(page.getByText("Click '+' to add a basic secret.", { exact: true }))
 			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Basic Secret', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Add Basic Secret', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('shows a capability banner and hides create when unavailable', async () => {
@@ -94,7 +79,13 @@ describe('RegistryConnectionsView', () => {
 			.element(page.getByText(unavailableCapability.reason!, { exact: true }))
 			.toBeVisible();
 		await expect
-			.element(page.getByRole('button', { name: 'Create New Secret', exact: true }))
+			.element(page.getByRole('button', { name: 'Add Basic Secret', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Add ECR Secret', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Add Basic Secret', exact: true }))
 			.not.toBeInTheDocument();
 	});
 
@@ -106,59 +97,30 @@ describe('RegistryConnectionsView', () => {
 		await expect.element(page.getByText('docker.io', { exact: true }).first()).toBeVisible();
 	});
 
-	it('shows required errors when creating without fields', async () => {
+	it('opens the create form from the query and keeps the list', async () => {
 		await renderRegistryConnections({ create: true });
-
-		await expect.element(page.getByText('Registry Server', { exact: true })).toBeVisible();
-		await page.getByRole('button', { name: 'Create', exact: true }).click();
 
 		await expect
-			.element(page.getByText('Registry Server is required', { exact: true }))
+			.element(page.getByRole('heading', { name: 'Add Basic Secret', exact: true }))
 			.toBeVisible();
-		await expect.element(page.getByText('Username is required', { exact: true })).toBeVisible();
-		await expect.element(page.getByText('Password is required', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Registry Server', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText("Click '+' to add a basic secret.", { exact: true }))
+			.toBeVisible();
 	});
 
-	it('creates a basic secret', async () => {
-		const createSecret = vi.fn();
-		mockImagePullSecretApis();
-		worker.use(
-			http.post('/api/image-pull-secrets', async ({ request }) => {
-				const body = await request.json();
-				createSecret(body);
-				return HttpResponse.json({
-					id: 'ips-new',
-					manifest: body
-				});
-			})
-		);
+	it('opens an ECR form from the ECR section button', async () => {
+		await renderRegistryConnections();
 
-		await renderRegistryConnections({ create: true });
+		await page.getByRole('button', { name: 'Add ECR Secret', exact: true }).click();
 
-		await page.getByPlaceholder('registry.example.com', { exact: true }).fill('ghcr.io');
-		await page.getByPlaceholder('robot-account').fill('obot');
-		await page.getByPlaceholder('Registry password or token').fill('secret-token');
-		await page.getByRole('button', { name: 'Create', exact: true }).click();
-
-		await vi.waitFor(() => {
-			expect(createSecret).toHaveBeenCalledWith({
-				enabled: true,
-				type: 'basic',
-				displayName: '',
-				basic: {
-					server: 'ghcr.io',
-					username: 'obot',
-					password: 'secret-token'
-				}
-			});
-			expect(url.goto).toHaveBeenCalledWith('/admin/platform?view=registry-connections', {
-				replaceState: true,
-				noScroll: true
-			});
-		});
+		await expect
+			.element(page.getByRole('heading', { name: 'Add ECR Secret', exact: true }))
+			.toBeVisible();
+		await expect.element(page.getByText('Role ARN', { exact: true })).toBeVisible();
 	});
 
-	it('deletes a secret from the list', async () => {
+	it('stages a secret deletion without calling the api', async () => {
 		const deleteSecret = vi.fn(() => new HttpResponse(null, { status: 204 }));
 		worker.use(http.delete('/api/image-pull-secrets/ips-dockerhub', deleteSecret));
 
@@ -166,12 +128,8 @@ describe('RegistryConnectionsView', () => {
 
 		await page.getByRole('button', { name: 'Actions for Docker Hub', exact: true }).click();
 		await page.getByRole('button', { name: 'Delete', exact: true }).click();
-		await expect.element(page.getByText('Delete Docker Hub?', { exact: true })).toBeVisible();
-		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
 
-		await vi.waitFor(() => {
-			expect(deleteSecret).toHaveBeenCalledOnce();
-		});
 		await expect.element(page.getByText('Docker Hub', { exact: true })).not.toBeInTheDocument();
+		expect(deleteSecret).not.toHaveBeenCalled();
 	});
 });

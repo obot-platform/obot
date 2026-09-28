@@ -4,19 +4,34 @@
 	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 
-	let { consent }: { consent: ProductTelemetryConsent } = $props();
+	let {
+		consent,
+		saving = false,
+		dirty = $bindable(false)
+	}: {
+		consent: ProductTelemetryConsent;
+		saving?: boolean;
+		dirty?: boolean;
+	} = $props();
+
 	const initialConsent = untrack(() => consent.consent);
 	untrack(() => productTelemetryConsent.initialize(consent, true));
 	let persistedConsent = $state<boolean | undefined>(initialConsent);
 	let selectedConsent = $state<boolean | undefined>(initialConsent);
-	let saving = $state(false);
 
 	let canSave = $derived(selectedConsent !== undefined && selectedConsent !== persistedConsent);
 
-	async function handleSave() {
-		if (!canSave || selectedConsent === undefined) return;
+	$effect(() => {
+		if (dirty !== canSave) dirty = canSave;
+	});
 
-		saving = true;
+	export function reset() {
+		selectedConsent = persistedConsent;
+	}
+
+	export async function save() {
+		if (!canSave || selectedConsent === undefined) return false;
+
 		try {
 			const response = await AdminService.updateProductTelemetryConsent(selectedConsent);
 			const savedConsent = response.consent ?? selectedConsent;
@@ -24,30 +39,16 @@
 			selectedConsent = savedConsent;
 			productTelemetryConsent.setConsent(savedConsent);
 			success.add('Product analytics preference updated successfully.');
+			return true;
 		} catch (_err) {
 			// Keep both the persisted status and unsaved selection so the administrator can retry.
-		} finally {
-			saving = false;
+			return false;
 		}
 	}
 </script>
 
-<div class="relative flex h-full w-full flex-col gap-2 @container pt-4">
+<div class="relative flex w-full flex-col gap-2 @container">
 	<div class="paper gap-5">
-		<div class="flex flex-col gap-2 text-sm font-light">
-			<p>
-				Share product usage data to help improve Obot.
-				<a
-					class="text-link"
-					href="https://docs.obot.ai/configuration/product-analytics"
-					target="_blank"
-					rel="external noopener noreferrer">Learn more</a
-				>
-			</p>
-		</div>
-
-		<div class="divider my-0"></div>
-
 		<fieldset class="flex flex-col gap-3" disabled={saving}>
 			<legend class="mb-2 text-sm font-medium">Share product usage data</legend>
 			<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-base-300 p-3">
@@ -93,13 +94,5 @@
 				rel="external noopener noreferrer">Learn more about update checks</a
 			>.
 		</p>
-	</div>
-	<div class="paper py-2 flex-row justify-end">
-		<button
-			type="button"
-			class="btn btn-primary text-sm"
-			disabled={!canSave || saving}
-			onclick={handleSave}>Save</button
-		>
 	</div>
 </div>
