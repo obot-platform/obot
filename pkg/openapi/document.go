@@ -43,7 +43,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 		return nil, fmt.Errorf("cannot parse OpenAPI document or resolve local references")
 	}
 	if !versionPattern.MatchString(document.OpenAPI) {
-		return nil, fmt.Errorf("supported OpenAPI versions for the hosted wrapper are 3.0.0–3.0.4 and 3.1.0–3.1.2")
+		return nil, fmt.Errorf("supported OpenAPI versions are 3.0.0–3.0.4 and 3.1.0–3.1.2")
 	}
 	if document.Info == nil || strings.TrimSpace(document.Info.Title) == "" || strings.TrimSpace(document.Info.Version) == "" {
 		return nil, fmt.Errorf("schema requires info.title and info.version")
@@ -51,26 +51,11 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	if len(document.Webhooks) > 0 {
 		return nil, fmt.Errorf("OpenAPI webhooks are unsupported")
 	}
-	result := &Result{}
-	if config.BaseURL != "" {
-		result.BaseURL, err = destination(config.BaseURL)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		for _, server := range document.Servers {
-			if server == nil {
-				continue
-			}
-			if base, err := destination(server.URL); err == nil {
-				result.BaseURL = base
-				break
-			}
-		}
-		if result.BaseURL == "" {
-			return nil, fmt.Errorf("no usable server URL; configure baseURL")
-		}
+	baseURL, err := findBaseURL(config.BaseURL, document.Servers)
+	if err != nil {
+		return nil, err
 	}
+	result := &Result{BaseURL: baseURL}
 	headers, err := securityHeaders(document)
 	if err != nil {
 		return nil, err
@@ -105,6 +90,21 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 		}
 	}
 	return result, nil
+}
+
+func findBaseURL(configured string, servers openapi3.Servers) (string, error) {
+	if configured != "" {
+		return destination(configured)
+	}
+	for _, server := range servers {
+		if server == nil {
+			continue
+		}
+		if base, err := destination(server.URL); err == nil {
+			return base, nil
+		}
+	}
+	return "", fmt.Errorf("no usable server URL; configure baseURL")
 }
 
 // securityHeaders turns declared API-key and bearer schemes into editable Obot

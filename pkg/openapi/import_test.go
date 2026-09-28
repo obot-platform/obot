@@ -62,7 +62,7 @@ func TestWrapperVersions(t *testing.T) {
 			_, err := Parse(data, types.OpenAPIRuntimeConfig{})
 			switch version {
 			case "3.0.5", "3.1.3", "3.2.0":
-				require.ErrorContains(t, err, "hosted wrapper")
+				require.ErrorContains(t, err, "supported OpenAPI versions are")
 			default:
 				require.NoError(t, err)
 			}
