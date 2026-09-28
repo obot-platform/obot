@@ -10,7 +10,8 @@ const defaultFilters = {
 	sortBy: 'name' as const,
 	query: '',
 	componentFilterBy: '',
-	statusFilterBy: ''
+	statusFilterBy: '',
+	variant: 'grid' as const
 };
 
 async function renderSettings(groups: string[] = [Group.ADMIN]) {

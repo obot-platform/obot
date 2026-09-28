@@ -20,8 +20,9 @@
 	} from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
 	import { goto, setFilterUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
-	import { Layers, Plus } from '@lucide/svelte';
+	import { Layers, Pencil, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 	let views = $derived.by((): TabView[] =>
@@ -52,7 +53,7 @@
 	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
 	let isLoading = $state(false);
 	let filters = $state(getInitialFilters());
-	let selecting = $state(false);
+	let vmcpList = $state<ReturnType<typeof VMcpList>>();
 
 	let vmcps = $derived.by(() => {
 		if (filters.showMyVMcpsOnly) {
@@ -221,9 +222,24 @@
 	{#if isLoading}
 		<Loading class="text-primary" />
 	{:else}
-		<VMcpListSettings bind:selecting {filters} onChange={handleChange} {componentFilterOptions} />
+		<VMcpListSettings {filters} onChange={handleChange} {componentFilterOptions}>
+			{#snippet actions()}
+				{#if filters.variant === 'grid' && !vmcpList?.isInSelectMode()}
+					<div in:fade>
+						<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectMode()}>
+							<Pencil class="size-4" /> Edit Mode
+						</button>
+					</div>
+				{/if}
+				{#if filters.variant === 'grid' && vmcpList?.isInSelectMode()}
+					<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectAll()}>
+						{vmcpList?.isAllSelected() ? 'Deselect All' : 'Select All'}
+					</button>
+				{/if}
+			{/snippet}
+		</VMcpListSettings>
 		<VMcpList
-			bind:selecting
+			bind:this={vmcpList}
 			items={sortedVMcps}
 			components={vmcpComponents}
 			onSelect={openVMcp}

@@ -109,56 +109,54 @@
 				<VMcpCatalogSyncedIndicator {vmcp} class="pointer-events-auto relative z-10" />
 			</div>
 			<p class="text-muted-content mt-0.5 line-clamp-2 text-xs font-light min-h-8">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toInlineHTMLFromMarkdown -->
 				{@html descriptionHTML}
 			</p>
 		</div>
-		{#key inSelectMode}
-			{#if inSelectMode}
-				<div
-					class="pointer-events-auto relative z-10 flex size-9 shrink-0 items-center justify-center"
-					title={ctx.canDelete ? undefined : 'You can only delete vMCPs you created.'}
-				>
-					<input
-						type="checkbox"
-						class={twMerge('checkbox checkbox-sm', selected && 'checkbox-primary')}
-						checked={selected}
-						disabled={!ctx.canDelete}
-						aria-label={`Select ${name}`}
-						onclick={(event) => event.stopPropagation()}
-						onchange={() => {
-							if (!ctx.canDelete) return;
-							onSelect?.();
-						}}
+		{#if ctx.hasActions}
+			<DotDotDot
+				placement="bottom-start"
+				class="pointer-events-auto relative z-10 size-9 shrink-0"
+				classes={{ menu: 'min-w-48' }}
+				ariaLabel={`Actions for ${name}`}
+			>
+				{#snippet children({ toggle })}
+					{#if onEditDetails}
+						<button class="menu-button" onclick={onEditDetails}>
+							<Pencil class="size-4" /> Edit Details
+						</button>
+					{/if}
+					<VMcpMenuActions
+						{vmcp}
+						{toggle}
+						onDelete={() => onDelete?.()}
+						onUpdated={onUpdate}
+						{openSelectInstance}
+						{openDiff}
+						{openUpdateConfirm}
+						{openEditInstanceConfiguration}
 					/>
-				</div>
-			{:else if ctx.hasActions}
-				<DotDotDot
-					placement="bottom-start"
-					class="pointer-events-auto relative z-10 size-9 shrink-0"
-					classes={{ menu: 'min-w-48' }}
-					ariaLabel={`Actions for ${name}`}
-				>
-					{#snippet children({ toggle })}
-						{#if onEditDetails}
-							<button class="menu-button" onclick={onEditDetails}>
-								<Pencil class="size-4" /> Edit Details
-							</button>
-						{/if}
-						<VMcpMenuActions
-							{vmcp}
-							{toggle}
-							onDelete={() => onDelete?.()}
-							onUpdated={onUpdate}
-							{openSelectInstance}
-							{openDiff}
-							{openUpdateConfirm}
-							{openEditInstanceConfiguration}
-						/>
-					{/snippet}
-				</DotDotDot>
-			{/if}
-		{/key}
+				{/snippet}
+			</DotDotDot>
+		{/if}
+		{#if inSelectMode}
+			<div
+				class="pointer-events-auto relative z-10 flex size-9 shrink-0 items-center justify-center"
+				title={ctx.canDelete ? undefined : 'You can only delete vMCPs you created.'}
+			>
+				<input
+					type="checkbox"
+					class={twMerge('checkbox checkbox-sm', selected && 'checkbox-primary')}
+					checked={selected}
+					disabled={!ctx.canDelete}
+					aria-label={`Select ${name}`}
+					onclick={(event) => event.stopPropagation()}
+					onchange={() => {
+						if (!ctx.canDelete) return;
+						onSelect?.();
+					}}
+				/>
+			</div>
+		{/if}
 	</div>
 
 	{#if children}

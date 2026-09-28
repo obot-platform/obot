@@ -34,7 +34,7 @@
 		noDataContent?: Snippet;
 		usersMap: Map<string, OrgUser>;
 		variant?: 'grid' | 'table';
-		selecting?: boolean;
+		isSelectMode?: boolean;
 	}
 
 	let {
@@ -47,15 +47,17 @@
 		onUpdate,
 		noDataContent,
 		usersMap,
-		variant = 'grid',
-		selecting = $bindable(false)
+		variant = 'grid'
 	}: Props = $props();
 
 	let items = $derived(initialItems.map(translateItem));
 	let overflowHiddenById = $state<Record<string, number>>({});
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
+	let tableRef = $state<ReturnType<typeof Table>>();
 	let pendingBulkDelete = $state<VMCP[]>();
 	let bulkDeleting = $state(false);
+
+	let isSelectMode = $state(false);
 	let selected = $state<Record<string, Item>>({});
 	let selectedCount = $derived(Object.keys(selected).length);
 	let selectableCount = $derived(items.filter(canSelectRow).length);
@@ -123,11 +125,31 @@
 		selected[card.id] = card;
 	}
 
-	$effect(() => {
-		if (selecting) return;
-		if (Object.keys(selected).length === 0) return;
-		selected = {};
-	});
+	export function toggleSelectMode() {
+		isSelectMode = !isSelectMode;
+	}
+
+	export function isInSelectMode() {
+		return isSelectMode;
+	}
+
+	export function toggleSelectAll() {
+		if (selectedCount === selectableCount && selectableCount > 0) {
+			selected = {};
+			return;
+		}
+		selected = items.filter(canSelectRow).reduce(
+			(acc, item) => {
+				acc[item.id] = item;
+				return acc;
+			},
+			{} as Record<string, Item>
+		);
+	}
+
+	export function isAllSelected() {
+		return selectedCount === selectableCount && selectableCount > 0;
+	}
 
 	$effect(() => {
 		const ids = new Set(items.map((item) => item.id));
@@ -138,7 +160,7 @@
 
 	function exitSelecting() {
 		selected = {};
-		selecting = false;
+		isSelectMode = false;
 	}
 
 	async function handleBulkDelete() {
@@ -159,9 +181,10 @@
 		} catch {
 			errors.append('Failed to delete vMCP(s).');
 		} finally {
+			tableRef?.clearSelectAll();
 			bulkDeleting = false;
 			pendingBulkDelete = undefined;
-			selecting = false;
+			isSelectMode = false;
 		}
 	}
 
@@ -254,7 +277,7 @@
 	}
 </script>
 
-<div class="@container {variant === 'grid' && selecting ? 'pb-16' : ''}">
+<div class="@container">
 	{#if items.length === 0}
 		<div class="flex h-full items-center justify-center">
 			{#if noDataContent}
@@ -276,7 +299,7 @@
 	{/if}
 </div>
 
-{#if variant === 'grid' && selecting}
+{#if variant === 'grid' && isSelectMode}
 	{@const deletable = Object.values(selected).filter(canSelectRow)}
 	<div class="flex grow"></div>
 	<div
@@ -327,6 +350,7 @@
 {#snippet table()}
 	<div class="dark:bg-base-300 bg-base-100 rounded-md shadow-sm">
 		<Table
+			bind:this={tableRef}
 			data={items}
 			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
@@ -410,11 +434,13 @@
 								e.stopPropagation();
 								handleTest(row.vmcp);
 							}}
+							disabled={connectDisabled(ctx.canConnect)}
+							aria-disabled={connectDisabled(ctx.canConnect)}
 						>
 							<MessageCircle class="size-4" />
 						</IconButton>
 					{/if}
-					{#if ctx.hasActions}
+					{#if ctx.hasActions || (responsive.isMobile && ctx.canConnect)}
 						<DotDotDot
 							class="hover:dark:bg-base-100/50"
 							classes={{ menu: 'min-w-48' }}
@@ -490,13 +516,13 @@
 {#snippet vmcpCard(card: Item)}
 	<VMcpCard
 		vmcp={card.vmcp}
-		selectAriaLabel={selecting
+		selectAriaLabel={isSelectMode
 			? `Select ${card.displayName}`
 			: `Open ${card.displayName || 'Untitled vMCP'}`}
 		selected={Boolean(selected[card.id])}
-		{selecting}
+		selecting={isSelectMode}
 		onSelect={() => {
-			if (!selecting) {
+			if (!isSelectMode) {
 				onSelect?.(card.vmcp);
 				return;
 			}

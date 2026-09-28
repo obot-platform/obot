@@ -5,9 +5,8 @@
 	import { VMCP_SORT_OPTIONS, VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption, VMcpListSettingsFilters } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
-	import DotDotDot from '../DotDotDot.svelte';
 	import { Funnel, LayoutGrid, X, Table } from '@lucide/svelte';
-	import { fade } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	const BUTTON_ID = 'vmcp-settings-button';
@@ -20,15 +19,10 @@
 		filters: VMcpListSettingsFilters;
 		onChange: (property: keyof VMcpListSettingsFilters, values: string[]) => void;
 		componentFilterOptions?: VMcpFilterOption[];
-		selecting?: boolean;
+		actions?: Snippet;
 	}
 
-	let {
-		filters,
-		onChange,
-		componentFilterOptions = [],
-		selecting = $bindable(false)
-	}: Props = $props();
+	let { filters, onChange, componentFilterOptions = [], actions }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let componentDraft = $state<string | number | undefined>('');
 	let statusDraft = $state<string | number | undefined>('');
@@ -110,25 +104,12 @@
 	{/if}
 </div>
 
-<div class="flex items-center justify-between md:justify-end gap-2">
-	{#if filters.variant === 'grid'}
-		<div in:fade>
-			<DotDotDot placement="bottom-end">
-				{#snippet children({ toggle })}
-					<button
-						class="menu-button"
-						onclick={(e) => {
-							e.stopPropagation();
-							selecting = !selecting;
-							toggle(false);
-						}}
-					>
-						{selecting ? 'Cancel Selection' : 'Select Multiple'}
-					</button>
-				{/snippet}
-			</DotDotDot>
-		</div>
-	{/if}
+<div class="flex items-center justify-between gap-2">
+	<div class="flex items-center gap-2">
+		{#if actions}
+			{@render actions()}
+		{/if}
+	</div>
 	<div class="flex items-center gap-2">
 		<button
 			class={twMerge('btn', filters.variant === 'grid' ? 'btn-active' : undefined)}
