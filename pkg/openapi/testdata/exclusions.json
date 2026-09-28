@@ -1,0 +1,10 @@
+[
+  {"pattern": "^/users$", "path": "/users", "matches": true},
+  {"pattern": "^/users$", "path": "/users/{id}", "matches": false},
+  {"pattern": "^/admin/", "path": "/admin/users", "matches": true},
+  {"pattern": "users", "path": "/v1/users", "matches": true},
+  {"pattern": "^/(users|groups)/[a-z]+$", "path": "/groups/admin", "matches": true},
+  {"pattern": "^/users/\\{id\\}$", "path": "/users/{id}", "matches": true},
+  {"pattern": "^/users/[0-9]+$", "path": "/users/123", "matches": true},
+  {"pattern": "^/Users$", "path": "/users", "matches": false}
+]

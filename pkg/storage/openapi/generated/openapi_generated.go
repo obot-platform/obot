@@ -291,6 +291,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                 schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                             schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPIExclusion":                          schema_obot_platform_obot_apiclient_types_OpenAPIExclusion(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig":                      schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPISource":                             schema_obot_platform_obot_apiclient_types_OpenAPISource(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem":                   schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItemList":               schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItemList(ref),
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
@@ -10747,6 +10750,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
+					"openAPIConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig"),
+						},
+					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -10776,7 +10784,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -11192,6 +11200,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
+					"openAPIConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig"),
+						},
+					},
 					"compositeConfig": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
@@ -11292,7 +11305,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -15226,6 +15239,115 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"access_token", "refresh_token", "expires_in", "token_type"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPIExclusion(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPIExclusion matches all populated fields. Separate entries are alternatives.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"pathPattern": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPIRuntimeConfig describes a hosted OpenAPI wrapper. Credentials belong in the manifest's header Config, never in this configuration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OpenAPISource"),
+						},
+					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+					"baseURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolSearch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"exclude": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIExclusion"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OpenAPIExclusion", "github.com/obot-platform/obot/apiclient/types.OpenAPISource"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPISource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPISource identifies a document to import. Exactly one field must be set. Content accepts JSON or YAML and is the upload/inline GitOps source.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
