@@ -57,17 +57,29 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 	return identities, nil
 }
 
-func (c *Client) UserHasIdentityForAuthProvider(ctx context.Context, userID uint, authProviderName string) (bool, error) {
+// HasSignedInOwner reports whether a user other than the bootstrap user counts as an Owner of the named auth
+// provider: their stored role includes Owner, they are neither deleted nor disabled, and they have signed in through
+// the provider. An identity alone is not enough, because an identity can exist before its user has signed in.
+func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) (bool, error) {
+	var owners []types.User
 	if err := c.db.WithContext(ctx).
-		Select("auth_provider_name").
-		Where("user_id = ? AND auth_provider_name = ?", userID, authProviderName).
-		First(new(types.Identity)).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
-	} else if err != nil {
+		Where("deleted_at IS NULL AND disabled_at IS NULL AND (role & ?) != 0 AND hashed_username != ?", types2.RoleOwner, hash.String(system.BootstrapName)).
+		Where("EXISTS (SELECT 1 FROM identities WHERE identities.user_id = users.id AND identities.auth_provider_name = ? AND identities.first_sign_in_at IS NOT NULL)", authProviderName).
+		Find(&owners).Error; err != nil {
 		return false, err
 	}
 
-	return true, nil
+	for i := range owners {
+		if err := c.decryptUser(ctx, &owners[i]); err != nil {
+			return false, err
+		}
+		// Users without an email are not people who signed in.
+		if owners[i].Email != "" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
@@ -79,18 +91,28 @@ func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezon
 // If the user already exists with a superset of the given role, it will not be updated.
 func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, error) {
 	var (
-		user    *types.User
-		created bool
+		user       *types.User
+		created    bool
+		roleRaised bool
 	)
 
 	// Transaction #1: ensure the identity + user rows exist / are corrected, and read what we need.
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		user, created, err = c.ensureIdentity(ctx, tx, id, timezone, role, userLimit)
+		user, created, roleRaised, err = c.ensureIdentity(ctx, tx, id, timezone, role, userLimit)
 		return err
 	})
 	if err != nil {
 		return nil, err
+	}
+	if roleRaised {
+		c.kickUserLifecycleDelivery()
+	}
+
+	if user.DisabledAt != nil {
+		// A disabled user is denied by the admission check, which reads their state from the returned user. Don't
+		// contact the auth provider or change anything else on their behalf.
+		return user, nil
 	}
 
 	// Fetch and persist auth-provider data (group lookup ID and group memberships).
@@ -154,7 +176,9 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 }
 
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, bool, error) {
+// It also reports whether it created the user, and whether it raised an existing user's stored role. A raised role
+// records a reconcile event in tx, so the caller must kick lifecycle delivery after committing.
+func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, bool, bool, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
@@ -181,42 +205,45 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		if err = tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// The identity does not exist, so create it.
 			if err = c.encryptIdentity(ctx, id); err != nil {
-				return nil, false, fmt.Errorf("failed to encrypt identity: %w", err)
+				return nil, false, false, fmt.Errorf("failed to encrypt identity: %w", err)
 			}
 			// A concurrent request may win this insert on a first sign-in.
 			if err = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(id).Error; err != nil {
-				return nil, false, err
+				return nil, false, false, err
 			}
 			// Read back whichever row won, so both racers continue with the same user ID.
 			if err = tx.Where(
 				"auth_provider_name = ? AND auth_provider_namespace = ? AND hashed_provider_user_id = ?",
 				id.AuthProviderName, id.AuthProviderNamespace, id.HashedProviderUserID,
 			).First(id).Error; err != nil {
-				return nil, false, err
+				return nil, false, false, err
 			}
 		} else if err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		} else {
 			if err = c.encryptIdentity(ctx, id); err != nil {
-				return nil, false, fmt.Errorf("failed to encrypt identity: %w", err)
+				return nil, false, false, fmt.Errorf("failed to encrypt identity: %w", err)
 			}
 
 			// The migrated identity exists. We need to update it with the right provider_user_id.
 			if err = tx.Model(&migratedIdentity).Where("hashed_provider_user_id = ?", migratedIdentity.HashedProviderUserID).Updates(map[string]any{"provider_user_id": id.ProviderUserID, "hashed_provider_user_id": id.HashedProviderUserID}).Error; err != nil {
-				return nil, false, err
+				return nil, false, false, err
 			}
 
 			// Now we should be able to load the identity.
 			if err = tx.First(id).Error; err != nil {
-				return nil, false, err
+				return nil, false, false, err
 			}
 		}
 	} else if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	if err := c.decryptIdentity(ctx, id); err != nil {
-		return nil, false, fmt.Errorf("failed to decrypt identity: %w", err)
+		return nil, false, false, fmt.Errorf("failed to decrypt identity: %w", err)
 	}
+
+	// The identity's key as stored, for recording its first sign-in below.
+	storedIdentityKey := []any{id.AuthProviderName, id.AuthProviderNamespace, id.HashedProviderUserID}
 
 	var updateIdentity bool
 	// This corrects the provider user ID and name to correct a bug introduced when re-encrypting all users and identities
@@ -240,7 +267,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		Role:           role,
 	}
 
-	var created, checkForExistingUser bool
+	var created, roleRaised, checkForExistingUser bool
 	userQuery := tx.Where("deleted_at IS NULL")
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
@@ -261,10 +288,10 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			u.ID = 0
 			created = true
 			if err = c.encryptUser(ctx, &u); err != nil {
-				return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
+				return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 			}
 			if err = c.createUser(tx, &u, userLimit); err != nil {
-				return nil, false, err
+				return nil, false, false, err
 			}
 
 			// Copy the auto-generated values back to the user object.
@@ -272,10 +299,10 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			user.CreatedAt = u.CreatedAt
 			user.Role = u.Role
 		} else if err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		} else {
 			if err = c.decryptUser(ctx, &u); err != nil {
-				return nil, false, fmt.Errorf("failed to decrypt user: %w", err)
+				return nil, false, false, fmt.Errorf("failed to decrypt user: %w", err)
 			}
 
 			// Copy the decrypted existing user back.
@@ -286,11 +313,13 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			if !user.Role.HasRole(role) {
 				user.Role = user.Role.SwitchBaseRole(role)
 				userChanged = true
+				roleRaised = true
 			}
 
 			if r := c.HasExplicitRole(user.Email); !user.Role.HasRole(r) {
 				user.Role = user.Role.SwitchBaseRole(r)
 				userChanged = true
+				roleRaised = true
 			}
 
 			if user.Timezone == "" && timezone != "" {
@@ -330,10 +359,19 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 				// Copy user so we don't have to decrypt
 				u = *user
 				if err := c.encryptUser(ctx, &u); err != nil {
-					return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
+					return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 				}
-				if err = tx.Updates(u).Error; err != nil {
-					return nil, false, err
+				// The user was read without a lock, so its lifecycle state may be stale. Only lifecycle
+				// operations write that state.
+				if err = tx.Omit(types.UserLifecycleColumns...).Updates(u).Error; err != nil {
+					return nil, false, false, err
+				}
+			}
+
+			if roleRaised {
+				// Role-dependent reconciliation must run, as it does when sign-in creates a user.
+				if err := recordUserReconcileEvent(tx, user.ID, false); err != nil {
+					return nil, false, false, err
 				}
 			}
 		}
@@ -344,10 +382,10 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so we don't have to decrypt
 		u := *user
 		if err := c.encryptUser(ctx, &u); err != nil {
-			return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
+			return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 		}
 		if err := c.createUser(tx, &u, userLimit); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 
 		// Copy the values that were created instead of decrypting the whole object.
@@ -360,11 +398,23 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		id.UserID = user.ID
 
 		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 
-	return user, created, nil
+	// Record the identity's first sign-in once, without rewriting the rest of the identity. A disabled user is about
+	// to be denied, which is not a sign-in: bootstrap relies on the marker to know that an Owner got in.
+	if id.FirstSignInAt == nil && user.DisabledAt == nil {
+		now := time.Now()
+		if err := tx.Model(new(types.Identity)).
+			Where("auth_provider_name = ? AND auth_provider_namespace = ? AND hashed_provider_user_id = ? AND first_sign_in_at IS NULL", storedIdentityKey...).
+			UpdateColumn("first_sign_in_at", now).Error; err != nil {
+			return nil, false, false, fmt.Errorf("failed to record the first sign-in of identity: %w", err)
+		}
+		id.FirstSignInAt = &now
+	}
+
+	return user, created, roleRaised, nil
 }
 
 func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {

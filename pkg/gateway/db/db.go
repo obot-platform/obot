@@ -161,8 +161,13 @@ func (db *DB) AutoMigrate() (err error) {
 		types.LocalAuthUser{},
 		types.LocalAuthSession{},
 		types.EnforcementDecisionLog{},
+		types.UserLifecycleEvent{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "identity_first_sign_in_backfill", backfillIdentityFirstSignIn); err != nil {
+		return fmt.Errorf("failed to backfill identity sign-in times: %w", err)
 	}
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {

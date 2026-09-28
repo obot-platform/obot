@@ -1250,6 +1250,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// authenticators and outside the user decorator.
 	authenticators = union.New(tunnelManager, authenticators)
 
+	// Deny disabled and deleted users whichever credential they present. This wraps the complete chain so that it
+	// runs once per request, after authentication and before authorization.
+	authenticators = authn.NewAdmissionCheck(authenticators)
+
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audit logger: %w", err)

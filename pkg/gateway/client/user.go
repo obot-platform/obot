@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,7 +57,14 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 	// Get the user and their group IDs for this auth provider
 	u, groupIDs, err := c.getUserAndGroupIDs(ctx, userID, namespace, name)
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The token outlived its user. Deny it rather than treating it as an unknown token, which would let the
+		// request continue as anonymous.
+		return nil, "", "", "", nil, &UserAccessDeniedError{
+			UserID: userID,
+			Status: types2.UserStatusDeleted,
+		}
+	} else if err != nil {
 		return nil, "", "", "", nil, err
 	}
 
@@ -145,9 +153,10 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		UID:    fmt.Sprintf("%d", u.ID),
 		Groups: u.Role.Groups(),
 		Extra: map[string][]string{
-			"obot_groups":          u.Role.Groups(),
-			"auth_provider_groups": groupIDs,
-			"email":                {u.Email},
+			"obot_groups":             u.Role.Groups(),
+			"auth_provider_groups":    groupIDs,
+			"email":                   {u.Email},
+			principal.UserStatusExtra: {string(u.Status())},
 		},
 	}, nil
 }
@@ -286,7 +295,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 		}
 
 		// Update the user with soft delete fields and modified email/username
-		if err := tx.Save(existingUser).Error; err != nil {
+		if err := tx.Omit(types.UserLifecycleColumns...).Save(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -376,7 +385,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			return fmt.Errorf("failed to encrypt user: %w", err)
 		}
 
-		return tx.Updates(&u).Error
+		return tx.Omit(types.UserLifecycleColumns...).Updates(&u).Error
 	})
 }
 
@@ -496,7 +505,9 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	}
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Updates(u).Error; err != nil {
+		// The user was read before the profile was fetched, so its lifecycle state may be stale. Only lifecycle
+		// operations write that state.
+		if err := tx.Omit(types.UserLifecycleColumns...).Updates(u).Error; err != nil {
 			return err
 		}
 
@@ -526,7 +537,7 @@ func (c *Client) EncryptUsers(ctx context.Context, force bool) error {
 				return fmt.Errorf("failed to encrypt user: %w", err)
 			}
 
-			if err := tx.Updates(users[i]).Error; err != nil {
+			if err := tx.Omit(types.UserLifecycleColumns...).Updates(users[i]).Error; err != nil {
 				return err
 			}
 		}

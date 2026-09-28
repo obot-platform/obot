@@ -18795,6 +18795,33 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is the user's lifecycle status. A disabled user keeps their account and data but is denied access.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledAt is when the user was disabled. It is set only while the user is disabled.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledReason explains why the user is disabled. It is set only while the user is disabled.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"managementSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ManagementSource is what controls the user's lifecycle status.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "lastActiveDay"},
 			},

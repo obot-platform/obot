@@ -30,6 +30,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 type Server struct {
@@ -99,6 +100,23 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 	return s
 }
 
+// authenticationError finds an error of type T in an error from the authenticator chain. The chain's unions
+// aggregate their members' errors without unwrapping them, so errors.As alone cannot see through them.
+func authenticationError[T error](err error) (T, bool) {
+	if target, ok := errors.AsType[T](err); ok {
+		return target, true
+	}
+	if aggregate, ok := errors.AsType[utilerrors.Aggregate](err); ok {
+		for _, err := range aggregate.Errors() {
+			if target, ok := authenticationError[T](err); ok {
+				return target, true
+			}
+		}
+	}
+	var zero T
+	return zero, false
+}
+
 func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
 	s.mux.Handle(pattern, s.Wrap(f))
 }
@@ -138,8 +156,21 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
-			if fetchGroupsErr, ok := errors.AsType[*gclient.FetchUserGroupsError](err); ok {
+			if fetchGroupsErr, ok := authenticationError[*gclient.FetchUserGroupsError](err); ok {
 				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
+			} else if denied, ok := authenticationError[*gclient.UserAccessDeniedError](err); ok {
+				// End the browser session, so that the login page is reachable and can say why.
+				http.SetCookie(rw, &http.Cookie{
+					Name:   proxy.ObotAccessTokenCookie,
+					Value:  "",
+					Path:   "/",
+					MaxAge: -1,
+				})
+				httpErr := denied.HTTPError()
+				http.Error(rw, httpErr.Message, httpErr.Code)
+			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
+				slog.Error("Denied request because the user's status could not be checked", "userID", lookupErr.UserID, "error", lookupErr.Err)
+				http.Error(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)
 			} else {
 				http.Error(rw, err.Error(), http.StatusUnauthorized)
 			}

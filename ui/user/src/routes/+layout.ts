@@ -20,6 +20,28 @@ import { redirect } from '@sveltejs/kit';
 export const prerender = 'auto';
 export const ssr = dev;
 
+const ACCOUNT_INACTIVE_KEY = 'obot-account-inactive';
+
+// accountInactive reports whether to tell the visitor that their account is not active. The server refuses every
+// request from such an account and ends its session, so only the first response says why. The answer is kept for
+// the rest of the visit, so that it survives the redirects that follow, until someone signs in.
+function accountInactive(profileResult: PromiseSettledResult<Profile>): boolean {
+	const refused =
+		profileResult.status === 'rejected' && getHttpStatusCode(profileResult.reason) === 403;
+	if (typeof sessionStorage === 'undefined') {
+		return refused;
+	}
+	if (refused) {
+		sessionStorage.setItem(ACCOUNT_INACTIVE_KEY, 'true');
+		return true;
+	}
+	if (profileResult.status === 'fulfilled') {
+		sessionStorage.removeItem(ACCOUNT_INACTIVE_KEY);
+		return false;
+	}
+	return sessionStorage.getItem(ACCOUNT_INACTIVE_KEY) === 'true';
+}
+
 export const load: LayoutLoad = async ({ fetch, url }) => {
 	const [versionResult, licenseResult, appPreferencesResult, profileResult] =
 		await Promise.allSettled([
@@ -37,6 +59,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		appPreferencesResult.status === 'fulfilled'
 			? compileAppPreferences(appPreferencesResult.value)
 			: compileAppPreferences();
+	const inactive = accountInactive(profileResult);
 	const profile: Profile =
 		profileResult.status === 'fulfilled'
 			? profileResult.value
@@ -48,6 +71,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 					effectiveRole: 0,
 					groups: [],
 					unauthorized: true,
+					accountInactive: inactive,
 					username: ''
 				};
 

@@ -933,7 +933,16 @@ export interface OrgUser {
 	deletedAt?: string;
 	originalEmail?: string;
 	originalUsername?: string;
+	/** Lifecycle status. A disabled user keeps their account and data but cannot sign in or use credentials. */
+	status?: OrgUserStatus;
+	disabledAt?: string;
+	disabledReason?: OrgUserDisabledReason;
+	/** What controls the user's status: Obot, or an identity provider through SCIM. */
+	managementSource?: OrgUserManagementSource;
 }
+export type OrgUserStatus = 'active' | 'disabled' | 'deleted';
+export type OrgUserDisabledReason = 'scim_inactive' | 'scim_unprovisioned';
+export type OrgUserManagementSource = 'obot' | 'scim';
 export interface OrgGroup {
 	id: string;
 	name: string;
@@ -977,6 +986,8 @@ export interface Profile {
 	isBootstrapUser?: () => boolean;
 	canImpersonate?: () => boolean;
 	unauthorized?: boolean;
+	/** The server refused the session because the account is not active. */
+	accountInactive?: boolean;
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;

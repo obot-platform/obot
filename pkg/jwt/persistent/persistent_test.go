@@ -18,27 +18,25 @@ const (
 	testServerURL = "https://obot.example.com"
 )
 
-func TestAuthenticateRequestAddsObotGroupsToExtra(t *testing.T) {
+func TestAuthenticateRequestDeclinesATokenThatNamesNoUser(t *testing.T) {
 	tokenService := newTestTokenService(t)
-	wantGroups := []string{types.GroupMCP, types.GroupAuthenticated}
 
 	_, token, err := tokenService.NewToken(t.Context(), TokenContext{
 		Audience:   testServerURL + "/mcp-connect/server-id",
 		IssuedAt:   NewTime(time.Now().Add(-time.Minute)),
 		ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
 		UserID:     "non-numeric-user",
-		UserGroups: wantGroups,
+		UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
 	})
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodGet, testServerURL, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 
+	// Only a user's status can admit a token, and this one names neither a user nor a hosted agent's owner.
 	response, ok, err := tokenService.AuthenticateRequest(req)
 	require.NoError(t, err)
-	require.True(t, ok)
-	require.NotNil(t, response)
-	assert.Equal(t, wantGroups, response.User.GetGroups())
-	assert.Equal(t, wantGroups, response.User.GetExtra()["obot_groups"])
+	assert.False(t, ok)
+	assert.Nil(t, response)
 }
 
 func newTestTokenService(t *testing.T) *TokenService {

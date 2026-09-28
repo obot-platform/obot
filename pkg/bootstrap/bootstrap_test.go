@@ -13,6 +13,7 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -23,6 +24,13 @@ func (s staticAuthProviderGetter) GetConfiguredAuthProvider(context.Context) (st
 }
 
 func newBootstrapTestClient(t *testing.T) (*client.Client, context.Context) {
+	t.Helper()
+
+	c, _, ctx := newBootstrapTestClientWithDB(t)
+	return c, ctx
+}
+
+func newBootstrapTestClientWithDB(t *testing.T) (*client.Client, *gorm.DB, context.Context) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -59,7 +67,7 @@ func newBootstrapTestClient(t *testing.T) (*client.Client, context.Context) {
 		_ = c.Close()
 	})
 
-	return c, ctx
+	return c, services.DB.DB, ctx
 }
 
 func ensureOwner(t *testing.T, c *client.Client, username, email, authProviderName string) {
@@ -147,4 +155,68 @@ func TestDisabledBootstrapIsOffWhileAuthenticationRemainsEnabled(t *testing.T) {
 	} else if enabled {
 		t.Fatal("disabled bootstrap setup reported enabled")
 	}
+}
+
+func TestBootstrapStaysEnabledUntilAnEnabledOwnerSignsIn(t *testing.T) {
+	c, db, ctx := newBootstrapTestClientWithDB(t)
+	provider := client.AuthProviderRef{
+		Namespace: system.DefaultNamespace,
+		Name:      "okta-auth-provider",
+	}
+
+	b := &Bootstrap{
+		authEnabled:        true,
+		gatewayClient:      c,
+		authProviderGetter: staticAuthProviderGetter(provider.Name),
+	}
+	assertEnabled := func(want bool, why string) {
+		t.Helper()
+		enabled, err := b.Enabled(ctx)
+		if err != nil {
+			t.Fatalf("failed to check bootstrap: %v", err)
+		}
+		if enabled != want {
+			t.Fatalf("bootstrap enabled = %v, want %v %s", enabled, want, why)
+		}
+	}
+
+	// An Owner whose identity was created before they ever signed in, as SCIM provisioning does.
+	owner := &gwtypes.User{
+		Username:       "00u-owner",
+		HashedUsername: "owner-hash",
+		Email:          "owner@example.com",
+		HashedEmail:    "owner-email-hash",
+		Role:           types2.RoleOwner | types2.RoleAuditor,
+	}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatalf("failed to create owner: %v", err)
+	}
+	if err := db.Create(&gwtypes.Identity{
+		AuthProviderName:      provider.Name,
+		AuthProviderNamespace: provider.Namespace,
+		ProviderUserID:        "00u-owner",
+		HashedProviderUserID:  "hashed-00u-owner",
+		UserID:                owner.ID,
+	}).Error; err != nil {
+		t.Fatalf("failed to create owner identity: %v", err)
+	}
+	assertEnabled(true, "while the only owner has never signed in")
+
+	if err := db.Model(new(gwtypes.Identity)).Where("user_id = ?", owner.ID).UpdateColumn("first_sign_in_at", time.Now()).Error; err != nil {
+		t.Fatalf("failed to record sign-in: %v", err)
+	}
+	if _, err := c.DisableUser(ctx, provider, owner.ID, gwtypes.UserDisabledReasonSCIMInactive); err != nil {
+		t.Fatalf("failed to disable owner: %v", err)
+	}
+	assertEnabled(true, "while the only owner is disabled")
+
+	if _, err := c.ReactivateUser(ctx, provider, owner.ID); err != nil {
+		t.Fatalf("failed to reactivate owner: %v", err)
+	}
+	assertEnabled(false, "once an enabled owner has signed in")
+
+	if _, err := c.DisableUser(ctx, provider, owner.ID, gwtypes.UserDisabledReasonSCIMInactive); err != nil {
+		t.Fatalf("failed to disable owner: %v", err)
+	}
+	assertEnabled(true, "after every owner who signed in is disabled")
 }

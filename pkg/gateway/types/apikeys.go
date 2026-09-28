@@ -35,6 +35,10 @@ type APIKey struct {
 	LastUsedAt            *time.Time `json:"lastUsedAt,omitempty"`
 	ExpiresAt             *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
 	RevokedAt             *time.Time `json:"revokedAt,omitempty" gorm:"index"`
+
+	// OwnerStatus is the lifecycle status of the key's user, read with the key when it is validated. For a key
+	// bound to a hosted agent, that user is the agent's owner. It is not stored with the key.
+	OwnerStatus types.UserStatus `json:"-" gorm:"-"`
 }
 
 type APIKeyScopes struct {
@@ -51,11 +55,30 @@ type APIKeyScopes struct {
 	MCPServerIDs []string `json:"mcpServerIds,omitempty" gorm:"serializer:json"`
 }
 
+// APIKeyOwnerLifecycle is the lifecycle state of an API key's user, read with the key.
+type APIKeyOwnerLifecycle struct {
+	OwnerID         *uint
+	OwnerDeletedAt  *time.Time
+	OwnerDisabledAt *time.Time
+}
+
 // APIKeyCreateResponse is returned when creating an API key.
 // This is the only time the full key is visible.
 type APIKeyCreateResponse struct {
 	APIKey
 	Key string `json:"key"` // The full key, only shown once
+}
+
+// Status returns the owner's lifecycle status. An owner with no user row is treated as deleted.
+func (o APIKeyOwnerLifecycle) Status() types.UserStatus {
+	switch {
+	case o.OwnerID == nil || o.OwnerDeletedAt != nil:
+		return types.UserStatusDeleted
+	case o.OwnerDisabledAt != nil:
+		return types.UserStatusDisabled
+	default:
+		return types.UserStatusActive
+	}
 }
 
 func (as APIKeyScopes) Groups(u *User) []string {

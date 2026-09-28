@@ -12,6 +12,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
+	import type { OrgUserStatus } from '$lib/services/user/types';
 	import { profile, version } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { formatTimeAgo } from '$lib/time';
@@ -40,10 +41,25 @@
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
+	const statusLabels: Record<OrgUserStatus, string> = {
+		active: 'Active',
+		disabled: 'Disabled',
+		deleted: 'Deleted'
+	};
+	const disabledReasonLabels: Record<string, string> = {
+		scim_inactive: 'Deactivated in identity provider',
+		scim_unprovisioned: 'Not provisioned by identity provider'
+	};
+
 	const tableData = $derived(
 		users
 			.map((user) => ({
 				...user,
+				lifecycleStatus: user.status ?? 'active',
+				status: statusLabels[user.status ?? 'active'],
+				disabledReasonLabel: user.disabledReason
+					? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
+					: undefined,
 				assignedRole: user.role,
 				name: getUserDisplayName(user),
 				role: getUserRoleLabel(user.role).split(','),
@@ -214,13 +230,19 @@
 			/>
 			<Table
 				data={tableData}
-				fields={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
-				filterable={['name', 'email', 'role', 'effectiveRole']}
+				fields={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
+				filterable={['name', 'email', 'status', 'role', 'effectiveRole']}
 				filters={urlFilters}
 				onFilter={setFilterUrlParams}
 				onClearAllFilters={clearUrlParams}
-				sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
+				sortable={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				headers={[
+					{
+						title: 'Status',
+						property: 'status',
+						tooltip:
+							'Disabled users keep their account, roles, and data, but cannot sign in or use their credentials.'
+					},
 					{ title: 'Assigned Role', property: 'role' },
 					{
 						title: 'Actual Role',
@@ -234,7 +256,33 @@
 				onSort={setSortUrlParams}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'role'}
+					{#if property === 'status'}
+						<div class="flex flex-col gap-0.5">
+							<div class="flex items-center gap-1">
+								<span
+									class={[
+										'badge badge-sm whitespace-nowrap',
+										d.lifecycleStatus === 'active' && 'badge-ghost',
+										d.lifecycleStatus === 'disabled' && 'badge-warning badge-soft',
+										d.lifecycleStatus === 'deleted' && 'badge-error badge-soft'
+									]}
+								>
+									{d.status}
+								</span>
+								{#if d.managementSource === 'scim'}
+									<span
+										class="badge badge-ghost badge-xs"
+										use:tooltip={"This user's status is managed by your identity provider through SCIM. Change it there."}
+									>
+										SCIM
+									</span>
+								{/if}
+							</div>
+							{#if d.disabledReasonLabel}
+								<span class="text-xs text-muted-content">{d.disabledReasonLabel}</span>
+							{/if}
+						</div>
+					{:else if property === 'role'}
 						<div class="flex items-center gap-1">
 							{d.role}
 							{#if d.explicitRole}
