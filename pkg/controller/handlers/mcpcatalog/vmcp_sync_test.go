@@ -168,6 +168,53 @@ components:
 	require.NotNil(t, vmcps.Items[0].DeletionTimestamp)
 }
 
+func TestCatalogSyncRejectsVMCPMissingRequiredFixedValue(t *testing.T) {
+	dir := t.TempDir()
+	entry := `type: entry
+entryKey: obot-gitlab
+name: GitLab
+shortDescription: GitLab
+description: GitLab
+icon: icon
+runtime: npx
+npxConfig:
+  package: gitlab
+config:
+  - key: GITLAB_PERSONAL_ACCESS_TOKEN
+    usage: env
+    required: true
+    sensitive: true
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(entry), 0o600))
+	vmcp := `type: vmcp
+displayName: RepoAccessfixed
+components:
+  - name: Gitlab
+    id: gitlab
+    mcpServerCatalogEntryKey: obot-gitlab
+    configuration:
+      - key: GITLAB_PERSONAL_ACCESS_TOKEN
+        policy: fixed
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "vmcp.yaml"), []byte(vmcp), 0o600))
+
+	catalog := testCatalog()
+	catalog.Spec.SourceURLs = []string{dir}
+	client := newCatalogFakeClient(catalog)
+	handler := newParseTestHandler(t)
+	current := &v1.MCPCatalog{}
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(catalog), current))
+	current.Annotations = map[string]string{v1.MCPCatalogSyncAnnotation: "true"}
+	require.NoError(t, client.Update(t.Context(), current))
+	require.NoError(t, handler.Sync(router.Request{Ctx: t.Context(), Client: client, Object: current}, &parseTestResponse{}))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(catalog), current))
+
+	require.Contains(t, current.Status.SyncErrors[dir], `component "Gitlab" required configuration "GITLAB_PERSONAL_ACCESS_TOKEN" must set a fixed value or secretBinding`)
+	var vmcps v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Empty(t, vmcps.Items)
+}
+
 func TestCatalogSyncVMCPCrossSourceReference(t *testing.T) {
 	vmcpDir, entryDir := t.TempDir(), t.TempDir()
 	entry := `entryKey: search

@@ -119,6 +119,10 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		}
 
 		staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&vmcp.Spec.Manifest, previousConfiguration)
+		if err := validateCatalogVMCPStaticConfiguration(vmcp.Spec.Manifest, staticConfiguration); err != nil {
+			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
+			continue
+		}
 		vmcpconfig.VersionStaticConfiguration(vmcp, staticConfiguration)
 		if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
 			Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
@@ -133,6 +137,22 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		entries = append(entries, vmcp)
 	}
 	return entries, syncErrors, nil
+}
+
+// validateCatalogVMCPStaticConfiguration rejects required fixed configuration
+// without a value. Catalog synced vMCPs cannot be configured through the API,
+// so a missing value would otherwise leave the vMCP unusable.
+func validateCatalogVMCPStaticConfiguration(manifest types.VMCPManifest, staticConfiguration map[string]string) error {
+	var errs []error
+	for _, component := range manifest.Components {
+		for _, key := range vmcpconfig.MissingRequiredConfiguration(component, staticConfiguration, false) {
+			if _, configurationKey, ok := vmcpconfig.ParseConfigurationKey(key); ok {
+				key = configurationKey
+			}
+			errs = append(errs, fmt.Errorf("component %q required configuration %q must set a fixed value or secretBinding", component.Name, key))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL string, entriesByRef map[string]*v1.MCPServerCatalogEntry) error {

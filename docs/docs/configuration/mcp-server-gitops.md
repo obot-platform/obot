@@ -201,7 +201,7 @@ components:
           key: gitlab_key     # Key within that Secret
 ```
 
-vMCP secret bindings follow the same rules as [catalog entry secret bindings](#kubernetes-secret-bindings) and are only available in Git catalog sources. A binding cannot be combined with `value`, and the entry's field must not define a static `value`.
+vMCP secret bindings follow the same rules as [catalog entry secret bindings](#kubernetes-secret-bindings) and are only available in Git catalog sources. A binding cannot be combined with `value`, and the entry's field must not define a static `value`. Catalog synced vMCPs cannot be configured through the Obot UI or API, so sync reports an error and does not create the vMCP when a required `fixed` field has neither a `value` nor a `secretBinding`.
 
 When replacing a migrated composite with a catalog vMCP, keep the same `entryKey` and catalog source. Migration and sync use these to generate the same vMCP ID, preserving existing connections and credentials. Sync marks the vMCP as `adopted` when it takes over management. If the original entry had no `entryKey`, retain its name as the vMCP's `displayName` for matching.
 
