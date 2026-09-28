@@ -16,8 +16,11 @@ For self-hosted installations, Owners and Admins can choose whether to share pro
 and change their choice at any time from **Platform > Product Analytics**. No product analytics data
 is collected without explicit consent.
 
-Operators can override this choice with `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED=true`, which
-enables analytics and prevents users from opting out through Obot.
+Set `OBOT_SERVER_PRODUCT_ANALYTICS_MODE` to control analytics for the installation:
+
+- `consent` (default): Owners and Admins choose whether to share usage data.
+- `on`: Always share usage data and hide the consent prompt and settings controls.
+- `off`: Never share usage data and hide the consent prompt and settings controls.
 
 Obot Cloud deployments are always opted in to product analytics.
 
