@@ -28,6 +28,14 @@ type Importer struct {
 	client *http.Client
 }
 
+// Result contains the stored schema, resolved API destination, and suggested
+// credential inputs. MCP tools are generated and listed by the hosted wrapper.
+type Result struct {
+	Schema           json.RawMessage
+	BaseURL          string
+	SuggestedHeaders []types.MCPConfig
+}
+
 // NewImporter blocks private and local schema sources. Redirects are not
 // followed, including same-origin ones.
 func NewImporter() *Importer {
@@ -42,14 +50,6 @@ func NewImporter() *Importer {
 func newImporterWithClient(client *http.Client) *Importer {
 	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 	return &Importer{client: client}
-}
-
-// Result contains the stored schema, resolved API destination, and suggested
-// credential inputs. MCP tools are generated and listed by the hosted wrapper.
-type Result struct {
-	Schema           json.RawMessage
-	BaseURL          string
-	SuggestedHeaders []types.MCPConfig
 }
 
 // Import always reads Source anew, ignoring any previous Schema snapshot.
