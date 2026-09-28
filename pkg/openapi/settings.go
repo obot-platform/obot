@@ -23,7 +23,7 @@ func (s wrapperSettings) marshal() ([]byte, error) {
 		return nil, err
 	}
 	if len(data) > MaxSettingsBytes {
-		return nil, fmt.Errorf("wrapper settings exceed 96 KiB")
+		return nil, fmt.Errorf("OpenAPI settings exceed 96 KiB")
 	}
 	return data, nil
 }
