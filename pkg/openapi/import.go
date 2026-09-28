@@ -94,9 +94,6 @@ func Parse(data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := validateExclusions(config); err != nil {
-		return nil, err
-	}
 	result, err := inspect(document, canonical, config)
 	if err != nil {
 		return nil, err
