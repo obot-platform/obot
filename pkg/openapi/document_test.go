@@ -65,13 +65,13 @@ func TestCredentials(t *testing.T) {
 }
 
 func TestHeaderValidation(t *testing.T) {
-	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "Proxy-Token", "Sec-Fetch-Site", "invalid header", "x\r\nInjected: value"} {
+	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "Proxy-Token", "Sec-Fetch-Site", "Forwarded", "X-Forwarded-For", "invalid header", "x\r\nInjected: value"} {
 		require.Error(t, validateHeader(key))
 	}
 }
 
 func TestBaseURLValidation(t *testing.T) {
-	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://{host}/api"} {
+	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://10.0.0.1", "https://192.168.1.1", "https://[fd00::1]", "https://{host}/api"} {
 		_, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{BaseURL: base})
 		require.Error(t, err)
 	}

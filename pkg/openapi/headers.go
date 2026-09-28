@@ -15,11 +15,12 @@ func reservedHeader(name string) bool {
 	switch strings.ToLower(name) {
 	case "host", "cookie", "set-cookie", "content-length", "content-type", "accept",
 		"connection", "transfer-encoding", "upgrade", "te", "trailer", "keep-alive",
-		"expect", "proxy-authorization", "proxy-authenticate", "accept-encoding":
+		"expect", "proxy-authorization", "proxy-authenticate", "accept-encoding", "forwarded":
 		return true
 	}
 	name = strings.ToLower(name)
-	return strings.HasPrefix(name, "mcp-") || strings.HasPrefix(name, "sec-") || strings.HasPrefix(name, "proxy-")
+	return strings.HasPrefix(name, "x-forwarded-") ||
+		strings.HasPrefix(name, "mcp-") || strings.HasPrefix(name, "sec-") || strings.HasPrefix(name, "proxy-")
 }
 
 func validateHeader(name string) error {

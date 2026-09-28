@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestOpenAPISnapshotConversion(t *testing.T) {
@@ -12,18 +13,18 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 		Runtime: RuntimeOpenAPI,
 		OpenAPIConfig: &OpenAPIRuntimeConfig{
 			Source: OpenAPISource{URL: "https://example.com/openapi.json"},
-			Schema: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`),
+			Schema: &runtime.RawExtension{Raw: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`)},
 		},
 	}
 	server, err := MapCatalogEntryToServer(entry, "", false)
 	require.NoError(t, err)
 	require.Equal(t, entry.OpenAPIConfig, server.OpenAPIConfig)
-	entry.OpenAPIConfig.Schema[0] = ' '
+	entry.OpenAPIConfig.Schema.Raw[0] = ' '
 	require.NotEqual(t, entry.OpenAPIConfig.Schema, server.OpenAPIConfig.Schema)
 
 	roundTrip := server.ConvertToCatalogEntry()
 	require.Equal(t, server.OpenAPIConfig, roundTrip.OpenAPIConfig)
-	roundTrip.OpenAPIConfig.Schema[0] = ' '
+	roundTrip.OpenAPIConfig.Schema.Raw[0] = ' '
 	require.NotEqual(t, server.OpenAPIConfig.Schema, roundTrip.OpenAPIConfig.Schema)
 
 	data, err := json.Marshal(server)

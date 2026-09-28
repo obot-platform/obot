@@ -15237,9 +15237,8 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade.",
-							Type:        []string{"string"},
-							Format:      "byte",
+							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade. RawExtension makes the generated storage schema match the JSON object already emitted on the wire; json.RawMessage would be declared as a base64 string.",
+							Ref:         ref(runtime.RawExtension{}.OpenAPIModelName()),
 						},
 					},
 					"baseURL": {
@@ -15253,7 +15252,7 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.OpenAPISource"},
+			"github.com/obot-platform/obot/apiclient/types.OpenAPISource", runtime.RawExtension{}.OpenAPIModelName()},
 	}
 }
 
