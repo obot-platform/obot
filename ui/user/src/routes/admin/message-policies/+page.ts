@@ -1,7 +1,4 @@
-import { handleRouteError } from '$lib/errors';
-import { AdminService, UserService } from '$lib/services';
-import type { MessagePolicy } from '$lib/services/admin/types';
-import { profile } from '$lib/stores';
+import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -10,16 +7,4 @@ export const load: PageLoad = async ({ fetch }) => {
 	if (!version.messagePoliciesEnabled) {
 		throw redirect(302, '/admin');
 	}
-
-	let messagePolicies: MessagePolicy[] = [];
-
-	try {
-		messagePolicies = await AdminService.listMessagePolicies({ fetch });
-	} catch (err) {
-		handleRouteError(err, '/admin/message-policies', profile.current);
-	}
-
-	return {
-		messagePolicies
-	};
 };

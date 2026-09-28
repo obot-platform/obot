@@ -1,7 +1,8 @@
 import { page as appPage } from '$app/state';
+import type { MessagePolicy } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { preparePageData } from '../../tests/helpers/pageData';
-import { createDeploymentsPageFixtures } from '../../tests/mocks/data';
+import { createDeploymentsPageFixtures, getVersionResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import McpServersPage from './+page.svelte';
@@ -52,7 +53,15 @@ function mockDeploymentsApis() {
 	);
 }
 
-async function renderMcpServersPage({ view = 'deployments' }: { view?: string } = {}) {
+async function renderMcpServersPage({
+	view = 'deployments',
+	messagePolicies = [],
+	messagePoliciesEnabled = false
+}: {
+	view?: string;
+	messagePolicies?: MessagePolicy[];
+	messagePoliciesEnabled?: boolean;
+} = {}) {
 	appPage.url.searchParams.set('view', view);
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 	mockDeploymentsApis();
@@ -63,7 +72,11 @@ async function renderMcpServersPage({ view = 'deployments' }: { view?: string } 
 		systemCatalogEntries: [],
 		mcpTunnels: [],
 		tunnelConnections: undefined,
-		accessControlRules: []
+		accessControlRules: [],
+		messagePolicies,
+		...(messagePoliciesEnabled
+			? { version: { ...getVersionResponse, messagePoliciesEnabled: true } }
+			: {})
 	});
 	return render(McpServersPage, { data });
 }
@@ -253,5 +266,54 @@ describe('MCP Servers Page', () => {
 					.toBeVisible();
 			});
 		});
+	});
+});
+
+describe('message policies tab', () => {
+	const toolPolicy: MessagePolicy = {
+		id: 'tool-policy',
+		displayName: 'Block shell tools',
+		definition: 'Do not allow shell tools',
+		direction: 'tool-calls',
+		created: '2026-01-01T00:00:00Z',
+		subjects: []
+	};
+	const userPolicy: MessagePolicy = {
+		id: 'user-policy',
+		displayName: 'Block travel booking',
+		definition: 'Do not allow travel booking',
+		direction: 'user-message',
+		created: '2026-01-01T00:00:00Z',
+		subjects: []
+	};
+
+	afterEach(() => {
+		appPage.url.searchParams.delete('view');
+		appPage.url.searchParams.delete('new');
+	});
+
+	it('shows tool-call policies and hides user-message policies', async () => {
+		resetMcpServersAndEntriesStore();
+		await renderMcpServersPage({
+			view: 'message-policies',
+			messagePoliciesEnabled: true,
+			messagePolicies: [toolPolicy, userPolicy]
+		});
+
+		await expect.element(page.getByRole('button', { name: 'Message Policies' })).toBeVisible();
+		await expect.element(page.getByRole('row', { name: /Block shell tools/ })).toBeVisible();
+		await expect
+			.element(page.getByRole('row', { name: /Block travel booking/ }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Add Message Policy' })).toBeVisible();
+	});
+
+	it('hides the tab when message policies are disabled', async () => {
+		resetMcpServersAndEntriesStore();
+		await renderMcpServersPage({ view: 'deployments' });
+
+		await expect
+			.element(page.getByRole('button', { name: 'Message Policies' }))
+			.not.toBeInTheDocument();
 	});
 });

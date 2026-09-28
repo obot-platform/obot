@@ -1,24 +1,34 @@
 import { browser } from '$app/environment';
 import { handleRouteError } from '$lib/errors';
-import { AdminService, UserService, type Model, type ModelProvider } from '$lib/services';
+import {
+	AdminService,
+	UserService,
+	type MessagePolicy,
+	type Model,
+	type ModelProvider
+} from '$lib/services';
 import type { ModelAccessPolicy } from '$lib/services/admin/types';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
 
-const views = new Set(['models', 'model-providers', 'access-policies']);
+const views = new Set(['models', 'model-providers', 'access-policies', 'message-policies']);
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
-	const { profile, models: initialModels } = await parent();
+	const { profile, models: initialModels, version } = await parent();
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
 	const requestedView = url.searchParams.get('view');
 	const view =
-		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'models')
+		requestedView &&
+		views.has(requestedView) &&
+		(hasAdminAccess || requestedView === 'models') &&
+		(requestedView !== 'message-policies' || version?.messagePoliciesEnabled)
 			? requestedView
 			: 'models';
 
 	let models: Model[] = [];
 	let modelProviders: ModelProvider[] = [];
 	let modelAccessPolicies: ModelAccessPolicy[] = [];
+	let messagePolicies: MessagePolicy[] = [];
 
 	if (view === 'models') {
 		try {
@@ -51,6 +61,13 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 					handleRouteError(err, '/models', profile);
 				}
 				break;
+			case 'message-policies':
+				try {
+					messagePolicies = await AdminService.listMessagePolicies({ fetch });
+				} catch (err) {
+					handleRouteError(err, '/models', profile);
+				}
+				break;
 		}
 	}
 
@@ -58,6 +75,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		models,
 		modelProviders,
 		modelAccessPolicies,
+		messagePolicies,
 		hasAdminAccess
 	};
 };

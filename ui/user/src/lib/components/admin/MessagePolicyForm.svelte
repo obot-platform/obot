@@ -8,13 +8,11 @@
 		type MessagePolicyManifest,
 		type OrgUser,
 		type OrgGroup,
-		type PolicyDirection,
-		PolicyDirectionLabels
+		type PolicyDirection
 	} from '$lib/services';
 	import { goto } from '$lib/url';
 	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
-	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
@@ -26,10 +24,22 @@
 		messagePolicy?: MessagePolicy;
 		onCreate?: (messagePolicy: MessagePolicy) => void;
 		onUpdate?: (messagePolicy: MessagePolicy) => void;
+		onCancel?: () => void;
+		/** When set on a new policy, direction is fixed and the selector is disabled. */
+		fixedDirection?: PolicyDirection;
+		listHref?: string;
 		readonly?: boolean;
 	}
 
-	let { messagePolicy: initialMessagePolicy, onCreate, onUpdate, readonly }: Props = $props();
+	let {
+		messagePolicy: initialMessagePolicy,
+		onCreate,
+		onUpdate,
+		onCancel,
+		fixedDirection,
+		listHref = '/admin/message-policies',
+		readonly
+	}: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let messagePolicy = $state(
@@ -39,7 +49,7 @@
 				({
 					displayName: '',
 					definition: '',
-					direction: 'both' as PolicyDirection,
+					direction: (fixedDirection ?? 'both') as PolicyDirection,
 					subjects: []
 				} as MessagePolicyManifest)
 		)
@@ -115,10 +125,6 @@
 			(policy.subjects?.length ?? 0) > 0
 		);
 	}
-
-	const directionOptions: { id: string; label: string }[] = Object.entries(
-		PolicyDirectionLabels
-	).map(([id, label]) => ({ id, label }));
 </script>
 
 <div
@@ -188,22 +194,6 @@
 						placeholder="Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'"
 						disabled={readonly}
 						rows="3"></textarea>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="message-policy-direction" class="flex-1 text-sm font-light capitalize">
-						Applies to
-					</label>
-					<Select
-						id="message-policy-direction"
-						options={directionOptions}
-						selected={messagePolicy.direction}
-						onSelect={(option) => {
-							messagePolicy.direction = option.id as PolicyDirection;
-						}}
-						disabled={readonly}
-						class="text-input-filled mt-0.5"
-					/>
 				</div>
 			</div>
 		</div>
@@ -276,7 +266,11 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							goto('/admin/message-policies');
+							if (onCancel) {
+								onCancel();
+								return;
+							}
+							goto(listHref);
 						}}
 					>
 						Cancel
@@ -362,7 +356,7 @@
 		if (!messagePolicy.id) return;
 		saving = true;
 		await AdminService.deleteMessagePolicy(messagePolicy.id);
-		goto('/admin/message-policies');
+		goto(listHref);
 	}}
 	oncancel={() => (deletingPolicy = false)}
 />

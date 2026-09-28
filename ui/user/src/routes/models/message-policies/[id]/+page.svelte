@@ -9,6 +9,7 @@
 	let { data } = $props();
 	const { messagePolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
+	const listHref = '/models?view=message-policies';
 
 	let title = $derived(messagePolicy?.displayName ?? 'Message Policy');
 </script>
@@ -17,8 +18,9 @@
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<MessagePolicyForm
 			{messagePolicy}
+			{listHref}
 			onUpdate={() => {
-				goto('/admin/message-policies');
+				goto(listHref);
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

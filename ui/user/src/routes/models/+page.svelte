@@ -3,8 +3,9 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import AccessPoliciesView from './AccessPoliciesView.svelte';
 	import ModelProvidersView from './ModelProvidersView.svelte';
@@ -14,11 +15,14 @@
 	let { data } = $props();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? data.hasAdminAccess);
+	let messagePoliciesEnabled = $derived(version.current.messagePoliciesEnabled === true);
+	let creatingView = $derived(page.url.searchParams.get('view'));
 	let creating = $derived(
 		hasAdminAccess &&
 			!isAdminReadonly &&
-			page.url.searchParams.get('view') === 'access-policies' &&
-			page.url.searchParams.has('new')
+			page.url.searchParams.has('new') &&
+			(creatingView === 'access-policies' ||
+				(messagePoliciesEnabled && creatingView === 'message-policies'))
 	);
 
 	initModels([]);
@@ -32,6 +36,13 @@
 				{ label: 'Model Providers', value: 'model-providers', content: modelProviders },
 				{ label: 'Access Policies', value: 'access-policies', content: accessPolicies }
 			);
+			if (messagePoliciesEnabled) {
+				items.push({
+					label: 'Message Policies',
+					value: 'message-policies',
+					content: messagePolicies
+				});
+			}
 		}
 		return items;
 	});
@@ -42,9 +53,16 @@
 		goto(url, { replaceState: true });
 	}
 
-	function showCreate() {
-		goto(`${page.url.pathname}?view=access-policies&new=true`);
+	function showCreate(view: string) {
+		goto(`${page.url.pathname}?view=${view}&new=true`);
 	}
+
+	let title = $derived.by(() => {
+		if (!creating) return 'Models';
+		return creatingView === 'message-policies'
+			? 'Create Message Policy'
+			: 'Create Model Access Policy';
+	});
 
 	function handleFirstConfigure(required: boolean) {
 		defaultModelsDialog?.open(required);
@@ -52,12 +70,20 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {creating ? 'Create Model Access Policy' : 'Models'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>
 
 {#if creating}
-	<Layout title="Create Model Access Policy" showBackButton onBackButtonClick={hideCreate}>
-		<AccessPoliciesView modelAccessPolicies={data.modelAccessPolicies} creating />
+	<Layout {title} showBackButton onBackButtonClick={hideCreate}>
+		{#if creatingView === 'message-policies'}
+			<MessagePoliciesView
+				messagePolicies={data.messagePolicies ?? []}
+				policyDirection="user-message"
+				creating
+			/>
+		{:else}
+			<AccessPoliciesView modelAccessPolicies={data.modelAccessPolicies} creating />
+		{/if}
 	</Layout>
 {:else}
 	<TabLayout
@@ -77,8 +103,18 @@
 			readonly={isAdminReadonly}
 		/>
 	{:else if view === 'access-policies' && !isAdminReadonly}
-		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={showCreate}>
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => showCreate('access-policies')}
+		>
 			<Plus class="size-4" /> Add Access Policy
+		</button>
+	{:else if view === 'message-policies' && messagePoliciesEnabled && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => showCreate('message-policies')}
+		>
+			<Plus class="size-4" /> Add Message Policy
 		</button>
 	{/if}
 {/snippet}
@@ -96,4 +132,11 @@
 
 {#snippet accessPolicies()}
 	<AccessPoliciesView modelAccessPolicies={data.modelAccessPolicies} />
+{/snippet}
+
+{#snippet messagePolicies()}
+	<MessagePoliciesView
+		messagePolicies={data.messagePolicies ?? []}
+		policyDirection="user-message"
+	/>
 {/snippet}
