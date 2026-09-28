@@ -18,7 +18,7 @@ func sourceURL(value string) (*url.URL, error) {
 }
 
 // destination checks the API base URL against the hosted wrapper contract.
-// The wrapper enforces DNS/address policy again when executing API requests.
+// The wrapper must enforce DNS/address policy again when executing API requests.
 func destination(value string) (string, error) {
 	u, err := sourceURL(value)
 	if err != nil || u.RawQuery != "" || u.ForceQuery || strings.ContainsAny(value, "{}") || strings.ContainsFunc(value, unicode.IsSpace) {
@@ -30,8 +30,8 @@ func destination(value string) (string, error) {
 	}
 	if ip, err := netip.ParseAddr(host); err == nil {
 		ip = ip.Unmap()
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() || ip.Zone() != "" || netip.MustParsePrefix("0.0.0.0/8").Contains(ip) {
-			return "", fmt.Errorf("local, link-local, unspecified, and multicast API destinations are unsupported")
+		if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() || ip.Zone() != "" || netip.MustParsePrefix("0.0.0.0/8").Contains(ip) {
+			return "", fmt.Errorf("local, private, link-local, unspecified, and multicast API destinations are unsupported")
 		}
 	}
 	return strings.TrimRight(u.String(), "/") + "/", nil

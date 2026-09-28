@@ -13,6 +13,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func usersSchema(t *testing.T) []byte {
@@ -199,7 +200,7 @@ func TestURLImport(t *testing.T) {
 	defer server.Close()
 	config := types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{URL: server.URL + "/schema"},
-		Schema: json.RawMessage(`{"old":"snapshot"}`),
+		Schema: &runtime.RawExtension{Raw: json.RawMessage(`{"old":"snapshot"}`)},
 	}
 	_, err := NewImporter().Import(context.Background(), config)
 	require.Error(t, err)
@@ -223,7 +224,7 @@ func TestURLImport(t *testing.T) {
 		require.NotContains(t, err.Error(), "private upstream details")
 	}
 	require.EqualValues(t, 6, requests.Load(), "redirect must not be followed")
-	require.JSONEq(t, `{"old":"snapshot"}`, string(config.Schema))
+	require.JSONEq(t, `{"old":"snapshot"}`, string(config.Schema.Raw))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err = importer.Import(ctx, config)
