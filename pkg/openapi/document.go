@@ -184,6 +184,8 @@ func checkParameters(parameters openapi3.Parameters) error {
 	return nil
 }
 
+// reference checks that a $ref is a local JSON pointer to an existing node.
+// It returns the target without expanding or modifying the document.
 func reference(document map[string]any, value any) (any, error) {
 	ref, ok := value.(string)
 	if !ok || !strings.HasPrefix(ref, "#/") {
@@ -216,6 +218,9 @@ func reference(document map[string]any, value any) (any, error) {
 	return node, nil
 }
 
+// walkReferences checks refs throughout the raw document, including extensions
+// and examples that the typed OpenAPI loader may leave untouched. It rejects
+// dynamic refs and invalid local pointers without following refs recursively.
 func walkReferences(document map[string]any, node any) error {
 	switch node := node.(type) {
 	case map[string]any:
