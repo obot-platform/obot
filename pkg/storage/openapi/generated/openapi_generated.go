@@ -19133,10 +19133,18 @@ func schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref commo
 							Format:      "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding sources fixed configuration from a Kubernetes Secret when the component server launches, so the value is never stored by Obot.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 				},
 				Required: []string{"key"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 

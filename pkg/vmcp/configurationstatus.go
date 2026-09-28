@@ -29,7 +29,7 @@ func MissingRequiredConfiguration(component types.VMCPComponent, values map[stri
 			missing = append(missing, key)
 		}
 	}
-	for _, config := range component.CatalogEntry.Manifest.Config {
+	for _, config := range ComponentConfig(component) {
 		check(config)
 	}
 	slices.Sort(missing)

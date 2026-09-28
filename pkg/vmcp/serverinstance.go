@@ -40,5 +40,21 @@ func ComponentConfig(component types.VMCPComponent) []types.MCPConfig {
 			return policy.Key == config[i].Key && policy.Policy == types.VMCPConfigurationPolicyUserAllowed
 		})
 	}
+	ApplyFixedSecretBindings(component, config)
 	return config
+}
+
+// ApplyFixedSecretBindings binds fixed configuration to the Secrets selected by
+// vMCP policy so the runtime resolves them the same way as catalog bindings.
+func ApplyFixedSecretBindings(component types.VMCPComponent, config []types.MCPConfig) {
+	for _, policy := range component.Configuration {
+		if policy.Policy != types.VMCPConfigurationPolicyFixed || policy.SecretBinding == nil {
+			continue
+		}
+		for i := range config {
+			if config[i].Key == policy.Key {
+				config[i].SecretBinding = policy.SecretBinding.DeepCopy()
+			}
+		}
+	}
 }

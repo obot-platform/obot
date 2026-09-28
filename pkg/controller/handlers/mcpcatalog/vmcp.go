@@ -98,6 +98,10 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
 			continue
 		}
+		if err := mcp.ValidateSecretBindingsVMCP(vmcp.Spec.Manifest, h.mcpBackend); err != nil {
+			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
+			continue
+		}
 
 		var previousConfiguration map[string]string
 		if existing != nil {

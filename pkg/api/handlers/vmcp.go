@@ -103,6 +103,9 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := h.loadComponentSnapshots(req, &manifest, userID, nil); err != nil {
 		return err
 	}
+	if err := rejectConfigurationSecretBindings(manifest); err != nil {
+		return err
+	}
 
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
@@ -170,6 +173,9 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}
 	vmcpconfig.PruneRemovedComponentProfiles(vmcp.Spec.Manifest.Components, &manifest)
 	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components); err != nil {
+		return err
+	}
+	if err := rejectConfigurationSecretBindings(manifest); err != nil {
 		return err
 	}
 	if err := manifest.Validate(); err != nil {
@@ -343,6 +349,19 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 				return name != "" && manifest.ValidateToolReference(types.VMCPToolReference{ComponentID: component.ID, Name: name}) != nil
 			})
 			profile.Permissions.AllowedComponents[component.ID] = grant
+		}
+	}
+	return nil
+}
+
+// rejectConfigurationSecretBindings keeps Secret selection with Git-synced
+// catalogs, whose contents are controlled by the administrators of the source.
+func rejectConfigurationSecretBindings(manifest types.VMCPManifest) error {
+	for _, component := range manifest.Components {
+		for _, policy := range component.Configuration {
+			if policy.SecretBinding != nil {
+				return types.NewErrBadRequest("component %q configuration %q: secretBinding is only supported on catalog synced vMCPs", component.Name, policy.Key)
+			}
 		}
 	}
 	return nil

@@ -309,6 +309,7 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 	for i := range catalogManifest.Config {
 		catalogManifest.Config[i].UserAllowed = false
 	}
+	vmcpconfig.ApplyFixedSecretBindings(component, catalogManifest.Config)
 	manifest, err := types.MapCatalogEntryToServer(*catalogManifest, "", true)
 	if err != nil {
 		return v1.MCPServer{}, err

@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -373,6 +374,86 @@ func TestVMCPManifestRequiredConfigurationPolicy(t *testing.T) {
 			}
 			if err := manifest.Validate(); (err != nil) != tc.wantError {
 				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestVMCPManifestConfigurationSecretBinding(t *testing.T) {
+	binding := &MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key"}
+	for _, tc := range []struct {
+		name      string
+		policy    VMCPConfigurationPolicy
+		wantError string
+	}{
+		{
+			name: "fixed",
+			policy: VMCPConfigurationPolicy{
+				Key:           "TOKEN",
+				Policy:        VMCPConfigurationPolicyFixed,
+				SecretBinding: binding,
+			},
+		},
+		{
+			name: "user allowed",
+			policy: VMCPConfigurationPolicy{
+				Key:           "TOKEN",
+				Policy:        VMCPConfigurationPolicyUserAllowed,
+				SecretBinding: binding,
+			},
+			wantError: "only set secretBinding with fixed policy",
+		},
+		{
+			name: "with value",
+			policy: VMCPConfigurationPolicy{
+				Key:           "TOKEN",
+				Policy:        VMCPConfigurationPolicyFixed,
+				Value:         "clear-text",
+				SecretBinding: binding,
+			},
+			wantError: "mutually exclusive",
+		},
+		{
+			name: "missing key",
+			policy: VMCPConfigurationPolicy{
+				Key:           "TOKEN",
+				Policy:        VMCPConfigurationPolicyFixed,
+				SecretBinding: &MCPSecretBinding{Name: "gitlab-secret"},
+			},
+			wantError: "requires both name and key",
+		},
+		{
+			name: "admin added",
+			policy: VMCPConfigurationPolicy{
+				Key:           "TOKEN",
+				Policy:        VMCPConfigurationPolicyFixed,
+				SecretBinding: &MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key", AdminAdded: true},
+			},
+			wantError: "adminAdded",
+		},
+		{
+			name: "unknown field",
+			policy: VMCPConfigurationPolicy{
+				Key:           "OTHER",
+				Policy:        VMCPConfigurationPolicyFixed,
+				SecretBinding: binding,
+			},
+			wantError: "does not match a catalog entry configuration field",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validVMCPManifest()
+			manifest.Components[0].CatalogEntry.Manifest.Config = []MCPConfig{{Key: "TOKEN", Required: true, Sensitive: true}}
+			manifest.Components[0].Configuration = []VMCPConfigurationPolicy{tc.policy}
+			err := manifest.Validate()
+			if tc.wantError == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("Validate() error = %v, want %q", err, tc.wantError)
 			}
 		})
 	}

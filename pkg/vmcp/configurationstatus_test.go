@@ -39,3 +39,29 @@ func TestMissingRequiredConfiguration(t *testing.T) {
 		t.Fatalf("configured inputs reported missing: %v", got)
 	}
 }
+
+func TestMissingRequiredConfigurationFixedSecretBinding(t *testing.T) {
+	component := types.VMCPComponent{
+		ID: "gitlab",
+		Configuration: []types.VMCPConfigurationPolicy{{
+			Key:           "GITLAB_PERSONAL_ACCESS_TOKEN",
+			Policy:        types.VMCPConfigurationPolicyFixed,
+			SecretBinding: &types.MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key"},
+		}},
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Config: []types.MCPConfig{{Key: "GITLAB_PERSONAL_ACCESS_TOKEN", Required: true, Sensitive: true, Usage: types.Env}},
+		}},
+	}
+
+	if got := MissingRequiredConfiguration(component, nil, false); len(got) != 0 {
+		t.Fatalf("secret-bound configuration reported missing: %v", got)
+	}
+
+	config := ComponentConfig(component)
+	if len(config) != 1 || config[0].SecretBinding == nil || *config[0].SecretBinding != *component.Configuration[0].SecretBinding {
+		t.Fatalf("ComponentConfig() did not apply secret binding: %+v", config)
+	}
+	if component.CatalogEntry.Manifest.Config[0].SecretBinding != nil {
+		t.Fatal("ComponentConfig() mutated the catalog entry snapshot")
+	}
+}

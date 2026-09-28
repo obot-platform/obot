@@ -76,6 +76,9 @@ type VMCPConfigurationPolicy struct {
 	// Value is write-only fixed configuration. The API removes it from the
 	// persisted VMCP manifest and stores it in the VMCP credential.
 	Value string `json:"value,omitempty"`
+	// SecretBinding sources fixed configuration from a Kubernetes Secret when
+	// the component server launches, so the value is never stored by Obot.
+	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
 }
 
 type VMCPConfigurationPolicyType string
@@ -254,6 +257,29 @@ func (m *VMCPManifest) DefaultConfigurationPolicies() {
 	}
 }
 
+func validateConfigurationSecretBinding(component VMCPComponent, policy VMCPConfigurationPolicy) error {
+	binding := policy.SecretBinding
+	if binding == nil {
+		return nil
+	}
+	if policy.Policy != VMCPConfigurationPolicyFixed {
+		return fmt.Errorf("component %q configuration %q may only set secretBinding with fixed policy", component.Name, policy.Key)
+	}
+	if policy.Value != "" {
+		return fmt.Errorf("component %q configuration %q secretBinding and value are mutually exclusive", component.Name, policy.Key)
+	}
+	if binding.Name == "" || binding.Key == "" {
+		return fmt.Errorf("component %q configuration %q secretBinding requires both name and key", component.Name, policy.Key)
+	}
+	if binding.AdminAdded {
+		return fmt.Errorf("component %q configuration %q secretBinding.adminAdded is not valid for vMCP configuration", component.Name, policy.Key)
+	}
+	if !slices.ContainsFunc(component.CatalogEntry.Manifest.Config, func(config MCPConfig) bool { return config.Key == policy.Key }) {
+		return fmt.Errorf("component %q configuration %q secretBinding does not match a catalog entry configuration field", component.Name, policy.Key)
+	}
+	return nil
+}
+
 func (m VMCPManifest) Validate() error {
 	if m.DisplayName == "" {
 		return fmt.Errorf("displayName is required")
@@ -298,6 +324,9 @@ func (m VMCPManifest) Validate() error {
 			}
 			if policy.Policy != VMCPConfigurationPolicyFixed && policy.Value != "" {
 				return fmt.Errorf("component %q configuration %q may only set value with fixed policy", component.Name, policy.Key)
+			}
+			if err := validateConfigurationSecretBinding(component, policy); err != nil {
+				return err
 			}
 		}
 		for _, config := range component.CatalogEntry.Manifest.Config {

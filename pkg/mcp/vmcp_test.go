@@ -923,3 +923,62 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateSecretBindingsVMCP(t *testing.T) {
+	component := func(runtime types.Runtime, usage types.Usage) types.VMCPComponent {
+		return types.VMCPComponent{
+			Name: "gitlab",
+			Configuration: []types.VMCPConfigurationPolicy{{
+				Key:           "TOKEN",
+				Policy:        types.VMCPConfigurationPolicyFixed,
+				SecretBinding: &types.MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key"},
+			}},
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: runtime,
+				Config:  []types.MCPConfig{{Key: "TOKEN", Required: true, Usage: usage}},
+			}},
+		}
+	}
+	for _, tc := range []struct {
+		name      string
+		component types.VMCPComponent
+		backend   string
+		wantError string
+	}{
+		{
+			name:      "kubernetes",
+			component: component(types.RuntimeNPX, types.Env),
+			backend:   RuntimeBackendKubernetes,
+		},
+		{
+			name:      "docker",
+			component: component(types.RuntimeNPX, types.Env),
+			backend:   "docker",
+			wantError: "requires the kubernetes MCP runtime backend",
+		},
+		{
+			name:      "remote header",
+			component: component(types.RuntimeRemote, types.Header),
+			backend:   RuntimeBackendKubernetes,
+		},
+		{
+			name:      "remote env",
+			component: component(types.RuntimeRemote, types.Env),
+			backend:   RuntimeBackendKubernetes,
+			wantError: "only supported for headers on remote runtime",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateSecretBindingsVMCP(types.VMCPManifest{Components: []types.VMCPComponent{tc.component}}, tc.backend)
+			if tc.wantError == "" {
+				if err != nil {
+					t.Fatalf("ValidateSecretBindingsVMCP() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("ValidateSecretBindingsVMCP() error = %v, want %q", err, tc.wantError)
+			}
+		})
+	}
+}

@@ -186,6 +186,23 @@ profiles:
           allowedTools: null # Allow all enabled tools for this component.
 ```
 
+A component's `configuration` sets a policy for each of its entry's configuration fields: `fixed`, `userAllowed`, or `prohibited`. A `fixed` field can use `secretBinding` instead of a clear-text `value` so Obot reads the value from a Kubernetes Secret when the component server starts:
+
+```yaml
+components:
+  - id: gitlab-component
+    name: GitLab
+    mcpServerCatalogEntryKey: obot-gitlab
+    configuration:
+      - key: GITLAB_PERSONAL_ACCESS_TOKEN
+        policy: fixed
+        secretBinding:
+          name: gitlab-secret # Kubernetes Secret name
+          key: gitlab_key     # Key within that Secret
+```
+
+vMCP secret bindings follow the same rules as [catalog entry secret bindings](#kubernetes-secret-bindings) and are only available in Git catalog sources. A binding cannot be combined with `value`, and the entry's field must not define a static `value`.
+
 When replacing a migrated composite with a catalog vMCP, keep the same `entryKey` and catalog source. Migration and sync use these to generate the same vMCP ID, preserving existing connections and credentials. Sync marks the vMCP as `adopted` when it takes over management. If the original entry had no `entryKey`, retain its name as the vMCP's `displayName` for matching.
 
 For example, if the original composite had `entryKey: email` and `name: Email`, publish this replacement in the same catalog source after migration:

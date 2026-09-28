@@ -132,7 +132,9 @@ func ExtractStaticConfiguration(manifest *types.VMCPManifest, existingConfig map
 		component := &manifest.Components[componentIndex]
 		for policyIndex := range component.Configuration {
 			policy := &component.Configuration[policyIndex]
-			if policy.Policy == types.VMCPConfigurationPolicyFixed {
+			// Secret-bound values are resolved at launch, so a previously stored
+			// literal must not linger in the credential.
+			if policy.Policy == types.VMCPConfigurationPolicyFixed && policy.SecretBinding == nil {
 				val := existingConfig[ConfigurationKey(component.ID, policy.Key)]
 				if policy.Value != "" {
 					val = policy.Value

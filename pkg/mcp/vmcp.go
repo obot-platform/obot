@@ -215,3 +215,21 @@ func restrictComponentTools(component *ComponentServer, allowed []types.VMCPTool
 	component.DisableTools = len(tools) == 0
 	return nil
 }
+
+// ValidateSecretBindingsVMCP validates the Secrets selected by vMCP fixed
+// configuration against the component runtimes they are applied to.
+func ValidateSecretBindingsVMCP(manifest types.VMCPManifest, mcpBackend string) error {
+	for _, component := range manifest.Components {
+		if !slices.ContainsFunc(component.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
+			return policy.SecretBinding != nil
+		}) {
+			continue
+		}
+		entry := component.CatalogEntry.Manifest
+		entry.Config = vmcpaccess.ComponentConfig(component)
+		if err := ValidateSecretBindingsCatalogEntry(entry, true, false, mcpBackend); err != nil {
+			return fmt.Errorf("component %q: %w", component.Name, err)
+		}
+	}
+	return nil
+}

@@ -1067,6 +1067,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 	if manifest == nil {
 		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("vMCP component has no catalog-entry snapshot")
 	}
+	vmcpconfig.ApplyFixedSecretBindings(*component, manifest.Config)
 
 	staticConfiguration, err := h.vmcpStaticConfiguration(req, &vmcp, *component)
 	if err != nil {

@@ -70,3 +70,24 @@ func TestValidateAndEncodeUserConfiguration(t *testing.T) {
 		t.Fatal("ValidateAndEncodeUserConfiguration() accepted fixed configuration")
 	}
 }
+
+func TestExtractStaticConfigurationOmitsSecretBoundValues(t *testing.T) {
+	manifest := types.VMCPManifest{Components: []types.VMCPComponent{{
+		ID: "component-id",
+		Configuration: []types.VMCPConfigurationPolicy{{
+			Key:           "TOKEN",
+			Policy:        types.VMCPConfigurationPolicyFixed,
+			SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "token"},
+		}},
+	}}}
+
+	got := ExtractStaticConfiguration(&manifest, map[string]string{
+		ConfigurationKey("component-id", "TOKEN"): "old-clear-text",
+	})
+	if len(got) != 0 {
+		t.Fatalf("ExtractStaticConfiguration() = %v, want no stored values", got)
+	}
+	if manifest.Components[0].Configuration[0].SecretBinding == nil {
+		t.Fatal("ExtractStaticConfiguration() removed the secret binding")
+	}
+}
