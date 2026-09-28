@@ -96,9 +96,9 @@ func flattenStoredMCPConfig(data []byte, server bool) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if !server && sourceURL != "" {
-		return nil, nil
-	}
+	// Git-managed entries are also converted because the vMCP migration reads
+	// them before the next catalog sync can replace their legacy configuration.
+	sourceManaged := !server && sourceURL != ""
 	var manifest map[string]json.RawMessage
 	if err := json.Unmarshal(spec["manifest"], &manifest); err != nil {
 		return nil, err
@@ -214,6 +214,10 @@ func flattenStoredMCPConfig(data []byte, server bool) ([]byte, error) {
 		return nil, nil
 	}
 	if err := (types.MCPServerManifest{Config: config}).ValidateConfig(); err != nil {
+		if sourceManaged {
+			// The next catalog sync replaces the entry, so it must not block startup.
+			return nil, nil
+		}
 		return nil, err
 	}
 	if len(config) > 0 {

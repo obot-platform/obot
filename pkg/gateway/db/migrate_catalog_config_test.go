@@ -201,7 +201,25 @@ func TestAutoMigrateFlattensUICatalogEntryConfigOnce(t *testing.T) {
 		},
 	})
 	prior := catalogEntryValue(t, "", map[string]any{"name": "prior", "runtime": "npx", "env": []any{map[string]any{"key": "PRIOR"}}})
-	source := catalogEntryValue(t, "https://catalog.example/entry.yaml", map[string]any{"name": "source", "runtime": "npx", "env": []any{map[string]any{"key": "SOURCE"}}})
+	source := catalogEntryValue(t, "https://catalog.example/entry.yaml", map[string]any{
+		"name":    "source",
+		"runtime": "remote",
+		"env": []any{
+			map[string]any{"key": "SOURCE_PATH", "required": true},
+		},
+		"remoteConfig": map[string]any{
+			"urlTemplate": "https://example.com/mcp${SOURCE_PATH}",
+			"headers": []any{
+				map[string]any{"key": "Authorization", "required": true, "sensitive": true, "prefix": "Bearer "},
+			},
+		},
+	})
+	conflictingSource := catalogEntryValue(t, "https://catalog.example/conflict.yaml", map[string]any{
+		"name":         "conflicting source",
+		"runtime":      "remote",
+		"env":          []any{map[string]any{"key": "TOKEN"}},
+		"remoteConfig": map[string]any{"headers": []any{map[string]any{"key": "TOKEN"}}},
+	})
 	deleted := catalogEntryValue(t, "", map[string]any{"name": "deleted", "runtime": "npx", "env": []any{map[string]any{"key": "DELETED"}}})
 
 	insertCatalogEntry(t, gormDB, 1, "ui", 0, prior)
@@ -209,6 +227,7 @@ func TestAutoMigrateFlattensUICatalogEntryConfigOnce(t *testing.T) {
 	insertCatalogEntry(t, gormDB, 3, "source", 0, source)
 	insertCatalogEntry(t, gormDB, 4, "deleted", 0, legacy)
 	insertCatalogEntry(t, gormDB, 5, "deleted", 1, deleted)
+	insertCatalogEntry(t, gormDB, 6, "conflicting-source", 0, conflictingSource)
 
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatalf("startup migration failed: %v", err)
@@ -248,8 +267,28 @@ func TestAutoMigrateFlattensUICatalogEntryConfigOnce(t *testing.T) {
 	if got := catalogEntryValueForID(t, gormDB, 1); got != prior {
 		t.Fatalf("expected historical row to remain unchanged\nwant: %s\n got: %s", prior, got)
 	}
-	if got := catalogEntryValueForID(t, gormDB, 3); got != source {
-		t.Fatalf("expected source-backed entry to remain unchanged\nwant: %s\n got: %s", source, got)
+	// Source-backed entries are read by the vMCP migration before the next
+	// catalog sync, so their legacy configuration must be converted too.
+	sourceManifest := catalogEntryManifest(t, catalogEntryValueForID(t, gormDB, 3))
+	assertConfigKeys(t, sourceManifest, map[string]types.Usage{
+		"SOURCE_PATH":   types.Env,
+		"Authorization": types.Header,
+	})
+	if config := configByKey(t, sourceManifest, "SOURCE_PATH"); !config.Required {
+		t.Fatalf("expected source-backed env metadata to be preserved, got %#v", config)
+	}
+	if config := configByKey(t, sourceManifest, "Authorization"); !config.Required || !config.Sensitive || config.Prefix != "Bearer " {
+		t.Fatalf("expected source-backed header metadata to be preserved, got %#v", config)
+	}
+	if _, ok := sourceManifest["env"]; ok {
+		t.Fatal("expected source-backed legacy env to be removed")
+	}
+	if got := rawObject(t, sourceManifest["remoteConfig"])["urlTemplate"]; string(got) != `"https://example.com/mcp${SOURCE_PATH}"` {
+		t.Fatalf("expected source-backed URL template to be retained, got %s", got)
+	}
+	// Invalid source-backed configuration is left for the catalog sync to replace.
+	if got := catalogEntryValueForID(t, gormDB, 6); got != conflictingSource {
+		t.Fatalf("expected conflicting source-backed entry to remain unchanged\nwant: %s\n got: %s", conflictingSource, got)
 	}
 	if got := catalogEntryValueForID(t, gormDB, 5); got != deleted {
 		t.Fatalf("expected deleted entry to remain unchanged\nwant: %s\n got: %s", deleted, got)
