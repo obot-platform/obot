@@ -154,7 +154,10 @@
 	$effect(() => {
 		const ids = new Set(items.map((item) => item.id));
 		for (const id of Object.keys(selected)) {
-			if (!ids.has(id)) delete selected[id];
+			if (!ids.has(id)) {
+				delete selected[id];
+				tableRef?.clearSelect(id);
+			}
 		}
 	});
 

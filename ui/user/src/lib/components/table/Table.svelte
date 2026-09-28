@@ -291,6 +291,10 @@
 		visibleItems.filter((d) => (validateSelect ? validateSelect(d) : true)).length
 	);
 
+	export function clearSelect(id: string) {
+		delete selected[id];
+	}
+
 	export function clearSelectAll() {
 		selected = {};
 	}
