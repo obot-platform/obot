@@ -13,15 +13,17 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// Match the versions accepted by mcp-images/openapi-mcp/config.py. Kin-openapi
-// supports more versions, but accepting those here would defer failure until
-// container startup. Expand this range together with wrapper support.
-var versionPattern = regexp.MustCompile(`^3\.(0\.[0-4]|1\.[0-2])$`)
+var (
+	// Match the versions accepted by mcp-images/openapi-mcp/config.py. Kin-openapi
+	// supports more versions, but accepting those here would defer failure until
+	// container startup. Expand this range together with wrapper support.
+	versionPattern = regexp.MustCompile(`^3\.(0\.[0-4]|1\.[0-2])$`)
 
-var methods = map[string]bool{
-	"GET": true, "PUT": true, "POST": true, "DELETE": true,
-	"OPTIONS": true, "HEAD": true, "PATCH": true, "TRACE": true,
-}
+	methods = map[string]bool{
+		"GET": true, "PUT": true, "POST": true, "DELETE": true,
+		"OPTIONS": true, "HEAD": true, "PATCH": true, "TRACE": true,
+	}
+)
 
 // inspect loads a typed OpenAPI document to resolve the API destination and
 // suggest credential headers, checking the hosted wrapper's supported subset.
@@ -192,7 +194,7 @@ func reference(document map[string]any, value any) (any, error) {
 		return nil, fmt.Errorf("invalid local reference")
 	}
 	var node any = document
-	for _, part := range strings.Split(pointer, "/") {
+	for part := range strings.SplitSeq(pointer, "/") {
 		part = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
 		switch current := node.(type) {
 		case map[string]any:

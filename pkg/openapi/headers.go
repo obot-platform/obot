@@ -7,7 +7,9 @@ import (
 )
 
 // Credential headers must not override HTTP transport or MCP protocol headers.
-var headerToken = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+var (
+	headerToken = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+)
 
 func reservedHeader(name string) bool {
 	switch strings.ToLower(name) {
