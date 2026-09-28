@@ -1,4 +1,5 @@
 import { page as appPage } from '$app/state';
+import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 import type { MessagePolicy } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { preparePageData } from '../../tests/helpers/pageData';
@@ -135,6 +136,34 @@ async function expectMenuActions(
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	appPage.url.searchParams.delete('new');
+});
+
+it('opens direct OpenAPI creation with import before configuration', async () => {
+	resetMcpServersAndEntriesStore();
+	appPage.url.searchParams.set('new', 'openapi');
+	worker.use(
+		http.post('/api/mcp-catalogs/default/openapi/import', () =>
+			HttpResponse.json({
+				schema: { openapi: '3.1.0', info: { title: 'Imported API', version: '1' }, paths: {} },
+				baseURL: '',
+				suggestedHeaders: [],
+				suggestedMetadata: { name: 'Imported API' }
+			})
+		)
+	);
+	await renderMcpServersPage({ view: 'entries' });
+	await expect.element(page.getByRole('heading', { name: 'Import OpenAPI schema' })).toBeVisible();
+	await expect.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`)).not.toBeInTheDocument();
+	await page.getByLabelText('Schema URL', { exact: true }).fill('https://example.com/schema.json');
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await expect
+		.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`))
+		.toHaveValue('Imported API');
+	await expect
+		.element(page.getByLabelText('API request base URL', { exact: false }))
+		.toBeRequired();
+	await expect.element(page.getByCSS('#runtime-selector')).not.toBeInTheDocument();
 });
 
 describe('MCP Servers Page', () => {

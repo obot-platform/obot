@@ -12,6 +12,7 @@ it('offers hosted and remote servers, but not legacy composites', async () => {
 	result.component.open();
 
 	await expect.element(page.getByRole('button', { name: /Hosted Server/ })).toBeVisible();
+	await expect.element(page.getByRole('button', { name: /OpenAPI/ })).toBeVisible();
 	await expect
 		.element(page.getByRole('button', { name: /Composite Server/ }))
 		.not.toBeInTheDocument();

@@ -18,6 +18,12 @@
 		type Runtime,
 		Group
 	} from '$lib/services';
+	import type { OpenAPIRuntimeConfig } from '$lib/services';
+	import type {
+		OpenAPIImportDraft,
+		OpenAPIImportResult,
+		OpenAPIMetadata
+	} from '$lib/services/openapi';
 	import { MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from '$lib/services/user/constants';
 	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
@@ -36,6 +42,7 @@
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
 	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
+	import OpenAPIConfiguration from '../mcp/OpenAPIConfiguration.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import ResourceRuntimeForm from '../mcp/ResourceRuntimeForm.svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
@@ -50,6 +57,7 @@
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		type?: LaunchServerType;
+		initialOpenAPIImport?: OpenAPIImportDraft;
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: (data: MCPCatalogEntry | MCPCatalogServer, message?: string) => void;
@@ -65,6 +73,7 @@
 		entry,
 		readonly,
 		type: newType = 'hosted',
+		initialOpenAPIImport,
 		onCancel,
 		onSubmit,
 		readonlyMessage,
@@ -78,7 +87,8 @@
 		} else {
 			// For catalog entries, determine type based on runtime
 			const catalogEntry = entry as MCPCatalogEntry;
-			return catalogEntry.manifest.runtime === 'remote' ? 'remote' : 'hosted';
+			const runtime = catalogEntry.manifest.runtime;
+			return runtime === 'remote' || runtime === 'openapi' ? runtime : 'hosted';
 		}
 	}
 
@@ -93,6 +103,27 @@
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
+	let importedBaseURL = $state(untrack(() => initialOpenAPIImport?.result.baseURL ?? ''));
+
+	function completeOpenAPIImport(
+		config: OpenAPIRuntimeConfig,
+		result: OpenAPIImportResult,
+		metadata: OpenAPIMetadata
+	) {
+		formData.openAPIConfig = config;
+		importedBaseURL = result.baseURL;
+		formData.config ??= [];
+		for (const header of result.suggestedHeaders) {
+			if (
+				!formData.config.some((existing) => existing.key.toLowerCase() === header.key.toLowerCase())
+			) {
+				formData.config.push(header);
+			}
+		}
+		for (const key of ['name', 'description', 'shortDescription', 'icon'] as const) {
+			if (metadata[key] !== undefined) formData[key] = metadata[key];
+		}
+	}
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const canConfigureTunnels = $derived(
@@ -177,7 +208,7 @@
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
 			// Default initialization for new servers
-			const isHostedType = type === 'hosted';
+			const isHostedType = type === 'hosted' || type === 'openapi';
 			return {
 				categories: [''],
 				metadata: undefined,
@@ -187,15 +218,25 @@
 				env: [],
 				icon: '',
 				serverUserType: isHostedType && entity === 'catalog' ? 'multiUser' : 'singleUser',
-				runtime: 'npx' as Runtime,
-				config: type !== 'multi' ? [] : undefined,
+				runtime: type === 'openapi' ? 'openapi' : ('npx' as Runtime),
+				config:
+					type !== 'multi'
+						? structuredClone($state.snapshot(initialOpenAPIImport?.result.suggestedHeaders ?? []))
+						: undefined,
+				openAPIConfig:
+					type === 'openapi'
+						? structuredClone(
+								$state.snapshot(initialOpenAPIImport?.config ?? { source: { url: '' } })
+							)
+						: undefined,
 				resources: type !== 'remote' ? defaultResourceRuntimeConfig() : undefined,
 				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
-				multiUserConfig: isHostedType ? { userDefinedHeaders: [] } : undefined
+				multiUserConfig: isHostedType ? { userDefinedHeaders: [] } : undefined,
+				...initialOpenAPIImport?.result.suggestedMetadata
 			};
 		}
 
@@ -268,6 +309,9 @@
 				shortDescription: manifest.shortDescription ?? '',
 				env: [],
 				config: manifest.config?.map((config) => ({ ...config, value: config.value ?? '' })) ?? [],
+				openAPIConfig: manifest.openAPIConfig
+					? structuredClone($state.snapshot(manifest.openAPIConfig))
+					: undefined,
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				runtime: manifest.runtime,
@@ -368,11 +412,13 @@
 	// Runtime change handler
 	function handleRuntimeChange(newRuntime: Runtime) {
 		formData.runtime = newRuntime;
+		importedBaseURL = '';
 
 		// Clear all runtime configs first
 		formData.npxConfig = undefined;
 		formData.uvxConfig = undefined;
 		formData.containerizedConfig = undefined;
+		formData.openAPIConfig = undefined;
 		formData.remoteConfig = undefined;
 		formData.remoteServerConfig = undefined;
 
@@ -384,6 +430,9 @@
 
 		// Initialize the appropriate config based on the new runtime
 		switch (newRuntime) {
+			case 'openapi':
+				formData.openAPIConfig = { source: {} };
+				break;
 			case 'npx':
 				formData.npxConfig = defaultNpxConfig();
 				break;
@@ -492,6 +541,9 @@
 
 		// Add runtime-specific config based on the runtime type
 		switch (baseData.runtime) {
+			case 'openapi':
+				manifest.openAPIConfig = baseData.openAPIConfig;
+				break;
 			case 'npx':
 				if (baseData.npxConfig) {
 					manifest.npxConfig = {
@@ -644,6 +696,7 @@
 		try {
 			const handleFns = {
 				hosted: handleEntrySubmit,
+				openapi: handleEntrySubmit,
 				multi: handleServerSubmit,
 				remote: handleEntrySubmit
 			};
@@ -859,12 +912,14 @@
 	</section>
 
 	<!-- Runtime Selection -->
-	<RuntimeSelector
-		bind:runtime={formData.runtime}
-		serverType={type}
-		{readonly}
-		onRuntimeChange={handleRuntimeChange}
-	/>
+	{#if type !== 'openapi'}
+		<RuntimeSelector
+			bind:runtime={formData.runtime}
+			serverType={type}
+			{readonly}
+			onRuntimeChange={handleRuntimeChange}
+		/>
+	{/if}
 
 	<!-- Runtime-specific Forms -->
 	<div class="flex flex-col gap-8" id={`${CATALOG_SERVER_FIELD_IDS.runtimeConfiguration}`}>
@@ -897,6 +952,23 @@
 				{readonly}
 				{showRequired}
 				onFieldChange={updateRequired}
+			/>
+		{:else if formData.runtime === 'openapi' && formData.openAPIConfig && id}
+			<OpenAPIConfiguration
+				bind:config={formData.openAPIConfig}
+				{importedBaseURL}
+				{entity}
+				{id}
+				{readonly}
+				current={{
+					name: formData.name,
+					description: formData.description,
+					shortDescription: formData.shortDescription,
+					icon: formData.icon
+				}}
+				onComplete={completeOpenAPIImport}
+				onBaseURLChange={() => updateRequired('openAPIBaseURL')}
+				showBaseURLError={showRequired.openAPIBaseURL}
 			/>
 		{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
 			<RemoteRuntimeForm
@@ -952,6 +1024,7 @@
 	{#if type !== 'multi'}
 		<CatalogConfigurationForm
 			bind:config={formData.config}
+			headersOnly={formData.runtime === 'openapi'}
 			{readonly}
 			secretBindingTargets={editableSecretBindingTargets}
 			showRequired={showRequired.env}
@@ -999,7 +1072,7 @@
 				type="submit"
 				data-form-action="save"
 				class="btn btn-primary flex items-center gap-1"
-				disabled={loading}
+				disabled={loading || (formData.runtime === 'openapi' && !formData.openAPIConfig?.schema)}
 				aria-busy={loading}
 				id={CATALOG_SERVER_FIELD_IDS.submitBtn}
 			>

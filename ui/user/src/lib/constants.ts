@@ -385,6 +385,7 @@ export const CATALOG_SERVER_FIELD_IDS = {
 	tenancy: 'catalog-server-tenancy',
 	runtime: 'catalog-server-runtime',
 	runtimeConfiguration: 'catalog-server-runtime-configuration',
+	openAPIBaseURL: 'openapi-base-url',
 	configuration: 'catalog-server-configuration',
 	addConfigurationBtn: 'catalog-server-add-configuration-btn',
 	env: 'catalog-server-env',

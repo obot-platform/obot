@@ -9,6 +9,7 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
+	type OpenAPIRuntimeConfig,
 	type Schedule,
 	ModelAlias,
 	type AccessControlRuleSubject,
@@ -759,6 +760,7 @@ export interface MCPCatalogEntryServerManifest {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
+	openAPIConfig?: OpenAPIRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	resources?: MCPResourceRequirements;
 	staticConfigurationRevision?: string;
@@ -809,6 +811,7 @@ export interface RuntimeFormData {
 	npxConfig?: NPXRuntimeConfig;
 	uvxConfig?: UVXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
+	openAPIConfig?: OpenAPIRuntimeConfig;
 	remoteConfig?: LegacyRemoteCatalogConfigAdmin; // Form state; flattened when saving catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
 	multiUserConfig?: MultiUserConfig; // Form state; flattened into config when saving servers

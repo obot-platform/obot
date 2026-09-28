@@ -2,7 +2,7 @@
 	import { m } from '$lib/i18n';
 	import type { LaunchType } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { Container, Users } from '@lucide/svelte';
+	import { Container, Users, FileCode } from '@lucide/svelte';
 
 	interface Props {
 		onSelectServerType: (type: LaunchType) => void;
@@ -56,6 +56,21 @@
 				<span class="text-muted-content block text-xs leading-4">
 					{m.mcps_catalog_select_server_type_remote_description()}
 				</span>
+			</div>
+		</button>
+		<button
+			id="add-openapi-server-button"
+			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
+			onclick={() => onSelectServerType('openapi')}
+		>
+			<FileCode
+				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
+			/>
+			<div>
+				<p class="mb-1 text-sm font-semibold">OpenAPI</p>
+				<span class="text-muted-content block text-xs leading-4"
+					>Import an OpenAPI schema to create a hosted MCP server</span
+				>
 			</div>
 		</button>
 	</div>

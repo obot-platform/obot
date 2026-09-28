@@ -106,6 +106,15 @@
 		}
 	});
 
+	// Parent updates (such as imported catalog details) must reach an editor
+	// that is already mounted, not just the Markdown preview.
+	$effect(() => {
+		const nextValue = value;
+		if (cmView) {
+			untrack(() => void setValue(nextValue));
+		}
+	});
+
 	// Effect to handle dark mode changes
 	$effect(() => {
 		if (setDarkMode !== darkMode.isDark && typeof reload === 'function') {

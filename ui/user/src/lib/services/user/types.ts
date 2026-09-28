@@ -681,7 +681,17 @@ export interface VMCPInstanceList {
 
 // MCP runtime
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'vmcp';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'vmcp' | 'openapi';
+
+export interface OpenAPISource {
+	url?: string;
+	content?: string;
+}
+export interface OpenAPIRuntimeConfig {
+	source: OpenAPISource;
+	schema?: Record<string, unknown>;
+	baseURL?: string;
+}
 export interface MCPConfigurationOption {
 	name: string;
 	value: string;
@@ -807,6 +817,7 @@ export interface MCPServer {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
+	openAPIConfig?: OpenAPIRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
 	resources?: MCPResourceRequirements;
 }
@@ -1082,7 +1093,7 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
-export type LaunchType = 'hosted' | 'remote';
+export type LaunchType = 'hosted' | 'remote' | 'openapi';
 export type LaunchServerType = LaunchType | 'multi';
 
 export interface Skill {

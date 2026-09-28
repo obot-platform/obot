@@ -6,6 +6,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
+	import OpenAPIImportDialog from '$lib/components/mcp/OpenAPIImportDialog.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import {
 		DEFAULT_MCP_CATALOG_ID,
@@ -22,6 +23,7 @@
 		type MCPCatalog,
 		type OrgUser
 	} from '$lib/services';
+	import type { OpenAPIImportDraft } from '$lib/services/openapi';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import {
 		clearUrlParams,
@@ -53,7 +55,11 @@
 		'ai-judge-policies',
 		'access-policies'
 	] as const;
-	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote'];
+	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'openapi'];
+	let initialOpenAPIImport = $state<OpenAPIImportDraft>();
+	$effect(() => {
+		if (!creating || newServerType !== 'openapi') initialOpenAPIImport = undefined;
+	});
 
 	const { data } = $props();
 	const { workspaceId } = $derived(data);
@@ -278,14 +284,29 @@
 {#if creating}
 	<Layout title={layoutTitle} showBackButton onBackButtonClick={closeCreateScreen}>
 		{#if selectedView === 'entries'}
-			<McpServerEntryForm
-				entity={hasAdminAccess ? 'catalog' : 'workspace'}
-				id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
-				type={newServerType}
-				onCancel={closeCreateScreen}
-				onSubmit={handleEntryCreated}
-				excludeViews={['overview']}
-			/>
+			{#if newServerType === 'openapi' && !initialOpenAPIImport}
+				<OpenAPIImportDialog
+					entity={hasAdminAccess ? 'catalog' : 'workspace'}
+					id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
+					onComplete={(draft) => {
+						initialOpenAPIImport = draft;
+					}}
+					onCancel={() => {
+						closeCreateScreen();
+						selectServerTypeDialog?.open();
+					}}
+				/>
+			{:else}
+				<McpServerEntryForm
+					{initialOpenAPIImport}
+					entity={hasAdminAccess ? 'catalog' : 'workspace'}
+					id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
+					type={newServerType}
+					onCancel={closeCreateScreen}
+					onSubmit={handleEntryCreated}
+					excludeViews={['overview']}
+				/>
+			{/if}
 		{:else if selectedView === 'filters'}
 			{@render filters()}
 		{:else if selectedView === 'tunnels'}

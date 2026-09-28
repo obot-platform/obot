@@ -4,10 +4,12 @@
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import OpenAPIImportDialog from '$lib/components/mcp/OpenAPIImportDialog.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, UserService, type LaunchType, type MCPCatalogEntry } from '$lib/services';
+	import type { OpenAPIImportDraft } from '$lib/services/openapi';
 	import {
 		getServerTypeLabelByType,
 		isDeprecatedMCPServer,
@@ -36,6 +38,8 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedServerType = $state<LaunchType>();
+	let importingOpenAPI = $state(false);
+	let initialOpenAPIImport = $state<OpenAPIImportDraft>();
 	let creating = $state(false);
 	let closeAfterCreate = $state(false);
 	let catalogEntry = $state<MCPCatalogEntry>();
@@ -51,7 +55,11 @@
 	let serverScopeID = $derived(viewWorkspaceId || DEFAULT_MCP_CATALOG_ID);
 	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
 	let catalogEntryFormType = $derived<LaunchType>(
-		catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'hosted'
+		catalogEntry?.manifest.runtime === 'openapi'
+			? 'openapi'
+			: catalogEntry?.manifest.runtime === 'remote'
+				? 'remote'
+				: 'hosted'
 	);
 	let title = $derived(
 		creating
@@ -95,7 +103,9 @@
 		resetView();
 		selectedServerType = serverType;
 		creating = true;
-		dialog?.open();
+		initialOpenAPIImport = undefined;
+		importingOpenAPI = serverType === 'openapi';
+		if (!importingOpenAPI) dialog?.open();
 	}
 
 	function close() {
@@ -118,6 +128,8 @@
 	}
 
 	function resetView() {
+		importingOpenAPI = false;
+		initialOpenAPIImport = undefined;
 		hydrateController?.abort();
 		hydrateController = undefined;
 		catalogEntry = undefined;
@@ -193,6 +205,23 @@
 	}
 </script>
 
+{#if importingOpenAPI}
+	<OpenAPIImportDialog
+		id={createScopeId}
+		entity={createEntity}
+		onComplete={(draft) => {
+			initialOpenAPIImport = draft;
+			importingOpenAPI = false;
+			dialog?.open();
+		}}
+		onCancel={() => {
+			importingOpenAPI = false;
+			selectedServerType = undefined;
+			selectServerTypeDialog?.open();
+		}}
+	/>
+{/if}
+
 <ResponsiveDialog
 	animate="fade"
 	bind:this={dialog}
@@ -218,16 +247,19 @@
 				/>
 			{/if}
 			{#if creating}
-				<McpServerEntryForm
-					hideTitleBarAction
-					entity={createEntity}
-					type={selectedServerType}
-					id={createScopeId}
-					onCancel={close}
-					onSubmit={handleCreated}
-					excludeViews={['overview']}
-					isDialogView
-				/>
+				{#if selectedServerType && !importingOpenAPI}
+					<McpServerEntryForm
+						hideTitleBarAction
+						{initialOpenAPIImport}
+						entity={createEntity}
+						type={selectedServerType}
+						id={createScopeId}
+						onCancel={close}
+						onSubmit={handleCreated}
+						excludeViews={['overview']}
+						isDialogView
+					/>
+				{/if}
 			{:else if catalogEntry}
 				<McpServerEntryForm
 					hideTitleBarAction
