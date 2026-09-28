@@ -44,6 +44,10 @@ This deployment bind-mounts the host Docker socket (`-v /var/run/docker.sock:/va
 Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](./kubernetes-deployment.md), which runs each MCP server in its own pod and supports stronger isolation controls you configure (restricted Pod Security Admission, a NetworkPolicy, and sandboxed runtimes such as gVisor or Kata Containers). See [User Roles — Security Model](../configuration/user-roles.md#security-model).
 :::
 
+:::tip Remote MCP servers only
+If you only connect remote MCP servers, you do not need the Docker socket: omit the `-v /var/run/docker.sock:/var/run/docker.sock` mount and set `-e OBOT_SERVER_MCPRUNTIME_BACKEND=none`. Obot then proxies remote servers (and composites of them) and refuses to deploy hosted ones.
+:::
+
 #### With Authentication (Recommended)
 
 ```bash

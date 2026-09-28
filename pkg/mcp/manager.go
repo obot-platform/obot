@@ -50,7 +50,7 @@ type Options struct {
 	DisallowLocalhostMCP              bool     `usage:"Disallow MCP containers from connecting to localhost" default:"true"`
 	DisallowPrivateIPMCP              bool     `usage:"Disallow MCP containers from connecting to private IPs" default:"true"`
 	DisallowLinkLocalMCP              bool     `usage:"Disallow MCP containers from connecting to link-local addresses" default:"true"`
-	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s. Defaults to docker" default:"docker"`
+	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, k8s, or none (remote MCP servers only, no container runtime needed). Defaults to docker" default:"docker"`
 	MCPSecretBindingAllowedLabel      string   `usage:"Kubernetes Secret label key required for admin UI secret-binding lookup and save-time validation" default:"obot.obot.ai/allow-secret-binding"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
@@ -136,6 +136,8 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		}
 
 		backend = dockerBackend
+	case RuntimeBackendNone:
+		backend = newNoneBackend()
 	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
