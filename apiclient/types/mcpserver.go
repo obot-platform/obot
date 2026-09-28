@@ -18,8 +18,8 @@ const (
 	// RuntimeComposite is retained only to identify legacy resources during migration.
 	RuntimeComposite Runtime = "composite"
 
-	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
-	defaultStartupTimeoutSeconds = 60
+	// DefaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
+	DefaultStartupTimeoutSeconds = 60
 
 	// Retained for legacy MCP servers.
 	ServerUserTypeSingleUser ServerUserType = "singleUser"
@@ -593,7 +593,7 @@ func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConf
 	}
 
 	if timeout == 0 {
-		timeout = defaultStartupTimeoutSeconds
+		timeout = DefaultStartupTimeoutSeconds
 	}
 	return timeout
 }

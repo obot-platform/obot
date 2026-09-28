@@ -397,35 +397,35 @@ func TestStartupTimeoutSeconds(t *testing.T) {
 		{
 			name:     "uvx nil config returns default",
 			runtime:  RuntimeUVX,
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "npx nil config returns default",
 			runtime:  RuntimeNPX,
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "containerized nil config returns default",
 			runtime:  RuntimeContainerized,
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "uvx zero StartupTimeoutSeconds returns default",
 			runtime:  RuntimeUVX,
 			uvx:      &UVXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 0},
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "npx zero StartupTimeoutSeconds returns default",
 			runtime:  RuntimeNPX,
 			npx:      &NPXRuntimeConfig{Package: "pkg", StartupTimeoutSeconds: 0},
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "containerized zero StartupTimeoutSeconds returns default",
 			runtime:  RuntimeContainerized,
 			cont:     &ContainerizedRuntimeConfig{Image: "img", StartupTimeoutSeconds: 0},
-			expected: defaultStartupTimeoutSeconds,
+			expected: DefaultStartupTimeoutSeconds,
 		},
 		{
 			name:     "uvx custom StartupTimeoutSeconds returned",

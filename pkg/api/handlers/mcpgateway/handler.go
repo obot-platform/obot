@@ -383,6 +383,10 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
+	if mcpServerConfig.Runtime == types.RuntimeVMCP {
+		// Legacy slugs can resolve to vMCPs, which have no deployment of their own.
+		return mcpServerConfig, nil
+	}
 	if mcpServer.Spec.Template {
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}

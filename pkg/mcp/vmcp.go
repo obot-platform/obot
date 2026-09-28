@@ -194,6 +194,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		MCPServerNamespace:   vmcp.Namespace,
 		Components:           components,
 		Webhooks:             webhooks,
+		StartupTimeout:       types.DefaultStartupTimeoutSeconds * time.Second,
 		AuditLogMetadata: map[string]string{
 			"mcpID":                vmcp.Name,
 			"mcpServerDisplayName": vmcp.Spec.Manifest.DisplayName,
