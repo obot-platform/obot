@@ -18,6 +18,11 @@ import (
 // container startup. Expand this range together with wrapper support.
 var versionPattern = regexp.MustCompile(`^3\.(0\.[0-4]|1\.[0-2])$`)
 
+var methods = map[string]bool{
+	"GET": true, "PUT": true, "POST": true, "DELETE": true,
+	"OPTIONS": true, "HEAD": true, "PATCH": true, "TRACE": true,
+}
+
 // inspect loads a typed OpenAPI document to resolve the API destination and
 // suggest credential headers, checking the hosted wrapper's supported subset.
 // The original normalized bytes are retained separately for snapshots; loading

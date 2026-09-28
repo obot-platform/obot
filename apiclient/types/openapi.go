@@ -15,15 +15,6 @@ type OpenAPIRuntimeConfig struct {
 	Source OpenAPISource `json:"source"`
 	// Schema is the normalized JSON snapshot populated by Obot on import. Running
 	// servers use this snapshot, not Source; it changes only on explicit upgrade.
-	Schema     json.RawMessage    `json:"schema,omitempty"`
-	BaseURL    string             `json:"baseURL,omitempty"`
-	ToolSearch bool               `json:"toolSearch,omitempty"`
-	Exclude    []OpenAPIExclusion `json:"exclude,omitempty"`
-}
-
-// OpenAPIExclusion matches all populated fields. Separate entries are alternatives.
-type OpenAPIExclusion struct {
-	Method      string `json:"method,omitempty"`
-	PathPattern string `json:"pathPattern,omitempty"`
-	Tag         string `json:"tag,omitempty"`
+	Schema  json.RawMessage `json:"schema,omitempty"`
+	BaseURL string          `json:"baseURL,omitempty"`
 }

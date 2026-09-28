@@ -1,30 +1,12 @@
 package openapi
 
 import (
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/stretchr/testify/require"
 )
-
-func TestPortablePathPatterns(t *testing.T) {
-	data, err := os.ReadFile("testdata/exclusions.json")
-	require.NoError(t, err)
-	var fixtures []struct {
-		Pattern string `json:"pattern"`
-		Path    string `json:"path"`
-		Matches bool   `json:"matches"`
-	}
-	require.NoError(t, json.Unmarshal(data, &fixtures))
-	for _, fixture := range fixtures {
-		re, err := CompilePathPattern(fixture.Pattern)
-		require.NoError(t, err)
-		require.Equal(t, fixture.Matches, re.MatchString(fixture.Path), fixture.Pattern)
-	}
-}
 
 func TestCredentials(t *testing.T) {
 	for _, test := range []struct {
@@ -77,15 +59,15 @@ func TestCredentials(t *testing.T) {
 			require.Equal(t, test.prefix, header.Prefix)
 			require.True(t, header.Sensitive)
 			require.True(t, header.Required)
-			settingsWithoutHeaders, err := SettingsJSON(types.OpenAPIRuntimeConfig{}, result, nil)
+			settingsWithoutHeaders, err := SettingsJSON(result, nil)
 			require.NoError(t, err, "suggested headers may be removed")
-			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":[],"toolSearch":false}`, string(settingsWithoutHeaders))
+			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":[]}`, string(settingsWithoutHeaders))
 			header.Value = "must-not-be-serialized"
-			settings, err := SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{header})
+			settings, err := SettingsJSON(result, []types.MCPConfig{header})
 			require.NoError(t, err)
 			require.NotContains(t, string(settings), header.Value)
 			require.NotContains(t, string(settings), "Bearer ")
-			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":["`+test.key+`"],"toolSearch":false}`, string(settings))
+			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":["`+test.key+`"]}`, string(settings))
 			_, err = Parse(data, types.OpenAPIRuntimeConfig{BaseURL: "http://api.example.com"})
 			require.ErrorContains(t, err, "HTTPS")
 		})
@@ -104,29 +86,29 @@ func TestSettingsValidation(t *testing.T) {
 	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "Proxy-Token", "Sec-Fetch-Site", "invalid header", "x\r\nInjected: value"} {
 		bad := header
 		bad.Key = key
-		_, err := SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{bad})
+		_, err := SettingsJSON(result, []types.MCPConfig{bad})
 		require.Error(t, err)
 	}
 	duplicate := header
 	duplicate.Key = "x-key"
-	_, err = SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{header, duplicate})
+	_, err = SettingsJSON(result, []types.MCPConfig{header, duplicate})
 	require.ErrorContains(t, err, "duplicate")
 	bad := header
 	bad.Usage = types.Env
-	_, err = SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{bad})
+	_, err = SettingsJSON(result, []types.MCPConfig{bad})
 	require.ErrorContains(t, err, "must be header inputs")
 	for _, required := range []bool{true, false} {
 		for _, sensitive := range []bool{true, false} {
 			edited := header
 			edited.Required = required
 			edited.Sensitive = sensitive
-			settings, err := SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{edited})
+			settings, err := SettingsJSON(result, []types.MCPConfig{edited})
 			require.NoError(t, err)
 			require.Contains(t, string(settings), `"credentialHeaders":["X-Key"]`)
 		}
 	}
 	header.Key = strings.Repeat("a", MaxSettingsBytes)
-	_, err = SettingsJSON(types.OpenAPIRuntimeConfig{}, result, []types.MCPConfig{header})
+	_, err = SettingsJSON(result, []types.MCPConfig{header})
 	require.ErrorContains(t, err, "96 KiB")
 
 	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://{host}/api"} {
@@ -180,42 +162,4 @@ func TestReferencesAndParameters(t *testing.T) {
 	})
 	_, err := Parse(data, types.OpenAPIRuntimeConfig{})
 	require.NoError(t, err)
-}
-
-func TestExclusionValidation(t *testing.T) {
-	for _, raw := range []string{`{}`, `null`, `{"method":null}`, `{"method":"CONNECT"}`, `{"tag":" "}`} {
-		var rule types.OpenAPIExclusion
-		require.NoError(t, json.Unmarshal([]byte(raw), &rule))
-		require.Error(t, validateExclusions(types.OpenAPIRuntimeConfig{
-			ToolSearch: true,
-			Exclude:    []types.OpenAPIExclusion{rule},
-		}))
-	}
-	var rule types.OpenAPIExclusion
-	require.NoError(t, json.Unmarshal([]byte(`{"method":"POST","pathPattern":"^/users$"}`), &rule))
-	require.Equal(t, "POST", rule.Method)
-}
-
-func TestExclusionMethodCase(t *testing.T) {
-	for _, method := range []string{"POST", "post", "PoSt"} {
-		t.Run(method, func(t *testing.T) {
-			config := types.OpenAPIRuntimeConfig{
-				ToolSearch: true,
-				Exclude: []types.OpenAPIExclusion{{
-					Method:      method,
-					PathPattern: "^/users$",
-				}},
-			}
-			result, err := Parse(usersSchema(t), config)
-			require.NoError(t, err)
-			config.Schema = result.Schema
-			settings, err := SettingsJSON(config, result, nil)
-			require.NoError(t, err)
-			var deployed wrapperSettings
-			require.NoError(t, json.Unmarshal(settings, &deployed))
-			require.Equal(t, "POST", deployed.Exclude[0].Method)
-			require.Equal(t, "^/users$", deployed.Exclude[0].PathPattern)
-			require.Equal(t, method, config.Exclude[0].Method, "must not mutate the saved settings")
-		})
-	}
 }

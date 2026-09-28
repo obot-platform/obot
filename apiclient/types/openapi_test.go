@@ -11,24 +11,20 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 	entry := MCPServerCatalogEntryManifest{
 		Runtime: RuntimeOpenAPI,
 		OpenAPIConfig: &OpenAPIRuntimeConfig{
-			Source:     OpenAPISource{URL: "https://example.com/openapi.json"},
-			Schema:     json.RawMessage(`{"openapi":"3.1.0","paths":{}}`),
-			ToolSearch: true,
-			Exclude:    []OpenAPIExclusion{{Method: "POST"}},
+			Source: OpenAPISource{URL: "https://example.com/openapi.json"},
+			Schema: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`),
 		},
 	}
 	server, err := MapCatalogEntryToServer(entry, "", false)
 	require.NoError(t, err)
 	require.Equal(t, entry.OpenAPIConfig, server.OpenAPIConfig)
 	entry.OpenAPIConfig.Schema[0] = ' '
-	entry.OpenAPIConfig.Exclude[0].Method = "DELETE"
-	require.Equal(t, "POST", server.OpenAPIConfig.Exclude[0].Method)
 	require.NotEqual(t, entry.OpenAPIConfig.Schema, server.OpenAPIConfig.Schema)
 
 	roundTrip := server.ConvertToCatalogEntry()
 	require.Equal(t, server.OpenAPIConfig, roundTrip.OpenAPIConfig)
-	roundTrip.OpenAPIConfig.Exclude[0].Method = "GET"
-	require.Equal(t, "POST", server.OpenAPIConfig.Exclude[0].Method)
+	roundTrip.OpenAPIConfig.Schema[0] = ' '
+	require.NotEqual(t, server.OpenAPIConfig.Schema, roundTrip.OpenAPIConfig.Schema)
 
 	data, err := json.Marshal(server)
 	require.NoError(t, err)

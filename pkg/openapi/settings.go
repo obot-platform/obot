@@ -3,7 +3,6 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -14,19 +13,11 @@ import (
 // enter this environment variable. Credentials are represented by names only;
 // their values and prefixes stay in Obot's per-request header handling.
 type wrapperSettings struct {
-	BaseURL           string                   `json:"baseURL"`
-	CredentialHeaders []string                 `json:"credentialHeaders"`
-	ToolSearch        bool                     `json:"toolSearch"`
-	Exclude           []types.OpenAPIExclusion `json:"exclude,omitempty"`
+	BaseURL           string   `json:"baseURL"`
+	CredentialHeaders []string `json:"credentialHeaders"`
 }
 
 func (s wrapperSettings) marshal() ([]byte, error) {
-	// The wrapper expects uppercase methods. Normalize a copy so accepting
-	// mixed-case input does not mutate the caller's configuration.
-	s.Exclude = slices.Clone(s.Exclude)
-	for i := range s.Exclude {
-		s.Exclude[i].Method = strings.ToUpper(s.Exclude[i].Method)
-	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -40,12 +31,9 @@ func (s wrapperSettings) marshal() ([]byte, error) {
 // SettingsJSON validates the selected credential definitions and returns exactly
 // the wrapper's settings contract. Call after Parse, before persisting/deploying.
 // Header values and prefixes are deliberately absent from the resulting JSON.
-func SettingsJSON(config types.OpenAPIRuntimeConfig, result *Result, headers []types.MCPConfig) ([]byte, error) {
+func SettingsJSON(result *Result, headers []types.MCPConfig) ([]byte, error) {
 	if result == nil {
 		return nil, fmt.Errorf("a validated schema import is required")
-	}
-	if err := validateExclusions(config); err != nil {
-		return nil, err
 	}
 	names := make([]string, 0, len(headers))
 	seen := map[string]bool{}
@@ -73,8 +61,6 @@ func SettingsJSON(config types.OpenAPIRuntimeConfig, result *Result, headers []t
 	settings := wrapperSettings{
 		BaseURL:           base,
 		CredentialHeaders: names,
-		ToolSearch:        config.ToolSearch,
-		Exclude:           config.Exclude,
 	}
 	return settings.marshal()
 }

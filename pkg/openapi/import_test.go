@@ -103,45 +103,6 @@ func TestTypedParsingPreservesSnapshot(t *testing.T) {
 	require.ErrorContains(t, err, "cannot parse OpenAPI document")
 }
 
-func TestExclusions(t *testing.T) {
-	config := types.OpenAPIRuntimeConfig{
-		ToolSearch: true,
-		Exclude: []types.OpenAPIExclusion{
-			{
-				Method:      "POST",
-				PathPattern: "^/users$",
-			},
-			{Tag: "internal"},
-			{Method: "DELETE"},
-		},
-	}
-	result, err := Parse(usersSchema(t), config)
-	require.NoError(t, err)
-	unfiltered, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{})
-	require.NoError(t, err)
-	require.Equal(t, unfiltered, result, "exclusions must not filter or rewrite the imported schema")
-	settings, err := SettingsJSON(config, result, nil)
-	require.NoError(t, err)
-	var deployed wrapperSettings
-	require.NoError(t, json.Unmarshal(settings, &deployed))
-	require.Equal(t, config.Exclude, deployed.Exclude, "rules are passed through for FastMCP to apply")
-	for _, rule := range []types.OpenAPIExclusion{
-		{}, {Method: "CONNECT"}, {Tag: " "},
-		{PathPattern: "["}, {PathPattern: `\d+`}, {PathPattern: "(?=users)"},
-		{PathPattern: "[[:alpha:]]"},
-	} {
-		_, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{
-			ToolSearch: true,
-			Exclude:    []types.OpenAPIExclusion{rule},
-		})
-		require.Error(t, err)
-	}
-	_, err = Parse(usersSchema(t), types.OpenAPIRuntimeConfig{
-		Exclude: []types.OpenAPIExclusion{{Method: "POST"}},
-	})
-	require.ErrorContains(t, err, "toolSearch=true")
-}
-
 func TestUnsupportedDocuments(t *testing.T) {
 	for _, test := range []struct {
 		name    string
