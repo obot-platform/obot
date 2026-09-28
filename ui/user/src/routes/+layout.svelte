@@ -104,16 +104,20 @@
 	$effect(() => {
 		const pathname = page.url.pathname;
 		const view = page.url.searchParams.get('view');
-		const usesAdminMcpData =
-			(pathname === '/mcp-servers' && (view === 'servers' || view === 'access-policies')) ||
-			(pathname === '/vmcps' && (!view || view === 'vmcps')) ||
-			pathname.startsWith('/vmcps/') ||
-			pathname.startsWith('/mcp-servers/access-policies/');
-		const scope = usesAdminMcpData ? 'admin' : 'user';
+		const isPageRequiresMcpServers =
+			pathname.startsWith('/mcp-servers') || pathname.startsWith('/vmcps');
+		const forceRefresh =
+			(pathname === '/mcp-servers' || pathname === '/vmcps') &&
+			(!view || ['servers', 'vmcps'].includes(view));
+		const scope = profile.current.hasAdminAccess?.() ? 'admin' : 'user';
 		// A restricted session is walled off from every one of these endpoints, so prefetching the
 		// catalog only produces a wall of 403s (and races to create the same identity).
-		if (profile.current.loaded && !profile.current.requirePasswordChange) {
-			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: usesAdminMcpData, scope }));
+		if (
+			profile.current.loaded &&
+			!profile.current.requirePasswordChange &&
+			isPageRequiresMcpServers
+		) {
+			untrack(() => mcpServersAndEntries.initialize({ forceRefresh, scope }));
 		}
 	});
 
