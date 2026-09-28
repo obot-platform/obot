@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	MaxSchemaBytes   = 1024 * 1024
-	MaxSettingsBytes = 96 * 1024
+	MaxSchemaBytes = 1024 * 1024
 )
 
 // Importer fetches public schema sources. It never receives API credentials.
@@ -68,11 +67,10 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("invalid schema request")
+		return nil, fmt.Errorf("invalid schema request: %w", err)
 	}
 	resp, err := i.client.Do(req)
 	if err != nil {
-		// URL errors may contain signed queries or response details. Do not expose them.
 		return nil, fmt.Errorf("schema fetch failed (network policy, connection, or timeout)")
 	}
 	defer resp.Body.Close()

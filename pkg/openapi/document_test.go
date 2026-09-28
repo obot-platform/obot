@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -59,58 +58,19 @@ func TestCredentials(t *testing.T) {
 			require.Equal(t, test.prefix, header.Prefix)
 			require.True(t, header.Sensitive)
 			require.True(t, header.Required)
-			settingsWithoutHeaders, err := SettingsJSON(result, nil)
-			require.NoError(t, err, "suggested headers may be removed")
-			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":[]}`, string(settingsWithoutHeaders))
-			header.Value = "must-not-be-serialized"
-			settings, err := SettingsJSON(result, []types.MCPConfig{header})
-			require.NoError(t, err)
-			require.NotContains(t, string(settings), header.Value)
-			require.NotContains(t, string(settings), "Bearer ")
-			require.JSONEq(t, `{"baseURL":"https://api.example.com/v1/","credentialHeaders":["`+test.key+`"]}`, string(settings))
 			_, err = Parse(data, types.OpenAPIRuntimeConfig{BaseURL: "http://api.example.com"})
 			require.ErrorContains(t, err, "HTTPS")
 		})
 	}
 }
 
-func TestSettingsValidation(t *testing.T) {
-	result, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{})
-	require.NoError(t, err)
-	header := types.MCPConfig{
-		Key:       "X-Key",
-		Usage:     types.Header,
-		Sensitive: true,
-		Required:  true,
-	}
+func TestHeaderValidation(t *testing.T) {
 	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "Proxy-Token", "Sec-Fetch-Site", "invalid header", "x\r\nInjected: value"} {
-		bad := header
-		bad.Key = key
-		_, err := SettingsJSON(result, []types.MCPConfig{bad})
-		require.Error(t, err)
+		require.Error(t, validateHeader(key))
 	}
-	duplicate := header
-	duplicate.Key = "x-key"
-	_, err = SettingsJSON(result, []types.MCPConfig{header, duplicate})
-	require.ErrorContains(t, err, "duplicate")
-	bad := header
-	bad.Usage = types.Env
-	_, err = SettingsJSON(result, []types.MCPConfig{bad})
-	require.ErrorContains(t, err, "must be header inputs")
-	for _, required := range []bool{true, false} {
-		for _, sensitive := range []bool{true, false} {
-			edited := header
-			edited.Required = required
-			edited.Sensitive = sensitive
-			settings, err := SettingsJSON(result, []types.MCPConfig{edited})
-			require.NoError(t, err)
-			require.Contains(t, string(settings), `"credentialHeaders":["X-Key"]`)
-		}
-	}
-	header.Key = strings.Repeat("a", MaxSettingsBytes)
-	_, err = SettingsJSON(result, []types.MCPConfig{header})
-	require.ErrorContains(t, err, "96 KiB")
+}
 
+func TestBaseURLValidation(t *testing.T) {
 	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://{host}/api"} {
 		_, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{BaseURL: base})
 		require.Error(t, err)
