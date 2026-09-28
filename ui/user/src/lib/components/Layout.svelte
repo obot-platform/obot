@@ -298,15 +298,6 @@
 								beta: true
 							}
 						]
-					: []),
-				...(version.current.messagePoliciesEnabled && profile.current.hasAdminAccess?.()
-					? [
-							{
-								id: 'policy-violations',
-								label: 'Message Policy Violations',
-								href: '/admin/policy-violations'
-							}
-						]
 					: [])
 			]
 		},

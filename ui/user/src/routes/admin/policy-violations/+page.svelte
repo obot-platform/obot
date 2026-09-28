@@ -1,19 +1,23 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
-	import MessagePolicyViolationsView from '$lib/components/admin/MessagePolicyViolationsView.svelte';
+	import RedirectLayout from '$lib/components/RedirectLayout.svelte';
+	import { MessageSquareText, Server } from '@lucide/svelte';
+
+	const destinations = [
+		{
+			kicker: 'Policy Violations',
+			title: 'MCP Servers',
+			description: 'Review policy violations on server tool calls.',
+			href: '/mcp-servers?view=message-policies&contents=policy-violations',
+			icon: Server
+		},
+		{
+			kicker: 'Policy Violations',
+			title: 'Models',
+			description: 'Review policy violations when sending messages to the LLM.',
+			href: '/models?view=message-policies&contents=policy-violations',
+			icon: MessageSquareText
+		}
+	] as const;
 </script>
 
-<svelte:head>
-	<title>Obot | Message Policy Violations</title>
-</svelte:head>
-
-<Layout
-	title="Message Policy Violations"
-	classes={{
-		container: 'md:px-0 px-0 pt-0',
-		childrenContainer: 'max-w-none',
-		noSidebarTitle: 'pl-4 md:pl-8 mx-auto md:max-w-(--breakpoint-xl) pt-4'
-	}}
->
-	<MessagePolicyViolationsView />
-</Layout>
+<RedirectLayout title="Message Policy Violations" {destinations} />
