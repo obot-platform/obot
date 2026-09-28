@@ -11,7 +11,10 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Group, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import type { VMcpListSettingsFilters, VMcpSortBy } from '$lib/services/vmcps/types';
+	import type {
+		VMcpListSettings as VMcpListSettingsType,
+		VMcpSortBy
+	} from '$lib/services/vmcps/types';
 	import {
 		buildVMcpComponentFilterOptions,
 		filterVMcps,
@@ -38,7 +41,7 @@
 
 	const sortByValues: VMcpSortBy[] = ['name', 'created', 'componentServers'];
 
-	function getInitialFilters(): VMcpListSettingsFilters {
+	function getInitialFilters(): VMcpListSettingsType {
 		const urlSortBy = page.url.searchParams.get('sortBy');
 		return {
 			showMyVMcpsOnly: page.url.searchParams.get('showMyVMcpsOnly') === 'true',
@@ -136,11 +139,9 @@
 		goto(url, { replaceState: true });
 	}
 
-	function openVMcp(vmcp: VMCP) {
-		goto(`/vmcps/${vmcp.id}`);
-	}
+	function handleChange(property: keyof VMcpListSettingsType, values: string[]) {
+		vmcpList?.resetSelection();
 
-	function handleChange(property: keyof VMcpListSettingsFilters, values: string[]) {
 		switch (property) {
 			case 'showMyVMcpsOnly':
 				filters.showMyVMcpsOnly = values.includes('true');
@@ -242,7 +243,6 @@
 			bind:this={vmcpList}
 			items={sortedVMcps}
 			components={vmcpComponents}
-			onSelect={openVMcp}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
 			onDeleted={(deleted) => {
 				listedVMcps = listedVMcps.filter((vmcp) => vmcp.id !== deleted.id);
@@ -291,6 +291,7 @@
 	bind:this={createEditVMcp}
 	onDeleted={(deleted) => {
 		listedVMcps = listedVMcps.filter((vmcp) => vmcp.id !== deleted.id);
+		vmcpList?.resetSelection();
 	}}
 />
 

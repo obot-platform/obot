@@ -3,7 +3,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { VMCP_SORT_OPTIONS, VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
-	import type { VMcpFilterOption, VMcpListSettingsFilters } from '$lib/services/vmcps/types';
+	import type { VMcpFilterOption, VMcpListSettings } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
 	import { Funnel, LayoutGrid, X, Table } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -16,8 +16,8 @@
 	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
 
 	interface Props {
-		filters: VMcpListSettingsFilters;
-		onChange: (property: keyof VMcpListSettingsFilters, values: string[]) => void;
+		filters: VMcpListSettings;
+		onChange: (property: keyof VMcpListSettings, values: string[]) => void;
 		componentFilterOptions?: VMcpFilterOption[];
 		actions?: Snippet;
 	}

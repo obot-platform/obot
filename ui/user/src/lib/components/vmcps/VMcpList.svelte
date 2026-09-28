@@ -26,7 +26,6 @@
 	interface Props {
 		items: VMCP[];
 		components: (vmcp: VMCP) => VMcpComponentView[];
-		onSelect?: (vmcp: VMCP) => void;
 		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
 		onDeleted?: (vmcp: VMCP) => void;
@@ -40,7 +39,6 @@
 	let {
 		items: initialItems,
 		components,
-		onSelect,
 		onConnect,
 		onDelete,
 		onDeleted,
@@ -117,6 +115,10 @@
 		toggle?.(false);
 	}
 
+	function handleSelect(vmcp: VMCP) {
+		goto(`/vmcps/${vmcp.id}`);
+	}
+
 	function toggleSelected(card: Item) {
 		if (selected[card.id]) {
 			delete selected[card.id];
@@ -151,19 +153,14 @@
 		return selectedCount === selectableCount && selectableCount > 0;
 	}
 
-	$effect(() => {
-		const ids = new Set(items.map((item) => item.id));
-		for (const id of Object.keys(selected)) {
-			if (!ids.has(id)) {
-				delete selected[id];
-				tableRef?.clearSelect(id);
-			}
-		}
-	});
-
 	function exitSelecting() {
 		selected = {};
 		isSelectMode = false;
+	}
+
+	export function resetSelection() {
+		exitSelecting();
+		tableRef?.clearSelectAll();
 	}
 
 	async function handleBulkDelete() {
@@ -367,7 +364,7 @@
 			disabledSelectMessage="You can only delete vMCPs you created."
 			remeasureKey={JSON.stringify(overflowHiddenById)}
 			setRowClasses={() => 'group'}
-			onClickRow={(row) => onSelect?.(row.vmcp)}
+			onClickRow={(row) => handleSelect(row.vmcp)}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
@@ -526,7 +523,7 @@
 		selecting={isSelectMode}
 		onSelect={() => {
 			if (!isSelectMode) {
-				onSelect?.(card.vmcp);
+				handleSelect(card.vmcp);
 				return;
 			}
 			if (!canSelectRow(card)) return;

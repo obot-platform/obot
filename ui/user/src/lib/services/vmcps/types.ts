@@ -43,7 +43,7 @@ export type VMcpFilters = {
 	status?: string;
 };
 
-export type VMcpListSettingsFilters = {
+export type VMcpListSettings = {
 	showMyVMcpsOnly: boolean;
 	sortBy: VMcpSortBy;
 	query: string;
