@@ -69,6 +69,20 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			return ServerConfig{}, err
 		}
 	}
+	var currentInstance v1.VMCPInstance
+	if instance != nil {
+		currentInstance = *instance
+	}
+	for _, component := range vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, currentInstance)) {
+		if component.CatalogEntry.Manifest.RemoteConfig == nil || !component.CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired {
+			continue
+		}
+		for _, status := range vmcp.Status.Components {
+			if status.Name == component.Name && status.Error == "static OAuth credentials are not configured" {
+				return ServerConfig{}, types.NewErrBadRequest("%s requires administrator static OAuth configuration", component.Name)
+			}
+		}
+	}
 
 	if instance == nil {
 		instance = &v1.VMCPInstance{

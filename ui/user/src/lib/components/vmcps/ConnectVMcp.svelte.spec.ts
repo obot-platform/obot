@@ -71,6 +71,33 @@ describe('ConnectVMcp.svelte', () => {
 			.toBeVisible();
 	});
 
+	it('guides setup without launching when a component lacks static OAuth credentials', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1salesforce', displayName: 'Salesforce vMCP' });
+		vmcp.components![0].name = 'Salesforce';
+		vmcp.components![0].mcpServerCatalogEntryID = 'salesforce';
+		vmcp.components![0].catalogEntry.manifest.runtime = 'remote';
+		vmcp.components![0].catalogEntry.manifest.remoteConfig = {
+			fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+			staticOAuthRequired: true
+		};
+		vmcp.status = {
+			ready: false,
+			components: [{ name: 'Salesforce', error: 'static OAuth credentials are not configured' }]
+		};
+		const { createInstance, launch } = mockConfigureAndLaunch(vmcp);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Preconfigure server' }).click();
+		await expect
+			.element(page.getByText('Salesforce requires administrator OAuth setup.', { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+		expect(createInstance).not.toHaveBeenCalled();
+		expect(launch).not.toHaveBeenCalled();
+	});
+
 	function mockConfigureAndLaunch(
 		vmcp: VMCP,
 		opts?: {

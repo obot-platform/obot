@@ -82,6 +82,18 @@ export function vmcpNeedsUpdate(vmcp: VMCP) {
 	return vmcp.status?.components?.some((component) => component.needsUpdate) ?? false;
 }
 
+export function vmcpMissingStaticOAuthComponent(vmcp: VMCP): VMCPComponent | undefined {
+	return vmcp.components?.find(
+		(component) =>
+			component.catalogEntry?.manifest?.remoteConfig?.staticOAuthRequired &&
+			vmcp.status?.components?.some(
+				(status) =>
+					status.name === component.name &&
+					status.error === 'static OAuth credentials are not configured'
+			)
+	);
+}
+
 export function vmcpHasUserAllowedConfiguration(vmcp: VMCP) {
 	return Boolean(
 		vmcp.components?.some((component) =>

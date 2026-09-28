@@ -212,14 +212,18 @@
 			entry.lastUpdated &&
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
 	);
+	let hasStaticOauth = $derived(
+		entry &&
+			'isCatalogEntry' in entry &&
+			entry.manifest?.runtime === 'remote' &&
+			entry.manifest?.remoteConfig?.staticOAuthRequired
+	);
 	let requiresStaticOauth = $derived(
-		staticOauthStatus
-			? !staticOauthStatus.configured
-			: entry &&
-					'isCatalogEntry' in entry &&
-					entry.manifest?.runtime === 'remote' &&
-					entry.manifest?.remoteConfig?.staticOAuthRequired &&
-					!entry.oauthCredentialConfigured
+		hasStaticOauth &&
+			!(
+				staticOauthStatus?.configured ??
+				(entry && 'isCatalogEntry' in entry ? entry.oauthCredentialConfigured : false)
+			)
 	);
 	let previewToolsOverride = $state<MCPCatalogEntryServerManifest['toolPreview']>();
 
@@ -705,14 +709,21 @@
 		</div>
 	{/if}
 
-	{#if requiresStaticOauth}
-		<div class="flex items-center gap-3 rounded-lg border border-warning bg-warning/10 p-4">
-			<Info class="size-5 shrink-0 text-warning" />
+	{#if hasStaticOauth}
+		<div
+			class="flex items-center gap-3 rounded-lg border p-4 {requiresStaticOauth
+				? 'border-warning bg-warning/10'
+				: 'border-base-300'}"
+		>
+			<Info class="size-5 shrink-0 {requiresStaticOauth ? 'text-warning' : ''}" />
 			<div class="flex-1">
-				<p class="text-sm font-medium">Requires Oauth Config</p>
+				<p class="text-sm font-medium">
+					{requiresStaticOauth ? 'Requires OAuth Config' : 'OAuth credentials configured'}
+				</p>
 				<p class="text-muted-foreground mt-1 text-xs">
-					This MCP server is missing static client ID and secret credentials. Click the button to
-					get started.
+					{requiresStaticOauth
+						? 'This MCP server is missing static client ID and secret credentials. Click the button to get started.'
+						: 'Manage or clear the static OAuth credentials for this MCP server.'}
 				</p>
 			</div>
 			<button
@@ -721,7 +732,7 @@
 				disabled={!canConfigureOAuthCredentials}
 			>
 				<Settings class="size-4" />
-				Configure OAuth Credentials
+				{requiresStaticOauth ? 'Configure OAuth Credentials' : 'Manage OAuth Credentials'}
 			</button>
 		</div>
 	{/if}

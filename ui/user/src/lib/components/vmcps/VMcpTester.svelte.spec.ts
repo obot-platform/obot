@@ -136,6 +136,33 @@ afterEach(() => {
 });
 
 describe('VMcpTester', () => {
+	it('shows administrator OAuth setup before connecting to a vMCP with missing static credentials', async () => {
+		const target = createVMCP({ id: vmcp.id, displayName: vmcp.displayName });
+		target.components![0].name = 'Salesforce';
+		target.components![0].mcpServerCatalogEntryID = 'salesforce';
+		target.components![0].catalogEntry.manifest.runtime = 'remote';
+		target.components![0].catalogEntry.manifest.remoteConfig = {
+			fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+			staticOAuthRequired: true
+		};
+		target.status = {
+			ready: false,
+			components: [{ name: 'Salesforce', error: 'static OAuth credentials are not configured' }]
+		};
+		await renderVMcpTester({}, { vmcp: target });
+		await expect
+			.element(
+				page.getByText('Salesforce requires administrator OAuth setup before this vMCP can start.')
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+		await expect
+			.element(page.getByRole('button', { name: 'Start Session' }))
+			.not.toBeInTheDocument();
+	});
+
 	it('offers Chat through the model service when no model provider is configured', async () => {
 		await renderVMcpTester(
 			{

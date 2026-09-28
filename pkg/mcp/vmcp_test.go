@@ -620,6 +620,46 @@ func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	}
 }
 
+func TestServerConfigForVMCPRejectsMissingStaticOAuthBeforeCreatingInstance(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1salesforce",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID: "user",
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{
+					ID:   "salesforce",
+					Name: "Salesforce",
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+						Runtime: types.RuntimeRemote,
+						RemoteConfig: &types.RemoteCatalogConfig{
+							FixedURL:            "https://api.salesforce.com/platform/mcp/v1/platform/sobject-all",
+							StaticOAuthRequired: true,
+						},
+					}},
+				}},
+			},
+		},
+		Status: v1.VMCPStatus{Components: []v1.VMCPComponentStatus{{
+			Name:  "Salesforce",
+			Error: "static OAuth credentials are not configured",
+		}}},
+	}
+	storage := newVMCPTestStorage(vmcp)
+	manager := &SessionManager{storageClient: storage}
+	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
+	if err == nil || !strings.Contains(err.Error(), "Salesforce requires administrator static OAuth configuration") {
+		t.Fatalf("expected static OAuth setup error, got %v", err)
+	}
+	var instances v1.VMCPInstanceList
+	if err := storage.List(t.Context(), &instances); err != nil {
+		t.Fatal(err)
+	}
+	if len(instances.Items) != 0 {
+		t.Fatal("rejected connection created an instance")
+	}
+}
+
 func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	const (
 		vmcpID = "vmcp1personal"

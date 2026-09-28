@@ -1,4 +1,4 @@
-import { createMCPCatalogEntry, createVMCPComponent } from '../../../tests/helpers/mcp';
+import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpToolsSetup from './VMcpToolsSetup.svelte';
@@ -67,6 +67,54 @@ async function fillConfiguration() {
 }
 
 describe('VMcpToolsSetup preview credentials', () => {
+	it('asks for static OAuth setup before requesting tool previews', async () => {
+		const salesforceEntry = createMCPCatalogEntry({
+			id: 'salesforce',
+			name: 'Salesforce',
+			runtime: 'remote',
+			manifest: {
+				remoteConfig: {
+					fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+					staticOAuthRequired: true
+				}
+			}
+		});
+		const salesforceComponent = createVMCPComponent(salesforceEntry);
+		const vmcp = createVMCP({ id: 'vmcp-preview', components: [salesforceComponent] });
+		vmcp.status = {
+			ready: false,
+			components: [
+				{ name: salesforceComponent.name, error: 'static OAuth credentials are not configured' }
+			]
+		};
+		const preview = vi.fn();
+		worker.use(
+			http.get('/api/vmcps/vmcp-preview', () => HttpResponse.json(vmcp)),
+			http.post(
+				`/api/vmcps/vmcp-preview/components/${salesforceComponent.id}/generate-tool-previews`,
+				() => {
+					preview();
+					return HttpResponse.json(salesforceEntry);
+				}
+			)
+		);
+
+		await preparePageData();
+		const result = await render(VMcpToolsSetup, {
+			component: salesforceComponent,
+			vmcpID: vmcp.id,
+			refresh: true
+		});
+		untrack(() => result.component.open());
+		await expect
+			.element(page.getByText('Salesforce requires administrator OAuth setup.', { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+		expect(preview).not.toHaveBeenCalled();
+	});
+
 	it('requests a hostname-constrained server URL for discovery and OAuth', async () => {
 		const remoteEntry = createMCPCatalogEntry({
 			id: entry.id,

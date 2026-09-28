@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -11,6 +12,7 @@
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
 	import {
 		resolveVMcpComponents,
+		vmcpMissingStaticOAuthComponent,
 		vmcpHasUserAllowedConfiguration
 	} from '$lib/services/vmcps/utils';
 	import {
@@ -46,6 +48,7 @@
 	let chatAvailable = $derived(chatAvailability.available);
 	let chatUnavailableMessage = $derived(chatAvailability.unavailableMessage);
 	let hasUserProvidedConfiguration = $derived(vmcpHasUserAllowedConfiguration(vmcp));
+	let missingOAuthComponent = $derived(vmcpMissingStaticOAuthComponent(vmcp));
 	let sessionStartFailed = $state(false);
 
 	$effect(() => {
@@ -70,7 +73,9 @@
 	}
 
 	let launching = $derived(loading || (vmcpInstances.current.loading && !launched));
-	let showTester = $derived(Boolean(instance?.status?.configured) && !sessionStartFailed);
+	let showTester = $derived(
+		Boolean(instance?.status?.configured) && !sessionStartFailed && !missingOAuthComponent
+	);
 	let needsConfigurationUpdate = $derived(
 		Boolean(!launching && instance && (!instance.status?.configured || sessionStartFailed))
 	);
@@ -120,7 +125,9 @@
 							<Layers class="text-muted-content size-12" />
 						{/if}
 						<p class="text-muted-content max-w-md text-sm font-light">
-							{#if sessionStartFailed}
+							{#if missingOAuthComponent}
+								{missingOAuthComponent.name} requires administrator OAuth setup before this vMCP can start.
+							{:else if sessionStartFailed}
 								There was an issue starting the session. Please verify configuration or contact
 								support if the issue persists.
 							{:else if instance && !instance.status?.configured}
@@ -129,7 +136,18 @@
 								Start your vMCP to use chat and inspect tools.
 							{/if}
 						</p>
-						{#if needsConfigurationUpdate}
+						{#if missingOAuthComponent}
+							{#if profile.current.isAdmin?.()}
+								<a
+									class="btn btn-primary"
+									href={resolve(
+										`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
+									)}>Configure {missingOAuthComponent.name} OAuth</a
+								>
+							{:else}
+								<p>Ask an administrator to configure OAuth for this MCP server.</p>
+							{/if}
+						{:else if needsConfigurationUpdate}
 							<button type="button" class="btn btn-primary" onclick={openInstanceConfiguration}>
 								Update Configuration
 							</button>

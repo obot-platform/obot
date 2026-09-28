@@ -176,6 +176,11 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		}
 		oauthHandler.credentialContext = credentialContext
 	}
+	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired {
+		if _, _, err := oauthHandler.Lookup(req.Context()); err != nil {
+			return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration: %v", mcpServer.Name, err)
+		}
+	}
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
 	if err != nil {
 		return "", err

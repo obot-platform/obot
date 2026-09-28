@@ -10,6 +10,7 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
+	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import {
 		deleteMcpServerDeployment,
@@ -97,6 +98,7 @@
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigPromptHandled = $state(false);
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
+	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 
 	let disconnecting = $state(false);
@@ -296,7 +298,7 @@
 	$effect(() => {
 		if (promptOAuthConfig && !oauthConfigPromptHandled) {
 			oauthConfigPromptHandled = true;
-			oauthConfigModal?.open();
+			void openOAuthConfig();
 
 			// clear out the configure-oauth param
 			const url = new URL(page.url);
@@ -304,6 +306,21 @@
 			goto(url, { replaceState: true });
 		}
 	});
+
+	async function openOAuthConfig() {
+		if (!entry) return;
+		try {
+			oauthStatus = entry.powerUserWorkspaceID
+				? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+						entry.powerUserWorkspaceID,
+						entry.id
+					)
+				: await AdminService.getMCPCatalogEntryOAuthCredentials('default', entry.id);
+		} catch {
+			oauthStatus = { configured: Boolean(entry.oauthCredentialConfigured) };
+		}
+		oauthConfigModal?.open();
+	}
 
 	function handleShowSelectServerDialog(
 		mode: ServerSelectMode = 'connect',
@@ -822,6 +839,7 @@
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
 	{deprecated}
+	{oauthStatus}
 	onSave={async (credentials) => {
 		if (!entry) return;
 		if (entry.powerUserWorkspaceID) {
@@ -834,6 +852,21 @@
 			await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
 		}
 		oauthConfiguredOverride = true;
+		oauthStatus = { ...oauthStatus, configured: true };
+		onOAuthConfigured?.();
+	}}
+	onDelete={async () => {
+		if (!entry) return;
+		if (entry.powerUserWorkspaceID) {
+			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+				entry.powerUserWorkspaceID,
+				entry.id
+			);
+		} else {
+			await AdminService.deleteMCPCatalogEntryOAuthCredentials('default', entry.id);
+		}
+		oauthConfiguredOverride = false;
+		oauthStatus = { configured: false };
 		onOAuthConfigured?.();
 	}}
 />

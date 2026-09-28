@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
@@ -12,7 +13,11 @@
 		VMCPComponent
 	} from '$lib/services';
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
-	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
+	import {
+		catalogConfigurationFields,
+		vmcpMissingStaticOAuthComponent
+	} from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -52,6 +57,7 @@
 	let loading = $state(false);
 	let error = $state<string>();
 	let oauthURL = $state<string>();
+	let oauthSetupRequired = $state(false);
 	let oauthValidating = $state(false);
 	let listeningOauthVisibility = $state(false);
 	let requestGeneration = 0;
@@ -191,6 +197,19 @@
 		error = undefined;
 
 		try {
+			if (component?.catalogEntry.manifest.remoteConfig?.staticOAuthRequired) {
+				const current = await UserService.getVMCP(vmcpID, {
+					dontLogErrors: true,
+					signal: controller.signal
+				});
+				if (!isCurrentRequest(generation, controller)) return;
+				const missing = vmcpMissingStaticOAuthComponent(current);
+				if (missing && componentID(missing) === id) {
+					oauthSetupRequired = true;
+					return;
+				}
+				oauthSetupRequired = false;
+			}
 			const entry = await UserService.generateVMCPComponentToolPreviews(vmcpID, id, {
 				config: previewConfig,
 				signal: controller.signal
@@ -208,7 +227,12 @@
 			if (!isCurrentRequest(generation, controller)) return;
 
 			const message = err instanceof Error ? err.message : String(err);
-			if (message.includes('MCP server requires OAuth authentication')) {
+			if (message.includes('requires administrator static OAuth configuration')) {
+				oauthSetupRequired = true;
+				oauthURL = undefined;
+				listeningOauthVisibility = false;
+				oauthValidating = false;
+			} else if (message.includes('MCP server requires OAuth authentication')) {
 				try {
 					const nextOauthURL = await UserService.getVMCPComponentToolPreviewsOauth(vmcpID, id, {
 						config: previewConfig,
@@ -247,7 +271,7 @@
 	}
 
 	function configureTools() {
-		if (missingConfiguration) return;
+		if (missingConfiguration || oauthSetupRequired) return;
 		if (needsLiveTools && vmcpID && componentID(component)) {
 			void fetchLiveTools();
 			return;
@@ -260,6 +284,7 @@
 		previewConfig = {};
 		error = undefined;
 		oauthURL = undefined;
+		oauthSetupRequired = false;
 		tools = existingTools;
 		toolPrefix = existingToolPrefix ?? component?.toolPrefix ?? '';
 		dialogPhase = 'setup';
@@ -272,6 +297,7 @@
 	export function close() {
 		cancelToolPreviewRequest();
 		previewConfig = {};
+		oauthSetupRequired = false;
 		dialogPhase = 'closed';
 		setupDialog?.close();
 		editDialog?.close();
@@ -334,7 +360,12 @@
 		}}
 	>
 		{#if configuringEntry}
-			{#if oauthURL}
+			{#if oauthSetupRequired}
+				<p class="mb-4 text-sm">
+					{component?.name ?? configuringEntry.manifest.name} requires administrator OAuth setup. Configure
+					its catalog entry before fetching tools.
+				</p>
+			{:else if oauthURL}
 				<p class="mb-4 text-sm">
 					MCP server requires OAuth authentication before its tools can be fetched.
 				</p>
@@ -355,7 +386,7 @@
 				</p>
 			{/if}
 
-			{#if !oauthURL}
+			{#if !oauthURL && !oauthSetupRequired}
 				{#each userFields as field (field.key)}
 					<div class="mb-4 flex flex-col gap-2">
 						<label for={`preview-${field.key}`} class="text-sm font-medium">
@@ -414,7 +445,26 @@
 				<p class="text-error mb-4 text-sm" role="alert">{error}</p>
 			{/if}
 			<div class="flex w-full flex-col gap-2">
-				{#if oauthURL}
+				{#if oauthSetupRequired}
+					{#if profile.current.isAdmin?.() && component?.mcpServerCatalogEntryID}
+						<a
+							class="btn btn-primary"
+							href={resolve(
+								`/mcp-servers/c/${encodeURIComponent(component.mcpServerCatalogEntryID)}?configure-oauth=true`
+							)}>Configure {component.name} OAuth</a
+						>
+					{:else}
+						<p>Ask an administrator to configure OAuth for this MCP server.</p>
+					{/if}
+					<button
+						type="button"
+						class="btn btn-secondary"
+						disabled={loading}
+						onclick={fetchLiveTools}
+					>
+						Check again
+					</button>
+				{:else if oauthURL}
 					{#if oauthValidating}
 						<button
 							in:fade

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
@@ -15,9 +16,10 @@
 		resolveVMcpComponents,
 		vmcpComponentId,
 		vmcpConnectURL,
+		vmcpMissingStaticOAuthComponent,
 		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
-	import { vmcpInstances } from '$lib/stores';
+	import { profile, vmcpInstances } from '$lib/stores';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -49,6 +51,7 @@
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
+	let missingOAuthComponent = $derived(vmcp ? vmcpMissingStaticOAuthComponent(vmcp) : undefined);
 	let hasUserConfiguration = $derived(
 		vmcp?.components?.some((component) =>
 			component.configuration?.find((field) => field.policy === 'userAllowed')
@@ -137,6 +140,7 @@
 	}
 
 	function handleConfigure() {
+		if (missingOAuthComponent) return;
 		showIntroDialog = false;
 		ensureOauthVisibilityListener();
 		if (hasUserConfiguration) {
@@ -378,7 +382,7 @@
 
 	async function saveConfiguration() {
 		const target = vmcp;
-		if (!target || saving) return;
+		if (!target || saving || missingOAuthComponent) return;
 		saving = true;
 		error = undefined;
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
@@ -574,6 +578,7 @@
 	show={showIntroDialog}
 	onsuccess={handleConfigure}
 	submitText="Continue"
+	disabled={Boolean(missingOAuthComponent)}
 	type="info"
 	title="Connect To Server"
 	oncancel={() => {
@@ -588,14 +593,29 @@
 		</div>
 	{/snippet}
 	{#snippet note()}
-		<p>
-			This will begin the initial setup process for this server.
-			{#if hasUserConfiguration}
-				Additional configuration details may also be required before the server can be used.
+		{#if missingOAuthComponent}
+			<p>
+				{missingOAuthComponent.name} requires administrator OAuth setup. Configure its catalog entry before
+				starting this vMCP.
+			</p>
+			{#if profile.current.isAdmin?.()}
+				<a
+					class="link link-primary"
+					href={resolve(
+						`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
+					)}>Configure {missingOAuthComponent.name} OAuth</a
+				>
 			{:else}
-				<br />Click below to begin.
+				<p>Ask an administrator to configure OAuth for this MCP server.</p>
 			{/if}
-		</p>
+		{:else}<p>
+				This will begin the initial setup process for this server.
+				{#if hasUserConfiguration}
+					Additional configuration details may also be required before the server can be used.
+				{:else}
+					<br />Click below to begin.
+				{/if}
+			</p>{/if}
 	{/snippet}
 </Confirm>
 
