@@ -2,12 +2,14 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -74,13 +76,17 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		currentInstance = *instance
 	}
 	for _, component := range vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, currentInstance)) {
-		if component.CatalogEntry.Manifest.RemoteConfig == nil || !component.CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired {
+		manifest := component.CatalogEntry.Manifest
+		if manifest.RemoteConfig == nil || !manifest.RemoteConfig.StaticOAuthRequired {
 			continue
 		}
-		for _, status := range vmcp.Status.Components {
-			if status.Name == component.Name && status.Error == "static OAuth credentials are not configured" {
-				return ServerConfig{}, types.NewErrBadRequest("%s requires administrator static OAuth configuration", component.Name)
-			}
+		// Component status is reconciled asynchronously, so check the credential store directly.
+		_, err := sm.gatewayClient.RevealCredential(ctx, []string{vmcpaccess.ComponentOAuthCredentialReference(component)}, system.StaticOAuthCredentialName)
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return ServerConfig{}, types.NewErrBadRequest("%s requires administrator static OAuth configuration", component.Name)
+		}
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("check static OAuth credentials for component %q: %w", component.Name, err)
 		}
 	}
 

@@ -11,9 +11,13 @@ import (
 
 	"github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
@@ -620,7 +624,7 @@ func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	}
 }
 
-func TestServerConfigForVMCPRejectsMissingStaticOAuthBeforeCreatingInstance(t *testing.T) {
+func TestServerConfigForVMCPChecksStaticOAuthCredentialBeforeCreatingInstance(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp1salesforce",
 		Namespace: system.DefaultNamespace,
@@ -628,8 +632,9 @@ func TestServerConfigForVMCPRejectsMissingStaticOAuthBeforeCreatingInstance(t *t
 			UserID: "user",
 			Manifest: types.VMCPManifest{
 				Components: []types.VMCPComponent{{
-					ID:   "salesforce",
-					Name: "Salesforce",
+					ID:                      "salesforce",
+					Name:                    "Salesforce",
+					MCPServerCatalogEntryID: "salesforce-entry",
 					CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
 						Runtime: types.RuntimeRemote,
 						RemoteConfig: &types.RemoteCatalogConfig{
@@ -640,14 +645,28 @@ func TestServerConfigForVMCPRejectsMissingStaticOAuthBeforeCreatingInstance(t *t
 				}},
 			},
 		},
-		Status: v1.VMCPStatus{Components: []v1.VMCPComponentStatus{{
-			Name:  "Salesforce",
-			Error: "static OAuth credentials are not configured",
-		}}},
+		Status: v1.VMCPStatus{Components: []v1.VMCPComponentStatus{{Name: "Salesforce"}}},
 	}
 	storage := newVMCPTestStorage(vmcp)
-	manager := &SessionManager{storageClient: storage}
-	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(); err != nil {
+		t.Fatal(err)
+	}
+	gateway := gatewayclient.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() {
+		if err := gateway.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	manager := &SessionManager{storageClient: storage, gatewayClient: gateway}
+	_, err = manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
 	if err == nil || !strings.Contains(err.Error(), "Salesforce requires administrator static OAuth configuration") {
 		t.Fatalf("expected static OAuth setup error, got %v", err)
 	}
@@ -657,6 +676,41 @@ func TestServerConfigForVMCPRejectsMissingStaticOAuthBeforeCreatingInstance(t *t
 	}
 	if len(instances.Items) != 0 {
 		t.Fatal("rejected connection created an instance")
+	}
+	if err := gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.MCPOAuthCredentialName("salesforce-entry"),
+		Name:    system.StaticOAuthCredentialName,
+		Secrets: map[string]string{"CLIENT_ID": "salesforce-client"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	instance := &v1.VMCPInstance{
+		Name: "vmcpi1salesforce", Namespace: system.DefaultNamespace,
+		Spec:   v1.VMCPInstanceSpec{UserID: "user", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		Status: v1.VMCPInstanceStatus{ConfigurationCheckHash: "configuration-revision"},
+	}
+	server := &v1.MCPServer{
+		Name: "ms1salesforce", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: "salesforce"},
+	}
+	connection := syncedVMCPConnection(t, &v1.MCPServerInstance{
+		Name: "msi1salesforce", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerInstanceSpec{
+			UserID: "user", VMCPInstanceID: instance.Name,
+			VMCPComponentID: "salesforce", MCPServerName: server.Name,
+		},
+	}, vmcp, instance)
+	for _, object := range []kclient.Object{instance, server, connection} {
+		if err := storage.Create(t.Context(), object); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	if _, err := manager.ServerConfigForVMCP(ctx, vmcp.Name, &kuser.DefaultInfo{UID: "user"}); err != nil {
+		t.Fatalf("configured static OAuth credential was rejected with stale component status: %v", err)
 	}
 }
 
