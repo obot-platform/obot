@@ -79,6 +79,9 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	if err != nil {
 		return nil, fmt.Errorf("cannot read schema response")
 	}
+	if len(data) > MaxSchemaBytes {
+		return nil, fmt.Errorf("schema exceeds 1 MiB")
+	}
 	return Parse(data, config)
 }
 

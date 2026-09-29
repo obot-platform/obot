@@ -224,6 +224,9 @@ func TestURLImport(t *testing.T) {
 		config.Source.URL = server.URL + path
 		result, err := importer.Import(context.Background(), config)
 		require.Error(t, err)
+		if path == "/large" {
+			require.ErrorContains(t, err, "schema exceeds 1 MiB")
+		}
 		require.Nil(t, result)
 		require.NotContains(t, err.Error(), "private upstream details")
 	}
