@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/safehttp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -201,10 +202,14 @@ func TestURLImport(t *testing.T) {
 		Source: types.OpenAPISource{URL: server.URL + "/schema"},
 		Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"old":"snapshot"}`)},
 	}
-	_, err := NewImporter().Import(context.Background(), config)
+	_, err := NewImporter(safehttp.Options{
+		BlockLoopback:  true,
+		BlockPrivateIP: true,
+		BlockLinkLocal: true,
+	}).Import(context.Background(), config)
 	require.Error(t, err)
 	require.Zero(t, requests.Load())
-	importer := newImporterWithClient(server.Client())
+	importer := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true})
 	first, err := importer.Import(context.Background(), config)
 	require.NoError(t, err)
 	second, err := importer.Import(context.Background(), config)
