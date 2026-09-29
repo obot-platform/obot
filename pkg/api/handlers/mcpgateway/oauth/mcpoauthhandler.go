@@ -28,7 +28,9 @@ const (
 	figmaOAuthClientName = "Claude Code"
 )
 
-var errStaticOAuthCredentialsNotConfigured = errors.New("static OAuth credentials are not configured")
+var (
+	errStaticOAuthCredentialsNotConfigured = errors.New("static OAuth credentials are not configured")
+)
 
 type MCPOAuthHandlerFactory struct {
 	baseURL                   string
