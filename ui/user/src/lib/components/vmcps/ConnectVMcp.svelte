@@ -20,8 +20,9 @@
 		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import VMcpIcon from './VMcpIcon.svelte';
-	import { CircleAlert, X } from '@lucide/svelte';
+	import { CircleAlert, MessageCircle, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -68,6 +69,14 @@
 				)
 			)
 	);
+	let hasConfiguredInstance = $derived.by(() => {
+		if (instance) return true;
+		const vmcpID = vmcp?.id;
+		if (!vmcpID) return false;
+		return vmcpInstances.current.items.some(
+			(candidate) => candidate.vmcpID === vmcpID && candidate.userID === profile.current.id
+		);
+	});
 
 	function generateIdFromName(name: string) {
 		return name
@@ -161,6 +170,22 @@
 	function initLaunch() {
 		showIntroDialog = true;
 		connectDialog?.close();
+	}
+
+	function goToTester() {
+		if (!vmcp) return;
+		connectDialog?.close();
+		goto(`/vmcps/${vmcp.id}?view=inspector`);
+	}
+
+	function handleTest() {
+		if (hasConfiguredInstance) {
+			goToTester();
+			return;
+		}
+		onConnected = goToTester;
+		skipConnectDialog = true;
+		initLaunch();
 	}
 
 	async function initConfigureForm() {
@@ -465,13 +490,18 @@
 	{/snippet}
 
 	{#if connectURL}
-		<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
-			<CopyField
-				bind:this={connectionUrlField}
-				value={connectURL}
-				id="connectURL"
-				label="Connection URL"
-			/>
+		<div id="connection-url-container" class="flex items-end gap-2 md:p-0 pb-0 p-4">
+			<div class="min-w-0 grow">
+				<CopyField
+					bind:this={connectionUrlField}
+					value={connectURL}
+					id="connectURL"
+					label="Connection URL"
+				/>
+			</div>
+			<button type="button" aria-label="Test vMCP" class="btn btn-primary" onclick={handleTest}>
+				<MessageCircle class="size-4" /> Test vMCP
+			</button>
 		</div>
 		<HowToConnect
 			bind:this={howToConnect}

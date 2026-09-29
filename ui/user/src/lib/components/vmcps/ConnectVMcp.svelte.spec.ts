@@ -2,6 +2,7 @@ import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
+import { goto } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
@@ -11,6 +12,11 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	goto: vi.fn().mockResolvedValue(undefined)
+}));
 
 function configurableVMcp(): VMCP {
 	const vmcp = createVMCP({ id: 'vmcp1configurable', displayName: 'Configured vMCP' });
@@ -50,6 +56,7 @@ async function continueFromIntro() {
 
 describe('ConnectVMcp.svelte', () => {
 	beforeEach(() => {
+		vi.mocked(goto).mockClear();
 		vmcpInstances.current = { items: [], loading: false };
 		worker.use(
 			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
@@ -57,6 +64,41 @@ describe('ConnectVMcp.svelte', () => {
 			http.get('/api/vmcps/:id/oauth-url', () => HttpResponse.json({ oauthURL: '' }))
 		);
 	});
+
+	it('opens the inspector when Test is clicked for an existing instance', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1configured', displayName: 'Configured vMCP' });
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: true }
+		};
+
+		await renderDialog(vmcp, existing);
+		await page.getByRole('button', { name: 'Test vMCP' }).click();
+
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
+		await expect.element(introSetupText()).not.toBeVisible();
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+	});
+
+	it('starts setup from Test and opens the inspector after launch when there is no instance', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1testlaunch', displayName: 'Plain vMCP' });
+		const { launch } = mockConfigureAndLaunch(vmcp);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Test vMCP' }).click();
+		await continueFromIntro();
+
+		await vi.waitFor(() => expect(launch).toHaveBeenCalledOnce());
+		await vi.waitFor(
+			() => {
+				expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
+			},
+			{ timeout: 3000 }
+		);
+	}, 5000);
 
 	it('opens the connect dialog and starts setup from Preconfigure when there is no instance', async () => {
 		await renderDialog(configurableVMcp());
