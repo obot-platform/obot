@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -50,9 +51,10 @@ func TestConstructMCPServerMMMCPYAML(t *testing.T) {
 
 func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 	config := MMMCPConfig(ServerConfig{
-		Runtime:              types.RuntimeVMCP,
-		MCPServerName:        "vmcp-server",
-		MCPServerDisplayName: "VMCP Server",
+		Runtime:                types.RuntimeVMCP,
+		MCPServerName:          "vmcp-server",
+		MCPServerDisplayName:   "VMCP Server",
+		PassthroughHeaderNames: []string{"X-Tenant"},
 		Components: []ComponentServer{
 			{
 				DisplayName: "search",
@@ -77,6 +79,11 @@ func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 	server := config.Servers[0]
 	if server.Name != "search" || server.URL != "http://127.0.0.1:8080/mcp-connect/search" || server.Prefix != "search_" {
 		t.Fatalf("vMCP component = %#v, want preserved name, URL, and prefix", server)
+	}
+	// The gateway authenticates components itself; forwarding the frontend
+	// Authorization header would pin pooled sessions to an expiring token.
+	if !slices.Equal(server.PassthroughHeaders, []string{"X-Tenant"}) {
+		t.Fatalf("vMCP passthrough headers = %#v, want only configured headers", server.PassthroughHeaders)
 	}
 	if len(server.Tools) != 1 {
 		t.Fatalf("vMCP tool overrides = %#v, want one", server.Tools)

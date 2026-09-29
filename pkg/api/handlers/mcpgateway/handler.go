@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
+	componenthttp "github.com/obot-platform/mmmcp/component/http"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -103,10 +104,15 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
+	var componentAuth componenthttp.OAuthHandlerProvider
+	if tokenService != nil {
+		componentAuth = compositeComponentAuth{ctx: ctx, tokens: tokenService}
+	}
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
 		Logger:            slog.Default(),
 		DSN:               dsn,
 		ForwardClientInfo: true,
+		OAuth:             componentAuth,
 		ClientInfo: &gomcp.Implementation{
 			Name:    "Obot MCP Gateway",
 			Version: version.Get().String(),
@@ -211,17 +217,15 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			_, token, err = h.tokenService.NewToken(req.Context(), persistent.TokenContext{
+			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, persistent.TokenContext{
 				Audience:         compositeAudienceURL,
-				IssuedAt:         persistent.NewTime(now),
-				ExpiresAt:        persistent.NewTime(now.Add(10 * time.Minute)),
 				UserID:           req.User.GetUID(),
 				UserName:         req.User.GetName(),
 				UserEmail:        cmp.Or(req.User.GetExtra()["email"]...),
 				UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
 				MCPID:            serverConfig.MCPServerName,
 				AuthorizedMCPIDs: authorizedMCPIDs,
-			})
+			}, now)
 			if err != nil {
 				return err
 			}

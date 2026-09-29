@@ -278,9 +278,10 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 	}
 
 	if server.Runtime == types.RuntimeVMCP {
-		passthroughHeaders := make([]string, 0, len(server.PassthroughHeaderNames)+1)
-		passthroughHeaders = append(passthroughHeaders, "Authorization")
-		passthroughHeaders = append(passthroughHeaders, server.PassthroughHeaderNames...)
+		// Component connections are authenticated by the gateway's composite OAuth
+		// handler, not the frontend Authorization header: pooled sessions replay
+		// the headers of the request that opened them long after it expires.
+		passthroughHeaders := slices.Clone(server.PassthroughHeaderNames)
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
 		for _, component := range server.Components {
