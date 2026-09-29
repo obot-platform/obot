@@ -13,7 +13,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func usersSchema(t *testing.T) []byte {
@@ -200,7 +199,7 @@ func TestURLImport(t *testing.T) {
 	defer server.Close()
 	config := types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{URL: server.URL + "/schema"},
-		Schema: &runtime.RawExtension{Raw: json.RawMessage(`{"old":"snapshot"}`)},
+		Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"old":"snapshot"}`)},
 	}
 	_, err := NewImporter().Import(context.Background(), config)
 	require.Error(t, err)

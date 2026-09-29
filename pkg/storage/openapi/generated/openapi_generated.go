@@ -292,6 +292,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                             schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig":                      schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPISchema":                             schema_obot_platform_obot_apiclient_types_OpenAPISchema(ref),
 		"github.com/obot-platform/obot/apiclient/types.OpenAPISource":                             schema_obot_platform_obot_apiclient_types_OpenAPISource(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem":                   schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItemList":               schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItemList(ref),
@@ -15258,8 +15259,8 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade. RawExtension makes the generated storage schema match the JSON object already emitted on the wire; json.RawMessage would be declared as a base64 string.",
-							Ref:         ref(runtime.RawExtension{}.OpenAPIModelName()),
+							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
 						},
 					},
 					"baseURL": {
@@ -15273,7 +15274,19 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.OpenAPISource", runtime.RawExtension{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.OpenAPISchema", "github.com/obot-platform/obot/apiclient/types.OpenAPISource"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPISchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPISchema preserves the imported JSON bytes while describing the snapshot as an object in generated OpenAPI definitions.",
+				Type:        types.OpenAPISchema{}.OpenAPISchemaType(),
+				Format:      types.OpenAPISchema{}.OpenAPISchemaFormat(),
+			},
+		},
 	}
 }
 
