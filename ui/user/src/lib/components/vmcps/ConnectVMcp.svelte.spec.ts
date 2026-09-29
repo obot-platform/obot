@@ -87,16 +87,18 @@ describe('ConnectVMcp.svelte', () => {
 		const { createInstance, launch } = mockConfigureAndLaunch(vmcp);
 
 		await renderDialog(vmcp);
-		await expect
-			.element(page.getByText('This vMCP is not ready to connect.', { exact: false }))
-			.toBeVisible();
+		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
 		await expect.element(page.getByLabelText('Connection URL')).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Preconfigure server' }).click();
 		await expect
-			.element(page.getByText('Salesforce requires administrator OAuth setup.', { exact: false }))
+			.element(
+				connectDialog.getByText('Salesforce requires administrator OAuth setup.', { exact: false })
+			)
 			.toBeVisible();
 		await expect
-			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.element(connectDialog.getByRole('button', { name: 'Preconfigure server' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }))
 			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
 		expect(createInstance).not.toHaveBeenCalled();
 		expect(launch).not.toHaveBeenCalled();

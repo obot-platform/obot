@@ -430,6 +430,25 @@
 	{displayName}
 {/snippet}
 
+{#snippet oauthSetupGuidance()}
+	{#if missingOAuthComponent}
+		<p>
+			{missingOAuthComponent.name} requires administrator OAuth setup. Configure its catalog entry before
+			starting this vMCP.
+		</p>
+		{#if profile.current.isAdmin?.()}
+			<a
+				class="link link-primary"
+				href={resolve(
+					`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
+				)}>Configure {missingOAuthComponent.name} OAuth</a
+			>
+		{:else}
+			<p>Ask an administrator to configure OAuth for this MCP server.</p>
+		{/if}
+	{/if}
+{/snippet}
+
 <ResponsiveDialog
 	bind:this={connectDialog}
 	animate="slide"
@@ -468,6 +487,10 @@
 					}
 				: undefined}
 		/>
+	{:else if missingOAuthComponent}
+		<div class="flex flex-col items-start gap-3 md:p-0 p-4 text-sm">
+			{@render oauthSetupGuidance()}
+		</div>
 	{:else}
 		<div class="flex flex-col items-start gap-3 md:p-0 p-4">
 			<p class="text-sm text-muted-content font-light">
@@ -597,20 +620,7 @@
 	{/snippet}
 	{#snippet note()}
 		{#if missingOAuthComponent}
-			<p>
-				{missingOAuthComponent.name} requires administrator OAuth setup. Configure its catalog entry before
-				starting this vMCP.
-			</p>
-			{#if profile.current.isAdmin?.()}
-				<a
-					class="link link-primary"
-					href={resolve(
-						`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-					)}>Configure {missingOAuthComponent.name} OAuth</a
-				>
-			{:else}
-				<p>Ask an administrator to configure OAuth for this MCP server.</p>
-			{/if}
+			{@render oauthSetupGuidance()}
 		{:else}<p>
 				This will begin the initial setup process for this server.
 				{#if hasUserConfiguration}
