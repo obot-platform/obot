@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -71,9 +72,14 @@ func TestHeaderValidation(t *testing.T) {
 }
 
 func TestBaseURLValidation(t *testing.T) {
-	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://10.0.0.1", "https://192.168.1.1", "https://[fd00::1]", "https://{host}/api"} {
+	for _, base := range []string{"/relative", "https://user:pass@api.example.com", "https://api.example.com?a=b", "https://api.example.com#fragment", "https://{host}/api"} {
 		_, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{BaseURL: base})
 		require.Error(t, err)
+	}
+	for _, base := range []string{"http://localhost", "http://127.0.0.1", "http://[::ffff:127.0.0.1]", "http://169.254.169.254", "https://10.0.0.1", "https://192.168.1.1", "https://[fd00::1]"} {
+		result, err := Parse(usersSchema(t), types.OpenAPIRuntimeConfig{BaseURL: base})
+		require.NoError(t, err)
+		require.Equal(t, strings.TrimRight(base, "/")+"/", result.BaseURL)
 	}
 }
 
