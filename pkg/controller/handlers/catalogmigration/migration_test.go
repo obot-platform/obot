@@ -732,3 +732,127 @@ func TestMigrateWorkspaceSharedCredentials(t *testing.T) {
 	}, destination[vmcp.StaticConfigurationCredentialContext(target.Name)])
 	require.Empty(t, target.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[0].Value)
 }
+
+func testCatalog() *v1.MCPCatalog {
+	return &v1.MCPCatalog{Name: "default", Namespace: "default"}
+}
+
+// The startup catalog sync must not rewrite entries after new vMCPs snapshot them.
+func TestMigrationSyncsCatalogBeforeCreatingVMCPs(t *testing.T) {
+	entry := testEntry("catalog")
+	entry.Spec.Manifest.Description = "before sync"
+	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule).Build()
+	handler := testHandler(t, nil, make(map[string]map[string]string))
+	var synced []kclient.ObjectKey
+	handler.syncCatalog = func(ctx context.Context, key kclient.ObjectKey) error {
+		var targets v1.VMCPList
+		require.NoError(t, client.List(ctx, &targets))
+		require.Empty(t, targets.Items, "catalog must sync before any vMCP is created")
+
+		var current v1.MCPServerCatalogEntry
+		require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(entry), &current))
+		current.Spec.Manifest.Description = "after sync"
+		require.NoError(t, client.Update(ctx, &current))
+
+		synced = append(synced, key)
+		return nil
+	}
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+
+	require.Equal(t, []kclient.ObjectKey{kclient.ObjectKeyFromObject(testCatalog())}, synced)
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Len(t, targets.Items, 1)
+	require.Equal(t, "after sync", targets.Items[0].Spec.Manifest.Description)
+	require.Equal(t, "after sync", targets.Items[0].Spec.Manifest.Components[0].CatalogEntry.Manifest.Description)
+}
+
+func TestMigrationSyncsOnlyWhenCreatingVMCPs(t *testing.T) {
+	entry := testEntry("catalog")
+	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+	existing := &v1.VMCP{
+		Name:      migrationName(system.VMCPPrefix, entry.Namespace, entry.Name),
+		Namespace: entry.Namespace,
+		Spec:      v1.VMCPSpec{LegacySlug: entry.Name},
+	}
+	workspaceServer := &v1.MCPServer{
+		Name:      "workspace-shared",
+		Namespace: entry.Namespace,
+		Spec: v1.MCPServerSpec{
+			UserID:               "1",
+			PowerUserWorkspaceID: "workspace",
+			Manifest: types.MCPServerManifest{
+				Name:         "Workspace shared",
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/workspace"},
+			},
+		},
+	}
+	workspace := &v1.PowerUserWorkspace{
+		Name:      "workspace",
+		Namespace: entry.Namespace,
+		Spec:      v1.PowerUserWorkspaceSpec{UserID: "1"},
+	}
+
+	for _, tc := range []struct {
+		name        string
+		objects     []kclient.Object
+		wantTargets int
+	}{
+		{
+			name:        "entry without access",
+			objects:     []kclient.Object{testCatalog(), entry},
+			wantTargets: 0,
+		},
+		{
+			name:        "target already exists",
+			objects:     []kclient.Object{testCatalog(), entry, rule, existing},
+			wantTargets: 1,
+		},
+		{
+			name:        "workspace source",
+			objects:     []kclient.Object{testCatalog(), workspace, workspaceServer},
+			wantTargets: 1,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			objects := make([]kclient.Object, 0, len(tc.objects))
+			for _, object := range tc.objects {
+				objects = append(objects, object.DeepCopyObject().(kclient.Object))
+			}
+			client := migrationClientBuilder().WithObjects(objects...).Build()
+			handler := testHandler(t, nil, make(map[string]map[string]string))
+			handler.syncCatalog = func(context.Context, kclient.ObjectKey) error {
+				t.Fatal("catalog synced without a vMCP to create from it")
+				return nil
+			}
+
+			require.NoError(t, handler.MigrateAll(t.Context(), client))
+
+			var targets v1.VMCPList
+			require.NoError(t, client.List(t.Context(), &targets))
+			require.Len(t, targets.Items, tc.wantTargets)
+		})
+	}
+}
+
+func TestMigrationContinuesAfterCatalogSyncFailure(t *testing.T) {
+	entry := testEntry("catalog")
+	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule).Build()
+	handler := testHandler(t, nil, make(map[string]map[string]string))
+	var syncs int
+	handler.syncCatalog = func(context.Context, kclient.ObjectKey) error {
+		syncs++
+		return errors.New("catalog source unavailable")
+	}
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+
+	require.Equal(t, 1, syncs)
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Len(t, targets.Items, 1)
+}

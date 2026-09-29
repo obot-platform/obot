@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 
@@ -29,16 +30,20 @@ const (
 )
 
 type Handler struct {
-	reveal    func(context.Context, []string, string) (gatewaytypes.Credential, error)
-	upsert    func(context.Context, gatewaytypes.Credential) error
-	copyOAuth func(context.Context, string, string, string) error
+	reveal      func(context.Context, []string, string) (gatewaytypes.Credential, error)
+	upsert      func(context.Context, gatewaytypes.Credential) error
+	copyOAuth   func(context.Context, string, string, string) error
+	syncCatalog func(context.Context, kclient.ObjectKey) error
 }
 
-func New(client *gateway.Client) *Handler {
+// New creates the migration handler. syncCatalog, when set, synchronizes an
+// MCPCatalog from its sources before the migration snapshots its entries.
+func New(client *gateway.Client, syncCatalog func(context.Context, kclient.ObjectKey) error) *Handler {
 	return &Handler{
-		reveal:    client.RevealCredential,
-		upsert:    client.UpsertCredential,
-		copyOAuth: client.CopyMCPOAuthTokens,
+		reveal:      client.RevealCredential,
+		upsert:      client.UpsertCredential,
+		copyOAuth:   client.CopyMCPOAuthTokens,
+		syncCatalog: syncCatalog,
 	}
 }
 
@@ -58,30 +63,48 @@ func (h *Handler) MigrateAll(ctx context.Context, client kclient.Client) error {
 		rules     v1.AccessControlRuleList
 	)
 
-	for _, list := range []kclient.ObjectList{&entries, &servers, &instances, &rules} {
-		if err := client.List(ctx, list); err != nil {
+	listSources := func() error {
+		for _, list := range []kclient.ObjectList{&entries, &servers, &instances, &rules} {
+			if err := client.List(ctx, list); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := listSources(); err != nil {
+		return err
+	}
+
+	// The startup catalog sync would otherwise update entries right after new
+	// vMCPs snapshot them, leaving those vMCPs out of date as soon as they exist.
+	if h.syncCatalog != nil {
+		catalogs, err := catalogsForNewVMCPs(ctx, client, entries.Items, servers.Items, rules.Items)
+		if err != nil {
 			return err
+		}
+		if len(catalogs) > 0 {
+			for _, catalog := range catalogs {
+				// A stale snapshot is recoverable; failing startup over it is not worth it.
+				if err := h.syncCatalog(ctx, catalog); err != nil {
+					slog.Warn("Failed to sync MCP catalog before vMCP migration", "catalog", catalog.Name, "error", err)
+				}
+			}
+			if err := listSources(); err != nil {
+				return err
+			}
 		}
 	}
 
 	entryTargets := make(map[kclient.ObjectKey]v1.VMCP)
 	serverTargets := make(map[kclient.ObjectKey]v1.VMCP)
-	sharedEntries := make(map[kclient.ObjectKey]bool)
-
-	for _, server := range servers.Items {
-		if legacyStandaloneServer(server) && !legacySingleUser(server) {
-			sharedEntries[kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName}] = true
-		}
-	}
-
+	sharedEntries := sharedEntryKeys(servers.Items)
 	entriesByName := make(map[kclient.ObjectKey]*v1.MCPServerCatalogEntry)
 
 	for _, entry := range entries.Items {
 		key := kclient.ObjectKeyFromObject(&entry)
 		entriesByName[key] = &entry
 
-		// Shared entries are templates; their configured deployments own the vMCPs.
-		if !entry.DeletionTimestamp.IsZero() || entry.Spec.Manifest.Runtime == types.RuntimeComposite || sharedEntries[key] {
+		if !migratesEntry(entry, sharedEntries) {
 			continue
 		}
 
@@ -159,8 +182,104 @@ func (h *Handler) MigrateAll(ctx context.Context, client kclient.Client) error {
 	return nil
 }
 
+// sharedEntryKeys returns the entries that back shared legacy deployments.
+func sharedEntryKeys(servers []v1.MCPServer) map[kclient.ObjectKey]bool {
+	shared := make(map[kclient.ObjectKey]bool)
+	for _, server := range servers {
+		if legacyStandaloneServer(server) && !legacySingleUser(server) {
+			shared[kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName}] = true
+		}
+	}
+	return shared
+}
+
+// migratesEntry reports whether an entry is migrated on its own. Shared entries
+// are templates; their configured deployments own the vMCPs.
+func migratesEntry(entry v1.MCPServerCatalogEntry, sharedEntries map[kclient.ObjectKey]bool) bool {
+	return entry.DeletionTimestamp.IsZero() && entry.Spec.Manifest.Runtime != types.RuntimeComposite && !sharedEntries[kclient.ObjectKeyFromObject(&entry)]
+}
+
+func entryProfiles(entry v1.MCPServerCatalogEntry, rules []v1.AccessControlRule) []types.VMCPProfile {
+	return matchingProfiles(rules, entry.Namespace, entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID, types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+}
+
+// catalogsForNewVMCPs returns the MCPCatalogs whose entries back vMCPs that
+// MigrateAll would create. It mirrors MigrateAll's target selection; targets
+// that already exist are reused rather than created, so they need no sync.
+func catalogsForNewVMCPs(ctx context.Context, client kclient.Client, entries []v1.MCPServerCatalogEntry, servers []v1.MCPServer, rules []v1.AccessControlRule) ([]kclient.ObjectKey, error) {
+	sharedEntries := sharedEntryKeys(servers)
+	entriesByName := make(map[kclient.ObjectKey]*v1.MCPServerCatalogEntry, len(entries))
+	entryTargets := make(map[kclient.ObjectKey]bool)
+	catalogs := make(map[kclient.ObjectKey]struct{})
+
+	addIfNew := func(namespace, source, catalog string) error {
+		var existing v1.VMCP
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: migrationName(system.VMCPPrefix, namespace, source)}, &existing); err == nil {
+			return nil
+		} else if !apierrors.IsNotFound(err) {
+			return err
+		}
+		if catalog != "" {
+			catalogs[kclient.ObjectKey{Namespace: namespace, Name: catalog}] = struct{}{}
+		}
+		return nil
+	}
+
+	for i := range entries {
+		entry := entries[i]
+		key := kclient.ObjectKeyFromObject(&entry)
+		entriesByName[key] = &entries[i]
+		if !migratesEntry(entry, sharedEntries) || len(entryProfiles(entry, rules)) == 0 {
+			continue
+		}
+		entryTargets[key] = true
+		if err := addIfNew(entry.Namespace, entry.Name, entry.Spec.MCPCatalogName); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, server := range servers {
+		if !legacyStandaloneServer(server) || !server.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		catalog := server.Spec.MCPCatalogID
+		if legacySingleUser(server) {
+			entryKey := kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName}
+			if entryTargets[entryKey] {
+				// The server joins its entry's vMCP.
+				continue
+			}
+			catalog = server.Status.MCPCatalogID
+			if entry := entriesByName[entryKey]; entry != nil {
+				catalog = entry.Spec.MCPCatalogName
+			}
+		}
+		if err := addIfNew(server.Namespace, server.Name, catalog); err != nil {
+			return nil, err
+		}
+	}
+
+	// Workspace-scoped sources name a workspace rather than a synchronized catalog.
+	result := make([]kclient.ObjectKey, 0, len(catalogs))
+	for key := range catalogs {
+		var catalog v1.MCPCatalog
+		if err := client.Get(ctx, key, &catalog); apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		result = append(result, key)
+	}
+	slices.SortFunc(result, func(a, b kclient.ObjectKey) int {
+		return cmp.Compare(a.String(), b.String())
+	})
+
+	return result, nil
+}
+
 func (h *Handler) migrateEntry(ctx context.Context, client kclient.Client, entry v1.MCPServerCatalogEntry, rules []v1.AccessControlRule) (*v1.VMCP, error) {
-	profiles := matchingProfiles(rules, entry.Namespace, entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID, types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+	profiles := entryProfiles(entry, rules)
 	if len(profiles) == 0 {
 		return nil, nil
 	}

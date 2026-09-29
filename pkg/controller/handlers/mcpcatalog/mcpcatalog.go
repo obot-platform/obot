@@ -68,6 +68,10 @@ type userInfo struct {
 	role types.Role
 }
 
+// discardResponse satisfies router.Response for syncs run outside the controller;
+// the controller schedules the next periodic sync once it starts.
+type discardResponse struct{}
+
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcp.ValidationOptions{
@@ -220,6 +224,34 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
 	return applyObjects()
+}
+
+func (discardResponse) Attributes() map[string]any { return map[string]any{} }
+
+func (discardResponse) RetryAfter(time.Duration) {}
+
+// SyncNow synchronizes a catalog from its sources immediately, even if it was
+// synchronized recently.
+func (h *Handler) SyncNow(ctx context.Context, client kclient.WithWatch, key kclient.ObjectKey) error {
+	var catalog v1.MCPCatalog
+	if err := client.Get(ctx, key, &catalog); err != nil {
+		return err
+	}
+
+	// Sync consumes this annotation, so it only needs to be set in memory.
+	if catalog.Annotations == nil {
+		catalog.Annotations = make(map[string]string, 1)
+	}
+	catalog.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
+
+	return h.Sync(router.Request{
+		Client:    client,
+		Object:    &catalog,
+		Ctx:       ctx,
+		Namespace: key.Namespace,
+		Name:      key.Name,
+		Key:       key.String(),
+	}, discardResponse{})
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {

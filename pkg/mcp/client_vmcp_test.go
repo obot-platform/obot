@@ -50,13 +50,13 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 			},
 		},
 	}
-	connection := &v1.MCPServerInstance{
+	connection := syncedVMCPConnection(t, &v1.MCPServerInstance{
 		Name: "msi1one", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerInstanceSpec{
 			UserID: "7", VMCPInstanceID: instance.Name,
 			VMCPComponentID: "one", MCPServerName: backing.Name,
 		},
-	}
+	}, parent, instance)
 	storage := newVMCPTestStorage(parent, instance, backing, connection)
 	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	require.NoError(t, err)

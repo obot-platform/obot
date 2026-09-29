@@ -511,6 +511,11 @@ func (in MCPServerInstanceSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerInstanceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPServerList) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerList"
 }

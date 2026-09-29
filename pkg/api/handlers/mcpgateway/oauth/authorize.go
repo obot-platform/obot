@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/wait"
 )
 
 const (
@@ -344,36 +343,8 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 		return req.Update(oauthAppAuthRequest)
 	}
 
-	// Single-user components receive configuration asynchronously. Do not probe
-	// OAuth with credentials from before the user's save.
-	if vmcp != nil {
-		if syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]; syncHash != "" {
-			checkHash, err := vmcpConfigurationCheckHash(req, *vmcp, *instance, syncHash)
-			if err != nil {
-				return err
-			}
-			instance, err = wait.For(req.Context(), req.Storage, instance, func(current *v1.VMCPInstance) (bool, error) {
-				return current.Status.ConfigurationCheckHash == checkHash, nil
-			})
-			if err != nil {
-				return fmt.Errorf("wait for VMCP instance configuration: %w", err)
-			}
-			for _, component := range mcpServerConfig.Components {
-				if component.MCPServerInstanceID != "" {
-					continue
-				}
-				_, err := wait.For(req.Context(), req.Storage, &v1.MCPServer{
-					Name:      component.Name,
-					Namespace: vmcp.Namespace,
-				}, func(server *v1.MCPServer) (bool, error) {
-					return server.Status.VMCPUserConfigurationHash == instance.Status.UserConfigurationHash, nil
-				})
-				if err != nil {
-					return fmt.Errorf("wait for VMCP component configuration: %w", err)
-				}
-			}
-		}
-	}
+	// The server config above waits for the user's saved configuration to reach every
+	// component, so OAuth is never probed with credentials from before the save.
 	u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
 	if err != nil {
 		return err

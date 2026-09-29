@@ -94,6 +94,11 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
+	instance, err := sm.waitForVMCPInstanceConfiguration(ctx, vmcp, instance, user)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+
 	// Components disabled for the user are omitted entirely, so users never need
 	// to configure or authenticate servers they cannot use.
 	configuredComponents := vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance))
@@ -109,14 +114,25 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		}
 	}
 
+	// Controllers copy configuration to the component servers and connections after
+	// it changes, so each wait below also requires that copy, rather than letting
+	// callers read the configuration from before it.
+	componentsByID := make(map[string]types.VMCPComponent, len(configuredComponents))
+	for _, component := range configuredComponents {
+		componentsByID[component.ID] = component
+	}
+
 	// Collect the servers via a map here, but return them in the same order as the components in the manifest.
 	serversByComponent := make(map[string]v1.MCPServer, len(configuredComponents))
-	waitForServers := func(expected map[string]struct{}, selector kclient.MatchingFields) error {
+	waitForServers := func(expected map[string]struct{}, selector kclient.MatchingFields, owner v1.VMCPInstance) error {
 		if len(expected) == 0 {
 			return nil
 		}
 		return wait.ForList(ctx, sm.storageClient, &v1.MCPServer{}, vmcp.Namespace, func(server *v1.MCPServer) (bool, error) {
 			if _, ok := expected[server.Spec.VMCPComponentID]; !ok {
+				return false, nil
+			}
+			if !vmcpaccess.ServerConfigurationSynced(*server, *vmcp, owner) {
 				return false, nil
 			}
 			serversByComponent[server.Spec.VMCPComponentID] = *server
@@ -126,10 +142,11 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			ListOptions: []kclient.ListOption{selector},
 		})
 	}
-	if err := waitForServers(sharedComponents, kclient.MatchingFields{"spec.vmcpID": vmcp.Name}); err != nil {
+	// Shared servers hold only fixed configuration; user values travel on each connection.
+	if err := waitForServers(sharedComponents, kclient.MatchingFields{"spec.vmcpID": vmcp.Name}, v1.VMCPInstance{}); err != nil {
 		return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
 	}
-	if err := waitForServers(instanceComponents, kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}); err != nil {
+	if err := waitForServers(instanceComponents, kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}, *instance); err != nil {
 		return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
 	}
 	connections := map[string]string{}
@@ -139,6 +156,9 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 				return false, nil
 			}
 			if connection.Spec.UserID != userID || connection.Spec.MCPServerName != serversByComponent[connection.Spec.VMCPComponentID].Name || !connection.DeletionTimestamp.IsZero() {
+				return false, nil
+			}
+			if !vmcpaccess.ConnectionConfigurationSynced(*connection, componentsByID[connection.Spec.VMCPComponentID], *instance) {
 				return false, nil
 			}
 			connections[connection.Spec.VMCPComponentID] = connection.Name
@@ -201,6 +221,47 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			"userID":               userID,
 		},
 	}, nil
+}
+
+// waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process
+// the configuration the user last saved. Until it does, the instance's user
+// configuration hash is stale, and the component waits would match copies of the
+// previous configuration.
+func (sm *SessionManager) waitForVMCPInstanceConfiguration(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (*v1.VMCPInstance, error) {
+	syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]
+	if syncHash == "" {
+		// Without saved configuration there is nothing to copy.
+		return instance, nil
+	}
+
+	checkHash := func(u kuser.Info) string {
+		return vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(u, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), syncHash)
+	}
+	want := checkHash(user)
+	if instance.Status.ConfigurationCheckHash == want {
+		return instance, nil
+	}
+	if vmcp.Spec.UserID == "" && sm.gatewayClient != nil {
+		// The controller evaluates shared vMCP profiles with the stored user, whose
+		// groups can differ from the requester's.
+		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		}
+		stored, err := sm.gatewayClient.UserInfoByID(ctx, uint(id))
+		if err != nil {
+			return nil, fmt.Errorf("resolve VMCP instance user: %w", err)
+		}
+		want = checkHash(stored)
+	}
+
+	instance, err := wait.For(ctx, sm.storageClient, instance, func(current *v1.VMCPInstance) (bool, error) {
+		return current.Status.ConfigurationCheckHash == want, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("wait for vMCP connection configuration to sync: %w", err)
+	}
+	return instance, nil
 }
 
 // An empty intersection must disable tools explicitly: no overrides means unrestricted.

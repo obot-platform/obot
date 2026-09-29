@@ -133,7 +133,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	}
 
 	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, catalogmigration.MigrationName, func() error {
-		return catalogmigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient)
+		return catalogmigration.New(c.services.GatewayClient, c.syncCatalogForMigration).MigrateAll(ctx, c.services.StorageClient)
 	}); err != nil {
 		return fmt.Errorf("failed to migrate standalone MCP servers: %w", err)
 	}
@@ -148,6 +148,18 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// syncCatalogForMigration syncs a catalog before the vMCP migration snapshots
+// its entries. The default catalog's source is migrated first; otherwise this
+// would sync the old source and the post-start migration would sync it again.
+func (c *Controller) syncCatalogForMigration(ctx context.Context, key kclient.ObjectKey) error {
+	if key.Namespace == system.DefaultNamespace && key.Name == system.DefaultCatalog {
+		if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, c.services.StorageClient); err != nil {
+			return err
+		}
+	}
+	return c.mcpCatalogHandler.SyncNow(ctx, c.services.StorageClient, key)
 }
 
 func (c *Controller) ensureObotMCPServer(ctx context.Context) error {

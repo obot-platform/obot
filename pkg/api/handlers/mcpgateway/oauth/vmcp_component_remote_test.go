@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -116,7 +117,7 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
 	for _, suffix := range []string{"old", "new"} {
 		instance := vmcpComponentInstance("vmcpi1"+suffix, vmcp.Name)
-		connection := &v1.MCPServerInstance{
+		connection := syncedVMCPConnection(&v1.MCPServerInstance{
 			Name:      "msi1" + suffix,
 			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
@@ -125,7 +126,7 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 				MCPServerName:   component.Name,
 				UserID:          "42",
 			},
-		}
+		}, vmcp, instance)
 		require.NoError(t, storage.Create(t.Context(), instance))
 		require.NoError(t, storage.Create(t.Context(), connection))
 		if suffix == "old" {
@@ -193,7 +194,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 		component.Spec.VMCPComponentID = componentID
 		component.Spec.Manifest.Runtime = types.RuntimeRemote
 		component.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{URL: remote.URL + "/" + componentID}
-		objects = append(objects, component, &v1.MCPServerInstance{
+		objects = append(objects, component, syncedVMCPConnection(&v1.MCPServerInstance{
 			Name:      "msi1" + componentID,
 			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
@@ -202,7 +203,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 				MCPServerName:   component.Name,
 				UserID:          "42",
 			},
-		})
+		}, vmcp, instance))
 	}
 	storage := &vmcpOAuthInitialEventsClient{WithWatch: vmcpConsentStorage(objects...)}
 	gateway := vmcpConsentGateway(t)
@@ -260,4 +261,17 @@ func (c *vmcpOAuthInitialEventsClient) Watch(ctx context.Context, list kclient.O
 		w.Add(object)
 	}
 	return w, nil
+}
+
+// syncedVMCPConnection records the configuration sync the MCPServerInstance
+// controller performs for a shared component connection.
+func syncedVMCPConnection(connection *v1.MCPServerInstance, vmcp *v1.VMCP, instance *v1.VMCPInstance) *v1.MCPServerInstance {
+	for _, component := range vmcp.Spec.Manifest.Components {
+		if component.ID != connection.Spec.VMCPComponentID {
+			continue
+		}
+		connection.Spec.Config = vmcpconfig.ConnectionConfiguration(component)
+		connection.Status.VMCPConfigurationHash = vmcpconfig.ConnectionConfigurationHash(connection.Spec.Config, *instance)
+	}
+	return connection
 }

@@ -61,9 +61,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	// without touching either configuration hash, which drops any URL resolved from a template.
 	// Tracking the snapshot digest catches that rebuild without revealing a credential to find out.
 	snapshotHash := server.Annotations[v1.VMCPSnapshotDigestAnnotation]
-	if server.Status.VMCPStaticConfigurationHash == vmcp.Spec.StaticConfigurationHash &&
-		server.Status.VMCPUserConfigurationHash == instance.Status.UserConfigurationHash &&
-		server.Status.VMCPSnapshotHash == snapshotHash {
+	if vmcpconfig.ServerConfigurationSynced(*server, vmcp, instance) {
 		return nil
 	}
 

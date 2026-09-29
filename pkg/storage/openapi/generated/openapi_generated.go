@@ -486,6 +486,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.MCPServerInstance{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_MCPServerInstance(ref),
 		v1.MCPServerInstanceList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref),
 		v1.MCPServerInstanceSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
+		v1.MCPServerInstanceStatus{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref),
 		v1.MCPServerList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerList(ref),
 		v1.MCPServerSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
 		v1.MCPServerStatus{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
@@ -23867,12 +23868,18 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstance(ref common.ReferenceCal
 							Ref:     ref(v1.MCPServerInstanceSpec{}.OpenAPIModelName()),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.MCPServerInstanceStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
-				Required: []string{"metadata", "spec"},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
-			v1.MCPServerInstanceSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			v1.MCPServerInstanceSpec{}.OpenAPIModelName(), v1.MCPServerInstanceStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -24015,6 +24022,25 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPConfigurationHash identifies the vMCP instance configuration last copied into this shared component connection's credential.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

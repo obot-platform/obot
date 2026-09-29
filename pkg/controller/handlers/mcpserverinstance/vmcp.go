@@ -3,15 +3,11 @@ package mcpserverinstance
 import (
 	"errors"
 	"fmt"
-	"reflect"
-	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -38,12 +34,10 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	if err := req.Get(&vmcp, req.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
 		return err
 	}
-	config := slices.DeleteFunc(vmcpconfig.ComponentConfig(component), func(c types.MCPConfig) bool { return !c.UserAllowed })
-	checkHash := utils.Digest([]any{config, instance.Status.UserConfigurationHash})
-	const annotation = "obot.obot.ai/vmcp-instance-configuration-hash"
-	if connection.Annotations[annotation] == checkHash && reflect.DeepEqual(connection.Spec.Config, config) {
+	if vmcpconfig.ConnectionConfigurationSynced(*connection, component, instance) {
 		return nil
 	}
+	config := vmcpconfig.ConnectionConfiguration(component)
 	credential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)}, vmcpconfig.ConfigurationCredentialName())
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return err
@@ -61,10 +55,16 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	}); err != nil {
 		return err
 	}
-	connection.Spec.Config = config
-	if connection.Annotations == nil {
-		connection.Annotations = map[string]string{}
+	// Update the spec before the status: the client writes the new resource version back onto
+	// the object, so the status update below still applies cleanly.
+	_, legacyHash := connection.Annotations[v1.LegacyVMCPConnectionConfigurationHashAnnotation]
+	if legacyHash || !vmcpconfig.SameConnectionConfiguration(connection.Spec.Config, config) {
+		connection.Spec.Config = config
+		delete(connection.Annotations, v1.LegacyVMCPConnectionConfigurationHashAnnotation)
+		if err := req.Client.Update(req.Ctx, connection); err != nil {
+			return err
+		}
 	}
-	connection.Annotations[annotation] = checkHash
-	return req.Client.Update(req.Ctx, connection)
+	connection.Status.VMCPConfigurationHash = vmcpconfig.ConnectionConfigurationHash(config, instance)
+	return req.Client.Status().Update(req.Ctx, connection)
 }

@@ -3,7 +3,6 @@ package oauth
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -62,21 +61,4 @@ func vmcpConsentMissingConfiguration(req api.Context, vmcp v1.VMCP, instance v1.
 // connects to them, so they require neither configuration nor OAuth.
 func vmcpConsentComponents(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
 	return vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, instance))
-}
-
-// vmcpConfigurationCheckHash matches the hash the VMCPInstance controller records
-// once it has processed the given configuration. The controller resolves shared
-// VMCP grants from the stored user, so do the same rather than trusting the request.
-func vmcpConfigurationCheckHash(req api.Context, vmcp v1.VMCP, instance v1.VMCPInstance, syncHash string) (string, error) {
-	u := req.User
-	if vmcp.Spec.UserID == "" {
-		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
-		if err != nil {
-			return "", fmt.Errorf("invalid VMCP instance user ID: %w", err)
-		}
-		if u, err = req.GatewayClient.UserInfoByID(req.Context(), uint(id)); err != nil {
-			return "", fmt.Errorf("resolve VMCP instance user: %w", err)
-		}
-	}
-	return vmcpconfig.ConfigurationCheckHash(vmcpConsentComponents(u, vmcp, instance), syncHash), nil
 }

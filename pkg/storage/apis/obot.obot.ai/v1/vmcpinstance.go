@@ -10,6 +10,9 @@ import (
 
 const (
 	VMCPInstanceConfigurationSyncAnnotation = "obot.ai/vmcp-instance-configuration-hash"
+	// LegacyVMCPConnectionConfigurationHashAnnotation recorded a shared component
+	// connection's sync before MCPServerInstance.Status.VMCPConfigurationHash.
+	LegacyVMCPConnectionConfigurationHashAnnotation = "obot.obot.ai/vmcp-instance-configuration-hash"
 )
 
 var (

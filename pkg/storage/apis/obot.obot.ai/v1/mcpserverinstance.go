@@ -21,7 +21,14 @@ type MCPServerInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec MCPServerInstanceSpec `json:"spec"`
+	Spec   MCPServerInstanceSpec   `json:"spec"`
+	Status MCPServerInstanceStatus `json:"status"`
+}
+
+type MCPServerInstanceStatus struct {
+	// VMCPConfigurationHash identifies the vMCP instance configuration last copied
+	// into this shared component connection's credential.
+	VMCPConfigurationHash string `json:"vmcpConfigurationHash,omitempty"`
 }
 
 type MCPServerInstanceSpec struct {
