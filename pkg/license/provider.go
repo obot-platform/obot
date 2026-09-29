@@ -17,6 +17,7 @@ import (
 
 	keygen "github.com/keygen-sh/keygen-go/v3"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -24,8 +25,9 @@ const (
 	// LicenseKeyPropertyKey is the database property key used to persist the Keygen license key.
 	LicenseKeyPropertyKey = "obot-license-key"
 
-	// LicenseMachineIDPropertyKey is the database property key used to persist the Keygen machine fingerprint.
-	LicenseMachineIDPropertyKey = "obot-license-machine-id"
+	// LicenseMachineFingerprintPropertyKey is the database property key used to persist the Keygen
+	// machine fingerprint. The stored key predates this name and must not change.
+	LicenseMachineFingerprintPropertyKey = "obot-license-machine-id"
 
 	// EnterpriseAuthProvidersEntitlement is required to enable enterprise auth providers.
 	EnterpriseAuthProvidersEntitlement = "OBOT_ENTERPRISE_AUTH_PROVIDERS"
@@ -48,6 +50,13 @@ const (
 	keygenAPIURL        = "https://api.keygen.sh"
 	keygenAPIPrefix     = "v1"
 	keygenAPIVersion    = "1.8"
+
+	// keygenRequestTimeout bounds license validation and machine lookups.
+	keygenRequestTimeout = 15 * time.Second
+
+	// machineLookupBackoff spaces out machine lookups after one fails, so model proxy
+	// requests cannot repeatedly call Keygen while it is unavailable.
+	machineLookupBackoff = 30 * time.Second
 )
 
 var (
@@ -59,6 +68,8 @@ var (
 
 	// ErrInvalidLicense indicates the provided license key could not be validated.
 	ErrInvalidLicense = errors.New("license key is invalid")
+
+	errMachineLookupBackoff = errors.New("license machine lookup failed recently; try again soon")
 )
 
 // Config contains the Keygen settings needed to validate an Obot license.
@@ -69,8 +80,10 @@ type Config struct {
 type Provider struct {
 	lock                 sync.RWMutex
 	refreshLock          sync.Mutex
+	machineLookups       singleflight.Group
 	entitlements         map[keygen.EntitlementCode]struct{}
 	machineID            string
+	machineLookupAfter   time.Time
 	licenseKeySnapshot   licenseKeySnapshot
 	machineFingerprint   string
 	gatewayClient        *client.Client
@@ -139,9 +152,9 @@ func ensureMachineFingerprint(ctx context.Context, gatewayClient *client.Client)
 		return uuid.New().String(), nil
 	}
 
-	property, err := gatewayClient.GetOrCreateProperty(ctx, LicenseMachineIDPropertyKey, uuid.New().String())
+	property, err := gatewayClient.GetOrCreateProperty(ctx, LicenseMachineFingerprintPropertyKey, uuid.New().String())
 	if err != nil {
-		return "", fmt.Errorf("failed to ensure license machine ID: %w", err)
+		return "", fmt.Errorf("failed to ensure license machine fingerprint: %w", err)
 	}
 	return property.Value, nil
 }
@@ -155,35 +168,51 @@ func (p *Provider) LicenseKey(ctx context.Context) (string, error) {
 }
 
 // MachineID returns the Keygen machine activated for this installation's
-// fingerprint. It is empty when there is no valid license. A valid license
-// whose machine lookup failed during validation retries the lookup here.
+// fingerprint, looking it up with the license key the first time it is needed.
+// It is empty when there is no valid license. Concurrent callers share one
+// lookup, which holds no provider lock, and a failed lookup is not retried for
+// machineLookupBackoff.
 func (p *Provider) MachineID(ctx context.Context) (string, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return "", err
 	}
 
-	machineID, valid, _ := p.cachedMachine()
+	p.lock.RLock()
+	machineID, valid, snapshot, retryAt := p.machineID, p.entitlements != nil, p.licenseKeySnapshot, p.machineLookupAfter
+	p.lock.RUnlock()
+
 	if machineID != "" || !valid {
 		return machineID, nil
 	}
 
-	// Cached state only changes under refreshLock, so it cannot change during the
-	// lookup. Recheck it: another caller may have resolved the machine meanwhile.
-	p.refreshLock.Lock()
-	defer p.refreshLock.Unlock()
-
-	machineID, valid, snapshot := p.cachedMachine()
-	if machineID != "" || !valid {
-		return machineID, nil
+	if time.Now().Before(retryAt) {
+		return "", errMachineLookupBackoff
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
+	// The shared lookup outlives any one caller, so a cancelled caller cannot fail the others.
+	lookup := p.machineLookups.DoChan(snapshot.key, func() (any, error) {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), keygenRequestTimeout)
+		defer cancel()
 
-	machineID, err := p.lookupMachineID(ctx, p.keygenClient(snapshot.key))
-	if err != nil {
-		return "", err
+		return p.resolveMachineID(ctx, snapshot)
+	})
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case result := <-lookup:
+		if result.Err != nil {
+			return "", result.Err
+		}
+
+		return result.Val.(string), nil
 	}
+}
+
+// resolveMachineID looks up the machine for snapshot's license and caches the
+// result, unless the cached license changed while Keygen was being asked.
+func (p *Provider) resolveMachineID(ctx context.Context, snapshot licenseKeySnapshot) (string, error) {
+	machineID, lookupErr := p.lookupMachineID(ctx, p.keygenClient(snapshot.key))
 
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -191,14 +220,17 @@ func (p *Provider) MachineID(ctx context.Context) (string, error) {
 		return "", errors.New("license changed while resolving its machine ID")
 	}
 
-	p.machineID = machineID
-	return machineID, nil
-}
+	if lookupErr != nil {
+		p.machineLookupAfter = time.Now().Add(machineLookupBackoff)
+		return "", lookupErr
+	}
 
-func (p *Provider) cachedMachine() (string, bool, licenseKeySnapshot) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-	return p.machineID, p.entitlements != nil, p.licenseKeySnapshot
+	// A refresh during the lookup may already have cached an activated machine.
+	if p.machineID == "" {
+		p.machineID = machineID
+	}
+
+	return p.machineID, nil
 }
 
 func (p *Provider) LicenseKeyViaConfiguration() bool {
@@ -329,8 +361,8 @@ func (v *keygenValidationResponse) SetMeta(to func(target any) error) error {
 }
 
 // validate returns the license entitlements, or nil when the license is invalid, and the
-// Keygen machine ID for this installation. A failed machine lookup leaves the ID empty
-// without invalidating the license.
+// Keygen machine ID for this installation when validation just activated it. Otherwise
+// MachineID looks the machine up only when the model proxy needs it.
 func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, string, error) {
 	if strings.TrimSpace(licenseKey) == "" {
 		return nil, "", ErrNotConfigured
@@ -364,7 +396,7 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 			_, activationErr := keygenClient.Post(ctx, "machines", machine, activated)
 			switch {
 			case activationErr == nil:
-				// An unusable activation response falls back to the lookup below.
+				// MachineID looks the machine up if the activation response is unusable.
 				machineID, _ = p.verifiedMachineID(activated)
 			case !errors.Is(activationErr, keygen.ErrMachineAlreadyActivated):
 				slog.Warn("license activation failed", "error", activationErr)
@@ -390,12 +422,6 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 	entitlementSet := make(map[keygen.EntitlementCode]struct{}, len(entitlements))
 	for _, entitlement := range entitlements {
 		entitlementSet[entitlement.Code] = struct{}{}
-	}
-
-	if machineID == "" {
-		if machineID, err = p.lookupMachineID(ctx, keygenClient); err != nil {
-			slog.Warn("license machine lookup failed", "error", err)
-		}
 	}
 
 	return entitlementSet, machineID, nil
@@ -498,7 +524,7 @@ func (p *Provider) poll(ctx context.Context) {
 }
 
 func (p *Provider) update(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, keygenRequestTimeout)
 	defer cancel()
 	return p.refresh(ctx, true)
 }
@@ -515,6 +541,7 @@ func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[
 	p.licenseKeySnapshot = snapshot
 	p.entitlements = entitlements
 	p.machineID = machineID
+	p.machineLookupAfter = time.Time{}
 }
 
 func (p *Provider) refresh(ctx context.Context, force bool) error {

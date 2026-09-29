@@ -9,7 +9,7 @@ import (
 
 func TestMachineFingerprintUsesPersistedInstallationIdentity(t *testing.T) {
 	client := newTestLicenseGatewayClient(t)
-	if _, err := client.SetProperty(t.Context(), LicenseMachineIDPropertyKey, "existing-installation"); err != nil {
+	if _, err := client.SetProperty(t.Context(), LicenseMachineFingerprintPropertyKey, "existing-installation"); err != nil {
 		t.Fatal(err)
 	}
 

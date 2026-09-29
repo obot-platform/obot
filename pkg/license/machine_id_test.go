@@ -2,11 +2,14 @@ package license
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const (
@@ -43,6 +46,13 @@ func newMachineLookupServer(t *testing.T, lookup func(w http.ResponseWriter, r *
 	return server
 }
 
+// expireMachineLookupBackoff lets the next MachineID call retry a failed lookup.
+func expireMachineLookupBackoff(provider *Provider) {
+	provider.lock.Lock()
+	defer provider.lock.Unlock()
+	provider.machineLookupAfter = time.Time{}
+}
+
 func TestMachineIDLooksUpActivatedMachineByFingerprint(t *testing.T) {
 	var (
 		lookups    int
@@ -67,6 +77,11 @@ func TestMachineIDLooksUpActivatedMachineByFingerprint(t *testing.T) {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
 
+	// Installations that never use the model proxy never look their machine up.
+	if !requireValidLicense(ctx, t, provider) || lookups != 0 {
+		t.Fatalf("expected a valid license without a machine lookup, got %d lookups", lookups)
+	}
+
 	for range 2 {
 		machineID, err := provider.MachineID(ctx)
 		if err != nil {
@@ -79,14 +94,14 @@ func TestMachineIDLooksUpActivatedMachineByFingerprint(t *testing.T) {
 	}
 
 	if lookups != 1 {
-		t.Fatalf("expected one machine lookup during validation, got %d", lookups)
+		t.Fatalf("expected the first call to look the machine up and the second to use the cache, got %d lookups", lookups)
 	}
 	if lookedUpAs != provider.machineFingerprint {
 		t.Fatalf("expected machine lookup by fingerprint %q, got %q", provider.machineFingerprint, lookedUpAs)
 	}
 }
 
-func TestMachineIDLookupFailureKeepsLicenseValidAndRetries(t *testing.T) {
+func TestMachineIDLookupFailureKeepsLicenseValidAndBacksOff(t *testing.T) {
 	var (
 		lookups            int
 		status             = http.StatusServiceUnavailable
@@ -114,6 +129,9 @@ func TestMachineIDLookupFailureKeepsLicenseValidAndRetries(t *testing.T) {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
 
+	if _, err := provider.MachineID(ctx); err == nil {
+		t.Fatal("expected machine ID lookup to fail while Keygen is unavailable")
+	}
 	if !requireValidLicense(ctx, t, provider) {
 		t.Fatal("expected a failed machine lookup to leave the license valid")
 	}
@@ -121,17 +139,23 @@ func TestMachineIDLookupFailureKeepsLicenseValidAndRetries(t *testing.T) {
 		t.Fatal("expected a failed machine lookup to leave entitlements intact")
 	}
 
-	if _, err := provider.MachineID(ctx); err == nil {
-		t.Fatal("expected machine ID lookup to fail while Keygen is unavailable")
+	// Requests during the backoff do not call Keygen again.
+	if _, err := provider.MachineID(ctx); !errors.Is(err, errMachineLookupBackoff) {
+		t.Fatalf("expected machine ID lookup to back off, got %v", err)
+	}
+	if lookups != 1 {
+		t.Fatalf("expected one lookup before the backoff expires, got %d", lookups)
 	}
 
 	// A machine for another fingerprint does not identify this installation.
+	expireMachineLookupBackoff(provider)
 	status = http.StatusOK
 	machineFingerprint = "another-installation"
-	if _, err := provider.MachineID(ctx); err == nil {
-		t.Fatal("expected machine ID lookup to reject another installation's machine")
+	if _, err := provider.MachineID(ctx); err == nil || errors.Is(err, errMachineLookupBackoff) {
+		t.Fatalf("expected machine ID lookup to reject another installation's machine, got %v", err)
 	}
 
+	expireMachineLookupBackoff(provider)
 	machineFingerprint = ""
 	machineID, err := provider.MachineID(ctx)
 	if err != nil {
@@ -144,11 +168,79 @@ func TestMachineIDLookupFailureKeepsLicenseValidAndRetries(t *testing.T) {
 	if _, err := provider.MachineID(ctx); err != nil {
 		t.Fatalf("expected cached machine ID: %v", err)
 	}
-	if lookups != 4 {
-		t.Fatalf("expected validation, two failed retries, and one successful retry, got %d lookups", lookups)
+	if lookups != 3 {
+		t.Fatalf("expected a failed, a rejected, and a successful lookup, got %d lookups", lookups)
 	}
-	if !requireValidLicense(ctx, t, provider) {
-		t.Fatal("expected license to remain valid")
+}
+
+func TestMachineIDLookupIsSharedAndDoesNotBlockLicenseChanges(t *testing.T) {
+	var (
+		lookups atomic.Int32
+		started = make(chan struct{})
+		release = make(chan struct{})
+	)
+	server := newMachineLookupServer(t, func(w http.ResponseWriter, _ *http.Request, fingerprint string) {
+		if lookups.Add(1) == 1 {
+			close(started)
+		}
+		<-release
+		_, _ = fmt.Fprint(w, machineResponse(testMachineID, fingerprint))
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if err := provider.SetLicenseKey(ctx, "license-key"); err != nil {
+		t.Fatalf("expected license key to be stored: %v", err)
+	}
+
+	const callers = 5
+	type lookupResult struct {
+		machineID string
+		err       error
+	}
+	results := make(chan lookupResult, callers)
+	for range callers {
+		go func() {
+			machineID, err := provider.MachineID(ctx)
+			results <- lookupResult{machineID: machineID, err: err}
+		}()
+	}
+
+	<-started
+	// Let the other callers join the stalled lookup.
+	time.Sleep(50 * time.Millisecond)
+
+	// Removing the key needs refreshLock, which the stalled lookup must not hold.
+	removed := make(chan error, 1)
+	go func() { removed <- provider.RemoveLicenseKey(ctx) }()
+	select {
+	case err := <-removed:
+		if err != nil {
+			t.Fatalf("expected license key to be removed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("machine lookup blocked license key removal")
+	}
+	close(release)
+
+	// The lookup finished for a removed key, so no caller may receive its machine.
+	for range callers {
+		if result := <-results; result.machineID != "" {
+			t.Fatalf("expected no machine ID for a removed license key, got %q", result.machineID)
+		}
+	}
+	if lookups.Load() != 1 {
+		t.Fatalf("expected concurrent callers to share one lookup, got %d", lookups.Load())
+	}
+
+	if machineID, err := provider.MachineID(ctx); err != nil || machineID != "" {
+		t.Fatalf("expected no machine ID after the key was removed, got %q, %v", machineID, err)
 	}
 }
 

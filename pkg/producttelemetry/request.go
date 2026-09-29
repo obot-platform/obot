@@ -45,7 +45,7 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 		return clienttypes.ProductTelemetryRequest{}, fmt.Errorf("get installation ID: %w", err)
 	}
 
-	licenseMachineID, err := gatewayClient.GetOrCreateProperty(ctx, license.LicenseMachineIDPropertyKey, uuid.New().String())
+	licenseMachineID, err := gatewayClient.GetOrCreateProperty(ctx, license.LicenseMachineFingerprintPropertyKey, uuid.New().String())
 	if err != nil {
 		return clienttypes.ProductTelemetryRequest{}, fmt.Errorf("get license machine ID: %w", err)
 	}

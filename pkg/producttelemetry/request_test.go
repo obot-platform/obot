@@ -66,8 +66,8 @@ func (e serverListErrorReader) List(ctx context.Context, list kclient.ObjectList
 func newRequestGateway() *requestGateway {
 	return &requestGateway{
 		properties: map[string]string{
-			upgrade.InstallationIDPropertyKey:   "installation-id",
-			license.LicenseMachineIDPropertyKey: "machine-id",
+			upgrade.InstallationIDPropertyKey:            "installation-id",
+			license.LicenseMachineFingerprintPropertyKey: "machine-id",
 		},
 		totalUsers:   42,
 		activeUsers:  3,
@@ -328,7 +328,7 @@ func TestBuildRequestIdentityFailures(t *testing.T) {
 		},
 		{
 			name:    "license machine ID",
-			key:     license.LicenseMachineIDPropertyKey,
+			key:     license.LicenseMachineFingerprintPropertyKey,
 			wantErr: "get license machine ID",
 		},
 	}
