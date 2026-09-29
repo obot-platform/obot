@@ -31,8 +31,8 @@ type OpenAPISource struct {
 // the manifest's header Config, never in this configuration.
 type OpenAPIRuntimeConfig struct {
 	Source OpenAPISource `json:"source"`
-	// Schema is the normalized JSON snapshot populated by Obot on import. Running
-	// servers use this snapshot, not Source; it changes only on explicit upgrade.
+	// Schema is the normalized JSON snapshot used by running servers instead of
+	// Source. Callers accepting supplied snapshots must validate them before storage.
 	Schema  *OpenAPISchema `json:"schema,omitempty"`
 	BaseURL string         `json:"baseURL,omitempty"`
 }
