@@ -2,14 +2,12 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -80,13 +78,11 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		if manifest.RemoteConfig == nil || !manifest.RemoteConfig.StaticOAuthRequired {
 			continue
 		}
-		// Component status is reconciled asynchronously, so check the credential store directly.
-		_, err := sm.gatewayClient.RevealCredential(ctx, []string{vmcpaccess.ComponentOAuthCredentialReference(component)}, system.StaticOAuthCredentialName)
-		if errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return ServerConfig{}, types.NewErrBadRequest("%s requires administrator static OAuth configuration", component.Name)
-		}
-		if err != nil {
-			return ServerConfig{}, fmt.Errorf("check static OAuth credentials for component %q: %w", component.Name, err)
+		for _, status := range vmcp.Status.Components {
+			// An empty check hash means the controller has not checked the credential yet.
+			if status.Name == component.Name && status.ConfigurationError == "" && status.OAuthCredentialCheckHash != "" && !status.OAuthCredentialConfigured {
+				return ServerConfig{}, types.NewErrBadRequest("%s requires administrator static OAuth configuration", component.Name)
+			}
 		}
 	}
 

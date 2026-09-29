@@ -11,13 +11,9 @@ import (
 
 	"github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
-	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
@@ -624,7 +620,7 @@ func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	}
 }
 
-func TestServerConfigForVMCPChecksStaticOAuthCredentialBeforeCreatingInstance(t *testing.T) {
+func TestServerConfigForVMCPChecksStaticOAuthStatusBeforeCreatingInstance(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp1salesforce",
 		Namespace: system.DefaultNamespace,
@@ -645,28 +641,16 @@ func TestServerConfigForVMCPChecksStaticOAuthCredentialBeforeCreatingInstance(t 
 				}},
 			},
 		},
-		Status: v1.VMCPStatus{Components: []v1.VMCPComponentStatus{{Name: "Salesforce"}}},
+		Status: v1.VMCPStatus{Components: []v1.VMCPComponentStatus{{
+			Name:                      "Salesforce",
+			OAuthCredentialCheckHash:  "checked",
+			OAuthCredentialConfigured: false,
+			Error:                     "OAuth setup pending",
+		}}},
 	}
 	storage := newVMCPTestStorage(vmcp)
-	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.AutoMigrate(); err != nil {
-		t.Fatal(err)
-	}
-	gateway := gatewayclient.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
-	t.Cleanup(func() {
-		if err := gateway.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	manager := &SessionManager{storageClient: storage, gatewayClient: gateway}
-	_, err = manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
+	manager := &SessionManager{storageClient: storage}
+	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
 	if err == nil || !strings.Contains(err.Error(), "Salesforce requires administrator static OAuth configuration") {
 		t.Fatalf("expected static OAuth setup error, got %v", err)
 	}
@@ -677,11 +661,12 @@ func TestServerConfigForVMCPChecksStaticOAuthCredentialBeforeCreatingInstance(t 
 	if len(instances.Items) != 0 {
 		t.Fatal("rejected connection created an instance")
 	}
-	if err := gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: system.MCPOAuthCredentialName("salesforce-entry"),
-		Name:    system.StaticOAuthCredentialName,
-		Secrets: map[string]string{"CLIENT_ID": "salesforce-client"},
-	}); err != nil {
+	var current v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current); err != nil {
+		t.Fatal(err)
+	}
+	current.Status.Components[0].OAuthCredentialConfigured = true
+	if err := storage.Update(t.Context(), &current); err != nil {
 		t.Fatal(err)
 	}
 	instance := &v1.VMCPInstance{
