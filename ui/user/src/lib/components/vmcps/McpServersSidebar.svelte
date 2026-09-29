@@ -347,7 +347,7 @@
 		class={twMerge(
 			'w-full bg-base-100 dark:bg-base-200 flex cursor-pointer items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
 			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
-			needsConfiguration && 'cursor-not-allowed opacity-50 hover:bg-base-100 dark:hover:bg-base-200'
+			needsConfiguration && 'cursor-not-allowed hover:bg-base-100 dark:hover:bg-base-200'
 		)}
 		disabled={needsConfiguration}
 		aria-label={needsConfiguration
@@ -356,12 +356,6 @@
 		onclick={() => drag.activate(entry)}
 	>
 		<div class="flex gap-2 grow h-full px-3 py-2 items-center relative">
-			{#if needsConfiguration}
-				<CircleAlert
-					class="size-4 shrink-0 text-warning"
-					aria-label="Administrator configuration required"
-				/>
-			{/if}
 			{#if isDeprecatedMCPServer(entry)}
 				<div
 					class="badge badge-xs absolute top-1 right-1 badge-warning badge-soft bg-warning/10 border-transparent rounded-sm p-1"
@@ -370,8 +364,21 @@
 					<TriangleAlert class="size-3" />
 				</div>
 			{/if}
-			<McpServerIcon icon={entry.manifest.icon} />
-			<div class="flex flex-col gap-0.5 text-left">
+			<div class="relative shrink-0">
+				<McpServerIcon
+					icon={entry.manifest.icon}
+					classes={{ root: needsConfiguration ? 'opacity-50' : '' }}
+				/>
+				{#if needsConfiguration}
+					<span
+						class="absolute -bottom-1 -right-1 rounded-full bg-base-100 dark:bg-base-200"
+						aria-label="Administrator configuration required"
+					>
+						<CircleAlert class="size-4 text-warning" aria-hidden="true" />
+					</span>
+				{/if}
+			</div>
+			<div class={twMerge('flex flex-col gap-0.5 text-left', needsConfiguration && 'opacity-50')}>
 				<p class="line-clamp-1 text-xs font-medium">
 					{entry.manifest.name}
 					{#each entry.manifest.metadata?.categories?.split(',') as category (category)}
@@ -446,7 +453,7 @@
 			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
 			dragging && 'cursor-grabbing opacity-30',
 			drag.disabled && 'cursor-default',
-			needsConfiguration && 'cursor-not-allowed opacity-50 hover:bg-base-100 dark:hover:bg-base-200'
+			needsConfiguration && 'cursor-not-allowed hover:bg-base-100 dark:hover:bg-base-200'
 		)}
 		disabled={needsConfiguration}
 		aria-label={needsConfiguration
@@ -468,16 +475,10 @@
 			drag.activate(entry);
 		}}
 	>
-		<div class="shrink-0 pl-3">
+		<div class={twMerge('shrink-0 pl-3', needsConfiguration && 'opacity-50')}>
 			<GripVertical class="size-3" />
 		</div>
 		<div class="flex gap-2 grow h-full px-3 py-2 items-center relative">
-			{#if needsConfiguration}
-				<CircleAlert
-					class="size-4 shrink-0 text-warning"
-					aria-label="Administrator configuration required"
-				/>
-			{/if}
 			{#if isDeprecatedMCPServer(entry)}
 				<div
 					class="badge badge-xs absolute top-1 right-1 badge-warning badge-soft bg-warning/10 border-transparent rounded-sm p-1"
@@ -486,8 +487,21 @@
 					<TriangleAlert class="size-3" />
 				</div>
 			{/if}
-			<McpServerIcon icon={entry.manifest.icon} />
-			<div class="flex flex-col gap-0.5 text-left">
+			<div class="relative shrink-0">
+				<McpServerIcon
+					icon={entry.manifest.icon}
+					classes={{ root: needsConfiguration ? 'opacity-50' : '' }}
+				/>
+				{#if needsConfiguration}
+					<span
+						class="absolute -bottom-1 -right-1 rounded-full bg-base-100 dark:bg-base-200"
+						aria-label="Administrator configuration required"
+					>
+						<CircleAlert class="size-4 text-warning" aria-hidden="true" />
+					</span>
+				{/if}
+			</div>
+			<div class={twMerge('flex flex-col gap-0.5 text-left', needsConfiguration && 'opacity-50')}>
 				<p class="line-clamp-1 text-xs font-medium">
 					{entry.manifest.name}
 					{#each entry.manifest.metadata?.categories?.split(',') as category (category)}
