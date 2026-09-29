@@ -8,6 +8,7 @@
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { AdminService, UserService, type LaunchType, type MCPCatalogEntry } from '$lib/services';
 	import { getServerTypeLabelByType, isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import { mcpServerNeedsStaticOAuthConfiguration } from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -70,7 +71,7 @@
 		selectServerTypeDialog?.open();
 	}
 
-	export async function open(entity: MCPCatalogEntry, options?: { promptOAuthConfig?: boolean }) {
+	export async function open(entity: MCPCatalogEntry) {
 		hydrateController?.abort();
 		const controller = new AbortController();
 		hydrateController = controller;
@@ -78,7 +79,6 @@
 		creating = false;
 		selectedServerType = undefined;
 		clearPrompts();
-		promptOAuthConfig = options?.promptOAuthConfig ?? false;
 		catalogEntry = entity;
 		dialog?.open();
 		await hydrate(entity, controller.signal);
@@ -99,12 +99,15 @@
 	}
 
 	let alreadyAdded = $derived(Boolean(catalogEntry && isAddedToVMcp?.(catalogEntry)));
+	let needsConfiguration = $derived(
+		Boolean(catalogEntry && mcpServerNeedsStaticOAuthConfiguration(catalogEntry))
+	);
 	let showAddToVMcp = $derived(
 		Boolean(onAddToVMcp && catalogEntry && !creating && responsive.isMobile)
 	);
 
 	function handleAddToVMcp() {
-		if (!catalogEntry || alreadyAdded) return;
+		if (!catalogEntry || alreadyAdded || needsConfiguration) return;
 		const entry = catalogEntry;
 		close();
 		void onAddToVMcp?.(entry);
@@ -232,7 +235,7 @@
 					limitViews={['overview', 'tools']}
 					isDialogView
 					onAddFromTools={onAddToVMcp ? handleAddToVMcp : undefined}
-					disableAddFromTools={alreadyAdded}
+					disableAddFromTools={alreadyAdded || needsConfiguration}
 				/>
 			{/if}
 			{#if showAddToVMcp}
@@ -240,11 +243,15 @@
 					<button
 						type="button"
 						class="btn btn-primary w-full"
-						disabled={alreadyAdded}
+						disabled={alreadyAdded || needsConfiguration}
 						onclick={handleAddToVMcp}
 					>
 						<Plus class="size-4" />
-						{alreadyAdded ? 'Already added to vMCP' : addToVMcpLabel}
+						{alreadyAdded
+							? 'Already added to vMCP'
+							: needsConfiguration
+								? 'Administrator configuration required'
+								: addToVMcpLabel}
 					</button>
 				</div>
 			{/if}

@@ -658,23 +658,27 @@ describe('VMcpDesigner.svelte', () => {
 			});
 		});
 
-		it('opens static OAuth setup instead of adding an unconfigured server', async () => {
+		it('keeps an unconfigured server visible but disabled', async () => {
 			const salesforce = unconfiguredSalesforceEntry();
-			mockEntryDetails(salesforce);
 			const vmcp = createIssueTrackerVMcp();
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
 			await renderDesigner([componentEntry, salesforce], vmcp);
 
-			const { el } = await pressCard(panelCard('Salesforce'), 31);
-			const to = centerOf(await vmcpCard().element());
-			pointer(el, 'pointermove', 31, to);
-			await tick();
-			pointer(el, 'pointerup', 31, to);
-
+			const card = page.getByCSS('#mcp-server-card-entry-salesforce');
+			await expect.element(card).toBeVisible();
+			await expect.element(card).toBeDisabled();
 			await expect
-				.element(page.getByRole('heading', { name: 'Configure Static OAuth' }))
+				.element(page.getByLabelText('Administrator configuration required'))
 				.toBeVisible();
+			(await card.element()).parentElement?.dispatchEvent(
+				new MouseEvent('mouseenter', { bubbles: true })
+			);
+			await expect
+				.element(page.getByRole('tooltip'))
+				.toHaveTextContent(
+					'An administrator must finish configuring this MCP server on the MCP Servers page before it can be added to a vMCP.'
+				);
 			expect(update).not.toHaveBeenCalled();
 		});
 
@@ -826,27 +830,6 @@ describe('VMcpDesigner.svelte', () => {
 			pointer(el, 'pointerup', 17, to);
 
 			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
-		});
-
-		it('requires static OAuth setup before creating a vMCP from a server', async () => {
-			const salesforce = unconfiguredSalesforceEntry();
-			mockEntryDetails(salesforce);
-			await renderDesigner([componentEntry, salesforce]);
-
-			const canvas = await page.getByCSS('[data-vmcp-canvas]').element();
-			const rect = canvas.getBoundingClientRect();
-			const { el } = await pressCard(panelCard('Salesforce'), 32);
-			const to = { x: rect.left + 16, y: rect.top + 16 };
-			pointer(el, 'pointermove', 32, to);
-			await tick();
-			pointer(el, 'pointerup', 32, to);
-
-			await expect
-				.element(page.getByRole('heading', { name: 'Configure Static OAuth' }))
-				.toBeVisible();
-			await expect
-				.element(page.getByRole('dialog').getByText('Create vMCP').first())
-				.not.toBeInTheDocument();
 		});
 
 		it('opens create when a configurable server is dropped on the empty canvas', async () => {
