@@ -577,6 +577,25 @@ describe('vmcpOutdatedComponents', () => {
 			toServer: updatedEntry
 		});
 	});
+
+	it('omits tool previews from the latest catalog entry', () => {
+		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+		const vmcp = createVMCP({}, [entry]);
+		const updatedEntry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			manifest: {
+				shortDescription: 'Updated description',
+				toolPreview: [{ id: 'echo', name: 'echo', description: 'Echo input' }]
+			}
+		});
+
+		const { toServer } = vmcpComponentDiffServers(vmcp.components![0], updatedEntry);
+
+		expect(toServer?.manifest).not.toHaveProperty('toolPreview');
+		expect(toServer?.manifest.shortDescription).toBe('Updated description');
+		expect(updatedEntry.manifest.toolPreview).toHaveLength(1);
+	});
 });
 
 describe('vmcpUpdateConfigurationTargets', () => {

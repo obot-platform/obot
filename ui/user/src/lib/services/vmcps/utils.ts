@@ -179,12 +179,16 @@ export function vmcpComponentDiffServers(
 		return {};
 	}
 
+	// Snapshots never store tool previews and previews don't mark a component
+	// as needing an update, so leave them out of the latest entry as well.
+	const manifest = { ...updatedEntry.manifest };
+	delete manifest.toolPreview;
 	return {
 		fromServer: {
 			id: component.mcpServerCatalogEntryID,
 			manifest: component.catalogEntry.manifest
 		} as MCPCatalogServer,
-		toServer: updatedEntry
+		toServer: { ...updatedEntry, manifest }
 	};
 }
 
