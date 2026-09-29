@@ -3,10 +3,14 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -58,6 +62,52 @@ func TestStaticOAuthLookupUsesCurrentReferencedCredential(t *testing.T) {
 			require.Equal(t, secret, got)
 		}
 	}
+}
+
+func TestCheckForMCPAuthDistinguishesMissingStaticCredentialsFromLookupFailure(t *testing.T) {
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, gw.Close()) })
+
+	server := v1.MCPServer{
+		Name: "ms1remote",
+		Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				StaticOAuthRequired: true,
+			},
+		}},
+	}
+	config := mcp.ServerConfig{
+		Runtime:             types.RuntimeRemote,
+		URL:                 "https://example.com/mcp",
+		TunnelName:          "test-tunnel",
+		MCPCatalogEntryName: "source",
+	}
+	factory := NewMCPOAuthHandlerFactory("", nil, nil, gw, nil, "", false)
+	check := func(ctx context.Context) error {
+		req := api.Context{
+			Request:       httptest.NewRequest(http.MethodGet, "/oauth-url", nil).WithContext(ctx),
+			GatewayClient: gw,
+		}
+		_, err := factory.CheckForMCPAuth(req, server, config, "user", server.Name, "")
+		return err
+	}
+
+	err = check(t.Context())
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	err = check(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	require.False(t, errors.As(err, &httpErr), "credential-store failures must not be reported as bad requests")
 }
 
 func TestNewMCPOAuthHandlerFactoryConfiguresCIMD(t *testing.T) {

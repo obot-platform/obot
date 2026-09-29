@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -26,6 +27,8 @@ const (
 	figmaMCPURL          = "https://mcp.figma.com/mcp"
 	figmaOAuthClientName = "Claude Code"
 )
+
+var errStaticOAuthCredentialsNotConfigured = errors.New("static OAuth credentials are not configured")
 
 type MCPOAuthHandlerFactory struct {
 	baseURL                   string
@@ -178,7 +181,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired {
 		if _, _, err := oauthHandler.Lookup(req.Context()); err != nil {
-			return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration: %v", mcpServer.Name, err)
+			if errors.Is(err, errStaticOAuthCredentialsNotConfigured) {
+				return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration", mcpServer.Name)
+			}
+			return "", fmt.Errorf("check static OAuth credentials for MCP server %s: %w", mcpServer.Name, err)
 		}
 	}
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
@@ -421,6 +427,9 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 	}
 	if credentialContext != "" {
 		cred, err := m.gatewayClient.RevealCredential(ctx, []string{credentialContext}, system.StaticOAuthCredentialName)
+		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
+			return "", "", fmt.Errorf("look up OAuth credentials for MCP server %s: %w", m.mcpID, err)
+		}
 		if err == nil {
 			clientID := cred.Secrets["CLIENT_ID"]
 			clientSecret := cred.Secrets["CLIENT_SECRET"]
@@ -430,5 +439,5 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	return "", "", fmt.Errorf("no credentials found for MCP server %s", m.mcpID)
+	return "", "", fmt.Errorf("%w for MCP server %s", errStaticOAuthCredentialsNotConfigured, m.mcpID)
 }
