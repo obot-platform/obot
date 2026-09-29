@@ -5,13 +5,12 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
-	"unicode"
 )
 
 // sourceURL checks the schema location; safehttp enforces its network policy.
 func sourceURL(value string) (*url.URL, error) {
 	u, err := url.Parse(value)
-	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || strings.ContainsAny(value, "\\\r\n\t") {
+	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || strings.Contains(value, "\\") {
 		return nil, fmt.Errorf("schema source must be an absolute HTTP(S) URL without credentials or fragment")
 	}
 	return u, nil
@@ -21,7 +20,7 @@ func sourceURL(value string) (*url.URL, error) {
 // The wrapper must enforce DNS/address policy again when executing API requests.
 func destination(value string) (string, error) {
 	u, err := sourceURL(value)
-	if err != nil || u.RawQuery != "" || u.ForceQuery || strings.ContainsAny(value, "{}") || strings.ContainsFunc(value, unicode.IsSpace) {
+	if err != nil || u.RawQuery != "" || u.ForceQuery || strings.ContainsAny(value, "{}") {
 		return "", fmt.Errorf("baseURL must be absolute HTTP(S), without credentials, query, fragment, or variables")
 	}
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
