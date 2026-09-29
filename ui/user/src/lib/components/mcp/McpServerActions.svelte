@@ -842,17 +842,14 @@
 	{oauthStatus}
 	onSave={async (credentials) => {
 		if (!entry) return;
-		if (entry.powerUserWorkspaceID) {
-			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
-				entry.powerUserWorkspaceID,
-				entry.id,
-				credentials
-			);
-		} else {
-			await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
-		}
-		oauthConfiguredOverride = true;
-		oauthStatus = { ...oauthStatus, configured: true };
+		oauthStatus = entry.powerUserWorkspaceID
+			? await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+					entry.powerUserWorkspaceID,
+					entry.id,
+					credentials
+				)
+			: await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
+		oauthConfiguredOverride = oauthStatus.configured;
 		onOAuthConfigured?.();
 	}}
 	onDelete={async () => {
