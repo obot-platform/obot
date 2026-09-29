@@ -40,7 +40,6 @@ func testRequest() clienttypes.ProductTelemetryRequest {
 			CustomMCPServerEntryCount:   new(int64(4)),
 			CustomVMCPCount:             new(int64(3)),
 			VMCPInstanceCount:           new(int64(8)),
-			VMCPConfiguredInstanceCount: new(int64(6)),
 			BuiltInMCPServers:           &servers,
 			AuthProviderType:            new("github"),
 			MCPToolCallCount:            new(int64(0)),
@@ -66,7 +65,7 @@ func TestClientSend(t *testing.T) {
 		{
 			name:         "full report preserves null and zero metrics",
 			request:      fullRequest,
-			wantBody:     `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","licenseMachineID":"ab65c9ac-c012-4567-89ab-1b520aa26584","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":null,"deployedMCPServers":0,"customMCPServerEntryCount":4,"customVMCPCount":3,"vmcpInstanceCount":8,"vmcpConfiguredInstanceCount":6,"builtInMCPServers":[{"id":"github","deployments":2,"users":7}],"authProviderType":"github","mcpToolCallCount":0,"vmcpToolCallCount":0,"llmAuditLogCount":null,"sentryScanCount":14,"sentryEnforcementEventCount":3,"managedSkillCount":27}}`,
+			wantBody:     `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","licenseMachineID":"ab65c9ac-c012-4567-89ab-1b520aa26584","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":null,"deployedMCPServers":0,"customMCPServerEntryCount":4,"customVMCPCount":3,"vmcpInstanceCount":8,"builtInMCPServers":[{"id":"github","deployments":2,"users":7}],"authProviderType":"github","mcpToolCallCount":0,"vmcpToolCallCount":0,"llmAuditLogCount":null,"sentryScanCount":14,"sentryEnforcementEventCount":3,"managedSkillCount":27}}`,
 			responseBody: "ignored success body",
 		},
 		{

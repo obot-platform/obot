@@ -47,7 +47,6 @@ When available, reports also contain these aggregate usage fields:
 | Custom MCP entries | Snapshot count of MCP catalog entries that are not built in. |
 | Custom vMCPs | Snapshot count of vMCPs explicitly created by a person. Edited catalog defaults are not included. |
 | vMCP instances | Snapshot count of user connection instances. |
-| Configured vMCP instances | Snapshot count of instances whose configuration status is complete. This does not imply a successful client connection. |
 | Built-in MCP servers | Per-server aggregates containing the built-in server ID and name, plus its deployment count and distinct user count. |
 | Authentication-provider type | The configured authentication-provider type, without provider configuration values. |
 | MCP tool-call count | Number of MCP tool calls during the previous complete UTC day. |

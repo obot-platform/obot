@@ -139,18 +139,14 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 	if err := storageClient.List(ctx, &vmcpInstances, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		logMetricError("vMCP instances", err)
 	} else {
-		var total, configured int64
+		var total int64
 		for _, instance := range vmcpInstances.Items {
 			if !instance.DeletionTimestamp.IsZero() {
 				continue
 			}
 			total++
-			if instance.Status.Configured {
-				configured++
-			}
 		}
 		metrics.VMCPInstanceCount = &total
-		metrics.VMCPConfiguredInstanceCount = &configured
 	}
 
 	var deploymentCounts map[string]int64
