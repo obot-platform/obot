@@ -23,7 +23,7 @@
 	title={`Connect to ${vmcp?.displayName ?? 'vMCP'}`}
 	onClose={close}
 >
-	{#if vmcp}
+	{#if vmcp && vmcpConnectURL(vmcp)}
 		<p class="text-muted-content mb-4 text-sm font-light">
 			Use this URL in an MCP client. Each user connects directly to the vMCP endpoint.
 		</p>
@@ -37,5 +37,7 @@
 				<CopyButton text={vmcpConnectURL(vmcp)} noButtonText tooltipText="Copy Connect URL" />
 			</div>
 		</div>
+	{:else}
+		<p class="text-muted-content text-sm">This vMCP is not ready to connect yet.</p>
 	{/if}
 </ResponsiveDialog>

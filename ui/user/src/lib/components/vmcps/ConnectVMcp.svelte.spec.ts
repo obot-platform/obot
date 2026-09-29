@@ -87,6 +87,10 @@ describe('ConnectVMcp.svelte', () => {
 		const { createInstance, launch } = mockConfigureAndLaunch(vmcp);
 
 		await renderDialog(vmcp);
+		await expect
+			.element(page.getByText('This vMCP is not ready to connect.', { exact: false }))
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Connection URL')).not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Preconfigure server' }).click();
 		await expect
 			.element(page.getByText('Salesforce requires administrator OAuth setup.', { exact: false }))

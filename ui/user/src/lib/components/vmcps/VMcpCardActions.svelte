@@ -81,7 +81,7 @@
 					button:
 						'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
 				}}
-				disabled={hasLicenseEntitlementViolations || disabled}
+				disabled={hasLicenseEntitlementViolations || disabled || !connectURL}
 			/>
 		</div>
 	</div>

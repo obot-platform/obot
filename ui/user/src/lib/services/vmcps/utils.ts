@@ -227,6 +227,7 @@ function stripInformationalManifestFields<T extends object>(manifest: T): T {
 }
 
 export function vmcpConnectURL(vmcp: VMCP) {
+	if (!vmcp.status?.ready) return undefined;
 	const link = vmcp.links?.connectURL || vmcp.links?.['mcp-connect'];
 	if (link) return link;
 	const origin = typeof window !== 'undefined' ? window.location.origin : '';

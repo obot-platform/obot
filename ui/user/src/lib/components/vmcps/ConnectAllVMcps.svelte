@@ -3,7 +3,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { VMCP } from '$lib/services';
 	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import { buildConnectAllSnippets } from '$lib/services/vmcps/utils';
+	import { buildConnectAllSnippets, vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
@@ -17,6 +17,9 @@
 	let selectedClient = $state<(typeof COMMON_AI_CLIENTS)[number]>();
 	let selectedConnectAllSnippetId = $state<string>();
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
+	let hasConnectableVMcps = $derived(
+		vmcps.some((vmcp) => (vmcp.components?.length ?? 0) > 0 && !!vmcpConnectURL(vmcp))
+	);
 	let connectAllSnippets = $derived(
 		selectedClient ? buildConnectAllSnippets(selectedClient.id, vmcps, isAdmin) : []
 	);
@@ -52,7 +55,7 @@
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 md:p-0 p-4">
-		{#if vmcps.length === 0}
+		{#if !hasConnectableVMcps}
 			<p class="text-sm text-muted-content font-light">
 				No vMCPs currently have a connection URL to copy.
 			</p>

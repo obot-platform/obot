@@ -469,9 +469,12 @@
 				: undefined}
 		/>
 	{:else}
-		<p class="text-sm text-muted-content font-light md:p-0 p-4">
-			This vMCP does not have a connection URL yet.
-		</p>
+		<div class="flex flex-col items-start gap-3 md:p-0 p-4">
+			<p class="text-sm text-muted-content font-light">
+				This vMCP is not ready to connect. Complete its setup first.
+			</p>
+			<button class="btn btn-primary btn-sm" onclick={initLaunch}>Preconfigure server</button>
+		</div>
 	{/if}
 </ResponsiveDialog>
 
