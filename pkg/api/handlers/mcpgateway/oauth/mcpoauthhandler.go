@@ -430,7 +430,7 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 	if credentialContext != "" {
 		cred, err := m.gatewayClient.RevealCredential(ctx, []string{credentialContext}, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
-			return "", "", fmt.Errorf("look up OAuth credentials for MCP server %s: %w", m.mcpID, err)
+			return "", "", fmt.Errorf("failed to retrieve static OAuth credentials for MCP server %q: %w", m.mcpID, err)
 		}
 		if err == nil {
 			clientID := cred.Secrets["CLIENT_ID"]
