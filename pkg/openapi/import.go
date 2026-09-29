@@ -164,6 +164,9 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	return document, canonical, nil
 }
 
+// checkYAML rejects excessive nesting, aliases, and invalid or duplicate mapping
+// keys before conversion to JSON. The 128-level cap bounds recursive processing
+// of untrusted input; it is an application policy, not an OpenAPI limit.
 func checkYAML(node *yamlv3.Node, depth int) error {
 	if depth > 128 {
 		return fmt.Errorf("schema nesting exceeds 128 levels")
