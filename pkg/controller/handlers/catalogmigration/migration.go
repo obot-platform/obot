@@ -168,7 +168,7 @@ func (h *Handler) migrateEntry(ctx context.Context, client kclient.Client, entry
 	target := newVMCP(entry.Namespace, entry.Name, entry.Spec.Manifest, profiles)
 	component, static := newComponent(entry.Name, cmp.Or(entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID), entry.Name, entry.Spec.Manifest, nil, false)
 	component.CatalogEntry.UnsupportedTools = slices.Clone(entry.Spec.UnsupportedTools)
-	component.SourceDigest = utils.Digest(types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest, UnsupportedTools: entry.Spec.UnsupportedTools})
+	component.SourceDigest = vmcp.SourceDigest(types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest, UnsupportedTools: entry.Spec.UnsupportedTools})
 	target.Spec.Manifest.Components = []types.VMCPComponent{component}
 
 	if err := h.ensureVMCP(ctx, client, &target, static); err != nil {
@@ -207,7 +207,7 @@ func (h *Handler) migrateSharedServer(ctx context.Context, client kclient.Client
 	target.Spec.CreatorUserID = server.Spec.UserID
 	component, static := newComponent(server.Name, cmp.Or(server.Spec.MCPCatalogID, server.Spec.PowerUserWorkspaceID), cmp.Or(server.Spec.MCPServerCatalogEntryName, server.Name), manifest, values, true)
 	component.CatalogEntry.UnsupportedTools = slices.Clone(server.Spec.UnsupportedTools)
-	component.SourceDigest = utils.Digest(types.MCPServerCatalogEntrySnapshot{Manifest: manifest, UnsupportedTools: server.Spec.UnsupportedTools})
+	component.SourceDigest = vmcp.SourceDigest(types.MCPServerCatalogEntrySnapshot{Manifest: manifest, UnsupportedTools: server.Spec.UnsupportedTools})
 	target.Spec.Manifest.Components = []types.VMCPComponent{component}
 
 	if err := h.ensureVMCP(ctx, client, &target, static); err != nil {
@@ -238,7 +238,7 @@ func (h *Handler) migrateSingleUserServer(ctx context.Context, client kclient.Cl
 
 		component, _ := newComponent(server.Name, catalog, cmp.Or(server.Spec.MCPServerCatalogEntryName, server.Name), manifest, nil, false)
 		component.CatalogEntry.UnsupportedTools = slices.Clone(server.Spec.UnsupportedTools)
-		component.SourceDigest = utils.Digest(types.MCPServerCatalogEntrySnapshot{Manifest: server.Spec.Manifest.ConvertToCatalogEntry(), UnsupportedTools: server.Spec.UnsupportedTools})
+		component.SourceDigest = vmcp.SourceDigest(types.MCPServerCatalogEntrySnapshot{Manifest: server.Spec.Manifest.ConvertToCatalogEntry(), UnsupportedTools: server.Spec.UnsupportedTools})
 		target.Spec.Manifest.Components = []types.VMCPComponent{component}
 
 		if err := h.ensureVMCP(ctx, client, target, make(map[string]string)); err != nil {

@@ -7,7 +7,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/utils"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -31,17 +31,10 @@ func DetectDrift(req router.Request, _ router.Response) error {
 		} else if err != nil {
 			return fmt.Errorf("get VMCP component source %q: %w", component.MCPServerCatalogEntryID, err)
 		} else {
-			current := types.MCPServerCatalogEntrySnapshot{
+			status.NeedsUpdate = vmcpconfig.NeedsUpdate(component, types.MCPServerCatalogEntrySnapshot{
 				Manifest:         entry.Spec.Manifest,
 				UnsupportedTools: entry.Spec.UnsupportedTools,
-			}
-			// Migration strips fixed configuration values from the deployed snapshot.
-			// Compare against the original source so genuine value changes still count.
-			digest := component.SourceDigest
-			if digest == "" {
-				digest = utils.Digest(component.CatalogEntry)
-			}
-			status.NeedsUpdate = digest != utils.Digest(current)
+			})
 		}
 		statuses = append(statuses, status)
 	}

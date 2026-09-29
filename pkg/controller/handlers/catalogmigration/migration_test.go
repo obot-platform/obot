@@ -683,6 +683,10 @@ func TestStaticConfigurationDoesNotCauseSourceDrift(t *testing.T) {
 			require.NoError(t, client.Update(t.Context(), entry))
 			reconcile(false)
 			entry.Spec.Manifest.Description = "new source version"
+			entry.Spec.Manifest.UpgradeNote = "Read before upgrading."
+			require.NoError(t, client.Update(t.Context(), entry))
+			reconcile(false)
+			entry.Spec.Manifest.Config = append(entry.Spec.Manifest.Config, types.MCPConfig{Key: "ADDED", Usage: usage})
 			require.NoError(t, client.Update(t.Context(), entry))
 			reconcile(true)
 		})

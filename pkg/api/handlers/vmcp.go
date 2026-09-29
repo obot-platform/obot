@@ -13,7 +13,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -324,7 +323,7 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 				Manifest:         entry.Spec.Manifest,
 				UnsupportedTools: entry.Spec.UnsupportedTools,
 			}
-			component.SourceDigest = utils.Digest(component.CatalogEntry)
+			component.SourceDigest = vmcpconfig.SourceDigest(component.CatalogEntry)
 			component.OAuthCredentialID = vmcpconfig.StaticOAuthCredentialReference(entry.Spec.Manifest, entry.Name)
 			if component.Name == "" {
 				component.Name = entry.Spec.Manifest.Name

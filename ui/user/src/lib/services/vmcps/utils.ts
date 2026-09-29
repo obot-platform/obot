@@ -179,17 +179,33 @@ export function vmcpComponentDiffServers(
 		return {};
 	}
 
-	// Snapshots never store tool previews and previews don't mark a component
-	// as needing an update, so leave them out of the latest entry as well.
-	const manifest = { ...updatedEntry.manifest };
-	delete manifest.toolPreview;
 	return {
 		fromServer: {
 			id: component.mcpServerCatalogEntryID,
-			manifest: component.catalogEntry.manifest
+			manifest: stripInformationalManifestFields(component.catalogEntry.manifest)
 		} as MCPCatalogServer,
-		toServer: { ...updatedEntry, manifest }
+		toServer: {
+			...updatedEntry,
+			manifest: stripInformationalManifestFields(updatedEntry.manifest)
+		}
 	};
+}
+
+// Snapshots never store tool previews, and neither previews nor informational
+// catalog fields mark a component as needing an update, so the diff omits them.
+function stripInformationalManifestFields<T extends object>(manifest: T): T {
+	const stripped = { ...manifest } as Record<string, unknown>;
+	for (const field of [
+		'toolPreview',
+		'metadata',
+		'shortDescription',
+		'description',
+		'icon',
+		'upgradeNote'
+	]) {
+		delete stripped[field];
+	}
+	return stripped as T;
 }
 
 export function vmcpConnectURL(vmcp: VMCP) {

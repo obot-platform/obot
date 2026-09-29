@@ -565,36 +565,56 @@ describe('vmcpOutdatedComponents', () => {
 		const updatedEntry = createMCPCatalogEntry({
 			id: 'entry-1',
 			name: 'GitHub',
-			manifest: { shortDescription: 'Updated description' }
+			manifest: { repoURL: 'https://github.com/example/updated' }
 		});
 
 		expect(vmcpOutdatedComponents(vmcp)).toHaveLength(1);
 		expect(vmcpComponentDiffServers(vmcp.components![0], updatedEntry)).toMatchObject({
 			fromServer: {
 				id: 'entry-1',
-				manifest: vmcp.components![0].catalogEntry.manifest
+				manifest: { name: 'GitHub', runtime: 'npx' }
 			},
-			toServer: updatedEntry
+			toServer: {
+				id: 'entry-1',
+				manifest: { name: 'GitHub', repoURL: 'https://github.com/example/updated' }
+			}
 		});
 	});
 
-	it('omits tool previews from the latest catalog entry', () => {
-		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+	it('omits tool previews and informational fields from the diff', () => {
+		const informational = {
+			metadata: { categories: 'Developer Tools' },
+			shortDescription: 'Short description',
+			description: 'Description',
+			icon: 'https://example.com/icon.png',
+			upgradeNote: 'Read before upgrading.'
+		};
+		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub', manifest: informational });
 		const vmcp = createVMCP({}, [entry]);
 		const updatedEntry = createMCPCatalogEntry({
 			id: 'entry-1',
 			name: 'GitHub',
 			manifest: {
-				shortDescription: 'Updated description',
+				metadata: { categories: 'Productivity' },
+				shortDescription: 'Updated short description',
+				description: 'Updated description',
+				icon: 'https://example.com/updated.png',
+				upgradeNote: 'Updated upgrade note.',
+				repoURL: 'https://github.com/example/updated',
 				toolPreview: [{ id: 'echo', name: 'echo', description: 'Echo input' }]
 			}
 		});
 
-		const { toServer } = vmcpComponentDiffServers(vmcp.components![0], updatedEntry);
+		const { fromServer, toServer } = vmcpComponentDiffServers(vmcp.components![0], updatedEntry);
 
-		expect(toServer?.manifest).not.toHaveProperty('toolPreview');
-		expect(toServer?.manifest.shortDescription).toBe('Updated description');
+		for (const field of [...Object.keys(informational), 'toolPreview']) {
+			expect(fromServer?.manifest).not.toHaveProperty(field);
+			expect(toServer?.manifest).not.toHaveProperty(field);
+		}
+		expect(toServer?.manifest.repoURL).toBe('https://github.com/example/updated');
 		expect(updatedEntry.manifest.toolPreview).toHaveLength(1);
+		expect(updatedEntry.manifest.description).toBe('Updated description');
+		expect(vmcp.components![0].catalogEntry.manifest.icon).toBe(informational.icon);
 	});
 });
 

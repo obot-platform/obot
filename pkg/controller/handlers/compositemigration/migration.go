@@ -300,7 +300,7 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 		}
 
 		// Track the source before moving fixed values into credential storage.
-		component.SourceDigest = utils.Digest(component.CatalogEntry)
+		component.SourceDigest = vmcp.SourceDigest(component.CatalogEntry)
 
 		for i := range component.CatalogEntry.Manifest.Config {
 			item := &component.CatalogEntry.Manifest.Config[i]

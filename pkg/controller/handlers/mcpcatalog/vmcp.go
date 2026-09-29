@@ -176,7 +176,7 @@ func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL st
 			Manifest:         entry.Spec.Manifest,
 			UnsupportedTools: entry.Spec.UnsupportedTools,
 		}
-		component.SourceDigest = utils.Digest(component.CatalogEntry)
+		component.SourceDigest = vmcpconfig.SourceDigest(component.CatalogEntry)
 		component.OAuthCredentialID = vmcpconfig.StaticOAuthCredentialReference(entry.Spec.Manifest, entry.Name)
 		if component.Name == "" {
 			component.Name = entry.Spec.Manifest.Name

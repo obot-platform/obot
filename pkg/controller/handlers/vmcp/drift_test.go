@@ -92,6 +92,19 @@ func TestDetectDrift(t *testing.T) {
 		t.Fatal("tool previews should not cause snapshot drift")
 	}
 
+	entry.Spec.Manifest.Metadata = map[string]string{"categories": "Developer Tools"}
+	entry.Spec.Manifest.ShortDescription = "new short description"
+	entry.Spec.Manifest.Description = "new description"
+	entry.Spec.Manifest.Icon = "https://example.com/icon.png"
+	entry.Spec.Manifest.UpgradeNote = "Read before upgrading."
+	if err := client.Update(t.Context(), entry); err != nil {
+		t.Fatal(err)
+	}
+	reconcile()
+	if vmcp.Status.Components[0].NeedsUpdate {
+		t.Fatal("informational catalog fields should not cause snapshot drift")
+	}
+
 	entry.Spec.Manifest.Name = "changed"
 	entry.Spec.UnsupportedTools = []string{"newly-unsupported"}
 	if err := client.Update(t.Context(), entry); err != nil {
