@@ -77,6 +77,17 @@ func TestBaseURLValidation(t *testing.T) {
 	}
 }
 
+func TestURLPathSpacesAndControls(t *testing.T) {
+	base, err := destination("https://api.example.com/my path")
+	require.NoError(t, err)
+	require.Equal(t, "https://api.example.com/my%20path/", base)
+
+	for _, source := range []string{"https://api.example.com/a\rb", "https://api.example.com/a\tb", "https://api.example.com/a\\b"} {
+		_, err := sourceURL(source)
+		require.Error(t, err)
+	}
+}
+
 func TestReferencesAndParameters(t *testing.T) {
 	for _, test := range []struct {
 		name      string
