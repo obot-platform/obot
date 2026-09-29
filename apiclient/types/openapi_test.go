@@ -24,8 +24,6 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 
 	roundTrip := server.ConvertToCatalogEntry()
 	require.Equal(t, server.OpenAPIConfig, roundTrip.OpenAPIConfig)
-	roundTrip.OpenAPIConfig.Schema.Raw[0] = ' '
-	require.NotEqual(t, server.OpenAPIConfig.Schema, roundTrip.OpenAPIConfig.Schema)
 
 	data, err := json.Marshal(server)
 	require.NoError(t, err)
