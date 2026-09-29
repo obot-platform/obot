@@ -61,9 +61,6 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 		return nil, err
 	}
 	result.SuggestedHeaders = headers
-	if len(headers) > 0 && !strings.HasPrefix(result.BaseURL, "https://") {
-		return nil, fmt.Errorf("credential forwarding requires an HTTPS API destination")
-	}
 	if document.Paths == nil {
 		return nil, fmt.Errorf("schema paths must be an object")
 	}
