@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"io"
+	neturl "net/url"
 
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
@@ -11,10 +13,15 @@ import (
 // servers (and composites of them). Obot itself is the proxy for those, so no
 // container runtime is needed: this backend never talks to Docker or Kubernetes,
 // and refuses anything that would have to be hosted.
-type noneBackend struct{}
+type noneBackend struct {
+	// localBaseURL is where this Obot process listens; used when Obot calls
+	// itself (e.g. MCP hook/filter servers via /mcp-connect), so those calls do
+	// not depend on the public hostname resolving from inside the deployment.
+	localBaseURL string
+}
 
-func newNoneBackend() *noneBackend {
-	return &noneBackend{}
+func newNoneBackend(httpListenPort int) *noneBackend {
+	return &noneBackend{localBaseURL: fmt.Sprintf("http://localhost:%d", httpListenPort)}
 }
 
 func (n *noneBackend) notSupported(feature string) error {
@@ -53,8 +60,26 @@ func (n *noneBackend) shutdownServer(context.Context, string, bool) error {
 	return nil
 }
 
-func (n *noneBackend) transformObotHostname(url string) string {
-	return url
+// transformObotHostname points URLs that target Obot itself at the local
+// listener, like the Docker backend does with its host address: the public
+// hostname (OBOT_SERVER_HOSTNAME) may not resolve, or may be firewalled, from
+// where Obot runs (e.g. an internal-only network behind an egress proxy).
+func (n *noneBackend) transformObotHostname(rawURL string) string {
+	if n.localBaseURL == "" || rawURL == "" {
+		return rawURL
+	}
+	parsed, err := neturl.Parse(rawURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return rawURL
+	}
+	base, err := neturl.Parse(n.localBaseURL)
+	if err != nil {
+		return rawURL
+	}
+	parsed.Scheme = base.Scheme
+	parsed.Host = base.Host
+	parsed.User = nil
+	return parsed.String()
 }
 
 // remoteConfig keeps the global validation settings: unlike the Docker backend,
