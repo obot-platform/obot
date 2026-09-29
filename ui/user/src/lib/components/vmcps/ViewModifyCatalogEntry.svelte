@@ -70,7 +70,7 @@
 		selectServerTypeDialog?.open();
 	}
 
-	export async function open(entity: MCPCatalogEntry) {
+	export async function open(entity: MCPCatalogEntry, options?: { promptOAuthConfig?: boolean }) {
 		hydrateController?.abort();
 		const controller = new AbortController();
 		hydrateController = controller;
@@ -78,6 +78,7 @@
 		creating = false;
 		selectedServerType = undefined;
 		clearPrompts();
+		promptOAuthConfig = options?.promptOAuthConfig ?? false;
 		catalogEntry = entity;
 		dialog?.open();
 		await hydrate(entity, controller.signal);

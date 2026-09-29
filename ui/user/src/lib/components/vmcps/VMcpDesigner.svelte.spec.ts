@@ -50,6 +50,20 @@ const componentEntry = createMCPCatalogEntry({
 	}
 });
 
+function unconfiguredSalesforceEntry() {
+	return createMCPCatalogEntry({
+		id: 'entry-salesforce',
+		name: 'Salesforce',
+		runtime: 'remote',
+		manifest: {
+			remoteConfig: {
+				fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+				staticOAuthRequired: true
+			}
+		}
+	});
+}
+
 const toolOverrides: ToolOverride[] = [
 	{ name: 'create_issue', description: 'Create an issue', enabled: true },
 	{ name: 'list_issues', description: 'List issues', enabled: false }
@@ -644,6 +658,26 @@ describe('VMcpDesigner.svelte', () => {
 			});
 		});
 
+		it('opens static OAuth setup instead of adding an unconfigured server', async () => {
+			const salesforce = unconfiguredSalesforceEntry();
+			mockEntryDetails(salesforce);
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, salesforce], vmcp);
+
+			const { el } = await pressCard(panelCard('Salesforce'), 31);
+			const to = centerOf(await vmcpCard().element());
+			pointer(el, 'pointermove', 31, to);
+			await tick();
+			pointer(el, 'pointerup', 31, to);
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Configure Static OAuth' }))
+				.toBeVisible();
+			expect(update).not.toHaveBeenCalled();
+		});
+
 		it('still drops when later pointer events fire on the canvas instead of the source card', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			const update = vi.fn();
@@ -792,6 +826,27 @@ describe('VMcpDesigner.svelte', () => {
 			pointer(el, 'pointerup', 17, to);
 
 			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+		});
+
+		it('requires static OAuth setup before creating a vMCP from a server', async () => {
+			const salesforce = unconfiguredSalesforceEntry();
+			mockEntryDetails(salesforce);
+			await renderDesigner([componentEntry, salesforce]);
+
+			const canvas = await page.getByCSS('[data-vmcp-canvas]').element();
+			const rect = canvas.getBoundingClientRect();
+			const { el } = await pressCard(panelCard('Salesforce'), 32);
+			const to = { x: rect.left + 16, y: rect.top + 16 };
+			pointer(el, 'pointermove', 32, to);
+			await tick();
+			pointer(el, 'pointerup', 32, to);
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Configure Static OAuth' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('dialog').getByText('Create vMCP').first())
+				.not.toBeInTheDocument();
 		});
 
 		it('opens create when a configurable server is dropped on the empty canvas', async () => {

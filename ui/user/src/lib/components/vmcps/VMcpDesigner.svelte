@@ -46,6 +46,7 @@
 		catalogConfigurationFields,
 		catalogEntryToVMCPComponent,
 		isCatalogSyncedVMcp,
+		mcpServerNeedsStaticOAuthConfiguration,
 		resolveVMcpComponents,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
@@ -198,6 +199,18 @@
 		void catalogEntryDialog?.open(entry);
 	}
 
+	function requireConfiguredOAuth(entry: MCPCatalogEntry): boolean {
+		if (!mcpServerNeedsStaticOAuthConfiguration(entry)) return false;
+		if (profile.current.isAdmin?.() || entry.powerUserWorkspaceID) {
+			void catalogEntryDialog?.open(entry, { promptOAuthConfig: true });
+		} else {
+			errors.append(
+				`${entry.manifest.name || 'This MCP server'} requires administrator OAuth configuration before it can be added to a vMCP.`
+			);
+		}
+		return true;
+	}
+
 	function handleAddFromDetails(entry: MCPCatalogEntry) {
 		if (responsive.isMobile) {
 			showRightPanel = false;
@@ -236,6 +249,7 @@
 
 	function handleDroppedOnCreate(entry: MCPCatalogEntry) {
 		if (!canEdit) return;
+		if (requireConfiguredOAuth(entry)) return;
 		createEditVMcp?.openCreate([catalogEntryToVMCPComponent(entry)]);
 	}
 
@@ -280,6 +294,7 @@
 
 	async function handleDropped(entry: MCPCatalogEntry, target: VMCP) {
 		if (!canEdit) return;
+		if (requireConfiguredOAuth(entry)) return;
 		const component = catalogEntryToVMCPComponent(entry);
 		componentDropPending = true;
 

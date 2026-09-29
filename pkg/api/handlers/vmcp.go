@@ -99,7 +99,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		userID = req.User.GetUID()
 	}
 
-	if err := h.loadComponentSnapshots(req, &manifest, userID, nil); err != nil {
+	if err := h.loadComponentSnapshots(req, &manifest, userID, nil, true); err != nil {
 		return err
 	}
 	if err := rejectConfigurationSecretBindings(manifest); err != nil {
@@ -171,7 +171,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	vmcpconfig.PruneRemovedComponentProfiles(vmcp.Spec.Manifest.Components, &manifest)
-	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components); err != nil {
+	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components, true); err != nil {
 		return err
 	}
 	if err := rejectConfigurationSecretBindings(manifest); err != nil {
@@ -217,7 +217,7 @@ func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return err
 	}
-	if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil); err != nil {
+	if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil, false); err != nil {
 		return err
 	}
 	if err := vmcp.Spec.Manifest.Validate(); err != nil {
@@ -286,7 +286,7 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	return req.Write(convertVMCP(vmcp))
 }
 
-func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent) error {
+func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent, rejectUnconfiguredOAuth bool) error {
 	for i := range manifest.Components {
 		component := &manifest.Components[i]
 		if component.MCPServerCatalogEntryID == "" {
@@ -307,6 +307,13 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 		if err == nil {
 			if err := authz.CheckVMCPComponentAccess(req.Context(), req.User, ownerID, &entry, h.acrHelper, req.GatewayClient.UserInfoByID); err != nil {
 				return err
+			}
+			if previous == nil && rejectUnconfiguredOAuth && entryRequiresStaticOAuthCreds(entry) {
+				name := entry.Spec.Manifest.Name
+				if name == "" {
+					name = entry.Name
+				}
+				return types.NewErrBadRequest("MCP server %q requires administrator OAuth configuration before it can be added to a vMCP", name)
 			}
 		}
 		if previous != nil {

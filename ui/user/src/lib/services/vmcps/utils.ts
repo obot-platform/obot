@@ -82,6 +82,14 @@ export function vmcpNeedsUpdate(vmcp: VMCP) {
 	return vmcp.status?.components?.some((component) => component.needsUpdate) ?? false;
 }
 
+export function mcpServerNeedsStaticOAuthConfiguration(entry: MCPCatalogEntry): boolean {
+	return Boolean(
+		entry.manifest.runtime === 'remote' &&
+		entry.manifest.remoteConfig?.staticOAuthRequired &&
+		!entry.oauthCredentialConfigured
+	);
+}
+
 export function vmcpMissingStaticOAuthComponent(vmcp: VMCP): VMCPComponent | undefined {
 	return vmcp.components?.find(
 		(component) =>
