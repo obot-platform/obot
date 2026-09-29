@@ -25,6 +25,9 @@ type AuthProviderStatus struct {
 	// RequiresActivation means a provisioned initial owner has not yet opened their setup link and
 	// set a password, so nobody can sign in through this provider yet.
 	RequiresActivation bool `json:"requiresActivation,omitempty"`
+	// SCIMState is the state of the provider's SCIM connection: "connected", "enforced", or empty when
+	// the provider has none. Only administrators see it.
+	SCIMState string `json:"scimState,omitempty"`
 }
 
 type AuthProviderList List[AuthProvider]

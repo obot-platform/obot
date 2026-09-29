@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
@@ -121,10 +122,17 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 	maps.Copy(credEnv, d.authProviderExtraEnv)
 
+	// A SCIM connection relaxes the parameters that only directory synchronization uses, so the
+	// provider starts without them.
+	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, namespace, authProviderName)
+	if err != nil {
+		return url.URL{}, err
+	}
+
 	// Check the environment the daemon will actually receive rather than Status, which the
 	// controller computes from the active contexts alone and so never sees a staged replacement.
 	var missing []string
-	for _, param := range authProvider.Spec.RequiredConfigurationParameters {
+	for _, param := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, credEnv).Required {
 		if _, ok := credEnv[param.Name]; !ok {
 			missing = append(missing, param.Name)
 		}
@@ -295,7 +303,12 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider 
 		return false
 	}
 
-	for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
+	if err != nil {
+		return false
+	}
+
+	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, credEnv).Required {
 		if _, ok := credEnv[envVar.Name]; !ok {
 			return false
 		}

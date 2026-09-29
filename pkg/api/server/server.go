@@ -25,6 +25,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/storage"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -139,8 +140,16 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// errors, registry endpoints, UI, static, and proxy responses.
 		rw = &headersResponseWriter{ResponseWriter: rw}
 
+		// SCIM clients understand only SCIM responses, so every failure on a SCIM route is written as one.
+		isSCIM := scim.IsSCIMPath(req.URL.Path)
+
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
+			if isSCIM {
+				writeSCIMAuthenticationError(rw, err)
+				return
+			}
+
 			if errors.Is(err, proxy.ErrInvalidSession) {
 				// The session is invalid, so tell the browser to delete the cookie so that it won't try it again.
 				http.SetCookie(rw, &http.Cookie{
@@ -184,7 +193,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			if err := s.rateLimiter.ApplyLimit(user, rw, req); err != nil {
 				if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
 					// The user has exceeded their rate limit.
-					http.Error(rw, err.Error(), http.StatusTooManyRequests)
+					if isSCIM {
+						scim.WriteError(rw, http.StatusTooManyRequests, err.Error())
+					} else {
+						http.Error(rw, err.Error(), http.StatusTooManyRequests)
+					}
 					return
 				}
 
@@ -195,8 +208,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		authenticated := !slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup)
-		if strings.HasPrefix(req.URL.Path, "/api/") && req.URL.Path != "/api/healthz" {
-			// Setup a new response writer for audit logging.
+		isAPI := strings.HasPrefix(req.URL.Path, "/api/") && req.URL.Path != "/api/healthz"
+		if isAPI || isSCIM {
+			// Setup a new response writer for audit logging. Its entries never include the query string or the
+			// body, which on SCIM routes can hold identity provider data.
 			rw = &responseWriter{
 				ResponseWriter: rw,
 				auditEntry: audit.LogEntry{
@@ -210,7 +225,9 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				},
 				auditLogger: s.auditLogger,
 			}
-
+		}
+		if isAPI {
+			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity.
 			if authenticated {
 				// Best effort
 				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
@@ -257,9 +274,14 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
 				}
 
-				if authenticated {
+				switch {
+				case isSCIM && authenticated:
+					scim.WriteError(rw, http.StatusForbidden, "this credential cannot access this SCIM endpoint")
+				case isSCIM:
+					scim.WriteUnauthorized(rw)
+				case authenticated:
 					http.Error(rw, "forbidden", http.StatusForbidden)
-				} else {
+				default:
 					http.Error(rw, "unauthorized", http.StatusUnauthorized)
 				}
 
@@ -283,14 +305,20 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				ObotNamespace:  s.obotNamespace,
 			})
 		}
+		writeError := http.Error
+		if isSCIM {
+			writeError = func(w http.ResponseWriter, message string, code int) {
+				scim.WriteError(w, code, message)
+			}
+		}
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
-			http.Error(rw, errHTTP.Message, errHTTP.Code)
+			writeError(rw, errHTTP.Message, errHTTP.Code)
 			shouldLogError = errHTTP.Code == http.StatusInternalServerError
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
-			http.Error(rw, errStatus.Error(), int(errStatus.ErrStatus.Code))
+			writeError(rw, errStatus.Error(), int(errStatus.ErrStatus.Code))
 			shouldLogError = errStatus.ErrStatus.Code == http.StatusInternalServerError
 		} else if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			writeError(rw, err.Error(), http.StatusInternalServerError)
 			shouldLogError = true
 		}
 
@@ -298,6 +326,18 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			slog.Error("Error handling request", "path", req.URL.Path, "error", err)
 		}
 	}
+}
+
+// writeSCIMAuthenticationError answers a SCIM request whose authentication failed. Without any SCIM connection, the
+// endpoint is unavailable. Any other failure is Obot's, and is never reported as a bad credential.
+func writeSCIMAuthenticationError(rw http.ResponseWriter, err error) {
+	if _, ok := authenticationError[*scim.UnavailableError](err); ok {
+		scim.WriteUnavailable(rw, "SCIM is not enabled")
+		return
+	}
+
+	slog.Error("Failed to authenticate SCIM request", "error", err)
+	scim.WriteError(rw, http.StatusInternalServerError, "internal error")
 }
 
 func passwordChangeRequestAllowed(req *http.Request) bool {

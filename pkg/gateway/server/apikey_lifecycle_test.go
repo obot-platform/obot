@@ -93,7 +93,7 @@ func TestAPIKeyAuthenticatorDeniesAKeyThatOutlivedItsUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
-	if _, err := client.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
+	if err := client.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
 		t.Fatalf("failed to delete user: %v", err)
 	}
 

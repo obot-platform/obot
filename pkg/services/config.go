@@ -56,6 +56,7 @@ import (
 	"github.com/obot-platform/obot/pkg/otel"
 	"github.com/obot-platform/obot/pkg/producttelemetry"
 	"github.com/obot-platform/obot/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -1249,6 +1250,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// server's Authorization header, so recognize them before all user-facing
 	// authenticators and outside the user decorator.
 	authenticators = union.New(tunnelManager, authenticators)
+
+	// SCIM routes authenticate only with a SCIM connection's bearer token. The SCIM authenticator runs ahead of every
+	// other authenticator and ends the chain on SCIM routes whatever its answer, so no cookie, credential, redirect, or
+	// just-in-time user creation applies there. Off SCIM routes, it declines.
+	authenticators = union.NewFailOnError(scim.NewAuthenticator(gatewayClient), authenticators)
 
 	// Deny disabled and deleted users whichever credential they present. This wraps the complete chain so that it
 	// runs once per request, after authentication and before authorization.

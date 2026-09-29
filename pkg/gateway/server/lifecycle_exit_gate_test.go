@@ -261,7 +261,7 @@ func TestLifecycleExitGate(t *testing.T) {
 	}
 
 	// A deleted user stays deleted: every credential is denied, and the user cannot be reactivated.
-	if _, err := client.DeleteUser(ctx, fmt.Sprint(oktaUser.ID)); err != nil {
+	if err := client.DeleteUser(ctx, fmt.Sprint(oktaUser.ID)); err != nil {
 		t.Fatalf("failed to delete the Okta user: %v", err)
 	}
 	assertDenied(oktaCredentials[1:], types2.UserStatusDeleted)

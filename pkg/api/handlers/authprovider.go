@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"uuid"
@@ -19,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,15 +50,53 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, ap.license)
+	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
 	if err != nil {
 		return err
 	}
+
+	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, conn, ap.license)
+	if err != nil {
+		return err
+	}
+	setSCIMState(req, conn, authProviderStatus)
 	if err := setRequiresActivation(req, authProvider, authProviderStatus); err != nil {
 		return err
 	}
 
-	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus))
+	params, err := effectiveAuthProviderParameters(req, authProvider, conn)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params))
+}
+
+// effectiveAuthProviderParameters returns the auth provider's effective configuration parameters. With a SCIM
+// connection, they depend on whether the stored credential still holds the parameters that only directory
+// synchronization uses.
+func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvider, conn *gatewaytypes.SCIMConnection) (adapter.Parameters, error) {
+	var stored map[string]string
+	if conn != nil {
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{
+			authProvider.Name,
+			system.GenericAuthProviderCredentialContext,
+			system.ReplacementAuthProviderCredentialContext,
+		}, authProvider.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return adapter.Parameters{}, fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
+		}
+		stored = cred.Secrets
+	}
+	return adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, stored), nil
+}
+
+// setSCIMState reports the state of the provider's SCIM connection. Auth providers are readable anonymously so the
+// sign-in page can render, so only administrators learn it.
+func setSCIMState(req api.Context, conn *gatewaytypes.SCIMConnection, status *types.AuthProviderStatus) {
+	if conn != nil && req.UserIsAdmin() {
+		status.SCIMState = string(conn.State)
+	}
 }
 
 func setRequiresActivation(req api.Context, authProvider v1.AuthProvider, status *types.AuthProviderStatus) error {
@@ -91,12 +131,25 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		}
 	}
 
+	conns, err := req.GatewayClient.SCIMConnections(req.Context())
+	if err != nil {
+		return err
+	}
+
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
 	for _, a := range authProviders.Items {
-		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, ap.license)
+		var conn *gatewaytypes.SCIMConnection
+		if i := slices.IndexFunc(conns, func(c gatewaytypes.SCIMConnection) bool {
+			return c.AuthProviderNamespace == a.Namespace && c.AuthProviderName == a.Name
+		}); i >= 0 {
+			conn = &conns[i]
+		}
+
+		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, conn, ap.license)
 		if err != nil {
 			return err
 		}
+		setSCIMState(req, conn, authProviderStatus)
 		authProviderStatus.Staged = staged != "" && a.Name == staged
 		if authProviderStatus.Staged {
 			authProviderStatus.VerifiedEmail = verifiedEmail
@@ -105,7 +158,12 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus))
+		params, err := effectiveAuthProviderParameters(req, a, conn)
+		if err != nil {
+			return err
+		}
+
+		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus, params))
 	}
 
 	return req.Write(types.AuthProviderList{Items: resp})
@@ -153,6 +211,10 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
+	if err := ap.validateAuthProviderConfiguration(req, authProvider, envVars); err != nil {
+		return err
+	}
+
 	stagedName, err := stageProviderCredential(req, envVars)
 	if err != nil {
 		return err
@@ -168,6 +230,42 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 			StagedCredentialName: stagedName,
 		},
 	})
+}
+
+// validateAuthProviderConfiguration checks a submitted configuration against the auth provider's effective
+// parameters, which depend on its SCIM connection. It first drops the parameters the provider no longer uses, so that
+// a provider whose directory is managed through SCIM is configured again without them.
+func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, envVars map[string]string) error {
+	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
+	if err != nil {
+		return err
+	}
+
+	params, err := effectiveAuthProviderParameters(req, authProvider, conn)
+	if err != nil {
+		return err
+	}
+	for _, name := range params.Dropped {
+		delete(envVars, name)
+	}
+	if missing := params.IncompleteGroup(envVars); len(missing) > 0 {
+		return types.NewErrBadRequest("provide all of %s, or none of them; missing: %s",
+			strings.Join(params.Together, " and "), strings.Join(missing, ", "))
+	}
+
+	status, err := providers.AuthProviderStatus(req.Context(), authProvider, envVars, conn, ap.license)
+	if err != nil {
+		return err
+	}
+	if len(status.MissingEntitlements) > 0 {
+		return types.NewErrHTTP(http.StatusPaymentRequired,
+			fmt.Sprintf("missing required license entitlements: %v", status.MissingEntitlements))
+	}
+	if !status.Configured {
+		return types.NewErrBadRequest("missing required configuration parameters: %s",
+			strings.Join(status.MissingConfigurationParameters, ", "))
+	}
+	return nil
 }
 
 func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) error {
@@ -249,17 +347,8 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		}
 	}
 
-	status, err := providers.AuthProviderStatus(req.Context(), authProvider, envVars, ap.license)
-	if err != nil {
+	if err := ap.validateAuthProviderConfiguration(req, authProvider, envVars); err != nil {
 		return err
-	}
-	if len(status.MissingEntitlements) > 0 {
-		return types.NewErrHTTP(http.StatusPaymentRequired,
-			fmt.Sprintf("missing required license entitlements: %v", status.MissingEntitlements))
-	}
-	if !status.Configured {
-		return types.NewErrBadRequest("missing required configuration parameters: %s",
-			strings.Join(status.MissingConfigurationParameters, ", "))
 	}
 
 	stagedName, err := stageProviderCredential(req, envVars)
@@ -432,10 +521,16 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
 }
 
-func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus) types.AuthProvider {
+// convertAuthProvider returns the API representation of an auth provider, which lists its effective configuration
+// parameters, so that the configuration form needs no SCIM logic.
+func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus, params adapter.Parameters) types.AuthProvider {
+	manifest := *authProvider.Spec.AuthProviderManifest.DeepCopy()
+	manifest.RequiredConfigurationParameters = params.Required
+	manifest.OptionalConfigurationParameters = params.Optional
+
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),
-		AuthProviderManifest: authProvider.Spec.AuthProviderManifest,
+		AuthProviderManifest: manifest,
 		AuthProviderStatus:   authProviderStatus,
 	}
 }

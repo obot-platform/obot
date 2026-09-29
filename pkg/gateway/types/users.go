@@ -90,8 +90,9 @@ func (u User) Status() types2.UserStatus {
 	}
 }
 
-// ManagementSource returns what controls the user's lifecycle status. Only SCIM sets a disable reason, so a
-// user with one is managed by SCIM.
+// ManagementSource returns what controls the user's lifecycle status, as far as the user row shows it. Only
+// SCIM sets a disable reason, so a user with one is managed by SCIM. So is a user with a SCIM binding, which the
+// row does not show, so callers that read the binding report SCIM for it.
 func (u User) ManagementSource() types2.UserManagementSource {
 	if u.DisabledReason.Valid() {
 		return types2.UserManagementSourceSCIM

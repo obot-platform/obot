@@ -75,6 +75,10 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 			if _, ok := errors.AsType[*FetchUserGroupsError](err); ok {
 				return nil, false, err
 			}
+			if _, ok := errors.AsType[*UserAccessDeniedError](err); ok {
+				// Such as a sign-in that SCIM has not provisioned, once SCIM is enforced for the auth provider.
+				return nil, false, err
+			}
 			// The user could not be read, so their status is unknown.
 			return nil, false, &UserAccessLookupError{
 				Err: err,

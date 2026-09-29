@@ -162,6 +162,11 @@ func (db *DB) AutoMigrate() (err error) {
 		types.LocalAuthSession{},
 		types.EnforcementDecisionLog{},
 		types.UserLifecycleEvent{},
+		types.SCIMConnection{},
+		types.SCIMUserBinding{},
+		types.SCIMGroupBinding{},
+		types.SCIMPendingGroupDeletion{},
+		types.SCIMRequestFailure{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -58,6 +59,21 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, resp router.Response) 
 		return err
 	}
 	if !checkpoint.DataDeleted {
+		// SCIM owns the groups, memberships, role assignments, and policy subjects of the provider it manages. They
+		// survive deconfiguration, so that configuring the provider again resumes SCIM with current data. Nothing
+		// changes then, so no user's roles or groups need recomputing either.
+		//
+		// The gateway data goes first, because its deletion is refused in the same transaction that would delete it
+		// while a SCIM connection owns it. The policy subjects follow only once it is gone. A connection that already
+		// exists keeps both, and none can be created until the cleanup finishes, because connection setup refuses
+		// while a cleanup is pending for the provider or its group ID prefix.
+		if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); errors.Is(err, gclient.ErrSCIMManagedGroupData) {
+			slog.Info("Kept the group data of an auth provider that SCIM manages", "authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix)
+			return req.Delete(cleanup)
+		} else if err != nil {
+			return err
+		}
+
 		counts := make(map[string]int, 6)
 		if counts["accessControlRules"], err = cleanupAccessControlRuleGroups(req, groupIDPrefix); err != nil {
 			return err
@@ -75,10 +91,6 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, resp router.Response) 
 			return err
 		}
 		if counts["publishedArtifacts"], err = cleanupPublishedArtifactGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-
-		if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); err != nil {
 			return err
 		}
 

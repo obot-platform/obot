@@ -20,6 +20,10 @@ const (
 	MetricsGroup         = "metrics"
 	UnauthenticatedGroup = "unauthenticated"
 
+	// scimPathPrefix begins the path of every SCIM connection's endpoint, as scimPathPrefix + connection ID. It must
+	// match the SCIM handler's path prefix.
+	scimPathPrefix = "/scim/v2/"
+
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"
 )
@@ -469,6 +473,15 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	connection, isSCIM := scimConnectionOfPath(req.URL.Path)
+	if slices.Contains(userInfo.GetGroups(), types.GroupSCIM) {
+		return isSCIM && connection != "" && connection == userInfo.GetUID()
+	}
+
+	if isSCIM {
+		return false
+	}
+
 	// Tunnel credentials are deliberately non-user principals. Keep this check
 	// ahead of anyGroup and UI authorization so the credential cannot inherit
 	// baseline routes intended for ordinary users.
@@ -604,3 +617,15 @@ func rulesFromStatic(static map[string][]string) []rule {
 }
 
 func (f *fake) ServeHTTP(http.ResponseWriter, *http.Request) {}
+
+// scimConnectionOfPath reports whether path is below the SCIM endpoints, and returns the ID of the connection it names,
+// which is empty when it names none. The path is parsed rather than matched against a pattern, so that every path
+// below the prefix is recognized, with or without a trailing slash.
+func scimConnectionOfPath(path string) (string, bool) {
+	rest, ok := strings.CutPrefix(path, scimPathPrefix)
+	if !ok {
+		return "", false
+	}
+	connection, _, _ := strings.Cut(rest, "/")
+	return connection, true
+}

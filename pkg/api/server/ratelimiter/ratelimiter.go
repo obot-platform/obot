@@ -25,7 +25,8 @@ const (
 	headerRateLimitReset     = "X-RateLimit-Reset"
 
 	// HeaderRetryAfter is the header used to indicate when a client should retry
-	// requests (when the rate limit expires), in UTC time.
+	// requests (when the rate limit expires), as an integer number of seconds,
+	// which is the form every client, including Okta's SCIM client, understands.
 	headerRetryAfter = "Retry-After"
 )
 
@@ -41,6 +42,7 @@ type Options struct {
 // RateLimiter limits the number of HTTP requests per second a user can make.
 // It tracks limits for unauthenticated and authenticated users separately:
 // - Authenticated requests are tracked by user ID or name.
+// - SCIM connection requests are tracked by connection ID, at the authenticated rate.
 // - Unauthenticated requests are tracked by IP address.
 // - Admins and internal tunnel bridge and peer requests are exempt from rate limiting.
 type RateLimiter struct {
@@ -89,7 +91,7 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 		key = u.GetName()
 	}
 
-	if slices.Contains(groups, types.GroupAuthenticated) && key != "" {
+	if (slices.Contains(groups, types.GroupAuthenticated) || slices.Contains(groups, types.GroupSCIM)) && key != "" {
 		store = l.authenticatedStore
 	} else {
 		// Get the source IP address from the request.
@@ -108,7 +110,8 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 		return fmt.Errorf("failed to take rate limit tokens: %w", err)
 	}
 
-	resetTime := time.Unix(0, int64(reset)).UTC().Format(time.RFC1123)
+	resetAt := time.Unix(0, int64(reset)).UTC()
+	resetTime := resetAt.Format(time.RFC1123)
 
 	// Always set the rate limit response headers
 	rw.Header().Set(headerRateLimitLimit, strconv.FormatUint(limit, 10))
@@ -117,9 +120,20 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 
 	if !ok {
 		// Rate limit exceeded.
-		rw.Header().Set(headerRetryAfter, resetTime)
+		rw.Header().Set(headerRetryAfter, strconv.Itoa(retryAfterSeconds(resetAt, time.Now())))
 		return ErrRateLimitExceeded
 	}
 
 	return nil
+}
+
+// retryAfterSeconds returns the whole number of seconds until reset, rounded up and at least one, so that a client
+// that waits that long finds its tokens replenished.
+func retryAfterSeconds(reset, now time.Time) int {
+	wait := reset.Sub(now)
+	seconds := int(wait / time.Second)
+	if wait%time.Second != 0 {
+		seconds++
+	}
+	return max(seconds, 1)
 }

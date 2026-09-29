@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
+	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
@@ -176,6 +177,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /tunnel/connect", tunnelHandler.Connect)
 	// Obot replicas use a separate internal websocket upgrade path for tunnel peering.
 	mux.HandleFunc("GET /tunnel/peer", tunnelHandler.Peer)
+
+	// The SCIM endpoint of each SCIM connection, authenticated only by the connection's bearer token and authorized
+	// only for that connection.
+	scimHandler := scim.NewHandler(services.GatewayClient, scim.NewEnvironment(services.ProviderDispatcher, services.LicenseProvider, services.StorageClient), services.ServerURL)
+	mux.HandleFunc(scim.PathPrefix, scimHandler.Serve)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)

@@ -253,7 +253,7 @@ func TestLifecycleChangesLeaveDeletedUsersDeleted(t *testing.T) {
 	user := createLifecycleTestUser(t, c, "dave", lifecycleTestProvider)
 	createLifecycleTestUser(t, c, "owner", lifecycleTestProvider)
 
-	if _, err := c.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
+	if err := c.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
 		t.Fatalf("failed to delete user: %v", err)
 	}
 
@@ -349,7 +349,7 @@ func TestCredentialsAreNotIssuedToInactiveUsers(t *testing.T) {
 	if _, err := c.DisableUser(ctx, lifecycleTestProvider, disabled.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
-	if _, err := c.DeleteUser(ctx, fmt.Sprint(deleted.ID)); err != nil {
+	if err := c.DeleteUser(ctx, fmt.Sprint(deleted.ID)); err != nil {
 		t.Fatalf("failed to delete user: %v", err)
 	}
 
@@ -1099,7 +1099,7 @@ func TestGatewayTokenOfADeletedUserIsDenied(t *testing.T) {
 		t.Fatalf("user from an unknown token: %v, want not found", err)
 	}
 
-	if _, err := c.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
+	if err := c.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
 		t.Fatalf("failed to delete user: %v", err)
 	}
 	_, _, _, _, _, err := c.UserFromToken(ctx, "token-1:secret")

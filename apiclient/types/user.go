@@ -49,6 +49,8 @@ const (
 	GroupTunnel             = "obot-tunnel"
 	GroupTunnelBridge       = "obot-tunnel-bridge"
 	GroupTunnelPeer         = "obot-tunnel-peer"
+	// GroupSCIM is the group of a SCIM connection's principal, which may only use that connection's SCIM endpoint.
+	GroupSCIM = "obot-scim"
 )
 
 var (

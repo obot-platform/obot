@@ -2864,6 +2864,13 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format:      "",
 						},
 					},
+					"scimState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMState is the state of the provider's SCIM connection: \"connected\", \"enforced\", or empty when the provider has none. Only administrators see it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"CommonProviderStatus"},
 			},

@@ -25,6 +25,7 @@ var (
 		types2.GroupTunnelBridge,
 		types2.GroupTunnelPeer,
 		types2.GroupDeviceEnroll,
+		types2.GroupSCIM,
 	}
 )
 

@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -233,6 +234,12 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 			return err
 		}
 
+		// A user that SCIM has provisioned can be deleted only once the identity provider has deprovisioned them.
+		// Their SCIM ID is retired, so it answers 404 and userName lookups no longer find them.
+		if err := retireSCIMUserBindingForDeletionTx(tx, existingUser.ID); err != nil {
+			return err
+		}
+
 		// Decrypt user to get original values before soft delete
 		if err := c.decryptUser(ctx, existingUser); err != nil {
 			return fmt.Errorf("failed to decrypt user: %w", err)
@@ -306,7 +313,9 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
+		// Every column of the user is written back, so it is locked, and a concurrent SCIM write of its profile is
+		// never overwritten with a stale copy.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -316,6 +325,10 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 
 		// If the username is being changed, then ensure that a user with that name doesn't already exist.
 		if len(updatedUser.Username) != 0 && updatedUser.Username != existingUser.Username {
+			if err := refuseSCIMProvisionedUserTx(tx, existingUser.ID, "this user's profile is managed by the identity provider through SCIM"); err != nil {
+				return err
+			}
+
 			if err := tx.Model(updatedUser).Where("username = ? AND deleted_at IS NULL", updatedUser.Username).First(new(types.User)).Error; err == nil {
 				return &AlreadyExistsError{name: fmt.Sprintf("user with username %q", updatedUser.Username)}
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -400,6 +413,20 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 
 	accessToken := accesstoken.GetAccessToken(ctx)
 	if accessToken == "" {
+		return nil
+	}
+
+	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are never
+	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. The mode is checked before the
+	// provider is asked, and again before its answer is written. A failed lookup fails the refresh.
+	if conn, err := c.SCIMConnectionForAuthProvider(ctx, authProviderNamespace, authProviderName); err != nil {
+		return err
+	} else if conn != nil {
+		return nil
+	}
+	if binding, err := c.SCIMUserBindingForUser(ctx, user.ID); err != nil {
+		return err
+	} else if binding != nil {
 		return nil
 	}
 
@@ -505,6 +532,27 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	}
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// A SCIM connection may have been created, or SCIM may have provisioned the user, while the profile was being
+		// fetched. SCIM's profile wins. The mode lock keeps a connection from being created, and the user lock keeps
+		// SCIM from provisioning the user, between these checks and the write.
+		conn, err := scimConnectionForAuthProviderLockedTx(tx, authProviderNamespace, authProviderName)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			return nil
+		}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", user.ID).Take(new(types.User)).Error; err != nil {
+			return err
+		}
+		binding, err := activeSCIMUserBindingForUserTx(tx, user.ID, false)
+		if err != nil {
+			return err
+		}
+		if binding != nil {
+			return nil
+		}
+
 		// The user was read before the profile was fetched, so its lifecycle state may be stale. Only lifecycle
 		// operations write that state.
 		if err := tx.Omit(types.UserLifecycleColumns...).Updates(u).Error; err != nil {
