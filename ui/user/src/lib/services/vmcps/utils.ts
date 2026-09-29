@@ -72,6 +72,12 @@ export const initVMcp = (): VMcpFormData => ({
 	description: ''
 });
 
+// Catalog-synced vMCPs are managed by their source catalog and cannot be
+// updated or deleted through the API.
+export function isCatalogSyncedVMcp(vmcp?: VMCP) {
+	return Boolean(vmcp?.sourceURL);
+}
+
 export function vmcpNeedsUpdate(vmcp: VMCP) {
 	return vmcp.status?.components?.some((component) => component.needsUpdate) ?? false;
 }

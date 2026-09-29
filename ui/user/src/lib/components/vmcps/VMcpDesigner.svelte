@@ -44,6 +44,7 @@
 		appendComponentLabel,
 		catalogConfigurationFields,
 		catalogEntryToVMCPComponent,
+		isCatalogSyncedVMcp,
 		resolveVMcpComponents,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
@@ -103,7 +104,9 @@
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
-		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
+		!selectedVMcp ||
+			(!isCatalogSyncedVMcp(selectedVMcp) &&
+				(profile.current.isAdmin?.() || profile.current.id === selectedVMcp.userID))
 	);
 	let viewType = $derived(
 		(view === 'profiles' && !canAccessProfiles) || (view === 'inspector' && !canAccessTester)

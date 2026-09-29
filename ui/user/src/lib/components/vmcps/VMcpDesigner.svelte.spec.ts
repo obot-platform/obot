@@ -974,6 +974,49 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
+		it('shows an admin a catalog-synced vMCP as read-only', async () => {
+			const vmcp = { ...orgVMcp(), sourceURL: 'https://github.com/example/catalog' };
+			await renderDesigner([componentEntry], vmcp);
+
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+			await expect
+				.element(page.getByRole('button', { name: 'Delete vMCP' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeEnabled();
+
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Details', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(componentBlock()).not.toBeInTheDocument();
+		});
+
+		it('opens profiles as readonly for a catalog-synced vMCP', async () => {
+			appPage.url.searchParams.set('view', 'profiles');
+			const vmcp = { ...orgVMcp(), sourceURL: 'https://github.com/example/catalog' };
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View default' }).click();
+			await expect.element(page.getByRole('heading', { name: 'View profile' })).toBeVisible();
+			await expect
+				.element(page.getByPlaceholder('ex. Marketing, Engineering, etc.'))
+				.toBeDisabled();
+			await expect
+				.element(page.getByRole('button', { name: 'Save changes' }))
+				.not.toBeInTheDocument();
+		});
+
 		it('keeps edit controls for a non-admin owner', async () => {
 			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
 

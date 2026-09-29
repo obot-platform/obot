@@ -638,6 +638,7 @@ export interface VMCP extends VMCPManifest {
 	id: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
+	sourceURL?: string;
 	staticConfigurationHash?: string;
 	status?: VMCPStatus;
 	type?: string;

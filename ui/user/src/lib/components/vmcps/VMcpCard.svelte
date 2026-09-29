@@ -5,6 +5,7 @@
 	import { UserService, type VMCP, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
+		isCatalogSyncedVMcp,
 		vmcpConnectURL,
 		vmcpHasUserAllowedConfiguration,
 		vmcpInstanceNeedsUserConfiguration,
@@ -80,8 +81,8 @@
 	let connectButtonId = $derived(`btn-connect-to-server-${vmcp.id}`);
 	let needsUpdate = $derived(vmcpNeedsUpdate(vmcp));
 	let isCreator = $derived(Boolean(vmcp.userID && profile.current.id === vmcp.userID));
-	let canDelete = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
-	let canUpdate = $derived(canDelete);
+	let canUpdate = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
+	let canDelete = $derived(canUpdate && !isCatalogSyncedVMcp(vmcp));
 	let canConnect = $derived(!vmcp.userID || isCreator);
 	let myInstances = $derived(
 		vmcpInstances.current.items.filter(
