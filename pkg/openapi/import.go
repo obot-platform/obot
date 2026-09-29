@@ -56,25 +56,31 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	if (source.URL == "") == (source.Content == "") {
 		return nil, fmt.Errorf("exactly one OpenAPI source URL or content is required")
 	}
+
 	if source.URL == "" {
 		return Parse([]byte(source.Content), config)
 	}
+
 	u, err := sourceURL(source.URL)
 	if err != nil {
 		return nil, err
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("invalid schema request: %w", err)
 	}
+
 	resp, err := i.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("schema fetch failed (network policy, connection, or timeout)")
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("schema fetch returned HTTP %d", resp.StatusCode)
 	}
+
 	data, err := io.ReadAll(io.LimitReader(resp.Body, MaxSchemaBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read schema response")
@@ -82,6 +88,7 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	if len(data) > MaxSchemaBytes {
 		return nil, fmt.Errorf("schema exceeds 1 MiB")
 	}
+
 	return Parse(data, config)
 }
 
@@ -93,10 +100,12 @@ func Parse(data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	result, err := inspect(document, canonical, config)
 	if err != nil {
 		return nil, err
 	}
+
 	result.Schema = canonical
 	return result, nil
 }
@@ -112,6 +121,7 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	if !utf8.Valid(data) {
 		return nil, nil, fmt.Errorf("schema must be UTF-8")
 	}
+
 	// Inspect YAML nodes before conversion to reject duplicate keys, aliases,
 	// multiple documents, and excessive nesting without expanding aliases.
 	decoder := yamlv3.NewDecoder(bytes.NewReader(data))
@@ -122,10 +132,12 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	if err := checkYAML(&node, 0); err != nil {
 		return nil, nil, err
 	}
+
 	var extra yamlv3.Node
 	if err := decoder.Decode(&extra); err != io.EOF {
 		return nil, nil, fmt.Errorf("schema must contain exactly one document")
 	}
+
 	if !json.Valid(data) {
 		var err error
 		data, err = yaml.YAMLToJSONStrict(data)
@@ -133,12 +145,14 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 			return nil, nil, fmt.Errorf("schema cannot be converted to JSON")
 		}
 	}
+
 	var document map[string]any
 	jsonDecoder := json.NewDecoder(bytes.NewReader(data))
 	jsonDecoder.UseNumber()
 	if err := jsonDecoder.Decode(&document); err != nil || document == nil {
 		return nil, nil, fmt.Errorf("schema must be an object")
 	}
+
 	canonical, err := json.Marshal(document)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot normalize schema")
@@ -146,6 +160,7 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	if len(canonical) > MaxSchemaBytes {
 		return nil, nil, fmt.Errorf("normalized schema exceeds 1 MiB")
 	}
+
 	return document, canonical, nil
 }
 
