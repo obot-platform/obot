@@ -38,8 +38,7 @@ type ProductTelemetryMetrics struct {
 	ActiveUsers                 *int64                              `json:"activeUsers"`
 	DeployedMCPServers          *int64                              `json:"deployedMCPServers"`
 	CustomMCPServerEntryCount   *int64                              `json:"customMCPServerEntryCount"`
-	VMCPCount                   *int64                              `json:"vmcpCount"`
-	CustomCreatedVMCPCount      *int64                              `json:"customCreatedVMCPCount"`
+	CustomVMCPCount             *int64                              `json:"customVMCPCount"`
 	VMCPInstanceCount           *int64                              `json:"vmcpInstanceCount"`
 	VMCPConfiguredInstanceCount *int64                              `json:"vmcpConfiguredInstanceCount"`
 	BuiltInMCPServers           *[]ProductTelemetryBuiltInMCPServer `json:"builtInMCPServers"`

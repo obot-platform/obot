@@ -122,19 +122,17 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 	if err := storageClient.List(ctx, &vmcps, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		logMetricError("vMCPs", err)
 	} else {
-		var total, custom int64
+		var custom int64
 		for _, vmcp := range vmcps.Items {
 			if !vmcp.DeletionTimestamp.IsZero() {
 				continue
 			}
-			total++
 			// Explicit API creation records a creator; catalog defaults and migrations do not.
 			if vmcp.Spec.CreatorUserID != "" {
 				custom++
 			}
 		}
-		metrics.VMCPCount = &total
-		metrics.CustomCreatedVMCPCount = &custom
+		metrics.CustomVMCPCount = &custom
 	}
 
 	var vmcpInstances storagev1.VMCPInstanceList

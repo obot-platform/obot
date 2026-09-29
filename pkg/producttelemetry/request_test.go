@@ -266,8 +266,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	assertInt64(t, "active users", metrics.ActiveUsers, 3)
 	assertInt64(t, "deployed MCP servers", metrics.DeployedMCPServers, 2)
 	assertInt64(t, "custom MCP entries", metrics.CustomMCPServerEntryCount, 1)
-	assertInt64(t, "vMCPs", metrics.VMCPCount, 4)
-	assertInt64(t, "custom-created vMCPs", metrics.CustomCreatedVMCPCount, 2)
+	assertInt64(t, "custom vMCPs", metrics.CustomVMCPCount, 2)
 	assertInt64(t, "vMCP instances", metrics.VMCPInstanceCount, 3)
 	assertInt64(t, "configured vMCP instances", metrics.VMCPConfiguredInstanceCount, 2)
 	assertInt64(t, "MCP tool calls", metrics.MCPToolCallCount, 7)
@@ -302,7 +301,7 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	if report.Metrics.TotalUsers != nil || report.Metrics.ActiveUsers != nil || report.Metrics.MCPToolCallCount != nil || report.Metrics.VMCPToolCallCount != nil ||
 		report.Metrics.LLMAuditLogCount != nil || report.Metrics.SentryScanCount != nil || report.Metrics.SentryEnforcementEventCount != nil ||
 		report.Metrics.DeployedMCPServers != nil || report.Metrics.CustomMCPServerEntryCount != nil || report.Metrics.BuiltInMCPServers != nil ||
-		report.Metrics.VMCPCount != nil || report.Metrics.CustomCreatedVMCPCount != nil || report.Metrics.VMCPInstanceCount != nil || report.Metrics.VMCPConfiguredInstanceCount != nil ||
+		report.Metrics.CustomVMCPCount != nil || report.Metrics.VMCPInstanceCount != nil || report.Metrics.VMCPConfiguredInstanceCount != nil ||
 		report.Metrics.AuthProviderType != nil || report.Metrics.ManagedSkillCount != nil {
 		t.Fatalf("unavailable metrics = %#v, want nil fields", report.Metrics)
 	}
@@ -323,8 +322,7 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	assertInt64(t, "measured zero active users", report.Metrics.ActiveUsers, 0)
 	assertInt64(t, "measured zero deployed MCP servers", report.Metrics.DeployedMCPServers, 0)
 	assertInt64(t, "measured zero custom MCP entries", report.Metrics.CustomMCPServerEntryCount, 0)
-	assertInt64(t, "measured zero vMCPs", report.Metrics.VMCPCount, 0)
-	assertInt64(t, "measured zero custom-created vMCPs", report.Metrics.CustomCreatedVMCPCount, 0)
+	assertInt64(t, "measured zero custom vMCPs", report.Metrics.CustomVMCPCount, 0)
 	assertInt64(t, "measured zero vMCP instances", report.Metrics.VMCPInstanceCount, 0)
 	assertInt64(t, "measured zero configured vMCP instances", report.Metrics.VMCPConfiguredInstanceCount, 0)
 	assertInt64(t, "measured zero MCP tool calls", report.Metrics.MCPToolCallCount, 0)
@@ -387,10 +385,9 @@ func TestBuildRequestIsolatesVMCPMetricFailures(t *testing.T) {
 				if report.Metrics.VMCPInstanceCount != nil || report.Metrics.VMCPConfiguredInstanceCount != nil {
 					t.Fatalf("instance metrics = %#v, want unavailable", report.Metrics)
 				}
-				assertInt64(t, "vMCPs", report.Metrics.VMCPCount, 0)
-				assertInt64(t, "custom-created vMCPs", report.Metrics.CustomCreatedVMCPCount, 0)
+				assertInt64(t, "custom vMCPs", report.Metrics.CustomVMCPCount, 0)
 			} else {
-				if report.Metrics.VMCPCount != nil || report.Metrics.CustomCreatedVMCPCount != nil {
+				if report.Metrics.CustomVMCPCount != nil {
 					t.Fatalf("vMCP metrics = %#v, want unavailable", report.Metrics)
 				}
 				assertInt64(t, "vMCP instances", report.Metrics.VMCPInstanceCount, 0)
@@ -411,7 +408,6 @@ func TestBuildRequestIsolatesVMCPMetricFailures(t *testing.T) {
 		t.Fatalf("vMCP tool calls = %v, want unavailable", report.Metrics.VMCPToolCallCount)
 	}
 	assertInt64(t, "MCP tool calls", report.Metrics.MCPToolCallCount, 7)
-	assertInt64(t, "vMCPs", report.Metrics.VMCPCount, 0)
 }
 
 func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
