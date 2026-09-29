@@ -877,11 +877,30 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			wantStatuses:   []string{"Gmail", "Drive"},
 			wantTools: map[string][]types.ToolOverride{
 				// Disabled overrides stay hidden even when granted.
-				"gmail": {{Name: "send", OverrideName: "send_email", Enabled: true}},
+				"gmail": {
+					{
+						Name:         "send",
+						OverrideName: "send_email",
+						Enabled:      true,
+					},
+				},
 				// A grant of every tool keeps the definition's overrides.
-				"drive": {{Name: "list", Enabled: true}, {Name: "upload"}},
+				"drive": {
+					{
+						Name:    "list",
+						Enabled: true,
+					},
+					{
+						Name: "upload",
+					},
+				},
 				// Without overrides, the granted tools are listed.
-				"calendar": {{Name: "events", Enabled: true}},
+				"calendar": {
+					{
+						Name:    "events",
+						Enabled: true,
+					},
+				},
 				// An entry without tools still shows the component, with no tools.
 				"tasks": nil,
 			},
@@ -1282,10 +1301,25 @@ func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) 
 		rejectUnconfigured bool
 		wantError          bool
 	}{
-		{name: "new server missing OAuth", rejectUnconfigured: true, wantError: true},
-		{name: "new server configured", configured: true, rejectUnconfigured: true},
-		{name: "existing server remains editable", existing: true, rejectUnconfigured: true},
-		{name: "snapshot refresh remains available", rejectUnconfigured: false},
+		{
+			name:               "new server missing OAuth",
+			rejectUnconfigured: true,
+			wantError:          true,
+		},
+		{
+			name:               "new server configured",
+			configured:         true,
+			rejectUnconfigured: true,
+		},
+		{
+			name:               "existing server remains editable",
+			existing:           true,
+			rejectUnconfigured: true,
+		},
+		{
+			name:               "snapshot refresh remains available",
+			rejectUnconfigured: false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			current := entry.DeepCopy()
