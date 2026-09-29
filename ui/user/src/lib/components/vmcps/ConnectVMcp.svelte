@@ -438,7 +438,7 @@
 		</p>
 		{#if profile.current.isAdmin?.()}
 			<a
-				class="link link-primary"
+				class="btn btn-primary"
 				href={resolve(
 					`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
 				)}>Configure {missingOAuthComponent.name} OAuth</a

@@ -100,6 +100,9 @@ describe('ConnectVMcp.svelte', () => {
 		await expect
 			.element(connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }))
 			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+		await expect
+			.element(connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.toHaveClass('btn btn-primary');
 		expect(createInstance).not.toHaveBeenCalled();
 		expect(launch).not.toHaveBeenCalled();
 	});
