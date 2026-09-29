@@ -59,8 +59,10 @@ func TestCredentials(t *testing.T) {
 			require.Equal(t, test.prefix, header.Prefix)
 			require.True(t, header.Sensitive)
 			require.True(t, header.Required)
-			_, err = Parse(data, types.OpenAPIRuntimeConfig{BaseURL: "http://api.example.com"})
-			require.ErrorContains(t, err, "HTTPS")
+			result, err = Parse(data, types.OpenAPIRuntimeConfig{BaseURL: "http://api.example.com"})
+			require.NoError(t, err)
+			require.Equal(t, "http://api.example.com/", result.BaseURL)
+			require.Len(t, result.SuggestedHeaders, 1)
 		})
 	}
 }
