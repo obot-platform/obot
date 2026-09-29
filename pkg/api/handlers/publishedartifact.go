@@ -460,6 +460,7 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 		slog.Debug("Updating artifact description", "artifact", id, "oldDescription", artifact.Spec.Description, "newDescription", *update.Description)
 		artifact.Spec.Description = *update.Description
 	}
+	var newSubjects, previousSubjects []types.Subject
 	if update.Subjects != nil {
 		if err := validatePublishedArtifactSubjects(update.Subjects); err != nil {
 			return types.NewErrBadRequest("invalid subjects: %v", err)
@@ -475,11 +476,14 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 		if entry == nil {
 			return types.NewErrNotFound("version %d not found", version)
 		}
+		newSubjects, previousSubjects = update.Subjects, entry.Subjects
 		slog.Debug("Updating artifact version subjects", "artifact", id, "version", version, "subjectCount", len(update.Subjects))
 		entry.Subjects = update.Subjects
 	}
 
-	if err := req.Update(&artifact); err != nil {
+	if err := writeNewGroupSubjects(req, newSubjects, previousSubjects, func() error {
+		return req.Update(&artifact)
+	}); err != nil {
 		return err
 	}
 

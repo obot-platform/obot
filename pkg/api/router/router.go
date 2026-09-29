@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/scim"
+	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
@@ -614,6 +615,19 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/auth-providers/{id}/verify", authProviders.Verify)
 	mux.HandleFunc("POST /api/auth-providers/{id}/activate", authProviders.Activate)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+	mux.HandleFunc("GET /api/auth-providers/{id}/residual-group-data", authProviders.ResidualGroupData)
+
+	// SCIM connections
+	scimConnections := handlers.NewSCIMConnectionHandler(scimsetup.New(services.GatewayClient, services.StorageClient, services.ProviderDispatcher, services.ServerURL))
+	mux.HandleFunc("GET /api/scim-connections", scimConnections.List)
+	mux.HandleFunc("GET /api/scim-connections/{id}/review", scimConnections.Review)
+	mux.HandleFunc("GET /api/scim-connections/{id}/users", scimConnections.Users)
+	mux.HandleFunc("GET /api/scim-connections/{id}/groups", scimConnections.Groups)
+	mux.HandleFunc("GET /api/scim-connections/{id}/failures", scimConnections.Failures)
+	mux.HandleFunc("POST /api/scim-connections/{id}/enforce", scimConnections.Enforce)
+	mux.HandleFunc("POST /api/scim-connections/{id}/rotate-token", scimConnections.RotateToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-current-token", scimConnections.RevokeCurrentToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-previous-token", scimConnections.RevokePreviousToken)
 
 	// Local auth provider users
 	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)

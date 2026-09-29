@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
@@ -6,7 +7,9 @@
 	import LocalAuthConfigure from '$lib/components/admin/LocalAuthConfigure.svelte';
 	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
-	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
+	import ProviderConfigure, {
+		type ParameterNotice
+	} from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -18,7 +21,7 @@
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
-	import type { AuthProvider } from '$lib/services/admin/types.js';
+	import type { AuthProvider, ProviderParameter } from '$lib/services/admin/types.js';
 	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { clearUrlParams } from '$lib/url';
@@ -104,6 +107,31 @@
 	});
 	let confirmDiscardSwitch = $state(false);
 	let confirmSwitch = $state(false);
+	// SCIM keeps a provider's users, groups, and policies while the provider is deconfigured, and
+	// resumes when it is configured again, so a switch says which of the two it does.
+	let switchNote = $derived.by(() => {
+		const incoming = configuringAuthProvider?.name;
+		const notes = [`This cannot be undone. Everyone signs in through ${incoming} afterwards.`];
+		if (activeProvider?.scimState) {
+			notes.push(
+				`SCIM provisioning for ${activeProvider.name} pauses: its users, groups, and policies are kept, and provisioning requests from ${activeProvider.name} fail until it is configured again. Then retry the failed tasks in ${activeProvider.name}, rather than marking them complete.`
+			);
+		}
+		if (configuringAuthProvider?.scimState) {
+			notes.push(
+				`${incoming} provisions users and groups through SCIM. If it was configured before, SCIM resumes; retry the provisioning tasks that failed in ${incoming} rather than marking them complete.`
+			);
+		}
+		return notes.join(' ');
+	});
+	// Set once a switch completes to a provider that provisions through SCIM, whose failed
+	// provisioning tasks need retrying. The layout's banner covers unfinished SCIM setup.
+	let scimNotice = $state<string>();
+	// The provider whose configuration was refused for group data left from an earlier
+	// configuration, which its auth provider cleanup removes.
+	let residualProvider = $state<AuthProvider>();
+	let residualCleanupStarted = $state(false);
+	let residualCleanupLoading = $state(false);
 	// A switch is only offered when this provider would replace a different one. Configuring the
 	// first provider on a fresh install stays the plain form.
 	let isOwner = $derived(!!profile.current.isOwner?.());
@@ -273,10 +301,59 @@
 		}
 	}
 
+	// Explains the choice that the directory parameters make while a provider that supports SCIM is
+	// set up, and warns when the Org URL of a provider with a SCIM connection changes.
+	function scimParameterNotice(
+		parameter: ProviderParameter,
+		form: Record<string, string>
+	): ParameterNotice | undefined {
+		const provider = configuringAuthProvider;
+		const scim = provider?.scim;
+		if (!provider || !scim) return undefined;
+
+		if (parameter.name === scim.issuerParameter && provider.scimState && scim.connectionIssuer) {
+			const value = (form[parameter.name] ?? '').trim().replace(/\/+$/, '');
+			if (value && value !== scim.connectionIssuer) {
+				return {
+					kind: 'warning',
+					text: `SCIM users and groups belong to the ${provider.name} organization they were provisioned from, ${scim.connectionIssuer}. Change this only if that organization moved, for example to a custom domain. Pointing ${provider.name} at another organization leaves them bound to the old one.`
+				};
+			}
+		}
+
+		const lastDirectoryParameter = scim.directoryParameters[scim.directoryParameters.length - 1];
+		if (parameter.name === lastDirectoryParameter && !provider.scimState && !provider.configured) {
+			const empty = scim.directoryParameters.every((name) => !form[name]?.trim());
+			return {
+				kind: 'info',
+				text: empty
+					? `With these left empty, ${provider.name} provisions users and groups through SCIM, and Obot never fetches groups from it. Setup continues on Identity & Access → SCIM once an Owner has signed in.`
+					: `With these provided, Obot fetches each user's groups from ${provider.name} when they sign in. Leave both empty to provision users and groups through SCIM instead.`
+			};
+		}
+		return undefined;
+	}
+
+	async function handleRemoveResidualGroupData() {
+		if (!residualProvider) return;
+		residualCleanupLoading = true;
+		try {
+			await AdminService.deconfigureAuthProvider(residualProvider.id);
+			residualCleanupStarted = true;
+			configureError = undefined;
+		} catch (err) {
+			configureError = parseErrorContent(err).message;
+		} finally {
+			residualCleanupLoading = false;
+		}
+	}
+
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
 		if (configuringAuthProvider) {
 			loading = true;
 			configureError = undefined;
+			residualProvider = undefined;
+			residualCleanupStarted = false;
 			try {
 				const staging = isSwitching;
 				if (staging) {
@@ -301,6 +378,24 @@
 				}
 			} catch (err: unknown) {
 				configureError = parseErrorContent(err).message;
+				// Group data left from an earlier configuration blocks setting a provider up for SCIM
+				// until its auth provider cleanup, which deconfiguring runs, removes it.
+				if (
+					err instanceof HttpError &&
+					err.statusCode === 409 &&
+					configuringAuthProvider.scim &&
+					!configuringAuthProvider.scimState
+				) {
+					const provider = configuringAuthProvider;
+					try {
+						const residual = await AdminService.getResidualGroupData(provider.id);
+						if (residual.groups.length > 0 || residual.membershipCount > 0) {
+							residualProvider = provider;
+						}
+					} catch {
+						// The refusal itself still explains what remains.
+					}
+				}
 			} finally {
 				loading = false;
 			}
@@ -352,10 +447,14 @@
 		switching = true;
 		switchError = undefined;
 		try {
+			const incoming = stagedProvider;
 			await AdminService.activateAuthProvider(stagedProvider.id);
 			confirmSwitch = false;
 			providerConfigure?.close();
 			await refreshAuthProviders();
+			if (incoming.scimState) {
+				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Continue on the SCIM tab, and retry the provisioning tasks that failed in ${incoming.name} while it was not configured.`;
+			}
 		} catch (err) {
 			confirmSwitch = false;
 			switchError = parseErrorContent(err).message;
@@ -444,6 +543,10 @@
 		confirmDiscardSwitch = false;
 		confirmSwitch = false;
 		switchError = undefined;
+		// A refusal for leftover group data, and a cleanup started for it, describe an earlier attempt.
+		configureError = undefined;
+		residualProvider = undefined;
+		residualCleanupStarted = false;
 		configuringAuthProvider = authProvider;
 		try {
 			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
@@ -520,6 +623,15 @@
 <div class="mb-4 w-full" in:fade={{ duration }}>
 	{#if authEnabled}
 		<div class="flex flex-col gap-8">
+			{#if scimNotice}
+				<div class="notification-info mb-4 flex items-start gap-2" role="status">
+					<Info class="mt-0.5 size-5 shrink-0" />
+					<p class="text-sm font-light">
+						{scimNotice}
+						<a class="text-link" href={resolve('/identity-access?view=scim')}>Go to SCIM</a>
+					</p>
+				</div>
+			{/if}
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
@@ -682,6 +794,7 @@
 	{loading}
 	error={configureError}
 	readonly={profile.current.isAdminReadonly?.()}
+	parameterNotice={scimParameterNotice}
 	title={isSwitching ? `Switch to ${configuringAuthProvider?.name}` : undefined}
 	steps={isSwitching ? switchSteps : undefined}
 	body={isSwitching && switchStep !== 'configure' ? switchBody : undefined}
@@ -689,6 +802,34 @@
 >
 	{#snippet note()}
 		{@const documentationUrl = getDocumentationUrl(configuringAuthProvider?.id)}
+		{#if residualProvider && residualProvider.id === configuringAuthProvider?.id}
+			<div class="notification-alert flex flex-col gap-2 p-3 text-sm font-light" role="alert">
+				{#if residualCleanupStarted}
+					<p>
+						The cleanup of {residualProvider.name}'s leftover group data has started. Confirm again
+						once it finishes.
+					</p>
+				{:else}
+					<p>
+						{residualProvider.name} still has groups, or references to them, from an earlier configuration.
+						Remove them to provision users and groups through SCIM. This runs the cleanup that deconfiguring
+						{residualProvider.name} runs, which deletes its groups and memberships, and removes its groups
+						from roles and policies. Alternatively, provide the directory credentials to fetch groups
+						at sign-in.
+					</p>
+					<div>
+						<button
+							class="btn btn-secondary btn-sm"
+							type="button"
+							disabled={residualCleanupLoading || isReadonly}
+							onclick={handleRemoveResidualGroupData}
+						>
+							Remove leftover group data
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 		{@const callbackUrl = window.location.protocol + '//' + window.location.host + '/'}
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">
@@ -737,7 +878,7 @@
 	show={confirmSwitch}
 	title="Complete switch"
 	msg="Switch to {configuringAuthProvider?.name}?"
-	note="This cannot be undone. Everyone signs in through {configuringAuthProvider?.name} afterwards."
+	note={switchNote}
 	submitText="Switch to {configuringAuthProvider?.name}"
 	cancelText="Cancel"
 	loading={switching}

@@ -153,7 +153,18 @@ type SCIMGroupBinding struct {
 type SCIMPendingGroupDeletion struct {
 	GroupID      string `gorm:"primaryKey"`
 	ConnectionID string `gorm:"not null;index"`
-	CreatedAt    time.Time
+	// RunID identifies the deletion that placed the mark. A deletion deletes only the groups it marked itself, and
+	// read the references of after marking them.
+	RunID     string `gorm:"not null;default:''"`
+	CreatedAt time.Time
+}
+
+// SCIMReferenceWrite records a write of new group references that is in progress. A deletion of unreferenced groups
+// waits for the writes recorded when its marks committed, so that the references it reads afterwards include
+// theirs, and every later write sees the marks. A write that never finished stops counting once it expires.
+type SCIMReferenceWrite struct {
+	ID        string    `gorm:"primaryKey"`
+	ExpiresAt time.Time `gorm:"not null;index"`
 }
 
 // SCIMRequestFailure records an authenticated SCIM request that failed, so administrators can see why provisioning

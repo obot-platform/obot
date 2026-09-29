@@ -122,20 +122,11 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 	maps.Copy(credEnv, d.authProviderExtraEnv)
 
-	// A SCIM connection relaxes the parameters that only directory synchronization uses, so the
-	// provider starts without them.
-	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, namespace, authProviderName)
-	if err != nil {
-		return url.URL{}, err
-	}
-
 	// Check the environment the daemon will actually receive rather than Status, which the
 	// controller computes from the active contexts alone and so never sees a staged replacement.
-	var missing []string
-	for _, param := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, credEnv).Required {
-		if _, ok := credEnv[param.Name]; !ok {
-			missing = append(missing, param.Name)
-		}
+	missing, err := d.missingDaemonParameters(ctx, authProvider, credEnv)
+	if err != nil {
+		return url.URL{}, err
 	}
 	if len(missing) > 0 {
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missing, ", "))
@@ -144,6 +135,30 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
 	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
+}
+
+// missingDaemonParameters returns the effective required parameters of an auth provider that credEnv, the
+// environment its daemon would start with, lacks. The daemon runs with this configuration, so without a SCIM
+// connection the provider synchronizes its directory and needs the parameters that only directory synchronization
+// uses. A connection relaxes them, so the provider starts without them.
+func (d *Dispatcher) missingDaemonParameters(ctx context.Context, authProvider v1.AuthProvider, credEnv map[string]string) ([]string, error) {
+	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var missing []string
+	for _, param := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName: authProvider.Name,
+		Configured:       true,
+		Connection:       conn,
+		Stored:           credEnv,
+	}).Required {
+		if _, ok := credEnv[param.Name]; !ok {
+			missing = append(missing, param.Name)
+		}
+	}
+	return missing, nil
 }
 
 // GroupIDPrefixForAuthProvider returns the group ID namespace declared by an auth provider.
@@ -308,7 +323,12 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider 
 		return false
 	}
 
-	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, credEnv).Required {
+	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName: authProvider.Name,
+		Configured:       true,
+		Connection:       conn,
+		Stored:           credEnv,
+	}).Required {
 		if _, ok := credEnv[envVar.Name]; !ok {
 			return false
 		}

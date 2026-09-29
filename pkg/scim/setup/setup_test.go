@@ -14,12 +14,22 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 // newTestGateway returns a gateway client over a new in-memory database.
 func newTestGateway(t *testing.T) *gclient.Client {
+	t.Helper()
+
+	gateway, _ := newTestGatewayWithDB(t, nil)
+	return gateway
+}
+
+// newTestGatewayWithDB returns a gateway client over a new in-memory database, which writes controller objects to
+// storage, and the database.
+func newTestGatewayWithDB(t *testing.T, storage kclient.Client) (*gclient.Client, *gorm.DB) {
 	t.Helper()
 
 	services, err := sservices.New(sservices.Config{
@@ -35,9 +45,9 @@ func newTestGateway(t *testing.T) *gclient.Client {
 	if err := database.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, storage, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gateway.Close() })
-	return gateway
+	return gateway, services.DB.DB
 }
 
 func TestCreateConnectionRecomputesTheAuthProviderStatus(t *testing.T) {

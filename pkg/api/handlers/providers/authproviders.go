@@ -10,13 +10,18 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-// AuthProviderStatus reports whether the auth provider is configured, checking its effective required parameters,
-// which depend on its SCIM connection. conn is the provider's SCIM connection, or nil when it has none. When cred is
-// nil, the status the controller computed is reported instead of checking a credential.
+// AuthProviderStatus reports whether the auth provider's stored configuration is complete, checking its effective
+// required parameters, which depend on its SCIM connection. conn is the provider's SCIM connection, or nil when it has
+// none. When cred is nil, the status the controller computed is reported instead of checking a credential.
 func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred map[string]string, conn *gatewaytypes.SCIMConnection, licenseProvider *license.Provider) (*types.AuthProviderStatus, error) {
 	var missingEnvVars []string
 
-	required := adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, nil).Required
+	// A stored configuration is the provider's active one, so without a connection it synchronizes its directory.
+	required := adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName: authProvider.Name,
+		Configured:       true,
+		Connection:       conn,
+	}).Required
 	if cred != nil {
 		for _, envVar := range required {
 			if _, ok := cred[envVar.Name]; !ok {

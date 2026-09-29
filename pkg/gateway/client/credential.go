@@ -95,6 +95,20 @@ func (c *Client) RevealCredential(ctx context.Context, contexts []string, name s
 	return credential, CredentialNotFoundError{Contexts: contexts, Name: name}
 }
 
+// HasCredential reports whether a credential with name exists in any of contexts. It does not decrypt the credential,
+// so it answers even when the credential could not be decrypted.
+func (c *Client) HasCredential(ctx context.Context, contexts []string, name string) (bool, error) {
+	if len(contexts) == 0 {
+		return false, nil
+	}
+
+	var count int64
+	if err := c.db.WithContext(ctx).Model(new(types.Credential)).Where("context IN ? AND name = ?", contexts, name).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check for credential %s: %w", name, err)
+	}
+	return count > 0, nil
+}
+
 // UpsertCredential creates or replaces a credential identified by context+name.
 func (c *Client) UpsertCredential(ctx context.Context, credential types.Credential) error {
 	if credential.Context == "" || credential.Name == "" {

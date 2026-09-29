@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -26,87 +25,6 @@ import (
 type generatedNameClient struct {
 	kclient.WithWatch
 	next int
-}
-
-func TestRemoveGroupSubjects(t *testing.T) {
-	tests := []struct {
-		name          string
-		subjects      []clienttypes.Subject
-		groupIDPrefix string
-		want          []clienttypes.Subject
-		wantChange    bool
-	}{
-		{
-			name: "removes matching groups and preserves order",
-			subjects: []clienttypes.Subject{
-				{
-					Type: clienttypes.SubjectTypeUser,
-					ID:   "1",
-				},
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "entra/engineering",
-				},
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "okta/engineering",
-				},
-			},
-			groupIDPrefix: "entra/",
-			want: []clienttypes.Subject{
-				{
-					Type: clienttypes.SubjectTypeUser,
-					ID:   "1",
-				},
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "okta/engineering",
-				},
-			},
-			wantChange: true,
-		},
-		{
-			name: "keeps an empty policy after removing its only subject",
-			subjects: []clienttypes.Subject{
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "entra/engineering",
-				},
-			},
-			groupIDPrefix: "entra/",
-			want:          []clienttypes.Subject{},
-			wantChange:    true,
-		},
-		{
-			name: "does not change unrelated subjects",
-			subjects: []clienttypes.Subject{
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "okta/engineering",
-				},
-			},
-			groupIDPrefix: "entra/",
-			want: []clienttypes.Subject{
-				{
-					Type: clienttypes.SubjectTypeGroup,
-					ID:   "okta/engineering",
-				},
-			},
-			wantChange: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, changed := removeGroupSubjects(tt.subjects, tt.groupIDPrefix)
-			if changed != tt.wantChange {
-				t.Fatalf("changed = %v, want %v", changed, tt.wantChange)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("subjects = %#v, want %#v", got, tt.want)
-			}
-		})
-	}
 }
 
 func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testing.T) {

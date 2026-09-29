@@ -61,6 +61,11 @@ type CreateSCIMConnectionOptions struct {
 	// IssueToken issues the connection's first bearer token. Without it, the connection has no token, and every
 	// request to it is refused until one is issued.
 	IssueToken bool
+	// RequireNoGroupData refuses to create the connection with *SCIMResidualGroupDataError while the auth provider
+	// has any group data in the gateway database: groups, or memberships or group role assignments of group IDs
+	// with its group ID prefix. A connection created without directory credentials must start without groups,
+	// because nothing but SCIM could ever correct them.
+	RequireNoGroupData bool
 }
 
 func (e *SCIMConnectionExistsError) Error() string {
@@ -135,6 +140,19 @@ func (c *Client) CreateSCIMConnection(ctx context.Context, opts CreateSCIMConnec
 		if len(existing) > 0 {
 			return &SCIMConnectionExistsError{
 				ConnectionID: existing[0].ID,
+			}
+		}
+
+		if opts.RequireNoGroupData {
+			data, err := authProviderGroupDataTx(tx, opts.AuthProviderNamespace, opts.AuthProviderName, opts.GroupIDPrefix)
+			if err != nil {
+				return err
+			}
+			if !data.Empty() {
+				return &SCIMResidualGroupDataError{
+					AuthProviderName: opts.AuthProviderName,
+					Data:             *data,
+				}
 			}
 		}
 

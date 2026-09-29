@@ -166,6 +166,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.SCIMUserBinding{},
 		types.SCIMGroupBinding{},
 		types.SCIMPendingGroupDeletion{},
+		types.SCIMReferenceWrite{},
 		types.SCIMRequestFailure{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)

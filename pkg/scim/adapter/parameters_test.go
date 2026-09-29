@@ -46,17 +46,40 @@ func TestEffectiveParameters(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		conn         *types.SCIMConnection
-		stored       map[string]string
-		wantRequired []string
-		wantOptional []string
-		wantDropped  []string
-		// wantUnused means the optional directory parameters carry the adapter's unused description.
-		wantUnused bool
+		name             string
+		authProviderName string
+		configured       bool
+		conn             *types.SCIMConnection
+		stored           map[string]string
+		wantRequired     []string
+		wantOptional     []string
+		wantDropped      []string
+		wantTogether     []string
+		// wantDescription selects the adapter's description of the optional directory parameters: "setup" or
+		// "unused".
+		wantDescription string
 	}{
 		{
-			name: "directory synchronization requires the directory parameters",
+			name:             "a provider being set up may omit the directory parameters",
+			authProviderName: "okta-auth-provider",
+			wantRequired: []string{
+				"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
+			},
+			wantOptional: []string{
+				"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+			},
+			wantTogether: []string{
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+			},
+			wantDescription: "setup",
+		},
+		{
+			name:             "a provider being set up without an adapter requires everything",
+			authProviderName: "okta-auth-provider-2",
 			wantRequired: []string{
 				"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID",
 				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
@@ -68,8 +91,24 @@ func TestEffectiveParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "a connection whose credential still holds them makes them optional and unused",
-			conn: conn,
+			name:             "directory synchronization requires the directory parameters",
+			authProviderName: "okta-auth-provider",
+			configured:       true,
+			wantRequired: []string{
+				"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+			},
+			wantOptional: []string{
+				"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION",
+			},
+		},
+		{
+			name:             "a connection whose credential still holds them makes them optional and unused",
+			authProviderName: "okta-auth-provider",
+			configured:       true,
+			conn:             conn,
 			stored: map[string]string{
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID":   "client",
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY": "key",
@@ -83,11 +122,16 @@ func TestEffectiveParameters(t *testing.T) {
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
 			},
-			wantUnused: true,
+			wantTogether: []string{
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+			},
+			wantDescription: "unused",
 		},
 		{
-			name: "a connection whose credential holds one of them still shows both",
-			conn: conn,
+			name:             "a connection whose credential holds one of them still shows both",
+			authProviderName: "okta-auth-provider",
+			conn:             conn,
 			stored: map[string]string{
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID": "client",
 			},
@@ -100,11 +144,17 @@ func TestEffectiveParameters(t *testing.T) {
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
 				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
 			},
-			wantUnused: true,
+			wantTogether: []string{
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+			},
+			wantDescription: "unused",
 		},
 		{
-			name: "a connection whose credential lacks them drops them",
-			conn: conn,
+			name:             "a connection whose credential lacks them drops them",
+			authProviderName: "okta-auth-provider",
+			configured:       true,
+			conn:             conn,
 			stored: map[string]string{
 				"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID": "client",
 			},
@@ -121,8 +171,9 @@ func TestEffectiveParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "a connection without a stored credential drops them",
-			conn: conn,
+			name:             "a connection without a stored credential drops them, even while being set up",
+			authProviderName: "okta-auth-provider",
+			conn:             conn,
 			wantRequired: []string{
 				"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID",
 				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
@@ -136,7 +187,8 @@ func TestEffectiveParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "a connection with an unknown adapter relaxes nothing",
+			name:             "a connection with an unknown adapter relaxes nothing",
+			authProviderName: "okta-auth-provider",
 			conn: &types.SCIMConnection{
 				AdapterType: "unknown",
 			},
@@ -154,7 +206,12 @@ func TestEffectiveParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := oktaManifest()
-			got := EffectiveParameters(manifest, tt.conn, tt.stored)
+			got := EffectiveParameters(manifest, ProviderState{
+				AuthProviderName: tt.authProviderName,
+				Configured:       tt.configured,
+				Connection:       tt.conn,
+				Stored:           tt.stored,
+			})
 
 			if names := parameterNames(got.Required); !reflect.DeepEqual(names, tt.wantRequired) {
 				t.Errorf("Required = %v, want %v", names, tt.wantRequired)
@@ -165,14 +222,21 @@ func TestEffectiveParameters(t *testing.T) {
 			if !reflect.DeepEqual(got.Dropped, tt.wantDropped) {
 				t.Errorf("Dropped = %v, want %v", got.Dropped, tt.wantDropped)
 			}
+			if !reflect.DeepEqual(got.Together, tt.wantTogether) {
+				t.Errorf("Together = %v, want %v", got.Together, tt.wantTogether)
+			}
 
 			for _, p := range got.Optional {
 				for _, d := range directory {
 					if p.Name != d.Name {
 						continue
 					}
-					if tt.wantUnused && p.Description != d.UnusedDescription {
-						t.Errorf("%s description = %q, want the unused description", p.Name, p.Description)
+					want := d.SetupDescription
+					if tt.wantDescription == "unused" {
+						want = d.UnusedDescription
+					}
+					if p.Description != want {
+						t.Errorf("%s description = %q, want the %s description", p.Name, p.Description, tt.wantDescription)
 					}
 					// The rest of the manifest's definition is kept.
 					if p.FriendlyName == "" {
@@ -194,7 +258,14 @@ func TestIncompleteGroup(t *testing.T) {
 		"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID":   "client",
 		"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY": "key",
 	}
-	params := EffectiveParameters(oktaManifest(), &types.SCIMConnection{AdapterType: "okta"}, stored)
+	params := EffectiveParameters(oktaManifest(), ProviderState{
+		AuthProviderName: "okta-auth-provider",
+		Configured:       true,
+		Connection: &types.SCIMConnection{
+			AdapterType: "okta",
+		},
+		Stored: stored,
+	})
 
 	tests := []struct {
 		name   string
@@ -235,7 +306,11 @@ func TestIncompleteGroup(t *testing.T) {
 
 	// Parameters that are required, or dropped, are never checked together.
 	for _, conn := range []*types.SCIMConnection{nil, {AdapterType: "okta"}} {
-		if got := EffectiveParameters(oktaManifest(), conn, nil).IncompleteGroup(map[string]string{
+		if got := EffectiveParameters(oktaManifest(), ProviderState{
+			AuthProviderName: "okta-auth-provider",
+			Configured:       true,
+			Connection:       conn,
+		}).IncompleteGroup(map[string]string{
 			"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID": "client",
 		}); got != nil {
 			t.Fatalf("IncompleteGroup() without optional directory parameters = %v", got)

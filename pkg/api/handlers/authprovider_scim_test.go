@@ -121,6 +121,15 @@ func (s *authProviderSCIMTest) storeCredential(secrets map[string]string) {
 	}))
 }
 
+// requireNoChange fails unless no provider configuration change was submitted.
+func (s *authProviderSCIMTest) requireNoChange() {
+	s.t.Helper()
+
+	var changes v1.ProviderConfigurationChangeList
+	require.NoError(s.t, s.storage.List(s.t.Context(), &changes))
+	require.Empty(s.t, changes.Items)
+}
+
 // configure submits a configuration and returns the credential that it staged, once the change is submitted.
 func (s *authProviderSCIMTest) configure(body string) map[string]string {
 	s.t.Helper()
@@ -150,24 +159,88 @@ func (s *authProviderSCIMTest) configure(body string) map[string]string {
 func TestConfigureValidatesTheEffectiveParameters(t *testing.T) {
 	s := newAuthProviderSCIMTest(t)
 
-	// Without a connection, the directory parameters are required, and the server refuses a configuration without
-	// them before anything is staged.
-	req, _ := s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", `{"`+oktaIssuerParam+`":"https://example.okta.com"}`)
+	// A provider that is not configured and has no connection may omit the directory parameters, which sets it up
+	// for SCIM, but only all of them at once.
+	req, _ := s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", `{"`+oktaIssuerParam+`":"https://example.okta.com","`+oktaServiceClientIDParam+`":"client"}`)
 	err := s.handler().Configure(req)
-	require.ErrorContains(t, err, "missing required configuration parameters")
+	require.ErrorContains(t, err, "none of them")
+	require.ErrorContains(t, err, oktaServicePrivateKeyParam)
+	s.requireNoChange()
+
+	staged := s.configure(`{"` + oktaIssuerParam + `":"https://example.okta.com"}`)
+	assert.Equal(t, "https://example.okta.com", staged[oktaIssuerParam])
+	assert.NotContains(t, staged, oktaServiceClientIDParam)
+	assert.NotContains(t, staged, oktaServicePrivateKeyParam)
+
+	// Providing them sets up directory synchronization.
+	staged = s.configure(`{"` + oktaIssuerParam + `":"https://example.okta.com","` + oktaServiceClientIDParam + `":"client","` + oktaServicePrivateKeyParam + `":"key"}`)
+	assert.Equal(t, "client", staged[oktaServiceClientIDParam])
+
+	// Once the provider is configured and synchronizes its directory, they are required, and removing them is
+	// refused before anything is staged.
+	s.storeCredential(map[string]string{
+		oktaIssuerParam:            "https://example.okta.com",
+		oktaServiceClientIDParam:   "client",
+		oktaServicePrivateKeyParam: "key",
+	})
+	req, _ = s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", `{"`+oktaIssuerParam+`":"https://example.okta.com"}`)
+	err = s.handler().Configure(req)
+	require.ErrorContains(t, err, "synchronizes its directory at sign-in")
 	require.ErrorContains(t, err, oktaServiceClientIDParam)
-	var changes v1.ProviderConfigurationChangeList
-	require.NoError(t, s.storage.List(t.Context(), &changes))
-	require.Empty(t, changes.Items)
+	s.requireNoChange()
 
 	// With a connection whose stored credential lacks them, they are not required, and are dropped if submitted.
 	s.storeCredential(map[string]string{
 		oktaIssuerParam: "https://example.okta.com",
 	})
 	s.connect()
-	staged := s.configure(`{"` + oktaIssuerParam + `":"https://example.okta.com","` + oktaServiceClientIDParam + `":"client"}`)
+	staged = s.configure(`{"` + oktaIssuerParam + `":"https://example.okta.com","` + oktaServiceClientIDParam + `":"client"}`)
 	assert.Equal(t, "https://example.okta.com", staged[oktaIssuerParam])
 	assert.NotContains(t, staged, oktaServiceClientIDParam)
+}
+
+func TestConfigureWithoutDirectoryParametersRefusesResidualGroupData(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	_, err := s.gateway.CreateGroupRoleAssignment(t.Context(), "okta/00g-legacy", clienttypes.RoleAdmin, "")
+	require.NoError(t, err)
+	require.NoError(t, s.storage.Create(t.Context(), &v1.ModelAccessPolicy{
+		Name:      "models",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ModelAccessPolicySpec{
+			Manifest: clienttypes.ModelAccessPolicyManifest{
+				DisplayName: "Models",
+				Subjects: []clienttypes.Subject{
+					{
+						Type: clienttypes.SubjectTypeGroup,
+						ID:   "okta/00g-legacy",
+					},
+				},
+			},
+		},
+	}))
+
+	// The refusal lists what remains, and what references it, before anything is staged.
+	req, _ := s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", `{"`+oktaIssuerParam+`":"https://example.okta.com"}`)
+	err = s.handler().Configure(req)
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "okta/00g-legacy")
+	assert.Contains(t, httpErr.Message, `model access policy "Models"`)
+	assert.Contains(t, httpErr.Message, "group role assignment")
+	s.requireNoChange()
+
+	// The administrator can list it, and provide the directory credentials instead.
+	get, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", "", clienttypes.GroupAdmin)
+	require.NoError(t, s.handler().ResidualGroupData(get))
+	var residual clienttypes.ResidualGroupData
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &residual))
+	require.Len(t, residual.Groups, 1)
+	assert.Equal(t, "okta/00g-legacy", residual.Groups[0].ID)
+	assert.Len(t, residual.Groups[0].References, 2)
+
+	staged := s.configure(`{"` + oktaIssuerParam + `":"https://example.okta.com","` + oktaServiceClientIDParam + `":"client","` + oktaServicePrivateKeyParam + `":"key"}`)
+	assert.Equal(t, "client", staged[oktaServiceClientIDParam])
 }
 
 func TestConfigureKeepsDirectoryParametersThatAreStillStored(t *testing.T) {
@@ -234,4 +307,65 @@ func TestAuthProviderServesEffectiveParametersAndSCIMState(t *testing.T) {
 	}
 	assert.Equal(t, string(gatewaytypes.SCIMConnectionStateConnected), after.SCIMState)
 	assert.Empty(t, get().SCIMState)
+}
+
+func TestAuthProviderServesTheSetupChoice(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+
+	req, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	require.NoError(t, s.handler().ByID(req))
+	var provider clienttypes.AuthProvider
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+
+	// A provider that is not configured may omit the directory parameters, and the form describes the choice they
+	// make.
+	require.Len(t, provider.RequiredConfigurationParameters, 1)
+	assert.Equal(t, oktaIssuerParam, provider.RequiredConfigurationParameters[0].Name)
+	require.Len(t, provider.OptionalConfigurationParameters, 2)
+	for _, p := range provider.OptionalConfigurationParameters {
+		assert.Contains(t, p.Description, "SCIM instead")
+		assert.NotEmpty(t, p.FriendlyName)
+	}
+	require.NotNil(t, provider.SCIM)
+	assert.Equal(t, []string{oktaServiceClientIDParam, oktaServicePrivateKeyParam}, provider.SCIM.DirectoryParameters)
+	assert.Equal(t, oktaIssuerParam, provider.SCIM.IssuerParameter)
+	assert.Empty(t, provider.SCIM.ConnectionIssuer)
+
+	// A connection records the issuer, which the form compares a changed Org URL with.
+	_, _, err := s.gateway.CreateSCIMConnection(t.Context(), gclient.CreateSCIMConnectionOptions{
+		AuthProviderNamespace: s.provider.Namespace,
+		AuthProviderName:      s.provider.Name,
+		GroupIDPrefix:         "okta/",
+		Issuer:                "https://example.okta.com",
+		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+	})
+	require.NoError(t, err)
+	req, rec = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	require.NoError(t, s.handler().ByID(req))
+	provider = clienttypes.AuthProvider{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+	assert.Empty(t, provider.OptionalConfigurationParameters)
+	require.NotNil(t, provider.SCIM)
+	assert.Equal(t, "https://example.okta.com", provider.SCIM.ConnectionIssuer)
+
+	// Anyone else learns nothing about SCIM: not the state, and not the parameters the connection relaxes.
+	req, rec = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "")
+	require.NoError(t, s.handler().ByID(req))
+	provider = clienttypes.AuthProvider{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+	assert.Nil(t, provider.SCIM)
+	assert.Empty(t, provider.SCIMState)
+	require.Len(t, provider.RequiredConfigurationParameters, 3)
+	for _, p := range provider.RequiredConfigurationParameters {
+		assert.NotContains(t, p.Description, "SCIM")
+	}
+	assert.Empty(t, provider.OptionalConfigurationParameters)
+
+	// Auditors see what administrators see.
+	req, rec = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAuditor)
+	require.NoError(t, s.handler().ByID(req))
+	provider = clienttypes.AuthProvider{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+	assert.NotNil(t, provider.SCIM)
+	assert.Equal(t, string(gatewaytypes.SCIMConnectionStateConnected), provider.SCIMState)
 }

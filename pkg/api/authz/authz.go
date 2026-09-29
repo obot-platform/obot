@@ -79,6 +79,9 @@ var (
 		"POST /api/auth-providers/{id}/configure",
 		"POST /api/auth-providers/{id}/deconfigure",
 		"POST /api/auth-providers/{id}/reveal",
+		"GET /api/auth-providers/{id}/residual-group-data",
+		"GET /api/scim-connections",
+		"GET /api/scim-connections/",
 		"/api/local-auth/users",
 		"/api/local-auth/users/",
 		"/api/model-providers",
@@ -179,6 +182,10 @@ var (
 		"DELETE /api/auth-providers/{id}/stage",
 		"POST /api/auth-providers/{id}/verify",
 		"POST /api/auth-providers/{id}/activate",
+		"POST /api/scim-connections/{id}/enforce",
+		"POST /api/scim-connections/{id}/rotate-token",
+		"POST /api/scim-connections/{id}/revoke-current-token",
+		"POST /api/scim-connections/{id}/revoke-previous-token",
 	}
 
 	staticRules = map[string][]string{
@@ -221,6 +228,8 @@ var (
 			"GET /api/git-credentials",
 			"GET /api/git-credentials/",
 			"POST /api/auth-providers/{id}/reveal",
+			"GET /api/scim-connections",
+			"GET /api/scim-connections/",
 			"GET /api/local-auth/users",
 			"GET /api/local-auth/users/",
 			"GET /api/workspaces/",

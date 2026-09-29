@@ -1,10 +1,11 @@
+import { page as appPage } from '$app/state';
 import {
 	COMMUNITY_ENTITLEMENT,
 	COMMUNITY_SIGNUP_BANNER_COPY,
 	ENTERPRISE_ENTITLEMENT
 } from '$lib/constants';
 import { Group } from '$lib/services';
-import type { License } from '$lib/services/admin/types';
+import type { AuthProvider, License } from '$lib/services/admin/types';
 import type { Profile, Version } from '$lib/services/user/types';
 import {
 	defaultModelAliases,
@@ -13,10 +14,13 @@ import {
 	userDeviceSettings,
 	version
 } from '$lib/stores';
+import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 import { getLicenseResponse, getProfileResponse, getVersionResponse } from '../../tests/mocks/data';
+import { worker } from '../../tests/mocks/worker';
 import Layout from './Layout.svelte';
+import { http, HttpResponse } from 'msw';
 import { createRawSnippet, tick } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -188,6 +192,111 @@ describe('Layout.svelte', () => {
 				await expectAdminOnlyNavigation();
 				await expectNoLink('/admin/product-analytics');
 			});
+		});
+	});
+
+	describe('SCIM setup banner', () => {
+		const communityLicense: Partial<License> = {
+			licenseKey: 'community-license-key',
+			enterprise: true,
+			entitlements: [COMMUNITY_ENTITLEMENT]
+		};
+		const owner: Partial<Profile> = {
+			isOwner: () => true
+		};
+
+		function okta(overrides: Partial<AuthProvider> = {}): AuthProvider {
+			return {
+				id: 'okta-auth-provider',
+				created: '2026-09-01T00:00:00.000Z',
+				type: 'authprovider',
+				name: 'Okta',
+				image: '',
+				port: 0,
+				configured: true,
+				scimState: 'connected',
+				...overrides
+			};
+		}
+
+		async function renderWithAuthProviders(
+			authProviders: AuthProvider[],
+			groups: string[] = [Group.OWNER, Group.ADMIN],
+			profileOverrides: Partial<Profile> = owner
+		) {
+			worker.use(
+				http.get('/api/auth-providers', () => HttpResponse.json({ items: authProviders }))
+			);
+			await adminConfigStore.refresh();
+			return renderLayout(groups, {}, communityLicense, profileOverrides);
+		}
+
+		const continueLink = () => page.getByRole('link', { name: 'Continue SCIM setup', exact: true });
+
+		it('sends Owners to the SCIM tab until SCIM is enforced', async () => {
+			await renderWithAuthProviders([okta()]);
+
+			await expect.element(continueLink()).toBeVisible();
+			await expect.element(continueLink()).toHaveAttribute('href', '/identity-access?view=scim');
+			await expect
+				.element(page.getByText(/Okta provisions users and groups through SCIM/))
+				.toBeVisible();
+		});
+
+		it('does not show once SCIM is enforced, or without SCIM', async () => {
+			await renderWithAuthProviders([okta({ scimState: 'enforced' })]);
+			await expect.element(continueLink()).not.toBeInTheDocument();
+
+			await renderWithAuthProviders([okta({ scimState: undefined })]);
+			await expect.element(continueLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show for a provider that is not configured', async () => {
+			await renderWithAuthProviders([okta({ configured: false })]);
+
+			await expect.element(continueLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show for administrators who are not Owners, or for the bootstrap user', async () => {
+			await renderWithAuthProviders([okta()], [Group.ADMIN], {});
+			await expect.element(continueLink()).not.toBeInTheDocument();
+
+			await renderWithAuthProviders([okta()], [Group.OWNER, Group.ADMIN], {
+				...owner,
+				isBootstrapUser: () => true
+			});
+			await expect.element(continueLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show on the SCIM tab it links to', async () => {
+			const url = vi
+				.spyOn(appPage, 'url', 'get')
+				.mockReturnValue(
+					new URL('http://localhost/identity-access?view=scim') as typeof appPage.url
+				);
+			try {
+				await renderWithAuthProviders([okta()]);
+				await expect.element(continueLink()).not.toBeInTheDocument();
+			} finally {
+				url.mockRestore();
+			}
+		});
+
+		it('can be dismissed for this device', async () => {
+			await renderWithAuthProviders([okta()]);
+
+			const dismiss = page.getByRole('button', { name: 'Dismiss SCIM setup banner', exact: true });
+			await expect.element(dismiss).toBeVisible();
+			// Native DOM click: Playwright actionability fails on driver.js overlays.
+			const el = await dismiss.element();
+			if (!(el instanceof HTMLElement)) {
+				throw new Error('Expected dismiss control to be an HTMLElement');
+			}
+			el.click();
+			await expect.element(continueLink()).not.toBeInTheDocument();
+
+			await renderWithAuthProviders([okta()]);
+			await expect.element(continueLink()).not.toBeInTheDocument();
 		});
 	});
 

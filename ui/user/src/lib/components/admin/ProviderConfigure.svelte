@@ -1,3 +1,11 @@
+<script module lang="ts">
+	// A notice shown below a configuration parameter.
+	export interface ParameterNotice {
+		kind: 'info' | 'warning';
+		text: string;
+	}
+</script>
+
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
@@ -7,7 +15,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import type { ResponsiveDialogAnimate } from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
-	import { CircleAlert } from '@lucide/svelte';
+	import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -27,6 +35,12 @@
 		body?: Snippet;
 		// Receives the dialog's own submit so a custom footer can drive the form it replaces.
 		footer?: Snippet<[() => void]>;
+		// Returns a notice to show below a parameter, given the form's current values, such as a
+		// warning about the consequences of a changed value.
+		parameterNotice?: (
+			parameter: ProviderParameter,
+			form: Record<string, string>
+		) => ParameterNotice | undefined;
 	}
 
 	const {
@@ -41,7 +55,8 @@
 		title,
 		steps,
 		body,
-		footer
+		footer,
+		parameterNotice
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
@@ -264,6 +279,26 @@
 	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
 </script>
 
+{#snippet noticeFor(parameter: ProviderParameter)}
+	{@const notice = parameterNotice?.(parameter, form)}
+	{#if notice}
+		<div
+			class={twMerge(
+				'mt-1 flex items-start gap-2 p-2 text-xs font-light',
+				notice.kind === 'warning' ? 'notification-alert' : 'notification-info'
+			)}
+			role={notice.kind === 'warning' ? 'alert' : 'note'}
+		>
+			{#if notice.kind === 'warning'}
+				<TriangleAlert class="mt-0.5 size-4 shrink-0" />
+			{:else}
+				<Info class="mt-0.5 size-4 shrink-0" />
+			{/if}
+			<span>{notice.text}</span>
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet booleanToggle(parameter: ProviderParameter)}
 	<li class="flex flex-col gap-1">
 		<span>{parameter.friendlyName}</span>
@@ -328,7 +363,7 @@
 					<CircleAlert class="mt-0.5 size-6 shrink-0 text-error" />
 					<p class="min-w-0 flex flex-col text-sm font-light">
 						<span class="font-semibold">An error occurred!</span>
-						<span class="max-h-28 overflow-auto wrap-break-word pr-1">
+						<span class="max-h-28 overflow-auto wrap-break-word whitespace-pre-line pr-1">
 							Your configuration could not be saved because it failed validation: <b
 								class="break-all font-semibold">{error}</b
 							>
@@ -422,6 +457,7 @@
 												disabled={readonly}
 											/>
 										{/if}
+										{@render noticeFor(parameter)}
 									</li>
 								{/if}
 							{/if}
@@ -476,6 +512,7 @@
 												disabled={readonly}
 											/>
 										{/if}
+										{@render noticeFor(parameter)}
 									</li>
 								{/if}
 							{/if}

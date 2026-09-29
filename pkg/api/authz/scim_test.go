@@ -3,6 +3,7 @@ package authz
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -143,6 +144,80 @@ func TestSCIMAuthorization(t *testing.T) {
 			if got != tt.allowed {
 				t.Fatalf("Authorize(%s %s, %v) = %v, want %v", tt.method, tt.path, tt.groups, got, tt.allowed)
 			}
+		})
+	}
+}
+
+func TestSCIMConnectionAdministration(t *testing.T) {
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	const connection = "0b6bd0a4-7e44-4c3c-9d0b-8a3d1f1b8f6e"
+
+	reads := []string{
+		"/api/scim-connections",
+		"/api/scim-connections/" + connection + "/review",
+		"/api/scim-connections/" + connection + "/users",
+		"/api/scim-connections/" + connection + "/groups",
+		"/api/scim-connections/" + connection + "/failures",
+	}
+	writes := []string{
+		"/api/scim-connections/" + connection + "/enforce",
+		"/api/scim-connections/" + connection + "/rotate-token",
+		"/api/scim-connections/" + connection + "/revoke-current-token",
+		"/api/scim-connections/" + connection + "/revoke-previous-token",
+	}
+
+	tests := []struct {
+		name        string
+		groups      []string
+		allowReads  bool
+		allowWrites bool
+	}{
+		{
+			name:        "owner, including the bootstrap user",
+			groups:      types.RoleOwner.Groups(),
+			allowReads:  true,
+			allowWrites: true,
+		},
+		{
+			name:       "admin",
+			groups:     types.RoleAdmin.Groups(),
+			allowReads: true,
+		},
+		{
+			name:       "auditor",
+			groups:     (types.RoleBasic | types.RoleAuditor).Groups(),
+			allowReads: true,
+		},
+		{
+			name:   "basic user",
+			groups: types.RoleBasic.Groups(),
+		},
+		{
+			name:   "connection principal",
+			groups: []string{types.GroupSCIM},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			check := func(method, path string, want bool) {
+				t.Helper()
+				req := httptest.NewRequest(method, path, nil)
+				got := authorizer.Authorize(req, &user.DefaultInfo{
+					Name:   "principal",
+					UID:    connection,
+					Groups: tt.groups,
+				})
+				if got != want {
+					t.Errorf("Authorize(%s %s) = %v, want %v", method, path, got, want)
+				}
+			}
+			for _, path := range reads {
+				check(http.MethodGet, path, tt.allowReads)
+			}
+			for _, path := range writes {
+				check(http.MethodPost, path, tt.allowWrites)
+			}
+			check(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", tt.allowWrites || (tt.allowReads && slices.Contains(tt.groups, types.GroupAdmin)))
 		})
 	}
 }

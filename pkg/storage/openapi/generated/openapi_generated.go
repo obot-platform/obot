@@ -58,6 +58,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProvider":                              schema_obot_platform_obot_apiclient_types_AuthProvider(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                          schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                      schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM":                          schema_obot_platform_obot_apiclient_types_AuthProviderSCIM(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                        schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                               schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                        schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
@@ -121,6 +122,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialManifest":                     schema_obot_platform_obot_apiclient_types_GitCredentialManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialUse":                          schema_obot_platform_obot_apiclient_types_GitCredentialUse(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialUses":                         schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupReference":                            schema_obot_platform_obot_apiclient_types_GroupReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                       schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                   schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Harness":                                   schema_obot_platform_obot_apiclient_types_Harness(ref),
@@ -323,9 +325,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                       schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                       schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig":                       schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.ResidualGroupData":                         schema_obot_platform_obot_apiclient_types_ResidualGroupData(ref),
 		"github.com/obot-platform/obot/apiclient/types.Resource":                                  schema_obot_platform_obot_apiclient_types_Resource(ref),
 		"github.com/obot-platform/obot/apiclient/types.RuntimeValidationError":                    schema_obot_platform_obot_apiclient_types_RuntimeValidationError(ref),
 		"github.com/obot-platform/obot/apiclient/types.S3Config":                                  schema_obot_platform_obot_apiclient_types_S3Config(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnection":                            schema_obot_platform_obot_apiclient_types_SCIMConnection(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity":                    schema_obot_platform_obot_apiclient_types_SCIMConnectionActivity(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionList":                        schema_obot_platform_obot_apiclient_types_SCIMConnectionList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionReview":                      schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnforceResult":                         schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure":                        schema_obot_platform_obot_apiclient_types_SCIMRequestFailure(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage":                    schema_obot_platform_obot_apiclient_types_SCIMRequestFailurePage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup":                            schema_obot_platform_obot_apiclient_types_SCIMSetupGroup(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage":                        schema_obot_platform_obot_apiclient_types_SCIMSetupGroupPage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupUser":                             schema_obot_platform_obot_apiclient_types_SCIMSetupUser(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage":                         schema_obot_platform_obot_apiclient_types_SCIMSetupUserPage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning":                          schema_obot_platform_obot_apiclient_types_SCIMSetupWarning(ref),
 		"github.com/obot-platform/obot/apiclient/types.Schedule":                                  schema_obot_platform_obot_apiclient_types_Schedule(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportCreateRequest":      schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":       schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
@@ -2825,6 +2840,49 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_AuthProviderSCIM(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AuthProviderSCIM describes how an auth provider supports SCIM provisioning.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"directoryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DirectoryParameters name the configuration parameters that only login-time directory synchronization uses. While the provider is configured or staged without a SCIM connection, providing them sets up directory synchronization, and omitting them sets up SCIM.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"issuerParameter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IssuerParameter names the configuration parameter that holds the identity provider's issuer URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"connectionIssuer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConnectionIssuer is the issuer URL recorded when the provider's SCIM connection was created, and empty while it has none. SCIM bindings belong to the identity provider organization they were created in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"directoryParameters", "issuerParameter"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2871,12 +2929,18 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format:      "",
 						},
 					},
+					"scim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIM describes how the provider supports SCIM. It is set only for a provider that supports SCIM, and only administrators see it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM"),
+						},
+					},
 				},
 				Required: []string{"CommonProviderStatus"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+			"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM", "github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
 	}
 }
 
@@ -6139,6 +6203,49 @@ func schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.GitCredentialUse"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GroupReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupReference is an object that references a group, which makes the group carry authorization.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is accessControlRule, modelAccessPolicy, skillAccessRule, messagePolicy, hostedAgentAccessRule, publishedArtifact, groupRoleAssignment, or vmcpProfile.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the object's ID, or the group ID for a group role assignment.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"detail": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Detail says where in the object the reference is, such as a published artifact's version, a virtual MCP server's profile, or the role a group role assignment grants.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "id"},
+			},
+		},
 	}
 }
 
@@ -16430,6 +16537,43 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ResidualGroupData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResidualGroupData is what remains of an auth provider's groups from an earlier configuration. It blocks configuring the provider without directory credentials until the provider's auth provider cleanup removes it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Groups are the provider's groups, and the group IDs with its group ID prefix that no group has but something references, each with the objects that reference it. A group ID that no group has has no name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+					"membershipCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MembershipCount is the number of memberships in groups with the provider's group ID prefix.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"groups", "membershipCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_Resource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16521,6 +16665,679 @@ func schema_obot_platform_obot_apiclient_types_S3Config(ref common.ReferenceCall
 				Required: []string{"region"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnection(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnection connects an auth provider to an identity provider's SCIM client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"adapterType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"origin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Origin is \"scim_first\" for a connection created when its auth provider was configured without directory credentials, or \"migrated\" for one that replaced login-time directory synchronization.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authProviderNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authProviderDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State is \"connected\" or \"enforced\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"baseURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BaseURL is the SCIM base URL to configure in the identity provider.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"issuer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"enforcedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"hasToken": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasToken is false until the first bearer token is issued. Every request to a connection without one fails.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"tokenIssuedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenIssuedAt is when the current bearer token was issued.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"previousTokenAccepted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreviousTokenAccepted is true while the token that the last rotation replaced is still accepted, which it is until PreviousTokenExpiresAt unless it is revoked first.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"previousTokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"authProviderConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthProviderConfigured is false while the connection's auth provider is not the one serving sign-ins, including while it is only staged, and the SCIM endpoint answers 503.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"token": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Token is the bearer token. It is set only in the response that issued it, and cannot be retrieved again.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "adapterType", "origin", "authProviderNamespace", "authProviderName", "authProviderDisplayName", "state", "baseURL", "enabledAt", "hasToken", "previousTokenAccepted", "authProviderConfigured"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionActivity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnectionActivity shows the SCIM requests a connection received. Activity is not proof that the identity provider and Obot are synchronized.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lastRequestAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastRequestAt is when the last authenticated request arrived, and LastSuccessAt when the last one succeeded. Both are recorded at most every few seconds.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastSuccessAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"recentFailures": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage"),
+						},
+					},
+				},
+				Required: []string{"recentFailures"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnectionReview is the state of a SCIM connection, and what enforcing it would do. Each list holds its first page; the connection's list routes serve the others.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"provisionedUsers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProvisionedUsers are the users SCIM has provisioned.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage"),
+						},
+					},
+					"unprovisionedUsers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnprovisionedUsers are the users of the auth provider that SCIM has not provisioned. Enforcing disables them.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage"),
+						},
+					},
+					"boundGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BoundGroups are the groups that SCIM manages.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"unboundReferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnboundReferencedGroups are referenced groups that the identity provider has not pushed. They block enforcing.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"unreferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnreferencedGroups are unbound groups that nothing references. Enforcing deletes them.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"warnings": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"),
+									},
+								},
+							},
+						},
+					},
+					"enforceBlockers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnforceBlockers are the reasons the requesting user cannot enforce SCIM now. They are empty once SCIM is enforced.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"activity": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity"),
+						},
+					},
+				},
+				Required: []string{"connection", "provisionedUsers", "unprovisionedUsers", "boundGroups", "unboundReferencedGroups", "unreferencedGroups", "warnings", "enforceBlockers", "activity"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection", "github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity", "github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnforceResult is what enforcing SCIM did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"disabledUserCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledUserCount is the number of users disabled because SCIM never provisioned them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of unbound groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"connection", "disabledUserCount", "deletedGroupCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMRequestFailure(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMRequestFailure is an authenticated SCIM request that failed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource is the request path below the SCIM base URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"scimType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"detail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"time", "method", "resource", "status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMRequestFailurePage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMRequestFailurePage is one page of a connection's recent failed requests, newest first.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupGroup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupGroup is a group of an auth provider that SCIM manages or will manage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"nativeID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NativeID is the identity provider's own ID of the group, when the group ID carries one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"consoleURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConsoleURL is the address of the group in the identity provider's admin console, when it can be built.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scimID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMID is the ID of the group's SCIM binding. It is empty while the group is unbound.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GroupReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id", "name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupReference"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupGroupPage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupGroupPage is one page of a list of groups.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupUser(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupUser is a user of a SCIM connection's auth provider.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is active or disabled.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scimID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMID is the ID of the user's SCIM binding. It is empty while the user is unprovisioned.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"active": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Active is the provisioned state the identity provider last sent. It is only set for provisioned users.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"signedIn": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SignedIn is true once the user has signed in through the auth provider.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "status"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupUserPage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupUserPage is one page of a list of users.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUser"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupUser"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupWarning(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupWarning is a finding that does not block SCIM, but needs the administrator's attention.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is \"everyoneGroup\" for a referenced group that the identity provider cannot push, or \"missingGroup\" for references to a group ID of the auth provider that no group has.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groupID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GroupReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type", "message", "groupID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupReference"},
 	}
 }
 

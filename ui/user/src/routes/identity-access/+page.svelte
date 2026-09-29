@@ -6,6 +6,7 @@
 	import AuthProvidersView from './AuthProvidersView.svelte';
 	import GroupsView from './GroupsView.svelte';
 	import RolesView from './RolesView.svelte';
+	import ScimView from './ScimView.svelte';
 	import UsersView from './UsersView.svelte';
 	import { Plus } from '@lucide/svelte';
 
@@ -34,7 +35,8 @@
 				{ label: 'Agents', value: 'agents', content: agents },
 				{ label: 'Groups', value: 'groups', content: groups },
 				{ label: 'Roles', value: 'roles', content: roles },
-				{ label: 'Auth Providers', value: 'auth-providers', content: authProviders }
+				{ label: 'Auth Providers', value: 'auth-providers', content: authProviders },
+				{ label: 'SCIM', value: 'scim', content: scim }
 			]
 		: [{ label: 'Agents', value: 'agents', content: agents }]}
 />
@@ -76,6 +78,10 @@
 
 {#snippet authProviders()}
 	<AuthProvidersView authProviders={data.authProviders} authEnabled={data.authEnabled} />
+{/snippet}
+
+{#snippet scim()}
+	<ScimView review={data.scimReview} pageSize={data.scimPageSize} />
 {/snippet}
 
 {#snippet agents()}

@@ -77,6 +77,7 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import CommunitySignupBanner from './admin/license/CommunitySignupBanner.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
+	import SCIMSetupBanner from './admin/scim/SCIMSetupBanner.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -473,6 +474,27 @@
 		return !isCommunitySignupDismissedForCurrentProfile();
 	});
 
+	const SCIM_SETUP_BANNER_KEY = '@obot/dismiss-scim-setup-banner';
+	let scimSetupBannerDismissed = localState<boolean>(SCIM_SETUP_BANNER_KEY, false);
+
+	// The configured auth provider while it provisions users and groups through SCIM and SCIM is not
+	// enforced yet. Its setup continues on the SCIM tab, which is where an Owner who just signed in
+	// for the first time, from Owner Setup, a switch, or an owner email, is sent from here.
+	let unfinishedSCIMProvider = $derived.by(() => {
+		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
+		if (!scimSetupBannerDismissed.isReady || scimSetupBannerDismissed.current) return undefined;
+		if (pathname === '/identity-access' && page.url.searchParams.get('view') === 'scim') {
+			return undefined;
+		}
+		return $adminConfigStore.authProviders.find(
+			(provider) => provider.configured && provider.scimState === 'connected'
+		);
+	});
+
+	function handleDismissSCIMSetupBanner() {
+		scimSetupBannerDismissed.current = true;
+	}
+
 	let showAppNotificationBanner = $derived.by(() => {
 		if (isAgentRoute) return false;
 
@@ -588,6 +610,11 @@
 					/>
 				{:else if canShowCommunitySignup}
 					<CommunitySignupBanner onDismiss={handleDismissCommunitySignupBanner} />
+				{:else if unfinishedSCIMProvider}
+					<SCIMSetupBanner
+						providerName={unfinishedSCIMProvider.name}
+						onDismiss={handleDismissSCIMSetupBanner}
+					/>
 				{/if}
 				<Navbar
 					class={twMerge('dark:bg-base-200 border-b border-base-300', classes?.navbar)}

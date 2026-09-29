@@ -28,6 +28,22 @@ type AuthProviderStatus struct {
 	// SCIMState is the state of the provider's SCIM connection: "connected", "enforced", or empty when
 	// the provider has none. Only administrators see it.
 	SCIMState string `json:"scimState,omitempty"`
+	// SCIM describes how the provider supports SCIM. It is set only for a provider that supports SCIM, and only
+	// administrators see it.
+	SCIM *AuthProviderSCIM `json:"scim,omitempty"`
+}
+
+// AuthProviderSCIM describes how an auth provider supports SCIM provisioning.
+type AuthProviderSCIM struct {
+	// DirectoryParameters name the configuration parameters that only login-time directory synchronization uses.
+	// While the provider is configured or staged without a SCIM connection, providing them sets up directory
+	// synchronization, and omitting them sets up SCIM.
+	DirectoryParameters []string `json:"directoryParameters"`
+	// IssuerParameter names the configuration parameter that holds the identity provider's issuer URL.
+	IssuerParameter string `json:"issuerParameter"`
+	// ConnectionIssuer is the issuer URL recorded when the provider's SCIM connection was created, and empty while
+	// it has none. SCIM bindings belong to the identity provider organization they were created in.
+	ConnectionIssuer string `json:"connectionIssuer,omitempty"`
 }
 
 type AuthProviderList List[AuthProvider]

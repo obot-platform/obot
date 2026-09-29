@@ -53,8 +53,13 @@ func (*HostedAgentAccessRuleHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := req.Create(&rule); err != nil {
-		return fmt.Errorf("failed to create hosted agent access rule: %w", err)
+	if err := writeNewGroupSubjects(req, manifest.Subjects, nil, func() error {
+		if err := req.Create(&rule); err != nil {
+			return fmt.Errorf("failed to create hosted agent access rule: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return req.WriteCreated(convertHostedAgentAccessRule(rule))
@@ -71,9 +76,14 @@ func (*HostedAgentAccessRuleHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get hosted agent access rule: %w", err)
 	}
 
-	rule.Spec.Manifest = *manifest
-	if err := req.Update(&rule); err != nil {
-		return fmt.Errorf("failed to update hosted agent access rule: %w", err)
+	if err := writeNewGroupSubjects(req, manifest.Subjects, rule.Spec.Manifest.Subjects, func() error {
+		rule.Spec.Manifest = *manifest
+		if err := req.Update(&rule); err != nil {
+			return fmt.Errorf("failed to update hosted agent access rule: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return req.Write(convertHostedAgentAccessRule(rule))

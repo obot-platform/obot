@@ -158,8 +158,13 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 		}
 	}
 
-	if err := req.Create(&rule); err != nil {
-		return fmt.Errorf("failed to create access control rule: %w", err)
+	if err := writeNewGroupSubjects(req, manifest.Subjects, nil, func() error {
+		if err := req.Create(&rule); err != nil {
+			return fmt.Errorf("failed to create access control rule: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// If this is a workspace-scoped rule, get the powerUserID for the response
@@ -232,9 +237,14 @@ func (*AccessControlRuleHandler) Update(req api.Context) error {
 		}
 	}
 
-	existing.Spec.Manifest = manifest
-	if err := req.Update(&existing); err != nil {
-		return fmt.Errorf("failed to update access control rule: %w", err)
+	if err := writeNewGroupSubjects(req, manifest.Subjects, existing.Spec.Manifest.Subjects, func() error {
+		existing.Spec.Manifest = manifest
+		if err := req.Update(&existing); err != nil {
+			return fmt.Errorf("failed to update access control rule: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// If this is a workspace-scoped rule, get the powerUserID for the response

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
+	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,6 +52,11 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
+	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+
 	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
 	if err != nil {
 		return err
@@ -59,12 +66,12 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	setSCIMState(req, conn, authProviderStatus)
+	setSCIMStatus(req, authProvider, conn, authProviderStatus)
 	if err := setRequiresActivation(req, authProvider, authProviderStatus); err != nil {
 		return err
 	}
 
-	params, err := effectiveAuthProviderParameters(req, authProvider, conn)
+	params, err := servedAuthProviderParameters(req, authProvider, authProvider.Name == configuredProvider, conn)
 	if err != nil {
 		return err
 	}
@@ -72,10 +79,10 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params))
 }
 
-// effectiveAuthProviderParameters returns the auth provider's effective configuration parameters. With a SCIM
-// connection, they depend on whether the stored credential still holds the parameters that only directory
-// synchronization uses.
-func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvider, conn *gatewaytypes.SCIMConnection) (adapter.Parameters, error) {
+// effectiveAuthProviderParameters returns the auth provider's effective configuration parameters. configured is set
+// for the configured auth provider. They depend on the provider's SCIM connection, and with one, on whether the
+// stored credential still holds the parameters that only directory synchronization uses.
+func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvider, configured bool, conn *gatewaytypes.SCIMConnection) (adapter.Parameters, error) {
 	var stored map[string]string
 	if conn != nil {
 		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{
@@ -88,14 +95,55 @@ func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvid
 		}
 		stored = cred.Secrets
 	}
-	return adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, conn, stored), nil
+	return adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName: authProvider.Name,
+		Configured:       configured,
+		Connection:       conn,
+		Stored:           stored,
+	}), nil
 }
 
-// setSCIMState reports the state of the provider's SCIM connection. Auth providers are readable anonymously so the
-// sign-in page can render, so only administrators learn it.
-func setSCIMState(req api.Context, conn *gatewaytypes.SCIMConnection, status *types.AuthProviderStatus) {
-	if conn != nil && req.UserIsAdmin() {
+// servedAuthProviderParameters returns the configuration parameters to serve for an auth provider. Administrators and
+// auditors get its effective parameters, which the configuration form shows. Everyone else gets the manifest's,
+// because the effective ones reveal the provider's SCIM setup, and auth providers are readable anonymously so the
+// sign-in page can render.
+func servedAuthProviderParameters(req api.Context, authProvider v1.AuthProvider, configured bool, conn *gatewaytypes.SCIMConnection) (adapter.Parameters, error) {
+	if !seesSCIM(req) {
+		return adapter.Parameters{
+			Required: authProvider.Spec.RequiredConfigurationParameters,
+			Optional: authProvider.Spec.OptionalConfigurationParameters,
+		}, nil
+	}
+	return effectiveAuthProviderParameters(req, authProvider, configured, conn)
+}
+
+// seesSCIM reports whether the requester may learn how an auth provider is set up for SCIM.
+func seesSCIM(req api.Context) bool {
+	return req.UserIsAdmin() || req.UserIsAuditor()
+}
+
+// setSCIMStatus reports how the provider supports SCIM and the state of its SCIM connection. Auth providers are
+// readable anonymously so the sign-in page can render, so only administrators and auditors learn either.
+func setSCIMStatus(req api.Context, authProvider v1.AuthProvider, conn *gatewaytypes.SCIMConnection, status *types.AuthProviderStatus) {
+	if !seesSCIM(req) {
+		return
+	}
+	if conn != nil {
 		status.SCIMState = string(conn.State)
+	}
+
+	a, ok := adapter.ForAuthProvider(authProvider.Name)
+	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
+		return
+	}
+	status.SCIM = &types.AuthProviderSCIM{
+		IssuerParameter: a.IssuerConfigurationParameter(),
+	}
+	for _, d := range a.DirectoryParameters() {
+		status.SCIM.DirectoryParameters = append(status.SCIM.DirectoryParameters, d.Name)
+	}
+	if conn != nil {
+		status.SCIM.ConnectionIssuer = conn.Issuer
 	}
 }
 
@@ -131,6 +179,11 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		}
 	}
 
+	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+
 	conns, err := req.GatewayClient.SCIMConnections(req.Context())
 	if err != nil {
 		return err
@@ -149,7 +202,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		setSCIMState(req, conn, authProviderStatus)
+		setSCIMStatus(req, a, conn, authProviderStatus)
 		authProviderStatus.Staged = staged != "" && a.Name == staged
 		if authProviderStatus.Staged {
 			authProviderStatus.VerifiedEmail = verifiedEmail
@@ -158,7 +211,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		params, err := effectiveAuthProviderParameters(req, a, conn)
+		params, err := servedAuthProviderParameters(req, a, a.Name == configuredProvider, conn)
 		if err != nil {
 			return err
 		}
@@ -211,7 +264,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	if err := ap.validateAuthProviderConfiguration(req, authProvider, envVars); err != nil {
+	if err := ap.validateAuthProviderConfiguration(req, authProvider, configuredProvider == authProvider.Name, envVars); err != nil {
 		return err
 	}
 
@@ -233,15 +286,19 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 }
 
 // validateAuthProviderConfiguration checks a submitted configuration against the auth provider's effective
-// parameters, which depend on its SCIM connection. It first drops the parameters the provider no longer uses, so that
-// a provider whose directory is managed through SCIM is configured again without them.
-func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, envVars map[string]string) error {
+// parameters, which depend on its SCIM setup. configured is set for the configured auth provider. It first drops the
+// parameters the provider no longer uses, so that a provider whose directory is managed through SCIM is configured
+// again without them.
+//
+// For a provider that the configuration would set up for SCIM, it also refuses residual group data here, so that the
+// administrator sees what remains. The provider configuration change checks it again under its serialization.
+func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, configured bool, envVars map[string]string) error {
 	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
 	if err != nil {
 		return err
 	}
 
-	params, err := effectiveAuthProviderParameters(req, authProvider, conn)
+	params, err := effectiveAuthProviderParameters(req, authProvider, configured, conn)
 	if err != nil {
 		return err
 	}
@@ -253,19 +310,62 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 			strings.Join(params.Together, " and "), strings.Join(missing, ", "))
 	}
 
-	status, err := providers.AuthProviderStatus(req.Context(), authProvider, envVars, conn, ap.license)
+	missingEntitlements, err := ap.license.MissingEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements)
 	if err != nil {
 		return err
 	}
-	if len(status.MissingEntitlements) > 0 {
+	if len(missingEntitlements) > 0 {
 		return types.NewErrHTTP(http.StatusPaymentRequired,
-			fmt.Sprintf("missing required license entitlements: %v", status.MissingEntitlements))
+			fmt.Sprintf("missing required license entitlements: %v", missingEntitlements))
 	}
-	if !status.Configured {
-		return types.NewErrBadRequest("missing required configuration parameters: %s",
-			strings.Join(status.MissingConfigurationParameters, ", "))
+
+	var missing []string
+	for _, param := range params.Required {
+		if _, ok := envVars[param.Name]; !ok {
+			missing = append(missing, param.Name)
+		}
+	}
+	if len(missing) > 0 {
+		if a, ok := adapter.ForAuthProvider(authProvider.Name); ok && configured && conn == nil && !adapter.DirectoryParametersProvided(a, envVars) {
+			return types.NewErrBadRequest("%s synchronizes its directory at sign-in, so it requires %s. Moving it to SCIM provisioning is a separate, reviewed step",
+				cmp.Or(authProvider.Spec.Name, authProvider.Name), strings.Join(missing, ", "))
+		}
+		return types.NewErrBadRequest("missing required configuration parameters: %s", strings.Join(missing, ", "))
+	}
+
+	if a, ok := adapter.ForAuthProvider(authProvider.Name); ok && !configured && conn == nil &&
+		adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) && !adapter.DirectoryParametersProvided(a, envVars) {
+		residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
+		if err != nil {
+			return err
+		}
+		if len(residual.Groups) > 0 || residual.MembershipCount > 0 {
+			return types.NewErrHTTP(http.StatusConflict, (&scimsetup.ResidualGroupDataError{
+				AuthProviderName:        authProvider.Name,
+				AuthProviderDisplayName: cmp.Or(authProvider.Spec.Name, authProvider.Name),
+				Data:                    *residual,
+			}).Error())
+		}
 	}
 	return nil
+}
+
+// GET /api/auth-providers/{id}/residual-group-data
+// Reports what remains of an auth provider's groups from an earlier configuration. It blocks configuring the provider
+// without directory credentials until the provider's auth provider cleanup, which deconfiguring runs, removes it.
+func (ap *AuthProviderHandler) ResidualGroupData(req api.Context) error {
+	var authProvider v1.AuthProvider
+	if err := req.Get(&authProvider, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
+	if ineligible, ok := errors.AsType[*scimsetup.IneligibleError](err); ok {
+		return types.NewErrBadRequest("%s", ineligible.Error())
+	} else if err != nil {
+		return err
+	}
+	return req.Write(residual)
 }
 
 func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) error {
@@ -347,7 +447,8 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		}
 	}
 
-	if err := ap.validateAuthProviderConfiguration(req, authProvider, envVars); err != nil {
+	// A replacement is never the configured provider; the controller refuses to stage that one.
+	if err := ap.validateAuthProviderConfiguration(req, authProvider, false, envVars); err != nil {
 		return err
 	}
 

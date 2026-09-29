@@ -19,28 +19,51 @@ type Parameters struct {
 	Together []string
 }
 
-// EffectiveParameters returns an auth provider's effective configuration parameters, from its manifest, its SCIM
-// connection, which is nil when it has none, the connection's adapter, and its stored credential, which is nil when it
-// has none.
+// ProviderState is what an auth provider's effective configuration parameters depend on, besides its manifest.
+type ProviderState struct {
+	// AuthProviderName names the auth provider. Without a SCIM connection, it selects the provider's adapter.
+	AuthProviderName string
+	// Configured is set when the configuration being described is the provider's active one: for the configured
+	// auth provider, and for every check of whether a stored configuration is complete. Without a SCIM connection,
+	// such a provider synchronizes its directory at sign-in.
+	Configured bool
+	// Connection is the provider's SCIM connection, or nil when it has none.
+	Connection *types.SCIMConnection
+	// Stored is the provider's stored configuration, or nil when it has none.
+	Stored map[string]string
+}
+
+// EffectiveParameters returns an auth provider's effective configuration parameters, from its manifest, its adapter,
+// its SCIM connection, and its stored configuration.
 //
 // Only the adapter's directory parameters differ from the manifest:
-//   - Without a connection, the provider synchronizes its directory at sign-in, so they are required as the manifest
-//     lists them.
-//   - With a connection, they are never required. If the stored credential still holds them, they are optional and
-//     described as unused, so they can be removed. Otherwise they are absent, and dropped if submitted.
-func EffectiveParameters(manifest types2.AuthProviderManifest, conn *types.SCIMConnection, stored map[string]string) Parameters {
+//   - A provider that is being configured or staged, and has no connection, may omit them: providing them sets up
+//     directory synchronization, and omitting them sets up SCIM. They are optional, described as that choice, and
+//     must be provided together.
+//   - A configured provider without a connection synchronizes its directory at sign-in, so they are required as the
+//     manifest lists them.
+//   - With a connection, they are never required. If the stored configuration still holds them, they are optional
+//     and described as unused, so they can be removed. Otherwise they are absent, and dropped if submitted.
+func EffectiveParameters(manifest types2.AuthProviderManifest, state ProviderState) Parameters {
 	params := Parameters{
 		Required: slices.Clone(manifest.RequiredConfigurationParameters),
 		Optional: slices.Clone(manifest.OptionalConfigurationParameters),
 	}
-	if conn == nil {
-		return params
-	}
 
-	a, ok := Lookup(conn.AdapterType)
+	var (
+		a  Adapter
+		ok bool
+	)
+	switch {
+	case state.Connection != nil:
+		a, ok = Lookup(state.Connection.AdapterType)
+	case !state.Configured && SupportsSCIM(state.AuthProviderName, manifest):
+		a, ok = ForAuthProvider(state.AuthProviderName)
+	}
 	if !ok {
-		// A connection whose rules are unknown cannot relax anything, so the provider needs everything its manifest
-		// requires.
+		// Without a connection, a configured provider synchronizes its directory, and a provider without an adapter
+		// has nothing to relax. A connection whose rules are unknown cannot relax anything either, so the provider
+		// needs everything its manifest requires.
 		return params
 	}
 
@@ -48,12 +71,20 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, conn *types.SCIMC
 	isDirectory := func(p types2.ProviderConfigurationParameter) bool {
 		return slices.ContainsFunc(directory, func(d DirectoryParameter) bool { return d.Name == p.Name })
 	}
-	stillStored := slices.ContainsFunc(directory, func(d DirectoryParameter) bool {
-		return stored[d.Name] != ""
-	})
-
 	params.Required = slices.DeleteFunc(params.Required, isDirectory)
 	params.Optional = slices.DeleteFunc(params.Optional, isDirectory)
+
+	if state.Connection == nil {
+		for _, d := range directory {
+			params.Together = append(params.Together, d.Name)
+			params.Optional = append(params.Optional, directoryParameter(manifest, d, d.SetupDescription))
+		}
+		return params
+	}
+
+	stillStored := slices.ContainsFunc(directory, func(d DirectoryParameter) bool {
+		return state.Stored[d.Name] != ""
+	})
 	for _, d := range directory {
 		if !stillStored {
 			params.Dropped = append(params.Dropped, d.Name)
@@ -61,19 +92,33 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, conn *types.SCIMC
 		}
 
 		params.Together = append(params.Together, d.Name)
-
-		param := types2.ProviderConfigurationParameter{
-			Name:        d.Name,
-			Description: d.UnusedDescription,
-		}
-		if i := slices.IndexFunc(manifest.RequiredConfigurationParameters, func(p types2.ProviderConfigurationParameter) bool { return p.Name == d.Name }); i >= 0 {
-			param = manifest.RequiredConfigurationParameters[i]
-			param.Description = d.UnusedDescription
-		}
-		params.Optional = append(params.Optional, param)
+		params.Optional = append(params.Optional, directoryParameter(manifest, d, d.UnusedDescription))
 	}
 
 	return params
+}
+
+// directoryParameter returns the manifest's definition of a directory parameter with the given description.
+func directoryParameter(manifest types2.AuthProviderManifest, d DirectoryParameter, description string) types2.ProviderConfigurationParameter {
+	param := types2.ProviderConfigurationParameter{
+		Name: d.Name,
+	}
+	for _, list := range [][]types2.ProviderConfigurationParameter{manifest.RequiredConfigurationParameters, manifest.OptionalConfigurationParameters} {
+		if i := slices.IndexFunc(list, func(p types2.ProviderConfigurationParameter) bool { return p.Name == d.Name }); i >= 0 {
+			param = list[i]
+			break
+		}
+	}
+	param.Description = description
+	return param
+}
+
+// DirectoryParametersProvided reports whether config holds any of the adapter's directory parameters. Empty values
+// count as absent. Providing them chooses directory synchronization, and omitting them all chooses SCIM.
+func DirectoryParametersProvided(a Adapter, config map[string]string) bool {
+	return slices.ContainsFunc(a.DirectoryParameters(), func(d DirectoryParameter) bool {
+		return config[d.Name] != ""
+	})
 }
 
 // IncompleteGroup returns the parameters of Together that config lacks when it holds some but not all of them, and

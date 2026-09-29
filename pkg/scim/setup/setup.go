@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
+	providerstatus "github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
@@ -116,7 +116,7 @@ func RecomputeAuthProviderStatus(ctx context.Context, storage kclient.Client, ga
 		if err := storage.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, &authProvider); err != nil {
 			return err
 		}
-		if err := provider.SetAuthProviderConfiguredStatus(ctx, gateway, licenseProvider, &authProvider); err != nil {
+		if err := providerstatus.SetAuthProviderConfiguredStatus(ctx, gateway, licenseProvider, &authProvider); err != nil {
 			return err
 		}
 		return storage.Status().Update(ctx, &authProvider)
@@ -125,7 +125,7 @@ func RecomputeAuthProviderStatus(ctx context.Context, storage kclient.Client, ga
 
 // refusePendingCleanup returns a CleanupPendingError when an auth-provider cleanup is pending for the auth provider's
 // name or group ID prefix, the same data that a cleanup refuses to delete while a connection owns it.
-func refusePendingCleanup(ctx context.Context, storage kclient.Client, authProvider v1.AuthProvider) error {
+func refusePendingCleanup(ctx context.Context, storage kclient.Reader, authProvider v1.AuthProvider) error {
 	var cleanups v1.AuthProviderCleanupList
 	if err := storage.List(ctx, &cleanups, kclient.InNamespace(authProvider.Namespace)); err != nil {
 		return fmt.Errorf("failed to list auth provider cleanups: %w", err)

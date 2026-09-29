@@ -43,7 +43,7 @@ func (c *Controller) setupRoutes() {
 	root := c.services.Router
 
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
-	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN)
+	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN, c.services.StorageClient)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)

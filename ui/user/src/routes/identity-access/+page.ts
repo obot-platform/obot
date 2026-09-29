@@ -1,10 +1,14 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService, ApiKeysService, UserService } from '$lib/services';
 import type { AuthProvider, GroupRoleAssignment, OrgGroup, OrgUser } from '$lib/services';
+import type { SCIMConnectionReview } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
 import type { PageLoad } from './$types';
 
-const views = new Set(['users', 'agents', 'groups', 'roles', 'auth-providers']);
+const views = new Set(['users', 'agents', 'groups', 'roles', 'auth-providers', 'scim']);
+
+// The page size of each list on the SCIM tab.
+const scimPageSize = 50;
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
@@ -24,6 +28,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let authProviders: AuthProvider[] = [];
 	let authEnabled = false;
 	let apiKeys: APIKey[] = [];
+	let scimReview: SCIMConnectionReview | undefined;
 
 	if (view === 'agents') {
 		try {
@@ -80,6 +85,20 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 					handleRouteError(err, '/identity-access?view=auth-providers', profile);
 				}
 				break;
+			case 'scim':
+				try {
+					// There is at most one connection.
+					const connections = await AdminService.listSCIMConnections({ fetch });
+					if (connections.length > 0) {
+						scimReview = await AdminService.getSCIMConnectionReview(connections[0].id, {
+							fetch,
+							limit: scimPageSize
+						});
+					}
+				} catch (err) {
+					handleRouteError(err, '/identity-access?view=scim', profile);
+				}
+				break;
 		}
 	}
 
@@ -90,6 +109,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		defaultUsersRole,
 		authProviders,
 		authEnabled,
-		apiKeys
+		apiKeys,
+		scimReview,
+		scimPageSize
 	};
 };
