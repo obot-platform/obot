@@ -6,6 +6,7 @@
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpActions from '$lib/components/vmcps/VMcpActions.svelte';
+	import VMcpCatalogSyncedIndicator from '$lib/components/vmcps/VMcpCatalogSyncedIndicator.svelte';
 	import VMcpCreationHint from '$lib/components/vmcps/VMcpCreationHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
 	import VMcpGraph from '$lib/components/vmcps/VMcpGraph.svelte';
@@ -395,6 +396,12 @@
 	{showBackButton}
 	onBackButtonClick={handleBack}
 >
+	{#snippet titleContent()}
+		{title}
+		{#if selectedVMcp}
+			<VMcpCatalogSyncedIndicator vmcp={selectedVMcp} iconClass="size-5" class="size-5" />
+		{/if}
+	{/snippet}
 	<div
 		class="@container dark:from-base-300 to-base-200 relative h-full min-h-0 w-full overflow-y-auto default-scrollbar-thin bg-radial-[at_50%_50%] from-gray-50 dark:to-black"
 		aria-busy={showDesignerLoading}

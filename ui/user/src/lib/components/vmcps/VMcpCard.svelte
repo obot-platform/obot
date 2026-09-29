@@ -16,6 +16,7 @@
 	import { poll } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
+	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
 	import {
 		CircleFadingArrowUp,
 		ExternalLink,
@@ -193,6 +194,7 @@
 		<div class="min-w-0 grow">
 			<div class="flex min-w-0 items-center gap-2">
 				<p class="truncate text-sm font-semibold">{name}</p>
+				<VMcpCatalogSyncedIndicator {vmcp} class="pointer-events-auto relative z-10" />
 			</div>
 			<p class="text-muted-content mt-0.5 line-clamp-2 text-xs font-light min-h-8">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toInlineHTMLFromMarkdown -->

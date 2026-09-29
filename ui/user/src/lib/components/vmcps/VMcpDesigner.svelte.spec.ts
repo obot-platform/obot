@@ -980,6 +980,13 @@ describe('VMcpDesigner.svelte', () => {
 
 			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 			await expect
+				.element(
+					page
+						.getByRole('heading', { level: 1 })
+						.getByRole('button', { name: 'Synced from catalog' })
+				)
+				.toBeVisible();
+			await expect
 				.element(page.getByRole('button', { name: 'Delete vMCP' }))
 				.not.toBeInTheDocument();
 			await expect

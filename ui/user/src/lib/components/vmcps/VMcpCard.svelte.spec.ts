@@ -415,6 +415,26 @@ describe('VMcpCard.svelte', () => {
 			.not.toBeInTheDocument();
 	});
 
+	it('marks a catalog-synced vMCP', async () => {
+		await renderCard({
+			groups: [Group.ADMIN],
+			vmcp: {
+				...createVMCP({ id: 'vmcp-1', displayName: 'Issue Tracker vMCP' }),
+				sourceURL: 'https://github.com/example/catalog'
+			}
+		});
+
+		await expect.element(page.getByRole('button', { name: 'Synced from catalog' })).toBeVisible();
+	});
+
+	it('does not mark a vMCP created in Obot as catalog-synced', async () => {
+		await renderCard({ groups: [Group.ADMIN] });
+
+		await expect
+			.element(page.getByRole('button', { name: 'Synced from catalog' }))
+			.not.toBeInTheDocument();
+	});
+
 	it('hides update action for non-owners without admin access', async () => {
 		await renderCard({
 			groups: [Group.USER],
