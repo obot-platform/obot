@@ -47,7 +47,7 @@ func NewImporter() *Importer {
 }
 
 func newImporterWithClient(client *http.Client) *Importer {
-	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Importer{client: client}
 }
 
