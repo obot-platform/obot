@@ -6,6 +6,7 @@
 	import { profile, version, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { MessageCircle } from '@lucide/svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		connectURL?: string;
@@ -63,10 +64,13 @@
 	>
 		<div
 			bind:this={connectEl}
-			class="relative z-10 flex grow items-center rounded-lg border border-base-300 dark:border-base-400"
+			class="relative z-10 flex grow items-center overflow-hidden rounded-lg border border-base-300 dark:border-base-400"
 		>
 			<button
-				class="btn flex grow rounded-r-none border-transparent bg-primary/10 font-mono text-xs uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content"
+				class={twMerge(
+					'btn flex grow border-transparent bg-primary/10 font-mono text-xs uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content',
+					connectURL ? 'rounded-r-none' : 'rounded-md'
+				)}
 				onclick={() => onConnect?.()}
 				disabled={hasLicenseEntitlementViolations || disabled}
 				aria-disabled={hasLicenseEntitlementViolations || disabled}
