@@ -24,7 +24,8 @@ const (
 
 // Importer fetches schema sources. It never receives API credentials.
 type Importer struct {
-	client *http.Client
+	client  *http.Client
+	options safehttp.Options
 }
 
 // Result contains the stored schema, resolved API destination, and suggested
@@ -41,12 +42,9 @@ func NewImporter(options safehttp.Options) *Importer {
 	if options.Timeout == 0 {
 		options.Timeout = 30 * time.Second
 	}
-	return newImporterWithClient(safehttp.NewClient(options))
-}
-
-func newImporterWithClient(client *http.Client) *Importer {
+	client := safehttp.NewClient(options)
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &Importer{client: client}
+	return &Importer{client: client, options: options}
 }
 
 // Import always reads Source anew, ignoring any previous Schema snapshot.
@@ -58,7 +56,7 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	}
 
 	if source.URL == "" {
-		return Parse([]byte(source.Content), config)
+		return i.parse(ctx, []byte(source.Content), config)
 	}
 
 	u, err := sourceURL(source.URL)
@@ -89,7 +87,20 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 		return nil, fmt.Errorf("schema exceeds 1 MiB")
 	}
 
-	return Parse(data, config)
+	return i.parse(ctx, data, config)
+}
+
+// parse checks the resolved destination against the importer's network policy.
+// It makes no request to the destination.
+func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
+	result, err := Parse(data, config)
+	if err != nil {
+		return nil, err
+	}
+	if err := safehttp.ValidateURL(ctx, result.BaseURL, i.options); err != nil {
+		return nil, fmt.Errorf("API destination is blocked: %w", err)
+	}
+	return result, nil
 }
 
 // Parse normalizes JSON/YAML and checks the wrapper's supported subset. It does

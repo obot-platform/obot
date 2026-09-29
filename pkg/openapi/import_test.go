@@ -75,12 +75,30 @@ func TestInlineImport(t *testing.T) {
 	data := usersSchema(t)
 	want, err := Parse(data, types.OpenAPIRuntimeConfig{})
 	require.NoError(t, err)
-	// No HTTP client is needed for the inline early-return path.
-	got, err := (&Importer{}).Import(context.Background(), types.OpenAPIRuntimeConfig{
+	got, err := NewImporter(safehttp.Options{}).Import(context.Background(), types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{Content: string(data)},
 	})
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+}
+
+func TestDestinationNetworkPolicy(t *testing.T) {
+	for _, baseURL := range []string{"http://localhost:9999", "http://127.0.0.1:9999", "http://0.0.0.0:9999"} {
+		t.Run(baseURL, func(t *testing.T) {
+			config := types.OpenAPIRuntimeConfig{
+				BaseURL: baseURL,
+				Source:  types.OpenAPISource{Content: string(usersSchema(t))},
+			}
+			blocked := NewImporter(safehttp.Options{BlockLoopback: true})
+			_, err := blocked.Import(t.Context(), config)
+			require.ErrorContains(t, err, "API destination is blocked")
+
+			allowed := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true})
+			result, err := allowed.Import(t.Context(), config)
+			require.NoError(t, err)
+			require.Equal(t, baseURL+"/", result.BaseURL)
+		})
+	}
 }
 
 func TestTypedParsingPreservesSnapshot(t *testing.T) {
@@ -199,8 +217,9 @@ func TestURLImport(t *testing.T) {
 	}))
 	defer server.Close()
 	config := types.OpenAPIRuntimeConfig{
-		Source: types.OpenAPISource{URL: server.URL + "/schema"},
-		Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"old":"snapshot"}`)},
+		Source:  types.OpenAPISource{URL: server.URL + "/schema"},
+		Schema:  &types.OpenAPISchema{Raw: json.RawMessage(`{"old":"snapshot"}`)},
+		BaseURL: "http://127.0.0.1",
 	}
 	_, err := NewImporter(safehttp.Options{
 		BlockLoopback:  true,
