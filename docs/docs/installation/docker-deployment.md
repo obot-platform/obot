@@ -45,7 +45,7 @@ Users with the **Power User** or **Power User+** role can deploy MCP servers, so
 :::
 
 :::tip Remote MCP servers only
-If you only connect remote MCP servers, you do not need the Docker socket: omit the `-v /var/run/docker.sock:/var/run/docker.sock` mount and set `-e OBOT_SERVER_MCPRUNTIME_BACKEND=none`. Obot then proxies remote servers (and composites of them) and refuses to deploy hosted ones.
+If you only connect remote MCP servers, you do not need the Docker socket: omit the `-v /var/run/docker.sock:/var/run/docker.sock` mount and set `-e OBOT_SERVER_MCPRUNTIME_BACKEND=none`. Obot then proxies remote servers (and composites of them) and refuses to deploy hosted ones. Features that need a container are not available with `none`: launching a hosted MCP server returns an error, and agents (their built-in `obot` system MCP server is containerized) and other containerized system MCP servers do not run; for those system servers Obot logs a warning instead of retrying.
 :::
 
 #### With Authentication (Recommended)

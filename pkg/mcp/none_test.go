@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -117,9 +118,28 @@ func TestNoneBackendSelfCallsPassDefaultLoopbackBlock(t *testing.T) {
 	}
 
 	otherURL := strings.Replace(other.URL, "127.0.0.1", "localhost", 1)
-	if resp, err := client.Get(otherURL); err == nil {
+	resp, err = client.Get(otherURL)
+	if err == nil {
 		_ = resp.Body.Close()
 		t.Fatalf("another localhost port (%s) was allowed", otherURL)
+	}
+	if !strings.Contains(err.Error(), "blocked loopback") {
+		t.Fatalf("another localhost port failed for the wrong reason: %v", err)
+	}
+}
+
+// With agents enabled, Obot reconciles its built-in obot system MCP server, which is
+// containerized: LaunchServer must fail with ErrNotSupportedByBackend, which the
+// system MCP server controller logs as a warning instead of retrying.
+func TestNoneBackendLaunchContainerizedServerIsNotSupported(t *testing.T) {
+	manager := &SessionManager{backend: newNoneBackend(8080)}
+	_, err := manager.LaunchServer(t.Context(), ServerConfig{
+		Runtime:        types.RuntimeContainerized,
+		MCPServerName:  "sms1obot-mcp-server",
+		StartupTimeout: time.Minute, // a real deadline: the result must not depend on an expired context
+	})
+	if !isNotSupportedByNone(err) {
+		t.Fatalf("LaunchServer(containerized): got %v, want ErrNotSupportedByBackend", err)
 	}
 }
 
@@ -156,7 +176,7 @@ func TestNoneBackendTransformObotHostnameUsesListenPort(t *testing.T) {
 func TestNoneBackendWebhooksCallObotOnLocalListener(t *testing.T) {
 	indexers := cache.Indexers{}
 	for _, index := range []string{"server-names", "catalog-entry-names", "catalog-names", "selectors"} {
-		indexers[index] = func(obj any) ([]string, error) {
+		indexers[index] = func(any) ([]string, error) {
 			if index != "selectors" {
 				return nil, nil
 			}
