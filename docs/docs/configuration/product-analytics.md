@@ -45,9 +45,14 @@ When available, reports also contain these aggregate usage fields:
 | Active users | Distinct users active during the previous complete UTC day. |
 | Deployed MCP servers | Snapshot count of deployed MCP servers. |
 | Custom MCP entries | Snapshot count of MCP catalog entries that are not built in. |
+| vMCPs | Snapshot count of vMCPs, including catalog defaults, drafts, and migrated vMCPs. |
+| Custom-created vMCPs | Snapshot count of vMCPs explicitly created by a person. Edited catalog defaults are not included. |
+| vMCP instances | Snapshot count of user connection instances. |
+| Configured vMCP instances | Snapshot count of instances whose configuration status is complete. This does not imply a successful client connection. |
 | Built-in MCP servers | Per-server aggregates containing the built-in server ID and name, plus its deployment count and distinct user count. |
 | Authentication-provider type | The configured authentication-provider type, without provider configuration values. |
 | MCP tool-call count | Number of MCP tool calls during the previous complete UTC day. |
+| vMCP tool-call count | Number of vMCP tool calls during the previous complete UTC day. These calls are also included in the MCP tool-call count. |
 | LLM audit-log count | Number of LLM audit-log records created during the previous complete UTC day. Audit-log content is not included. |
 | Sentry scan count | Number of Obot Sentry device scans recorded during the previous complete UTC day. |
 | Sentry enforcement-event count | Number of Obot Sentry enforcement events recorded during the previous complete UTC day. |

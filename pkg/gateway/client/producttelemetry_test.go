@@ -44,9 +44,11 @@ func TestProductTelemetryDailyCounts(t *testing.T) {
 	}
 
 	mcpLogs := []types.MCPAuditLog{
-		{CreatedAt: start, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{CallType: "tools/call"}},
+		{CreatedAt: start, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "vmcp1first", CallType: "tools/call"}},
+		{CreatedAt: start.Add(time.Hour), SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "ms1legacy", CallType: "tools/call"}},
+		{CreatedAt: start, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "vmcp1first", CallType: "resources/read"}},
 		{CreatedAt: start, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{CallType: "resources/read"}},
-		{CreatedAt: end, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{CallType: "tools/call"}},
+		{CreatedAt: end, SourceType: clienttypes.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "vmcp1first", CallType: "tools/call"}},
 		{CreatedAt: start, SourceType: clienttypes.AuditLogSourceTypeLocalAgentToolCall},
 	}
 	if err := c.db.WithContext(t.Context()).Create(&mcpLogs).Error; err != nil {
@@ -79,6 +81,11 @@ func TestProductTelemetryDailyCounts(t *testing.T) {
 		{
 			name:  "MCP tool calls",
 			count: func() (int64, error) { return c.MCPToolCallCount(t.Context(), start, end) },
+			want:  2,
+		},
+		{
+			name:  "vMCP tool calls",
+			count: func() (int64, error) { return c.VMCPToolCallCount(t.Context(), start, end) },
 			want:  1,
 		},
 		{

@@ -28,6 +28,7 @@ type requestGatewayClient interface {
 	UserCount(context.Context) (int64, error)
 	ActiveUserCountByDate(context.Context, time.Time, time.Time) (int64, error)
 	MCPToolCallCount(context.Context, time.Time, time.Time) (int64, error)
+	VMCPToolCallCount(context.Context, time.Time, time.Time) (int64, error)
 	LLMAuditLogCount(context.Context, time.Time, time.Time) (int64, error)
 	DeviceScanCount(context.Context, time.Time, time.Time) (int64, error)
 	EnforcementDecisionCount(context.Context, time.Time, time.Time) (int64, error)
@@ -93,6 +94,12 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 		metrics.MCPToolCallCount = &count
 	}
 
+	if count, err := gatewayClient.VMCPToolCallCount(ctx, dayStart, dayEnd); err != nil {
+		logMetricError("vMCP tool calls", err)
+	} else {
+		metrics.VMCPToolCallCount = &count
+	}
+
 	if count, err := gatewayClient.LLMAuditLogCount(ctx, dayStart, dayEnd); err != nil {
 		logMetricError("LLM audit logs", err)
 	} else {
@@ -109,6 +116,43 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 		logMetricError("Sentry enforcement events", err)
 	} else {
 		metrics.SentryEnforcementEventCount = &count
+	}
+
+	var vmcps storagev1.VMCPList
+	if err := storageClient.List(ctx, &vmcps, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		logMetricError("vMCPs", err)
+	} else {
+		var total, custom int64
+		for _, vmcp := range vmcps.Items {
+			if !vmcp.DeletionTimestamp.IsZero() {
+				continue
+			}
+			total++
+			// Explicit API creation records a creator; catalog defaults and migrations do not.
+			if vmcp.Spec.CreatorUserID != "" {
+				custom++
+			}
+		}
+		metrics.VMCPCount = &total
+		metrics.CustomCreatedVMCPCount = &custom
+	}
+
+	var vmcpInstances storagev1.VMCPInstanceList
+	if err := storageClient.List(ctx, &vmcpInstances, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		logMetricError("vMCP instances", err)
+	} else {
+		var total, configured int64
+		for _, instance := range vmcpInstances.Items {
+			if !instance.DeletionTimestamp.IsZero() {
+				continue
+			}
+			total++
+			if instance.Status.Configured {
+				configured++
+			}
+		}
+		metrics.VMCPInstanceCount = &total
+		metrics.VMCPConfiguredInstanceCount = &configured
 	}
 
 	var deploymentCounts map[string]int64

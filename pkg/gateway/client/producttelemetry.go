@@ -6,6 +6,7 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Client) ActiveUserCountByDate(ctx context.Context, start, end time.Time) (int64, error) {
@@ -26,6 +27,18 @@ func (c *Client) MCPToolCallCount(ctx context.Context, start, end time.Time) (in
 		Model(new(types.MCPAuditLog)).
 		Where("source_type = ?", clienttypes.AuditLogSourceTypeMCP).
 		Where("call_type = ?", "tools/call").
+		Where("created_at >= ? AND created_at < ?", start.UTC(), end.UTC()).
+		Count(&count).Error
+	return count, err
+}
+
+func (c *Client) VMCPToolCallCount(ctx context.Context, start, end time.Time) (int64, error) {
+	var count int64
+	err := c.db.WithContext(ctx).
+		Model(new(types.MCPAuditLog)).
+		Where("source_type = ?", clienttypes.AuditLogSourceTypeMCP).
+		Where("call_type = ?", "tools/call").
+		Where("mcp_id LIKE ?", system.VMCPPrefix+"%").
 		Where("created_at >= ? AND created_at < ?", start.UTC(), end.UTC()).
 		Count(&count).Error
 	return count, err

@@ -27,9 +27,11 @@ type requestGateway struct {
 	propertyErrors map[string]error
 	propertyCalls  int
 	metricErr      error
+	vmcpMetricErr  error
 	totalUsers     int64
 	activeUsers    int
 	mcpToolCalls   int64
+	vmcpToolCalls  int64
 	llmAuditLogs   int64
 	deviceScans    int64
 	enforcements   int64
@@ -48,6 +50,12 @@ type serverListErrorReader struct {
 	err error
 }
 
+type vmcpListErrorReader struct {
+	kclient.Reader
+	err           error
+	failInstances bool
+}
+
 func (e errorStorageReader) Get(context.Context, kclient.ObjectKey, kclient.Object, ...kclient.GetOption) error {
 	return e.err
 }
@@ -63,18 +71,29 @@ func (e serverListErrorReader) List(ctx context.Context, list kclient.ObjectList
 	return e.Reader.List(ctx, list, opts...)
 }
 
+func (e vmcpListErrorReader) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
+	if _, ok := list.(*storagev1.VMCPList); ok && !e.failInstances {
+		return e.err
+	}
+	if _, ok := list.(*storagev1.VMCPInstanceList); ok && e.failInstances {
+		return e.err
+	}
+	return e.Reader.List(ctx, list, opts...)
+}
+
 func newRequestGateway() *requestGateway {
 	return &requestGateway{
 		properties: map[string]string{
 			upgrade.InstallationIDPropertyKey:   "installation-id",
 			license.LicenseMachineIDPropertyKey: "machine-id",
 		},
-		totalUsers:   42,
-		activeUsers:  3,
-		mcpToolCalls: 7,
-		llmAuditLogs: 8,
-		deviceScans:  9,
-		enforcements: 10,
+		totalUsers:    42,
+		activeUsers:   3,
+		mcpToolCalls:  7,
+		vmcpToolCalls: 4,
+		llmAuditLogs:  8,
+		deviceScans:   9,
+		enforcements:  10,
 	}
 }
 
@@ -106,6 +125,14 @@ func (g *requestGateway) ActiveUserCountByDate(_ context.Context, start, end tim
 func (g *requestGateway) MCPToolCallCount(_ context.Context, start, end time.Time) (int64, error) {
 	g.recordWindow(start, end)
 	return g.mcpToolCalls, g.metricErr
+}
+
+func (g *requestGateway) VMCPToolCallCount(_ context.Context, start, end time.Time) (int64, error) {
+	g.recordWindow(start, end)
+	if g.vmcpMetricErr != nil {
+		return 0, g.vmcpMetricErr
+	}
+	return g.vmcpToolCalls, g.metricErr
 }
 
 func (g *requestGateway) LLMAuditLogCount(_ context.Context, start, end time.Time) (int64, error) {
@@ -184,8 +211,34 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	}
 	skill1 := &storagev1.Skill{Name: "skill-1", Namespace: system.DefaultNamespace}
 	skill2 := &storagev1.Skill{Name: "skill-2", Namespace: system.DefaultNamespace}
+	customVMCP := &storagev1.VMCP{
+		Name: "custom", Namespace: system.DefaultNamespace,
+		Spec: storagev1.VMCPSpec{CreatorUserID: "admin", Manifest: clienttypes.VMCPManifest{Components: []clienttypes.VMCPComponent{{Name: "github"}}}},
+	}
+	personalDraft := &storagev1.VMCP{
+		Name: "personal-draft", Namespace: system.DefaultNamespace,
+		Spec: storagev1.VMCPSpec{CreatorUserID: "user", UserID: "user"},
+	}
+	catalogDefault := &storagev1.VMCP{
+		Name: "catalog-default", Namespace: system.DefaultNamespace,
+		Spec: storagev1.VMCPSpec{Manifest: clienttypes.VMCPManifest{DisplayName: "Edited default"}},
+	}
+	migrated := &storagev1.VMCP{
+		Name: "migrated", Namespace: system.DefaultNamespace,
+		Spec: storagev1.VMCPSpec{LegacySlug: "old-composite"},
+	}
+	configuredInstance := &storagev1.VMCPInstance{
+		Name: "configured", Namespace: system.DefaultNamespace,
+		Status: storagev1.VMCPInstanceStatus{Configured: true},
+	}
+	unconfiguredInstance := &storagev1.VMCPInstance{Name: "unconfigured", Namespace: system.DefaultNamespace}
+	migratedInstance := &storagev1.VMCPInstance{
+		Name: "migrated-instance", Namespace: system.DefaultNamespace,
+		Status: storagev1.VMCPInstanceStatus{Configured: true},
+	}
 	storageClient := testStorageClient(
 		builtInEntry, unusedBuiltInEntry, customEntry, builtInServer, customServer, templateServer, authProvider, skill1, skill2,
+		customVMCP, personalDraft, catalogDefault, migrated, configuredInstance, unconfiguredInstance, migratedInstance,
 	)
 
 	before := time.Now().UTC()
@@ -213,7 +266,12 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	assertInt64(t, "active users", metrics.ActiveUsers, 3)
 	assertInt64(t, "deployed MCP servers", metrics.DeployedMCPServers, 2)
 	assertInt64(t, "custom MCP entries", metrics.CustomMCPServerEntryCount, 1)
+	assertInt64(t, "vMCPs", metrics.VMCPCount, 4)
+	assertInt64(t, "custom-created vMCPs", metrics.CustomCreatedVMCPCount, 2)
+	assertInt64(t, "vMCP instances", metrics.VMCPInstanceCount, 3)
+	assertInt64(t, "configured vMCP instances", metrics.VMCPConfiguredInstanceCount, 2)
 	assertInt64(t, "MCP tool calls", metrics.MCPToolCallCount, 7)
+	assertInt64(t, "vMCP tool calls", metrics.VMCPToolCallCount, 4)
 	assertInt64(t, "LLM audit logs", metrics.LLMAuditLogCount, 8)
 	assertInt64(t, "Sentry scans", metrics.SentryScanCount, 9)
 	assertInt64(t, "Sentry enforcement events", metrics.SentryEnforcementEventCount, 10)
@@ -241,9 +299,10 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
-	if report.Metrics.TotalUsers != nil || report.Metrics.ActiveUsers != nil || report.Metrics.MCPToolCallCount != nil ||
+	if report.Metrics.TotalUsers != nil || report.Metrics.ActiveUsers != nil || report.Metrics.MCPToolCallCount != nil || report.Metrics.VMCPToolCallCount != nil ||
 		report.Metrics.LLMAuditLogCount != nil || report.Metrics.SentryScanCount != nil || report.Metrics.SentryEnforcementEventCount != nil ||
 		report.Metrics.DeployedMCPServers != nil || report.Metrics.CustomMCPServerEntryCount != nil || report.Metrics.BuiltInMCPServers != nil ||
+		report.Metrics.VMCPCount != nil || report.Metrics.CustomCreatedVMCPCount != nil || report.Metrics.VMCPInstanceCount != nil || report.Metrics.VMCPConfiguredInstanceCount != nil ||
 		report.Metrics.AuthProviderType != nil || report.Metrics.ManagedSkillCount != nil {
 		t.Fatalf("unavailable metrics = %#v, want nil fields", report.Metrics)
 	}
@@ -252,6 +311,7 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	zeroGateway.totalUsers = 0
 	zeroGateway.activeUsers = 0
 	zeroGateway.mcpToolCalls = 0
+	zeroGateway.vmcpToolCalls = 0
 	zeroGateway.llmAuditLogs = 0
 	zeroGateway.deviceScans = 0
 	zeroGateway.enforcements = 0
@@ -263,7 +323,12 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	assertInt64(t, "measured zero active users", report.Metrics.ActiveUsers, 0)
 	assertInt64(t, "measured zero deployed MCP servers", report.Metrics.DeployedMCPServers, 0)
 	assertInt64(t, "measured zero custom MCP entries", report.Metrics.CustomMCPServerEntryCount, 0)
+	assertInt64(t, "measured zero vMCPs", report.Metrics.VMCPCount, 0)
+	assertInt64(t, "measured zero custom-created vMCPs", report.Metrics.CustomCreatedVMCPCount, 0)
+	assertInt64(t, "measured zero vMCP instances", report.Metrics.VMCPInstanceCount, 0)
+	assertInt64(t, "measured zero configured vMCP instances", report.Metrics.VMCPConfiguredInstanceCount, 0)
 	assertInt64(t, "measured zero MCP tool calls", report.Metrics.MCPToolCallCount, 0)
+	assertInt64(t, "measured zero vMCP tool calls", report.Metrics.VMCPToolCallCount, 0)
 	assertInt64(t, "measured zero LLM audit logs", report.Metrics.LLMAuditLogCount, 0)
 	assertInt64(t, "measured zero Sentry scans", report.Metrics.SentryScanCount, 0)
 	assertInt64(t, "measured zero Sentry enforcement events", report.Metrics.SentryEnforcementEventCount, 0)
@@ -298,6 +363,55 @@ func TestBuildRequestCollectsCustomMCPEntriesWhenServerListIsUnavailable(t *test
 	if report.Metrics.BuiltInMCPServers != nil {
 		t.Fatalf("built-in MCP servers = %#v, want unavailable", report.Metrics.BuiltInMCPServers)
 	}
+}
+
+func TestBuildRequestIsolatesVMCPMetricFailures(t *testing.T) {
+	for _, testCase := range []struct {
+		name          string
+		failInstances bool
+	}{
+		{name: "vMCP list"},
+		{name: "vMCP instance list", failInstances: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			gateway := newRequestGateway()
+			report, err := buildRequest(t.Context(), gateway, vmcpListErrorReader{
+				Reader:        testStorageClient(),
+				err:           errors.New("vMCP storage unavailable"),
+				failInstances: testCase.failInstances,
+			}, testEntitlements(), "docker")
+			if err != nil {
+				t.Fatalf("buildRequest() error = %v", err)
+			}
+			if testCase.failInstances {
+				if report.Metrics.VMCPInstanceCount != nil || report.Metrics.VMCPConfiguredInstanceCount != nil {
+					t.Fatalf("instance metrics = %#v, want unavailable", report.Metrics)
+				}
+				assertInt64(t, "vMCPs", report.Metrics.VMCPCount, 0)
+				assertInt64(t, "custom-created vMCPs", report.Metrics.CustomCreatedVMCPCount, 0)
+			} else {
+				if report.Metrics.VMCPCount != nil || report.Metrics.CustomCreatedVMCPCount != nil {
+					t.Fatalf("vMCP metrics = %#v, want unavailable", report.Metrics)
+				}
+				assertInt64(t, "vMCP instances", report.Metrics.VMCPInstanceCount, 0)
+				assertInt64(t, "configured vMCP instances", report.Metrics.VMCPConfiguredInstanceCount, 0)
+			}
+			assertInt64(t, "vMCP tool calls", report.Metrics.VMCPToolCallCount, 4)
+			assertInt64(t, "MCP tool calls", report.Metrics.MCPToolCallCount, 7)
+		})
+	}
+
+	gateway := newRequestGateway()
+	gateway.vmcpMetricErr = errors.New("audit data unavailable")
+	report, err := buildRequest(t.Context(), gateway, testStorageClient(), testEntitlements(), "docker")
+	if err != nil {
+		t.Fatalf("buildRequest() error = %v", err)
+	}
+	if report.Metrics.VMCPToolCallCount != nil {
+		t.Fatalf("vMCP tool calls = %v, want unavailable", report.Metrics.VMCPToolCallCount)
+	}
+	assertInt64(t, "MCP tool calls", report.Metrics.MCPToolCallCount, 7)
+	assertInt64(t, "vMCPs", report.Metrics.VMCPCount, 0)
 }
 
 func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
