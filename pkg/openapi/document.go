@@ -35,6 +35,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	if err := walkReferences(raw, raw); err != nil {
 		return nil, err
 	}
+
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = false
 	document, err := loader.LoadFromData(canonical)
@@ -42,6 +43,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 		// Loader errors may quote schema content. Do not expose embedded secrets.
 		return nil, fmt.Errorf("cannot parse OpenAPI document or resolve local references")
 	}
+
 	if !versionPattern.MatchString(document.OpenAPI) {
 		return nil, fmt.Errorf("supported OpenAPI versions are 3.0.0–3.0.4 and 3.1.0–3.1.2")
 	}
@@ -51,16 +53,19 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	if len(document.Webhooks) > 0 {
 		return nil, fmt.Errorf("OpenAPI webhooks are unsupported")
 	}
+
 	baseURL, err := findBaseURL(config.BaseURL, document.Servers)
 	if err != nil {
 		return nil, err
 	}
 	result := &Result{BaseURL: baseURL}
+
 	headers, err := securityHeaders(document)
 	if err != nil {
 		return nil, err
 	}
 	result.SuggestedHeaders = headers
+
 	if document.Paths == nil {
 		return nil, fmt.Errorf("schema paths must be an object")
 	}
@@ -71,9 +76,11 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 		if item.Ref != "" {
 			return nil, fmt.Errorf("referenced path items are unsupported")
 		}
+
 		if err := checkParameters(item.Parameters); err != nil {
 			return nil, err
 		}
+
 		for method, op := range item.Operations() {
 			if !methods[method] {
 				return nil, fmt.Errorf("operation uses an unsupported HTTP method")
@@ -86,6 +93,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 			}
 		}
 	}
+
 	return result, nil
 }
 
@@ -93,6 +101,7 @@ func findBaseURL(configured string, servers openapi3.Servers) (string, error) {
 	if configured != "" {
 		return destination(configured)
 	}
+
 	for _, server := range servers {
 		if server == nil {
 			continue
@@ -101,6 +110,7 @@ func findBaseURL(configured string, servers openapi3.Servers) (string, error) {
 			return base, nil
 		}
 	}
+
 	return "", fmt.Errorf("no usable server URL; configure baseURL")
 }
 
@@ -114,19 +124,23 @@ func securityHeaders(document *openapi3.T) ([]types.MCPConfig, error) {
 	if document.Components == nil {
 		return headers, nil
 	}
+
 	schemes := document.Components.SecuritySchemes
 	seen := map[string]int{}
+
 	// Stable order makes suggestions reproducible.
 	keys := make([]string, 0, len(schemes))
 	for key := range schemes {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+
 	for _, key := range keys {
 		ref := schemes[key]
 		if ref == nil || ref.Value == nil {
 			return nil, fmt.Errorf("unresolved or cyclic security reference")
 		}
+
 		scheme := ref.Value
 		var name, prefix string
 		switch {
@@ -139,9 +153,11 @@ func securityHeaders(document *openapi3.T) ([]types.MCPConfig, error) {
 		default:
 			return nil, fmt.Errorf("only header API keys and pre-issued bearer credentials are supported; OAuth declarations are ignored")
 		}
+
 		if err := validateHeader(name); err != nil {
 			return nil, err
 		}
+
 		lower := strings.ToLower(name)
 		if index, exists := seen[lower]; exists {
 			if headers[index].Prefix != prefix {
@@ -149,6 +165,7 @@ func securityHeaders(document *openapi3.T) ([]types.MCPConfig, error) {
 			}
 			continue
 		}
+
 		seen[lower] = len(headers)
 		headers = append(headers, types.MCPConfig{
 			Name:        name,
@@ -160,6 +177,7 @@ func securityHeaders(document *openapi3.T) ([]types.MCPConfig, error) {
 			Usage:       types.Header,
 		})
 	}
+
 	return headers, nil
 }
 
@@ -168,6 +186,7 @@ func checkParameters(parameters openapi3.Parameters) error {
 		if ref == nil || ref.Value == nil {
 			return fmt.Errorf("unresolved or cyclic parameter reference")
 		}
+
 		parameter := ref.Value
 		if parameter.In == "cookie" {
 			return fmt.Errorf("cookie parameters are unsupported")
@@ -178,6 +197,7 @@ func checkParameters(parameters openapi3.Parameters) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -188,10 +208,12 @@ func reference(document map[string]any, value any) (any, error) {
 	if !ok || !strings.HasPrefix(ref, "#/") {
 		return nil, fmt.Errorf("only local JSON pointer references are supported")
 	}
+
 	pointer, err := url.PathUnescape(ref[2:])
 	if err != nil {
 		return nil, fmt.Errorf("invalid local reference")
 	}
+
 	var node any = document
 	for part := range strings.SplitSeq(pointer, "/") {
 		part = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
@@ -212,6 +234,7 @@ func reference(document map[string]any, value any) (any, error) {
 			return nil, fmt.Errorf("unresolved local reference")
 		}
 	}
+
 	return node, nil
 }
 
@@ -230,6 +253,7 @@ func walkReferences(document map[string]any, node any) error {
 					return err
 				}
 			}
+
 			if err := walkReferences(document, value); err != nil {
 				return err
 			}
@@ -241,5 +265,6 @@ func walkReferences(document map[string]any, node any) error {
 			}
 		}
 	}
+
 	return nil
 }
