@@ -15238,7 +15238,7 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the normalized JSON snapshot populated by Obot on import. Running servers use this snapshot, not Source; it changes only on explicit upgrade.",
+							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Callers accepting supplied snapshots must validate them before storage.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
 						},
 					},
