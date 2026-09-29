@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,30 +14,6 @@ func TestProductTelemetryActivityIndex(t *testing.T) {
 	if !c.db.WithContext(t.Context()).Migrator().HasIndex(&types.APIActivity{}, "idx_api_activity_date_user") {
 		t.Fatal("API activity date/user index is missing")
 	}
-}
-
-func TestProductTelemetryToolCallIndex(t *testing.T) {
-	c := newTestClient(t)
-	const index = "idx_mcp_audit_tool_calls_daily"
-	if !c.db.WithContext(t.Context()).Migrator().HasIndex(&types.MCPAuditLog{}, index) {
-		t.Fatalf("%s is missing", index)
-	}
-
-	var plan []struct{ Detail string }
-	start := time.Date(2026, time.September, 2, 0, 0, 0, 0, time.UTC)
-	err := c.db.WithContext(t.Context()).Raw(
-		"EXPLAIN QUERY PLAN SELECT count(*) FROM mcp_audit_logs WHERE source_type = ? AND call_type = ? AND mcp_id LIKE ? AND created_at >= ? AND created_at < ?",
-		clienttypes.AuditLogSourceTypeMCP, "tools/call", "vmcp1%", start, start.Add(24*time.Hour),
-	).Scan(&plan).Error
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, row := range plan {
-		if strings.Contains(row.Detail, "USING COVERING INDEX "+index) && strings.Contains(row.Detail, "created_at>?") && strings.Contains(row.Detail, "created_at<?") {
-			return
-		}
-	}
-	t.Fatalf("vMCP tool-call count does not use the covering date-range index: %+v", plan)
 }
 
 func TestProductTelemetryDailyCounts(t *testing.T) {

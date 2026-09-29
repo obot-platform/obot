@@ -366,8 +366,13 @@ func TestBuildRequestIsolatesVMCPMetricFailures(t *testing.T) {
 		name          string
 		failInstances bool
 	}{
-		{name: "vMCP list"},
-		{name: "vMCP instance list", failInstances: true},
+		{
+			name: "vMCP list",
+		},
+		{
+			name:          "vMCP instance list",
+			failInstances: true,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			gateway := newRequestGateway()
