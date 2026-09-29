@@ -12,13 +12,13 @@ var (
 )
 
 func reservedHeader(name string) bool {
-	switch strings.ToLower(name) {
+	name = strings.ToLower(name)
+	switch name {
 	case "host", "cookie", "set-cookie", "content-length", "content-type", "accept",
 		"connection", "transfer-encoding", "upgrade", "te", "trailer", "keep-alive",
 		"expect", "proxy-authorization", "proxy-authenticate", "accept-encoding", "forwarded":
 		return true
 	}
-	name = strings.ToLower(name)
 	return strings.HasPrefix(name, "x-forwarded-") ||
 		strings.HasPrefix(name, "mcp-") || strings.HasPrefix(name, "sec-") || strings.HasPrefix(name, "proxy-")
 }
