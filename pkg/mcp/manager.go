@@ -137,7 +137,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 
 		backend = dockerBackend
 	case RuntimeBackendNone:
-		backend = newNoneBackend()
+		backend = newNoneBackend(httpListenPort)
 	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
