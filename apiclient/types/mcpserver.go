@@ -655,7 +655,7 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 	case RuntimeContainerized:
 		catalogManifest.ContainerizedConfig = m.ContainerizedConfig
 	case RuntimeOpenAPI:
-		catalogManifest.OpenAPIConfig = m.OpenAPIConfig.DeepCopy()
+		catalogManifest.OpenAPIConfig = m.OpenAPIConfig
 	case RuntimeRemote:
 		if m.RemoteConfig != nil {
 			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
