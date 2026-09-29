@@ -22,7 +22,7 @@ const (
 	MaxSchemaBytes = 1024 * 1024
 )
 
-// Importer fetches public schema sources. It never receives API credentials.
+// Importer fetches schema sources. It never receives API credentials.
 type Importer struct {
 	client *http.Client
 }
@@ -35,15 +35,13 @@ type Result struct {
 	SuggestedHeaders []types.MCPConfig
 }
 
-// NewImporter blocks private and local schema sources. Redirects are not
-// followed, including same-origin ones.
-func NewImporter() *Importer {
-	return newImporterWithClient(safehttp.NewClient(safehttp.Options{
-		BlockLoopback:  true,
-		BlockPrivateIP: true,
-		BlockLinkLocal: true,
-		Timeout:        30 * time.Second,
-	}))
+// NewImporter applies the configured network policy to schema fetches.
+// Redirects are not followed, including same-origin ones.
+func NewImporter(options safehttp.Options) *Importer {
+	if options.Timeout == 0 {
+		options.Timeout = 30 * time.Second
+	}
+	return newImporterWithClient(safehttp.NewClient(options))
 }
 
 func newImporterWithClient(client *http.Client) *Importer {
