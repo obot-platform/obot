@@ -9,6 +9,7 @@
 		vmcpConnectURL,
 		vmcpHasUserAllowedConfiguration,
 		vmcpInstanceNeedsUserConfiguration,
+		vmcpNeedsAdminConfiguration,
 		vmcpNeedsUpdate
 	} from '$lib/services/vmcps/utils';
 	import { errors, profile, vmcpInstances } from '$lib/stores';
@@ -81,6 +82,7 @@
 	let connectURL = $derived(vmcpConnectURL(vmcp));
 	let connectButtonId = $derived(`btn-connect-to-server-${vmcp.id}`);
 	let needsUpdate = $derived(vmcpNeedsUpdate(vmcp));
+	let needsAdminConfiguration = $derived(vmcpNeedsAdminConfiguration(vmcp));
 	let isCreator = $derived(Boolean(vmcp.userID && profile.current.id === vmcp.userID));
 	let canUpdate = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
 	let canDelete = $derived(canUpdate && !isCatalogSyncedVMcp(vmcp));
@@ -348,7 +350,12 @@
 			{owner}
 		</p>
 
-		{#if needsUpdate && canUpdate && openUpdateConfirm}
+		{#if needsAdminConfiguration}
+			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning" role="status">
+				<span class="status status-warning" aria-hidden="true"></span>
+				<span>Configuration Required</span>
+			</div>
+		{:else if needsUpdate && canUpdate && openUpdateConfirm}
 			<button
 				class="pointer-events-auto relative z-10 badge badge-xs shrink-0 gap-1 badge-soft badge-primary"
 				onclick={() => openUpdateConfirm(vmcp, handleUpdate)}

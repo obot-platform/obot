@@ -593,8 +593,8 @@
 						</h4>
 					</div>
 					<p class="text-muted-content text-xs font-light">
-						Enable this if the remote MCP catalog entry requires OAuth authentication with a static
-						client ID and secret.
+						Enable this if the remote MCP server requires OAuth authentication with a static client
+						ID and secret.
 					</p>
 				</button>
 				<div class="flex self-start">

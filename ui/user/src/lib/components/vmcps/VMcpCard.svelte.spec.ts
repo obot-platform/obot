@@ -155,6 +155,43 @@ describe('VMcpCard.svelte', () => {
 		};
 		vmcpInstances.current = { items: [], loading: false };
 	});
+
+	it('shows missing administrator configuration ahead of connected and update states', async () => {
+		const entry = createMCPCatalogEntry({
+			id: 'salesforce',
+			name: 'Salesforce',
+			runtime: 'remote'
+		});
+		entry.manifest.remoteConfig = {
+			fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+			staticOAuthRequired: true
+		};
+		const vmcp = createVMCP(
+			{
+				id: 'vmcp-1',
+				status: {
+					ready: false,
+					components: [
+						{
+							name: 'Salesforce',
+							needsUpdate: true,
+							error: 'static OAuth credentials are not configured'
+						}
+					]
+				}
+			},
+			[entry]
+		);
+		await renderCard({
+			groups: [Group.ADMIN],
+			vmcp,
+			instances: [createInstance('vmcpi-1')]
+		});
+		await expect.element(page.getByText('Configuration Required')).toBeVisible();
+		await expect.element(page.getByText('Connected')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Update Available')).not.toBeInTheDocument();
+	});
+
 	it.each([
 		{
 			name: 'lets the creator delete and connect',

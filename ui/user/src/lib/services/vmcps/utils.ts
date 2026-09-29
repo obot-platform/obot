@@ -94,6 +94,15 @@ export function vmcpMissingStaticOAuthComponent(vmcp: VMCP): VMCPComponent | und
 	);
 }
 
+export function vmcpNeedsAdminConfiguration(vmcp: VMCP): boolean {
+	return Boolean(
+		vmcpMissingStaticOAuthComponent(vmcp) ||
+		vmcp.status?.components?.some((status) =>
+			status.error?.startsWith('missing required administrator configuration:')
+		)
+	);
+}
+
 export function vmcpHasUserAllowedConfiguration(vmcp: VMCP) {
 	return Boolean(
 		vmcp.components?.some((component) =>

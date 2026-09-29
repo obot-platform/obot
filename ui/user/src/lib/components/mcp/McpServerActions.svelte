@@ -505,7 +505,7 @@
 		{#if isMultiUserCatalogEntry(entry) || isMultiUserServer(server)}
 			<p class="text-center">
 				{#if entry}
-					Your catalog entry has been configured.
+					Your MCP server has been configured.
 				{:else}
 					Your server has been configured.
 				{/if}

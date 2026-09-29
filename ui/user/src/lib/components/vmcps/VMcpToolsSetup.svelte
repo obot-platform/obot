@@ -363,7 +363,7 @@
 			{#if oauthSetupRequired}
 				<p class="mb-4 text-sm">
 					{component?.name ?? configuringEntry.manifest.name} requires administrator OAuth setup. Configure
-					its catalog entry before fetching tools.
+					OAuth for this MCP server before fetching tools.
 				</p>
 			{:else if oauthURL}
 				<p class="mb-4 text-sm">
@@ -376,8 +376,8 @@
 				</p>
 			{:else if !needsLiveTools}
 				<p class="text-muted-content mb-6 text-sm font-light">
-					Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog
-					entry is not queried while editing an existing component.
+					Tools are read from the MCP server configuration stored on this vMCP. The source MCP
+					server is not queried while editing an existing component.
 				</p>
 			{:else}
 				<p class="text-muted-content mb-6 text-sm font-light">

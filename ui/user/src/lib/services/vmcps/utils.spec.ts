@@ -26,6 +26,7 @@ import {
 	vmcpConnectURL,
 	vmcpHasUserAllowedConfiguration,
 	vmcpInstanceNeedsUserConfiguration,
+	vmcpNeedsAdminConfiguration,
 	vmcpNeedsUpdate,
 	vmcpOutdatedComponents,
 	vmcpUpdateConfigurationTargets
@@ -41,6 +42,19 @@ describe('vmcpConnectURL', () => {
 		expect(buildConnectAllSnippets(AiClient.Codex, [vmcp], false)[0].value).toBe('');
 		vmcp.status = undefined;
 		expect(vmcpConnectURL(vmcp)).toBeUndefined();
+	});
+});
+
+describe('vmcpNeedsAdminConfiguration', () => {
+	it('recognizes missing administrator configuration without treating startup waits as configuration gaps', () => {
+		const vmcp = createVMCP();
+		vmcp.status = {
+			ready: false,
+			components: [{ name: vmcp.components![0].name, error: 'waiting for component server' }]
+		};
+		expect(vmcpNeedsAdminConfiguration(vmcp)).toBe(false);
+		vmcp.status.components![0].error = 'missing required administrator configuration: API_TOKEN';
+		expect(vmcpNeedsAdminConfiguration(vmcp)).toBe(true);
 	});
 });
 

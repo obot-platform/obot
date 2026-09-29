@@ -433,8 +433,8 @@
 {#snippet oauthSetupGuidance()}
 	{#if missingOAuthComponent}
 		<p>
-			{missingOAuthComponent.name} requires administrator OAuth setup. Configure its catalog entry before
-			starting this vMCP.
+			{missingOAuthComponent.name} requires administrator OAuth setup. Configure OAuth for this MCP server
+			before starting the vMCP.
 		</p>
 		{#if profile.current.isAdmin?.()}
 			<a
