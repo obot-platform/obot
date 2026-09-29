@@ -2,6 +2,10 @@ package mcp
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -76,8 +80,46 @@ func TestNoneBackendKeepsRemoteURLValidation(t *testing.T) {
 	if got != global {
 		t.Fatalf("remoteConfig changed the validation settings: got %+v, want %+v", got, global)
 	}
-	if len(extra) != 0 {
-		t.Fatalf("remoteConfig allowed extra hosts: %v", extra)
+	// only Obot's own listener: the target of transformObotHostname
+	if len(extra) != 1 || extra[0] != "localhost:8080" {
+		t.Fatalf("remoteConfig allowed hosts = %v, want [localhost:8080]", extra)
+	}
+}
+
+// With the default DisallowLocalhostMCP=true, Obot's calls to itself on the local
+// listener (e.g. a filter via /mcp-connect) must still pass the loopback block of
+// the MCP HTTP client, while any other localhost port stays blocked.
+func TestNoneBackendSelfCallsPassDefaultLoopbackBlock(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	obot := httptest.NewServer(handler)
+	defer obot.Close()
+	other := httptest.NewServer(handler)
+	defer other.Close()
+
+	port, err := strconv.Atoi(strings.TrimPrefix(obot.URL, "http://127.0.0.1:"))
+	if err != nil {
+		t.Fatalf("test server port: %v", err)
+	}
+	backend := newNoneBackend(port)
+	manager := &SessionManager{backend: backend, remoteURLValidationConfig: RemoteMCPURLValidationConfig{}}
+	client, err := manager.HTTPClientForServer(ServerConfig{}, HTTPClientOptions{})
+	if err != nil {
+		t.Fatalf("HTTPClientForServer: %v", err)
+	}
+
+	resp, err := client.Get(backend.transformObotHostname("https://obot.example.com/mcp-connect/sms1filter"))
+	if err != nil {
+		t.Fatalf("self-call on the local listener was blocked: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("self-call status = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	}
+
+	otherURL := strings.Replace(other.URL, "127.0.0.1", "localhost", 1)
+	if resp, err := client.Get(otherURL); err == nil {
+		_ = resp.Body.Close()
+		t.Fatalf("another localhost port (%s) was allowed", otherURL)
 	}
 }
 

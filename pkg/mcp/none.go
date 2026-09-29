@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	neturl "net/url"
+	"strings"
 
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
@@ -82,8 +83,14 @@ func (n *noneBackend) transformObotHostname(rawURL string) string {
 	return parsed.String()
 }
 
-// remoteConfig keeps the global validation settings: unlike the Docker backend,
-// there are no local containers that remote URL validation must let through.
+// remoteConfig keeps the global validation settings and lets through only this
+// Obot's own listener, like the Kubernetes backend: transformObotHostname points
+// Obot's calls to itself (filters, composite loopbacks, system MCP servers) at
+// localhost:<port>, which the default DisallowLocalhostMCP would otherwise block.
+// No local containers exist, so nothing else is allowed.
 func (n *noneBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {
-	return globalConfig, nil
+	if n.localBaseURL == "" {
+		return globalConfig, nil
+	}
+	return globalConfig, []string{strings.TrimPrefix(n.localBaseURL, "http://")}
 }
