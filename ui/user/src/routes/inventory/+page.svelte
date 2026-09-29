@@ -22,16 +22,49 @@
 	let views = $derived([
 		...(profile.current.hasAdminAccess?.()
 			? [
-					{ label: 'Overview', value: 'overview', content: overview },
-					{ label: 'Configuration', value: 'configuration', content: configuration }
+					{
+						label: 'Overview',
+						value: 'overview',
+						content: overview,
+						tooltip:
+							'View an overall summary of scans sent through Obot Sentry over a given time period.'
+					},
+					{
+						label: 'Configuration',
+						value: 'configuration',
+						content: configuration,
+						tooltip:
+							"Discover shadow AI and enforce policies for unmanaged MCP servers. Set up or manage Obot Sentry on your organization's devices."
+					}
 				]
 			: []),
-		{ label: 'Devices', value: 'devices', content: devices },
+		{
+			label: 'Devices',
+			value: 'devices',
+			content: devices,
+			tooltip:
+				'View results for an individual device, from their most recent scan to historical ones.'
+		},
 		...(profile.current.hasAdminAccess?.()
 			? [
-					{ label: 'Device Clients', value: 'device-clients', content: deviceClients },
-					{ label: 'Device MCP Servers', value: 'device-mcp-servers', content: deviceMcpServers },
-					{ label: 'Device Skills', value: 'device-skills', content: deviceSkills }
+					{
+						label: 'Device Clients',
+						value: 'device-clients',
+						content: deviceClients,
+						tooltip: 'Browse AI clients discovered across your enrolled devices.'
+					},
+					{
+						label: 'Device MCP Servers',
+						value: 'device-mcp-servers',
+						content: deviceMcpServers,
+						tooltip: 'Browse MCP servers discovered across your enrolled devices.'
+					},
+					{
+						label: 'Device Skills',
+						value: 'device-skills',
+						content: deviceSkills,
+						tooltip: 'Browse skills discovered across your enrolled devices.'
+					}
 				]
 			: [])
 	]);

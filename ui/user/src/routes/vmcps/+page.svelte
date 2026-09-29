@@ -31,8 +31,20 @@
 	let views = $derived.by((): TabView[] =>
 		profile.current.hasAdminAccess?.()
 			? [
-					{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
-					{ label: 'Deployments', value: 'deployments', content: deploymentsView }
+					{
+						label: 'vMCPs',
+						value: 'vmcps',
+						content: vmcpsView,
+						tooltip:
+							'A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint; it provides a single point of entry to manage the connection, tools, and access. Create, connect, and manage them here.'
+					},
+					{
+						label: 'Deployments',
+						value: 'deployments',
+						content: deploymentsView,
+						tooltip:
+							'Deployments are running instances of vMCPs created from connection by a user via Inspector or external AI client. View and manage them here.'
+					}
 				]
 			: [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
 	);

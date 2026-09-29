@@ -127,21 +127,67 @@
 	});
 	let views = $derived([
 		...(hasAdminAccess || isPowerUser
-			? [{ label: 'Servers', value: 'servers', content: servers }]
+			? [
+					{
+						label: 'Servers',
+						value: 'servers',
+						content: servers,
+						tooltip:
+							'MCP Servers gives AI systems a predictable way to plug into databases, local files, search engines, and APIs; these are the core components of vMCPs. Create or manage them here.'
+					}
+				]
 			: []),
 		...(hasAdminAccess
 			? [
-					{ label: 'Sources', value: 'sources', content: sources },
-					{ label: 'Deployments', value: 'deployments', content: deployments },
-					{ label: 'Filters', value: 'filters', content: filters },
-					{ label: 'Tunnels', value: 'tunnels', content: tunnels }
+					{
+						label: 'Sources',
+						value: 'sources',
+						content: sources,
+						tooltip:
+							'Manage URLs containing a repository of MCP servers that are supplied to the Obot gateway.'
+					},
+					{
+						label: 'Deployments',
+						value: 'deployments',
+						content: deployments,
+						tooltip: 'Manage running instances of MCP servers.'
+					},
+					{
+						label: 'Filters',
+						value: 'filters',
+						content: filters,
+						tooltip:
+							'Intercept tool requests and responses of MCP servers to provide custom validation, logging, security checks, or other business logic before they are processed.'
+					},
+					{
+						label: 'Tunnels',
+						value: 'tunnels',
+						content: tunnels,
+						tooltip:
+							'Set up tunnels to let the Obot gateway reach remote HTTP or HTTPS MCP servers that are not directly accessible from the Obot gateway.'
+					}
 				]
 			: []),
 		...(isPowerUserPlus || hasAdminAccess
-			? [{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }]
+			? [
+					{
+						label: 'Access Policies',
+						value: 'access-policies',
+						content: accessPolicy,
+						tooltip: 'Manage which MCP servers a user or group can access.'
+					}
+				]
 			: []),
 		...(hasAdminAccess && messagePoliciesEnabled
-			? [{ label: 'Message Policies', value: 'message-policies', content: messagePolicies }]
+			? [
+					{
+						label: 'Message Policies',
+						value: 'message-policies',
+						content: messagePolicies,
+						tooltip:
+							'Enforce content rules, written in natural language, against MCP server tool calls, or view policy violations against existing policies.'
+					}
+				]
 			: [])
 	]);
 

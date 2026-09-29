@@ -290,7 +290,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: 'Delete Policy' }}
+					tooltip={{ text: 'Delete' }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

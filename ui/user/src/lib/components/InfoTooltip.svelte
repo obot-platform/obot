@@ -17,6 +17,8 @@
 		icon?: Component | typeof CircleQuestionMark;
 		interactive?: boolean;
 		ariaLabel?: string;
+		onClick?: () => void;
+		disablePortal?: boolean;
 	}
 
 	let {
@@ -28,7 +30,9 @@
 		popoverWidth = 'md',
 		icon: Icon = CircleHelpIcon,
 		interactive = false,
-		ariaLabel
+		ariaLabel,
+		onClick,
+		disablePortal = true
 	}: Props = $props();
 
 	function getPopoverWidth() {
@@ -48,7 +52,12 @@
 
 	const tooltipOpts: TooltipOptions | undefined = $derived.by(() => {
 		const layout = [getPopoverWidth(), 'break-normal'] as string[];
-		const base = { disablePortal: true, classes: layout, placement, interactive } as const;
+		const base = {
+			disablePortal,
+			classes: layout,
+			placement,
+			interactive
+		} as const;
 		if (children) {
 			return { ...base, snippet: children };
 		}
@@ -70,6 +79,7 @@
 		)}
 		aria-label={accessibleName}
 		use:tooltip={tooltipOpts}
+		onclick={onClick}
 	>
 		<Icon class={twMerge('text-gray size-3', classes?.icon)} aria-hidden="true" />
 	</button>

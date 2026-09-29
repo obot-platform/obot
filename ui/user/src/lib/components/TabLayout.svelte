@@ -5,11 +5,13 @@
 		label: string;
 		value: string;
 		content: Snippet;
+		tooltip?: string;
 	};
 </script>
 
 <script lang="ts">
 	import { page } from '$app/state';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
 	import { clearUrlParams, goto } from '$lib/url';
@@ -116,8 +118,8 @@
 							<div class={twMerge('flex flex-1 relative z-10 pr-2', x && 'pl-2')}>
 								{#each views as viewOption, index (viewOption.value)}
 									{@const isSelected = selectedView === viewOption.value}
-									<button
-										id={`tab-${viewOption.value}`}
+									{@const tooltip = viewOption.tooltip?.trim()}
+									<div
 										class={twMerge(
 											'tab-flare relative font-light text-md rounded-t-lg text-nowrap px-8 py-2',
 											isSelected
@@ -130,10 +132,34 @@
 												index !== views.length - 1 &&
 												'tab-separator'
 										)}
-										onclick={() => selectView(viewOption.value)}
 									>
-										{viewOption.label}
-									</button>
+										<button
+											id={`tab-${viewOption.value}`}
+											type="button"
+											class="absolute inset-0 rounded-t-lg"
+											aria-label={viewOption.label}
+											onclick={() => selectView(viewOption.value)}
+										></button>
+										<span class="pointer-events-none relative z-10 inline-flex items-center gap-2">
+											<span aria-hidden="true">{viewOption.label}</span>
+											{#if tooltip}
+												<span class="pointer-events-auto inline-flex">
+													<InfoTooltip
+														text={tooltip}
+														classes={{
+															icon: twMerge(
+																'size-5 shrink-0',
+																isSelected ? 'text-white' : 'text-primary'
+															)
+														}}
+														placement="bottom"
+														disablePortal={false}
+														onClick={() => selectView(viewOption.value)}
+													/>
+												</span>
+											{/if}
+										</span>
+									</div>
 								{/each}
 							</div>
 							<div class="bg-primary h-0.75 w-full shrink-0"></div>
@@ -228,7 +254,7 @@
 
 	/* A flare takes the separator's place on whichever side is hovered */
 	.tab-separator:hover::after,
-	.tab-separator:has(+ button:hover)::after {
+	.tab-separator:has(+ .tab-flare:hover)::after {
 		display: none;
 	}
 </style>

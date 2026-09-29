@@ -216,9 +216,7 @@ describe('MessagePoliciesView', () => {
 			)
 			.toBeVisible();
 		await expect.element(convertDialog().getByRole('button', { name: 'Save' })).toBeVisible();
-		await expect
-			.element(convertDialog().getByRole('button', { name: 'Delete Policy' }))
-			.toBeVisible();
+		await expect.element(convertDialog().getByRole('button', { name: 'Delete' })).toBeVisible();
 		expect(openUrl).not.toHaveBeenCalled();
 	});
 
@@ -282,7 +280,7 @@ describe('MessagePoliciesView', () => {
 		await renderView({ policyDirection: 'tool-calls' });
 
 		await clickPolicy('Block everything');
-		await convertDialog().getByRole('button', { name: 'Delete Policy' }).click();
+		await convertDialog().getByRole('button', { name: 'Delete' }).click();
 
 		await expect.element(convertDialog()).not.toBeInTheDocument();
 		await expect.element(page.getByRole('row', { name: /Block everything/ })).toBeVisible();

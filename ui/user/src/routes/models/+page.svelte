@@ -30,17 +30,37 @@
 	let defaultModelsDialog = $state<ReturnType<typeof DefaultModels>>();
 
 	let views = $derived.by(() => {
-		const items: TabView[] = [{ label: 'Models', value: 'models', content: models }];
+		const items: TabView[] = [
+			{
+				label: 'Models',
+				value: 'models',
+				content: models,
+				tooltip: 'Access and set up your AI client with models you have access to.'
+			}
+		];
 		if (hasAdminAccess) {
 			items.push(
-				{ label: 'Model Providers', value: 'model-providers', content: modelProviders },
-				{ label: 'Access Policies', value: 'access-policies', content: accessPolicies }
+				{
+					label: 'Model Providers',
+					value: 'model-providers',
+					content: modelProviders,
+					tooltip:
+						'Set up and manage LLM model providers to enforce what models your organization can use or supply to the vMCP Inspector.'
+				},
+				{
+					label: 'Access Policies',
+					value: 'access-policies',
+					content: accessPolicies,
+					tooltip: 'Manage which models a user or group can access.'
+				}
 			);
 			if (messagePoliciesEnabled) {
 				items.push({
 					label: 'Message Policies',
 					value: 'message-policies',
-					content: messagePolicies
+					content: messagePolicies,
+					tooltip:
+						'Enforce content rules, written in natural language, against user messages sent to the LLM, or view policy violations against existing policies.'
 				});
 			}
 		}
