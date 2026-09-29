@@ -19,7 +19,7 @@ func TestMachineFingerprintUsesPersistedInstallationIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if provider.MachineFingerprint() != "existing-installation" {
+		if provider.machineFingerprint != "existing-installation" {
 			t.Fatal("replaced persisted machine fingerprint")
 		}
 	}

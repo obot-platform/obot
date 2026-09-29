@@ -134,6 +134,8 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 			status, code, message, retryable := http.StatusServiceUnavailable, types.MCPTesterErrorProvider, "The installation license could not be read. Try again later.", true
 			if errors.Is(err, errMCPTesterLicenseRequired) {
 				status, code, message, retryable = http.StatusForbidden, types.MCPTesterErrorLicenseRequired, errMCPTesterLicenseRequired.Error(), false
+			} else if errors.Is(err, errMCPTesterLicenseInvalid) {
+				status, code, message, retryable = http.StatusForbidden, types.MCPTesterErrorLicenseRequired, mcpTesterLicenseInvalidMessage, false
 			} else if httpErr, ok := errors.AsType[*types.ErrHTTP](err); ok && httpErr.Code == http.StatusBadRequest {
 				status, code, message, retryable = http.StatusBadRequest, types.MCPTesterErrorInvalidRequest, httpErr.Message, false
 			}

@@ -17,6 +17,8 @@ const (
 	ModelProxyModel        = "gpt-5.6-luna"
 	ModelProxyMaxBodyBytes = 2 << 20
 	ModelProxyTimeout      = 10 * time.Minute
+
+	ModelProxyMachineIDHeader = "X-Obot-Machine-ID"
 )
 
 type ProviderConfigurationResolver interface {
@@ -25,7 +27,7 @@ type ProviderConfigurationResolver interface {
 
 type LicenseSource interface {
 	LicenseKey(context.Context) (string, error)
-	MachineFingerprint() string
+	MachineID(context.Context) (string, error)
 }
 
 type ModelProxySettingsReader interface {
@@ -113,14 +115,14 @@ func BuildModelProxyRequest(request types.MCPTesterChatRequest, instruction stri
 }
 
 // NewModelProxyRequest forwards only the inbound IP headers. The installation
-// license and machine fingerprint authenticate the request.
-func NewModelProxyRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string, inbound http.Header) (*http.Request, error) {
+// license and its Keygen machine ID authenticate the request.
+func NewModelProxyRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, machineID string, inbound http.Header) (*http.Request, error) {
 	if endpoint == nil || len(body) > ModelProxyMaxBodyBytes {
 		return nil, errors.New("invalid model proxy request")
 	}
 
-	if !safeCredential(licenseKey) || !safeCredential(fingerprint) {
-		return nil, errors.New("installation license or machine fingerprint is unavailable")
+	if !safeCredential(licenseKey) || !safeCredential(machineID) {
+		return nil, errors.New("installation license or machine ID is unavailable")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
@@ -132,7 +134,7 @@ func NewModelProxyRequest(ctx context.Context, endpoint *url.URL, body []byte, l
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("User-Agent", types.MCPTesterClientName)
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(licenseKey))
-	req.Header.Set("X-Obot-Machine-Fingerprint", strings.TrimSpace(fingerprint))
+	req.Header.Set(ModelProxyMachineIDHeader, strings.TrimSpace(machineID))
 
 	copyModelProxyIPHeaders(req.Header, inbound)
 

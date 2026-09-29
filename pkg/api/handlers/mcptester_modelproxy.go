@@ -16,8 +16,13 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
+const (
+	mcpTesterLicenseInvalidMessage = "The registered Obot license is invalid. Update the installation license to use MCP Tester."
+)
+
 var (
 	errMCPTesterLicenseRequired = errors.New("register an Obot license to use MCP Tester without a model provider")
+	errMCPTesterLicenseInvalid  = errors.New("the registered Obot license is invalid")
 )
 
 // MCPTesterModelProxyOptions configures the model proxy used when no model provider
@@ -58,9 +63,19 @@ func (h *MCPTesterHandler) modelProxyRequest(ctx context.Context, request types.
 		return nil, nil, errMCPTesterLicenseRequired
 	}
 
-	outbound, err := mcptester.NewModelProxyRequest(ctx, h.modelProxy.URL, body, licenseKey, h.modelProxy.License.MachineFingerprint(), inbound)
+	machineID, err := h.modelProxy.License.MachineID(ctx)
 	if err != nil {
-		return nil, nil, types.NewErrHTTP(http.StatusServiceUnavailable, "installation license or machine fingerprint is unavailable")
+		return nil, nil, types.NewErrHTTP(http.StatusServiceUnavailable, "installation license is unavailable")
+	}
+
+	// Only a valid license has an activated machine.
+	if machineID == "" {
+		return nil, nil, errMCPTesterLicenseInvalid
+	}
+
+	outbound, err := mcptester.NewModelProxyRequest(ctx, h.modelProxy.URL, body, licenseKey, machineID, inbound)
+	if err != nil {
+		return nil, nil, types.NewErrHTTP(http.StatusServiceUnavailable, "installation license or machine ID is unavailable")
 	}
 
 	return outbound, body, nil
@@ -83,7 +98,7 @@ func writeMCPTesterModelProxyError(req api.Context, status int, input io.Reader)
 	case http.StatusUnauthorized:
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorLicenseRequired, "Register an Obot license to use MCP Tester without a model provider.", false)
 	case http.StatusForbidden:
-		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorLicenseRequired, "The registered Obot license is invalid. Update the installation license to use MCP Tester.", false)
+		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorLicenseRequired, mcpTesterLicenseInvalidMessage, false)
 	case http.StatusTooManyRequests:
 		if response.Error.Code == "daily_token_quota_exceeded" {
 			message := "The installation's daily MCP Tester token budget is exhausted."

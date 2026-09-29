@@ -42,8 +42,12 @@ func TestModelProxyUsageEndpointAndRedirects(t *testing.T) {
 		}
 
 		r, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", "machine", nil)
-		if err != nil || r.URL.String() != tc.want || r.Method != http.MethodGet || r.Header.Get("Accept") != "application/json" {
+		if err != nil || r.URL.String() != tc.want || r.Method != http.MethodGet || r.Header.Get("Accept") != "application/json" || r.Header.Get("X-Obot-Machine-ID") != "machine" {
 			t.Fatalf("usage request = %v, %v", r, err)
+		}
+
+		if _, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", " ", nil); err == nil {
+			t.Fatal("accepted empty machine ID")
 		}
 
 		if endpoint.String() == tc.want {

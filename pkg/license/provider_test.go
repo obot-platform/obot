@@ -183,10 +183,13 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 		case "/v1/machines":
 			activated = true
 			assertActivationFingerprint(t, r, machineFingerprint)
-			_, _ = fmt.Fprint(w, machineResponse("machine-1", machineFingerprint))
+			_, _ = fmt.Fprint(w, machineResponse(testActivatedMachineID, machineFingerprint))
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
 		default:
+			if strings.HasPrefix(r.URL.Path, "/v1/machines/") {
+				t.Errorf("looked up the machine that activation just returned: %s", r.URL.Path)
+			}
 			http.NotFound(w, r)
 		}
 	}))
@@ -212,6 +215,14 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 	}
 	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement to be accepted")
+	}
+
+	machineID, err := provider.MachineID(ctx)
+	if err != nil {
+		t.Fatalf("expected machine ID lookup to succeed: %v", err)
+	}
+	if machineID != testActivatedMachineID {
+		t.Fatalf("expected activated machine ID %q, got %q", testActivatedMachineID, machineID)
 	}
 }
 

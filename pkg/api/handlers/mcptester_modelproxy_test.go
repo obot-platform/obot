@@ -27,6 +27,7 @@ import (
 
 const (
 	modelProxyChatBody = `{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`
+	testerMachineID    = "8f14e45f-ceea-467a-9575-2f2d4a1c3b6e"
 )
 
 type fakeTesterProviders struct {
@@ -36,8 +37,12 @@ type fakeTesterProviders struct {
 }
 
 type fakeTesterLicense struct {
-	key string
-	err error
+	key        string
+	err        error
+	machineErr error
+
+	// invalid models a license key that failed validation, which has no machine.
+	invalid bool
 }
 
 func (p *fakeTesterProviders) HasModelProvider(context.Context) (bool, error) {
@@ -49,8 +54,12 @@ func (l *fakeTesterLicense) LicenseKey(context.Context) (string, error) {
 	return l.key, l.err
 }
 
-func (*fakeTesterLicense) MachineFingerprint() string {
-	return "persisted-machine"
+func (l *fakeTesterLicense) MachineID(context.Context) (string, error) {
+	if l.machineErr != nil || l.invalid || l.key == "" {
+		return "", l.machineErr
+	}
+
+	return testerMachineID, nil
 }
 
 func newModelProxyTestHandler(t *testing.T, providers *fakeTesterProviders, licenseSource *fakeTesterLicense, upstream *httptest.Server) *MCPTesterHandler {
@@ -83,7 +92,7 @@ func TestTesterModelProxyRechecksProvidersAndLicense(t *testing.T) {
 	var auth []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = append(auth, r.Header.Get("Authorization"))
-		if r.URL.Path != "/v1/responses" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-Fingerprint") != "persisted-machine" {
+		if r.URL.Path != "/v1/responses" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-ID") != testerMachineID || r.Header.Get("X-Obot-Machine-Fingerprint") != "" {
 			t.Errorf("unexpected outbound request: %v %v", r.URL, r.Header)
 		}
 
@@ -142,6 +151,23 @@ func TestTesterModelProxyRechecksProvidersAndLicense(t *testing.T) {
 	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorProvider)
 	if strings.Join(auth, ",") != "Bearer license-one,Bearer license-two,Bearer license-two" || gatewayCalls != 1 || providers.calls != 8 {
 		t.Fatalf("auth=%v gateway calls=%d resolver calls=%d", auth, gatewayCalls, providers.calls)
+	}
+
+	// A registered key that failed validation has no machine to identify.
+	licenseSource.err = nil
+	licenseSource.key = "license-three"
+	licenseSource.invalid = true
+	response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody)
+	assertMCPTesterError(t, response, http.StatusForbidden, types.MCPTesterErrorLicenseRequired)
+	if !strings.Contains(response.Body.String(), mcpTesterLicenseInvalidMessage) {
+		t.Fatalf("invalid license response: %s", response.Body)
+	}
+
+	licenseSource.invalid = false
+	licenseSource.machineErr = errors.New("keygen unavailable")
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorProvider)
+	if len(auth) != 3 {
+		t.Fatalf("requests without a machine ID reached the model proxy: %v", auth)
 	}
 
 	// Disabled model proxy leaves the existing model error, regardless of absence.
@@ -279,7 +305,7 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 			t.Error("IP headers were not forwarded")
 		}
 
-		w.Header().Set("X-Obot-Machine-Fingerprint", "private-fingerprint")
+		w.Header().Set("X-Obot-Machine-ID", "private-machine-id")
 		_, _ = io.WriteString(w, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-test\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":42,\"output_tokens\":7}}}\n\n")
 	}))
 	defer upstream.Close()
@@ -290,7 +316,7 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/vmcp-instances/vmcpi1tester/tester/chat", strings.NewReader(modelProxyChatBody))
 	request.SetPathValue("vmcp_instance_id", "vmcpi1tester")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
-	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
+	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-ID": "browser-machine-id", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
 		request.Header.Set(key, value)
 	}
 
@@ -335,7 +361,7 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, secret := range []string{"installation-secret", "browser-secret", "browser-cookie", "browser-fingerprint", "private-fingerprint"} {
+	for _, secret := range []string{"installation-secret", "browser-secret", "browser-cookie", "browser-machine-id", "private-machine-id"} {
 		if strings.Contains(string(raw), secret) {
 			t.Fatalf("audit leaked %s", secret)
 		}

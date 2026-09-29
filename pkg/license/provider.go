@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"slices"
@@ -69,6 +70,7 @@ type Provider struct {
 	lock                 sync.RWMutex
 	refreshLock          sync.Mutex
 	entitlements         map[keygen.EntitlementCode]struct{}
+	machineID            string
 	licenseKeySnapshot   licenseKeySnapshot
 	machineFingerprint   string
 	gatewayClient        *client.Client
@@ -152,9 +154,51 @@ func (p *Provider) LicenseKey(ctx context.Context) (string, error) {
 	return snapshot.key, nil
 }
 
-// MachineFingerprint returns the existing persisted installation identity.
-func (p *Provider) MachineFingerprint() string {
-	return p.machineFingerprint
+// MachineID returns the Keygen machine activated for this installation's
+// fingerprint. It is empty when there is no valid license. A valid license
+// whose machine lookup failed during validation retries the lookup here.
+func (p *Provider) MachineID(ctx context.Context) (string, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return "", err
+	}
+
+	machineID, valid, _ := p.cachedMachine()
+	if machineID != "" || !valid {
+		return machineID, nil
+	}
+
+	// Cached state only changes under refreshLock, so it cannot change during the
+	// lookup. Recheck it: another caller may have resolved the machine meanwhile.
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
+
+	machineID, valid, snapshot := p.cachedMachine()
+	if machineID != "" || !valid {
+		return machineID, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	machineID, err := p.lookupMachineID(ctx, p.keygenClient(snapshot.key))
+	if err != nil {
+		return "", err
+	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if p.entitlements == nil || !p.licenseKeySnapshot.equal(snapshot) {
+		return "", errors.New("license changed while resolving its machine ID")
+	}
+
+	p.machineID = machineID
+	return machineID, nil
+}
+
+func (p *Provider) cachedMachine() (string, bool, licenseKeySnapshot) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.machineID, p.entitlements != nil, p.licenseKeySnapshot
 }
 
 func (p *Provider) LicenseKeyViaConfiguration() bool {
@@ -192,7 +236,7 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	}
 	licenseKey = strings.TrimSpace(licenseKey)
 
-	entitlements, err := p.validate(ctx, licenseKey)
+	entitlements, machineID, err := p.validate(ctx, licenseKey)
 	if err != nil {
 		return err
 	}
@@ -217,7 +261,7 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	p.setCachedState(licenseKeySnapshot{
 		key:       licenseKey,
 		updatedAt: property.UpdatedAt,
-	}, entitlements)
+	}, entitlements, machineID)
 	return nil
 }
 
@@ -241,7 +285,7 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 		}
 	}
 
-	p.setCachedState(licenseKeySnapshot{}, nil)
+	p.setCachedState(licenseKeySnapshot{}, nil, "")
 	return nil
 }
 
@@ -284,22 +328,27 @@ func (v *keygenValidationResponse) SetMeta(to func(target any) error) error {
 	return to(&v.Result)
 }
 
-func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, error) {
+// validate returns the license entitlements, or nil when the license is invalid, and the
+// Keygen machine ID for this installation. A failed machine lookup leaves the ID empty
+// without invalidating the license.
+func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, string, error) {
 	if strings.TrimSpace(licenseKey) == "" {
-		return nil, ErrNotConfigured
+		return nil, "", ErrNotConfigured
 	}
 
 	keygenClient := p.keygenClient(licenseKey)
 	lic := &keygen.License{}
 	if _, err := keygenClient.Get(ctx, "me", nil, lic); err != nil {
 		slog.Warn("license lookup failed", "error", err)
-		return nil, nil
+		return nil, "", nil
 	}
 
 	validation, err := p.validateLicense(ctx, keygenClient, lic)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	var machineID string
 	if !validation.Result.Valid {
 		if validation.Result.Code == keygen.ValidationCodeFingerprintScopeMismatch ||
 			validation.Result.Code == keygen.ValidationCodeNoMachines ||
@@ -311,26 +360,31 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 			machine.Hostname, _ = os.Hostname()
 			machine.Platform = runtime.GOOS + "/" + runtime.GOARCH
 			machine.Cores = runtime.NumCPU()
-			if _, activationErr := keygenClient.Post(ctx, "machines", machine, &keygen.Machine{}); activationErr != nil &&
-				!errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
+			activated := &keygen.Machine{}
+			_, activationErr := keygenClient.Post(ctx, "machines", machine, activated)
+			switch {
+			case activationErr == nil:
+				// An unusable activation response falls back to the lookup below.
+				machineID, _ = p.verifiedMachineID(activated)
+			case !errors.Is(activationErr, keygen.ErrMachineAlreadyActivated):
 				slog.Warn("license activation failed", "error", activationErr)
-				return nil, nil
+				return nil, "", nil
 			}
 
 			validation, err = p.validateLicense(ctx, keygenClient, lic)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 		}
 	}
 	if !validation.Result.Valid {
 		slog.Warn("license validation failed", "code", validation.Result.Code, "detail", validation.Result.Detail)
-		return nil, nil
+		return nil, "", nil
 	}
 
 	entitlements := keygen.Entitlements{}
 	if _, err := keygenClient.Get(ctx, fmt.Sprintf("licenses/%s/entitlements?limit=100", lic.ID), nil, &entitlements); err != nil {
-		return nil, fmt.Errorf("list license entitlements: %w", err)
+		return nil, "", fmt.Errorf("list license entitlements: %w", err)
 	}
 
 	entitlementSet := make(map[keygen.EntitlementCode]struct{}, len(entitlements))
@@ -338,7 +392,37 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 		entitlementSet[entitlement.Code] = struct{}{}
 	}
 
-	return entitlementSet, nil
+	if machineID == "" {
+		if machineID, err = p.lookupMachineID(ctx, keygenClient); err != nil {
+			slog.Warn("license machine lookup failed", "error", err)
+		}
+	}
+
+	return entitlementSet, machineID, nil
+}
+
+// lookupMachineID resolves this installation's machine by fingerprint, which
+// Keygen accepts in place of the machine ID.
+func (p *Provider) lookupMachineID(ctx context.Context, keygenClient *keygen.Client) (string, error) {
+	machine := &keygen.Machine{}
+	if _, err := keygenClient.Get(ctx, "machines/"+url.PathEscape(p.machineFingerprint), nil, machine); err != nil {
+		return "", fmt.Errorf("look up license machine: %w", err)
+	}
+
+	return p.verifiedMachineID(machine)
+}
+
+func (p *Provider) verifiedMachineID(machine *keygen.Machine) (string, error) {
+	if machine.Fingerprint != p.machineFingerprint {
+		return "", errors.New("license machine does not match this installation's fingerprint")
+	}
+
+	id, err := uuid.Parse(machine.ID)
+	if err != nil {
+		return "", errors.New("license machine ID is not a UUID")
+	}
+
+	return id.String(), nil
 }
 
 func (p *Provider) validateLicense(ctx context.Context, keygenClient *keygen.Client, lic *keygen.License) (*keygenValidationResponse, error) {
@@ -425,11 +509,12 @@ func (p *Provider) cachedSnapshotMatches(snapshot licenseKeySnapshot) bool {
 	return p.licenseKeySnapshot.equal(snapshot)
 }
 
-func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[keygen.EntitlementCode]struct{}) {
+func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[keygen.EntitlementCode]struct{}, machineID string) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.licenseKeySnapshot = snapshot
 	p.entitlements = entitlements
+	p.machineID = machineID
 }
 
 func (p *Provider) refresh(ctx context.Context, force bool) error {
@@ -454,11 +539,11 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 	}
 
 	if snapshot.key == "" {
-		p.setCachedState(snapshot, nil)
+		p.setCachedState(snapshot, nil, "")
 		return nil
 	}
 
-	entitlements, err := p.validate(ctx, snapshot.key)
-	p.setCachedState(snapshot, entitlements)
+	entitlements, machineID, err := p.validate(ctx, snapshot.key)
+	p.setCachedState(snapshot, entitlements, machineID)
 	return err
 }

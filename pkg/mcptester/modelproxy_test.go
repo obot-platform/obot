@@ -108,12 +108,16 @@ func TestModelProxyRequestContract(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if req.Header.Get("Authorization") != "Bearer signed==.KEY" || req.Header.Get("X-Obot-Machine-Fingerprint") != "machine-id" || len(req.Header) != 5 || req.GetBody != nil {
+	if req.Header.Get("Authorization") != "Bearer signed==.KEY" || req.Header.Get("X-Obot-Machine-ID") != "machine-id" || len(req.Header) != 5 || req.GetBody != nil {
 		t.Fatalf("unexpected request: %#v", req)
 	}
 
 	if _, err := NewModelProxyRequest(t.Context(), endpoint, body, "", "machine-id", nil); err == nil {
 		t.Fatal("accepted empty license")
+	}
+
+	if _, err := NewModelProxyRequest(t.Context(), endpoint, body, "signed==.KEY", "", nil); err == nil {
+		t.Fatal("accepted empty machine ID")
 	}
 
 	request.Tools = []types.MCPTesterTool{{Name: "large", Description: strings.Repeat("x", ModelProxyMaxBodyBytes), InputSchema: []byte(`{}`)}}
@@ -137,7 +141,7 @@ func TestModelProxyDoesNotRedirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req, err := NewModelProxyRequest(t.Context(), endpoint, []byte(`{}`), "license", "fingerprint", nil)
+	req, err := NewModelProxyRequest(t.Context(), endpoint, []byte(`{}`), "license", "machine", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

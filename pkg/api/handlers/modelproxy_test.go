@@ -95,7 +95,7 @@ func TestModelProxyUsageAPI(t *testing.T) {
 		if r.Header.Get("X-Forwarded-For") != "192.0.2.10, 2001:db8::1" || r.Header.Get("X-Real-IP") != "192.0.2.10" {
 			t.Error("IP headers were not forwarded")
 		}
-		if r.Method != http.MethodGet || r.URL.Path != "/prefix/v1/usage" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-Fingerprint") != "persisted-machine" || r.Header.Get("X-Obot-MCP-URL") != "" {
+		if r.Method != http.MethodGet || r.URL.Path != "/prefix/v1/usage" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-ID") != testerMachineID || r.Header.Get("X-Obot-Machine-Fingerprint") != "" || r.Header.Get("X-Obot-MCP-URL") != "" {
 			t.Errorf("unexpected usage request %s %s %v", r.Method, r.URL, r.Header)
 		}
 
@@ -155,6 +155,17 @@ func TestModelProxyUsageAPI(t *testing.T) {
 	_, err = call()
 	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
 	license.err = nil
+
+	license.key = "key-invalid"
+	license.invalid = true
+	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusForbidden)
+	license.invalid = false
+
+	license.machineErr = errors.New("private keygen details")
+	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
+	license.machineErr = nil
 
 	license.key = "key-three"
 	if err := store.SetModelProxyEnabled(t.Context(), false); err != nil {
