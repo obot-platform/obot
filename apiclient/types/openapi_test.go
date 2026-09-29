@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestOpenAPISnapshotConversion(t *testing.T) {
@@ -13,7 +12,7 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 		Runtime: RuntimeOpenAPI,
 		OpenAPIConfig: &OpenAPIRuntimeConfig{
 			Source: OpenAPISource{URL: "https://example.com/openapi.json"},
-			Schema: &runtime.RawExtension{Raw: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`)},
+			Schema: &OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`)},
 		},
 	}
 	server, err := MapCatalogEntryToServer(entry, "", false)
