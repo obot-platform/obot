@@ -44,6 +44,9 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	"concepts/mcp-gateway/registry-api": "concepts/mcp-registry",
 	"concepts/mcp-gateway/servers-and-tools": "concepts/mcp-gateway",
 
+	// functionality renames
+	"functionality/message-policies": "functionality/ai-judge-policies",
+
 	// configuration renames
 	"configuration/chat-configuration": "configuration/server-configuration",
 	"configuration/oauth-configuration":

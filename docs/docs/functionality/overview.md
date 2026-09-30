@@ -43,7 +43,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Skill Access Policies](./skill-access-policies.md) - Control which users and groups can access which skills
 - [Device Management](./device-management.md) - Inventory local AI clients, MCP servers, skills, and plugins, audit local tool calls, and enforce tool call allowlists
 - [Obot Agent Management](./obot-agent-management.md) - Configure default agent, conversation, and workflow settings, and monitor activity
-- [Message Policies](./message-policies.md) - Enforce content rules on user prompts and tool calls, and review violations
+- [AI Judge Policies](./ai-judge-policies.md) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](./user-management.md) - Manage users, roles, and authentication
 - [Agent Authorization Scopes](./agent-auth-scopes.md) - Create and manage agent authorization scopes for programmatic Obot access
 - [Branding](./branding.md) - Customize theme colors and branding

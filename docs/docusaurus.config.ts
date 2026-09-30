@@ -100,6 +100,12 @@ const config: Config = {
               "/functionality/api-keys/",
             );
           }
+          if (existingPath.endsWith("/functionality/ai-judge-policies/")) {
+            return existingPath.replace(
+              "/functionality/ai-judge-policies/",
+              "/functionality/message-policies/",
+            );
+          }
           return undefined;
         },
       },
