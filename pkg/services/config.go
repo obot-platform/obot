@@ -1140,6 +1140,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayClient.SetAuditLogRetentionProvider(limitProvider)
+	gatewayClient.SetHostedMCPServerLimitProvider(limitProvider)
 
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 

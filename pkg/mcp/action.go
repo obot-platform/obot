@@ -253,7 +253,17 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
-			if err := sm.storageClient.Create(ctx, &server); err != nil {
+			// Counted as it is created, not as it is deployed. A hosted server
+			// deploys lazily and shuts down when it goes idle, so what it costs
+			// us follows the object rather than the deployment.
+			if err := sm.gatewayClient.CreateHostedMCPServer(ctx, manifest.Runtime, func(ctx context.Context) error {
+				return sm.storageClient.Create(ctx, &server)
+			}); err != nil {
+				// A refusal already carries the status and message to show the
+				// user; anything else is ours to describe.
+				if errors.As(err, new(*types.ErrHTTP)) {
+					return v1.MCPServer{}, v1.MCPServerInstance{}, err
+				}
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
 			}
 

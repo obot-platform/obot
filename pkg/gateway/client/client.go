@@ -44,26 +44,30 @@ const (
 )
 
 type Client struct {
-	db                        *db.DB
-	encryptionConfig          *encryptionconfig.EncryptionConfiguration
-	emailsWithExplicitRoles   map[string]types2.Role
-	auditLock                 sync.Mutex
-	auditBuffer               []types.MCPAuditLog
-	kickAuditPersist          chan struct{}
-	enforcementLock           sync.Mutex
-	enforcementBuffer         []types.EnforcementDecisionLog
-	kickEnforcementPersist    chan struct{}
-	llmAuditEntries           chan llmAuditEntry
-	llmAuditBatchSize         int
-	llmAuditEnabled           bool
-	storageClient             kclient.Client
-	apiKeyCacheLock           sync.RWMutex
-	apiKeyCache               map[[32]byte]apiKeyValidationCacheEntry
-	apiKeyCacheTTL            time.Duration
-	serviceAccountCacheLock   sync.RWMutex
-	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
-	serviceAccountCacheTTL    time.Duration
-	deviceCreationLock        sync.Mutex
+	db                      *db.DB
+	encryptionConfig        *encryptionconfig.EncryptionConfiguration
+	emailsWithExplicitRoles map[string]types2.Role
+	auditLock               sync.Mutex
+	auditBuffer             []types.MCPAuditLog
+	kickAuditPersist        chan struct{}
+	enforcementLock         sync.Mutex
+	enforcementBuffer       []types.EnforcementDecisionLog
+	kickEnforcementPersist  chan struct{}
+	llmAuditEntries         chan llmAuditEntry
+	llmAuditBatchSize       int
+	llmAuditEnabled         bool
+	storageClient           kclient.Client
+	apiKeyCacheLock         sync.RWMutex
+	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
+	apiKeyCacheTTL          time.Duration
+	serviceAccountCacheLock sync.RWMutex
+	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
+	serviceAccountCacheTTL  time.Duration
+	deviceCreationLock      sync.Mutex
+
+	hostedMCPServerCreationLock  sync.Mutex
+	hostedMCPServerLimitProvider atomic.Pointer[HostedMCPServerLimitProvider]
+
 	auditLogRetentionProvider atomic.Pointer[AuditLogRetentionProvider]
 	auditLogCleanupInterval   time.Duration
 	auditLogDeleteBatchSize   int
