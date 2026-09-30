@@ -58,7 +58,7 @@
 		"@types/react": "^18.3.28",
 		"@types/react-dom": "^18.3.7",
 		"@uiw/codemirror-theme-github": "^4.25.9",
-		"dompurify": "3.4.13",
+		"dompurify": "3.4.16",
 		"@vitest/browser-playwright": "^5.0.1",
 		"eslint": "^10.5.0",
 		"eslint-config-prettier": "^10.1.8",
