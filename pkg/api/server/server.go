@@ -62,7 +62,7 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool, licenseProvider *license.Provider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool, licenseProvider *license.Provider, restrictor *license.Restrictor) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
@@ -81,7 +81,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 		rateLimiter:             rateLimiter,
 		registryNoAuth:          registryNoAuth,
 		mux:                     http.NewServeMux(),
-		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
+		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, restrictor, storageClient),
 	}
 	s.otelHandler = otelhttp.NewHandler(
 		s.mux,

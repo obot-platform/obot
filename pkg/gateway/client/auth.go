@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -24,17 +25,25 @@ type UserLimitProvider interface {
 	UserLimit(context.Context) (UserLimit, error)
 }
 
-type UserDecorator struct {
-	next              authenticator.Request
-	client            *Client
-	userLimitProvider UserLimitProvider
+// RestrictionChecker reports whether the installation is using more than it is
+// licensed for.
+type RestrictionChecker interface {
+	Restricted(context.Context) (bool, error)
 }
 
-func NewUserDecorator(next authenticator.Request, client *Client, userLimitProvider UserLimitProvider) *UserDecorator {
+type UserDecorator struct {
+	next               authenticator.Request
+	client             *Client
+	userLimitProvider  UserLimitProvider
+	restrictionChecker RestrictionChecker
+}
+
+func NewUserDecorator(next authenticator.Request, client *Client, userLimitProvider UserLimitProvider, restrictionChecker RestrictionChecker) *UserDecorator {
 	return &UserDecorator{
-		next:              next,
-		client:            client,
-		userLimitProvider: userLimitProvider,
+		next:               next,
+		client:             client,
+		userLimitProvider:  userLimitProvider,
+		restrictionChecker: restrictionChecker,
 	}
 }
 
@@ -85,6 +94,12 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		effectiveRole = gatewayUser.Role
 	}
 
+	// An installation over its limits serves nobody but its administrators, who
+	// can bring it back under them, and its owners, who can also buy more.
+	if err := u.checkRestriction(req.Context(), effectiveRole); err != nil {
+		return nil, false, err
+	}
+
 	extra["obot_groups"] = effectiveRole.Groups()
 
 	resp.User = &user.DefaultInfo{
@@ -94,6 +109,24 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Groups: effectiveRole.Groups(),
 	}
 	return resp, true, nil
+}
+
+func (u UserDecorator) checkRestriction(ctx context.Context, effectiveRole types2.Role) error {
+	if u.restrictionChecker == nil || effectiveRole.HasRole(types2.RoleAdmin) {
+		return nil
+	}
+
+	restricted, err := u.restrictionChecker.Restricted(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check resource limits: %w", err)
+	}
+	if restricted {
+		return types2.NewErrHTTP(
+			http.StatusForbidden,
+			"This installation is using more than it is licensed for. Please contact your administrator.",
+		)
+	}
+	return nil
 }
 
 func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) {

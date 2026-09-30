@@ -86,6 +86,7 @@ type LimitProvider interface {
 
 type ProviderEntitlementGate struct {
 	licenseProvider *Provider
+	restrictor      *Restrictor
 	client          kclient.Client
 	mux             *http.ServeMux
 }
@@ -107,7 +108,7 @@ func GetDistributionFromEntitlements(entitlements []string) types.ProductTelemet
 	}
 }
 
-func NewProviderEntitlementGate(licenseProvider *Provider, client kclient.Client) *ProviderEntitlementGate {
+func NewProviderEntitlementGate(licenseProvider *Provider, restrictor *Restrictor, client kclient.Client) *ProviderEntitlementGate {
 	mux := http.NewServeMux()
 	for _, path := range entitlementPathsToGate {
 		mux.Handle(path, (*fake)(nil))
@@ -115,6 +116,7 @@ func NewProviderEntitlementGate(licenseProvider *Provider, client kclient.Client
 
 	return &ProviderEntitlementGate{
 		licenseProvider: licenseProvider,
+		restrictor:      restrictor,
 		client:          client,
 		mux:             mux,
 	}
@@ -132,6 +134,15 @@ func (g *ProviderEntitlementGate) Check(req *http.Request) error {
 	if len(violations) > 0 {
 		return types.NewErrHTTP(http.StatusPaymentRequired, "configured provider is missing required license entitlements")
 	}
+
+	restricted, err := g.restrictor.Restricted(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to check resource limits: %w", err)
+	}
+	if restricted {
+		return types.NewErrHTTP(http.StatusPaymentRequired, "this installation is using more than it is licensed for; ask your administrator to reduce usage or raise the limits")
+	}
+
 	return nil
 }
 
