@@ -54,6 +54,12 @@ type Violation struct {
 	Message              string   `json:"message"`
 }
 
+// LimitProvider resolves the resource limits an installation is entitled to.
+type LimitProvider interface {
+	UserLimit(context.Context) (gatewayclient.UserLimit, error)
+	DeviceLimit(context.Context) (gatewayclient.DeviceLimit, error)
+}
+
 type ProviderEntitlementGate struct {
 	licenseProvider *Provider
 	client          kclient.Client
@@ -221,13 +227,13 @@ func (p *Provider) RequireEntitlements(ctx context.Context, requiredEntitlements
 }
 
 // GetLicenseViolations returns all license violations for the configured auth/model providers and resource limits.
-func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
+func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client, limits LimitProvider) ([]Violation, error) {
 	violations, err := p.configuredProviderViolations(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check configured provider license entitlements: %w", err)
 	}
 
-	userLimit, err := p.UserLimit(ctx)
+	userLimit, err := limits.UserLimit(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check user limit: %w", err)
 	}
@@ -245,7 +251,7 @@ func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) (
 		}
 	}
 
-	deviceLimit, err := p.DeviceLimit(ctx)
+	deviceLimit, err := limits.DeviceLimit(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check device limit: %w", err)
 	}

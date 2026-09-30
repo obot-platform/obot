@@ -307,7 +307,11 @@ type Services struct {
 
 	// License provider
 	LicenseProvider *license.Provider
-	VersionChecker  *upgrade.VersionChecker
+
+	// LimitProvider resolves the resource limits the installation is entitled to.
+	LimitProvider license.LimitProvider
+
+	VersionChecker *upgrade.VersionChecker
 
 	ModelProxyConfiguredURL string
 	ModelProxyURL           *url.URL
@@ -1117,6 +1121,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
 
+	var limitProvider license.LimitProvider = licenseProvider
+
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
@@ -1181,7 +1187,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, limitProvider)
 		// Tunnel credentials are non-user principals and must be handled after
 		// the user decorator. Authorization restricts them to tunnel setup only.
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1228,7 +1234,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, limitProvider)
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1478,6 +1484,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 		LicenseProvider:                      licenseProvider,
+		LimitProvider:                        limitProvider,
 		VersionChecker:                       versionChecker,
 	}
 
