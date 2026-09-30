@@ -16,6 +16,7 @@ const (
 	ResourceSelectorIndex = "selectors"
 	UserIDIndex           = "user-ids"
 	GroupIDIndex          = "group-ids"
+	ObotGroupIDIndex      = "obot-group-ids"
 	SubjectSelectorIndex  = "subject-selectors"
 )
 
@@ -67,8 +68,9 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 	}
 
 	var (
-		userID string
-		groups = authGroupSet(user)
+		userID     string
+		groups     = authGroupSet(user)
+		obotGroups = obotGroupSet(user)
 	)
 	if user != nil {
 		userID = user.GetUID()
@@ -78,7 +80,7 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 	if err != nil {
 		return false, err
 	}
-	if hasMatchingSubject(selectorRules, userID, groups) {
+	if hasMatchingSubject(selectorRules, userID, groups, obotGroups) {
 		return true, nil
 	}
 
@@ -87,7 +89,7 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 		if err != nil {
 			return false, err
 		}
-		if hasMatchingSubject(repoRules, userID, groups) {
+		if hasMatchingSubject(repoRules, userID, groups, obotGroups) {
 			return true, nil
 		}
 	}
@@ -97,7 +99,7 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 		if err != nil {
 			return false, err
 		}
-		if hasMatchingSubject(skillRules, userID, groups) {
+		if hasMatchingSubject(skillRules, userID, groups, obotGroups) {
 			return true, nil
 		}
 	}
@@ -172,6 +174,14 @@ func (h *Helper) getRulesForUser(namespace string, user kuser.Info) ([]v1.SkillA
 		addRules(groupRules)
 	}
 
+	for groupID := range obotGroupSet(user) {
+		groupRules, err := h.getIndexedRules(namespace, ObotGroupIDIndex, groupID, "obot group")
+		if err != nil {
+			return nil, err
+		}
+		addRules(groupRules)
+	}
+
 	return result, nil
 }
 
@@ -192,7 +202,7 @@ func (h *Helper) getIndexedRules(namespace, indexName, key, target string) ([]v1
 	return result, nil
 }
 
-func hasMatchingSubject(rules []v1.SkillAccessRule, userID string, groups map[string]struct{}) bool {
+func hasMatchingSubject(rules []v1.SkillAccessRule, userID string, groups, obotGroups map[string]struct{}) bool {
 	for _, rule := range rules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
 			switch subject.Type {
@@ -202,6 +212,10 @@ func hasMatchingSubject(rules []v1.SkillAccessRule, userID string, groups map[st
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := obotGroups[subject.ID]; ok {
 					return true
 				}
 			case types.SubjectTypeSelector:
@@ -216,10 +230,18 @@ func hasMatchingSubject(rules []v1.SkillAccessRule, userID string, groups map[st
 }
 
 func authGroupSet(user kuser.Info) map[string]struct{} {
+	return groupSet(user, "auth_provider_groups")
+}
+
+func obotGroupSet(user kuser.Info) map[string]struct{} {
+	return groupSet(user, "obot_groups")
+}
+
+func groupSet(user kuser.Info, key string) map[string]struct{} {
 	if user == nil {
 		return map[string]struct{}{}
 	}
-	groups := user.GetExtra()["auth_provider_groups"]
+	groups := user.GetExtra()[key]
 	set := make(map[string]struct{}, len(groups))
 	for _, group := range groups {
 		set[group] = struct{}{}

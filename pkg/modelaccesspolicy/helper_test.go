@@ -299,6 +299,30 @@ func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 	}
 }
 
+func TestObotGroupSubjectGrantsModelAccess(t *testing.T) {
+	const modelID = "m1-openai-gpt-4o"
+	h := newModelHelper(t,
+		[]*v1.Model{newModel(modelID, "openai-model-provider", "gpt-4o", true)},
+		&v1.ModelAccessPolicy{
+			Name:      "admin",
+			Namespace: "default",
+			Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+				Subjects: []types2.Subject{{Type: types2.SubjectTypeObotGroup, ID: "admin"}},
+				Models:   []types2.ModelResource{{ID: modelID}},
+			}},
+		},
+	)
+	admin := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"obot_groups": {"admin"}}}
+	got, err := h.UserHasAccessToModel(admin, modelID)
+	require.NoError(t, err)
+	assert.True(t, got)
+
+	idp := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"auth_provider_groups": {"admin"}}}
+	got, err = h.UserHasAccessToModel(idp, modelID)
+	require.NoError(t, err)
+	assert.False(t, got)
+}
+
 // newModelHelper returns a Helper whose model and policy indexers are populated,
 // mirroring the production indexes built in NewHelper.
 func newModelHelper(t *testing.T, models []*v1.Model, policies ...*v1.ModelAccessPolicy) *Helper {
@@ -312,9 +336,10 @@ func newModelHelper(t *testing.T, models []*v1.Model, policies ...*v1.ModelAcces
 	}
 
 	mapIndexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		mapUserIndex:     mapSubjectIndexFunc(types2.SubjectTypeUser),
-		mapGroupIndex:    mapSubjectIndexFunc(types2.SubjectTypeGroup),
-		mapSelectorIndex: mapSubjectIndexFunc(types2.SubjectTypeSelector),
+		mapUserIndex:      mapSubjectIndexFunc(types2.SubjectTypeUser),
+		mapGroupIndex:     mapSubjectIndexFunc(types2.SubjectTypeGroup),
+		mapObotGroupIndex: mapSubjectIndexFunc(types2.SubjectTypeObotGroup),
+		mapSelectorIndex:  mapSubjectIndexFunc(types2.SubjectTypeSelector),
 	})
 	for _, p := range policies {
 		require.NoError(t, mapIndexer.Add(p))

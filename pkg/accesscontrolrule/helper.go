@@ -571,10 +571,10 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 }
 
 func authGroupSet(user kuser.Info) map[string]struct{} {
-	roleGroups := roleGroupSet(user)
+	roleGroups := user.GetGroups()
 	authProviderGroups := user.GetExtra()["auth_provider_groups"]
 	set := make(map[string]struct{}, len(roleGroups)+len(authProviderGroups))
-	for group := range roleGroups {
+	for _, group := range roleGroups {
 		set[group] = struct{}{}
 	}
 	for _, group := range authProviderGroups {
@@ -584,7 +584,7 @@ func authGroupSet(user kuser.Info) map[string]struct{} {
 }
 
 func roleGroupSet(user kuser.Info) map[string]struct{} {
-	roleGroups := user.GetGroups()
+	roleGroups := user.GetExtra()["obot_groups"]
 	set := make(map[string]struct{}, len(roleGroups))
 	for _, group := range roleGroups {
 		set[group] = struct{}{}

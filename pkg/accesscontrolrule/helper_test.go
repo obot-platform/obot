@@ -51,14 +51,26 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 			want:        false,
 		},
 		{
-			name: "obot admin matches role group",
+			name: "obot admin matches obot groups",
+			user: &kuser.DefaultInfo{
+				UID: "admin",
+				Extra: map[string][]string{
+					"obot_groups": {types.GroupAdmin},
+				},
+			},
+			subjectType: types.SubjectTypeObotGroup,
+			subjectID:   types.GroupAdmin,
+			want:        true,
+		},
+		{
+			name: "obot group ignores token groups",
 			user: &kuser.DefaultInfo{
 				UID:    "admin",
 				Groups: []string{types.GroupAdmin},
 			},
 			subjectType: types.SubjectTypeObotGroup,
 			subjectID:   types.GroupAdmin,
-			want:        true,
+			want:        false,
 		},
 		{
 			name: "obot group does not match auth provider group",

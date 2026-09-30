@@ -58,7 +58,8 @@ func VersionSubjects(artifact *v1.PublishedArtifact, version int) []types.Subjec
 
 func SubjectsContainUser(subjects []types.Subject, requester user.Info) bool {
 	userID := requester.GetUID()
-	groups := authGroupSet(requester)
+	groups := groupSet(requester, "auth_provider_groups")
+	obotGroups := groupSet(requester, "obot_groups")
 	for _, subject := range subjects {
 		switch subject.Type {
 		case types.SubjectTypeUser:
@@ -67,6 +68,10 @@ func SubjectsContainUser(subjects []types.Subject, requester user.Info) bool {
 			}
 		case types.SubjectTypeGroup:
 			if _, ok := groups[subject.ID]; ok {
+				return true
+			}
+		case types.SubjectTypeObotGroup:
+			if _, ok := obotGroups[subject.ID]; ok {
 				return true
 			}
 		case types.SubjectTypeSelector:
@@ -79,10 +84,10 @@ func SubjectsContainUser(subjects []types.Subject, requester user.Info) bool {
 	return false
 }
 
-func authGroupSet(requester user.Info) map[string]struct{} {
-	providerGroups := requester.GetExtra()["auth_provider_groups"]
-	result := make(map[string]struct{}, len(providerGroups))
-	for _, group := range providerGroups {
+func groupSet(requester user.Info, key string) map[string]struct{} {
+	groups := requester.GetExtra()[key]
+	result := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
 		result[group] = struct{}{}
 	}
 	return result

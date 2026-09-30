@@ -145,15 +145,32 @@ func TestGetApplicablePoliciesMultipleGroups(t *testing.T) {
 	assert.Equal(t, "Eng policy", policies[0].Manifest.Definition)
 }
 
+func TestGetApplicablePoliciesObotGroup(t *testing.T) {
+	helper := newTestHelper(t,
+		newPolicy("admin", "Admin policy", types.PolicyDirectionUserMessage,
+			[]types.Subject{{Type: types.SubjectTypeObotGroup, ID: "admin"}}),
+	)
+	admin := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"obot_groups": {"admin"}}}
+
+	policies, err := helper.GetApplicablePolicies(admin, types.PolicyDirectionUserMessage)
+	require.NoError(t, err)
+	require.Len(t, policies, 1)
+
+	policies, err = helper.GetApplicablePolicies(testUser("user1", "admin"), types.PolicyDirectionUserMessage)
+	require.NoError(t, err)
+	require.Empty(t, policies)
+}
+
 // --- test helpers ---
 
 func newTestHelper(t *testing.T, policies ...*v1.MessagePolicy) *Helper {
 	t.Helper()
 
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		userIndex:     subjectIndexFunc(types.SubjectTypeUser),
-		groupIndex:    subjectIndexFunc(types.SubjectTypeGroup),
-		selectorIndex: subjectIndexFunc(types.SubjectTypeSelector),
+		userIndex:      subjectIndexFunc(types.SubjectTypeUser),
+		groupIndex:     subjectIndexFunc(types.SubjectTypeGroup),
+		obotGroupIndex: subjectIndexFunc(types.SubjectTypeObotGroup),
+		selectorIndex:  subjectIndexFunc(types.SubjectTypeSelector),
 	})
 
 	for _, p := range policies {

@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	userIndex     = "user-id"
-	groupIndex    = "group-id"
-	selectorIndex = "selector-id"
+	userIndex      = "user-id"
+	groupIndex     = "group-id"
+	obotGroupIndex = "obot-group-id"
+	selectorIndex  = "selector-id"
 )
 
 type Helper struct {
@@ -47,9 +48,10 @@ func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Clie
 	}
 
 	if err := informer.AddIndexers(gocache.Indexers{
-		userIndex:     subjectIndexFunc(types.SubjectTypeUser),
-		groupIndex:    subjectIndexFunc(types.SubjectTypeGroup),
-		selectorIndex: subjectIndexFunc(types.SubjectTypeSelector),
+		userIndex:      subjectIndexFunc(types.SubjectTypeUser),
+		groupIndex:     subjectIndexFunc(types.SubjectTypeGroup),
+		obotGroupIndex: subjectIndexFunc(types.SubjectTypeObotGroup),
+		selectorIndex:  subjectIndexFunc(types.SubjectTypeSelector),
 	}); err != nil {
 		return nil, err
 	}
@@ -106,6 +108,14 @@ func (h *Helper) GetApplicablePolicies(user kuser.Info, direction types.PolicyDi
 		collect(groupPolicies)
 	}
 
+	for groupID := range obotGroupSet(user) {
+		groupPolicies, err := h.getIndexedPolicies(obotGroupIndex, groupID)
+		if err != nil {
+			return nil, err
+		}
+		collect(groupPolicies)
+	}
+
 	return result, nil
 }
 
@@ -145,7 +155,15 @@ func subjectIndexFunc(subjectType types.SubjectType) gocache.IndexFunc {
 
 // authGroupSet returns a set of auth provider groups for a given user.
 func authGroupSet(user kuser.Info) map[string]struct{} {
-	groups := user.GetExtra()["auth_provider_groups"]
+	return groupSet(user, "auth_provider_groups")
+}
+
+func obotGroupSet(user kuser.Info) map[string]struct{} {
+	return groupSet(user, "obot_groups")
+}
+
+func groupSet(user kuser.Info, key string) map[string]struct{} {
+	groups := user.GetExtra()[key]
 	set := make(map[string]struct{}, len(groups))
 	for _, group := range groups {
 		set[group] = struct{}{}

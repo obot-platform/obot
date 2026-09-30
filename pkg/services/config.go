@@ -1004,6 +1004,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			}
 			return results, nil
 		},
+		skillaccessrule.ObotGroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeObotGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
 		skillaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
@@ -1066,6 +1076,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			var results []string
 			for _, subject := range rule.Spec.Manifest.Subjects {
 				if subject.Type == apiclienttypes.SubjectTypeGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.ObotGroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeObotGroup {
 					results = append(results, subject.ID)
 				}
 			}

@@ -239,6 +239,25 @@ func TestGetUserSkillAccessScopeAggregatesAndDeduplicates(t *testing.T) {
 	}, skillIDs)
 }
 
+func TestObotGroupSubjectGrantsSkillAccess(t *testing.T) {
+	helper := newTestHelper(t,
+		newRule("admin", []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "admin"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+	)
+	admin := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"obot_groups": {"admin"}}}
+
+	hasAccess, err := helper.UserHasAccessToSkillID(admin, "sk1", "")
+	require.NoError(t, err)
+	assert.True(t, hasAccess)
+
+	hasAccess, err = helper.UserHasAccessToSkillID(testUser("admin"), "sk1", "")
+	require.NoError(t, err)
+	assert.False(t, hasAccess)
+
+	_, _, skillIDs, err := helper.GetUserSkillAccessScope(admin)
+	require.NoError(t, err)
+	assert.Contains(t, skillIDs, "sk1")
+}
+
 func TestGetUserSkillAccessScopeAllowAll(t *testing.T) {
 	helper := newTestHelper(t,
 		newRule("rule1", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}}),
@@ -300,6 +319,16 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			var results []string
 			for _, subject := range rule.Spec.Manifest.Subjects {
 				if subject.Type == types.SubjectTypeGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		ObotGroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == types.SubjectTypeObotGroup {
 					results = append(results, subject.ID)
 				}
 			}

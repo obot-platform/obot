@@ -22,6 +22,7 @@ import (
 const (
 	mapUserIndex       = "user-id"
 	mapGroupIndex      = "group-id"
+	mapObotGroupIndex  = "obot-group-id"
 	mapSelectorIndex   = "selector-id"
 	dmaModelIndex      = "model-id"
 	modelProviderIndex = "model-provider"
@@ -44,9 +45,10 @@ func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
 	}
 
 	if err := mapInformer.AddIndexers(gocache.Indexers{
-		mapUserIndex:     mapSubjectIndexFunc(types.SubjectTypeUser),
-		mapGroupIndex:    mapSubjectIndexFunc(types.SubjectTypeGroup),
-		mapSelectorIndex: mapSubjectIndexFunc(types.SubjectTypeSelector),
+		mapUserIndex:      mapSubjectIndexFunc(types.SubjectTypeUser),
+		mapGroupIndex:     mapSubjectIndexFunc(types.SubjectTypeGroup),
+		mapObotGroupIndex: mapSubjectIndexFunc(types.SubjectTypeObotGroup),
+		mapSelectorIndex:  mapSubjectIndexFunc(types.SubjectTypeSelector),
 	}); err != nil {
 		return nil, err
 	}
@@ -181,6 +183,17 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 	// Check policies based on group membership
 	for groupID := range authGroupSet(user) {
 		groupPolicies, err := h.getGroupPolicies(groupID)
+		if err != nil {
+			return nil, false, err
+		}
+
+		for _, policy := range groupPolicies {
+			addResources(policy.Spec.Manifest.Models)
+		}
+	}
+
+	for groupID := range obotGroupSet(user) {
+		groupPolicies, err := h.getIndexedPolicies(mapObotGroupIndex, groupID)
 		if err != nil {
 			return nil, false, err
 		}
@@ -471,10 +484,16 @@ func modelProviderTargetKey(provider, targetModel string) string {
 
 // authGroupSet returns a set of auth provider groups for a given user.
 func authGroupSet(user kuser.Info) map[string]struct{} {
-	var (
-		groups = user.GetExtra()["auth_provider_groups"]
-		set    = make(map[string]struct{}, len(groups))
-	)
+	return groupSet(user, "auth_provider_groups")
+}
+
+func obotGroupSet(user kuser.Info) map[string]struct{} {
+	return groupSet(user, "obot_groups")
+}
+
+func groupSet(user kuser.Info, key string) map[string]struct{} {
+	groups := user.GetExtra()[key]
+	set := make(map[string]struct{}, len(groups))
 	for _, group := range groups {
 		set[group] = struct{}{}
 	}
