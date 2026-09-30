@@ -10,6 +10,8 @@ export interface TooltipOptions {
 	disablePortal?: boolean;
 	classes?: string[];
 	placement?: Placement;
+	anchor?: HTMLElement;
+	offset?: number;
 }
 
 function resolveDataTheme(trigger: HTMLElement): string {
@@ -80,7 +82,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	};
 
 	function applyLookClasses(el: HTMLElement, o: TooltipOptions | string | undefined) {
-		el.classList.remove(HOST_CLASS, 'tooltip-portal-daisy', 'tooltip', 'text-left');
+		el.classList.remove(HOST_CLASS, 'tooltip-portal-daisy', 'tooltip', 'text-left', 'tooltip-hint');
 		const extra = typeof o === 'object' ? (o.classes ?? []) : [];
 		el.classList.add(HOST_CLASS, ...extra);
 	}
@@ -146,7 +148,9 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 				hover: true,
 				disablePortal: typeof init === 'object' ? init.disablePortal : false,
 				interactiveHover: typeof init === 'object' ? !!init.interactive : false,
-				enterTransition: 'daisy'
+				enterTransition: 'daisy',
+				anchor: typeof init === 'object' ? init.anchor : undefined,
+				offset: typeof init === 'object' ? init.offset : undefined
 			})
 		);
 
@@ -215,7 +219,9 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		if (typeof o === 'object') {
 			popoverTooltipParams?.update({
 				disablePortal: o.disablePortal,
-				interactiveHover: !!o.interactive
+				interactiveHover: !!o.interactive,
+				anchor: o.anchor,
+				offset: o.offset
 			});
 		}
 
@@ -237,6 +243,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			ao.interactive === bo.interactive &&
 			ao.disablePortal === bo.disablePortal &&
 			ao.snippet === bo.snippet &&
+			ao.anchor === bo.anchor &&
+			ao.offset === bo.offset &&
 			JSON.stringify(ao.classes ?? []) === JSON.stringify(bo.classes ?? [])
 		);
 	}

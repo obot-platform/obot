@@ -513,6 +513,87 @@
 		transform-origin: center;
 	}
 
+	.tooltip-portal-daisy-host.tooltip-hint {
+		--tt-bg: var(--color-primary);
+		--hint-border: var(--color-primary);
+		--hint-caret: var(--color-primary);
+		width: min(24rem, calc(100vw - 1rem));
+		max-width: min(24rem, calc(100vw - 1rem));
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint .tooltip-portal-daisy-host__bubble {
+		width: 100%;
+		max-width: none;
+		margin: 0;
+		border-radius: var(--radius-lg, 0.5rem);
+		border: 1px solid var(--hint-border);
+		padding: 0.75rem;
+		color: var(--color-primary-content);
+		font-size: 0.875rem;
+		font-weight: 300;
+		line-height: 1.625;
+		text-align: left;
+		box-shadow: var(--shadow-lg);
+		backdrop-filter: blur(8px);
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint .tooltip-portal-daisy-host__caret {
+		z-index: 1;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin: 0;
+		background-color: var(--hint-caret);
+		mask-image: none;
+		-webkit-mask-image: none;
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint[data-placement^='bottom']
+		.tooltip-portal-daisy-host__caret {
+		top: -0.25rem;
+		right: auto;
+		bottom: auto;
+		left: 50%;
+		border: 0;
+		border-top: 1px solid var(--hint-border);
+		border-left: 1px solid var(--hint-border);
+		transform: translateX(-50%) rotate(45deg);
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint[data-placement^='top'] .tooltip-portal-daisy-host__caret {
+		top: auto;
+		right: auto;
+		bottom: -0.25rem;
+		left: 50%;
+		border: 0;
+		border-right: 1px solid var(--hint-border);
+		border-bottom: 1px solid var(--hint-border);
+		transform: translateX(-50%) rotate(45deg);
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint[data-placement^='right']
+		.tooltip-portal-daisy-host__caret {
+		top: 50%;
+		right: auto;
+		bottom: auto;
+		left: -0.25rem;
+		border: 0;
+		border-bottom: 1px solid var(--hint-border);
+		border-left: 1px solid var(--hint-border);
+		transform: translateY(-50%) rotate(45deg);
+	}
+
+	.tooltip-portal-daisy-host.tooltip-hint[data-placement^='left']
+		.tooltip-portal-daisy-host__caret {
+		top: 50%;
+		right: -0.25rem;
+		bottom: auto;
+		left: auto;
+		border: 0;
+		border-top: 1px solid var(--hint-border);
+		border-right: 1px solid var(--hint-border);
+		transform: translateY(-50%) rotate(45deg);
+	}
+
 	.list-button-primary {
 		display: flex;
 		align-items: center;

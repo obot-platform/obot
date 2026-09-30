@@ -65,6 +65,8 @@
 
 	let selected = $derived(views.find((candidate) => candidate.value === selectedView));
 
+	let tabAnchors = $state<Record<string, HTMLElement | undefined>>({});
+
 	function selectView(value: string) {
 		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== VIEW_PARAM));
 		goto(`${page.url.pathname}?${VIEW_PARAM}=${value}`);
@@ -120,6 +122,7 @@
 									{@const isSelected = selectedView === viewOption.value}
 									{@const tooltip = viewOption.tooltip?.trim()}
 									<div
+										bind:this={tabAnchors[viewOption.value]}
 										class={twMerge(
 											'tab-flare relative font-light text-md rounded-t-lg text-nowrap px-8 py-2',
 											isSelected
@@ -146,6 +149,8 @@
 												<span class="pointer-events-auto inline-flex">
 													<InfoTooltip
 														text={tooltip}
+														anchor={tabAnchors[viewOption.value]}
+														variant="hint"
 														classes={{
 															icon: twMerge(
 																'size-5 shrink-0',

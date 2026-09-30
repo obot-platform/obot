@@ -186,7 +186,8 @@
 			}
 			if (deployment.vmcpComponentID) {
 				return vmcps.reduce<string[]>((acc, vmcp) => {
-					if (vmcp.components.some((c) => c.id === deployment.vmcpComponentID)) {
+					const components = vmcp.components ?? [];
+					if (components.some((c) => c.id === deployment.vmcpComponentID)) {
 						acc.push(vmcp.displayName ?? 'Unknown');
 					}
 					return acc;

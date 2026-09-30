@@ -19,6 +19,8 @@
 		ariaLabel?: string;
 		onClick?: () => void;
 		disablePortal?: boolean;
+		variant?: 'default' | 'hint';
+		anchor?: HTMLElement;
 	}
 
 	let {
@@ -32,7 +34,9 @@
 		interactive = false,
 		ariaLabel,
 		onClick,
-		disablePortal = true
+		disablePortal = true,
+		variant = 'default',
+		anchor
 	}: Props = $props();
 
 	function getPopoverWidth() {
@@ -51,13 +55,15 @@
 	}
 
 	const tooltipOpts: TooltipOptions | undefined = $derived.by(() => {
-		const layout = [getPopoverWidth(), 'break-normal'] as string[];
+		const layout = [variant === 'hint' ? 'tooltip-hint' : getPopoverWidth(), 'break-normal'];
 		const base = {
 			disablePortal,
 			classes: layout,
 			placement,
-			interactive
-		} as const;
+			interactive,
+			anchor,
+			offset: variant === 'hint' ? 10 : undefined
+		};
 		if (children) {
 			return { ...base, snippet: children };
 		}
