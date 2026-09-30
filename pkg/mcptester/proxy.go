@@ -20,7 +20,9 @@ const (
 // Obot's existing LLM gateway. Reusing the browser request's authentication
 // headers makes the gateway reconstruct the same user principal, so model
 // access policies, message policies, usage metering, and audit identity remain
-// on the established proxy path. The supplied context propagates cancellation.
+// on the established proxy path. serverURL must be Obot's own listener rather
+// than its public hostname, which may be unreachable from inside Obot's host.
+// The supplied context propagates cancellation.
 func NewLLMProxyRequest(ctx context.Context, serverURL string, model ResolvedModel, body []byte, inbound http.Header) (*http.Request, error) {
 	base, err := url.Parse(serverURL)
 	if err != nil {
@@ -40,8 +42,8 @@ func NewLLMProxyRequest(ctx context.Context, serverURL string, model ResolvedMod
 	}
 
 	// Forwarding the caller's credentials is safe because serverURL is
-	// static configuration (services.Config.ServerURL, derived from the
-	// --hostname flag) and therefore always points back at Obot itself.
+	// static configuration (services.Services.LocalServerURL, derived from the
+	// --http-listen-port flag) and therefore always points back at Obot itself.
 	for _, header := range []string{"Authorization", "Cookie"} {
 		for _, value := range inbound.Values(header) {
 			req.Header.Add(header, value)

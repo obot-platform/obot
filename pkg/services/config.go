@@ -196,6 +196,9 @@ type Services struct {
 	AuditLogger           audit.Logger
 	DSN                   string
 	ServerURL             string
+	// LocalServerURL is Obot's address as Obot itself can reach it, which differs
+	// from ServerURL when the public port is mapped by a Service or ingress.
+	LocalServerURL string
 	// AgentServerURL is Obot's address as a sandbox can reach it, which differs
 	// from ServerURL when Obot runs outside the cluster its sandboxes run in.
 	AgentServerURL    string
@@ -1094,7 +1097,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
 
-	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, fmt.Sprintf("http://localhost:%d", config.HTTPListenPort), postgresDSN)
+	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
 	if config.EnableMessagePolicies {
@@ -1352,6 +1355,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,
 		ServerURL:             config.Hostname,
+		LocalServerURL:        system.LocalServerURL(config.HTTPListenPort),
 		StorageClient:         storageClient,
 		StorageDB:             dbAccess,
 		Router:                r,

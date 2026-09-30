@@ -42,13 +42,13 @@ type MCPTesterHandler struct {
 	serverResolver   mcpTesterServerActionResolver
 	accessHelper     *accesscontrolrule.Helper
 	modelResolver    mcptester.ModelAccessResolver
-	serverURL        string
+	localServerURL   string
 	httpClient       mcpTesterHTTPClient
 	modelProxy       MCPTesterModelProxyOptions
 	modelProxyClient mcpTesterHTTPClient
 }
 
-func NewMCPTesterHandlerWithModelProxy(storage kclient.Client, serverResolver mcpTesterServerActionResolver, accessHelper *accesscontrolrule.Helper, modelResolver mcptester.ModelAccessResolver, serverURL string, httpClient *http.Client, options MCPTesterModelProxyOptions) *MCPTesterHandler {
+func NewMCPTesterHandlerWithModelProxy(storage kclient.Client, serverResolver mcpTesterServerActionResolver, accessHelper *accesscontrolrule.Helper, modelResolver mcptester.ModelAccessResolver, localServerURL string, httpClient *http.Client, options MCPTesterModelProxyOptions) *MCPTesterHandler {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
@@ -58,7 +58,7 @@ func NewMCPTesterHandlerWithModelProxy(storage kclient.Client, serverResolver mc
 		serverResolver:   serverResolver,
 		accessHelper:     accessHelper,
 		modelResolver:    modelResolver,
-		serverURL:        serverURL,
+		localServerURL:   localServerURL,
 		httpClient:       httpClient,
 		modelProxy:       options,
 		modelProxyClient: mcptester.NewModelProxyHTTPClient(),
@@ -150,7 +150,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 			return writeMCPTesterError(req, http.StatusBadRequest, types.MCPTesterErrorInvalidRequest, err.Error(), false)
 		}
 
-		proxyRequest, err = mcptester.NewLLMProxyRequest(ctx, h.serverURL, model, body, req.Request.Header)
+		proxyRequest, err = mcptester.NewLLMProxyRequest(ctx, h.localServerURL, model, body, req.Request.Header)
 		if err != nil {
 			return writeMCPTesterError(req, http.StatusInternalServerError, types.MCPTesterErrorProvider, "failed to prepare model request", true)
 		}

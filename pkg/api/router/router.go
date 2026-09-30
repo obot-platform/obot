@@ -118,7 +118,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
 
-	mcpTester := handlers.NewMCPTesterHandlerWithModelProxy(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.ServerURL, nil, handlers.MCPTesterModelProxyOptions{
+	mcpTester := handlers.NewMCPTesterHandlerWithModelProxy(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.LocalServerURL, nil, handlers.MCPTesterModelProxyOptions{
 		URL:           services.ModelProxyURL,
 		Providers:     services.ProviderDispatcher,
 		License:       services.LicenseProvider,
