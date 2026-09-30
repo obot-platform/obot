@@ -68,8 +68,10 @@ type SCIMSetupGroupPage struct {
 
 // SCIMSetupWarning is a finding that does not block SCIM, but needs the administrator's attention.
 type SCIMSetupWarning struct {
-	// Type is "everyoneGroup" for a referenced group that the identity provider cannot push, or "missingGroup" for
-	// references to a group ID of the auth provider that no group has.
+	// Type is "everyoneGroup" for a referenced group that the identity provider cannot push, "missingGroup" for
+	// references to a group ID of the auth provider that no group has, "duplicateName" for a name that more than one
+	// unbound referenced group has, or "unreferencedNamesake" for an unreferenced group with the name of an unbound
+	// referenced group. A group pushed under the name of either of the last two binds to no group.
 	Type       string           `json:"type"`
 	Message    string           `json:"message"`
 	GroupID    string           `json:"groupID"`
@@ -147,6 +149,58 @@ type SCIMConnectionReview struct {
 	// enforced.
 	EnforceBlockers []string               `json:"enforceBlockers"`
 	Activity        SCIMConnectionActivity `json:"activity"`
+	// UnusedDirectoryParameters name the configuration parameters that only login-time directory synchronization
+	// used, and that the auth provider's configuration still holds. SCIM replaced directory synchronization, so they
+	// can be removed.
+	UnusedDirectoryParameters []string `json:"unusedDirectoryParameters,omitempty"`
+}
+
+// SCIMDuplicateGroupName is a name that more than one referenced group of an auth provider has, after
+// normalization. The identity provider pushes groups by name, so a pushed group binds to neither.
+type SCIMDuplicateGroupName struct {
+	Name   string           `json:"name"`
+	Groups []SCIMSetupGroup `json:"groups"`
+}
+
+// SCIMEnablePreview is what enabling SCIM for the configured auth provider would do, and what blocks it. Enabling
+// applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in. Each list
+// of groups holds its first page; the preview's group route serves the others.
+type SCIMEnablePreview struct {
+	// AuthProviderNamespace, AuthProviderName, and AuthProviderDisplayName name the configured auth provider. They
+	// are empty when no auth provider is configured, or the configured one does not support SCIM.
+	AuthProviderNamespace   string `json:"authProviderNamespace,omitempty"`
+	AuthProviderName        string `json:"authProviderName,omitempty"`
+	AuthProviderDisplayName string `json:"authProviderDisplayName,omitempty"`
+	// Blockers are the reasons SCIM cannot be enabled now, including one for each duplicate group name.
+	Blockers []string `json:"blockers"`
+	// DuplicateGroupNames are the names that more than one referenced group has. They block enabling.
+	DuplicateGroupNames []SCIMDuplicateGroupName `json:"duplicateGroupNames"`
+	Warnings            []SCIMSetupWarning       `json:"warnings"`
+	// UnboundReferencedGroups are the referenced groups, which the identity provider must push under exactly these
+	// names.
+	UnboundReferencedGroups SCIMSetupGroupPage `json:"unboundReferencedGroups"`
+	// UnreferencedGroups are the groups that nothing references, which enabling deletes.
+	UnreferencedGroups SCIMSetupGroupPage `json:"unreferencedGroups"`
+	// BaseURLPrefix is the start of the SCIM base URL, which ends with the ID of the connection that enabling
+	// creates.
+	BaseURLPrefix string `json:"baseURLPrefix"`
+}
+
+// SCIMEnableResult is what enabling SCIM did.
+type SCIMEnableResult struct {
+	// Connection carries the bearer token, which is shown only in this response.
+	Connection SCIMConnection `json:"connection"`
+	// DeletedGroupCount is the number of groups deleted because nothing referenced them.
+	DeletedGroupCount int `json:"deletedGroupCount"`
+	// DeletionError is set when the groups that nothing references could not be deleted. SCIM is enabled
+	// regardless, and the deletion can be retried.
+	DeletionError string `json:"deletionError,omitempty"`
+}
+
+// SCIMGroupDeletionResult is what a deletion of the unbound groups that nothing references did.
+type SCIMGroupDeletionResult struct {
+	// DeletedGroupCount is the number of groups deleted because nothing referenced them.
+	DeletedGroupCount int `json:"deletedGroupCount"`
 }
 
 // SCIMEnforceResult is what enforcing SCIM did.

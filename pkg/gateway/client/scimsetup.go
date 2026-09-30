@@ -324,6 +324,57 @@ func (c *Client) ClearSCIMGroupDeletionMarks(ctx context.Context, connectionID, 
 	return nil
 }
 
+// DeleteMarkedSCIMGroups finishes a deletion of unreferenced groups that MarkUnreferencedSCIMGroups started as the run
+// runID, and returns the IDs of the groups it deleted. referenced holds the IDs of the groups that anything references,
+// read after MarkUnreferencedSCIMGroups returned.
+//
+// A marked group that gained a reference in between is unmarked and kept, and so is one that SCIM bound or another
+// deletion took over. The rest of the run's groups are deleted with their memberships. They grant nothing, so their
+// deletion records no reconcile event, and triggers no cleanup of the resources of their former members.
+func (c *Client) DeleteMarkedSCIMGroups(ctx context.Context, connectionID, runID string, referenced map[string]struct{}) ([]string, error) {
+	var deleted []string
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// A pushed group either binds before the groups are read here, and is kept, or waits for the deletion.
+		if err := lockSCIMWrites(tx); err != nil {
+			return err
+		}
+
+		conn, err := scimConnectionTx(tx, connectionID, true)
+		if err != nil {
+			return err
+		}
+
+		for batch := range slices.Chunk(slices.Sorted(maps.Keys(referenced)), scimMemberBatchSize) {
+			if err := tx.Where("connection_id = ? AND group_id IN ?", conn.ID, batch).Delete(new(types.SCIMPendingGroupDeletion)).Error; err != nil {
+				return fmt.Errorf("failed to keep groups that gained a reference: %w", err)
+			}
+		}
+
+		groups, err := scimProviderGroupsTx(tx, conn.AuthProviderNamespace, conn.AuthProviderName)
+		if err != nil {
+			return err
+		}
+		for _, group := range groups {
+			if !group.PendingDeletion || group.PendingRunID != runID || runID == "" || group.SCIMID != "" {
+				continue
+			}
+			if _, ok := referenced[group.ID]; !ok {
+				deleted = append(deleted, group.ID)
+			}
+		}
+		if err := deleteGroupsTx(tx, conn, deleted); err != nil {
+			return err
+		}
+		if err := tx.Where("connection_id = ? AND run_id = ?", conn.ID, runID).Delete(new(types.SCIMPendingGroupDeletion)).Error; err != nil {
+			return fmt.Errorf("failed to clear the marks for deletion: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return deleted, nil
+}
+
 // EnforceSCIMConnection requires a SCIM binding for sign-in with the connection's auth provider, permanently.
 //
 // The unreferenced groups must already be marked for deletion by the run opts.RunID, and opts.ReferencedGroupIDs read

@@ -1885,7 +1885,8 @@ export interface SCIMSetupGroup {
 }
 
 export interface SCIMSetupWarning {
-	type: 'everyoneGroup' | 'missingGroup';
+	// 'duplicateName' and 'unreferencedNamesake' name groups whose name a pushed group cannot bind by.
+	type: 'everyoneGroup' | 'missingGroup' | 'duplicateName' | 'unreferencedNamesake';
 	message: string;
 	groupID: string;
 	groupName?: string;
@@ -1937,11 +1938,50 @@ export interface SCIMConnectionReview {
 		lastSuccessAt?: string;
 		recentFailures: SCIMPage<SCIMRequestFailure>;
 	};
+	// The parameters that only directory synchronization used, which the auth provider's
+	// configuration still holds. SCIM replaced it, so they can be removed.
+	unusedDirectoryParameters?: string[];
 }
 
 export interface SCIMEnforceResult {
 	connection: SCIMConnection;
 	disabledUserCount: number;
+	deletedGroupCount: number;
+}
+
+// A name that more than one referenced group has. A group pushed under it could bind to neither.
+export interface SCIMDuplicateGroupName {
+	name: string;
+	groups: SCIMSetupGroup[];
+}
+
+// What enabling SCIM for the configured auth provider, which synchronizes its directory at sign-in,
+// would do, and what blocks it. Each list of groups holds its first page.
+export interface SCIMEnablePreview {
+	// Absent when no auth provider is configured, or the configured one does not support SCIM.
+	authProviderNamespace?: string;
+	authProviderName?: string;
+	authProviderDisplayName?: string;
+	blockers: string[];
+	duplicateGroupNames: SCIMDuplicateGroupName[];
+	warnings: SCIMSetupWarning[];
+	// The referenced groups, which the identity provider must push under exactly these names.
+	unboundReferencedGroups: SCIMPage<SCIMSetupGroup>;
+	// The groups that nothing references, which enabling deletes.
+	unreferencedGroups: SCIMPage<SCIMSetupGroup>;
+	// The start of the SCIM base URL, which ends with the ID of the connection enabling creates.
+	baseURLPrefix: string;
+}
+
+export interface SCIMEnableResult {
+	// Carries the token, which is shown only once.
+	connection: SCIMConnection;
+	deletedGroupCount: number;
+	// Set when the unreferenced groups could not be deleted. SCIM is enabled regardless.
+	deletionError?: string;
+}
+
+export interface SCIMGroupDeletionResult {
 	deletedGroupCount: number;
 }
 

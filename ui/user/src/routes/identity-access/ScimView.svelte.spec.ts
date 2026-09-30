@@ -2,6 +2,7 @@ import { AdminService, Group } from '$lib/services';
 import type {
 	SCIMConnection,
 	SCIMConnectionReview,
+	SCIMEnablePreview,
 	SCIMSetupGroup,
 	SCIMSetupUser
 } from '$lib/services/admin/types';
@@ -71,15 +72,48 @@ function review(overrides: Partial<SCIMConnectionReview> = {}): SCIMConnectionRe
 	};
 }
 
+function enablePreview(overrides: Partial<SCIMEnablePreview> = {}): SCIMEnablePreview {
+	return {
+		authProviderNamespace: 'default',
+		authProviderName: 'okta-auth-provider',
+		authProviderDisplayName: 'Okta',
+		blockers: [],
+		duplicateGroupNames: [],
+		warnings: [],
+		unboundReferencedGroups: {
+			items: [
+				group('okta/00g00000000000000eng', 'Engineering', {
+					consoleURL: 'https://example-admin.okta.com/admin/group/00g00000000000000eng',
+					references: [{ kind: 'accessControlRule', id: 'acr1', displayName: 'Servers' }]
+				})
+			],
+			total: 1
+		},
+		unreferencedGroups: { items: [group('okta/00g000000000000stale', 'Stale')], total: 1 },
+		baseURLPrefix: 'https://obot.example.com/scim/v2/',
+		...overrides
+	};
+}
+
 async function renderScimView(
 	groups: string[],
-	props: { review?: SCIMConnectionReview; pageSize?: number } = {},
+	props: {
+		review?: SCIMConnectionReview;
+		enablePreview?: SCIMEnablePreview;
+		pageSize?: number;
+	} = {},
 	bootstrap = false
 ) {
 	const profile = createMockProfile(groups);
 	profile.isBootstrapUser = () => bootstrap;
 	await preparePageData({ profile });
 	return render(ScimView, props);
+}
+
+// Enables SCIM, confirming it.
+async function confirmEnableSCIM() {
+	await page.getByRole('button', { name: 'Enable SCIM' }).click();
+	await page.getByRole('button', { name: 'Enable SCIM' }).last().click();
 }
 
 describe('ScimView', () => {
@@ -214,7 +248,7 @@ describe('ScimView', () => {
 
 		await vi.waitFor(() => expect(enforce).toHaveBeenCalledOnce());
 		await expect
-			.element(page.getByText('1 unprovisioned users were disabled', { exact: false }))
+			.element(page.getByText('Disabled 1 unprovisioned user', { exact: false }))
 			.toBeVisible();
 		await expect.element(page.getByText('Enforced', { exact: true }).first()).toBeVisible();
 		await expect
@@ -238,12 +272,12 @@ describe('ScimView', () => {
 			})
 		});
 
-		await expect.element(page.getByText('1–2 of 4 unprovisioned users')).toBeVisible();
+		await expect.element(page.getByText('1 of 2', { exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Next page of unprovisioned users' }).click();
 
 		await vi.waitFor(() => expect(requested).toHaveBeenCalledWith('false', '2'));
 		await expect.element(page.getByText('User 3')).toBeVisible();
-		await expect.element(page.getByText('3–4 of 4 unprovisioned users')).toBeVisible();
+		await expect.element(page.getByText('2 of 2', { exact: true })).toBeVisible();
 	});
 
 	it('keeps the page asked for last when an earlier request answers late', async () => {
@@ -431,5 +465,384 @@ describe('ScimView', () => {
 		await expect.element(page.getByText('SCIM cannot be enforced yet')).toBeVisible();
 		await expect.element(page.getByRole('listitem').filter({ hasText: blocker })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Enforce SCIM' })).toBeDisabled();
+	});
+
+	it('explains why SCIM cannot be set up for the configured provider', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			enablePreview: enablePreview({
+				authProviderNamespace: undefined,
+				authProviderName: undefined,
+				authProviderDisplayName: undefined,
+				blockers: ['GitHub does not support SCIM provisioning.'],
+				unboundReferencedGroups: { items: [], total: 0 },
+				unreferencedGroups: { items: [], total: 0 }
+			})
+		});
+
+		await expect
+			.element(page.getByRole('heading', { name: 'SCIM provisioning is not set up' }))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('GitHub does not support SCIM provisioning.'))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).not.toBeInTheDocument();
+	});
+
+	it('previews enabling SCIM for a provider that synchronizes its directory', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			enablePreview: enablePreview({
+				warnings: [
+					{
+						type: 'everyoneGroup',
+						message: 'The group "Everyone" cannot be pushed from Okta.',
+						groupID: 'okta/00g000000000everyone',
+						groupName: 'Everyone'
+					}
+				]
+			})
+		});
+
+		await expect.element(page.getByRole('heading', { name: 'Move Okta to SCIM' })).toBeVisible();
+		await expect.element(page.getByText('Referenced groups not pushed yet (1)')).toBeVisible();
+		await expect.element(page.getByText('Engineering', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText('Referenced by access control rule “Servers”'))
+			.toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'Open in Okta' })).toBeVisible();
+		await expect.element(page.getByText('Unreferenced groups (1)')).toBeVisible();
+		await expect.element(page.getByText('Stale', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText('The group "Everyone" cannot be pushed from Okta.'))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('https://obot.example.com/scim/v2/<connection ID>'))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).toBeEnabled();
+	});
+
+	it('lets only Owners enable SCIM', async () => {
+		await renderScimView([Group.ADMIN], { enablePreview: enablePreview() });
+
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).toBeDisabled();
+		await expect.element(page.getByText('Only an owner can enable SCIM.')).toBeVisible();
+	});
+
+	it('lists what blocks enabling, with the referenced groups that share a name', async () => {
+		const blocker = '2 referenced groups are named "Engineering".';
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			enablePreview: enablePreview({
+				blockers: [blocker],
+				duplicateGroupNames: [
+					{
+						name: 'Engineering',
+						groups: [
+							group('okta/00g00000000000000eng', 'Engineering', {
+								references: [{ kind: 'modelAccessPolicy', id: 'map1', displayName: 'Models' }]
+							}),
+							group('okta/00g00000engineering', 'engineering ', {
+								references: [{ kind: 'groupRoleAssignment', id: 'okta/00g00000engineering' }]
+							})
+						]
+					}
+				]
+			})
+		});
+
+		await expect.element(page.getByText('SCIM cannot be enabled yet')).toBeVisible();
+		await expect.element(page.getByText(blocker)).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Referenced groups named "Engineering" (2)' }))
+			.toBeVisible();
+		await expect.element(page.getByText('okta/00g00000engineering', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Referenced by group role assignment')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).toBeDisabled();
+	});
+
+	it('enables SCIM after confirmation, shows the token once, and then the migration review', async () => {
+		const enable = vi.fn();
+		const migrated = connection({ origin: 'migrated', hasToken: true });
+		worker.use(
+			http.post('*/api/scim-connections', () => {
+				enable();
+				return HttpResponse.json({
+					connection: { ...migrated, token: 'obot_scim_enabled' },
+					deletedGroupCount: 1
+				});
+			}),
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json(
+					review({
+						connection: migrated,
+						unboundReferencedGroups: {
+							items: [group('okta/00g00000000000000eng', 'Engineering')],
+							total: 1
+						}
+					})
+				)
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+		await page.getByRole('button', { name: 'Enable SCIM' }).click();
+		await expect
+			.element(page.getByText('deletes 1 unreferenced group.', { exact: false }))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Enable SCIM' }).last().click();
+
+		await vi.waitFor(() => expect(enable).toHaveBeenCalledOnce());
+		await expect.element(page.getByText('obot_scim_enabled')).toBeVisible();
+		await expect
+			.element(page.getByText('SCIM is enabled for Okta. Deleted 1 unreferenced group.'))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect.element(page.getByText('obot_scim_enabled')).not.toBeInTheDocument();
+
+		await expect
+			.element(page.getByRole('heading', { name: 'Finish moving to SCIM' }))
+			.toBeVisible();
+		const checklist = page.getByRole('list').filter({ hasText: 'Push the referenced groups' });
+		await expect.element(checklist.getByText('1 not pushed yet', { exact: false })).toBeVisible();
+		await expect
+			.element(page.getByText('Referenced groups not pushed yet (1)', { exact: true }))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).not.toBeInTheDocument();
+	});
+
+	it('shows why enabling failed, and the connection if it was created anyway', async () => {
+		worker.use(
+			http.post('*/api/scim-connections', () =>
+				HttpResponse.json({ error: 'failed to wait for the change' }, { status: 500 })
+			),
+			http.get('*/api/scim-connections', () =>
+				HttpResponse.json({ items: [connection({ origin: 'migrated' })] })
+			),
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json(review({ connection: connection({ origin: 'migrated' }) }))
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+		await confirmEnableSCIM();
+
+		await expect
+			.element(page.getByRole('alert').filter({ hasText: /failed to wait for the change/ }))
+			.toBeVisible();
+		// The connection has no token yet, which an Owner generates here.
+		await expect.element(page.getByRole('button', { name: 'Generate token' })).toBeVisible();
+	});
+
+	it('reports a failed deletion of unreferenced groups, and lets an Owner retry it', async () => {
+		const deleteGroups = vi.fn();
+		const migrated = connection({ origin: 'migrated', hasToken: true });
+		const deletionError =
+			'SCIM is enabled, but the groups that nothing references could not be deleted.';
+		worker.use(
+			http.post('*/api/scim-connections', () =>
+				HttpResponse.json({
+					connection: { ...migrated, token: 'obot_scim_enabled' },
+					deletedGroupCount: 0,
+					deletionError
+				})
+			),
+			http.post(`*/api/scim-connections/${connectionID}/delete-unreferenced-groups`, () => {
+				deleteGroups();
+				return HttpResponse.json({ deletedGroupCount: 1 });
+			}),
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json(
+					review({
+						connection: migrated,
+						// A group became unreferenced after the deletion, so only the retry's success clears
+						// the report of the failed deletion.
+						unreferencedGroups:
+							deleteGroups.mock.calls.length === 0
+								? { items: [group('okta/00g000000000000stale', 'Stale')], total: 1 }
+								: { items: [group('okta/00g000000000000later', 'Later')], total: 1 }
+					})
+				)
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+		await confirmEnableSCIM();
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect.element(page.getByText(deletionError)).toBeVisible();
+
+		await page.getByRole('button', { name: 'Delete unreferenced groups' }).click();
+		await page.getByRole('button', { name: 'Delete groups' }).click();
+
+		await vi.waitFor(() => expect(deleteGroups).toHaveBeenCalledOnce());
+		await expect.element(page.getByText('Deleted 1 unreferenced group.')).toBeVisible();
+		await expect.element(page.getByText(deletionError)).not.toBeInTheDocument();
+		await expect.element(page.getByText('Later', { exact: true })).toBeVisible();
+	});
+
+	it('does not let administrators who are not Owners delete unreferenced groups', async () => {
+		await renderScimView([Group.ADMIN], {
+			review: review({
+				unreferencedGroups: { items: [group('okta/00g000000000000stale', 'Stale')], total: 1 }
+			})
+		});
+
+		await expect.element(page.getByText('Unreferenced groups (1)')).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Delete unreferenced groups' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('asks to remove the directory credentials that SCIM made unused', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: review({
+				connection: connection({ origin: 'migrated', state: 'enforced', hasToken: true }),
+				unusedDirectoryParameters: [
+					'OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID',
+					'OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY'
+				]
+			})
+		});
+
+		await expect
+			.element(page.getByText('still holds the credentials that Obot used', { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Auth Providers' }))
+			.toHaveAttribute('href', '/identity-access?view=auth-providers');
+	});
+
+	it('pages through the groups of the preview', async () => {
+		const requested = vi.fn();
+		worker.use(
+			http.get('*/api/scim-connections/enable-preview/groups', ({ request }) => {
+				const url = new URL(request.url);
+				requested(url.searchParams.get('list'), url.searchParams.get('offset'));
+				return HttpResponse.json({
+					items: [group('okta/g3', 'Group 3'), group('okta/g4', 'Group 4')],
+					total: 4
+				});
+			})
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			pageSize: 2,
+			enablePreview: enablePreview({
+				unreferencedGroups: {
+					items: [group('okta/g1', 'Group 1'), group('okta/g2', 'Group 2')],
+					total: 4
+				}
+			})
+		});
+
+		await expect.element(page.getByText('1 of 2', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Next page of unreferenced groups' }).click();
+
+		await vi.waitFor(() => expect(requested).toHaveBeenCalledWith('unreferenced', '2'));
+		await expect.element(page.getByText('Group 3')).toBeVisible();
+		await expect.element(page.getByText('2 of 2', { exact: true })).toBeVisible();
+	});
+
+	it('stops reporting a failed deletion once enforcing deleted the groups', async () => {
+		const migrated = connection({ origin: 'migrated', hasToken: true });
+		const deletionError =
+			'SCIM is enabled, but the groups that nothing references could not be deleted.';
+		let enforced = false;
+		worker.use(
+			http.post('*/api/scim-connections', () =>
+				HttpResponse.json({
+					connection: { ...migrated, token: 'obot_scim_enabled' },
+					deletedGroupCount: 0,
+					deletionError
+				})
+			),
+			http.post(`*/api/scim-connections/${connectionID}/enforce`, () => {
+				enforced = true;
+				return HttpResponse.json({
+					connection: { ...migrated, state: 'enforced' },
+					disabledUserCount: 0,
+					deletedGroupCount: 1
+				});
+			}),
+			// A group became unreferenced after Enforce, so only Enforce's success clears the report.
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json(
+					enforced
+						? review({
+								connection: { ...migrated, state: 'enforced' },
+								unreferencedGroups: {
+									items: [group('okta/00g000000000000later', 'Later')],
+									total: 1
+								}
+							})
+						: review({
+								connection: migrated,
+								unreferencedGroups: {
+									items: [group('okta/00g000000000000stale', 'Stale')],
+									total: 1
+								}
+							})
+				)
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+		await confirmEnableSCIM();
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect.element(page.getByText(deletionError)).toBeVisible();
+
+		await page.getByRole('button', { name: 'Enforce SCIM' }).click();
+		await page.getByRole('button', { name: 'Enforce SCIM' }).last().click();
+
+		await expect.element(page.getByText('SCIM is enforced.', { exact: false })).toBeVisible();
+		await expect.element(page.getByText('Later', { exact: true })).toBeVisible();
+		await expect.element(page.getByText(deletionError)).not.toBeInTheDocument();
+	});
+
+	it('never offers to enable SCIM again once it is enabled, even when the review fails to load', async () => {
+		worker.use(
+			http.post('*/api/scim-connections', () =>
+				HttpResponse.json({
+					connection: connection({
+						origin: 'migrated',
+						hasToken: true,
+						token: 'obot_scim_enabled'
+					}),
+					deletedGroupCount: 0
+				})
+			),
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json({ error: 'the review could not be loaded' }, { status: 500 })
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+		await confirmEnableSCIM();
+		await expect.element(page.getByText('obot_scim_enabled')).toBeVisible();
+		await page.getByRole('button', { name: 'Done' }).click();
+
+		await expect
+			.element(page.getByRole('heading', { name: 'SCIM provisioning is enabled' }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('alert').filter({ hasText: /could not be loaded/ }))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable SCIM' })).not.toBeInTheDocument();
+	});
+
+	it('asks for a token when enabling SCIM was interrupted before issuing one', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: review({ connection: connection({ origin: 'migrated' }) })
+		});
+
+		const checklist = page.getByRole('list').filter({ hasText: 'Push the referenced groups' });
+		await expect.element(checklist.getByText('1. Generate the token')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Generate token' })).toBeVisible();
+	});
+
+	it('does not ask a migrated connection that has its token for another', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: review({ connection: connection({ origin: 'migrated', hasToken: true }) })
+		});
+
+		const checklist = page.getByRole('list').filter({ hasText: 'Push the referenced groups' });
+		await expect.element(checklist.getByText('1. Create the SCIM app in Okta')).toBeVisible();
+		await expect.element(checklist.getByText('Generate the token')).not.toBeInTheDocument();
 	});
 });

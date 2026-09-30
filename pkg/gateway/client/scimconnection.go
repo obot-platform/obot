@@ -40,6 +40,8 @@ var (
 	ErrSCIMConnectionNotFound = errors.New("SCIM connection not found")
 	// ErrSCIMManagedGroupData reports an attempt to delete group data that a SCIM connection owns.
 	ErrSCIMManagedGroupData = errors.New("the group data is managed by a SCIM connection")
+	// ErrSCIMConnectionHasToken reports an attempt to issue the first bearer token of a connection that has one.
+	ErrSCIMConnectionHasToken = errors.New("the SCIM connection already has a token")
 )
 
 // SCIMConnectionExistsError reports an attempt to create a second SCIM connection.
@@ -217,6 +219,43 @@ func (c *Client) AuthenticateSCIMConnection(ctx context.Context, id, token strin
 	}
 
 	return conn, nil
+}
+
+// IssueFirstSCIMConnectionToken issues the bearer token of a connection that has none, and returns the connection
+// with it. It returns ErrSCIMConnectionHasToken when the connection has a token already, so that of several callers
+// only one is given a first token.
+func (c *Client) IssueFirstSCIMConnectionToken(ctx context.Context, id string) (*types.SCIMConnection, string, error) {
+	token, verifier, err := newSCIMToken()
+	if err != nil {
+		return nil, "", err
+	}
+
+	var conn *types.SCIMConnection
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if conn, err = scimConnectionTx(tx, id, true); err != nil {
+			return err
+		}
+		if conn.HasToken() {
+			return ErrSCIMConnectionHasToken
+		}
+
+		now := time.Now()
+		if err := tx.Model(conn).UpdateColumns(map[string]any{
+			"token_verifier":  verifier,
+			"token_issued_at": now,
+			"updated_at":      now,
+		}).Error; err != nil {
+			return fmt.Errorf("failed to issue the first token of SCIM connection %s: %w", id, err)
+		}
+		conn.TokenVerifier = verifier
+		conn.TokenIssuedAt = &now
+		conn.UpdatedAt = now
+		return nil
+	}); err != nil {
+		return nil, "", err
+	}
+
+	return conn, token, nil
 }
 
 // RotateSCIMConnectionToken issues a new bearer token for the connection and returns it. This also issues the first

@@ -39,6 +39,8 @@ const (
 
 	warningEveryoneGroup = "everyoneGroup"
 	warningMissingGroup  = "missingGroup"
+	warningDuplicateName = "duplicateName"
+	warningNamesake      = "unreferencedNamesake"
 
 	// everyoneGroupName is the normalized name of the identity provider group that every user is in. Okta cannot
 	// push it.
@@ -58,12 +60,13 @@ var (
 	}
 )
 
-// GroupList selects one of the lists of groups in a review.
+// GroupList selects one of the lists of groups in a review, or in the preview of enabling SCIM.
 type GroupList string
 
-// AuthProviders reports which auth provider serves sign-ins.
+// AuthProviders reports which auth provider serves sign-ins, and which one is staged to replace it.
 type AuthProviders interface {
 	GetConfiguredAuthProvider(ctx context.Context) (string, error)
+	GetStagedAuthProvider(ctx context.Context) (string, error)
 }
 
 // Actor is the user making a request, as far as SCIM administration cares.
@@ -81,8 +84,9 @@ type Page struct {
 	Limit  int
 }
 
-// Service runs the administration of SCIM connections: reviewing a connection, enforcing it, and managing its bearer
-// token.
+// Service runs the administration of SCIM connections: enabling SCIM for an auth provider that synchronizes its
+// directory at sign-in, reviewing a connection, deleting its auth provider's unreferenced groups, enforcing it, and
+// managing its bearer token.
 type Service struct {
 	gateway   *gclient.Client
 	storage   kclient.Reader
@@ -109,7 +113,13 @@ type groupPlan struct {
 	bound               []types2.SCIMSetupGroup
 	unboundReferenced   []types2.SCIMSetupGroup
 	unreferencedUnbound []types2.SCIMSetupGroup
-	warnings            []types2.SCIMSetupWarning
+	// duplicates are the names that more than one unbound referenced group has. A group pushed under such a name
+	// could bind to neither.
+	duplicates []types2.SCIMDuplicateGroupName
+	// namesakes are the unbound groups that nothing references, and that have the name of an unbound referenced
+	// group. A group pushed under that name could bind to neither until they are deleted.
+	namesakes []types2.SCIMSetupGroup
+	warnings  []types2.SCIMSetupWarning
 }
 
 // New returns the Service. storage must read without a cache, and serverURL is Obot's public URL, which SCIM base
@@ -209,7 +219,7 @@ func (s *Service) Review(ctx context.Context, id string, actor Actor, pageSize i
 		BoundGroups:             groupPage(plan.bound, page),
 		UnboundReferencedGroups: groupPage(plan.unboundReferenced, page),
 		UnreferencedGroups:      groupPage(plan.unreferencedUnbound, page),
-		Warnings:                plan.warnings,
+		Warnings:                append(plan.warnings, nameWarnings(p, plan)...),
 		EnforceBlockers:         []string{},
 		Activity: types2.SCIMConnectionActivity{
 			LastRequestAt:  optionalTime(conn.LastRequestAt),
@@ -223,6 +233,7 @@ func (s *Service) Review(ctx context.Context, id string, actor Actor, pageSize i
 			return nil, err
 		}
 	}
+	review.UnusedDirectoryParameters = s.unusedDirectoryParameters(ctx, p)
 	return review, nil
 }
 
@@ -299,7 +310,7 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 	if blockers, err := s.enforceBlockers(ctx, conn, p, configured, plan, actor); err != nil {
 		return nil, err
 	} else if len(blockers) > 0 {
-		return nil, types2.NewErrBadRequest("%s", blockedMessage(blockers))
+		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	}
 
 	run, err := s.gateway.MarkUnreferencedSCIMGroups(ctx, conn, plan.referenced)
@@ -308,7 +319,7 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		// the last references that can reach the marked groups.
 		var result *gclient.EnforceSCIMResult
 		if result, err = s.enforceMarked(ctx, conn, p, run.ID, actor); err == nil {
-			slog.Info("Enforced SCIM", "connection", conn.ID, "authProvider", p.name, "disabledUsers", len(result.DisabledUserIDs), "deletedGroups", len(result.DeletedGroupIDs))
+			slog.Info("Enforced SCIM", "connection", conn.ID, "authProvider", p.name, "disabledUsers", len(result.DisabledUserIDs), "deletedGroupIDs", result.DeletedGroupIDs)
 			return &types2.SCIMEnforceResult{
 				Connection:        s.connectionView(result.Connection, p, configured, ""),
 				DisabledUserCount: len(result.DisabledUserIDs),
@@ -352,6 +363,27 @@ func (s *Service) RevokePreviousToken(ctx context.Context, id string) (*types2.S
 	return s.Connection(ctx, id, "")
 }
 
+// unusedDirectoryParameters returns the directory parameters that the active configuration of the connection's auth
+// provider still holds, which SCIM made unused. It only advises the administrator, so a configuration that cannot be
+// read is logged and reported as holding none, rather than failing the review.
+func (s *Service) unusedDirectoryParameters(ctx context.Context, p *provider) []string {
+	cred, err := s.gateway.RevealCredential(ctx, []string{p.name, system.GenericAuthProviderCredentialContext}, p.name)
+	if errors.As(err, &gclient.CredentialNotFoundError{}) {
+		return nil
+	} else if err != nil {
+		slog.Warn("Failed to read the configuration of a SCIM connection's auth provider", "authProvider", p.name, "error", err)
+		return nil
+	}
+
+	var unused []string
+	for _, d := range p.adapter.DirectoryParameters() {
+		if cred.Secrets[d.Name] != "" {
+			unused = append(unused, d.Name)
+		}
+	}
+	return unused
+}
+
 // enforceMarked reads the references again, now that the deletion runID has marked the unreferenced groups, and
 // enforces the connection.
 func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection, p *provider, runID string, actor Actor) (*gclient.EnforceSCIMResult, error) {
@@ -367,7 +399,7 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 		return nil, fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
 	if !providerConfigured(conn, configured) {
-		return nil, types2.NewErrBadRequest("%s", blockedMessage([]string{
+		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", []string{
 			fmt.Sprintf("%s is not the configured auth provider.", p.displayName),
 		}))
 	}
@@ -385,7 +417,7 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 		if blocked.ActorProblem != "" {
 			blockers = append(blockers, actorProblemMessage(p, blocked.ActorProblem))
 		}
-		return nil, types2.NewErrBadRequest("%s", blockedMessage(blockers))
+		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	} else if state, ok := errors.AsType[*gclient.SCIMConnectionStateError](err); ok {
 		return nil, types2.NewErrHTTP(http.StatusConflict, state.Error())
 	} else if err != nil {
@@ -551,7 +583,12 @@ func (s *Service) connectionView(conn *types.SCIMConnection, p *provider, config
 // planGroups reads the provider's groups and every reference to them, and to any other group ID with the
 // provider's prefix.
 func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, error) {
-	groups, err := s.gateway.SCIMProviderGroups(ctx, p.namespace, p.name)
+	return planProviderGroups(ctx, s.gateway, s.finder, p)
+}
+
+// planProviderGroups is planGroups for callers without a Service.
+func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *groupref.Finder, p *provider) (*groupPlan, error) {
+	groups, err := gateway.SCIMProviderGroups(ctx, p.namespace, p.name)
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +597,7 @@ func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, erro
 		ids[group.ID] = struct{}{}
 	}
 
-	refs, err := s.finder.Find(ctx, p.namespace, func(groupID string) bool {
+	refs, err := finder.Find(ctx, p.namespace, func(groupID string) bool {
 		_, ok := ids[groupID]
 		return ok || strings.HasPrefix(groupID, p.groupIDPrefix)
 	})
@@ -574,12 +611,17 @@ func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, erro
 		bound:               []types2.SCIMSetupGroup{},
 		unboundReferenced:   []types2.SCIMSetupGroup{},
 		unreferencedUnbound: []types2.SCIMSetupGroup{},
+		duplicates:          []types2.SCIMDuplicateGroupName{},
 		warnings:            []types2.SCIMSetupWarning{},
 	}
 	for groupID := range refs {
 		plan.referenced[groupID] = struct{}{}
 	}
 
+	var (
+		names []string
+		named = make(map[string][]types2.SCIMSetupGroup)
+	)
 	for _, group := range groups {
 		groupRefs, referenced := refs[group.ID]
 		setupGroup := p.group(group, groupRefs)
@@ -589,7 +631,14 @@ func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, erro
 			plan.bound = append(plan.bound, setupGroup)
 		case referenced:
 			plan.unboundReferenced = append(plan.unboundReferenced, setupGroup)
-			if types.NormalizeSCIMName(group.Name) == everyoneGroupName {
+
+			normalized := types.NormalizeSCIMName(group.Name)
+			if _, ok := named[normalized]; !ok {
+				names = append(names, normalized)
+			}
+			named[normalized] = append(named[normalized], setupGroup)
+
+			if normalized == everyoneGroupName {
 				plan.warnings = append(plan.warnings, types2.SCIMSetupWarning{
 					Type:       warningEveryoneGroup,
 					Message:    fmt.Sprintf("The group %q cannot be pushed from %s. Replace its references with the all-users selector.", group.Name, p.displayName),
@@ -600,6 +649,20 @@ func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, erro
 			}
 		default:
 			plan.unreferencedUnbound = append(plan.unreferencedUnbound, setupGroup)
+		}
+	}
+
+	for _, name := range names {
+		if duplicates := named[name]; len(duplicates) > 1 {
+			plan.duplicates = append(plan.duplicates, types2.SCIMDuplicateGroupName{
+				Name:   strings.TrimSpace(duplicates[0].Name),
+				Groups: duplicates,
+			})
+		}
+	}
+	for _, group := range plan.unreferencedUnbound {
+		if _, ok := named[types.NormalizeSCIMName(group.Name)]; ok {
+			plan.namesakes = append(plan.namesakes, group)
 		}
 	}
 
@@ -616,6 +679,33 @@ func (s *Service) planGroups(ctx context.Context, p *provider) (*groupPlan, erro
 	}
 
 	return plan, nil
+}
+
+// nameWarnings warns about the names under which a pushed group can bind to none of the provider's unbound
+// referenced groups. Enabling SCIM refuses the first kind, and deletes the groups of the second, so only a review of a
+// connection has them.
+func nameWarnings(p *provider, plan *groupPlan) []types2.SCIMSetupWarning {
+	warnings := make([]types2.SCIMSetupWarning, 0, len(plan.duplicates)+len(plan.namesakes))
+	for _, duplicate := range plan.duplicates {
+		warnings = append(warnings, types2.SCIMSetupWarning{
+			Type: warningDuplicateName,
+			Message: fmt.Sprintf("%d referenced groups are named %q, so a group pushed from %s under that name binds to neither. "+
+				"Remove the references to all but one of them, and then delete the unreferenced groups.",
+				len(duplicate.Groups), duplicate.Name, p.displayName),
+			GroupID:   duplicate.Groups[0].ID,
+			GroupName: duplicate.Name,
+		})
+	}
+	for _, group := range plan.namesakes {
+		warnings = append(warnings, types2.SCIMSetupWarning{
+			Type: warningNamesake,
+			Message: fmt.Sprintf("The unreferenced group %q has the name of a referenced group, so a group pushed from %s under that name binds to neither. Delete the unreferenced groups.",
+				group.Name, p.displayName),
+			GroupID:   group.ID,
+			GroupName: group.Name,
+		})
+	}
+	return warnings
 }
 
 func (p *provider) group(group gclient.SCIMProviderGroup, refs []groupref.Reference) types2.SCIMSetupGroup {
@@ -647,7 +737,8 @@ func groupPage(groups []types2.SCIMSetupGroup, page Page) types2.SCIMSetupGroupP
 	start := min(page.Offset, len(groups))
 	end := min(start+page.Limit, len(groups))
 	return types2.SCIMSetupGroupPage{
-		Items: slices.Clone(groups[start:end]),
+		// Never nil, so that an empty page lists no items rather than null.
+		Items: append([]types2.SCIMSetupGroup{}, groups[start:end]...),
 		Total: int64(len(groups)),
 	}
 }
@@ -688,10 +779,10 @@ func unboundGroupMessage(p *provider, group types2.SCIMSetupGroup) string {
 		describeGroup(group), p.displayName)
 }
 
-// blockedMessage lists everything that blocks enforcing SCIM.
-func blockedMessage(blockers []string) string {
+// blockedMessage lists everything that blocks the SCIM transition named by its past participle, such as "enforced".
+func blockedMessage(transition string, blockers []string) string {
 	var b strings.Builder
-	b.WriteString("SCIM cannot be enforced:")
+	fmt.Fprintf(&b, "SCIM cannot be %s:", transition)
 	for _, blocker := range blockers {
 		b.WriteString("\n- ")
 		b.WriteString(blocker)

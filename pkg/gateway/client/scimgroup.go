@@ -194,7 +194,7 @@ func (c *Client) CreateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 			}
 		default:
 			return &SCIMConflictError{
-				Message: fmt.Sprintf("%d existing groups are named %q; remove the references to all but one of them in Obot", len(candidates), input.DisplayName),
+				Message: fmt.Sprintf("%d existing groups are named %q; in Obot, remove the references to all but one of them, and delete the groups that nothing references", len(candidates), input.DisplayName),
 			}
 		}
 

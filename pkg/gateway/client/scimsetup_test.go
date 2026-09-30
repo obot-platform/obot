@@ -10,9 +10,9 @@ import (
 	"time"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
-	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/accesstoken"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -345,26 +345,7 @@ func TestEnforcementSurvivesRestarts(t *testing.T) {
 	dsn := "sqlite://" + filepath.Join(t.TempDir(), "gateway.db")
 	open := func() *Client {
 		t.Helper()
-
-		services, err := sservices.New(sservices.Config{
-			DSN: dsn,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := db.AutoMigrate(); err != nil {
-			t.Fatal(err)
-		}
-		c := newLifecycleTestClient(t)
-		c.db = db
-		t.Cleanup(func() {
-			_ = services.DB.SQLDB.Close()
-		})
-		return c
+		return newSQLiteLifecycleTestClient(t, dsn)
 	}
 
 	c := open()
@@ -927,5 +908,217 @@ func TestReferenceWritesExpireByTheDatabaseClockOnPostgres(t *testing.T) {
 	}
 	if expiresIn < scimReferenceWriteLifetime-5*time.Second || expiresIn > scimReferenceWriteLifetime {
 		t.Fatalf("a write expires %v after the database's now, want about %v", expiresIn, scimReferenceWriteLifetime)
+	}
+}
+
+func TestDeleteMarkedSCIMGroups(t *testing.T) {
+	testDeleteMarkedSCIMGroups(t, newLifecycleTestClient(t))
+}
+
+func TestDeleteMarkedSCIMGroupsOnPostgres(t *testing.T) {
+	testDeleteMarkedSCIMGroups(t, newPostgresLifecycleTestClient(t))
+}
+
+func testDeleteMarkedSCIMGroups(t *testing.T, c *Client) {
+	t.Helper()
+
+	f := newEnforceFixture(t, c)
+	createTestGroup(t, c, "okta/00g-referenced-later", "Referenced later", f.owner.ID)
+	createTestGroup(t, c, "okta/00g-taken-over", "Taken over", f.owner.ID)
+	// A group of another auth provider that shares the group ID prefix is never the connection's to delete.
+	if err := c.db.WithContext(t.Context()).Create(&types.Group{
+		ID:                    "okta/00g-other-provider",
+		AuthProviderName:      lifecycleTestLocalProvider.Name,
+		AuthProviderNamespace: lifecycleTestLocalProvider.Namespace,
+		Name:                  "Other provider",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(t.Context()).Create(&types.GroupMemberships{
+		UserID:  f.local.ID,
+		GroupID: "okta/00g-other-provider",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	before := memberships(t, c)
+	reconcileBefore := reconcileEvents(t, c)
+
+	run, err := c.MarkUnreferencedSCIMGroups(t.Context(), f.conn, f.referenced())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(run.GroupIDs, []string{"okta/00g-referenced-later", "okta/00g-stale", "okta/00g-taken-over"}) {
+		t.Fatalf("groups marked for deletion = %v", run.GroupIDs)
+	}
+	// Another deletion takes over one of the marks, so this one may not have read its latest references.
+	if _, err := c.MarkUnreferencedSCIMGroups(t.Context(), f.conn, map[string]struct{}{
+		f.pushed.GroupID:            {},
+		"okta/00g-referenced-later": {},
+		"okta/00g-stale":            {},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// One marked group gained a reference after the marks committed.
+	referenced := f.referenced()
+	referenced["okta/00g-referenced-later"] = struct{}{}
+	deleted, err := c.DeleteMarkedSCIMGroups(t.Context(), f.conn.ID, run.ID, referenced)
+	if err != nil {
+		t.Fatalf("failed to delete marked groups: %v", err)
+	}
+
+	if !slices.Equal(deleted, []string{"okta/00g-stale"}) {
+		t.Fatalf("deleted groups = %v, want only the group that is still unreferenced and marked by this deletion", deleted)
+	}
+	ids := storedGroupIDs(t, c)
+	slices.Sort(ids)
+	if kept := slices.Sorted(slices.Values([]string{f.pushed.GroupID, "okta/00g-other-provider", "okta/00g-referenced-later", "okta/00g-taken-over"})); !slices.Equal(ids, kept) {
+		t.Fatalf("groups after the deletion = %v, want %v", ids, kept)
+	}
+	want := slices.DeleteFunc(slices.Clone(before), func(m types.GroupMemberships) bool {
+		return m.GroupID == "okta/00g-stale"
+	})
+	if got := memberships(t, c); !slices.Equal(got, want) {
+		t.Fatalf("memberships after the deletion = %v, want %v", got, want)
+	}
+	// The group that gained a reference is unmarked. The mark that the other deletion took over stays with it.
+	if ids := pendingDeletions(t, c); !slices.Equal(ids, []string{"okta/00g-taken-over"}) {
+		t.Fatalf("groups pending deletion = %v", ids)
+	}
+	// The deleted group granted nothing, so deleting it reconciles no one, and triggers no resource cleanup.
+	if after := reconcileEvents(t, c); after != reconcileBefore {
+		t.Fatalf("the deletion recorded %d reconcile events", after-reconcileBefore)
+	}
+
+	if _, err := c.DeleteMarkedSCIMGroups(t.Context(), "unknown", run.ID, referenced); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("deleting the marked groups of an unknown connection = %v", err)
+	}
+}
+
+func TestIssueFirstSCIMConnectionTokenHasOneWinner(t *testing.T) {
+	testIssueFirstSCIMConnectionTokenHasOneWinner(t, newLifecycleTestClient(t))
+}
+
+func TestIssueFirstSCIMConnectionTokenHasOneWinnerOnPostgres(t *testing.T) {
+	testIssueFirstSCIMConnectionTokenHasOneWinner(t, newPostgresLifecycleTestClient(t))
+}
+
+func testIssueFirstSCIMConnectionTokenHasOneWinner(t *testing.T, c *Client) {
+	t.Helper()
+
+	conn, _ := createTestSCIMConnection(t, c, false)
+	const callers = 8
+	var (
+		tokens = make(chan string, callers)
+		errs   = make(chan error, callers)
+		start  = make(chan struct{})
+	)
+	for range callers {
+		go func() {
+			<-start
+			_, token, err := c.IssueFirstSCIMConnectionToken(t.Context(), conn.ID)
+			if err != nil {
+				errs <- err
+				return
+			}
+			tokens <- token
+		}()
+	}
+	close(start)
+
+	var issued []string
+	for range callers {
+		select {
+		case token := <-tokens:
+			issued = append(issued, token)
+		case err := <-errs:
+			// SQLite serializes the writers, so the losers see the token. PostgreSQL's row lock does the same.
+			if !errors.Is(err, ErrSCIMConnectionHasToken) {
+				t.Errorf("a concurrent first token failed with %v, want ErrSCIMConnectionHasToken", err)
+			}
+		}
+	}
+	if len(issued) != 1 {
+		t.Fatalf("%d callers were given a first token, want exactly one", len(issued))
+	}
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, issued[0]); err != nil {
+		t.Fatalf("the winner's token does not authenticate: %v", err)
+	}
+}
+
+func TestIssueFirstSCIMConnectionToken(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	conn, _ := createTestSCIMConnection(t, c, false)
+
+	issued, token, err := c.IssueFirstSCIMConnectionToken(t.Context(), conn.ID)
+	if err != nil {
+		t.Fatalf("failed to issue the first token: %v", err)
+	}
+	if !issued.HasToken() || issued.TokenIssuedAt == nil || token == "" {
+		t.Fatalf("connection with its first token = %+v", issued)
+	}
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, token); err != nil {
+		t.Fatalf("the first token does not authenticate: %v", err)
+	}
+
+	// Only one caller is given the first token.
+	if _, _, err := c.IssueFirstSCIMConnectionToken(t.Context(), conn.ID); !errors.Is(err, ErrSCIMConnectionHasToken) {
+		t.Fatalf("issuing the first token again = %v, want ErrSCIMConnectionHasToken", err)
+	}
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, token); err != nil {
+		t.Fatalf("a refused second issue replaced the first token: %v", err)
+	}
+	if _, _, err := c.IssueFirstSCIMConnectionToken(t.Context(), "unknown"); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("issuing the first token of an unknown connection = %v", err)
+	}
+}
+
+func TestEnabledSCIMSurvivesRestarts(t *testing.T) {
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "gateway.db")
+	c := newSQLiteLifecycleTestClient(t, dsn)
+	stub, srv := newAuthProviderStub(t)
+	ctx := accesstoken.ContextWithAccessToken(auth.ContextWithProviderGroupIDPrefix(auth.ContextWithProviderURL(t.Context(), srv.URL), "okta/"), "access-token")
+	unlimited := UserLimit{
+		Unlimited: true,
+	}
+
+	// The provider synchronizes its directory at sign-in until SCIM is enabled.
+	existing, err := c.EnsureIdentity(ctx, signInIdentity("00u-existing", "existing@example.com"), "", unlimited)
+	if err != nil {
+		t.Fatalf("failed to sign in: %v", err)
+	}
+	before := stub.directoryRequests()
+	if before == 0 {
+		t.Fatal("sign-in without a connection made no directory request")
+	}
+	conn, _ := createTestSCIMConnection(t, c, true)
+	if conn.Origin != types.SCIMConnectionOriginMigrated {
+		t.Fatalf("connection = %+v, want one that Enable created", conn)
+	}
+
+	restarted := newSQLiteLifecycleTestClient(t, dsn)
+	stored, err := restarted.SCIMConnection(t.Context(), conn.ID)
+	if err != nil || stored.Origin != types.SCIMConnectionOriginMigrated || stored.State != types.SCIMConnectionStateConnected {
+		t.Fatalf("connection after a restart = %+v, %v", stored, err)
+	}
+
+	// Sign-in no longer reaches the directory, even once the group check is due.
+	if err := restarted.db.WithContext(t.Context()).Model(new(types.Identity)).Where("user_id = ?", existing.ID).
+		UpdateColumn(groupsLastCheckedColumn, time.Time{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restarted.EnsureIdentity(ctx, signInIdentity("00u-existing", "existing@example.com"), "", unlimited); err != nil {
+		t.Fatalf("failed to sign in after a restart: %v", err)
+	}
+	if after := stub.directoryRequests(); after != before {
+		t.Fatalf("sign-in after a restart made %d directory requests", after-before)
+	}
+
+	// Enabling cannot be undone: only an unused SCIM-first connection is ever deleted.
+	if deleted, err := restarted.DeleteUnusedSCIMConnection(t.Context(), conn.AuthProviderNamespace, conn.AuthProviderName); err != nil || deleted {
+		t.Fatalf("DeleteUnusedSCIMConnection() = %v, %v", deleted, err)
+	}
+	if _, err := restarted.SCIMConnection(t.Context(), conn.ID); err != nil {
+		t.Fatalf("the connection is gone: %v", err)
 	}
 }

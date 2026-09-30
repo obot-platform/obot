@@ -19,6 +19,11 @@ const (
 	// ProviderDesiredStateUnstaged discards a staged replacement, leaving the configured provider
 	// untouched. It shares the switch's serialization so a discard cannot interleave with one.
 	ProviderDesiredStateUnstaged ProviderDesiredState = "unstaged"
+	// ProviderDesiredStateMigrated moves the configured auth provider to SCIM: it creates the SCIM
+	// connection that permanently replaces the provider's login-time directory synchronization. It
+	// goes through a change so that it cannot interleave with a switch, or with the auth provider
+	// cleanup a switch creates.
+	ProviderDesiredStateMigrated ProviderDesiredState = "migrated"
 )
 
 type ProviderType string

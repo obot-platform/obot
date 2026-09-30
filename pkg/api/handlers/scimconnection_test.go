@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -30,6 +31,39 @@ func (s *authProviderSCIMTest) scimContext(method, path, body string, principal 
 		GatewayClient:  s.gateway,
 		User:           principal,
 	}, rec
+}
+
+// settleChange stands in for the controller: it waits for the handler to submit the auth provider configuration
+// change, applies apply to it, and settles it with status until the handler returns what errC receives. The status is
+// written until the handler sees it, because the handler may start watching the change after the first write.
+func (s *authProviderSCIMTest) settleChange(errC <-chan error, apply func(*v1.ProviderConfigurationChange), status v1.ProviderConfigurationChangeStatus) error {
+	s.t.Helper()
+
+	var change v1.ProviderConfigurationChange
+	require.EventuallyWithT(s.t, func(collect *assert.CollectT) {
+		assert.NoError(collect, s.storage.Get(s.t.Context(), kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.ProviderChangeAuthName,
+		}, &change))
+	}, time.Second, 10*time.Millisecond)
+	if apply != nil {
+		apply(&change)
+	}
+
+	deadline := time.After(5 * time.Second)
+	for {
+		if err := s.storage.Get(s.t.Context(), kclient.ObjectKey{Namespace: change.Namespace, Name: change.Name}, &change); err == nil {
+			change.Status = status
+			require.NoError(s.t, s.storage.Update(s.t.Context(), &change))
+		}
+		select {
+		case err := <-errC:
+			return err
+		case <-time.After(20 * time.Millisecond):
+		case <-deadline:
+			s.t.Fatal("the handler did not return once the change settled")
+		}
+	}
 }
 
 func TestSCIMConnectionHandlerRoles(t *testing.T) {
@@ -162,4 +196,125 @@ func TestNewGroupReferencesMustNameAGroupOfTheSCIMProvider(t *testing.T) {
 	var policy v1.ModelAccessPolicy
 	require.NoError(t, s.storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &policy))
 	assert.Len(t, policy.Spec.Manifest.Subjects, 2)
+}
+
+func TestSCIMEnableHandler(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.storeCredential(map[string]string{
+		oktaIssuerParam:            "https://example.okta.com",
+		oktaServiceClientIDParam:   "client",
+		oktaServicePrivateKeyParam: "key",
+	})
+	h := NewSCIMConnectionHandler(scimsetup.New(s.gateway, s.storage, s.dispatcher, "https://obot.example.com"))
+
+	owner := &user.DefaultInfo{
+		Name:   "owner",
+		UID:    "1",
+		Groups: clienttypes.RoleOwner.Groups(),
+	}
+	admin := &user.DefaultInfo{
+		Name:   "admin",
+		UID:    "2",
+		Groups: clienttypes.RoleAdmin.Groups(),
+	}
+
+	// Administrators can preview enabling SCIM for the provider, which synchronizes its directory.
+	req, rec := s.scimContext(http.MethodGet, "/api/scim-connections/enable-preview", "", admin)
+	require.NoError(t, h.EnablePreview(req))
+	var preview clienttypes.SCIMEnablePreview
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &preview))
+	assert.Equal(t, s.provider.Name, preview.AuthProviderName)
+	assert.Empty(t, preview.Blockers)
+	assert.Equal(t, "https://obot.example.com/scim/v2/", preview.BaseURLPrefix)
+
+	// Only Owners can enable it.
+	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections", "", admin)
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, h.Enable(req), &httpErr)
+	assert.Equal(t, http.StatusForbidden, httpErr.Code)
+	s.requireNoChange()
+
+	req, rec = s.scimContext(http.MethodPost, "/api/scim-connections", "", owner)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- h.Enable(req)
+	}()
+
+	// The connection is created by a provider configuration change, which the controller applies.
+	require.NoError(t, s.settleChange(errC, func(change *v1.ProviderConfigurationChange) {
+		assert.Equal(t, v1.ProviderDesiredStateMigrated, change.Spec.DesiredState)
+		assert.Equal(t, s.provider.Name, change.Spec.ProviderName)
+		assert.Empty(t, change.Spec.StagedCredentialName)
+		_, err := scimsetup.EnableConnection(t.Context(), s.storage, s.gateway, *s.provider)
+		require.NoError(t, err)
+	}, v1.ProviderConfigurationChangeStatus{
+		Applied: true,
+	}))
+	require.NoError(t, s.storage.Delete(t.Context(), &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+	}))
+
+	// The response carries the token, once.
+	var result clienttypes.SCIMEnableResult
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
+	assert.NotEmpty(t, result.Connection.Token)
+	assert.Equal(t, string(gatewaytypes.SCIMConnectionOriginMigrated), result.Connection.Origin)
+	assert.Equal(t, "https://obot.example.com/scim/v2/"+result.Connection.ID, result.Connection.BaseURL)
+	assert.Empty(t, result.DeletionError)
+
+	// Enabling again is blocked before any change is submitted.
+	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections", "", owner)
+	err := h.Enable(req)
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "already provisions users and groups through SCIM")
+	s.requireNoChange()
+
+	// Only Owners can delete the unreferenced groups.
+	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections/"+result.Connection.ID+"/delete-unreferenced-groups", "", admin)
+	req.SetPathValue("id", result.Connection.ID)
+	require.ErrorAs(t, h.DeleteUnreferencedGroups(req), &httpErr)
+	assert.Equal(t, http.StatusForbidden, httpErr.Code)
+	req, rec = s.scimContext(http.MethodPost, "/api/scim-connections/"+result.Connection.ID+"/delete-unreferenced-groups", "", owner)
+	req.SetPathValue("id", result.Connection.ID)
+	require.NoError(t, h.DeleteUnreferencedGroups(req))
+	var deleted clienttypes.SCIMGroupDeletionResult
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &deleted))
+	assert.Zero(t, deleted.DeletedGroupCount)
+}
+
+func TestSCIMEnableHandlerReportsTheControllersRefusal(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.storeCredential(map[string]string{
+		oktaIssuerParam:            "https://example.okta.com",
+		oktaServiceClientIDParam:   "client",
+		oktaServicePrivateKeyParam: "key",
+	})
+	h := NewSCIMConnectionHandler(scimsetup.New(s.gateway, s.storage, s.dispatcher, "https://obot.example.com"))
+	owner := &user.DefaultInfo{
+		Name:   "owner",
+		UID:    "1",
+		Groups: clienttypes.RoleOwner.Groups(),
+	}
+
+	req, _ := s.scimContext(http.MethodPost, "/api/scim-connections", "", owner)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- h.Enable(req)
+	}()
+
+	// The controller finds a blocker under the serialization of provider configuration changes, such as a switch
+	// staged after the preview was read.
+	err := s.settleChange(errC, nil, v1.ProviderConfigurationChangeStatus{
+		Error: "a switch to GitHub is staged. Complete or discard it before enabling SCIM",
+	})
+
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "is staged")
+	conn, err := s.gateway.SCIMConnectionForAuthProvider(t.Context(), s.provider.Namespace, s.provider.Name)
+	require.NoError(t, err)
+	assert.Nil(t, conn)
 }

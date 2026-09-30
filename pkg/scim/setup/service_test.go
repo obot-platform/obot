@@ -22,14 +22,16 @@ import (
 
 type fakeAuthProviders struct {
 	configured string
+	staged     string
 }
 
 // racingStorage runs beforeList once, before the list of model access policies that follows the first one, as a
-// writer racing with Enforce would.
+// writer racing with Enforce would. When listErr is set, that list fails with it.
 type racingStorage struct {
 	kclient.Client
 	lists      int
 	beforeList func(ctx context.Context)
+	listErr    error
 }
 
 // serviceTest is a SCIM-first connection of the Okta provider with a provisioned Owner who signed in, a user who
@@ -52,11 +54,20 @@ func (f *fakeAuthProviders) GetConfiguredAuthProvider(context.Context) (string, 
 	return f.configured, nil
 }
 
+func (f *fakeAuthProviders) GetStagedAuthProvider(context.Context) (string, error) {
+	return f.staged, nil
+}
+
 func (r *racingStorage) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
 	if _, ok := list.(*v1.ModelAccessPolicyList); ok {
 		r.lists++
-		if r.lists == 2 && r.beforeList != nil {
-			r.beforeList(ctx)
+		if r.lists == 2 {
+			if r.beforeList != nil {
+				r.beforeList(ctx)
+			}
+			if r.listErr != nil {
+				return r.listErr
+			}
 		}
 	}
 	return r.Client.List(ctx, list, opts...)

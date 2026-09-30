@@ -122,8 +122,11 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 		}
 	}
 
-	if err := h.advanceDaemonSync(req.Ctx, req.Client, change); err != nil {
-		return err
+	// Moving a provider to SCIM changes no configuration that its daemon runs with.
+	if change.Spec.DesiredState != v1.ProviderDesiredStateMigrated {
+		if err := h.advanceDaemonSync(req.Ctx, req.Client, change); err != nil {
+			return err
+		}
 	}
 
 	change.Status.Applied = true
@@ -190,6 +193,16 @@ func validateChange(change *v1.ProviderConfigurationChange) error {
 		}
 		if change.Spec.ReplacesProviderName != "" {
 			return fmt.Errorf("unstaging change %q must not replace a provider", change.Name)
+		}
+	case v1.ProviderDesiredStateMigrated:
+		if change.Spec.ProviderType != v1.ProviderTypeAuth {
+			return fmt.Errorf("migration change %q may only target an auth provider", change.Name)
+		}
+		if change.Spec.StagedCredentialName != "" {
+			return fmt.Errorf("migration change %q must not reference a staged credential", change.Name)
+		}
+		if change.Spec.ReplacesProviderName != "" {
+			return fmt.Errorf("migration change %q must not replace a provider", change.Name)
 		}
 	case v1.ProviderDesiredStateDeconfigured:
 		if change.Spec.StagedCredentialName != "" {
@@ -343,6 +356,11 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 			return terminalf("no staged configuration for auth provider %q", authProvider.Name)
 		}
 
+	case v1.ProviderDesiredStateMigrated:
+		if err := h.enableSCIM(ctx, client, authProvider); err != nil {
+			return err
+		}
+
 	default:
 		if err := h.deconfigureAuthProvider(ctx, client, authProvider); err != nil {
 			return err
@@ -428,6 +446,46 @@ func (h *Handler) prepareSCIMSetup(ctx context.Context, authProvider v1.AuthProv
 		return fmt.Errorf("set up SCIM for auth provider %q: %w", authProvider.Name, err)
 	}
 	slog.Info("Set up SCIM provisioning for an auth provider configured without directory credentials", "authProvider", authProvider.Name, "connection", conn.ID)
+	return nil
+}
+
+// enableSCIM creates the SCIM connection that permanently replaces the login-time directory synchronization of the
+// configured auth provider. The caller issues the connection's token and deletes the provider's unreferenced groups
+// once the change is applied.
+//
+// Only the configured provider synchronizes its directory, and a staged replacement would deconfigure it. Both are
+// checked here, under the serialization of provider configuration changes, so that no switch, and no auth provider
+// cleanup that a switch creates, can interleave with the connection's creation.
+func (h *Handler) enableSCIM(ctx context.Context, client kclient.Client, authProvider v1.AuthProvider) error {
+	displayName := cmp.Or(authProvider.Spec.Name, authProvider.Name)
+
+	configuredProvider, err := h.dispatcher.GetConfiguredAuthProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("get configured auth provider: %w", err)
+	}
+	if configuredProvider != authProvider.Name {
+		return terminalf("SCIM can only be enabled for the configured auth provider, and %s is not configured", displayName)
+	}
+	stagedProvider, err := h.dispatcher.GetStagedAuthProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("get staged auth provider: %w", err)
+	}
+	if stagedProvider != "" {
+		stagedName := stagedProvider
+		var staged v1.AuthProvider
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: authProvider.Namespace, Name: stagedProvider}, &staged); err == nil {
+			stagedName = cmp.Or(staged.Spec.Name, staged.Name)
+		}
+		return terminalf("a switch to %s is staged. Complete or discard it first", stagedName)
+	}
+
+	conn, err := setup.EnableConnection(ctx, h.storage, h.gatewayClient, authProvider)
+	if blocked, ok := errors.AsType[*setup.EnableBlockedError](err); ok {
+		return terminalf("%s", blocked.Error())
+	} else if err != nil {
+		return fmt.Errorf("enable SCIM for auth provider %q: %w", authProvider.Name, err)
+	}
+	slog.Info("Enabled SCIM for an auth provider that synchronized its directory at sign-in", "authProvider", authProvider.Name, "connection", conn.ID)
 	return nil
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -256,6 +257,20 @@ func (s *scimChangeTest) status() v1.AuthProviderStatus {
 	var provider v1.AuthProvider
 	require.NoError(s.t, s.client.Get(s.t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: oktaProviderName}, &provider))
 	return provider.Status
+}
+
+// daemonRevision returns the Okta provider's daemon revision, which a change advances to restart the daemon, and zero
+// before any change created the revisions.
+func (s *scimChangeTest) daemonRevision() int64 {
+	s.t.Helper()
+
+	var sync v1.ProviderSync
+	err := s.client.Get(s.t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &sync)
+	if apierrors.IsNotFound(err) {
+		return 0
+	}
+	require.NoError(s.t, err)
+	return sync.Spec.Revisions[providerDaemonRevisionKey(v1.ProviderTypeAuth, system.DefaultNamespace, oktaProviderName)].Revision
 }
 
 // directoryStub stands in for the Okta provider daemon, and counts the requests to its directory endpoints.

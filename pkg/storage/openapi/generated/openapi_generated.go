@@ -333,7 +333,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity":                    schema_obot_platform_obot_apiclient_types_SCIMConnectionActivity(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionList":                        schema_obot_platform_obot_apiclient_types_SCIMConnectionList(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionReview":                      schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName":                    schema_obot_platform_obot_apiclient_types_SCIMDuplicateGroupName(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnablePreview":                         schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnableResult":                          schema_obot_platform_obot_apiclient_types_SCIMEnableResult(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMEnforceResult":                         schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMGroupDeletionResult":                   schema_obot_platform_obot_apiclient_types_SCIMGroupDeletionResult(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure":                        schema_obot_platform_obot_apiclient_types_SCIMRequestFailure(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage":                    schema_obot_platform_obot_apiclient_types_SCIMRequestFailurePage(ref),
 		"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup":                            schema_obot_platform_obot_apiclient_types_SCIMSetupGroup(ref),
@@ -16941,12 +16945,195 @@ func schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref common.R
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity"),
 						},
 					},
+					"unusedDirectoryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnusedDirectoryParameters name the configuration parameters that only login-time directory synchronization used, and that the auth provider's configuration still holds. SCIM replaced directory synchronization, so they can be removed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"connection", "provisionedUsers", "unprovisionedUsers", "boundGroups", "unboundReferencedGroups", "unreferencedGroups", "warnings", "enforceBlockers", "activity"},
 			},
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.SCIMConnection", "github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity", "github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMDuplicateGroupName(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMDuplicateGroupName is a name that more than one referenced group of an auth provider has, after normalization. The identity provider pushes groups by name, so a pushed group binds to neither.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "groups"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnablePreview is what enabling SCIM for the configured auth provider would do, and what blocks it. Enabling applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in. Each list of groups holds its first page; the preview's group route serves the others.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authProviderNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthProviderNamespace, AuthProviderName, and AuthProviderDisplayName name the configured auth provider. They are empty when no auth provider is configured, or the configured one does not support SCIM.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authProviderDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"blockers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Blockers are the reasons SCIM cannot be enabled now, including one for each duplicate group name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"duplicateGroupNames": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DuplicateGroupNames are the names that more than one referenced group has. They block enabling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName"),
+									},
+								},
+							},
+						},
+					},
+					"warnings": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"),
+									},
+								},
+							},
+						},
+					},
+					"unboundReferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnboundReferencedGroups are the referenced groups, which the identity provider must push under exactly these names.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"unreferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnreferencedGroups are the groups that nothing references, which enabling deletes.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"baseURLPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BaseURLPrefix is the start of the SCIM base URL, which ends with the ID of the connection that enabling creates.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"blockers", "duplicateGroupNames", "warnings", "unboundReferencedGroups", "unreferencedGroups", "baseURLPrefix"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName", "github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnableResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnableResult is what enabling SCIM did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connection carries the bearer token, which is shown only in this response.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deletionError": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletionError is set when the groups that nothing references could not be deleted. SCIM is enabled regardless, and the deletion can be retried.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"connection", "deletedGroupCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
 	}
 }
 
@@ -16985,6 +17172,28 @@ func schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref common.Refe
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMGroupDeletionResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMGroupDeletionResult is what a deletion of the unbound groups that nothing references did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deletedGroupCount"},
+			},
+		},
 	}
 }
 
@@ -17294,7 +17503,7 @@ func schema_obot_platform_obot_apiclient_types_SCIMSetupWarning(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type is \"everyoneGroup\" for a referenced group that the identity provider cannot push, or \"missingGroup\" for references to a group ID of the auth provider that no group has.",
+							Description: "Type is \"everyoneGroup\" for a referenced group that the identity provider cannot push, \"missingGroup\" for references to a group ID of the auth provider that no group has, \"duplicateName\" for a name that more than one unbound referenced group has, or \"unreferencedNamesake\" for an unreferenced group with the name of an unbound referenced group. A group pushed under the name of either of the last two binds to no group.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

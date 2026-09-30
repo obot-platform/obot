@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import Pagination from '$lib/components/table/Pagination.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
@@ -10,6 +11,7 @@
 		GroupReference,
 		SCIMConnection,
 		SCIMConnectionReview,
+		SCIMEnablePreview,
 		SCIMGroupList,
 		SCIMPage,
 		SCIMRequestFailure,
@@ -20,22 +22,16 @@
 	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import {
-		ChevronLeft,
-		ChevronRight,
-		Circle,
-		CircleAlert,
-		CircleCheck,
-		Info,
-		TriangleAlert
-	} from '@lucide/svelte';
+	import { Circle, CircleAlert, CircleCheck, Info, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
 		// The review of the SCIM connection, or undefined when there is none.
 		review?: SCIMConnectionReview;
-		// Each list's page size, which the review's first pages were loaded with.
+		// What enabling SCIM for the configured auth provider would do, while there is no connection.
+		enablePreview?: SCIMEnablePreview;
+		// Each list's page size, which the first pages of the review or preview were loaded with.
 		pageSize?: number;
 	}
 
@@ -45,13 +41,10 @@
 		token: string;
 	}
 
-	type PagedList =
-		| 'provisionedUsers'
-		| 'unprovisionedUsers'
-		| 'boundGroups'
-		| 'unboundReferencedGroups'
-		| 'unreferencedGroups'
-		| 'failures';
+	// The preview of enabling SCIM shows the unbound groups in the lists of the same names.
+	type GroupPagedList = 'boundGroups' | 'unboundReferencedGroups' | 'unreferencedGroups';
+
+	type PagedList = 'provisionedUsers' | 'unprovisionedUsers' | GroupPagedList | 'failures';
 
 	type TokenAction = 'generate' | 'rotate' | 'revokePrevious' | 'revokeCurrent';
 
@@ -87,34 +80,52 @@
 		failures: 'recent failures'
 	};
 
-	const groupLists: Record<
-		'boundGroups' | 'unboundReferencedGroups' | 'unreferencedGroups',
-		SCIMGroupList
-	> = {
+	const groupLists = {
 		boundGroups: 'bound',
 		unboundReferencedGroups: 'unboundReferenced',
 		unreferencedGroups: 'unreferenced'
-	};
+	} as const satisfies Record<GroupPagedList, SCIMGroupList>;
 
-	let { review: initialReview, pageSize = 50 }: Props = $props();
+	let {
+		review: initialReview,
+		enablePreview: initialEnablePreview,
+		pageSize = 50
+	}: Props = $props();
 	let review = $state(untrack(() => initialReview));
+	let enablePreview = $state(untrack(() => initialEnablePreview));
 	let connection = $derived(review?.connection);
-	let providerName = $derived(connection?.authProviderDisplayName || 'the identity provider');
+	// Enabling SCIM applies only to a configured auth provider that supports it.
+	let offerEnable = $derived(!connection && !!enablePreview?.authProviderName);
+	let providerName = $derived(
+		connection?.authProviderDisplayName ||
+			enablePreview?.authProviderDisplayName ||
+			'the identity provider'
+	);
 
-	// The page each list shows, which starts as the review's first page.
-	let pages = $state<Pages>(untrack(() => pagesFrom(initialReview)));
+	// The page each list shows, which starts as the first page of the review or preview.
+	let pages = $state<Pages>(untrack(() => pagesFrom(initialReview, initialEnablePreview)));
 
 	let isOwner = $derived(!!profile.current.isOwner?.());
 	let isBootstrapUser = $derived(!!profile.current.isBootstrapUser?.());
 	// Owners, including the bootstrap user, manage the token, so the identity provider can be set up
 	// before any Owner has signed in through it. Only an Owner who signed in through it can enforce.
+	// Only Owners can enable SCIM, or delete unreferenced groups.
 	let canManageToken = $derived(isOwner);
 	let canEnforce = $derived(isOwner && !isBootstrapUser);
+	let canEnable = $derived(isOwner);
+	let canDeleteGroups = $derived(isOwner);
 
 	let loading = $state(false);
 	let actionError = $state<string>();
 	let notice = $state<string>();
+	// Why Enable could not delete the unreferenced groups. SCIM is enabled regardless.
+	let deletionError = $state<string>();
+	// Set once SCIM is enabled, so that the tab never offers to enable it again, even when loading the
+	// connection's review failed.
+	let enabled = $state(false);
+	let confirmEnable = $state(false);
 	let confirmEnforce = $state(false);
+	let confirmDeleteGroups = $state(false);
 	let confirmTokenAction = $state<TokenAction>();
 
 	// Errors show inline, next to what failed, rather than also as a notification.
@@ -133,48 +144,77 @@
 	let issuedToken = $state<IssuedToken>();
 	let tokenDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
+	let enableNote = $derived(
+		`This cannot be undone. Obot stops fetching groups from ${providerName} at sign-in, so until ${providerName} pushes a referenced group, it keeps its current members, including anyone removed from it in ${providerName}. Enabling also deletes ${count(pages.unreferencedGroups.total, 'unreferenced group')}. The bearer token for ${providerName} is shown next, only once.`
+	);
+
 	let checklist = $derived.by(() => {
 		if (!review || !connection) return [];
+		const createApp = {
+			title: `Create the SCIM app in ${providerName}`,
+			detail: `Enter the base URL and the bearer token in a SCIM 2.0 application. Done once ${providerName} sends a request.`,
+			done: !!review.activity.lastRequestAt
+		};
+		const assignUsers = {
+			title: 'Assign users',
+			detail: `${review.provisionedUsers.total} provisioned, ${review.unprovisionedUsers.total} not provisioned yet.`,
+			done: review.provisionedUsers.total > 0
+		};
+		const enforce = {
+			title: 'Enforce',
+			detail: 'Only provisioned users can sign in afterwards.',
+			done: connection.state === 'enforced'
+		};
+		const generateToken = {
+			title: 'Generate the token',
+			detail: 'Obot shows the bearer token once, when it is issued.',
+			done: connection.hasToken
+		};
+
+		// A migrated connection is issued its token when SCIM is enabled, unless enabling was interrupted,
+		// and its referenced groups must be pushed under the names Obot has for them.
+		if (connection.origin === 'migrated') {
+			return [
+				...(connection.hasToken ? [] : [generateToken]),
+				createApp,
+				assignUsers,
+				{
+					title: 'Push the referenced groups',
+					detail: `${review.unboundReferencedGroups.total} not pushed yet. Push each one under exactly the name listed under Groups.`,
+					done: review.unboundReferencedGroups.total === 0
+				},
+				enforce
+			];
+		}
 		return [
-			{
-				title: 'Generate the token',
-				detail: 'Obot shows the bearer token once, when it is issued.',
-				done: connection.hasToken
-			},
-			{
-				title: `Create the SCIM app in ${providerName}`,
-				detail: `Enter the base URL and the bearer token in a SCIM 2.0 application. Done once ${providerName} sends a request.`,
-				done: !!review.activity.lastRequestAt
-			},
-			{
-				title: 'Assign users',
-				detail: `${review.provisionedUsers.total} provisioned, ${review.unprovisionedUsers.total} not provisioned yet.`,
-				done: review.provisionedUsers.total > 0
-			},
+			generateToken,
+			createApp,
+			assignUsers,
 			{
 				title: 'Push groups',
 				detail: `${review.boundGroups.total} pushed. Roles and policies can then be granted to them.`,
 				done: review.boundGroups.total > 0
 			},
-			{
-				title: 'Enforce',
-				detail: 'Only provisioned users can sign in afterwards.',
-				done: connection.state === 'enforced'
-			}
+			enforce
 		];
 	});
+
+	// Counts a noun, as in "1 group" or "2 groups".
+	function count(n: number, singular: string, plural = `${singular}s`) {
+		return `${n} ${n === 1 ? singular : plural}`;
+	}
 
 	function firstPage<T>(page?: SCIMPage<T>): Paged<T> {
 		return { items: page?.items ?? [], total: page?.total ?? 0, offset: 0 };
 	}
 
-	function pagesFrom(r?: SCIMConnectionReview): Pages {
+	function pagesFrom(r?: SCIMConnectionReview, p?: SCIMEnablePreview): Pages {
 		return {
 			provisionedUsers: firstPage(r?.provisionedUsers),
 			unprovisionedUsers: firstPage(r?.unprovisionedUsers),
 			boundGroups: firstPage(r?.boundGroups),
-			unboundReferencedGroups: firstPage(r?.unboundReferencedGroups),
-			unreferencedGroups: firstPage(r?.unreferencedGroups),
+			unboundReferencedGroups: firstPage(r?.unboundReferencedGroups ?? p?.unboundReferencedGroups),
+			unreferencedGroups: firstPage(r?.unreferencedGroups ?? p?.unreferencedGroups),
 			failures: firstPage(r?.activity.recentFailures)
 		};
 	}
@@ -201,18 +241,22 @@
 		tokenDialog?.open();
 	}
 
-	async function refresh() {
-		if (!connection) return;
+	// Loads the review of the connection with the given ID, of the one shown, or of one created
+	// since, such as by an Enable that failed after creating it. Without one, it loads the preview of
+	// enabling SCIM.
+	async function refresh(id = connection?.id) {
 		reviewGeneration++;
-		review = await AdminService.getSCIMConnectionReview(connection.id, {
-			limit: pageSize,
-			...quiet
-		});
-		pages = pagesFrom(review);
+		id ??= (await AdminService.listSCIMConnections(quiet))[0]?.id;
+		if (id) {
+			review = await AdminService.getSCIMConnectionReview(id, { limit: pageSize, ...quiet });
+			enablePreview = undefined;
+		} else {
+			enablePreview = await AdminService.getSCIMEnablePreview({ limit: pageSize, ...quiet });
+		}
+		pages = pagesFrom(review, enablePreview);
 	}
 
 	async function showPage(list: PagedList, offset: number) {
-		if (!connection) return;
 		const page = { offset: Math.max(offset, 0), limit: pageSize };
 		const request = ++pageRequests[list];
 		const generation = reviewGeneration;
@@ -226,7 +270,18 @@
 
 		actionError = undefined;
 		try {
-			if (list === 'provisionedUsers' || list === 'unprovisionedUsers') {
+			if (!connection) {
+				// Without a connection, the only lists are the groups of the preview of enabling SCIM.
+				if (list !== 'unboundReferencedGroups' && list !== 'unreferencedGroups') return;
+				const result = await AdminService.listSCIMEnablePreviewGroups(
+					groupLists[list],
+					page,
+					quiet
+				);
+				if (!current()) return;
+				if (pastEnd(result)) return showPage(list, lastPage(result.total));
+				pages[list] = { ...result, offset: page.offset };
+			} else if (list === 'provisionedUsers' || list === 'unprovisionedUsers') {
 				const result = await AdminService.listSCIMUsers(
 					connection.id,
 					list === 'provisionedUsers',
@@ -257,6 +312,63 @@
 		}
 	}
 
+	async function handleEnable() {
+		loading = true;
+		actionError = undefined;
+		notice = undefined;
+		deletionError = undefined;
+		try {
+			const result = await AdminService.enableSCIM();
+			enabled = true;
+			notice = `SCIM is enabled for ${providerName}. Deleted ${count(result.deletedGroupCount, 'unreferenced group')}.`;
+			deletionError = result.deletionError;
+			showToken('SCIM token', result.connection);
+			try {
+				await refresh(result.connection.id);
+			} catch (err) {
+				actionError = parseErrorContent(err).message;
+			}
+			// The layout asks Owners to finish moving to SCIM.
+			void adminConfigStore.refresh();
+		} catch (err) {
+			actionError = parseErrorContent(err).message;
+			// Whatever refused Enable may have changed what the preview shows, and an Enable that failed
+			// late may have created the connection, whose token can be generated below.
+			try {
+				await refresh();
+				if (connection) void adminConfigStore.refresh();
+			} catch {
+				// The error above explains what happened.
+			}
+		} finally {
+			confirmEnable = false;
+			loading = false;
+		}
+	}
+
+	async function handleDeleteUnreferencedGroups() {
+		if (!connection) return;
+		loading = true;
+		actionError = undefined;
+		notice = undefined;
+		try {
+			const result = await AdminService.deleteUnreferencedSCIMGroups(connection.id);
+			notice = `Deleted ${count(result.deletedGroupCount, 'unreferenced group')}.`;
+			deletionError = undefined;
+			await refresh();
+		} catch (err) {
+			actionError = parseErrorContent(err).message;
+			try {
+				await refresh();
+			} catch {
+				// The error above explains what happened.
+			}
+		} finally {
+			confirmDeleteGroups = false;
+			loading = false;
+		}
+	}
+
 	async function handleEnforce() {
 		if (!connection) return;
 		loading = true;
@@ -264,7 +376,9 @@
 		notice = undefined;
 		try {
 			const result = await AdminService.enforceSCIM(connection.id);
-			notice = `SCIM is enforced. ${result.disabledUserCount} unprovisioned users were disabled, and ${result.deletedGroupCount} unreferenced groups were deleted.`;
+			// Enforcing deleted the unreferenced groups that enabling could not.
+			deletionError = undefined;
+			notice = `SCIM is enforced. Disabled ${count(result.disabledUserCount, 'unprovisioned user')}, and deleted ${count(result.deletedGroupCount, 'unreferenced group')}.`;
 			await refresh();
 			// The layout stops asking Owners to finish setting up SCIM.
 			void adminConfigStore.refresh();
@@ -362,17 +476,31 @@
 		</div>
 	{/if}
 
+	{#if deletionError && (!connection || pages.unreferencedGroups.total > 0)}
+		<div class="notification-alert flex items-start gap-2" role="alert">
+			<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+			<p class="text-sm font-light">{deletionError}</p>
+		</div>
+	{/if}
+
 	{#if connection && review}
 		{@render connectionDetails(connection)}
-		{#if connection.origin === 'scim_first' && connection.state === 'connected'}
-			{@render setupChecklist()}
-		{/if}
 		{#if connection.state === 'connected'}
+			{@render setupChecklist(connection)}
 			{@render enforceSection(review)}
 		{/if}
 		{@render groupsSection(review)}
 		{@render usersSection(connection)}
 		{@render activitySection(review)}
+	{:else if enabled}
+		<section class="paper" aria-labelledby="scim-enabled-title">
+			<h2 id="scim-enabled-title" class="text-lg font-semibold">SCIM provisioning is enabled</h2>
+			<p class="text-muted-content text-sm font-light">
+				Reload this page to review the move to SCIM.
+			</p>
+		</section>
+	{:else if offerEnable && enablePreview}
+		{@render enableSection(enablePreview)}
 	{:else}
 		<section class="paper" aria-labelledby="scim-none-title">
 			<h2 id="scim-none-title" class="text-lg font-semibold">SCIM provisioning is not set up</h2>
@@ -383,9 +511,12 @@
 				signed in.
 			</p>
 			<p class="text-muted-content text-sm font-light">
-				An auth provider that already fetches groups from its directory at sign-in cannot be moved
-				to SCIM here yet.
+				An auth provider that supports SCIM and already fetches groups from its directory at sign-in
+				can be moved to SCIM here.
 			</p>
+			{#if enablePreview?.blockers.length}
+				{@render blockerList('SCIM cannot be enabled', enablePreview.blockers)}
+			{/if}
 		</section>
 	{/if}
 </div>
@@ -414,6 +545,20 @@
 					{providerName} is not the configured auth provider, so SCIM requests fail. Once it is configured
 					again, retry the failed provisioning tasks in {providerName}.
 				</span>
+			</div>
+		{/if}
+
+		{#if review?.unusedDirectoryParameters?.length}
+			<div class="notification-info flex items-start gap-2 text-sm font-light">
+				<Info class="mt-0.5 size-5 shrink-0" />
+				<p class="min-w-0">
+					The configuration of {providerName} still holds the credentials that Obot used to fetch groups
+					at sign-in. SCIM replaced that, so remove them on the
+					<a class="text-link" href={resolve('/identity-access?view=auth-providers')}
+						>Auth Providers</a
+					>
+					tab, and then revoke them in {providerName}.
+				</p>
 			</div>
 		{/if}
 
@@ -492,14 +637,23 @@
 	</section>
 {/snippet}
 
-{#snippet setupChecklist()}
+{#snippet setupChecklist(conn: SCIMConnection)}
 	<section class="paper" aria-labelledby="scim-setup-title">
 		<div class="flex flex-col gap-1">
-			<h2 id="scim-setup-title" class="text-lg font-semibold">Set up provisioning</h2>
-			<p class="text-muted-content text-sm font-light">
-				Until SCIM is enforced, anyone assigned to the {providerName} sign-in app can sign in, and gets
-				an account with no groups.
-			</p>
+			{#if conn.origin === 'migrated'}
+				<h2 id="scim-setup-title" class="text-lg font-semibold">Finish moving to SCIM</h2>
+				<p class="text-muted-content text-sm font-light">
+					Obot no longer fetches groups from {providerName} at sign-in. Until {providerName} pushes a
+					group, it keeps the members it had, and until SCIM is enforced, users that {providerName} has
+					not provisioned can still sign in.
+				</p>
+			{:else}
+				<h2 id="scim-setup-title" class="text-lg font-semibold">Set up provisioning</h2>
+				<p class="text-muted-content text-sm font-light">
+					Until SCIM is enforced, anyone assigned to the {providerName} sign-in app can sign in, and gets
+					an account with no groups.
+				</p>
+			{/if}
 		</div>
 		<ol class="flex flex-col gap-3">
 			{#each checklist as item, index (item.title)}
@@ -524,26 +678,19 @@
 		<div class="flex flex-col gap-1">
 			<h2 id="scim-enforce-title" class="text-lg font-semibold">Enforce SCIM</h2>
 			<p class="text-muted-content text-sm font-light">
-				Enforcing requires an account that {providerName} provisioned to sign in, disables the {r
-					.unprovisionedUsers.total} users of {providerName} that it has not provisioned, and deletes
-				the
-				{r.unreferencedGroups.total} unbound groups that nothing references. Group memberships do not
-				change, and nothing is deleted from the users. It cannot be undone.
+				Enforcing requires an account that {providerName} provisioned to sign in, disables {count(
+					r.unprovisionedUsers.total,
+					'user'
+				)} of {providerName} that it has not provisioned, and deletes {count(
+					r.unreferencedGroups.total,
+					'unreferenced group'
+				)}. Group memberships do not change, and nothing is deleted from the users. It cannot be
+				undone.
 			</p>
 		</div>
 
 		{#if r.enforceBlockers.length > 0}
-			<div class="notification-alert flex items-start gap-2" role="alert">
-				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
-				<div class="flex min-w-0 flex-col gap-1">
-					<p class="text-sm font-medium">SCIM cannot be enforced yet</p>
-					<ul class="list-disc pl-4 text-sm font-light wrap-break-word">
-						{#each r.enforceBlockers as blocker (blocker)}
-							<li>{blocker}</li>
-						{/each}
-					</ul>
-				</div>
-			</div>
+			{@render blockerList('SCIM cannot be enforced yet', r.enforceBlockers)}
 		{/if}
 
 		<div class="flex items-center justify-end gap-2">
@@ -594,6 +741,17 @@
 					{#if r.connection.state === 'connected'}Enforcing SCIM deletes them.{/if}
 				</p>
 				{@render groupList('unreferencedGroups', '')}
+				{#if canDeleteGroups}
+					<div class="flex justify-end">
+						<button
+							class="btn btn-secondary"
+							disabled={loading}
+							onclick={() => (confirmDeleteGroups = true)}
+						>
+							Delete unreferenced groups
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>
@@ -674,6 +832,97 @@
 	</section>
 {/snippet}
 
+{#snippet enableSection(p: SCIMEnablePreview)}
+	<section class="paper" aria-labelledby="scim-enable-title">
+		<div class="flex flex-col gap-1">
+			<h2 id="scim-enable-title" class="text-lg font-semibold">Move {providerName} to SCIM</h2>
+			<p class="text-muted-content text-sm font-light">
+				Obot fetches each user's groups from {providerName} when they sign in. Enabling SCIM lets {providerName}
+				provision users, account status, groups, and memberships instead, and Obot stops fetching groups
+				at sign-in. It cannot be undone.
+			</p>
+			<p class="text-muted-content text-sm font-light">
+				Everyone can still sign in once SCIM is enabled. Enforcing SCIM, a later step, requires an
+				account that {providerName} provisioned.
+			</p>
+		</div>
+
+		{#if p.blockers.length > 0}
+			{@render blockerList('SCIM cannot be enabled yet', p.blockers)}
+		{/if}
+
+		{#each p.duplicateGroupNames as duplicate (duplicate.name)}
+			<div class="flex flex-col gap-2">
+				<h3 class="text-sm font-semibold">
+					Referenced groups named "{duplicate.name}" ({duplicate.groups.length})
+				</h3>
+				{@render groupItems(duplicate.groups)}
+			</div>
+		{/each}
+
+		{@render warnings(p.warnings)}
+
+		<div class="flex flex-col gap-2">
+			<h3 class="text-sm font-semibold">
+				Referenced groups not pushed yet ({pages.unboundReferencedGroups.total})
+			</h3>
+			<p class="text-muted-content text-xs font-light">
+				Obot stops refreshing the members of these groups when SCIM is enabled, so until {providerName}
+				pushes a group, it keeps the members it has now, including anyone removed from it in {providerName}.
+				Push each one under exactly the name shown here. It then keeps its ID, and every role and
+				policy that references it, and takes its members from {providerName}.
+			</p>
+			{@render groupList('unboundReferencedGroups', 'No groups are referenced.')}
+		</div>
+
+		<div class="flex flex-col gap-2">
+			<h3 class="text-sm font-semibold">
+				Unreferenced groups ({pages.unreferencedGroups.total})
+			</h3>
+			<p class="text-muted-content text-xs font-light">
+				Nothing references these groups, so they grant nothing. Enabling SCIM deletes them.
+			</p>
+			{@render groupList('unreferencedGroups', 'No groups will be deleted.')}
+		</div>
+
+		<div class="notification-info flex items-start gap-2 text-sm font-light">
+			<Info class="mt-0.5 size-5 shrink-0" />
+			<p class="min-w-0">
+				The SCIM base URL will be <code class="break-all"
+					>{p.baseURLPrefix}&lt;connection ID&gt;</code
+				>. It is shown with the bearer token once SCIM is enabled.
+			</p>
+		</div>
+
+		<div class="flex items-center justify-end gap-2">
+			{#if !canEnable}
+				<p class="text-muted-content text-xs font-light">Only an owner can enable SCIM.</p>
+			{/if}
+			<button
+				class="btn btn-primary"
+				disabled={!canEnable || loading || p.blockers.length > 0}
+				onclick={() => (confirmEnable = true)}
+			>
+				Enable SCIM
+			</button>
+		</div>
+	</section>
+{/snippet}
+
+{#snippet blockerList(title: string, items: string[])}
+	<div class="notification-alert flex items-start gap-2" role="alert">
+		<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+		<div class="flex min-w-0 flex-col gap-1">
+			<p class="text-sm font-medium">{title}</p>
+			<ul class="list-disc pl-4 text-sm font-light wrap-break-word">
+				{#each items as item (item)}
+					<li>{item}</li>
+				{/each}
+			</ul>
+		</div>
+	</div>
+{/snippet}
+
 {#snippet warnings(items: SCIMSetupWarning[])}
 	{#if items.length > 0}
 		<div class="notification-alert flex items-start gap-2" role="note">
@@ -694,43 +943,43 @@
 	{/if}
 {/snippet}
 
-{#snippet groupList(
-	list: 'boundGroups' | 'unboundReferencedGroups' | 'unreferencedGroups',
-	empty: string
-)}
-	{@const groups = pages[list].items}
+{#snippet groupList(list: GroupPagedList, empty: string)}
 	{#if pages[list].total === 0}
 		{#if empty}
 			<p class="text-muted-content text-sm font-light">{empty}</p>
 		{/if}
 	{:else}
-		<ul class="divide-base-300 flex flex-col divide-y">
-			{#each groups as group (group.id)}
-				<li class="flex flex-col gap-1 py-2">
-					<div class="flex flex-wrap items-center gap-2">
-						<span class="text-sm font-medium">{group.name || group.id}</span>
-						<span class="text-muted-content font-mono text-xs break-all">{group.id}</span>
-						{#if group.consoleURL}
-							<a
-								class="text-link text-xs"
-								href={group.consoleURL}
-								target="_blank"
-								rel="external noopener noreferrer"
-							>
-								Open in {providerName}
-							</a>
-						{/if}
-					</div>
-					{#if group.references?.length}
-						<p class="text-muted-content text-xs font-light">
-							Referenced by {group.references.map(describeReference).join('; ')}
-						</p>
-					{/if}
-				</li>
-			{/each}
-		</ul>
+		{@render groupItems(pages[list].items)}
 		{@render pager(list)}
 	{/if}
+{/snippet}
+
+{#snippet groupItems(groups: SCIMSetupGroup[])}
+	<ul class="divide-base-300 flex flex-col divide-y">
+		{#each groups as group (group.id)}
+			<li class="flex flex-col gap-1 py-2">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-sm font-medium">{group.name || group.id}</span>
+					<span class="text-muted-content font-mono text-xs break-all">{group.id}</span>
+					{#if group.consoleURL}
+						<a
+							class="text-link text-xs"
+							href={group.consoleURL}
+							target="_blank"
+							rel="external noopener noreferrer"
+						>
+							Open in {providerName}
+						</a>
+					{/if}
+				</div>
+				{#if group.references?.length}
+					<p class="text-muted-content text-xs font-light">
+						Referenced by {group.references.map(describeReference).join('; ')}
+					</p>
+				{/if}
+			</li>
+		{/each}
+	</ul>
 {/snippet}
 
 {#snippet userList(list: 'provisionedUsers' | 'unprovisionedUsers', empty: string)}
@@ -762,39 +1011,48 @@
 
 {#snippet pager(list: PagedList)}
 	{@const current = pages[list]}
-	{@const noun = listNouns[list]}
 	{#if current.total > pageSize || current.offset > 0}
-		<div class="flex items-center justify-end gap-2 text-xs">
-			<span class="text-muted-content">
-				{current.offset + 1}–{Math.min(current.offset + current.items.length, current.total)} of {current.total}
-				{noun}
-			</span>
-			<IconButton
-				class="btn-sm"
-				aria-label="Previous page of {noun}"
-				disabled={loading || current.offset === 0}
-				onclick={() => showPage(list, current.offset - pageSize)}
-			>
-				<ChevronLeft class="size-4" />
-			</IconButton>
-			<IconButton
-				class="btn-sm"
-				aria-label="Next page of {noun}"
-				disabled={loading || current.offset + pageSize >= current.total}
-				onclick={() => showPage(list, current.offset + pageSize)}
-			>
-				<ChevronRight class="size-4" />
-			</IconButton>
-		</div>
+		<Pagination
+			pageIndex={Math.floor(current.offset / pageSize)}
+			lastPageIndex={Math.max(Math.ceil(current.total / pageSize) - 1, 0)}
+			total={current.total}
+			{loading}
+			label={listNouns[list]}
+			onPageChange={(index) => showPage(list, index * pageSize)}
+		/>
 	{/if}
 {/snippet}
+
+<Confirm
+	show={confirmEnable}
+	title="Enable SCIM"
+	msg="Enable SCIM for {providerName}?"
+	note={enableNote}
+	submitText="Enable SCIM"
+	{loading}
+	onsuccess={handleEnable}
+	oncancel={() => (confirmEnable = false)}
+/>
+
+<Confirm
+	show={confirmDeleteGroups}
+	title="Delete unreferenced groups"
+	msg="Delete {count(pages.unreferencedGroups.total, 'unreferenced group')}?"
+	note="They grant nothing, so no one loses access. A group that gains a reference in the meantime is kept."
+	submitText="Delete groups"
+	{loading}
+	onsuccess={handleDeleteUnreferencedGroups}
+	oncancel={() => (confirmDeleteGroups = false)}
+/>
 
 <Confirm
 	show={confirmEnforce}
 	title="Enforce SCIM"
 	msg="Enforce SCIM for {providerName}?"
-	note="This cannot be undone. {review?.unprovisionedUsers.total ??
-		0} users that {providerName} has not provisioned are disabled, and only provisioned users can sign in with {providerName} afterwards."
+	note="This cannot be undone. Enforcing disables {count(
+		review?.unprovisionedUsers.total ?? 0,
+		'user'
+	)} that {providerName} has not provisioned, and only provisioned users can sign in with {providerName} afterwards."
 	submitText="Enforce SCIM"
 	{loading}
 	onsuccess={handleEnforce}
@@ -823,7 +1081,7 @@
 	{#if issuedToken}
 		<div class="flex flex-col gap-4 pt-2">
 			<div class="notification-alert flex items-start gap-2 text-sm font-light">
-				<Info class="mt-0.5 size-5 shrink-0" />
+				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 				<span>
 					Copy the token now. It is shown only once. Enter the base URL and the token in the SCIM
 					application in {providerName}.

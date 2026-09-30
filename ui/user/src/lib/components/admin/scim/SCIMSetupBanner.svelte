@@ -18,8 +18,8 @@
 	>
 		<p class="text-xs font-light max-w-2xl">
 			{providerName} provisions users and groups through SCIM, and SCIM is not enforced yet. Continue
-			setup on the SCIM tab: generate the token, create the SCIM app in {providerName}, assign
-			users, and push groups.
+			setup on the SCIM tab: create the SCIM app in {providerName} with the base URL and token, assign
+			users, push groups, and enforce SCIM.
 		</p>
 		<a href={resolve('/identity-access?view=scim')} class="btn btn-xs btn-primary shrink-0">
 			Continue SCIM setup

@@ -81,7 +81,11 @@
 {/snippet}
 
 {#snippet scim()}
-	<ScimView review={data.scimReview} pageSize={data.scimPageSize} />
+	<ScimView
+		review={data.scimReview}
+		enablePreview={data.scimEnablePreview}
+		pageSize={data.scimPageSize}
+	/>
 {/snippet}
 
 {#snippet agents()}

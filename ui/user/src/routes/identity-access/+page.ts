@@ -1,7 +1,7 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService, ApiKeysService, UserService } from '$lib/services';
 import type { AuthProvider, GroupRoleAssignment, OrgGroup, OrgUser } from '$lib/services';
-import type { SCIMConnectionReview } from '$lib/services/admin/types';
+import type { SCIMConnectionReview, SCIMEnablePreview } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
 import type { PageLoad } from './$types';
 
@@ -29,6 +29,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let authEnabled = false;
 	let apiKeys: APIKey[] = [];
 	let scimReview: SCIMConnectionReview | undefined;
+	let scimEnablePreview: SCIMEnablePreview | undefined;
 
 	if (view === 'agents') {
 		try {
@@ -94,6 +95,13 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 							fetch,
 							limit: scimPageSize
 						});
+					} else {
+						// Without a connection, the configured provider may synchronize its directory at
+						// sign-in, and can then be moved to SCIM.
+						scimEnablePreview = await AdminService.getSCIMEnablePreview({
+							fetch,
+							limit: scimPageSize
+						});
 					}
 				} catch (err) {
 					handleRouteError(err, '/identity-access?view=scim', profile);
@@ -111,6 +119,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		authEnabled,
 		apiKeys,
 		scimReview,
+		scimEnablePreview,
 		scimPageSize
 	};
 };

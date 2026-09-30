@@ -49,7 +49,10 @@ import type {
 	ResidualGroupData,
 	SCIMConnection,
 	SCIMConnectionReview,
+	SCIMEnablePreview,
+	SCIMEnableResult,
 	SCIMEnforceResult,
+	SCIMGroupDeletionResult,
 	SCIMGroupList,
 	SCIMPage,
 	SCIMRequestFailure,
@@ -423,7 +426,10 @@ export async function getResidualGroupData(
 
 // SCIM provisioning
 
-export async function listSCIMConnections(opts?: { fetch?: Fetcher }): Promise<SCIMConnection[]> {
+export async function listSCIMConnections(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<SCIMConnection[]> {
 	const list = (await doGet('/scim-connections', opts)) as ItemsResponse<SCIMConnection>;
 	return list.items ?? [];
 }
@@ -473,6 +479,52 @@ export async function listSCIMFailures(
 		`/scim-connections/${id}/failures?offset=${page.offset}&limit=${page.limit}`,
 		opts
 	)) as SCIMPage<SCIMRequestFailure>;
+}
+
+// Each list of groups in the preview holds its first page of `limit` groups.
+export async function getSCIMEnablePreview(opts?: {
+	fetch?: Fetcher;
+	limit?: number;
+	dontLogErrors?: boolean;
+}): Promise<SCIMEnablePreview> {
+	const query = opts?.limit ? `?limit=${opts.limit}` : '';
+	return (await doGet(`/scim-connections/enable-preview${query}`, {
+		fetch: opts?.fetch,
+		dontLogErrors: opts?.dontLogErrors
+	})) as SCIMEnablePreview;
+}
+
+// Pages through the preview's unbound referenced groups, which the identity provider must push, or
+// its unreferenced groups, which enabling deletes.
+export async function listSCIMEnablePreviewGroups(
+	list: Exclude<SCIMGroupList, 'bound'>,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMSetupGroup>> {
+	return (await doGet(
+		`/scim-connections/enable-preview/groups?list=${list}&offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMSetupGroup>;
+}
+
+// Enabling is permanent. The result carries the token, which is shown only once.
+export async function enableSCIM(opts?: { fetch?: Fetcher }): Promise<SCIMEnableResult> {
+	return (await doPost(
+		'/scim-connections',
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMEnableResult;
+}
+
+export async function deleteUnreferencedSCIMGroups(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SCIMGroupDeletionResult> {
+	return (await doPost(
+		`/scim-connections/${id}/delete-unreferenced-groups`,
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMGroupDeletionResult;
 }
 
 // Enforcing is permanent.

@@ -6,13 +6,15 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-// SCIMConnectionHandler serves the administration of SCIM connections: reviewing a connection, enforcing it, and
-// managing its bearer token. Administrators and auditors can review a connection. Only Owners can enforce it, and
-// Owners and the bootstrap user can manage its token, so that the identity provider can be set up before any Owner
-// has signed in through it.
+// SCIMConnectionHandler serves the administration of SCIM connections: enabling SCIM for an auth provider that
+// synchronizes its directory at sign-in, reviewing a connection, enforcing it, and managing its bearer token.
+// Administrators and auditors can preview enabling and review a connection. Only Owners can enable or enforce SCIM,
+// or delete unreferenced groups, and Owners and the bootstrap user can manage the token, so that the identity provider
+// can be set up before any Owner has signed in through it.
 type SCIMConnectionHandler struct {
 	setup *scimsetup.Service
 }
@@ -31,6 +33,65 @@ func (h *SCIMConnectionHandler) List(req api.Context) error {
 		return err
 	}
 	return req.Write(types.SCIMConnectionList{Items: conns})
+}
+
+// GET /api/scim-connections/enable-preview?limit=
+// Reports what enabling SCIM for the configured auth provider would do, and what blocks it: duplicate names of
+// referenced groups, warnings, the referenced groups the identity provider must push, the unreferenced groups that
+// enabling deletes, and the start of the SCIM base URL. Each list of groups holds its first page of "limit" items.
+func (h *SCIMConnectionHandler) EnablePreview(req api.Context) error {
+	preview, err := h.setup.EnablePreview(req.Context(), queryInt(req, "limit"))
+	if err != nil {
+		return err
+	}
+	return req.Write(preview)
+}
+
+// GET /api/scim-connections/enable-preview/groups?list=unboundReferenced|unreferenced&offset=&limit=
+// Returns a page of the groups that enabling SCIM would ask the identity provider to push, or would delete.
+func (h *SCIMConnectionHandler) EnablePreviewGroups(req api.Context) error {
+	page, err := h.setup.EnablePreviewGroups(req.Context(), scimsetup.GroupList(req.URL.Query().Get("list")), queryPage(req))
+	if err != nil {
+		return err
+	}
+	return req.Write(page)
+}
+
+// POST /api/scim-connections
+// Enables SCIM for the configured auth provider, which synchronizes its directory at sign-in: creates its SCIM
+// connection, which permanently replaces login-time directory synchronization, and deletes the provider's groups that
+// nothing references. Returns the connection with its bearer token, shown only in this response. Only Owners can
+// enable SCIM.
+func (h *SCIMConnectionHandler) Enable(req api.Context) error {
+	if !req.UserIsOwner() {
+		return types.NewErrForbidden("only an owner can enable SCIM")
+	}
+
+	// Checking first reports every blocker at once.
+	namespace, name, err := h.setup.CheckEnable(req.Context())
+	if err != nil {
+		return err
+	}
+
+	// The connection is created by a provider configuration change, so that no switch, and no auth provider cleanup
+	// that a switch creates, interleaves with it.
+	if err := submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: namespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeAuth,
+			ProviderName: name,
+			DesiredState: v1.ProviderDesiredStateMigrated,
+		},
+	}); err != nil {
+		return err
+	}
+
+	result, err := h.setup.CompleteEnable(req.Context(), namespace, name)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
 }
 
 // GET /api/scim-connections/{id}/review
@@ -93,6 +154,21 @@ func (h *SCIMConnectionHandler) Enforce(req api.Context) error {
 	}
 
 	result, err := h.setup.Enforce(req.Context(), req.PathValue("id"), actor)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
+}
+
+// POST /api/scim-connections/{id}/delete-unreferenced-groups
+// Deletes the unbound groups of the connection's auth provider that nothing references, such as those that enabling
+// SCIM failed to delete. They grant nothing, so no resources are cleaned up. Only Owners can delete them.
+func (h *SCIMConnectionHandler) DeleteUnreferencedGroups(req api.Context) error {
+	if !req.UserIsOwner() {
+		return types.NewErrForbidden("only an owner can delete unreferenced groups")
+	}
+
+	result, err := h.setup.DeleteUnreferencedGroups(req.Context(), req.PathValue("id"))
 	if err != nil {
 		return err
 	}
