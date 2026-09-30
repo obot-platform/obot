@@ -8,12 +8,11 @@ AI Judge Policies let administrators enforce content rules written in natural la
 
 - **User messages** before they are sent to the model
 - **Tool calls** before the agent is allowed to execute them
-- **Both** user messages and tool calls
 
 AI Judge Policies are an **experimental feature** and are disabled by default.
 To enable them, set `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and restart Obot.
 
-When enabled, Obot adds **AI Judge Policies** and **AI Judge Policy Violations** under **AI Resources** and **Operations**. 
+When enabled, Obot adds **AI Judge Policies** and **AI Judge Policy Violations** under **MCP Servers** and **Models** in **AI Resources**.
 
 ## How Policies Work
 
@@ -44,8 +43,6 @@ Obot determines applicable policies from:
 - The authenticated user ID
 - The user's authentication-provider groups
 - Any wildcard policy for all users
-
-Policies marked `Both` apply to both user-message checks and tool-call checks.
 
 ### Two-Stage Review
 
@@ -96,14 +93,14 @@ Blocked-content payloads are encrypted at rest when Obot encryption is configure
 
 ## Reviewing Violations
 
-When the feature is enabled, administrators can open **Operations > AI Judge Policy Violations** to review enforcement activity.
+When the feature is enabled, administrators can open **Policy Violations** within the **AI Judge Policies** tab to review enforcement activity.
 
 The violations view includes:
 
 - Aggregate counts
 - Breakdown by direction
 - Timeline charts grouped by policy or user
-- Filters for user, policy, direction, project, thread, and time range
+- Filters for user, policy, project, thread, and time range
 
 ### Visibility of Blocked Content
 
@@ -113,20 +110,19 @@ Only users with the **Auditor** role can see the stored blocked content in the v
 
 ## Managing Policies
 
-To manage policies, go to **AI Resources > AI Judge Policies**.
+To manage policies, go to **AI Judge Policies** under **AI Resources** > **MCP Servers** or **AI Resources** > **Models**.
 
 ### Creating a Policy
 
 1. Click **Add New Policy**
 2. Enter a descriptive name
 3. Write the policy definition in natural language. Be as specific as you can about specific actions that are or are not allowed.
-4. Choose whether it applies to user messages, tool calls, or both
-5. Add the users or groups the policy should cover
-6. Save the policy
+4. Add the users or groups the policy should cover
+5. Save the policy
 
 ### Editing a Policy
 
-Click a policy in the list to update its definition, direction, or subjects. Changes take effect immediately.
+Click a policy in the list to update its definition or subjects. Changes take effect immediately.
 
 ### Deleting a Policy
 

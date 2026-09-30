@@ -26,10 +26,10 @@ Configure LLM providers and their available models. See [Model Providers](../con
 
 Control which users and groups can access which models in Obot Agent. See [Model Access Policies](./model-access-policies.md) for details.
 
-## Message Policies
+## AI Judge Policies
 
-Use natural language to enforce content rules on user prompts and tool calls. See [Message Policies](./message-policies.md) for details.
+Use natural language to enforce content rules on user prompts and tool calls. See [AI Judge Policies](./ai-judge-policies.md) for details.
 
-## Message Policy Violations
+## AI Judge Policy Violations
 
-Review policy violations, trends, and blocked content metadata for Message Policies from the same admin area.
+Review policy violations, trends, and blocked content metadata for AI Judge Policies from the same admin area.
