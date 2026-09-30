@@ -9,6 +9,20 @@ import (
 	"time"
 )
 
+// AuditLogRetention describes how long an installation is entitled to keep MCP and
+// LLM audit logs. Days is ignored when Unlimited is true, and a zero Days means no
+// entitlement defines a retention, so the configured retention applies.
+type AuditLogRetention struct {
+	Days      int64
+	Unlimited bool
+}
+
+// AuditLogRetentionProvider resolves the current entitlement-derived audit log
+// retention.
+type AuditLogRetentionProvider interface {
+	AuditLogRetention(context.Context) (AuditLogRetention, error)
+}
+
 func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) int {
 	if mcpAuditLogRetentionDays <= 0 || llmAuditLogRetentionDays <= 0 {
 		return 0

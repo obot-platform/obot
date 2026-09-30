@@ -31,6 +31,15 @@ const (
 	// DefaultDeviceLimit is the maximum number of devices allowed when no
 	// license-derived device-limit provider is configured.
 	DefaultDeviceLimit = 100
+
+	// DefaultHostedMCPServerLimit leaves the number of hosted MCP servers
+	// unbounded. Hosted servers have never been capped, so only an entitlement
+	// that names a number introduces a limit.
+	DefaultHostedMCPServerLimit = 0
+
+	// DefaultAuditLogRetentionDays leaves audit log retention undefined, so the
+	// retention the server is configured with applies.
+	DefaultAuditLogRetentionDays = 0
 )
 
 type Client struct {

@@ -17,12 +17,34 @@ import (
 )
 
 const (
-	enterpriseLimitEntitlementPrefix    = "OBOT_ENTERPRISE_"
-	userLimitEntitlementUsersSuffix     = "_USERS"
-	deviceLimitEntitlementDevicesSuffix = "_DEVICES"
+	enterpriseLimitEntitlementPrefix = "OBOT_ENTERPRISE_"
+
+	// LimitEntitlementPrefix introduces a numeric limit entitlement that is not
+	// tied to the enterprise edition, such as OBOT_20_USERS.
+	LimitEntitlementPrefix = "OBOT_"
+
+	// UsersEntitlementSuffix ends a user seat limit entitlement.
+	UsersEntitlementSuffix = "_USERS"
+
+	// DevicesEntitlementSuffix ends a device limit entitlement.
+	DevicesEntitlementSuffix = "_DEVICES"
+
+	// HostedMCPServersEntitlementSuffix ends a hosted MCP server limit entitlement.
+	HostedMCPServersEntitlementSuffix = "_HOSTED_MCP_SERVERS"
+
+	// AuditLogDaysEntitlementSuffix ends an audit log retention entitlement.
+	AuditLogDaysEntitlementSuffix = "_AUDIT_LOG_DAYS"
 )
 
 var (
+	// limitEntitlementPrefixes are tried in order, so OBOT_ENTERPRISE_10_USERS
+	// is read as an enterprise limit rather than as the malformed bare limit
+	// "ENTERPRISE_10".
+	limitEntitlementPrefixes = []string{
+		enterpriseLimitEntitlementPrefix,
+		LimitEntitlementPrefix,
+	}
+
 	entitlementPathsToGate = []string{
 		"/mcp-connect/{mcp_id}",
 		"/mcp-connect/{mcp_id}/",
@@ -58,6 +80,8 @@ type Violation struct {
 type LimitProvider interface {
 	UserLimit(context.Context) (gatewayclient.UserLimit, error)
 	DeviceLimit(context.Context) (gatewayclient.DeviceLimit, error)
+	HostedMCPServerLimit(context.Context) (gatewayclient.HostedMCPServerLimit, error)
+	AuditLogRetention(context.Context) (gatewayclient.AuditLogRetention, error)
 }
 
 type ProviderEntitlementGate struct {
@@ -139,7 +163,7 @@ func (p *Provider) missingEntitlements(requiredEntitlements []string) []string {
 // OBOT_ENTERPRISE grants unlimited users unless one or more
 // OBOT_ENTERPRISE_<number>_USERS entitlements define an additive limit.
 func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, error) {
-	maximum, unlimited, err := p.resourceLimit(ctx, userLimitEntitlementUsersSuffix, gatewayclient.DefaultUserLimit)
+	maximum, unlimited, err := p.resourceLimit(ctx, UsersEntitlementSuffix, gatewayclient.DefaultUserLimit)
 	if err != nil {
 		return gatewayclient.UserLimit{}, err
 	}
@@ -153,7 +177,7 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 // OBOT_ENTERPRISE grants unlimited devices unless one or more
 // OBOT_ENTERPRISE_<number>_DEVICES entitlements define an additive limit.
 func (p *Provider) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
-	maximum, unlimited, err := p.resourceLimit(ctx, deviceLimitEntitlementDevicesSuffix, gatewayclient.DefaultDeviceLimit)
+	maximum, unlimited, err := p.resourceLimit(ctx, DevicesEntitlementSuffix, gatewayclient.DefaultDeviceLimit)
 	if err != nil {
 		return gatewayclient.DeviceLimit{}, err
 	}
@@ -163,24 +187,76 @@ func (p *Provider) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, 
 	}, nil
 }
 
-func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, defaultMaximum int64) (int64, bool, error) {
-	if err := p.refresh(ctx, false); err != nil {
-		return 0, false, err
+// HostedMCPServerLimit returns the maximum number of hosted MCP servers allowed by
+// the current license. OBOT_ENTERPRISE grants unlimited hosted servers unless one
+// or more OBOT_<number>_HOSTED_MCP_SERVERS entitlements define an additive limit.
+func (p *Provider) HostedMCPServerLimit(ctx context.Context) (gatewayclient.HostedMCPServerLimit, error) {
+	maximum, unlimited, err := p.resourceLimit(ctx, HostedMCPServersEntitlementSuffix, gatewayclient.DefaultHostedMCPServerLimit)
+	if err != nil {
+		return gatewayclient.HostedMCPServerLimit{}, err
 	}
+	return gatewayclient.HostedMCPServerLimit{
+		Maximum:   maximum,
+		Unlimited: unlimited,
+	}, nil
+}
 
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+// AuditLogRetention returns how long the current license allows MCP and LLM audit
+// logs to be kept. No entitlement leaves the retention undefined, so the server's
+// configured retention applies.
+func (p *Provider) AuditLogRetention(ctx context.Context) (gatewayclient.AuditLogRetention, error) {
+	days, unlimited, err := p.resourceLimit(ctx, AuditLogDaysEntitlementSuffix, gatewayclient.DefaultAuditLogRetentionDays)
+	if err != nil {
+		return gatewayclient.AuditLogRetention{}, err
+	}
+	return gatewayclient.AuditLogRetention{
+		Days:      days,
+		Unlimited: unlimited,
+	}, nil
+}
 
-	var maximum int64
-	var isEnterpriseEdition bool
-	for entitlement := range p.entitlements {
-		code := string(entitlement)
+// ResourceLimit resolves a numeric resource limit from a set of entitlement names.
+//
+// A limit is spelled OBOT_<number><suffix> or OBOT_ENTERPRISE_<number><suffix>;
+// matching entitlements are summed. Names whose middle segment is not a number are
+// ignored. OBOT_ENTERPRISE on its own makes the limit unlimited, unless a numeric
+// entitlement defines one. When nothing defines a limit, defaultMaximum applies.
+func ResourceLimit(entitlements []string, entitlementSuffix string, defaultMaximum int64) (int64, bool) {
+	var (
+		maximum             int64
+		isEnterpriseEdition bool
+	)
+	for _, code := range entitlements {
 		if code == EnterpriseEntitlement {
 			isEnterpriseEdition = true
 			continue
 		}
 
-		value, ok := strings.CutPrefix(code, enterpriseLimitEntitlementPrefix)
+		value, ok := entitlementLimit(code, entitlementSuffix)
+		if !ok {
+			continue
+		}
+
+		if value > math.MaxInt64-maximum {
+			maximum = math.MaxInt64
+		} else {
+			maximum += value
+		}
+	}
+
+	unlimited := isEnterpriseEdition && maximum == 0
+	if maximum == 0 && !unlimited {
+		maximum = defaultMaximum
+	}
+
+	return maximum, unlimited
+}
+
+// entitlementLimit returns the positive number an entitlement name encodes for the
+// given suffix.
+func entitlementLimit(code, entitlementSuffix string) (int64, bool) {
+	for _, prefix := range limitEntitlementPrefixes {
+		value, ok := strings.CutPrefix(code, prefix)
 		if !ok {
 			continue
 		}
@@ -194,23 +270,28 @@ func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, 
 			continue
 		}
 
-		entitlementMaximum, err := strconv.ParseInt(value, 10, 64)
-		if err != nil || entitlementMaximum <= 0 {
+		limit, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || limit <= 0 {
 			continue
 		}
+		return limit, true
+	}
+	return 0, false
+}
 
-		if entitlementMaximum > math.MaxInt64-maximum {
-			maximum = math.MaxInt64
-		} else {
-			maximum += entitlementMaximum
-		}
+func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, defaultMaximum int64) (int64, bool, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return 0, false, err
 	}
 
-	unlimited := isEnterpriseEdition && maximum == 0
-	if maximum == 0 && !unlimited {
-		maximum = defaultMaximum
+	p.lock.RLock()
+	entitlements := make([]string, 0, len(p.entitlements))
+	for entitlement := range p.entitlements {
+		entitlements = append(entitlements, string(entitlement))
 	}
+	p.lock.RUnlock()
 
+	maximum, unlimited := ResourceLimit(entitlements, entitlementSuffix, defaultMaximum)
 	return maximum, unlimited, nil
 }
 
