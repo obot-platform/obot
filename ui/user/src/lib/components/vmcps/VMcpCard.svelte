@@ -172,6 +172,7 @@
 			{onConnect}
 			{hideTest}
 			disabled={!ctx.canConnect}
+			isShared={ctx.isShared}
 		/>
 	</div>
 

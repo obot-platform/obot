@@ -40,7 +40,8 @@
 		profile,
 		mcpServersAndEntries,
 		mcpTunnelConnections,
-		version
+		version,
+		vmcpInstances
 	} from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -168,6 +169,11 @@
 			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
 		)
 	);
+
+	let vmcpInstancesMap = $derived(
+		new Map(vmcpInstances.current.items.map((instance) => [instance.id, instance]))
+	);
+
 	let tableRef = $state<ReturnType<typeof Table>>();
 
 	let entriesMap = $derived(
@@ -180,20 +186,15 @@
 	let tableData = $derived.by(() => {
 		const vmcpsMap = new Map(vmcps.map((v) => [v.id, v]));
 
-		const getVMcps = (deployment: MCPCatalogServer) => {
+		const getVMcp = (deployment: MCPCatalogServer) => {
 			if (deployment.vmcpID) {
-				return [vmcpsMap.get(deployment.vmcpID)?.displayName ?? 'Unknown'];
+				return vmcpsMap.get(deployment.vmcpID)?.displayName;
 			}
-			if (deployment.vmcpComponentID) {
-				return vmcps.reduce<string[]>((acc, vmcp) => {
-					const components = vmcp.components ?? [];
-					if (components.some((c) => c.id === deployment.vmcpComponentID)) {
-						acc.push(vmcp.displayName ?? 'Unknown');
-					}
-					return acc;
-				}, []);
+			if (deployment.vmcpInstanceID) {
+				const instance = vmcpInstancesMap.get(deployment.vmcpInstanceID);
+				return instance?.vmcpID && vmcpsMap.get(instance?.vmcpID)?.displayName;
 			}
-			return [];
+			return undefined;
 		};
 		const transformedData = serversData
 			// Legacy children can remain until migration cleanup finishes.
@@ -223,7 +224,7 @@
 								updateStatusTooltip: undefined
 							}
 						: getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
-				const vmcps = getVMcps(deployment);
+				const vmcp = getVMcp(deployment);
 
 				return {
 					...deployment,
@@ -247,7 +248,7 @@
 						deployment.missingRequiredEnvVars,
 						deployment.missingRequiredHeader
 					),
-					vmcps
+					vmcp
 				};
 			})
 			.filter((d) => !onlyMyServers || d.isMyServer);
@@ -273,6 +274,12 @@
 			await reload(false);
 		}
 	}
+
+	$effect(() => {
+		if (profile.current.loaded) {
+			return vmcpInstances.startWatching();
+		}
+	});
 
 	onMount(async () => {
 		loadingVMcps = true;
@@ -615,7 +622,6 @@
 							'type',
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
-							'vmcps',
 							'created'
 						]
 					: [
@@ -624,7 +630,6 @@
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
 							'userName',
-							'vmcps',
 							'registry',
 							'created'
 						]}
@@ -634,16 +639,14 @@
 					'deploymentStatus',
 					'updatesAvailable',
 					'userName',
-					'registry',
-					'vmcps'
+					'registry'
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
 					{ title: 'Name', property: 'displayName' },
 					{ title: 'User', property: 'userName' },
 					{ title: 'Health', property: 'deploymentStatus' },
-					{ title: 'Update Status', property: 'updatesAvailable' },
-					{ title: 'vMCP(s)', property: 'vmcps' }
+					{ title: 'Update Status', property: 'updatesAvailable' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
@@ -689,6 +692,9 @@
 							</div>
 							<p class="flex flex-col">
 								{d.displayName}
+								{#if d.vmcp}
+									<span class="text-muted-content/75 text-xs font-light">({d.vmcp})</span>
+								{/if}
 							</p>
 							<McpDeprecatedNotice item={d} />
 							{#if shouldShowMcpTunnelDisconnectedBadge(d.tunnelDisconnected, doesSupportK8sUpdates)}
@@ -733,12 +739,6 @@
 							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
 								<UsersIcon class="size-3 text-muted-content" />
 							</div>
-						{/if}
-					{:else if property === 'vmcps'}
-						{#if d.vmcps}
-							{d.vmcps}
-						{:else}
-							--
 						{/if}
 					{:else}
 						{d[property as keyof typeof d]}

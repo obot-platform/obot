@@ -3,6 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
+	import { OBOT_ADMIN_PICKER_ID } from '$lib/subjectResolver';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -50,7 +51,7 @@
 
 	let filteredData = $derived.by(() => {
 		const everyoneGroup: OrgGroup = { id: '*', name: 'All Obot Users' };
-		const adminGroup: OrgGroup = { id: 'admin', name: 'admin' };
+		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
 		const query = searchNames.toLowerCase();
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);

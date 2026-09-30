@@ -21,7 +21,12 @@
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
-	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
+	import {
+		convertSubjectsToTableData,
+		resolveSubjects,
+		resolveSubjectFromGroup,
+		resolveSubjectPickerById
+	} from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
@@ -294,7 +299,7 @@
 								variant="danger"
 								onclick={() => {
 									accessControlRule.subjects = accessControlRule.subjects?.filter(
-										(subject) => subject.id !== d.id
+										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
 								tooltip={{ text: 'Delete User/Group' }}
@@ -440,10 +445,10 @@
 
 <SearchUsers
 	bind:this={addUserGroupDialog}
-	filterIds={accessControlRule.subjects?.map((subject) => subject.id) ?? []}
+	filterIds={accessControlRule.subjects?.map(resolveSubjectPickerById) ?? []}
 	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
 		const existingSubjectIds = new Set(
-			accessControlRule.subjects?.map((subject) => subject.id) ?? []
+			accessControlRule.subjects?.map(resolveSubjectPickerById) ?? []
 		);
 		const newSubjects = [
 			...users
@@ -454,10 +459,7 @@
 				})),
 			...groups
 				.filter((group: OrgGroup) => !existingSubjectIds.has(group.id))
-				.map((group: OrgGroup) => ({
-					type: group.id === '*' ? ('selector' as const) : ('group' as const),
-					id: group.id
-				}))
+				.map((group: OrgGroup) => resolveSubjectFromGroup(group))
 		];
 		accessControlRule.subjects = [...(accessControlRule.subjects ?? []), ...newSubjects];
 	}}

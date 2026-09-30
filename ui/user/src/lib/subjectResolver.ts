@@ -1,10 +1,38 @@
 import {
+	Group,
 	UserService,
 	type AccessControlRuleSubject,
 	type OrgGroup,
-	type OrgUser
+	type OrgUser,
+	type Profile
 } from '$lib/services';
 import { getUserDisplayName } from '$lib/utils';
+
+const EVERYONE_SUBJECT_ID = '*';
+export const OBOT_ADMIN_PICKER_ID = 'obot-admin';
+
+export function resolveSubjectFromGroup(group: OrgGroup): AccessControlRuleSubject {
+	if (group.id === EVERYONE_SUBJECT_ID) {
+		return { type: 'selector', id: group.id };
+	}
+	if (group.id === OBOT_ADMIN_PICKER_ID) {
+		return { type: 'obotGroup', id: Group.ADMIN };
+	}
+	return { type: 'group', id: group.id };
+}
+
+export function resolveSubjectPickerById(
+	subject: Pick<AccessControlRuleSubject, 'type' | 'id'>
+): string {
+	if (subject.type === 'obotGroup' && subject.id === Group.ADMIN) {
+		return OBOT_ADMIN_PICKER_ID;
+	}
+	return subject.id;
+}
+
+function obotGroupDisplayName(id: string): string {
+	return `Obot ${id.charAt(0).toUpperCase()}${id.slice(1)}`;
+}
 
 export interface SubjectTableRow {
 	id: string;
@@ -51,7 +79,7 @@ export async function resolveSubjects(
 				.filter((subject) => subject.type === 'group')
 				.map((subject) => subject.id)
 				// The "all users" pseudo-group is client-side only and has no directory entry.
-				.filter((id) => id !== '*' && !known.has(id))
+				.filter((id) => id !== EVERYONE_SUBJECT_ID && !known.has(id))
 		)
 	];
 
@@ -101,12 +129,52 @@ export function convertSubjectsToTableData(
 					};
 				}
 
+				if (subject.type === 'obotGroup') {
+					return {
+						id: resolveSubjectPickerById(subject),
+						displayName: obotGroupDisplayName(subject.id),
+						type: 'Group'
+					};
+				}
+
 				return {
 					id: subject.id,
-					displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
+					displayName: subject.id === EVERYONE_SUBJECT_ID ? 'All Obot Users' : subject.id,
 					type: 'Selector'
 				};
 			})
 			.filter((subject): subject is SubjectTableRow => subject !== undefined) ?? []
 	);
+}
+
+export function hasAccessWithinSubjects(
+	subjects: AccessControlRuleSubject[],
+	profile: Profile
+): boolean {
+	for (const subject of subjects) {
+		if (subject.type === 'selector' && subject.id === EVERYONE_SUBJECT_ID) {
+			return true;
+		}
+
+		if (subject.type === 'user' && subject.id === profile.id) {
+			return true;
+		}
+
+		if (
+			subject.type === 'group' &&
+			profile.authProviderGroups &&
+			profile.authProviderGroups.some((group) => group === subject.id)
+		) {
+			return true;
+		}
+
+		if (
+			subject.type === 'obotGroup' &&
+			profile.groups &&
+			profile.groups.some((group) => group === subject.id)
+		) {
+			return true;
+		}
+	}
+	return false;
 }

@@ -923,6 +923,7 @@ export interface OrgUser {
 	role: number;
 	effectiveRole: number;
 	groups: string[];
+	authProviderGroups?: string[];
 	iconURL: string;
 	id: string;
 	lastActiveDay?: string;
@@ -965,6 +966,7 @@ export interface Profile {
 	role: number;
 	effectiveRole: number;
 	groups: string[];
+	authProviderGroups?: string[];
 	loaded?: boolean;
 	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;

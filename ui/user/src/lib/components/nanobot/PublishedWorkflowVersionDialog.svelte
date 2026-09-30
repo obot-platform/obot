@@ -12,6 +12,7 @@
 		PublishedArtifactUpdateRequest
 	} from '$lib/services/nanobot/types';
 	import { responsive } from '$lib/stores';
+	import { resolveSubjectFromGroup, resolveSubjectPickerById } from '$lib/subjectResolver';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
 	import MarkdownEditor from './MarkdownEditor.svelte';
@@ -121,6 +122,9 @@
 		if (subject.type === 'selector' && subject.id === '*') {
 			return 'All Obot Users';
 		}
+		if (subject.type === 'obotGroup') {
+			return `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`;
+		}
 		if (subject.type === 'group') {
 			return groupMap.get(subject.id)?.name ?? subject.id;
 		}
@@ -131,7 +135,7 @@
 		if (subject.type === 'selector') {
 			return 'Everyone';
 		}
-		return subject.type === 'group' ? 'Group' : 'User';
+		return subject.type === 'group' || subject.type === 'obotGroup' ? 'Group' : 'User';
 	}
 </script>
 
@@ -330,10 +334,10 @@
 
 <SearchUsers
 	bind:this={addUserGroupDialog}
-	filterIds={activeSubjects.map((subject) => subject.id)}
+	filterIds={activeSubjects.map(resolveSubjectPickerById)}
 	initialUsers={users}
 	onAdd={(addedUsers: OrgUser[], addedGroups: OrgGroup[]) => {
-		const existingSubjectIds = new Set(activeSubjects.map((subject) => subject.id));
+		const existingSubjectIds = new Set(activeSubjects.map(resolveSubjectPickerById));
 		const nextSubjects = addedGroups.some((entry) => entry.id === '*')
 			? [{ type: 'selector' as const, id: '*' }]
 			: [
@@ -345,10 +349,7 @@
 						.map((entry) => ({ type: 'user' as const, id: entry.id })),
 					...addedGroups
 						.filter((entry) => !existingSubjectIds.has(entry.id))
-						.map((entry) => ({
-							type: 'group' as const,
-							id: entry.id
-						}))
+						.map((entry) => resolveSubjectFromGroup(entry))
 				];
 		persistSubjects(nextSubjects);
 	}}

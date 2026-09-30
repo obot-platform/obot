@@ -12,7 +12,12 @@
 		type PolicyDirection
 	} from '$lib/services';
 	import { goto } from '$lib/url';
-	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
+	import {
+		convertSubjectsToTableData,
+		resolveSubjects,
+		resolveSubjectFromGroup,
+		resolveSubjectPickerById
+	} from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -262,7 +267,7 @@
 								variant="danger"
 								onclick={() => {
 									messagePolicy.subjects = messagePolicy.subjects?.filter(
-										(subject) => subject.id !== d.id
+										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
 								tooltip={{ text: 'Delete User/Group' }}
@@ -348,9 +353,9 @@
 
 <SearchUsers
 	bind:this={addUserGroupDialog}
-	filterIds={messagePolicy.subjects?.map((subject) => subject.id) ?? []}
+	filterIds={messagePolicy.subjects?.map(resolveSubjectPickerById) ?? []}
 	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
-		const existingSubjectIds = new Set(messagePolicy.subjects?.map((subject) => subject.id) ?? []);
+		const existingSubjectIds = new Set(messagePolicy.subjects?.map(resolveSubjectPickerById) ?? []);
 		const newSubjects = [
 			...users
 				.filter((user: OrgUser) => !existingSubjectIds.has(user.id))
@@ -360,10 +365,7 @@
 				})),
 			...groups
 				.filter((group: OrgGroup) => !existingSubjectIds.has(group.id))
-				.map((group: OrgGroup) => ({
-					type: group.id === '*' ? ('selector' as const) : ('group' as const),
-					id: group.id
-				}))
+				.map((group: OrgGroup) => resolveSubjectFromGroup(group))
 		];
 		messagePolicy.subjects = [...(messagePolicy.subjects ?? []), ...newSubjects];
 	}}

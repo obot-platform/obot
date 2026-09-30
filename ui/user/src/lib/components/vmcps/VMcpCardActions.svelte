@@ -15,6 +15,7 @@
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		id: string;
 		disabled?: boolean;
+		isShared?: boolean;
 		hideTest?: boolean;
 	}
 
@@ -25,6 +26,7 @@
 		onConnect,
 		id,
 		disabled,
+		isShared,
 		hideTest = false
 	}: Props = $props();
 
@@ -56,7 +58,9 @@
 			text: hasLicenseEntitlementViolations
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 				: disabled
-					? 'Cannot connect or test a personal vMCP'
+					? !isShared
+						? 'Cannot connect or test a personal vMCP'
+						: 'Requires access to connect or test this vMCP'
 					: undefined
 		}}
 		class="flex grow"

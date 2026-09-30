@@ -96,9 +96,12 @@
 		return hasLicenseEntitlementViolations || !canConnect;
 	}
 
-	function connectDisabledMessage(canConnect: boolean) {
+	function connectDisabledMessage(ctx: ReturnType<typeof vmcpItemContext>) {
 		if (hasLicenseEntitlementViolations) return MCP_CONNECTION_INVALID_LICENSE_MESSAGE;
-		if (!canConnect) return 'Cannot connect or test a personal vMCP';
+		if (!ctx.canConnect)
+			return ctx.isShared
+				? 'Requires access to connect or test this vMCP'
+				: 'Cannot connect or test a personal vMCP';
 		return undefined;
 	}
 
@@ -417,17 +420,19 @@
 				{@const ctx = vmcpItemContext(row.vmcp)}
 				<div class="flex items-center gap-2">
 					{#if !responsive.isMobile}
-						<button
-							class="btn rounded-md border border-base-300 dark:border-base-400 bg-primary/10 font-mono text-[10px] uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content"
-							onclick={(e) => {
-								e.stopPropagation();
-								connectHandler(row.vmcp);
-							}}
-							disabled={connectDisabled(ctx.canConnect)}
-							aria-disabled={connectDisabled(ctx.canConnect)}
-						>
-							Connect
-						</button>
+						<div use:tooltip={{ text: connectDisabledMessage(ctx) }}>
+							<button
+								class="btn rounded-md border border-base-300 dark:border-base-400 bg-primary/10 font-mono text-[10px] uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content"
+								onclick={(e) => {
+									e.stopPropagation();
+									connectHandler(row.vmcp);
+								}}
+								disabled={connectDisabled(ctx.canConnect)}
+								aria-disabled={connectDisabled(ctx.canConnect)}
+							>
+								Connect
+							</button>
+						</div>
 						<IconButton
 							tooltip={{ text: 'Test vMCP' }}
 							onclick={(e) => {
@@ -451,11 +456,11 @@
 							{/snippet}
 
 							{#snippet children({ toggle })}
-								{#if responsive.isMobile && ctx.canConnect}
+								{#if responsive.isMobile}
 									<button
 										class="menu-button"
 										disabled={connectDisabled(ctx.canConnect)}
-										use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+										use:tooltip={{ text: connectDisabledMessage(ctx) }}
 										onclick={(e) => {
 											e.stopPropagation();
 											connectHandler(row.vmcp);
@@ -467,7 +472,7 @@
 									<button
 										class="menu-button"
 										disabled={connectDisabled(ctx.canConnect)}
-										use:tooltip={{ text: connectDisabledMessage(ctx.canConnect) }}
+										use:tooltip={{ text: connectDisabledMessage(ctx) }}
 										onclick={(e) => {
 											e.stopPropagation();
 											handleTest(row.vmcp, toggle);
@@ -490,6 +495,8 @@
 								{/if}
 							{/snippet}
 						</DotDotDot>
+					{:else}
+						<div class="size-10"></div>
 					{/if}
 				</div>
 			{/snippet}

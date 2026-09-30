@@ -8,6 +8,7 @@ import {
 } from '$lib/services/vmcps/utils';
 import { errors, profile, vmcpInstances } from '$lib/stores';
 import { success } from '$lib/stores/success';
+import { hasAccessWithinSubjects } from '$lib/subjectResolver';
 import { poll } from '$lib/utils';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -38,6 +39,10 @@ export function vmcpItemContext(vmcp: VMCP) {
 	const isCreator = Boolean(vmcp.userID && profile.current.id === vmcp.userID);
 	const canUpdate = Boolean(profile.current.isAdmin?.() || isCreator);
 	const canDelete = canUpdate && !isCatalogSyncedVMcp(vmcp);
+	const canConnect = !vmcp.userID
+		? hasAccessWithinSubjects(vmcp.profiles?.flatMap((p) => p.subjects) ?? [], profile.current)
+		: isCreator;
+
 	const myInstances = vmcpInstances.current.items.filter(
 		(instance) =>
 			instance.vmcpID === vmcp.id && instance.userID === profile.current.id && !instance.deleted
@@ -50,7 +55,7 @@ export function vmcpItemContext(vmcp: VMCP) {
 		isCreator,
 		canDelete,
 		canUpdate,
-		canConnect: !vmcp.userID || isCreator,
+		canConnect,
 		needsUpdate: vmcpNeedsUpdate(vmcp),
 		needsAdminConfiguration: vmcpNeedsAdminConfiguration(vmcp),
 		myInstances,
@@ -60,7 +65,8 @@ export function vmcpItemContext(vmcp: VMCP) {
 			vmcpHasUserAllowedConfiguration(vmcp) && myInstances.length > 0
 		),
 		hasActions: isCreator || Boolean(profile.current.hasAdminAccess?.()) || myInstances.length > 0,
-		name: vmcp.displayName || 'Untitled vMCP'
+		name: vmcp.displayName || 'Untitled vMCP',
+		isShared: !vmcp.userID
 	};
 }
 

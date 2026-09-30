@@ -7446,6 +7446,11 @@ func (in *User) DeepCopyInto(out *User) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.AuthProviderGroups != nil {
+		in, out := &in.AuthProviderGroups, &out.AuthProviderGroups
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.LastActiveDay.DeepCopyInto(&out.LastActiveDay)
 	if in.DeletedAt != nil {
 		in, out := &in.DeletedAt, &out.DeletedAt

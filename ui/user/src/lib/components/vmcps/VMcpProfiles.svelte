@@ -34,7 +34,12 @@
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
 	import { vmcpManifest } from '$lib/services/vmcps/utils';
 	import { success } from '$lib/stores/success';
-	import { resolveSubjects } from '$lib/subjectResolver';
+	import {
+		OBOT_ADMIN_PICKER_ID,
+		resolveSubjects,
+		resolveSubjectFromGroup,
+		resolveSubjectPickerById
+	} from '$lib/subjectResolver';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -89,6 +94,7 @@
 	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
 	const EVERYONE_GROUP: OrgGroup = { id: '*', name: 'All Obot Users' };
+	const ADMIN_GROUP: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
 	const GROUP_PAGE_SIZE = 50;
 
 	const nameError = $derived(
@@ -96,13 +102,14 @@
 	);
 	const subjectsError = $derived(error === 'Assign at least one person or group.');
 	const componentServers = $derived(vmcp?.components ?? []);
-	const assignedSubjectIds = $derived(new Set(draft?.users.map((subject) => subject.id) ?? []));
+	const assignedSubjectIds = $derived(new Set(draft?.users.map(resolveSubjectPickerById) ?? []));
 	const groupsById = $derived(
 		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
 	);
 	const subjectOptions = $derived.by(() => {
 		const query = subjectQuery.trim().toLowerCase();
 		const everyoneMatches = !query || EVERYONE_GROUP.name.toLowerCase().includes(query);
+		const adminMatches = !query || ADMIN_GROUP.name.toLowerCase().includes(query);
 		const users = query
 			? directoryUsers.filter(
 					(user) =>
@@ -111,7 +118,11 @@
 						(user.username ?? '').toLowerCase().includes(query)
 				)
 			: directoryUsers;
-		const groups = everyoneMatches ? [EVERYONE_GROUP, ...directoryGroups] : directoryGroups;
+		const groups = [
+			...(everyoneMatches ? [EVERYONE_GROUP] : []),
+			...(adminMatches ? [ADMIN_GROUP] : []),
+			...directoryGroups
+		];
 		return [...groups, ...users]
 			.filter((entry) => !assignedSubjectIds.has(entry.id))
 			.map((entry) => ({
@@ -573,7 +584,7 @@
 
 	function toSubject(entry: OrgUser | OrgGroup): AccessControlRuleSubject {
 		if (!isDirectoryGroup(entry)) return { type: 'user', id: entry.id };
-		return { type: entry.id === EVERYONE_GROUP.id ? 'selector' : 'group', id: entry.id };
+		return resolveSubjectFromGroup(entry);
 	}
 
 	function rememberResolvedGroups(groups: OrgGroup[]) {
@@ -631,14 +642,22 @@
 		if (readonly) return;
 		subjectSelection = undefined;
 		if (!draft) return;
-		if (draft.users.some((candidate) => candidate.id === subject.id)) return;
+		if (
+			draft.users.some(
+				(candidate) => candidate.type === subject.type && candidate.id === subject.id
+			)
+		) {
+			return;
+		}
 		draft.users = [...draft.users, subject];
 		if (subjectsError) error = '';
 	}
 
-	function removeSubject(id: string) {
+	function removeSubject(subject: AccessControlRuleSubject) {
 		if (readonly || !draft) return;
-		draft.users = draft.users.filter((subject) => subject.id !== id);
+		draft.users = draft.users.filter(
+			(candidate) => !(candidate.type === subject.type && candidate.id === subject.id)
+		);
 	}
 
 	async function loadUsers() {
@@ -1171,7 +1190,7 @@
 					</div>
 				{:else}
 					<div class="flex flex-col mt-2">
-						{#each draft.users as subject, index (subject.id)}
+						{#each draft.users as subject, index (`${subject.type}:${subject.id}`)}
 							{@const display = subjectDisplay(subject)}
 							<div
 								class="p-2 flex justify-between items-center"
@@ -1214,7 +1233,7 @@
 									<IconButton
 										class="size-8"
 										tooltip={{ text: `Remove ${display.name}` }}
-										onclick={() => removeSubject(subject.id)}
+										onclick={() => removeSubject(subject)}
 										variant="danger"
 									>
 										<X class="size-4" />

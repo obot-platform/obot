@@ -12,10 +12,11 @@ import (
 
 func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T) {
 	tests := []struct {
-		name      string
-		user      kuser.Info
-		subjectID string
-		want      bool
+		name        string
+		user        kuser.Info
+		subjectType types.SubjectType
+		subjectID   string
+		want        bool
 	}{
 		{
 			name: "owner matches inherited admin role group",
@@ -23,8 +24,9 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 				UID:    "owner",
 				Groups: types.RoleOwner.Groups(),
 			},
-			subjectID: types.GroupAdmin,
-			want:      true,
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   types.GroupAdmin,
+			want:        true,
 		},
 		{
 			name: "auth provider group still matches",
@@ -34,8 +36,9 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 					"auth_provider_groups": {"idp-team"},
 				},
 			},
-			subjectID: "idp-team",
-			want:      true,
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   "idp-team",
+			want:        true,
 		},
 		{
 			name: "unrelated group does not match",
@@ -43,8 +46,31 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 				UID:    "basic",
 				Groups: []string{types.GroupBasic},
 			},
-			subjectID: types.GroupAdmin,
-			want:      false,
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   types.GroupAdmin,
+			want:        false,
+		},
+		{
+			name: "obot admin matches role group",
+			user: &kuser.DefaultInfo{
+				UID:    "admin",
+				Groups: []string{types.GroupAdmin},
+			},
+			subjectType: types.SubjectTypeObotGroup,
+			subjectID:   types.GroupAdmin,
+			want:        true,
+		},
+		{
+			name: "obot group does not match auth provider group",
+			user: &kuser.DefaultInfo{
+				UID: "member",
+				Extra: map[string][]string{
+					"auth_provider_groups": {types.GroupAdmin},
+				},
+			},
+			subjectType: types.SubjectTypeObotGroup,
+			subjectID:   types.GroupAdmin,
+			want:        false,
 		},
 	}
 
@@ -67,7 +93,7 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 					MCPCatalogID: system.DefaultCatalog,
 					Manifest: types.AccessControlRuleManifest{
 						Subjects: []types.Subject{{
-							Type: types.SubjectTypeGroup,
+							Type: tt.subjectType,
 							ID:   tt.subjectID,
 						}},
 						Resources: []types.Resource{{

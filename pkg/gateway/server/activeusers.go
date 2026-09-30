@@ -23,11 +23,24 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 		return err
 	}
 
-	items := make([]types2.User, 0, len(activeUsers))
+	visibleUsers := make([]types.User, 0, len(activeUsers))
+	userIDs := make([]uint, 0, len(activeUsers))
 	for _, user := range activeUsers {
-		if user.Username != system.BootstrapName && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
+		if user.Username != system.BootstrapName && user.Email != "" {
+			visibleUsers = append(visibleUsers, user)
+			userIDs = append(userIDs, user.ID)
 		}
+	}
+	userGroupMemberships, err := apiContext.GatewayClient.GetUserGroupMemberships(apiContext.Context(), userIDs)
+	if err != nil {
+		return err
+	}
+
+	items := make([]types2.User, 0, len(activeUsers))
+	for _, user := range visibleUsers {
+		result := types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "")
+		result.AuthProviderGroups = userGroupMemberships[user.ID]
+		items = append(items, *result)
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})

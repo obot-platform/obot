@@ -161,8 +161,9 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 	}
 
 	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
+		userID     = user.GetUID()
+		groups     = authGroupSet(user)
+		roleGroups = roleGroupSet(user)
 	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
@@ -173,6 +174,10 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
 					return true, nil
 				}
 			case types.SubjectTypeSelector:
@@ -200,6 +205,10 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 				if _, ok := groups[subject.ID]; ok {
 					return true, nil
 				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
+					return true, nil
+				}
 			case types.SubjectTypeSelector:
 				if subject.ID == "*" {
 					return true, nil
@@ -221,8 +230,9 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 	}
 
 	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
+		userID     = user.GetUID()
+		groups     = authGroupSet(user)
+		roleGroups = roleGroupSet(user)
 	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
@@ -233,6 +243,10 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
 					return true, nil
 				}
 			case types.SubjectTypeSelector:
@@ -258,6 +272,10 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
 					return true, nil
 				}
 			case types.SubjectTypeSelector:
@@ -402,8 +420,9 @@ func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector
 // UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID, serverUserID string) (bool, error) {
 	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
+		userID     = user.GetUID()
+		groups     = authGroupSet(user)
+		roleGroups = roleGroupSet(user)
 	)
 
 	// If the server is owned by the current user, they have access to it to ignore the AccessControlRules
@@ -426,6 +445,10 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
 					return true, nil
 				}
 			case types.SubjectTypeSelector:
@@ -453,6 +476,10 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 				if _, ok := groups[subject.ID]; ok {
 					return true, nil
 				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
+					return true, nil
+				}
 			case types.SubjectTypeSelector:
 				if subject.ID == "*" {
 					return true, nil
@@ -473,8 +500,9 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 	}
 
 	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
+		userID     = user.GetUID()
+		groups     = authGroupSet(user)
+		roleGroups = roleGroupSet(user)
 	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
@@ -485,6 +513,10 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 				}
 			case types.SubjectTypeGroup:
 				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
 					return true, nil
 				}
 			case types.SubjectTypeSelector:
@@ -512,6 +544,10 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 				if _, ok := groups[subject.ID]; ok {
 					return true, nil
 				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := roleGroups[subject.ID]; ok {
+					return true, nil
+				}
 			case types.SubjectTypeSelector:
 				if subject.ID == "*" {
 					return true, nil
@@ -535,13 +571,22 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 }
 
 func authGroupSet(user kuser.Info) map[string]struct{} {
-	roleGroups := user.GetGroups()
+	roleGroups := roleGroupSet(user)
 	authProviderGroups := user.GetExtra()["auth_provider_groups"]
 	set := make(map[string]struct{}, len(roleGroups)+len(authProviderGroups))
-	for _, group := range roleGroups {
+	for group := range roleGroups {
 		set[group] = struct{}{}
 	}
 	for _, group := range authProviderGroups {
+		set[group] = struct{}{}
+	}
+	return set
+}
+
+func roleGroupSet(user kuser.Info) map[string]struct{} {
+	roleGroups := user.GetGroups()
+	set := make(map[string]struct{}, len(roleGroups))
+	for _, group := range roleGroups {
 		set[group] = struct{}{}
 	}
 	return set
