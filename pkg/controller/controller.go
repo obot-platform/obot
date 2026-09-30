@@ -366,6 +366,8 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	go c.retriggerCatalogEntries(ctx, client)
 
 	go c.runServiceAccountKeyRotation(ctx)
+
+	go c.services.BillingClient.Poll(ctx)
 }
 
 // retriggerCatalogEntries touches all MCPServerCatalogEntries to trigger their handlers,
