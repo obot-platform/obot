@@ -596,7 +596,7 @@
 
 	function goToUpdateVmcps() {
 		closeUpdateExistingConfirm();
-		goto(`/vmcps?components=${entry?.id}&status=needs-update`);
+		goto(`/vmcps?components=${entry?.id}`);
 	}
 
 	async function reloadConfiguredServers() {
