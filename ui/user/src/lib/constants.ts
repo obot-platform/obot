@@ -11,7 +11,12 @@ export const UNAUTHORIZED_PATHS = new Set([
 	'/login/local',
 	// Activation carries its setup token in the URL fragment, so redirecting an anonymous visitor
 	// away would discard the only browser-side copy of it.
-	'/activate'
+	'/activate',
+	// The login page of the Okta SCIM provisioning app, which explains to anyone who opens the app
+	// that it does not sign them in. Okta requires a separate app just to act as a SCIM provisioning
+	// container, and it needs a login URL, even though it will never be used for login. So we point
+	// it to this page.
+	'/okta-scim'
 ]);
 
 export const PAGE_TRANSITION_DURATION = 200;
