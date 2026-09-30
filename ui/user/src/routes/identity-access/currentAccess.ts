@@ -7,13 +7,21 @@ import {
 
 export type CurrentAccessKind = 'user' | 'group';
 
-export type AccessMatchReason = 'everyone' | 'direct-user' | 'direct-group' | 'via-group';
+export type AccessMatchReason =
+	| 'everyone'
+	| 'direct-user'
+	| 'direct-group'
+	| 'via-group'
+	| 'via-role'
+	| 'owner';
 
 export interface CurrentAccessTarget {
 	kind: CurrentAccessKind;
 	id: string;
 	name: string;
 	groupIds?: string[];
+	/** Obot role groups (for example `admin`) the user belongs to through their effective role. */
+	obotGroups?: string[];
 }
 
 export type AccessResourceType =
@@ -79,7 +87,9 @@ export const ACCESS_MATCH_REASON_LABEL: Record<AccessMatchReason, string> = {
 	everyone: 'All Obot Users',
 	'direct-user': 'Assigned to this user',
 	'direct-group': 'Assigned to this group',
-	'via-group': 'Via group membership'
+	'via-group': 'Via group membership',
+	'via-role': 'Via role',
+	owner: 'Owned by this user'
 };
 
 export function isEveryoneSubject(subject: AccessControlRuleSubject): boolean {
@@ -99,6 +109,7 @@ export function subjectsApplyTo(
 	if (target.kind === 'group') {
 		groupIds.add(target.id);
 	}
+	const obotGroups = new Set(target.kind === 'user' ? (target.obotGroups ?? []) : []);
 
 	for (const subject of subjects) {
 		if (isEveryoneSubject(subject)) {
@@ -113,6 +124,11 @@ export function subjectsApplyTo(
 
 		if (subject.type === 'group' && groupIds.has(subject.id)) {
 			reasons.add(target.kind === 'group' ? 'direct-group' : 'via-group');
+			continue;
+		}
+
+		if (subject.type === 'obotGroup' && obotGroups.has(subject.id)) {
+			reasons.add('via-role');
 		}
 	}
 
@@ -128,6 +144,10 @@ export function mcpAccessPolicyHref(rule: AccessControlRule): `/${string}` {
 
 export function vmcpAccessHref(id: string): `/${string}` {
 	return `/vmcps/${id}?view=profiles`;
+}
+
+export function personalVmcpHref(id: string): `/${string}` {
+	return `/vmcps/${id}`;
 }
 
 function matchPolicies<
@@ -244,9 +264,23 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 
 function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedAccessPolicy[] {
 	return vmcps
-		.flatMap((vmcp) => {
+		.flatMap((vmcp): MatchedAccessPolicy[] => {
+			const resources = [{ type: 'vmcp' as const, id: vmcp.id, name: vmcp.displayName }];
+
+			// Personal vMCPs have no profiles; only their owner can use them.
 			if (vmcp.userID) {
-				return [];
+				if (target.kind !== 'user' || vmcp.userID !== target.id) {
+					return [];
+				}
+				return [
+					{
+						id: `${vmcp.id}:owner`,
+						displayName: 'Personal vMCP',
+						href: personalVmcpHref(vmcp.id),
+						reasons: ['owner'],
+						resources
+					}
+				];
 			}
 
 			return (vmcp.profiles ?? []).flatMap((profile) => {
@@ -260,7 +294,7 @@ function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedA
 						displayName: profile.name,
 						href: vmcpAccessHref(vmcp.id),
 						reasons,
-						resources: [{ type: 'vmcp' as const, id: vmcp.id, name: vmcp.displayName }]
+						resources
 					}
 				];
 			});

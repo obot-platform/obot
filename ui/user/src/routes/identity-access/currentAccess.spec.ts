@@ -19,7 +19,8 @@ const userTarget: CurrentAccessTarget = {
 	kind: 'user',
 	id: 'user-1',
 	name: 'Ada',
-	groupIds: ['engineering']
+	groupIds: ['engineering'],
+	obotGroups: ['admin', 'authenticated']
 };
 
 const groupTarget: CurrentAccessTarget = {
@@ -41,6 +42,12 @@ describe('subjectsApplyTo', () => {
 		]);
 		expect(subjectsApplyTo([{ type: 'user', id: 'other' }], userTarget)).toEqual([]);
 		expect(subjectsApplyTo([{ type: 'group', id: 'sales' }], userTarget)).toEqual([]);
+	});
+
+	it("matches Obot role groups from the user's effective role", () => {
+		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'admin' }], userTarget)).toEqual(['via-role']);
+		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'owner' }], userTarget)).toEqual([]);
+		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'admin' }], groupTarget)).toEqual([]);
 	});
 
 	it('matches everyone and the group itself for a group target', () => {
@@ -279,6 +286,45 @@ describe('loadCurrentAccess', () => {
 		expect(hasAnyCurrentAccess({ mcp: [], models: [], skills: [], hostedAgents: [], vmcps })).toBe(
 			true
 		);
+	});
+
+	it('includes admin-created vMCPs and personal vMCPs the user owns', async () => {
+		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([
+			createVMCP({
+				id: 'vmcp-shared',
+				displayName: 'Shared vMCP',
+				creatorUserID: 'user-1',
+				profiles: [
+					{
+						name: 'default',
+						subjects: [{ type: 'obotGroup', id: 'admin' }],
+						vmcpPermissions: { allowAllComponents: true }
+					}
+				]
+			}),
+			createVMCP({ id: 'vmcp-personal', displayName: 'Personal', userID: 'user-1' }),
+			createVMCP({ id: 'vmcp-someone-else', displayName: 'Not Mine', userID: 'user-2' })
+		]);
+
+		const vmcps = await loadCurrentAccess(userTarget, 'vmcps');
+
+		expect(vmcps).toEqual([
+			{
+				id: 'vmcp-shared:default',
+				displayName: 'default',
+				href: '/vmcps/vmcp-shared?view=profiles',
+				reasons: ['via-role'],
+				resources: [{ type: 'vmcp', id: 'vmcp-shared', name: 'Shared vMCP' }]
+			},
+			{
+				id: 'vmcp-personal:owner',
+				displayName: 'Personal vMCP',
+				href: '/vmcps/vmcp-personal',
+				reasons: ['owner'],
+				resources: [{ type: 'vmcp', id: 'vmcp-personal', name: 'Personal' }]
+			}
+		]);
+		expect(await loadCurrentAccess(groupTarget, 'vmcps')).toEqual([]);
 	});
 
 	it('rejects when the requested view fails', async () => {
