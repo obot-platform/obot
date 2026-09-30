@@ -76,7 +76,7 @@
 			>
 				{headerTitle ?? property}
 				{#if headerTooltip}
-					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
+					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-70'] }}>
 						<CircleQuestionMark class="text-muted-content size-3.5" />
 					</div>
 				{/if}
