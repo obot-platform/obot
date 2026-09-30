@@ -57,24 +57,24 @@ afterEach(() => {
 describe('Models page message policies tab', () => {
 	it('shows user-message policies and hides tool-call policies', async () => {
 		await renderModelsPage({
-			view: 'message-policies',
+			view: 'ai-judge-policies',
 			messagePoliciesEnabled: true,
 			messagePolicies: [toolPolicy, userPolicy]
 		});
 
-		await expect.element(page.getByRole('button', { name: 'Message Policies' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'AI Judge Policies' })).toBeVisible();
 		await expect.element(page.getByRole('row', { name: /Block travel booking/ })).toBeVisible();
 		await expect
 			.element(page.getByRole('row', { name: /Block shell tools/ }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: 'Add Message Policy' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add AI Judge Policy' })).toBeVisible();
 	});
 
 	it('hides the tab when message policies are disabled', async () => {
 		await renderModelsPage({ view: 'access-policies' });
 
 		await expect
-			.element(page.getByRole('button', { name: 'Message Policies' }))
+			.element(page.getByRole('button', { name: 'AI Judge Policies' }))
 			.not.toBeInTheDocument();
 	});
 });

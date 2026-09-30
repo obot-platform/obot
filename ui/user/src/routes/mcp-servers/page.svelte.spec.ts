@@ -295,17 +295,17 @@ describe('message policies tab', () => {
 	it('shows tool-call policies and hides user-message policies', async () => {
 		resetMcpServersAndEntriesStore();
 		await renderMcpServersPage({
-			view: 'message-policies',
+			view: 'ai-judge-policies',
 			messagePoliciesEnabled: true,
 			messagePolicies: [toolPolicy, userPolicy]
 		});
 
-		await expect.element(page.getByRole('button', { name: 'Message Policies' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'AI Judge Policies' })).toBeVisible();
 		await expect.element(page.getByRole('row', { name: /Block shell tools/ })).toBeVisible();
 		await expect
 			.element(page.getByRole('row', { name: /Block travel booking/ }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: 'Add Message Policy' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add AI Judge Policy' })).toBeVisible();
 	});
 
 	it('hides the tab when message policies are disabled', async () => {
@@ -313,7 +313,7 @@ describe('message policies tab', () => {
 		await renderMcpServersPage({ view: 'deployments' });
 
 		await expect
-			.element(page.getByRole('button', { name: 'Message Policies' }))
+			.element(page.getByRole('button', { name: 'AI Judge Policies' }))
 			.not.toBeInTheDocument();
 	});
 });

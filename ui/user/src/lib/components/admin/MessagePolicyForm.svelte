@@ -4,6 +4,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
+		PolicyDirectionLabels,
 		type MessagePolicy,
 		type MessagePolicyManifest,
 		type OrgUser,
@@ -13,6 +14,7 @@
 	import { goto } from '$lib/url';
 	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
@@ -26,7 +28,7 @@
 		onUpdate?: (messagePolicy: MessagePolicy) => void;
 		onCancel?: () => void;
 		fixedDirection?: PolicyDirection;
-		listHref?: string;
+		listHref: string;
 		readonly?: boolean;
 	}
 
@@ -36,7 +38,7 @@
 		onUpdate,
 		onCancel,
 		fixedDirection,
-		listHref = '/admin/message-policies',
+		listHref,
 		readonly
 	}: Props = $props();
 
@@ -114,6 +116,11 @@
 		return () => controller.abort();
 	});
 
+	const directionOptions = (['user-message', 'tool-calls', 'both'] as const).map((id) => ({
+		id,
+		label: PolicyDirectionLabels[id]
+	}));
+
 	function validate(policy: typeof messagePolicy) {
 		if (!policy) return false;
 
@@ -153,9 +160,7 @@
 			</div>
 		{/if}
 
-		<div
-			class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
-		>
+		<div class="paper p-4">
 			<div class="flex flex-col gap-6">
 				{#if !messagePolicy.id}
 					<div class="flex flex-col gap-2">
@@ -193,6 +198,22 @@
 						placeholder="Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'"
 						disabled={readonly}
 						rows="3"></textarea>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<label for="message-policy-direction" class="flex-1 text-sm font-light capitalize">
+						Applies to
+					</label>
+					<Select
+						id="message-policy-direction"
+						options={directionOptions}
+						selected={messagePolicy.direction}
+						onSelect={(option) => {
+							messagePolicy.direction = option.id as PolicyDirection;
+						}}
+						disabled
+						class="bg-base-200 dark:bg-base-200 dark:border-base-400 flex-1 border border-transparent shadow-inner"
+					/>
 				</div>
 			</div>
 		</div>

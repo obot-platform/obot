@@ -49,7 +49,7 @@
 		'deployments',
 		'filters',
 		'tunnels',
-		'message-policies',
+		'ai-judge-policies',
 		'access-policies'
 	] as const;
 	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote'];
@@ -102,7 +102,7 @@
 				'access-policies',
 				'filters',
 				'tunnels',
-				...(messagePoliciesEnabled ? ['message-policies'] : [])
+				...(messagePoliciesEnabled ? ['ai-judge-policies'] : [])
 			];
 			return isNewEntry || adminCreateViews.includes(selectedView);
 		}
@@ -117,8 +117,8 @@
 				return 'Create Filter';
 			case 'tunnels':
 				return 'Create MCP Tunnel';
-			case 'message-policies':
-				return 'Create Message Policy';
+			case 'ai-judge-policies':
+				return 'Create AI Judge Policy';
 			case 'access-policies':
 				return 'Create MCP Access Policy';
 			default:
@@ -181,11 +181,11 @@
 		...(hasAdminAccess && messagePoliciesEnabled
 			? [
 					{
-						label: 'Message Policies',
-						value: 'message-policies',
+						label: 'AI Judge Policies',
+						value: 'ai-judge-policies',
 						content: messagePolicies,
 						tooltip:
-							'Enforce content rules, written in natural language, against MCP server tool calls, or view policy violations against existing policies.'
+							'Enforce MCP server tool calls with the LLM or view policy violations against existing policies.'
 					}
 				]
 			: [])
@@ -294,7 +294,7 @@
 			{@render filters()}
 		{:else if selectedView === 'tunnels'}
 			{@render tunnels()}
-		{:else if selectedView === 'message-policies'}
+		{:else if selectedView === 'ai-judge-policies'}
 			{@render messagePolicies()}
 		{:else if selectedView === 'access-policies'}
 			{@render accessPolicy()}
@@ -375,12 +375,12 @@
 			<Plus class="size-4" />
 			Create MCP Tunnel
 		</button>
-	{:else if view === 'message-policies' && messagePoliciesEnabled && !isAdminReadonly}
+	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => openCreate('message-policies')}
+			onclick={() => openCreate('ai-judge-policies')}
 		>
-			<Plus class="size-4" /> Add Message Policy
+			<Plus class="size-4" /> Add AI Judge Policy
 		</button>
 	{:else if view === 'access-policies' && !isAdminReadonly}
 		<button
@@ -445,7 +445,7 @@
 	<MessagePoliciesView
 		messagePolicies={data.messagePolicies ?? []}
 		policyDirection="tool-calls"
-		creating={creating && selectedView === 'message-policies'}
+		creating={creating && selectedView === 'ai-judge-policies'}
 	/>
 {/snippet}
 

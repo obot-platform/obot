@@ -7,7 +7,7 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ params, fetch }) => {
 	const version = await UserService.getVersion({ fetch });
 	if (!version.messagePoliciesEnabled) {
-		throw redirect(302, '/mcp-servers');
+		throw redirect(302, '/models');
 	}
 
 	const { id } = params;
@@ -16,16 +16,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		messagePolicy = await AdminService.getMessagePolicy(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/mcp-servers/message-policies/${id}`, profile.current);
+		handleRouteError(err, `/models/ai-judge-policies/${id}`, profile.current);
 	}
 
-	if (messagePolicy && messagePolicy.direction !== 'tool-calls') {
-		throw redirect(
-			302,
-			messagePolicy.direction === 'user-message'
-				? `/models/message-policies/${id}`
-				: `/admin/message-policies/${id}`
-		);
+	if (messagePolicy && messagePolicy.direction === 'tool-calls') {
+		throw redirect(302, `/mcp-servers/ai-judge-policies/${id}`);
 	}
 
 	return {

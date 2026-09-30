@@ -1,16 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
 	import MessagePolicyViolationsView from '$lib/components/admin/MessagePolicyViolationsView.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { parseErrorContent } from '$lib/errors';
-	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		type MessagePolicy,
 		type PolicyDirection,
@@ -28,7 +24,7 @@
 
 	interface Props {
 		messagePolicies: MessagePolicy[];
-		policyDirection?: Extract<PolicyDirection, 'user-message' | 'tool-calls'>;
+		policyDirection: Extract<PolicyDirection, 'user-message' | 'tool-calls'>;
 		creating?: boolean;
 	}
 
@@ -41,35 +37,11 @@
 		messagePolicies = initialPolicies;
 	});
 
-	type SinglePolicyDirection = Extract<PolicyDirection, 'user-message' | 'tool-calls'>;
-
 	function isPolicyWithBothDirection(policy: MessagePolicy) {
 		return policy.direction === 'both';
 	}
 
-	function chosenDirection(): SinglePolicyDirection | undefined {
-		if (selectedDirection === 'user-message' || selectedDirection === 'tool-calls') {
-			return selectedDirection;
-		}
-	}
-
 	let policyToDelete = $state<MessagePolicy>();
-	let policyToConvert = $state<MessagePolicy>();
-	let convertCtrlClick = $state(false);
-	let converting = $state<SinglePolicyDirection | 'delete'>();
-	let convertError = $state('');
-	let convertDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let confirmConvertDelete = $state(false);
-	let selectedDirection = $state(untrack(() => policyDirection ?? 'user-message'));
-	let directionChoices = $derived(
-		(policyDirection === 'tool-calls'
-			? (['tool-calls', 'user-message'] as const)
-			: (['user-message', 'tool-calls'] as const)
-		).map((direction) => ({
-			id: direction,
-			label: PolicyDirectionLabels[direction]
-		}))
-	);
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let visiblePolicies = $derived(
 		policyDirection
@@ -96,13 +68,13 @@
 	let tableData = $derived(visiblePolicies.map((policy) => convertToTableData(policy)));
 	const duration = PAGE_TRANSITION_DURATION;
 
-	function detailUrl(id: string, direction?: SinglePolicyDirection) {
-		const directionToUse = direction ?? policyDirection;
-		switch (directionToUse) {
+	function detailUrl(id: string, direction: PolicyDirection = policyDirection) {
+		const resolved = direction === 'both' ? policyDirection : direction;
+		switch (resolved) {
 			case 'tool-calls':
-				return `/mcp-servers/message-policies/${id}`;
+				return `/mcp-servers/ai-judge-policies/${id}`;
 			case 'user-message':
-				return `/models/message-policies/${id}`;
+				return `/models/ai-judge-policies/${id}`;
 			default:
 				return '';
 		}
@@ -122,68 +94,7 @@
 
 	async function navigateToCreated(policy: MessagePolicy) {
 		clearUrlParams(['new']);
-		goto(detailUrl(policy.id), { replaceState: false });
-	}
-
-	function promptToResolveBothDirection(policy: MessagePolicy, isCtrlClick: boolean) {
-		policyToConvert = policy;
-		convertCtrlClick = isCtrlClick;
-		convertError = '';
-		converting = undefined;
-		selectedDirection = policyDirection ?? 'user-message';
-		convertDialog?.open();
-	}
-
-	function handleConvertClose() {
-		if (confirmConvertDelete) return;
-		policyToConvert = undefined;
-		convertError = '';
-	}
-
-	async function convertPolicy(direction: SinglePolicyDirection) {
-		const policy = policyToConvert;
-		if (!policy || converting) return;
-
-		converting = direction;
-		convertError = '';
-		try {
-			const updated = await AdminService.updateMessagePolicy(policy.id, {
-				displayName: policy.displayName,
-				definition: policy.definition,
-				direction,
-				subjects: policy.subjects
-			});
-			messagePolicies = messagePolicies.map((item) => (item.id === updated.id ? updated : item));
-			const isCtrlClick = convertCtrlClick;
-			policyToConvert = undefined;
-			convertDialog?.close();
-			openUrl(detailUrl(updated.id, direction), isCtrlClick);
-		} catch (error) {
-			convertError = parseErrorContent(error).message || 'Failed to update the policy direction.';
-		} finally {
-			converting = undefined;
-		}
-	}
-
-	async function deleteConvertedPolicy() {
-		const policy = policyToConvert;
-		if (!policy || converting) return;
-
-		converting = 'delete';
-		convertError = '';
-		try {
-			await AdminService.deleteMessagePolicy(policy.id);
-			messagePolicies = messagePolicies.filter((item) => item.id !== policy.id);
-			confirmConvertDelete = false;
-			policyToConvert = undefined;
-			convertDialog?.close();
-		} catch (error) {
-			confirmConvertDelete = false;
-			convertError = parseErrorContent(error).message || 'Failed to delete the policy.';
-			convertDialog?.open();
-		} finally {
-			converting = undefined;
-		}
+		goto(detailUrl(policy.id, policy.direction), { replaceState: false });
 	}
 </script>
 
@@ -193,6 +104,9 @@
 			fixedDirection={policyDirection}
 			onCreate={navigateToCreated}
 			onCancel={closeCreate}
+			listHref={policyDirection === 'tool-calls'
+				? '/mcp-servers?view=ai-judge-policies'
+				: '/models?view=ai-judge-policies'}
 		/>
 	</div>
 {:else}
@@ -200,9 +114,9 @@
 		{#if messagePolicies.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<ShieldAlert class="text-base-content/80 size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No message policies</h4>
+				<h4 class="text-muted-content text-lg font-semibold">No AI judge policies</h4>
 				<p class="text-muted-content text-sm font-light">
-					Looks like you don't have any message policies created yet. <br />
+					Looks like you don't have any AI judge policies created yet. <br />
 					{#if !isReadonly}
 						Click the button below to get started.
 					{/if}
@@ -261,17 +175,7 @@
 		data={tableData}
 		fields={['displayName']}
 		onClickRow={(d, isCtrlClick) => {
-			if (isPolicyWithBothDirection(d) && !isReadonly) {
-				promptToResolveBothDirection(d, isCtrlClick);
-			} else {
-				openUrl(detailUrl(d.id), isCtrlClick);
-			}
-		}}
-		setRowClasses={(d) => {
-			if (isPolicyWithBothDirection(d)) {
-				return 'bg-warning/10';
-			}
-			return '';
+			openUrl(detailUrl(d.id, d.direction), isCtrlClick);
 		}}
 		headers={[
 			{
@@ -302,7 +206,7 @@
 {#snippet addPolicyButton()}
 	{#if !isReadonly}
 		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreate}>
-			<Plus class="size-4" /> Add Message Policy
+			<Plus class="size-4" /> Add AI Judge Policy
 		</button>
 	{/if}
 {/snippet}
@@ -317,79 +221,4 @@
 		policyToDelete = undefined;
 	}}
 	oncancel={() => (policyToDelete = undefined)}
-/>
-
-<ResponsiveDialog
-	bind:this={convertDialog}
-	title="Update Policy Direction"
-	class="md:max-w-md"
-	onClose={handleConvertClose}
->
-	<div class="flex flex-col items-center gap-4 md:p-0 p-4">
-		<p class="text-center text-base font-medium">
-			{policyToConvert?.displayName || 'This policy'} needs to be updated.
-		</p>
-		<p class="text-sm font-light">
-			Message policies now use one direction. Choose where this policy should apply.
-		</p>
-		{#if convertError}
-			<p class="notification-error w-full p-3 text-sm">{convertError}</p>
-		{/if}
-
-		<div class="flex w-full flex-col gap-1 mb-4">
-			<span id="message-policy-direction-label" class="text-sm font-light">Direction</span>
-			<Select
-				id="message-policy-direction"
-				class="border-base-400 w-full border"
-				classes={{ root: 'w-full' }}
-				options={directionChoices}
-				bind:selected={selectedDirection}
-				ariaLabelledby="message-policy-direction-label"
-				disabled={!!converting}
-			/>
-		</div>
-
-		<div class="flex w-full flex-col gap-2">
-			<button
-				type="button"
-				class="btn btn-primary w-full"
-				disabled={!!converting || !chosenDirection()}
-				onclick={() => {
-					const direction = chosenDirection();
-					if (direction) convertPolicy(direction);
-				}}
-			>
-				{#if converting && converting !== 'delete'}
-					<Loading class="size-4" />
-				{:else}
-					Save
-				{/if}
-			</button>
-			<button
-				type="button"
-				class="btn btn-error w-full"
-				disabled={!!converting}
-				onclick={() => {
-					if (!policyToConvert || converting) return;
-					confirmConvertDelete = true;
-					convertDialog?.close();
-				}}
-			>
-				Delete
-			</button>
-		</div>
-	</div>
-</ResponsiveDialog>
-
-<Confirm
-	msg={`Delete ${policyToConvert?.displayName || 'this policy'}?`}
-	show={confirmConvertDelete}
-	loading={converting === 'delete'}
-	onsuccess={deleteConvertedPolicy}
-	oncancel={() => {
-		if (converting === 'delete') return;
-		confirmConvertDelete = false;
-		policyToConvert = undefined;
-		convertError = '';
-	}}
 />

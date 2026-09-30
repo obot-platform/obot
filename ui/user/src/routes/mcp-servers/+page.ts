@@ -21,7 +21,7 @@ const views = new Set([
 	'deployments',
 	'filters',
 	'tunnels',
-	'message-policies',
+	'ai-judge-policies',
 	'access-policies'
 ]);
 
@@ -69,7 +69,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 					}).catch(() => undefined)
 				]);
 				break;
-			case 'message-policies':
+			case 'ai-judge-policies':
 				if (!version?.messagePoliciesEnabled) break;
 				try {
 					messagePolicies = await AdminService.listMessagePolicies({ fetch });

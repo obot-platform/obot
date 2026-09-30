@@ -33,11 +33,13 @@ const policies = [
 
 async function renderView(
 	props: {
-		policyDirection?: 'tool-calls' | 'user-message';
+		policyDirection: 'tool-calls' | 'user-message';
 		creating?: boolean;
 		messagePolicies?: MessagePolicy[];
 		contents?: 'policies' | 'policy-violations';
-	} = {},
+	} = {
+		policyDirection: 'tool-calls'
+	},
 	groups: string[] = [Group.ADMIN]
 ) {
 	if (props.contents) {
@@ -90,15 +92,6 @@ function mockViolationApis() {
 	);
 }
 
-function convertDialog() {
-	return page.getByRole('dialog').filter({ hasText: 'Update Policy Direction' });
-}
-
-async function chooseDirection(label: string) {
-	await convertDialog().getByRole('combobox', { name: 'Direction' }).click();
-	await page.getByRole('button', { name: label, exact: true }).click();
-}
-
 async function clickPolicy(name: string) {
 	await page.getByRole('row').filter({ hasText: name }).getByRole('cell').first().click();
 }
@@ -128,27 +121,19 @@ describe('MessagePoliciesView', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('shows every policy when no direction is set', async () => {
-		await renderView();
-
-		await expect.element(page.getByRole('row', { name: /Block shell tools/ })).toBeVisible();
-		await expect.element(page.getByRole('row', { name: /Block travel booking/ })).toBeVisible();
-		await expect.element(page.getByRole('row', { name: /Block everything/ })).toBeVisible();
-	});
-
 	it('shows an empty state when the filtered list is empty', async () => {
 		await renderView({ policyDirection: 'tool-calls', messagePolicies: [] });
 
-		await expect.element(page.getByRole('heading', { name: 'No message policies' })).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Add Message Policy' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'No AI judge policies' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add AI Judge Policy' })).toBeVisible();
 	});
 
 	it('hides create actions for read-only admins', async () => {
 		await renderView({ policyDirection: 'user-message', messagePolicies: [] }, [Group.AUDITOR]);
 
-		await expect.element(page.getByRole('heading', { name: 'No message policies' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'No AI judge policies' })).toBeVisible();
 		await expect
-			.element(page.getByRole('button', { name: 'Add Message Policy' }))
+			.element(page.getByRole('button', { name: 'Add AI Judge Policy' }))
 			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByText('Click the button below to get started.'))
@@ -193,111 +178,35 @@ describe('MessagePoliciesView', () => {
 		await expect.element(page.getByRole('combobox', { name: /Filter by user/ })).toBeVisible();
 	});
 
-	it('opens a single-direction policy without asking to convert it', async () => {
+	it('opens a tool-call policy on the MCP servers page', async () => {
 		await renderView({ policyDirection: 'tool-calls' });
 
 		await clickPolicy('Block shell tools');
 
-		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/message-policies/tool', false);
-		await expect.element(convertDialog()).not.toBeInTheDocument();
+		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/ai-judge-policies/tool', false);
 	});
 
-	it('asks how to handle a both-direction policy before opening it', async () => {
+	it('opens a user-message policy on the models page', async () => {
+		await renderView({ policyDirection: 'user-message' });
+
+		await clickPolicy('Block travel booking');
+
+		expect(openUrl).toHaveBeenCalledWith('/models/ai-judge-policies/user', false);
+	});
+
+	it('opens a both-direction policy on the MCP servers page from the tool-call list', async () => {
 		await renderView({ policyDirection: 'tool-calls' });
 
 		await clickPolicy('Block everything');
 
-		await expect.element(convertDialog()).toBeVisible();
-		await expect
-			.element(
-				convertDialog()
-					.getByRole('combobox', { name: 'Direction' })
-					.filter({ hasText: 'Tool Calls' })
-			)
-			.toBeVisible();
-		await expect.element(convertDialog().getByRole('button', { name: 'Save' })).toBeVisible();
-		await expect.element(convertDialog().getByRole('button', { name: 'Delete' })).toBeVisible();
-		expect(openUrl).not.toHaveBeenCalled();
+		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/ai-judge-policies/both', false);
 	});
 
-	it('updates the direction to user messages before opening the policy', async () => {
-		const calls: string[] = [];
-		let body: unknown;
-		vi.mocked(openUrl).mockImplementation(() => {
-			calls.push('open');
-		});
-		worker.use(
-			http.put('/api/message-policies/both', async ({ request }) => {
-				calls.push('put');
-				body = await request.json();
-				return HttpResponse.json({ ...policies[2], direction: 'user-message' });
-			})
-		);
-		await renderView({ policyDirection: 'tool-calls' });
-
-		await clickPolicy('Block everything');
-		await chooseDirection('User Messages');
-		await convertDialog().getByRole('button', { name: 'Save' }).click();
-
-		await vi.waitFor(() => {
-			expect(calls).toEqual(['put', 'open']);
-		});
-		expect(body).toMatchObject({
-			displayName: 'Block everything',
-			definition: 'rule',
-			direction: 'user-message'
-		});
-		expect(openUrl).toHaveBeenCalledWith('/models/message-policies/both', false);
-	});
-
-	it('updates the direction to tool calls before opening the policy', async () => {
-		const calls: string[] = [];
-		vi.mocked(openUrl).mockImplementation(() => {
-			calls.push('open');
-		});
-		worker.use(
-			http.put('/api/message-policies/both', async () => {
-				calls.push('put');
-				return HttpResponse.json({ ...policies[2], direction: 'tool-calls' });
-			})
-		);
+	it('opens a both-direction policy on the models page from the user-message list', async () => {
 		await renderView({ policyDirection: 'user-message' });
 
 		await clickPolicy('Block everything');
-		await chooseDirection('Tool Calls');
-		await convertDialog().getByRole('button', { name: 'Save' }).click();
 
-		await vi.waitFor(() => {
-			expect(calls).toEqual(['put', 'open']);
-		});
-		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/message-policies/both', false);
-	});
-
-	it('deletes a both-direction policy from the dialog without opening it', async () => {
-		worker.use(
-			http.delete('/api/message-policies/both', () => new HttpResponse(null, { status: 204 }))
-		);
-		await renderView({ policyDirection: 'tool-calls' });
-
-		await clickPolicy('Block everything');
-		await convertDialog().getByRole('button', { name: 'Delete' }).click();
-
-		await expect.element(convertDialog()).not.toBeInTheDocument();
-		await expect.element(page.getByRole('row', { name: /Block everything/ })).toBeVisible();
-		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
-
-		await expect
-			.element(page.getByRole('row', { name: /Block everything/ }))
-			.not.toBeInTheDocument();
-		expect(openUrl).not.toHaveBeenCalled();
-	});
-
-	it('lets a read-only admin open a both-direction policy without converting it', async () => {
-		await renderView({ policyDirection: 'tool-calls' }, [Group.AUDITOR]);
-
-		await clickPolicy('Block everything');
-
-		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/message-policies/both', false);
-		await expect.element(convertDialog()).not.toBeInTheDocument();
+		expect(openUrl).toHaveBeenCalledWith('/models/ai-judge-policies/both', false);
 	});
 });

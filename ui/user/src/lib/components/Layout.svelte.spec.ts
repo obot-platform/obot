@@ -139,17 +139,6 @@ describe('Layout.svelte', () => {
 		});
 	});
 
-	describe('when message policies are enabled', () => {
-		it('keeps message policies on MCP Servers and Models instead of the sidebar', async () => {
-			await renderLayout([Group.ADMIN], { messagePoliciesEnabled: true });
-
-			await expandSection('ai-resources', '/models');
-			await expandSection('operations', '/audit-logs');
-			await expectNoLink('/admin/message-policies');
-			await expectNoLink('/admin/policy-violations');
-		});
-	});
-
 	describe('based on user role', () => {
 		describe('when the user is an administrator', () => {
 			it('shows administrator-only navigation', async () => {

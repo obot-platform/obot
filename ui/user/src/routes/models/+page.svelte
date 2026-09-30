@@ -22,7 +22,7 @@
 			!isAdminReadonly &&
 			page.url.searchParams.has('new') &&
 			(creatingView === 'access-policies' ||
-				(messagePoliciesEnabled && creatingView === 'message-policies'))
+				(messagePoliciesEnabled && creatingView === 'ai-judge-policies'))
 	);
 
 	initModels([]);
@@ -56,11 +56,11 @@
 			);
 			if (messagePoliciesEnabled) {
 				items.push({
-					label: 'Message Policies',
-					value: 'message-policies',
+					label: 'AI Judge Policies',
+					value: 'ai-judge-policies',
 					content: messagePolicies,
 					tooltip:
-						'Enforce content rules, written in natural language, against user messages sent to the LLM, or view policy violations against existing policies.'
+						'Enforce user messages with the LLM or view policy violations against existing policies.'
 				});
 			}
 		}
@@ -79,8 +79,8 @@
 
 	let title = $derived.by(() => {
 		if (!creating) return 'Models';
-		return creatingView === 'message-policies'
-			? 'Create Message Policy'
+		return creatingView === 'ai-judge-policies'
+			? 'Create AI Judge Policy'
 			: 'Create Model Access Policy';
 	});
 
@@ -95,7 +95,7 @@
 
 {#if creating}
 	<Layout {title} showBackButton onBackButtonClick={hideCreate}>
-		{#if creatingView === 'message-policies'}
+		{#if creatingView === 'ai-judge-policies'}
 			<MessagePoliciesView
 				messagePolicies={data.messagePolicies ?? []}
 				policyDirection="user-message"
@@ -129,12 +129,12 @@
 		>
 			<Plus class="size-4" /> Add Access Policy
 		</button>
-	{:else if view === 'message-policies' && messagePoliciesEnabled && !isAdminReadonly}
+	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => showCreate('message-policies')}
+			onclick={() => showCreate('ai-judge-policies')}
 		>
-			<Plus class="size-4" /> Add Message Policy
+			<Plus class="size-4" /> Add AI Judge Policy
 		</button>
 	{/if}
 {/snippet}

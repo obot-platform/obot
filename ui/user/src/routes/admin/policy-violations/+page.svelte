@@ -6,15 +6,15 @@
 		{
 			kicker: 'Policy Violations',
 			title: 'MCP Servers',
-			description: 'Review policy violations on server tool calls.',
-			href: '/mcp-servers?view=message-policies&contents=policy-violations',
+			description: 'Review policy violations on MCPserver tool calls.',
+			href: '/mcp-servers?view=ai-judge-policies&contents=policy-violations',
 			icon: Server
 		},
 		{
 			kicker: 'Policy Violations',
 			title: 'Models',
-			description: 'Review policy violations when sending messages to the LLM.',
-			href: '/models?view=message-policies&contents=policy-violations',
+			description: 'Review policy violations on user-sent messages to the LLM.',
+			href: '/models?view=ai-judge-policies&contents=policy-violations',
 			icon: MessageSquareText
 		}
 	] as const;

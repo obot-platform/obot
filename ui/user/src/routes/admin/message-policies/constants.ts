@@ -2,17 +2,17 @@ import { MessageSquareText, Server } from '@lucide/svelte';
 
 export const MESSAGE_POLICIES_REDIRECT_DESTINATIONS = [
 	{
-		kicker: 'Message Policies',
+		kicker: 'AI Judge Policies',
 		title: 'MCP Servers',
-		description: 'Set up message policies on server tool calls.',
-		href: '/mcp-servers?view=message-policies',
+		description: 'Enforce MCP server tool calls with the LLM.',
+		href: '/mcp-servers?view=ai-judge-policies',
 		icon: Server
 	},
 	{
-		kicker: 'Message Policies',
+		kicker: 'AI Judge Policies',
 		title: 'Models',
-		description: 'Set up message policies when sending messages to the LLM.',
-		href: '/models?view=message-policies',
+		description: 'Enforce user messages with the LLM.',
+		href: '/models?view=ai-judge-policies',
 		icon: MessageSquareText
 	}
 ] as const;

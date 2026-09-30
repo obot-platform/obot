@@ -11,7 +11,7 @@ import type { ModelAccessPolicy } from '$lib/services/admin/types';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
 
-const views = new Set(['models', 'model-providers', 'access-policies', 'message-policies']);
+const views = new Set(['models', 'model-providers', 'access-policies', 'ai-judge-policies']);
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile, models: initialModels, version } = await parent();
@@ -21,7 +21,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		requestedView &&
 		views.has(requestedView) &&
 		(hasAdminAccess || requestedView === 'models') &&
-		(requestedView !== 'message-policies' || version?.messagePoliciesEnabled)
+		(requestedView !== 'ai-judge-policies' || version?.messagePoliciesEnabled)
 			? requestedView
 			: 'models';
 
@@ -61,7 +61,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 					handleRouteError(err, '/models', profile);
 				}
 				break;
-			case 'message-policies':
+			case 'ai-judge-policies':
 				try {
 					messagePolicies = await AdminService.listMessagePolicies({ fetch });
 				} catch (err) {

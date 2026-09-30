@@ -9,7 +9,7 @@
 	let { data } = $props();
 	const { messagePolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
-	const listHref = '/models?view=message-policies';
+	const listHref = '/mcp-servers?view=ai-judge-policies';
 
 	let title = $derived(messagePolicy?.displayName ?? 'Message Policy');
 </script>
