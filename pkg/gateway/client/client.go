@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -63,6 +64,7 @@ type Client struct {
 	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
 	serviceAccountCacheTTL    time.Duration
 	deviceCreationLock        sync.Mutex
+	auditLogRetentionProvider atomic.Pointer[AuditLogRetentionProvider]
 	auditLogCleanupInterval   time.Duration
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration

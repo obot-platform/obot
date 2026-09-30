@@ -1139,6 +1139,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		limitProvider = billing.NewLimits(billingClient, licenseProvider)
 	}
 
+	gatewayClient.SetAuditLogRetentionProvider(limitProvider)
+
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper

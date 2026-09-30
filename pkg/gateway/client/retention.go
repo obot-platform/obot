@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sync"
 	"time"
 )
@@ -30,12 +31,48 @@ func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int)
 	return max(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)
 }
 
-func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) {
-	if mcpAuditLogRetentionDays <= 0 && llmAuditLogRetentionDays <= 0 {
-		return
+// SetAuditLogRetentionProvider lets an entitlement decide how long audit logs are
+// kept. The gateway client is constructed before anything that can resolve
+// entitlements, so the provider arrives after the cleanup loop has started.
+func (c *Client) SetAuditLogRetentionProvider(provider AuditLogRetentionProvider) {
+	c.auditLogRetentionProvider.Store(&provider)
+}
+
+// resolveAuditLogRetention resolves the retention for a single cleanup pass. An
+// entitlement that names a number covers both audit log kinds; otherwise the
+// server keeps the retention it is configured with, and zero there means retain
+// indefinitely.
+func (c *Client) resolveAuditLogRetention(ctx context.Context, configuredMCPDays, configuredLLMDays int) (int, int) {
+	provider := c.auditLogRetentionProvider.Load()
+	if provider == nil {
+		return configuredMCPDays, configuredLLMDays
 	}
 
+	retention, err := (*provider).AuditLogRetention(ctx)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			slog.Warn("Failed to resolve entitled audit log retention, using the configured retention", "error", err)
+		}
+		return configuredMCPDays, configuredLLMDays
+	}
+	if retention.Unlimited || retention.Days <= 0 {
+		return configuredMCPDays, configuredLLMDays
+	}
+
+	days := int(min(retention.Days, math.MaxInt32))
+	return days, days
+}
+
+func (c *Client) runRetentionCleanup(ctx context.Context, configuredMCPAuditLogRetentionDays, configuredLLMAuditLogRetentionDays int) {
 	run := func(now time.Time) {
+		// Resolved on every pass, so a subscription change takes effect at the
+		// next cleanup and an environment that subscribes after startup starts
+		// applying retention without a restart.
+		mcpAuditLogRetentionDays, llmAuditLogRetentionDays := c.resolveAuditLogRetention(ctx, configuredMCPAuditLogRetentionDays, configuredLLMAuditLogRetentionDays)
+		if mcpAuditLogRetentionDays <= 0 && llmAuditLogRetentionDays <= 0 {
+			return
+		}
+
 		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpAuditLogRetentionDays, llmAuditLogRetentionDays); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("Failed to clean up retained gateway data", "error", err)
 		}
