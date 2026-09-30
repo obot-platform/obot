@@ -96,7 +96,6 @@
 
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigPromptHandled = $state(false);
-	let isInitialOAuthConfig = $state(false);
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 	let debugOauthDialog = $state<ReturnType<typeof DebugOauthDialog>>();
 
@@ -297,7 +296,6 @@
 	$effect(() => {
 		if (promptOAuthConfig && !oauthConfigPromptHandled) {
 			oauthConfigPromptHandled = true;
-			isInitialOAuthConfig = true;
 			oauthConfigModal?.open();
 
 			// clear out the configure-oauth param
@@ -837,14 +835,6 @@
 		}
 		oauthConfiguredOverride = true;
 		onOAuthConfigured?.();
-
-		// Show the connect dialog if this was part of the initial creation flow
-		if (isInitialOAuthConfig) {
-			isInitialOAuthConfig = false;
-			if (!skipConnectDialog) {
-				launchDialog?.open();
-			}
-		}
 	}}
 />
 
