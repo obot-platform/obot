@@ -30,7 +30,7 @@ it('links dedicated components by instance ID without loading deployment data', 
 
 	render(DeploymentsView, {
 		servers: [server],
-		skipLoadOnMount: true,
+		skipLoadMcpsOnMount: true,
 		onReload: () => {}
 	});
 
@@ -77,7 +77,7 @@ it('shows deployments while hiding legacy composite children awaiting cleanup', 
 		servers: [server, legacyChild],
 		entity: 'workspace',
 		readonly: true,
-		skipLoadOnMount: true
+		skipLoadMcpsOnMount: true
 	});
 
 	await expect.element(page.getByText('Active deployment', { exact: true }).first()).toBeVisible();
@@ -102,7 +102,7 @@ it.each(['View vMCP', 'View vMCP Deployment'])('shows one error when %s fails', 
 				vmcpComponentID: 'component-1'
 			})
 		],
-		skipLoadOnMount: true
+		skipLoadMcpsOnMount: true
 	});
 	await page.getByRole('button', { name: 'Row actions' }).click();
 	await page.getByRole('button', { name: action, exact: true }).click();

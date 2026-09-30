@@ -55,7 +55,7 @@
 
 <th
 	class={twMerge(
-		'text-md group text-muted-content px-4 py-2 text-left font-medium capitalize',
+		'text-md group text-muted-content px-4 py-2 text-left font-medium',
 		pointerOnTHeader && 'cursor-pointer',
 		headerClass
 	)}
@@ -65,16 +65,20 @@
 	<span class="flex grow items-center justify-between gap-4">
 		{#if filterable}
 			<button
-				class="flex grow items-center gap-1 capitalize text-nowrap"
+				class="flex grow items-center gap-1 text-nowrap"
 				use:tooltip={{
 					text: `Filter by ${headerTitle ?? property}`,
-					classes: ['z-60'],
+					classes: headerTitle ? ['z-60'] : ['z-60', 'capitalize'],
 					placement: 'top-start'
 				}}
 				use:ref
 				onclick={() => toggle()}
 			>
-				{headerTitle ?? property}
+				{#if headerTitle}
+					{headerTitle}
+				{:else}
+					<span class="capitalize">{property}</span>
+				{/if}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-70'] }}>
 						<CircleQuestionMark class="text-muted-content size-3.5" />
@@ -94,7 +98,11 @@
 			</button>
 		{:else}
 			<span class="flex items-center gap-1 text-nowrap">
-				{headerTitle ?? property}
+				{#if headerTitle}
+					{headerTitle}
+				{:else}
+					<span class="capitalize">{property}</span>
+				{/if}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
 						<CircleQuestionMark class="text-muted-content size-3.5" />

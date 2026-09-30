@@ -16,7 +16,8 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser
+		type OrgUser,
+		type VMCP
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -82,7 +83,7 @@
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
 		servers?: MCPCatalogServer[];
-		skipLoadOnMount?: boolean;
+		skipLoadMcpsOnMount?: boolean;
 		serverPrefixPath?: string;
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 	}
@@ -103,7 +104,7 @@
 		noDataContent,
 		onlyMyServers,
 		servers: initialServers,
-		skipLoadOnMount,
+		skipLoadMcpsOnMount,
 		serverPrefixPath,
 		entry
 	}: Props = $props();
@@ -119,6 +120,7 @@
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
 
 	let loading = $state(false);
+	let loadingVMcps = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
 	let existingServer = $state<MCPCatalogServer>();
@@ -143,6 +145,7 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let vmcps = $state<VMCP[]>([]);
 	let serversData = $derived.by(() => {
 		if (initialServers) return initialServers;
 		if (entity === 'workspace') {
@@ -175,6 +178,22 @@
 	);
 
 	let tableData = $derived.by(() => {
+		const vmcpsMap = new Map(vmcps.map((v) => [v.id, v]));
+
+		const getVMcps = (deployment: MCPCatalogServer) => {
+			if (deployment.vmcpID) {
+				return [vmcpsMap.get(deployment.vmcpID)?.displayName ?? 'Unknown'];
+			}
+			if (deployment.vmcpComponentID) {
+				return vmcps.reduce<string[]>((acc, vmcp) => {
+					if (vmcp.components.some((c) => c.id === deployment.vmcpComponentID)) {
+						acc.push(vmcp.displayName ?? 'Unknown');
+					}
+					return acc;
+				}, []);
+			}
+			return [];
+		};
 		const transformedData = serversData
 			// Legacy children can remain until migration cleanup finishes.
 			.filter((deployment) => !deployment.compositeName)
@@ -203,6 +222,7 @@
 								updateStatusTooltip: undefined
 							}
 						: getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
+				const vmcps = getVMcps(deployment);
 
 				return {
 					...deployment,
@@ -225,7 +245,8 @@
 						deployment.manifest,
 						deployment.missingRequiredEnvVars,
 						deployment.missingRequiredHeader
-					)
+					),
+					vmcps
 				};
 			})
 			.filter((d) => !onlyMyServers || d.isMyServer);
@@ -253,7 +274,16 @@
 	}
 
 	onMount(async () => {
-		if (!skipLoadOnMount) {
+		loadingVMcps = true;
+		const getVMcps = profile.current.hasAdminAccess?.()
+			? AdminService.listAllVMCPs
+			: UserService.listVMCPs;
+		getVMcps().then((response) => {
+			vmcps = response;
+			loadingVMcps = false;
+		});
+
+		if (!skipLoadMcpsOnMount) {
 			await reload(true);
 		}
 		// Start checking for progressing servers
@@ -565,7 +595,7 @@
 </script>
 
 <div class="flex flex-col gap-0.5">
-	{#if loading}
+	{#if loading || loadingVMcps}
 		<div class="my-2 flex items-center justify-center h-72">
 			<Loading class="size-6" />
 		</div>
@@ -584,6 +614,7 @@
 							'type',
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
+							'vmcps',
 							'created'
 						]
 					: [
@@ -592,6 +623,7 @@
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
 							'userName',
+							'vmcps',
 							'registry',
 							'created'
 						]}
@@ -601,14 +633,16 @@
 					'deploymentStatus',
 					'updatesAvailable',
 					'userName',
-					'registry'
+					'registry',
+					'vmcps'
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
 					{ title: 'Name', property: 'displayName' },
 					{ title: 'User', property: 'userName' },
 					{ title: 'Health', property: 'deploymentStatus' },
-					{ title: 'Update Status', property: 'updatesAvailable' }
+					{ title: 'Update Status', property: 'updatesAvailable' },
+					{ title: 'vMCP(s)', property: 'vmcps' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
@@ -698,6 +732,12 @@
 							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
 								<UsersIcon class="size-3 text-muted-content" />
 							</div>
+						{/if}
+					{:else if property === 'vmcps'}
+						{#if d.vmcps}
+							{d.vmcps}
+						{:else}
+							--
 						{/if}
 					{:else}
 						{d[property as keyof typeof d]}
