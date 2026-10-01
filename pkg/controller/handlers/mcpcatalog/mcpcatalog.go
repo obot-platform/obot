@@ -1177,6 +1177,7 @@ func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string
 			Extra: map[string][]string{
 				// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
 				"auth_provider_groups": groupIDs,
+				"obot_groups":          effectiveRole.Groups(),
 			},
 		},
 		role: effectiveRole,
