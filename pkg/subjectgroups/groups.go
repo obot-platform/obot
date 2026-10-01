@@ -1,6 +1,8 @@
 package subjectgroups
 
-import kuser "k8s.io/apiserver/pkg/authentication/user"
+import (
+	kuser "k8s.io/apiserver/pkg/authentication/user"
+)
 
 func Sets(user kuser.Info) (authProvider, obot map[string]struct{}) {
 	if user == nil {

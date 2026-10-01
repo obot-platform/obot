@@ -14,6 +14,7 @@
 		type AccessControlRuleSubject
 	} from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { obotGroupDisplayName } from '$lib/subjectResolver';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import AccessControlRuleForm from './AccessControlRuleForm.svelte';
@@ -160,6 +161,8 @@
 			const group = groupMap.get(subject.id);
 			if (!group) return subject.id;
 			return group.name ?? group.id ?? subject.id;
+		} else if (subject.type === 'obotGroup') {
+			return obotGroupDisplayName(subject.id);
 		}
 
 		if (subject.id === '*') return 'All Obot Users';

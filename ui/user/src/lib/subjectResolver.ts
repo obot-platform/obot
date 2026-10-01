@@ -30,7 +30,7 @@ export function resolveSubjectPickerById(
 	return subject.id;
 }
 
-function obotGroupDisplayName(id: string): string {
+export function obotGroupDisplayName(id: string): string {
 	return `Obot ${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 }
 

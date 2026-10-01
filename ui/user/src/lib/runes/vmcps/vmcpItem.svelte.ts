@@ -39,9 +39,11 @@ export function vmcpItemContext(vmcp: VMCP) {
 	const isCreator = Boolean(vmcp.userID && profile.current.id === vmcp.userID);
 	const canUpdate = Boolean(profile.current.isAdmin?.() || isCreator);
 	const canDelete = canUpdate && !isCatalogSyncedVMcp(vmcp);
-	const canConnect = !vmcp.userID
-		? hasAccessWithinSubjects(vmcp.profiles?.flatMap((p) => p.subjects) ?? [], profile.current)
-		: isCreator;
+	const canConnect =
+		(vmcp.components?.length ?? 0) > 0 &&
+		(!vmcp.userID
+			? hasAccessWithinSubjects(vmcp.profiles?.flatMap((p) => p.subjects) ?? [], profile.current)
+			: isCreator);
 
 	const myInstances = vmcpInstances.current.items.filter(
 		(instance) =>
