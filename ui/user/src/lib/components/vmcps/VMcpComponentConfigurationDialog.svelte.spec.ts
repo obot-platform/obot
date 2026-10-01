@@ -253,4 +253,38 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			.toHaveValue('prohibited');
 		await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible();
 	});
+
+	it('shows configuration without letting it be changed', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext, readonly: true });
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({ key: 'REGION', name: 'Region', description: 'Deployment region', required: true })
+				]
+			}),
+			{
+				configuration: [{ key: 'REGION', policy: 'fixed', value: 'us-west-2' }],
+				forceSingleUser: true,
+				submitLabel: 'Save'
+			}
+		);
+
+		await expect
+			.element(page.getByRole('heading', { name: 'View Configurable server' }))
+			.toBeVisible();
+		await expect.element(page.getByText(/cannot be changed here/)).toBeVisible();
+		const policy = page.getByRole('combobox', { name: 'Region policy' });
+		await expect.element(policy).toBeDisabled();
+		await expect.element(policy).toHaveValue('fixed');
+		const value = page.getByCSS('#fixed-REGION');
+		await expect.element(value).toHaveValue('us-west-2');
+		await expect.element(value).toHaveAttribute('readonly', '');
+		await expect.element(page.getByRole('checkbox', { name: 'Force single-user' })).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Close' }).click();
+		expect(onNext).not.toHaveBeenCalled();
+	});
 });

@@ -26,9 +26,10 @@
 			forceSingleUser: boolean
 		) => void | Promise<void>;
 		onClose?: () => void;
+		readonly?: boolean;
 	}
 
-	let { onNext, onClose }: Props = $props();
+	let { onNext, onClose, readonly = false }: Props = $props();
 
 	interface PolicyDraft {
 		field: MCPConfig;
@@ -158,7 +159,7 @@
 	}
 
 	async function handleNext() {
-		if (saving || !validate()) return;
+		if (readonly || saving || !validate()) return;
 		saving = true;
 		try {
 			await onNext?.(
@@ -201,7 +202,7 @@
 					class="select select-sm w-48 shrink-0 bg-base-100 dark:bg-base-300 dark:border-base-400 border-base-300"
 					aria-label={`${fieldLabel(draft.field)} policy`}
 					value={draft.policy}
-					disabled={saving}
+					disabled={saving || readonly}
 					onchange={(event) =>
 						setPolicy(index, event.currentTarget.value as VMCPConfigurationPolicyType)}
 				>
@@ -220,8 +221,10 @@
 					selected={draft.value}
 					placeholder="Select a value"
 					ariaLabelledby={`${draft.field.key}-label`}
+					{readonly}
+					disabled={saving}
 					onSelect={(option) => (draft.value = option.value)}
-					onClear={() => (draft.value = '')}
+					onClear={readonly ? undefined : () => (draft.value = '')}
 				/>
 			{:else if draft.field.sensitive}
 				<SensitiveInput
@@ -231,6 +234,7 @@
 					textarea={isFileField(draft.field)}
 					growable
 					disabled={saving}
+					{readonly}
 				/>
 			{:else if isFileField(draft.field)}
 				<textarea
@@ -238,6 +242,7 @@
 					bind:value={draft.value}
 					rows="8"
 					disabled={saving}
+					{readonly}
 					class={twMerge(
 						'text-input-filled h-32 min-h-32 resize-y overflow-auto whitespace-pre-wrap',
 						highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
@@ -248,6 +253,7 @@
 					id={`fixed-${draft.field.key}`}
 					bind:value={draft.value}
 					disabled={saving}
+					{readonly}
 					class={twMerge(
 						'text-input-filled',
 						highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
@@ -279,10 +285,16 @@
 		{#if entry?.manifest.icon}
 			<McpServerIcon icon={entry?.manifest.icon} />
 		{/if}
-		Configure {displayName}
+		{readonly ? 'View' : 'Configure'}
+		{displayName}
 	{/snippet}
 	<div class="p-4 pb-0 md:p-0">
-		{#if drafts.length > 0}
+		{#if readonly}
+			<p class="text-sm font-light mb-4">
+				Configuration for <b class="font-semibold text-base-content">{displayName}</b> is shown as configured
+				and cannot be changed here.
+			</p>
+		{:else if drafts.length > 0}
 			<p class="text-sm font-light mb-2">
 				This MCP Server requires the following configurations to be set before it can be used.
 				Choose how each configuration value for <b class="font-semibold text-base-content"
@@ -327,7 +339,7 @@
 						type="checkbox"
 						class="checkbox checkbox-sm"
 						bind:checked={forceSingleUser}
-						disabled={saving}
+						disabled={saving || readonly}
 					/>
 					<span>Force single-user</span>
 				</label>
@@ -339,15 +351,21 @@
 	</div>
 	<div class="flex grow"></div>
 	<div class="mt-4 flex justify-end gap-2 p-4 md:p-0 pt-0">
-		<button class="btn btn-ghost btn-sm text-xs" onclick={() => dialog?.close()} disabled={saving}>
-			Cancel
+		<button
+			class="btn btn-secondary btn-sm text-xs"
+			onclick={() => dialog?.close()}
+			disabled={saving}
+		>
+			{readonly ? 'Close' : 'Cancel'}
 		</button>
-		<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>
-			{#if saving}
-				<Loading class="text-primary-content size-4" />
-			{:else}
-				{submitLabel}
-			{/if}
-		</button>
+		{#if !readonly}
+			<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>
+				{#if saving}
+					<Loading class="text-primary-content size-4" />
+				{:else}
+					{submitLabel}
+				{/if}
+			</button>
+		{/if}
 	</div>
 </ResponsiveDialog>

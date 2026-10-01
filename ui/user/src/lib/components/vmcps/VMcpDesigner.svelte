@@ -106,9 +106,7 @@
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
-		!selectedVMcp ||
-			(!isCatalogSyncedVMcp(selectedVMcp) &&
-				(profile.current.isAdmin?.() || profile.current.id === selectedVMcp.userID))
+		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp.userID
 	);
 	let viewType = $derived(
 		(view === 'profiles' && !canAccessProfiles) || (view === 'inspector' && !canAccessTester)
@@ -441,7 +439,7 @@
 				onUpdated={(updated) => {
 					selectedVMcp = updated;
 				}}
-				readonly={!canEdit}
+				readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)}
 			/>
 		{:else if viewType === 'inspector'}
 			{#if selectedVMcp}
@@ -548,7 +546,7 @@
 		</div>
 	{/if}
 	{#snippet rightSidebar()}
-		{#if canEdit && viewType === 'graph' && (!responsive.isMobile || (responsive.isMobile && showRightPanel && (canCreateCatalogEntry || hasEntries)))}
+		{#if canEdit && !isCatalogSyncedVMcp(selectedVMcp) && viewType === 'graph' && (!responsive.isMobile || (responsive.isMobile && showRightPanel && (canCreateCatalogEntry || hasEntries)))}
 			<McpServersSidebar
 				bind:panelEl={rightPanelEl}
 				bind:open={showRightPanel}

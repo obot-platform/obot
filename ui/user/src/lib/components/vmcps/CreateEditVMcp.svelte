@@ -3,9 +3,15 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type VMCP, type VMCPComponent } from '$lib/services';
-	import { initVMcp, vmcpManifest, type VMcpFormData } from '$lib/services/vmcps/utils';
+	import {
+		initVMcp,
+		isCatalogSyncedVMcp,
+		vmcpManifest,
+		type VMcpFormData
+	} from '$lib/services/vmcps/utils';
 	import { errors } from '$lib/stores';
 	import { success } from '$lib/stores/success';
+	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -29,6 +35,7 @@
 	let deletingVMcp = $state(false);
 
 	const editing = $derived(Boolean(selectedVMcp));
+	const readonly = $derived(isCatalogSyncedVMcp(selectedVMcp));
 
 	function resetForm() {
 		form = initVMcp();
@@ -190,6 +197,12 @@
 	onClose={handleDialogClose}
 >
 	<div class="flex grow flex-col p-4 md:p-0">
+		{#if selectedVMcp}
+			<div class="mb-4">
+				<VMcpCatalogSyncedIndicator vmcp={selectedVMcp} inline />
+			</div>
+		{/if}
+
 		<div class="mb-4 flex flex-col gap-1">
 			<label
 				for="vmcp-name"
@@ -203,6 +216,8 @@
 				bind:value={form.displayName}
 				aria-required="true"
 				oninput={() => updateRequired('displayName')}
+				disabled={readonly}
+				aria-disabled={readonly}
 			/>
 			{#if showRequired.displayName}
 				<p class="text-error text-xs" role="alert">Name is required</p>
@@ -223,7 +238,9 @@
 				class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
 				bind:value={form.description}
 				aria-required="true"
-				oninput={() => updateRequired('description')}></textarea>
+				oninput={() => updateRequired('description')}
+				disabled={readonly}
+				aria-disabled={readonly}></textarea>
 			{#if showRequired.description}
 				<p class="text-error text-xs" role="alert">Description is required</p>
 			{/if}
@@ -231,17 +248,19 @@
 
 		<div class="flex grow"></div>
 
-		<div class="flex md:flex-row flex-col justify-end gap-2 mt-4">
-			<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
-				Cancel
-			</button>
-			<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
-				{#if saving}
-					<Loading class="text-primary-content size-4" />
-				{:else}
-					{editing ? 'Save' : 'Create'}
-				{/if}
-			</button>
-		</div>
+		{#if !readonly}
+			<div class="flex md:flex-row flex-col justify-end gap-2 mt-4">
+				<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
+					Cancel
+				</button>
+				<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
+					{#if saving}
+						<Loading class="text-primary-content size-4" />
+					{:else}
+						{editing ? 'Save' : 'Create'}
+					{/if}
+				</button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>

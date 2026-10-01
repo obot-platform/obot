@@ -608,6 +608,169 @@ describe('VMcpDesigner.svelte', () => {
 		});
 	});
 
+	describe('catalog-synced component', () => {
+		const sourceURL = 'https://github.com/example/catalog';
+
+		it('shows stored tool overrides without letting them be changed', async () => {
+			const vmcp = { ...createIssueTrackerVMcp(toolOverrides), sourceURL };
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Remove GitHub' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View Tools' }).click();
+
+			const editor = page.getByRole('dialog').filter({ hasText: 'They cannot be changed here.' });
+			await expect
+				.element(editor.getByRole('heading', { name: 'View GitHub Tools' }))
+				.toBeVisible();
+			await expect.element(editor.getByText('github_create_issue')).toBeVisible();
+			await expect.element(editor.getByText('github_list_issues')).toBeVisible();
+			const prefix = editor.getByPlaceholder('No prefix');
+			await expect.element(prefix).toHaveValue('github_');
+			await expect.element(prefix).toHaveAttribute('readonly', '');
+			await expect
+				.element(editor.getByRole('button', { name: 'Refresh tools' }))
+				.not.toBeInTheDocument();
+			await expect.element(editor.getByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+			await expect.element(editor.getByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+			await expect
+				.element(editor.getByRole('button', { name: 'Customize' }))
+				.not.toBeInTheDocument();
+			await expect.element(editor.getByRole('switch', { name: 'Disable Tool' })).toBeDisabled();
+			await expect.element(editor.getByRole('switch', { name: 'Enable Tool' })).toBeDisabled();
+			await expect.element(editor.getByRole('switch', { name: 'Enable All Tools' })).toBeDisabled();
+		});
+
+		it('opens configuration without letting it be changed', async () => {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-github',
+				name: 'GitHub',
+				manifest: {
+					toolPreview: componentEntry.manifest.toolPreview,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					sourceURL,
+					components: [
+						createVMCPComponent(entry, {
+							toolPrefix: 'github_',
+							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+						})
+					]
+				},
+				[entry]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			worker.use(
+				http.post(`/api/vmcps/${vmcp.id}/reveal`, () => HttpResponse.json({ components: {} }))
+			);
+			await renderDesigner([entry], vmcp);
+
+			await page.getByRole('button', { name: 'GitHub', exact: true }).click();
+			await page.getByRole('button', { name: 'View Configuration' }).click();
+
+			const configuration = page
+				.getByRole('dialog')
+				.filter({ hasText: 'Configuration for GitHub' });
+			await expect
+				.element(configuration.getByRole('heading', { name: 'View GitHub' }))
+				.toBeVisible();
+			await expect.element(configuration.getByText(/cannot be changed here/)).toBeVisible();
+			const policy = configuration.getByRole('combobox', { name: 'API token policy' });
+			await expect.element(policy).toBeDisabled();
+			await expect.element(policy).toHaveValue('userAllowed');
+			await expect
+				.element(configuration.getByRole('button', { name: 'Save' }))
+				.not.toBeInTheDocument();
+			await expect.element(configuration.getByRole('button', { name: 'Close' })).toBeVisible();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('keeps discovered tools read-only after OAuth', async () => {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-remote',
+				name: 'Remote',
+				runtime: 'remote',
+				manifest: {
+					remoteConfig: { fixedURL: 'https://remote.example.com/mcp' }
+				}
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-remote',
+					displayName: 'Remote vMCP',
+					sourceURL,
+					components: [createVMCPComponent(entry)]
+				},
+				[entry]
+			);
+			const componentId = vmcp.components[0].id;
+			let previews = 0;
+			worker.use(
+				http.post(`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews`, () => {
+					previews += 1;
+					if (previews === 1) {
+						return HttpResponse.json(
+							{ message: 'MCP server requires OAuth authentication' },
+							{ status: 400 }
+						);
+					}
+					return HttpResponse.json({
+						...entry,
+						manifest: {
+							...entry.manifest,
+							toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
+						}
+					});
+				}),
+				http.post(
+					`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews/oauth-url`,
+					() => HttpResponse.json({ oauthURL: 'https://oauth.example/authorize' })
+				)
+			);
+
+			await renderDesigner([entry], vmcp);
+			await page.getByRole('button', { name: 'Remote', exact: true }).click();
+			await page.getByRole('button', { name: 'View Tools' }).click();
+			await expect
+				.element(page.getByText('you may need to temporarily authenticate', { exact: false }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'View Tools', exact: true }).click();
+			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+
+			document.dispatchEvent(new Event('visibilitychange'));
+
+			const editor = page.getByRole('dialog').filter({ hasText: 'They cannot be changed here.' });
+			await expect
+				.element(editor.getByRole('heading', { name: 'View Remote Tools' }))
+				.toBeVisible();
+			await expect.element(editor.getByText('search', { exact: true }).first()).toBeVisible();
+			await expect.element(editor.getByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+			await expect.element(editor.getByRole('switch', { name: 'Disable Tool' })).toBeDisabled();
+			await expect
+				.element(editor.getByRole('button', { name: 'Refresh tools' }))
+				.not.toBeInTheDocument();
+		});
+	});
+
 	describe('dragging a server from the panel onto the canvas', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 		let listSlackServers: ReturnType<typeof mockEntryDetails>;
@@ -1025,23 +1188,33 @@ describe('VMcpDesigner.svelte', () => {
 				)
 				.toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Delete vMCP' }))
-				.not.toBeInTheDocument();
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeEnabled();
 			await expect
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
 				.not.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.toBeEnabled();
+				.element(page.getByPlaceholder('Search MCP servers...'))
+				.not.toBeInTheDocument();
 
 			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 			await expect
-				.element(page.getByRole('button', { name: 'Edit Details', exact: true }))
-				.not.toBeInTheDocument();
-			await expect
 				.element(page.getByRole('button', { name: 'Delete', exact: true }))
 				.not.toBeInTheDocument();
-			await expect.element(componentBlock()).not.toBeInTheDocument();
+			await page.getByCSS('#click-catch').click();
+
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'View Configuration' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Remove GitHub' }))
+				.not.toBeInTheDocument();
 		});
 
 		it('opens profiles as readonly for a catalog-synced vMCP', async () => {

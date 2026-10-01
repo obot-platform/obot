@@ -6,7 +6,11 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
-	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
+	import {
+		configurationWithRevealedValues,
+		isCatalogSyncedVMcp,
+		vmcpComponentId
+	} from '$lib/services/vmcps/utils';
 	import { goto, setUrlParam } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -29,6 +33,7 @@
 	let synchronizing = false;
 	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
+	const readonly = $derived(Boolean(flow.modifyingVMcp && isCatalogSyncedVMcp(flow.modifyingVMcp)));
 	const lastComponentTooltip = 'VMCP requires at least one component.';
 
 	async function openConfigureDialog() {
@@ -276,6 +281,7 @@
 	existingToolPrefix={flow.existingToolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
 	otherToolPrefixes={flow.otherToolPrefixes}
+	{readonly}
 	onCancel={flow.close}
 	onSuccess={(config) => {
 		void saveAndOfferProfileUpdate(config, flow.refresh);
@@ -302,32 +308,35 @@
 	<div class="flex flex-col gap-2 md:px-0 px-4">
 		<p class="text-sm text-center mb-3 md:mt-0 mt-4">What would you like to do?</p>
 		<button class="btn btn-secondary w-full" onclick={flow.modifyToolsFromActions}>
-			Modify Tools
+			{readonly ? 'View Tools' : 'Modify Tools'}
 		</button>
 		{#if flow.canConfigureComponent}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
-				Change Configuration
+				{readonly ? 'View Configuration' : 'Change Configuration'}
 			</button>
 		{/if}
-		<div
-			class="w-full"
-			use:tooltip={isLastComponent
-				? { text: lastComponentTooltip, disablePortal: true, placement: 'bottom' }
-				: undefined}
-		>
-			<button
-				class="btn btn-secondary hover:btn-error w-full"
-				disabled={isLastComponent}
-				onclick={flow.promptRemove}
+		{#if !readonly}
+			<div
+				class="w-full"
+				use:tooltip={isLastComponent
+					? { text: lastComponentTooltip, disablePortal: true, placement: 'bottom' }
+					: undefined}
 			>
-				Remove {flow.configuringEntry?.manifest.name ?? 'this server'}
-			</button>
-		</div>
+				<button
+					class="btn btn-secondary hover:btn-error w-full"
+					disabled={isLastComponent}
+					onclick={flow.promptRemove}
+				>
+					Remove {flow.configuringEntry?.manifest.name ?? 'this server'}
+				</button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>
 
 <VMcpComponentConfigurationDialog
 	bind:this={configurationDialog}
+	{readonly}
 	onNext={flow.saveConfiguration}
 	onClose={() => handleDialogClose('configure')}
 />
@@ -341,6 +350,7 @@
 	bind:toolPrefix={flow.toolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
 	otherToolPrefixes={flow.otherToolPrefixes}
+	{readonly}
 	onCancel={flow.close}
 	onClose={() => handleDialogClose('edit')}
 	onSuccess={flow.saveEditedTools}

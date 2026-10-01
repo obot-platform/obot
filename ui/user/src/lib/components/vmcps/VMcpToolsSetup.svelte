@@ -33,6 +33,7 @@
 		onCancel?: () => void;
 		onSuccess?: (config: { toolOverrides: ToolOverride[]; toolPrefix: string }) => void;
 		additionalActions?: Snippet;
+		readonly?: boolean;
 	}
 
 	let {
@@ -45,7 +46,8 @@
 		otherToolPrefixes,
 		onCancel,
 		onSuccess,
-		additionalActions: additionalActionsSnippet
+		additionalActions: additionalActionsSnippet,
+		readonly = false
 	}: Props = $props();
 
 	let setupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -329,6 +331,10 @@
 	}
 
 	function save() {
+		if (readonly) {
+			cancelEditor();
+			return;
+		}
 		if (!component) {
 			close();
 			return;
@@ -491,7 +497,7 @@
 						{#if loading}
 							<Loading class="text-primary-content size-4" />
 						{:else}
-							Configure Tools
+							{readonly ? 'View Tools' : 'Configure Tools'}
 						{/if}
 					</button>
 				{/if}
@@ -511,4 +517,5 @@
 	onClose={cancelEditor}
 	onSuccess={save}
 	additionalActions={additionalActionsSnippet}
+	{readonly}
 />
