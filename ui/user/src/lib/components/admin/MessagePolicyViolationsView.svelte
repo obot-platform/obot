@@ -273,7 +273,7 @@
 	}
 </script>
 
-<div class="flex-1" in:fade={{ duration }}>
+<div class="flex-1 mt-1" in:fade={{ duration }}>
 	{#if loading}
 		<div
 			class="absolute inset-0 z-20 flex items-center justify-center"
@@ -289,284 +289,279 @@
 		</div>
 	{/if}
 
-	<div class="mb-4 flex flex-col gap-4">
-		{#if !policyDirection || policyDirection === 'user-message'}
-			<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-				<div class="text-base-content text-xs font-light">Total Violations</div>
-				<div class="text-primary flex items-center gap-1 text-xl font-semibold">
-					{#if loading}
-						<Loading class="size-4 animate-spin" />
-					{:else if policyDirection === 'user-message'}
-						{(stats?.byDirection.userMessage ?? 0).toLocaleString()}
-					{:else if policyDirection === 'tool-calls'}
-						{(stats?.byDirection.toolCalls ?? 0).toLocaleString()}
-					{/if}
+	<div class="m-auto flex w-full max-w-full flex-col gap-4 md:max-w-(--breakpoint-xl)">
+		<div class="flex flex-row min-w-0 shrink-0 gap-1 py-2 paper md:w-fit">
+			<div class="text-base-content text-sm font-light">Total Violations:</div>
+			<div class="flex items-center gap-1 text-sm font-semibold">
+				{#if loading}
+					<Loading class="size-4 animate-spin" />
+				{:else if policyDirection === 'user-message'}
+					{(stats?.byDirection.userMessage ?? 0).toLocaleString()}
+				{:else if policyDirection === 'tool-calls'}
+					{(stats?.byDirection.toolCalls ?? 0).toLocaleString()}
+				{/if}
+			</div>
+		</div>
+		<!-- Filter bar -->
+		<div class="flex w-full flex-wrap items-center justify-end gap-4">
+			<p class="text-muted-content w-full text-sm md:w-fit">Filter by:</p>
+			{#if !policyDirection}
+				<Select
+					class="dark:border-base-400 border border-transparent"
+					classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
+					options={directionSelectOptions}
+					bind:selected={filterDirection}
+					multiple
+					searchInDropdown
+					id="filter-direction"
+					onSelect={(option) => handleFilterSelect('direction', option)}
+					onClear={(option) => handleFilterClear('direction', option)}
+					onClearAll={filterDirection !== 'all_directions'
+						? () => handleFilterClearAll('direction')
+						: undefined}
+					placeholder="Filter by direction..."
+					buttonReadOnly
+					buttonTitle="Directions"
+					displayCount={!!filterDirection && filterDirection !== 'all_directions'}
+				/>
+			{/if}
+			<Select
+				class="dark:border-base-400 border border-transparent"
+				classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
+				options={userSelectOptions}
+				bind:selected={filterUserID}
+				multiple
+				searchInDropdown
+				id="filter-user"
+				onSelect={(option) => handleFilterSelect('user', option)}
+				onClear={(option) => handleFilterClear('user', option)}
+				onClearAll={filterUserID !== 'all_users' ? () => handleFilterClearAll('user') : undefined}
+				placeholder="Filter by user..."
+				buttonReadOnly
+				buttonTitle="Users"
+				displayCount={!!filterUserID && filterUserID !== 'all_users'}
+			/>
+			<Select
+				class="dark:border-base-400 border border-transparent"
+				classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
+				options={policySelectOptions}
+				bind:selected={filterPolicyID}
+				multiple
+				searchInDropdown
+				id="filter-policy"
+				onSelect={(option) => handleFilterSelect('policy', option)}
+				onClear={(option) => handleFilterClear('policy', option)}
+				onClearAll={filterPolicyID !== 'all_policies'
+					? () => handleFilterClearAll('policy')
+					: undefined}
+				placeholder="Filter by policy..."
+				buttonReadOnly
+				buttonTitle="Policies"
+				displayCount={!!filterPolicyID && filterPolicyID !== 'all_policies'}
+			/>
+			<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
+			<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
+		</div>
+
+		{#if (!policyDirection && filterDirection !== 'all_directions') || filterUserID !== 'all_users' || filterPolicyID !== 'all_policies'}
+			<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
+				{#if !policyDirection && filterDirection !== 'all_directions'}
+					{#each filterDirection.split(',') as direction (direction)}
+						<div class="filter-primary">
+							<span class="font-semibold">Direction:</span>{directionLabel(direction)}
+							<button onclick={() => handleFilterClear('direction', { id: direction })}>
+								<X class="size-3" />
+							</button>
+						</div>
+					{/each}
+				{/if}
+				{#if filterUserID !== 'all_users'}
+					{#each filterUserID.split(',') as userID (userID)}
+						<div class="filter-primary">
+							<span class="font-semibold">User:</span>{displayName(userID)}
+							<button onclick={() => handleFilterClear('user', { id: userID })}>
+								<X class="size-3" />
+							</button>
+						</div>
+					{/each}
+				{/if}
+				{#if filterPolicyID !== 'all_policies'}
+					{#each filterPolicyID.split(',') as policyID (policyID)}
+						<div class="filter-primary">
+							<span class="font-semibold">Policy:</span>{policyFilterOptions.find(
+								(p) => p.id === policyID
+							)?.name}
+							<button onclick={() => handleFilterClear('policy', { id: policyID })}>
+								<X class="size-3" />
+							</button>
+						</div>
+					{/each}
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Chart -->
+		{#if !loading && visibleViolations.length > 0}
+			<div class="paper w-full gap-0 pt-4">
+				<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+					<h4 class="flex items-center gap-2 font-semibold">
+						Policy Violations
+						{#if loading}
+							<Loading class="size-4 animate-spin" />
+						{/if}
+					</h4>
+					<Select
+						class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-[50dvw] border border-transparent shadow-inner md:w-64"
+						options={groupByOptions}
+						selected={groupBy}
+						onSelect={handleGroupByChange}
+					/>
+				</div>
+				<div class="w-full pt-2">
+					{#key groupBy}
+						<StackedTimeline
+							start={startTime}
+							end={endTime}
+							data={chartData}
+							categoryKey="category"
+							dateKey="createdAt"
+							primaryValueKey="count"
+							secondaryValueKey="_secondary"
+							class="h-96"
+							legend={{
+								showSecondaryLabel: false,
+								primaryLabel: '',
+								hideCategoryLabel: false
+							}}
+						>
+							{#snippet tooltipContent(item)}
+								<div class="flex flex-col gap-0 text-xs">
+									<div class="text-sm font-light">{item.key}</div>
+									<div class="text-muted-content">{item.date}</div>
+									<div class="divider"></div>
+								</div>
+								<div class="flex flex-col gap-1">
+									<div class="text-base-content text-xl font-bold">
+										{(item.primaryTotal ?? 0).toLocaleString()}
+									</div>
+								</div>
+							{/snippet}
+						</StackedTimeline>
+					{/key}
 				</div>
 			</div>
 		{/if}
 
-		<!-- Filter bar -->
-		<div class="m-auto flex w-full max-w-full flex-col gap-4 md:max-w-(--breakpoint-xl)">
-			<div class="flex w-full flex-wrap items-center justify-end gap-4">
-				<p class="text-muted-content w-full text-sm md:w-fit">Filter by:</p>
-				{#if !policyDirection}
-					<Select
-						class="dark:border-base-400 border border-transparent"
-						classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
-						options={directionSelectOptions}
-						bind:selected={filterDirection}
-						multiple
-						searchInDropdown
-						id="filter-direction"
-						onSelect={(option) => handleFilterSelect('direction', option)}
-						onClear={(option) => handleFilterClear('direction', option)}
-						onClearAll={filterDirection !== 'all_directions'
-							? () => handleFilterClearAll('direction')
-							: undefined}
-						placeholder="Filter by direction..."
-						buttonReadOnly
-						buttonTitle="Directions"
-						displayCount={!!filterDirection && filterDirection !== 'all_directions'}
-					/>
-				{/if}
-				<Select
-					class="dark:border-base-400 border border-transparent"
-					classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
-					options={userSelectOptions}
-					bind:selected={filterUserID}
-					multiple
-					searchInDropdown
-					id="filter-user"
-					onSelect={(option) => handleFilterSelect('user', option)}
-					onClear={(option) => handleFilterClear('user', option)}
-					onClearAll={filterUserID !== 'all_users' ? () => handleFilterClearAll('user') : undefined}
-					placeholder="Filter by user..."
-					buttonReadOnly
-					buttonTitle="Users"
-					displayCount={!!filterUserID && filterUserID !== 'all_users'}
-				/>
-				<Select
-					class="dark:border-base-400 border border-transparent"
-					classes={{ root: 'w-full md:flex-1 dark:border-base-400' }}
-					options={policySelectOptions}
-					bind:selected={filterPolicyID}
-					multiple
-					searchInDropdown
-					id="filter-policy"
-					onSelect={(option) => handleFilterSelect('policy', option)}
-					onClear={(option) => handleFilterClear('policy', option)}
-					onClearAll={filterPolicyID !== 'all_policies'
-						? () => handleFilterClearAll('policy')
-						: undefined}
-					placeholder="Filter by policy..."
-					buttonReadOnly
-					buttonTitle="Policies"
-					displayCount={!!filterPolicyID && filterPolicyID !== 'all_policies'}
-				/>
-				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
-				<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
+		<!-- Table -->
+		{#if !loading && visibleViolations.length === 0}
+			<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
+				<ShieldAlert class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No policy violations</h4>
+				<p class="text-muted-content text-sm font-light">
+					Currently, there are no policy violations for the selected range or filters. Try modifying
+					your search criteria or try again later.
+				</p>
+			</div>
+		{:else if visibleViolations.length > 0}
+			<div
+				class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+			>
+				<table class="w-full flex-1 table-fixed border-collapse border-spacing-0">
+					<thead>
+						<tr>
+							<th
+								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								#
+							</th>
+							<th
+								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								Timestamp
+							</th>
+							<th
+								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								User
+							</th>
+							<th
+								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								Policy
+							</th>
+							<th
+								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+							>
+								Applies To
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each visibleViolations as v, i (v.id)}
+							<tr
+								class="hover:bg-base-400 dark:hover:bg-base-400 group h-14 cursor-pointer text-sm transition-colors duration-300"
+								onclick={() => viewDetail(v)}
+							>
+								<td class="px-6 py-3">{pageOffset + i + 1}</td>
+								<td class="whitespace-nowrap">
+									<div class="truncate px-6 py-4">
+										{formatLogTimestamp(v.createdAt, userDeviceSettings.timeFormat)}
+									</div>
+								</td>
+								<td class="whitespace-nowrap">
+									<div class="truncate px-6 py-4">{displayName(v.userID)}</div>
+								</td>
+								<td class="whitespace-nowrap">
+									<div class="truncate px-6 py-4">{v.policyName}</div>
+								</td>
+								<td class="whitespace-nowrap">
+									<div class="truncate px-6 py-4">{directionLabel(v.direction)}</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
 
-			{#if (!policyDirection && filterDirection !== 'all_directions') || filterUserID !== 'all_users' || filterPolicyID !== 'all_policies'}
-				<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
-					{#if !policyDirection && filterDirection !== 'all_directions'}
-						{#each filterDirection.split(',') as direction (direction)}
-							<div class="filter-primary">
-								<span class="font-semibold">Direction:</span>{directionLabel(direction)}
-								<button onclick={() => handleFilterClear('direction', { id: direction })}>
-									<X class="size-3" />
-								</button>
-							</div>
-						{/each}
-					{/if}
-					{#if filterUserID !== 'all_users'}
-						{#each filterUserID.split(',') as userID (userID)}
-							<div class="filter-primary">
-								<span class="font-semibold">User:</span>{displayName(userID)}
-								<button onclick={() => handleFilterClear('user', { id: userID })}>
-									<X class="size-3" />
-								</button>
-							</div>
-						{/each}
-					{/if}
-					{#if filterPolicyID !== 'all_policies'}
-						{#each filterPolicyID.split(',') as policyID (policyID)}
-							<div class="filter-primary">
-								<span class="font-semibold">Policy:</span>{policyFilterOptions.find(
-									(p) => p.id === policyID
-								)?.name}
-								<button onclick={() => handleFilterClear('policy', { id: policyID })}>
-									<X class="size-3" />
-								</button>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			{/if}
-
-			<!-- Chart -->
-			{#if !loading && visibleViolations.length > 0}
-				<div class="paper w-full gap-0 pt-4">
-					<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-						<h4 class="flex items-center gap-2 font-semibold">
-							Policy Violations
-							{#if loading}
-								<Loading class="size-4 animate-spin" />
-							{/if}
-						</h4>
-						<Select
-							class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-[50dvw] border border-transparent shadow-inner md:w-64"
-							options={groupByOptions}
-							selected={groupBy}
-							onSelect={handleGroupByChange}
-						/>
-					</div>
-					<div class="w-full pt-2">
-						{#key groupBy}
-							<StackedTimeline
-								start={startTime}
-								end={endTime}
-								data={chartData}
-								categoryKey="category"
-								dateKey="createdAt"
-								primaryValueKey="count"
-								secondaryValueKey="_secondary"
-								class="h-96"
-								legend={{
-									showSecondaryLabel: false,
-									primaryLabel: '',
-									hideCategoryLabel: false
-								}}
-							>
-								{#snippet tooltipContent(item)}
-									<div class="flex flex-col gap-0 text-xs">
-										<div class="text-sm font-light">{item.key}</div>
-										<div class="text-muted-content">{item.date}</div>
-										<div class="divider"></div>
-									</div>
-									<div class="flex flex-col gap-1">
-										<div class="text-base-content text-xl font-bold">
-											{(item.primaryTotal ?? 0).toLocaleString()}
-										</div>
-									</div>
-								{/snippet}
-							</StackedTimeline>
-						{/key}
-					</div>
-				</div>
-			{/if}
-
-			<!-- Table -->
-			{#if !loading && visibleViolations.length === 0}
-				<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-					<ShieldAlert class="text-muted-content size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">No policy violations</h4>
-					<p class="text-muted-content text-sm font-light">
-						Currently, there are no policy violations for the selected range or filters. Try
-						modifying your search criteria or try again later.
-					</p>
-				</div>
-			{:else if visibleViolations.length > 0}
+			<!-- Pagination -->
+			{#if totalPages > 1}
 				<div
-					class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+					class="dark:bg-base-300 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
 				>
-					<table class="w-full flex-1 table-fixed border-collapse border-spacing-0">
-						<thead>
-							<tr>
-								<th
-									class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									#
-								</th>
-								<th
-									class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Timestamp
-								</th>
-								<th
-									class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									User
-								</th>
-								<th
-									class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Policy
-								</th>
-								<th
-									class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Applies To
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each visibleViolations as v, i (v.id)}
-								<tr
-									class="hover:bg-base-400 dark:hover:bg-base-400 group h-14 cursor-pointer text-sm transition-colors duration-300"
-									onclick={() => viewDetail(v)}
-								>
-									<td class="px-6 py-3">{pageOffset + i + 1}</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">
-											{formatLogTimestamp(v.createdAt, userDeviceSettings.timeFormat)}
-										</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{displayName(v.userID)}</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{v.policyName}</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{directionLabel(v.direction)}</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-
-				<!-- Pagination -->
-				{#if totalPages > 1}
-					<div
-						class="dark:bg-base-300 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
-					>
-						<div class="flex gap-4">
-							<div>
-								Showing {pageOffset + 1}-{Math.min(pageOffset + pageLimit, total)} of {total}
-							</div>
-							<div class="flex items-center">
-								<span>{currentPage}</span>/<span>{totalPages}</span>
-								<span class="ml-1">pages</span>
-							</div>
+					<div class="flex gap-4">
+						<div>
+							Showing {pageOffset + 1}-{Math.min(pageOffset + pageLimit, total)} of {total}
 						</div>
-						<div class="flex gap-4">
-							<button
-								class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-								disabled={pageOffset === 0}
-								onclick={() => {
-									pageOffset = Math.max(0, pageOffset - pageLimit);
-									fetchData();
-								}}
-							>
-								Previous
-							</button>
-							<button
-								class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-								disabled={currentPage >= totalPages}
-								onclick={() => {
-									pageOffset += pageLimit;
-									fetchData();
-								}}
-							>
-								Next
-							</button>
+						<div class="flex items-center">
+							<span>{currentPage}</span>/<span>{totalPages}</span>
+							<span class="ml-1">pages</span>
 						</div>
 					</div>
-				{/if}
+					<div class="flex gap-4">
+						<button
+							class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+							disabled={pageOffset === 0}
+							onclick={() => {
+								pageOffset = Math.max(0, pageOffset - pageLimit);
+								fetchData();
+							}}
+						>
+							Previous
+						</button>
+						<button
+							class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+							disabled={currentPage >= totalPages}
+							onclick={() => {
+								pageOffset += pageLimit;
+								fetchData();
+							}}
+						>
+							Next
+						</button>
+					</div>
+				</div>
 			{/if}
-		</div>
+		{/if}
 	</div>
 </div>
 

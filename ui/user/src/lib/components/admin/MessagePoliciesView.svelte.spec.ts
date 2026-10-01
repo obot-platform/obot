@@ -160,7 +160,6 @@ describe('MessagePoliciesView', () => {
 		await expect
 			.element(page.getByRole('row', { name: /Block travel booking/ }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByText('Tool Call Violations')).toBeVisible();
 		await expect.element(page.getByText('User Message Violations')).not.toBeInTheDocument();
 		await expect.element(page.getByRole('combobox', { name: /Filter by user/ })).toBeVisible();
 	});
@@ -173,7 +172,6 @@ describe('MessagePoliciesView', () => {
 		await expect
 			.element(page.getByRole('row', { name: /Block shell tools/ }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByText('User Message Violations')).toBeVisible();
 		await expect.element(page.getByText('Tool Call Violations')).not.toBeInTheDocument();
 		await expect.element(page.getByRole('combobox', { name: /Filter by user/ })).toBeVisible();
 	});
