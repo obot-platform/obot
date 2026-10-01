@@ -19,10 +19,34 @@ func TestUserHasAccessToMCPServerCatalogEntryInCatalogMatchesGroups(t *testing.T
 		want        bool
 	}{
 		{
-			name: "owner matches inherited admin role group",
+			name: "owner role group does not match auth provider group",
 			user: &kuser.DefaultInfo{
 				UID:    "owner",
 				Groups: types.RoleOwner.Groups(),
+			},
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   types.GroupAdmin,
+			want:        false,
+		},
+		{
+			name: "obot admin group does not match auth provider group",
+			user: &kuser.DefaultInfo{
+				UID: "admin",
+				Extra: map[string][]string{
+					"obot_groups": {types.GroupAdmin},
+				},
+			},
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   types.GroupAdmin,
+			want:        false,
+		},
+		{
+			name: "auth provider admin group matches auth provider group",
+			user: &kuser.DefaultInfo{
+				UID: "member",
+				Extra: map[string][]string{
+					"auth_provider_groups": {types.GroupAdmin},
+				},
 			},
 			subjectType: types.SubjectTypeGroup,
 			subjectID:   types.GroupAdmin,

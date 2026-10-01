@@ -5,6 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
@@ -62,11 +63,8 @@ func (h *Helper) UserHasAccessToHostedAgentID(user kuser.Info, hostedAgentID str
 		return false, nil
 	}
 
-	var (
-		userID     string
-		groups     = authGroupSet(user)
-		obotGroups = obotGroupSet(user)
-	)
+	var userID string
+	groups, obotGroups := subjectgroups.Sets(user)
 	if user != nil {
 		userID = user.GetUID()
 	}
@@ -146,7 +144,8 @@ func (h *Helper) getRulesForUser(namespace string, user kuser.Info) ([]v1.Hosted
 		addRules(userRules)
 	}
 
-	for groupID := range authGroupSet(user) {
+	groups, obotGroups := subjectgroups.Sets(user)
+	for groupID := range groups {
 		groupRules, err := h.GetHostedAgentAccessRulesForGroup(namespace, groupID)
 		if err != nil {
 			return nil, err
@@ -154,7 +153,7 @@ func (h *Helper) getRulesForUser(namespace string, user kuser.Info) ([]v1.Hosted
 		addRules(groupRules)
 	}
 
-	for groupID := range obotGroupSet(user) {
+	for groupID := range obotGroups {
 		groupRules, err := h.getIndexedRules(namespace, ObotGroupIDIndex, groupID, "obot group")
 		if err != nil {
 			return nil, err
@@ -207,24 +206,4 @@ func hasMatchingSubject(rules []v1.HostedAgentAccessRule, userID string, groups,
 	}
 
 	return false
-}
-
-func authGroupSet(user kuser.Info) map[string]struct{} {
-	return groupSet(user, "auth_provider_groups")
-}
-
-func obotGroupSet(user kuser.Info) map[string]struct{} {
-	return groupSet(user, "obot_groups")
-}
-
-func groupSet(user kuser.Info, key string) map[string]struct{} {
-	if user == nil {
-		return map[string]struct{}{}
-	}
-	groups := user.GetExtra()[key]
-	set := make(map[string]struct{}, len(groups))
-	for _, group := range groups {
-		set[group] = struct{}{}
-	}
-	return set
 }

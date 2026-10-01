@@ -3,6 +3,7 @@ package publishedartifact
 import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -58,8 +59,7 @@ func VersionSubjects(artifact *v1.PublishedArtifact, version int) []types.Subjec
 
 func SubjectsContainUser(subjects []types.Subject, requester user.Info) bool {
 	userID := requester.GetUID()
-	groups := groupSet(requester, "auth_provider_groups")
-	obotGroups := groupSet(requester, "obot_groups")
+	groups, obotGroups := subjectgroups.Sets(requester)
 	for _, subject := range subjects {
 		switch subject.Type {
 		case types.SubjectTypeUser:
@@ -82,13 +82,4 @@ func SubjectsContainUser(subjects []types.Subject, requester user.Info) bool {
 	}
 
 	return false
-}
-
-func groupSet(requester user.Info, key string) map[string]struct{} {
-	groups := requester.GetExtra()[key]
-	result := make(map[string]struct{}, len(groups))
-	for _, group := range groups {
-		result[group] = struct{}{}
-	}
-	return result
 }
