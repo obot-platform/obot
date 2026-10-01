@@ -272,7 +272,8 @@ func TestReview(t *testing.T) {
 	if len(review.Warnings) != 1 || review.Warnings[0].Type != warningMissingGroup || review.Warnings[0].GroupID != "okta/00g0000000000missing" {
 		t.Fatalf("warnings = %+v", review.Warnings)
 	}
-	if len(review.EnforceBlockers) != 1 || !strings.Contains(review.EnforceBlockers[0], `"Legacy"`) || !strings.Contains(review.EnforceBlockers[0], "from Okta") {
+	// The unbound referenced group blocks enforcing, but the review lists it only among the groups.
+	if len(review.EnforceBlockers) != 0 {
 		t.Fatalf("enforce blockers = %v", review.EnforceBlockers)
 	}
 
@@ -292,7 +293,7 @@ func TestReview(t *testing.T) {
 				AuthProviderName:      s.owner.AuthProviderName,
 			},
 			wantRole:  "Only an Owner who signed in through Okta can enforce SCIM.",
-			wantCount: 2,
+			wantCount: 1,
 		},
 		{
 			name: "the bootstrap user",
@@ -303,7 +304,7 @@ func TestReview(t *testing.T) {
 				Bootstrap:        true,
 			},
 			wantRole:  "Only an Owner who signed in through Okta can enforce SCIM. The bootstrap user cannot.",
-			wantCount: 2,
+			wantCount: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -312,7 +313,7 @@ func TestReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// The role, and the unbound referenced group.
+			// Only the role.
 			if len(review.EnforceBlockers) != tt.wantCount || review.EnforceBlockers[0] != tt.wantRole {
 				t.Fatalf("enforce blockers = %v", review.EnforceBlockers)
 			}

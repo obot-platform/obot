@@ -16927,7 +16927,7 @@ func schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref common.R
 					},
 					"enforceBlockers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EnforceBlockers are the reasons the requesting user cannot enforce SCIM now. They are empty once SCIM is enforced.",
+							Description: "EnforceBlockers are the reasons the requesting user cannot enforce SCIM now, other than UnboundReferencedGroups, which also block it. They are empty once SCIM is enforced.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

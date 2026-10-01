@@ -146,6 +146,15 @@ describe('ScimView', () => {
 		await expect.element(page.getByText('1 provisioned, 1 not provisioned yet.')).toBeVisible();
 	});
 
+	it('shows the base URL with a button that copies it', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], { review: review() });
+
+		await expect
+			.element(page.getByText(`https://obot.example.com/scim/v2/${connectionID}`))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Copy base URL' })).toBeVisible();
+	});
+
 	it('lets an Owner generate the first token, and shows it once', async () => {
 		const rotate = vi.fn();
 		worker.use(
@@ -164,6 +173,7 @@ describe('ScimView', () => {
 
 		await vi.waitFor(() => expect(rotate).toHaveBeenCalledOnce());
 		await expect.element(page.getByText('obot_scim_secret')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Copy token' })).toBeVisible();
 		await expect.element(page.getByText('It is shown only once', { exact: false })).toBeVisible();
 	});
 
@@ -199,7 +209,8 @@ describe('ScimView', () => {
 		await expect.element(page.getByRole('button', { name: 'Enforce SCIM' })).toBeDisabled();
 	});
 
-	it('lists what blocks enforcing', async () => {
+	it('lists the referenced groups not pushed yet among what blocks enforcing', async () => {
+		// The server leaves the groups out of the blockers, since the review lists them.
 		await renderScimView([Group.OWNER, Group.ADMIN], {
 			review: review({
 				unboundReferencedGroups: {
@@ -209,20 +220,28 @@ describe('ScimView', () => {
 							references: [{ kind: 'modelAccessPolicy', id: 'map1', displayName: 'Models' }]
 						})
 					],
-					total: 1
-				},
-				enforceBlockers: ['The referenced group "Legacy" has not been pushed from Okta.']
+					total: 2
+				}
 			})
 		});
 
-		await expect.element(page.getByText('SCIM cannot be enforced yet')).toBeVisible();
+		const blockers = page.getByRole('alert');
+		await expect.element(blockers.getByText('SCIM cannot be enforced yet')).toBeVisible();
 		await expect
-			.element(page.getByText('The referenced group "Legacy" has not been pushed from Okta.'))
+			.element(
+				blockers
+					.getByRole('listitem')
+					.filter({ hasText: '2 referenced groups have not been pushed from Okta.' })
+			)
+			.toBeVisible();
+		await expect.element(blockers.getByText('Legacy', { exact: true })).toBeVisible();
+		await expect
+			.element(blockers.getByText('Referenced by model access policy “Models”'))
 			.toBeVisible();
 		await expect
-			.element(page.getByText('Referenced by model access policy “Models”'))
-			.toBeVisible();
-		await expect.element(page.getByRole('link', { name: 'Open in Okta' })).toBeVisible();
+			.element(blockers.getByRole('link', { name: 'Open in Okta' }))
+			.toHaveAttribute('href', 'https://example-admin.okta.com/admin/group/00g00000000000legacy');
+		await expect.element(blockers.getByText('And 1 more, listed under Groups.')).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Enforce SCIM' })).toBeDisabled();
 	});
 
@@ -448,7 +467,8 @@ describe('ScimView', () => {
 	});
 
 	it('shows what refused Enforce once it fails', async () => {
-		const blocker = 'The referenced group "Legacy" has not been pushed from Okta.';
+		const blocker =
+			'Your account has not been provisioned through SCIM. Assign yourself to the SCIM application in Okta.';
 		worker.use(
 			http.post(`*/api/scim-connections/${connectionID}/enforce`, () =>
 				HttpResponse.json({ error: `SCIM cannot be enforced:\n- ${blocker}` }, { status: 400 })

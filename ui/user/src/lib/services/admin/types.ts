@@ -1931,7 +1931,8 @@ export interface SCIMConnectionReview {
 	unboundReferencedGroups: SCIMPage<SCIMSetupGroup>;
 	unreferencedGroups: SCIMPage<SCIMSetupGroup>;
 	warnings: SCIMSetupWarning[];
-	// Why the requesting user cannot enforce SCIM now. Empty once SCIM is enforced.
+	// Why the requesting user cannot enforce SCIM now, besides unboundReferencedGroups, which also
+	// block it. Empty once SCIM is enforced.
 	enforceBlockers: string[];
 	activity: {
 		lastRequestAt?: string;

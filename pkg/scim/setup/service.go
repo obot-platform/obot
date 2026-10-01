@@ -229,7 +229,7 @@ func (s *Service) Review(ctx context.Context, id string, actor Actor, pageSize i
 	}
 
 	if conn.State == types.SCIMConnectionStateConnected {
-		if review.EnforceBlockers, err = s.enforceBlockers(ctx, conn, p, configured, plan, actor); err != nil {
+		if review.EnforceBlockers, err = s.enforceBlockers(ctx, conn, p, configured, actor); err != nil {
 			return nil, err
 		}
 	}
@@ -307,9 +307,14 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 	if err != nil {
 		return nil, err
 	}
-	if blockers, err := s.enforceBlockers(ctx, conn, p, configured, plan, actor); err != nil {
+	blockers, err := s.enforceBlockers(ctx, conn, p, configured, actor)
+	if err != nil {
 		return nil, err
-	} else if len(blockers) > 0 {
+	}
+	for _, group := range plan.unboundReferenced {
+		blockers = append(blockers, unboundGroupMessage(p, group))
+	}
+	if len(blockers) > 0 {
 		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	}
 
@@ -426,8 +431,9 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 	return result, nil
 }
 
-// enforceBlockers returns the reasons actor cannot enforce the connection now.
-func (s *Service) enforceBlockers(ctx context.Context, conn *types.SCIMConnection, p *provider, configured string, plan *groupPlan, actor Actor) ([]string, error) {
+// enforceBlockers returns the reasons actor cannot enforce the connection now, other than its unbound referenced
+// groups, which a review lists apart.
+func (s *Service) enforceBlockers(ctx context.Context, conn *types.SCIMConnection, p *provider, configured string, actor Actor) ([]string, error) {
 	blockers := []string{}
 	switch {
 	case actor.Bootstrap:
@@ -437,9 +443,6 @@ func (s *Service) enforceBlockers(ctx context.Context, conn *types.SCIMConnectio
 	}
 	if !providerConfigured(conn, configured) {
 		blockers = append(blockers, fmt.Sprintf("%s is not the configured auth provider.", p.displayName))
-	}
-	for _, group := range plan.unboundReferenced {
-		blockers = append(blockers, unboundGroupMessage(p, group))
 	}
 	// Whether the acting user could sign in afterwards matters only to an Owner, who could enforce.
 	if actor.Owner && !actor.Bootstrap {
@@ -766,7 +769,7 @@ func actorProblemMessage(p *provider, problem gclient.SCIMEnforceActorProblem) s
 	case gclient.SCIMEnforceActorNotSignedIn:
 		return fmt.Sprintf("Your account has not signed in through %s, so it is not known to be able to sign in once SCIM is enforced.", p.displayName)
 	case gclient.SCIMEnforceActorUnprovisioned:
-		return fmt.Sprintf("Your account has not been provisioned through SCIM. Assign yourself to the SCIM application in %s first, or you would be locked out.", p.displayName)
+		return fmt.Sprintf("Your account has not been provisioned through SCIM. Assign yourself to the SCIM application in %s.", p.displayName)
 	case gclient.SCIMEnforceActorDeactivated:
 		return fmt.Sprintf("Your account is deactivated in %s, so you could not sign in once SCIM is enforced.", p.displayName)
 	default:

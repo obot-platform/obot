@@ -145,8 +145,8 @@ type SCIMConnectionReview struct {
 	// UnreferencedGroups are unbound groups that nothing references. Enforcing deletes them.
 	UnreferencedGroups SCIMSetupGroupPage `json:"unreferencedGroups"`
 	Warnings           []SCIMSetupWarning `json:"warnings"`
-	// EnforceBlockers are the reasons the requesting user cannot enforce SCIM now. They are empty once SCIM is
-	// enforced.
+	// EnforceBlockers are the reasons the requesting user cannot enforce SCIM now, other than
+	// UnboundReferencedGroups, which also block it. They are empty once SCIM is enforced.
 	EnforceBlockers []string               `json:"enforceBlockers"`
 	Activity        SCIMConnectionActivity `json:"activity"`
 	// UnusedDirectoryParameters name the configuration parameters that only login-time directory synchronization

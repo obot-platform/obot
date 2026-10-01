@@ -565,8 +565,9 @@
 		<dl class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 			<div class="flex min-w-0 flex-col gap-1 md:col-span-2">
 				<dt class="text-muted-content text-xs">Base URL</dt>
-				<dd class="min-w-0 break-all">
-					<CopyButton showTextLeft buttonText={conn.baseURL} text={conn.baseURL} />
+				<dd class="flex min-w-0 items-center gap-2">
+					<span class="font-mono break-all">{conn.baseURL}</span>
+					<CopyButton text={conn.baseURL} tooltipText="Copy base URL" />
 				</dd>
 			</div>
 			<div class="flex flex-col gap-1">
@@ -689,14 +690,21 @@
 			</p>
 		</div>
 
-		{#if r.enforceBlockers.length > 0}
-			{@render blockerList('SCIM cannot be enforced yet', r.enforceBlockers)}
+		{#if r.enforceBlockers.length > 0 || r.unboundReferencedGroups.total > 0}
+			{@render blockerList(
+				'SCIM cannot be enforced yet',
+				r.enforceBlockers,
+				r.unboundReferencedGroups
+			)}
 		{/if}
 
 		<div class="flex items-center justify-end gap-2">
 			<button
 				class="btn btn-primary"
-				disabled={!canEnforce || loading || r.enforceBlockers.length > 0}
+				disabled={!canEnforce ||
+					loading ||
+					r.enforceBlockers.length > 0 ||
+					r.unboundReferencedGroups.total > 0}
 				onclick={() => (confirmEnforce = true)}
 			>
 				Enforce SCIM
@@ -842,8 +850,8 @@
 				at sign-in. It cannot be undone.
 			</p>
 			<p class="text-muted-content text-sm font-light">
-				Everyone can still sign in once SCIM is enabled. Enforcing SCIM, a later step, requires an
-				account that {providerName} provisioned.
+				Everyone can still sign in once SCIM is enabled. Enforcing SCIM, a later step, will allow
+				only accounts provisioned by {providerName} to sign in.
 			</p>
 		</div>
 
@@ -880,7 +888,7 @@
 				Unreferenced groups ({pages.unreferencedGroups.total})
 			</h3>
 			<p class="text-muted-content text-xs font-light">
-				Nothing references these groups, so they grant nothing. Enabling SCIM deletes them.
+				Nothing references these groups, so they grant nothing. Enabling SCIM deletes the from Obot.
 			</p>
 			{@render groupList('unreferencedGroups', 'No groups will be deleted.')}
 		</div>
@@ -909,15 +917,51 @@
 	</section>
 {/snippet}
 
-{#snippet blockerList(title: string, items: string[])}
+{#snippet blockerList(title: string, items: string[], unpushedGroups?: SCIMPage<SCIMSetupGroup>)}
 	<div class="notification-alert flex items-start gap-2" role="alert">
 		<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 		<div class="flex min-w-0 flex-col gap-1">
 			<p class="text-sm font-medium">{title}</p>
-			<ul class="list-disc pl-4 text-sm font-light wrap-break-word">
+			<ul class="flex list-disc flex-col gap-1 pl-4 text-sm font-light wrap-break-word">
 				{#each items as item (item)}
 					<li>{item}</li>
 				{/each}
+				{#if unpushedGroups?.total}
+					<li>
+						{count(unpushedGroups.total, 'referenced group has', 'referenced groups have')} not been pushed
+						from {providerName}. {unpushedGroups.total === 1 ? 'Push it' : 'Push each one'} under the
+						name shown, renaming it in {providerName} first if needed, or remove its references.
+						<ul class="mt-2 flex flex-col gap-2">
+							{#each unpushedGroups.items as group (group.id)}
+								<li class="flex flex-col">
+									<span class="flex flex-wrap items-baseline gap-x-2">
+										<span class="font-medium">{group.name || group.id}</span>
+										{#if group.consoleURL}
+											<a
+												class="text-link text-xs"
+												href={group.consoleURL}
+												target="_blank"
+												rel="external noopener noreferrer"
+											>
+												Open in {providerName}
+											</a>
+										{/if}
+									</span>
+									{#if group.references?.length}
+										<span class="text-muted-content text-xs">
+											Referenced by {group.references.map(describeReference).join('; ')}
+										</span>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+						{#if unpushedGroups.total > unpushedGroups.items.length}
+							<p class="text-muted-content mt-2 text-xs">
+								And {unpushedGroups.total - unpushedGroups.items.length} more, listed under Groups.
+							</p>
+						{/if}
+					</li>
+				{/if}
 			</ul>
 		</div>
 	</div>
@@ -1038,7 +1082,7 @@
 	show={confirmDeleteGroups}
 	title="Delete unreferenced groups"
 	msg="Delete {count(pages.unreferencedGroups.total, 'unreferenced group')}?"
-	note="They grant nothing, so no one loses access. A group that gains a reference in the meantime is kept."
+	note="They grant nothing, so no one loses access. The groups will still exist in {providerName} but will no longer be known to Obot."
 	submitText="Delete groups"
 	{loading}
 	onsuccess={handleDeleteUnreferencedGroups}
@@ -1089,14 +1133,17 @@
 			</div>
 			<div class="flex min-w-0 flex-col gap-1">
 				<span class="text-muted-content text-xs">Base URL</span>
-				<CopyButton showTextLeft buttonText={issuedToken.baseURL} text={issuedToken.baseURL} />
+				<div class="flex min-w-0 items-center gap-2">
+					<span class="font-mono text-sm break-all">{issuedToken.baseURL}</span>
+					<CopyButton text={issuedToken.baseURL} tooltipText="Copy base URL" />
+				</div>
 			</div>
 			<div class="flex min-w-0 flex-col gap-1">
 				<span class="text-muted-content text-xs">Bearer token</span>
-				<code class="bg-base-200 dark:bg-base-300 rounded-md px-3 py-2 font-mono text-xs break-all">
-					{issuedToken.token}
-				</code>
-				<CopyButton text={issuedToken.token} buttonText="Copy token" />
+				<div class="flex min-w-0 items-center gap-2">
+					<span class="font-mono text-sm break-all">{issuedToken.token}</span>
+					<CopyButton text={issuedToken.token} tooltipText="Copy token" />
+				</div>
 			</div>
 			<div class="flex justify-end">
 				<button class="btn btn-primary" onclick={() => tokenDialog?.close()}>Done</button>
