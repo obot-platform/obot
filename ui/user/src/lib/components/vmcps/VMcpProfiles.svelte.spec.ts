@@ -614,6 +614,58 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('GitHub')).not.toBeInTheDocument();
 	});
 
+	describe('as-is server without a stored tool list', () => {
+		function createAsIsVMcp(id: string) {
+			const vmcp = createVMcp(id, false);
+			vmcp.profiles = [
+				{
+					name: 'Limited tools',
+					subjects: [{ type: 'selector', id: '*' }],
+					vmcpPermissions: {
+						allowedComponents: { github: { allowedTools: ['list_issues', 'list_pulls'] } }
+					}
+				}
+			];
+			return vmcp;
+		}
+
+		it('shows the granted tool count on the server chip instead of Default', async () => {
+			render(VMcpProfiles, { vmcp: createAsIsVMcp('vmcp-asis-chip'), toolFlow: toolFlowStub() });
+
+			await expect.element(page.getByRole('button', { name: 'Edit Limited tools' })).toBeVisible();
+			await expect.element(page.getByText('2 tools', { exact: true })).toBeVisible();
+			await expect.element(page.getByText('Default', { exact: true })).not.toBeInTheDocument();
+		});
+
+		it('lists the granted tools when editing the profile', async () => {
+			render(VMcpProfiles, { vmcp: createAsIsVMcp('vmcp-asis-edit'), toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Limited tools' }).click();
+			await expect.element(page.getByRole('checkbox', { name: 'Disable GitHub' })).toBeChecked();
+			await expect.element(page.getByText('2 tools', { exact: true })).toBeVisible();
+			await expandServerTools();
+			await expect.element(page.getByText('list_issues')).toBeVisible();
+			await expect.element(page.getByText('list_pulls')).toBeVisible();
+			await expect.element(toolSwitch(0)).toBeChecked();
+			await expect.element(toolSwitch(1)).toBeChecked();
+		});
+
+		it('saves the narrowed grant after disabling a granted tool', async () => {
+			const vmcp = createAsIsVMcp('vmcp-asis-narrow');
+			const saved = mockVMcpSave(vmcp);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Limited tools' }).click();
+			await expandServerTools();
+			await toolSwitch(1).click();
+			await page.getByRole('button', { name: 'Save changes' }).click();
+			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			expect(savedProfiles(saved)[0].vmcpPermissions).toEqual({
+				allowedComponents: { github: { allowedTools: ['list_issues'] } }
+			});
+		});
+	});
+
 	it('shows only allowedComponents servers as enabled when Allow All Access is off', async () => {
 		const vmcp = createVMcp('vmcp-allow-all-toggle-off');
 		vmcp.profiles = [
