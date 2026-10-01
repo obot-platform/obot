@@ -426,6 +426,38 @@ func TestMigrateNoConnectionsDoesNotGrantWildcard(t *testing.T) {
 	require.Len(t, targets.Items[0].Spec.Manifest.Components, 2)
 }
 
+func TestMigrateRuleProfiles(t *testing.T) {
+	entry := migrationEntry(t)
+	named := &v1.AccessControlRule{
+		Name: "acr-named", Namespace: entry.Namespace,
+		Spec: v1.AccessControlRuleSpec{
+			MCPCatalogID: "default",
+			Manifest: types.AccessControlRuleManifest{
+				DisplayName: "Engineering",
+				Subjects:    []types.Subject{{Type: types.SubjectTypeGroup, ID: "engineering"}},
+				Resources:   []types.Resource{{Type: types.ResourceTypeSelector, ID: "*"}},
+			},
+		},
+	}
+	noSubjects := &v1.AccessControlRule{
+		Name: "acr-no-subjects", Namespace: entry.Namespace,
+		Spec: v1.AccessControlRuleSpec{
+			MCPCatalogID: "default",
+			Manifest: types.AccessControlRuleManifest{
+				DisplayName: "Everything",
+				Resources:   []types.Resource{{Type: types.ResourceTypeSelector, ID: "*"}},
+			},
+		},
+	}
+	client := migrationClient(entry, named, noSubjects)
+	handler := credentialHandler(t, nil, map[string]map[string]string{})
+	require.NoError(t, handler.Migrate(t.Context(), client, entry))
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Len(t, targets.Items, 1)
+	require.Equal(t, []types.VMCPProfile{{Name: "Engineering", Subjects: named.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, targets.Items[0].Spec.Manifest.Profiles)
+}
+
 func TestMigrateRetainsSourceOnOAuthCopyFailure(t *testing.T) {
 	entry, parent := migrationEntry(t), migrationParent(t, "parent")
 	child := &v1.MCPServer{Name: "child", Namespace: entry.Namespace, Spec: v1.MCPServerSpec{CompositeName: parent.Name, MCPServerCatalogEntryName: "local"}}

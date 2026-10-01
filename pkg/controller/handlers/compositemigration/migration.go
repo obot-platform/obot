@@ -224,7 +224,7 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 		}
 		for _, resource := range rule.Spec.Manifest.Resources {
 			if (resource.Type == types.ResourceTypeSelector && resource.ID == "*") || (resource.Type == types.ResourceTypeMCPServerCatalogEntry && resource.ID == entry.Name) {
-				target.Spec.Manifest.Profiles = append(target.Spec.Manifest.Profiles, types.VMCPProfile{Name: rule.Name, Subjects: rule.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
+				target.Spec.Manifest.Profiles = catalogmigration.AppendRuleProfile(target.Spec.Manifest.Profiles, rule)
 				break
 			}
 		}
@@ -235,7 +235,7 @@ func (h *Handler) buildVMCP(ctx context.Context, client kclient.Client, entry *v
 			return target, nil, nil, err
 		}
 		// Preserve existing workspace sharing as explicit grants, never a wildcard.
-		target.Spec.Manifest.Profiles = append(target.Spec.Manifest.Profiles, types.VMCPProfile{Name: "owner", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: workspace.Spec.UserID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
+		target.Spec.Manifest.Profiles = append(target.Spec.Manifest.Profiles, types.VMCPProfile{Name: catalogmigration.OwnerProfileName, Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: workspace.Spec.UserID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
 	}
 	static := map[string]string{}
 	var skipped []string

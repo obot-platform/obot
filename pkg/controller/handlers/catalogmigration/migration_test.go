@@ -480,6 +480,95 @@ func TestWildcardProfilesRespectScope(t *testing.T) {
 	require.Equal(t, rule.Name, targets.Items[0].Spec.Manifest.Profiles[0].Name)
 }
 
+func TestRulesWithoutSubjectsOrResourcesCreateNoVMCPs(t *testing.T) {
+	entry := testEntry("catalog")
+	noSubjects := testRule("no-subjects", types.Resource{Type: types.ResourceTypeSelector, ID: "*"})
+	noSubjects.Spec.Manifest.Subjects = nil
+	noResources := testRule("no-resources")
+	client := migrationClientBuilder().WithObjects(entry, noSubjects, noResources).Build()
+	handler := testHandler(t, nil, make(map[string]map[string]string))
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Empty(t, targets.Items)
+}
+
+func TestAppendRuleProfile(t *testing.T) {
+	subjects := []types.Subject{{Type: types.SubjectTypeGroup, ID: "engineering"}}
+	for _, tc := range []struct {
+		name        string
+		existing    []types.VMCPProfile
+		ruleName    string
+		displayName string
+		subjects    []types.Subject
+		expected    []string
+	}{
+		{
+			name:        "display name",
+			displayName: "Engineering",
+			subjects:    subjects,
+			expected:    []string{"Engineering"},
+		},
+		{
+			name:     "empty display name",
+			subjects: subjects,
+			expected: []string{"rule"},
+		},
+		{
+			name:        "duplicate display name",
+			existing:    []types.VMCPProfile{{Name: "Engineering"}},
+			displayName: "Engineering",
+			subjects:    subjects,
+			expected:    []string{"Engineering", "rule"},
+		},
+		{
+			name:        "duplicate display name and rule name",
+			existing:    []types.VMCPProfile{{Name: "Engineering"}, {Name: "rule"}, {Name: "rule-2"}},
+			displayName: "Engineering",
+			subjects:    subjects,
+			expected:    []string{"Engineering", "rule", "rule-2", "rule-3"},
+		},
+		{
+			name:        "reserved owner name",
+			displayName: OwnerProfileName,
+			subjects:    subjects,
+			expected:    []string{"rule"},
+		},
+		{
+			name:     "rule named owner",
+			ruleName: OwnerProfileName,
+			subjects: subjects,
+			expected: []string{"owner-2"},
+		},
+		{
+			name:        "no subjects",
+			displayName: "Engineering",
+			expected:    []string{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ruleName := tc.ruleName
+			if ruleName == "" {
+				ruleName = "rule"
+			}
+			rule := testRule(ruleName)
+			rule.Spec.Manifest.DisplayName = tc.displayName
+			rule.Spec.Manifest.Subjects = tc.subjects
+			profiles := AppendRuleProfile(tc.existing, *rule)
+			names := []string{}
+			for _, profile := range profiles {
+				names = append(names, profile.Name)
+			}
+			require.Equal(t, tc.expected, names)
+			if len(tc.subjects) > 0 {
+				added := profiles[len(profiles)-1]
+				require.Equal(t, tc.subjects, added.Subjects)
+				require.True(t, added.Permissions.AllowAllComponents)
+			}
+		})
+	}
+}
+
 func TestCredentialFailureRetainsSources(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

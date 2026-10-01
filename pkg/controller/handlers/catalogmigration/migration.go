@@ -27,6 +27,9 @@ import (
 const (
 	// MigrationName is the durable gateway marker and part of the stable destination IDs.
 	MigrationName = "standalone_mcp_to_vmcp"
+
+	// OwnerProfileName grants a workspace owner access to its shared resources.
+	OwnerProfileName = "owner"
 )
 
 type Handler struct {
@@ -309,7 +312,7 @@ func (h *Handler) migrateSharedServer(ctx context.Context, client kclient.Client
 			return v1.VMCP{}, err
 		}
 
-		profiles = append(profiles, types.VMCPProfile{Name: "owner", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: workspace.Spec.UserID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
+		profiles = append(profiles, types.VMCPProfile{Name: OwnerProfileName, Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: workspace.Spec.UserID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
 	}
 
 	manifest := server.Spec.Manifest.ConvertToCatalogEntry()
@@ -455,11 +458,36 @@ func matchingProfiles(rules []v1.AccessControlRule, namespace, catalog, workspac
 		}
 
 		if slices.Contains(rule.Spec.Manifest.Resources, resource) || slices.Contains(rule.Spec.Manifest.Resources, types.Resource{Type: types.ResourceTypeSelector, ID: "*"}) {
-			profiles = append(profiles, types.VMCPProfile{Name: rule.Name, Subjects: slices.Clone(rule.Spec.Manifest.Subjects), Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
+			profiles = AppendRuleProfile(profiles, rule)
 		}
 	}
 
 	return profiles
+}
+
+// AppendRuleProfile grants a rule's subjects every component. A rule without
+// subjects grants no one access, so it adds no profile. Profiles are named for
+// the rule's display name; the rule name is used when the display name is
+// empty, already taken, or reserved for the workspace owner. Duplicate profile
+// names fail validation and abort the migration, so a taken rule name is suffixed.
+func AppendRuleProfile(profiles []types.VMCPProfile, rule v1.AccessControlRule) []types.VMCPProfile {
+	if len(rule.Spec.Manifest.Subjects) == 0 {
+		return profiles
+	}
+
+	taken := func(name string) bool {
+		return name == OwnerProfileName || slices.ContainsFunc(profiles, func(profile types.VMCPProfile) bool { return profile.Name == name })
+	}
+
+	name := rule.Spec.Manifest.DisplayName
+	if name == "" || taken(name) {
+		name = rule.Name
+	}
+	for i := 2; taken(name); i++ {
+		name = fmt.Sprintf("%s-%d", rule.Name, i)
+	}
+
+	return append(profiles, types.VMCPProfile{Name: name, Subjects: slices.Clone(rule.Spec.Manifest.Subjects), Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}})
 }
 
 func newComponent(id, catalog, entry string, manifest types.MCPServerCatalogEntryManifest, values map[string]string, shared bool) (types.VMCPComponent, map[string]string) {
