@@ -190,7 +190,8 @@
 		<input
 			id="credential-search"
 			class="text-input-filled"
-			bind:value={search}
+bind:value={search}
+			oninput={() => (selected = '')}
 			placeholder="Search provider, credential type, or rule ID..."
 		/>
 		<div class="max-h-72 overflow-y-auto flex flex-col gap-3">
