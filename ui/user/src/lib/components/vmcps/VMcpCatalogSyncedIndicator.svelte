@@ -20,7 +20,7 @@
 
 {#if isCatalogSyncedVMcp(vmcp)}
 	{#if inline}
-		<div class="notification-info flex items-start gap-2">
+		<div class="notification-info flex items-start gap-2 mb-4">
 			<FolderGit2 class="size-5 shrink-0" />
 			<div class="flex flex-col gap-1 text-left text-xs font-normal">
 				{@render contents()}

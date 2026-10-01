@@ -354,7 +354,7 @@
 <ResponsiveDialog
 	bind:this={setupDialog}
 	animate="slide"
-	title={`Configure ${configuringEntry?.manifest.name ?? 'MCP Server'} Tools`}
+	title={`${readonly ? 'View' : 'Configure'} ${configuringEntry?.manifest.name ?? 'MCP Server'} Tools`}
 	class="md:w-md"
 	onClose={cancelSetup}
 >

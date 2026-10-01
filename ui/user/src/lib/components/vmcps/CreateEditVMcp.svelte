@@ -198,9 +198,7 @@
 >
 	<div class="flex grow flex-col p-4 md:p-0">
 		{#if selectedVMcp}
-			<div class="mb-4">
-				<VMcpCatalogSyncedIndicator vmcp={selectedVMcp} inline />
-			</div>
+			<VMcpCatalogSyncedIndicator vmcp={selectedVMcp} inline />
 		{/if}
 
 		<div class="mb-4 flex flex-col gap-1">

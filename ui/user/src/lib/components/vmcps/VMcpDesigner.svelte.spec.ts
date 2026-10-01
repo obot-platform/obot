@@ -1193,9 +1193,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
 				.not.toBeInTheDocument();
-			await expect
-				.element(page.getByPlaceholder('Search MCP servers...'))
-				.not.toBeInTheDocument();
+			await expect.element(page.getByPlaceholder('Search MCP servers...')).not.toBeInTheDocument();
 
 			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 			await expect
