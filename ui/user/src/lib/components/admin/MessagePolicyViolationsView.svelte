@@ -290,50 +290,20 @@
 	{/if}
 
 	<div class="mb-4 flex flex-col gap-4">
-		<!-- Overall Stats -->
-		<div class="bg-base-300 dark:bg-base-200 w-full">
-			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
-				<h4 class="font-semibold">Overall Stats</h4>
-				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-						<div class="text-base-content text-xs font-light">Total Violations</div>
-						<div class="text-primary flex items-center gap-1 text-xl font-semibold">
-							{#if loading}
-								<Loading class="size-4 animate-spin" />
-							{:else}
-								{total.toLocaleString()}
-							{/if}
-						</div>
-					</div>
-					{#if !policyDirection || policyDirection === 'user-message'}
-						<div class="divider-horizontal hidden md:block"></div>
-						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-							<div class="text-base-content text-xs font-light">User Message Violations</div>
-							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
-								{#if loading}
-									<Loading class="size-4 animate-spin" />
-								{:else}
-									{(stats?.byDirection.userMessage ?? 0).toLocaleString()}
-								{/if}
-							</div>
-						</div>
-					{/if}
-					{#if !policyDirection || policyDirection === 'tool-calls'}
-						<div class="divider-horizontal hidden md:block"></div>
-						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-							<div class="text-base-content text-xs font-light">Tool Call Violations</div>
-							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
-								{#if loading}
-									<Loading class="size-4 animate-spin" />
-								{:else}
-									{(stats?.byDirection.toolCalls ?? 0).toLocaleString()}
-								{/if}
-							</div>
-						</div>
+		{#if !policyDirection || policyDirection === 'user-message'}
+			<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+				<div class="text-base-content text-xs font-light">Total Violations</div>
+				<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+					{#if loading}
+						<Loading class="size-4 animate-spin" />
+					{:else if policyDirection === 'user-message'}
+						{(stats?.byDirection.userMessage ?? 0).toLocaleString()}
+					{:else if policyDirection === 'tool-calls'}
+						{(stats?.byDirection.toolCalls ?? 0).toLocaleString()}
 					{/if}
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		<!-- Filter bar -->
 		<div class="m-auto flex w-full max-w-full flex-col gap-4 md:max-w-(--breakpoint-xl)">

@@ -44,15 +44,9 @@
 	let policyToDelete = $state<MessagePolicy>();
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let visiblePolicies = $derived(
-		policyDirection
-			? messagePolicies.filter(
-					(policy) =>
-						(policy.direction === policyDirection || isPolicyWithBothDirection(policy)) &&
-						policy.displayName.toLowerCase().includes(query.toLowerCase())
-				)
-			: messagePolicies.filter((policy) =>
-					policy.displayName.toLowerCase().includes(query.toLowerCase())
-				)
+		messagePolicies.filter(
+			(policy) => policy.direction === policyDirection || isPolicyWithBothDirection(policy)
+		)
 	);
 	let contentType = $derived<'policies' | 'policy-violations'>(
 		(page.url.searchParams.get('contents') as 'policies' | 'policy-violations') || 'policies'
@@ -65,7 +59,11 @@
 		};
 	}
 
-	let tableData = $derived(visiblePolicies.map((policy) => convertToTableData(policy)));
+	let tableData = $derived(
+		visiblePolicies
+			.filter((policy) => policy.displayName.toLowerCase().includes(query.toLowerCase()))
+			.map((policy) => convertToTableData(policy))
+	);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	function detailUrl(id: string, direction: PolicyDirection = policyDirection) {
@@ -110,62 +108,60 @@
 		/>
 	</div>
 {:else}
-	<div class="flex flex-col gap-8" in:fade={{ duration }}>
-		{#if messagePolicies.length === 0}
-			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<ShieldAlert class="text-base-content/80 size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No AI judge policies</h4>
-				<p class="text-muted-content text-sm font-light">
-					Looks like you don't have any AI judge policies created yet. <br />
-					{#if !isReadonly}
-						Click the button below to get started.
-					{/if}
-				</p>
+	<div class="flex flex-col gap-2" in:fade={{ duration }}>
+		<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300 w-fit">
+			<button
+				class={twMerge(
+					'tab text-xs min-w-24',
+					contentType === 'policies' && 'tab-active bg-base-300 dark:bg-base-100'
+				)}
+				onclick={() => {
+					setUrlParamAndUpdateUrl(page.url, 'contents', 'policies');
+				}}
+			>
+				Policies
+			</button>
+			<button
+				class={twMerge(
+					'tab text-xs min-w-24',
+					contentType === 'policy-violations' && 'tab-active bg-base-300 dark:bg-base-100'
+				)}
+				onclick={() => {
+					setUrlParamAndUpdateUrl(page.url, 'contents', 'policy-violations');
+				}}
+			>
+				Policy Violations
+			</button>
+		</div>
+		{#if contentType === 'policies'}
+			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
+				<Search
+					value={query}
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+					onChange={(value) => {
+						setUrlParamAndUpdateUrl(page.url, 'query', value);
+					}}
+					placeholder="Search message policies..."
+				/>
+			</div>
+			{#if visiblePolicies.length === 0}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<ShieldAlert class="text-base-content/80 size-24 opacity-25" />
+					<h4 class="text-muted-content text-lg font-semibold">No AI judge policies</h4>
+					<p class="text-muted-content text-sm font-light">
+						Looks like you don't have any AI judge policies created yet. <br />
+						{#if !isReadonly}
+							Click the button below to get started.
+						{/if}
+					</p>
 
-				{@render addPolicyButton()}
-			</div>
-		{:else}
-			<div class="flex flex-col gap-2">
-				<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300 w-fit">
-					<button
-						class={twMerge(
-							'tab text-xs min-w-24',
-							contentType === 'policies' && 'tab-active bg-base-300 dark:bg-base-100'
-						)}
-						onclick={() => {
-							setUrlParamAndUpdateUrl(page.url, 'contents', 'policies');
-						}}
-					>
-						Policies
-					</button>
-					<button
-						class={twMerge(
-							'tab text-xs min-w-24',
-							contentType === 'policy-violations' && 'tab-active bg-base-300 dark:bg-base-100'
-						)}
-						onclick={() => {
-							setUrlParamAndUpdateUrl(page.url, 'contents', 'policy-violations');
-						}}
-					>
-						Policy Violations
-					</button>
+					{@render addPolicyButton()}
 				</div>
-				{#if contentType === 'policies'}
-					<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
-						<Search
-							value={query}
-							class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-							onChange={(value) => {
-								setUrlParamAndUpdateUrl(page.url, 'query', value);
-							}}
-							placeholder="Search message policies..."
-						/>
-					</div>
-					{@render messagePolicyTable()}
-				{:else if contentType === 'policy-violations'}
-					<MessagePolicyViolationsView {policyDirection} />
-				{/if}
-			</div>
+			{:else}
+				{@render messagePolicyTable()}
+			{/if}
+		{:else if contentType === 'policy-violations'}
+			<MessagePolicyViolationsView {policyDirection} />
 		{/if}
 	</div>
 {/if}

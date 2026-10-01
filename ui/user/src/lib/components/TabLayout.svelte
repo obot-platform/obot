@@ -68,6 +68,7 @@
 	let tabAnchors = $state<Record<string, HTMLElement | undefined>>({});
 
 	function selectView(value: string) {
+		if (value === selectedView) return;
 		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== VIEW_PARAM));
 		goto(`${page.url.pathname}?${VIEW_PARAM}=${value}`);
 	}
