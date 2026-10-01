@@ -1,0 +1,94 @@
+.trigger {
+  appearance: none;
+  background: var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  color: var(--ifm-color-emphasis-800);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  padding: 0.35rem 0.65rem;
+  width: auto;
+}
+
+.trigger:hover {
+  background: var(--ifm-color-emphasis-300);
+  color: var(--ifm-color-emphasis-900);
+  text-decoration: none;
+}
+
+.dialog {
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 12px;
+  box-shadow: var(--ifm-global-shadow-lw);
+  color: var(--ifm-font-color-base);
+  margin: auto;
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: 0;
+  width: 100%;
+}
+
+.dialog::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.form {
+  padding: 1.5rem;
+}
+
+.title {
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.description {
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 1.25rem;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.input {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 6px;
+  color: var(--ifm-font-color-base);
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ifm-color-primary) 25%, transparent);
+  outline: none;
+}
+
+.error {
+  color: var(--ifm-color-danger-dark);
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+
+.presets,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.presets {
+  margin-top: 0.75rem;
+}
+
+.actions {
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
