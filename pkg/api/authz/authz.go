@@ -171,6 +171,7 @@ var (
 		"GET /api/nanobot-agents",
 	}
 	ownerRules = []string{
+		"POST /api/mock-data",
 		"POST /api/auth-providers/{id}/stage",
 		"DELETE /api/auth-providers/{id}/stage",
 		"POST /api/auth-providers/{id}/verify",
