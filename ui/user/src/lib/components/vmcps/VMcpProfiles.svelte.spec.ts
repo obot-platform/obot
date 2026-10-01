@@ -657,6 +657,37 @@ describe('VMcpProfiles.svelte', () => {
 				.toBeVisible();
 		});
 
+		it('opens a profile whose grant repeats a tool name', async () => {
+			const vmcp = createAsIsVMcp('vmcp-asis-duplicates');
+			vmcp.profiles![0].vmcpPermissions = {
+				allowedComponents: {
+					github: { allowedTools: ['list_issues', 'list_pulls', 'list_issues'] }
+				}
+			};
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+			await expect.element(page.getByText('2 tools', { exact: true })).toBeVisible();
+			await page.getByRole('button', { name: 'Edit Limited tools' }).click();
+			await expandServerTools();
+			await expect.element(page.getByText('list_issues')).toBeVisible();
+			await expect.element(page.getByText('list_pulls')).toBeVisible();
+		});
+
+		it('shows Default after switching a partial profile to Allow All Access', async () => {
+			const vmcp = createAsIsVMcp('vmcp-asis-allow-all');
+			const saved = mockVMcpSave(vmcp);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Limited tools' }).click();
+			await page.getByRole('checkbox', { name: 'Allow All Access' }).click();
+			await page.getByRole('button', { name: 'Save changes' }).click();
+			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			expect(savedProfiles(saved)[0].vmcpPermissions).toEqual({ allowAllComponents: true });
+			await expect.element(page.getByRole('button', { name: 'Edit Limited tools' })).toBeVisible();
+			await expect.element(page.getByText('Default', { exact: true })).toBeVisible();
+			await expect.element(page.getByText('0 tools', { exact: true })).not.toBeInTheDocument();
+		});
+
 		it('saves the narrowed grant after disabling a granted tool', async () => {
 			const vmcp = createAsIsVMcp('vmcp-asis-narrow');
 			const saved = mockVMcpSave(vmcp);

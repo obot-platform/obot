@@ -240,7 +240,8 @@
 					// profile grants rather than fetching tools from the server.
 					const toolsFromGrant = tools.length === 0 && Array.isArray(names) && !names.includes('*');
 					if (toolsFromGrant) {
-						tools = names.map((name) => ({ name, enabled: true }));
+						// allowedTools may repeat a name; the tool list is keyed by name.
+						tools = [...new Set(names)].map((name) => ({ name, enabled: true }));
 					}
 					const toolOverrides = clampToComponent(
 						effectiveGrant && (names == null || names.includes('*'))
@@ -425,7 +426,8 @@
 				...resource,
 				grant: undefined,
 				toolOverrides,
-				initialEnabledTools: [...enabledToolNames(toolOverrides)]
+				initialEnabledTools: [...enabledToolNames(toolOverrides)],
+				toolsFromGrant: false
 			};
 		});
 		profile.allowAllComponents = true;
@@ -697,6 +699,7 @@
 			const toolOverrides = baselineTools(id);
 			resource.toolOverrides = toolOverrides;
 			resource.initialEnabledTools = [...enabledToolNames(toolOverrides)];
+			resource.toolsFromGrant = false;
 			return;
 		}
 		profile.resources = profile.resources.map((resource) => {
@@ -708,7 +711,8 @@
 					...resource,
 					grant: undefined,
 					toolOverrides,
-					initialEnabledTools: [...enabledToolNames(toolOverrides)]
+					initialEnabledTools: [...enabledToolNames(toolOverrides)],
+					toolsFromGrant: false
 				};
 			}
 			const current = resource.toolOverrides.length ? resource.toolOverrides : baselineTools(id);
@@ -718,7 +722,12 @@
 				baseline.some((tool) => tool.enabled !== false)
 					? baseline
 					: current;
-			const next = { ...resource, toolOverrides };
+			const next = {
+				...resource,
+				toolOverrides,
+				// Still partial only if the grant-derived list was kept.
+				toolsFromGrant: resource.toolsFromGrant === true && toolOverrides === resource.toolOverrides
+			};
 			return {
 				...next,
 				initialEnabledTools: [...enabledToolNames(toolOverrides)],
