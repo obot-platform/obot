@@ -19,7 +19,7 @@ const userTarget: CurrentAccessTarget = {
 	kind: 'user',
 	id: 'user-1',
 	name: 'Ada',
-	groupIds: ['engineering'],
+	authProviderGroups: ['engineering'],
 	obotGroups: ['admin', 'authenticated']
 };
 
@@ -48,6 +48,11 @@ describe('subjectsApplyTo', () => {
 		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'admin' }], userTarget)).toEqual(['via-role']);
 		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'owner' }], userTarget)).toEqual([]);
 		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'admin' }], groupTarget)).toEqual([]);
+	});
+
+	it('does not treat an Obot role group as an auth provider group, or the reverse', () => {
+		expect(subjectsApplyTo([{ type: 'group', id: 'admin' }], userTarget)).toEqual([]);
+		expect(subjectsApplyTo([{ type: 'obotGroup', id: 'engineering' }], userTarget)).toEqual([]);
 	});
 
 	it('matches everyone and the group itself for a group target', () => {
@@ -133,6 +138,23 @@ describe('collectAccessResources', () => {
 		expect(grantsEverything([policy('policy-2', 'Second', [{ type: 'model', id: 'gpt-*' }])])).toBe(
 			false
 		);
+	});
+
+	it('expands an everything grant into each catalog resource', () => {
+		const everything = policy('policy-all', 'All', [{ type: 'selector', id: '*' }]);
+		const specific = policy('policy-one', 'One', [{ type: 'model', id: 'model-1' }]);
+
+		const resources = collectAccessResources([everything, specific], describeResource, [
+			{ type: 'model', id: 'model-2' },
+			{ type: 'model', id: 'model-1' }
+		]);
+
+		expect(resources.map((resource) => resource.id)).toEqual(['model-1', 'model-2']);
+		expect(resources[0]?.policies.map((granting) => granting.id)).toEqual([
+			'policy-one',
+			'policy-all'
+		]);
+		expect(resources[1]?.policies.map((granting) => granting.id)).toEqual(['policy-all']);
 	});
 });
 

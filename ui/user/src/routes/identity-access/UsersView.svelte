@@ -264,7 +264,8 @@
 									kind: 'user',
 									id: d.id,
 									name: d.name,
-									obotGroups: d.groups
+									obotGroups: d.groups,
+									authProviderGroups: d.authProviderGroups
 								});
 							}}
 						>

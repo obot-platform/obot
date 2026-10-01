@@ -20,10 +20,8 @@
 	import {
 		ACCESS_MATCH_REASON_LABEL,
 		collectAccessResources,
-		grantsEverything,
 		groupMcpAccessPolicies,
 		loadCurrentAccess,
-		EVERYTHING_RESOURCE_ID,
 		type AccessPolicyResource,
 		type AccessResourceDescription,
 		type CurrentAccessSectionKey,
@@ -44,19 +42,19 @@
 	let { target }: Props = $props();
 
 	const emptySections = (): CurrentAccessSections => ({
+		vmcps: [],
 		mcp: [],
 		models: [],
 		skills: [],
-		hostedAgents: [],
-		vmcps: []
+		hostedAgents: []
 	});
 
 	const idleLoading = (): Record<SectionKey, boolean> => ({
+		vmcps: false,
 		mcp: false,
 		models: false,
 		skills: false,
-		hostedAgents: false,
-		vmcps: false
+		hostedAgents: false
 	});
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -65,7 +63,7 @@
 	let loadingSections = $state<Record<SectionKey, boolean>>(idleLoading());
 	let sectionErrors = $state<Partial<Record<SectionKey, string>>>({});
 	let loadGeneration = 0;
-	let currentTab = $state<SectionKey>('mcp');
+	let currentTab = $state<SectionKey>('vmcps');
 	let resourceQuery = $state('');
 	let search = $state<ReturnType<typeof Search>>();
 
@@ -77,10 +75,11 @@
 	let loadingResources = $state<Record<SectionKey, boolean>>(idleLoading());
 	let loadedPolicySections = new SvelteSet<SectionKey>();
 	let loadedResourceSections = new SvelteSet<SectionKey>();
+	let resourceLoadFailed = new SvelteSet<SectionKey>();
 
 	export function open(next?: CurrentAccessTarget) {
 		viewing = next ?? target;
-		currentTab = 'mcp';
+		currentTab = 'vmcps';
 		dialog?.open();
 	}
 
@@ -92,6 +91,7 @@
 		loadingResources = idleLoading();
 		loadedPolicySections.clear();
 		loadedResourceSections.clear();
+		resourceLoadFailed.clear();
 	}
 
 	async function onOpen() {
@@ -144,16 +144,10 @@
 		const section = currentTab;
 		const policies = sections[section];
 		const loadingPolicies = loadingSections[section];
-		const allResourcesCovered =
-			section === 'mcp'
-				? groupMcpAccessPolicies(policies).every((group) => grantsEverything(group.policies)) &&
-					!policies.some((policy) => policy.powerUserID)
-				: grantsEverything(policies);
 		if (
 			loadingPolicies ||
 			!loadedPolicySections.has(section) ||
 			policies.length === 0 ||
-			allResourcesCovered ||
 			section === 'vmcps'
 		) {
 			return;
@@ -167,6 +161,7 @@
 			return;
 		}
 		loadedResourceSections.add(section);
+		resourceLoadFailed.delete(section);
 		loadingResources[section] = true;
 
 		try {
@@ -198,6 +193,7 @@
 			}
 		} catch (error) {
 			loadedResourceSections.delete(section);
+			resourceLoadFailed.add(section);
 			errors.append(error);
 		} finally {
 			loadingResources[section] = false;
@@ -263,39 +259,82 @@
 	const subjectLabel = $derived(viewing?.kind === 'group' ? 'group' : 'user');
 
 	const tabs = [
+		{ label: 'vMCPs', value: 'vmcps', noun: 'vMCPs' },
 		{ label: 'MCP Servers', value: 'mcp', noun: 'MCP servers' },
 		{ label: 'Models', value: 'models', noun: 'models' },
 		{ label: 'Skills', value: 'skills', noun: 'skills' },
-		{ label: 'Hosted Agents', value: 'hostedAgents', noun: 'hosted agents' },
-		{ label: 'vMCPs', value: 'vmcps', noun: 'vMCPs' }
+		{ label: 'Hosted Agents', value: 'hostedAgents', noun: 'hosted agents' }
 	] as const satisfies readonly { label: string; value: SectionKey; noun: string }[];
 
 	const currentNoun = $derived(tabs.find((tab) => tab.value === currentTab)?.noun ?? 'resources');
 	const currentPolicies = $derived(sections[currentTab]);
-	const currentGrantsEverything = $derived(grantsEverything(currentPolicies));
-	const currentResources = $derived(
-		currentGrantsEverything ? [] : collectAccessResources(currentPolicies, describeResource)
+	const awaitingCurrentCatalog = $derived(
+		currentTab !== 'vmcps' &&
+			currentPolicies.length > 0 &&
+			!loadedResourceSections.has(currentTab) &&
+			!resourceLoadFailed.has(currentTab)
 	);
-
-	const everythingPolicies = $derived(
-		currentPolicies.filter((policy) =>
-			policy.resources.some((resource) => resource.id === EVERYTHING_RESOURCE_ID)
+	const currentResources = $derived(
+		collectAccessResources(
+			currentPolicies,
+			describeResource,
+			currentTab === 'vmcps' || !loadedResourceSections.has(currentTab)
+				? undefined
+				: sectionCatalog(currentTab)
 		)
 	);
 
 	const mcpPolicyGroups = $derived(
-		groupMcpAccessPolicies(sections.mcp).map((group) => {
-			const everything = grantsEverything(group.policies);
-			return {
-				...group,
-				everything,
-				everythingPolicies: group.policies.filter((policy) =>
-					policy.resources.some((resource) => resource.id === EVERYTHING_RESOURCE_ID)
-				),
-				resources: everything ? [] : collectAccessResources(group.policies, describeResource)
-			};
-		})
+		groupMcpAccessPolicies(sections.mcp).map((group) => ({
+			...group,
+			resources: collectAccessResources(
+				group.policies,
+				describeResource,
+				loadedResourceSections.has('mcp') ? mcpRegistryResources(group.powerUserID) : undefined
+			)
+		}))
 	);
+
+	function sectionCatalog(section: SectionKey): AccessPolicyResource[] {
+		switch (section) {
+			case 'models':
+				return models.map((model) => ({ type: 'model', id: model.id }));
+			case 'skills':
+				return [
+					...skills.map((skill) => ({ type: 'skill' as const, id: skill.id })),
+					...skillRepositories.map((repository) => ({
+						type: 'skillRepository' as const,
+						id: repository.id
+					}))
+				];
+			case 'hostedAgents':
+				return hostedAgents.map((agent) => ({ type: 'hostedAgent' as const, id: agent.id }));
+			default:
+				return [];
+		}
+	}
+
+	function mcpRegistryResources(powerUserID?: string): AccessPolicyResource[] {
+		const entries = mcpServersAndEntries.current.entries.filter((entry) => {
+			if (entry.deleted) {
+				return false;
+			}
+			return powerUserID ? entry.powerUserID === powerUserID : !entry.powerUserWorkspaceID;
+		});
+		const servers = mcpServersAndEntries.current.servers.filter((server) => {
+			if (server.deleted) {
+				return false;
+			}
+			return powerUserID
+				? Boolean(server.powerUserWorkspaceID) && server.userID === powerUserID
+				: !server.powerUserWorkspaceID;
+		});
+
+		return [
+			...entries.map((entry) => ({ type: 'mcpServerCatalogEntry' as const, id: entry.id })),
+			...servers.map((server) => ({ type: 'mcpServer' as const, id: server.id }))
+		];
+	}
 
 	function mcpGroupLabel(powerUserID?: string): string {
 		if (!powerUserID) {
@@ -325,16 +364,6 @@
 		mcpPolicyGroups.flatMap((group) => {
 			const label = mcpGroupLabel(group.powerUserID);
 			const groupMatches = matchesSearch(label);
-			if (group.everything) {
-				return groupMatches ||
-					matchesSearch(
-						'Everything',
-						...group.everythingPolicies.map((policy) => policy.displayName)
-					)
-					? [group]
-					: [];
-			}
-
 			const resources = groupMatches
 				? group.resources
 				: group.resources.filter(resourceMatchesSearch);
@@ -346,9 +375,6 @@
 	);
 
 	const filteredCurrentResources = $derived(currentResources.filter(resourceMatchesSearch));
-	const everythingMatchesSearch = $derived(
-		matchesSearch('Everything', ...everythingPolicies.map((policy) => policy.displayName))
-	);
 	const hasResourceQuery = $derived(resourceQuery.trim().length > 0);
 </script>
 
@@ -437,7 +463,7 @@
 				No policies currently apply to this {subjectLabel}.
 			</p>
 		{:else if currentTab === 'mcp'}
-			{#if loadingResources.mcp}
+			{#if loadingResources.mcp || awaitingCurrentCatalog}
 				<Skeleton type="items" count={3} />
 			{:else if filteredMcpPolicyGroups.length === 0}
 				<p class="text-muted-content px-1 text-sm font-light">
@@ -454,9 +480,7 @@
 								{label}
 							</h3>
 						{/if}
-						{#if group.everything}
-							{@render resourceRow('Everything', group.everythingPolicies)}
-						{:else if group.resources.length === 0}
+						{#if group.resources.length === 0}
 							<p class="text-muted-content px-2 py-2 text-sm font-light">
 								No MCP servers are granted through this registry.
 							</p>
@@ -469,20 +493,8 @@
 					{/if}
 				{/each}
 			{/if}
-		{:else if loadingResources[currentTab]}
+		{:else if loadingResources[currentTab] || awaitingCurrentCatalog}
 			<Skeleton type="items" count={3} />
-		{:else if currentResources.length === 0 && !currentGrantsEverything}
-			<p class="text-muted-content px-1 text-sm font-light">
-				The policies that apply to this {subjectLabel} do not grant access to any {currentNoun}.
-			</p>
-		{:else if currentGrantsEverything}
-			{#if everythingMatchesSearch}
-				{@render resourceRow('Everything', everythingPolicies)}
-			{:else}
-				<p class="text-muted-content px-1 text-sm font-light">
-					No {currentNoun} match this search.
-				</p>
-			{/if}
 		{:else if filteredCurrentResources.length === 0}
 			<p class="text-muted-content px-1 text-sm font-light">
 				{hasResourceQuery

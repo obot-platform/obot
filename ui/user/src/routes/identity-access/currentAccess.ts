@@ -19,7 +19,7 @@ export interface CurrentAccessTarget {
 	kind: CurrentAccessKind;
 	id: string;
 	name: string;
-	groupIds?: string[];
+	authProviderGroups?: string[];
 	/** Obot role groups (for example `admin`) the user belongs to through their effective role. */
 	obotGroups?: string[];
 }
@@ -87,8 +87,8 @@ export const ACCESS_MATCH_REASON_LABEL: Record<AccessMatchReason, string> = {
 	everyone: 'All Obot Users',
 	'direct-user': 'Assigned to this user',
 	'direct-group': 'Assigned to this group',
-	'via-group': 'Via group membership',
-	'via-role': 'Via role',
+	'via-group': 'via group membership',
+	'via-role': 'via role',
 	owner: 'Owned by this user'
 };
 
@@ -105,9 +105,9 @@ export function subjectsApplyTo(
 	}
 
 	const reasons = new Set<AccessMatchReason>();
-	const groupIds = new Set(target.groupIds ?? []);
+	const authProviderGroups = new Set(target.authProviderGroups ?? []);
 	if (target.kind === 'group') {
-		groupIds.add(target.id);
+		authProviderGroups.add(target.id);
 	}
 	const obotGroups = new Set(target.kind === 'user' ? (target.obotGroups ?? []) : []);
 
@@ -122,7 +122,7 @@ export function subjectsApplyTo(
 			continue;
 		}
 
-		if (subject.type === 'group' && groupIds.has(subject.id)) {
+		if (subject.type === 'group' && authProviderGroups.has(subject.id)) {
 			reasons.add(target.kind === 'group' ? 'direct-group' : 'via-group');
 			continue;
 		}
@@ -216,10 +216,13 @@ export function grantsEverything(policies: MatchedAccessPolicy[]): boolean {
 /**
  * Flattens the resources granted by the matched policies into a deduplicated list, tracking which
  * policies granted each resource. `describe` turns a resource reference into display text.
+ *
+ * A policy that grants everything (`*`) is expanded to display the concrete resources for that section.
  */
 export function collectAccessResources(
 	policies: MatchedAccessPolicy[],
-	describe: (resource: AccessPolicyResource) => AccessResourceDescription
+	describe: (resource: AccessPolicyResource) => AccessResourceDescription,
+	catalog?: AccessPolicyResource[]
 ): MatchedAccessResource[] {
 	const byKey = new Map<string, MatchedAccessResource>();
 
@@ -244,6 +247,37 @@ export function collectAccessResources(
 				type: resource.type,
 				...describe(resource),
 				policies: [policy]
+			});
+		}
+	}
+
+	if (catalog && grantsEverything(policies)) {
+		const everythingPolicies = policies.filter((policy) =>
+			policy.resources.some((resource) => resource.id === EVERYTHING_RESOURCE_ID)
+		);
+
+		for (const resource of catalog) {
+			if (resource.id === EVERYTHING_RESOURCE_ID) {
+				continue;
+			}
+
+			const key = `${resource.type}:${resource.id}`;
+			const existing = byKey.get(key);
+			if (existing) {
+				for (const policy of everythingPolicies) {
+					if (!existing.policies.some((granting) => granting.id === policy.id)) {
+						existing.policies.push(policy);
+					}
+				}
+				continue;
+			}
+
+			byKey.set(key, {
+				key,
+				id: resource.id,
+				type: resource.type,
+				...describe(resource),
+				policies: [...everythingPolicies]
 			});
 		}
 	}
