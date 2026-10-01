@@ -35,6 +35,7 @@
 	import {
 		credentialCatalog,
 		credentialEnvironment,
+		credentialKeys,
 		credentialMutationRequired,
 		readCredentialPolicy,
 		validateCredentialPolicy
@@ -116,9 +117,15 @@
 		filter.toolName === 'filter_credentials' && !!mcpSystemCatalogEntryId
 	);
 	let credentialPolicy = $derived(readCredentialPolicy(runtimeFormData?.env ?? []));
+	let credentialImageMismatch = $derived(
+		runtimeFormData?.containerizedConfig?.image !== credentialCatalog.image
+	);
+	// Existing instances adopt the current catalog manifest on save. Its compatibility
+	// is checked immediately before updating; the saved image need not match it.
+	let credentialImageBlocked = $derived(!initialFilterId && credentialImageMismatch);
 	let credentialError = $derived(
 		isCredentialFilter
-			? runtimeFormData?.containerizedConfig?.image !== credentialCatalog.image
+			? credentialImageBlocked
 				? 'This credential filter version has no matching rule catalog. Update the UI catalog before editing this policy.'
 				: validateCredentialPolicy(credentialPolicy)
 			: undefined
@@ -204,6 +211,22 @@
 				}));
 			}
 
+			if (isCredentialFilter && runtimeFormData) {
+				// Saved values can outlive fields in the instance's old manifest.
+				// Preserve them, including unsupported IDs, for validation and repair.
+				for (const key of credentialKeys) {
+					if (!runtimeFormData.env.some((field) => field.key === key)) {
+						runtimeFormData.env.push({
+							key,
+							name: key,
+							description: '',
+							required: false,
+							sensitive: false,
+							value: response[key] ?? ''
+						});
+					}
+				}
+			}
 			credentialConfigurationLoaded = true;
 
 			// Update headers in the appropriate runtime config based on runtime type
@@ -781,16 +804,16 @@
 						</p>{:else if !credentialConfigurationLoaded}<p>
 							Loading saved credential policy...
 						</p>{:else}
-						{#if credentialError && runtimeFormData.containerizedConfig?.image !== credentialCatalog.image}<p
-								role="alert"
-								class="text-error"
-							>
+						{#if credentialImageBlocked}<p role="alert" class="text-error">
 								{credentialError}
+							</p>{/if}
+						{#if initialFilterId && credentialImageMismatch}<p class="text-sm text-muted-content">
+								Saving or enabling will update this filter to the catalog version supported by this
+								UI. Existing overrides must be valid for that version.
 							</p>{/if}
 						<CredentialFilterConfiguration
 							bind:config={runtimeFormData.env}
-							readonly={readonly ||
-								runtimeFormData.containerizedConfig?.image !== credentialCatalog.image}
+							readonly={readonly || credentialImageBlocked}
 						/>
 					{/if}
 				{:else if runtimeFormData.runtime !== 'remote'}
