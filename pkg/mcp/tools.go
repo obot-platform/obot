@@ -21,12 +21,12 @@ func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConf
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	resp, err := client.ListTools(ctx, &gomcp.ListToolsParams{})
+	tools, err := collectAll(client.Tools(ctx, nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list MCP tools: %w", err)
 	}
 
-	return resp.Tools, nil
+	return tools, nil
 }
 
 func ConvertTools(tools []*gomcp.Tool, unsupportedTools []string) ([]otypes.MCPServerTool, error) {

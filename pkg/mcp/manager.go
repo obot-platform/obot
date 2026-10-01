@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -512,12 +511,12 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 		return nil, err
 	}
 
-	tools, err := client.ListTools(ctx, &gomcp.ListToolsParams{})
+	tools, err := collectAll(client.Tools(ctx, nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
 
-	return ConvertTools(tools.Tools, nil)
+	return ConvertTools(tools, nil)
 }
 
 // GetCapacityInfo returns capacity information for the MCP namespace.

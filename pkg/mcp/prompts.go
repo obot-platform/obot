@@ -13,12 +13,12 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, serverConfig ServerCo
 		return nil, err
 	}
 
-	resp, err := client.ListPrompts(ctx, &gomcp.ListPromptsParams{})
+	prompts, err := collectAll(client.Prompts(ctx, nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list MCP prompts: %w", err)
 	}
 
-	return resp.Prompts, nil
+	return prompts, nil
 }
 
 func (sm *SessionManager) GetPrompt(ctx context.Context, serverConfig ServerConfig, name string, args map[string]string) ([]*gomcp.PromptMessage, string, error) {

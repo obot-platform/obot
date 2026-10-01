@@ -13,12 +13,12 @@ func (sm *SessionManager) ListResources(ctx context.Context, serverConfig Server
 		return nil, err
 	}
 
-	resp, err := client.ListResources(ctx, &gomcp.ListResourcesParams{})
+	resources, err := collectAll(client.Resources(ctx, nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list MCP resources: %w", err)
 	}
 
-	return resp.Resources, nil
+	return resources, nil
 }
 
 func (sm *SessionManager) ReadResource(ctx context.Context, serverConfig ServerConfig, uri string) ([]*gomcp.ResourceContents, error) {
