@@ -84,12 +84,12 @@ Remote MCP servers that conform to the MCP spec authentication schema will work 
 
 **Configuration**: Specify the remote URL endpoint. Additional options include connection restrictions for unconventional configurations, custom HTTP headers, and configuration values to send to the remote server.
 
-If you want to add a remote MCP server like the [You.com search server](https://you.com/) you would do the following.
+If you want to add a remote MCP server like the [You.com search server](https://github.com/youdotcom-oss/agent-skills), you would do the following.
 
 - Select the `Remote server` type when adding the server
 - In the URL field, enter `https://api.you.com/mcp?profile=free`
 
-The `profile=free` endpoint provides basic web search without an API key, so no additional authentication configuration is needed. To use You.com's full toolset, including page content extraction and research, enter `https://api.you.com/mcp` instead and supply an API key using the custom HTTP headers or configuration values described above.
+The `profile=free` endpoint provides basic web search without an API key, so no additional authentication configuration is needed. To use You.com's full toolset, including page content extraction and research, enter `https://api.you.com/mcp` instead and add a custom HTTP header with the key `Authorization` and the value `Bearer <YDC_API_KEY>`, replacing `<YDC_API_KEY>` with an API key created at [you.com/platform/api-keys](https://you.com/platform/api-keys). The header value is a secret, so mark it as sensitive wherever the configuration supports it. Clients that support OAuth can alternatively sign in with a You.com account during the connection flow.
 
 If Obot cannot directly reach a remote server, use an [MCP Tunnel](./mcp-tunnels.md) to route requests through a machine on the server's network. Keep the remote server's real HTTP or HTTPS URL and select the tunnel separately in **Advanced Configuration**.
 
