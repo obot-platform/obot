@@ -20,6 +20,7 @@
 	import {
 		ACCESS_MATCH_REASON_LABEL,
 		collectAccessResources,
+		EVERYTHING_RESOURCE_ID,
 		groupMcpAccessPolicies,
 		loadCurrentAccess,
 		type AccessPolicyResource,
@@ -188,7 +189,7 @@
 					]);
 					break;
 				case 'hostedAgents':
-					hostedAgents = await AdminService.listHostedAgents();
+					hostedAgents = await AdminService.listHostedAgents({ all: true });
 					break;
 			}
 		} catch (error) {
@@ -298,7 +299,9 @@
 	function sectionCatalog(section: SectionKey): AccessPolicyResource[] {
 		switch (section) {
 			case 'models':
-				return models.map((model) => ({ type: 'model', id: model.id }));
+				return models
+					.filter((model) => model.usage === 'llm')
+					.map((model) => ({ type: 'model', id: model.id }));
 			case 'skills':
 				return [
 					...skills.map((skill) => ({ type: 'skill' as const, id: skill.id })),
@@ -360,6 +363,26 @@
 		);
 	}
 
+	const everythingLabel: Record<SectionKey, string> = {
+		vmcps: 'All vMCPs',
+		mcp: 'All MCP servers',
+		models: 'All models',
+		skills: 'All skills',
+		hostedAgents: 'All hosted agents'
+	};
+
+	function policiesGrantingEverything(policies: MatchedAccessPolicy[]): MatchedAccessPolicy[] {
+		return policies.filter((policy) =>
+			policy.resources.some((resource) => resource.id === EVERYTHING_RESOURCE_ID)
+		);
+	}
+
+	function includesEverythingRow(policies: MatchedAccessPolicy[], label: string): boolean {
+		return (
+			policies.length > 0 && matchesSearch(label, ...policies.map((policy) => policy.displayName))
+		);
+	}
+
 	const filteredMcpPolicyGroups = $derived(
 		mcpPolicyGroups.flatMap((group) => {
 			const label = mcpGroupLabel(group.powerUserID);
@@ -367,15 +390,38 @@
 			const resources = groupMatches
 				? group.resources
 				: group.resources.filter(resourceMatchesSearch);
-			if (resources.length === 0) {
+			const unexpandedPolicies = resourceLoadFailed.has('mcp')
+				? policiesGrantingEverything(group.policies)
+				: [];
+			const includeUnexpanded = groupMatches
+				? unexpandedPolicies.length > 0
+				: includesEverythingRow(unexpandedPolicies, everythingLabel.mcp);
+			if (resources.length === 0 && !includeUnexpanded) {
 				return [];
 			}
-			return [{ ...group, resources }];
+			return [
+				{
+					...group,
+					resources,
+					unexpandedPolicies: includeUnexpanded ? unexpandedPolicies : []
+				}
+			];
 		})
 	);
 
 	const filteredCurrentResources = $derived(currentResources.filter(resourceMatchesSearch));
 	const hasResourceQuery = $derived(resourceQuery.trim().length > 0);
+	const catalogUnavailable = $derived(resourceLoadFailed.has(currentTab));
+
+	const unexpandedEverythingPolicies = $derived(
+		catalogUnavailable && currentTab !== 'mcp' ? policiesGrantingEverything(currentPolicies) : []
+	);
+	const showUnexpandedEverything = $derived(
+		includesEverythingRow(unexpandedEverythingPolicies, everythingLabel[currentTab])
+	);
+	const wildcardExpansionIncomplete = $derived(
+		catalogUnavailable && policiesGrantingEverything(currentPolicies).length > 0
+	);
 </script>
 
 <ResponsiveDialog
@@ -456,6 +502,27 @@
 	{/each}
 {/snippet}
 
+{#snippet catalogWarning()}
+	<div class="notification-alert mb-2 p-3 text-sm font-light" role="status">
+		{#if wildcardExpansionIncomplete}
+			The catalog could not be loaded, so names may be missing and wildcard grants are not expanded.
+		{:else}
+			The catalog could not be loaded, so resource names may be missing.
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet unexpandedEverythingRow(
+	label: string,
+	policies: MatchedAccessPolicy[],
+	hasResources: boolean
+)}
+	{@render resourceRow(label, policies)}
+	{#if hasResources}
+		<div class="divider my-0.5 h-2 before:h-px after:h-px"></div>
+	{/if}
+{/snippet}
+
 {#snippet resourceSection()}
 	<section class="mt-2">
 		{#if currentPolicies.length === 0}
@@ -465,44 +532,68 @@
 		{:else if currentTab === 'mcp'}
 			{#if loadingResources.mcp || awaitingCurrentCatalog}
 				<Skeleton type="items" count={3} />
-			{:else if filteredMcpPolicyGroups.length === 0}
-				<p class="text-muted-content px-1 text-sm font-light">
-					{hasResourceQuery
-						? `No ${currentNoun} match this search.`
-						: 'No MCP servers are granted through this registry.'}
-				</p>
 			{:else}
-				{#each filteredMcpPolicyGroups as group, groupIndex (group.key)}
-					{@const label = mcpGroupLabel(group.powerUserID)}
-					<section class="flex flex-col" aria-label={label}>
-						{#if label}
-							<h3 class="text-muted-content px-2 pt-2 text-xs font-semibold uppercase">
-								{label}
-							</h3>
+				{#if catalogUnavailable}
+					{@render catalogWarning()}
+				{/if}
+				{#if filteredMcpPolicyGroups.length === 0}
+					<p class="text-muted-content px-1 text-sm font-light">
+						{hasResourceQuery
+							? `No ${currentNoun} match this search.`
+							: 'No MCP servers are granted through this registry.'}
+					</p>
+				{:else}
+					{#each filteredMcpPolicyGroups as group, groupIndex (group.key)}
+						{@const label = mcpGroupLabel(group.powerUserID)}
+						<section class="flex flex-col" aria-label={label}>
+							{#if label}
+								<h3 class="text-muted-content px-2 pt-2 text-xs font-semibold uppercase">
+									{label}
+								</h3>
+							{/if}
+							{#if group.unexpandedPolicies.length > 0}
+								{@render unexpandedEverythingRow(
+									everythingLabel.mcp,
+									group.unexpandedPolicies,
+									group.resources.length > 0
+								)}
+							{/if}
+							{#if group.resources.length === 0 && group.unexpandedPolicies.length === 0}
+								<p class="text-muted-content px-2 py-2 text-sm font-light">
+									No MCP servers are granted through this registry.
+								</p>
+							{:else}
+								{@render resourceRows(group.resources)}
+							{/if}
+						</section>
+						{#if groupIndex < filteredMcpPolicyGroups.length - 1}
+							<div class="divider my-1 h-2 before:h-px after:h-px"></div>
 						{/if}
-						{#if group.resources.length === 0}
-							<p class="text-muted-content px-2 py-2 text-sm font-light">
-								No MCP servers are granted through this registry.
-							</p>
-						{:else}
-							{@render resourceRows(group.resources)}
-						{/if}
-					</section>
-					{#if groupIndex < filteredMcpPolicyGroups.length - 1}
-						<div class="divider my-1 h-2 before:h-px after:h-px"></div>
-					{/if}
-				{/each}
+					{/each}
+				{/if}
 			{/if}
 		{:else if loadingResources[currentTab] || awaitingCurrentCatalog}
 			<Skeleton type="items" count={3} />
-		{:else if filteredCurrentResources.length === 0}
-			<p class="text-muted-content px-1 text-sm font-light">
-				{hasResourceQuery
-					? `No ${currentNoun} match this search.`
-					: `The policies that apply to this ${subjectLabel} do not grant access to any ${currentNoun}.`}
-			</p>
 		{:else}
-			{@render resourceRows(filteredCurrentResources)}
+			{#if catalogUnavailable}
+				{@render catalogWarning()}
+			{/if}
+			{#if filteredCurrentResources.length === 0 && !showUnexpandedEverything}
+				<p class="text-muted-content px-1 text-sm font-light">
+					{hasResourceQuery
+						? `No ${currentNoun} match this search.`
+						: `The policies that apply to this ${subjectLabel} do not grant access to any ${currentNoun}.`}
+				</p>
+			{:else}
+				{#if showUnexpandedEverything}
+					{@render unexpandedEverythingRow(
+						everythingLabel[currentTab],
+						unexpandedEverythingPolicies,
+						filteredCurrentResources.length > 0
+					)}
+				{/if}
+				{@render resourceRows(filteredCurrentResources)}
+			{/if}
 		{/if}
 	</section>
 {/snippet}
