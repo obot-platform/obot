@@ -175,6 +175,39 @@ func migrateVMCPDefaultAdminGroups(ctx context.Context, client kclient.Client) e
 	return nil
 }
 
+func migrateEverythingAccessControlRuleAdminGroup(ctx context.Context, client kclient.Client) error {
+	var rule v1.AccessControlRule
+	if err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "acr1-everything",
+	}, &rule); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get everything access control rule: %w", err)
+	}
+
+	if rule.Spec.MCPCatalogID != system.DefaultCatalog ||
+		rule.Spec.PowerUserWorkspaceID != "" {
+		return nil
+	}
+
+	var changed bool
+	for i := range rule.Spec.Manifest.Subjects {
+		subject := &rule.Spec.Manifest.Subjects[i]
+		if subject.Type == types.SubjectTypeGroup && subject.ID == types.GroupAdmin {
+			subject.Type = types.SubjectTypeObotGroup
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	if err := client.Update(ctx, &rule); err != nil {
+		return fmt.Errorf("failed to migrate everything access control rule: %w", err)
+	}
+	return nil
+}
+
 func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) error {
 	var models v1.ModelList
 	if err := client.List(ctx, &models); err != nil {
