@@ -19,6 +19,7 @@
 		onTest: (secret: ImagePullSecret) => void;
 		onRefresh: (secret: ImagePullSecret) => void;
 		onDelete: (secret: ImagePullSecret) => void;
+		unsavedIds?: ReadonlySet<string>;
 	}
 
 	let {
@@ -30,7 +31,8 @@
 		onStatus,
 		onTest,
 		onRefresh,
-		onDelete
+		onDelete,
+		unsavedIds
 	}: Props = $props();
 
 	let tableData = $derived(
@@ -76,18 +78,20 @@
 					class="shrink-0 hover:dark:bg-base-100/50"
 				>
 					{#snippet children({ toggle })}
-						<button
-							class="menu-button"
-							disabled={mutationsDisabled || !canTest(secret)}
-							onclick={(e) => {
-								e.stopPropagation();
-								onTest(secret);
-								toggle(false);
-							}}
-						>
-							<ShieldCheck class="size-4" />
-							Test
-						</button>
+						{#if !unsavedIds?.has(secret.id)}
+							<button
+								class="menu-button"
+								disabled={mutationsDisabled || !canTest(secret)}
+								onclick={(e) => {
+									e.stopPropagation();
+									onTest(secret);
+									toggle(false);
+								}}
+							>
+								<ShieldCheck class="size-4" />
+								Test
+							</button>
+						{/if}
 						<button
 							class="menu-button-destructive"
 							disabled={mutationsDisabled}
@@ -165,41 +169,43 @@
 				class="shrink-0 hover:dark:bg-base-100/50"
 			>
 				{#snippet children({ toggle })}
-					<button
-						class="menu-button"
-						onclick={(e) => {
-							e.stopPropagation();
-							onStatus(secret);
-							toggle(false);
-						}}
-					>
-						<Info class="size-4" />
-						Status
-					</button>
-					<button
-						class="menu-button"
-						disabled={mutationsDisabled || !canTest(secret)}
-						onclick={(e) => {
-							e.stopPropagation();
-							onTest(secret);
-							toggle(false);
-						}}
-					>
-						<ShieldCheck class="size-4" />
-						Test
-					</button>
-					<button
-						class="menu-button"
-						disabled={mutationsDisabled || refreshing}
-						onclick={(e) => {
-							e.stopPropagation();
-							onRefresh(secret);
-							toggle(false);
-						}}
-					>
-						<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-						Refresh Now
-					</button>
+					{#if !unsavedIds?.has(secret.id)}
+						<button
+							class="menu-button"
+							onclick={(e) => {
+								e.stopPropagation();
+								onStatus(secret);
+								toggle(false);
+							}}
+						>
+							<Info class="size-4" />
+							Status
+						</button>
+						<button
+							class="menu-button"
+							disabled={mutationsDisabled || !canTest(secret)}
+							onclick={(e) => {
+								e.stopPropagation();
+								onTest(secret);
+								toggle(false);
+							}}
+						>
+							<ShieldCheck class="size-4" />
+							Test
+						</button>
+						<button
+							class="menu-button"
+							disabled={mutationsDisabled || refreshing}
+							onclick={(e) => {
+								e.stopPropagation();
+								onRefresh(secret);
+								toggle(false);
+							}}
+						>
+							<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
+							Refresh Now
+						</button>
+					{/if}
 					<button
 						class="menu-button-destructive"
 						disabled={mutationsDisabled}

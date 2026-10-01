@@ -26,6 +26,7 @@
 		refreshMessage?: string;
 		requiredErrors?: Record<string, string>;
 		hideSubmit?: boolean;
+		showRefresh?: boolean;
 		onSave: () => void;
 		onRefresh: (secret: ImagePullSecret) => void;
 	}
@@ -42,6 +43,7 @@
 		refreshMessage = '',
 		requiredErrors = {},
 		hideSubmit = false,
+		showRefresh = true,
 		onSave,
 		onRefresh
 	}: Props = $props();
@@ -122,9 +124,9 @@
 			{@render enabledToggle()}
 		{/if}
 
-		{#if !hideSubmit || (currentSecret && form.type === 'ecr')}
+		{#if !hideSubmit || (showRefresh && currentSecret && form.type === 'ecr')}
 			<div class="flex flex-wrap items-center justify-end gap-2">
-				{#if currentSecret && form.type === 'ecr'}
+				{#if showRefresh && currentSecret && form.type === 'ecr'}
 					<button
 						type="button"
 						class="btn btn-secondary flex items-center gap-1 text-sm"

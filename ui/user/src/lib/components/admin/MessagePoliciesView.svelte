@@ -49,7 +49,7 @@
 		)
 	);
 	let contentType = $derived<'policies' | 'policy-violations'>(
-		(page.url.searchParams.get('contents') as 'policies' | 'policy-violations') || 'policies'
+		page.url.searchParams.get('contents') === 'policy-violations' ? 'policy-violations' : 'policies'
 	);
 
 	function convertToTableData(policy: MessagePolicy) {

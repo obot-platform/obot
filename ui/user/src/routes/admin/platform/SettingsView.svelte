@@ -94,10 +94,12 @@
 			await Promise.all([
 				notificationsDirty ? notificationsView?.save() : undefined,
 				productAnalyticsDirty ? productAnalyticsView?.save() : undefined,
-				modelProxyDirty ? modelProxyView?.save() : undefined,
 				registryDirty ? registryView?.save() : undefined,
 				gitCredentialsDirty ? gitCredentialsView?.save() : undefined
 			]);
+			if (modelProxyDirty) {
+				await modelProxyView?.save();
+			}
 		} finally {
 			saving = false;
 		}

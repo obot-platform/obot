@@ -24,6 +24,11 @@ vi.mock('$app/navigation', async (importOriginal) => {
 	};
 });
 
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	setUrlParamAndUpdateUrl: vi.fn()
+}));
+
 const proxyUrl = 'https://model-service.obot.ai';
 
 function renderSettings({

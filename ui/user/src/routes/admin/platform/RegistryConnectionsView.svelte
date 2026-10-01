@@ -12,6 +12,7 @@
 	} from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
 	import { errors, profile } from '$lib/stores/index.js';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import CapabilityBanner from './CapabilityBanner.svelte';
 	import ImagePullSecretForm from './ImagePullSecretForm.svelte';
@@ -44,18 +45,19 @@
 	}: Props = $props();
 
 	const initialCreate = untrack(() => page.url.searchParams.get('create') === 'true');
-	const initialId = untrack(() => (initialCreate ? null : page.url.searchParams.get('id')));
+	const initialSecret = untrack(() => {
+		if (initialCreate) return undefined;
+		const id = page.url.searchParams.get('id');
+		return id ? imagePullSecrets.find((item) => item.id === id) : undefined;
+	});
+	const initialId = initialSecret?.id ?? null;
 
 	let mode = $state<'closed' | 'create' | 'edit'>(
 		initialCreate ? 'create' : initialId ? 'edit' : 'closed'
 	);
 	let editingId = $state<string | null>(initialId);
 	let form = $state<ImagePullSecretFormState>(
-		untrack(() => {
-			if (!initialId) return defaultForm('basic');
-			const secret = imagePullSecrets.find((item) => item.id === initialId);
-			return secret ? formFromSecret(secret) : defaultForm('basic');
-		})
+		untrack(() => (initialSecret ? formFromSecret(initialSecret) : defaultForm('basic')))
 	);
 	let showECRAdvanced = $state(false);
 	let baseline = $state<ImagePullSecret[]>(untrack(() => cloneSecrets(imagePullSecrets)));
@@ -98,6 +100,17 @@
 	let canStage = $derived(Object.keys(requiredFieldErrors()).length === 0);
 	let isDirty = $derived(
 		pendingCreates.length > 0 || Object.keys(pendingEdits).length > 0 || pendingDeletes.length > 0
+	);
+	let unsavedIds = $derived(
+		new Set([...pendingCreates.map((draft) => draft.id), ...Object.keys(pendingEdits)])
+	);
+	let showRefresh = $derived(
+		Boolean(
+			currentSecret &&
+			form.type === 'ecr' &&
+			!pendingEdits[currentSecret.id] &&
+			JSON.stringify(formFromSecret(currentSecret)) === JSON.stringify(form)
+		)
 	);
 	let rows = $derived([
 		...pendingCreates.map((draft) => secretFromDraft(draft)),
@@ -147,6 +160,17 @@
 	function openCreateForm(type: ImagePullSecretType) {
 		if (mutationsDisabled) return;
 		openEditor('create', undefined, type);
+	}
+
+	function closeEditor() {
+		if (mode === 'create') {
+			setUrlParamAndUpdateUrl(page.url, 'create', null);
+		} else if (mode === 'edit') {
+			setUrlParamAndUpdateUrl(page.url, 'id', null);
+		}
+		mode = 'closed';
+		editingId = null;
+		showRequired = false;
 	}
 
 	export function reset() {
@@ -391,7 +415,7 @@
 	}
 
 	function openTestDialog(secret: ImagePullSecret) {
-		if (!canTest(secret) || secret.id.startsWith(draftPrefix)) return;
+		if (!canTest(secret) || unsavedIds.has(secret.id)) return;
 		testingSecret = secret;
 		testImage = '';
 		testResult = undefined;
@@ -407,7 +431,14 @@
 	}
 
 	async function testSecret() {
-		if (!testingSecret || !canTest(testingSecret) || !testImage.trim() || mutationsDisabled) return;
+		if (
+			!testingSecret ||
+			!canTest(testingSecret) ||
+			unsavedIds.has(testingSecret.id) ||
+			!testImage.trim() ||
+			mutationsDisabled
+		)
+			return;
 		testing = true;
 		testResult = undefined;
 		testError = '';
@@ -451,7 +482,7 @@
 	}
 
 	async function refreshECR(secret: ImagePullSecret) {
-		if (mutationsDisabled || secret.id.startsWith(draftPrefix)) return;
+		if (mutationsDisabled || unsavedIds.has(secret.id)) return;
 		refreshing = true;
 		refreshMessage = '';
 		try {
@@ -486,6 +517,7 @@
 		onTest={openTestDialog}
 		onRefresh={(secret) => (refreshingSecret = secret)}
 		onDelete={stageDelete}
+		{unsavedIds}
 	/>
 </div>
 
@@ -495,11 +527,7 @@
 		? `Edit ${currentSecret ? displayName(currentSecret) : form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`
 		: `Add ${form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`}
 	class="w-full md:max-w-4xl"
-	onClose={() => {
-		mode = 'closed';
-		editingId = null;
-		showRequired = false;
-	}}
+	onClose={closeEditor}
 >
 	{#if mode !== 'closed'}
 		<div class="flex flex-col gap-4 p-4 md:p-0">
@@ -515,6 +543,7 @@
 				{refreshMessage}
 				{requiredErrors}
 				hideSubmit
+				{showRefresh}
 				onSave={stageSecret}
 				onRefresh={refreshECR}
 			/>

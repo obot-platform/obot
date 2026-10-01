@@ -20,6 +20,11 @@ import { page } from 'vitest/browser';
 
 vi.mock(import('$lib/navigation'), { spy: true });
 
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	setUrlParamAndUpdateUrl: vi.fn()
+}));
+
 async function renderPlatformPage({
 	license = getLicenseResponse,
 	versionOverrides = {},

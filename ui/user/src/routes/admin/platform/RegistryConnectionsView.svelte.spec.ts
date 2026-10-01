@@ -8,6 +8,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	setUrlParamAndUpdateUrl: vi.fn()
+}));
+
 const availableCapability: ImagePullSecretCapability = { available: true };
 const unavailableCapability: ImagePullSecretCapability = {
 	available: false,
@@ -95,6 +100,18 @@ describe('RegistryConnectionsView', () => {
 		await expect.element(page.getByText('Basic Secrets', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Docker Hub', { exact: true }).first()).toBeVisible();
 		await expect.element(page.getByText('docker.io', { exact: true }).first()).toBeVisible();
+	});
+
+	it('opens the editor when the query id matches a secret', async () => {
+		await renderRegistryConnections({
+			imagePullSecrets: [dockerHubSecret],
+			id: dockerHubSecret.id
+		});
+
+		await expect
+			.element(page.getByRole('heading', { name: 'Edit Docker Hub', exact: true }))
+			.toBeVisible();
+		await expect.element(page.getByText('Registry Server', { exact: true })).toBeVisible();
 	});
 
 	it('opens the create form from the query and keeps the list', async () => {
