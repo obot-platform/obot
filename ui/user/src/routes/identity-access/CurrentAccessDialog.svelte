@@ -15,7 +15,7 @@
 		type SkillRepository
 	} from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { errors, mcpServersAndEntries, version } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
 		ACCESS_MATCH_REASON_LABEL,
@@ -251,13 +251,16 @@
 	const titleName = $derived(viewing?.name ?? target?.name ?? '');
 	const subjectLabel = $derived(viewing?.kind === 'group' ? 'group' : 'user');
 
-	const tabs = [
-		{ label: 'vMCPs', value: 'vmcps', noun: 'vMCPs' },
-		{ label: 'MCP Servers', value: 'mcp', noun: 'MCP servers' },
-		{ label: 'Models', value: 'models', noun: 'models' },
-		{ label: 'Skills', value: 'skills', noun: 'skills' },
-		{ label: 'Hosted Agents', value: 'hostedAgents', noun: 'hosted agents' }
-	] as const satisfies readonly { label: string; value: SectionKey; noun: string }[];
+	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
+	const tabs = $derived([
+		{ label: 'vMCPs', value: 'vmcps' as const, noun: 'vMCPs' },
+		{ label: 'MCP Servers', value: 'mcp' as const, noun: 'MCP servers' },
+		{ label: 'Models', value: 'models' as const, noun: 'models' },
+		{ label: 'Skills', value: 'skills' as const, noun: 'skills' },
+		...(hostedAgentsFeatureEnabled
+			? [{ label: 'Hosted Agents', value: 'hostedAgents' as const, noun: 'hosted agents' }]
+			: [])
+	]);
 
 	const currentNoun = $derived(tabs.find((tab) => tab.value === currentTab)?.noun ?? 'resources');
 	const currentPolicies = $derived(sections[currentTab]);
