@@ -699,6 +699,8 @@ export interface MCPSubField {
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
+	/** The value is stored by Obot and omitted from the manifest. */
+	static?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
 }

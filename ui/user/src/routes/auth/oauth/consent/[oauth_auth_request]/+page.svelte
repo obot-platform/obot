@@ -173,7 +173,10 @@
 									envs: manifestConfiguration.env
 										.filter(
 											(field) =>
-												editableKeys.has(field.key) && !field.value && !hasSecretBinding(field)
+												editableKeys.has(field.key) &&
+												!field.value &&
+												!field.static &&
+												!hasSecretBinding(field)
 										)
 										.map((field) => ({
 											...field,
@@ -186,6 +189,7 @@
 												field.usage === 'header' &&
 												editableKeys.has(field.key) &&
 												!field.value &&
+												!field.static &&
 												!hasSecretBinding(field)
 										)
 										.map(({ usage: _usage, ...field }) => ({
@@ -223,13 +227,13 @@
 					envs: getManifestConfiguration(nextConsent.mcpServer.manifest).env?.map((env) => ({
 						...env,
 						value: values[env.key] ?? '',
-						isStatic: Boolean(env.value)
+						isStatic: Boolean(env.value || env.static)
 					})),
 					headers: getManifestConfiguration(nextConsent.mcpServer.manifest).headers?.map(
 						(header) => ({
 							...header,
 							value: values[header.key] ?? '',
-							isStatic: Boolean(header.value)
+							isStatic: Boolean(header.value || header.static)
 						})
 					),
 					url: nextConsent.mcpServer.manifest.remoteConfig?.url,
@@ -278,7 +282,10 @@
 		return [
 			...getManifestConfiguration(manifest).env,
 			...(manifest.config ?? []).filter((field) => field.usage === 'header')
-		].some((field) => editableKeys.has(field.key) && !field.value && !hasSecretBinding(field));
+		].some(
+			(field) =>
+				editableKeys.has(field.key) && !field.value && !field.static && !hasSecretBinding(field)
+		);
 	}
 
 	async function saveMCPConfiguration() {

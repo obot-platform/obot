@@ -929,6 +929,17 @@ export async function createMCPCatalogEntry(
 	};
 }
 
+export async function revealMCPCatalogEntry(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	return (await doPost(`/mcp-catalogs/${catalogID}/entries/${entryID}/reveal`, {}, opts)) as Record<
+		string,
+		string
+	>;
+}
+
 export async function updateMCPCatalogEntry(
 	catalogID: string,
 	entryID: string,

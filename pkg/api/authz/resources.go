@@ -95,6 +95,7 @@ var (
 			"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}",
 			"GET    /api/workspaces/{workspace_id}/entries/{entry_id}",
 			"PUT    /api/workspaces/{workspace_id}/entries/{entry_id}",
+			"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/reveal",
 			"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers",
 			"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}",
 			"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews",

@@ -1013,6 +1013,17 @@ export async function createWorkspaceMCPCatalogEntry(
 	};
 }
 
+export async function revealWorkspaceMCPCatalogEntry(
+	workspaceID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	return (await doPost(`/workspaces/${workspaceID}/entries/${entryID}/reveal`, {}, opts)) as Record<
+		string,
+		string
+	>;
+}
+
 export async function updateWorkspaceMCPCatalogEntry(
 	workspaceID: string,
 	entryID: string,

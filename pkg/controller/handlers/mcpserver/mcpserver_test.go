@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -21,7 +20,6 @@ import (
 )
 
 func TestConfigurationHasDrifted(t *testing.T) {
-	gatewayClient := newTestGatewayClient(t)
 	tests := []struct {
 		name           string
 		serverManifest types.MCPServerManifest
@@ -29,6 +27,38 @@ func TestConfigurationHasDrifted(t *testing.T) {
 		expectedDrift  bool
 		expectedError  bool
 	}{
+		{
+			name: "drift - static configuration revision changed",
+			serverManifest: types.MCPServerManifest{
+				Runtime:                     types.RuntimeUVX,
+				UVXConfig:                   &types.UVXRuntimeConfig{Package: "test-package"},
+				Config:                      []types.MCPConfig{{Key: "TOKEN", Static: true, Usage: types.Env}},
+				StaticConfigurationRevision: "old",
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Runtime:                     types.RuntimeUVX,
+				UVXConfig:                   &types.UVXRuntimeConfig{Package: "test-package"},
+				Config:                      []types.MCPConfig{{Key: "TOKEN", Static: true, Usage: types.Env}},
+				StaticConfigurationRevision: "new",
+			},
+			expectedDrift: true,
+		},
+		{
+			name: "no drift - same static configuration revision",
+			serverManifest: types.MCPServerManifest{
+				Runtime:                     types.RuntimeUVX,
+				UVXConfig:                   &types.UVXRuntimeConfig{Package: "test-package"},
+				Config:                      []types.MCPConfig{{Key: "TOKEN", Static: true, Usage: types.Env}},
+				StaticConfigurationRevision: "current",
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Runtime:                     types.RuntimeUVX,
+				UVXConfig:                   &types.UVXRuntimeConfig{Package: "test-package"},
+				Config:                      []types.MCPConfig{{Key: "TOKEN", Static: true, Usage: types.Env}},
+				StaticConfigurationRevision: "current",
+			},
+			expectedDrift: false,
+		},
 		{
 			name: "no drift - identical UVX manifests",
 			serverManifest: types.MCPServerManifest{
@@ -1176,14 +1206,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := &v1.MCPServer{
-				Name: "test-server",
-				Spec: v1.MCPServerSpec{
-					UserID:   "test-user",
-					Manifest: tt.serverManifest,
-				},
-			}
-			drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, tt.entryManifest, false)
+			drifted, err := configurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
 
 			if tt.expectedError {
 				if err == nil {
@@ -1200,82 +1223,6 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *testing.T) {
-	gatewayClient := newTestGatewayClient(t)
-	referenceManifest := types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeRemote,
-		RemoteConfig: &types.RemoteCatalogConfig{
-			FixedURL: "https://api.example.com/mcp",
-		},
-		Config: []types.MCPConfig{
-			{
-				Key:   "STATIC_ENV",
-				Value: "stored-env",
-				Usage: types.Env,
-			},
-			{
-				Key:   "DYNAMIC_ENV",
-				Usage: types.Env,
-			},
-			{
-				Key:   "STATIC_HEADER",
-				Value: "stored-header",
-				Usage: types.Header,
-			},
-			{
-				Key:   "EXISTING_HEADER",
-				Value: "configured",
-				Usage: types.Header,
-			},
-		},
-	}
-	server := &v1.MCPServer{
-		Name: "shared-server",
-		Spec: v1.MCPServerSpec{
-			MCPCatalogID: "default",
-			Manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeRemote,
-
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://api.example.com/mcp",
-				},
-				Config: []types.MCPConfig{{
-					Key:   "STATIC_ENV",
-					Usage: types.Env,
-				},
-					{
-						Key:   "DYNAMIC_ENV",
-						Usage: types.Env,
-					},
-
-					{
-						Key:   "STATIC_HEADER",
-						Usage: types.Header,
-					},
-					{
-						Key:   "EXISTING_HEADER",
-						Value: "configured",
-						Usage: types.Header,
-					}},
-			},
-		},
-	}
-	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: "default-shared-server",
-		Name:    server.Name,
-		Secrets: map[string]string{
-			"STATIC_ENV":    "stored-env",
-			"STATIC_HEADER": "stored-header",
-		},
-	}))
-
-	drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, referenceManifest, false)
-	require.NoError(t, err)
-	assert.False(t, drifted)
-	assert.Empty(t, server.Spec.Manifest.Config[0].Value)
-	assert.Empty(t, server.Spec.Manifest.Config[1].Value)
 }
 
 func TestRuntimeSpecificDriftFunctions(t *testing.T) {

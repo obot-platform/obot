@@ -20,7 +20,7 @@ func MissingRequiredConfiguration(component types.VMCPComponent, values map[stri
 	}
 	var missing []string
 	check := func(item types.MCPConfig) {
-		if !item.Required || item.Value != "" || item.SecretBinding != nil {
+		if !item.Required || item.Static || item.SecretBinding != nil {
 			return
 		}
 		policy := policies[item.Key]

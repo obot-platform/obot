@@ -20,12 +20,14 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -327,6 +329,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+	mcpcatalog.NormalizeManifest(&manifest)
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -339,6 +342,14 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := mcp.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+
+	// The entry's name is not known until it is created, so its static configuration is stored
+	// afterwards. Nothing can be stored for a new entry yet, so every static field needs a value.
+	manifest.StaticConfigurationRevision = ""
+	staticConfiguration, err := mcp.ExtractStaticConfiguration(manifest.Config, nil, false)
+	if err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -366,7 +377,29 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return fmt.Errorf("failed to create entry: %w", err)
 	}
 
+	if len(staticConfiguration) > 0 {
+		if err := publishEntryStaticConfiguration(req, &entry, staticConfiguration); err != nil {
+			return errors.Join(err, req.Delete(&entry))
+		}
+	}
+
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
+// publishEntryStaticConfiguration stores static configuration for a newly created entry and
+// records the credential's revision on it.
+func publishEntryStaticConfiguration(req api.Context, entry *v1.MCPServerCatalogEntry, staticConfiguration map[string]string) error {
+	revision, err := mcp.StoreStaticConfigurationValues(req.Context(), req.GatewayClient, entry.Name, staticConfiguration, "", nil)
+	if err != nil {
+		return err
+	}
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(entry, entry.Name); err != nil {
+			return err
+		}
+		entry.Spec.Manifest.StaticConfigurationRevision = revision
+		return req.Update(entry)
+	})
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
@@ -404,6 +437,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+	mcpcatalog.NormalizeManifest(&manifest)
 
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
@@ -425,6 +459,20 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	// Copy the tool previews over so that they don't get wiped out when updating the manifest
 	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
 
+	// A static field submitted without a value keeps the value already stored for it.
+	previousRevision := entry.Spec.Manifest.StaticConfigurationRevision
+	previous, err := mcp.RevealStaticConfiguration(req.Context(), req.GatewayClient, entry.Name, previousRevision)
+	if err != nil {
+		return err
+	}
+	staticConfiguration, err := mcp.ExtractStaticConfiguration(manifest.Config, normalizedStaticConfiguration(entry.Spec.Manifest.Config, previous), true)
+	if err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	if manifest.StaticConfigurationRevision, err = mcp.StoreStaticConfigurationValues(req.Context(), req.GatewayClient, entry.Name, staticConfiguration, previousRevision, previous); err != nil {
+		return err
+	}
+
 	// Update the manifest
 	entry.Spec.Manifest = manifest
 
@@ -433,6 +481,48 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
+// normalizedStaticConfiguration keys the values stored for an entry's configuration by the keys
+// that normalization gives it. Entries created before the API normalized manifests can hold keys
+// that normalization changes, and an update normalizes the keys it submits.
+func normalizedStaticConfiguration(config []types.MCPConfig, values map[string]string) map[string]string {
+	normalized := types.MCPServerCatalogEntryManifest{Config: slices.Clone(config)}
+	mcpcatalog.NormalizeManifest(&normalized)
+
+	result := make(map[string]string, len(values))
+	for i, field := range config {
+		if value, ok := values[field.Key]; ok {
+			result[normalized.Config[i].Key] = value
+		}
+	}
+	return result
+}
+
+// RevealEntry returns the static configuration values of a catalog entry, keyed by configuration key.
+// POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/reveal
+// POST /api/workspaces/{workspace_id}/entries/{entry_id}/reveal
+func (*MCPCatalogHandler) RevealEntry(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+
+	if catalogName == "" && workspaceID == "" {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, req.PathValue("entry_id")); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+	if err := validateEntryScope(entry, catalogName, workspaceID); err != nil {
+		return err
+	}
+
+	values, err := mcp.RevealStaticConfiguration(req.Context(), req.GatewayClient, entry.Name, entry.Spec.Manifest.StaticConfigurationRevision)
+	if err != nil {
+		return err
+	}
+	return req.Write(values)
 }
 
 func (h *MCPCatalogHandler) AcceptEntryOwnership(req api.Context) error {
@@ -857,6 +947,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		req.Context(),
 		req.Storage,
 		req.LocalK8sClient,
+		req.GatewayClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		entry.Name,
@@ -976,7 +1067,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if err != nil {
 		return err
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.Storage, req.LocalK8sClient, req.GatewayClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1094,6 +1185,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 		req.Context(),
 		req.Storage,
 		req.LocalK8sClient,
+		req.GatewayClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		component.MCPServerCatalogEntryID,
@@ -1181,11 +1273,19 @@ func (h *MCPCatalogHandler) writeVMCPComponentToolPreview(req api.Context, vmcp 
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
-func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sClient kclient.Client, obotNamespace, secretBindingAllowedLabel, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sClient kclient.Client, revealer mcp.StaticConfigurationRevealer, obotNamespace, secretBindingAllowedLabel, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
+	}
+
+	// Static values are needed to render URL templates and the runtime configuration, but the
+	// returned server keeps the manifest without them.
+	storedConfig := serverManifest.Config
+	serverManifest.Config, err = mcp.ResolveStaticConfiguration(ctx, revealer, entryName, serverManifest.StaticConfigurationRevision, serverManifest.Config)
+	if err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
 
 	config, err = prepareTempServerConfig(ctx, localK8sClient, obotNamespace, secretBindingAllowedLabel, &serverManifest, config, false, validationOptions)
@@ -1196,10 +1296,12 @@ func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sCli
 		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("validation failed: %v", err)
 	}
 
-	// Create temporary MCPServer object to use existing conversion logic
-	tempName := "tool-preview-" + utils.Digest(serverManifest)[:16]
+	// Create temporary MCPServer object to use existing conversion logic. Its name is derived
+	// from the stored manifest so it never depends on static values.
+	nameManifest := serverManifest
+	nameManifest.Config = storedConfig
 	tempMCPServer := v1.MCPServer{
-		Name: tempName,
+		Name: "tool-preview-" + utils.Digest(nameManifest)[:16],
 		Spec: v1.MCPServerSpec{
 			Manifest:                  serverManifest,
 			MCPServerCatalogEntryName: entryName,
@@ -1210,6 +1312,8 @@ func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sCli
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}
+
+	tempMCPServer.Spec.Manifest.Config = storedConfig
 
 	if len(missingFields) > 0 {
 		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("missing required configuration fields: %v", missingFields)

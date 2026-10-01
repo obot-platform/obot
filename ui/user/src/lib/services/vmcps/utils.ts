@@ -196,7 +196,7 @@ export function configurationForSnapshotUpdate(
 	const retained = (component.configuration ?? []).flatMap((policy) => {
 		if (nextKeys.has(policy.key)) return [];
 		const field = snapshotFields.find((candidate) => candidate.key === policy.key);
-		if (!field?.required || field.value || field.secretBinding) return [];
+		if (!field?.required || field.value || field.static || field.secretBinding) return [];
 		return [{ key: policy.key, policy: policy.policy }];
 	});
 	return retained.length === 0 ? next : [...next, ...retained];
@@ -266,7 +266,7 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 		mcpCatalogID: DEFAULT_MCP_CATALOG_ID,
 		mcpServerCatalogEntryID: entry.id,
 		configuration: catalogConfigurationFields(entry)
-			.filter((field) => field.required)
+			.filter((field) => field.required && !field.static)
 			.map((field) => ({ key: field.key, policy: 'fixed', value: field.value })),
 		catalogEntry: {
 			manifest: entry.manifest,

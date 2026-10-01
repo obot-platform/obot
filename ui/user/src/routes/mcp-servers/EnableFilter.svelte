@@ -63,7 +63,7 @@
 			headers: headers.map((header) => ({
 				...header,
 				value: '',
-				isStatic: header.value !== ''
+				isStatic: Boolean(header.static) || header.value !== ''
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }

@@ -159,6 +159,10 @@ type MCPServerCatalogEntryManifest struct {
 
 	Config []MCPConfig `json:"config,omitempty"`
 
+	// StaticConfigurationRevision identifies the credential holding the values of Static
+	// configuration. It is assigned by Obot; values supplied by clients are ignored.
+	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
+
 	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 }
 
@@ -247,10 +251,14 @@ type MCPConfig struct {
 
 	Key string `json:"key"`
 
-	// For static config
+	// Value is static configuration. Catalog entries accept it on input but store it in a
+	// credential, so stored and returned catalog entry manifests mark the field Static instead.
 	Value string `json:"value"`
 
-	// For user-supplied config
+	// Static marks configuration whose value is stored in the catalog entry's static
+	// configuration credential instead of in the manifest.
+	Static bool `json:"static,omitempty"`
+
 	Sensitive bool   `json:"sensitive"`
 	Required  bool   `json:"required"`
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
@@ -372,6 +380,9 @@ type MCPServerManifest struct {
 	DeprecatedMultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Config []MCPConfig `json:"config,omitempty"`
+	// StaticConfigurationRevision identifies the source catalog entry's credential holding the
+	// values of Static configuration.
+	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
 	// Deprecated: retained only to migrate stored server configuration to Config.
 	DeprecatedEnv []MCPEnv                 `json:"env,omitempty"`
 	Resources     *MCPResourceRequirements `json:"resources,omitempty"`
@@ -626,6 +637,8 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 		ToolPreview:      m.ToolPreview,
 		Resources:        m.Resources,
 		Config:           m.DeepCopy().Config,
+
+		StaticConfigurationRevision: m.StaticConfigurationRevision,
 	}
 	for i := range catalogManifest.Config {
 		catalogManifest.Config[i].UserAllowed = false
@@ -675,6 +688,8 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		Runtime:          catalogEntry.Runtime,
 		Config:           catalogConfiguration.Config,
 		Resources:        catalogEntry.Resources,
+
+		StaticConfigurationRevision: catalogEntry.StaticConfigurationRevision,
 	}
 
 	// Handle runtime-specific mapping

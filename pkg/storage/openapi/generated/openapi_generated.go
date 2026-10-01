@@ -9805,18 +9805,24 @@ func schema_obot_platform_obot_apiclient_types_MCPConfig(ref common.ReferenceCal
 					},
 					"value": {
 						SchemaProps: spec.SchemaProps{
-							Description: "For static config",
+							Description: "Value is static configuration. Catalog entries accept it on input but store it in a credential, so stored and returned catalog entry manifests mark the field Static instead.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"sensitive": {
+					"static": {
 						SchemaProps: spec.SchemaProps{
-							Description: "For user-supplied config",
-							Default:     false,
+							Description: "Static marks configuration whose value is stored in the catalog entry's static configuration credential instead of in the manifest.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"required": {
@@ -10753,6 +10759,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"staticConfigurationRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StaticConfigurationRevision identifies the credential holding the values of Static configuration. It is assigned by Obot; values supplied by clients are ignored.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"resources": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements"),
@@ -11200,6 +11213,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 									},
 								},
 							},
+						},
+					},
+					"staticConfigurationRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StaticConfigurationRevision identifies the source catalog entry's credential holding the values of Static configuration.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"env": {

@@ -54,7 +54,7 @@ func TestConvertMCPServer_StaticEnvIsConfigured(t *testing.T) {
 				Runtime: types.RuntimeNPX,
 				Config: []types.MCPConfig{{
 					Key:      "CATALOG_TOKEN",
-					Value:    "catalog-value",
+					Static:   true,
 					Required: true,
 					Usage:    types.Env,
 				}},

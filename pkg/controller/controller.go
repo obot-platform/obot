@@ -147,6 +147,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate vMCP default admin groups: %w", err)
 	}
 
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, catalogEntryStaticConfigurationMigrationName, func() error {
+		return migrateCatalogEntryStaticConfiguration(ctx, c.services.StorageClient, c.services.GatewayClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate catalog entry static configuration: %w", err)
+	}
+
 	return nil
 }
 

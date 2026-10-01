@@ -695,6 +695,8 @@ export interface MCPCatalogEntryFieldManifest {
 	required: boolean;
 	sensitive: boolean;
 	value: string;
+	/** The value is stored by Obot and omitted from the manifest; reveal it to edit it. */
+	static?: boolean;
 	file?: boolean;
 	dynamicFile?: boolean;
 	interpolated?: boolean;
@@ -743,6 +745,7 @@ export interface MCPCatalogEntryServerManifest {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	resources?: MCPResourceRequirements;
+	staticConfigurationRevision?: string;
 }
 export interface MCPCatalogEntry {
 	id: string;

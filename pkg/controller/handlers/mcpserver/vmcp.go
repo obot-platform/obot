@@ -96,7 +96,11 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 
 	// Update the spec before the status: the client writes the new resource version back onto
 	// the object, so the status update below still applies cleanly.
-	if url, owned := resolvedComponentURL(*component, server, configuration); owned && server.Spec.Manifest.RemoteConfig.URL != url {
+	resolvedServer, err := mcp.ResolveServerStaticConfiguration(req.Ctx, h.gatewayClient, *server)
+	if err != nil {
+		return err
+	}
+	if url, owned := resolvedComponentURL(*component, &resolvedServer, configuration); owned && server.Spec.Manifest.RemoteConfig.URL != url {
 		server.Spec.Manifest.RemoteConfig.URL = url
 		if err := req.Client.Update(req.Ctx, server); err != nil {
 			return fmt.Errorf("store resolved URL for MCPServer %q: %w", server.Name, err)

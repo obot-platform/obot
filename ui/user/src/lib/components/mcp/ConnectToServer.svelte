@@ -261,13 +261,13 @@
 			envs: env.map((field) => ({
 				...field,
 				value: '',
-				isStatic: field.value !== '',
+				isStatic: Boolean(field.static) || field.value !== '',
 				secretBindingReadonly: hasSecretBinding(field)
 			})),
 			headers: headers.map((field) => ({
 				...field,
 				value: '',
-				isStatic: field.value !== '',
+				isStatic: Boolean(field.static) || field.value !== '',
 				secretBindingReadonly: hasSecretBinding(field)
 			})),
 			...(item.manifest?.remoteConfig?.hostname

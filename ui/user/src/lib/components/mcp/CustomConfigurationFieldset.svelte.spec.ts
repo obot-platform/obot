@@ -71,6 +71,20 @@ describe('CustomConfigurationFieldset.svelte', () => {
 			.not.toHaveAttribute('aria-invalid', 'true');
 	});
 
+	it('treats a stored static value as configured', async () => {
+		await renderFieldset({
+			data: field({ key: 'API_KEY', static: true, required: true }),
+			showRequired: true
+		});
+
+		const value = page.getByLabelText('Static Value');
+		await expect.element(value).toHaveValue('');
+		await expect.element(value).not.toHaveAttribute('aria-invalid', 'true');
+		await expect
+			.element(value)
+			.toHaveAttribute('placeholder', 'Stored value; leave blank to keep it');
+	});
+
 	it('marks an empty static Value invalid only after validation', async () => {
 		await renderFieldset({ showRequired: true });
 

@@ -17,6 +17,9 @@ func validateServerConfigurationOptions(manifest types.MCPServerManifest) error 
 
 func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest) error {
 	for i, config := range manifest.Config {
+		if config.Static && len(config.Options) > 0 {
+			return fmt.Errorf("config[%d].static and options are mutually exclusive", i)
+		}
 		if err := validateConfigurationFieldOptions(fmt.Sprintf("config[%d]", i), config.ToHeader()); err != nil {
 			return err
 		}

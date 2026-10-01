@@ -345,7 +345,7 @@ func (m VMCPManifest) Validate() error {
 			}
 		}
 		for _, config := range component.CatalogEntry.Manifest.Config {
-			if config.Required && config.Value == "" && config.SecretBinding == nil {
+			if config.Required && !config.Static && config.SecretBinding == nil {
 				if policy := configurationKeys[config.Key]; policy == "" || policy == VMCPConfigurationPolicyProhibited {
 					return fmt.Errorf("component %q required configuration %q cannot be prohibited", component.Name, config.Key)
 				}

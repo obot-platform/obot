@@ -1755,6 +1755,38 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 			},
 			adminManaged: true,
 		},
+		{
+			name: "binding with a value is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						Value:         "literal",
+						SecretBinding: binding,
+					},
+				},
+			},
+			adminManaged: true,
+			wantErr:      "secretBinding and value are mutually exclusive",
+		},
+		{
+			name: "binding on a static field is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Config: []types.MCPConfig{
+					{
+						Key:           "TOKEN",
+						Usage:         types.Env,
+						Static:        true,
+						SecretBinding: binding,
+					},
+				},
+			},
+			adminManaged: true,
+			wantErr:      "secretBinding and static are mutually exclusive",
+		},
 	}
 
 	for _, tt := range tests {

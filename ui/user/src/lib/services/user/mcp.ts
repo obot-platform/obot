@@ -111,8 +111,9 @@ export function hasSecretBinding(field?: Partial<MCPSubField> | null): boolean {
 	return Boolean(field?.secretBinding?.name && field?.secretBinding?.key);
 }
 
+// Static and secret-bound values are supplied by the catalog, not entered by the user.
 function hasEditableFields(fields?: MCPSubField[]) {
-	return (fields ?? []).some((field) => !hasSecretBinding(field));
+	return (fields ?? []).some((field) => !field.value && !field.static && !hasSecretBinding(field));
 }
 
 function hasEditableURL(remoteConfig?: { fixedURL?: string; hostname?: string } | null) {
@@ -151,9 +152,7 @@ export function hasEditableConfiguration(
 	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
 	const fields = getManifestConfiguration(item.manifest);
 	const hasEnvsToFill = hasEditableFields(fields.env);
-	const hasHeadersToFill =
-		(fields.headers.filter((header) => !header.value && !hasSecretBinding(header))?.length ?? 0) >
-		0;
+	const hasHeadersToFill = hasEditableFields(fields.headers);
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }
@@ -613,7 +612,12 @@ function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['en
 	return envs.every((env) => {
 		if (!env.key.trim()) return false;
 		if (env.options?.length) return hasCompleteConfigurationOptions(env);
-		return Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim());
+		return (
+			Boolean(env.value?.trim()) ||
+			Boolean(env.static) ||
+			hasSecretBinding(env) ||
+			Boolean(env.name.trim())
+		);
 	});
 }
 
@@ -623,7 +627,12 @@ function validateHeaders(type: LaunchServerType | 'filter', headers: MCPServerIn
 	return headers.every((header) => {
 		if (!header.key.trim()) return false;
 		if (header.options?.length) return hasCompleteConfigurationOptions(header);
-		return Boolean(header.value?.trim()) || hasSecretBinding(header) || Boolean(header.name.trim());
+		return (
+			Boolean(header.value?.trim()) ||
+			Boolean(header.static) ||
+			hasSecretBinding(header) ||
+			Boolean(header.name.trim())
+		);
 	});
 }
 

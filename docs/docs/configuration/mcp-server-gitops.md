@@ -260,6 +260,14 @@ env:
     description: Description of this variable
 ```
 
+#### Static values
+
+A field with a `value` is static configuration: users are not asked for it. Obot stores static values
+in its encrypted credential store and omits them from the catalog entry returned by the API, so they
+are not visible to users who can connect to the entry. The value is still clear text in the Git
+repository; use a [secret binding](#kubernetes-secret-bindings) for secrets that should not be
+committed. Removing a `value` from the source removes it from the entry on the next sync.
+
 #### Selectable configuration values
 
 Git-synced catalog entries can constrain an environment variable or remote header to a catalog-owned

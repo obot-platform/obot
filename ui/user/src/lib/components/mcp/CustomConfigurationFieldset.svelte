@@ -54,7 +54,7 @@
 		untrack(() =>
 			data.options && data.options.length > 0
 				? 'options'
-				: (data.value?.length ?? 0) > 0 || usesSecretBindingSource(data)
+				: (data.value?.length ?? 0) > 0 || data.static || usesSecretBindingSource(data)
 					? 'static'
 					: 'user_supplied'
 		)
@@ -62,8 +62,9 @@
 
 	let missingKey = $derived(showRequired && !data.key.trim());
 	let missingName = $derived(showRequired && !data.name.trim());
+	// A static field without a value keeps the value Obot already stores for it.
 	let missingValue = $derived(
-		showRequired && !data.value?.trim() && (data.options ?? []).length === 0
+		showRequired && !data.value?.trim() && !data.static && (data.options ?? []).length === 0
 	);
 	let displayedSecretBindingTargets = $derived.by(() => {
 		if (secretBindingTargets) return secretBindingTargets;
@@ -165,6 +166,7 @@
 					data.value = '';
 					data.description = '';
 					data.sensitive = false;
+					data.static = false;
 
 					if (option.id === 'user_supplied' || option.id === 'options') {
 						data.secretBinding = undefined;
@@ -205,6 +207,7 @@
 						class:error={missingValue}
 						bind:value={data.value}
 						disabled={readonly}
+						placeholder={data.static ? 'Stored value; leave blank to keep it' : undefined}
 						rows={(data.value ?? '').split('\n').length + 1}
 						aria-required={!readonly ? 'true' : undefined}
 						aria-invalid={missingValue}></textarea>
@@ -214,7 +217,7 @@
 						class="text-input-filled bg-base-100 w-full shadow-none"
 						class:error={missingValue}
 						bind:value={data.value}
-						placeholder="e.g. 123abcdef456"
+						placeholder={data.static ? 'Stored value; leave blank to keep it' : 'e.g. 123abcdef456'}
 						disabled={readonly || (data.options ?? []).length > 0}
 						type={data.sensitive ? 'password' : 'text'}
 						aria-required={!readonly ? 'true' : undefined}

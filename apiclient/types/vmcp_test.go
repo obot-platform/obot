@@ -316,7 +316,7 @@ func TestVMCPManifestRequiredConfigurationPolicy(t *testing.T) {
 		policy        VMCPConfigurationPolicyType
 		omitPolicy    bool
 		optional      bool
-		value         string
+		static        bool
 		secretBinding *MCPSecretBinding
 		wantError     bool
 	}{
@@ -348,9 +348,9 @@ func TestVMCPManifestRequiredConfigurationPolicy(t *testing.T) {
 			optional: true,
 		},
 		{
-			name:   "catalog value",
-			policy: VMCPConfigurationPolicyProhibited,
-			value:  "supplied",
+			name:       "catalog static configuration",
+			omitPolicy: true,
+			static:     true,
 		},
 		{
 			name:          "secret binding",
@@ -363,7 +363,7 @@ func TestVMCPManifestRequiredConfigurationPolicy(t *testing.T) {
 			manifest.Components[0].CatalogEntry.Manifest.Config = []MCPConfig{{
 				Key:           "TOKEN",
 				Required:      !tc.optional,
-				Value:         tc.value,
+				Static:        tc.static,
 				SecretBinding: tc.secretBinding,
 			}}
 			if !tc.omitPolicy {

@@ -477,6 +477,12 @@ func newComponent(id, catalog, entry string, manifest types.MCPServerCatalogEntr
 
 	for i := range component.CatalogEntry.Manifest.Config {
 		config := &component.CatalogEntry.Manifest.Config[i]
+		if config.Static {
+			// The value stays in the source entry's static configuration credential, which the
+			// snapshot references, so it needs no vMCP policy.
+			config.UserAllowed = false
+			continue
+		}
 		policy := types.VMCPConfigurationPolicyUserAllowed
 		if shared && !config.UserAllowed || !shared && config.Value != "" {
 			policy = types.VMCPConfigurationPolicyFixed

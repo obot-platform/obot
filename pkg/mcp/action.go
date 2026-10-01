@@ -300,6 +300,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 			return server, ServerConfig{}, nil, err
 		}
 		server.Spec.Manifest.Config = vmcpaccess.ComponentConfig(component)
+		server.Spec.Manifest.StaticConfigurationRevision = component.CatalogEntry.Manifest.StaticConfigurationRevision
 		instance.Spec.Config = server.Spec.Manifest.UserConfig()
 		scope = server.Spec.VMCPID
 	} else if server.Spec.MCPCatalogID != "" {
@@ -325,7 +326,12 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
+	resolvedServer, err := ResolveServerStaticConfiguration(ctx, sm.gatewayClient, server)
+	if err != nil {
+		return server, ServerConfig{}, nil, err
+	}
+
+	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
 	}
@@ -393,7 +399,12 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, err
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
+	resolvedServer, err := ResolveServerStaticConfiguration(ctx, sm.gatewayClient, server)
+	if err != nil {
+		return ServerConfig{}, nil, err
+	}
+
+	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	if err != nil {
 		return ServerConfig{}, nil, err
 	}
@@ -613,6 +624,7 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	serverRemote := server.Spec.Manifest.RemoteConfig
 
 	server.Spec.Manifest.Config = entry.Spec.Manifest.Config
+	server.Spec.Manifest.StaticConfigurationRevision = entry.Spec.Manifest.StaticConfigurationRevision
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
 	serverRemote.TunnelName = entryRemote.TunnelName
 	switch {

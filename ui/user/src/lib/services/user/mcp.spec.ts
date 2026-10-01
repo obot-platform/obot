@@ -1,4 +1,6 @@
 import type {
+	MCPCatalogEntry,
+	MCPConfig,
 	MCPConfigurationOption,
 	MCPSubField,
 	RuntimeFormData,
@@ -7,6 +9,7 @@ import type {
 import {
 	convertServerRuntimeFormDataToManifest,
 	getManifestConfiguration,
+	hasEditableConfiguration,
 	manifestHasSecretBindings,
 	hasMissingSecretBindingConfig,
 	validateRuntimeForm
@@ -241,5 +244,46 @@ describe('catalog configuration schema', () => {
 			})
 		).toBe(true);
 		expect(manifestHasSecretBindings({ config: [{ ...field, usage: 'env' }] })).toBe(false);
+	});
+});
+
+describe('hasEditableConfiguration', () => {
+	function entryWithConfig(config: MCPConfig[]) {
+		return {
+			manifest: { runtime: 'npx', npxConfig: { package: 'example-package' }, config }
+		} as unknown as MCPCatalogEntry;
+	}
+
+	function field(overrides: Partial<MCPConfig>): MCPConfig {
+		return {
+			key: 'TOKEN',
+			name: 'Token',
+			description: '',
+			value: '',
+			required: true,
+			sensitive: false,
+			usage: 'env',
+			...overrides
+		};
+	}
+
+	it('does not ask users for static or secret-bound values', () => {
+		for (const usage of ['env', 'header'] as const) {
+			for (const overrides of [
+				{ static: true },
+				{ value: 'literal' },
+				{ secretBinding: { name: 'secret', key: 'token' } }
+			]) {
+				expect(hasEditableConfiguration(entryWithConfig([field({ usage, ...overrides })]))).toBe(
+					false
+				);
+			}
+		}
+	});
+
+	it('asks users for user-supplied values', () => {
+		for (const usage of ['env', 'header'] as const) {
+			expect(hasEditableConfiguration(entryWithConfig([field({ usage })]))).toBe(true);
+		}
 	});
 });

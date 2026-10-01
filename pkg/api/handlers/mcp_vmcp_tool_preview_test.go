@@ -286,6 +286,7 @@ func TestTempServerAndConfigIgnoresAuditLogsWithoutChangingNormalTraffic(t *test
 		t.Context(),
 		nil,
 		nil,
+		nil,
 		"",
 		"",
 		"entry",

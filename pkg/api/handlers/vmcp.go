@@ -341,7 +341,7 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 		}
 		static := map[string]bool{}
 		for _, field := range component.CatalogEntry.Manifest.Config {
-			static[field.Key] = field.Value != "" || field.SecretBinding != nil
+			static[field.Key] = field.Static || field.SecretBinding != nil
 		}
 		component.Configuration = slices.DeleteFunc(component.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
 			return static[policy.Key]

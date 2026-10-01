@@ -343,6 +343,25 @@
 		}
 	}
 
+	// Static configuration values are stored by Obot and omitted from the entry manifest, so they
+	// are revealed separately to edit them.
+	async function revealCatalogEntry(id: string, entryId: string, entity: 'workspace' | 'catalog') {
+		if (!formData.config?.some((field) => field.static)) return;
+		try {
+			const revealFn =
+				entity === 'workspace'
+					? UserService.revealWorkspaceMCPCatalogEntry
+					: AdminService.revealMCPCatalogEntry;
+			const response = await revealFn(id, entryId, { dontLogErrors: true });
+			formData.config = formData.config?.map((field) =>
+				field.static && !field.value ? { ...field, value: response[field.key] ?? '' } : field
+			);
+		} catch (error) {
+			// Static fields submitted without a value keep their stored values, so the form remains usable.
+			console.error('Failed to reveal static configuration:', error);
+		}
+	}
+
 	// Runtime change handler
 	function handleRuntimeChange(newRuntime: Runtime) {
 		formData.runtime = newRuntime;
@@ -410,6 +429,8 @@
 	onMount(() => {
 		if (entry?.type === 'mcpserver' && id) {
 			revealCatalogServer(id, entry.id, entity);
+		} else if (entry && id) {
+			revealCatalogEntry(id, entry.id, entity);
 		}
 		if (version.current.engine === 'kubernetes') {
 			UserService.getK8sResourceDefaults()
@@ -456,7 +477,11 @@
 				? { shortDescription: baseData.shortDescription }
 				: {}),
 			icon: baseData.icon,
-			config: baseData.config?.map(stripSecretBindingSource),
+			config: baseData.config?.map((field) => {
+				const config = stripSecretBindingSource(field);
+				// Secret-bound values are never stored as static configuration.
+				return config.secretBinding ? { ...config, static: false } : config;
+			}),
 			runtime: baseData.runtime,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
@@ -646,6 +671,9 @@
 			}
 			loading = false;
 			formData = convertToFormData(entryResponse);
+			if (entryResponse.type !== 'mcpserver') {
+				await revealCatalogEntry(id, entryResponse.id, entity);
+			}
 			onSubmit?.(entryResponse, 'Catalog entry updated successfully!');
 		} catch (error) {
 			loading = false;

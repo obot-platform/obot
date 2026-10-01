@@ -958,6 +958,7 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	serverRemote := server.Spec.Manifest.RemoteConfig
 
 	server.Spec.Manifest.Config = slices.Clone(entry.Spec.Manifest.Config)
+	server.Spec.Manifest.StaticConfigurationRevision = entry.Spec.Manifest.StaticConfigurationRevision
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
 	serverRemote.TunnelName = entryRemote.TunnelName
 	switch {
@@ -1337,7 +1338,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 			continue
 		}
 		configuredValue := credEnv[field.Key]
-		missingRequired := field.Required && field.Value == "" && configuredValue == ""
+		missingRequired := field.Required && !field.Static && configuredValue == ""
 		invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(field.ToHeader(), credEnv)
 		if missingRequired || invalidSelection {
 			if field.Usage == types.Header {

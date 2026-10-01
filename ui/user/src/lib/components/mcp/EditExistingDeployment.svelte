@@ -167,12 +167,13 @@
 			name: server.alias || '',
 			envs: getManifestConfiguration(server.manifest).env?.map((env) => ({
 				...markPinnedSecretBinding(env, templateEnvBindings),
-				value: values[env.key] ?? ''
+				value: values[env.key] ?? '',
+				isStatic: Boolean(env.static)
 			})),
 			headers: getManifestConfiguration(server.manifest).headers?.map((header) => ({
 				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
-				isStatic: header.value !== ''
+				isStatic: Boolean(header.static) || header.value !== ''
 			})),
 			url: server.manifest.remoteConfig?.url,
 			hostname: entry?.manifest.remoteConfig?.hostname
@@ -233,12 +234,13 @@
 		const form: LaunchFormData = {
 			envs: getManifestConfiguration(updatedServer.manifest).env?.map((env) => ({
 				...markPinnedSecretBinding(env, templateEnvBindings),
-				value: values[env.key] ?? ''
+				value: values[env.key] ?? '',
+				isStatic: Boolean(env.static)
 			})),
 			headers: getManifestConfiguration(updatedServer.manifest).headers?.map((header) => ({
 				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
-				isStatic: header.value !== ''
+				isStatic: Boolean(header.static) || header.value !== ''
 			}))
 		};
 

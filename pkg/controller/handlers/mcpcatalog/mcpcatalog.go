@@ -169,6 +169,13 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for sourceURL, errMsg := range conflictErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
+	toAdd, staticConfigurationErrors, err := storeCatalogEntryStaticConfiguration(req.Ctx, req.Client, h.gatewayClient, toAdd)
+	if err != nil {
+		return err
+	}
+	for sourceURL, errMsg := range staticConfigurationErrors {
+		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+	}
 	toAdd, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd)
 	if err != nil {
 		return err

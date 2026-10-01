@@ -201,6 +201,46 @@ describe('CatalogServerForm.svelte', () => {
 			});
 		});
 
+		it('reveals stored static values for editing and submits them', async () => {
+			const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);
+			entry.manifest.config = [
+				{
+					key: 'API_TOKEN',
+					name: '',
+					description: '',
+					required: true,
+					sensitive: false,
+					value: '',
+					static: true,
+					usage: 'env'
+				}
+			];
+			let submitted: { config: { key: string; value: string; static?: boolean }[] } | undefined;
+			worker.use(
+				http.post(`/api/mcp-catalogs/${catalogID}/entries/${entry.id}/reveal`, () =>
+					HttpResponse.json({ API_TOKEN: 'stored-token' })
+				),
+				http.put(`/api/mcp-catalogs/${catalogID}/entries/${entry.id}`, async ({ request }) => {
+					submitted = (await request.json()) as typeof submitted;
+					return HttpResponse.json(entry);
+				})
+			);
+
+			await render(CatalogServerForm, { id: catalogID, entity: 'catalog', entry });
+
+			const value = page.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`);
+			await expect.element(value).toHaveValue('stored-token');
+			await value.fill('rotated-token');
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			expect(submitted?.config[0]).toMatchObject({
+				key: 'API_TOKEN',
+				value: 'rotated-token',
+				static: true
+			});
+		});
+
 		it('edits and submits every configuration usage without legacy fields', async () => {
 			const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);
 			const usages = ['env', 'header', 'file', 'dynamicFile', 'interpolated'] as const;

@@ -22,7 +22,7 @@ func TestMissingRequiredConfiguration(t *testing.T) {
 				{Key: "FIXED", Required: true, Usage: types.Env},
 				{Key: "USER", Required: true, Usage: types.File},
 				{Key: "PROHIBITED", Required: true, Usage: types.Env},
-				{Key: "LITERAL", Required: true, Value: "static", Usage: types.Env},
+				{Key: "STATIC", Required: true, Static: true, Usage: types.Env},
 				{Key: "OPTIONAL", Usage: types.Env},
 				{Key: "HEADER", Required: true, Usage: types.Header},
 			},

@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"cmp"
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -80,7 +79,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := ConfigurationHasDrifted(req.Ctx, h.gatewayClient, server, entry.Spec.Manifest, h.defaultDenyAllEgress)
+	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -256,40 +255,16 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	return nil
 }
 
-// ConfigurationHasDrifted compares runtime config, env, resources, and multi-user config between a server
-// and a catalog entry manifest. Static values omitted from the persisted server manifest are restored from
-// its gateway credential before comparison.
-func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client, server *v1.MCPServer, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
-	staticKeys := make(map[string]struct{})
-	for _, config := range entryManifest.Config {
-		if config.Value != "" {
-			staticKeys[config.Key] = struct{}{}
-		}
-	}
-
-	serverManifest := server.Spec.Manifest
-	if len(staticKeys) > 0 {
-		credential, err := gatewayClient.RevealCredential(ctx, []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return false, err
-		}
-
-		serverManifest.Config = slices.Clone(serverManifest.Config)
-		for i, env := range serverManifest.Config {
-			if _, ok := staticKeys[env.Key]; ok && env.Value == "" {
-				serverManifest.Config[i].Value = credential.Secrets[env.Key]
-			}
-		}
-	}
-
-	return configurationHasDrifted(serverManifest, entryManifest, defaultDenyAllEgress)
-}
-
 // configurationHasDrifted compares only the fields common to MCPServerManifest and
 // MCPServerCatalogEntryManifest.
 func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
+		return true, nil
+	}
+
+	// A new revision means the entry's static configuration values changed.
+	if serverManifest.StaticConfigurationRevision != entryManifest.StaticConfigurationRevision {
 		return true, nil
 	}
 
@@ -658,7 +633,12 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets)
+	resolvedServer, err := mcp.ResolveServerStaticConfiguration(req.Ctx, h.gatewayClient, *server)
+	if err != nil {
+		return err
+	}
+
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(resolvedServer, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {

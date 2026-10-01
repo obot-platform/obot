@@ -1390,7 +1390,7 @@ func TestVMCPComponentSnapshots(t *testing.T) {
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{StaticOAuthRequired: true, FixedURL: "https://example.com/mcp"}
 	entry.Status.OAuthCredentialConfigured = true
 	entry.Spec.Manifest.Config = []types.MCPConfig{
-		{Key: "STATIC", Value: "catalog-value", Usage: types.Env},
+		{Key: "STATIC", Static: true, Usage: types.Env},
 		{Key: "BOUND", SecretBinding: &types.MCPSecretBinding{Name: "config", Key: "token"}, Usage: types.Env},
 	}
 	storage := newVMCPTestStorage(entry)
@@ -1408,7 +1408,7 @@ func TestVMCPComponentSnapshots(t *testing.T) {
 	}
 	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, u)
 	component := created.Components[0]
-	if len(component.Configuration) != 0 || component.CatalogEntry.Manifest.Config[0].Value != "catalog-value" {
+	if len(component.Configuration) != 0 || !component.CatalogEntry.Manifest.Config[0].Static {
 		t.Fatalf("catalog static configuration was overridden: %#v", component)
 	}
 	if component.OAuthCredentialID != system.MCPOAuthCredentialName(entry.Name) {
@@ -1452,7 +1452,7 @@ func TestVMCPComponentSnapshots(t *testing.T) {
 		t.Fatal(err)
 	}
 	updated := stored.Spec.Manifest.Components[0]
-	if len(updated.Configuration) != 0 || updated.CatalogEntry.Manifest.Config[0].Value != "catalog-value" {
+	if len(updated.Configuration) != 0 || !updated.CatalogEntry.Manifest.Config[0].Static {
 		t.Fatalf("catalog static configuration was overridden during update: %#v", updated)
 	}
 	if updated.SourceDigest != component.SourceDigest || updated.CatalogEntry.Manifest.Name != component.CatalogEntry.Manifest.Name || updated.OAuthCredentialID != component.OAuthCredentialID {
