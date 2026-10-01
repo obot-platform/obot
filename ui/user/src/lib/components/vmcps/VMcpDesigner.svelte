@@ -507,7 +507,7 @@
 					<CreateVMcpButton drag={entryDrag} />
 				{/snippet}
 				{#snippet actions()}
-					{#if selectedVMcp && canEdit}
+					{#if selectedVMcp && canEdit && !isCatalogSyncedVMcp(selectedVMcp)}
 						<div
 							class="bg-base-100/80 dark:bg-base-300/80 flex gap-1 rounded-md border border-transparent p-1 shadow-sm"
 							data-vmcp-ui
