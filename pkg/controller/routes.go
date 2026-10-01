@@ -159,6 +159,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateManifestHashAndLastUpdated)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureUserCount)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.ReconcileOAuthCredential)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.CleanupStaticConfiguration)
 
 	// SystemMCPServerCatalogEntry
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)

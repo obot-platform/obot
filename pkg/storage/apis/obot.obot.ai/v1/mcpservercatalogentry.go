@@ -53,6 +53,9 @@ type MCPServerCatalogEntryStatus struct {
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this remote catalog entry.
 	// Only relevant when Runtime is "remote" and RemoteConfig.StaticOAuthRequired is true.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	// StaticConfigurationRevision is the static configuration revision whose superseded revisions
+	// have been deleted.
+	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

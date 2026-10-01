@@ -1,8 +1,10 @@
 package vmcp
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 
@@ -35,6 +37,7 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 	}
 	statuses := make([]v1.VMCPComponentStatus, 0, len(vmcp.Spec.Manifest.Components))
 	ready := len(vmcp.Spec.Manifest.Components) > 0
+	var configurationChanged bool
 	for _, component := range vmcp.Spec.Manifest.Components {
 		status := v1.VMCPComponentStatus{Name: component.Name}
 		for _, previous := range vmcp.Status.Components {
@@ -45,9 +48,10 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 		}
 		checkHash := utils.Digest([]any{component, vmcp.Spec.StaticConfigurationHash})
 		if status.ConfigurationCheckHash != checkHash {
+			configurationChanged = true
 			if !revealed {
 				var err error
-				credential, err = h.revealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.StaticConfigurationCredentialName(vmcp))
+				credential, err = h.credentials.RevealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.StaticConfigurationCredentialName(vmcp))
 				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return err
 				}
@@ -68,7 +72,7 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 				return err
 			}
 			if status.OAuthCredentialCheckHash != checkHash {
-				_, err := h.revealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
+				_, err := h.credentials.RevealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
 				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return err
 				}
@@ -93,11 +97,43 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 		ready = ready && status.Ready
 		statuses = append(statuses, status)
 	}
+	if configurationChanged {
+		if err := h.deleteSupersededStaticConfiguration(req.Ctx, vmcp); err != nil {
+			return err
+		}
+	}
 	if ready == vmcp.Status.Ready && slices.Equal(statuses, vmcp.Status.Components) {
 		return nil
 	}
 	vmcp.Status.Ready, vmcp.Status.Components = ready, statuses
 	return req.Client.Status().Update(req.Ctx, vmcp)
+}
+
+// deleteSupersededStaticConfiguration deletes the static configuration revisions written before
+// the vMCP's current one. An update writes its revision before publishing it on the vMCP, so a
+// revision written after the current one belongs to an update in progress and is kept.
+func (h *Handler) deleteSupersededStaticConfiguration(ctx context.Context, vmcp *v1.VMCP) error {
+	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
+	credentials, err := h.credentials.ListCredentials(ctx, gateway.ListCredentialsOptions{CredentialContexts: []string{credentialContext}})
+	if err != nil {
+		return fmt.Errorf("failed to list static configuration credentials: %w", err)
+	}
+
+	current := vmcpconfig.StaticConfigurationCredentialName(vmcp)
+	index := slices.IndexFunc(credentials, func(credential gatewaytypes.Credential) bool { return credential.Name == current })
+	if index < 0 {
+		return nil
+	}
+	for _, credential := range credentials {
+		if credential.Name == current || !credential.CreatedAt.Before(credentials[index].CreatedAt) {
+			continue
+		}
+		if _, err := h.credentials.DeleteCredential(ctx, credentialContext, credential.Name); err != nil {
+			return fmt.Errorf("failed to delete superseded static configuration credential: %w", err)
+		}
+		slog.Info("Deleted superseded vMCP static configuration credential", "vmcp", vmcp.Name, "credential", credential.Name)
+	}
+	return nil
 }
 
 func componentServerError(server v1.MCPServer, component types.VMCPComponent, staticHash string) string {

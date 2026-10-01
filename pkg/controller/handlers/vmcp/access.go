@@ -21,13 +21,19 @@ import (
 )
 
 type Handler struct {
-	userInfo         func(context.Context, uint) (kuser.Info, error)
-	acrHelper        *accesscontrolrule.Helper
-	revealCredential func(context.Context, []string, string) (gatewaytypes.Credential, error)
+	userInfo    func(context.Context, uint) (kuser.Info, error)
+	acrHelper   *accesscontrolrule.Helper
+	credentials credentialClient
+}
+
+type credentialClient interface {
+	RevealCredential(ctx context.Context, contexts []string, name string) (gatewaytypes.Credential, error)
+	ListCredentials(ctx context.Context, opts gateway.ListCredentialsOptions) ([]gatewaytypes.Credential, error)
+	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
 func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper) *Handler {
-	return &Handler{userInfo: gatewayClient.UserInfoByID, acrHelper: acrHelper, revealCredential: gatewayClient.RevealCredential}
+	return &Handler{userInfo: gatewayClient.UserInfoByID, acrHelper: acrHelper, credentials: gatewayClient}
 }
 
 // PruneUnauthorizedComponents preserves missing sources, but removes existing
