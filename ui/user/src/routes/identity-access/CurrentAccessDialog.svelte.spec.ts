@@ -106,6 +106,42 @@ describe('CurrentAccessDialog.svelte', () => {
 		await expect.element(page.getByRole('link', { name: 'All Models' }).first()).toBeVisible();
 		await expect.element(page.getByText('Everything')).not.toBeInTheDocument();
 	});
+
+	it('shows the wildcard rule when the catalog is empty', async () => {
+		mockAccessPolicyLists();
+		vi.spyOn(AdminService, 'listModelAccessPolicies').mockResolvedValue([
+			modelPolicy('model-all', 'All Models', [{ type: 'selector', id: '*' }], ['*'])
+		]);
+		vi.spyOn(AdminService, 'listModels').mockResolvedValue([]);
+
+		const result = await render(CurrentAccessDialog);
+		result.component.open({ kind: 'user', id: 'user-1', name: 'Ada' });
+
+		await page.getByRole('button', { name: 'Models' }).click();
+
+		await expect.element(page.getByText('All models')).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'All Models' })).toBeVisible();
+		await expect
+			.element(page.getByText(/do not grant access to any models/))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the wildcard rule when the catalog fails to load', async () => {
+		mockAccessPolicyLists();
+		vi.spyOn(AdminService, 'listModelAccessPolicies').mockResolvedValue([
+			modelPolicy('model-all', 'All Models', [{ type: 'selector', id: '*' }], ['*'])
+		]);
+		vi.spyOn(AdminService, 'listModels').mockRejectedValue(new Error('models unavailable'));
+
+		const result = await render(CurrentAccessDialog);
+		result.component.open({ kind: 'user', id: 'user-1', name: 'Ada' });
+
+		await page.getByRole('button', { name: 'Models' }).click();
+
+		await expect.element(page.getByText('All models')).toBeVisible();
+		await expect.element(page.getByRole('link', { name: 'All Models' })).toBeVisible();
+		await expect.element(page.getByText('The catalog could not be loaded')).not.toBeInTheDocument();
+	});
 });
 
 function modelPolicy(

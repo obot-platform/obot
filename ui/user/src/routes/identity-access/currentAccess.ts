@@ -217,7 +217,7 @@ export function grantsEverything(policies: MatchedAccessPolicy[]): boolean {
  * Flattens the resources granted by the matched policies into a deduplicated list, tracking which
  * policies granted each resource. `describe` turns a resource reference into display text.
  *
- * A policy that grants everything (`*`) is expanded to display the concrete resources for that section.
+ * A policy that grants everything (`*`) is expanded to display the concrete resources for that section if they are available.
  */
 export function collectAccessResources(
 	policies: MatchedAccessPolicy[],
