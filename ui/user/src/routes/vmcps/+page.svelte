@@ -225,14 +225,14 @@
 	{:else}
 		<VMcpListSettings {filters} onChange={handleChange} {componentFilterOptions}>
 			{#snippet actions()}
-				{#if filters.variant === 'grid' && !vmcpList?.isInSelectMode()}
+				{#if sortedVMcps.length > 0 && filters.variant === 'grid' && !vmcpList?.isInSelectMode()}
 					<div in:fade>
 						<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectMode()}>
 							<Pencil class="size-4" /> Edit Mode
 						</button>
 					</div>
 				{/if}
-				{#if filters.variant === 'grid' && vmcpList?.isInSelectMode()}
+				{#if sortedVMcps.length > 0 && filters.variant === 'grid' && vmcpList?.isInSelectMode()}
 					<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectAll()}>
 						{vmcpList?.isAllSelected() ? 'Deselect All' : 'Select All'}
 					</button>
