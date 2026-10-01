@@ -26,49 +26,97 @@ export interface JSONSchema {
 	format?: string;
 }
 
-// A single non-null member can use an ordinary control plus a null toggle.
-// Keep other unions in Raw JSON, where every member can be represented.
-export function nonNullableJSONSchema(schema: JSONSchema): JSONSchema | undefined {
-	let result: JSONSchema;
+export interface ResolvedUnion {
+	// The member to render, merged with the union's shared constraints.
+	schema: JSONSchema;
+	// Whether null is also permitted, in which case the field offers a null toggle.
+	nullable: boolean;
+	// Types of the other non-null members, which stay reachable through Raw JSON.
+	alternatives: string[];
+}
+
+function jsonTypeOf(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (value === null) return 'null';
+	if (Array.isArray(value)) return 'array';
+	return typeof value;
+}
+
+function memberAcceptsValue(member: JSONSchema, value: unknown): boolean {
+	const actual = jsonTypeOf(value);
+	if (actual === undefined || typeof member.type !== 'string') return false;
+	if (member.type === 'integer') return actual === 'number' && Number.isInteger(value);
+	return member.type === actual;
+}
+
+// A shallow merge is only safe when shared constraints agree. In particular,
+// replacing properties, required, or items can leave required inputs unrendered.
+// Metadata may still be overridden by the union.
+function mergeUnionMember(base: JSONSchema, member: JSONSchema): JSONSchema | undefined {
+	if (
+		(Object.keys(base) as (keyof JSONSchema)[]).some(
+			(key) =>
+				!['title', 'description', 'default'].includes(key) &&
+				base[key] !== undefined &&
+				member[key] !== undefined &&
+				!jsonValuesEqual(base[key], member[key])
+		)
+	)
+		return undefined;
+	return { ...member, ...base };
+}
+
+// A union renders an ordinary control for one non-null member: the member whose
+// type matches the current value (or, when unset, the schema default), otherwise
+// the first one. Null, when permitted, is offered through a toggle, and the other
+// members remain available in Raw JSON, where every member can be represented.
+export function resolveUnionSchema(schema: JSONSchema, value?: unknown): ResolvedUnion | undefined {
+	let members: JSONSchema[];
+	let candidates: (JSONSchema | undefined)[];
+	let nullable: boolean;
 	if (schema.anyOf) {
-		const members = schema.anyOf.filter((member) => member.type !== 'null');
-		if (schema.anyOf.length !== 2 || members.length !== 1 || schema.type !== undefined) {
-			return undefined;
-		}
+		if (schema.type !== undefined) return undefined;
+		members = schema.anyOf.filter((member) => member.type !== 'null');
+		nullable = members.length < schema.anyOf.length;
 		const base = { ...schema };
 		delete base.anyOf;
-		// A shallow merge is only safe when shared constraints agree. In particular,
-		// replacing properties, required, or items can leave required inputs unrendered.
-		// Metadata may still be overridden by the union.
-		if (
-			(Object.keys(base) as (keyof JSONSchema)[]).some(
-				(key) =>
-					!['title', 'description', 'default'].includes(key) &&
-					base[key] !== undefined &&
-					members[0][key] !== undefined &&
-					!jsonValuesEqual(base[key], members[0][key])
-			)
-		)
-			return undefined;
 		// The union's null default applies initially, but the non-null control
 		// should still use its own branch default when the user enables it.
 		if (base.default === null) delete base.default;
-		result = { ...members[0], ...base };
+		candidates = members.map((member) => mergeUnionMember(base, member));
 	} else if (Array.isArray(schema.type)) {
-		const members = schema.type.filter((type) => type !== 'null');
-		if (schema.type.length !== 2 || members.length !== 1) return undefined;
-		result = { ...schema, type: members[0] };
+		const types = schema.type.filter((type) => type !== 'null');
+		nullable = types.length < schema.type.length;
+		members = types.map((type) => ({ type }));
+		candidates = types.map((type) => ({ ...schema, type }));
 	} else {
 		return undefined;
 	}
+	// There is no usable non-null control when only null is allowed.
+	if (!members.length) return undefined;
 	// The null toggle must represent a permitted value, including any enum/const
 	// constraints on the union or its null branch.
-	if (validateJSONSchema(schema, null).length) return undefined;
+	if (nullable && validateJSONSchema(schema, null).length) return undefined;
+
+	const probe = value === undefined ? schema.default : value;
+	const matched = candidates.findIndex(
+		(candidate, index) =>
+			candidate !== undefined &&
+			memberAcceptsValue(members[index], probe) &&
+			supportsGeneratedForm(candidate)
+	);
+	const index = matched >= 0 ? matched : 0;
+	const candidate = candidates[index];
+	if (!candidate) return undefined;
+	const result = { ...candidate };
 	if (result.default === null) delete result.default;
-	if (result.enum) result.enum = result.enum.filter((value) => value !== null);
+	if (result.enum) result.enum = result.enum.filter((entry) => entry !== null);
 	// There is no usable non-null control when constraints allow only null.
 	if (result.const === null || result.enum?.length === 0) return undefined;
-	return result;
+	const alternatives = members
+		.filter((_, memberIndex) => memberIndex !== index)
+		.map((member) => (typeof member.type === 'string' ? member.type : 'another type'));
+	return { schema: result, nullable, alternatives: [...new Set(alternatives)] };
 }
 
 function schemaType(schema: JSONSchema): string | undefined {
@@ -111,8 +159,8 @@ export function defaultJSONSchemaValue(schema: JSONSchema): unknown {
 	if (schema.default !== undefined) return structuredClone(schema.default);
 	if (schema.const !== undefined) return structuredClone(schema.const);
 	if (schema.enum?.length) return structuredClone(schema.enum[0]);
-	const nonNullable = nonNullableJSONSchema(schema);
-	if (nonNullable) return defaultJSONSchemaValue(nonNullable);
+	const union = resolveUnionSchema(schema);
+	if (union) return defaultJSONSchemaValue(union.schema);
 	switch (schemaType(schema)) {
 		case 'object':
 			return Object.fromEntries(
@@ -141,7 +189,7 @@ function isMultipleOf(value: number, multiple: number): boolean {
 }
 
 export function pruneClearedProperties(schema: JSONSchema, value: unknown): unknown {
-	schema = nonNullableJSONSchema(schema) ?? schema;
+	schema = resolveUnionSchema(schema, value)?.schema ?? schema;
 	const type = schemaType(schema);
 	if (type === 'object') {
 		if (typeof value !== 'object' || value === null || Array.isArray(value)) return value;
@@ -302,8 +350,8 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 
 export function supportsGeneratedForm(schema: JSONSchema): boolean {
 	if (schema.anyOf || Array.isArray(schema.type)) {
-		const nonNullable = nonNullableJSONSchema(schema);
-		return nonNullable !== undefined && supportsGeneratedForm(nonNullable);
+		const union = resolveUnionSchema(schema);
+		return union !== undefined && supportsGeneratedForm(union.schema);
 	}
 	const type = schema.type;
 	if (!type || !['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(type)) {

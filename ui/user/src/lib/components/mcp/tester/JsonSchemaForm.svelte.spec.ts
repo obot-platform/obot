@@ -118,17 +118,55 @@ describe('JsonSchemaForm', () => {
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: 5 }));
 	});
 
-	it('offers only Raw JSON for unions with multiple non-null types', async () => {
+	it('renders the first union member and keeps the others reachable in Raw JSON', async () => {
+		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {
 			schema: {
 				type: 'object',
+				required: ['value'],
 				properties: { value: { anyOf: [{ type: 'string' }, { type: 'integer' }] } }
-			}
+			},
+			onvalidchange
 		});
+		await expect.element(page.getByRole('button', { name: 'Generated form' })).toBeVisible();
 		await expect
-			.element(page.getByRole('button', { name: 'Generated form' }))
-			.not.toBeInTheDocument();
-		await expect.element(page.getByLabelText('Arguments JSON')).toBeVisible();
+			.element(page.getByText('Also accepts integer, which can be entered in Raw JSON.'))
+			.toBeVisible();
+		await page.getByLabelText('value *').fill('abc');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: 'abc' }));
+
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"value":7}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: 7 }));
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		await expect.element(page.getByLabelText('value *')).toHaveValue(7);
+		await expect
+			.element(page.getByText('Also accepts string, which can be entered in Raw JSON.'))
+			.toBeVisible();
+	});
+
+	it('offers a boolean toggle and a null switch for boolean, string, or null unions', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					reply_all: {
+						anyOf: [{ type: 'boolean' }, { type: 'string' }, { type: 'null' }],
+						default: false
+					}
+				}
+			},
+			onvalidchange
+		});
+		const toggle = page.getByLabelText('reply_all', { exact: true });
+		await expect.element(toggle).not.toBeChecked();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ reply_all: false }));
+		await toggle.click();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ reply_all: true }));
+		await page.getByRole('checkbox', { name: 'Use null for reply_all' }).click();
+		await expect.element(toggle).toBeDisabled();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ reply_all: null }));
 	});
 
 	it('enforces anyOf sibling constraints in generated and raw input modes', async () => {

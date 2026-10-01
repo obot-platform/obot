@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { m } from '$lib/i18n';
+	import { getLocale, m } from '$lib/i18n';
 	import JsonSchemaField from './JsonSchemaField.svelte';
-	import { defaultJSONSchemaValue, nonNullableJSONSchema, type JSONSchema } from './json-schema';
+	import { defaultJSONSchemaValue, resolveUnionSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
 
 	interface Props {
@@ -27,7 +27,7 @@
 	// separator, so sibling `a-b` and nested `a`/`b` would otherwise share a DOM id.
 	const uid = $props.id();
 	const id = `mcp-tester-field-${uid}`;
-	let nonNullable = $derived(nonNullableJSONSchema(schema));
+	let union = $derived(resolveUnionSchema(schema, value));
 	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
@@ -66,28 +66,39 @@
 	}
 </script>
 
-{#if nonNullable}
+{#if union}
 	<div class="space-y-2">
-		<label class="flex items-center gap-2 text-sm">
-			<input
-				type="checkbox"
-				class="checkbox checkbox-sm"
-				checked={value === null}
-				{disabled}
-				onchange={(event) =>
-					onchange(event.currentTarget.checked ? null : defaultJSONSchemaValue(nonNullable))}
-			/>
-			{m.mcps_tester_use_null_for({ label })}
-		</label>
+		{#if union.nullable}
+			<label class="flex items-center gap-2 text-sm">
+				<input
+					type="checkbox"
+					class="checkbox checkbox-sm"
+					checked={value === null}
+					{disabled}
+					onchange={(event) =>
+						onchange(event.currentTarget.checked ? null : defaultJSONSchemaValue(union.schema))}
+				/>
+				{m.mcps_tester_use_null_for({ label })}
+			</label>
+		{/if}
 		<JsonSchemaField
-			schema={nonNullable}
+			schema={union.schema}
 			{value}
 			{label}
 			{path}
 			{required}
-			disabled={disabled || value === null}
+			disabled={disabled || (union.nullable && value === null)}
 			{onchange}
 		/>
+		{#if union.alternatives.length}
+			<p class="text-xs text-muted-content">
+				{m.mcps_tester_union_also_accepts({
+					types: new Intl.ListFormat(getLocale(), { type: 'disjunction' }).format(
+						union.alternatives
+					)
+				})}
+			</p>
+		{/if}
 	</div>
 {:else if type === 'object'}
 	<fieldset class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4">

@@ -1066,6 +1066,7 @@
 	"mcps_tester_tools_load_failed": "Tools could not be loaded",
 	"mcps_tester_tools_unsupported": "This server does not advertise tool support.",
 	"mcps_tester_turn_stopped": "Turn stopped",
+	"mcps_tester_union_also_accepts": "Also accepts {types}, which can be entered in Raw JSON.",
 	"mcps_tester_unknown_type": "unknown type",
 	"mcps_tester_unlock_chat": "Unlock MCP Inspector Chat",
 	"mcps_tester_unsupported_audio_type": "Unsupported audio type: {type}",

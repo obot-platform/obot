@@ -1066,6 +1066,7 @@
 	"mcps_tester_tools_load_failed": "도구를 불러올 수 없습니다",
 	"mcps_tester_tools_unsupported": "이 서버는 도구 지원을 알리지 않습니다.",
 	"mcps_tester_turn_stopped": "턴이 중지되었습니다",
+	"mcps_tester_union_also_accepts": "{types}도 허용되며, Raw JSON에서 입력할 수 있습니다.",
 	"mcps_tester_unknown_type": "알 수 없는 유형",
 	"mcps_tester_unlock_chat": "MCP Inspector Chat 잠금 해제",
 	"mcps_tester_unsupported_audio_type": "지원되지 않는 오디오 유형: {type}",
