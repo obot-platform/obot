@@ -648,6 +648,13 @@ describe('VMcpProfiles.svelte', () => {
 			await expect.element(page.getByText('list_pulls')).toBeVisible();
 			await expect.element(toolSwitch(0)).toBeChecked();
 			await expect.element(toolSwitch(1)).toBeChecked();
+			// Other server tools are unknown until refreshed, so "all tools" is not claimed.
+			const toggleAll = page.getByRole('switch', { name: 'Enable All Tools' });
+			await expect.element(toggleAll).not.toBeChecked();
+			await expect.element(toggleAll).toBeDisabled();
+			await expect
+				.element(page.getByText(/Only the tools granted to this profile are shown/))
+				.toBeVisible();
 		});
 
 		it('saves the narrowed grant after disabling a granted tool', async () => {

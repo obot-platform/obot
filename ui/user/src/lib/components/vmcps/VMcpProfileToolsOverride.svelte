@@ -4,7 +4,7 @@
 	import { conflictIssue, effectiveToolName, toolNameIssue } from '$lib/services/user/mcp';
 	import Search from '../Search.svelte';
 	import ToolNameIssueIcon from '../mcp/ToolNameIssueIcon.svelte';
-	import { RefreshCcw } from '@lucide/svelte';
+	import { Info, RefreshCcw } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -15,6 +15,9 @@
 		lockedTools?: Set<string>;
 		lockedReason?: string;
 		effectiveNameDuplicates?: Set<string>;
+		// The list holds only the tools the profile grants, not every tool on the
+		// server, so "all tools" cannot be determined until the tools are refreshed.
+		partial?: boolean;
 		onRefresh?: () => void;
 		onToolsChange?: () => void;
 	}
@@ -26,6 +29,7 @@
 		lockedTools,
 		lockedReason,
 		effectiveNameDuplicates = new Set(),
+		partial,
 		onRefresh,
 		onToolsChange
 	}: Props = $props();
@@ -79,12 +83,26 @@
 		placeholder="Search tools..."
 	/>
 
+	{#if partial}
+		<div class="notification-info flex items-start gap-2">
+			<Info class="size-4 shrink-0" />
+			<p class="text-left text-xs font-normal">
+				Only the tools granted to this profile are shown.
+				{#if onRefresh}
+					Refresh tools to load the full list from the MCP server.
+				{/if}
+			</p>
+		</div>
+	{/if}
+
 	<div class="flex w-full justify-end items-center px-2">
 		<div>
 			{#if onRefresh}
 				<button
 					type="button"
-					class="btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline"
+					class={partial
+						? 'btn-sm btn btn-primary rounded-full'
+						: 'btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline'}
 					onclick={onRefresh}
 				>
 					<RefreshCcw class="size-4" /> Refresh tools
@@ -93,8 +111,8 @@
 		</div>
 		<div class="divider divider-horizontal mx-2"></div>
 		<Toggle
-			checked={allUnlockedToolsEnabled}
-			disabled={readonly || unlockedTools.length === 0}
+			checked={!partial && allUnlockedToolsEnabled}
+			disabled={readonly || partial || unlockedTools.length === 0}
 			onChange={setUnlockedToolsEnabled}
 			label="Enable All Tools"
 			labelInline

@@ -1145,6 +1145,7 @@
 										>
 											<VMcpProfileToolsOverride
 												bind:tools={resource.toolOverrides}
+												partial={resource.toolsFromGrant}
 												toolPrefix={component.toolPrefix}
 												componentId={id}
 												lockedTools={lockedToolNames(resource)}
