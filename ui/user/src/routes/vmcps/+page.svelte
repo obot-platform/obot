@@ -186,7 +186,6 @@
 		rightNavActions={navActions}
 		{views}
 		classes={{
-			container: 'min-h-0',
 			childrenContainer: 'max-w-full'
 		}}
 	/>
