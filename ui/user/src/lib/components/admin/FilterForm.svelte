@@ -2,7 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
-	import { MCP_FILTERS_FIELD_IDS, DEFAULT_SYSTEM_MCP_CATALOG_ID } from '$lib/constants';
+	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -33,7 +33,6 @@
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
 	import {
-		credentialCatalog,
 		credentialEnvironment,
 		credentialKeys,
 		credentialMutationRequired,
@@ -117,18 +116,8 @@
 		filter.toolName === 'filter_credentials' && !!mcpSystemCatalogEntryId
 	);
 	let credentialPolicy = $derived(readCredentialPolicy(runtimeFormData?.env ?? []));
-	let credentialImageMismatch = $derived(
-		runtimeFormData?.containerizedConfig?.image !== credentialCatalog.image
-	);
-	// Existing instances adopt the current catalog manifest on save. Its compatibility
-	// is checked immediately before updating; the saved image need not match it.
-	let credentialImageBlocked = $derived(!initialFilterId && credentialImageMismatch);
 	let credentialError = $derived(
-		isCredentialFilter
-			? credentialImageBlocked
-				? 'This credential filter version has no matching rule catalog. Update the UI catalog before editing this policy.'
-				: validateCredentialPolicy(credentialPolicy)
-			: undefined
+		isCredentialFilter ? validateCredentialPolicy(credentialPolicy) : undefined
 	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
@@ -532,20 +521,6 @@
 		}, 10000);
 
 		try {
-			if (isCredentialFilter && mcpSystemCatalogEntryId) {
-				const entry = await AdminService.getSystemMCPCatalogEntry(
-					DEFAULT_SYSTEM_MCP_CATALOG_ID,
-					mcpSystemCatalogEntryId
-				);
-				if (
-					entry.manifest.containerizedConfig?.image !== credentialCatalog.image ||
-					entry.manifest.filterConfig?.toolName !== 'filter_credentials'
-				) {
-					throw new Error(
-						'The credential filter catalog entry has changed and no longer matches this UI. Update the UI catalog and reload before saving this policy.'
-					);
-				}
-			}
 			const mcpServerManifest = runtimeFormData
 				? convertServerRuntimeFormDataToManifest(runtimeFormData as RuntimeFormData)
 				: undefined;
@@ -804,17 +779,7 @@
 						</p>{:else if !credentialConfigurationLoaded}<p>
 							Loading saved credential policy...
 						</p>{:else}
-						{#if credentialImageBlocked}<p role="alert" class="text-error">
-								{credentialError}
-							</p>{/if}
-						{#if initialFilterId && credentialImageMismatch}<p class="text-sm text-muted-content">
-								Saving or enabling will update this filter to the catalog version supported by this
-								UI. Existing overrides must be valid for that version.
-							</p>{/if}
-						<CredentialFilterConfiguration
-							bind:config={runtimeFormData.env}
-							readonly={readonly || credentialImageBlocked}
-						/>
+						<CredentialFilterConfiguration bind:config={runtimeFormData.env} {readonly} />
 					{/if}
 				{:else if runtimeFormData.runtime !== 'remote'}
 					<CustomConfigurationForm
