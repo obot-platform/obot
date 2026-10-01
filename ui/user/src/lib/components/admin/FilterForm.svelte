@@ -79,10 +79,15 @@
 			initialFilter
 				? {
 						name: initialFilter.name || '',
-						resources: initialFilter.resources || [],
+						resources: initialFilter.resources?.map((resource) => ({ ...resource })) || [],
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
-						selectors: initialFilter.selectors || [],
+						// Keep editable nested state separate even when the input is already reactive.
+						selectors:
+							initialFilter.selectors?.map((selector) => ({
+								...selector,
+								identifiers: selector.identifiers ? [...selector.identifiers] : undefined
+							})) || [],
 						toolName: initialFilter.toolName || '',
 						allowedToMutate: initialFilter.allowedToMutate || false,
 						disabled: initialFilter.disabled || false
