@@ -60,6 +60,38 @@ function mockSave(launchFails = false) {
 	return { manifest, configuration };
 }
 describe('managed credential filter', () => {
+	it.each([false, true])(
+		'disables without saving selector edits with reactive input %s',
+		async (reactive) => {
+			await preparePageData();
+			const { manifest, configuration } = mockSave();
+			worker.use(
+				http.post('/api/mcp-webhook-validations/credential-test/reveal', () =>
+					HttpResponse.json({})
+				)
+			);
+			const initial = filter('credential-test');
+			initial.selectors = [{ method: 'tools/call', identifiers: ['echo'] }];
+			const reactiveInitial = $state(initial);
+			const onUpdate = vi.fn();
+			render(FilterForm, {
+				filter: reactive ? reactiveInitial : initial,
+				mcpSystemCatalogEntryId: 'credential-entry',
+				onUpdate
+			});
+			await page.getByLabelText('Method (Optional)', { exact: true }).fill('resources/read');
+			await page.getByPlaceholder('e.g.: tool name or resource URI').fill('unsaved');
+			await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
+			await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+			expect(manifest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					disabled: true,
+					selectors: [{ method: 'tools/call', identifiers: ['echo'] }]
+				})
+			);
+			expect(configuration).not.toHaveBeenCalled();
+		}
+	);
 	it('rejects an upgraded catalog before changing a saved filter or configuration', async () => {
 		await preparePageData();
 		const { manifest, configuration } = mockSave();

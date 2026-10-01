@@ -16,6 +16,32 @@ function config(values: Record<string, string> = {}) {
 }
 
 describe('credential filter configuration', () => {
+	it('clears the selected rule when the search changes', async () => {
+		render(CredentialFilterConfiguration, { config: config() });
+		await page.getByRole('button', { name: '+ Add override', exact: true }).click();
+		const search = page.getByLabelText('Search provider, credential type, or rule ID', {
+			exact: true
+		});
+		const add = page.getByRole('button', { name: 'Add override', exact: true });
+		await search.fill('np.github.1');
+		await page
+			.getByRole('radio', { name: 'GitHub Personal Access Token np.github.1', exact: true })
+			.click();
+		await expect.element(add).toBeEnabled();
+		await search.fill('no-such-rule');
+		await expect.element(page.getByText('No credential types found')).toBeVisible();
+		await expect.element(add).toBeDisabled();
+		await search.fill('np.slack.2');
+		await expect.element(add).toBeDisabled();
+		await page.getByRole('radio', { name: 'Slack Bot Token np.slack.2', exact: true }).click();
+		await add.click();
+		await expect
+			.element(page.getByRole('button', { name: 'Remove Slack Bot Token' }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Remove GitHub Personal Access Token' }))
+			.not.toBeInTheDocument();
+	});
 	it.each(['Redact', 'Allow'])('sets %s when the default field is missing', async (action) => {
 		render(CredentialFilterConfiguration, { config: [] });
 		const defaultAction = page.getByRole('combobox', { name: 'Default action', exact: true });
