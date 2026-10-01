@@ -199,6 +199,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 			Groups: types2.RoleOwner.Groups(),
 			Extra: map[string][]string{
 				"auth_provider_name": {system.BootstrapName},
+				"obot_groups":        types2.RoleOwner.Groups(),
 			},
 		},
 	}, true, nil
