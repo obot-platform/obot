@@ -318,7 +318,7 @@
 			return powerUserID ? entry.powerUserID === powerUserID : !entry.powerUserWorkspaceID;
 		});
 		const servers = mcpServersAndEntries.current.servers.filter((server) => {
-			if (server.deleted) {
+			if (server.deleted || server.template || server.compositeName) {
 				return false;
 			}
 			return powerUserID
