@@ -123,6 +123,12 @@
 						return true;
 					}
 
+					// vMCP component servers are only reachable through their vMCP, so they
+					// aren't valid access policy targets.
+					if (server.vmcpID || server.vmcpInstanceID || server.vmcpComponentID) {
+						return false;
+					}
+
 					return entity === 'catalog'
 						? !server.powerUserWorkspaceID
 						: workspaceId
