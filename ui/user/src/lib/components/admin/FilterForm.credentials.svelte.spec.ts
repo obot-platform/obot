@@ -41,7 +41,10 @@ function mockSave(launchFails = false) {
 		}),
 		http.put('/api/mcp-webhook-validations/credential-test', async ({ request }) => {
 			manifest(await request.json());
-			return HttpResponse.json({ id: 'credential-test' });
+			return HttpResponse.json({
+				id: 'credential-test',
+				disabled: manifest.mock.calls.at(-1)?.[0].disabled
+			});
 		}),
 		http.post('/api/mcp-webhook-validations/credential-test/configure', async ({ request }) => {
 			configuration(await request.json());
@@ -92,6 +95,133 @@ describe('managed credential filter', () => {
 			expect(configuration).not.toHaveBeenCalled();
 		}
 	);
+	it.each([
+		{ disabled: false, button: 'Save', launches: true },
+		{ disabled: true, button: 'Save', launches: false },
+		{ disabled: true, button: 'Enable Filter', launches: true }
+	])('updates an older instance: %j', async ({ disabled, button, launches }) => {
+		await preparePageData();
+		const { manifest, configuration } = mockSave();
+		const launch = vi.fn();
+		worker.use(
+			http.post('/api/mcp-webhook-validations/credential-test/reveal', () =>
+				HttpResponse.json({
+					CREDENTIAL_DEFAULT_ACTION: 'allow',
+					CREDENTIAL_ALLOW_RULES: 'np.slack.2',
+					CREDENTIAL_BLOCK_RULES: 'np.github.1',
+					CREDENTIAL_REDACT_RULES: 'np.age.2'
+				})
+			),
+			http.post('/api/mcp-webhook-validations/credential-test/launch', () => {
+				launch();
+				return HttpResponse.json({});
+			})
+		);
+		const initial = filter('credential-test');
+		initial.disabled = disabled;
+		initial.mcpServerManifest!.containerizedConfig!.image = 'previous-image';
+		// Old manifest metadata must not hide saved configuration values.
+		initial.mcpServerManifest!.config = [];
+		const onUpdate = vi.fn();
+		render(FilterForm, { filter: initial, mcpSystemCatalogEntryId: 'credential-entry', onUpdate });
+		await expect
+			.element(page.getByRole('button', { name: 'Remove Slack Bot Token' }))
+			.toBeVisible();
+		await page.getByRole('button', { name: button, exact: true }).click();
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		expect(manifest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				systemMCPServerCatalogEntryID: 'credential-entry',
+				disabled: !launches,
+				allowedToMutate: true
+			})
+		);
+		expect(manifest.mock.calls[0][0]).not.toHaveProperty('mcpServerManifest');
+		expect(configuration).toHaveBeenCalledWith({
+			CREDENTIAL_DEFAULT_ACTION: 'allow',
+			CREDENTIAL_ALLOW_RULES: 'np.slack.2',
+			CREDENTIAL_BLOCK_RULES: 'np.github.1',
+			CREDENTIAL_REDACT_RULES: 'np.age.2'
+		});
+		expect(launch).toHaveBeenCalledTimes(launches ? 1 : 0);
+	});
+	it('requires removing an obsolete rule before upgrading', async () => {
+		await preparePageData();
+		const { configuration } = mockSave();
+		worker.use(
+			http.post('/api/mcp-webhook-validations/credential-test/reveal', () =>
+				HttpResponse.json({ CREDENTIAL_ALLOW_RULES: 'removed.rule' })
+			)
+		);
+		const initial = filter('credential-test');
+		initial.mcpServerManifest!.containerizedConfig!.image = 'previous-image';
+		initial.mcpServerManifest!.config = [];
+		const onUpdate = vi.fn();
+		render(FilterForm, { filter: initial, mcpSystemCatalogEntryId: 'credential-entry', onUpdate });
+		await expect
+			.element(
+				page.getByText(
+					'Unsupported credential rule removed.rule. Remove this override or use a compatible filter version.'
+				)
+			)
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await page.getByRole('button', { name: 'Remove removed.rule' }).click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		expect(configuration).toHaveBeenCalledWith(
+			expect.objectContaining({ CREDENTIAL_ALLOW_RULES: '' })
+		);
+	});
+	it.each(['unsupported image', 'wrong tool', 'missing catalog'])(
+		'blocks upgrading an older instance with %s',
+		async (failure) => {
+			await preparePageData();
+			const { manifest, configuration } = mockSave();
+			worker.use(
+				http.post('/api/mcp-webhook-validations/credential-test/reveal', () =>
+					HttpResponse.json({})
+				),
+				http.get('/api/system-mcp-catalogs/default/entries/credential-entry', () =>
+					failure === 'missing catalog'
+						? HttpResponse.json({ message: 'Catalog entry unavailable' }, { status: 404 })
+						: HttpResponse.json({
+								manifest: {
+									containerizedConfig: {
+										image: failure === 'unsupported image' ? 'unsupported' : credentialCatalog.image
+									},
+									filterConfig: {
+										toolName: failure === 'wrong tool' ? 'other_tool' : 'filter_credentials'
+									}
+								}
+							})
+				)
+			);
+			const initial = filter('credential-test');
+			initial.mcpServerManifest!.containerizedConfig!.image = 'previous-image';
+			render(FilterForm, { filter: initial, mcpSystemCatalogEntryId: 'credential-entry' });
+			await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+			await page.getByRole('button', { name: 'Save', exact: true }).click();
+			await expect.element(page.getByText('MCP Filter Launch Failed')).toBeVisible();
+			expect(manifest).not.toHaveBeenCalled();
+			expect(configuration).not.toHaveBeenCalled();
+		}
+	);
+	it('does not report a failed upgrade deployment as successful', async () => {
+		await preparePageData();
+		mockSave(true);
+		worker.use(
+			http.post('/api/mcp-webhook-validations/credential-test/reveal', () => HttpResponse.json({}))
+		);
+		const initial = filter('credential-test');
+		initial.mcpServerManifest!.containerizedConfig!.image = 'previous-image';
+		const onUpdate = vi.fn();
+		render(FilterForm, { filter: initial, mcpSystemCatalogEntryId: 'credential-entry', onUpdate });
+		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.element(page.getByText('MCP Filter Launch Failed')).toBeVisible();
+		expect(onUpdate).not.toHaveBeenCalled();
+	});
 	it('rejects an upgraded catalog before changing a saved filter or configuration', async () => {
 		await preparePageData();
 		const { manifest, configuration } = mockSave();
@@ -169,7 +299,11 @@ describe('managed credential filter', () => {
 				mcpSystemCatalogEntryId: 'credential-entry',
 				onUpdate
 			});
-			await expect.element(page.getByRole('alert')).toBeVisible();
+			if (failure === 'image mismatch') {
+				await expect.element(page.getByText(/Saving or enabling will update/)).toBeVisible();
+			} else {
+				await expect.element(page.getByRole('alert')).toBeVisible();
+			}
 			await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Unsaved name');
 			await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
 			await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
