@@ -27,9 +27,10 @@ export function readCredentialPolicy(config: MCPCatalogEntryFieldManifest[]): Cr
 		overrides: credentialActions.flatMap((action) =>
 			(config.find((field) => field.key === credentialListKeys[action])?.value || '')
 				.split(',')
-				.map((id) => id.trim())
-				.filter(Boolean)
-				.map((ruleId) => ({ ruleId, action }))
+				.flatMap((id) => {
+					const ruleId = id.trim();
+					return ruleId ? [{ ruleId, action }] : [];
+				})
 		)
 	};
 }
@@ -50,17 +51,19 @@ export function validateCredentialPolicy(policy: CredentialPolicy): string | und
 export function credentialEnvironment(policy: CredentialPolicy): Record<string, string> {
 	const error = validateCredentialPolicy(policy);
 	if (error) throw new Error(error);
-	return Object.fromEntries([
-		[credentialDefaultKey, policy.defaultAction],
-		...credentialActions.map((action) => [
-			credentialListKeys[action],
-			policy.overrides
-				.filter((override) => override.action === action)
-				.map((override) => override.ruleId)
-				.sort()
-				.join(',')
-		])
-	]);
+	const ruleIds: Partial<Record<CredentialAction, string[]>> = {};
+	for (const override of policy.overrides) {
+		(ruleIds[override.action] ??= []).push(override.ruleId);
+	}
+	return {
+		[credentialDefaultKey]: policy.defaultAction,
+		...Object.fromEntries(
+			credentialActions.map((action) => [
+				credentialListKeys[action],
+				(ruleIds[action] ?? []).sort().join(',')
+			])
+		)
+	};
 }
 export function credentialMutationRequired(policy: CredentialPolicy): boolean {
 	return (
