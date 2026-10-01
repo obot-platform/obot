@@ -403,6 +403,10 @@
 		transform: none;
 	}
 
+	.tooltip-portal-daisy-host[data-interactive]:not(.tooltip-portal-daisy-host--inactive) {
+		pointer-events: auto;
+	}
+
 	.tooltip-portal-daisy-host.tooltip-portal-daisy-host--inactive {
 		opacity: 0;
 		transition:

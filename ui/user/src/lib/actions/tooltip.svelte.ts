@@ -93,6 +93,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		o: TooltipOptions | string | undefined
 	) {
 		host.setAttribute('data-theme', resolveDataTheme(trigger));
+		host.toggleAttribute('data-interactive', typeof o === 'object' && !!o.interactive);
+
 		const placement = typeof o === 'object' ? o.placement : undefined;
 		host.setAttribute('data-placement', placementAttr(placement));
 	}
