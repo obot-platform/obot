@@ -141,7 +141,7 @@
 					onChange={(value) => {
 						setUrlParamAndUpdateUrl(page.url, 'query', value);
 					}}
-					placeholder="Search message policies..."
+					placeholder="Search policies..."
 				/>
 			</div>
 			{#if visiblePolicies.length === 0}

@@ -70,11 +70,14 @@
 			)
 	);
 	let hasConfiguredInstance = $derived.by(() => {
-		if (instance) return true;
-		const vmcpID = vmcp?.id;
-		if (!vmcpID) return false;
-		return vmcpInstances.current.items.some(
-			(candidate) => candidate.vmcpID === vmcpID && candidate.userID === profile.current.id
+		if (!vmcp) return false;
+		const candidates = instance ? [instance] : vmcpInstances.current.items;
+		return candidates.some(
+			(candidate) =>
+				candidate.vmcpID === vmcp?.id &&
+				candidate.userID === profile.current.id &&
+				!candidate.deleted &&
+				candidate.status?.configured === true
 		);
 	});
 
