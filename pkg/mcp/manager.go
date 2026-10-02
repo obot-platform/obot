@@ -437,7 +437,7 @@ func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPUR
 			continue
 		}
 
-		if !config.AllowLocalhostMCP && ip.IsLoopback() {
+		if !config.AllowLocalhostMCP && (ip.IsLoopback() || ip.IsUnspecified()) {
 			return fmt.Errorf("MCP server URL must not be a localhost URL: %s", rawURL)
 		}
 		if !config.AllowPrivateIPMCP && ip.IsPrivate() {

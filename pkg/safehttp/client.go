@@ -63,15 +63,7 @@ func NewClient(options Options) *http.Client {
 
 func NewSafeTransport(options Options) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	dialer := &safeDialer{
-		dialer:           &net.Dialer{},
-		resolver:         net.DefaultResolver,
-		blockLoopback:    options.BlockLoopback,
-		blockPrivateIP:   options.BlockPrivateIP,
-		blockLinkLocal:   options.BlockLinkLocal,
-		allowList:        parseAllowList(options.AllowList),
-		dialRetryTimeout: options.DialRetryTimeout,
-	}
+	dialer := newSafeDialer(options)
 	transport.DialContext = dialer.DialContext
 
 	return checkingTransport{
@@ -79,6 +71,33 @@ func NewSafeTransport(options Options) http.RoundTripper {
 		dialer:      dialer,
 		headers:     options.Headers.Clone(),
 		tokenSource: options.TokenSource,
+	}
+}
+
+// ValidateURL applies the same address policy used when making HTTP requests.
+// Callers must still use a policy-enforcing transport when they connect, since
+// DNS can change between validation and the request.
+func ValidateURL(ctx context.Context, rawURL string, options Options) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("invalid URL")
+	}
+	if !options.BlockLoopback && !options.BlockPrivateIP && !options.BlockLinkLocal {
+		return nil
+	}
+	_, err = newSafeDialer(options).checkHost(ctx, u.Hostname(), portForURL(u))
+	return err
+}
+
+func newSafeDialer(options Options) *safeDialer {
+	return &safeDialer{
+		dialer:           &net.Dialer{},
+		resolver:         net.DefaultResolver,
+		blockLoopback:    options.BlockLoopback,
+		blockPrivateIP:   options.BlockPrivateIP,
+		blockLinkLocal:   options.BlockLinkLocal,
+		allowList:        parseAllowList(options.AllowList),
+		dialRetryTimeout: options.DialRetryTimeout,
 	}
 }
 
@@ -233,6 +252,10 @@ func (d *safeDialer) lookup(ctx context.Context, host string) ([]net.IP, error) 
 }
 
 func (d *safeDialer) blockedReason(ip net.IP) string {
+	// Dialing an unspecified address can reach a listener on the local host.
+	if d.blockLoopback && ip.IsUnspecified() {
+		return "unspecified"
+	}
 	if d.blockLoopback && ip.IsLoopback() {
 		return "loopback"
 	}

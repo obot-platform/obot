@@ -27,6 +27,7 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/docker/go-connections v0.6.0
 	github.com/fatih/color v1.19.0
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.2
@@ -41,7 +42,7 @@ require (
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v1.7.1-0.20260810085250-4282916668c3
-	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
+	github.com/oasdiff/yaml v0.1.1
 	github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18
 	github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67
 	github.com/obot-platform/kinm v0.0.0-20260903173654-2231aa14b6a7
@@ -238,7 +239,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
-	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
+	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20211102120939-d5a936accd94 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
@@ -255,7 +256,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rubenv/sql-migrate v1.8.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
