@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { darkMode } from '$lib/stores';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import { arc, pie, type PieArcDatum } from 'd3';
@@ -355,7 +356,7 @@
 							{/if}
 						</div>
 						<div class="text-muted-content mb-2 border-b pb-2">
-							{currentItem.percentOfTotal.toFixed(1)}% of total
+							{m.core_percent_of_total({ percent: currentItem.percentOfTotal.toFixed(1) })}
 						</div>
 					</div>
 					<div class="text-base-content text-2xl font-bold">{formatValue(currentItem.value)}</div>
@@ -364,7 +365,7 @@
 		{/if}
 
 		{#if total <= 0}
-			<p class="text-muted-content font-light text-sm">No data</p>
+			<p class="text-muted-content font-light text-sm">{m.core_no_data()}</p>
 		{:else}
 			<svg
 				class="max-h-full max-w-full overflow-visible"
@@ -372,7 +373,7 @@
 				height={size}
 				viewBox="{-viewBoxHalf} {-viewBoxHalf} {viewBoxHalf * 2} {viewBoxHalf * 2}"
 				role="img"
-				aria-label="Donut chart"
+				aria-label={m.core_donut_chart()}
 			>
 				<g>
 					{#each donut.arcs as slice, i (i)}

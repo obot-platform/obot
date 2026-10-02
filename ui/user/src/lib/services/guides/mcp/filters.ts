@@ -1,32 +1,28 @@
 import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
+import { m } from '$lib/i18n';
 import type { GuideStep } from '../types';
 import { MCP_SERVERS_TAB_FILTERS } from './constants';
 import { getNavigateToMcpServersTabStep } from './steps';
 
 export const steps: GuideStep[] = [
 	{
-		content: [
-			'**What is an MCP filter?**',
-			'An MCP filter is a way to add additional security policies to your MCP. They can be used for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.'
-		]
+		content: [m.core_guide_what_is_an_mcp_filter(), m.core_guide_an_mcp_filter_is_a_way()]
 	},
 	getNavigateToMcpServersTabStep(
 		MCP_SERVERS_TAB_FILTERS,
-		'Filters',
-		'Click here to view MCP filters.',
-		"Let's head to the Filters tab on the MCP Servers page."
+		m.core_guide_filters(),
+		m.core_guide_click_here_to_view_mcp_filters(),
+		m.core_guide_let_s_head_to_the_filters()
 	),
 	{
-		content: [
-			"Create and manage your MCP filters here. We'll take you through creating a new MCP filter."
-		],
+		content: [m.core_guide_create_and_manage_your_mcp_filters()],
 		action: {
 			highlight: {
 				selector: {
 					id: MCP_FILTERS_FIELD_IDS.addFilterBtn
 				},
-				title: 'Add New Filter',
-				description: 'This is where you can add a new MCP filter.',
+				title: m.core_guide_add_new_filter(),
+				description: m.core_guide_this_is_where_you_can_add(),
 				side: 'left'
 			},
 			listener: {
@@ -36,9 +32,8 @@ export const steps: GuideStep[] = [
 						selector: {
 							id: MCP_FILTERS_FIELD_IDS.createCustomBtn
 						},
-						title: 'Create Custom Filter',
-						description:
-							"Obot also supports out-of-the-box PII filtering, but for the sake of this guide, let's create a custom filter. Let's continue through here.",
+						title: m.core_guide_create_custom_filter(),
+						description: m.core_guide_obot_also_supports_out_of_the(),
 						side: 'left'
 					},
 					listener: {
@@ -52,7 +47,7 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: ["Now let's go over the MCP filter form."],
+		content: [m.core_guide_now_let_s_go_over_the_3()],
 		action: {
 			highlight: {
 				selector: {
@@ -60,8 +55,8 @@ export const steps: GuideStep[] = [
 				},
 				side: 'top',
 				align: 'center',
-				title: 'Basic Details',
-				description: 'This is where you can enter the basic details of the filter.'
+				title: m.core_guide_basic_details(),
+				description: m.core_guide_this_is_where_you_can_enter()
 			},
 			listener: {
 				id: MCP_FILTERS_FIELD_IDS.basicDetails,
@@ -72,9 +67,8 @@ export const steps: GuideStep[] = [
 						},
 						side: 'top',
 						align: 'center',
-						title: 'Runtime Type',
-						description:
-							'Filters can be implemented via an MCP that exposes a filter tool or through an HTTP webhook. Select the appropriate runtime here.'
+						title: m.core_guide_runtime_type(),
+						description: m.core_guide_filters_can_be_implemented_via_an()
 					},
 					listener: {
 						id: MCP_FILTERS_FIELD_IDS.runtimeSelector,
@@ -86,9 +80,8 @@ export const steps: GuideStep[] = [
 								},
 								side: 'top',
 								align: 'center',
-								title: 'Runtime Form Details',
-								description:
-									'Depending on the runtime type selected, you will need to configure the appropriate fields here.',
+								title: m.core_guide_runtime_form_details(),
+								description: m.core_guide_depending_on_the_runtime_type_selected(),
 								noDescendantInteraction: true
 							},
 							listener: {
@@ -101,9 +94,8 @@ export const steps: GuideStep[] = [
 										},
 										side: 'top',
 										align: 'center',
-										title: 'Selectors',
-										description:
-											'This is where you specify which requests should be matched by this filter. These can be specified by methods or identifiers such as tool names.',
+										title: m.core_guide_selectors(),
+										description: m.core_guide_this_is_where_you_specify_which(),
 										noDescendantInteraction: true
 									},
 									listener: {
@@ -116,9 +108,8 @@ export const steps: GuideStep[] = [
 												},
 												side: 'top',
 												align: 'center',
-												title: 'MCP Servers',
-												description:
-													'Select the MCP servers that will be used to filter the tool calls here.',
+												title: m.core_guide_mcp_servers(),
+												description: m.core_guide_select_the_mcp_servers_that_will(),
 												noDescendantInteraction: true
 											},
 											listener: {
@@ -130,9 +121,8 @@ export const steps: GuideStep[] = [
 															id: MCP_FILTERS_FIELD_IDS.saveBtn
 														},
 														side: 'left',
-														title: 'Save the filter.',
-														description:
-															"Once you've filled out all necessary fields, you can save the filter here. The filter will be enabled by default but you can choose to disable or re-enable it at any point.",
+														title: m.core_guide_save_the_filter(),
+														description: m.core_guide_once_you_ve_filled_out_all_2(),
 														noDescendantInteraction: true
 													},
 													listener: {
@@ -158,7 +148,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Filtering and Controlling MCP Tool Calls',
-	description: 'Add additional security policies to your MCP via Filters.',
+	title: m.core_guide_filtering_and_controlling_mcp_tool_calls(),
+	description: m.core_guide_add_additional_security_policies_to_your(),
 	id: 'mcp-create-filter-guide'
 };

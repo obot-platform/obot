@@ -1,5 +1,6 @@
 <script lang="ts" generics="T">
 	import { page } from '$app/state';
+	import { m } from '$lib/i18n';
 	import { parseMultiValue } from '$lib/multiValue';
 	import { goto } from '$lib/url';
 	import { X } from '@lucide/svelte';
@@ -47,7 +48,7 @@
 								<span>{getFilterValue(filterKey, value)}</span>
 							</span>
 
-							<span class="mx-1 font-bold last:hidden">OR</span>
+							<span class="mx-1 font-bold last:hidden">{m.core_filter_or()}</span>
 						{:else}
 							<span class="font-light">{getFilterValue(filterKey, value)}</span>
 						{/if}
@@ -56,7 +57,7 @@
 
 				{#if isClearable}
 					<button
-						aria-label={`Remove ${displayLabel} filter`}
+						aria-label={m.core_remove_filter({ label: displayLabel })}
 						onclick={() => {
 							const url = new URL(page.url);
 							url.searchParams.set(filterKey.toString(), '');

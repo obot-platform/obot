@@ -1,4 +1,5 @@
 import { page } from '$app/state';
+import { m } from '$lib/i18n';
 import type { AuditLogAPIKeyFilterOption, AuditLogFilterOption } from '$lib/services';
 import { isSafe } from './utils';
 
@@ -22,7 +23,7 @@ export function getAuditLogAPIKeyFilterOptionLabel(
 		(option.userID && getUserDisplayName?.(option.userID)) ||
 		option.userDisplayName ||
 		option.userID;
-	return [key, owner, option.revoked ? 'Revoked' : ''].filter(Boolean).join(' · ');
+	return [key, owner, option.revoked ? m.core_revoked() : ''].filter(Boolean).join(' · ');
 }
 
 export function formatAuditLogAPIKeyName(name: string, maskedKey: string): string {
@@ -30,7 +31,7 @@ export function formatAuditLogAPIKeyName(name: string, maskedKey: string): strin
 }
 
 export function formatAuditLogCredentialLabel(credential: string, revoked: boolean): string {
-	return [credential, revoked ? 'Revoked' : ''].filter(Boolean).join(' · ');
+	return [credential, revoked ? m.core_revoked() : ''].filter(Boolean).join(' · ');
 }
 
 export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {

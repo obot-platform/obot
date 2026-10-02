@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { darkMode } from '$lib/stores';
 	import {
@@ -322,7 +323,7 @@
 							cmView.focus();
 						}
 					}, 0);
-				}}>Write</button
+				}}>{m.core_write()}</button
 			>
 			<button
 				class={twMerge(
@@ -330,7 +331,7 @@
 					showPreview &&
 						'dark:border-base-400 bg-base-100 text-base-content relative z-10 translate-y-px border-x font-medium'
 				)}
-				onclick={() => (showPreview = true)}>Preview</button
+				onclick={() => (showPreview = true)}>{m.core_preview()}</button
 			>
 		</div>
 	{/if}

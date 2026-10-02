@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { ArrowUpRight, LayoutDashboard } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -29,9 +30,9 @@
 		<div class="flex flex-col gap-1">
 			<p class="text-6xl font-semibold uppercase">404</p>
 			<div class="flex flex-col gap-3">
-				<h2 class="text-2xl font-semibold tracking-tight">This page is no longer available</h2>
+				<h2 class="text-2xl font-semibold tracking-tight">{m.core_page_no_longer_available()}</h2>
 				<p class="text-muted-content text-sm leading-relaxed font-light">
-					Instead, here are some alternatives, helpful links you might be interested in!
+					{m.core_page_no_longer_available_alternatives()}
 				</p>
 			</div>
 		</div>
@@ -70,7 +71,7 @@
 
 		<a href={resolve('/dashboard')} class="btn btn-primary w-fit self-center">
 			<LayoutDashboard class="size-4" />
-			Go to Dashboard
+			{m.core_go_to_dashboard()}
 		</a>
 	</div>
 </Layout>

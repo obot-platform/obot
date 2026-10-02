@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import { HatGlasses, ShieldUser } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -44,7 +45,7 @@
 		<img
 			class={twMerge('size-8 rounded-full', klass)}
 			src={profile.current.iconURL}
-			alt="profile"
+			alt={m.core_profile_alt()}
 			referrerpolicy="no-referrer"
 		/>
 	{:else if profile.current.isBootstrapUser?.()}

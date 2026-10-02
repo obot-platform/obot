@@ -1,3 +1,5 @@
+import { m } from '$lib/i18n';
+
 export type TimeDisplayFormat = '12h' | '24h';
 
 export function formatTime(time: Date | string, format: TimeDisplayFormat) {
@@ -66,36 +68,51 @@ export function formatTimeAgo(timestamp: string | undefined, granularity?: strin
 	let relativeTime: string;
 	let interval = Math.floor(seconds / 31536000);
 	if (interval >= 1) {
-		relativeTime = interval === 1 ? '1 year ago' : `${interval} years ago`;
+		relativeTime =
+			interval === 1
+				? m.core_time_years_ago_one()
+				: m.core_time_years_ago_other({ count: interval });
 	} else if (granularity === 'year') {
-		relativeTime = 'This year';
+		relativeTime = m.core_time_this_year();
 	} else {
 		interval = Math.floor(seconds / 2592000);
 		if (interval >= 1) {
-			relativeTime = interval === 1 ? '1 month ago' : `${interval} months ago`;
+			relativeTime =
+				interval === 1
+					? m.core_time_months_ago_one()
+					: m.core_time_months_ago_other({ count: interval });
 		} else if (granularity === 'month') {
-			relativeTime = 'This month';
+			relativeTime = m.core_time_this_month();
 		} else {
 			interval = Math.floor(seconds / 86400);
 			if (interval >= 1) {
-				relativeTime = interval === 1 ? '1 day ago' : `${interval} days ago`;
+				relativeTime =
+					interval === 1
+						? m.core_time_days_ago_one()
+						: m.core_time_days_ago_other({ count: interval });
 			} else if (granularity === 'day') {
-				relativeTime = 'Today';
+				relativeTime = m.core_time_today();
 			} else {
 				interval = Math.floor(seconds / 3600);
 				if (interval >= 1) {
-					relativeTime = interval === 1 ? '1 hour ago' : `${interval} hours ago`;
+					relativeTime =
+						interval === 1
+							? m.core_time_hours_ago_one()
+							: m.core_time_hours_ago_other({ count: interval });
 				} else if (granularity === 'hour') {
-					relativeTime = 'In the last hour';
+					relativeTime = m.core_time_in_last_hour();
 				} else {
 					interval = Math.floor(seconds / 60);
 					if (interval >= 1) {
-						relativeTime = interval === 1 ? '1 minute ago' : `${interval} minutes ago`;
+						relativeTime =
+							interval === 1
+								? m.core_time_minutes_ago_one()
+								: m.core_time_minutes_ago_other({ count: interval });
 					} else if (granularity === 'minute') {
-						relativeTime = 'In the last minute';
+						relativeTime = m.core_time_in_last_minute();
 					} else {
-						if (seconds < 10) return { relativeTime: 'just now', fullDate };
-						relativeTime = `${Math.floor(seconds)} seconds ago`;
+						if (seconds < 10) return { relativeTime: m.core_time_just_now(), fullDate };
+						relativeTime = m.core_time_seconds_ago({ count: Math.floor(seconds) });
 					}
 				}
 			}
@@ -133,32 +150,45 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 
 	// If the date is in the past, return "Expired"
 	if (seconds < 0) {
-		return { relativeTime: 'Expired', fullDate };
+		return { relativeTime: m.core_time_expired(), fullDate };
 	}
 
 	// Relative time calculation for future dates
 	let relativeTime: string;
 	let interval = Math.floor(seconds / 31536000);
 	if (interval >= 1) {
-		relativeTime = interval === 1 ? 'in 1 year' : `in ${interval} years`;
+		relativeTime =
+			interval === 1 ? m.core_time_in_years_one() : m.core_time_in_years_other({ count: interval });
 	} else {
 		interval = Math.floor(seconds / 2592000);
 		if (interval >= 1) {
-			relativeTime = interval === 1 ? 'in 1 month' : `in ${interval} months`;
+			relativeTime =
+				interval === 1
+					? m.core_time_in_months_one()
+					: m.core_time_in_months_other({ count: interval });
 		} else {
 			interval = Math.floor(seconds / 86400);
 			if (interval >= 1) {
-				relativeTime = interval === 1 ? 'in 1 day' : `in ${interval} days`;
+				relativeTime =
+					interval === 1
+						? m.core_time_in_days_one()
+						: m.core_time_in_days_other({ count: interval });
 			} else {
 				interval = Math.floor(seconds / 3600);
 				if (interval >= 1) {
-					relativeTime = interval === 1 ? 'in 1 hour' : `in ${interval} hours`;
+					relativeTime =
+						interval === 1
+							? m.core_time_in_hours_one()
+							: m.core_time_in_hours_other({ count: interval });
 				} else {
 					interval = Math.floor(seconds / 60);
 					if (interval >= 1) {
-						relativeTime = interval === 1 ? 'in 1 minute' : `in ${interval} minutes`;
+						relativeTime =
+							interval === 1
+								? m.core_time_in_minutes_one()
+								: m.core_time_in_minutes_other({ count: interval });
 					} else {
-						relativeTime = 'in less than a minute';
+						relativeTime = m.core_time_in_less_than_minute();
 					}
 				}
 			}
@@ -179,22 +209,26 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 	const endIsCloseToNow = Math.abs(end.getTime() - now.getTime()) < 2 * 60 * 1000;
 
 	// Preset ranges ending close to now (order matters: check specific durations first)
-	if (Math.abs(durationInHours - 1) < 0.02 && endIsCloseToNow) return 'Last Hour';
-	if (Math.abs(durationInHours - 6) < 0.02 && endIsCloseToNow) return 'Last 6 Hours';
-	if (Math.abs(durationInHours - 24) < 0.1 && endIsCloseToNow) return 'Last 24 Hours';
+	if (Math.abs(durationInHours - 1) < 0.02 && endIsCloseToNow) return m.core_time_last_hour();
+	if (Math.abs(durationInHours - 6) < 0.02 && endIsCloseToNow) return m.core_time_last_6_hours();
+	if (Math.abs(durationInHours - 24) < 0.1 && endIsCloseToNow) return m.core_time_last_24_hours();
 
 	// "Last X Days" presets: start = midnight N days ago (local), end = now (local). When stored
 	// as UTC, duration becomes N*24 + (hours since midnight local), so we see N*24..N*24+24.
 	const endWithinDay = Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
 
 	// Last 7 Days: 144h (6d) to 193h (7d+1d timezone/end-of-day slack)
-	if (endWithinDay && durationInHours >= 144 && durationInHours < 193) return 'Last 7 Days';
+	if (endWithinDay && durationInHours >= 144 && durationInHours < 193)
+		return m.core_time_last_7_days();
 	// Last 30 Days: 696h (29d) to 745h
-	if (endWithinDay && durationInHours >= 696 && durationInHours < 745) return 'Last 30 Days';
+	if (endWithinDay && durationInHours >= 696 && durationInHours < 745)
+		return m.core_time_last_30_days();
 	// Last 60 Days: 1416h (59d) to 1465h
-	if (endWithinDay && durationInHours >= 1416 && durationInHours < 1465) return 'Last 60 Days';
+	if (endWithinDay && durationInHours >= 1416 && durationInHours < 1465)
+		return m.core_time_last_60_days();
 	// Last 90 Days: 2136h (89d) to 2185h
-	if (endWithinDay && durationInHours >= 2136 && durationInHours < 2185) return 'Last 90 Days';
+	if (endWithinDay && durationInHours >= 2136 && durationInHours < 2185)
+		return m.core_time_last_90_days();
 
 	// Check if it's a whole day (start at 00:00 and end at 23:59 or next day 00:00)
 	const startHour = start.getHours();

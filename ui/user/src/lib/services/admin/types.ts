@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import {
 	type MCPServerTool,
 	type MCPSecretBinding,
@@ -978,9 +979,9 @@ export interface TunnelConnection {
 
 export type PolicyDirection = 'user-message' | 'tool-calls' | 'both';
 export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
-	'user-message': 'User Messages',
-	'tool-calls': 'Tool Calls',
-	both: 'Both'
+	'user-message': m.core_policy_direction_user_messages(),
+	'tool-calls': m.core_policy_direction_tool_calls(),
+	both: m.core_policy_direction_both()
 };
 export interface MessagePolicyManifest {
 	id?: string;
@@ -1105,23 +1106,23 @@ export const ModelUsage = {
 } as const;
 export type ModelUsage = (typeof ModelUsage)[keyof typeof ModelUsage];
 export const ModelUsageLabels = {
-	[ModelUsage.LLM]: 'Language Model (Chat)',
-	[ModelUsage.TextEmbedding]: 'Text Embedding (Knowledge)',
-	[ModelUsage.ImageGeneration]: 'Image Generation',
-	[ModelUsage.Vision]: 'Vision',
-	[ModelUsage.Other]: 'Other',
-	[ModelUsage.Unknown]: 'Unknown'
+	[ModelUsage.LLM]: m.core_model_usage_llm(),
+	[ModelUsage.TextEmbedding]: m.core_model_usage_text_embedding(),
+	[ModelUsage.ImageGeneration]: m.core_model_usage_image_generation(),
+	[ModelUsage.Vision]: m.core_model_usage_vision(),
+	[ModelUsage.Other]: m.core_model_usage_other(),
+	[ModelUsage.Unknown]: m.core_model_usage_unknown()
 } as const;
 export const NanobotModelAlias = {
 	Llm: 'llm',
 	LlmMini: 'llm-mini'
 } as const;
 export const ModelAliasLabels = {
-	[ModelAlias.Llm]: 'Language Model (Chat)',
-	[ModelAlias.LlmMini]: 'Language Model (Chat - Fast)',
-	[ModelAlias.TextEmbedding]: 'Text Embedding (Knowledge)',
-	[ModelAlias.ImageGeneration]: 'Image Generation',
-	[ModelAlias.Vision]: 'Vision'
+	[ModelAlias.Llm]: m.core_model_usage_llm(),
+	[ModelAlias.LlmMini]: m.core_model_usage_llm_fast(),
+	[ModelAlias.TextEmbedding]: m.core_model_usage_text_embedding(),
+	[ModelAlias.ImageGeneration]: m.core_model_usage_image_generation(),
+	[ModelAlias.Vision]: m.core_model_usage_vision()
 } as const;
 export const ModelAliasToUsageMap = {
 	[ModelAlias.Llm]: ModelUsage.LLM,

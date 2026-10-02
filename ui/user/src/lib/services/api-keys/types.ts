@@ -1,3 +1,5 @@
+import { m } from '$lib/i18n';
+
 export interface APIKey {
 	id: number;
 	userId: number;
@@ -23,27 +25,27 @@ export type APIKeyCreatableCapabilityKey = Exclude<APIKeyCapabilityKey, 'canAcce
 export const API_KEY_CAPABILITIES = [
 	{
 		key: 'canAccessAPI',
-		label: 'API access',
+		label: m.core_capability_api_label(),
 		shortLabel: 'API',
-		description: 'Grants access to the Obot API using your user role permissions.'
+		description: m.core_capability_api_description()
 	},
 	{
 		key: 'canAccessLLMProxy',
-		label: 'LLM proxy access',
+		label: m.core_capability_llm_label(),
 		shortLabel: 'LLM',
-		description: 'Grants access to LLM proxy endpoints.'
+		description: m.core_capability_llm_description()
 	},
 	{
 		key: 'canAccessSkills',
-		label: 'Skill access',
-		shortLabel: 'Skills',
-		description: 'Grants read-only access for skill discovery and downloads.'
+		label: m.core_capability_skills_label(),
+		shortLabel: m.core_capability_skills_short(),
+		description: m.core_capability_skills_description()
 	},
 	{
 		key: 'canAccessDeviceScans',
-		label: 'Device scan access',
-		shortLabel: 'Scans',
-		description: 'Grants access to submit and read device scans.'
+		label: m.core_capability_scans_label(),
+		shortLabel: m.core_capability_scans_short(),
+		description: m.core_capability_scans_description()
 	}
 ] as const satisfies ReadonlyArray<{
 	key: APIKeyCapabilityKey;

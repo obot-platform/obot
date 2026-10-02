@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { GuideHighlight, GuideListener } from '../types';
 
 export const SIDEBAR_AI_RESOURCES_COLLAPSE = 'sidebar-collapse-ai-resources';
@@ -14,8 +15,8 @@ export const highlightMcpServersLink: GuideHighlight = {
 	selector: {
 		id: SIDEBAR_MCP_SERVERS_LINK
 	},
-	title: 'MCP Servers',
-	description: 'This is where you can manage MCP servers.'
+	title: m.core_guide_mcp_servers(),
+	description: m.core_guide_this_is_where_you_can_manage()
 };
 
 export const listenMcpServersLink: GuideListener = {
@@ -50,30 +51,26 @@ export function getMcpServersTabListener(
 
 export const highlightMcpAccessPoliciesTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_ACCESS_POLICIES,
-	'Access Policies',
-	'Click here to manage MCP access policies.'
+	m.core_guide_access_policies(),
+	m.core_guide_click_here_to_manage_mcp_access()
 );
 
 export const listenMcpAccessPoliciesTab = getMcpServersTabListener(MCP_SERVERS_TAB_ACCESS_POLICIES);
 
 export const highlightMcpFiltersTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_FILTERS,
-	'Filters',
-	'Click here to view MCP filters.'
+	m.core_guide_filters(),
+	m.core_guide_click_here_to_view_mcp_filters()
 );
 
 export const listenMcpFiltersTab = getMcpServersTabListener(MCP_SERVERS_TAB_FILTERS);
 
 export const addCatalogEntryDescriptions = {
-	hosted:
-		'A hosted MCP server allows you to add a custom MCP server that is managed and hosted by Obot. By having Obot host your MCP server, you can take advantage of lifecycle management, configuration management, and access policy enforcement. Once deployed in Obot, the server is available as a remote MCP URL that your MCP clients can consume.',
-	remote:
-		"A remote MCP server allows you to proxy any remote MCP server through Obot, enabling you to take advantage of Obot's access policies, audit logging, and static OAuth integration."
+	hosted: m.core_guide_a_hosted_mcp_server_allows_you(),
+	remote: m.core_guide_a_remote_mcp_server_allows_you()
 };
 
 export const obotCatalogEntryDescriptions = {
-	hosted:
-		"A hosted MCP server provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Let's continue through here.",
-	remote:
-		"A remote MCP server lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Let's continue through here."
+	hosted: m.core_guide_a_hosted_mcp_server_provides_a(),
+	remote: m.core_guide_a_remote_mcp_server_lets_you()
 };

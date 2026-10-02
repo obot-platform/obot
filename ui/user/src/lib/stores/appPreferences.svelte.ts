@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { m } from '$lib/i18n';
 import type { AppPreferences } from '$lib/services';
 
 export const DEFAULT_LOGOS = {
@@ -36,7 +37,7 @@ export const FONT_FAMILY_PRESETS: { label: string; value: string }[] = [
 		value:
 			'Helvetica Neue, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
 	},
-	{ label: 'System Default', value: 'ui-sans-serif, system-ui, sans-serif' }
+	{ label: m.core_font_system_default(), value: 'ui-sans-serif, system-ui, sans-serif' }
 ];
 
 export function compileAppPreferences(preferences?: AppPreferences): AppPreferences {

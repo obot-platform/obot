@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { UserService, type VMCP } from '$lib/services';
 	import { API_KEY_CREATABLE_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
@@ -33,7 +34,7 @@
 	onMount(() => {
 		UserService.listVMCPs()
 			.then((items) => (vmcps = items))
-			.catch(() => errors.append('Failed to load vMCPs.'));
+			.catch(() => errors.append(m.core_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived(
@@ -63,7 +64,7 @@
 			const server = serverMap.get(id);
 			return {
 				id,
-				name: getMCPDisplayName(server, '(Deleted)'),
+				name: getMCPDisplayName(server, m.core_deleted_parenthetical()),
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
 				exists: !!server,
@@ -76,17 +77,21 @@
 		agentAuthScope ? formatTimeAgo(agentAuthScope.createdAt).relativeTime : ''
 	);
 	let lastUsedDisplay = $derived(
-		agentAuthScope?.lastUsedAt ? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime : 'Never'
+		agentAuthScope?.lastUsedAt
+			? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime
+			: m.core_never()
 	);
 	let expiresDisplay = $derived(
-		agentAuthScope?.expiresAt ? formatTimeUntil(agentAuthScope.expiresAt).relativeTime : 'Never'
+		agentAuthScope?.expiresAt
+			? formatTimeUntil(agentAuthScope.expiresAt).relativeTime
+			: m.core_never()
 	);
 	let mcpServerData = $derived(
 		isAllServers
 			? [
 					{
 						id: 'all-mcp-servers',
-						name: 'All MCP Servers',
+						name: m.core_all_mcp_servers(),
 						description: '',
 						icon: '',
 						exists: true,
@@ -97,7 +102,7 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const title = $derived(agentAuthScope?.name || 'Agent Identity');
+	const title = $derived(agentAuthScope?.name || m.core_agent_identity());
 </script>
 
 {#if agentAuthScope}
@@ -121,10 +126,10 @@
 					<div class="text-sm flex flex-col gap-0.5">
 						<h1 class="text-xl font-semibold">{title}</h1>
 						<p>{agentAuthScope.description}</p>
-						<p><b>Last Used:</b> {lastUsedDisplay}</p>
-						<p><b>Expires:</b> {expiresDisplay}</p>
+						<p><b>{m.core_last_used_label()}</b> {lastUsedDisplay}</p>
+						<p><b>{m.core_expires_label()}</b> {expiresDisplay}</p>
 						<p class="text-muted-content font-light">
-							Created {createdDisplay}
+							{m.core_created_time({ time: createdDisplay })}
 						</p>
 					</div>
 				</div>
@@ -133,7 +138,7 @@
 						<IconButton
 							class=""
 							variant="danger2"
-							tooltip={{ text: `Delete ${title}` }}
+							tooltip={{ text: m.core_delete_named({ name: title }) }}
 							disabled={saving}
 							onclick={() => (deletingAgentAuthScope = true)}
 						>
@@ -145,7 +150,7 @@
 
 			<section class="paper flex flex-col gap-2 p-4">
 				<p>
-					<span class="text-lg font-semibold">MCP Servers</span>
+					<span class="text-lg font-semibold">{m.core_mcp_servers()}</span>
 				</p>
 
 				<ul
@@ -153,7 +158,7 @@
 				>
 					{#if mcpServerData.length === 0}
 						<li class="text-muted-content flex items-center justify-center py-8 text-sm">
-							No MCP servers
+							{m.core_no_mcp_servers()}
 						</li>
 					{:else}
 						{#each mcpServerData as server (server.id)}
@@ -185,7 +190,7 @@
 			</section>
 
 			<section class="paper gap-2 p-4">
-				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">API Scopes</p>
+				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">{m.core_api_scopes()}</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 					{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 						<label
@@ -213,7 +218,7 @@
 			</section>
 
 			<section class="paper gap-2 p-4">
-				<p class="text-lg font-semibold" id="agent-auth-scope-keys">API Keys</p>
+				<p class="text-lg font-semibold" id="agent-auth-scope-keys">{m.core_api_keys()}</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
 					{#if isAdmin}
 						<a
@@ -237,7 +242,7 @@
 {/if}
 
 <Confirm
-	msg={`Are you sure you want to delete "${title}"?`}
+	msg={m.core_confirm_delete_named({ name: title })}
 	show={deletingAgentAuthScope}
 	onsuccess={onDelete}
 	oncancel={() => (deletingAgentAuthScope = false)}

@@ -5,6 +5,7 @@
 	 * the whole screen on mobile and a customizable max width on desktop. (default is 2xl)
 	 */
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { m } from '$lib/i18n';
 	import { responsive } from '$lib/stores';
 	import IconButton from './primitives/IconButton.svelte';
 	import { X } from '@lucide/svelte';
@@ -159,7 +160,7 @@
 				}
 			}}
 		>
-			close
+			{m.common_close()}
 		</button>
 	</form>
 </dialog>

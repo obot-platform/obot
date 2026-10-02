@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import { getHours, getMinutes, setHours, setMinutes } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
@@ -211,7 +212,7 @@
 		)}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Select time"
+		aria-label={m.core_select_time()}
 		tabindex="0"
 	>
 		<!-- Header -->
@@ -401,8 +402,10 @@
 
 		<!-- Footer -->
 		<div class="border-base-400 flex justify-end gap-2 border-t px-3 py-2">
-			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}>Cancel</button>
-			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>OK</button>
+			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}
+				>{m.common_cancel()}</button
+			>
+			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>{m.core_ok()}</button>
 		</div>
 	</div>
 {/if}

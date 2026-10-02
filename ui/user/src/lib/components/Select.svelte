@@ -1,4 +1,6 @@
 <script module lang="ts">
+	import { m } from '$lib/i18n';
+
 	export interface SelectProps<T> {
 		id?: string;
 		disabled?: boolean;
@@ -119,7 +121,11 @@
 		if (n === 2) {
 			return `${labels[0]}, ${labels[1]}`;
 		}
-		return `${labels[0]}, ${labels[1]}, and ${n - 2} more`;
+		return m.core_select_summary_more({
+			first: labels[0],
+			second: labels[1],
+			count: n - 2
+		});
 	});
 
 	let buttonReadOnlySummaryTitle = $derived(selectedOptions.map((o) => o.label).join(', '));
@@ -328,7 +334,7 @@
 			</div>
 		{/if}
 		{#if availableOptions.length === 0}
-			<div class="text-muted-content px-4 py-2 font-light">No options available</div>
+			<div class="text-muted-content px-4 py-2 font-light">{m.core_no_options_available()}</div>
 		{:else}
 			{#each availableOptions as option, index (option.id)}
 				{@const isSelected = selectedValues.some((d) => d === option.id)}
@@ -376,7 +382,7 @@
 		}}
 		type="button"
 	>
-		{clearAllLabel || 'Clear All'}
+		{clearAllLabel || m.core_clear_all()}
 	</button>
 {/snippet}
 

@@ -1,6 +1,7 @@
 <script lang="ts" generics="T extends { id: string | number }">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import DotDotDot from '../DotDotDot.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import TableColumnFilter from './TableColumnFilter.svelte';
@@ -75,7 +76,7 @@
 		onRenderSubrowContent,
 		onSort,
 		pageSize,
-		noDataMessage = 'No data',
+		noDataMessage = m.core_no_data(),
 		setRowClasses,
 		sortable,
 		filterable,
@@ -569,7 +570,10 @@
 			<div class="flex w-full items-center">
 				<div class="shrink-0 p-2">{@render selectAll()}</div>
 				<div class="text-muted-content px-4 py-2 text-left text-sm font-semibold">
-					{Object.keys(selected).length} of {totalSelectable} selected
+					{m.core_n_of_total_selected({
+						count: Object.keys(selected).length,
+						total: totalSelectable
+					})}
 				</div>
 				<div class="flex grow items-center justify-end">
 					{@render tableSelectActions(selected)}
@@ -697,7 +701,7 @@
 {#if tableData.length === 0}
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
 		{#if Object.keys(filteredBy || {}).length > 0}
-			<p class="text-muted-content text-sm font-light">No results found.</p>
+			<p class="text-muted-content text-sm font-light">{m.core_no_results_found()}</p>
 			<button
 				class="btn btn-sm btn-secondary"
 				onclick={() => {
@@ -705,7 +709,7 @@
 					onClearAllFilters?.();
 				}}
 			>
-				Clear All Filters
+				{m.core_clear_all_filters()}
 			</button>
 		{:else}
 			<p class="text-muted-content text-sm font-light">{noDataMessage}</p>
@@ -720,11 +724,12 @@
 			disabled={page === 0}
 			onclick={() => page--}
 		>
-			<ChevronsLeft class="size-4" /> Previous
+			<ChevronsLeft class="size-4" />
+			{m.core_previous()}
 		</button>
 
 		<p class="text-muted-content text-xs">
-			{page + 1} of {Math.ceil(total / pageSize)}
+			{m.core_page_of({ page: page + 1, total: Math.ceil(total / pageSize) })}
 		</p>
 
 		<button
@@ -732,7 +737,8 @@
 			disabled={page === Math.floor(total / pageSize)}
 			onclick={() => page++}
 		>
-			Next <ChevronsRight class="size-4" />
+			{m.core_next()}
+			<ChevronsRight class="size-4" />
 		</button>
 	</div>
 {/if}
@@ -781,7 +787,7 @@
 						onSort?.('selectable', 'asc');
 					}}
 				>
-					Sort By Selectable Items
+					{m.core_sort_by_selectable_items()}
 				</button>
 				<button
 					class="menu-button"
@@ -799,9 +805,9 @@
 					}}
 				>
 					{#if filteredBy?.['selectable']}
-						Show All Items
+						{m.core_show_all_items()}
 					{:else}
-						Show Only Selectable Items
+						{m.core_show_only_selectable_items()}
 					{/if}
 				</button>
 			</DotDotDot>
@@ -902,7 +908,7 @@
 					</IconButton>
 				</td>
 			{:else}
-				<td class="p-2" use:tooltip={disabledSelectMessage || 'This item is not selectable'}>
+				<td class="p-2" use:tooltip={disabledSelectMessage || m.core_item_not_selectable()}>
 					<IconButton class="opacity-30" disabled>
 						<Square class="size-5" />
 					</IconButton>

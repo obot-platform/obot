@@ -1,5 +1,6 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
+import { m } from '$lib/i18n';
 import { Group } from '$lib/services/admin/types';
 import { buildQueryString } from '$lib/url';
 import type {
@@ -1486,7 +1487,7 @@ export async function fetchWorkspaceIDForProfile(
 	const workspaces = await listWorkspaces(opts);
 	const workspaceID = workspaces.find((w) => w.userID === currentProfileID)?.id ?? null;
 	if (!workspaceID) {
-		throw new HttpError(404, 'Workspace not found.');
+		throw new HttpError(404, m.core_workspace_not_found());
 	}
 	return workspaceID;
 }

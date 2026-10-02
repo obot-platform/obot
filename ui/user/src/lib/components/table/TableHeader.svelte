@@ -1,6 +1,7 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import Select from '../Select.svelte';
 	import { ArrowDown, ArrowUp, CircleQuestionMark, Funnel } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -67,7 +68,7 @@
 			<button
 				class="flex grow items-center gap-1 text-nowrap"
 				use:tooltip={{
-					text: `Filter by ${headerTitle ?? property}`,
+					text: m.core_filter_by({ name: headerTitle ?? property }),
 					classes: headerTitle ? ['z-60'] : ['z-60', 'capitalize'],
 					placement: 'top-start'
 				}}
@@ -161,7 +162,7 @@
 				multiple
 				selected={selectedFilterValues.join(',')}
 				searchInDropdown
-				placeholder={`Filter by ${headerTitle ?? property}...`}
+				placeholder={m.core_filter_by_placeholder({ name: headerTitle ?? property })}
 			/>
 		</div>
 	{/if}

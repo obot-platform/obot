@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { SearchIcon } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -16,7 +17,7 @@
 	let {
 		onChange,
 		class: klass,
-		placeholder = 'Search Projects...',
+		placeholder = m.core_search_projects_placeholder(),
 		onMouseDown,
 		onMouseUp,
 		compact,

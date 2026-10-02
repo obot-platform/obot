@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { darkMode } from '$lib/stores';
 	import { json } from '@codemirror/lang-json';
 	import {
@@ -26,7 +27,7 @@
 		value,
 		class: klass,
 		maxHeight = '24rem',
-		ariaLabel = 'JSON preview',
+		ariaLabel = m.core_json_preview(),
 		maximizable = false
 	}: Props = $props();
 
@@ -217,9 +218,9 @@
 				class="btn btn-ghost btn-square btn-sm absolute top-2 right-2"
 				onclick={() => (isMaximized ? void minimize() : void maximize())}
 				disabled={isTransitioning}
-				aria-label={isMaximized ? 'Minimize JSON preview' : 'Maximize JSON preview'}
+				aria-label={isMaximized ? m.core_minimize_json_preview() : m.core_maximize_json_preview()}
 				aria-pressed={isMaximized}
-				title={isMaximized ? 'Minimize JSON preview' : 'Maximize JSON preview'}
+				title={isMaximized ? m.core_minimize_json_preview() : m.core_maximize_json_preview()}
 			>
 				{#if isMaximized}
 					<Minimize2 class="size-4" />

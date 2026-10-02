@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -15,7 +16,7 @@
 		hue = $bindable(0),
 		id,
 		disabled = false,
-		'aria-label': ariaLabel = 'Spectrum color',
+		'aria-label': ariaLabel = m.core_spectrum_color(),
 		class: className
 	}: Props = $props();
 </script>

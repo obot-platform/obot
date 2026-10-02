@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { m } from '$lib/i18n';
 	import { generateLessonItems } from '$lib/services/guides/utils';
 	import { guide, profile, userDeviceSettings, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -106,10 +107,9 @@
 		rafId = requestAnimationFrame(() => {
 			highlighter?.highlight({
 				selector: { id: 'btn-navbar-profile' },
-				title: 'Access Guides Again',
+				title: m.core_access_guides_again_title(),
 				side: 'left',
-				description:
-					'If at a later point in time you want to access the guides again, you can do so by clicking the profile button here and go to My Account.'
+				description: m.core_access_guides_again_description()
 			});
 
 			if (listenerHandler) {
@@ -149,10 +149,10 @@
 				class="shrink-0 flex items-center gap-2 w-fit py-3 pl-4"
 				onclick={() => (showLessons = !showLessons)}
 			>
-				<Info class="size-5" /> <span class="font-medium">Get Started</span>
+				<Info class="size-5" /> <span class="font-medium">{m.core_get_started()}</span>
 			</button>
 			<IconButton
-				tooltip={{ text: 'Close guides' }}
+				tooltip={{ text: m.core_close_guides() }}
 				onclick={handleConfirmCloseGuides}
 				class="mr-4 shrink-0 btn btn-xs btn-circle btn-ghost text-primary-content/50 hover:bg-primary-content/10 hover:text-primary-content hover:border-0 border-0"
 			>
@@ -165,7 +165,7 @@
 {#snippet lessons()}
 	<div class="paper gap-0 p-3 bg-primary text-primary-content">
 		<h4 class="font-semibold border-b-2 pb-3 mb-3 text-sm border-b-primary-content">
-			Quick Start Guides
+			{m.core_quick_start_guides()}
 		</h4>
 		<div class="flex flex-col">
 			{#each visibleLessonItems as lessonItem (lessonItem.label)}
@@ -186,7 +186,9 @@
 						<p class="text-sm font-semibold flex items-center gap-2">
 							{lessonItem.label}
 							{#if isUnderConstruction}
-								<span class="shrink-0 font-light badge badge-xs badge-outline"> Coming soon</span>
+								<span class="shrink-0 font-light badge badge-xs badge-outline">
+									{m.core_coming_soon()}</span
+								>
 							{/if}
 						</p>
 						<p class="text-xs font-light text-primary-content/50">

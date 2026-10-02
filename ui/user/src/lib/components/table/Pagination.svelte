@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { ChevronsLeft, ChevronsRight } from '@lucide/svelte';
 
 	interface Props {
@@ -30,12 +31,14 @@
 		aria-label={label ? `Previous page of ${label}` : undefined}
 		onclick={() => onPageChange(pageIndex - 1)}
 	>
-		<ChevronsLeft class="size-4" /> Previous
+		<ChevronsLeft class="size-4" />
+		{m.core_previous()}
 	</button>
 	<p class="text-muted-content text-xs">
-		{pageIndex + 1} of {lastPageIndex + 1}{#if itemLabelSingular}
-			· {total}
-			{itemLabelSingular}{total === 1 ? '' : 's'}{/if}
+		{m.core_page_of({ page: pageIndex + 1, total: lastPageIndex + 1 })}{#if itemLabelSingular}
+			· {total === 1
+				? m.core_pagination_items_one({ count: total, label: itemLabelSingular })
+				: m.core_pagination_items_other({ count: total, label: itemLabelSingular })}{/if}
 	</p>
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
@@ -43,6 +46,7 @@
 		aria-label={label ? `Next page of ${label}` : undefined}
 		onclick={() => onPageChange(pageIndex + 1)}
 	>
-		Next <ChevronsRight class="size-4" />
+		{m.core_next()}
+		<ChevronsRight class="size-4" />
 	</button>
 </div>

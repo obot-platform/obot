@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import { TriangleAlert, KeyRound, ExternalLink } from '@lucide/svelte';
 
 	interface Props {
@@ -28,7 +29,7 @@
 	<ResponsiveDialog
 		bind:this={dialog}
 		onClose={handleClose}
-		title="API Key Created"
+		title={m.core_api_key_created()}
 		class="w-full max-w-lg"
 		disableClickOutside
 	>
@@ -37,17 +38,16 @@
 				<div class="flex items-start gap-3">
 					<TriangleAlert class="size-5 shrink-0" />
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">Save this key now</p>
+						<p class="text-sm font-medium">{m.core_save_this_key_now()}</p>
 						<p class="text-xs">
-							This is the only time you will be able to see this API key. Make sure to copy and
-							store it securely. You will not be able to retrieve it later.
+							{m.core_api_key_only_time()}
 						</p>
 					</div>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">Your API Key</p>
+				<p class="text-sm font-medium">{m.core_your_api_key()}</p>
 				<CopyField value={keyValue} id="agent-auth-scope-key">
 					{#snippet preContent()}
 						<KeyRound class="text-muted-content size-4 shrink-0" />
@@ -56,21 +56,21 @@
 			</div>
 
 			<p class="text-muted text-sm">
-				Learn how to use this API key in the
+				{m.core_learn_api_key_docs_prefix()}
 				<a
 					href="https://docs.obot.ai/functionality/api-keys/#using-an-api-key"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="text-link inline-flex items-center gap-1"
 				>
-					documentation
+					{m.core_learn_api_key_docs_link()}
 					<ExternalLink class="size-3" />
-				</a>
+				</a>{m.core_learn_api_key_docs_suffix()}
 			</p>
 		</div>
 
 		<div class="mt-6 flex justify-end">
-			<button class="btn btn-primary" onclick={handleClose}> I've saved my key </button>
+			<button class="btn btn-primary" onclick={handleClose}> {m.core_ive_saved_my_key()} </button>
 		</div>
 	</ResponsiveDialog>
 {/if}

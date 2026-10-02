@@ -1,7 +1,6 @@
+import { m } from '$lib/i18n';
 import type { Profile } from '$lib/services';
 import { error, redirect } from '@sveltejs/kit';
-
-const defaultErrorMessage = 'Unknown error occurred';
 
 export class HttpError extends Error {
 	constructor(
@@ -26,14 +25,14 @@ export function getHttpStatusCode(e: unknown): number | undefined {
 
 function toAppError(e: Error): App.Error {
 	return {
-		message: e.message || defaultErrorMessage
+		message: e.message || m.core_unknown_error_occurred()
 	};
 }
 
 function parseHttpErrorMessage(message: string): string {
 	// Match format i.e. "400 /path/to/resource: message"
 	const errorMatch = message.match(/^\d+\s+\/[^:]+:\s+(.*)/s);
-	return parseResponseError(errorMatch?.[1] || message || defaultErrorMessage);
+	return parseResponseError(errorMatch?.[1] || message || m.core_unknown_error_occurred());
 }
 
 function parseResponseError(message: string): string {
@@ -56,7 +55,7 @@ function parseResponseError(message: string): string {
 
 export function handleRouteError(e: unknown, path: string, profile?: Profile): never {
 	if (!(e instanceof Error)) {
-		throw error(500, { message: 'Unknown error occurred' });
+		throw error(500, { message: m.core_unknown_error_occurred() });
 	}
 
 	const appError = toAppError(e);
@@ -75,7 +74,7 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile): n
 
 	if (statusCode === 404) {
 		if (path.includes('/s/')) {
-			throw error(404, `The chatbot at ${path} does not exist`);
+			throw error(404, m.core_chatbot_not_found({ path }));
 		}
 
 		throw error(404, appError);
@@ -86,7 +85,7 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile): n
 
 export function parseErrorContent(e: unknown) {
 	if (!(e instanceof Error)) {
-		return { status: 500, message: 'Unknown error occurred' };
+		return { status: 500, message: m.core_unknown_error_occurred() };
 	}
 
 	const statusCode = getHttpStatusCode(e);
@@ -100,7 +99,10 @@ export function parseErrorContent(e: unknown) {
 	// Match format i.e. "400 /path/to/resource: message"
 	const errorMatch = e.message.match(/^(\d+)(?:\s+\/[^:]+)?:\s+(.*)/);
 	if (!errorMatch) {
-		return { status: 500, message: parseResponseError(e.message || defaultErrorMessage) };
+		return {
+			status: 500,
+			message: parseResponseError(e.message || m.core_unknown_error_occurred())
+		};
 	}
 
 	const [, legacyStatusCode, messageContent] = errorMatch;
@@ -108,7 +110,7 @@ export function parseErrorContent(e: unknown) {
 
 	return {
 		status: Number.isInteger(status) ? status : 500,
-		message: parseResponseError(messageContent || defaultErrorMessage)
+		message: parseResponseError(messageContent || m.core_unknown_error_occurred())
 	};
 }
 

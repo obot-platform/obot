@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { darkMode } from '$lib/stores';
 	import {
@@ -206,7 +207,7 @@
 	{#if !disablePreview}
 		<div
 			class="dark:border-base-400 dark:bg-base-300 text-muted-content flex items-center border-b text-sm font-light"
-			aria-label="Description editor mode"
+			aria-label={m.core_description_editor_mode()}
 		>
 			<button
 				type="button"
@@ -224,7 +225,7 @@
 							cmView.focus();
 						}
 					}, 0);
-				}}>Write</button
+				}}>{m.core_write()}</button
 			>
 			<button
 				type="button"
@@ -234,7 +235,7 @@
 					showPreview &&
 						'dark:border-base-400 bg-base-100 text-base-content relative z-10 translate-y-px border-x font-medium'
 				)}
-				onclick={() => (showPreview = true)}>Preview</button
+				onclick={() => (showPreview = true)}>{m.core_preview()}</button
 			>
 		</div>
 	{/if}

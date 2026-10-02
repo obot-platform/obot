@@ -1,4 +1,5 @@
 import { encodeUtf8ToBase64 } from '$lib/format';
+import { m } from '$lib/i18n';
 import { mcpServersAndEntries, profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
@@ -202,7 +203,7 @@ export function getSecretBindingEngineError(
 	manifest?: SecretBindingManifest | null
 ): string | undefined {
 	if (!manifestHasSecretBindings(manifest)) return undefined;
-	return 'This MCP server uses Kubernetes Secret bindings and can only be launched when Obot is using the Kubernetes engine.';
+	return m.core_secret_binding_engine_error();
 }
 
 export function requiresUserUpdate(server?: MCPCatalogServer) {
@@ -917,8 +918,7 @@ export function deriveToolPrefix(name: string): string {
 export const TOOL_NAME_CHARSET_REGEX = /^[A-Za-z0-9._/-]*$/;
 export const MAX_TOOL_PREFIX_LENGTH = 64;
 export const MAX_TOOL_NAME_LENGTH = 128;
-export const TOOL_NAME_SPECIAL_CHAR_WARNING =
-	"'.' and '/' in MCP server tool names are not supported by some clients.";
+export const TOOL_NAME_SPECIAL_CHAR_WARNING = m.core_tool_name_special_char_warning();
 
 export type ToolNameIssue = { severity: 'warning' | 'error'; message: string };
 
@@ -962,18 +962,18 @@ export function isToolCustomized(tool: {
 // the same severity, first match wins.
 export function toolNameIssue(effectiveName: string): ToolNameIssue | undefined {
 	if (!TOOL_NAME_CHARSET_REGEX.test(effectiveName)) {
-		return { severity: 'error', message: 'Tool name contains invalid characters.' };
+		return { severity: 'error', message: m.core_tool_name_invalid_chars() };
 	}
 	if (effectiveName.length > MAX_TOOL_NAME_LENGTH) {
 		return {
 			severity: 'error',
-			message: `Tool name exceeds the maximum length of ${MAX_TOOL_NAME_LENGTH} characters.`
+			message: m.core_tool_name_too_long({ max: MAX_TOOL_NAME_LENGTH })
 		};
 	}
 	if (effectiveName.length > 64) {
 		return {
 			severity: 'warning',
-			message: `Tool names exceeding 64 characters aren't supported by some MCP clients and inference APIs.`
+			message: m.core_tool_name_over_64()
 		};
 	}
 	if (/[./]/.test(effectiveName)) {
@@ -1040,7 +1040,7 @@ export function conflictIssue(
 	duplicates: Set<string>
 ): ToolNameIssue | undefined {
 	if (!duplicates.has(effectiveName)) return undefined;
-	return { severity: 'error', message: 'Tool name is not unique.' };
+	return { severity: 'error', message: m.core_tool_name_not_unique() };
 }
 
 // Shared scope-routing helpers for multi-user server operations.
@@ -1052,7 +1052,7 @@ export async function restartMcpServer(
 	catalogID?: string
 ): Promise<void> {
 	if (!supportsMCPBackendDetails(server)) {
-		throw new Error('This MCP server runtime does not support restart.');
+		throw new Error(m.core_runtime_no_restart());
 	}
 
 	if (isMultiUserServer(server)) {
@@ -1061,7 +1061,7 @@ export async function restartMcpServer(
 		} else {
 			const serverCatalogID = catalogID || server.mcpCatalogID;
 			if (!serverCatalogID) {
-				throw new Error('Catalog ID is required to restart this MCP server.');
+				throw new Error(m.core_catalog_id_required_restart());
 			}
 			await AdminService.restartMcpCatalogServerDeployment(serverCatalogID, server.id);
 		}
@@ -1080,7 +1080,7 @@ export async function deleteMcpServerDeployment(
 		} else {
 			const serverCatalogID = catalogID || server.mcpCatalogID;
 			if (!serverCatalogID) {
-				throw new Error('Catalog ID is required to delete this MCP server.');
+				throw new Error(m.core_catalog_id_required_delete());
 			}
 			await AdminService.deleteMCPCatalogServer(serverCatalogID, server.id);
 		}

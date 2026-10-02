@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
@@ -97,13 +98,13 @@
 				{#if errorPreContent}
 					{@render errorPreContent()}
 				{:else}
-					<h4 class="text-xl font-semibold">An Error Occurred</h4>
+					<h4 class="text-xl font-semibold">{m.core_an_error_occurred()}</h4>
 				{/if}
 
 				<div class="notification-error flex w-full items-center gap-2">
 					<CircleAlert class="size-6 text-error" />
 					<p class="flex flex-col text-sm font-light">
-						<span class="font-semibold">Error Details:</span>
+						<span class="font-semibold">{m.core_error_details_label()}</span>
 						<span class="break-all">
 							{error}
 						</span>

@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import {
 	Group,
 	UserService,
@@ -139,7 +140,7 @@ export function convertSubjectsToTableData(
 
 				return {
 					id: subject.id,
-					displayName: subject.id === EVERYONE_SUBJECT_ID ? 'All Obot Users' : subject.id,
+					displayName: subject.id === EVERYONE_SUBJECT_ID ? m.core_all_obot_users() : subject.id,
 					type: 'Selector'
 				};
 			})

@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import {
 	Role,
 	type OrgUser,
@@ -275,14 +276,16 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 }
 
 export const getUserRoleLabel = (role: number) => {
-	const withAuditor = role & Role.AUDITOR ? ', Auditor' : '';
-	const withUserImpersonation = role & Role.USER_IMPERSONATION ? ', Impersonator' : '';
-	if (role & Role.OWNER) return 'Owner' + withAuditor + withUserImpersonation;
-	if (role & Role.ADMIN) return 'Admin' + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER) return 'Power User' + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor + withUserImpersonation;
-	if (role & Role.BASIC) return 'Standard User' + withAuditor + withUserImpersonation;
-	return 'Unknown' + withAuditor + withUserImpersonation;
+	const withAuditor = role & Role.AUDITOR ? `, ${m.core_role_auditor()}` : '';
+	const withUserImpersonation =
+		role & Role.USER_IMPERSONATION ? `, ${m.core_role_impersonator()}` : '';
+	if (role & Role.OWNER) return m.core_role_owner() + withAuditor + withUserImpersonation;
+	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor + withUserImpersonation;
+	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor + withUserImpersonation;
+	if (role & Role.POWERUSER_PLUS)
+		return m.core_role_power_user_plus() + withAuditor + withUserImpersonation;
+	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor + withUserImpersonation;
+	return m.core_role_unknown() + withAuditor + withUserImpersonation;
 };
 
 /**
@@ -308,7 +311,7 @@ export function getUserDisplayName(
 		user?.originalUsername,
 		user?.email,
 		user?.username,
-		'Unknown User'
+		m.core_unknown_user()
 	].filter(Boolean);
 
 	let display = primaryValues[0] ?? '';

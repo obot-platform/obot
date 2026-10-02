@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip, type TooltipOptions } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import type { Placement } from '@floating-ui/dom';
 	import { CircleHelpIcon, CircleQuestionMark } from '@lucide/svelte';
 	import type { Component, Snippet } from 'svelte';
@@ -72,7 +73,7 @@
 		return { ...base, text: t };
 	});
 
-	const accessibleName = $derived(ariaLabel?.trim() || text?.trim() || 'More information');
+	const accessibleName = $derived(ariaLabel?.trim() || text?.trim() || m.core_more_information());
 </script>
 
 {#if tooltipOpts}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import CalendarGrid, {
 		months,
 		isToday,
@@ -31,7 +32,7 @@
 		class: klass,
 		minDate,
 		maxDate,
-		placeholder = 'Select date',
+		placeholder = m.core_select_date(),
 		format = 'MMM dd, yyyy',
 		clearable = true
 	}: Props = $props();
@@ -130,7 +131,7 @@
 				onkeydown={(e) => e.key === 'Enter' && handleClear(e as unknown as MouseEvent)}
 				{@attach (node: HTMLElement) => {
 					const response = tooltip(node, {
-						text: 'Clear',
+						text: m.core_clear(),
 						placement: 'top'
 					});
 					return () => response.destroy();
@@ -167,7 +168,7 @@
 								popover?.hidePopover();
 							}}
 						>
-							Clear
+							{m.core_clear()}
 						</button>
 					</div>
 				{/if}

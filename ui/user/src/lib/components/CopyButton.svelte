@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { Check, Copy } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -22,7 +23,7 @@
 		id,
 		text,
 		class: clazz = '',
-		tooltipText = 'Copy',
+		tooltipText = m.core_copy(),
 		buttonText,
 		disabled,
 		classes,
@@ -35,7 +36,7 @@
 	// Icon-only variants have no accessible name of their own; the tooltip is
 	// rendered in a portal marked aria-hidden, so it cannot supply one either.
 	let visibleText = $derived(noButtonText ? undefined : buttonTextToShow);
-	const COPIED_TEXT = 'Copied!';
+	const COPIED_TEXT = m.core_copied();
 
 	function fallbackCopy(textToCopy: string): boolean {
 		const previousActiveElement = document.activeElement;
