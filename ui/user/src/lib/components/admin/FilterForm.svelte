@@ -29,8 +29,16 @@
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import CredentialFilterConfiguration from './CredentialFilterConfiguration.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import {
+		credentialEnvironment,
+		credentialKeys,
+		credentialMutationRequired,
+		readCredentialPolicy,
+		validateCredentialPolicy
+	} from './credentialPolicy';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -71,10 +79,15 @@
 			initialFilter
 				? {
 						name: initialFilter.name || '',
-						resources: initialFilter.resources || [],
+						resources: initialFilter.resources?.map((resource) => ({ ...resource })) || [],
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
-						selectors: initialFilter.selectors || [],
+						// Keep editable nested state separate even when the input is already reactive.
+						selectors:
+							initialFilter.selectors?.map((selector) => ({
+								...selector,
+								identifiers: selector.identifiers ? [...selector.identifiers] : undefined
+							})) || [],
 						toolName: initialFilter.toolName || '',
 						allowedToMutate: initialFilter.allowedToMutate || false,
 						disabled: initialFilter.disabled || false
@@ -95,6 +108,16 @@
 	type FilterRuntimeFormData = Omit<RuntimeFormData, 'serverUserType'>;
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
+	);
+	let credentialConfigurationLoaded = $state(untrack(() => !initialFilter?.id));
+	let credentialLoadError = $state('');
+	let disableError = $state('');
+	let isCredentialFilter = $derived(
+		filter.toolName === 'filter_credentials' && !!mcpSystemCatalogEntryId
+	);
+	let credentialPolicy = $derived(readCredentialPolicy(runtimeFormData?.env ?? []));
+	let credentialError = $derived(
+		isCredentialFilter ? validateCredentialPolicy(credentialPolicy) : undefined
 	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
@@ -138,7 +161,7 @@
 
 	onMount(() => {
 		if (initialFilterId) {
-			revealServerValues();
+			void revealServerValues();
 		}
 
 		function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -177,6 +200,24 @@
 				}));
 			}
 
+			if (isCredentialFilter && runtimeFormData) {
+				// Saved values can outlive fields in the instance's old manifest.
+				// Preserve them, including unsupported IDs, for validation and repair.
+				for (const key of credentialKeys) {
+					if (!runtimeFormData.env.some((field) => field.key === key)) {
+						runtimeFormData.env.push({
+							key,
+							name: key,
+							description: '',
+							required: false,
+							sensitive: false,
+							value: response[key] ?? ''
+						});
+					}
+				}
+			}
+			credentialConfigurationLoaded = true;
+
 			// Update headers in the appropriate runtime config based on runtime type
 			if (runtimeFormData?.runtime === 'remote') {
 				if (runtimeFormData.remoteConfig?.headers) {
@@ -197,10 +238,15 @@
 			}
 		} catch (error) {
 			if (error instanceof HttpError && error.statusCode === 404) {
-				// ignore, 404 means no credentials were set
+				// 404 means no credentials were set.
+				credentialConfigurationLoaded = true;
 				return;
 			}
-			// Re-throw other errors
+			if (isCredentialFilter) {
+				credentialLoadError =
+					'Unable to load the saved credential policy. Reload this page before editing.';
+				return;
+			}
 			throw error;
 		}
 	}
@@ -365,11 +411,18 @@
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
 	) {
 		if (mcpServerManifest) {
-			const configValues = Object.fromEntries(
-				(mcpServerManifest.manifest.config ?? [])
-					.filter((field) => !field.userAllowed && field.key && field.value)
-					.map((field) => [field.key, field.value])
-			);
+			const configValues = isCredentialFilter
+				? {
+						...Object.fromEntries(
+							(runtimeFormData?.env ?? []).map((field) => [field.key, field.value ?? ''])
+						),
+						...credentialEnvironment(credentialPolicy)
+					}
+				: Object.fromEntries(
+						(mcpServerManifest.manifest.config ?? [])
+							.filter((field) => !field.userAllowed && field.key && field.value)
+							.map((field) => [field.key, field.value])
+					);
 
 			// Configure the server with the collected values if any exist
 			if (Object.keys(configValues).length > 0) {
@@ -393,7 +446,36 @@
 		return true;
 	}
 
+	async function disableCredentialFilter() {
+		if (!initialFilterId || !initialFilter || readonly) return;
+		saving = true;
+		disableError = '';
+		try {
+			// Use saved settings so disabling never applies unsaved policy changes.
+			const result = await AdminService.updateMCPFilter(initialFilterId, {
+				name: initialFilter.name,
+				resources: initialFilter.resources,
+				url: initialFilter.url,
+				selectors: initialFilter.selectors,
+				toolName: initialFilter.toolName,
+				allowedToMutate: initialFilter.allowedToMutate,
+				systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId,
+				disabled: true
+			});
+			onUpdate?.(result);
+		} catch (err) {
+			disableError = err instanceof Error ? err.message : 'Unable to disable filter';
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function handleSave() {
+		if (
+			isCredentialFilter &&
+			(!credentialConfigurationLoaded || credentialLoadError || credentialError)
+		)
+			return;
 		// Show validation errors if required fields are missing
 		if (
 			!filter.name.trim() ||
@@ -459,7 +541,9 @@
 				secret: filter.secret || undefined,
 				selectors,
 				toolName: filter.toolName,
-				allowedToMutate: filter.allowedToMutate ?? false,
+				allowedToMutate:
+					!!filter.allowedToMutate ||
+					(isCredentialFilter && credentialMutationRequired(credentialPolicy)),
 				disabled: filter.disabled ?? false,
 				...(isPrebuiltEntry
 					? {
@@ -687,7 +771,17 @@
 					{/if}
 				{/if}
 
-				{#if runtimeFormData.runtime !== 'remote'}
+				{#if isCredentialFilter}
+					{#if readonly && initialFilterId}<p class="text-sm text-muted-content">
+							Saved credential policy is available only to administrators.
+						</p>{:else if credentialLoadError}<p role="alert" class="text-error">
+							{credentialLoadError}
+						</p>{:else if !credentialConfigurationLoaded}<p>
+							Loading saved credential policy...
+						</p>{:else}
+						<CredentialFilterConfiguration bind:config={runtimeFormData.env} {readonly} />
+					{/if}
+				{:else if runtimeFormData.runtime !== 'remote'}
 					<CustomConfigurationForm
 						bind:config={runtimeFormData.env}
 						{readonly}
@@ -711,6 +805,7 @@
 		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
+		{#if disableError}<p role="alert" class="text-error">{disableError}</p>{/if}
 		<div
 			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
 			out:fly={{ x: -100, duration }}
@@ -721,8 +816,15 @@
 					{#if initialFilter?.id}
 						<button
 							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
-							disabled={saving}
+							disabled={saving ||
+								(isCredentialFilter &&
+									filter.disabled &&
+									(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 							onclick={() => {
+								if (isCredentialFilter && !filter.disabled) {
+									void disableCredentialFilter();
+									return;
+								}
 								filter.disabled = !filter.disabled;
 								handleSave();
 							}}
@@ -751,7 +853,9 @@
 					<button
 						id={MCP_FILTERS_FIELD_IDS.saveBtn}
 						class="btn btn-primary text-sm"
-						disabled={saving}
+						disabled={saving ||
+							(isCredentialFilter &&
+								(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 						onclick={handleSave}
 					>
 						{#if saving}
