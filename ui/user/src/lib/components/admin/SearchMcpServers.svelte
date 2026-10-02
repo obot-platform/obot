@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ADMIN_ALL_OPTION, MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
@@ -55,7 +56,7 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		title = 'Add Server(s)',
+		title = m.admin_misc_add_servers(),
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -114,7 +115,9 @@
 					deprecated: isDeprecatedMCPServer(entry),
 					registry:
 						entry.powerUserID && isAdminView
-							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
+							? m.admin_misc_users_registry({
+									name: getUserDisplayName(usersMap, entry.powerUserID)
+								})
 							: ''
 				})),
 			...mcpServerAndEntries.servers
@@ -144,7 +147,7 @@
 					deprecated: isDeprecatedMCPServer(server),
 					registry:
 						server.userID && server.powerUserWorkspaceID && isAdminView
-							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
+							? m.admin_misc_users_registry({ name: getUserDisplayName(usersMap, server.userID) })
 							: ''
 				}))
 		].filter((item) => !exclude?.includes(item.id))
@@ -208,7 +211,7 @@
 						class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 						onChange={(val) => (search = val)}
 						value={search}
-						placeholder="Search by name..."
+						placeholder={m.admin_misc_search_by_name()}
 					/>
 				</div>
 
@@ -281,7 +284,7 @@
 			<div class="flex items-center gap-1 font-light">
 				{#if selected.length > 0}
 					<Server class="size-4" />
-					{selected.length} Selected
+					{m.admin_misc_n_selected({ count: selected.length })}
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -290,7 +293,7 @@
 					class="btn btn-secondary w-full md:w-fit"
 					onclick={() => addMcpServerDialog?.close()}
 				>
-					Cancel
+					{m.common_cancel()}
 				</button>
 				<button
 					id={type === 'acr'
@@ -299,7 +302,7 @@
 					class="btn btn-primary w-full md:w-fit"
 					onclick={handleAdd}
 				>
-					Confirm
+					{m.admin_misc_confirm()}
 				</button>
 			</div>
 		{/if}

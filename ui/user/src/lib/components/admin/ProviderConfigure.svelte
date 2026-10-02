@@ -9,6 +9,7 @@
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { BaseProvider, ProviderParameter } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
@@ -67,11 +68,11 @@
 	const collection = $derived.by(() => {
 		if (isAzureOpenAIProvider)
 			return {
-				title: 'Authentication Method',
+				title: m.admin_misc_authentication_method(),
 				items: [
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
-						name: 'API Key'
+						name: m.admin_misc_api_key()
 					},
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
@@ -335,7 +336,7 @@
 			{:else}
 				<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 			{/if}
-			{title ?? `Set Up ${provider?.name}`}
+			{title ?? m.admin_misc_set_up_named({ name: provider?.name ?? '' })}
 		</div>
 	{/snippet}
 	{#if provider}
@@ -362,11 +363,10 @@
 				<div class="notification-error flex min-w-0 items-start gap-2 overflow-hidden">
 					<CircleAlert class="mt-0.5 size-6 shrink-0 text-error" />
 					<p class="min-w-0 flex flex-col text-sm font-light">
-						<span class="font-semibold">An error occurred!</span>
+						<span class="font-semibold">{m.admin_misc_an_error_occurred()}</span>
 						<span class="max-h-28 overflow-auto wrap-break-word whitespace-pre-line pr-1">
-							Your configuration could not be saved because it failed validation: <b
-								class="break-all font-semibold">{error}</b
-							>
+							{m.admin_misc_config_failed_validation()}
+							<b class="break-all font-semibold">{error}</b>
 						</span>
 					</p>
 				</div>
@@ -403,7 +403,7 @@
 						</div>
 					{/if}
 
-					<h4 class="text-lg font-semibold">Required Configuration</h4>
+					<h4 class="text-lg font-semibold">{m.admin_misc_required_configuration()}</h4>
 
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
@@ -433,10 +433,10 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-													? { '*': 'All domains' }
+													? { '*': m.admin_misc_all_domains() }
 													: {}}
 												class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
-												placeholder={`Hit "Enter" to insert`.toString()}
+												placeholder={m.admin_misc_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -468,7 +468,7 @@
 
 			{#if optionalConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-2">
-					<h4 class="text-lg font-semibold">Optional Configuration</h4>
+					<h4 class="text-lg font-semibold">{m.admin_misc_optional_configuration()}</h4>
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
@@ -493,7 +493,7 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												class="text-input-filled"
-												placeholder={`Hit "Enter" to insert`.toString()}
+												placeholder={m.admin_misc_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -538,7 +538,7 @@
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						Confirm
+						{m.admin_misc_confirm()}
 					{/if}
 				</button>
 			</div>

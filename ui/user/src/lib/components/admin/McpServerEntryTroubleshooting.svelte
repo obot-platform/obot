@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
@@ -42,10 +43,12 @@
 {#if entry && 'isCatalogEntry' in entry && !restrictedSingleDeployment}
 	{#if entry?.manifest.runtime === 'remote'}
 		<div class="paper">
-			<h1 class="text-lg font-semibold">Debug OAuth Flow</h1>
+			<h1 class="text-lg font-semibold">{m.admin_misc_debug_oauth_flow()}</h1>
 
 			<div class="flex flex-col gap-2">
-				<label for="debug-oauth-deployment-selector" class="text-sm font-light">Deployment</label>
+				<label for="debug-oauth-deployment-selector" class="text-sm font-light"
+					>{m.admin_misc_deployment()}</label
+				>
 				<Select
 					id="debug-oauth-deployment-selector"
 					classes={{
@@ -60,13 +63,13 @@
 							selectedDebugOauthDeployment = match;
 						}
 					}}
-					placeholder="Select Deployment"
+					placeholder={m.admin_misc_select_deployment()}
 				/>
 			</div>
 
 			{#if deploymentOptions.length === 0}
 				<div class="notification-info flex items-center gap-2">
-					<p class="text-xs">Deploy this MCP server to begin debugging the OAuth flow.</p>
+					<p class="text-xs">{m.admin_misc_launch_server_to_debug()}</p>
 				</div>
 			{/if}
 
@@ -86,7 +89,7 @@
 	{@const mcpServer = restrictedSingleDeployment ?? (entry as MCPCatalogServer)}
 	{#if mcpServer?.manifest.runtime === 'remote'}
 		<div class="flex flex-col bg-base-100 dark:bg-base-300 rounded-md pt-4">
-			<h1 class="text-lg font-semibold px-4 pb-2">Debug OAuth Flow</h1>
+			<h1 class="text-lg font-semibold px-4 pb-2">{m.admin_misc_debug_oauth_flow()}</h1>
 			<DebugOauthFlow {mcpServer} />
 		</div>
 	{/if}

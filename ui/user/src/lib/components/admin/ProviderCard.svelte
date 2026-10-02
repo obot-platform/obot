@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import { darkMode } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -64,14 +65,15 @@
 		<div>
 			{#if recommended && !isComingSoon}
 				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
-					>Recommended</span
+					>{m.admin_misc_recommended()}</span
 				>
 			{/if}
 			{#if experimental}
 				<span
 					class="bg-warning/15 text-warning rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
 				>
-					<FlaskConicalIcon class="size-3 text-warning" /> Experimental
+					<FlaskConicalIcon class="size-3 text-warning" />
+					{m.admin_misc_experimental()}
 				</span>
 			{/if}
 		</div>
@@ -88,7 +90,7 @@
 							class="menu-button text-error"
 							onclick={() => onDeconfigure()}
 						>
-							Deconfigure Provider
+							{m.admin_misc_deconfigure_provider()}
 						</button>
 					</DotDotDot>
 				{/if}
@@ -122,24 +124,29 @@
 					class="rounded-md bg-warning px-2 py-1 text-[10px] font-medium"
 					use:tooltip={{
 						classes: ['w-fit'],
-						text: 'Deprecated – use Amazon Bedrock instead.'
+						text: m.admin_misc_deprecated_use_bedrock()
 					}}
 				>
-					Deprecated
+					{m.common_deprecated()}
 				</div>
 			{/if}
 			{#if isLicenseRequired}
 				{#if provider.configured}
-					<TriangleAlert class="size-4 text-warning" /> License {licenseKey ? 'Invalid' : 'Missing'}
+					<TriangleAlert class="size-4 text-warning" />
+					{licenseKey ? m.admin_misc_license_invalid() : m.admin_misc_license_missing()}
 				{:else}
-					<CircleAlert class="size-4 text-muted-content" /> Registration Required
+					<CircleAlert class="size-4 text-muted-content" />
+					{m.admin_misc_registration_required()}
 				{/if}
 			{:else if provider.configured}
-				<CircleCheck class="size-4 text-success" /> Configured
+				<CircleCheck class="size-4 text-success" />
+				{m.admin_misc_configured()}
 			{:else if staged}
-				<TriangleAlert class="size-4 text-warning" /> Staged
+				<TriangleAlert class="size-4 text-warning" />
+				{m.admin_misc_staged()}
 			{:else}
-				<CircleSlash class="size-4 text-error" /> Not Configured
+				<CircleSlash class="size-4 text-error" />
+				{m.admin_misc_not_configured_title()}
 			{/if}
 		</span>
 	</div>
@@ -149,7 +156,8 @@
 			<div
 				class="bg-base-200 dark:bg-base-400 text-muted-content flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
 			>
-				<Construction class="size-4" /> Coming Soon
+				<Construction class="size-4" />
+				{m.admin_misc_coming_soon()}
 			</div>
 		{:else}
 			<div
@@ -167,13 +175,13 @@
 					disabled={disableConfigure}
 				>
 					{#if readonly}
-						View
+						{m.admin_misc_view()}
 					{:else if provider.configured}
-						Modify
+						{m.admin_misc_modify()}
 					{:else if staged}
-						Resume switch
+						{m.admin_misc_resume_switch()}
 					{:else}
-						Configure
+						{m.admin_misc_configure()}
 					{/if}
 				</button>
 			</div>

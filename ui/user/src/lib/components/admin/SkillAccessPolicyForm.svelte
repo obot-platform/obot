@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -152,7 +153,7 @@
 					} else if (resource.type === 'selector') {
 						return {
 							id: resource.id,
-							name: resource.id === '*' ? 'All Skills' : resource.id,
+							name: resource.id === '*' ? m.admin_misc_all_skills() : resource.id,
 							description: '',
 							type: 'Selector'
 						};
@@ -201,7 +202,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete Policy' }}
+						tooltip={{ text: m.admin_misc_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -219,7 +220,7 @@
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
 						<label for="model-access-policy-name" class="flex-1 text-sm font-light capitalize">
-							Name
+							{m.admin_misc_name()}
 						</label>
 						<input
 							id="model-access-policy-name"
@@ -234,12 +235,13 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Users & Groups</h2>
+				<h2 class="text-lg font-semibold">{m.admin_misc_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
 							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.admin_misc_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -248,7 +250,8 @@
 									addUserGroupDialog?.open();
 								}}
 							>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.admin_misc_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -262,8 +265,11 @@
 				<Table
 					data={subjectTableData}
 					fields={['displayName', 'type']}
-					headers={[{ property: 'displayName', title: 'Name' }]}
-					noDataMessage="No users or groups added."
+					headers={[
+						{ property: 'displayName', title: m.admin_misc_col_name() },
+						{ property: 'type', title: m.admin_misc_col_type() }
+					]}
+					noDataMessage={m.admin_misc_no_users_or_groups_added()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -274,7 +280,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: 'Delete User/Group' }}
+								tooltip={{ text: m.admin_misc_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -286,7 +292,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Skills</h2>
+				<h2 class="text-lg font-semibold">{m.admin_misc_skills()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -294,7 +300,8 @@
 							addSkillDialog?.open();
 						}}
 					>
-						<Plus class="size-4" /> Add Skill
+						<Plus class="size-4" />
+						{m.admin_misc_add_skill()}
 					</button>
 				{/if}
 			</div>
@@ -307,10 +314,10 @@
 					data={resourceTableData}
 					fields={['name', 'description']}
 					headers={[
-						{ property: 'name', title: 'Skill' },
-						{ property: 'description', title: 'Description' }
+						{ property: 'name', title: m.admin_misc_col_skill() },
+						{ property: 'description', title: m.admin_misc_col_description() }
 					]}
-					noDataMessage="No skills added."
+					noDataMessage={m.admin_misc_no_skills_added()}
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
@@ -327,7 +334,7 @@
 									skillAccessPolicy.resources =
 										skillAccessPolicy.resources?.filter((r) => r.id !== d.id) ?? [];
 								}}
-								tooltip={{ text: 'Remove Skill' }}
+								tooltip={{ text: m.admin_misc_remove_skill() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -351,7 +358,7 @@
 							goto('/skills?view=access-policies');
 						}}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button
 						class="btn btn-primary text-sm"
@@ -370,7 +377,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.admin_misc_save()}
 						{/if}
 					</button>
 				{:else}
@@ -395,7 +402,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Update
+							{m.admin_misc_update()}
 						{/if}
 					</button>
 				{/if}
@@ -442,7 +449,9 @@
 />
 
 <Confirm
-	msg={`Delete ${skillAccessPolicy.displayName || 'this policy'}?`}
+	msg={skillAccessPolicy.displayName
+		? m.admin_misc_delete_named({ name: skillAccessPolicy.displayName })
+		: m.admin_misc_delete_this_policy()}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!skillAccessPolicy.id) return;

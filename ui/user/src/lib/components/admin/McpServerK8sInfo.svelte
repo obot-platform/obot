@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -173,7 +174,7 @@
 					error = undefined;
 				},
 				onError: () => {
-					error = 'Connection failed';
+					error = m.admin_misc_connection_failed();
 				},
 				onClose: () => {
 					console.debug(`${mcpServerId} event stream closed`);
@@ -245,7 +246,7 @@
 						error = undefined;
 					},
 					onError: () => {
-						error = 'Connection failed';
+						error = m.admin_misc_connection_failed();
 					},
 					onClose: () => {
 						console.debug(`${mcpServerId} event stream closed`);
@@ -264,18 +265,18 @@
 		const details = [
 			{
 				id: 'kubernetes_deployments',
-				label: 'Deployment',
+				label: m.admin_misc_deployment(),
 				value: `${info.namespace}/${info.deploymentName}`
 			},
 			{
 				id: 'last_restart',
-				label: 'Last Restart',
+				label: m.admin_misc_last_restart(),
 				value: formatTimeAgo(info.lastRestart).relativeTime
 			},
 			{
 				id: 'status',
-				label: 'Status',
-				value: info.isAvailable ? 'Healthy' : 'Unhealthy'
+				label: m.admin_misc_status(),
+				value: info.isAvailable ? m.admin_misc_healthy() : m.admin_misc_unhealthy()
 			}
 		];
 		return details;
@@ -344,7 +345,7 @@
 				const env = envMap.get(key);
 				envs.push({
 					id: key,
-					label: env?.name ?? 'Unknown',
+					label: env?.name ?? m.admin_misc_unknown(),
 					value: env?.prefix ? env.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
 					sensitive: env?.sensitive || false,
 					file: env?.file,
@@ -354,7 +355,7 @@
 				const header = headerMap.get(key);
 				headers.push({
 					id: key,
-					label: header?.name ?? 'Unknown',
+					label: header?.name ?? m.admin_misc_unknown(),
 					value: header?.prefix
 						? header.prefix + revealedValues![key]
 						: (revealedValues![key] ?? ''),
@@ -452,10 +453,10 @@
 				? 'btn btn-secondary btn-sm'
 				: 'btn btn-ghost btn-sm btn-square text-muted-content tooltip tooltip-right'}
 			disabled={refreshingEvents}
-			data-tip="Refresh Events"
+			data-tip={m.admin_misc_refresh_events()}
 		>
 			<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
-			{hideTitle ? 'Refresh Events' : ''}
+			{hideTitle ? m.admin_misc_refresh_events() : ''}
 		</button>
 	{/if}
 </div>
@@ -465,8 +466,7 @@
 		<div class="flex items-center gap-3">
 			<Info class="size-6" />
 			<p>
-				This is a multi-user server instance. The server information displayed here is the root
-				server that is shared between all server instances.
+				{m.admin_misc_multi_user_instance_notice()}
 			</p>
 		</div>
 	</div>
@@ -478,28 +478,31 @@
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					Missing Kubernetes Secret{hasAdminAccess && missingSecretBindings.length > 1 ? 's' : ''}
+					{hasAdminAccess && missingSecretBindings.length > 1
+						? m.admin_misc_missing_k8s_secrets()
+						: m.admin_misc_missing_k8s_secret()}
 				</p>
 			</div>
 			<div class="text-sm font-light">
 				{#if hasAdminAccess}
-					The following Kubernetes Secrets referenced by this server could not be resolved:
+					{m.admin_misc_k8s_secrets_unresolved()}
 					<ul class="mt-1 list-disc pl-5">
 						{#each missingSecretBindings as binding, i (`${binding.label}/${binding.secretName}/${binding.secretKey}/${i}`)}
 							<li>
 								{#if binding.secretName && binding.secretKey}
-									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
-									<strong>{binding.label}</strong>)
+									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code>
+									{m.admin_misc_for_label_prefix()}
+									<strong>{binding.label}</strong>{m.admin_misc_for_label_suffix()}
 								{:else}
-									Secret-bound config <strong>{binding.label}</strong>
+									{m.admin_misc_secret_bound_config()} <strong>{binding.label}</strong>
 								{/if}
 							</li>
 						{/each}
 					</ul>
 				{:else}
-					A Kubernetes Secret required by this server could not be resolved.
+					{m.admin_misc_k8s_secret_unresolved_single()}
 				{/if}
-				<p class="mt-2">Server details and logs are temporarily unavailable as a result.</p>
+				<p class="mt-2">{m.admin_misc_details_logs_unavailable()}</p>
 			</div>
 		</div>
 	</div>
@@ -532,7 +535,7 @@
 				{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
 				{#if catalogEntry?.manifest.runtime === 'remote'}
 					<div>
-						<h2 class="mb-2 text-lg font-semibold">Headers</h2>
+						<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_headers()}</h2>
 						{#if headers.length > 0}
 							<div class="flex flex-col gap-2">
 								{#each headers as h (h.id)}
@@ -540,13 +543,15 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-muted-content text-sm font-light">No configured headers.</span>
+							<span class="text-muted-content text-sm font-light"
+								>{m.admin_misc_no_configured_headers()}</span
+							>
 						{/if}
 					</div>
 				{/if}
 
 				<div>
-					<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
+					<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_configuration()}</h2>
 					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
 							{#each envs as env (env.id)}
@@ -562,7 +567,7 @@
 						</div>
 					{:else}
 						<span class="text-muted-content text-sm font-light"
-							>No configured environment or file variables set.</span
+							>{m.admin_misc_no_configured_env()}</span
 						>
 					{/if}
 				</div>
@@ -570,7 +575,7 @@
 		{/if}
 
 		<div>
-			<h2 class="mb-2 text-lg font-semibold">Recent Events</h2>
+			<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_recent_events()}</h2>
 			{#if info?.events && info.events.length > 0}
 				{@const tableData = info.events.map((event, index) => ({
 					id: `${event.time}-${index}`,
@@ -579,7 +584,11 @@
 				<Table
 					data={tableData}
 					fields={['time', 'eventType', 'message']}
-					headers={[{ title: 'Event Type', property: 'eventType' }]}
+					headers={[
+						{ title: m.admin_misc_col_time(), property: 'time' },
+						{ title: m.admin_misc_col_event_type(), property: 'eventType' },
+						{ title: m.admin_misc_col_message(), property: 'message' }
+					]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'time'}
@@ -590,7 +599,7 @@
 					{/snippet}
 				</Table>
 			{:else}
-				<span class="text-muted-content text-sm font-light">No events.</span>
+				<span class="text-muted-content text-sm font-light">{m.admin_misc_no_events()}</span>
 			{/if}
 		</div>
 	{/if}
@@ -603,11 +612,12 @@
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">User Configuration Required</p>
+					<p class="my-0.5 flex flex-col text-sm font-semibold">
+						{m.admin_misc_user_config_required()}
+					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					Required user configuration is missing, either from initial setup or a catalog entry
-					update. Server details and logs are temporarily unavailable as a result.
+					{m.admin_misc_user_config_missing_notice()}
 				</span>
 			</div>
 		</div>
@@ -615,20 +625,21 @@
 
 	{#if hasAdminAccess}
 		{@const status = isPending
-			? 'Pending'
+			? m.admin_misc_status_pending()
 			: missingSecretBindings.length > 0
-				? 'Missing Kubernetes Secret'
+				? m.admin_misc_missing_k8s_secret()
 				: needsUpdate
-					? 'Configuration Required'
-					: 'Error'}
+					? m.admin_misc_status_config_required()
+					: undefined}
 		<div class="flex flex-col gap-2">
 			<div
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 			>
 				<div class="grid grid-cols-2 gap-1 md:gap-4">
-					<p class="text-sm font-semibold col-span-2 md:col-span-1">Status</p>
+					<p class="text-sm font-semibold col-span-2 md:col-span-1">{m.admin_misc_status()}</p>
 					<p class="text-sm font-light col-span-2 md:col-span-1">
-						{status}{status === 'Error' ? `: ${parseErrorContent(error).message}` : ''}
+						{status ??
+							m.admin_misc_status_error_detail({ message: parseErrorContent(error).message })}
 					</p>
 				</div>
 			</div>
@@ -660,7 +671,7 @@
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />
-						Restart
+						{m.admin_misc_restart()}
 					</button>
 				{:else if id === 'kubernetes_deployments' && !readonly}
 					{#await listK8sSettingsStatus}
@@ -675,7 +686,7 @@
 								onclick={() => (showUpdateK8sSettingsConfirm = true)}
 							>
 								<CircleFadingArrowUp class="size-3" />
-								Redeploy with Latest Settings
+								{m.admin_misc_redeploy_latest_settings()}
 							</button>
 						{/if}
 					{/await}
@@ -702,23 +713,24 @@
 				{#if secretBinding}
 					<span class="text-muted-content flex flex-wrap items-center gap-2 text-sm">
 						<span>
-							Kubernetes Secret: <code class="font-mono">{secretBinding.name}</code> /
+							{m.admin_misc_k8s_secret_label()} <code class="font-mono">{secretBinding.name}</code>
+							/
 							<code class="font-mono">{secretBinding.key}</code>
 						</span>
 						{#if file}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-								title="Secret value is mounted as a file; the env var contains the file path"
+								title={m.admin_misc_file_badge_title()}
 							>
-								file
+								{m.admin_misc_file_badge()}
 							</span>
 						{/if}
 						{#if dynamicFile}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
-								title="File updates in-place when the Secret changes — no pod restart needed"
+								title={m.admin_misc_dynamic_badge_title()}
 							>
-								dynamic
+								{m.admin_misc_dynamic_badge()}
 							</span>
 						{/if}
 					</span>
@@ -734,28 +746,27 @@
 
 <Confirm
 	show={showRestartConfirm}
-	msg={`Restart ${title || name}?`}
+	msg={m.admin_misc_restart_named({ name: title || name })}
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
-	title="Confirm Restart"
+	title={m.admin_misc_confirm_restart()}
 	type="info"
 >
 	{#snippet note()}
-		Are you sure you want to restart this deployment? This will cause a brief service interruption.
+		{m.admin_misc_confirm_restart_note()}
 	{/snippet}
 </Confirm>
 <Confirm
 	show={showUpdateK8sSettingsConfirm}
-	msg={`Redeploy ${title || name}?`}
+	msg={m.admin_misc_redeploy_named({ name: title || name })}
 	onsuccess={handleRedeployWithK8sSettings}
 	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
 	loading={updatingK8sSettings}
-	title="Confirm Redeploy"
+	title={m.admin_misc_confirm_redeploy()}
 	type="info"
 >
 	{#snippet note()}
-		Are you sure you want to redeploy this server with the latest Kubernetes settings? This will
-		cause a brief service interruption.
+		{m.admin_misc_confirm_redeploy_note()}
 	{/snippet}
 </Confirm>

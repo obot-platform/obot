@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
@@ -29,7 +30,7 @@
 				})
 				.catch((err) => {
 					console.error(err);
-					skillPreviewContent = 'Error loading skill preview';
+					skillPreviewContent = m.admin_misc_error_loading_skill_preview();
 				})
 				.finally(() => {
 					skillPreviewLoading = false;
@@ -46,7 +47,7 @@
 	<div class="flex grow flex-col gap-4 pb-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
 		<div class="flex w-full items-center justify-between gap-4">
 			<h1 class="flex items-center gap-4 text-2xl font-semibold">
-				{skill.displayName || 'Skill'}
+				{skill.displayName || m.admin_misc_col_skill()}
 			</h1>
 			{#if skill.id}
 				<a
@@ -55,7 +56,7 @@
 					rel="external noopener noreferrer"
 					target="_blank"
 				>
-					View Source on Git<ExternalLink class="size-4" />
+					{m.admin_misc_view_source_on_git()}<ExternalLink class="size-4" />
 				</a>
 			{/if}
 		</div>
@@ -65,7 +66,7 @@
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
 					<div>
-						<p>This skill comes from an external Git Source URL and cannot be edited.</p>
+						<p>{m.admin_misc_skill_external_git()}</p>
 					</div>
 				</div>
 			</div>
@@ -74,7 +75,9 @@
 		<div class="paper">
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
-					<label for="skill-name" class="flex-1 text-sm font-light capitalize"> Name </label>
+					<label for="skill-name" class="flex-1 text-sm font-light capitalize">
+						{m.admin_misc_name()}
+					</label>
 					<input
 						id="skill-name"
 						value={skill.displayName}
@@ -85,7 +88,7 @@
 
 				<div class="flex flex-col gap-2">
 					<label for="skill-description" class="flex-1 text-sm font-light capitalize">
-						Description
+						{m.admin_misc_description()}
 					</label>
 					<textarea
 						id="skill-description"
@@ -107,7 +110,7 @@
 				<button
 					class="tab-button w-24 justify-center"
 					class:tab-active={activeTab === 'details'}
-					onclick={() => (activeTab = 'details')}>Details</button
+					onclick={() => (activeTab = 'details')}>{m.admin_misc_details()}</button
 				>
 			</div>
 
@@ -116,7 +119,7 @@
 					<div class="flex flex-col gap-6">
 						<div class="flex flex-col gap-2">
 							<label for="skill-repo-url" class="flex-1 text-sm font-light capitalize">
-								Repository URL
+								{m.admin_misc_repository_url()}
 							</label>
 							<input
 								id="skill-repo-url"
@@ -128,7 +131,7 @@
 
 						<div class="flex flex-col gap-2">
 							<label for="skill-repo-ref" class="flex-1 text-sm font-light capitalize">
-								Repository Reference
+								{m.admin_misc_repository_reference()}
 							</label>
 							<input
 								id="skill-repo-ref"
@@ -140,7 +143,7 @@
 
 						<div class="flex flex-col gap-2">
 							<label for="skill-commit-sha" class="flex-1 text-sm font-light capitalize">
-								Commit SHA
+								{m.admin_misc_commit_sha()}
 							</label>
 							<input
 								id="skill-commit-sha"
@@ -156,7 +159,7 @@
 							{#if skill.allowedTools}
 								<div class="flex flex-col gap-2">
 									<label for="skill-allowed-tools" class="flex-1 text-sm font-light capitalize">
-										Allowed Tools
+										{m.admin_misc_allowed_tools()}
 									</label>
 									<input
 										id="skill-allowed-tools"
@@ -170,7 +173,7 @@
 							{#if skill.compatibility}
 								<div class="flex flex-col gap-2">
 									<label for="skill-compatibility" class="flex-1 text-sm font-light capitalize">
-										Compatibility
+										{m.admin_misc_compatibility()}
 									</label>
 									<input
 										id="skill-compatibility"
@@ -184,7 +187,7 @@
 							{#if skill.license}
 								<div class="flex flex-col gap-2">
 									<label for="skill-license" class="flex-1 text-sm font-light capitalize">
-										License
+										{m.admin_misc_license()}
 									</label>
 									<input
 										id="skill-license"

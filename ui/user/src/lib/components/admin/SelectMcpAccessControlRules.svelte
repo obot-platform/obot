@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DEFAULT_MCP_CATALOG_ID, MCP_PUBLISHER_ALL_OPTION } from '$lib/constants';
 	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -165,29 +166,29 @@
 			return obotGroupDisplayName(subject.id);
 		}
 
-		if (subject.id === '*') return 'All Obot Users';
+		if (subject.id === '*') return m.admin_misc_all_obot_users();
 		return '';
 	}
 </script>
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="Add to Access Policies"
+	title={m.admin_misc_add_to_access_policies()}
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
-		<p class="text-md font-light">Looks like you don't have any MCP access policies yet!</p>
-		<p class="text-md mb-4 font-light">Want to go ahead & create one now?</p>
+		<p class="text-md font-light">{m.admin_misc_no_mcp_access_policies_yet()}</p>
+		<p class="text-md mb-4 font-light">{m.admin_misc_create_one_now()}</p>
 	{:else}
 		<p class="text-md mb-4 font-light">
-			Select the access policies you want to apply to this MCP server.
+			{m.admin_misc_select_policies_to_apply()}
 		</p>
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mb-8 flex flex-col">
 			<div class="grid grid-cols-2 gap-2 pb-1 text-xs font-semibold uppercase">
-				<p>Rule</p>
-				<p>User/Groups</p>
+				<p>{m.admin_misc_col_rule()}</p>
+				<p>{m.admin_misc_user_groups()}</p>
 			</div>
 			<div class="flex flex-col gap-1">
 				{#each accessControlRules as rule (rule.id)}
@@ -217,7 +218,7 @@
 										{#if rule.subjects && rule.subjects.length > 0}
 											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
-											<i class="text-muted-content">(Empty)</i>
+											<i class="text-muted-content">{m.admin_misc_empty_parens()}</i>
 										{/if}
 									</p>
 									<div class="shrink-0">
@@ -226,7 +227,7 @@
 												class="size-4"
 												classes={{ icon: 'size-4' }}
 												placement="top-end"
-												text="This server will be available by default to everyone in this rule."
+												text={m.admin_misc_available_to_everyone_in_rule()}
 											/>
 										{:else if selectedRules.includes(rule.id)}
 											<CircleCheck class="text-primary size-4" />
@@ -254,14 +255,16 @@
 					{#if savingRules}
 						<Loading class="size-4" />
 					{:else}
-						Continue
+						{m.admin_misc_continue()}
 					{/if}
 				</button>
 			</div>
 		</div>
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
-			<button class="btn btn-secondary" onclick={close}> Skip Step </button>
+			<button class="btn btn-secondary" onclick={close}>
+				{m.admin_misc_skip_step()}
+			</button>
 			{@render createAccessPolicyButton()}
 		</div>
 	{/if}
@@ -272,14 +275,14 @@
 		{#if creating}
 			<Loading class="size-4" />
 		{:else}
-			Create Access Policy
+			{m.admin_misc_create_access_policy()}
 		{/if}
 	</button>
 {/snippet}
 
 <ResponsiveDialog
 	bind:this={createNewRuleDialog}
-	title="Create Access Policy"
+	title={m.admin_misc_create_access_policy()}
 	class="md:w-4xl bg-base-200 dark:bg-base-100"
 	classes={{ content: 'max-h-dvh overflow-y-auto' }}
 	onClose={handleCreateDialogClose}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -154,7 +155,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete Policy' }}
+						tooltip={{ text: m.admin_misc_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -170,7 +171,7 @@
 				{#if !messagePolicy.id}
 					<div class="flex flex-col gap-2">
 						<label for="message-policy-name" class="flex-1 text-sm font-light capitalize">
-							Name
+							{m.admin_misc_name()}
 						</label>
 						<input
 							id="message-policy-name"
@@ -186,10 +187,10 @@
 						for="message-policy-definition"
 						class="flex items-center gap-1 text-sm font-light capitalize"
 					>
-						Definition
+						{m.admin_misc_definition()}
 						<div
 							use:tooltip={{
-								text: 'A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.',
+								text: m.admin_misc_definition_tooltip(),
 								classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]']
 							}}
 						>
@@ -200,14 +201,14 @@
 						id="message-policy-definition"
 						bind:value={messagePolicy.definition}
 						class="text-input-filled mt-0.5 min-h-24 resize-y"
-						placeholder="Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'"
+						placeholder={m.admin_misc_definition_placeholder()}
 						disabled={readonly}
 						rows="3"></textarea>
 				</div>
 
 				<div class="flex flex-col gap-1">
 					<label for="message-policy-direction" class="flex-1 text-sm font-light capitalize">
-						Applies to
+						{m.admin_misc_applies_to()}
 					</label>
 					<Select
 						id="message-policy-direction"
@@ -225,12 +226,13 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Users & Groups</h2>
+				<h2 class="text-lg font-semibold">{m.admin_misc_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
 							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.admin_misc_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -239,7 +241,8 @@
 									addUserGroupDialog?.open();
 								}}
 							>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.admin_misc_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -258,8 +261,11 @@
 				<Table
 					data={tableData}
 					fields={['displayName', 'type']}
-					headers={[{ property: 'displayName', title: 'Name' }]}
-					noDataMessage="No users or groups added."
+					headers={[
+						{ property: 'displayName', title: m.admin_misc_col_name() },
+						{ property: 'type', title: m.admin_misc_col_type() }
+					]}
+					noDataMessage={m.admin_misc_no_users_or_groups_added()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -270,7 +276,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: 'Delete User/Group' }}
+								tooltip={{ text: m.admin_misc_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -298,7 +304,7 @@
 							goto(listHref);
 						}}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button
 						class="btn btn-primary text-sm"
@@ -317,7 +323,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.admin_misc_save()}
 						{/if}
 					</button>
 				{:else}
@@ -342,7 +348,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Update
+							{m.admin_misc_update()}
 						{/if}
 					</button>
 				{/if}
@@ -372,7 +378,9 @@
 />
 
 <Confirm
-	msg={`Delete ${messagePolicy.displayName || 'this policy'}?`}
+	msg={messagePolicy.displayName
+		? m.admin_misc_delete_named({ name: messagePolicy.displayName })
+		: m.admin_misc_delete_this_policy()}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!messagePolicy.id) return;

@@ -5,6 +5,7 @@
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -163,16 +164,16 @@
 	let currentPage = $derived(Math.floor(pageOffset / pageLimit) + 1);
 
 	const directionSelectOptions = [
-		{ id: 'all_directions', label: 'All Directions' },
-		{ id: 'user-message', label: 'User Messages' },
-		{ id: 'tool-calls', label: 'Tool Calls' }
+		{ id: 'all_directions', label: m.admin_misc_all_directions() },
+		{ id: 'user-message', label: m.admin_misc_user_messages() },
+		{ id: 'tool-calls', label: m.admin_misc_tool_calls() }
 	];
 	let userSelectOptions = $derived([
-		{ id: 'all_users', label: 'All Users' },
+		{ id: 'all_users', label: m.admin_misc_all_users() },
 		...userFilterOptions.map((uid) => ({ id: uid, label: displayName(uid) }))
 	]);
 	let policySelectOptions = $derived([
-		{ id: 'all_policies', label: 'All Policies' },
+		{ id: 'all_policies', label: m.admin_misc_all_policies() },
 		...policyFilterOptions.map((p) => ({ id: p.id, label: p.name }))
 	]);
 
@@ -252,8 +253,8 @@
 	}
 
 	const groupByOptions = [
-		{ id: 'group_by_policy', label: 'Group by Policy' },
-		{ id: 'group_by_user', label: 'Group by User' }
+		{ id: 'group_by_policy', label: m.admin_misc_group_by_policy() },
+		{ id: 'group_by_user', label: m.admin_misc_group_by_user() }
 	];
 
 	let chartData = $derived(
@@ -284,14 +285,14 @@
 				class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 			>
 				<Loading class="size-32 stroke-1" />
-				<div class="text-2xl font-semibold">Loading violations...</div>
+				<div class="text-2xl font-semibold">{m.admin_misc_loading_violations()}</div>
 			</div>
 		</div>
 	{/if}
 
 	<div class="m-auto flex w-full max-w-full flex-col gap-4 md:max-w-(--breakpoint-xl)">
 		<div class="flex flex-row min-w-0 shrink-0 gap-1 py-2 paper md:w-fit">
-			<div class="text-base-content text-sm font-light">Total Violations:</div>
+			<div class="text-base-content text-sm font-light">{m.admin_misc_total_violations()}</div>
 			<div class="flex items-center gap-1 text-sm font-semibold">
 				{#if loading}
 					<Loading class="size-4 animate-spin" />
@@ -304,7 +305,7 @@
 		</div>
 		<!-- Filter bar -->
 		<div class="flex w-full flex-wrap items-center justify-end gap-4">
-			<p class="text-muted-content w-full text-sm md:w-fit">Filter by:</p>
+			<p class="text-muted-content w-full text-sm md:w-fit">{m.admin_misc_filter_by()}</p>
 			{#if !policyDirection}
 				<Select
 					class="dark:border-base-400 border border-transparent"
@@ -319,9 +320,9 @@
 					onClearAll={filterDirection !== 'all_directions'
 						? () => handleFilterClearAll('direction')
 						: undefined}
-					placeholder="Filter by direction..."
+					placeholder={m.admin_misc_filter_by_direction()}
 					buttonReadOnly
-					buttonTitle="Directions"
+					buttonTitle={m.admin_misc_directions()}
 					displayCount={!!filterDirection && filterDirection !== 'all_directions'}
 				/>
 			{/if}
@@ -336,9 +337,9 @@
 				onSelect={(option) => handleFilterSelect('user', option)}
 				onClear={(option) => handleFilterClear('user', option)}
 				onClearAll={filterUserID !== 'all_users' ? () => handleFilterClearAll('user') : undefined}
-				placeholder="Filter by user..."
+				placeholder={m.admin_misc_filter_by_user()}
 				buttonReadOnly
-				buttonTitle="Users"
+				buttonTitle={m.admin_misc_users()}
 				displayCount={!!filterUserID && filterUserID !== 'all_users'}
 			/>
 			<Select
@@ -354,9 +355,9 @@
 				onClearAll={filterPolicyID !== 'all_policies'
 					? () => handleFilterClearAll('policy')
 					: undefined}
-				placeholder="Filter by policy..."
+				placeholder={m.admin_misc_filter_by_policy()}
 				buttonReadOnly
-				buttonTitle="Policies"
+				buttonTitle={m.admin_misc_policies()}
 				displayCount={!!filterPolicyID && filterPolicyID !== 'all_policies'}
 			/>
 			<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
@@ -368,7 +369,9 @@
 				{#if !policyDirection && filterDirection !== 'all_directions'}
 					{#each filterDirection.split(',') as direction (direction)}
 						<div class="filter-primary">
-							<span class="font-semibold">Direction:</span>{directionLabel(direction)}
+							<span class="font-semibold">{m.admin_misc_direction_label()}</span>{directionLabel(
+								direction
+							)}
 							<button onclick={() => handleFilterClear('direction', { id: direction })}>
 								<X class="size-3" />
 							</button>
@@ -378,7 +381,7 @@
 				{#if filterUserID !== 'all_users'}
 					{#each filterUserID.split(',') as userID (userID)}
 						<div class="filter-primary">
-							<span class="font-semibold">User:</span>{displayName(userID)}
+							<span class="font-semibold">{m.admin_misc_user_label()}</span>{displayName(userID)}
 							<button onclick={() => handleFilterClear('user', { id: userID })}>
 								<X class="size-3" />
 							</button>
@@ -388,9 +391,8 @@
 				{#if filterPolicyID !== 'all_policies'}
 					{#each filterPolicyID.split(',') as policyID (policyID)}
 						<div class="filter-primary">
-							<span class="font-semibold">Policy:</span>{policyFilterOptions.find(
-								(p) => p.id === policyID
-							)?.name}
+							<span class="font-semibold">{m.admin_misc_policy_label()}</span
+							>{policyFilterOptions.find((p) => p.id === policyID)?.name}
 							<button onclick={() => handleFilterClear('policy', { id: policyID })}>
 								<X class="size-3" />
 							</button>
@@ -405,7 +407,7 @@
 			<div class="paper w-full gap-0 pt-4">
 				<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
 					<h4 class="flex items-center gap-2 font-semibold">
-						Policy Violations
+						{m.admin_misc_policy_violations()}
 						{#if loading}
 							<Loading class="size-4 animate-spin" />
 						{/if}
@@ -456,10 +458,11 @@
 		{#if !loading && visibleViolations.length === 0}
 			<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 				<ShieldAlert class="text-muted-content size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">No policy violations</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.admin_misc_no_policy_violations()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
-					Currently, there are no policy violations for the selected range or filters. Try modifying
-					your search criteria or try again later.
+					{m.admin_misc_no_policy_violations_description()}
 				</p>
 			</div>
 		{:else if visibleViolations.length > 0}
@@ -477,22 +480,22 @@
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								Timestamp
+								{m.admin_misc_col_timestamp()}
 							</th>
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								User
+								{m.admin_misc_col_user()}
 							</th>
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								Policy
+								{m.admin_misc_col_policy()}
 							</th>
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								Applies To
+								{m.admin_misc_col_applies_to()}
 							</th>
 						</tr>
 					</thead>
@@ -530,11 +533,15 @@
 				>
 					<div class="flex gap-4">
 						<div>
-							Showing {pageOffset + 1}-{Math.min(pageOffset + pageLimit, total)} of {total}
+							{m.admin_misc_showing_range({
+								start: pageOffset + 1,
+								end: Math.min(pageOffset + pageLimit, total),
+								total
+							})}
 						</div>
 						<div class="flex items-center">
 							<span>{currentPage}</span>/<span>{totalPages}</span>
-							<span class="ml-1">pages</span>
+							<span class="ml-1">{m.admin_misc_pages()}</span>
 						</div>
 					</div>
 					<div class="flex gap-4">
@@ -546,7 +553,7 @@
 								fetchData();
 							}}
 						>
-							Previous
+							{m.admin_misc_previous()}
 						</button>
 						<button
 							class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
@@ -556,7 +563,7 @@
 								fetchData();
 							}}
 						>
-							Next
+							{m.admin_misc_next()}
 						</button>
 					</div>
 				</div>
@@ -586,7 +593,7 @@
 				class="dark:bg-base-200 bg-base-100 relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
 			>
 				<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
-				<h3 class="text-lg font-semibold">Violation Detail</h3>
+				<h3 class="text-lg font-semibold">{m.admin_misc_violation_detail()}</h3>
 				<IconButton onclick={closeSidebar}>
 					<X class="size-5" />
 				</IconButton>
@@ -598,18 +605,18 @@
 				{#if detailedViolation}
 					<div class="flex flex-wrap gap-2 p-4 pl-5">
 						<div class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light">
-							<span class="font-medium">Policy:</span>
+							<span class="font-medium">{m.admin_misc_policy_label()}</span>
 							{detailedViolation.policyName}
 						</div>
 						<div class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light">
-							<span class="font-medium">Applies To:</span>
+							<span class="font-medium">{m.admin_misc_applies_to_label()}</span>
 							{directionLabel(detailedViolation.direction)}
 						</div>
 						{#if detailedViolation.projectID}
 							<div
 								class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 							>
-								<span class="font-medium">Project:</span>
+								<span class="font-medium">{m.admin_misc_project_label()}</span>
 								{detailedViolation.projectID}
 							</div>
 						{/if}
@@ -617,7 +624,7 @@
 							<div
 								class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[11px] font-light"
 							>
-								<span class="font-medium">Thread:</span>
+								<span class="font-medium">{m.admin_misc_thread_label()}</span>
 								{detailedViolation.threadID}
 							</div>
 						{/if}
@@ -626,22 +633,22 @@
 					<div class="p-4 pl-5">
 						<div class="flex flex-col gap-1 text-sm font-light">
 							<p>
-								<span class="font-medium">Timestamp</span>:
+								<span class="font-medium">{m.admin_misc_col_timestamp()}</span>:
 								{formatLogTimestamp(detailedViolation.createdAt, userDeviceSettings.timeFormat)}
 							</p>
 							<p>
-								<span class="font-medium">User</span>:
+								<span class="font-medium">{m.admin_misc_col_user()}</span>:
 								{displayName(detailedViolation.userID)}
 							</p>
 						</div>
 
-						<p class="mt-6 mb-2 text-base font-semibold">Policy Definition</p>
+						<p class="mt-6 mb-2 text-base font-semibold">{m.admin_misc_policy_definition()}</p>
 						<p class="text-sm font-light">{detailedViolation.policyDefinition}</p>
 
-						<p class="mt-6 mb-2 text-base font-semibold">Explanation</p>
+						<p class="mt-6 mb-2 text-base font-semibold">{m.admin_misc_explanation()}</p>
 						<p class="text-sm font-light">{detailedViolation.violationExplanation}</p>
 
-						<p class="mt-6 mb-2 text-base font-semibold">Blocked Content</p>
+						<p class="mt-6 mb-2 text-base font-semibold">{m.admin_misc_blocked_content()}</p>
 						{#if detailedViolation.blockedContent}
 							<div
 								class="dark:bg-base-300 bg-base-100 relative overflow-hidden rounded-md p-4 pl-5"
@@ -656,7 +663,7 @@
 							</div>
 						{:else}
 							<p class="text-sm font-light text-muted-content">
-								Blocked content is only visible to auditors.
+								{m.admin_misc_blocked_content_auditors_only()}
 							</p>
 						{/if}
 					</div>
@@ -665,7 +672,7 @@
 						class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light"
 					>
 						<Loading class="size-5 animate-spin" />
-						<span>Loading details...</span>
+						<span>{m.admin_misc_loading_details()}</span>
 					</div>
 				{/if}
 			</div>

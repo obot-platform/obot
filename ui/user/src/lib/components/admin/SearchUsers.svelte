@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
@@ -50,8 +51,8 @@
 	}
 
 	let filteredData = $derived.by(() => {
-		const everyoneGroup: OrgGroup = { id: '*', name: 'All Obot Users' };
-		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
+		const everyoneGroup: OrgGroup = { id: '*', name: m.admin_misc_all_obot_users() };
+		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: m.admin_misc_obot_admin() };
 		const query = searchNames.toLowerCase();
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
@@ -172,7 +173,7 @@
 	bind:this={addUserGroupDialog}
 	{onClose}
 	{onOpen}
-	title="Add User/Group"
+	title={m.admin_misc_add_user_group()}
 	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
@@ -185,7 +186,7 @@
 					searchNames = val;
 					handleSearch();
 				}}
-				placeholder="Search by user name, email, or group name..."
+				placeholder={m.admin_misc_search_users_groups()}
 			/>
 		</div>
 		{#if groupsDegraded}
@@ -195,13 +196,12 @@
 			>
 				<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 				<span>
-					Showing only groups Obot has already recorded &mdash; directory-wide group read permission
-					may not be granted.
+					{m.admin_misc_groups_degraded_notice()}
 				</span>
 			</div>
 		{:else if groupsHasMore}
 			<p class="text-muted-content px-4 text-xs">
-				Showing the first {filteredGroups.length} groups. Refine your search to narrow the list.
+				{m.admin_misc_groups_has_more({ count: filteredGroups.length })}
 			</p>
 		{/if}
 		{#if loading}
@@ -233,11 +233,13 @@
 							{#if !isGroup(item)}
 								<p>{item.displayName ?? item.email ?? item.username ?? item.id}</p>
 								<p class="text-muted-content font-light">
-									{item.effectiveRole ? getUserRoleLabel(item.effectiveRole) : 'User'}
+									{item.effectiveRole
+										? getUserRoleLabel(item.effectiveRole)
+										: m.admin_misc_role_user()}
 								</p>
 							{:else}
 								<p>{item.name}</p>
-								<p class="text-muted-content font-light">Group</p>
+								<p class="text-muted-content font-light">{m.admin_misc_role_group()}</p>
 							{/if}
 						</div>
 						<div class="flex items-center justify-center">
@@ -258,12 +260,12 @@
 				{:else}
 					<Users class="size-4" />
 				{/if}
-				{selectedUsers.length} Selected
+				{m.admin_misc_n_selected({ count: selectedUsers.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
 			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
-				Cancel
+				{m.common_cancel()}
 			</button>
 			<button
 				id={MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn}
@@ -275,7 +277,7 @@
 					addUserGroupDialog?.close();
 				}}
 			>
-				Confirm
+				{m.admin_misc_confirm()}
 			</button>
 		</div>
 	</div>
