@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatAuditLogCredentialLabel } from '$lib/auditlogs';
 	import { VirtualPageTable } from '$lib/components/ui';
+	import { m } from '$lib/i18n';
 	import type { AuditLogEvent } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
@@ -54,7 +55,9 @@
 
 	function actorLabel(actor: (typeof data)[number]['actor']) {
 		if (actor.actorType === 'user' && actor.id) return getUserDisplayName(actor.id);
-		return actor.id || (actor.actorType === 'unknown' ? 'Unknown' : actor.actorType);
+		return (
+			actor.id || (actor.actorType === 'unknown' ? m.admin_sub_log_unknown() : actor.actorType)
+		);
 	}
 
 	function resolveServerName(ref?: { id?: string; name?: string }) {
@@ -82,18 +85,21 @@
 		if (target.parent) {
 			const server = resolveServerName(target.parent);
 			return {
-				primary: server || tool || 'Unknown',
+				primary: server || tool || m.admin_sub_log_unknown(),
 				secondary: server && tool ? `${tool}` : undefined
 			};
 		}
 		if (target.targetType === 'mcp_server') {
-			return { primary: resolveServerName(target) || 'Unknown', secondary: undefined };
+			return {
+				primary: resolveServerName(target) || m.admin_sub_log_unknown(),
+				secondary: undefined
+			};
 		}
-		return { primary: tool || 'Unknown', secondary: undefined };
+		return { primary: tool || m.admin_sub_log_unknown(), secondary: undefined };
 	}
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
-		return eventType === 'mcp_call' ? 'Obot Gateway' : 'Local Agent Hook';
+		return eventType === 'mcp_call' ? 'Obot Gateway' : m.admin_sub_audit_source_local_agent_hook();
 	}
 
 	function formatDuration(ms?: number) {
@@ -242,14 +248,20 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th('Time', { class: 'w-[28ch]', minWidth: '24ch' })}
-						{@render th('Source', { class: 'w-[20ch]', minWidth: '18ch' })}
-						{@render th('Actor', { class: 'w-[26ch]', minWidth: '22ch' })}
-						{@render th('Operation', { class: 'w-[20ch]', minWidth: '18ch' })}
-						{@render th('Identifier', { class: 'w-[32ch]', minWidth: '26ch' })}
-						{@render th('Status', { class: 'w-[18ch]', minWidth: '16ch' })}
-						{@render th('Client', { class: 'w-[22ch]', minWidth: '18ch' })}
-						{@render th('Duration', { class: 'w-[16ch]', minWidth: '14ch' })}
+						{@render th(m.admin_sub_audit_col_time(), { class: 'w-[28ch]', minWidth: '24ch' })}
+						{@render th(m.admin_sub_audit_filter_source(), { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th(m.admin_sub_log_actor(), { class: 'w-[26ch]', minWidth: '22ch' })}
+						{@render th(m.admin_sub_log_operation(), { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th(m.admin_sub_audit_col_identifier(), {
+							class: 'w-[32ch]',
+							minWidth: '26ch'
+						})}
+						{@render th(m.admin_sub_col_status(), { class: 'w-[18ch]', minWidth: '16ch' })}
+						{@render th(m.admin_sub_log_client(), { class: 'w-[22ch]', minWidth: '18ch' })}
+						{@render th(m.admin_sub_audit_filter_duration(), {
+							class: 'w-[16ch]',
+							minWidth: '14ch'
+						})}
 					</tr>
 				</thead>
 			{/snippet}

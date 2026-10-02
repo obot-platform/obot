@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		UserService,
@@ -239,36 +240,40 @@
 	const graphConfigs: GraphConfig[] = [
 		{
 			id: graphConfigIds.mostFrequentToolCalls,
-			label: 'Most Frequent Tool Calls',
+			label: m.admin_sub_usage_most_frequent_tool_calls(),
 			xKey: 'toolName',
 			yKey: 'count',
-			tooltip: 'calls',
+			tooltip: m.admin_sub_usage_unit_calls(),
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
-			formatTooltipText: (data) => `${data.count} calls • ${data.serverDisplayName}`,
+			formatTooltipText: (data) =>
+				m.admin_sub_usage_tooltip_calls({ count: data.count, name: data.serverDisplayName }),
 			transform: transformTopToolCalls
 		},
 		{
 			id: graphConfigIds.mostFrequentlyUsedServers,
-			label: 'Most Frequently Used Servers',
+			label: m.admin_sub_usage_most_used_servers(),
 			xKey: 'serverName',
 			yKey: 'count',
-			tooltip: 'calls',
+			tooltip: m.admin_sub_usage_unit_calls(),
 			transform: transformTopServerUsage
 		},
 		{
 			id: graphConfigIds.toolCallAverageResponseTime,
-			label: 'Tool Call Average Response Time',
+			label: m.admin_sub_usage_avg_response_time(),
 			xKey: 'toolName',
 			yKey: 'averageResponseTimeMs',
 			tooltip: 'ms',
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) =>
-				`${(data.averageResponseTimeMs as number).toFixed(2)}ms avg • ${data.serverDisplayName}`,
+				m.admin_sub_usage_tooltip_avg_ms({
+					value: (data.averageResponseTimeMs as number).toFixed(2),
+					name: data.serverDisplayName
+				}),
 			transform: transformAvgToolCallResponseTime
 		},
 		{
 			id: graphConfigIds.toolCallIndividualResponseTime,
-			label: 'Tool Call Individual Response Time',
+			label: m.admin_sub_usage_individual_response_time(),
 			xKey: 'toolName',
 			yKey: 'processingTimeMs',
 			tooltip: 'ms',
@@ -296,16 +301,17 @@
 		},
 		{
 			id: graphConfigIds.toolCallErrors,
-			label: 'Tool Call Errors',
+			label: m.admin_sub_usage_tool_call_errors(),
 			xKey: 'toolName',
 			yKey: 'errorCount',
-			tooltip: 'errors',
+			tooltip: m.admin_sub_usage_unit_errors(),
 			formatXLabel: (d) => {
 				// Just grab the tool name
 				const parts = String(d).split('.');
 				return parts[parts.length - 1];
 			},
-			formatTooltipText: (data) => `${data.errorCount} errors • ${data.serverDisplayName}`,
+			formatTooltipText: (data) =>
+				m.admin_sub_usage_tooltip_errors({ count: data.errorCount, name: data.serverDisplayName }),
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
@@ -338,10 +344,10 @@
 		},
 		{
 			id: graphConfigIds.toolCallErrorsByServer,
-			label: 'Tool Call Errors by Server',
+			label: m.admin_sub_usage_errors_by_server(),
 			xKey: 'serverName',
 			yKey: 'errorCount',
-			tooltip: 'errors',
+			tooltip: m.admin_sub_usage_unit_errors(),
 			formatXLabel: (d) => String(d),
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -367,13 +373,16 @@
 		},
 		{
 			id: graphConfigIds.mostActiveUsers,
-			label: 'Most Active Users',
+			label: m.admin_sub_usage_most_active_users(),
 			xKey: 'userId',
 			yKey: 'callCount',
-			tooltip: 'calls',
+			tooltip: m.admin_sub_usage_unit_calls(),
 			formatTooltipText: (data) => {
 				const user = usersAsArray.find((u) => u.id === data.userId);
-				return `${data.callCount} calls • ${userDisplayName(user)}`;
+				return m.admin_sub_usage_tooltip_calls({
+					count: data.callCount,
+					name: userDisplayName(user)
+				});
 			},
 			formatXLabel: (userId) => {
 				const user = usersAsArray.find((u) => u.id === userId);
@@ -448,12 +457,12 @@
 
 	function userDisplayName(user?: OrgUser): string {
 		if (!user) {
-			return 'Unknown';
+			return m.admin_sub_log_unknown();
 		}
 
-		let display = user.originalEmail || user.email || user.id || 'Unknown';
+		let display = user.originalEmail || user.email || user.id || m.admin_sub_log_unknown();
 		if (user.deletedAt) {
-			display += ' (Deleted)';
+			display = m.admin_sub_usage_deleted_user({ name: display });
 		}
 		return display;
 	}
@@ -489,12 +498,13 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as SupportedStateFilter;
 
-		if (_key === 'mcp_server_display_names') return 'Server';
-		if (_key === 'mcp_server_catalog_entry_names') return 'Server Catalog Entry Name';
-		if (_key === 'mcp_id') return 'Server ID';
-		if (_key === 'start_time') return 'Start Time';
-		if (_key === 'end_time') return 'End Time';
-		if (_key === 'user_ids') return 'User';
+		if (_key === 'mcp_server_display_names') return m.admin_sub_audit_filter_server();
+		if (_key === 'mcp_server_catalog_entry_names')
+			return m.admin_sub_usage_filter_catalog_entry_name();
+		if (_key === 'mcp_id') return m.admin_sub_audit_filter_server_id();
+		if (_key === 'start_time') return m.admin_sub_audit_filter_start_time();
+		if (_key === 'end_time') return m.admin_sub_audit_filter_end_time();
+		if (_key === 'user_ids') return m.admin_sub_llm_filter_user();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -561,7 +571,7 @@
 			class="bg-base-400/50 border-base-400 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
-			<div class="text-2xl font-semibold">Loading stats...</div>
+			<div class="text-2xl font-semibold">{m.admin_sub_usage_loading_stats()}</div>
 		</div>
 	</div>
 {/if}
@@ -591,7 +601,7 @@
 					}}
 				>
 					<Funnel class="size-4" />
-					Filters
+					{m.admin_sub_filters_title()}
 				</button>
 			{/if}
 		</div>
@@ -602,10 +612,9 @@
 	{#if !showLoadingSpinner && !hasData(filteredGraphConfigs)}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ChartBarDecreasing class="text-muted-content size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">No usage stats</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_usage_no_stats()}</h4>
 			<p class="text-muted-content w-sm text-sm font-light">
-				Currently, there are no usage stats for the range or selected filters. Try modifying your
-				search criteria or try again later.
+				{m.admin_sub_usage_no_stats_hint()}
 			</p>
 		</div>
 	{:else if !showLoadingSpinner}
@@ -649,7 +658,7 @@
 								<div
 									class="text-muted-content flex h-72 items-center justify-center text-sm font-light"
 								>
-									No data available
+									{m.admin_sub_usage_no_data()}
 								</div>
 							{/if}
 						</div>
@@ -661,18 +670,22 @@
 								<IconButton
 									onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
 									disabled={page === 0}
-									tooltip={{ text: 'Previous Page' }}
+									tooltip={{ text: m.admin_sub_audit_previous_page() }}
 								>
 									<ChevronsLeft class="size-5" />
 								</IconButton>
 								<span class="text-sm">
-									Page {page + 1} of {maxPage + 1}
-									(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
+									{m.admin_sub_usage_page_info({
+										page: page + 1,
+										pages: maxPage + 1,
+										shown: Math.min(graphPageSize, total - page * graphPageSize),
+										total
+									})}
 								</span>
 								<IconButton
 									onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
 									disabled={page >= maxPage}
-									tooltip={{ text: 'Next Page' }}
+									tooltip={{ text: m.admin_sub_audit_next_page() }}
 								>
 									<ChevronsRight class="size-5" />
 								</IconButton>
@@ -736,7 +749,7 @@
 									<span>{getFilterValue(filterKey, value)}</span>
 								</span>
 
-								<span class="mx-1 font-bold last:hidden">OR</span>
+								<span class="mx-1 font-bold last:hidden">{m.admin_sub_filter_or()}</span>
 							{:else}
 								<span class="font-light">{getFilterValue(filterKey, value)}</span>
 							{/if}

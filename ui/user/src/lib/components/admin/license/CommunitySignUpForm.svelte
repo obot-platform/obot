@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import type { CommunityLicenseEnrollment } from '$lib/services/admin/types';
 	import { clearUrlParams } from '$lib/url';
 	import { LoaderCircle } from '@lucide/svelte';
@@ -52,7 +53,7 @@
 			});
 			await onSubmit?.(response);
 		} catch (err) {
-			error = parseErrorContent(err).message || 'Error occurred during registration.';
+			error = parseErrorContent(err).message || m.admin_sub_license_registration_error();
 		} finally {
 			saving = false;
 			if (new URL(window.location.href).searchParams.has('provider')) {
@@ -73,9 +74,9 @@
 >
 	{#if showHeader}
 		<div class="flex flex-col gap-1">
-			<h4 class="text-center text-lg font-semibold">Get Access Now!</h4>
+			<h4 class="text-center text-lg font-semibold">{m.admin_sub_license_get_access()}</h4>
 			<p class="text-center text-sm font-light">
-				{signUpMessage || 'Register your email below to gain access to additional features!'}
+				{signUpMessage || m.admin_sub_license_register_email()}
 			</p>
 		</div>
 	{/if}
@@ -93,7 +94,7 @@
 			)}
 			for={idPrefix + '-name'}
 		>
-			Name
+			{m.admin_sub_license_name()}
 			<input
 				id={idPrefix + '-name'}
 				class="text-input-filled"
@@ -113,14 +114,14 @@
 			)}
 			for={idPrefix + '-email'}
 		>
-			Email
+			{m.common_email()}
 			<input
 				id={idPrefix + '-email'}
 				class="text-input-filled"
 				name="email"
 				type="email"
 				pattern="[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+"
-				title="Enter an email address with a valid domain, such as name@example.com."
+				title={m.admin_sub_license_email_title()}
 				autocomplete="email"
 				bind:value={formData.email}
 				required
@@ -135,7 +136,8 @@
 			)}
 			for={idPrefix + '-company'}
 		>
-			Company <span class="text-xs text-muted-content">(optional)</span>
+			{m.admin_sub_license_company()}
+			<span class="text-xs text-muted-content">{m.admin_sub_license_optional()}</span>
 			<input
 				id="{idPrefix}-company"
 				class="text-input-filled"
@@ -169,6 +171,6 @@
 		{#if saving}
 			<LoaderCircle class="size-4 animate-spin" />
 		{/if}
-		{saving ? 'Registering...' : 'Register'}
+		{saving ? m.admin_sub_license_registering() : m.admin_sub_license_register()}
 	</button>
 </form>

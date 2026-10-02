@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatAuditLogAPIKeyName, getAuditLogAPIKeyMaskedKey } from '$lib/auditlogs';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { AdminService, type LLMAuditLog } from '$lib/services';
 	import AuditLogDetails from './AuditLogDetails.svelte';
 	import { CircleAlert } from '@lucide/svelte';
@@ -31,7 +32,7 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch LLM audit log details:', err);
-				fetchError = err instanceof Error ? err.message : 'Failed to load audit log details';
+				fetchError = err instanceof Error ? err.message : m.admin_sub_llm_load_details_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -42,8 +43,8 @@
 	});
 
 	const titles = {
-		modelProvider: 'Model Provider',
-		modelID: 'Model ID'
+		modelProvider: m.admin_sub_llm_model_provider(),
+		modelID: m.admin_sub_llm_model_id()
 	};
 
 	const properties = ['modelProvider', 'modelID'] as const;
@@ -53,7 +54,7 @@
 	<div class="notification-error m-4 flex items-center gap-3 p-3">
 		<CircleAlert class="size-4 shrink-0" />
 		<div class="flex flex-col gap-1">
-			<p class="text-sm font-semibold">Unable to load full audit log details</p>
+			<p class="text-sm font-semibold">{m.admin_sub_llm_unable_to_load_details()}</p>
 			<p class="text-sm font-light">{fetchError}</p>
 		</div>
 	</div>
@@ -92,19 +93,19 @@
 		)}
 		{#if requestURL}
 			<p class="break-all grid grid-cols-2 gap-2">
-				<span class="font-medium">Request URL:</span>
+				<span class="font-medium">{m.admin_sub_llm_request_url_label()}</span>
 				{requestURL}
 			</p>
 		{/if}
 		{#if data.userAgent}
 			<p class="break-all grid grid-cols-2 gap-2">
-				<span class="font-medium">User Agent:</span>
+				<span class="font-medium">{m.admin_sub_llm_user_agent_label()}</span>
 				{data.userAgent}
 			</p>
 		{/if}
 		{#if apiKey}
 			<p class="break-all grid grid-cols-2 gap-2">
-				<span class="font-medium">API Key:</span>
+				<span class="font-medium">{m.admin_sub_llm_api_key_label()}</span>
 				{apiKey}
 			</p>
 		{/if}

@@ -2,6 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -83,13 +84,23 @@
 
 		switch (interval) {
 			case 'hourly':
-				return `Every hour at :${minute?.toString().padStart(2, '0') || '00'}`;
+				return m.admin_sub_schedule_display_hourly({
+					minute: minute?.toString().padStart(2, '0') || '00'
+				});
 			case 'daily':
-				return `Daily at ${hour}:${minute?.toString().padStart(2, '0')}`;
+				return m.admin_sub_schedule_display_daily({
+					time: `${hour}:${minute?.toString().padStart(2, '0')}`
+				});
 			case 'weekly':
-				return `Weekly on ${weekday} at ${hour}:${minute?.toString().padStart(2, '0')}`;
+				return m.admin_sub_schedule_display_weekly({
+					weekday: `${weekday}`,
+					time: `${hour}:${minute?.toString().padStart(2, '0')}`
+				});
 			case 'monthly':
-				return `Monthly on day ${day} at ${hour}:${minute?.toString().padStart(2, '0')}`;
+				return m.admin_sub_schedule_display_monthly({
+					day: `${day}`,
+					time: `${hour}:${minute?.toString().padStart(2, '0')}`
+				});
 			default:
 				return interval;
 		}
@@ -186,9 +197,9 @@
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Calendar class="text-base-content/80 size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">No export schedules found.</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_schedules_none_found()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				Create your first export schedule to automate your audit log exports.
+				{m.admin_sub_schedules_empty_hint()}
 			</p>
 		</div>
 	{:else}
@@ -198,13 +209,13 @@
 			fields={['name', 'scheduleDisplay', 'lastRunAt', 'enabled']}
 			filterable={['displayName', 'scheduleDisplay']}
 			headers={[
-				{ title: 'Name', property: 'displayName' },
-				{ title: 'Schedule', property: 'scheduleDisplay' },
-				{ title: 'Last Run', property: 'lastRunAt' },
-				{ title: 'Enabled', property: 'enabled' }
+				{ title: m.admin_sub_col_name(), property: 'displayName' },
+				{ title: m.admin_sub_col_schedule(), property: 'scheduleDisplay' },
+				{ title: m.admin_sub_col_last_run(), property: 'lastRunAt' },
+				{ title: m.admin_sub_col_enabled(), property: 'enabled' }
 			]}
 			sortable={['displayName', 'scheduleDisplay', 'lastRun']}
-			noDataMessage="No export schedules found."
+			noDataMessage={m.admin_sub_schedules_none_found()}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
@@ -253,7 +264,7 @@
 									{:else}
 										<CirclePause class="size-4" />
 									{/if}
-									Pause Schedule
+									{m.admin_sub_schedule_pause()}
 								</button>
 							{:else}
 								<button
@@ -270,7 +281,7 @@
 									{:else}
 										<CirclePlay class="size-4" />
 									{/if}
-									Resume Schedule
+									{m.admin_sub_schedule_resume()}
 								</button>
 							{/if}
 							<button
@@ -286,7 +297,8 @@
 									};
 								}}
 							>
-								<Trash2 class="size-4" /> Delete
+								<Trash2 class="size-4" />
+								{m.admin_sub_action_delete()}
 							</button>
 						{/if}
 					{/snippet}
@@ -304,7 +316,8 @@
 							}}
 							disabled={readonly}
 						>
-							<CirclePause class="size-4" /> Pause
+							<CirclePause class="size-4" />
+							{m.admin_sub_action_pause()}
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -320,7 +333,8 @@
 							}}
 							disabled={readonly}
 						>
-							<CirclePause class="size-4" /> Resume
+							<CirclePause class="size-4" />
+							{m.admin_sub_action_resume()}
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -338,7 +352,8 @@
 						}}
 						disabled={readonly}
 					>
-						<Trash2 class="size-4" /> Delete
+						<Trash2 class="size-4" />
+						{m.admin_sub_action_delete()}
 						{#if !readonly}
 							<span class="pill-primary">
 								{Object.keys(currentSelected).length}
@@ -353,8 +368,8 @@
 
 <Confirm
 	msg={showDeleteConfirm?.type === 'single'
-		? 'Delete this scheduled export?'
-		: 'Delete selected scheduled exports?'}
+		? m.admin_sub_schedules_delete_single_msg()
+		: m.admin_sub_schedules_delete_multi_msg()}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -377,15 +392,17 @@
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{`Delete ${showDeleteConfirm?.type === 'single' ? 'scheduled export' : 'selected scheduled exports'}?`}
+			{showDeleteConfirm?.type === 'single'
+				? m.admin_sub_schedules_delete_single_title()
+				: m.admin_sub_schedules_delete_multi_title()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<div class="text-sm font-light">
 			{#if showDeleteConfirm?.type === 'single'}
-				This scheduled export will be permanently deleted and will no longer run.
+				{m.admin_sub_schedules_delete_single_note()}
 			{:else}
-				The selected scheduled exports will be permanently deleted and will no longer run.
+				{m.admin_sub_schedules_delete_multi_note()}
 			{/if}
 		</div>
 	{/snippet}

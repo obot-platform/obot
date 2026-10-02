@@ -3,6 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { formatFileSize } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { AuditLogExport } from '$lib/services/admin/types';
@@ -119,7 +120,7 @@
 			case 'azure':
 				return 'Azure Blob Storage';
 			case 'custom':
-				return 'Custom S3 Compatible';
+				return m.admin_sub_storage_custom_s3();
 		}
 		return provider;
 	}
@@ -141,9 +142,9 @@
 	{:else if exports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<FileArchive class="text-base-content/80 size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No exports found.</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_exports_none_found()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				Create your first audit log export to get started.
+				{m.admin_sub_exports_empty_hint()}
 			</p>
 		</div>
 	{:else}
@@ -153,14 +154,14 @@
 			fields={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
 			filterable={['name', 'state']}
 			headers={[
-				{ title: 'Name', property: 'name' },
-				{ title: 'Status', property: 'state' },
-				{ title: 'Storage', property: 'storageProvider' },
-				{ title: 'Size', property: 'sizeDisplay' },
-				{ title: 'Created', property: 'created' }
+				{ title: m.admin_sub_col_name(), property: 'name' },
+				{ title: m.admin_sub_col_status(), property: 'state' },
+				{ title: m.admin_sub_col_storage(), property: 'storageProvider' },
+				{ title: m.admin_sub_col_size(), property: 'sizeDisplay' },
+				{ title: m.admin_sub_col_created(), property: 'created' }
 			]}
 			sortable={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
-			noDataMessage="No exports found."
+			noDataMessage={m.admin_sub_exports_none_found()}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
@@ -242,15 +243,17 @@
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{`Delete ${showDeleteConfirm?.type === 'single' ? 'export' : 'selected exports'}?`}
+			{showDeleteConfirm?.type === 'single'
+				? m.admin_sub_exports_delete_single_title()
+				: m.admin_sub_exports_delete_multi_title()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<div class="text-sm font-light">
 			{#if showDeleteConfirm?.type === 'single'}
-				This export and its associated files will be permanently deleted.
+				{m.admin_sub_exports_delete_single_note()}
 			{:else}
-				The selected exports and their associated files will be permanently deleted.
+				{m.admin_sub_exports_delete_multi_note()}
 			{/if}
 		</div>
 	{/snippet}

@@ -13,6 +13,7 @@
 		sourceTypeLabels,
 		sourceTypesFromEventTypeParam
 	} from '$lib/components/admin/audit-log-exports/filterFields';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
@@ -373,74 +374,75 @@
 				{
 					fieldId: 'api_key_id',
 					filterKey: 'api_key_id',
-					label: 'API Keys',
-					description: 'API keys used for the requests',
+					label: m.admin_sub_export_filter_title_api_keys(),
+					description: m.admin_sub_export_filter_desc_api_keys_used(),
 					options: filtersOptions['api_key_id']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'user_id',
 					filterKey: 'user_id',
-					label: 'Users',
-					description: 'Comma-separated user IDs',
+					label: m.admin_sub_export_filter_title_users(),
+					description: m.admin_sub_export_filter_desc_csv_user_ids(),
 					options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
 				},
 				{
 					fieldId: 'model_provider',
 					filterKey: 'model_provider',
-					label: 'Model Providers',
-					description: 'Comma-separated model providers',
+					label: m.admin_sub_export_filter_title_model_providers(),
+					description: m.admin_sub_export_filter_desc_csv_model_providers(),
 					options: filtersOptions['model_provider']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'target_model',
 					filterKey: 'target_model',
-					label: 'Target Models',
-					description: 'Comma-separated target models',
+					label: m.admin_sub_export_filter_title_target_models(),
+					description: m.admin_sub_export_filter_desc_csv_target_models(),
 					options: filtersOptions['target_model']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'request_path',
 					filterKey: 'request_path',
-					label: 'Request Paths',
-					description: 'Comma-separated request paths',
+					label: m.admin_sub_export_filter_title_request_paths(),
+					description: m.admin_sub_export_filter_desc_csv_request_paths(),
 					options: filtersOptions['request_path']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'response_status',
 					filterKey: 'response_status',
-					label: 'Response Status',
-					description: 'Comma-separated HTTP status codes',
+					label: m.admin_sub_export_filter_title_response_status(),
+					description: m.admin_sub_export_filter_desc_csv_http_status_codes(),
 					options: filtersOptions['response_status']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'outcome',
 					filterKey: 'outcome',
-					label: 'Outcomes',
-					description: 'Comma-separated outcomes',
+					label: m.admin_sub_export_filter_title_outcomes(),
+					description: m.admin_sub_export_filter_desc_csv_outcomes(),
 					options: filtersOptions['outcome']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'user_agent',
 					filterKey: 'user_agent',
-					label: 'User Agents',
-					description: 'Comma-separated user agents',
+					label: m.admin_sub_export_filter_title_user_agents(),
+					description: m.admin_sub_export_filter_desc_csv_user_agents(),
 					options: filtersOptions['user_agent']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'client_session_id',
 					filterKey: 'client_session_id',
-					label: 'Client Session IDs',
-					description: 'Comma-separated client session IDs',
+					label: m.admin_sub_export_filter_title_client_session_ids(),
+					description: m.admin_sub_export_filter_desc_csv_client_session_ids(),
 					options: filtersOptions['client_session_id']?.map?.(sameLabel) ?? []
 				},
 				{
 					fieldId: 'message_policy_triggered',
 					filterKey: 'message_policy_triggered',
-					label: 'Message Policy Action',
-					description: 'Filter by whether a message policy was triggered',
+					label: m.admin_sub_export_filter_title_message_policy_action(),
+					description: m.admin_sub_export_filter_desc_message_policy_triggered(),
 					options: toStringFilterSelectOptions(
 						filtersOptions['message_policy_triggered'],
-						(value) => (value === 'true' ? 'Triggered' : 'Not triggered')
+						(value) =>
+							value === 'true' ? m.admin_sub_export_triggered() : m.admin_sub_export_not_triggered()
 					)
 				}
 			];
@@ -451,150 +453,150 @@
 			{
 				fieldId: 'actor',
 				filterKey: 'actor',
-				label: 'Actors',
-				description: 'Users and enrolled devices',
+				label: m.admin_sub_export_filter_title_actors(),
+				description: m.admin_sub_export_filter_desc_users_and_devices(),
 				options: toStringFilterSelectOptions(filtersOptions['actor'], resolveUserDisplayName)
 			},
 			{
 				fieldId: 'tool',
 				filterKey: 'tool',
-				label: 'Tools',
-				description: 'Tools called (MCP call identifiers and local tool names)',
+				label: m.admin_sub_export_filter_title_tools(),
+				description: m.admin_sub_export_filter_desc_tools_called(),
 				options: filtersOptions['tool']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'mcp_server',
 				filterKey: 'mcp_server',
-				label: 'MCP Servers',
-				description: 'MCP servers (and the parent server of local tool calls)',
+				label: m.admin_sub_export_filter_title_mcp_servers(),
+				description: m.admin_sub_export_filter_desc_mcp_servers_parent(),
 				options: filtersOptions['mcp_server']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'operation',
 				filterKey: 'operation',
-				label: 'Operations',
-				description: 'MCP operations; local tool calls are all tools/call',
+				label: m.admin_sub_export_filter_title_operations(),
+				description: m.admin_sub_export_filter_desc_mcp_operations(),
 				options: filtersOptions['operation']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'outcome',
 				filterKey: 'outcome',
-				label: 'Outcomes',
-				description: 'success, failure, denied, timeout, or unknown',
+				label: m.admin_sub_export_filter_title_outcomes(),
+				description: m.admin_sub_export_filter_desc_outcome_values(),
 				options: filtersOptions['outcome']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'client',
 				filterKey: 'client',
-				label: 'Clients',
-				description: 'MCP clients and local-agent providers',
+				label: m.admin_sub_export_filter_title_clients(),
+				description: m.admin_sub_export_filter_desc_mcp_clients_and_providers(),
 				options: filtersOptions['client']?.map?.(sameLabel) ?? []
 			},
 			// API-key attribution is shared by every audit-log source.
 			{
 				fieldId: 'api_key_id',
 				filterKey: 'api_key_id',
-				label: 'API Keys',
-				description: 'API keys used for the requests',
+				label: m.admin_sub_export_filter_title_api_keys(),
+				description: m.admin_sub_export_filter_desc_api_keys_used(),
 				options: filtersOptions['api_key_id']?.map?.(sameLabel) ?? []
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
 				fieldId: 'agent_provider',
 				filterKey: 'agent_provider',
-				label: 'Agent Providers',
-				description: 'Local-agent providers',
+				label: m.admin_sub_export_filter_title_agent_providers(),
+				description: m.admin_sub_export_filter_desc_local_agent_providers(),
 				options: filtersOptions['agent_provider']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'status',
 				filterKey: 'status',
-				label: 'Reported Statuses',
-				description: 'Local-agent statuses',
+				label: m.admin_sub_export_filter_title_reported_statuses(),
+				description: m.admin_sub_export_filter_desc_local_agent_statuses(),
 				options: filtersOptions['status']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'tool_name',
 				filterKey: 'tool_name',
-				label: 'Tool Names',
-				description: 'Local tool names',
+				label: m.admin_sub_export_filter_title_tool_names(),
+				description: m.admin_sub_export_filter_desc_local_tool_names(),
 				options: filtersOptions['tool_name']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'tool_kind',
 				filterKey: 'tool_kind',
-				label: 'Tool Kinds',
-				description: 'Local tool kinds',
+				label: m.admin_sub_export_filter_title_tool_kinds(),
+				description: m.admin_sub_export_filter_desc_local_tool_kinds(),
 				options: filtersOptions['tool_kind']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'device_id',
 				filterKey: 'device_id',
-				label: 'Device IDs',
-				description: 'Enrolled device IDs',
+				label: m.admin_sub_export_filter_title_device_ids(),
+				description: m.admin_sub_export_filter_desc_enrolled_device_ids(),
 				options: filtersOptions['device_id']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'user_id',
 				filterKey: 'user_id',
-				label: 'User IDs',
-				description: 'Comma-separated user IDs',
+				label: m.admin_sub_export_filter_title_user_ids(),
+				description: m.admin_sub_export_filter_desc_csv_user_ids(),
 				options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
 			},
 			{
 				fieldId: 'mcp_id',
 				filterKey: 'mcp_id',
-				label: 'Server IDs',
-				description: 'Comma-separated server IDs',
+				label: m.admin_sub_export_filter_title_server_ids(),
+				description: m.admin_sub_export_filter_desc_csv_server_ids(),
 				options: filtersOptions['mcp_id']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'mcp_server_display_name',
 				filterKey: 'mcp_server_display_name',
-				label: 'Server Names',
-				description: 'Comma-separated server display names',
+				label: m.admin_sub_export_filter_title_server_names(),
+				description: m.admin_sub_export_filter_desc_csv_server_display_names(),
 				options: filtersOptions['mcp_server_display_name']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'call_type',
 				filterKey: 'call_type',
-				label: 'Call Types',
-				description: 'Comma-separated call types',
+				label: m.admin_sub_export_filter_title_call_types(),
+				description: m.admin_sub_export_filter_desc_csv_call_types(),
 				options: filtersOptions['call_type']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'client_name',
 				filterKey: 'client_name',
-				label: 'Client Names',
-				description: 'Comma-separated client names',
+				label: m.admin_sub_export_filter_title_client_names(),
+				description: m.admin_sub_export_filter_desc_csv_client_names(),
 				options: filtersOptions['client_name']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'response_status',
 				filterKey: 'response_status',
-				label: 'Response Status',
-				description: 'Comma-separated HTTP status codes',
+				label: m.admin_sub_export_filter_title_response_status(),
+				description: m.admin_sub_export_filter_desc_csv_http_status_codes(),
 				options: filtersOptions['response_status']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'session_id',
 				filterKey: 'session_id',
-				label: 'Session IDs',
-				description: 'Comma-separated session IDs',
+				label: m.admin_sub_export_filter_title_session_ids(),
+				description: m.admin_sub_export_filter_desc_csv_session_ids(),
 				options: filtersOptions['session_id']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'client_ip',
 				filterKey: 'client_ip',
-				label: 'Client IPs',
-				description: 'Comma-separated IP addresses',
+				label: m.admin_sub_export_filter_title_client_ips(),
+				description: m.admin_sub_export_filter_desc_csv_ip_addresses(),
 				options: filtersOptions['client_ip']?.map?.(sameLabel) ?? []
 			},
 			{
 				fieldId: 'mcp_server_catalog_entry_name',
 				filterKey: 'mcp_server_catalog_entry_name',
-				label: 'Catalog Entry Names',
-				description: 'Comma-separated catalog entry names',
+				label: m.admin_sub_export_filter_title_catalog_entry_names(),
+				description: m.admin_sub_export_filter_desc_csv_catalog_entry_names(),
 				options: filtersOptions['mcp_server_catalog_entry_name']?.map?.(sameLabel) ?? []
 			}
 		];
@@ -607,10 +609,10 @@
 
 			// Validate required fields
 			if (!form.name) {
-				throw new Error('Name is required');
+				throw new Error(m.admin_sub_export_name_required());
 			}
 			if (!form.bucket) {
-				throw new Error('Bucket name is required');
+				throw new Error(m.admin_sub_export_bucket_required());
 			}
 
 			const split = (value: string | null | undefined): string[] =>
@@ -668,7 +670,7 @@
 			}
 
 			if (form.sourceTypes.length === 0) {
-				throw new Error('At least one log source must be selected');
+				throw new Error(m.admin_sub_export_source_required());
 			}
 
 			// Prepare the request
@@ -745,11 +747,24 @@
 			error =
 				err instanceof Error
 					? err.message
-					: `Failed to ${mode === 'edit' ? 'update' : 'create'} export schedule`;
+					: mode === 'edit'
+						? m.admin_sub_schedule_update_failed()
+						: m.admin_sub_schedule_create_failed();
 		} finally {
 			creating = false;
 		}
 	}
+
+	const hourOptions = [
+		{ id: '0', label: m.admin_sub_schedule_hour_midnight() },
+		{ id: '3', label: m.admin_sub_schedule_hour_3am() },
+		{ id: '6', label: m.admin_sub_schedule_hour_6am() },
+		{ id: '9', label: m.admin_sub_schedule_hour_9am() },
+		{ id: '12', label: m.admin_sub_schedule_hour_noon() },
+		{ id: '15', label: m.admin_sub_schedule_hour_3pm() },
+		{ id: '18', label: m.admin_sub_schedule_hour_6pm() },
+		{ id: '21', label: m.admin_sub_schedule_hour_9pm() }
+	];
 
 	const selectClasses = 'text-input-filled bg-base-200 dark:bg-base-100';
 	const selectRootClass = 'w-full md:max-w-xs';
@@ -803,8 +818,7 @@
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
-					Exported logs will not include request/response headers and body information. Auditor role
-					is required to access this data.
+					{m.admin_sub_export_auditor_notice()}
 				</div>
 			</div>
 		{/if}
@@ -813,17 +827,17 @@
 		<div class="space-y-4">
 			<h3 class="text-lg font-semibold">
 				{#if mode === 'view'}
-					Scheduled Export Details
+					{m.admin_sub_schedule_details()}
 				{:else if mode === 'edit'}
-					Edit Scheduled Export
+					{m.admin_sub_schedule_edit()}
 				{:else}
-					Basic Information
+					{m.admin_sub_export_basic_information()}
 				{/if}
 			</h3>
 
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="name">Schedule Name</label>
+					<label class="text-sm font-medium" for="name">{m.admin_sub_schedule_name_label()}</label>
 					<input
 						class="text-input-filled"
 						id="name"
@@ -832,10 +846,11 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-muted-content text-xs">Unique name for this export schedule</p>
+					<p class="text-muted-content text-xs">{m.admin_sub_schedule_name_help()}</p>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
+					<label class="text-sm font-medium" for="bucket">{m.admin_sub_export_bucket_label()}</label
+					>
 					<input
 						class="text-input-filled"
 						id="bucket"
@@ -844,28 +859,29 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-muted-content text-xs">Storage bucket name where exports will be saved</p>
+					<p class="text-muted-content text-xs">{m.admin_sub_export_bucket_help()}</p>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="keyPrefix">Key Prefix (Optional)</label>
+				<label class="text-sm font-medium" for="keyPrefix"
+					>{m.admin_sub_export_key_prefix_label()}</label
+				>
 				<input
 					class="text-input-filled"
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
-					placeholder={`Leave empty for default: ${defaultKeyPrefix}/YYYY/MM/DD/`}
+					placeholder={m.admin_sub_export_key_prefix_placeholder({ prefix: defaultKeyPrefix })}
 					readonly={mode === 'view'}
 				/>
 				<p class="text-muted-content text-xs">
-					Path prefix within the bucket. If empty, defaults to "{defaultKeyPrefix}/YYYY/MM/DD/"
-					format based on current date.
+					{m.admin_sub_export_key_prefix_help({ prefix: defaultKeyPrefix })}
 				</p>
 			</div>
 
 			{#if logType === 'mcp'}
 				<div class="flex flex-col gap-1">
-					<span class="text-sm font-medium">Log Sources</span>
+					<span class="text-sm font-medium">{m.admin_sub_export_log_sources()}</span>
 					<div class="flex flex-col gap-2 py-1">
 						{#each ALL_SOURCE_TYPES as sourceType (sourceType)}
 							<label class="flex items-center gap-2 text-sm">
@@ -881,8 +897,7 @@
 					</div>
 					{#if !isViewMode}
 						<p class="text-muted-content text-xs">
-							Which audit-log source(s) to export. Select both to include MCP and local-agent
-							tool-call logs in the same export. At least one source is required.
+							{m.admin_sub_export_log_sources_help()}
 						</p>
 					{/if}
 				</div>
@@ -891,7 +906,7 @@
 
 		<!-- Schedule Configuration -->
 		<div class="flex flex-col gap-4">
-			<h3 class="text-lg font-semibold">Schedule Configuration</h3>
+			<h3 class="text-lg font-semibold">{m.admin_sub_schedule_configuration()}</h3>
 
 			<div class="flex flex-wrap gap-4">
 				<Select
@@ -899,10 +914,10 @@
 					class={selectClasses}
 					classes={{ root: selectRootClass }}
 					options={[
-						{ id: 'hourly', label: 'Hourly' },
-						{ id: 'daily', label: 'Daily' },
-						{ id: 'weekly', label: 'Weekly' },
-						{ id: 'monthly', label: 'Monthly' }
+						{ id: 'hourly', label: m.admin_sub_schedule_hourly() },
+						{ id: 'daily', label: m.admin_sub_schedule_daily() },
+						{ id: 'weekly', label: m.admin_sub_schedule_weekly() },
+						{ id: 'monthly', label: m.admin_sub_schedule_monthly() }
 					]}
 					selected={form.schedule.interval}
 					onSelect={(value) => {
@@ -919,10 +934,10 @@
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
-							{ id: '0', label: 'on the hour' },
-							{ id: '15', label: '15 minutes past' },
-							{ id: '30', label: '30 minutes past' },
-							{ id: '45', label: '45 minutes past' }
+							{ id: '0', label: m.admin_sub_schedule_on_the_hour() },
+							{ id: '15', label: m.admin_sub_schedule_minutes_past({ minutes: 15 }) },
+							{ id: '30', label: m.admin_sub_schedule_minutes_past({ minutes: 30 }) },
+							{ id: '45', label: m.admin_sub_schedule_minutes_past({ minutes: 45 }) }
 						]}
 						selected={form.schedule.minute.toString()}
 						onSelect={(value) => {
@@ -936,16 +951,7 @@
 						id="schedule-hour"
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
-						options={[
-							{ id: '0', label: 'midnight' },
-							{ id: '3', label: '3 AM' },
-							{ id: '6', label: '6 AM' },
-							{ id: '9', label: '9 AM' },
-							{ id: '12', label: 'noon' },
-							{ id: '15', label: '3 PM' },
-							{ id: '18', label: '6 PM' },
-							{ id: '21', label: '9 PM' }
-						]}
+						options={hourOptions}
 						selected={form.schedule.hour.toString()}
 						onSelect={(value) => {
 							form.schedule.hour = parseInt(value.id);
@@ -965,13 +971,13 @@
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
-							{ id: '0', label: 'Sunday' },
-							{ id: '1', label: 'Monday' },
-							{ id: '2', label: 'Tuesday' },
-							{ id: '3', label: 'Wednesday' },
-							{ id: '4', label: 'Thursday' },
-							{ id: '5', label: 'Friday' },
-							{ id: '6', label: 'Saturday' }
+							{ id: '0', label: m.admin_sub_schedule_sunday() },
+							{ id: '1', label: m.admin_sub_schedule_monday() },
+							{ id: '2', label: m.admin_sub_schedule_tuesday() },
+							{ id: '3', label: m.admin_sub_schedule_wednesday() },
+							{ id: '4', label: m.admin_sub_schedule_thursday() },
+							{ id: '5', label: m.admin_sub_schedule_friday() },
+							{ id: '6', label: m.admin_sub_schedule_saturday() }
 						]}
 						selected={form.schedule.weekday.toString()}
 						onSelect={(value) => {
@@ -982,16 +988,7 @@
 						id="schedule-hour"
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
-						options={[
-							{ id: '0', label: 'midnight' },
-							{ id: '3', label: '3 AM' },
-							{ id: '6', label: '6 AM' },
-							{ id: '9', label: '9 AM' },
-							{ id: '12', label: 'noon' },
-							{ id: '15', label: '3 PM' },
-							{ id: '18', label: '6 PM' },
-							{ id: '21', label: '9 PM' }
-						]}
+						options={hourOptions}
 						selected={form.schedule.hour.toString()}
 						onSelect={(value) => {
 							form.schedule.hour = parseInt(value.id);
@@ -1011,14 +1008,14 @@
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
-							{ id: '0', label: '1st' },
-							{ id: '1', label: '2nd' },
-							{ id: '2', label: '3rd' },
-							{ id: '4', label: '5th' },
-							{ id: '14', label: '15th' },
-							{ id: '19', label: '20th' },
-							{ id: '24', label: '25th' },
-							{ id: '-1', label: 'last day' }
+							{ id: '0', label: m.admin_sub_schedule_day_1st() },
+							{ id: '1', label: m.admin_sub_schedule_day_2nd() },
+							{ id: '2', label: m.admin_sub_schedule_day_3rd() },
+							{ id: '4', label: m.admin_sub_schedule_day_5th() },
+							{ id: '14', label: m.admin_sub_schedule_day_15th() },
+							{ id: '19', label: m.admin_sub_schedule_day_20th() },
+							{ id: '24', label: m.admin_sub_schedule_day_25th() },
+							{ id: '-1', label: m.admin_sub_schedule_day_last() }
 						]}
 						selected={form.schedule.day.toString()}
 						onSelect={(value) => {
@@ -1029,16 +1026,7 @@
 						id="schedule-hour"
 						class={selectClasses}
 						classes={{ root: selectRootClass }}
-						options={[
-							{ id: '0', label: 'midnight' },
-							{ id: '3', label: '3 AM' },
-							{ id: '6', label: '6 AM' },
-							{ id: '9', label: '9 AM' },
-							{ id: '12', label: 'noon' },
-							{ id: '15', label: '3 PM' },
-							{ id: '18', label: '6 PM' },
-							{ id: '21', label: '9 PM' }
-						]}
+						options={hourOptions}
 						selected={form.schedule.hour.toString()}
 						onSelect={(value) => {
 							form.schedule.hour = parseInt(value.id);
@@ -1055,23 +1043,22 @@
 		</div>
 
 		<div class="space-y-4">
-			<h3 class="text-lg font-semibold">Time Range</h3>
+			<h3 class="text-lg font-semibold">{m.admin_sub_export_time_range()}</h3>
 			<p class="text-sm text-gray-600">
-				Define how many days of logs to include in each scheduled export. Each export will include
-				logs from the last X days relative to the export time.
+				{m.admin_sub_schedule_time_range_help()}
 			</p>
 			<div class="flex flex-col gap-1">
 				<Select
 					id="schedule-retention-period"
 					class={twMerge(selectClasses, 'w-full max-w-xs')}
 					options={[
-						{ id: '1', label: 'Last 1 day' },
-						{ id: '3', label: 'Last 3 days' },
-						{ id: '7', label: 'Last 7 days' },
-						{ id: '30', label: 'Last 30 days' },
-						{ id: '60', label: 'Last 60 days' },
-						{ id: '90', label: 'Last 90 days' },
-						{ id: '-1', label: 'All logs' }
+						{ id: '1', label: m.admin_sub_schedule_last_1_day() },
+						{ id: '3', label: m.admin_sub_schedule_last_n_days({ days: 3 }) },
+						{ id: '7', label: m.admin_sub_schedule_last_n_days({ days: 7 }) },
+						{ id: '30', label: m.admin_sub_schedule_last_n_days({ days: 30 }) },
+						{ id: '60', label: m.admin_sub_schedule_last_n_days({ days: 60 }) },
+						{ id: '90', label: m.admin_sub_schedule_last_n_days({ days: 90 }) },
+						{ id: '-1', label: m.admin_sub_schedule_all_logs() }
 					]}
 					selected={form.retentionPeriodInDays.toString()}
 					onSelect={(value) => {
@@ -1090,7 +1077,7 @@
 					showAdvancedOptions = !showAdvancedOptions;
 				}}
 			>
-				<h3 class="text-lg font-semibold">Advanced Options</h3>
+				<h3 class="text-lg font-semibold">{m.admin_sub_export_advanced_options()}</h3>
 				{#if showAdvancedOptions}
 					<ChevronUp class="size-5" />
 				{:else}
@@ -1101,21 +1088,23 @@
 			{#if showAdvancedOptions}
 				<div transition:slide={{ duration: 200 }} class="space-y-4">
 					<p class="text-sm text-gray-600">
-						Leave filters empty to export all logs in each scheduled period
+						{m.admin_sub_schedule_leave_filters_empty()}
 					</p>
 
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="query">Search Query</label>
+						<label class="text-sm font-medium" for="query"
+							>{m.admin_sub_export_search_query()}</label
+						>
 						<input
 							id="query"
 							class={selectClasses}
 							bind:value={form.filters.query}
-							placeholder="Search audit logs"
+							placeholder={m.admin_sub_export_search_placeholder()}
 							readonly={isViewMode}
 							disabled={isViewMode}
 						/>
 						<p class="text-muted-content text-xs">
-							Free-text search to apply to each exported audit-log period
+							{m.admin_sub_schedule_search_help()}
 						</p>
 					</div>
 
@@ -1171,15 +1160,17 @@
 				onclick={onCancel}
 				disabled={creating && mode !== 'view'}
 			>
-				{mode === 'view' ? 'Back' : 'Cancel'}
+				{mode === 'view' ? m.common_back() : m.common_cancel()}
 			</button>
 			{#if mode !== 'view'}
 				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
 						<Loading class="size-4" />
-						{mode === 'edit' ? 'Saving Changes...' : 'Creating Schedule...'}
+						{mode === 'edit'
+							? m.admin_sub_export_saving_changes()
+							: m.admin_sub_schedule_creating()}
 					{:else}
-						{mode === 'edit' ? 'Save Changes' : 'Create Schedule'}
+						{mode === 'edit' ? m.admin_sub_export_save_changes() : m.admin_sub_schedule_create()}
 					{/if}
 				</button>
 			{/if}

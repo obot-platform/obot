@@ -14,6 +14,7 @@
 	import LlmAuditLogsTable from '$lib/components/admin/audit-logs/LlmAuditLogsTable.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		UserService,
@@ -229,7 +230,7 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch LLM audit logs:', err);
-				fetchError = err instanceof Error ? err.message : 'Failed to load LLM audit logs';
+				fetchError = err instanceof Error ? err.message : m.admin_sub_llm_load_logs_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -273,15 +274,16 @@
 
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof LLMAuditLogURLFilters;
-		if (_key === 'outcome') return 'Outcome';
-		if (_key === 'api_key_id') return 'API Key';
-		if (_key === 'request_path') return 'Path';
-		if (_key === 'response_status') return 'Status';
-		if (_key === 'user_id') return 'User';
-		if (_key === 'user_agent') return 'User Agent';
-		if (_key === 'client_session_id') return 'Client Session ID';
-		if (_key === 'hide_models_requests') return 'Model discovery requests';
-		if (_key === 'message_policy_triggered') return 'Message Policy Action';
+		if (_key === 'outcome') return m.admin_sub_log_outcome();
+		if (_key === 'api_key_id') return m.admin_sub_audit_filter_api_key();
+		if (_key === 'request_path') return m.admin_sub_llm_filter_path();
+		if (_key === 'response_status') return m.admin_sub_col_status();
+		if (_key === 'user_id') return m.admin_sub_llm_filter_user();
+		if (_key === 'user_agent') return m.admin_sub_log_user_agent();
+		if (_key === 'client_session_id') return m.admin_sub_llm_filter_client_session_id();
+		if (_key === 'hide_models_requests') return m.admin_sub_llm_filter_model_discovery();
+		if (_key === 'message_policy_triggered')
+			return m.admin_sub_export_filter_title_message_policy_action();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -297,9 +299,10 @@
 			return getUserDisplayName(usersMap, value + '');
 		}
 		if (label === 'message_policy_triggered') {
-			return value === 'true' ? 'Triggered' : 'Not triggered';
+			return value === 'true' ? m.admin_sub_export_triggered() : m.admin_sub_export_not_triggered();
 		}
-		if (label === 'hide_models_requests') return value === 'true' ? 'Hidden' : 'Shown';
+		if (label === 'hide_models_requests')
+			return value === 'true' ? m.admin_sub_llm_hidden() : m.admin_sub_llm_shown();
 
 		return value + '';
 	}
@@ -348,7 +351,7 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={handleQueryChange}
-			placeholder="Search..."
+			placeholder={m.admin_sub_search_placeholder()}
 			value={query}
 		/>
 		<div class="self-start @min-[768px]:self-end flex gap-4">
@@ -368,7 +371,7 @@
 				}}
 			>
 				<Funnel class="size-4" />
-				Filters
+				{m.admin_sub_filters_title()}
 			</button>
 		</div>
 	</div>
@@ -389,7 +392,7 @@
 	<div class="notification-error flex w-full items-center gap-3 p-4">
 		<CircleAlert class="size-5 shrink-0" />
 		<div class="flex flex-col gap-1">
-			<p class="text-sm font-semibold">Unable to load LLM audit logs</p>
+			<p class="text-sm font-semibold">{m.admin_sub_llm_unable_to_load_logs()}</p>
 			<p class="text-sm font-light">{fetchError}</p>
 		</div>
 	</div>
@@ -408,9 +411,9 @@
 {:else}
 	<div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center w-full">
 		<Captions class="text-muted-content size-20 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No LLM audit logs</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_llm_no_logs()}</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
-			There are no LLM audit logs for the selected range or search criteria.
+			{m.admin_sub_llm_no_logs_hint()}
 		</p>
 	</div>
 {/if}
@@ -425,13 +428,15 @@
 				disabled={isReachedMin}
 				onclick={prevPage}
 			>
-				<ChevronLeft class="size-4" /> Previous Page
+				<ChevronLeft class="size-4" />
+				{m.admin_sub_audit_previous_page()}
 			</button>
 			<div class="flex gap-4">
 				<div>
-					{Intl.NumberFormat().format(pageIndex + 1)} of {Intl.NumberFormat().format(
-						numberOfPages || 1
-					)} pages
+					{m.admin_sub_llm_page_of({
+						page: Intl.NumberFormat().format(pageIndex + 1),
+						total: Intl.NumberFormat().format(numberOfPages || 1)
+					})}
 				</div>
 			</div>
 			<button
@@ -439,7 +444,8 @@
 				disabled={isReachedMax}
 				onclick={nextPage}
 			>
-				Next Page <ChevronRight class="size-4" />
+				{m.admin_sub_audit_next_page()}
+				<ChevronRight class="size-4" />
 			</button>
 		</div>
 	</div>
@@ -484,12 +490,12 @@
 			getFilterOptionLabel={(key, value) =>
 				key === 'hide_models_requests'
 					? value === 'true'
-						? 'Hidden'
-						: 'Shown'
+						? m.admin_sub_llm_hidden()
+						: m.admin_sub_llm_shown()
 					: key === 'message_policy_triggered'
 						? value === 'true'
-							? 'Triggered'
-							: 'Not triggered'
+							? m.admin_sub_export_triggered()
+							: m.admin_sub_export_not_triggered()
 						: value}
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {

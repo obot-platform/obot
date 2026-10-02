@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { agentLabel, allowlistServerLabel, kindLabel } from '$lib/enforcement';
+	import { m } from '$lib/i18n';
 	import type { EnforcementDecisionEvent } from '$lib/services';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
@@ -58,7 +59,8 @@
 	// moves up to the primary line so the cell is never blank.
 	function identifierParts(decision: EnforcementDecisionEvent) {
 		const server = serverDisplay(decision);
-		if (!server) return { primary: decision.tool || 'Unknown', secondary: undefined };
+		if (!server)
+			return { primary: decision.tool || m.admin_sub_log_unknown(), secondary: undefined };
 		return { primary: server, secondary: decision.tool || undefined };
 	}
 </script>
@@ -159,15 +161,15 @@
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 items-center gap-2 py-4">
 				{#if decision.decision === 'allow'}
-					<span class="badge badge-success badge-sm shrink-0">Allowed</span>
+					<span class="badge badge-success badge-sm shrink-0">{m.admin_sub_enf_allowed()}</span>
 				{:else}
-					<span class="badge badge-error badge-sm shrink-0">Blocked</span>
+					<span class="badge badge-error badge-sm shrink-0">{m.admin_sub_enf_blocked()}</span>
 				{/if}
 				{#if decision.unresolved}
 					<span
 						class="text-warning inline-flex shrink-0"
-						aria-label="Target could not be identified"
-						use:tooltip={{ text: 'The device could not identify what this call targets' }}
+						aria-label={m.admin_sub_enf_target_unidentified()}
+						use:tooltip={{ text: m.admin_sub_enf_target_unidentified_tooltip() }}
 					>
 						<ShieldQuestionMark class="size-4" />
 					</span>
@@ -202,7 +204,7 @@
 					{#if decision.obotHosted}
 						<span
 							class="badge badge-ghost badge-sm shrink-0"
-							use:tooltip={{ text: 'Hosted by this Obot instance' }}
+							use:tooltip={{ text: m.admin_sub_enf_hosted_by_obot() }}
 						>
 							Obot
 						</span>
@@ -226,14 +228,17 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th('Timestamp', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('Result', { class: 'w-[22ch]', minWidth: '22ch' })}
-						{@render th('Agent', { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th('Tool Type', { class: 'w-[14ch]', minWidth: '14ch' })}
-						{@render th('Identifier', { class: 'w-[36ch]', minWidth: '26ch' })}
-						{@render th('Device', { class: 'w-[28ch]', minWidth: '20ch' })}
-						{@render th('Reason', { class: 'w-[40ch]', minWidth: '24ch' })}
-						{@render th('IP Address', { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th(m.admin_sub_llm_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.admin_sub_enf_result(), { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th(m.admin_sub_log_agent(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.admin_sub_enf_tool_type(), { class: 'w-[14ch]', minWidth: '14ch' })}
+						{@render th(m.admin_sub_audit_col_identifier(), {
+							class: 'w-[36ch]',
+							minWidth: '26ch'
+						})}
+						{@render th(m.admin_sub_log_device(), { class: 'w-[28ch]', minWidth: '20ch' })}
+						{@render th(m.admin_sub_log_reason(), { class: 'w-[40ch]', minWidth: '24ch' })}
+						{@render th(m.admin_sub_llm_col_ip_address(), { class: 'w-[22ch]', minWidth: '22ch' })}
 					</tr>
 				</thead>
 			{/snippet}
