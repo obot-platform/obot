@@ -22,6 +22,16 @@ export const UNAUTHORIZED_PATHS = new Set([
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
 
+// The sub-tabs of the Auth Providers tab of Identity & Access: the providers, and SCIM.
+export const AUTH_PROVIDERS_VIEW_PATH = '/identity-access?view=auth-providers';
+export const SCIM_VIEW_PATH = '/identity-access?view=auth-providers&subview=scim';
+const scimViewParams = Array.from(new URL(SCIM_VIEW_PATH, 'http://localhost').searchParams);
+
+// Whether the query of a URL of Identity & Access selects the SCIM sub-tab, as SCIM_VIEW_PATH's does.
+export function isSCIMView(searchParams: URLSearchParams): boolean {
+	return scimViewParams.every(([key, value]) => searchParams.get(key) === value);
+}
+
 export const SEEN_SPLASH_DIALOG_KEY = 'seenSplashDialog';
 
 export const CommonModelProviderIds = {

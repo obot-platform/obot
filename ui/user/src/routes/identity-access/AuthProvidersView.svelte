@@ -16,7 +16,8 @@
 	import {
 		CommonAuthProviderIds,
 		PAGE_TRANSITION_DURATION,
-		RecommendedModelProviders
+		RecommendedModelProviders,
+		SCIM_VIEW_PATH
 	} from '$lib/constants';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { reloadPage } from '$lib/navigation';
@@ -327,7 +328,7 @@
 			return {
 				kind: 'info',
 				text: empty
-					? `With these left empty, ${provider.name} provisions users and groups through SCIM, and Obot never fetches groups from it. Setup continues on Identity & Access → SCIM once an Owner has signed in.`
+					? `With these left empty, ${provider.name} provisions users and groups through SCIM, and Obot never fetches groups from it. Setup continues on Identity & Access → Auth Providers → SCIM once an Owner has signed in.`
 					: `With these provided, Obot fetches each user's groups from ${provider.name} when they sign in. Leave both empty to provision users and groups through SCIM instead.`
 			};
 		}
@@ -453,7 +454,7 @@
 			providerConfigure?.close();
 			await refreshAuthProviders();
 			if (incoming.scimState) {
-				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Continue on the SCIM tab, and retry the provisioning tasks that failed in ${incoming.name} while it was not configured.`;
+				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Continue on Auth Providers → SCIM, and retry the provisioning tasks that failed in ${incoming.name} while it was not configured.`;
 			}
 		} catch (err) {
 			confirmSwitch = false;
@@ -628,7 +629,7 @@
 					<Info class="mt-0.5 size-5 shrink-0" />
 					<p class="text-sm font-light">
 						{scimNotice}
-						<a class="text-link" href={resolve('/identity-access?view=scim')}>Go to SCIM</a>
+						<a class="text-link" href={resolve(SCIM_VIEW_PATH)}>Go to SCIM</a>
 					</p>
 				</div>
 			{/if}

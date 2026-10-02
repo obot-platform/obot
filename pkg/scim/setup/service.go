@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +61,7 @@ var (
 	}
 )
 
-// GroupList selects one of the lists of groups in a review, or in the preview of enabling SCIM.
+// GroupList selects one of the lists of groups in a review.
 type GroupList string
 
 // AuthProviders reports which auth provider serves sign-ins, and which one is staged to replace it.
@@ -233,7 +234,6 @@ func (s *Service) Review(ctx context.Context, id string, actor Actor, pageSize i
 			return nil, err
 		}
 	}
-	review.UnusedDirectoryParameters = s.unusedDirectoryParameters(ctx, p)
 	return review, nil
 }
 
@@ -368,27 +368,6 @@ func (s *Service) RevokePreviousToken(ctx context.Context, id string) (*types2.S
 	return s.Connection(ctx, id, "")
 }
 
-// unusedDirectoryParameters returns the directory parameters that the active configuration of the connection's auth
-// provider still holds, which SCIM made unused. It only advises the administrator, so a configuration that cannot be
-// read is logged and reported as holding none, rather than failing the review.
-func (s *Service) unusedDirectoryParameters(ctx context.Context, p *provider) []string {
-	cred, err := s.gateway.RevealCredential(ctx, []string{p.name, system.GenericAuthProviderCredentialContext}, p.name)
-	if errors.As(err, &gclient.CredentialNotFoundError{}) {
-		return nil
-	} else if err != nil {
-		slog.Warn("Failed to read the configuration of a SCIM connection's auth provider", "authProvider", p.name, "error", err)
-		return nil
-	}
-
-	var unused []string
-	for _, d := range p.adapter.DirectoryParameters() {
-		if cred.Secrets[d.Name] != "" {
-			unused = append(unused, d.Name)
-		}
-	}
-	return unused
-}
-
 // enforceMarked reads the references again, now that the deletion runID has marked the unreferenced groups, and
 // enforces the connection.
 func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection, p *provider, runID string, actor Actor) (*gclient.EnforceSCIMResult, error) {
@@ -420,7 +399,7 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 			blockers = append(blockers, unboundGroupMessage(p, p.group(group, plan.references[group.ID])))
 		}
 		if blocked.ActorProblem != "" {
-			blockers = append(blockers, actorProblemMessage(p, blocked.ActorProblem))
+			blockers = append(blockers, s.actorProblemMessage(ctx, p, actor, blocked.ActorProblem))
 		}
 		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	} else if state, ok := errors.AsType[*gclient.SCIMConnectionStateError](err); ok {
@@ -451,7 +430,7 @@ func (s *Service) enforceBlockers(ctx context.Context, conn *types.SCIMConnectio
 			return nil, err
 		}
 		if problem != "" {
-			blockers = append(blockers, actorProblemMessage(p, problem))
+			blockers = append(blockers, s.actorProblemMessage(ctx, p, actor, problem))
 		}
 	}
 	return blockers, nil
@@ -762,18 +741,44 @@ func references(refs []groupref.Reference) []types2.GroupReference {
 	return result
 }
 
-func actorProblemMessage(p *provider, problem gclient.SCIMEnforceActorProblem) string {
-	switch problem {
-	case gclient.SCIMEnforceActorOtherAuthProvider:
+// actorProblemMessage explains what keeps actor from enforcing SCIM. A message about the actor's account names it,
+// so that the administrator can find it in the identity provider.
+func (s *Service) actorProblemMessage(ctx context.Context, p *provider, actor Actor, problem gclient.SCIMEnforceActorProblem) string {
+	if problem == gclient.SCIMEnforceActorOtherAuthProvider {
 		return fmt.Sprintf("Sign in through %s to enforce SCIM, so that you are known to be able to sign in once it is enforced.", p.displayName)
+	}
+
+	account := "Your account"
+	// The user may have been deleted since the check of their account, which still names them. The name only helps
+	// the administrator find the account, so a user that cannot be read leaves it out rather than failing.
+	if user, err := s.gateway.UserByIDIncludeDeleted(ctx, strconv.FormatUint(uint64(actor.UserID), 10)); err != nil {
+		slog.Warn("Failed to get the user that cannot enforce SCIM", "userID", actor.UserID, "error", err)
+	} else if name := accountName(user); name != "" {
+		account += ", " + name + ","
+	}
+
+	switch problem {
 	case gclient.SCIMEnforceActorNotSignedIn:
-		return fmt.Sprintf("Your account has not signed in through %s, so it is not known to be able to sign in once SCIM is enforced.", p.displayName)
+		return fmt.Sprintf("%s has not signed in through %s, so it is not known to be able to sign in once SCIM is enforced.", account, p.displayName)
 	case gclient.SCIMEnforceActorUnprovisioned:
-		return fmt.Sprintf("Your account has not been provisioned through SCIM. Assign yourself to the SCIM application in %s.", p.displayName)
+		return fmt.Sprintf("%s has not been provisioned through SCIM. Assign yourself to the SCIM application in %s.", account, p.displayName)
 	case gclient.SCIMEnforceActorDeactivated:
-		return fmt.Sprintf("Your account is deactivated in %s, so you could not sign in once SCIM is enforced.", p.displayName)
+		return fmt.Sprintf("%s is deactivated in %s, so you could not sign in once SCIM is enforced.", account, p.displayName)
 	default:
-		return "Your account is not active in Obot."
+		return account + " is not active in Obot."
+	}
+}
+
+// accountName names a user's account by its username and email address, as in "alice (alice@example.com)", or by
+// only one of them when they are the same or the other is empty. It is empty when the user has neither.
+func accountName(user *types.User) string {
+	switch {
+	case user.Email == "":
+		return user.Username
+	case user.Username == "" || strings.EqualFold(user.Username, user.Email):
+		return user.Email
+	default:
+		return fmt.Sprintf("%s (%s)", user.Username, user.Email)
 	}
 }
 

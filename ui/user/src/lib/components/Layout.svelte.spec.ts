@@ -237,7 +237,9 @@ describe('Layout.svelte', () => {
 			await renderWithAuthProviders([okta()]);
 
 			await expect.element(continueLink()).toBeVisible();
-			await expect.element(continueLink()).toHaveAttribute('href', '/identity-access?view=scim');
+			await expect
+				.element(continueLink())
+				.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
 			await expect
 				.element(page.getByText(/Okta provisions users and groups through SCIM/))
 				.toBeVisible();
@@ -272,7 +274,9 @@ describe('Layout.svelte', () => {
 			const url = vi
 				.spyOn(appPage, 'url', 'get')
 				.mockReturnValue(
-					new URL('http://localhost/identity-access?view=scim') as typeof appPage.url
+					new URL(
+						'http://localhost/identity-access?view=auth-providers&subview=scim'
+					) as typeof appPage.url
 				);
 			try {
 				await renderWithAuthProviders([okta()]);

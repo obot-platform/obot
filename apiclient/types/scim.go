@@ -149,10 +149,6 @@ type SCIMConnectionReview struct {
 	// UnboundReferencedGroups, which also block it. They are empty once SCIM is enforced.
 	EnforceBlockers []string               `json:"enforceBlockers"`
 	Activity        SCIMConnectionActivity `json:"activity"`
-	// UnusedDirectoryParameters name the configuration parameters that only login-time directory synchronization
-	// used, and that the auth provider's configuration still holds. SCIM replaced directory synchronization, so they
-	// can be removed.
-	UnusedDirectoryParameters []string `json:"unusedDirectoryParameters,omitempty"`
 }
 
 // SCIMDuplicateGroupName is a name that more than one referenced group of an auth provider has, after
@@ -162,9 +158,8 @@ type SCIMDuplicateGroupName struct {
 	Groups []SCIMSetupGroup `json:"groups"`
 }
 
-// SCIMEnablePreview is what enabling SCIM for the configured auth provider would do, and what blocks it. Enabling
-// applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in. Each list
-// of groups holds its first page; the preview's group route serves the others.
+// SCIMEnablePreview names the configured auth provider that SCIM can be enabled for, and what blocks enabling it.
+// Enabling applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in.
 type SCIMEnablePreview struct {
 	// AuthProviderNamespace, AuthProviderName, and AuthProviderDisplayName name the configured auth provider. They
 	// are empty when no auth provider is configured, or the configured one does not support SCIM.
@@ -175,15 +170,6 @@ type SCIMEnablePreview struct {
 	Blockers []string `json:"blockers"`
 	// DuplicateGroupNames are the names that more than one referenced group has. They block enabling.
 	DuplicateGroupNames []SCIMDuplicateGroupName `json:"duplicateGroupNames"`
-	Warnings            []SCIMSetupWarning       `json:"warnings"`
-	// UnboundReferencedGroups are the referenced groups, which the identity provider must push under exactly these
-	// names.
-	UnboundReferencedGroups SCIMSetupGroupPage `json:"unboundReferencedGroups"`
-	// UnreferencedGroups are the groups that nothing references, which enabling deletes.
-	UnreferencedGroups SCIMSetupGroupPage `json:"unreferencedGroups"`
-	// BaseURLPrefix is the start of the SCIM base URL, which ends with the ID of the connection that enabling
-	// creates.
-	BaseURLPrefix string `json:"baseURLPrefix"`
 }
 
 // SCIMEnableResult is what enabling SCIM did.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -280,10 +281,9 @@ func TestReview(t *testing.T) {
 	// An administrator who is not an Owner, and the bootstrap user, are told they cannot enforce, and not what an
 	// Owner would have to do about their own account.
 	tests := []struct {
-		name      string
-		actor     Actor
-		wantRole  string
-		wantCount int
+		name     string
+		actor    Actor
+		wantRole string
 	}{
 		{
 			name: "an administrator who has not been provisioned",
@@ -292,8 +292,7 @@ func TestReview(t *testing.T) {
 				AuthProviderNamespace: s.owner.AuthProviderNamespace,
 				AuthProviderName:      s.owner.AuthProviderName,
 			},
-			wantRole:  "Only an Owner who signed in through Okta can enforce SCIM.",
-			wantCount: 1,
+			wantRole: "Only an Owner who signed in through Okta can enforce SCIM.",
 		},
 		{
 			name: "the bootstrap user",
@@ -303,8 +302,7 @@ func TestReview(t *testing.T) {
 				Owner:            true,
 				Bootstrap:        true,
 			},
-			wantRole:  "Only an Owner who signed in through Okta can enforce SCIM. The bootstrap user cannot.",
-			wantCount: 1,
+			wantRole: "Only an Owner who signed in through Okta can enforce SCIM. The bootstrap user cannot.",
 		},
 	}
 	for _, tt := range tests {
@@ -313,12 +311,50 @@ func TestReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// Only the role.
-			if len(review.EnforceBlockers) != tt.wantCount || review.EnforceBlockers[0] != tt.wantRole {
-				t.Fatalf("enforce blockers = %v", review.EnforceBlockers)
+			// Only the role, and not what an Owner would have to do about their own account.
+			if !slices.Equal(review.EnforceBlockers, []string{tt.wantRole}) {
+				t.Fatalf("enforce blockers = %q, want %q", review.EnforceBlockers, tt.wantRole)
 			}
-			if strings.Contains(strings.Join(review.EnforceBlockers, "\n"), "Your account") {
-				t.Fatalf("enforce blockers describe the requester's account: %v", review.EnforceBlockers)
+		})
+	}
+
+	// An Owner whose account could not sign in once SCIM is enforced is told which account it is, so they can find it
+	// in the identity provider.
+	accountTests := []struct {
+		name   string
+		userID uint
+		want   string
+	}{
+		{
+			name:   "an Owner whom the provider has not provisioned",
+			userID: s.stranger,
+			want:   "Your account, 00u-stranger (00u-stranger@example.com), has not been provisioned through SCIM. Assign yourself to the SCIM application in Okta.",
+		},
+		{
+			name:   "an Owner who has not signed in through the provider",
+			userID: s.provision("00u-new").UserID,
+			want:   "Your account, 00u-new, has not signed in through Okta, so it is not known to be able to sign in once SCIM is enforced.",
+		},
+		{
+			// The name only helps find the account, so a user that cannot be read leaves it out.
+			name:   "an Owner whose user cannot be read",
+			userID: 1_000_000,
+			want:   "Your account has not signed in through Okta, so it is not known to be able to sign in once SCIM is enforced.",
+		},
+	}
+	for _, tt := range accountTests {
+		t.Run(tt.name, func(t *testing.T) {
+			review, err := s.service.Review(t.Context(), s.conn.ID, Actor{
+				UserID:                tt.userID,
+				AuthProviderNamespace: s.owner.AuthProviderNamespace,
+				AuthProviderName:      s.owner.AuthProviderName,
+				Owner:                 true,
+			}, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(review.EnforceBlockers, []string{tt.want}) {
+				t.Fatalf("enforce blockers = %q, want %q", review.EnforceBlockers, tt.want)
 			}
 		})
 	}
@@ -546,5 +582,55 @@ func TestReviewWarnsAboutEveryone(t *testing.T) {
 	}
 	if !warned {
 		t.Fatalf("warnings = %+v, want one about the Everyone group", review.Warnings)
+	}
+}
+
+func TestAccountName(t *testing.T) {
+	tests := []struct {
+		name string
+		user types.User
+		want string
+	}{
+		{
+			name: "a username and an email address",
+			user: types.User{
+				Username: "alice",
+				Email:    "alice@example.com",
+			},
+			want: "alice (alice@example.com)",
+		},
+		{
+			name: "a username that is the email address",
+			user: types.User{
+				Username: "Alice@example.com",
+				Email:    "alice@example.com",
+			},
+			want: "alice@example.com",
+		},
+		{
+			name: "only an email address",
+			user: types.User{
+				Email: "alice@example.com",
+			},
+			want: "alice@example.com",
+		},
+		{
+			name: "only a username",
+			user: types.User{
+				Username: "alice",
+			},
+			want: "alice",
+		},
+		{
+			name: "neither",
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := accountName(&tt.user); got != tt.want {
+				t.Fatalf("accountName() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

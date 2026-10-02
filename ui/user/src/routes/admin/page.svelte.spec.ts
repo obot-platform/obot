@@ -99,10 +99,10 @@ describe('Owner Setup handoff', () => {
 		await expect
 			.element(page.getByText(/Okta provisions users and groups through SCIM/))
 			.toBeVisible();
-		await expect.element(page.getByText(/Identity & Access → SCIM/)).toBeVisible();
+		await expect.element(page.getByText(/Identity & Access → Auth Providers → SCIM/)).toBeVisible();
 		expect(await logOut()).toEqual({
 			afterSignOut: '/',
-			destination: '/identity-access?view=scim'
+			destination: '/identity-access?view=auth-providers&subview=scim'
 		});
 	});
 

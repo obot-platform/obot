@@ -155,7 +155,6 @@ func TestSCIMConnectionAdministration(t *testing.T) {
 	reads := []string{
 		"/api/scim-connections",
 		"/api/scim-connections/enable-preview",
-		"/api/scim-connections/enable-preview/groups",
 		"/api/scim-connections/" + connection + "/review",
 		"/api/scim-connections/" + connection + "/users",
 		"/api/scim-connections/" + connection + "/groups",

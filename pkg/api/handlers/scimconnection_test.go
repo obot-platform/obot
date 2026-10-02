@@ -225,7 +225,6 @@ func TestSCIMEnableHandler(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &preview))
 	assert.Equal(t, s.provider.Name, preview.AuthProviderName)
 	assert.Empty(t, preview.Blockers)
-	assert.Equal(t, "https://obot.example.com/scim/v2/", preview.BaseURLPrefix)
 
 	// Only Owners can enable it.
 	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections", "", admin)

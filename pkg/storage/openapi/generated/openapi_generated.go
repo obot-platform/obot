@@ -16945,20 +16945,6 @@ func schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref common.R
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity"),
 						},
 					},
-					"unusedDirectoryParameters": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UnusedDirectoryParameters name the configuration parameters that only login-time directory synchronization used, and that the auth provider's configuration still holds. SCIM replaced directory synchronization, so they can be removed.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"connection", "provisionedUsers", "unprovisionedUsers", "boundGroups", "unboundReferencedGroups", "unreferencedGroups", "warnings", "enforceBlockers", "activity"},
 			},
@@ -17007,7 +16993,7 @@ func schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref common.Refe
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SCIMEnablePreview is what enabling SCIM for the configured auth provider would do, and what blocks it. Enabling applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in. Each list of groups holds its first page; the preview's group route serves the others.",
+				Description: "SCIMEnablePreview names the configured auth provider that SCIM can be enabled for, and what blocks enabling it. Enabling applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"authProviderNamespace": {
@@ -17056,46 +17042,12 @@ func schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref common.Refe
 							},
 						},
 					},
-					"warnings": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"),
-									},
-								},
-							},
-						},
-					},
-					"unboundReferencedGroups": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UnboundReferencedGroups are the referenced groups, which the identity provider must push under exactly these names.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
-						},
-					},
-					"unreferencedGroups": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UnreferencedGroups are the groups that nothing references, which enabling deletes.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
-						},
-					},
-					"baseURLPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Description: "BaseURLPrefix is the start of the SCIM base URL, which ends with the ID of the connection that enabling creates.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
-				Required: []string{"blockers", "duplicateGroupNames", "warnings", "unboundReferencedGroups", "unreferencedGroups", "baseURLPrefix"},
+				Required: []string{"blockers", "duplicateGroupNames"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName", "github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"},
+			"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName"},
 	}
 }
 

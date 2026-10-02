@@ -3,7 +3,7 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { SCIM_VIEW_PATH, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { navigateTo, reloadPage } from '$lib/navigation';
 	import {
@@ -31,13 +31,13 @@
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
 	// The configured auth provider, when it provisions users and groups through SCIM. Its setup
-	// continues on the SCIM tab once the new Owner signs in.
+	// continues on the SCIM sub-tab once the new Owner signs in.
 	let scimProvider = $state<AuthProvider>();
-	// Signing out lands on the sign-in page, which returns the new Owner to the SCIM tab once they
+	// Signing out lands on the sign-in page, which returns the new Owner to the SCIM sub-tab once they
 	// sign in. It is sent there directly, because a page that needs a session keeps only its path
 	// when it sends a signed-out browser to sign in.
 	let afterSignOut = $derived(
-		scimProvider ? `/?rd=${encodeURIComponent('/identity-access?view=scim')}` : '/admin'
+		scimProvider ? `/?rd=${encodeURIComponent(SCIM_VIEW_PATH)}` : '/admin'
 	);
 
 	onMount(() => {
@@ -114,7 +114,8 @@
 						{#if scimProvider}
 							<p class="text-md px-4 text-left font-light">
 								{scimProvider.name} provisions users and groups through SCIM. After you log in, setup
-								continues on Identity &amp; Access → SCIM: generate the token, create the SCIM app in
+								continues on Identity &amp; Access → Auth Providers → SCIM: generate the token, create
+								the SCIM app in
 								{scimProvider.name}, and assign users.
 							</p>
 						{/if}

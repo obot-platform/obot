@@ -1939,9 +1939,6 @@ export interface SCIMConnectionReview {
 		lastSuccessAt?: string;
 		recentFailures: SCIMPage<SCIMRequestFailure>;
 	};
-	// The parameters that only directory synchronization used, which the auth provider's
-	// configuration still holds. SCIM replaced it, so they can be removed.
-	unusedDirectoryParameters?: string[];
 }
 
 export interface SCIMEnforceResult {
@@ -1956,8 +1953,8 @@ export interface SCIMDuplicateGroupName {
 	groups: SCIMSetupGroup[];
 }
 
-// What enabling SCIM for the configured auth provider, which synchronizes its directory at sign-in,
-// would do, and what blocks it. Each list of groups holds its first page.
+// The configured auth provider that SCIM can be enabled for, which synchronizes its directory at
+// sign-in, and what blocks enabling it.
 export interface SCIMEnablePreview {
 	// Absent when no auth provider is configured, or the configured one does not support SCIM.
 	authProviderNamespace?: string;
@@ -1965,13 +1962,6 @@ export interface SCIMEnablePreview {
 	authProviderDisplayName?: string;
 	blockers: string[];
 	duplicateGroupNames: SCIMDuplicateGroupName[];
-	warnings: SCIMSetupWarning[];
-	// The referenced groups, which the identity provider must push under exactly these names.
-	unboundReferencedGroups: SCIMPage<SCIMSetupGroup>;
-	// The groups that nothing references, which enabling deletes.
-	unreferencedGroups: SCIMPage<SCIMSetupGroup>;
-	// The start of the SCIM base URL, which ends with the ID of the connection enabling creates.
-	baseURLPrefix: string;
 }
 
 export interface SCIMEnableResult {

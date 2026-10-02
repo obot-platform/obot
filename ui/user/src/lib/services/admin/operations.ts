@@ -481,30 +481,11 @@ export async function listSCIMFailures(
 	)) as SCIMPage<SCIMRequestFailure>;
 }
 
-// Each list of groups in the preview holds its first page of `limit` groups.
 export async function getSCIMEnablePreview(opts?: {
 	fetch?: Fetcher;
-	limit?: number;
 	dontLogErrors?: boolean;
 }): Promise<SCIMEnablePreview> {
-	const query = opts?.limit ? `?limit=${opts.limit}` : '';
-	return (await doGet(`/scim-connections/enable-preview${query}`, {
-		fetch: opts?.fetch,
-		dontLogErrors: opts?.dontLogErrors
-	})) as SCIMEnablePreview;
-}
-
-// Pages through the preview's unbound referenced groups, which the identity provider must push, or
-// its unreferenced groups, which enabling deletes.
-export async function listSCIMEnablePreviewGroups(
-	list: Exclude<SCIMGroupList, 'bound'>,
-	page: { offset: number; limit: number },
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
-): Promise<SCIMPage<SCIMSetupGroup>> {
-	return (await doGet(
-		`/scim-connections/enable-preview/groups?list=${list}&offset=${page.offset}&limit=${page.limit}`,
-		opts
-	)) as SCIMPage<SCIMSetupGroup>;
+	return (await doGet('/scim-connections/enable-preview', opts)) as SCIMEnablePreview;
 }
 
 // Enabling is permanent. The result carries the token, which is shown only once.

@@ -12,7 +12,6 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
-	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -26,13 +25,14 @@ type EnableBlockedError struct {
 	Duplicates []types2.SCIMDuplicateGroupName
 }
 
-// enablePlan is what enabling SCIM for an auth provider would do, and what blocks it.
+// enablePlan is what blocks enabling SCIM for an auth provider.
 type enablePlan struct {
 	// provider is nil when the auth provider does not support SCIM.
 	provider *provider
-	// groups is nil when the auth provider does not support SCIM, or a SCIM connection exists.
-	groups   *groupPlan
-	blockers []string
+	// duplicates are the names that more than one referenced group of the provider has. They are only planned when
+	// the provider supports SCIM, and no SCIM connection exists.
+	duplicates []types2.SCIMDuplicateGroupName
+	blockers   []string
 }
 
 func (e *EnableBlockedError) Error() string {
@@ -48,17 +48,11 @@ func (e *EnableBlockedError) Error() string {
 	return b.String()
 }
 
-// EnablePreview reports what enabling SCIM for the configured auth provider would do, and what blocks it. Each list
-// of groups holds its first page of pageSize items.
-func (s *Service) EnablePreview(ctx context.Context, pageSize int) (*types2.SCIMEnablePreview, error) {
-	page := NormalizePage(0, pageSize)
+// EnablePreview reports the configured auth provider that SCIM can be enabled for, and what blocks enabling it.
+func (s *Service) EnablePreview(ctx context.Context) (*types2.SCIMEnablePreview, error) {
 	preview := &types2.SCIMEnablePreview{
-		Blockers:                []string{},
-		DuplicateGroupNames:     []types2.SCIMDuplicateGroupName{},
-		Warnings:                []types2.SCIMSetupWarning{},
-		UnboundReferencedGroups: groupPage(nil, page),
-		UnreferencedGroups:      groupPage(nil, page),
-		BaseURLPrefix:           s.serverURL + scim.PathPrefix,
+		Blockers:            []string{},
+		DuplicateGroupNames: []types2.SCIMDuplicateGroupName{},
 	}
 
 	plan, err := s.configuredEnablePlan(ctx)
@@ -93,11 +87,8 @@ func (s *Service) EnablePreview(ctx context.Context, pageSize int) (*types2.SCIM
 	}
 	preview.Blockers = append(preview.Blockers, plan.blockers...)
 
-	if plan.groups != nil {
-		preview.DuplicateGroupNames = plan.groups.duplicates
-		preview.Warnings = plan.groups.warnings
-		preview.UnboundReferencedGroups = groupPage(plan.groups.unboundReferenced, page)
-		preview.UnreferencedGroups = groupPage(plan.groups.unreferencedUnbound, page)
+	if len(plan.duplicates) > 0 {
+		preview.DuplicateGroupNames = plan.duplicates
 	}
 	return preview, nil
 }
@@ -106,7 +97,7 @@ func (s *Service) EnablePreview(ctx context.Context, pageSize int) (*types2.SCIM
 // otherwise a bad request that lists everything that blocks enabling it. The provider configuration change that
 // enables SCIM checks it all again under the serialization of such changes.
 func (s *Service) CheckEnable(ctx context.Context) (string, string, error) {
-	preview, err := s.EnablePreview(ctx, 0)
+	preview, err := s.EnablePreview(ctx)
 	if err != nil {
 		return "", "", err
 	}
@@ -119,37 +110,13 @@ func (s *Service) CheckEnable(ctx context.Context) (string, string, error) {
 	return preview.AuthProviderNamespace, preview.AuthProviderName, nil
 }
 
-// EnablePreviewGroups returns a page of the groups that enabling SCIM for the configured auth provider would ask the
-// identity provider to push, GroupListUnboundReferenced, or would delete, GroupListUnreferenced.
-func (s *Service) EnablePreviewGroups(ctx context.Context, list GroupList, page Page) (*types2.SCIMSetupGroupPage, error) {
-	plan, err := s.configuredEnablePlan(ctx)
-	if err != nil {
-		return nil, err
-	}
-	groups := new(groupPlan)
-	if plan != nil && plan.groups != nil {
-		groups = plan.groups
-	}
-
-	var result types2.SCIMSetupGroupPage
-	switch list {
-	case GroupListUnboundReferenced:
-		result = groupPage(groups.unboundReferenced, page)
-	case GroupListUnreferenced:
-		result = groupPage(groups.unreferencedUnbound, page)
-	default:
-		return nil, types2.NewErrBadRequest("unknown group list %q; use %q or %q", list, GroupListUnboundReferenced, GroupListUnreferenced)
-	}
-	return &result, nil
-}
-
 // CompleteEnable finishes enabling SCIM for an auth provider, once a provider configuration change created its
 // connection with EnableConnection: it deletes the provider's groups that nothing references, and then issues the
 // connection's first bearer token.
 //
 // The token cannot be retrieved again, so it is issued last, and nothing that can fail or take long runs between
 // issuing and returning it. A request that ends before then leaves a connection without a token, whose token an Owner
-// generates on the SCIM tab. For the same reason, a failed deletion is reported in the result rather than failing it.
+// generates on the SCIM sub-tab. For the same reason, a failed deletion is reported in the result rather than failing it.
 // The deletion can be retried.
 //
 // It returns a conflict when the connection has a token already, because SCIM was enabled before, or a concurrent
@@ -177,7 +144,7 @@ func (s *Service) CompleteEnable(ctx context.Context, namespace, name string) (*
 	deleted, err := s.deleteUnreferencedGroups(ctx, conn, p)
 	if err != nil {
 		slog.Error("Failed to delete unreferenced groups after enabling SCIM", "connection", conn.ID, "authProvider", p.name, "error", err)
-		result.DeletionError = fmt.Sprintf("SCIM is enabled, but the groups that nothing references could not be deleted. Retry the deletion on the SCIM tab before pushing groups from %s: "+
+		result.DeletionError = fmt.Sprintf("SCIM is enabled, but the groups that nothing references could not be deleted. Retry the deletion on Identity & Access → Auth Providers → SCIM before pushing groups from %s: "+
 			"a pushed group cannot bind to a referenced group while an unreferenced group has the same name.", p.displayName)
 	}
 	result.DeletedGroupCount = len(deleted)
@@ -185,7 +152,7 @@ func (s *Service) CompleteEnable(ctx context.Context, namespace, name string) (*
 	id := conn.ID
 	conn, token, err := s.gateway.IssueFirstSCIMConnectionToken(ctx, id)
 	if errors.Is(err, gclient.ErrSCIMConnectionHasToken) {
-		return nil, types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("SCIM is already enabled for %s. Manage its token on the SCIM tab.", p.displayName))
+		return nil, types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("SCIM is already enabled for %s. Manage its token on Identity & Access → Auth Providers → SCIM.", p.displayName))
 	} else if err != nil {
 		return nil, connectionError(id, err)
 	}
@@ -274,13 +241,10 @@ func EnableConnection(ctx context.Context, storage kclient.Reader, gateway *gcli
 		return nil, err
 	}
 	if len(plan.blockers) > 0 {
-		blocked := &EnableBlockedError{
-			Blockers: plan.blockers,
+		return nil, &EnableBlockedError{
+			Blockers:   plan.blockers,
+			Duplicates: plan.duplicates,
 		}
-		if plan.groups != nil {
-			blocked.Duplicates = plan.groups.duplicates
-		}
-		return nil, blocked
 	}
 
 	conn, _, err = gateway.CreateSCIMConnection(ctx, gclient.CreateSCIMConnectionOptions{
@@ -306,7 +270,7 @@ func EnableConnection(ctx context.Context, storage kclient.Reader, gateway *gcli
 	return conn, nil
 }
 
-// configuredEnablePlan returns what enabling SCIM for the configured auth provider would do, or nil when no auth
+// configuredEnablePlan returns what blocks enabling SCIM for the configured auth provider, or nil when no auth
 // provider is configured.
 func (s *Service) configuredEnablePlan(ctx context.Context) (*enablePlan, error) {
 	configured, err := s.providers.GetConfiguredAuthProvider(ctx)
@@ -324,9 +288,8 @@ func (s *Service) configuredEnablePlan(ctx context.Context) (*enablePlan, error)
 	return planEnable(ctx, s.storage, s.gateway, s.finder, authProvider)
 }
 
-// planEnable returns what enabling SCIM for an auth provider would do, and what blocks it, except for what depends on
-// other provider configuration changes: whether the provider is the configured one, and whether a replacement is
-// staged.
+// planEnable returns what blocks enabling SCIM for an auth provider, except for what depends on other provider
+// configuration changes: whether the provider is the configured one, and whether a replacement is staged.
 func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Client, finder *groupref.Finder, authProvider v1.AuthProvider) (*enablePlan, error) {
 	name := displayName(authProvider)
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
@@ -377,10 +340,12 @@ func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Cl
 		}
 	}
 
-	if plan.groups, err = planProviderGroups(ctx, gateway, finder, plan.provider); err != nil {
+	groups, err := planProviderGroups(ctx, gateway, finder, plan.provider)
+	if err != nil {
 		return nil, err
 	}
-	for _, duplicate := range plan.groups.duplicates {
+	plan.duplicates = groups.duplicates
+	for _, duplicate := range plan.duplicates {
 		plan.blockers = append(plan.blockers, fmt.Sprintf("%d referenced groups are named %q, so a group pushed under that name binds to neither. "+
 			"Remove the references to all but one of them, and enabling SCIM deletes the others as unreferenced, "+
 			"or rename the group in %s so that the next sign-in of one of its members updates its name in Obot. "+

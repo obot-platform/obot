@@ -622,7 +622,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/scim-connections", scimConnections.List)
 	mux.HandleFunc("POST /api/scim-connections", scimConnections.Enable)
 	mux.HandleFunc("GET /api/scim-connections/enable-preview", scimConnections.EnablePreview)
-	mux.HandleFunc("GET /api/scim-connections/enable-preview/groups", scimConnections.EnablePreviewGroups)
 	mux.HandleFunc("GET /api/scim-connections/{id}/review", scimConnections.Review)
 	mux.HandleFunc("GET /api/scim-connections/{id}/users", scimConnections.Users)
 	mux.HandleFunc("GET /api/scim-connections/{id}/groups", scimConnections.Groups)

@@ -35,26 +35,15 @@ func (h *SCIMConnectionHandler) List(req api.Context) error {
 	return req.Write(types.SCIMConnectionList{Items: conns})
 }
 
-// GET /api/scim-connections/enable-preview?limit=
-// Reports what enabling SCIM for the configured auth provider would do, and what blocks it: duplicate names of
-// referenced groups, warnings, the referenced groups the identity provider must push, the unreferenced groups that
-// enabling deletes, and the start of the SCIM base URL. Each list of groups holds its first page of "limit" items.
+// GET /api/scim-connections/enable-preview
+// Reports the configured auth provider that SCIM can be enabled for, and what blocks enabling it, such as duplicate
+// names of referenced groups.
 func (h *SCIMConnectionHandler) EnablePreview(req api.Context) error {
-	preview, err := h.setup.EnablePreview(req.Context(), queryInt(req, "limit"))
+	preview, err := h.setup.EnablePreview(req.Context())
 	if err != nil {
 		return err
 	}
 	return req.Write(preview)
-}
-
-// GET /api/scim-connections/enable-preview/groups?list=unboundReferenced|unreferenced&offset=&limit=
-// Returns a page of the groups that enabling SCIM would ask the identity provider to push, or would delete.
-func (h *SCIMConnectionHandler) EnablePreviewGroups(req api.Context) error {
-	page, err := h.setup.EnablePreviewGroups(req.Context(), scimsetup.GroupList(req.URL.Query().Get("list")), queryPage(req))
-	if err != nil {
-		return err
-	}
-	return req.Write(page)
 }
 
 // POST /api/scim-connections

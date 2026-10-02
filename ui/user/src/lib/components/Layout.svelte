@@ -54,7 +54,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, isSCIMView } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -478,12 +478,12 @@
 	let scimSetupBannerDismissed = localState<boolean>(SCIM_SETUP_BANNER_KEY, false);
 
 	// The configured auth provider while it provisions users and groups through SCIM and SCIM is not
-	// enforced yet. Its setup continues on the SCIM tab, which is where an Owner who just signed in
+	// enforced yet. Its setup continues on the SCIM sub-tab, which is where an Owner who just signed in
 	// for the first time, from Owner Setup, a switch, or an owner email, is sent from here.
 	let unfinishedSCIMProvider = $derived.by(() => {
 		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
 		if (!scimSetupBannerDismissed.isReady || scimSetupBannerDismissed.current) return undefined;
-		if (pathname === '/identity-access' && page.url.searchParams.get('view') === 'scim') {
+		if (pathname === '/identity-access' && isSCIMView(page.url.searchParams)) {
 			return undefined;
 		}
 		return $adminConfigStore.authProviders.find(

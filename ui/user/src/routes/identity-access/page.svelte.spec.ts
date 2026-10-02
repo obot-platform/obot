@@ -253,6 +253,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	appPage.url.searchParams.delete('subview');
 	appPage.url.searchParams.delete('provider');
 	if (window.location.hash) {
 		window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -416,6 +417,43 @@ describe('Identity & Access Page', () => {
 	});
 
 	describe('auth providers tab', () => {
+		describe('sub-tabs', () => {
+			function subTabs() {
+				return page.getByRole('navigation', { name: 'Auth Providers' });
+			}
+
+			it('shows the providers, and links to SCIM, which has no tab of its own', async () => {
+				await renderIdentityAccessPage({ groups: [Group.OWNER, Group.ADMIN] });
+
+				await expect.element(providerCard('Google')).toBeVisible();
+				await expect
+					.element(subTabs().getByRole('link', { name: 'Providers', exact: true }))
+					.toHaveAttribute('aria-current', 'page');
+				await expect
+					.element(subTabs().getByRole('link', { name: 'SCIM', exact: true }))
+					.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
+				await expect
+					.element(page.getByRole('button', { name: 'SCIM', exact: true }))
+					.not.toBeInTheDocument();
+			});
+
+			it('shows SCIM on its sub-tab', async () => {
+				appPage.url.searchParams.set('subview', 'scim');
+				await renderIdentityAccessPage({ groups: [Group.OWNER, Group.ADMIN] });
+
+				await expect
+					.element(page.getByRole('heading', { name: 'SCIM provisioning is not set up' }))
+					.toBeVisible();
+				await expect
+					.element(subTabs().getByRole('link', { name: 'SCIM', exact: true }))
+					.toHaveAttribute('aria-current', 'page');
+				await expect
+					.element(subTabs().getByRole('link', { name: 'Providers', exact: true }))
+					.toHaveAttribute('href', '/identity-access?view=auth-providers');
+				await expect.element(providerCard('Google')).not.toBeInTheDocument();
+			});
+		});
+
 		describe('SCIM setup of the Okta provider', () => {
 			async function openOktaForm(provider: AuthProvider, values?: Record<string, string>) {
 				worker.use(
@@ -899,7 +937,9 @@ describe('Identity & Access Page', () => {
 				await vi.waitFor(() => expect(activate).toHaveBeenCalledOnce());
 				const link = page.getByRole('link', { name: 'Go to SCIM', exact: true });
 				await expect.element(link).toBeVisible();
-				await expect.element(link).toHaveAttribute('href', '/identity-access?view=scim');
+				await expect
+					.element(link)
+					.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
 			});
 		});
 	});

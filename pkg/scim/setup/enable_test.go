@@ -103,7 +103,7 @@ func newEnableTest(t *testing.T) *enableTest {
 	}
 	s.service = New(s.gateway, s.storage, s.providers, "https://obot.example.com/")
 
-	s.storeCredential(true)
+	s.storeCredential()
 	for _, nativeID := range []string{"00u-owner", "00u-member"} {
 		user, err := s.gateway.EnsureIdentityWithRole(t.Context(), &types.Identity{
 			AuthProviderNamespace: okta.Namespace,
@@ -127,21 +127,19 @@ func newEnableTest(t *testing.T) *enableTest {
 	return s
 }
 
-// storeCredential stores the provider's active configuration, with or without the directory parameters.
-func (s *enableTest) storeCredential(directory bool) {
+// storeCredential stores the provider's active configuration, which holds the directory parameters, since the provider
+// synchronizes its directory at sign-in.
+func (s *enableTest) storeCredential() {
 	s.t.Helper()
 
-	secrets := map[string]string{
-		oktaIssuerParam: "https://example.okta.com/",
-	}
-	if directory {
-		secrets[oktaServiceClientIDParam] = "service-client"
-		secrets[oktaServicePrivateKeyParam] = "service-key"
-	}
 	if err := s.gateway.UpsertCredential(s.t.Context(), types.Credential{
 		Context: s.okta.Name,
 		Name:    s.okta.Name,
-		Secrets: secrets,
+		Secrets: map[string]string{
+			oktaIssuerParam:            "https://example.okta.com/",
+			oktaServiceClientIDParam:   "service-client",
+			oktaServicePrivateKeyParam: "service-key",
+		},
 	}); err != nil {
 		s.t.Fatal(err)
 	}
@@ -212,15 +210,6 @@ func (s *enableTest) membershipCount(groupID string) int64 {
 	return count
 }
 
-// groupIDs returns the IDs of the groups, in order.
-func groupIDs(groups []clienttypes.SCIMSetupGroup) []string {
-	ids := make([]string, 0, len(groups))
-	for _, group := range groups {
-		ids = append(ids, group.ID)
-	}
-	return ids
-}
-
 // otherConnection is the SCIM connection of another auth provider, which is the installation's only one.
 func (s *enableTest) otherConnection() *types.SCIMConnection {
 	s.t.Helper()
@@ -244,7 +233,7 @@ func (s *enableTest) otherConnection() *types.SCIMConnection {
 func TestEnablePreview(t *testing.T) {
 	s := newEnableTest(t)
 
-	preview, err := s.service.EnablePreview(t.Context(), 0)
+	preview, err := s.service.EnablePreview(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,58 +242,6 @@ func TestEnablePreview(t *testing.T) {
 	}
 	if preview.AuthProviderName != s.okta.Name || preview.AuthProviderNamespace != s.okta.Namespace || preview.AuthProviderDisplayName != "Okta" {
 		t.Fatalf("auth provider = %q/%q (%q)", preview.AuthProviderNamespace, preview.AuthProviderName, preview.AuthProviderDisplayName)
-	}
-	if preview.BaseURLPrefix != "https://obot.example.com/scim/v2/" {
-		t.Fatalf("base URL prefix = %q", preview.BaseURLPrefix)
-	}
-
-	// The referenced groups must be pushed, under exactly their names, and the group that nothing references is
-	// deleted.
-	if ids := groupIDs(preview.UnboundReferencedGroups.Items); preview.UnboundReferencedGroups.Total != 2 || !slices.Equal(ids, []string{engineeringGroupID, everyoneGroupID}) {
-		t.Fatalf("groups to push = %+v", preview.UnboundReferencedGroups)
-	}
-	if engineering := preview.UnboundReferencedGroups.Items[0]; engineering.Name != "Engineering" || engineering.ConsoleURL != "https://example-admin.okta.com/admin/group/00g00000000000000eng" ||
-		len(engineering.References) != 1 || engineering.References[0].ID != "engineering-policy" {
-		t.Fatalf("group to push = %+v", engineering)
-	}
-	if ids := groupIDs(preview.UnreferencedGroups.Items); preview.UnreferencedGroups.Total != 1 || !slices.Equal(ids, []string{staleGroupID}) {
-		t.Fatalf("groups to delete = %+v", preview.UnreferencedGroups)
-	}
-
-	// Everyone cannot be pushed, and a reference to a missing group grants nothing. Neither blocks enabling.
-	warnings := make([]string, 0, len(preview.Warnings))
-	for _, warning := range preview.Warnings {
-		warnings = append(warnings, warning.Type+" "+warning.GroupID)
-	}
-	if !slices.Equal(warnings, []string{warningEveryoneGroup + " " + everyoneGroupID, warningMissingGroup + " " + missingGroupID}) {
-		t.Fatalf("warnings = %v", warnings)
-	}
-
-	// The lists are paginated.
-	preview, err = s.service.EnablePreview(t.Context(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if preview.UnboundReferencedGroups.Total != 2 || len(preview.UnboundReferencedGroups.Items) != 1 {
-		t.Fatalf("first page of groups to push = %+v", preview.UnboundReferencedGroups)
-	}
-	page, err := s.service.EnablePreviewGroups(t.Context(), GroupListUnboundReferenced, Page{
-		Offset: 1,
-		Limit:  1,
-	})
-	if err != nil || page.Total != 2 || !slices.Equal(groupIDs(page.Items), []string{everyoneGroupID}) {
-		t.Fatalf("second page of groups to push = %+v, %v", page, err)
-	}
-	page, err = s.service.EnablePreviewGroups(t.Context(), GroupListUnreferenced, Page{
-		Limit: 10,
-	})
-	if err != nil || !slices.Equal(groupIDs(page.Items), []string{staleGroupID}) {
-		t.Fatalf("groups to delete = %+v, %v", page, err)
-	}
-	if _, err := s.service.EnablePreviewGroups(t.Context(), GroupListBound, Page{
-		Limit: 10,
-	}); err == nil {
-		t.Fatal("the preview served a list of bound groups")
 	}
 }
 
@@ -315,7 +252,8 @@ func TestEnablePreviewBlockers(t *testing.T) {
 		setup        func(s *enableTest)
 		wantBlocker  string
 		wantProvider bool
-		wantGroups   bool
+		// wantDuplicates is whether the preview lists the referenced groups that share a name.
+		wantDuplicates bool
 	}{
 		{
 			name: "no auth provider is configured",
@@ -338,7 +276,6 @@ func TestEnablePreviewBlockers(t *testing.T) {
 			},
 			wantBlocker:  "A switch to GitHub is staged.",
 			wantProvider: true,
-			wantGroups:   true,
 		},
 		{
 			name: "a provider configuration change is in progress",
@@ -352,7 +289,6 @@ func TestEnablePreviewBlockers(t *testing.T) {
 			},
 			wantBlocker:  "A change to the auth provider configuration is in progress.",
 			wantProvider: true,
-			wantGroups:   true,
 		},
 		{
 			name: "a cleanup of the provider's group ID prefix is pending",
@@ -370,7 +306,6 @@ func TestEnablePreviewBlockers(t *testing.T) {
 			},
 			wantBlocker:  "are still being cleaned up (cleanup)",
 			wantProvider: true,
-			wantGroups:   true,
 		},
 		{
 			name: "two referenced groups have the same name",
@@ -381,9 +316,9 @@ func TestEnablePreviewBlockers(t *testing.T) {
 				}
 			},
 			// The groups are listed by name, and the first one names the duplicate.
-			wantBlocker:  `2 referenced groups are named "engineering"`,
-			wantProvider: true,
-			wantGroups:   true,
+			wantBlocker:    `2 referenced groups are named "engineering"`,
+			wantProvider:   true,
+			wantDuplicates: true,
 		},
 		{
 			name: "the provider already has a SCIM connection",
@@ -401,7 +336,7 @@ func TestEnablePreviewBlockers(t *testing.T) {
 			s := newEnableTest(t)
 			tt.setup(s)
 
-			preview, err := s.service.EnablePreview(t.Context(), 0)
+			preview, err := s.service.EnablePreview(t.Context())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -411,8 +346,8 @@ func TestEnablePreviewBlockers(t *testing.T) {
 			if got := preview.AuthProviderName != ""; got != tt.wantProvider {
 				t.Fatalf("auth provider = %q, want one: %v", preview.AuthProviderName, tt.wantProvider)
 			}
-			if got := preview.UnboundReferencedGroups.Total > 0; got != tt.wantGroups {
-				t.Fatalf("groups to push = %+v, want some: %v", preview.UnboundReferencedGroups, tt.wantGroups)
+			if got := len(preview.DuplicateGroupNames) > 0; got != tt.wantDuplicates {
+				t.Fatalf("duplicate group names = %+v, want some: %v", preview.DuplicateGroupNames, tt.wantDuplicates)
 			}
 		})
 	}
@@ -498,23 +433,17 @@ func TestEnable(t *testing.T) {
 		t.Fatalf("completing Enable again replaced the token: %v", err)
 	}
 
-	// The review lists the groups Okta must push, and the directory parameters that SCIM made unused, until they are
-	// removed.
+	// The review lists the groups Okta must push.
 	review, err := s.service.Review(t.Context(), conn.ID, Actor{}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if review.UnboundReferencedGroups.Total != 2 || review.UnreferencedGroups.Total != 0 ||
-		!slices.Equal(review.UnusedDirectoryParameters, []string{oktaServiceClientIDParam, oktaServicePrivateKeyParam}) {
+	if review.UnboundReferencedGroups.Total != 2 || review.UnreferencedGroups.Total != 0 {
 		t.Fatalf("review = %+v", review)
-	}
-	s.storeCredential(false)
-	if review, err = s.service.Review(t.Context(), conn.ID, Actor{}, 0); err != nil || len(review.UnusedDirectoryParameters) != 0 {
-		t.Fatalf("unused directory parameters after their removal = %v, %v", review.UnusedDirectoryParameters, err)
 	}
 
 	// SCIM is enabled for good: enabling it again is blocked.
-	preview, err := s.service.EnablePreview(t.Context(), 0)
+	preview, err := s.service.EnablePreview(t.Context())
 	if err != nil || len(preview.Blockers) != 1 || !strings.Contains(preview.Blockers[0], "already provisions") {
 		t.Fatalf("preview after Enable = %+v, %v", preview, err)
 	}
@@ -685,15 +614,7 @@ func TestReviewWarnsAboutNamesThatAPushCannotBindBy(t *testing.T) {
 }
 
 func TestEmptyPagesListNoItems(t *testing.T) {
-	s := newEnableTest(t)
-	s.providers.configured = ""
-
-	page, err := s.service.EnablePreviewGroups(t.Context(), GroupListUnreferenced, Page{
-		Limit: 10,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	page := groupPage(nil, NormalizePage(0, 10))
 	if page.Items == nil || page.Total != 0 {
 		t.Fatalf("page = %+v, want an empty list of items", page)
 	}
@@ -703,7 +624,7 @@ func TestEnableIsBlockedByAnotherProvidersConnection(t *testing.T) {
 	s := newEnableTest(t)
 	s.otherConnection()
 
-	preview, err := s.service.EnablePreview(t.Context(), 0)
+	preview, err := s.service.EnablePreview(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
