@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { VMCP, VMCPInstance } from '$lib/services';
 	import {
@@ -98,12 +99,14 @@
 
 			{#snippet reauthenticationAction()}
 				<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}
-					>Manage authentication</button
+					>{m.vmcps_manage_authentication()}</button
 				>
 			{/snippet}
 
 			{#snippet setupRequiredAction()}
-				<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}>Launch</button>
+				<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}
+					>{m.vmcps_launch()}</button
+				>
 			{/snippet}
 		</Tester>
 	{:else}
@@ -115,7 +118,9 @@
 				<div class="relative z-10 flex flex-col items-center gap-4">
 					{#if launching}
 						<Loading class="size-12" />
-						<p class="text-muted-content max-w-md text-sm font-light">Starting session...</p>
+						<p class="text-muted-content max-w-md text-sm font-light">
+							{m.vmcps_starting_session()}
+						</p>
 					{:else}
 						{#if needsConfigurationUpdate}
 							<div class="indicator p-2 rounded-full bg-warning/10">
@@ -126,14 +131,13 @@
 						{/if}
 						<p class="text-muted-content max-w-md text-sm font-light">
 							{#if missingOAuthComponent}
-								{missingOAuthComponent.name} requires administrator OAuth setup before this vMCP can start.
+								{m.vmcps_tester_requires_oauth_setup({ name: missingOAuthComponent.name })}
 							{:else if sessionStartFailed}
-								There was an issue starting the session. Please verify configuration or contact
-								support if the issue persists.
+								{m.vmcps_tester_session_start_failed()}
 							{:else if instance && !instance.status?.configured}
-								Before you can continue inspecting this vMCP, an update is required.
+								{m.vmcps_tester_update_required()}
 							{:else}
-								Start your vMCP to use chat and inspect tools.
+								{m.vmcps_tester_start_prompt()}
 							{/if}
 						</p>
 						{#if missingOAuthComponent}
@@ -142,18 +146,18 @@
 									class="btn btn-primary"
 									href={resolve(
 										`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-									)}>Configure {missingOAuthComponent.name} OAuth</a
+									)}>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
 								>
 							{:else}
-								<p>Ask an administrator to configure OAuth for this MCP server.</p>
+								<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 							{/if}
 						{:else if needsConfigurationUpdate}
 							<button type="button" class="btn btn-primary" onclick={openInstanceConfiguration}>
-								Update Configuration
+								{m.vmcps_update_configuration()}
 							</button>
 						{:else}
 							<button type="button" class="btn btn-primary" onclick={onLaunch}>
-								Start Session
+								{m.vmcps_start_session()}
 							</button>
 						{/if}
 					{/if}

@@ -16,6 +16,7 @@
 	import VMcpTester from '$lib/components/vmcps/VMcpTester.svelte';
 	import VMcpToolDialogs from '$lib/components/vmcps/VMcpToolDialogs.svelte';
 	import ViewModifyCatalogEntry from '$lib/components/vmcps/ViewModifyCatalogEntry.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { CREATE_VMCP_DROP_ID, createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import {
@@ -94,7 +95,7 @@
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let composites = $derived(selectedVMcp ? [selectedVMcp] : []);
-	let title = $derived(selectedVMcp?.displayName ?? 'Create vMCP');
+	let title = $derived(selectedVMcp?.displayName ?? m.vmcps_create_vmcp());
 	let canCreateCatalogEntry = $derived(
 		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
 	);
@@ -273,7 +274,9 @@
 		});
 
 		selectedVMcp = updated;
-		success.add(`${entry.manifest.name} added to ${updated.displayName}.`);
+		success.add(
+			m.vmcps_server_added_to({ server: entry.manifest.name ?? '', vmcp: updated.displayName })
+		);
 		toolFlow.offerToolSelection(entry, updated);
 		return updated;
 	}
@@ -307,7 +310,7 @@
 			vmcpActions?.openConfiguration(entry);
 		} catch {
 			componentDropPending = false;
-			errors.append('Failed to add MCP server to vMCP.');
+			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
 		}
 	}
 
@@ -328,8 +331,8 @@
 			if (!toolFlow.dialog) componentDropPending = false;
 		} catch {
 			componentDropPending = false;
-			errors.append('Failed to add MCP server to vMCP.');
-			throw new Error('Failed to add MCP server to vMCP.');
+			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
+			throw new Error(m.vmcps_failed_to_add_server_to_vmcp());
 		}
 	}
 
@@ -360,7 +363,7 @@
 			const [updated] = await Promise.all([UserService.getVMCP(vmcpID), vmcpInstances.refresh()]);
 			if (selectedVMcp?.id === vmcpID) selectedVMcp = updated;
 		} catch {
-			errors.append('Failed to refresh vMCP status.');
+			errors.append(m.vmcps_failed_to_refresh_status());
 		} finally {
 			refreshingTester = false;
 		}
@@ -412,7 +415,7 @@
 			<div
 				class="bg-base-200/70 dark:bg-black/60 absolute inset-0 z-60 flex items-center justify-center"
 				role="status"
-				aria-label="Setting up tools"
+				aria-label={m.vmcps_setting_up_tools()}
 			>
 				<Loading class="size-8" />
 			</div>
@@ -511,13 +514,13 @@
 							data-vmcp-ui
 							role="toolbar"
 							tabindex="-1"
-							aria-label="vMCP actions"
+							aria-label={m.vmcps_vmcp_actions()}
 							onpointerdown={(event) => event.stopPropagation()}
 						>
 							<IconButton
 								class="btn-sm"
 								variant="danger"
-								tooltip={{ text: 'Delete vMCP', placement: 'bottom' }}
+								tooltip={{ text: m.vmcps_delete_vmcp(), placement: 'bottom' }}
 								onclick={() => {
 									if (!selectedVMcp) return;
 									createEditVMcp?.openDelete(selectedVMcp);
@@ -539,7 +542,8 @@
 					showRightPanel = true;
 				}}
 			>
-				<Plus class="size-4" /> Add MCP Servers
+				<Plus class="size-4" />
+				{m.vmcps_add_mcp_servers()}
 			</button>
 		</div>
 	{/if}
@@ -567,7 +571,7 @@
 				)}
 				onclick={() => {
 					setUrlParamAndUpdateUrl(page.url, 'view', 'graph');
-				}}>Designer</button
+				}}>{m.vmcps_designer()}</button
 			>
 			{#if canAccessProfiles}
 				<button
@@ -580,7 +584,7 @@
 						setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');
 					}}
 				>
-					Profiles
+					{m.vmcps_profiles()}
 				</button>
 			{/if}
 			{#if canAccessTester}
@@ -592,7 +596,7 @@
 					)}
 					onclick={() => {
 						setUrlParamAndUpdateUrl(page.url, 'view', 'inspector');
-					}}>Inspector</button
+					}}>{m.vmcps_inspector()}</button
 				>
 			{/if}
 		</div>
@@ -621,7 +625,7 @@
 	rightOffsetWidth={rightPanelWidth}
 	onCreated={handleCatalogEntryCreated}
 	onAddToVMcp={canEdit ? handleAddFromDetails : undefined}
-	addToVMcpLabel={selectedVMcp ? 'Add to vMCP' : 'Create vMCP'}
+	addToVMcpLabel={selectedVMcp ? m.vmcps_add_to_vmcp() : m.vmcps_create_vmcp()}
 	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 

@@ -4,6 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
+	import { m } from '$lib/i18n';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
@@ -30,7 +31,7 @@
 	let synchronizing = false;
 	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
-	const lastComponentTooltip = 'VMCP requires at least one component.';
+	const lastComponentTooltip = m.vmcps_requires_one_component();
 
 	async function openConfigureDialog() {
 		if (!flow.configuringEntry) return;
@@ -55,8 +56,8 @@
 		configurationDialog?.open(flow.configuringEntry, {
 			configuration,
 			forceSingleUser: flow.configuringComponent?.forceSingleUser,
-			submitLabel: flow.postCreateConfiguration ? 'Next' : 'Save',
-			errorMessage: 'Failed to update configuration.'
+			submitLabel: flow.postCreateConfiguration ? m.vmcps_next() : m.vmcps_save(),
+			errorMessage: m.vmcps_failed_to_update_configuration()
 		});
 	}
 
@@ -184,16 +185,18 @@
 	onsuccess={openAffectedProfiles}
 	oncancel={() => (pendingAffectedProfiles = [])}
 	type="info"
-	title="Update Profile(s)?"
-	submitText={pendingAffectedProfiles.length === 1 ? 'Update Profile' : 'Go to Profiles'}
-	cancelText="Skip"
-	msg="Update existing profile(s) now?"
+	title={m.vmcps_update_profiles_title()}
+	submitText={pendingAffectedProfiles.length === 1
+		? m.vmcps_update_profile()
+		: m.vmcps_go_to_profiles()}
+	cancelText={m.vmcps_skip()}
+	msg={m.vmcps_update_profiles_msg()}
 >
 	{#snippet note()}
 		<p class="text-sm font-light">
-			{pendingAffectedProfiles.length === 1 ? 'Your profile is' : 'There are existing profile(s)'} affected
-			by the tool changes. It is recommended to check the profiles and modify to the updated tool changes.
-			Would you like to do this now?
+			{pendingAffectedProfiles.length === 1
+				? m.vmcps_affected_profiles_note_one()
+				: m.vmcps_affected_profiles_note_other()}
 		</p>
 	{/snippet}
 </Confirm>
@@ -204,12 +207,14 @@
 	oncancel={flow.cancelRemove}
 	msg=""
 	loading={flow.removing}
-	title="Confirm Remove"
+	title={m.vmcps_confirm_remove()}
 >
 	{#snippet note()}
-		Are you sure you want to remove "<b>{flow.pendingRemoval?.component.name ?? 'this server'}</b>"
-		from <b>{flow.pendingRemoval?.vmcp.displayName ?? 'this vMCP'}</b>? The tools for this server
-		will no longer be available.
+		{m.vmcps_remove_confirm_prefix()}<b
+			>{flow.pendingRemoval?.component.name ?? m.vmcps_this_server()}</b
+		>{m.vmcps_remove_confirm_middle()}<b
+			>{flow.pendingRemoval?.vmcp.displayName ?? m.vmcps_this_vmcp()}</b
+		>{m.vmcps_remove_confirm_suffix()}
 	{/snippet}
 </Confirm>
 
@@ -217,7 +222,7 @@
 	animate="slide"
 	class="md:w-lg"
 	bind:this={addedCreateDialog}
-	title="Add Tools"
+	title={m.vmcps_add_tools()}
 	onClose={() => handleDialogClose('added-create')}
 >
 	<div class="flex flex-col gap-4 p-4 md:p-0">
@@ -225,7 +230,7 @@
 			<div class="flex flex-col items-center gap-4">
 				{@render serverHeading()}
 				<p class="text-center text-sm font-light">
-					How would you like to set up the MCP server tools?
+					{m.vmcps_how_set_up_tools()}
 				</p>
 			</div>
 			<div class="flex w-full flex-col gap-4">
@@ -238,11 +243,9 @@
 						class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit group-focus:text-inherit"
 					/>
 					<div>
-						<p class="mb-1 text-sm font-semibold">As-is</p>
+						<p class="mb-1 text-sm font-semibold">{m.vmcps_as_is()}</p>
 						<span class="text-muted-content block text-xs leading-4">
-							Use the MCP server as-is. Tools and their definitions are passed through
-							automatically, including future changes from the source. No authentication is required
-							during setup.
+							{m.vmcps_as_is_description()}
 						</span>
 					</div>
 				</button>
@@ -255,11 +258,11 @@
 					/>
 					<div>
 						<p class="mb-1 text-sm font-semibold">
-							Managed <span class="text-muted-content font-normal">[Recommended]</span>
+							{m.vmcps_managed()}
+							<span class="text-muted-content font-normal">{m.vmcps_recommended_tag()}</span>
 						</p>
 						<span class="text-muted-content block text-xs leading-4">
-							Authenticate to discover and select specific tools. Tool names and descriptions are
-							captured and can be customized, protecting the vMCP from unexpected upstream changes.
+							{m.vmcps_managed_description()}
 						</span>
 					</div>
 				</button>
@@ -302,16 +305,16 @@
 		</div>
 	{/snippet}
 	<div class="flex flex-col gap-2 md:px-0 px-4">
-		<p class="text-sm text-center mb-3 md:mt-0 mt-4">What would you like to do?</p>
+		<p class="text-sm text-center mb-3 md:mt-0 mt-4">{m.vmcps_what_would_you_like_to_do()}</p>
 		<button
 			class="btn btn-secondary w-full"
 			onclick={() => flow.modifyToolsFromActions(Boolean(readonly))}
 		>
-			{readonly ? 'View Tools' : 'Modify Tools'}
+			{readonly ? m.vmcps_view_tools() : m.vmcps_modify_tools()}
 		</button>
 		{#if flow.canSeeComponentConfiguration}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
-				{readonly ? 'View Configuration' : 'Change Configuration'}
+				{readonly ? m.vmcps_view_configuration() : m.vmcps_change_configuration()}
 			</button>
 		{/if}
 		{#if !readonly}
@@ -326,7 +329,9 @@
 					disabled={isLastComponent}
 					onclick={flow.promptRemove}
 				>
-					Remove {flow.configuringEntry?.manifest.name ?? 'this server'}
+					{m.vmcps_remove_named({
+						name: flow.configuringEntry?.manifest.name ?? m.vmcps_this_server()
+					})}
 				</button>
 			</div>
 		{/if}
@@ -360,7 +365,8 @@
 				onclick={() => flow.refreshTools()}
 				class="btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline"
 			>
-				<RefreshCcw class="size-4" /> Refresh tools
+				<RefreshCcw class="size-4" />
+				{m.vmcps_refresh_tools()}
 			</button>
 		</div>
 	{/snippet}

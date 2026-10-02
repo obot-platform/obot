@@ -1,4 +1,5 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+import { m } from '$lib/i18n';
 import type {
 	MCPCatalogEntry,
 	MCPCatalogServer,
@@ -523,10 +524,10 @@ export function sortVMcps(
 export type McpServerSortBy = 'nameAsc' | 'nameDesc' | 'created' | 'popularity';
 
 export const MCP_SERVER_SORT_OPTIONS: Array<{ id: McpServerSortBy; label: string }> = [
-	{ id: 'nameAsc', label: 'Alphabetical (A-Z)' },
-	{ id: 'nameDesc', label: 'Alphabetical (Z-A)' },
-	{ id: 'created', label: 'Created Date' },
-	{ id: 'popularity', label: 'Most Popular' }
+	{ id: 'nameAsc', label: m.vmcps_sort_alphabetical_asc() },
+	{ id: 'nameDesc', label: m.vmcps_sort_alphabetical_desc() },
+	{ id: 'created', label: m.vmcps_sort_created_date() },
+	{ id: 'popularity', label: m.vmcps_sort_most_popular() }
 ];
 
 function normalizeServerName(name: string) {
@@ -680,7 +681,7 @@ export function resolveVMcpComponents(vmcp: VMCP): VMcpComponentView[] {
 		const id = vmcpComponentId(component) || `component-${index}`;
 		return {
 			key: id,
-			name: component.name || manifest?.name || id || 'Unknown server',
+			name: component.name || manifest?.name || id || m.vmcps_unknown_server(),
 			icon: manifest?.icon,
 			description: manifest?.shortDescription || manifest?.description,
 			id,
@@ -794,22 +795,21 @@ export function getToolCounts(componentServers: VMcpComponentView[]) {
 export function getDisplayListText(names: string[], maxLength: number = 5) {
 	if (names.length <= 1) return names[0] ?? '';
 	const rest = names.slice(0, names.length > maxLength ? maxLength - 1 : -1);
-	const last = names.length > maxLength ? `${names.length - (maxLength - 1)} others` : names.at(-1);
-	return `${rest.join(', ')} and ${last}`;
+	const last =
+		names.length > maxLength
+			? m.vmcps_list_n_others({ count: names.length - (maxLength - 1) })
+			: (names.at(-1) ?? '');
+	return m.vmcps_list_and({ rest: rest.join(', '), last });
 }
 
-export function getVMcpCreator(
-	vmcp: VMCP,
-	usersMap: Map<string, OrgUser>,
-	prefix: string = 'Created by'
-) {
+export function getVMcpCreator(vmcp: VMCP, usersMap: Map<string, OrgUser>, includePrefix = true) {
 	let creator = '';
 	if (vmcp.creatorUserID) {
 		creator =
 			vmcp.creatorUserID === profile.current.id
-				? 'me'
+				? m.vmcps_creator_me()
 				: getUserDisplayName(usersMap, vmcp.creatorUserID);
 	}
 
-	return prefix && creator ? `${prefix} ${creator}` : creator;
+	return includePrefix && creator ? m.vmcps_created_by_named({ name: creator }) : creator;
 }

@@ -8,6 +8,7 @@
 		isMissingRequiredConfigurationField,
 		selectedConfigurationOption
 	} from '$lib/components/mcp/configurationOptions';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type {
 		MCPCatalogEntry,
@@ -38,9 +39,9 @@
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
-		{ id: 'fixed', label: 'Preconfigured' },
-		{ id: 'userAllowed', label: 'Provided at connection' },
-		{ id: 'prohibited', label: 'Ignore' }
+		{ id: 'fixed', label: m.vmcps_policy_fixed() },
+		{ id: 'userAllowed', label: m.vmcps_policy_user_allowed() },
+		{ id: 'prohibited', label: m.vmcps_policy_prohibited() }
 	];
 
 	function policyOptions(required?: boolean) {
@@ -69,13 +70,13 @@
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
 	let advancedExpanded = $state(false);
-	let submitLabel = $state('Next');
-	let failureMessage = $state('Failed to add MCP server to vMCP.');
+	let submitLabel = $state<string>(m.vmcps_next());
+	let failureMessage = $state<string>(m.vmcps_failed_to_add_server_to_vmcp());
 
 	let hasUserAllowedNonHeaderConfiguration = $derived(
 		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
 	);
-	let displayName = $derived(entry?.manifest.name || entry?.id || 'MCP server');
+	let displayName = $derived(entry?.manifest.name || entry?.id || m.vmcps_mcp_server_lower());
 	let requiredDrafts = $derived(drafts.filter((draft) => draft.field.required));
 	let optionalDrafts = $derived(drafts.filter((draft) => !draft.field.required));
 	let hasAdvanced = $derived(
@@ -108,8 +109,8 @@
 				};
 			});
 		forceSingleUser = !hasUserAllowedNonHeaderConfiguration && (options?.forceSingleUser ?? false);
-		submitLabel = options?.submitLabel ?? 'Next';
-		failureMessage = options?.errorMessage ?? 'Failed to add MCP server to vMCP.';
+		submitLabel = options?.submitLabel ?? m.vmcps_next();
+		failureMessage = options?.errorMessage ?? m.vmcps_failed_to_add_server_to_vmcp();
 		highlighted = [];
 		error = undefined;
 		saving = false;
@@ -155,11 +156,11 @@
 		}
 		highlighted = missingFixed;
 		if (missingPolicy) {
-			error = 'Select a policy for each configuration field.';
+			error = m.vmcps_select_policy_each_field();
 			return false;
 		}
 		if (missingFixed.length > 0) {
-			error = 'Please complete all fixed configuration fields with valid values.';
+			error = m.vmcps_complete_fixed_fields();
 			return false;
 		}
 		error = undefined;
@@ -208,7 +209,7 @@
 			{#if profile.current.hasAdminAccess?.()}
 				<select
 					class="select select-sm w-48 shrink-0 bg-base-100 dark:bg-base-300 dark:border-base-400 border-base-300"
-					aria-label={`${fieldLabel(draft.field)} policy`}
+					aria-label={m.vmcps_field_policy_label({ field: fieldLabel(draft.field) })}
 					value={draft.policy}
 					disabled={saving || readonly}
 					onchange={(event) =>
@@ -227,7 +228,7 @@
 					class="bg-base-200 border-base-300 dark:border-base-400 border"
 					options={configurationSelectOptions(draft.field.options)}
 					selected={draft.value}
-					placeholder="Select a value"
+					placeholder={m.vmcps_select_a_value()}
 					ariaLabelledby={`${draft.field.key}-label`}
 					{readonly}
 					disabled={saving}
@@ -275,7 +276,7 @@
 			{/if}
 		{:else if draft.policy === 'userAllowed'}
 			<p class="text-muted-content italic text-sm font-light break-all">
-				This field will be requested on user connection to the vMCP.
+				{m.vmcps_field_requested_on_connection()}
 			</p>
 		{/if}
 	</div>
@@ -285,7 +286,7 @@
 	bind:this={dialog}
 	animate="slide"
 	class="max-w-lg"
-	title="Supply Configuration"
+	title={m.vmcps_supply_configuration()}
 	onClose={handleClose}
 	hideClose
 >
@@ -293,34 +294,32 @@
 		{#if entry?.manifest.icon}
 			<McpServerIcon icon={entry?.manifest.icon} />
 		{/if}
-		{readonly ? 'View' : 'Configure'}
-		{displayName}
+		{readonly
+			? m.vmcps_view_named({ name: displayName })
+			: m.vmcps_configure_named({ name: displayName })}
 	{/snippet}
 	<div class="p-4 pb-0 md:p-0">
 		{#if readonly}
 			<p class="text-sm font-light mb-4">
-				Configuration for <b class="font-semibold text-base-content">{displayName}</b> is shown as configured
-				and cannot be changed here.
+				{m.vmcps_readonly_configuration_prefix()}<b class="font-semibold text-base-content"
+					>{displayName}</b
+				>{m.vmcps_readonly_configuration_suffix()}
 			</p>
 		{:else if drafts.length > 0}
 			<p class="text-sm font-light mb-2">
-				This MCP Server requires the following configurations to be set before it can be used.
-				Choose how each configuration value for <b class="font-semibold text-base-content"
+				{m.vmcps_configuration_intro_prefix()}<b class="font-semibold text-base-content"
 					>{displayName}</b
-				>
-				is provided.
+				>{m.vmcps_configuration_intro_suffix()}
 			</p>
 			<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
 				<li>
-					<b class="font-semibold">Preconfigured</b> - Set the value now. This value will be used automatically
-					for every connection.
+					<b class="font-semibold">{m.vmcps_policy_fixed()}</b> - {m.vmcps_policy_fixed_description()}
 				</li>
 				<li>
-					<b class="font-semibold">Provided at connection</b> - Leave the value unset. Each user will
-					be prompted to provide their own value when they connect.
+					<b class="font-semibold">{m.vmcps_policy_user_allowed()}</b> - {m.vmcps_policy_user_allowed_description()}
 				</li>
 				<li>
-					<b class="font-semibold">Ignore</b> - Ignore this field.
+					<b class="font-semibold">{m.vmcps_policy_prohibited()}</b> - {m.vmcps_policy_prohibited_description()}
 				</li>
 			</ul>
 		{/if}
@@ -332,10 +331,9 @@
 				{@render policyField(draft, index)}
 			{/each}
 			{#if requiredDrafts.length > 0 && optionalDrafts.length > 0}
-				<div class="divider my-1 text-xs text-muted-content">Optional</div>
+				<div class="divider my-1 text-xs text-muted-content">{m.vmcps_optional()}</div>
 				<p class="text-xs font-light text-muted-content">
-					These are additional optional fields for the MCP Server. Generally these can be ignored as
-					they are often used for advanced use cases.
+					{m.vmcps_optional_fields_description()}
 				</p>
 			{/if}
 			{#each optionalDrafts as draft, index (draft.field.key)}
@@ -354,10 +352,10 @@
 									bind:checked={forceSingleUser}
 									disabled={saving || readonly}
 								/>
-								<span>Force single-user</span>
+								<span>{m.vmcps_force_single_user()}</span>
 							</label>
 							<p class="text-xs font-light text-muted-content">
-								Run a separate instance of this component for each user.
+								{m.vmcps_force_single_user_description()}
 							</p>
 						</div>
 					</div>
@@ -372,7 +370,7 @@
 			onclick={() => dialog?.close()}
 			disabled={saving}
 		>
-			{readonly || !hasConfiguration ? 'Close' : 'Cancel'}
+			{readonly || !hasConfiguration ? m.vmcps_close() : m.common_cancel()}
 		</button>
 		{#if !readonly && hasConfiguration}
 			<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>

@@ -1,4 +1,5 @@
 <script module lang="ts">
+	import { m } from '$lib/i18n';
 	import type {
 		AccessControlRuleSubject,
 		OrgGroup,
@@ -97,14 +98,17 @@
 	let confirmDeleteProfile = $state<{ id: string; name: string }>();
 	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
-	const EVERYONE_GROUP: OrgGroup = { id: '*', name: 'All Obot Users' };
+	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.vmcps_all_obot_users() };
 	const ADMIN_GROUP: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
 	const GROUP_PAGE_SIZE = 50;
 
-	const nameError = $derived(
-		error === 'Enter a profile name.' || error === 'A profile with this name already exists.'
-	);
-	const subjectsError = $derived(error === 'Assign at least one person or group.');
+	// Validation messages double as error identity, so each is resolved once and compared by reference.
+	const NAME_REQUIRED_ERROR = m.vmcps_profile_name_required();
+	const NAME_EXISTS_ERROR = m.vmcps_profile_name_exists();
+	const SUBJECTS_REQUIRED_ERROR = m.vmcps_profile_subjects_required();
+
+	const nameError = $derived(error === NAME_REQUIRED_ERROR || error === NAME_EXISTS_ERROR);
+	const subjectsError = $derived(error === SUBJECTS_REQUIRED_ERROR);
 	const componentServers = $derived(vmcp?.components ?? []);
 	const assignedSubjectIds = $derived(new Set(draft?.users.map(resolveSubjectPickerById) ?? []));
 	const groupsById = $derived(
@@ -202,7 +206,7 @@
 			component.name ||
 			component.catalogEntry?.manifest?.name ||
 			componentId(component) ||
-			'Unknown'
+			m.vmcps_unknown()
 		);
 	}
 
@@ -508,15 +512,15 @@
 		if (readonly || !draft || !vmcp || saving) return;
 		const name = draft.name.trim();
 		if (!name) {
-			error = 'Enter a profile name.';
+			error = NAME_REQUIRED_ERROR;
 			return;
 		}
 		if (profiles.some((profile) => profile.id !== editingId && profile.name.trim() === name)) {
-			error = 'A profile with this name already exists.';
+			error = NAME_EXISTS_ERROR;
 			return;
 		}
 		if (draft.users.length === 0) {
-			error = 'Assign at least one person or group.';
+			error = SUBJECTS_REQUIRED_ERROR;
 			return;
 		}
 
@@ -528,8 +532,10 @@
 			? profiles.map((candidate) => (candidate.id === editingId ? profile : candidate))
 			: [...profiles, profile];
 
-		if (!(await persistProfiles(next, `${name} saved on ${vmcp.displayName}.`))) {
-			error = 'Failed to save this profile.';
+		if (
+			!(await persistProfiles(next, m.vmcps_profile_saved_on({ name, vmcp: vmcp.displayName })))
+		) {
+			error = m.vmcps_failed_to_save_profile();
 			return;
 		}
 		cancelEditing();
@@ -546,7 +552,10 @@
 		if (!removed) return false;
 
 		const next = profiles.filter((profile) => profile.id !== id);
-		const saved = await persistProfiles(next, `${removed.name} removed from ${vmcp.displayName}.`);
+		const saved = await persistProfiles(
+			next,
+			m.vmcps_profile_removed_from({ name: removed.name, vmcp: vmcp.displayName })
+		);
 		if (saved && editingId === id) cancelEditing();
 		if (saved) confirmDeleteProfile = undefined;
 		return saved;
@@ -907,9 +916,7 @@
 		</div>
 	{:else}
 		<p class="text-muted-content text-sm font-light mt-2 mb-4">
-			Profiles let you control which tools are available to different users, groups, and agents.
-			Define a set of tools and assign identities to the profile to provide tailored access through
-			the same VMCP endpoint.
+			{m.vmcps_profiles_intro()}
 		</p>
 		{#if vmcp}
 			{@render actions()}
@@ -921,9 +928,9 @@
 				>
 					<UsersRound class="size-4" />
 				</div>
-				<h2 class="font-semibold">No profiles yet</h2>
+				<h2 class="font-semibold">{m.vmcps_no_profiles_yet()}</h2>
 				<p class="text-muted-content mt-1 max-w-sm text-xs">
-					In order to create profiles, you must first create a vMCP.
+					{m.vmcps_profiles_require_vmcp()}
 				</p>
 			</div>
 		{/if}
@@ -934,15 +941,14 @@
 	show={Boolean(confirmDisableGrant)}
 	onsuccess={confirmDisableComponent}
 	oncancel={() => (confirmDisableGrant = undefined)}
-	msg="Are you sure you want to disable this server?"
-	title="Disable Server"
-	submitText="Disable"
+	msg={m.vmcps_disable_server_confirm()}
+	title={m.vmcps_disable_server()}
+	submitText={m.vmcps_disable()}
 	type="info"
 >
 	{#snippet note()}
-		{@const name = confirmDisableGrant?.name ?? 'this server'}
-		You currently have tool overrides set for {name}. Disabling this server will also remove these
-		overrides.
+		{@const name = confirmDisableGrant?.name ?? m.vmcps_this_server()}
+		{m.vmcps_disable_server_note({ name })}
 	{/snippet}
 </Confirm>
 
@@ -955,11 +961,11 @@
 	oncancel={() => (confirmDeleteProfile = undefined)}
 	msg=""
 	loading={saving}
-	title="Confirm Delete"
+	title={m.vmcps_confirm_delete()}
 >
 	{#snippet note()}
-		Are you sure you want to delete "<b>{confirmDeleteProfile?.name ?? 'this profile'}</b>"? This
-		cannot be undone.
+		{m.vmcps_delete_confirm_prefix()}<b>{confirmDeleteProfile?.name ?? m.vmcps_this_profile()}</b
+		>{m.vmcps_delete_confirm_suffix()}
 	{/snippet}
 </Confirm>
 
@@ -972,7 +978,8 @@
 					createProfile();
 				}}
 			>
-				<Plus class="size-4" /> Create profile
+				<Plus class="size-4" />
+				{m.vmcps_create_profile()}
 			</button>
 		</div>
 	{/if}
@@ -989,23 +996,29 @@
 			}}
 		>
 			<header class="flex items-start gap-3">
-				<IconButton tooltip={{ text: 'Back to profiles' }} onclick={cancelEditing}>
+				<IconButton tooltip={{ text: m.vmcps_back_to_profiles() }} onclick={cancelEditing}>
 					<ArrowLeft class="size-4" />
 				</IconButton>
 				<div class="min-w-0 grow">
 					<h2 class="text-md font-semibold">
-						{editingId ? (readonly ? 'View profile' : 'Edit profile') : 'Create profile'}
+						{editingId
+							? readonly
+								? m.vmcps_view_profile()
+								: m.vmcps_edit_profile()
+							: m.vmcps_create_profile()}
 					</h2>
 					<p class="text-muted-content text-sm">
-						A profile defines a set of tools for this vMCP that a user, agent, or group has access
-						to.
+						{m.vmcps_profile_definition()}
 					</p>
 				</div>
 				{#if editingId && !readonly}
 					<IconButton
 						variant="danger"
 						disabled={saving}
-						tooltip={{ text: `Delete ${draft?.name ?? 'profile'}`, placement: 'bottom' }}
+						tooltip={{
+							text: m.vmcps_delete_named({ name: draft?.name ?? m.vmcps_profile_lower() }),
+							placement: 'bottom'
+						}}
 						onclick={() => {
 							if (!editingId || !draft) return;
 							promptDelete(editingId, draft.name);
@@ -1020,14 +1033,16 @@
 
 			<section>
 				<label class="flex flex-col gap-0.5" for="profile-name">
-					<span class={twMerge('font-light text-sm', nameError && 'text-error')}>Name</span>
+					<span class={twMerge('font-light text-sm', nameError && 'text-error')}
+						>{m.vmcps_name()}</span
+					>
 					<input
 						id="profile-name"
 						class={twMerge(
 							'input-text-filled text-sm',
 							nameError && 'border-error bg-error/20 ring-error ring-1 focus:ring-1'
 						)}
-						placeholder="ex. Marketing, Engineering, etc."
+						placeholder={m.vmcps_profile_name_placeholder()}
 						autocomplete="off"
 						aria-invalid={nameError || undefined}
 						bind:value={draft.name}
@@ -1038,10 +1053,10 @@
 			</section>
 
 			<section>
-				<div class="divider text-sm font-semibold my-3">MCP Servers</div>
+				<div class="divider text-sm font-semibold my-3">{m.vmcps_mcp_servers()}</div>
 				<div class="mb-4">
 					<p class="text-muted-content text-sm font-light">
-						Further modify the tools available for each MCP server in this profile below.
+						{m.vmcps_profile_servers_description()}
 					</p>
 				</div>
 				<label
@@ -1049,11 +1064,11 @@
 					class="mb-4 flex items-center justify-between gap-4 p-4 border border-base-300 dark:border-base-400 rounded-lg"
 				>
 					<div>
-						<p class="text-sm font-semibold">Allow All Access</p>
+						<p class="text-sm font-semibold">{m.vmcps_allow_all_access()}</p>
 						<p class="text-xs text-muted-content leading-tight font-light">
-							Grants access to all MCP servers and enabled tools applied to the vMCP.
+							{m.vmcps_allow_all_access_description()}
 							<br class="hidden md:block" />
-							This includes current and any MCP servers added in the future.
+							{m.vmcps_allow_all_access_future()}
 						</p>
 					</div>
 					<input
@@ -1062,14 +1077,14 @@
 						class="toggle toggle-sm shrink-0"
 						checked={draft.allowAllComponents}
 						disabled={readonly}
-						aria-label="Allow All Access"
+						aria-label={m.vmcps_allow_all_access()}
 						onchange={(event) => setAllowAllComponents(event.currentTarget.checked)}
 					/>
 				</label>
 				{#if !draft.allowAllComponents}
 					{#if componentServers.length === 0}
 						<div class="text-muted-content rounded-lg p-5 text-center text-sm">
-							No MCP servers available.
+							{m.vmcps_no_mcp_servers_available()}
 						</div>
 					{:else}
 						<div class="flex flex-col gap-1">
@@ -1088,8 +1103,14 @@
 												class="toggle toggle-xs relative z-10"
 												checked={granted}
 												disabled={readonly || !resource}
-												aria-label={granted ? `Disable ${name}` : `Enable ${name}`}
-												use:tooltip={{ text: granted ? `Disable ${name}` : `Enable ${name}` }}
+												aria-label={granted
+													? m.vmcps_disable_named({ name })
+													: m.vmcps_enable_named({ name })}
+												use:tooltip={{
+													text: granted
+														? m.vmcps_disable_named({ name })
+														: m.vmcps_enable_named({ name })
+												}}
 												onclick={(event) => event.stopPropagation()}
 												onchange={(event) => {
 													const next = event.currentTarget.checked;
@@ -1114,16 +1135,20 @@
 											type="button"
 											class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
 											aria-expanded={Boolean(expanded[id])}
-											aria-label={expanded[id] ? 'Collapse' : 'Expand'}
+											aria-label={expanded[id] ? m.vmcps_collapse() : m.vmcps_expand()}
 											onclick={() => (expanded[id] = !expanded[id])}
 										>
 											{@render componentIdentity()}
 											<span class="text-muted-content text-xs">
 												{#if resource.toolsFromGrant}
-													{enabledToolCount(resource)}
-													{enabledToolCount(resource) === 1 ? 'tool' : 'tools'}
+													{enabledToolCount(resource) === 1
+														? m.vmcps_tool_count_one({ count: enabledToolCount(resource) })
+														: m.vmcps_tool_count_other({ count: enabledToolCount(resource) })}
 												{:else}
-													{enabledToolCount(resource)} of {modifiableTools(resource).length} tools
+													{m.vmcps_tools_of_total({
+														enabled: enabledToolCount(resource),
+														total: modifiableTools(resource).length
+													})}
 												{/if}
 											</span>
 											<span
@@ -1141,7 +1166,7 @@
 										<button
 											type="button"
 											class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
-											aria-label="Refine tools"
+											aria-label={m.vmcps_refine_tools()}
 											onclick={(event) => refineTools(event, component)}
 											disabled={readonly}
 										>
@@ -1162,7 +1187,7 @@
 										>
 											{@render componentIdentity()}
 											<span class="text-muted-content shrink-0 text-xs">
-												{resource && !granted ? 'Disabled' : ''}
+												{resource && !granted ? m.vmcps_disabled() : ''}
 											</span>
 										</div>
 									{/if}
@@ -1177,7 +1202,7 @@
 												toolPrefix={component.toolPrefix}
 												componentId={id}
 												lockedTools={lockedToolNames(resource)}
-												lockedReason="Disabled on this vMCP."
+												lockedReason={m.vmcps_disabled_on_vmcp()}
 												onRefresh={readonly ? undefined : () => refreshProfileTools(component)}
 												onToolsChange={() => draft && refineAllowAllIfNeeded(draft)}
 												{effectiveNameDuplicates}
@@ -1193,10 +1218,10 @@
 			</section>
 
 			<section>
-				<div class="divider text-sm font-semibold my-3">Identities</div>
+				<div class="divider text-sm font-semibold my-3">{m.vmcps_identities()}</div>
 				<div class="mb-4">
 					<p class="text-muted-content text-sm font-light">
-						Grant the following users, agents, and groups access to this profile.
+						{m.vmcps_identities_description()}
 					</p>
 				</div>
 				<Select
@@ -1205,8 +1230,8 @@
 					bind:query={subjectQuery}
 					bind:selected={subjectSelection}
 					searchInDropdown
-					placeholder="Add identities..."
-					searchPlaceholder="Search users or groups..."
+					placeholder={m.vmcps_add_identities()}
+					searchPlaceholder={m.vmcps_search_users_or_groups()}
 					class="bg-base-200 shadow-inner!"
 					classes={{ root: 'w-full' }}
 					invalid={subjectsError}
@@ -1215,7 +1240,7 @@
 				/>
 				{#if draft.users.length === 0}
 					<div class="text-muted-content text-center pb-4 pt-3 text-xs italic font-light">
-						No people or groups assigned.
+						{m.vmcps_no_identities_assigned()}
 					</div>
 				{:else}
 					<div class="flex flex-col mt-2">
@@ -1250,10 +1275,10 @@
 										<span class="text-sm font-light">{display.name}</span>
 										<span class="text-muted-content text-xs">
 											{display.group
-												? 'Group'
+												? m.vmcps_group()
 												: display.role
 													? getUserRoleLabel(display.role)
-													: 'User'}
+													: m.vmcps_user()}
 										</span>
 									</div>
 								</div>
@@ -1261,7 +1286,7 @@
 								{#if !readonly}
 									<IconButton
 										class="size-8"
-										tooltip={{ text: `Remove ${display.name}` }}
+										tooltip={{ text: m.vmcps_remove_named({ name: display.name }) }}
 										onclick={() => removeSubject(subject)}
 										variant="danger"
 									>
@@ -1285,7 +1310,7 @@
 			{#if !readonly}
 				<footer class="w-full">
 					<button type="submit" class="btn btn-sm btn-primary text-xs w-full" disabled={saving}>
-						{editingId ? 'Save changes' : 'Create profile'}
+						{editingId ? m.vmcps_save_changes() : m.vmcps_create_profile()}
 					</button>
 				</footer>
 			{/if}
@@ -1301,16 +1326,14 @@
 			>
 				<UsersRound class="size-4" />
 			</div>
-			<h2 class="font-semibold">No profiles yet</h2>
+			<h2 class="font-semibold">{m.vmcps_no_profiles_yet()}</h2>
 			<p class="text-muted-content mt-1 max-w-sm text-xs">
-				{readonly
-					? 'No profiles have been created for this vMCP yet.'
-					: 'Create a profile to group identities and define the MCP tools available to them.'}
+				{readonly ? m.vmcps_no_profiles_created() : m.vmcps_create_profile_hint()}
 			</p>
 			{#if !readonly}
 				<button class="btn btn-primary btn-sm mt-5" onclick={createProfile}>
 					<Plus class="size-4" />
-					Create profile
+					{m.vmcps_create_profile()}
 				</button>
 			{/if}
 		</div>
@@ -1324,7 +1347,9 @@
 					<button
 						type="button"
 						class="absolute inset-0 rounded-xl"
-						aria-label={`${readonly ? 'View' : 'Edit'} ${profile.name}`}
+						aria-label={readonly
+							? m.vmcps_view_named({ name: profile.name })
+							: m.vmcps_edit_named({ name: profile.name })}
 						onclick={() => {
 							setUrlParamAndUpdateUrl(page.url, 'profile', profile.id);
 						}}
@@ -1364,11 +1389,16 @@
 												>
 													{resource.changed
 														? resource.totalKnown
-															? `${resource.enabled} of ${resource.total}`
-															: `${resource.enabled} ${resource.enabled === 1 ? 'tool' : 'tools'}`
+															? m.vmcps_enabled_of_total({
+																	enabled: resource.enabled,
+																	total: resource.total
+																})
+															: resource.enabled === 1
+																? m.vmcps_tool_count_one({ count: resource.enabled })
+																: m.vmcps_tool_count_other({ count: resource.enabled })
 														: resource.granted
-															? 'Default'
-															: 'Disabled'}
+															? m.vmcps_default()
+															: m.vmcps_disabled()}
 												</span>
 											</li>
 										{/each}
@@ -1376,7 +1406,7 @@
 											<li
 												class="text-muted-content self-center text-xs font-light badge bg-transparent border-base-300 dark:border-base-400"
 											>
-												+{resources.more} more
+												{m.vmcps_n_more({ count: resources.more })}
 											</li>
 										{/if}
 									</ul>
@@ -1387,7 +1417,10 @@
 									variant="danger"
 									class="pointer-events-auto"
 									disabled={saving}
-									tooltip={{ text: `Delete ${profile.name}`, placement: 'bottom' }}
+									tooltip={{
+										text: m.vmcps_delete_named({ name: profile.name }),
+										placement: 'bottom'
+									}}
 									onclick={() => promptDelete(profile.id, profile.name)}
 								>
 									<Trash2 class="size-4" />

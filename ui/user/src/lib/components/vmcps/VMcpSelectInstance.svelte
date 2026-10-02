@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { VMCPInstance } from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -11,11 +12,11 @@
 		title?: string;
 	}
 
-	let { onSelectInstance, title = 'Select Your Connection' }: Props = $props();
+	let { onSelectInstance, title = m.vmcps_select_your_connection() }: Props = $props();
 
 	let selectInstanceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let instances = $state<VMCPInstance[]>([]);
-	let dialogTitle = $state('Select Your Connection');
+	let dialogTitle = $state<string>(m.vmcps_select_your_connection());
 
 	export function open(initInstances: VMCPInstance[] = [], initTitle?: string) {
 		instances = initInstances;
@@ -36,7 +37,7 @@
 	<Table
 		data={instances}
 		fields={['id', 'created']}
-		headers={[{ title: 'Connection', property: 'id' }]}
+		headers={[{ title: m.vmcps_connection(), property: 'id' }]}
 		onClickRow={async (d) => {
 			selectInstanceDialog?.close();
 			onSelectInstance?.(d);
@@ -58,7 +59,7 @@
 		{#snippet actions(d)}
 			<IconButton
 				class="hover:dark:bg-base-100/50"
-				tooltip={{ text: 'Select connection' }}
+				tooltip={{ text: m.vmcps_select_connection() }}
 				onclick={() => {
 					selectInstanceDialog?.close();
 					onSelectInstance?.(d);

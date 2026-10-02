@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
 	import { isCatalogSyncedVMcp } from '$lib/services/vmcps/utils';
 	import { isWebURL } from '$lib/url';
@@ -31,7 +32,7 @@
 			class={twMerge('size-4 shrink-0', klass)}
 			classes={{ icon: twMerge('text-primary size-4', iconClass) }}
 			icon={FolderGit2}
-			ariaLabel="Synced from catalog"
+			ariaLabel={m.vmcps_synced_from_catalog()}
 			{placement}
 			interactive
 		>
@@ -43,10 +44,9 @@
 {/if}
 
 {#snippet contents()}
-	<p class="font-semibold">Synced from catalog</p>
+	<p class="font-semibold">{m.vmcps_synced_from_catalog()}</p>
 	<p>
-		This vMCP is managed by a catalog source and is read-only in Obot. Make changes in the catalog
-		source; they are applied on the next sync.
+		{m.vmcps_synced_from_catalog_description()}
 	</p>
 	{#if vmcp.sourceURL}
 		{#if isWebURL(vmcp.sourceURL)}
@@ -59,7 +59,7 @@
 				{vmcp.sourceURL}
 			</a>
 		{:else}
-			<p class="break-all">Source: {vmcp.sourceURL}</p>
+			<p class="break-all">{m.vmcps_source_named({ source: vmcp.sourceURL })}</p>
 		{/if}
 	{/if}
 {/snippet}

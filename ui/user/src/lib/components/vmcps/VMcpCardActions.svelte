@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import { m } from '$lib/i18n';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { profile, version, vmcpInstances } from '$lib/stores';
@@ -59,8 +60,8 @@
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 				: disabled
 					? !isShared
-						? 'Cannot connect or test a personal vMCP'
-						: 'Requires access to connect or test this vMCP'
+						? m.vmcps_cannot_connect_personal()
+						: m.vmcps_requires_access_to_connect()
 					: undefined
 		}}
 		class="flex grow"
@@ -79,10 +80,10 @@
 				disabled={hasLicenseEntitlementViolations || disabled}
 				aria-disabled={hasLicenseEntitlementViolations || disabled}
 			>
-				Connect
+				{m.vmcps_connect()}
 			</button>
 			<CopyButton
-				tooltipText="Copy Connect URL"
+				tooltipText={m.vmcps_copy_connect_url()}
 				text={connectURL}
 				noButtonText
 				classes={{
@@ -96,8 +97,8 @@
 	{#if !hideTest}
 		<button
 			type="button"
-			aria-label="Test vMCP"
-			use:tooltip={{ text: 'Test vMCP' }}
+			aria-label={m.vmcps_test_vmcp()}
+			use:tooltip={{ text: m.vmcps_test_vmcp() }}
 			class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
 			onclick={handleTest}
 			disabled={hasLicenseEntitlementViolations || disabled}

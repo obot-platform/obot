@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { OrgUser, VMCP, VMCPInstance } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
@@ -70,8 +71,7 @@
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
-	const roughEstimationText =
-		'This is a rough approximation of the number of tools available. The exact number may vary.';
+	const roughEstimationText = m.vmcps_rough_tool_estimate();
 
 	let componentRange = $derived.by(() => {
 		if (components.length <= VMCP_COMPONENT_WINDOW_THRESHOLD) {
@@ -204,7 +204,7 @@
 
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
-	{@const name = vmcp.displayName || 'Untitled vMCP'}
+	{@const name = vmcp.displayName || m.vmcps_untitled_vmcp()}
 	<div class="translate-y-1">
 		<div
 			use:drag.vmcpTarget={vmcp.id}
@@ -220,7 +220,7 @@
 		>
 			<VMcpCard
 				{vmcp}
-				selectAriaLabel={!readonly ? `Edit ${name}` : name}
+				selectAriaLabel={!readonly ? m.vmcps_edit_named({ name }) : name}
 				bind:connectEl
 				{onConnect}
 				hideTest
@@ -254,14 +254,18 @@
 			</VMcpCard>
 		</div>
 		<div class="flex justify-between gap-4 pt-1 px-0.5">
-			<p class="text-muted-content text-xs font-light">{vmcp.components.length} Servers</p>
+			<p class="text-muted-content text-xs font-light">
+				{m.vmcps_server_count({ count: vmcp.components.length })}
+			</p>
 
 			{#if tools}
 				<p class="text-muted-content text-xs font-light items-center flex gap-1">
 					{#if tools.total === 0}
-						All tools enabled
+						{m.vmcps_all_tools_enabled()}
 					{:else}
-						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
+						{tools.approximate
+							? m.vmcps_tools_enabled_approx({ count: tools.enabled })
+							: m.vmcps_tools_enabled({ count: tools.enabled })}
 						{#if tools.approximate}
 							<InfoTooltip
 								class="pointer-events-auto relative z-10"
@@ -285,11 +289,11 @@
 			linked && 'vmcp-drop-target border-primary'
 		)}
 		role="region"
-		aria-label={`MCP Servers in ${vmcp.displayName || 'vMCP'}`}
+		aria-label={m.vmcps_mcp_servers_in_named({ name: vmcp.displayName || 'vMCP' })}
 		in:fade={{ delay: CREATE_WIRE_DURATION_MS, duration: 200 }}
 	>
 		<p class="text-muted-content text-xs italic">
-			{!readonly ? 'No servers yet. Drag one in from the MCP Servers panel.' : 'No servers yet.'}
+			{!readonly ? m.vmcps_no_servers_yet_drag() : m.vmcps_no_servers_yet()}
 		</p>
 	</div>
 {/snippet}
@@ -332,7 +336,7 @@
 			<div class="min-w-0 grow">
 				<p class="truncate text-sm font-semibold">{component.name}</p>
 				<p class="text-muted-content line-clamp-2 text-xs">
-					{component.description || 'No description'}
+					{component.description || m.vmcps_no_description()}
 				</p>
 			</div>
 		</div>
@@ -342,7 +346,7 @@
 
 {#snippet componentTools(component: VMcpComponentView)}
 	{@const withToolOverrides = component.toolOverrides}
-	<div class="divider my-0 text-xs font-medium text-muted-content mb-2">Tools</div>
+	<div class="divider my-0 text-xs font-medium text-muted-content mb-2">{m.vmcps_tools()}</div>
 	{#if withToolOverrides && withToolOverrides.length > 0}
 		{@const total = withToolOverrides.length}
 		{@const selectedCount = withToolOverrides.filter((tool) => tool.enabled === true).length}
@@ -350,12 +354,12 @@
 			{#if readonly}
 				{total} total tools
 			{:else}
-				{selectedCount} / {total} selected
+				{m.vmcps_tools_selected_count({ selected: selectedCount, total })}
 			{/if}
 		</p>
 	{:else}
 		<p class="text-muted-content font-mono text-xs text-center w-full">
-			All tools enabled by default
+			{m.vmcps_all_tools_enabled_by_default()}
 		</p>
 	{/if}
 {/snippet}

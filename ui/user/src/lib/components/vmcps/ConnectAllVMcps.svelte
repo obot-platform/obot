@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
 	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { buildConnectAllSnippets, vmcpConnectURL } from '$lib/services/vmcps/utils';
@@ -51,17 +52,17 @@
 				alt=""
 				class="mt-0.5 size-4 hidden dark:block"
 			/>
-			Connect All vMCPs
+			{m.vmcps_connect_all_vmcps()}
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 md:p-0 p-4">
 		{#if !hasConnectableVMcps}
 			<p class="text-sm text-muted-content font-light">
-				No vMCPs currently have a connection URL to copy.
+				{m.vmcps_connect_all_none()}
 			</p>
 		{:else if selectedConnectAllSnippet}
 			{#if connectAllSnippets.length > 1}
-				<div role="tablist" class="tabs tabs-box" aria-label="Configuration files">
+				<div role="tablist" class="tabs tabs-box" aria-label={m.vmcps_configuration_files()}>
 					{#each connectAllSnippets as snippet (snippet.id)}
 						<button
 							type="button"
@@ -82,37 +83,40 @@
 						{#if selectedClient.id === AiClient.Claude}
 							{#if isAdmin && selectedConnectAllSnippet.id === 'claude-settings-json'}
 								<p>
-									Go to <code class="text-base-content"
+									{m.vmcps_connect_all_claude_admin_prefix()}<code class="text-base-content"
 										>Admin Settings > Claude Code > Managed settings</code
-									> and add the following configuration JSON:
+									>{m.vmcps_connect_all_claude_admin_suffix()}
 								</p>
 							{:else}
 								<p>
-									Copy the configuration below into your project's <code class="text-base-content"
+									{m.vmcps_connect_all_claude_prefix()}<code class="text-base-content"
 										>.mcp.json</code
-									>
-									or your user-level
-									<code class="text-base-content">~/.claude.json</code>.
+									>{m.vmcps_connect_all_claude_middle()}<code class="text-base-content"
+										>~/.claude.json</code
+									>{m.vmcps_connect_all_claude_suffix()}
 								</p>
 							{/if}
 						{:else if selectedClient.id === AiClient.Codex}
 							<p>
-								Copy these tables into
-								<code class="text-base-content">~/.codex/config.toml</code>
-								or a project-scoped
-								<code class="text-base-content">.codex/config.toml</code>.
+								{m.vmcps_connect_all_codex_prefix()}<code class="text-base-content"
+									>~/.codex/config.toml</code
+								>{m.vmcps_connect_all_codex_middle()}<code class="text-base-content"
+									>.codex/config.toml</code
+								>{m.vmcps_connect_all_codex_suffix()}
 							</p>
 						{:else if selectedClient.id === AiClient.Cursor}
 							<p>
-								Copy the configuration below into
-								<code class="text-base-content">~/.cursor/mcp.json</code>
-								or your project's
-								<code class="text-base-content">.cursor/mcp.json</code>.
+								{m.vmcps_connect_all_cursor_prefix()}<code class="text-base-content"
+									>~/.cursor/mcp.json</code
+								>{m.vmcps_connect_all_cursor_middle()}<code class="text-base-content"
+									>.cursor/mcp.json</code
+								>{m.vmcps_connect_all_cursor_suffix()}
 							</p>
 						{:else if selectedClient.id === AiClient.VSCode}
 							<p>
-								Copy this configuration into your workspace
-								<code class="text-base-content">.vscode/mcp.json</code>.
+								{m.vmcps_connect_all_vscode_prefix()}<code class="text-base-content"
+									>.vscode/mcp.json</code
+								>{m.vmcps_connect_all_vscode_suffix()}
 							</p>
 						{/if}
 					</div>

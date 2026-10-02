@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 import {
 	UserService,
@@ -194,7 +195,7 @@ export function createVMcpToolFlow() {
 		const id = vmcpComponentId(component);
 		const entry = catalogEntryForComponent(component);
 		if (!id || !entry) {
-			errors.append('Could not load this server to modify its tools.');
+			errors.append(m.vmcps_could_not_load_server_tools());
 			return false;
 		}
 		refreshToolsRequested = refresh;
@@ -303,7 +304,7 @@ export function createVMcpToolFlow() {
 				vmcpComponentId(candidate) === pending.component.id
 		);
 		if (!component) {
-			errors.append('Could not find that server on the vMCP.');
+			errors.append(m.vmcps_could_not_find_server());
 			return;
 		}
 		openSetup(pending.vmcp, component);
@@ -367,7 +368,10 @@ export function createVMcpToolFlow() {
 			});
 			modifyingVMcp = updated;
 			success.add(
-				`Configuration updated for ${component.catalogEntry?.manifest?.name ?? component.name ?? 'this server'} on ${updated.displayName}.`
+				m.vmcps_configuration_updated_for({
+					server: component.catalogEntry?.manifest?.name ?? component.name ?? m.vmcps_this_server(),
+					vmcp: updated.displayName
+				})
 			);
 			onVMcpChanged?.(updated);
 			if (postCreateConfiguration) {
@@ -383,8 +387,8 @@ export function createVMcpToolFlow() {
 			}
 			close();
 		} catch {
-			errors.append('Failed to update configuration for this vMCP.');
-			throw new Error('Failed to update configuration for this vMCP.');
+			errors.append(m.vmcps_failed_to_update_vmcp_configuration());
+			throw new Error(m.vmcps_failed_to_update_vmcp_configuration());
 		}
 	}
 
@@ -469,12 +473,18 @@ export function createVMcpToolFlow() {
 			});
 			modifyingVMcp = updated;
 			success.add(
-				`Tools updated for ${componentConfig.catalogEntry?.manifest?.name ?? componentConfig.name ?? 'this server'} on ${updated.displayName}.`
+				m.vmcps_tools_updated_for({
+					server:
+						componentConfig.catalogEntry?.manifest?.name ??
+						componentConfig.name ??
+						m.vmcps_this_server(),
+					vmcp: updated.displayName
+				})
 			);
 			onVMcpChanged?.(updated);
 			return true;
 		} catch {
-			errors.append('Failed to update tools for this vMCP.');
+			errors.append(m.vmcps_failed_to_update_tools());
 			return false;
 		} finally {
 			close();
@@ -505,8 +515,7 @@ export function createVMcpToolFlow() {
 	async function removeComponent() {
 		if (!pendingRemoval) return;
 		const { component, vmcp } = pendingRemoval;
-		const lastComponentWarning =
-			'Cannot remove the last remaining component. Connecting to a vMCP requires at least one component.';
+		const lastComponentWarning = m.vmcps_cannot_remove_last_component();
 		if ((vmcp.components ?? []).length <= 1) {
 			errors.append(lastComponentWarning);
 			pendingRemoval = undefined;
@@ -528,10 +537,12 @@ export function createVMcpToolFlow() {
 						candidate.mcpServerCatalogEntryID !== component.id
 				)
 			});
-			success.add(`${component.name} removed from ${updated.displayName}.`);
+			success.add(
+				m.vmcps_server_removed_from({ server: component.name ?? '', vmcp: updated.displayName })
+			);
 			onVMcpChanged?.(updated);
 		} catch {
-			errors.append('Failed to remove MCP server from vMCP.');
+			errors.append(m.vmcps_failed_to_remove_server());
 		} finally {
 			removing = false;
 			pendingRemoval = undefined;

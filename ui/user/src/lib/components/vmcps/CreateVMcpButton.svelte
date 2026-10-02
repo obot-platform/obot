@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import VMcpDragHint from '$lib/components/vmcps/VMcpDragHint.svelte';
+	import { m } from '$lib/i18n';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import { CREATE_VMCP_DROP_ID } from '$lib/runes/vmcps/entryDrag.svelte';
 	import './vmcpGraph.css';
@@ -37,9 +38,7 @@
 	$effect(() => {
 		if (!open || !hintPanelEl) return;
 		void tick().then(() => {
-			hintPanelEl
-				?.querySelector<HTMLButtonElement>('button[aria-label="Dismiss drag and drop tip"]')
-				?.focus();
+			hintPanelEl?.querySelector<HTMLButtonElement>('button[data-vmcp-drag-hint-dismiss]')?.focus();
 		});
 	});
 
@@ -90,10 +89,11 @@
 					linked && 'text-base-content'
 				)}
 			>
-				<Plus class="size-3 shrink-0" /> Create New vMCP
+				<Plus class="size-3 shrink-0" />
+				{m.vmcps_create_new_vmcp()}
 			</p>
 			<p class="text-xs text-muted-content font-extralight">
-				Drag a MCP server here to get started.
+				{m.vmcps_create_drag_here()}
 			</p>
 		</div>
 	</button>
