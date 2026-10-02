@@ -112,6 +112,11 @@ type MCPAuditLogOptions struct {
 	UserID    []string
 	SessionID []string
 	ClientIP  []string
+	// DeviceHostname filters on the enrolled device's registry hostname, matched as a
+	// case-insensitive substring. It is resolved against the devices table rather than the
+	// audit row: the hostname a client reports on an event is encrypted at rest, so it
+	// cannot be matched in SQL. Multiple values are OR-ed.
+	DeviceHostname []string
 	// ProcessingTimeMin and ProcessingTimeMax filter the normalized duration field, using MCP
 	// processing time or local-agent duration as appropriate.
 	ProcessingTimeMin int64
@@ -357,6 +362,20 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = applyMCPAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeMCP), opts)
 	} else if hasLocalAgentAuditLogFilters(opts) {
 		db = applyLocalAgentAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeLocalAgentToolCall), opts)
+	}
+
+	// DeviceHostname resolves against the device registry, so it needs a second query to turn
+	// hostname patterns into device IDs before the row filter can be built. A pattern that
+	// matches no device must yield zero rows, which is different from "no filter given".
+	if len(opts.DeviceHostname) > 0 {
+		deviceIDs, err := c.DeviceIDsMatchingHostnames(ctx, opts.DeviceHostname)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(deviceIDs) == 0 {
+			return nil, 0, nil
+		}
+		db = db.Where("source_type = ? AND device_id IN ?", types2.AuditLogSourceTypeLocalAgentToolCall, deviceIDs)
 	}
 
 	db = applyUnifiedAuditLogFilters(db, opts)
@@ -662,6 +681,15 @@ func (c *Client) applyAuditLogSearch(ctx context.Context, db *gorm.DB, queryValu
 	for _, column := range columns {
 		parts = append(parts, column+" "+like+" ?")
 		args = append(args, "%"+queryValue+"%")
+	}
+	// The hostname a client reports on an event is encrypted at rest, so it cannot be matched
+	// here. Resolve the term against the device registry instead and match the stamped device
+	// ID, which keeps "search by machine name" working without decrypting any row.
+	if deviceIDs, err := c.DeviceIDsMatchingHostnames(ctx, []string{queryValue}); err != nil {
+		return nil, err
+	} else if len(deviceIDs) > 0 {
+		parts = append(parts, "device_id IN ?")
+		args = append(args, deviceIDs)
 	}
 	if status, err := strconv.Atoi(queryValue); err == nil {
 		parts, args = append(parts, "response_status = ?"), append(args, status)

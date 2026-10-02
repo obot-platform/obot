@@ -245,6 +245,7 @@
 						{@render th('Time', { class: 'w-[28ch]', minWidth: '24ch' })}
 						{@render th('Source', { class: 'w-[20ch]', minWidth: '18ch' })}
 						{@render th('Actor', { class: 'w-[26ch]', minWidth: '22ch' })}
+						{@render th('Hostname', { class: 'w-[22ch]', minWidth: '16ch' })}
 						{@render th('Operation', { class: 'w-[20ch]', minWidth: '18ch' })}
 						{@render th('Identifier', { class: 'w-[32ch]', minWidth: '26ch' })}
 						{@render th('Status', { class: 'w-[18ch]', minWidth: '16ch' })}
@@ -279,6 +280,7 @@
 							credentialLabel || actor,
 							d.actor.credentialID ? actor : d.actor.actorType
 						)}
+						{@render td(d.deviceHostname || '—')}
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}

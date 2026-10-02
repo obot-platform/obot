@@ -82,6 +82,15 @@ type AuditLogEvent struct {
 	Target    AuditLogTarget    `json:"target"`
 	Outcome   AuditLogOutcome   `json:"outcome"`
 	Client    string            `json:"client,omitempty"`
+	// DeviceHostname is the hostname of the enrolled device that produced the event,
+	// resolved server-side from the stamped DeviceID. It is populated in list responses
+	// too, so the audit table can label rows without enabling Details. Empty for events
+	// with no device actor, and for devices that have never reported a hostname.
+	//
+	// This is the registry's hostname, not the client-reported one in
+	// Details.Device.Hostname: the reported value is encrypted at rest and therefore
+	// neither listable nor searchable, while the registry value is plaintext.
+	DeviceHostname string           `json:"deviceHostname,omitempty"`
 	Details   *AuditLogDetails  `json:"details,omitempty"`
 }
 

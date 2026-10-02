@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -91,12 +92,21 @@ type DeviceClientFleetListOptions struct {
 // InsertDeviceScan persists a device scan envelope and all its children
 // in a single GORM cascading insert. Each call creates a fresh row —
 // duplicate submissions are not deduped at this layer.
+//
+// It also refreshes the enrolled device's registry hostname and last-seen
+// time from the scan, so a machine that was renamed after enrollment still
+// resolves to its current name. The refresh is best-effort: the scan row is
+// already durable at that point, and a failure to update the registry must
+// not fail the submission.
 func (c *Client) InsertDeviceScan(ctx context.Context, scan *types.DeviceScan) error {
 	if scan == nil {
 		return errors.New("nil device scan")
 	}
 	if err := c.db.WithContext(ctx).Create(scan).Error; err != nil {
 		return fmt.Errorf("failed to insert device scan: %w", err)
+	}
+	if err := c.RefreshDeviceFromScan(ctx, scan.DeviceID, scan.Hostname, scan.ScannedAt); err != nil {
+		slog.WarnContext(ctx, "failed to refresh device registry from scan", "deviceID", scan.DeviceID, "error", err)
 	}
 	return nil
 }

@@ -18,6 +18,11 @@ type PresentOptions struct {
 	// perform redaction itself: the gateway client must decrypt or blank sensitive fields before
 	// Present is called.
 	PayloadRedacted bool
+	// DeviceHostname is the registry hostname for the event's stamped device, already
+	// resolved by the caller. List callers pass it so rows are labelled without enabling
+	// Details; passing it on the detail path is harmless but redundant, since the detail
+	// view reads Details.Device.Hostname.
+	DeviceHostname string
 }
 
 // Present converts an internal persisted audit-log row into the normalized public read model.
@@ -31,6 +36,7 @@ func Present(log gatewaytypes.MCPAuditLog, opts PresentOptions) api.AuditLogEven
 			RecordedAt: *api.NewTime(log.CreatedAt),
 			Source:     api.AuditLogTimestampSourceServer,
 		},
+		DeviceHostname: opts.DeviceHostname,
 	}
 
 	switch log.SourceType {

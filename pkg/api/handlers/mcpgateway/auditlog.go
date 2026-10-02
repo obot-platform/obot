@@ -229,6 +229,7 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ToolName:                  parseMultiValueParam(query, "tool_name"),
 		ToolKind:                  parseMultiValueParam(query, "tool_kind"),
 		DeviceID:                  parseMultiValueParam(query, "device_id"),
+		DeviceHostname:            parseMultiValueParam(query, "device_hostname"),
 
 		// Unified, source-agnostic filters used by the reworked audit-log UI. These map to the correct
 		// column per source in the gateway client and are additive to the source-specific filters above
@@ -402,10 +403,22 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		return err
 	}
 
+	// Resolve registry hostnames for the page in one query. The audit row itself carries no
+	// searchable hostname (the client-reported one is encrypted at rest), so list rows are
+	// labelled from the device registry via the server-stamped device ID.
+	hostnames, err := resolveAuditLogDeviceHostnames(req.Context(), req.GatewayClient, logs)
+	if err != nil {
+		return err
+	}
+
 	// Convert to API types
 	result := make([]types.AuditLogEvent, 0, len(logs))
 	for _, log := range logs {
-		result = append(result, auditlog.Present(log, auditlog.PresentOptions{}))
+		hostname := ""
+		if log.SourceType == types.AuditLogSourceTypeLocalAgentToolCall && log.LocalAgentToolCallFields != nil {
+			hostname = hostnames[log.LocalAgentToolCallFields.DeviceID]
+		}
+		result = append(result, auditlog.Present(log, auditlog.PresentOptions{DeviceHostname: hostname}))
 	}
 
 	return req.Write(types.AuditLogEventResponse{
@@ -414,6 +427,36 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		Limit:  opts.Limit,
 		Offset: opts.Offset,
 	})
+}
+
+// resolveAuditLogDeviceHostnames looks up registry hostnames for the devices behind a page of
+// audit rows. It returns an empty map when the page has no device actors, so the caller does not
+// need to special-case MCP-only pages.
+func resolveAuditLogDeviceHostnames(ctx context.Context, client *gateway.Client, logs []gatewaytypes.MCPAuditLog) (map[string]string, error) {
+	ids := make([]string, 0, len(logs))
+	seen := make(map[string]struct{}, len(logs))
+	for _, log := range logs {
+		if log.SourceType != types.AuditLogSourceTypeLocalAgentToolCall || log.LocalAgentToolCallFields == nil {
+			continue
+		}
+		deviceID := log.LocalAgentToolCallFields.DeviceID
+		if deviceID == "" {
+			continue
+		}
+		if _, ok := seen[deviceID]; ok {
+			continue
+		}
+		seen[deviceID] = struct{}{}
+		ids = append(ids, deviceID)
+	}
+	if len(ids) == 0 {
+		return map[string]string{}, nil
+	}
+	hostnames, err := client.DeviceHostnamesByDeviceID(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	return hostnames, nil
 }
 
 // GetAuditLog handles GET /api/mcp-audit-logs/detail/{audit_log_id}
