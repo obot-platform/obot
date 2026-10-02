@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		ModelAliasLabels,
@@ -169,14 +170,14 @@
 	disabled={availableModels.length === 0 || loading}
 	onclick={() => open()}
 >
-	Set Default Models
+	{m.admin_forms_default_models_set()}
 </button>
 
 <ResponsiveDialog
 	{onClose}
 	class="overflow-visible"
 	bind:this={dialog}
-	title="Default Model Aliases"
+	title={m.admin_forms_default_models_title()}
 	onClickOutside={() => {
 		if (!required) {
 			onClose();
@@ -185,8 +186,7 @@
 	hideClose={required}
 >
 	<p class="text-muted-content pb-4 font-light">
-		When no model is specified, a default model is used for creating a new project, running user
-		tasks, or working with some tools, etc. Select your default models for the usage types below.
+		{m.admin_forms_default_models_description()}
 	</p>
 	<div class="flex flex-col gap-4 py-4">
 		{#each sortedModelAliases as modelAlias (modelAlias.alias)}
@@ -202,20 +202,26 @@
 					class="bg-base-200 dark:bg-base-300 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 					options={activeModelOptions
 						.map((model) => ({
-							label: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(model.name ?? '')
-								? `${model.displayName || model.name || ''} (Suggested)`
-								: model.displayName || model.name || '',
-							id: model.id
+							model,
+							suggested: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(
+								model.name ?? ''
+							)
 						}))
 						.sort((a, b) => {
-							const aIsSuggested = a.label.includes('(Suggested)');
-							const bIsSuggested = b.label.includes('(Suggested)');
 							// Sort suggested models to the top
-							if (aIsSuggested && !bIsSuggested) return -1;
-							if (!aIsSuggested && bIsSuggested) return 1;
+							if (a.suggested && !b.suggested) return -1;
+							if (!a.suggested && b.suggested) return 1;
 							// Keep original order for models with same suggested status
 							return 0;
-						})}
+						})
+						.map(({ model, suggested }) => ({
+							label: suggested
+								? m.admin_forms_default_models_suggested({
+										name: model.displayName || model.name || ''
+									})
+								: model.displayName || model.name || '',
+							id: model.id
+						}))}
 					selected={getSelectedModel(modelAlias, activeModelOptions)}
 					onSelect={async (option) => {
 						changes = {
@@ -225,7 +231,7 @@
 					}}
 					disabled={readonly}
 					searchInDropdown
-					placeholder="Search models..."
+					placeholder={m.admin_forms_default_models_search()}
 				/>
 			</div>
 		{/each}
@@ -240,11 +246,13 @@
 				{#if loading}
 					<Loading class="size-4 inline-block" />
 				{:else}
-					Save Changes
+					{m.admin_forms_save_changes()}
 				{/if}
 			</button>
 			{#if !required}
-				<button class="btn btn-secondary w-full" onclick={() => dialog?.close()}> Skip </button>
+				<button class="btn btn-secondary w-full" onclick={() => dialog?.close()}>
+					{m.admin_forms_skip()}
+				</button>
 			{/if}
 		</div>
 	{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MCPTunnel, type MCPTunnelManifest } from '$lib/services';
 	import { Plus, RefreshCw, Trash2 } from '@lucide/svelte';
@@ -49,22 +50,22 @@
 	function allowedURLValidation(value: string): string {
 		const candidate = value.trim();
 		if (!candidate) {
-			return 'Allowed URL is required';
+			return m.admin_forms_tf_allowed_url_required();
 		}
 
 		const wildcardCount = candidate.split('*').length - 1;
 		if (wildcardCount > 1) {
-			return 'Use at most one wildcard';
+			return m.admin_forms_tf_one_wildcard();
 		}
 		if (wildcardCount === 1 && !candidate.startsWith('*') && !candidate.endsWith('*')) {
-			return 'The wildcard must be at the beginning or end';
+			return m.admin_forms_tf_wildcard_position();
 		}
 
 		return '';
 	}
 
 	let displayNameError = $derived(
-		showErrors && !manifest.displayName.trim() ? 'Display name is required' : ''
+		showErrors && !manifest.displayName.trim() ? m.admin_forms_tf_display_name_required() : ''
 	);
 	let allowedURLErrors = $derived(
 		manifest.allowedURLs.map((value) => (showErrors ? allowedURLValidation(value) : ''))
@@ -125,7 +126,7 @@
 	>
 		<div class="flex flex-col gap-2">
 			<label for="mcp-tunnel-display-name" class="text-sm font-light">
-				Display Name
+				{m.admin_forms_tf_display_name()}
 				{#if !readonly}
 					<span class="text-error" aria-hidden="true">*</span>
 				{/if}
@@ -149,21 +150,26 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<label for="mcp-tunnel-description" class="text-sm font-light">Description</label>
+			<label for="mcp-tunnel-description" class="text-sm font-light"
+				>{m.admin_forms_description()}</label
+			>
 			<textarea
 				id="mcp-tunnel-description"
 				class="text-input-filled dark:bg-base-100 min-h-28 resize-y"
 				bind:value={manifest.description}
 				disabled={readonly}
-				placeholder="Describe where this tunnel connects."></textarea>
+				placeholder={m.admin_forms_tf_description_placeholder()}></textarea>
 		</div>
 
 		<div class="flex flex-col gap-3">
 			<div class="flex flex-col gap-1">
-				<span class="text-sm font-light">Allowed URLs</span>
+				<span class="text-sm font-light">{m.admin_forms_tf_allowed_urls()}</span>
 				<p class="text-muted-content text-xs font-light">
-					Add exact URLs or hostnames. Use a trailing <code>*</code> for a prefix or a leading
-					<code>*</code> for a suffix.
+					{m.admin_forms_tf_allowed_urls_hint_prefix()}
+					<code>*</code>
+					{m.admin_forms_tf_allowed_urls_hint_middle()}
+					<code>*</code>
+					{m.admin_forms_tf_allowed_urls_hint_suffix()}
 				</p>
 			</div>
 
@@ -178,7 +184,7 @@
 							)}
 							bind:value={manifest.allowedURLs[index]}
 							disabled={readonly}
-							placeholder="e.g. https://api.internal/* or *.internal"
+							placeholder={m.admin_forms_tf_allowed_url_placeholder()}
 							aria-invalid={allowedURLErrors[index] ? 'true' : undefined}
 							oninput={() => {
 								showErrors = false;
@@ -192,7 +198,7 @@
 						<button
 							type="button"
 							class="btn btn-square btn-secondary"
-							aria-label={`Delete allowed URL ${index + 1}`}
+							aria-label={m.admin_forms_tf_delete_allowed_url({ n: index + 1 })}
 							onclick={() => {
 								manifest.allowedURLs.splice(index, 1);
 							}}
@@ -212,7 +218,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					Allowed URL
+					{m.admin_forms_tf_allowed_url()}
 				</button>
 			{/if}
 		</div>
@@ -222,19 +228,19 @@
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
-			<h2 class="text-sm font-semibold">Tunnel Credentials</h2>
+			<h2 class="text-sm font-semibold">{m.admin_forms_tf_credentials()}</h2>
 			<div class="grid gap-4 md:grid-cols-2">
 				<div class="flex min-w-0 flex-col gap-1">
-					<span class="text-muted-content text-xs">Tunnel ID</span>
+					<span class="text-muted-content text-xs">{m.admin_forms_tf_tunnel_id()}</span>
 					<code class="truncate text-sm" title={tunnel.id}>{tunnel.id}</code>
 				</div>
 				<div class="flex min-w-0 flex-col gap-1">
-					<span class="text-muted-content text-xs">Secret Preview</span>
+					<span class="text-muted-content text-xs">{m.admin_forms_tf_secret_preview()}</span>
 					<code class="truncate text-sm" title={tunnel.token}>{tunnel.token}</code>
 				</div>
 			</div>
 			<p class="text-muted-content text-xs font-light">
-				The complete secret is only shown when the tunnel is created or its secret is rotated.
+				{m.admin_forms_tf_secret_shown_once()}
 			</p>
 		</div>
 	{/if}
@@ -249,11 +255,11 @@
 						onclick={onRotateSecret}
 					>
 						<RefreshCw class="size-4" />
-						Rotate Secret
+						{m.admin_forms_tf_rotate_secret()}
 					</button>
 					<button type="button" class="btn btn-error flex items-center gap-1" onclick={onDelete}>
 						<Trash2 class="size-4" />
-						Delete
+						{m.admin_forms_delete()}
 					</button>
 				{/if}
 			</div>
@@ -266,7 +272,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{/if}
-				{tunnel ? 'Save Changes' : 'Create Tunnel'}
+				{tunnel ? m.admin_forms_save_changes() : m.admin_forms_tf_create_tunnel()}
 			</button>
 		</div>
 	{/if}

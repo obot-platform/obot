@@ -8,6 +8,7 @@
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { darkMode } from '$lib/stores';
@@ -168,7 +169,7 @@
 		}
 
 		if (!domains.trim()) {
-			configError = 'Enter at least one allowed email domain (use * to allow any).';
+			configError = m.admin_forms_la_domains_required();
 			return;
 		}
 
@@ -201,7 +202,7 @@
 		try {
 			users = await AdminService.listLocalAuthUsers();
 		} catch (err) {
-			const loadError = errorMessage(err, 'Failed to load local users.');
+			const loadError = errorMessage(err, m.admin_forms_la_load_users_failed());
 			userError = [...(forwardError ? [forwardError] : []), loadError];
 		} finally {
 			loadingUsers = false;
@@ -298,11 +299,11 @@
 		if (!canAddUser) return;
 
 		if (draftingNewUser) {
-			attentionDraftNewUser('Finish or remove the new user before adding another.');
+			attentionDraftNewUser(m.admin_forms_la_finish_new_before_adding());
 			return;
 		}
 		if (draftReset) {
-			attentionDraftReset('Finish or cancel the password reset before adding a new user.');
+			attentionDraftReset(m.admin_forms_la_finish_reset_before_adding());
 			return;
 		}
 		newUserError = undefined;
@@ -332,13 +333,11 @@
 		if (!draftingNewUser) return false;
 
 		if (!draftEmail.trim() || !draftPassword) {
-			attentionDraftNewUser('Fill out the required email and password fields.');
+			attentionDraftNewUser(m.admin_forms_la_fill_email_password());
 			return false;
 		}
 		if (draftPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			attentionDraftNewUser(
-				`Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`
-			);
+			attentionDraftNewUser(m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH }));
 			return false;
 		}
 
@@ -365,7 +364,7 @@
 
 	function removeNewUser(index: number) {
 		if (draftingNewUser) {
-			attentionDraftNewUser('Apply changes or remove the new user.');
+			attentionDraftNewUser(m.admin_forms_la_apply_or_remove_new());
 			return;
 		}
 		newUsers.splice(index, 1);
@@ -373,14 +372,14 @@
 
 	function startResetPassword(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser('Finish or remove the new user before updating an existing user.');
+			attentionDraftNewUser(m.admin_forms_la_finish_new_before_updating());
 			return;
 		}
 		if (draftReset) {
 			attentionDraftReset(
 				draftReset.id === user.id
-					? 'Confirm or cancel this password reset first.'
-					: 'Finish or cancel the password reset before resetting another user.'
+					? m.admin_forms_la_confirm_reset_first()
+					: m.admin_forms_la_finish_reset_before_resetting()
 			);
 			return;
 		}
@@ -400,8 +399,8 @@
 		if (!draftReset.password || draftReset.password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
 			attentionDraftReset(
 				!draftReset.password
-					? 'Fill out the required password field.'
-					: `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`
+					? m.admin_forms_la_fill_password()
+					: m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })
 			);
 			return false;
 		}
@@ -422,11 +421,11 @@
 
 	function markDeleted(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser('Finish or remove the new user before updating an existing user.');
+			attentionDraftNewUser(m.admin_forms_la_finish_new_before_updating());
 			return;
 		}
 		if (draftReset && draftReset.id !== user.id) {
-			attentionDraftReset('Finish or cancel the password reset before updating another user.');
+			attentionDraftReset(m.admin_forms_la_finish_reset_before_updating());
 			return;
 		}
 
@@ -440,7 +439,7 @@
 
 	function undoDelete(user: LocalAuthUser) {
 		if (bootstrap && (newUsers.length > 0 || draftingNewUser)) {
-			userError = ['Remove the new account before restoring the existing account.'];
+			userError = [m.admin_forms_la_remove_new_before_restoring()];
 			return;
 		}
 
@@ -449,23 +448,23 @@
 
 	function validatePending(): string | undefined {
 		if (draftingNewUser) {
-			return 'Finish or remove the new user before saving.';
+			return m.admin_forms_la_finish_new_before_saving();
 		}
 		if (draftReset) {
-			return 'Finish or cancel the password reset before saving.';
+			return m.admin_forms_la_finish_reset_before_saving();
 		}
 		for (const user of newUsers) {
 			if (!user.email.trim()) {
-				return 'Every new user needs an email address.';
+				return m.admin_forms_la_new_user_needs_email();
 			}
 			if (user.password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
+				return m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
 			}
 		}
 		for (const [id, { password }] of resetPassword) {
 			if (deleteUsers.has(id)) continue;
 			if (password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
+				return m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
 			}
 		}
 		return undefined;
@@ -518,7 +517,7 @@
 			await refreshUsers();
 			close();
 		} catch (err) {
-			await refreshUsers(errorMessage(err, 'Failed to save all changes.'));
+			await refreshUsers(errorMessage(err, m.admin_forms_la_save_failed()));
 		} finally {
 			saving = false;
 		}
@@ -553,16 +552,16 @@
 			{/if}
 
 			<div class="flex flex-col gap-1">
-				<label for="local-auth-domains">Allowed Email Domains</label>
+				<label for="local-auth-domains">{m.admin_forms_la_allowed_domains()}</label>
 				<span class="text-gray text-xs">
-					Local users must have an email address in one of these domains. Use * to allow any domain.
+					{m.admin_forms_la_allowed_domains_hint()}
 				</span>
 				<MultiValueInput
 					bind:value={domains}
 					id="local-auth-domains"
-					labels={{ '*': 'All domains' }}
+					labels={{ '*': m.admin_forms_la_all_domains() }}
 					class="text-input-filled"
-					placeholder={`Hit "Enter" to insert`.toString()}
+					placeholder={m.admin_forms_la_enter_to_insert()}
 					disabled={readonly}
 				/>
 			</div>
@@ -577,7 +576,7 @@
 					{#if configuring}
 						<Loading class="size-4" />
 					{:else}
-						Continue
+						{m.admin_forms_continue()}
 					{/if}
 				</button>
 			</div>
@@ -593,29 +592,26 @@
 						step = 'config';
 					}}
 				>
-					<ArrowLeft class="size-3.5" /> Configuration
+					<ArrowLeft class="size-3.5" />
+					{m.admin_forms_la_configuration()}
 				</button>
 			{/if}
 
 			<p class="text-muted-content text-sm font-light">
 				{#if bootstrap && users.length <= 1}
-					Create your first account, then sign in with it to become Owner automatically. You can add
-					more users after signing in.
+					{m.admin_forms_la_bootstrap_intro()}
 				{:else}
-					These users sign in with an email address and password. Grant them roles from the Users
-					page after their first sign-in.
+					{m.admin_forms_la_users_intro()}
 				{/if}
 			</p>
 
 			<p class="text-muted-content text-sm font-light">
-				Local users belong to this provider. If you later switch to a different auth provider,
-				signing in through it can create a new Obot user, and these users and their work will not
-				transfer.
+				{m.admin_forms_la_provider_note()}
 			</p>
 
 			<form class="flex flex-col gap-4 grow max-w-full overflow-hidden" onsubmit={handleSave}>
 				<div class="flex items-center justify-between gap-2">
-					<h4 class="text-sm font-semibold">Users</h4>
+					<h4 class="text-sm font-semibold">{m.admin_forms_la_users()}</h4>
 					{#if !readonly && canAddUser}
 						{@render addNewUserButton()}
 					{/if}
@@ -632,10 +628,12 @@
 					<div class="flex justify-center py-4"><Loading class="size-5" /></div>
 				{:else if users.length === 0 && newUsers.length === 0 && !draftingNewUser}
 					<p class="text-muted-content py-2 text-center text-xs font-light">
-						No local users yet. Click {@render addNewUserButton(
+						{m.admin_forms_la_no_users_prefix()}
+						{@render addNewUserButton(
 							'inline-block justify-items-center mx-1',
-							'Create New User'
-						)} to create a user.
+							m.admin_forms_la_create_new_user()
+						)}
+						{m.admin_forms_la_no_users_suffix()}
 					</p>
 				{:else}
 					<ul class="flex flex-col gap-1">
@@ -659,7 +657,7 @@
 										</span>
 										{#if user.requirePasswordChange && !isDeleted}
 											<span class="badge badge-warning shrink-0 text-xs">
-												Password change required
+												{m.admin_forms_la_password_change_required()}
 											</span>
 										{/if}
 									</div>
@@ -667,7 +665,7 @@
 										<div class="flex shrink-0 items-center gap-1">
 											{#if isDeleted}
 												<IconButton
-													tooltip={{ text: 'Undo delete', disablePortal: true }}
+													tooltip={{ text: m.admin_forms_la_undo_delete(), disablePortal: true }}
 													disabled={saving}
 													onclick={() => undoDelete(user)}
 												>
@@ -677,7 +675,7 @@
 												<IconButton
 													id={'reset-confirm-' + user.id}
 													variant="primary"
-													tooltip={{ text: 'Confirm password reset', disablePortal: true }}
+													tooltip={{ text: m.admin_forms_la_confirm_reset(), disablePortal: true }}
 													disabled={saving}
 													onclick={confirmResetPassword}
 												>
@@ -685,7 +683,7 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: 'Cancel password reset', disablePortal: true }}
+													tooltip={{ text: m.admin_forms_la_cancel_reset(), disablePortal: true }}
 													disabled={saving}
 													onclick={cancelResetPassword}
 												>
@@ -694,7 +692,9 @@
 											{:else}
 												<IconButton
 													tooltip={{
-														text: hasPendingReset ? 'Edit password reset' : 'Reset password',
+														text: hasPendingReset
+															? m.admin_forms_la_edit_reset()
+															: m.admin_forms_la_reset_password(),
 														disablePortal: true
 													}}
 													disabled={saving}
@@ -704,7 +704,7 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: 'Delete user', disablePortal: true }}
+													tooltip={{ text: m.admin_forms_la_delete_user(), disablePortal: true }}
 													disabled={saving}
 													onclick={() => markDeleted(user)}
 												>
@@ -717,7 +717,7 @@
 
 								{#if isDeleted}
 									<p class="text-muted-content text-xs">
-										Marked for deletion. Click undo to keep this user, or Save to confirm.
+										{m.admin_forms_la_marked_for_deletion()}
 									</p>
 								{:else if isDraftResetting && draftReset}
 									<div class="flex flex-col gap-3">
@@ -725,7 +725,7 @@
 											class="flex flex-col gap-1 text-sm font-light"
 											for="reset-password-{user.id}"
 										>
-											New password
+											{m.admin_forms_la_new_password()}
 											<SensitiveInput
 												name="reset-password-{user.id}"
 												bind:value={draftReset.password}
@@ -739,8 +739,7 @@
 												onkeydown={handleDraftResetKeydown}
 											/>
 											<span class="text-muted-content pt-0.5 text-xs">
-												At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters. Share it with the user over
-												a secure channel.
+												{m.admin_forms_la_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
 											</span>
 										</label>
 
@@ -751,7 +750,7 @@
 												disabled={saving}
 												bind:checked={draftReset.requirePasswordChange}
 											/>
-											Require the user to change this password at next sign-in
+											{m.admin_forms_la_require_change()}
 										</label>
 
 										{#if draftError}
@@ -766,7 +765,7 @@
 									</div>
 								{:else if hasPendingReset}
 									<p class="text-muted-content text-xs">
-										Password reset pending. Save to apply, or edit to change it.
+										{m.admin_forms_la_reset_pending()}
 									</p>
 								{/if}
 							</li>
@@ -779,7 +778,7 @@
 								<span class="truncate text-sm">{user.email}</span>
 								<IconButton
 									variant="danger"
-									tooltip={{ text: 'Remove', disablePortal: true }}
+									tooltip={{ text: m.admin_forms_remove(), disablePortal: true }}
 									disabled={saving}
 									onclick={() => removeNewUser(i)}
 								>
@@ -795,12 +794,12 @@
 							class:draft-shake={shakingDraft}
 						>
 							<div class="flex items-center justify-between gap-2">
-								<span class="text-sm font-medium">New user</span>
+								<span class="text-sm font-medium">{m.admin_forms_la_new_user()}</span>
 								<div class="flex shrink-0 items-center gap-1">
 									<IconButton
 										id={DRAFT_CONFIRM_ID}
 										variant="primary"
-										tooltip={{ text: 'Confirm', disablePortal: true }}
+										tooltip={{ text: m.admin_forms_confirm(), disablePortal: true }}
 										disabled={saving}
 										onclick={confirmNewUser}
 									>
@@ -808,7 +807,7 @@
 									</IconButton>
 									<IconButton
 										variant="danger"
-										tooltip={{ text: 'Remove', disablePortal: true }}
+										tooltip={{ text: m.admin_forms_remove(), disablePortal: true }}
 										disabled={saving}
 										onclick={cancelDraftNewUser}
 									>
@@ -818,7 +817,7 @@
 							</div>
 
 							<label class="flex flex-col gap-1 text-sm font-light" for={DRAFT_EMAIL_ID}>
-								Email
+								{m.common_email()}
 								<input
 									id={DRAFT_EMAIL_ID}
 									class="text-input-filled"
@@ -836,7 +835,7 @@
 							</label>
 
 							<label class="flex flex-col gap-1 text-sm font-light" for={DRAFT_PASSWORD_ID}>
-								Password
+								{m.common_password()}
 								<SensitiveInput
 									name={DRAFT_PASSWORD_ID}
 									bind:value={draftPassword}
@@ -850,8 +849,7 @@
 									data1pIgnore={false}
 								/>
 								<span class="text-muted-content pt-0.5 text-xs">
-									At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters. Share it with the user over a
-									secure channel.
+									{m.admin_forms_la_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
 								</span>
 							</label>
 
@@ -862,7 +860,7 @@
 									disabled={saving}
 									bind:checked={draftRequirePasswordChange}
 								/>
-								Require the user to change this password at next sign-in
+								{m.admin_forms_la_require_change()}
 							</label>
 
 							{#if newUserError}
@@ -880,13 +878,15 @@
 					class="sticky bottom-0 left-0 w-full border-base-300 dark:border-base-400 flex justify-end border-t pt-4"
 				>
 					{#if readonly}
-						<button class="btn btn-primary" type="button" onclick={close}>Close</button>
+						<button class="btn btn-primary" type="button" onclick={close}
+							>{m.admin_forms_close()}</button
+						>
 					{:else}
 						<button class="btn btn-primary" type="submit" disabled={saving || loadingUsers}>
 							{#if saving}
 								<Loading class="size-4" />
 							{:else}
-								Save
+								{m.admin_forms_save()}
 							{/if}
 						</button>
 					{/if}
@@ -933,11 +933,11 @@
 		{:else}
 			<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		Set Up {provider?.name}
+		{m.admin_forms_la_set_up({ name: provider?.name ?? '' })}
 	</div>
 {/snippet}
 
-{#snippet addNewUserButton(klass?: string, label = 'Add New User')}
+{#snippet addNewUserButton(klass?: string, label = m.admin_forms_la_add_new_user())}
 	<IconButton
 		tooltip={{ text: label, disablePortal: true }}
 		disabled={saving}
