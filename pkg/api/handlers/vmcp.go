@@ -498,16 +498,16 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 // convertVMCPForUser exposes only callback paths from the same effective snapshots
 // used by runtime resolution, without exposing private legacy component configuration.
 func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
-	vmcp = vmcpForUser(req, vmcp)
 	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return types.VMCP{}, fmt.Errorf("resolve vMCP callback paths: %w", err)
 	}
-	components := vmcp.Spec.Manifest.Components
+	components := slices.Clone(vmcp.Spec.Manifest.Components)
 	if instance != nil {
 		components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
 	}
-	result := convertVMCP(vmcp)
+	components = vmcpconfig.EnabledComponents(req.User, vmcp, components)
+	result := convertVMCP(vmcpForUser(req, vmcp))
 	result.LocalhostCallbackPaths = []string{}
 	for _, component := range components {
 		remote := component.CatalogEntry.Manifest.RemoteConfig

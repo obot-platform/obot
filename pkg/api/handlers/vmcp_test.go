@@ -1831,6 +1831,11 @@ func TestVMCPHandlerCreateRefusesProfilesForMissingSCIMGroups(t *testing.T) {
 
 func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1paths", Namespace: system.DefaultNamespace}
+	vmcp.Spec.Manifest.Profiles = []types.VMCPProfile{{
+		Name:        "default",
+		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+	}}
 	component := types.VMCPComponent{ID: "provider"}
 	component.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/current"}
 	vmcp.Spec.Manifest.Components = []types.VMCPComponent{component}
