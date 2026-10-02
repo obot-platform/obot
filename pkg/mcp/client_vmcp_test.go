@@ -34,12 +34,12 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 			}},
 		}},
 	}
-	instance := &v1.VMCPInstance{
+	instance := syncedVMCPInstance(&v1.VMCPInstance{
 		Name: "vmcpi1one", Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: parent.Name},
 		},
-	}
+	}, parent)
 	backing := &v1.MCPServer{
 		Name: "ms1shared", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
@@ -119,6 +119,8 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	require.False(t, aggregate.Components[0].DisableTools, "Obot admins must retain their profile's tools")
 
 	admin.Extra["obot_groups"] = types.RoleBasic.Groups()
+	// The VMCPInstance controller rechecks the instance when the user's role changes.
+	syncedVMCPInstanceForUser(instance, parent, admin)
 	aggregate, err = sm.serverConfigForVMCP(t.Context(), parent, instance, admin)
 	require.NoError(t, err)
 	require.Empty(t, aggregate.Components, "losing the admin role must revoke its tools")

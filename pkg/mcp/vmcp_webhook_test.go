@@ -66,14 +66,14 @@ func TestVMCPInstancesInheritWebhooks(t *testing.T) {
 		backend:       &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"},
 	}
 	for _, userID := range []string{"1", "2"} {
-		instance := &v1.VMCPInstance{
+		instance := syncedVMCPInstance(&v1.VMCPInstance{
 			Name:      "vmcpi1user" + userID,
 			Namespace: vmcp.Namespace,
 			Spec: v1.VMCPInstanceSpec{
 				UserID:   userID,
 				Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
 			},
-		}
+		}, vmcp)
 		if err := storage.Create(t.Context(), instance); err != nil {
 			t.Fatal(err)
 		}

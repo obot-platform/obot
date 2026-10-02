@@ -240,15 +240,13 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 }
 
 // waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process
-// the configuration the user last saved. Until it does, the instance's user
-// configuration hash is stale, and the component waits would match copies of the
-// previous configuration.
+// the instance and the configuration the user last saved. Until it does, the
+// instance's user configuration hash is stale (empty on a new instance), and the
+// component waits would compare servers against a hash the controller has replaced.
 func (sm *SessionManager) waitForVMCPInstanceConfiguration(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (*v1.VMCPInstance, error) {
+	// An instance without saved configuration still needs the controller to record
+	// its user configuration hash, so an empty sync hash is waited on like any other.
 	syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]
-	if syncHash == "" {
-		// Without saved configuration there is nothing to copy.
-		return instance, nil
-	}
 
 	checkHash := func(u kuser.Info) string {
 		return vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(u, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), syncHash)

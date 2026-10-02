@@ -116,7 +116,7 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 	require.NoError(t, err)
 	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
 	for _, suffix := range []string{"old", "new"} {
-		instance := vmcpComponentInstance("vmcpi1"+suffix, vmcp.Name)
+		instance := syncedVMCPInstance(vmcpComponentInstance("vmcpi1"+suffix, vmcp.Name), vmcp)
 		connection := syncedVMCPConnection(&v1.MCPServerInstance{
 			Name:      "msi1" + suffix,
 			Namespace: system.DefaultNamespace,
@@ -187,7 +187,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{
 		AllowedComponents: map[string]types.VMCPComponentSet{"component": {}},
 	}
-	instance := vmcpComponentInstance("vmcpi1user", vmcp.Name)
+	instance := syncedVMCPInstance(vmcpComponentInstance("vmcpi1user", vmcp.Name), vmcp)
 	objects := []kclient.Object{vmcp, instance}
 	for _, componentID := range []string{"component", "disabled"} {
 		component := vmcpComponentServer("ms1"+componentID, "", vmcp.Name)
@@ -241,6 +241,9 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 	// Enabling the component makes it part of the OAuth check.
 	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{AllowAllComponents: true}
 	require.NoError(t, storage.Update(t.Context(), vmcp))
+	// The VMCPInstance controller rechecks the instance when the enabled components change.
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance))
+	require.NoError(t, storage.Update(t.Context(), syncedVMCPInstance(instance, vmcp)))
 	checks(t)
 	require.Positive(t, disabledCalls.Load())
 }
@@ -261,6 +264,15 @@ func (c *vmcpOAuthInitialEventsClient) Watch(ctx context.Context, list kclient.O
 		w.Add(object)
 	}
 	return w, nil
+}
+
+// syncedVMCPInstance records the configuration check the VMCPInstance controller
+// performs for an instance without saved configuration. Call it again after
+// changing the vMCP's components or profiles.
+func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstance {
+	enabled := vmcpconfig.EnabledComponents(&kuser.DefaultInfo{UID: instance.Spec.UserID}, *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
+	instance.Status.ConfigurationCheckHash = vmcpconfig.ConfigurationCheckHash(enabled, "")
+	return instance
 }
 
 // syncedVMCPConnection records the configuration sync the MCPServerInstance

@@ -18,12 +18,12 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 			Components: []types.VMCPComponent{{ID: "component", Name: "Tools", ForceSingleUser: true}},
 		},
 	}}
-	first := &v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(1, 0)), Spec: v1.VMCPInstanceSpec{
+	first := syncedVMCPInstance(&v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(1, 0)), Spec: v1.VMCPInstanceSpec{
 		UserID: "7", LegacySlug: "ms1first", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"first"}}}},
-	}}
-	second := &v1.VMCPInstance{Name: "vmcpi1second", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(2, 0)), Spec: v1.VMCPInstanceSpec{
+	}}, vmcp)
+	second := syncedVMCPInstance(&v1.VMCPInstance{Name: "vmcpi1second", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(2, 0)), Spec: v1.VMCPInstanceSpec{
 		UserID: "7", LegacySlug: "ms1second", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"second"}}}},
-	}}
+	}}, vmcp)
 	sm := &SessionManager{storageClient: newVMCPTestStorage(vmcp, second, first,
 		vmcpComponentServer("ms1componentfirst", first.Name, "7", "component", "Tools", "https://example.com"),
 		vmcpComponentServer("ms1componentsecond", second.Name, "7", "component", "Tools", "https://example.com"),

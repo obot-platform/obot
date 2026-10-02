@@ -44,7 +44,8 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 			},
 		},
 	}
-	instance := &v1.VMCPInstance{
+	user := &kuser.DefaultInfo{UID: userID, Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+	instance := syncedVMCPInstanceForUser(&v1.VMCPInstance{
 		Name:      instanceID,
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
@@ -53,7 +54,7 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 			},
 			UserID: userID,
 		},
-	}
+	}, vmcp, user)
 	componentServer := &v1.MCPServer{
 		Name:      "ms1-action-component",
 		Namespace: system.DefaultNamespace,
@@ -77,7 +78,6 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		storageClient:  storageClient,
 	}
 
-	user := &kuser.DefaultInfo{UID: userID, Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
 	gotID, gotServer, gotConfig, err := manager.ServerForActionWithConnectID(t.Context(), vmcpID, user)
 	require.NoError(t, err)
 	require.Equal(t, vmcpID, gotID)

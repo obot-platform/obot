@@ -260,7 +260,16 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 			},
 		},
 	}
-	return vmcp, instance, component, unrelated
+	return vmcp, syncedVMCPInstance(instance, vmcp), component, unrelated
+}
+
+// syncedVMCPInstance records the configuration check the VMCPInstance controller
+// performs for an instance without saved configuration. Call it again after
+// changing the vMCP's components.
+func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstance {
+	enabled := vmcpconfig.EnabledComponents(&kuser.DefaultInfo{UID: instance.Spec.UserID}, *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
+	instance.Status.ConfigurationCheckHash = vmcpconfig.ConfigurationCheckHash(enabled, "")
+	return instance
 }
 
 func (r *recordingMCPServerTrigger) Trigger(_ context.Context, _ schema.GroupVersionKind, key string, _ time.Duration) error {
@@ -395,6 +404,7 @@ func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 	// The server owner's credential context differs from the connecting user's.
 	server.Spec.UserID = ""
 	server.Spec.Manifest.Config = []types.MCPConfig{header}
+	syncedVMCPInstance(first, vmcp)
 	second := first.DeepCopy()
 	second.Name = "vmcpi1second"
 	manager, storage, credentials := newVMCPActionSessionManager(t, vmcp, first, second, server)
