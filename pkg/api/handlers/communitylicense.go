@@ -65,7 +65,7 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		return apitypes.NewErrHTTP(http.StatusBadGateway, "failed to obtain an Obot Community license")
 	}
 
-	if err := h.licenseProvider.SetLicenseKey(req.Context(), issuedKey); err != nil {
+	if err := h.licenseProvider.SetCommunityLicenseKey(req.Context(), issuedKey); err != nil {
 		if errors.Is(err, license.ErrLicenseKeyViaConfiguration) {
 			return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 		}
@@ -99,13 +99,18 @@ func hasEmailDomainSuffix(address string) bool {
 }
 
 func (h *LicenseHandler) communityEligibilityError(ctx context.Context) error {
+	if h.licenseProvider.LicenseKeyViaConfiguration() {
+		return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
+	}
+	if exists, err := h.licenseProvider.PrimaryLicenseKeyExists(ctx); err != nil {
+		return err
+	} else if exists {
+		return apitypes.NewErrAlreadyExists("a primary license key already exists")
+	}
 	if ok, err := h.licenseProvider.HasValidLicense(ctx); err != nil {
 		return err
 	} else if ok {
 		return apitypes.NewErrAlreadyExists("a valid license is already active")
-	}
-	if h.licenseProvider.LicenseKeyViaConfiguration() {
-		return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 	}
 	return nil
 }
