@@ -487,5 +487,7 @@
 	"core_mcp_value_tunnel_disconnected": "隧道已断开",
 	"core_mcp_update_tooltip_server": "此服务器的注册表条目配置已更改，可应用到此服务器",
 	"core_mcp_update_tooltip_k8s": "默认服务器调度规则已更改，可应用到此服务器",
-	"core_mcp_update_tooltip_both": "此服务器的注册表条目配置已更改，可应用到此服务器\n默认服务器调度规则已更改，可应用到此服务器。"
+	"core_mcp_update_tooltip_both": "此服务器的注册表条目配置已更改，可应用到此服务器\n默认服务器调度规则已更改，可应用到此服务器。",
+	"core_models_available_one": "{count} 个可用模型",
+	"core_models_available_other": "{count} 个可用模型"
 }

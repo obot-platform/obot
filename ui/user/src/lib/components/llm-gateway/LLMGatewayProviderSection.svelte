@@ -46,7 +46,9 @@
 			<div class="flex flex-col">
 				<h3 class="text-lg font-semibold">{ctx.provider.displayName}</h3>
 				<span class="text-muted-content text-xs">
-					{models.length} model{models.length === 1 ? '' : 's'} available
+					{models.length === 1
+						? m.core_models_available_one({ count: models.length })
+						: m.core_models_available_other({ count: models.length })}
 				</span>
 			</div>
 		</div>

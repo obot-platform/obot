@@ -475,7 +475,7 @@
 	"core_mcp_value_deployed": "デプロイ済み",
 	"core_mcp_value_connected": "接続済み",
 	"core_mcp_value_requires_oauth_config": "OAuth 設定が必要",
-	"core_mcp_value_configuration_required": "設定が必要",
+	"core_mcp_value_configuration_required": "設定が必要です",
 	"core_mcp_value_hosted": "ホスト型",
 	"core_mcp_value_remote": "リモート",
 	"core_mcp_value_deployment": "デプロイ",
@@ -487,5 +487,7 @@
 	"core_mcp_value_tunnel_disconnected": "トンネル切断",
 	"core_mcp_update_tooltip_server": "このサーバーのレジストリエントリの設定が変更されました。このサーバーに適用できます",
 	"core_mcp_update_tooltip_k8s": "デフォルトのサーバースケジュールルールが変更されました。このサーバーに適用できます",
-	"core_mcp_update_tooltip_both": "このサーバーのレジストリエントリの設定が変更されました。このサーバーに適用できます\nデフォルトのサーバースケジュールルールが変更されました。このサーバーに適用できます。"
+	"core_mcp_update_tooltip_both": "このサーバーのレジストリエントリの設定が変更されました。このサーバーに適用できます\nデフォルトのサーバースケジュールルールが変更されました。このサーバーに適用できます。",
+	"core_models_available_one": "{count} 件のモデルが利用可能",
+	"core_models_available_other": "{count} 件のモデルが利用可能"
 }

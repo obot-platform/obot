@@ -55,9 +55,16 @@ URLs, and existing links.
 - Changing the locale reloads the page, which matches how most users switch
   languages.
 - The locale is a per-browser preference and is not stored on the user's profile.
-- Most of the UI is still English. Only the shared shell (navigation, profile
-  menu, login, error page, and common dialogs) has been converted. The rest will
-  be converted feature by feature.
+- Each feature area has its own catalog in `messages/<area>/` with keys
+  prefixed by the area name, so changes in different areas don't touch the same
+  files. A test checks that every locale has the same keys and placeholders, and
+  that no key is defined in two catalogs.
+- Values that tables filter and sort on (for example MCP server status, type,
+  and registry) stay in English in the row data, because filters are saved in
+  URLs. `Table`'s `displayValue` hook translates them only for display.
+- Dates and times are formatted with the app locale, not the browser's.
+- Legal pages (terms of service, privacy policy), server-provided text, user
+  data, code samples, and text sent to models stay in English.
 - The initial `ja`, `ko`, and `zh-CN` translations were machine-written and need
   review by native speakers.
 

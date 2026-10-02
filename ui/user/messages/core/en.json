@@ -487,5 +487,7 @@
 	"core_mcp_value_tunnel_disconnected": "Tunnel Disconnected",
 	"core_mcp_update_tooltip_server": "The configuration for this server’s registry entry has changed and can be applied to this server",
 	"core_mcp_update_tooltip_k8s": "The default server scheduling rules have changed and can be applied to this server",
-	"core_mcp_update_tooltip_both": "The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server."
+	"core_mcp_update_tooltip_both": "The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.",
+	"core_models_available_one": "{count} model available",
+	"core_models_available_other": "{count} models available"
 }
