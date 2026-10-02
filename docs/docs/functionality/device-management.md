@@ -79,7 +79,7 @@ Use **Check for updates** to pick up new Obot Sentry releases. If an Update avai
 
 ## Tool call enforcement
 
-Tool call enforcement controls which tool calls Claude Code, Codex, and Cursor may run on enrolled devices. Before a supported client runs a tool, Obot Sentry checks it against the allowlist for the device configuration. A call runs only when an allow rule matches it.
+Tool call enforcement controls which tool calls Claude Code, Codex, Cursor, and Kiro may run on enrolled devices. Before a supported client runs a tool, Obot Sentry checks it against the allowlist for the device configuration. A call runs only when an allow rule matches it.
 
 :::warning Experimental feature
 Tool call enforcement is experimental and is not recommended for production use. Test the policy on non-production devices first. An incomplete allowlist or an unavailable Obot server can block users' work.
@@ -93,6 +93,8 @@ Enforcement fails closed. A call is blocked when:
 - The device is not enrolled.
 
 Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
+
+Kiro runs no hooks in a workspace the user has not trusted, or in a window with no folder open. Tool calls made there are neither checked nor audited.
 
 :::important
 Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
