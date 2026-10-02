@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AgentHeader from '$lib/components/nanobot/AgentHeader.svelte';
+	import { m } from '$lib/i18n';
 	import type {
 		ChatMessage,
 		ChatMessageItem,
@@ -123,7 +124,7 @@
 							<div class="flex min-w-0 flex-1 flex-col items-start">
 								<div class="flex items-center justify-center px-4 py-3">
 									<span class="skeleton skeleton-text bg-transparent text-xs font-light italic"
-										>Thinking...</span
+										>{m.chat_thinking()}</span
 									>
 								</div>
 							</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type {
 		Agent,
 		Attachment,
@@ -37,7 +38,7 @@
 		onFileUpload,
 		onPrompt,
 		onCancel,
-		placeholder = 'Type a message...',
+		placeholder = m.chat_type_message_placeholder(),
 		disabled = false,
 		uploadingFiles = [],
 		uploadedFiles = [],
@@ -146,9 +147,11 @@
 		if (invalidUploads.length > 0) {
 			uploadErrors =
 				invalidUploads.length === 1
-					? [`${invalidUploads[0].name} is not a supported file type and cannot be uploaded.`]
+					? [m.chat_unsupported_file_one({ name: invalidUploads[0].name })]
 					: [
-							`${invalidUploads.map((f) => f.name).join(', ')} are not supported files types and cannot be uploaded.`
+							m.chat_unsupported_file_other({
+								names: invalidUploads.map((f) => f.name).join(', ')
+							})
 						];
 		}
 		if (toUpload.length === 0) {
@@ -224,7 +227,7 @@
 		accept={supportedMimeTypes.join(',')}
 		onchange={handleFileSelect}
 		class="hidden"
-		aria-label="File upload"
+		aria-label={m.chat_file_upload()}
 	/>
 
 	<form onsubmit={handleSubmit}>
@@ -282,10 +285,10 @@
 					<button
 						type="button"
 						class="btn btn-circle btn-ghost tooltip"
-						data-tip="Upload a file"
+						data-tip={m.chat_upload_a_file()}
 						disabled={disabled || !onFileUpload || isUploading}
 						onclick={() => fileInput?.click()}
-						aria-label="Upload a file"
+						aria-label={m.chat_upload_a_file()}
 					>
 						<Paperclip class="size-4" />
 					</button>
@@ -320,7 +323,7 @@
 						<button
 							onclick={onCancel}
 							class="btn btn-sm btn-primary size-9 btn-circle p-0"
-							aria-label="Stop generating"
+							aria-label={m.chat_stop_generating()}
 						>
 							<Square class="size-4" />
 						</button>
@@ -329,7 +332,7 @@
 							type="submit"
 							class="btn btn-sm btn-primary size-9 btn-circle p-0"
 							disabled={disabled || isUploading || !message.trim()}
-							aria-label="Send message"
+							aria-label={m.chat_send_message()}
 						>
 							{#if disabled && !isUploading}
 								<span class="loading loading-xs loading-spinner"></span>

@@ -3,6 +3,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import TimeInput from '$lib/components/TimeInput.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type {
@@ -36,20 +37,20 @@
 	};
 
 	const repeatOptions: SelectOption[] = [
-		{ id: 'daily', label: 'Daily' },
-		{ id: 'weekly', label: 'Weekly' },
-		{ id: 'monthly', label: 'Monthly' },
-		{ id: 'no_repeat', label: 'No Repeat' }
+		{ id: 'daily', label: m.chat_frequency_daily() },
+		{ id: 'weekly', label: m.chat_frequency_weekly() },
+		{ id: 'monthly', label: m.chat_frequency_monthly() },
+		{ id: 'no_repeat', label: m.chat_frequency_no_repeat() }
 	];
 
 	const weekdayOptions = [
-		{ value: 'mon', label: 'Monday', shortLabel: 'Mon' },
-		{ value: 'tue', label: 'Tuesday', shortLabel: 'Tue' },
-		{ value: 'wed', label: 'Wednesday', shortLabel: 'Wed' },
-		{ value: 'thu', label: 'Thursday', shortLabel: 'Thu' },
-		{ value: 'fri', label: 'Friday', shortLabel: 'Fri' },
-		{ value: 'sat', label: 'Saturday', shortLabel: 'Sat' },
-		{ value: 'sun', label: 'Sunday', shortLabel: 'Sun' }
+		{ value: 'mon', label: m.chat_weekday_mon(), shortLabel: m.chat_weekday_short_mon() },
+		{ value: 'tue', label: m.chat_weekday_tue(), shortLabel: m.chat_weekday_short_tue() },
+		{ value: 'wed', label: m.chat_weekday_wed(), shortLabel: m.chat_weekday_short_wed() },
+		{ value: 'thu', label: m.chat_weekday_thu(), shortLabel: m.chat_weekday_short_thu() },
+		{ value: 'fri', label: m.chat_weekday_fri(), shortLabel: m.chat_weekday_short_fri() },
+		{ value: 'sat', label: m.chat_weekday_sat(), shortLabel: m.chat_weekday_short_sat() },
+		{ value: 'sun', label: m.chat_weekday_sun(), shortLabel: m.chat_weekday_short_sun() }
 	];
 
 	const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -143,11 +144,11 @@
 						.filter((option) => daysOfWeek.includes(option.value))
 						.map((option) => option.shortLabel)
 				)
-			: 'Select days';
+			: m.chat_select_days();
 	}
 
 	function monthDayValueLabel() {
-		return daysOfMonth.length > 0 ? formatMonthDaySummary(daysOfMonth) : 'Select days';
+		return daysOfMonth.length > 0 ? formatMonthDaySummary(daysOfMonth) : m.chat_select_days();
 	}
 
 	function sectionInputClass(error = false) {
@@ -184,23 +185,23 @@
 	async function handleSubmit() {
 		errorMessage = '';
 		if (!name.trim() || !prompt.trim()) {
-			errorMessage = 'Title and prompt are required.';
+			errorMessage = m.chat_schedule_error_title_prompt_required();
 			return;
 		}
 		if (!time) {
-			errorMessage = 'A time is required.';
+			errorMessage = m.chat_schedule_error_time_required();
 			return;
 		}
 		if (frequency === 'weekly' && daysOfWeek.length === 0) {
-			errorMessage = 'Pick at least one weekday.';
+			errorMessage = m.chat_schedule_error_weekday_required();
 			return;
 		}
 		if (frequency === 'monthly' && daysOfMonth.length === 0) {
-			errorMessage = 'Pick at least one day of the month.';
+			errorMessage = m.chat_schedule_error_month_day_required();
 			return;
 		}
 		if (frequency === 'no_repeat' && !date) {
-			errorMessage = 'Pick a date for a one-time schedule.';
+			errorMessage = m.chat_schedule_error_date_required();
 			return;
 		}
 
@@ -234,7 +235,7 @@
 			await onSaved?.(savedTask);
 			dialog?.close();
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : 'Failed to save schedule';
+			errorMessage = error instanceof Error ? error.message : m.chat_schedule_save_failed();
 			errors.append(error);
 		} finally {
 			saving = false;
@@ -247,7 +248,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	onClose={handleClose}
-	title={currentTask ? 'Edit Schedule' : 'Add Schedule'}
+	title={currentTask ? m.chat_edit_schedule() : m.chat_add_schedule()}
 	class="w-full max-w-3xl"
 	classes={{
 		title: 'text-2xl font-semibold',
@@ -256,27 +257,28 @@
 >
 	<div class="flex flex-col gap-6">
 		<div class="flex flex-col gap-3">
-			<label for="schedule-title" class="input-label text-base font-medium">Title</label>
+			<label for="schedule-title" class="input-label text-base font-medium">{m.chat_title()}</label>
 			<input
 				id="schedule-title"
 				class={sectionInputClass()}
 				bind:value={name}
-				placeholder="Summary of AI news"
+				placeholder={m.chat_schedule_title_placeholder()}
 			/>
 		</div>
 
 		<div class="flex flex-col gap-3">
-			<label for="schedule-prompt" class="input-label text-base font-medium">Prompt</label>
+			<label for="schedule-prompt" class="input-label text-base font-medium"
+				>{m.chat_prompt()}</label
+			>
 			<textarea
 				id="schedule-prompt"
 				class="text-input-filled border-base-300 min-h-52 resize-y rounded-xl border px-4 py-4 text-base shadow-none"
 				bind:value={prompt}
-				placeholder="Search for yesterday's most impactful AI news and send me a brief summary."
-			></textarea>
+				placeholder={m.chat_schedule_prompt_placeholder()}></textarea>
 		</div>
 
 		<div class="flex flex-col gap-4">
-			<div class="input-label text-base font-medium">Schedule</div>
+			<div class="input-label text-base font-medium">{m.chat_schedule()}</div>
 
 			<div
 				class={twMerge('grid gap-4', frequency === 'daily' ? 'md:grid-cols-2' : 'md:grid-cols-3')}
@@ -391,7 +393,7 @@
 							onChange={(selectedDate) => {
 								date = valueFromDate(selectedDate);
 							}}
-							placeholder="Select date"
+							placeholder={m.chat_select_date()}
 							format="MM-dd-yyyy"
 							class="border-base-300 min-h-12 rounded-xl border px-4 py-3 text-base shadow-none"
 						/>
@@ -413,7 +415,8 @@
 
 		<div class="flex flex-col gap-3">
 			<label for="schedule-expiration" class="input-label text-base font-medium">
-				Expiration Date <span class="text-muted-content font-normal">(optional)</span>
+				{m.chat_expiration_date()}
+				<span class="text-muted-content font-normal">{m.chat_optional_paren()}</span>
 			</label>
 			<DatePicker
 				id="schedule-expiration"
@@ -422,18 +425,20 @@
 					expiration = valueFromDate(selectedDate);
 				}}
 				placeholder={frequency === 'no_repeat'
-					? `Defaults to ${formatScheduleDate(date) || 'the scheduled date'}`
-					: 'No expiration'}
+					? m.chat_expiration_defaults_to({
+							date: formatScheduleDate(date) || m.chat_expiration_the_scheduled_date()
+						})
+					: m.chat_no_expiration()}
 				format="MM-dd-yyyy"
 				class="border-base-300 min-h-12 rounded-xl border px-4 py-3 text-base shadow-none"
 			/>
 			<p class="input-description">
 				{#if frequency === 'no_repeat'}
-					Leave empty to automatically expire this one-time schedule after {formatScheduleDate(
-						date
-					) || 'its scheduled date'}.
+					{m.chat_expiration_one_time_hint({
+						date: formatScheduleDate(date) || m.chat_expiration_its_scheduled_date()
+					})}
 				{:else}
-					Leave empty if this schedule should keep running until you disable it.
+					{m.chat_expiration_recurring_hint()}
 				{/if}
 			</p>
 		</div>
@@ -442,22 +447,22 @@
 			<summary
 				class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-base font-medium"
 			>
-				<span>Advanced Settings</span>
+				<span>{m.chat_advanced_settings()}</span>
 				<ChevronDown class="size-5 shrink-0 transition-transform" />
 			</summary>
 			<div class="border-base-300 border-t px-5 py-4">
 				<div class="flex flex-wrap items-center justify-between gap-4">
 					<div class="space-y-1">
-						<div class="text-sm font-medium">Enabled</div>
+						<div class="text-sm font-medium">{m.chat_enabled()}</div>
 						<p class="text-muted-content text-sm">
-							Runs until it is disabled or reaches its expiration.
+							{m.chat_schedule_enabled_desc()}
 						</p>
 					</div>
 					<input type="checkbox" class="toggle" bind:checked={enabled} />
 				</div>
 				{#if currentTask}
 					<div class="text-muted-content mt-4 text-sm">
-						Timezone: <span class="text-base-content">{timezone}</span>
+						{m.chat_timezone_label()} <span class="text-base-content">{timezone}</span>
 					</div>
 				{/if}
 			</div>
@@ -471,7 +476,7 @@
 
 		<div class="flex justify-end gap-3">
 			<button type="button" class="btn btn-ghost" onclick={() => dialog?.close()} disabled={saving}>
-				Cancel
+				{m.common_cancel()}
 			</button>
 			<button
 				type="button"
@@ -482,7 +487,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{/if}
-				Save
+				{m.chat_save()}
 			</button>
 		</div>
 	</div>

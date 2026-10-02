@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { m } from '$lib/i18n';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
 
@@ -17,7 +18,7 @@
 
 <button
 	class="rounded-field text border-base-300 bg-base-100 tooltip hover:bg-base-300 mt-3 mb-2 w-full border p-3 shadow-xs transition-colors"
-	data-tip={`Open ${filename}`}
+	data-tip={m.chat_open_named({ name: filename })}
 	onclick={() => {
 		onFileOpen?.(filename);
 	}}

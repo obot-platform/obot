@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { tryDecodeURIComponent } from '$lib/url';
 	import { FileIcon, FileImage } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
@@ -119,7 +120,7 @@
 				isSelected ? 'bg-base-200 hover:bg-base-200 hover:border-base-200' : 'hover:bg-base-300'
 			)}
 			use:tooltip={{
-				text: isSelected ? (name ?? '') : `Open ${name ?? ''}`,
+				text: isSelected ? (name ?? '') : m.chat_open_named({ name: name ?? '' }),
 				placement: 'left'
 			}}
 			in:fly={{ x: 100, duration: 150 }}

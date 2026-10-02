@@ -3,6 +3,7 @@
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { saveBlob } from '$lib/download';
 	import { formatBase64ToBlob } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { responsive } from '$lib/stores';
@@ -324,7 +325,7 @@
 		aria-valuenow={ariaSliderValue}
 		aria-valuemin={0}
 		aria-valuemax={100}
-		aria-label="Resize file editor"
+		aria-label={m.chat_file_editor_resize()}
 		tabindex="0"
 	></div>
 
@@ -349,8 +350,8 @@
 						type="button"
 						class="btn btn-sm btn-square tooltip tooltip-left"
 						onclick={downloadResourceContents}
-						data-tip="Download file"
-						aria-label="Download file"
+						data-tip={m.chat_download_file()}
+						aria-label={m.chat_download_file()}
 					>
 						<Download class="size-5 md:size-4" />
 					</button>
@@ -369,7 +370,7 @@
 				</div>
 			{:else if error}
 				<div class="alert alert-error">
-					<span>Failed to load resource: {error}</span>
+					<span>{m.chat_file_editor_load_failed({ error: String(error) })}</span>
 				</div>
 			{:else if isDocx && resource?.blob}
 				<OfficeDocumentPreview base64={resource.blob} {mimeType} />
@@ -386,7 +387,7 @@
 				{:else if isPdf}
 					<PDF class="h-full" base64={resource.blob} classes={{ iframe: 'h-full' }} />
 				{:else}
-					<div class="text-muted-content italic">This file could not be displayed.</div>
+					<div class="text-muted-content italic">{m.chat_file_editor_cannot_display()}</div>
 				{/if}
 			{:else if isSvg && content}
 				<!-- SVG as text (no blob) - display as image -->
@@ -411,14 +412,14 @@
 					}}
 				/>
 			{:else}
-				<div class="text-base-content/60 italic">The contents of this file are empty.</div>
+				<div class="text-base-content/60 italic">{m.chat_file_editor_empty()}</div>
 			{/if}
 		</div>
 	</div>
 </div>
 
 {#snippet closeButton()}
-	<div class="md:tooltip md:tooltip-left" data-tip="Close">
+	<div class="md:tooltip md:tooltip-left" data-tip={m.chat_close()}>
 		<button class="btn md:btn-sm btn-square" onclick={onClose}>
 			<X class="size-5 md:size-4" />
 		</button>

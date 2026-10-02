@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { estimateNextRun, formatScheduleDateTime } from '$lib/components/nanobot/taskSchedule';
+	import { m } from '$lib/i18n';
 	import { userDeviceSettings } from '$lib/stores';
 
 	interface Props {
@@ -22,8 +23,10 @@
 {#if task}
 	<Confirm
 		show={!!task}
-		title={task.enabled ? 'Confirm Disable' : 'Confirm Enable'}
-		msg={task.enabled ? `Disable ${task.name}?` : `Enable ${task.name}?`}
+		title={task.enabled ? m.chat_confirm_disable() : m.chat_confirm_enable()}
+		msg={task.enabled
+			? m.chat_disable_named({ name: task.name })
+			: m.chat_enable_named({ name: task.name })}
 		{loading}
 		onsuccess={onSuccess}
 		oncancel={onCancel}
@@ -37,14 +40,14 @@
 
 				{#if task}
 					{#if task.enabled}
-						<p>All upcoming runs will not be performed until this task is re-enabled.</p>
-						<p class="mt-2">Are you sure you want to disable this schedule?</p>
+						<p>{m.chat_schedule_disable_note()}</p>
+						<p class="mt-2">{m.chat_schedule_disable_confirm()}</p>
 					{:else if !task.enabled && nextRun}
-						<p>The next run will be executed at:</p>
+						<p>{m.chat_schedule_next_run_at()}</p>
 						<p class="mt-2 font-semibold">
 							{formatScheduleDateTime(nextRun.toISOString(), userDeviceSettings.timeFormat)}
 						</p>
-						<p class="mt-2">Are you sure you want to enable this schedule?</p>
+						<p class="mt-2">{m.chat_schedule_enable_confirm()}</p>
 					{/if}
 				{/if}
 			{/if}

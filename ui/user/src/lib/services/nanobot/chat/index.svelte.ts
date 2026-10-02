@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import { errors } from '$lib/stores';
 import { randomUUID } from '$lib/utils';
 import { SimpleClient } from '../mcpclient/index.svelte';
@@ -651,8 +652,8 @@ export class ChatSession {
 				} else if (event.type === 'history-end') {
 					const fromServer = this.history || [];
 					// eslint-disable-next-line svelte/prefer-svelte-reactivity
-					const historyIds = new Set(fromServer.map((m) => m.id));
-					const preserved = this.messages.filter((m) => !historyIds.has(m.id));
+					const historyIds = new Set(fromServer.map((msg) => msg.id));
+					const preserved = this.messages.filter((msg) => !historyIds.has(msg.id));
 					this.messages = [...fromServer, ...preserved];
 					this.history = undefined;
 					this.isRestoring = false;
@@ -770,7 +771,7 @@ export class ChatSession {
 		const effectiveAgentId = this.selectedAgentId || this.agent?.id;
 		if (!effectiveAgentId) {
 			this.isLoading = false;
-			throw new Error('No agent selected or available for sending chat messages.');
+			throw new Error(m.chat_no_agent_selected());
 		}
 		const toolName = `chat-with-${effectiveAgentId}`;
 
@@ -813,7 +814,7 @@ export class ChatSession {
 				this.onChatDone.push(() => {
 					this.isLoading = false;
 					this.currentRequestId = undefined;
-					const i = this.messages.findIndex((m) => m.id === response.message.id);
+					const i = this.messages.findIndex((msg) => msg.id === response.message.id);
 					if (i !== -1 && i <= this.messages.length) {
 						resolve({
 							message: this.messages[i + 1]
@@ -834,7 +835,7 @@ export class ChatSession {
 					{
 						id: randomUUID(),
 						type: 'text',
-						text: `Sorry, I couldn't send your message. Please try again. Error: ${error}`
+						text: m.chat_send_failed_message({ error: String(error) })
 					}
 				]
 			});

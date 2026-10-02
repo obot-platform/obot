@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type {
 		Attachment,
 		ChatMessage,
@@ -152,7 +153,7 @@
 							{/each}
 						{:else}
 							<!-- Fallback for messages without items -->
-							<p>No content</p>
+							<p>{m.chat_no_content()}</p>
 						{/if}
 					</div>
 					<div
@@ -182,7 +183,7 @@
 								>
 									<input
 										type="checkbox"
-										aria-label="Toggle tool group details"
+										aria-label={m.chat_toggle_tool_group_details()}
 										checked={openToolGroups.has(openKey)}
 										onchange={() => toggleToolGroupOpen(openKey)}
 									/>
@@ -190,9 +191,11 @@
 										class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
 									>
 										{#if isThinking}
-											<span class="skeleton skeleton-text bg-transparent">Thinking...</span>
+											<span class="skeleton skeleton-text bg-transparent">{m.chat_thinking()}</span>
 										{:else}
-											{`${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
+											{group.toolGroup.length === 1
+												? m.chat_tool_calls_completed_one({ count: group.toolGroup.length })
+												: m.chat_tool_calls_completed_other({ count: group.toolGroup.length })}
 										{/if}
 									</div>
 									<div class="collapse-content">
@@ -223,7 +226,7 @@
 				{:else}
 					<!-- Fallback for messages without items -->
 					<div class="prose bg-base-200 prose-invert w-full max-w-full rounded-lg p-3">
-						<p>No content</p>
+						<p>{m.chat_no_content()}</p>
 					</div>
 				{/if}
 			</div>

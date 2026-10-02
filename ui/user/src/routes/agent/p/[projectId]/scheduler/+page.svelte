@@ -4,6 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ScheduledTaskDialog from '$lib/components/nanobot/ScheduledTaskDialog.svelte';
 	import { scheduleSummary } from '$lib/components/nanobot/taskSchedule';
+	import { m } from '$lib/i18n';
 	import type {
 		ProjectLayoutContext,
 		Resource,
@@ -70,7 +71,7 @@
 
 	function parseTask(content: ResourceContents, fallbackURI: string): ScheduledTask {
 		if (!content.text) {
-			throw new Error('Scheduled task contents were empty');
+			throw new Error(m.chat_scheduled_task_empty());
 		}
 
 		const parsed = JSON.parse(content.text) as ScheduledTask;
@@ -221,7 +222,7 @@
 			const read = await $nanobotChat.api.readResource(task.uri);
 			const content = read.contents?.[0];
 			if (!content) {
-				throw new Error('Scheduled task contents were empty');
+				throw new Error(m.chat_scheduled_task_empty());
 			}
 			const currentTask = parseTask(content, task.uri);
 
@@ -256,13 +257,13 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Scheduler</title>
+	<title>{m.chat_page_title_named({ name: m.chat_scheduler() })}</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={tasksContainer}>
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-1">
-			<h2 class="text-xl font-semibold md:text-2xl">Scheduler</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">{m.chat_scheduler()}</h2>
 			{#if loading}
 				<div class="loading loading-spinner loading-sm text-primary ml-2"></div>
 			{/if}
@@ -270,7 +271,7 @@
 
 		<button
 			class="btn btn-primary btn-circle"
-			aria-label="Create schedule"
+			aria-label={m.chat_create_schedule()}
 			onclick={() => createDialog?.open()}
 		>
 			<Plus class="size-5 text-primary-content" />
@@ -279,15 +280,19 @@
 
 	<label class="input mt-1 w-full">
 		<Search class="size-5" />
-		<input type="search" placeholder="Search schedules..." bind:value={taskQuery} />
+		<input
+			type="search"
+			placeholder={m.chat_search_schedules_placeholder()}
+			bind:value={taskQuery}
+		/>
 	</label>
 
 	<table class="mb-8 table">
 		<thead>
 			<tr>
-				<th>Title</th>
-				<th>Schedule</th>
-				<th>Status</th>
+				<th>{m.chat_col_title()}</th>
+				<th>{m.chat_col_schedule()}</th>
+				<th>{m.chat_col_status()}</th>
 				<th class="w-0"></th>
 			</tr>
 		</thead>
@@ -313,7 +318,7 @@
 							<span
 								class={`badge badge-sm ${taskMeta(task)?.enabled ? 'badge-success badge-soft' : 'badge-neutral badge-soft'}`}
 							>
-								{taskMeta(task)?.enabled ? 'Enabled' : 'Disabled'}
+								{taskMeta(task)?.enabled ? m.chat_status_enabled() : m.chat_status_disabled()}
 							</span>
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>
@@ -341,7 +346,7 @@
 										}}
 									>
 										<Play class="size-4 shrink-0" />
-										Run Now
+										{m.chat_run_now()}
 									</button>
 									<button
 										type="button"
@@ -365,7 +370,7 @@
 										{:else}
 											<Timer class="size-4 shrink-0" />
 										{/if}
-										{taskMeta(task)?.enabled ? 'Disable' : 'Enable'}
+										{taskMeta(task)?.enabled ? m.chat_disable() : m.chat_enable()}
 									</button>
 									<button
 										type="button"
@@ -381,7 +386,7 @@
 										}}
 									>
 										<Trash2 class="size-4 shrink-0" />
-										Delete
+										{m.chat_delete()}
 									</button>
 								{/snippet}
 							</DotDotDot>
@@ -391,7 +396,7 @@
 			{:else}
 				<tr>
 					<td colspan="4" class="text-muted-content text-center text-sm font-light italic">
-						{taskQuery.trim() ? 'No schedules found.' : 'No schedules yet.'}
+						{taskQuery.trim() ? m.chat_no_schedules_found() : m.chat_no_schedules_yet()}
 					</td>
 				</tr>
 			{/if}
@@ -409,9 +414,9 @@
 
 <Confirm
 	show={!!confirmDeleteTask}
-	title="Delete Schedule"
-	msg={`Delete ${confirmDeleteTask?.name ?? 'this schedule'}?`}
-	note="Existing run sessions will remain, but this schedule will stop creating new ones."
+	title={m.chat_delete_schedule()}
+	msg={m.chat_delete_named({ name: confirmDeleteTask?.name ?? m.chat_this_schedule() })}
+	note={m.chat_delete_schedule_note()}
 	loading={deleting}
 	onsuccess={handleDeleteTask}
 	oncancel={() => (confirmDeleteTask = undefined)}

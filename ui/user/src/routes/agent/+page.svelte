@@ -4,6 +4,7 @@
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
+	import { m } from '$lib/i18n';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
 	import { errors, responsive, profile } from '$lib/stores';
@@ -226,5 +227,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | What would you like to work on?</title>
+	<title>{m.chat_page_title_start()}</title>
 </svelte:head>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatBase64ToBlob } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import { renderAsync } from 'docx-preview';
 	import { twMerge } from 'tailwind-merge';
 
@@ -56,13 +57,13 @@
 <div class={twMerge('flex h-full min-h-0 w-full flex-col', klass)}>
 	{#if renderError}
 		<div class="alert alert-error shrink-0 rounded-none border-x-0 border-t-0">
-			<span>Could not preview document: {renderError}</span>
+			<span>{m.chat_could_not_preview_document({ error: renderError })}</span>
 		</div>
 	{/if}
 	<div
 		bind:this={containerEl}
 		class="docx-preview-wrap text-base-content [&_.docx]:bg-base-100 [&_.docx]:text-base-content min-h-0 flex-1 overflow-auto [&_.docx]:shadow-sm"
 		role="document"
-		aria-label="Word document preview"
+		aria-label={m.chat_word_document_preview()}
 	></div>
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SearchUsers from '$lib/components/admin/SearchUsers.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		NanobotService,
 		UserService,
@@ -120,7 +121,7 @@
 
 	function getSubjectDisplayName(subject: AccessControlRuleSubject): string {
 		if (subject.type === 'selector' && subject.id === '*') {
-			return 'All Obot Users';
+			return m.chat_all_obot_users();
 		}
 		if (subject.type === 'obotGroup') {
 			return `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`;
@@ -133,9 +134,11 @@
 
 	function getSubjectType(subject: AccessControlRuleSubject): string {
 		if (subject.type === 'selector') {
-			return 'Everyone';
+			return m.chat_subject_everyone();
 		}
-		return subject.type === 'group' || subject.type === 'obotGroup' ? 'Group' : 'User';
+		return subject.type === 'group' || subject.type === 'obotGroup'
+			? m.chat_subject_group()
+			: m.chat_subject_user();
 	}
 </script>
 
@@ -171,13 +174,13 @@
 			<CircleAlert class="text-primary size-5 shrink-0" />
 			<p class="text-base-content mt-1 text-sm font-light">
 				{#if !activeVersion}
-					Select a version to manage sharing.
+					{m.chat_workflow_sharing_select_version()}
 				{:else if activeSubjects.length === 0}
-					Version {activeVersion.version} is currently only visible to you.
+					{m.chat_workflow_sharing_only_you({ version: activeVersion.version })}
 				{:else if hasAllUsersSubject(activeSubjects)}
-					This workflow is visible to all Obot users.
+					{m.chat_workflow_sharing_all_users()}
 				{:else}
-					This workflow is visible only to the listed users and groups.
+					{m.chat_workflow_sharing_listed()}
 				{/if}
 			</p>
 		</div>
@@ -188,7 +191,7 @@
 
 		{#if versions.length === 0}
 			<div class="text-muted-content my-4 text-center text-sm">
-				<p class="font-medium">No versions found.</p>
+				<p class="font-medium">{m.chat_workflow_no_versions()}</p>
 			</div>
 		{:else}
 			<ul class="timeline timeline-snap-icon timeline-compact timeline-vertical mt-4 pr-2">
@@ -233,7 +236,7 @@
 
 		<div class="modal-action mt-4">
 			<button class="btn btn-secondary" onclick={() => onUnpublish()}>
-				{versions.length > 1 ? 'Unpublish All' : 'Unpublish'}
+				{versions.length > 1 ? m.chat_unpublish_all() : m.chat_unpublish()}
 			</button>
 		</div>
 	</div>
@@ -242,21 +245,24 @@
 {#snippet accessSubjectsPanel()}
 	<div class="mb-2 flex items-center justify-between">
 		<h4 class="text-sm font-semibold">
-			Access Subjects {#if activeVersion}for v{activeVersion.version}{/if}
+			{activeVersion
+				? m.chat_access_subjects_for_version({ version: activeVersion.version })
+				: m.chat_access_subjects()}
 		</h4>
 		<button
 			class="btn btn-ghost btn-sm"
 			disabled={!activeVersion}
 			onclick={() => addUserGroupDialog?.open()}
 		>
-			<Plus class="size-4" /> Add User/Group
+			<Plus class="size-4" />
+			{m.chat_add_user_group()}
 		</button>
 	</div>
 	<div class="border-base-300 rounded-md border">
 		{#if !activeVersion}
-			<p class="text-base-content/60 px-3 py-3 text-sm">Select a version</p>
+			<p class="text-base-content/60 px-3 py-3 text-sm">{m.chat_select_a_version()}</p>
 		{:else if activeSubjects.length === 0}
-			<p class="text-base-content/60 px-3 py-3 text-sm">Owner only</p>
+			<p class="text-base-content/60 px-3 py-3 text-sm">{m.chat_owner_only()}</p>
 		{:else}
 			{#each activeSubjects as subject (subject.type + ':' + subject.id)}
 				<div
@@ -305,7 +311,10 @@
 				</button>
 			{/if}
 			<h3 class="text-lg font-semibold">
-				{workflowDisplayName} | Version {selectedVersion?.version}
+				{m.chat_workflow_version_title({
+					name: workflowDisplayName ?? '',
+					version: selectedVersion?.version ?? ''
+				})}
 			</h3>
 		</div>
 		<div class="mt-2 min-h-[200px]">
@@ -317,7 +326,7 @@
 			{#if loadingVersion}
 				<div class="flex items-center justify-center gap-2 py-8">
 					<span class="loading loading-sm loading-spinner"></span>
-					<span>Loading version contents...</span>
+					<span>{m.chat_loading_version_contents()}</span>
 				</div>
 			{:else if versionContents}
 				<div
@@ -326,7 +335,9 @@
 					<MarkdownEditor value={versionContents} readonly />
 				</div>
 			{:else}
-				<div class="text-muted-content py-8 text-center text-sm">No version contents found.</div>
+				<div class="text-muted-content py-8 text-center text-sm">
+					{m.chat_no_version_contents()}
+				</div>
 			{/if}
 		</div>
 	</div>

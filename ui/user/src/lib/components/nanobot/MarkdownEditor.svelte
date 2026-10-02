@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { splitFrontmatter } from '$lib/services/nanobot/utils';
 	import { Crepe } from '@milkdown/crepe';
 	import '@milkdown/crepe/theme/common/style.css';
@@ -154,7 +155,7 @@
 			const btn = (e.target as HTMLElement).closest?.('.copy-button');
 			if (!btn || !(btn instanceof HTMLElement) || !node.contains(btn)) return;
 			const originalContent = btn.innerHTML;
-			btn.innerHTML = 'Copied!';
+			btn.textContent = m.chat_copied();
 			window.setTimeout(() => {
 				btn.innerHTML = originalContent;
 			}, 2000);

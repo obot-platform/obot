@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
+	import { m } from '$lib/i18n';
 	import type { Resource, ChatMessage } from '$lib/services/nanobot/types';
 	import { Library } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -77,7 +78,7 @@
 		<button
 			class="btn btn-ghost btn-sm h-9 w-9 rounded-full p-0"
 			{disabled}
-			aria-label="Select resources"
+			aria-label={m.chat_select_resources()}
 			onclick={(e) => e.preventDefault()}
 		>
 			<Library class="h-4 w-4" />
@@ -86,7 +87,7 @@
 			class="dropdown-content menu rounded-box border-base-300 bg-base-100 z-50 max-h-[50vh] w-64 overflow-y-auto border p-2 shadow-lg"
 		>
 			<li class="menu-title">
-				<span>Available Resources</span>
+				<span>{m.chat_available_resources()}</span>
 			</li>
 			{#each allResources as resource (resource.uri)}
 				<li>

@@ -7,6 +7,7 @@
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import { latestVersionSubjects } from '$lib/components/nanobot/publishedArtifactSubjects';
 	import { formatFileSize, formatFileTime } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import { NanobotService } from '$lib/services';
 	import type {
@@ -214,15 +215,15 @@
 		<div class="mt-1 flex items-center justify-between gap-2">
 			<div class="flex items-center gap-2">
 				{#if publishing}
-					<div class="skeleton skeleton-text">Publishing...</div>
+					<div class="skeleton skeleton-text">{m.chat_publishing()}</div>
 				{:else}
 					<button class="btn btn-primary" onclick={() => (showConfirmPublishWorkflow = true)}
-						>Publish</button
+						>{m.chat_publish()}</button
 					>
 				{/if}
 				{#if publishedInfo}
 					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
-						Manage Published Versions
+						{m.chat_manage_published_versions()}
 					</button>
 				{/if}
 			</div>
@@ -234,16 +235,18 @@
 							hasPublishUpdate ? 'btn-warning btn-soft tooltip tooltip-left' : 'btn-ghost'
 						)}
 						onclick={() => (showConfirmUpdateWorkflow = true)}
-						data-tip={hasPublishUpdate ? 'An update is available' : 'Select different version'}
+						data-tip={hasPublishUpdate
+							? m.chat_update_available()
+							: m.chat_select_different_version()}
 					>
 						<FolderInput class="size-4" />
 					</button>
 				{/if}
 				<button
 					class="btn btn-ghost btn-error btn-square tooltip tooltip-left"
-					data-tip="Delete workflow"
+					data-tip={m.chat_delete_workflow()}
 					onclick={() => (deletingWorkflow = true)}
-					aria-label="Delete workflow"
+					aria-label={m.chat_delete_workflow()}
 				>
 					<Trash2 class="size-4" />
 				</button>
@@ -251,7 +254,7 @@
 		</div>
 		<button
 			class="mockup-window bg-base-100 border-base-300 group border"
-			aria-label="Modify workflow"
+			aria-label={m.chat_modify_workflow()}
 			onclick={handleModifyWorkflow}
 		>
 			<div
@@ -268,7 +271,7 @@
 			<div
 				class="bg-base-100/75 absolute flex h-full w-full items-center justify-center opacity-0 backdrop-blur-[2px] transition-all group-hover:opacity-100"
 			>
-				<div class="tooltip tooltip-open" data-tip="Modify workflow">
+				<div class="tooltip tooltip-open" data-tip={m.chat_modify_workflow()}>
 					<PencilLine class="size-8" />
 				</div>
 			</div>
@@ -276,15 +279,15 @@
 
 		{#if workflowResources.length > 0}
 			<div class="divider"></div>
-			<h2 class="text-xl font-semibold">Workflow Files</h2>
+			<h2 class="text-xl font-semibold">{m.chat_workflow_files()}</h2>
 
 			<table class="table w-full table-fixed">
 				<thead>
 					<tr>
-						<th>Name</th>
-						<th>Size</th>
-						<th>Last Modified</th>
-						<th>Location</th>
+						<th>{m.chat_col_name()}</th>
+						<th>{m.chat_col_size()}</th>
+						<th>{m.chat_col_last_modified()}</th>
+						<th>{m.chat_col_location()}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -340,16 +343,18 @@
 		<div class="divider"></div>
 
 		<div class="flex items-center justify-between">
-			<h2 class="text-xl font-semibold">Workflow Runs</h2>
+			<h2 class="text-xl font-semibold">{m.chat_workflow_runs()}</h2>
 			<button class="btn btn-sm btn-primary" onclick={handleRunWorkflow}
-				>Start New Run <Play class="size-4" /></button
+				>{m.chat_start_new_run()} <Play class="size-4" /></button
 			>
 		</div>
 
 		<div class="mb-8">
 			{#if sessions.length > 3}
 				<div class="list bg-base-100 rounded-box">
-					<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">Most recent runs</h3>
+					<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">
+						{m.chat_most_recent_runs()}
+					</h3>
 
 					{#each recentRuns as thread, index (thread.id)}
 						<button
@@ -393,28 +398,28 @@
 						<Workflow class="size-7" />
 					</div>
 					<div class="space-y-1">
-						<h3 class="font-medium">No runs yet</h3>
-						<p class="text-base-content/60 text-sm">This workflow has not had any runs yet.</p>
+						<h3 class="font-medium">{m.chat_no_runs_yet()}</h3>
+						<p class="text-base-content/60 text-sm">{m.chat_workflow_no_runs_desc()}</p>
 					</div>
 				</div>
 			{:else}
 				{#if sessions.length > 3}
-					<h3 class="px-4 text-base font-semibold tracking-wide mt-8">All Runs</h3>
+					<h3 class="px-4 text-base font-semibold tracking-wide mt-8">{m.chat_all_runs()}</h3>
 				{/if}
 				<table class="table w-full">
 					<thead>
 						<tr>
-							<th>Title</th>
+							<th>{m.chat_col_title()}</th>
 							{#if !responsive.isMobile}
-								<th>Created</th>
+								<th>{m.chat_col_created()}</th>
 							{/if}
 							<th class="flex justify-end">
 								<select class="select w-42" bind:value={sortBy}>
-									<option value="" disabled selected>Sort by</option>
-									<option value="created-desc">Sort by Created (Newest)</option>
-									<option value="created-asc">Sort by Created (Oldest)</option>
-									<option value="name-asc">Sort by Name (A-Z)</option>
-									<option value="name-desc">Sort by Name (Z-A)</option>
+									<option value="" disabled selected>{m.chat_sort_by()}</option>
+									<option value="created-desc">{m.chat_sort_created_newest()}</option>
+									<option value="created-asc">{m.chat_sort_created_oldest()}</option>
+									<option value="name-asc">{m.chat_sort_name_az()}</option>
+									<option value="name-desc">{m.chat_sort_name_za()}</option>
 								</select>
 							</th>
 						</tr>
@@ -432,7 +437,7 @@
 										goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowId}`);
 									}
 								}}
-								aria-label={`View thread ${thread.title}`}
+								aria-label={m.chat_view_thread_named({ title: thread.title ?? '' })}
 								tabindex="0"
 								role="button"
 							>
@@ -461,7 +466,7 @@
 {/if}
 
 <Confirm
-	msg={`Delete ${workflowDisplayName || 'this workflow'}?`}
+	msg={m.chat_delete_named({ name: workflowDisplayName || m.chat_this_workflow() })}
 	show={deletingWorkflow}
 	onsuccess={async () => {
 		if (!workflow) return;
@@ -483,7 +488,7 @@
 
 {#if confirmInstallModal && relatedPublishedArtifact}
 	<PublishedWorkflowInstallModal
-		title="Update Workflow"
+		title={m.chat_workflow_update_title()}
 		data={{
 			...relatedPublishedArtifact,
 			selectedVersion: confirmInstallModal.selectedVersion ?? relatedPublishedArtifact.latestVersion
@@ -493,11 +498,12 @@
 			confirmInstallModal = undefined;
 			reloadPage();
 		}}
-		confirmButtonText="Update"
-		message="Are you sure you want to update? Any existing changes will be overwritten."
+		confirmButtonText={m.chat_update()}
+		message={m.chat_update_workflow_confirm()}
 	>
 		{#snippet loadingText()}
-			Updating <i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowId}...</i>
+			{m.chat_updating()}
+			<i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowId}...</i>
 		{/snippet}
 	</PublishedWorkflowInstallModal>
 {/if}
@@ -565,45 +571,42 @@
 		show={confirmUnpublish}
 		onsuccess={handleUnpublish}
 		oncancel={() => (confirmUnpublish = false)}
-		msg={latestVersion > 1 ? 'Unpublish All Versions?' : 'Unpublish Workflow?'}
+		msg={latestVersion > 1 ? m.chat_unpublish_all_versions_q() : m.chat_unpublish_workflow_q()}
 		type="info"
-		title="Confirm Unpublish"
+		title={m.chat_confirm_unpublish()}
 	>
 		{#snippet note()}
 			<p>
-				Are you sure you want to unpublish {latestVersion > 1 ? 'all versions' : 'this version'}? {latestVersion >
-				1
-					? 'All versions'
-					: 'This version'} will be unpublished and will no longer be visible to other users.
+				{latestVersion > 1 ? m.chat_unpublish_note_all() : m.chat_unpublish_note_one()}
 			</p>
 		{/snippet}
 	</Confirm>
 {/if}
 
 <Confirm
-	msg={`Workflow ${workflowDisplayName ?? workflowId} has been published.`}
-	title="Workflow Published"
-	cancelText="Close"
+	msg={m.chat_workflow_published_msg({ name: workflowDisplayName ?? workflowId })}
+	title={m.chat_workflow_published_title()}
+	cancelText={m.chat_close()}
 	show={showPublishSuccess}
 	oncancel={() => (showPublishSuccess = false)}
 	type="info"
 >
 	{#snippet note()}
 		<p>
-			{workflowDisplayName ?? workflowId} has been published to version
-			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
+			{m.chat_published_to_version_prefix({ name: workflowDisplayName ?? workflowId })}
+			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b
+			>{m.chat_published_to_version_suffix()}
 		</p>
 		{#if publishedVersionSubjects.length === 0}
 			<p class="mt-2">
-				To share this workflow with other users, add users or groups via "Manage Published
-				Versions".
+				{m.chat_share_workflow_hint()}
 			</p>
 		{/if}
 	{/snippet}
 </Confirm>
 
 <svelte:head>
-	<title>Obot | {workflowDisplayName ?? workflowId}</title>
+	<title>{m.chat_page_title_named({ name: workflowDisplayName ?? workflowId })}</title>
 </svelte:head>
 
 <style lang="postcss">

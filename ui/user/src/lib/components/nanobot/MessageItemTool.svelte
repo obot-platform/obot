@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MessageItemUI from '$lib/components/nanobot/MessageItemUI.svelte';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import type {
 		Attachment,
@@ -141,21 +142,23 @@
 			{:else}
 				<span class="loading loading-xs loading-spinner"></span>
 			{/if}
-			<span class="text-primary/60 text-sm font-medium">Tool call: {item.name}</span>
+			<span class="text-primary/60 text-sm font-medium"
+				>{m.chat_tool_call_named({ name: item.name ?? '' })}</span
+			>
 		</div>
 	</div>
 	<div class="collapse-content">
 		<div class="space-y-3 pt-2">
 			{#if item.arguments}
 				<div class="grid">
-					<div class="text-base-content/70 mb-1 text-xs font-medium">Input:</div>
+					<div class="text-base-content/70 mb-1 text-xs font-medium">{m.chat_tool_input()}</div>
 					{#if parsedInput.success}
 						<div class="bg-base-200 overflow-x-auto rounded p-3">
 							<table class="table-zebra table-xs table w-full">
 								<thead>
 									<tr>
-										<th class="text-xs">Key</th>
-										<th class="text-xs">Value</th>
+										<th class="text-xs">{m.chat_tool_key()}</th>
+										<th class="text-xs">{m.chat_tool_value()}</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -169,7 +172,7 @@
 									{/each}
 									{#if Object.keys(parsedInput.data).length === 0}
 										<tr>
-											<td class="font-mono text-xs">No arguments</td>
+											<td class="font-mono text-xs">{m.chat_tool_no_arguments()}</td>
 										</tr>
 									{/if}
 								</tbody>
@@ -185,10 +188,10 @@
 			{#if expanded && item.output}
 				{#if outputDisplay}
 					<div class="flex flex-col gap-2">
-						<div class="text-base-content/70 mb-1 text-xs font-medium">Output:</div>
+						<div class="text-base-content/70 mb-1 text-xs font-medium">{m.chat_tool_output()}</div>
 						{#if outputDisplay.isError}
 							<div class="alert alert-error">
-								<span>Tool execution failed</span>
+								<span>{m.chat_tool_execution_failed()}</span>
 							</div>
 						{/if}
 						{#if outputDisplay.structuredHtml}
@@ -212,7 +215,7 @@
 			{:else}
 				<div class="text-muted-content flex items-center gap-2 text-xs italic">
 					<span class="loading loading-xs loading-spinner"></span>
-					Running...
+					{m.chat_running()}
 				</div>
 			{/if}
 		</div>
@@ -232,7 +235,7 @@
 			{#if contentItem.type === 'image' && isSafeImageMimeType(contentItem.mimeType)}
 				<img
 					src="data:{contentItem.mimeType};base64,{contentItem.data}"
-					alt="Tool output"
+					alt={m.chat_tool_output_alt()}
 					class="max-w-full rounded"
 				/>
 			{/if}

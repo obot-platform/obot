@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { formatFileSize, formatFileTime } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { responsive, userDeviceSettings } from '$lib/stores';
@@ -117,13 +118,13 @@
 
 	let columnCount = $derived(responsive.isMobile ? 2 : 4);
 	let columnHeaders = $derived([
-		{ property: 'name', title: 'Name' },
-		{ property: 'size', title: 'Size' },
+		{ property: 'name', title: m.chat_col_name() },
+		{ property: 'size', title: m.chat_col_size() },
 		...(responsive.isMobile
 			? []
 			: [
-					{ property: 'lastModified', title: 'Last Modified' },
-					{ property: 'uri', title: 'Location' }
+					{ property: 'lastModified', title: m.chat_col_last_modified() },
+					{ property: 'uri', title: m.chat_col_location() }
 				])
 	]);
 
@@ -272,7 +273,12 @@
 	<div class="mt-1 flex items-center justify-between gap-2">
 		<label class="input w-full">
 			<Search class="size-6" />
-			<input type="search" required placeholder="Search files..." bind:value={query} />
+			<input
+				type="search"
+				required
+				placeholder={m.chat_search_files_placeholder()}
+				bind:value={query}
+			/>
 		</label>
 		<button
 			class={twMerge(
@@ -281,7 +287,7 @@
 				view === 'list' ? 'btn-soft btn-primary' : 'btn-ghost'
 			)}
 			onclick={() => (view = 'list')}
-			data-tip="View as list"
+			data-tip={m.chat_view_as_list()}
 		>
 			<LayoutList class="size-5" />
 		</button>
@@ -292,14 +298,14 @@
 				view === 'tree' ? 'btn-soft btn-primary' : 'btn-ghost'
 			)}
 			onclick={() => (view = 'tree')}
-			data-tip="View as tree"
+			data-tip={m.chat_view_as_tree()}
 		>
 			<FolderTree class="size-5" />
 		</button>
 	</div>
 	<div class="flex items-center justify-between gap-4">
 		<div class="flex items-center gap-1">
-			<h2 class="text-xl font-semibold md:text-2xl">Files</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">{m.chat_files()}</h2>
 			{#if loading}
 				<div class="loading loading-spinner text-primary loading-sm"></div>
 			{/if}
@@ -313,7 +319,7 @@
 					showHiddenFiles ? 'checkbox-primary' : ''
 				)}
 			/>
-			Show hidden files
+			{m.chat_show_hidden_files()}
 		</label>
 	</div>
 	{#if view === 'list'}
@@ -322,9 +328,9 @@
 				<tr>
 					{#each columnHeaders as header (header.property)}
 						<th
-							class="group min-w-0 {header.title === 'Size'
+							class="group min-w-0 {header.property === 'size'
 								? 'w-20'
-								: header.title === 'Last Modified' || header.title === 'Created'
+								: header.property === 'lastModified'
 									? 'w-36'
 									: ''}"
 						>
@@ -338,7 +344,9 @@
 										sorted = { property: header.property, order: 'asc' };
 									}
 								}}
-								data-tip={`Sort by ${header.title}: ${sorted.order === 'asc' || sorted.property !== header.property ? 'Descending' : 'Ascending'}`}
+								data-tip={sorted.order === 'asc' || sorted.property !== header.property
+									? m.chat_sort_by_descending({ column: header.title })
+									: m.chat_sort_by_ascending({ column: header.title })}
 							>
 								{#if (sorted.property === header.property && sorted.order === 'asc') || sorted.property !== header.property}
 									<ChevronDown class="size-3" />
@@ -404,7 +412,7 @@
 							colspan={columnCount}
 							class="text-muted-content text-center text-sm font-light italic"
 						>
-							<span>No files found.</span>
+							<span>{m.chat_no_files_found()}</span>
 						</td>
 					</tr>
 				{/if}
@@ -421,7 +429,7 @@
 								style="padding-left: {depth * 1.65}rem;"
 								onclick={() => toggleFolder(path)}
 								aria-expanded={isFolderOpen(path)}
-								aria-label={`Toggle folder ${node.name}`}
+								aria-label={m.chat_toggle_folder({ name: node.name })}
 							>
 								<span class="flex shrink-0 pl-2">
 									{#if isFolderOpen(path)}
@@ -446,7 +454,7 @@
 								)}
 								style="padding-left: {depth * 1.6}rem;"
 								onclick={() => onFileOpen?.(node.uri)}
-								aria-label={`Open file ${node.name}`}
+								aria-label={m.chat_open_file_named({ name: node.name })}
 							>
 								<span class="min-w-0 shrink-0" aria-hidden="true"></span>
 								<FileItem uri={node.uri} classes={{ icon: 'size-4' }} />
@@ -456,7 +464,7 @@
 				{/each}
 			{:else}
 				<li class="text-muted-content flex items-start gap-2 px-4 font-light italic">
-					<span>No files found.</span>
+					<span>{m.chat_no_files_found()}</span>
 				</li>
 			{/if}
 		</ul>
@@ -464,5 +472,5 @@
 </div>
 
 <svelte:head>
-	<title>Obot | Files</title>
+	<title>{m.chat_page_title_named({ name: m.chat_files() })}</title>
 </svelte:head>

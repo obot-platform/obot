@@ -1,6 +1,7 @@
 <script lang="ts">
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		NanobotService,
@@ -78,7 +79,7 @@
 			userSkills = skillList as Skill[];
 			userModels = modelList as Model[];
 		} catch (error) {
-			errors.append(`Failed to load your available resources: ${error}`);
+			errors.append(m.chat_instance_form_load_resources_failed({ error: String(error) }));
 		} finally {
 			loading = false;
 		}
@@ -102,16 +103,17 @@
 	<div class="flex min-w-0 flex-col gap-4">
 		<section class="border-base-400 bg-base-300 rounded-lg border p-4">
 			<div class="mb-4">
-				<h3 class="text-sm font-semibold">Instance</h3>
-				<p class="text-muted-content text-xs">Give this instance a recognizable identity.</p>
+				<h3 class="text-sm font-semibold">{m.chat_instance_form_instance()}</h3>
+				<p class="text-muted-content text-xs">{m.chat_instance_form_instance_desc()}</p>
 			</div>
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="flex flex-col gap-2 sm:col-span-2">
-					<label for="instance-name" class="text-sm font-light">Name</label>
+					<label for="instance-name" class="text-sm font-light">{m.chat_name()}</label>
 					<input id="instance-name" bind:value={name} class="text-input-filled" />
 				</div>
 				<div class="flex flex-col gap-2 sm:col-span-2">
-					<label for="instance-description" class="text-sm font-light">Description</label>
+					<label for="instance-description" class="text-sm font-light">{m.chat_description()}</label
+					>
 					<textarea
 						id="instance-description"
 						bind:value={description}
@@ -119,7 +121,7 @@
 						rows="2"></textarea>
 				</div>
 				<div class="flex flex-col gap-2">
-					<label for="instance-icon" class="text-sm font-light">Icon URL</label>
+					<label for="instance-icon" class="text-sm font-light">{m.chat_icon_url()}</label>
 					<div class="flex items-center gap-3">
 						{#if icon}
 							<img src={icon} alt="" class="size-10 shrink-0 rounded-md object-contain" />
@@ -141,40 +143,44 @@
 		{#if agent.allowUserGitRepo}
 			<section class="border-base-400 bg-base-300 rounded-lg border p-4">
 				<div class="mb-3">
-					<h3 class="text-sm font-semibold">Repository</h3>
-					<p class="text-muted-content text-xs">Choose the code this instance can work with.</p>
+					<h3 class="text-sm font-semibold">{m.chat_instance_form_repository()}</h3>
+					<p class="text-muted-content text-xs">{m.chat_instance_form_repository_desc()}</p>
 				</div>
 				<div class="flex flex-col gap-2">
-					<label for="instance-git-repo" class="text-sm font-light">Git Repository</label>
+					<label for="instance-git-repo" class="text-sm font-light"
+						>{m.chat_instance_form_git_repository()}</label
+					>
 					<input
 						id="instance-git-repo"
 						bind:value={gitRepo}
 						class="text-input-filled"
-						placeholder={agent.gitRepo || 'https://github.com/example/repo (optional)'}
+						placeholder={agent.gitRepo || m.chat_instance_form_git_repo_placeholder()}
 						inputmode="url"
 						autocomplete="off"
 					/>
 					{#if agent.gitRepo}
 						<span class="text-muted-content text-xs">
-							Leave blank to use the agent's default repository.
+							{m.chat_instance_form_git_repo_default_hint()}
 						</span>
 					{/if}
 				</div>
 				<div class="mt-3 flex flex-col gap-2">
-					<label for="instance-git-ref" class="text-sm font-light">Branch, Tag or Commit</label>
+					<label for="instance-git-ref" class="text-sm font-light"
+						>{m.chat_instance_form_git_ref()}</label
+					>
 					<input
 						id="instance-git-ref"
 						bind:value={gitRef}
 						class="text-input-filled"
-						placeholder="main (optional)"
+						placeholder={m.chat_instance_form_git_ref_placeholder()}
 						disabled={!gitRepo}
 						autocomplete="off"
 					/>
 					<span class="text-muted-content text-xs">
 						{#if gitRepo}
-							Leave blank to track your repository's default branch.
+							{m.chat_instance_form_git_ref_default_hint()}
 						{:else}
-							Applies to a repository you supply above.
+							{m.chat_instance_form_git_ref_applies_hint()}
 						{/if}
 					</span>
 				</div>
@@ -184,8 +190,8 @@
 		{#if questions.length > 0}
 			<section class="border-base-400 bg-base-300 rounded-lg border p-4">
 				<div class="mb-4">
-					<h3 class="text-sm font-semibold">Agent settings</h3>
-					<p class="text-muted-content text-xs">Configure the options exposed by this agent.</p>
+					<h3 class="text-sm font-semibold">{m.chat_instance_form_agent_settings()}</h3>
+					<p class="text-muted-content text-xs">{m.chat_instance_form_agent_settings_desc()}</p>
 				</div>
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each questions as question (question.key)}
@@ -213,7 +219,7 @@
 									bind:value={answers[question.key]}
 								>
 									{#if !question.required}
-										<option value="">(none)</option>
+										<option value="">{m.chat_none_option()}</option>
 									{/if}
 									{#each question.options ?? [] as option (option)}
 										<option value={option}>{option}</option>
@@ -225,8 +231,8 @@
 									class="text-input-filled"
 									bind:value={answers[question.key]}
 								>
-									<option value="true">Yes</option>
-									<option value="false">No</option>
+									<option value="true">{m.chat_yes()}</option>
+									<option value="false">{m.chat_no()}</option>
 								</select>
 							{:else if question.sensitive}
 								<SensitiveInput bind:value={answers[question.key]} name="q-{question.key}" />
@@ -242,8 +248,9 @@
 
 							{#if question.type === 'schedule'}
 								<span class="text-muted-content text-xs">
-									Cron expression — minute hour day month weekday. For example
-									<code>0 3 * * *</code> runs daily at 03:00.
+									{m.chat_instance_form_cron_hint_prefix()}
+									<code>0 3 * * *</code>
+									{m.chat_instance_form_cron_hint_suffix()}
 								</span>
 							{/if}
 						</div>
@@ -255,9 +262,9 @@
 		{#if allowsAnyUserResource}
 			<section class="border-base-400 bg-base-300 rounded-lg border p-4">
 				<div class="mb-4">
-					<h3 class="text-sm font-semibold">Optional resources</h3>
+					<h3 class="text-sm font-semibold">{m.chat_instance_form_optional_resources()}</h3>
 					<p class="text-muted-content text-xs">
-						Attach only the resource types this agent supports.
+						{m.chat_instance_form_optional_resources_desc()}
 					</p>
 				</div>
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -268,10 +275,10 @@
 					{:else}
 						{#if agent.allowUserMCPServers}
 							<div class="border-base-400 flex flex-col gap-2 rounded-md border p-3">
-								<span class="text-sm font-light">Your MCP servers</span>
+								<span class="text-sm font-light">{m.chat_instance_form_your_mcp_servers()}</span>
 								{#if userMcpOptions.length === 0}
 									<p class="text-muted-content text-xs">
-										You don't have access to any MCP servers.
+										{m.chat_instance_form_no_mcp_servers()}
 									</p>
 								{:else}
 									<div class="default-scrollbar-thin flex max-h-40 flex-col gap-1 overflow-y-auto">
@@ -293,9 +300,9 @@
 
 						{#if agent.allowUserSkills}
 							<div class="border-base-400 flex flex-col gap-2 rounded-md border p-3">
-								<span class="text-sm font-light">Your skills</span>
+								<span class="text-sm font-light">{m.chat_instance_form_your_skills()}</span>
 								{#if userSkills.length === 0}
-									<p class="text-muted-content text-xs">You don't have access to any skills.</p>
+									<p class="text-muted-content text-xs">{m.chat_instance_form_no_skills()}</p>
 								{:else}
 									<div class="default-scrollbar-thin flex max-h-40 flex-col gap-1 overflow-y-auto">
 										{#each userSkills as skill (skill.id)}
@@ -316,9 +323,9 @@
 
 						{#if agent.allowUserModels}
 							<div class="border-base-400 flex flex-col gap-2 rounded-md border p-3">
-								<span class="text-sm font-light">Your models</span>
+								<span class="text-sm font-light">{m.chat_instance_form_your_models()}</span>
 								{#if userModels.length === 0}
-									<p class="text-muted-content text-xs">You don't have access to any models.</p>
+									<p class="text-muted-content text-xs">{m.chat_instance_form_no_models()}</p>
 								{:else}
 									<div class="default-scrollbar-thin flex max-h-40 flex-col gap-1 overflow-y-auto">
 										{#each userModels as model (model.id)}
@@ -343,7 +350,9 @@
 	</div>
 
 	<aside class="border-base-400 bg-base-300 h-fit rounded-lg border p-4 md:sticky md:top-0">
-		<p class="text-muted-content text-[10px] font-medium uppercase">Configuration summary</p>
+		<p class="text-muted-content text-[10px] font-medium uppercase">
+			{m.chat_instance_form_config_summary()}
+		</p>
 		<div class="mt-3 flex items-center gap-3">
 			{#if agent.icon}
 				<img src={agent.icon} alt="" class="size-9 rounded object-contain" />
@@ -356,35 +365,41 @@
 			{/if}
 			<div class="min-w-0">
 				<p class="truncate text-sm font-semibold">{agent.name}</p>
-				<p class="text-muted-content truncate text-xs">{name || 'Unnamed instance'}</p>
+				<p class="text-muted-content truncate text-xs">
+					{name || m.chat_instance_form_unnamed_instance()}
+				</p>
 			</div>
 		</div>
 		<div class="border-base-400 mt-4 grid gap-2 border-t pt-4 text-xs">
 			{#if questions.length}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">Settings</span><span>{questions.length}</span>
+					<span class="text-muted-content">{m.chat_settings()}</span><span>{questions.length}</span>
 				</div>{/if}
 			{#if agent.allowUserGitRepo}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">Repository</span><span class="max-w-28 truncate"
-						>{gitRepo ? 'Custom' : 'Default'}</span
+					<span class="text-muted-content">{m.chat_instance_form_repository()}</span><span
+						class="max-w-28 truncate">{gitRepo ? m.chat_custom() : m.chat_default()}</span
 					>
 				</div>{/if}
 			{#if agent.allowUserMCPServers}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">MCP servers</span><span
-						>{mcpServers.length} selected</span
+					<span class="text-muted-content">{m.chat_mcp_servers_lower()}</span><span
+						>{m.chat_count_selected({ count: mcpServers.length })}</span
 					>
 				</div>{/if}
 			{#if agent.allowUserSkills}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">Skills</span><span>{skills.length} selected</span>
+					<span class="text-muted-content">{m.chat_skills()}</span><span
+						>{m.chat_count_selected({ count: skills.length })}</span
+					>
 				</div>{/if}
 			{#if agent.allowUserModels}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">Models</span><span
-						>{models.length ? `${models.length} selected` : 'Default'}</span
+					<span class="text-muted-content">{m.chat_models()}</span><span
+						>{models.length
+							? m.chat_count_selected({ count: models.length })
+							: m.chat_default()}</span
 					>
 				</div>{/if}
 			{#if !questions.length && !agent.allowUserGitRepo && !allowsAnyUserResource}<p
 					class="text-muted-content"
 				>
-					This agent has no additional user-configurable options.
+					{m.chat_instance_form_no_options()}
 				</p>{/if}
 		</div>
 	</aside>

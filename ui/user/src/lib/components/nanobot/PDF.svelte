@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatBase64ToBlobUrl } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -26,6 +27,7 @@
 
 {#if pdfBlobUrl}
 	<div class={twMerge('w-full', klass)}>
-		<iframe src={pdfBlobUrl} class={twMerge('w-full', classes?.iframe)} title="PDF Viewer"></iframe>
+		<iframe src={pdfBlobUrl} class={twMerge('w-full', classes?.iframe)} title={m.chat_pdf_viewer()}
+		></iframe>
 	</div>
 {/if}

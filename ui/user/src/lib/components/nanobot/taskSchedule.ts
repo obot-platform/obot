@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { TimeDisplayFormat } from '$lib/time';
 
 export type TaskFrequency = 'daily' | 'weekly' | 'monthly' | 'no_repeat';
@@ -13,27 +14,30 @@ export interface TaskScheduleForm {
 export const weekdayOrder = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export const weekdayLabels: Record<string, string> = {
-	sun: 'Sun',
-	mon: 'Mon',
-	tue: 'Tue',
-	wed: 'Wed',
-	thu: 'Thu',
-	fri: 'Fri',
-	sat: 'Sat'
+	sun: m.chat_weekday_short_sun(),
+	mon: m.chat_weekday_short_mon(),
+	tue: m.chat_weekday_short_tue(),
+	wed: m.chat_weekday_short_wed(),
+	thu: m.chat_weekday_short_thu(),
+	fri: m.chat_weekday_short_fri(),
+	sat: m.chat_weekday_short_sat()
 };
 
 export function ordinal(day: number) {
-	if (day % 10 === 1 && day % 100 !== 11) return `${day}st`;
-	if (day % 10 === 2 && day % 100 !== 12) return `${day}nd`;
-	if (day % 10 === 3 && day % 100 !== 13) return `${day}rd`;
-	return `${day}th`;
+	if (day % 10 === 1 && day % 100 !== 11) return m.chat_ordinal_st({ day });
+	if (day % 10 === 2 && day % 100 !== 12) return m.chat_ordinal_nd({ day });
+	if (day % 10 === 3 && day % 100 !== 13) return m.chat_ordinal_rd({ day });
+	return m.chat_ordinal_th({ day });
 }
 
 export function joinNatural(items: string[]) {
 	if (items.length === 0) return '';
 	if (items.length === 1) return items[0];
-	if (items.length === 2) return `${items[0]} and ${items[1]}`;
-	return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+	if (items.length === 2) return m.chat_join_two({ first: items[0], second: items[1] });
+	return m.chat_join_many({
+		items: items.slice(0, -1).join(m.chat_list_separator()),
+		last: items.at(-1) ?? ''
+	});
 }
 
 export function formatScheduleDate(date: string): string {
@@ -55,7 +59,7 @@ export function formatScheduleDateTime(
 	value: string | null | undefined,
 	format: TimeDisplayFormat
 ): string {
-	if (!value) return 'Not available';
+	if (!value) return m.chat_not_available();
 
 	const parsed = new Date(value);
 	if (Number.isNaN(parsed.getTime())) {
@@ -202,7 +206,7 @@ export function scheduleSummary(
 	expiration: string | undefined,
 	format: TimeDisplayFormat
 ): string {
-	if (!schedule?.trim()) return 'No schedule';
+	if (!schedule?.trim()) return m.chat_no_schedule();
 
 	const fallback = defaultTaskScheduleForm();
 	const parsed = parseCronSchedule(schedule, expiration);
@@ -211,22 +215,24 @@ export function scheduleSummary(
 	// the schedule is unparseable — don't show a plausible-but-wrong default.
 	const defaultCron = buildCronSchedule(fallback);
 	if (JSON.stringify(parsed) === JSON.stringify(fallback) && schedule.trim() !== defaultCron) {
-		return 'Schedule unavailable';
+		return m.chat_schedule_unavailable();
 	}
 
 	const time = formatScheduleTime(parsed.time, format);
 	switch (parsed.frequency) {
 		case 'daily':
-			return `Daily at ${time}`;
+			return m.chat_schedule_daily_at({ time });
 		case 'weekly':
 			// Guard against empty weekday list producing "Weekly on at 9:00"
-			if (!parsed.daysOfWeek.length) return 'Schedule unavailable';
-			return `Weekly on ${formatWeekdaySummary(parsed.daysOfWeek)} at ${time}`;
+			if (!parsed.daysOfWeek.length) return m.chat_schedule_unavailable();
+			return m.chat_schedule_weekly_on({ days: formatWeekdaySummary(parsed.daysOfWeek), time });
 		case 'monthly':
-			if (!parsed.daysOfMonth.length) return 'Schedule unavailable';
-			return `Monthly on ${formatMonthDaySummary(parsed.daysOfMonth)} at ${time}`;
+			if (!parsed.daysOfMonth.length) return m.chat_schedule_unavailable();
+			return m.chat_schedule_monthly_on({ days: formatMonthDaySummary(parsed.daysOfMonth), time });
 		case 'no_repeat':
-			return parsed.date ? `${formatScheduleDate(parsed.date)} at ${time}` : time;
+			return parsed.date
+				? m.chat_schedule_date_at({ date: formatScheduleDate(parsed.date), time })
+				: time;
 	}
 }
 

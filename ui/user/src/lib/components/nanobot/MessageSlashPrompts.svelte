@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { Prompt } from '$lib/services/nanobot/types';
 	import { twMerge } from 'tailwind-merge';
 
@@ -83,7 +84,7 @@
 
 		{#if filteredPrompts.length === 0}
 			<div class="text-muted-content px-4 py-2 text-sm">
-				No commands found for "{slashQuery}"
+				{m.chat_no_commands_found({ query: slashQuery })}
 			</div>
 		{/if}
 	</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { generateLineDiff, formatTextWithDiffHighlighting } from '$lib/diff';
+	import { m } from '$lib/i18n';
 	import { NanobotService } from '$lib/services';
 	import type { PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
@@ -111,13 +112,15 @@
 			>
 		</form>
 		<h3 class="mb-2 text-xl font-semibold">
-			{variant === 'publish' ? 'Publish Workflow' : 'Update Workflow'}
+			{variant === 'publish' ? m.chat_workflow_publish_title() : m.chat_workflow_update_title()}
 		</h3>
 		{#if latestVersion > 0}
 			<div class="flex w-full flex-col gap-2 md:flex-row">
 				<div class="w-full md:w-1/2">
 					<h4 class="text-md font-semibold">
-						{variant === 'publish' ? 'Most Recent Version' : 'Current Workflow'}
+						{variant === 'publish'
+							? m.chat_workflow_most_recent_version()
+							: m.chat_workflow_current_workflow()}
 					</h4>
 					{#if loading}
 						<div class="flex items-center justify-center gap-2 py-8">
@@ -136,11 +139,11 @@
 				<div class="w-full md:w-1/2">
 					<h4 class="text-md font-semibold">
 						{#if variant === 'publish'}
-							Current
+							{m.chat_workflow_current()}
 						{:else}
-							Version {selectedVersion.toFixed(1)}
+							{m.chat_workflow_version_n({ version: selectedVersion.toFixed(1) })}
 							{#if selectedVersion === latestVersion}
-								<span class="text-muted-content text-xs font-light">(latest)</span>
+								<span class="text-muted-content text-xs font-light">{m.chat_latest_paren()}</span>
 							{/if}
 						{/if}
 					</h4>
@@ -160,8 +163,8 @@
 		{:else}
 			<p>
 				{variant === 'publish'
-					? 'Would you like to publish this workflow?'
-					: 'Would you like to update this workflow?'}
+					? m.chat_workflow_confirm_publish()
+					: m.chat_workflow_confirm_update()}
 			</p>
 		{/if}
 		<div class="flex grow"></div>
@@ -180,7 +183,7 @@
 						<option value={version.version}>
 							{version.version.toFixed(1)}
 							{#if version.version === latestVersion}
-								(latest)
+								{m.chat_latest_paren()}
 							{/if}
 						</option>
 					{/each}
@@ -190,15 +193,17 @@
 			{#if currentInstalledVersion === selectedVersion.toString()}
 				<button class="btn w-64" disabled>
 					{currentInstalledVersion === latestVersion.toString()
-						? 'Currently up-to-date'
-						: 'Currently installed'}
+						? m.chat_workflow_currently_up_to_date()
+						: m.chat_workflow_currently_installed()}
 				</button>
 			{:else}
 				<button
 					class={twMerge('btn btn-primary', variant === 'update' ? 'w-64' : 'w-full')}
 					onclick={() => onSubmit(variant === 'publish' ? undefined : selectedVersion)}
 				>
-					{variant === 'publish' ? 'Publish' : `Update to ${selectedVersion.toFixed(1)}`}
+					{variant === 'publish'
+						? m.chat_publish()
+						: m.chat_workflow_update_to({ version: selectedVersion.toFixed(1) })}
 				</button>
 			{/if}
 		</div>

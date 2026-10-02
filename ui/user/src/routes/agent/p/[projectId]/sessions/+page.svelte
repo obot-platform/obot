@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Threads from '$lib/components/nanobot/Threads.svelte';
+	import { m } from '$lib/i18n';
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
@@ -73,7 +74,7 @@
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 overflow-x-hidden px-2">
 	<div class="flex items-center gap-1 px-2">
-		<h2 class="text-xl font-semibold md:text-2xl">Sessions</h2>
+		<h2 class="text-xl font-semibold md:text-2xl">{m.chat_sessions()}</h2>
 	</div>
 	<Threads
 		sessions={$nanobotChat?.sessions ?? []}
@@ -86,5 +87,5 @@
 </div>
 
 <svelte:head>
-	<title>Obot | Sessions</title>
+	<title>{m.chat_page_title_named({ name: m.chat_sessions() })}</title>
 </svelte:head>

@@ -7,6 +7,7 @@
 		latestVersionSubjects,
 		sharingLabel
 	} from '$lib/components/nanobot/publishedArtifactSubjects';
+	import { m } from '$lib/i18n';
 	import { NanobotService } from '$lib/services/index.js';
 	import type { ProjectLayoutContext, PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
@@ -253,7 +254,7 @@
 					}, 1000);
 				} else {
 					clearInstalling();
-					errors.append('Error: Could not find workflow after installation');
+					errors.append(m.chat_workflow_not_found_after_install());
 				}
 			})
 			.catch((error) => {
@@ -288,20 +289,22 @@
 >
 	<div>
 		<div class="flex items-center gap-1">
-			<h2 class="text-xl font-semibold md:text-2xl">Workflows</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">{m.chat_workflows()}</h2>
 			{#if loading}
 				<div class="loading loading-spinner text-primary loading-sm ml-2"></div>
 			{/if}
 		</div>
 
 		<p class="text-muted-content text-sm font-light">
-			Workflows are AI-powered tools that can be used to automate tasks and processes.
+			{m.chat_workflows_description()}
 		</p>
 	</div>
 
 	{#if recentlySharedToMe.length > 0}
 		<div class="list bg-base-100 rounded-box" out:fly={{ x: 100, duration: 150 }}>
-			<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">Recently shared with me</h3>
+			<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">
+				{m.chat_recently_shared_with_me()}
+			</h3>
 			{#each recentlySharedToMe as workflow (workflow.id)}
 				<div
 					class="list-row text-left"
@@ -325,7 +328,9 @@
 							<span class="font-semibold uppercase">
 								{formatTimeAgo(workflow.created).relativeTime}
 							</span>
-							<span class="font-light">by {workflow.authorEmail}</span>
+							<span class="font-light"
+								>{m.chat_by_author({ author: workflow.authorEmail ?? '' })}</span
+							>
 						</div>
 					</div>
 					{#if installing.get(workflow.id)}
@@ -338,9 +343,9 @@
 							)}
 							data-tip={workflow.isInstalled
 								? workflow.isUpdated
-									? 'Select different version'
-									: 'An update is available'
-								: 'Install workflow'}
+									? m.chat_select_different_version()
+									: m.chat_update_available()
+								: m.chat_install_workflow()}
 							onclick={(e) => {
 								e.preventDefault();
 								e.stopPropagation();
@@ -376,8 +381,9 @@
 			<div class="flex items-center gap-2">
 				<CircleAlert class="size-4" />
 				<span>
-					{orphanedWorkflows.length > 1 ? 'Some workflows were' : 'A workflow was'} shared then deleted
-					but was not properly cleaned up. Click here to address the issue.
+					{orphanedWorkflows.length > 1
+						? m.chat_orphaned_workflows_other()
+						: m.chat_orphaned_workflows_one()}
 				</span>
 			</div>
 		</button>
@@ -393,7 +399,7 @@
 					workflowQuery = '';
 				}}
 			>
-				My Workflows
+				{m.chat_my_workflows()}
 			</button>
 			<button
 				role="tab"
@@ -403,7 +409,7 @@
 					workflowQuery = '';
 				}}
 			>
-				Shared With Me
+				{m.chat_shared_with_me()}
 			</button>
 		</div>
 
@@ -412,7 +418,9 @@
 			<input
 				type="search"
 				required
-				placeholder={activeTab === 'my' ? 'Search my workflows...' : 'Search shared workflows...'}
+				placeholder={activeTab === 'my'
+					? m.chat_search_my_workflows()
+					: m.chat_search_shared_workflows()}
 				bind:value={workflowQuery}
 			/>
 		</label>
@@ -422,20 +430,20 @@
 		<!-- head -->
 		<thead>
 			<tr>
-				<th>Name</th>
+				<th>{m.chat_col_name()}</th>
 				{#if (activeTab === 'my' || showingSearchResults) && !responsive.isMobile}
-					<th>Last Published</th>
+					<th>{m.chat_col_last_published()}</th>
 				{/if}
 				{#if activeTab === 'shared' || showingSearchResults}
-					<th>Owner</th>
+					<th>{m.chat_col_owner()}</th>
 				{/if}
 				<th class="flex justify-end">
 					<select class="select w-32 md:w-42" bind:value={sortBy}>
-						<option value="" disabled>Sort by</option>
-						<option value="created-desc">Sort by Created (Newest)</option>
-						<option value="created-asc">Sort by Created (Oldest)</option>
-						<option value="name-asc">Sort by Name (A-Z)</option>
-						<option value="name-desc">Sort by Name (Z-A)</option>
+						<option value="" disabled>{m.chat_sort_by()}</option>
+						<option value="created-desc">{m.chat_sort_created_newest()}</option>
+						<option value="created-asc">{m.chat_sort_created_oldest()}</option>
+						<option value="name-asc">{m.chat_sort_name_az()}</option>
+						<option value="name-desc">{m.chat_sort_name_za()}</option>
 					</select>
 				</th>
 			</tr>
@@ -476,7 +484,7 @@
 							</td>
 						{/if}
 						{#if activeTab === 'shared' || showingSearchResults}
-							<td>{workflow.createdBy}</td>
+							<td>{workflow.createdBy === 'Me' ? m.chat_me() : workflow.createdBy}</td>
 						{/if}
 						<td class="text-right">
 							{#if workflow.createdBy === 'Me'}
@@ -489,8 +497,8 @@
 												: 'btn-ghost'
 										)}
 										data-tip={workflow.isUpdated
-											? 'Select different version'
-											: 'An update is available'}
+											? m.chat_select_different_version()
+											: m.chat_update_available()}
 										onclick={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
@@ -502,7 +510,7 @@
 											);
 
 											if (!match) {
-												errors.append('Error: Could not find related shared workflow');
+												errors.append(m.chat_related_shared_workflow_not_found());
 												return;
 											}
 											showConfirmUpdateWorkflow = {
@@ -519,12 +527,12 @@
 								{/if}
 								<button
 									class="btn btn-ghost hover:btn-error btn-square tooltip tooltip-top shrink-0"
-									data-tip="Delete workflow"
+									data-tip={m.chat_delete_workflow()}
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
 										if (!workflow.workflowUri) {
-											errors.append('Delete failed: Workflow uri not found');
+											errors.append(m.chat_delete_failed_workflow_uri());
 											return;
 										}
 										confirmDeleteWorkflow = {
@@ -538,7 +546,7 @@
 								</button>
 								<button
 									class="btn btn-ghost hover:btn-primary btn-square tooltip tooltip-top shrink-0"
-									data-tip="Run this workflow"
+									data-tip={m.chat_run_this_workflow()}
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
@@ -557,9 +565,9 @@
 									)}
 									data-tip={workflow.isInstalled
 										? workflow.isUpdated
-											? 'Select different version'
-											: 'An update is available'
-										: 'Install workflow'}
+											? m.chat_select_different_version()
+											: m.chat_update_available()
+										: m.chat_install_workflow()}
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
@@ -568,7 +576,7 @@
 											(w) => w.id === workflow.publishedArtifactId
 										);
 										if (!match) {
-											errors.append('Error: Could not find related shared workflow');
+											errors.append(m.chat_related_shared_workflow_not_found());
 											return;
 										}
 										if (workflow.isInstalled) {
@@ -596,7 +604,7 @@
 						colspan={activeTab === 'my' || showingSearchResults ? 5 : 3}
 						class="text-muted-content text-center text-sm font-light italic"
 					>
-						<span>No workflows found.</span>
+						<span>{m.chat_no_workflows_found()}</span>
 					</td>
 				</tr>
 			{/if}
@@ -616,28 +624,26 @@
 		onSuccess={() => {
 			pollAndNavigateToWorkflow();
 		}}
-		title={installType === 'new' ? 'Install Workflow' : 'Update Workflow'}
-		confirmButtonText={installType === 'new' ? 'Install' : 'Update'}
-		message={installType === 'update'
-			? 'Are you sure you want to update? Any existing changes will be overwritten.'
-			: undefined}
+		title={installType === 'new' ? m.chat_install_workflow_title() : m.chat_workflow_update_title()}
+		confirmButtonText={installType === 'new' ? m.chat_install() : m.chat_update()}
+		message={installType === 'update' ? m.chat_update_workflow_confirm() : undefined}
 	>
 		{#snippet loadingText()}
 			{#if installType === 'update'}
-				Updating <i
-					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
-				>
+				{m.chat_updating()}
+				<i>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i>
 			{:else}
-				Installing <i
-					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
-				>
+				{m.chat_installing()}
+				<i>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i>
 			{/if}
 		{/snippet}
 	</PublishedWorkflowInstallModal>
 {/if}
 
 <Confirm
-	msg={`Delete ${confirmDeleteWorkflow?.displayName || 'this workflow'}?`}
+	msg={m.chat_delete_named({
+		name: confirmDeleteWorkflow?.displayName || m.chat_this_workflow()
+	})}
 	show={confirmDeleteWorkflow !== undefined}
 	loading={deleting}
 	onsuccess={async () => {
@@ -660,7 +666,7 @@
 			});
 			confirmDeleteWorkflow = undefined;
 		} catch (err) {
-			errors.append(`Failed to delete workflow: ${err}`);
+			errors.append(m.chat_delete_workflow_failed({ error: String(err) }));
 		} finally {
 			deleting = false;
 		}
@@ -688,8 +694,8 @@
 {/if}
 
 <Confirm
-	msg="Clean up orphaned shared workflows?"
-	title="Confirm Cleanup"
+	msg={m.chat_cleanup_orphaned_msg()}
+	title={m.chat_confirm_cleanup()}
 	show={showReviewOrphanedWorkflows}
 	loading={deletingOrphanedWorkflows}
 	onsuccess={async () => {
@@ -700,7 +706,7 @@
 			}
 			publishedWorkflows = await NanobotService.listPublishedWorkflows();
 		} catch (err) {
-			errors.append(`Failed to clean up orphaned workflows: ${err}`);
+			errors.append(m.chat_cleanup_orphaned_failed({ error: String(err) }));
 		} finally {
 			deletingOrphanedWorkflows = false;
 			showReviewOrphanedWorkflows = false;
@@ -713,7 +719,7 @@
 >
 	{#snippet note()}
 		<p class="max-w-xs text-left text-sm">
-			The following workflows were not properly cleaned up after deletion:
+			{m.chat_orphaned_list_intro()}
 		</p>
 		<ul class="mt-2 list-inside list-disc">
 			{#each orphanedWorkflows as workflow (workflow.id)}
@@ -724,5 +730,5 @@
 </Confirm>
 
 <svelte:head>
-	<title>Obot | Workflows</title>
+	<title>{m.chat_page_title_named({ name: m.chat_workflows() })}</title>
 </svelte:head>

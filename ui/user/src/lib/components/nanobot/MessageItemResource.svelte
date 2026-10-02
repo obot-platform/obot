@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import { formatFileSize } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
@@ -44,15 +45,15 @@
 
 		// Generate friendly name from MIME type
 		const mimeType = item.resource.mimeType;
-		if (mimeType === 'application/json') return 'JSON Data';
-		if (mimeType === 'application/xml') return 'XML Document';
-		if (mimeType === 'application/pdf') return 'PDF Document';
-		if (mimeType.startsWith('text/')) return 'Text Document';
-		if (mimeType.startsWith('image/')) return 'Image';
-		if (mimeType.includes('json')) return 'JSON Resource';
-		if (mimeType.includes('html')) return 'HTML Document';
-		if (mimeType.includes('csv')) return 'CSV Data';
-		if (mimeType.includes('markdown')) return 'Markdown';
+		if (mimeType === 'application/json') return m.chat_resource_json_data();
+		if (mimeType === 'application/xml') return m.chat_resource_xml_document();
+		if (mimeType === 'application/pdf') return m.chat_resource_pdf_document();
+		if (mimeType.startsWith('text/')) return m.chat_resource_text_document();
+		if (mimeType.startsWith('image/')) return m.chat_resource_image();
+		if (mimeType.includes('json')) return m.chat_resource_json_resource();
+		if (mimeType.includes('html')) return m.chat_resource_html_document();
+		if (mimeType.includes('csv')) return m.chat_resource_csv_data();
+		if (mimeType.includes('markdown')) return m.chat_resource_markdown();
 
 		// Fallback to MIME type
 		return mimeType;
@@ -71,7 +72,7 @@
 				return str;
 			}
 		} catch {
-			return 'Error decoding content';
+			return m.chat_error_decoding_content();
 		}
 	}
 </script>
@@ -79,13 +80,13 @@
 {#if isError && isCancelledError(item.resource.text)}
 	<div class="my-4 flex items-center gap-1 text-xs italic">
 		<CircleAlert class="size-3" />
-		Aborted. This message has been discarded.
+		{m.chat_message_aborted()}
 	</div>
 {:else if isError}
 	<div class="border-error/20 bg-error/10 mt-3 mb-3 rounded-lg border p-3">
 		<div class="mb-2 flex items-center gap-2 text-sm">
 			<TriangleAlert class="text-error h-4 w-4" />
-			<span class="text-error font-medium">Error</span>
+			<span class="text-error font-medium">{m.common_error()}</span>
 		</div>
 		{#if item.resource.text}
 			<pre
@@ -136,7 +137,7 @@
 			<!-- Card actions -->
 			<div class="card-actions mt-3 justify-end">
 				<button type="button" class="btn btn-sm btn-primary" onclick={openModal}>
-					View Content
+					{m.chat_view_content()}
 				</button>
 			</div>
 		</div>
@@ -168,7 +169,9 @@
 				{/if}
 				{#if item.resource.annotations?.lastModified}
 					<span class="text-muted-content text-xs">
-						Modified: {new Date(item.resource.annotations.lastModified).toLocaleDateString()}
+						{m.chat_modified_date({
+							date: new Date(item.resource.annotations.lastModified).toLocaleDateString()
+						})}
 					</span>
 				{/if}
 			</div>
@@ -186,13 +189,13 @@
 				{:else}
 					<div class="py-8 text-center">
 						<div class="mb-4 text-6xl">{getFileIcon(item.resource.mimeType)}</div>
-						<p class="text-base-content/60">Preview not available for this resource type</p>
+						<p class="text-base-content/60">{m.chat_preview_not_available()}</p>
 						{#if item.resource.blob}
 							<p class="text-muted-content mt-2 text-sm">
-								Resource data is available but cannot be previewed
+								{m.chat_resource_data_cannot_preview()}
 							</p>
 						{:else}
-							<p class="text-muted-content mt-2 text-sm">No resource data available</p>
+							<p class="text-muted-content mt-2 text-sm">{m.chat_no_resource_data()}</p>
 						{/if}
 					</div>
 				{/if}
@@ -200,7 +203,7 @@
 
 			<div class="modal-action">
 				<form method="dialog">
-					<button class="btn">Close</button>
+					<button class="btn">{m.chat_close()}</button>
 				</form>
 			</div>
 		</div>

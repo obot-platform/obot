@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { Attachment, ChatResult, Prompt, PromptArgument } from '$lib/services/nanobot/types';
 
 	interface Props {
@@ -94,7 +95,9 @@
 			{/if}
 			{#if prompt.arguments && prompt.arguments.length > 0}
 				<div class="badge badge-sm badge-primary">
-					{prompt.arguments.length} argument{prompt.arguments.length === 1 ? '' : 's'}
+					{prompt.arguments.length === 1
+						? m.chat_prompt_arguments_one({ count: prompt.arguments.length })
+						: m.chat_prompt_arguments_other({ count: prompt.arguments.length })}
 				</div>
 			{/if}
 		</div>
@@ -153,7 +156,7 @@
 								bind:value={formData[arg.name]}
 								class="input-bordered input w-full"
 								required={isRequired(arg)}
-								placeholder={arg.description || `Enter ${arg.name}`}
+								placeholder={arg.description || m.chat_prompt_enter_arg({ name: arg.name })}
 							/>
 						</div>
 					{/each}
@@ -161,20 +164,22 @@
 			</form>
 
 			<div class="modal-action">
-				<button type="button" class="btn btn-ghost" onclick={handleCancel}>Cancel</button>
+				<button type="button" class="btn btn-ghost" onclick={handleCancel}
+					>{m.common_cancel()}</button
+				>
 				<button
 					type="button"
 					class="btn btn-primary"
 					disabled={!validateForm()}
 					onclick={handleAccept}
 				>
-					Execute Prompt
+					{m.chat_execute_prompt()}
 				</button>
 			</div>
 		</div>
 
 		<form method="dialog" class="modal-backdrop">
-			<button onclick={handleCancel}>close</button>
+			<button onclick={handleCancel}>{m.common_close()}</button>
 		</form>
 	</dialog>
 {/if}

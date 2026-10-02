@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
@@ -252,7 +253,7 @@
 					onclick={onToggleBrowserViewer}
 				>
 					<Monitor class="size-4 shrink-0" />
-					Browser
+					{m.chat_browser()}
 				</button>
 			{:else}
 				<button
@@ -261,11 +262,11 @@
 						browserViewerOpen ? 'btn-neutral' : 'btn-ghost'
 					)}
 					use:tooltip={{
-						text: browserViewerOpen ? 'Hide browser view' : 'Show browser view',
+						text: browserViewerOpen ? m.chat_hide_browser_view() : m.chat_show_browser_view(),
 						placement: 'left'
 					}}
 					onclick={onToggleBrowserViewer}
-					aria-label={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
+					aria-label={browserViewerOpen ? m.chat_hide_browser_view() : m.chat_show_browser_view()}
 				>
 					<Monitor class="size-5" />
 				</button>
@@ -280,11 +281,11 @@
 							class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
 						>
 							<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
-								To Do List
+								{m.chat_todo_list()}
 								<button
 									class="btn btn-ghost btn-xs"
 									use:tooltip={{
-										text: showTodoList ? 'Hide To Do List' : 'Show To Do List',
+										text: showTodoList ? m.chat_hide_todo_list() : m.chat_show_todo_list(),
 										placement: 'left'
 									}}
 									onclick={() => (showTodoList = !showTodoList)}
@@ -321,10 +322,7 @@
 										<li
 											class="text-muted-content flex min-w-0 items-start gap-2 text-xs font-light italic"
 										>
-											<span class="min-w-0 truncate"
-												>Running to-dos for longer tasks will display here. You do not currently
-												have any running to-dos.</span
-											>
+											<span class="min-w-0 truncate">{m.chat_todo_empty()}</span>
 										</li>
 									{/if}
 								</ul>
@@ -338,9 +336,9 @@
 			{:else if onToggle}
 				<button
 					class="btn btn-ghost btn-circle size-10 self-center"
-					use:tooltip={{ text: 'Expand to show to-do list', placement: 'left' }}
+					use:tooltip={{ text: m.chat_expand_todo_list(), placement: 'left' }}
 					onclick={() => onToggle()}
-					aria-label="Expand to show to-do list"
+					aria-label={m.chat_expand_todo_list()}
 				>
 					<ListCheck class="text-muted-content size-5" />
 				</button>
@@ -358,7 +356,7 @@
 					<button
 						class="btn btn-ghost btn-circle"
 						use:tooltip={{
-							text: open ? 'Close to-do & file list' : 'Open to-do & file list',
+							text: open ? m.chat_close_todo_file_list() : m.chat_open_todo_file_list(),
 							placement: 'left'
 						}}
 						onclick={() => onToggle()}

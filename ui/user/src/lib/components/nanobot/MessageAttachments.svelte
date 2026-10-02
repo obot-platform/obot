@@ -17,6 +17,7 @@
 
 <script lang="ts">
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { m } from '$lib/i18n';
 	import { X } from '@lucide/svelte';
 
 	let {
@@ -59,7 +60,7 @@
 		<!-- Uploading files with spinner -->
 		{#each uploadingFiles as uploadingFile (uploadingFile.id)}
 			{@render item(
-				'Cancel upload',
+				m.chat_cancel_upload(),
 				'',
 				true,
 				uploadingFile.file.name,
@@ -70,7 +71,7 @@
 		<!-- Uploaded files -->
 		{#each uploadedFiles as uploadedFile (uploadedFile.id)}
 			{@render item(
-				'Remove file',
+				m.chat_remove_file(),
 				uploadedFile.file.type,
 				false,
 				uploadedFile.file.name,
@@ -81,7 +82,7 @@
 		<!-- Selected resources -->
 		{#each selectedResources as resource (resource.uri)}
 			{@render item(
-				'Remove resource',
+				m.chat_remove_resource(),
 				resource.mimeType || '',
 				false,
 				resource.title || resource.name,

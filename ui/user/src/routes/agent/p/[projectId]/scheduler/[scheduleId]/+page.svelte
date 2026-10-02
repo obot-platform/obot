@@ -6,6 +6,7 @@
 		formatScheduleDateTime,
 		scheduleSummary
 	} from '$lib/components/nanobot/taskSchedule';
+	import { m } from '$lib/i18n';
 	import type {
 		Chat,
 		ProjectLayoutContext,
@@ -108,7 +109,7 @@
 
 	function parseTask(content?: ResourceContents): ScheduledTask {
 		if (!content?.text) {
-			throw new Error('Scheduled task contents were empty');
+			throw new Error(m.chat_scheduled_task_empty());
 		}
 		const parsed = JSON.parse(content.text) as ScheduledTask;
 		return {
@@ -140,7 +141,7 @@
 			const result = await $nanobotChat.api.readResource(taskURI);
 			task = parseTask(result.contents?.[0]);
 		} catch (error) {
-			loadError = error instanceof Error ? error.message : 'Failed to load schedule';
+			loadError = error instanceof Error ? error.message : m.chat_schedule_load_failed();
 			errors.append(error);
 		} finally {
 			loadingTask = false;
@@ -227,7 +228,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {task?.name || 'Schedule'}</title>
+	<title>{m.chat_page_title_named({ name: task?.name || m.chat_schedule() })}</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={taskContainer}>
@@ -252,26 +253,27 @@
 			<div bind:this={toggleMeasureRestEl} class="flex w-max items-center gap-2 text-xs">
 				{#if task.enabled}
 					<Timer class="size-4 shrink-0" />
-					<span class="font-light">Active</span>
+					<span class="font-light">{m.chat_status_active()}</span>
 				{:else}
 					<TimerOff class="size-4 shrink-0" />
-					<span class="font-light">Inactive</span>
+					<span class="font-light">{m.chat_status_inactive()}</span>
 				{/if}
 			</div>
 			<div bind:this={toggleMeasureHoverEl} class="flex w-max items-center gap-2 text-xs">
 				{#if task.enabled}
 					<TimerOff class="size-4 shrink-0" />
-					<span class="font-medium">Disable this schedule?</span>
+					<span class="font-medium">{m.chat_disable_this_schedule_q()}</span>
 				{:else}
 					<Timer class="size-4 shrink-0" />
-					<span class="font-medium">Enable this schedule?</span>
+					<span class="font-medium">{m.chat_enable_this_schedule_q()}</span>
 				{/if}
 			</div>
 		</div>
 		<div class="flex flex-wrap items-start justify-between gap-4">
 			<div class="flex items-center gap-3">
 				<button class="btn" onclick={() => editDialog?.open(task)}>
-					<PencilLine class="size-4 shrink-0" /> Edit
+					<PencilLine class="size-4 shrink-0" />
+					{m.chat_edit()}
 				</button>
 				<button
 					type="button"
@@ -280,7 +282,7 @@
 						task.enabled ? 'btn-success btn-soft hover:btn-neutral' : 'hover:btn-success'
 					)}
 					disabled={updatingEnabled}
-					aria-label={task.enabled ? 'Disable this schedule' : 'Enable this schedule'}
+					aria-label={task.enabled ? m.chat_disable_this_schedule() : m.chat_enable_this_schedule()}
 					onmouseenter={() => (toggleHover = true)}
 					onmouseleave={() => (toggleHover = false)}
 					onclick={() =>
@@ -301,17 +303,17 @@
 						{#if toggleHover}
 							{#if task.enabled}
 								<TimerOff class="size-4 shrink-0" />
-								<span class="font-medium">Disable this schedule?</span>
+								<span class="font-medium">{m.chat_disable_this_schedule_q()}</span>
 							{:else}
 								<Timer class="size-4 shrink-0" />
-								<span class="font-medium">Enable this schedule?</span>
+								<span class="font-medium">{m.chat_enable_this_schedule_q()}</span>
 							{/if}
 						{:else if task.enabled}
 							<Timer class="size-4 shrink-0" />
-							<span class="font-light">Active</span>
+							<span class="font-light">{m.chat_status_active()}</span>
 						{:else}
 							<TimerOff class="size-4 shrink-0" />
-							<span class="font-light">Inactive</span>
+							<span class="font-light">{m.chat_status_inactive()}</span>
 						{/if}
 					</div>
 				</button>
@@ -319,8 +321,8 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<button
 					class="btn btn-error btn-soft btn-square tooltip tooltip-left"
-					data-tip="Delete schedule"
-					aria-label="Delete schedule"
+					data-tip={m.chat_delete_schedule_lower()}
+					aria-label={m.chat_delete_schedule_lower()}
 					onclick={() => (confirmDelete = true)}
 				>
 					<Trash2 class="size-4" />
@@ -331,25 +333,25 @@
 		<div class="bg-base-100 rounded-box border-base-300 border">
 			<div class="grid gap-0 md:grid-cols-2">
 				<div class="border-base-300 border-b px-5 py-4 md:border-r">
-					<div class="text-muted-content text-xs font-medium uppercase">Schedule</div>
+					<div class="text-muted-content text-xs font-medium uppercase">{m.chat_schedule()}</div>
 					<div class="mt-2 text-sm">
 						{scheduleSummary(task.schedule, task.expiration, userDeviceSettings.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 border-b px-5 py-4">
-					<div class="text-muted-content text-xs font-medium uppercase">Next run</div>
+					<div class="text-muted-content text-xs font-medium uppercase">{m.chat_next_run()}</div>
 					<div class="mt-2 text-sm">
 						{formatScheduleDateTime(task.nextRunAt, userDeviceSettings.timeFormat)}
 					</div>
 				</div>
 				<div class="border-base-300 px-5 py-4 md:border-r">
-					<div class="text-muted-content text-xs font-medium uppercase">Expiration</div>
+					<div class="text-muted-content text-xs font-medium uppercase">{m.chat_expiration()}</div>
 					<div class="mt-2 text-sm">
-						{task.expiration ? formatScheduleDate(task.expiration) : 'No expiration'}
+						{task.expiration ? formatScheduleDate(task.expiration) : m.chat_no_expiration()}
 					</div>
 				</div>
 				<div class="px-5 py-4">
-					<div class="text-muted-content text-xs font-medium uppercase">Last run</div>
+					<div class="text-muted-content text-xs font-medium uppercase">{m.chat_last_run()}</div>
 					<div class="mt-2 text-sm">
 						{formatScheduleDateTime(sortedSessions[0]?.created, userDeviceSettings.timeFormat)}
 					</div>
@@ -359,7 +361,7 @@
 
 		<div class="bg-base-100 rounded-box border-base-300 border p-5">
 			<div class="mb-3">
-				<h3 class="text-lg font-semibold">Prompt</h3>
+				<h3 class="text-lg font-semibold">{m.chat_prompt()}</h3>
 			</div>
 			<div
 				class="bg-base-200/40 border-base-300 rounded-xl border px-4 py-4 text-sm leading-6 whitespace-pre-wrap"
@@ -371,9 +373,10 @@
 		<div class="mb-8 flex flex-col gap-4">
 			<div class="divider"></div>
 			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-semibold">Runs</h2>
+				<h2 class="text-xl font-semibold">{m.chat_runs()}</h2>
 				<button class="btn btn-sm btn-primary" onclick={handleRunNow} disabled={runningNow}>
-					Run Now <Play class="size-4" />
+					{m.chat_run_now()}
+					<Play class="size-4" />
 				</button>
 			</div>
 
@@ -385,9 +388,9 @@
 						<CalendarClock class="size-7" />
 					</div>
 					<div class="space-y-1">
-						<h3 class="font-medium">No runs yet</h3>
+						<h3 class="font-medium">{m.chat_no_runs_yet()}</h3>
 						<p class="text-base-content/60 text-sm">
-							This schedule has not started any sessions yet.
+							{m.chat_no_runs_yet_desc()}
 						</p>
 					</div>
 				</div>
@@ -396,8 +399,8 @@
 					<table class="table">
 						<thead>
 							<tr>
-								<th>Title</th>
-								<th>Started</th>
+								<th>{m.chat_col_title()}</th>
+								<th>{m.chat_col_started()}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -410,7 +413,9 @@
 									onkeydown={(event) => handleSessionRowKeydown(event, session.id)}
 								>
 									<td class="min-w-0">
-										<div class="truncate font-medium">{session.title || 'Untitled Session'}</div>
+										<div class="truncate font-medium">
+											{session.title || m.chat_untitled_session()}
+										</div>
 									</td>
 									<td class="text-base-content/60 text-sm">
 										{formatScheduleDateTime(session.created, userDeviceSettings.timeFormat)}
@@ -431,9 +436,9 @@
 
 <Confirm
 	show={confirmDelete}
-	title="Delete Schedule"
-	msg={`Delete ${task?.name ?? taskId}?`}
-	note="Existing run sessions will remain, but this schedule will stop creating new ones."
+	title={m.chat_delete_schedule()}
+	msg={m.chat_delete_named({ name: task?.name ?? taskId })}
+	note={m.chat_delete_schedule_note()}
 	loading={deleting}
 	onsuccess={handleDeleteTask}
 	oncancel={() => (confirmDelete = false)}

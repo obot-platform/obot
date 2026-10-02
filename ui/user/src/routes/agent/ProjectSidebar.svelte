@@ -3,6 +3,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import Threads from '$lib/components/nanobot/Threads.svelte';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { m } from '$lib/i18n';
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
@@ -130,7 +131,8 @@
 						onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						class:bg-base-100={activeView === 'workflows'}
 					>
-						Workflows <WorkflowIcon class="size-6" />
+						{m.chat_workflows()}
+						<WorkflowIcon class="size-6" />
 					</button>
 
 					<button
@@ -139,7 +141,8 @@
 						onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
 						class:bg-base-100={activeView === 'scheduler'}
 					>
-						Scheduler <Clock3 class="size-6" />
+						{m.chat_scheduler()}
+						<Clock3 class="size-6" />
 					</button>
 
 					<button
@@ -148,7 +151,8 @@
 						onclick={() => goto(`/agent/p/${projectId}/files`)}
 						class:bg-base-100={activeView === 'files'}
 					>
-						Files <FoldersIcon class="size-6" />
+						{m.chat_files()}
+						<FoldersIcon class="size-6" />
 					</button>
 
 					<Threads
@@ -165,8 +169,8 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							aria-label="Go to workflows"
-							data-tip="Go to workflows"
+							aria-label={m.chat_go_to_workflows()}
+							data-tip={m.chat_go_to_workflows()}
 							onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						>
 							<Workflow
@@ -180,8 +184,8 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							aria-label="Go to scheduler"
-							data-tip="Go to scheduler"
+							aria-label={m.chat_go_to_scheduler()}
+							data-tip={m.chat_go_to_scheduler()}
 							onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
 						>
 							<Clock3
@@ -195,8 +199,8 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							aria-label="Go to files"
-							data-tip="Go to files"
+							aria-label={m.chat_go_to_files()}
+							data-tip={m.chat_go_to_files()}
 							onclick={() => goto(`/agent/p/${projectId}/files`)}
 						>
 							<Folders
@@ -210,8 +214,8 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							aria-label="Start new conversation"
-							data-tip="Start new conversation"
+							aria-label={m.chat_start_new_conversation_lower()}
+							data-tip={m.chat_start_new_conversation_lower()}
 							onclick={handleCreateSession}
 						>
 							<Plus class="text-muted-content size-6" />
@@ -227,8 +231,8 @@
 						'btn btn-ghost btn-circle tooltip size-10 self-center',
 						layout.sidebarOpen ? 'tooltip-left' : 'tooltip-right'
 					)}
-					aria-label={layout.sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-					data-tip={layout.sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+					aria-label={layout.sidebarOpen ? m.chat_collapse_sidebar() : m.chat_expand_sidebar()}
+					data-tip={layout.sidebarOpen ? m.chat_collapse_sidebar() : m.chat_expand_sidebar()}
 					onclick={toggleSidebar}
 				>
 					{#if layout.sidebarOpen}

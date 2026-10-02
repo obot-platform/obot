@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import HostedAgentAccessPolicyForm from '$lib/components/admin/HostedAgentAccessPolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
@@ -10,7 +11,7 @@
 	const { hostedAgentAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(hostedAgentAccessPolicy?.displayName ?? 'Hosted Agent Access Policy');
+	let title = $derived(hostedAgentAccessPolicy?.displayName ?? m.chat_ha_access_policy_title());
 </script>
 
 <Layout {title} showBackButton>
@@ -26,5 +27,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {title}</title>
+	<title>{m.chat_page_title_named({ name: title })}</title>
 </svelte:head>

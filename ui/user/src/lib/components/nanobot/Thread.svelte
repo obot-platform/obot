@@ -2,6 +2,7 @@
 	import BrowserViewer from '$lib/components/nanobot/BrowserViewer.svelte';
 	import Elicitation from '$lib/components/nanobot/Elicitation.svelte';
 	import Prompt from '$lib/components/nanobot/Prompt.svelte';
+	import { m } from '$lib/i18n';
 	import type {
 		Agent,
 		Attachment,
@@ -423,7 +424,7 @@
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
 	role="region"
-	aria-label="Drag and drop files to upload"
+	aria-label={m.chat_drag_drop_upload()}
 >
 	<!-- Drag-and-drop overlay -->
 	{#if isDragging}
@@ -434,7 +435,7 @@
 				class="border-primary bg-base-100/90 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-10 py-8 shadow-xl"
 			>
 				<Upload class="text-primary size-10" />
-				<p class="text-base-content text-lg font-semibold">Drop files to upload</p>
+				<p class="text-base-content text-lg font-semibold">{m.chat_drop_files_to_upload()}</p>
 			</div>
 		</div>
 	{/if}
@@ -457,11 +458,11 @@
 							{#if selectedPromptData}
 								<Prompt
 									prompt={selectedPromptData}
-									onSend={async (m) => {
+									onSend={async (msg) => {
 										selectedPrompt = undefined;
 										if (onSendMessage) {
 											pinInputToBottom = true;
-											return await onSendMessage(m);
+											return await onSendMessage(msg);
 										}
 									}}
 									onCancel={() => (selectedPrompt = undefined)}
@@ -474,9 +475,9 @@
 
 				<Messages
 					{messages}
-					onSend={async (m) => {
+					onSend={async (msg) => {
 						pinInputToBottom = true;
-						return await onSendMessage?.(m);
+						return await onSendMessage?.(msg);
 					}}
 					{isLoading}
 					{agent}
@@ -520,7 +521,7 @@
 				<button
 					class="btn btn-circle border-base-300 bg-base-100 btn-md relative z-10 mx-auto shadow-lg active:translate-y-0.5"
 					onclick={scrollToBottom}
-					aria-label="Scroll to bottom"
+					aria-label={m.chat_scroll_to_bottom()}
 				>
 					<ChevronDown class="size-5" />
 				</button>
@@ -559,7 +560,9 @@
 					{/key}
 				{:else}
 					<MessageInput
-						placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
+						placeholder={prompts && prompts.length > 0
+							? m.chat_type_your_message_or_prompts()
+							: m.chat_type_your_message()}
 						onSend={onSendMessage}
 						{agents}
 						{selectedAgentId}
@@ -582,7 +585,7 @@
 		<div
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
-			aria-label="Resize browser viewer panel"
+			aria-label={m.chat_resize_browser_panel()}
 			role="slider"
 			aria-orientation="vertical"
 			aria-valuenow={browserViewerWidth}

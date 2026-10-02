@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
@@ -105,7 +106,9 @@
 						{confirmButtonText}
 					{/if}
 				</button>
-				<button class="btn btn-error" disabled={loading} onclick={cancel}>Cancel</button>
+				<button class="btn btn-error" disabled={loading} onclick={cancel}
+					>{m.common_cancel()}</button
+				>
 			</div>
 		{:else}
 			<div class="my-4 flex w-full items-center justify-center">

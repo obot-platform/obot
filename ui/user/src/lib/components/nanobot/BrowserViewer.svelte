@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { Maximize2, Minimize2 } from '@lucide/svelte';
 	import RFB from '@novnc/novnc/lib/rfb.js';
 	import { onDestroy } from 'svelte';
@@ -87,13 +88,13 @@
 			nextRfb.addEventListener('credentialsrequired', () => {
 				if (rfb !== nextRfb) return;
 				connecting = false;
-				error = 'Password required (but none configured)';
+				error = m.chat_browser_password_required();
 			});
 
 			nextRfb.addEventListener('securityfailure', (e) => {
 				if (rfb !== nextRfb) return;
 				connecting = false;
-				error = `Security failure: ${e.detail.status}`;
+				error = m.chat_browser_security_failure({ status: String(e.detail.status) });
 			});
 
 			nextRfb.scaleViewport = true;
@@ -105,7 +106,7 @@
 			activeVNCUrl = null;
 			connecting = false;
 			console.error('VNC connection error:', err);
-			error = err instanceof Error ? err.message : 'Connection failed';
+			error = err instanceof Error ? err.message : m.chat_browser_connection_failed();
 		}
 	}
 
@@ -296,13 +297,13 @@
 				></span>
 				<span class="status-label">
 					{#if connected}
-						Connected
+						{m.chat_browser_connected()}
 					{:else if error}
-						Connection issue
+						{m.chat_browser_connection_issue()}
 					{:else if connecting}
-						Connecting
+						{m.chat_browser_connecting()}
 					{:else}
-						Idle
+						{m.chat_browser_idle()}
 					{/if}
 				</span>
 			</div>
@@ -311,7 +312,7 @@
 				<button
 					class="btn btn-ghost btn-sm btn-square"
 					onclick={toggleFullscreen}
-					title="Toggle fullscreen"
+					title={m.chat_browser_toggle_fullscreen()}
 				>
 					{#if isFullscreen}
 						<Minimize2 size={16} />
@@ -325,7 +326,7 @@
 		{#if error}
 			<div class="error-message">
 				<p>{error}</p>
-				<button class="btn btn-primary btn-sm" onclick={connect}>Retry</button>
+				<button class="btn btn-primary btn-sm" onclick={connect}>{m.chat_retry()}</button>
 			</div>
 		{/if}
 

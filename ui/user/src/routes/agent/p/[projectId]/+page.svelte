@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
+	import { m } from '$lib/i18n';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { profile } from '$lib/stores';
@@ -38,5 +39,5 @@
 {/if}
 
 <svelte:head>
-	<title>Obot | {session?.title || 'Untitled'}</title>
+	<title>{m.chat_page_title_named({ name: session?.title || m.chat_untitled() })}</title>
 </svelte:head>

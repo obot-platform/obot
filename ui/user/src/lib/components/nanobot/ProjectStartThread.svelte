@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Thread from '$lib/components/nanobot/Thread.svelte';
+	import { m } from '$lib/i18n';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { MessageCircle, Sparkles } from '@lucide/svelte';
 
@@ -66,10 +67,10 @@
 					<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
 						<div class="flex flex-col items-center gap-1">
 							<h1 class="w-full text-center text-xl font-semibold md:text-3xl">
-								What would you like to work on?
+								{m.chat_start_heading()}
 							</h1>
 							<p class="text-muted-content md:text-md text-center text-sm font-light">
-								Choose an entry point or begin a conversation to get started.
+								{m.chat_start_subheading()}
 							</p>
 						</div>
 						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
@@ -80,9 +81,9 @@
 								}}
 							>
 								<Sparkles class="mb-4 size-5" />
-								<h3 class="text-base font-semibold">Create a workflow</h3>
+								<h3 class="text-base font-semibold">{m.chat_start_create_workflow()}</h3>
 								<p class="text-muted-content text-sm font-light">
-									Design and execute an agentic workflow through conversation
+									{m.chat_start_create_workflow_desc()}
 								</p>
 							</button>
 							<button
@@ -94,9 +95,9 @@
 								}}
 							>
 								<MessageCircle class="mb-4 size-5" />
-								<h3 class="text-base font-semibold">Just explore</h3>
+								<h3 class="text-base font-semibold">{m.chat_start_just_explore()}</h3>
 								<p class="text-muted-content min-h-[2lh] text-sm font-light">
-									Learn what the agent can do and take it from there
+									{m.chat_start_just_explore_desc()}
 								</p>
 							</button>
 						</div>

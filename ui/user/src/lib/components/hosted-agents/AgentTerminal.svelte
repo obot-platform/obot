@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		Channel,
 		controlFrame,
@@ -129,7 +130,7 @@
 		socket.addEventListener('error', () => {
 			// A websocket error carries no detail by design; the close event that
 			// follows is what actually ends the session.
-			if (!error) error = 'The terminal connection failed.';
+			if (!error) error = m.chat_terminal_connection_failed();
 		});
 
 		const input = session.onData((data) => send(frame(Channel.stdin, encoder.encode(data))));
@@ -183,17 +184,17 @@
 			<p
 				class="text-muted-content pointer-events-none absolute inset-x-0 top-1/2 text-center text-sm"
 			>
-				Connecting…
+				{m.chat_terminal_connecting()}
 			</p>
 		{/if}
 	</div>
 	<p class="text-muted-content mt-2 text-xs">
 		{#if status === 'open'}
-			Attached to the sandbox console. Anything you type goes to the running agent.
+			{m.chat_terminal_attached()}
 		{:else if status === 'closed'}
-			The session ended. Go back and open the terminal again to reattach.
+			{m.chat_terminal_session_ended()}
 		{:else}
-			Attaching to the sandbox console…
+			{m.chat_terminal_attaching()}
 		{/if}
 	</p>
 </div>

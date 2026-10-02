@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type {
 		Elicitation,
 		ElicitationResult,
@@ -237,7 +238,7 @@
 		const selected = Array.from(selectedOptions.get(qIndex) ?? []);
 		const custom = customAnswers.get(qIndex)?.trim();
 		if (custom) selected.push(custom);
-		return selected.length > 0 ? selected.join(', ') : '(skipped)';
+		return selected.length > 0 ? selected.join(', ') : m.chat_elicitation_skipped();
 	}
 
 	function goToStep(step: number) {
@@ -293,8 +294,8 @@
 					type="button"
 					class="btn btn-ghost btn-square btn-xs tooltip"
 					onclick={handleCancel}
-					data-tip="Close & skip all"
-					aria-label="Close & skip all"
+					data-tip={m.chat_elicitation_close_skip_all()}
+					aria-label={m.chat_elicitation_close_skip_all()}
 				>
 					<X class="size-3" />
 				</button>
@@ -323,7 +324,9 @@
 
 			{#if reviewMode}
 				<!-- Review mode -->
-				<p class="text-base-content/70 mb-3 text-sm font-medium">Review your answers</p>
+				<p class="text-base-content/70 mb-3 text-sm font-medium">
+					{m.chat_elicitation_review_answers()}
+				</p>
 				<div class="space-y-1.5">
 					{#each questions as q, i (i)}
 						<div class="bg-base-200/60 flex items-start justify-between rounded-lg px-3 py-2">
@@ -358,15 +361,15 @@
 						}}
 					>
 						<ChevronLeft class="h-4 w-4" />
-						Back
+						{m.common_back()}
 					</button>
 					<button
 						type="button"
 						class="btn btn-ghost btn-sm text-muted-content"
-						onclick={handleDecline}>Cancel</button
+						onclick={handleDecline}>{m.common_cancel()}</button
 					>
 					<button type="button" class="btn btn-primary btn-sm" onclick={handleQuestionSubmit}
-						>Submit</button
+						>{m.chat_submit()}</button
 					>
 				</div>
 			{:else}
@@ -378,7 +381,7 @@
 				{/if}
 				<p class="mb-2 text-sm font-medium">{q.question}</p>
 				{#if q.multiple}
-					<p class="text-muted-content mb-2 text-xs">Select all that apply</p>
+					<p class="text-muted-content mb-2 text-xs">{m.chat_elicitation_select_all_apply()}</p>
 				{/if}
 
 				<!-- Options -->
@@ -452,13 +455,13 @@
 						/>
 					{/if}
 					<div class="min-w-0 flex-1">
-						<span class="text-sm font-medium">Type something</span>
+						<span class="text-sm font-medium">{m.chat_elicitation_type_something()}</span>
 						{#if isCustomSelected}
 							{#key currentStep}
 								<textarea
 									use:focusWhenMounted
 									class="textarea textarea-bordered mt-1.5 w-full text-sm"
-									placeholder="Type your answer..."
+									placeholder={m.chat_elicitation_type_answer_placeholder()}
 									rows={2}
 									value={customAnswers.get(currentStep) ?? ''}
 									onclick={(e) => e.stopPropagation()}
@@ -486,12 +489,12 @@
 								onclick={prevStep}
 							>
 								<ChevronLeft class="h-4 w-4" />
-								Back
+								{m.common_back()}
 							</button>
 						{/if}
 						{#if isSingle}
 							<button type="button" class="btn btn-ghost btn-sm" onclick={handleDecline}>
-								Cancel
+								{m.common_cancel()}
 							</button>
 							<button
 								type="button"
@@ -499,7 +502,7 @@
 								disabled={!hasAnswer(currentStep)}
 								onclick={handleQuestionSubmit}
 							>
-								Submit
+								{m.chat_submit()}
 							</button>
 						{:else}
 							<button
@@ -508,7 +511,7 @@
 								onclick={nextStep}
 								disabled={currentStep === questions.length - 1}
 							>
-								Skip
+								{m.chat_skip()}
 							</button>
 							{#if currentStep < questions.length - 1}
 								<button
@@ -517,7 +520,7 @@
 									disabled={!hasAnswer(currentStep)}
 									onclick={nextStep}
 								>
-									Next
+									{m.chat_next()}
 									<ChevronRight class="h-4 w-4" />
 								</button>
 							{:else}
@@ -532,7 +535,7 @@
 										reviewMode = true;
 									}}
 								>
-									Next
+									{m.chat_next()}
 									<ChevronRight class="h-4 w-4" />
 								</button>
 							{/if}
@@ -560,7 +563,10 @@
 
 			{#if isOAuthElicitation()}
 				<!-- OAuth Authentication Dialog -->
-				{@render elicitationServerHeader('Authentication Required', elicitation._meta)}
+				{@render elicitationServerHeader(
+					m.chat_elicitation_authentication_required(),
+					elicitation._meta
+				)}
 
 				<div class="mb-4">
 					<p class="text-base-content/80 mb-4 text-sm whitespace-pre-wrap">{elicitation.message}</p>
@@ -568,15 +574,18 @@
 
 				<div class="modal-action flex flex-col">
 					<button type="button" class="btn btn-primary" onclick={openOAuthLink}>
-						Authenticate
+						{m.chat_elicitation_authenticate()}
 					</button>
 					<button type="button" class="btn btn-error btn-soft" onclick={handleDecline}>
-						Decline
+						{m.chat_decline()}
 					</button>
 				</div>
 			{:else}
 				<!-- Generic Elicitation Form -->
-				{@render elicitationServerHeader('Information Request', elicitation._meta)}
+				{@render elicitationServerHeader(
+					m.chat_elicitation_information_request(),
+					elicitation._meta
+				)}
 
 				<div class="mb-4">
 					<p class="text-base-content/80 text-sm whitespace-pre-wrap">{elicitation.message}</p>
@@ -615,7 +624,7 @@
 											<p class="text-xs font-light">{schema.description}</p>
 										</div>
 										{#if optional}
-											<span class="text-muted-content">(optional)</span>
+											<span class="text-muted-content">{m.chat_optional_paren()}</span>
 										{/if}
 										<div class="btn btn-circle size-4 bg-transparent">
 											<Info class="text-muted-content size-4" />
@@ -656,7 +665,7 @@
 											}}
 											class="checkbox"
 										/>
-										<span class="label-text">Enable</span>
+										<span class="label-text">{m.chat_enable()}</span>
 									</label>
 								</div>
 							{:else if schema.type === 'number' || schema.type === 'integer'}
@@ -743,8 +752,12 @@
 				</form>
 
 				<div class="modal-action">
-					<button type="button" class="btn btn-error" onclick={handleDecline}> Decline </button>
-					<button type="button" class="btn btn-primary" onclick={handleAccept}> Accept </button>
+					<button type="button" class="btn btn-error" onclick={handleDecline}>
+						{m.chat_decline()}
+					</button>
+					<button type="button" class="btn btn-primary" onclick={handleAccept}>
+						{m.chat_accept()}
+					</button>
 				</div>
 			{/if}
 		</div>

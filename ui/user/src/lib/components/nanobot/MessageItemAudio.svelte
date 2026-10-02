@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { ChatMessageItemAudio } from '$lib/services/nanobot/types';
 
 	interface Props {
@@ -11,6 +12,6 @@
 <div class="bg-base-200 mb-3 rounded-lg p-3">
 	<audio controls class="w-full">
 		<source src="data:{item.mimeType};base64,{item.data}" type={item.mimeType} />
-		Your browser does not support the audio element.
+		{m.chat_audio_unsupported()}
 	</audio>
 </div>

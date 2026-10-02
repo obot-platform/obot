@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import type { ChatMessageItemResourceLink, ResourceContents } from '$lib/services/nanobot/types';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
@@ -63,7 +64,7 @@
 		modal?.showModal();
 		if (fetchedResource || loading) return;
 		if (!onReadResource) {
-			loadError = 'Resource reading is not available.';
+			loadError = m.chat_resource_reading_unavailable();
 			return;
 		}
 
@@ -74,7 +75,7 @@
 			const result = await onReadResource(item.uri);
 			const content = result.contents?.find((c) => c.uri === item.uri) || result.contents?.[0];
 			if (!content) {
-				loadError = 'No content available for this resource.';
+				loadError = m.chat_no_content_for_resource();
 				isMissing = true;
 				return;
 			}
@@ -161,7 +162,7 @@
 				return str;
 			}
 		} catch {
-			return 'Error decoding content';
+			return m.chat_error_decoding_content();
 		}
 	}
 </script>
@@ -180,7 +181,7 @@
 	<FileItem uri={item.uri} compact />
 	<span class="truncate">{displayName}</span>
 	{#if isMissing}
-		<span class="badge badge-error badge-xs">Missing</span>
+		<span class="badge badge-error badge-xs">{m.chat_missing()}</span>
 	{/if}
 </button>
 
@@ -207,7 +208,7 @@
 			{#if loading}
 				<div class="flex items-center gap-2 py-8">
 					<span class="loading loading-sm loading-spinner"></span>
-					<span>Loading preview...</span>
+					<span>{m.chat_loading_preview()}</span>
 				</div>
 			{:else if loadError}
 				<div class="alert alert-error">
@@ -236,7 +237,7 @@
 				</div>
 			{:else}
 				<div class="py-8 text-center">
-					<p class="text-base-content/60">Preview not available for this resource type</p>
+					<p class="text-base-content/60">{m.chat_preview_not_available()}</p>
 					<p class="text-muted-content mt-2 text-sm break-all">{item.uri}</p>
 				</div>
 			{/if}
@@ -244,11 +245,11 @@
 
 		<div class="modal-action">
 			<form method="dialog">
-				<button class="btn">Close</button>
+				<button class="btn">{m.chat_close()}</button>
 			</form>
 		</div>
 	</div>
 	<form method="dialog" class="modal-backdrop">
-		<button>close</button>
+		<button>{m.common_close()}</button>
 	</form>
 </dialog>

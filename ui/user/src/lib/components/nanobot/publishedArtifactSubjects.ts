@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { AccessControlRuleSubject } from '$lib/services';
 
 export type PublishedArtifactSubject = AccessControlRuleSubject;
@@ -8,22 +9,30 @@ export function hasAllUsersSubject(subjects?: PublishedArtifactSubject[]): boole
 
 export function sharingLabel(subjects?: PublishedArtifactSubject[]): string {
 	if (!subjects || subjects.length === 0) {
-		return 'Owner Only';
+		return m.chat_sharing_owner_only();
 	}
 	if (hasAllUsersSubject(subjects)) {
-		return 'All Obot Users';
+		return m.chat_all_obot_users();
 	}
 
 	const users = subjects.filter((subject) => subject.type === 'user').length;
 	const groups = subjects.filter((subject) => subject.type === 'group').length;
 	const parts = [];
 	if (users > 0) {
-		parts.push(`${users} ${users === 1 ? 'user' : 'users'}`);
+		parts.push(
+			users === 1
+				? m.chat_sharing_users_one({ count: users })
+				: m.chat_sharing_users_other({ count: users })
+		);
 	}
 	if (groups > 0) {
-		parts.push(`${groups} ${groups === 1 ? 'group' : 'groups'}`);
+		parts.push(
+			groups === 1
+				? m.chat_sharing_groups_one({ count: groups })
+				: m.chat_sharing_groups_other({ count: groups })
+		);
 	}
-	return parts.join(', ');
+	return parts.join(m.chat_list_separator());
 }
 
 export function latestVersionSubjects<

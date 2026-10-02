@@ -4,6 +4,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { type AgentCatalog } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
@@ -53,7 +54,7 @@
 						syncing.delete(id);
 					}
 				} catch (err) {
-					errors.append(`Failed to sync config source: ${err}`);
+					errors.append(m.chat_ha_sync_source_failed({ error: String(err) }));
 					clearSyncInterval(id);
 					syncing.delete(id);
 				}
@@ -67,7 +68,7 @@
 			await AdminService.refreshAgentCatalog(id);
 			pollTillSyncComplete(id);
 		} catch (err) {
-			errors.append(`Failed to refresh config source: ${err}`);
+			errors.append(m.chat_ha_refresh_source_failed({ error: String(err) }));
 			syncing.delete(id);
 		}
 	}
@@ -108,7 +109,7 @@
 			agentCatalogs = await AdminService.listAgentCatalogs();
 			catalogDialog?.close();
 		} catch (err) {
-			errors.append(`Failed to save config source: ${err}`);
+			errors.append(m.chat_ha_save_source_failed({ error: String(err) }));
 		} finally {
 			savingCatalog = false;
 		}
@@ -120,7 +121,7 @@
 			id: source.id,
 			displayName: source.displayName,
 			repoURL: source.repoURL,
-			ref: source.ref || '(default branch)',
+			ref: source.ref || m.chat_ha_default_branch(),
 			discoveredAgentCount: source.discoveredAgentCount ?? 0,
 			discoveredHarnessCount: source.discoveredHarnessCount ?? 0,
 			syncError: source.syncError ?? '',
@@ -131,20 +132,20 @@
 
 <div class="flex flex-col gap-4" in:fade={{ duration }}>
 	<p class="text-muted-content text-sm font-light">
-		A config source is a Git repository Obot syncs templates and harnesses from, so they are defined
-		in version control rather than added by hand here.
+		{m.chat_ha_config_sources_desc()}
 	</p>
 
 	{#if agentCatalogs.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<GitBranch class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No config sources</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.chat_ha_no_config_sources()}</h4>
 			{#if !isReadonly}
 				<p class="text-muted-content text-sm font-light">
-					Add a Git repository to sync templates and harnesses from.
+					{m.chat_ha_no_config_sources_desc()}
 				</p>
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreateCatalog}>
-					<Plus class="size-4" /> Add Config Source
+					<Plus class="size-4" />
+					{m.chat_ha_add_config_source()}
 				</button>
 			{/if}
 		</div>
@@ -153,14 +154,14 @@
 			data={catalogTableData}
 			fields={['displayName', 'repoURL', 'ref', 'discoveredAgentCount', 'discoveredHarnessCount']}
 			headers={[
-				{ property: 'displayName', title: 'Name' },
-				{ property: 'repoURL', title: 'Repository' },
-				{ property: 'ref', title: 'Ref' },
-				{ property: 'discoveredAgentCount', title: 'Agents' },
-				{ property: 'discoveredHarnessCount', title: 'Harnesses' }
+				{ property: 'displayName', title: m.chat_col_name() },
+				{ property: 'repoURL', title: m.chat_col_repository() },
+				{ property: 'ref', title: m.chat_col_ref() },
+				{ property: 'discoveredAgentCount', title: m.chat_col_agents() },
+				{ property: 'discoveredHarnessCount', title: m.chat_col_harnesses() }
 			]}
 			sortable={['displayName', 'repoURL']}
-			noDataMessage="No sources added."
+			noDataMessage={m.chat_ha_no_sources_added()}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -169,7 +170,9 @@
 						{#if d.isSyncing}
 							<Loading class="size-3" />
 						{:else if d.syncError}
-							<span class="badge badge-error badge-xs" title={d.syncError}>sync error</span>
+							<span class="badge badge-error badge-xs" title={d.syncError}
+								>{m.chat_ha_sync_error()}</span
+							>
 						{/if}
 					</div>
 				{:else}
@@ -184,7 +187,7 @@
 							sync(d.id);
 						}}
 						disabled={d.isSyncing}
-						tooltip={{ text: 'Sync Now' }}
+						tooltip={{ text: m.chat_ha_sync_now() }}
 					>
 						<RefreshCcw class="size-4" />
 					</IconButton>
@@ -194,7 +197,7 @@
 							const source = agentCatalogs.find((s) => s.id === d.id);
 							if (source) openEditCatalog(source);
 						}}
-						tooltip={{ text: 'Edit Config Source' }}
+						tooltip={{ text: m.chat_ha_edit_config_source() }}
 					>
 						<Pencil class="size-4" />
 					</IconButton>
@@ -204,7 +207,7 @@
 							e.stopPropagation();
 							catalogToDelete = agentCatalogs.find((s) => s.id === d.id);
 						}}
-						tooltip={{ text: 'Delete Source' }}
+						tooltip={{ text: m.chat_ha_delete_source() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -216,16 +219,16 @@
 
 <ResponsiveDialog
 	bind:this={catalogDialog}
-	title={editingCatalog ? 'Edit Config Source' : 'Add Config Source'}
+	title={editingCatalog ? m.chat_ha_edit_config_source() : m.chat_ha_add_config_source()}
 	class="md:max-w-md"
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="source-name" class="text-sm font-light">Name</label>
+			<label for="source-name" class="text-sm font-light">{m.chat_name()}</label>
 			<input id="source-name" bind:value={catalogForm.displayName} class="text-input-filled" />
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="source-repo" class="text-sm font-light">Repository URL</label>
+			<label for="source-repo" class="text-sm font-light">{m.chat_ha_repository_url()}</label>
 			<input
 				id="source-repo"
 				bind:value={catalogForm.repoURL}
@@ -236,19 +239,21 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="source-ref" class="text-sm font-light">Ref</label>
+			<label for="source-ref" class="text-sm font-light">{m.chat_ha_ref()}</label>
 			<input
 				id="source-ref"
 				bind:value={catalogForm.ref}
 				class="text-input-filled"
-				placeholder="(default branch)"
+				placeholder={m.chat_ha_default_branch()}
 				autocomplete="off"
 			/>
-			<span class="text-muted-content text-xs">Branch or tag. Leave blank for the default.</span>
+			<span class="text-muted-content text-xs">{m.chat_ha_ref_hint()}</span>
 		</div>
 	</div>
 	<div class="flex justify-end gap-2 pt-4">
-		<button class="btn btn-secondary text-sm" onclick={() => catalogDialog?.close()}>Cancel</button>
+		<button class="btn btn-secondary text-sm" onclick={() => catalogDialog?.close()}
+			>{m.common_cancel()}</button
+		>
 		<button
 			class="btn btn-primary text-sm"
 			disabled={!canSaveCatalog || savingCatalog}
@@ -257,15 +262,15 @@
 			{#if savingCatalog}
 				<Loading class="size-4" />
 			{:else}
-				{editingCatalog ? 'Update' : 'Add'}
+				{editingCatalog ? m.chat_update() : m.chat_add()}
 			{/if}
 		</button>
 	</div>
 </ResponsiveDialog>
 
 <Confirm
-	msg={`Delete ${catalogToDelete?.displayName || 'this source'}?`}
-	note="Agents and harnesses discovered from this source will be removed."
+	msg={m.chat_delete_named({ name: catalogToDelete?.displayName || m.chat_this_source() })}
+	note={m.chat_ha_delete_source_note()}
 	show={Boolean(catalogToDelete)}
 	onsuccess={async () => {
 		if (!catalogToDelete) return;

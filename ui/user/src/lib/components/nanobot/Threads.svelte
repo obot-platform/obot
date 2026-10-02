@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { Chat } from '$lib/services/nanobot/types';
 	import { parseJSON } from '$lib/services/nanobot/utils';
 	import { responsive } from '$lib/stores';
@@ -61,10 +62,10 @@
 		const hours = Math.floor(diff / (1000 * 60 * 60));
 		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-		if (minutes < 1) return 'now';
-		if (minutes < 60) return `${minutes}m`;
-		if (hours < 24) return `${hours}h`;
-		return `${days}d`;
+		if (minutes < 1) return m.chat_time_now();
+		if (minutes < 60) return m.chat_time_minutes_short({ count: minutes });
+		if (hours < 24) return m.chat_time_hours_short({ count: hours });
+		return m.chat_time_days_short({ count: days });
 	}
 
 	async function startRename(sessionId: string, currentTitle: string) {
@@ -166,10 +167,10 @@
 	{#if !responsive.isMobile}
 		<!-- Header -->
 		<div class="mb-2 flex shrink-0 items-center justify-between gap-2 pr-3 pl-4">
-			<h2 class="text-muted-content text-md font-semibold">Sessions</h2>
+			<h2 class="text-muted-content text-md font-semibold">{m.chat_sessions()}</h2>
 			<button
 				class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
-				data-tip="Start New Conversation"
+				data-tip={m.chat_start_new_conversation()}
 				onclick={onCreateSession}
 			>
 				<Plus class="text-muted-content size-6" />
@@ -226,7 +227,7 @@
 								{:else if isRecent(session.created) && !session.title}
 									<span class="skeleton skeleton-text text-fm font-medium">...</span>
 								{:else}
-									<h3 class="truncate text-sm font-medium">{session.title || 'Untitled'}</h3>
+									<h3 class="truncate text-sm font-medium">{session.title || m.chat_untitled()}</h3>
 								{/if}
 							</div>
 							{#if editingSessionId !== session.id}
@@ -243,14 +244,14 @@
 							<button
 								class="btn btn-ghost btn-xs"
 								onclick={cancelRename}
-								aria-label="Cancel editing"
+								aria-label={m.chat_cancel_editing()}
 							>
 								<X class="size-3" />
 							</button>
 							<button
 								class="btn text-success btn-ghost btn-xs hover:bg-success/20"
 								onclick={saveRename}
-								aria-label="Save changes"
+								aria-label={m.chat_save_changes()}
 							>
 								<Check class="size-3" />
 							</button>
@@ -270,13 +271,13 @@
 								<li>
 									<button onclick={() => startRename(session.id, session.title)} class="text-sm">
 										<SquarePen class="h-4 w-4" />
-										Rename
+										{m.chat_rename()}
 									</button>
 								</li>
 								<li>
 									<button onclick={() => handleDelete(session.id)} class="text-error text-sm">
 										<Trash2 class="h-4 w-4" />
-										Delete
+										{m.chat_delete()}
 									</button>
 								</li>
 							</ul>

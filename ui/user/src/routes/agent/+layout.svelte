@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
+	import { m } from '$lib/i18n';
 	import { NanobotService } from '$lib/services';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type { Chat, Resource } from '$lib/services/nanobot/types';
@@ -108,7 +109,7 @@
 						<div class="flex w-full flex-col items-center gap-1">
 							<div class="h-8 w-xs"></div>
 							<p class="text-md skeleton skeleton-text text-center font-light">
-								Just a moment, setting up your agent...
+								{m.chat_setting_up_agent()}
 							</p>
 						</div>
 						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
