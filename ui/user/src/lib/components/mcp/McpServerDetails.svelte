@@ -3,6 +3,7 @@
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { MCPCatalogEntry, MCPCatalogServer, OrgUser } from '$lib/services';
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
@@ -80,18 +81,25 @@
 		{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers && connectedUsers.length > 0}
 			<div>
 				<h2 class="mb-2 text-lg font-semibold">
-					{server?.serverUserType === 'multiUser' ? 'Connected Users' : 'Associated User'}
+					{server?.serverUserType === 'multiUser'
+						? m.mcp_details_connected_users()
+						: m.mcp_details_associated_user()}
 				</h2>
 				<Table
 					data={connectedUsers ?? []}
 					fields={['name', 'updateStatus']}
-					headers={[{ title: 'Config Status', property: 'updateStatus' }]}
+					headers={[
+						{ title: m.mcp_column_name(), property: 'name' },
+						{ title: m.mcp_details_config_status(), property: 'updateStatus' }
+					]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							{d.email || d.username || 'Unknown'}
+							{d.email || d.username || m.mcp_unknown()}
 						{:else if property === 'updateStatus'}
-							{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
+							{d.mcpInstanceConfigured === false
+								? m.mcp_details_not_configured()
+								: m.mcp_details_up_to_date()}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
@@ -107,7 +115,7 @@
 	<div class="notification-info p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
 			<Info class="size-6" />
-			<p>Server information cannot be provided at this time.</p>
+			<p>{m.mcp_details_unavailable()}</p>
 		</div>
 	</div>
 {/if}

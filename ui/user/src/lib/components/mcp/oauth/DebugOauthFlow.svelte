@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type {
 		MCPCatalogServer,
 		OAuthDebuggerAuthorizationURL,
@@ -119,7 +120,7 @@
 
 	function fetchTokenRequest(authorizationCode: string) {
 		if (!results.clientRegistration) {
-			errors.tokenRequest = 'Client registration information is required to request a token.';
+			errors.tokenRequest = m.mcp_debug_oauth_client_registration_required();
 			expanded.tokenRequest = true;
 			return;
 		}
@@ -142,7 +143,7 @@
 				errors.tokenRequest = error instanceof Error ? error.message : String(error);
 			})
 			.finally(() => {
-				results.authorizationCode = 'Authorization code has been exchanged.';
+				results.authorizationCode = m.mcp_debug_oauth_code_exchanged();
 				loading.tokenRequest = false;
 				expanded.tokenRequest = true;
 			});
@@ -190,7 +191,7 @@
 		if (mcpServer.oauthMetadata) {
 			results.metadataDiscovery = mcpServer.oauthMetadata;
 		} else {
-			errors.metadataDiscovery = 'No OAuth metadata was returned by this MCP server.';
+			errors.metadataDiscovery = m.mcp_oauth_metadata_none_returned();
 		}
 		expanded.metadataDiscovery = true;
 		loading.metadataDiscovery = false;
@@ -203,22 +204,21 @@
 	const stepLoading = $derived(Object.values(loading).some(Boolean));
 	const clientRegistrationTitle = $derived(
 		mcpServer.oauthMetadata?.clientIdMetadataDocumentSupported
-			? 'Client ID Metadata Document'
-			: 'Client Registration'
+			? m.mcp_debug_oauth_client_id_metadata_document()
+			: m.mcp_oauth_client_registration()
 	);
 </script>
 
 <div class="flex flex-col gap-2 p-4 md:pt-0">
 	<p class="text-muted-content text-sm font-light pb-2">
-		This is a guided step-by-step process of the OAuth flow. Follow the instructions to complete
-		authentication.
+		{m.mcp_debug_oauth_intro()}
 	</p>
 
 	<DebugOauthSection
 		classes={{ content: 'p-0 pt-0' }}
 		bind:open={expanded.metadataDiscovery}
 		loading={loading.metadataDiscovery}
-		title="Metadata Discovery"
+		title={m.mcp_debug_oauth_metadata_discovery()}
 		errors={errors.metadataDiscovery}
 		hasResults={Boolean(results.metadataDiscovery)}
 	>
@@ -242,7 +242,7 @@
 	<DebugOauthSection
 		bind:open={expanded.preparingAuthorization}
 		loading={loading.preparingAuthorization}
-		title="Preparing Authorization"
+		title={m.mcp_debug_oauth_preparing_authorization()}
 		errors={errors.preparingAuthorization}
 		hasResults={Boolean(results.preparingAuthorization)}
 	>
@@ -257,11 +257,10 @@
 					)}</pre>
 
 				<p class="text-xs text-muted-content">
-					Click the button below or copy the URL above to your browser to request authorization and
-					acquire an authorization code.
+					{m.mcp_debug_oauth_click_button()}
 				</p>
 				<p class="text-xs text-muted-content">
-					Copy & paste the authorization code into the next step below to continue.
+					{m.mcp_debug_oauth_paste_code()}
 				</p>
 				<a
 					href={authorizationURL}
@@ -272,7 +271,7 @@
 						expanded.authorizationCode = true;
 					}}
 				>
-					Get Authorization Code
+					{m.mcp_debug_oauth_get_code()}
 				</a>
 			</div>
 		{/if}
@@ -281,7 +280,7 @@
 	<DebugOauthSection
 		bind:open={expanded.authorizationCode}
 		loading={loading.authorizationCode}
-		title="Request & Acquire Authorization Code"
+		title={m.mcp_debug_oauth_request_code()}
 		errors={errors.authorizationCode}
 		hasResults={Boolean(results.authorizationCode)}
 		showContent={currentStep === DEBUG_FLOW_STEPS.preparingAuthorization}
@@ -294,7 +293,7 @@
 				)}</pre>
 		{:else}
 			<label for="authorization-code" class="text-sm text-muted-content w-full">
-				Enter the authorization code here:
+				{m.mcp_debug_oauth_enter_code()}
 				<input
 					bind:value={authorizationCodeInput}
 					type="text"
@@ -308,7 +307,7 @@
 					}}
 				/>
 				{#if showRequired}
-					<p class="text-xs text-error my-1">Authorization code is required</p>
+					<p class="text-xs text-error my-1">{m.mcp_debug_oauth_code_required()}</p>
 				{/if}
 			</label>
 		{/if}
@@ -317,7 +316,7 @@
 	<DebugOauthSection
 		bind:open={expanded.tokenRequest}
 		loading={loading.tokenRequest}
-		title="Token Request"
+		title={m.mcp_debug_oauth_token_request()}
 		errors={errors.tokenRequest}
 		hasResults={Boolean(results.tokenRequest)}
 	>
@@ -331,13 +330,12 @@
 	<DebugOauthSection
 		bind:open={expanded.tokenRequest}
 		loading={loading.tokenRequest}
-		title="Authentication Complete"
+		title={m.mcp_debug_oauth_complete()}
 		errors={errors.tokenRequest}
 		hasResults={Boolean(results.tokenRequest)}
 	>
 		<p class="text-sm">
-			Authentication has successfully been completed! You can now close this window and return to
-			the MCP server.
+			{m.mcp_debug_oauth_complete_description()}
 		</p>
 	</DebugOauthSection>
 </div>
@@ -356,11 +354,11 @@
 				isAdminReadonly}
 			onclick={handleNextStep}
 		>
-			Continue Next Step
+			{m.mcp_debug_oauth_continue()}
 		</button>
 
 		<button class="btn btn-secondary text-sm" onclick={handleRestart} disabled={isAdminReadonly}>
-			Restart
+			{m.mcp_debug_oauth_restart()}
 		</button>
 	</div>
 </div>

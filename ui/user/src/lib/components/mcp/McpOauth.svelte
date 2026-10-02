@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -106,13 +107,13 @@
 			{#if text}
 				<p>{text}</p>
 			{:else}
-				<p>For detailed information about this MCP server, server authentication is required.</p>
+				<p>{m.mcp_oauth_auth_required()}</p>
 			{/if}
 		</div>
 		{#if showRefresh && loading}
 			<div class="flex items-center gap-2 text-sm font-light">
 				<Loading class="size-4" />
-				Authenticating...
+				{m.mcp_oauth_authenticating()}
 			</div>
 		{:else}
 			<a
@@ -126,7 +127,7 @@
 					}, 500);
 				}}
 			>
-				Authenticate
+				{m.mcp_oauth_authenticate()}
 			</a>
 		{/if}
 	</div>

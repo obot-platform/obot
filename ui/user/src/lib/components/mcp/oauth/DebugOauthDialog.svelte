@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import ResponsiveDialog from '../../ResponsiveDialog.svelte';
@@ -32,7 +33,9 @@
 					class="size-6"
 				/>
 			</div>
-			{getMCPDisplayName(serverToDebug, 'MCP Server')} - Debug OAuth
+			{m.mcp_debug_oauth_dialog_title({
+				name: getMCPDisplayName(serverToDebug, m.mcp_server_fallback_name())
+			})}
 		</div>
 	{/snippet}
 	{#if serverToDebug}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPAllowedSecretBindingTarget, MCPTunnel } from '$lib/services';
 	import type {
@@ -112,16 +113,12 @@
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
-			<h4 class="text-sm font-semibold">Headers</h4>
+			<h4 class="text-sm font-semibold">{m.mcp_remote_headers()}</h4>
 			<p class="text-muted-content text-xs font-light">
 				{#if showUrlTemplateHelp}
-					Header values will be supplied with the URL to configure the deployment of the catalog
-					entry. Their values can be supplied by the user during initial setup or as static provided
-					values. Only values provided by the user will be used in URL template interpolation.
+					{m.mcp_remote_headers_description_template()}
 				{:else}
-					Header values will be supplied with the URL to configure the deployment of the catalog
-					entry. Their values can be supplied by the user during initial setup or as static provided
-					values.
+					{m.mcp_remote_headers_description()}
 				{/if}
 			</p>
 			{#if config.headers}
@@ -133,29 +130,36 @@
 						>
 							<div class="flex w-full flex-col gap-4">
 								<div class="flex w-full flex-col gap-1">
-									<Label title="Key" forInput={`header-key-${i}`} required showError={missingKey} />
+									<Label
+										title={m.mcp_field_key()}
+										forInput={`header-key-${i}`}
+										required
+										showError={missingKey}
+									/>
 									<input
 										id={`header-key-${i}`}
 										class="text-input-filled bg-base-100 w-full shadow-none"
 										class:error={missingKey}
 										aria-invalid={missingKey}
 										bind:value={config.headers[i].key}
-										placeholder="e.g. CUSTOM_HEADER_KEY"
+										placeholder={m.mcp_example({ example: 'CUSTOM_HEADER_KEY' })}
 										disabled={readonly}
 									/>
 								</div>
 								<div class="flex w-full flex-col gap-1">
 									{#if variant === 'catalog'}
-										<label for={`header-value-type-${i}`} class="text-sm font-light">Value</label>
+										<label for={`header-value-type-${i}`} class="text-sm font-light"
+											>{m.mcp_field_value()}</label
+										>
 										<Select
 											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 											classes={{
 												root: 'flex grow'
 											}}
 											options={[
-												{ label: 'Static', id: 'static' },
-												{ label: 'User-Supplied', id: 'user_supplied' },
-												{ label: 'Options', id: 'options' }
+												{ label: m.mcp_fieldset_static(), id: 'static' },
+												{ label: m.mcp_fieldset_user_supplied(), id: 'user_supplied' },
+												{ label: m.mcp_options_title(), id: 'options' }
 											]}
 											selected={config.headers[i].options
 												? 'options'
@@ -197,7 +201,9 @@
 								{/if}
 								{#if config.headers[i].required}
 									<div class="flex w-full flex-col gap-1">
-										<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
+										<label for={`header-name-${i}`} class="text-sm font-light"
+											>{m.mcp_field_name()}</label
+										>
 										<input
 											id={`header-name-${i}`}
 											class="text-input-filled bg-base-100 w-full shadow-none"
@@ -207,7 +213,7 @@
 									</div>
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-description-${i}`} class="text-sm font-light"
-											>Description</label
+											>{m.mcp_field_description()}</label
 										>
 										<input
 											id={`header-description-${i}`}
@@ -221,11 +227,8 @@
 											for={`header-prefix-${i}`}
 											class="flex items-center gap-1 text-sm font-light"
 										>
-											Value Prefix
-											<InfoTooltip
-												text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
-												popoverWidth="lg"
-											/>
+											{m.mcp_value_prefix()}
+											<InfoTooltip text={m.mcp_remote_value_prefix_tooltip()} popoverWidth="lg" />
 										</label>
 										<input
 											id={`header-prefix-${i}`}
@@ -237,7 +240,7 @@
 									<Toggle
 										classes={{ label: 'text-sm text-inherit' }}
 										disabled={readonly}
-										label="Sensitive"
+										label={m.mcp_field_sensitive()}
 										labelInline
 										checked={!!header.sensitive}
 										onChange={(checked) => {
@@ -258,7 +261,7 @@
 										<div class="flex flex-col gap-2">
 											{#if variant === 'server'}
 												<label for={`header-description-${i}`} class="text-sm font-light"
-													>Value</label
+													>{m.mcp_field_value()}</label
 												>
 											{/if}
 											<input
@@ -278,7 +281,7 @@
 									onclick={() => {
 										config.headers?.splice(i, 1);
 									}}
-									tooltip={{ text: 'Delete Header' }}
+									tooltip={{ text: m.mcp_remote_delete_header() }}
 								>
 									<Trash2 class="size-4" />
 								</IconButton>
@@ -308,7 +311,7 @@
 						}}
 					>
 						<Plus class="size-4" />
-						Header
+						{m.mcp_config_usage_header()}
 					</button>
 				</div>
 			{/if}
@@ -323,7 +326,7 @@
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
-		<h4 class="text-sm font-semibold">Remote Runtime Configuration</h4>
+		<h4 class="text-sm font-semibold">{m.mcp_remote_runtime_title()}</h4>
 		<div class="flex flex-col gap-2">
 			<label
 				for="multi-user-remote-url"
@@ -337,7 +340,7 @@
 				)}
 				bind:value={serverConfig.url}
 				disabled={readonly}
-				placeholder="e.g. https://api.example.com/mcp"
+				placeholder={m.mcp_example({ example: 'https://api.example.com/mcp' })}
 				oninput={() => {
 					onFieldChange?.('url');
 				}}
@@ -384,7 +387,8 @@
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
-				<label for="remote-type" class="shrink-0 text-sm font-light">Restrict connections to:</label
+				<label for="remote-type" class="shrink-0 text-sm font-light"
+					>{m.mcp_remote_restrict_connections()}</label
 				>
 				<Select
 					class="bg-base-100 dark:border-base-400 dark:bg-base-100 border border-transparent shadow-inner"
@@ -392,9 +396,9 @@
 						root: 'flex grow'
 					}}
 					options={[
-						{ label: 'Exact URL', id: 'fixedURL' },
-						...(!disableHostnameOption ? [{ label: 'Hostname', id: 'hostname' }] : []),
-						{ label: 'URL Template', id: 'urlTemplate' }
+						{ label: m.mcp_remote_exact_url(), id: 'fixedURL' },
+						...(!disableHostnameOption ? [{ label: m.mcp_remote_hostname(), id: 'hostname' }] : []),
+						{ label: m.mcp_remote_url_template(), id: 'urlTemplate' }
 					]}
 					selected={selectedType}
 					onSelect={(option) => {
@@ -425,7 +429,7 @@
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
-						>Exact URL</label
+						>{m.mcp_remote_exact_url()}</label
 					>
 					<input
 						class={twMerge(
@@ -434,7 +438,7 @@
 						)}
 						bind:value={remoteConfig.fixedURL}
 						disabled={readonly}
-						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
+						placeholder={m.mcp_example({ example: 'https://custom.mcpserver.example.com/go/to' })}
 						oninput={() => {
 							onFieldChange?.('fixedURL');
 						}}
@@ -447,7 +451,7 @@
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
-						>Hostname</label
+						>{m.mcp_remote_hostname()}</label
 					>
 					<input
 						class={twMerge(
@@ -456,7 +460,7 @@
 						)}
 						bind:value={remoteConfig.hostname}
 						disabled={readonly}
-						placeholder="e.g. mycustomdomain"
+						placeholder={m.mcp_example({ example: 'mycustomdomain' })}
 						oninput={() => {
 							onFieldChange?.('hostname');
 						}}
@@ -472,7 +476,7 @@
 							class={twMerge(
 								'shrink-0 min-w-18 text-sm font-light',
 								showRequired?.urlTemplate && 'error'
-							)}>URL Template</label
+							)}>{m.mcp_remote_url_template()}</label
 						>
 						<input
 							class={twMerge(
@@ -481,7 +485,9 @@
 							)}
 							bind:value={remoteConfig.urlTemplate}
 							disabled={readonly}
-							placeholder={'e.g. https://' + '$' + '{API_HOST}/api/' + '$' + '{VERSION}/endpoint'}
+							placeholder={m.mcp_example({
+								example: 'https://' + '$' + '{API_HOST}/api/' + '$' + '{VERSION}/endpoint'
+							})}
 							oninput={() => {
 								onFieldChange?.('urlTemplate');
 							}}
@@ -494,25 +500,23 @@
 						<div class="flex items-start gap-3">
 							<Info class="mt-0.5 size-5 shrink-0" />
 							<div class="flex flex-col gap-1">
-								<p class="font-semibold">Variable Interpolation</p>
+								<p class="font-semibold">{m.mcp_remote_variable_interpolation()}</p>
 								<p>
-									Use <code class="rounded bg-base-300 px-1 py-0.5">${'{VARIABLE_NAME}'}</code> syntax
-									in your URL template. Declare each variable under URL Template Variables below. Users
-									provide the values during setup.
+									{m.mcp_remote_interpolation_prefix()}<code class="rounded bg-base-300 px-1 py-0.5"
+										>${'{VARIABLE_NAME}'}</code
+									>{m.mcp_remote_interpolation_suffix()}
 								</p>
 								<p class="text-xs">
-									Example: <code class="rounded bg-base-300 px-1 py-0.5 text-xs"
+									{m.mcp_remote_example_label()}
+									<code class="rounded bg-base-300 px-1 py-0.5 text-xs"
 										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
 									>
 								</p>
 								<br />
 								<p>
-									Avoid including variables in your URL template that may contain sensitive
-									information, such as API keys. Even when using HTTPS, URLs can be logged or cached
-									by browsers, servers, and monitoring systems, potentially exposing confidential
-									data. Instead, place sensitive values in HTTP headers (for example, <code
+									{m.mcp_remote_sensitive_warning_prefix()}<code
 										>Authorization: Bearer &lt;token&gt;</code
-									>).
+									>{m.mcp_remote_sensitive_warning_suffix()}
 								</p>
 							</div>
 						</div>
@@ -523,13 +527,13 @@
 			{#if tunnels !== undefined || tunnelsLoading}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex flex-col gap-2" aria-busy={tunnelsLoading}>
-					<label for="remote-tunnel" class="text-sm font-light">Tunnel</label>
+					<label for="remote-tunnel" class="text-sm font-light">{m.mcp_remote_tunnel()}</label>
 					<Select
 						id="remote-tunnel"
 						class="bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 						options={tunnelOptions}
 						selected={remoteConfig.tunnelName}
-						placeholder={tunnelsLoading ? 'Loading tunnels...' : 'No tunnel'}
+						placeholder={tunnelsLoading ? m.mcp_remote_loading_tunnels() : m.mcp_remote_no_tunnel()}
 						disabled={readonly || tunnelsLoading || selectedType === 'urlTemplate'}
 						searchInDropdown={tunnelOptions.length > 8}
 						onSelect={(option) => {
@@ -545,14 +549,14 @@
 						{#if tunnelsLoading}
 							<span class="flex items-center gap-1.5" role="status">
 								<Loading class="size-3.5" />
-								Loading MCP tunnels...
+								{m.mcp_remote_loading_mcp_tunnels()}
 							</span>
 						{:else if selectedType === 'urlTemplate'}
-							Tunnels are not supported with URL templates.
+							{m.mcp_remote_tunnels_unsupported()}
 						{:else if tunnelOptions.length === 0}
-							No MCP tunnels have been created.
+							{m.mcp_remote_no_tunnels()}
 						{:else}
-							Route requests to this remote MCP server through the selected tunnel.
+							{m.mcp_remote_tunnel_hint()}
 						{/if}
 					</p>
 				</div>
@@ -589,12 +593,11 @@
 								!remoteConfig.staticOAuthRequired && 'opacity-50'
 							)}
 						>
-							Static OAuth
+							{m.mcp_remote_static_oauth()}
 						</h4>
 					</div>
 					<p class="text-muted-content text-xs font-light">
-						Enable this if the remote MCP server requires OAuth authentication with a static client
-						ID and secret.
+						{m.mcp_remote_static_oauth_description()}
 					</p>
 				</button>
 				<div class="flex self-start">
@@ -602,8 +605,8 @@
 						classes={{ label: 'text-sm text-inherit' }}
 						disabled={readonly}
 						label={remoteConfig.staticOAuthRequired
-							? 'Disable Static OAuth'
-							: 'Enable Static OAuth'}
+							? m.mcp_remote_disable_static_oauth()
+							: m.mcp_remote_enable_static_oauth()}
 						checked={!!remoteConfig.staticOAuthRequired}
 						onChange={(checked) => {
 							remoteConfig.staticOAuthRequired = checked;
@@ -618,7 +621,7 @@
 						<div class="notification-info p-3 text-sm font-light">
 							<div class="flex items-start gap-3">
 								<Info class="mt-0.5 size-5 shrink-0" />
-								<p>You can provide OAuth credentials after saving.</p>
+								<p>{m.mcp_remote_oauth_after_saving()}</p>
 							</div>
 						</div>
 					{:else if onConfigureOAuth}
@@ -629,7 +632,7 @@
 							type="button"
 						>
 							<Settings class="size-4" />
-							Configure OAuth Credentials
+							{m.mcp_remote_configure_oauth_credentials()}
 						</button>
 					{/if}
 				</div>
@@ -655,6 +658,6 @@
 			}
 		}}
 	>
-		{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
+		{showAdvanced ? m.mcp_remote_reset_default() : m.mcp_remote_advanced()}
 	</button>
 {/if}

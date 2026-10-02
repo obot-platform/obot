@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		UserService,
@@ -159,7 +160,7 @@
 				dontLogErrors: true
 			});
 		} catch (err) {
-			errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+			errors.append(m.mcp_secret_targets_load_failed({ error: String(err) }));
 			secretBindingTargets = [];
 		} finally {
 			secretBindingTargetsLoaded = true;
@@ -310,7 +311,7 @@
 		item: MCPCatalogServer,
 		currentInstance?: MCPServerInstance
 	) {
-		configureFormTitle = 'User Specific Configuration';
+		configureFormTitle = m.mcp_connect_user_specific_configuration();
 		let values: Record<string, string> = {};
 		if (currentInstance) {
 			try {
@@ -395,7 +396,7 @@
 		];
 		if (missing.length === 0) return undefined;
 
-		return `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`;
+		return m.mcp_connect_missing_secret({ keys: missing.join(', ') });
 	}
 
 	async function getOauthURL() {
@@ -474,7 +475,7 @@
 			const configuredResponse = server;
 			await validateConfiguredServerAndConnect(configuredResponse);
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -513,7 +514,7 @@
 			server = response;
 		} catch (err) {
 			console.error('error: ', err);
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
 		}
 
 		if (response) {
@@ -526,7 +527,7 @@
 				);
 				await validateConfiguredServerAndConnect(configuredResponse);
 			} catch (err) {
-				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+				launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -547,14 +548,14 @@
 			instance = response;
 			await finishMultiUserServerConnect();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
+			error = err instanceof Error ? err.message : m.mcp_unknown_error();
 		}
 	}
 
 	async function handleLaunchMultiUserCatalogEntry() {
 		if (!entry) return;
 		if (!catalogID && !workspaceID) {
-			error = 'A catalog or workspace is required to deploy a multi-user catalog entry.';
+			error = m.mcp_connect_catalog_required();
 			return;
 		}
 
@@ -629,7 +630,7 @@
 				notifyConnected();
 			}
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
 			launchMissingSecretBinding = launchError.includes('secret binding');
 			if (created && !launchHandedOff) {
 				try {
@@ -744,7 +745,7 @@
 				configDialog?.close();
 				await finishMultiUserServerConnect();
 			} catch (err) {
-				error = err instanceof Error ? err.message : 'An unknown error occurred';
+				error = err instanceof Error ? err.message : m.mcp_unknown_error();
 			} finally {
 				saving = false;
 			}
@@ -941,7 +942,7 @@
 					bind:this={connectionUrlField}
 					value={url}
 					id="connectURL"
-					label="Connection URL"
+					label={m.mcp_connection_url()}
 				/>
 			</div>
 			<HowToConnect
@@ -973,9 +974,10 @@
 <Confirm
 	show={showIntroDialog}
 	onsuccess={handleLaunchOrConfigure}
-	submitText="Continue"
+	submitText={m.mcp_continue()}
 	type="info"
-	title={introTitle ?? (isMultiUserCatalogEntry(entry) ? 'Launch Server' : 'Connect To Server')}
+	title={introTitle ??
+		(isMultiUserCatalogEntry(entry) ? m.mcp_actions_launch_server() : m.mcp_connect_to_server())}
 	oncancel={() => (showIntroDialog = false)}
 	hideCancelButton
 >
@@ -995,14 +997,14 @@
 			{#if renderIntroText}
 				{renderIntroText({ entry, server })}
 			{:else if isMultiUserCatalogEntry(entry)}
-				You are about to launch a new server.
+				{m.mcp_connect_intro_launch()}
 			{:else}
-				This will begin the initial setup process for this server.
+				{m.mcp_connect_intro_setup()}
 			{/if}
 			{#if (entry && hasEditableConfiguration(entry)) || (server && hasMultiUserInstanceConfiguration(server))}
-				Additional configuration details may also be required before the server can be used.
+				{m.mcp_connect_intro_additional_config()}
 			{:else}
-				<br />Click below to begin.
+				<br />{m.mcp_connect_intro_click_below()}
 			{/if}
 		</p>
 	{/snippet}
@@ -1016,10 +1018,10 @@
 	name={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 	onSave={handleConfigureForm}
 	submitText={isDeployingMultiUserCatalogEntry
-		? 'Create Server'
+		? m.mcp_actions_create_server()
 		: isConfigured
-			? 'Update'
-			: 'Launch'}
+			? m.mcp_update()
+			: m.mcp_connect_launch()}
 	loading={saving || launchState === 'launching'}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
@@ -1036,24 +1038,22 @@
 					<div class="notification-error">
 						<div class="flex items-center gap-2">
 							<CircleAlert class="size-5 text-error" />
-							<h4 class="text-md font-medium">MCP Server Launch Failed</h4>
+							<h4 class="text-md font-medium">{m.mcp_launch_failed_title()}</h4>
 						</div>
 
 						<div class="text-xs mt-2">
-							There was an issue launching the MCP server. Launch logs, if available, will be
-							provided below.
+							{m.mcp_connect_launch_issue()}
 
 							<ul class="list-disc px-4 py-1 space-y-1">
 								{#if isEditableCatalogEntry(entry)}
-									<li>Verify your configurations provided at launch are correct and try again.</li>
+									<li>{m.mcp_connect_verify_launch_config()}</li>
 								{/if}
 								{#if canModifyCatalogEntry}
 									<li>
-										Verify your catalog entry configurations consist of all necessary information to
-										properly configure the server.
+										{m.mcp_connect_verify_entry_config()}
 									</li>
 								{/if}
-								<li>If the issue persists, please contact support.</li>
+								<li>{m.mcp_connect_contact_support()}</li>
 							</ul>
 						</div>
 					</div>
@@ -1077,7 +1077,7 @@
 									onclick={handleCancelLaunch}
 									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
 								>
-									Cancel and Delete Server
+									{m.mcp_connect_cancel_and_delete()}
 								</button>
 							{:else}
 								<button
@@ -1089,7 +1089,7 @@
 										configDialog?.close();
 									}}
 								>
-									Close
+									{m.mcp_close()}
 								</button>
 							{/if}
 							<DotDotDot
@@ -1108,7 +1108,7 @@
 											toggle(false);
 										}}
 									>
-										Update Configuration and Try Again
+										{m.mcp_launch_update_and_retry()}
 									</button>
 									<button
 										class="menu-button"
@@ -1119,7 +1119,7 @@
 											toggle(false);
 										}}
 									>
-										Go to Catalog Entry
+										{m.mcp_connect_go_to_entry()}
 									</button>
 								{/snippet}
 							</DotDotDot>
@@ -1137,7 +1137,7 @@
 										saving = false;
 									}}
 								>
-									Update Configuration and Try Again
+									{m.mcp_launch_update_and_retry()}
 								</button>
 							{/if}
 							{#if server}
@@ -1145,7 +1145,7 @@
 									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
 									onclick={handleCancelLaunch}
 								>
-									Cancel and Delete Server
+									{m.mcp_connect_cancel_and_delete()}
 								</button>
 							{:else}
 								<button
@@ -1157,7 +1157,7 @@
 										configDialog?.close();
 									}}
 								>
-									Close
+									{m.mcp_close()}
 								</button>
 							{/if}
 						</div>
@@ -1177,7 +1177,7 @@
 					</div>
 
 					<div class="flex w-md flex-col justify-center gap-2 text-center">
-						<p class="text-xs font-light">Launching MCP server...</p>
+						<p class="text-xs font-light">{m.mcp_launching_server()}</p>
 					</div>
 				</div>
 			{/if}
@@ -1208,11 +1208,10 @@
 				</div>
 
 				<p>
-					In order to use {getMCPDisplayName(server)}, authentication with the MCP server is
-					required.
+					{m.mcp_connect_oauth_required({ name: getMCPDisplayName(server) })}
 				</p>
 
-				<p>Click the link below to authenticate.</p>
+				<p>{m.mcp_connect_oauth_click_link()}</p>
 
 				<a
 					href={oauthURL}
@@ -1224,16 +1223,18 @@
 					}}
 				>
 					{#if oauthVerifying}
-						Authenticating...
+						{m.mcp_oauth_authenticating()}
 					{:else}
-						Authenticate
+						{m.mcp_oauth_authenticate()}
 					{/if}
 				</a>
 			{/if}
 		</div>
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
+		<button type="button" aria-label={m.common_close_dialog()} onclick={handleOauthClose}
+			>{m.common_close()}</button
+		>
 	</form>
 </dialog>
 

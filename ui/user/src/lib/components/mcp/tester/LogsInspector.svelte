@@ -2,6 +2,7 @@
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { formatFileSize } from '$lib/format';
+	import { m } from '$lib/i18n';
 	import type { TesterLogEntry, TesterLogKind } from '$lib/services/mcp/tester-log.svelte';
 	import type { MCPTesterSession, TesterStatus } from '$lib/services/mcp/tester.svelte';
 	import CornerCopyButton from './CornerCopyButton.svelte';
@@ -33,30 +34,30 @@
 		'transport-event': 'badge-warning'
 	};
 	const KIND_LABEL: Record<TesterLogKind, string> = {
-		request: 'request',
-		response: 'response',
-		'error-response': 'error',
-		notification: 'notification',
-		'transport-event': 'transport'
+		request: m.mcp_log_kind_request(),
+		response: m.mcp_log_kind_response(),
+		'error-response': m.mcp_log_kind_error(),
+		notification: m.mcp_log_kind_notification(),
+		'transport-event': m.mcp_log_kind_transport()
 	};
 	const STATUS_LABEL: Record<TesterStatus, string> = {
-		idle: 'Not connected',
-		initializing: 'Connecting…',
-		ready: 'Connected',
-		'access-denied': 'Access denied',
-		unhealthy: 'Server unavailable',
-		'reauthentication-required': 'Reauthentication required',
-		'setup-required': 'Setup required',
-		error: 'Connection failed',
-		closed: 'Session closed'
+		idle: m.mcp_log_status_idle(),
+		initializing: m.mcp_log_status_initializing(),
+		ready: m.mcp_log_status_ready(),
+		'access-denied': m.mcp_tester_access_denied(),
+		unhealthy: m.mcp_tester_server_unavailable(),
+		'reauthentication-required': m.mcp_tester_reauth_required(),
+		'setup-required': m.mcp_tester_status_setup_required(),
+		error: m.mcp_log_status_error(),
+		closed: m.mcp_log_status_closed()
 	};
 	const KIND_OPTIONS: Array<{ id: 'all' | TesterLogKind; label: string }> = [
-		{ id: 'all', label: 'All kinds' },
-		{ id: 'request', label: 'Requests' },
-		{ id: 'response', label: 'Responses' },
-		{ id: 'error-response', label: 'Errors' },
-		{ id: 'notification', label: 'Notifications' },
-		{ id: 'transport-event', label: 'Transport' }
+		{ id: 'all', label: m.mcp_log_filter_all() },
+		{ id: 'request', label: m.mcp_log_filter_requests() },
+		{ id: 'response', label: m.mcp_log_filter_responses() },
+		{ id: 'error-response', label: m.mcp_log_filter_errors() },
+		{ id: 'notification', label: m.mcp_log_filter_notifications() },
+		{ id: 'transport-event', label: m.mcp_log_filter_transport() }
 	];
 	const MAX_INLINE_JSON = 256 * 1024;
 	const SUMMARY_LIMIT = 140;
@@ -104,8 +105,10 @@
 
 	function buildSummary(entry: TesterLogEntry): string {
 		if (entry.kind === 'transport-event') {
-			if (entry.event === 'error') return entry.errorMessage ?? 'Transport error';
-			return entry.event === 'connecting' ? `Connecting to ${serverName}` : 'Connection closed';
+			if (entry.event === 'error') return entry.errorMessage ?? m.mcp_log_transport_error();
+			return entry.event === 'connecting'
+				? m.mcp_tester_connecting_to({ name: serverName })
+				: m.mcp_log_connection_closed();
 		}
 		const message = entry.message as Record<string, unknown> | undefined;
 		if (!message) return '';
@@ -135,7 +138,7 @@
 		try {
 			value = JSON.stringify(entry.message ?? entry, null, 2) ?? '';
 		} catch {
-			value = '[unserializable payload]';
+			value = m.mcp_log_unserializable();
 		}
 		rawJSON.set(entry, value);
 		return value;
@@ -194,12 +197,13 @@
 		const now = Date.now();
 		if (now - lastAnnounced < 2000) return;
 		lastAnnounced = now;
-		announcement = `${count} log ${count === 1 ? 'entry' : 'entries'}`;
+		announcement =
+			count === 1 ? m.mcp_log_entries_one({ count }) : m.mcp_log_entries_other({ count });
 	});
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">MCP Log</h2>
+	<h2 class="sr-only">{m.mcp_tester_mcp_log()}</h2>
 
 	{#if session && status && status !== 'ready' && status !== 'idle'}
 		<div
@@ -215,7 +219,8 @@
 				{#if session.error}<span class="min-w-0 break-all">{session.error}</span>{/if}
 				{#if onretry && (status === 'error' || status === 'unhealthy')}
 					<button type="button" class="btn btn-secondary btn-sm ml-auto" onclick={onretry}>
-						<RotateCw class="size-4" aria-hidden="true" /> Retry
+						<RotateCw class="size-4" aria-hidden="true" />
+						{m.mcp_retry()}
 					</button>
 				{/if}
 			</div>
@@ -228,16 +233,16 @@
 				class="text-muted-content absolute top-1/2 left-3 size-4 -translate-y-1/2"
 				aria-hidden="true"
 			/>
-			<span class="sr-only">Search log by method or request id</span>
+			<span class="sr-only">{m.mcp_log_search_sr()}</span>
 			<input
 				class="text-input-filled h-10 pl-9"
 				bind:value={query}
 				type="search"
-				placeholder="Search method or id"
+				placeholder={m.mcp_log_search_placeholder()}
 			/>
 		</label>
 
-		<span id="log-kind-label" class="sr-only">Filter by kind</span>
+		<span id="log-kind-label" class="sr-only">{m.mcp_log_filter_by_kind()}</span>
 		<Select
 			id="log-kind"
 			class="bg-base-200 dark:bg-base-200 dark:border-base-400 h-10 w-40 border border-transparent shadow-inner"
@@ -251,13 +256,13 @@
 			type="button"
 			class="btn btn-secondary btn-sm"
 			disabled={entries.length === 0}
-			title="Copy the listed entries as multiple JSON objects — may contain tool arguments"
+			title={m.mcp_log_copy_all_title()}
 			onclick={copyLog}
 		>
 			{#if copied}
-				<Check class="size-4" aria-hidden="true" /> Copied
+				<Check class="size-4" aria-hidden="true" /> {m.mcp_log_copied()}
 			{:else}
-				<Copy class="size-4" aria-hidden="true" /> Copy All
+				<Copy class="size-4" aria-hidden="true" /> {m.mcp_log_copy_all()}
 			{/if}
 		</button>
 
@@ -267,7 +272,8 @@
 			disabled={entries.length === 0}
 			onclick={clearLog}
 		>
-			<Trash2 class="size-4" aria-hidden="true" /> Clear
+			<Trash2 class="size-4" aria-hidden="true" />
+			{m.mcp_log_clear()}
 		</button>
 	</div>
 
@@ -275,30 +281,29 @@
 
 	{#if dropped > 0}
 		<p class="text-muted-content mb-2 shrink-0 text-xs">
-			{dropped} earlier {dropped === 1 ? 'message' : 'messages'} dropped.
+			{dropped === 1
+				? m.mcp_log_dropped_one({ count: dropped })
+				: m.mcp_log_dropped_other({ count: dropped })}
 		</p>
 	{/if}
 
 	{#if filtered.length === 0}
 		<div class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content">
 			{#if !session}
-				Waiting for the tester session to start.
+				{m.mcp_log_waiting()}
 			{:else if entries.length > 0}
-				<p>No entries match these filters.</p>
+				<p>{m.mcp_log_no_match()}</p>
 				<button type="button" class="btn btn-secondary btn-sm mt-3" onclick={clearFilters}>
-					Clear filters
+					{m.mcp_log_clear_filters()}
 				</button>
 			{:else if status === 'setup-required'}
-				No traffic yet. The tester did not open a connection because this server still needs
-				configuration.
+				{m.mcp_log_empty_setup_required()}
 			{:else if status === 'reauthentication-required'}
-				No traffic yet. The tester did not open a connection because this server needs to be
-				reauthenticated.
+				{m.mcp_log_empty_reauth_required()}
 			{:else if status === 'unhealthy'}
-				No traffic yet. The tester skipped the connection because the deployment is not healthy. Use
-				Retry to force an attempt.
+				{m.mcp_log_empty_unhealthy()}
 			{:else}
-				No MCP traffic yet. Calls from Chat, Tools, Prompts, and Resources appear here.
+				{m.mcp_log_empty()}
 			{/if}
 		</div>
 	{:else}
@@ -306,7 +311,7 @@
 			bind:this={listElement}
 			onscroll={handleScroll}
 			class="default-scrollbar-thin min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 font-mono text-xs"
-			aria-label="MCP traffic log"
+			aria-label={m.mcp_log_traffic_log()}
 		>
 			{#each filtered as entry (entry.id)}
 				{@const isOpen = expanded.has(entry.id)}
@@ -324,10 +329,10 @@
 						</span>
 						<span class="sr-only">
 							{entry.direction === 'outgoing'
-								? 'Sent'
+								? m.mcp_log_direction_sent()
 								: entry.direction === 'incoming'
-									? 'Received'
-									: 'Local'}
+									? m.mcp_log_direction_received()
+									: m.mcp_log_direction_local()}
 						</span>
 						<span class={twMerge('badge badge-xs shrink-0', KIND_BADGE[entry.kind])}>
 							{KIND_LABEL[entry.kind]}
@@ -338,7 +343,7 @@
 						{/if}
 						<span class="text-muted-content min-w-0 flex-1 truncate">{summarize(entry)}</span>
 						{#if entry.outcome === 'cancelled'}
-							<span class="text-muted-content shrink-0">cancelled</span>
+							<span class="text-muted-content shrink-0">{m.mcp_log_cancelled()}</span>
 						{/if}
 						{#if entry.durationMs !== undefined}
 							<span class="text-muted-content shrink-0 tabular-nums"
@@ -360,22 +365,22 @@
 							{#if raw.length > MAX_INLINE_JSON && !forceRender.has(entry.id)}
 								<div class="notification-alert p-3" role="status">
 									<p>
-										This payload is {formatFileSize(raw.length)}. Rendering it inline may be slow.
+										{m.mcp_log_large_payload({ size: formatFileSize(raw.length) })}
 									</p>
 									<button
 										type="button"
 										class="btn btn-secondary btn-sm mt-2"
 										onclick={() => forceRender.add(entry.id)}
 									>
-										Render anyway
+										{m.mcp_log_render_anyway()}
 									</button>
 								</div>
 							{:else}
-								<CornerCopyButton text={raw} label="Copy entry JSON">
+								<CornerCopyButton text={raw} label={m.mcp_log_copy_entry_json()}>
 									<JsonPreview
 										value={entry.message ?? entry}
 										maxHeight="18rem"
-										ariaLabel={`${entry.method ?? KIND_LABEL[entry.kind]} payload`}
+										ariaLabel={m.mcp_log_payload({ name: entry.method ?? KIND_LABEL[entry.kind] })}
 									/>
 								</CornerCopyButton>
 							{/if}

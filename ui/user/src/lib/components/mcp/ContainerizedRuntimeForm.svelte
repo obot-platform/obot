@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
+	import { m } from '$lib/i18n';
 	import type { ContainerizedRuntimeConfig } from '$lib/services/user/types';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
@@ -42,12 +43,12 @@
 	);
 	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
 	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
-	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
+	const toggleLabel = $derived(
+		defaultDenyAllEgress ? m.mcp_egress_allow_all() : m.mcp_egress_deny_all()
+	);
 	const inputReadonly = $derived(readonly || toggleChecked);
 	const egressHelpText = $derived(
-		defaultDenyAllEgress
-			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress. Examples: example.com, *.example.com.'
-			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress. Examples: example.com, *.example.com.'
+		defaultDenyAllEgress ? m.mcp_egress_help_default_deny() : m.mcp_egress_help_default_allow()
 	);
 
 	function handleEgressToggle(checked: boolean) {
@@ -132,21 +133,22 @@
 <div
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
-	<h4 class="text-sm font-semibold">Containerized Runtime Configuration</h4>
-	<p class="text-muted-content text-xs">Only Streamable HTTP and SSE entries are supported.</p>
+	<h4 class="text-sm font-semibold">{m.mcp_runtime_containerized_title()}</h4>
+	<p class="text-muted-content text-xs">{m.mcp_runtime_http_entries_only()}</p>
 
 	<!-- Image field (required) -->
 	<div class="flex items-center gap-4">
 		<label
 			for="containerized-image"
-			class={twMerge('w-20 text-sm font-light', showRequired?.image && 'error')}>Image</label
+			class={twMerge('w-20 text-sm font-light', showRequired?.image && 'error')}
+			>{m.mcp_runtime_image()}</label
 		>
 		<input
 			id="containerized-image"
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.image && 'error')}
 			bind:value={config.image}
 			disabled={readonly}
-			placeholder="e.g. docker.io/myorg/mcp-server:latest"
+			placeholder={m.mcp_example({ example: 'docker.io/myorg/mcp-server:latest' })}
 			onblur={() => {
 				if (config.image) {
 					config.image = config.image.trim();
@@ -163,7 +165,8 @@
 	<div class="flex items-center gap-4">
 		<label
 			for="containerized-port"
-			class={twMerge('w-20 text-sm font-light', showRequired?.port && 'error')}>Port</label
+			class={twMerge('w-20 text-sm font-light', showRequired?.port && 'error')}
+			>{m.mcp_runtime_port()}</label
 		>
 		<input
 			id="containerized-port"
@@ -171,7 +174,7 @@
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.port && 'error')}
 			value={config.port > 0 ? config.port : ''}
 			disabled={readonly}
-			placeholder="e.g. 8080"
+			placeholder={m.mcp_example({ example: '8080' })}
 			min="1"
 			max="65535"
 			required
@@ -186,14 +189,15 @@
 	<div class="flex items-center gap-4">
 		<label
 			for="containerized-path"
-			class={twMerge('w-20 text-sm font-light', showRequired?.path && 'error')}>Path</label
+			class={twMerge('w-20 text-sm font-light', showRequired?.path && 'error')}
+			>{m.mcp_runtime_path()}</label
 		>
 		<input
 			id="containerized-path"
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.path && 'error')}
 			bind:value={config.path}
 			disabled={readonly}
-			placeholder="e.g. /mcp"
+			placeholder={m.mcp_example({ example: '/mcp' })}
 			onblur={() => {
 				if (config.path) {
 					config.path = config.path.trim();
@@ -214,7 +218,7 @@
 			class="text-input-filled dark:bg-base-100 w-full"
 			bind:value={config.healthzPath}
 			disabled={readonly}
-			placeholder="e.g. /healthz"
+			placeholder={m.mcp_example({ example: '/healthz' })}
 			onblur={() => {
 				if (config.healthzPath) {
 					config.healthzPath = config.healthzPath.trim();
@@ -225,13 +229,15 @@
 
 	<!-- Command field (optional) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-command" class="w-20 text-sm font-light">Command</label>
+		<label for="containerized-command" class="w-20 text-sm font-light"
+			>{m.mcp_runtime_command()}</label
+		>
 		<input
 			id="containerized-command"
 			class="text-input-filled dark:bg-base-100 w-full"
 			bind:value={config.command}
 			disabled={readonly}
-			placeholder="e.g. node server.js"
+			placeholder={m.mcp_example({ example: 'node server.js' })}
 			onblur={() => {
 				if (config.command) {
 					config.command = config.command.trim();
@@ -243,7 +249,7 @@
 	<!-- Arguments field (optional) -->
 	{#if config.args}
 		<div class="flex gap-4">
-			<span class="pt-2.5 text-sm font-light">Arguments</span>
+			<span class="pt-2.5 text-sm font-light">{m.mcp_runtime_arguments()}</span>
 			<div class="flex min-h-10 grow flex-col gap-4">
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
@@ -251,7 +257,7 @@
 							class="text-input-filled dark:bg-base-100 w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
-							placeholder="e.g. --config /app/config.json"
+							placeholder={m.mcp_example({ example: '--config /app/config.json' })}
 							onblur={() => {
 								if (config.args && config.args[i]) {
 									config.args[i] = config.args[i].trim();
@@ -260,7 +266,10 @@
 							onpaste={(e) => handlePaste(e, i)}
 						/>
 						{#if !readonly}
-							<IconButton onclick={() => removeArgument(i)} tooltip={{ text: 'Remove argument' }}>
+							<IconButton
+								onclick={() => removeArgument(i)}
+								tooltip={{ text: m.mcp_runtime_remove_argument() }}
+							>
 								<Trash2 class="size-4" />
 							</IconButton>
 						{/if}
@@ -274,7 +283,8 @@
 							class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
 							onclick={addArgument}
 						>
-							<Plus class="size-4" /> Argument
+							<Plus class="size-4" />
+							{m.mcp_runtime_argument()}
 						</button>
 					</div>
 				{/if}
@@ -284,7 +294,7 @@
 
 	{#if showEgressDomains}
 		<div class="flex gap-4">
-			<span class="pt-2.5 text-sm font-light">Egress Domains</span>
+			<span class="pt-2.5 text-sm font-light">{m.mcp_egress_domains()}</span>
 			<div class="flex min-h-10 grow flex-col gap-2">
 				<Toggle
 					label={toggleLabel}
@@ -297,7 +307,7 @@
 					bind:value={config.egressDomains}
 					class="text-input-filled dark:bg-base-100"
 					readonly={inputReadonly}
-					placeholder="hit &quot;Enter&quot; to insert"
+					placeholder={m.mcp_hit_enter_to_insert()}
 				/>
 				<p class="text-muted-content text-xs">{egressHelpText}</p>
 			</div>
@@ -309,7 +319,7 @@
 		<label
 			for="containerized-startup-timeout"
 			class={twMerge('text-sm font-light', showRequired?.startupTimeoutSeconds && 'error')}
-			>Startup Timeout (seconds)</label
+			>{m.mcp_runtime_startup_timeout()}</label
 		>
 		<input
 			type="number"

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
+	import { m } from '$lib/i18n';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import CornerCopyButton from './CornerCopyButton.svelte';
 	import McpTextResult from './McpTextResult.svelte';
@@ -53,10 +54,10 @@
 			<McpTextResult text={item.text} />
 		{/key}
 	{:else}
-		<CornerCopyButton text={item.text} label="Copy text" class={BOX}>
+		<CornerCopyButton text={item.text} label={m.mcp_tester_copy_text()} class={BOX}>
 			<pre
 				class="overflow-auto pr-10 text-sm whitespace-pre-wrap wrap-break-word"
-				aria-label="Text content">{item.text}</pre>
+				aria-label={m.mcp_tester_text_content()}>{item.text}</pre>
 		</CornerCopyButton>
 	{/if}
 {:else if type === 'image' && typeof item?.data === 'string' && mimeType}
@@ -64,11 +65,13 @@
 		{#if isSafeImageMimeType(mimeType)}
 			<img
 				src={`data:${mimeType};base64,${item.data}`}
-				alt="MCP server result"
+				alt={m.mcp_tester_server_result_alt()}
 				class="max-h-96 max-w-full rounded object-contain"
 			/>
 		{:else}
-			<p class="text-sm text-muted-content">Unsupported image type: {mimeType}</p>
+			<p class="text-sm text-muted-content">
+				{m.mcp_tester_unsupported_image_type({ type: mimeType })}
+			</p>
 		{/if}
 	</div>
 {:else if type === 'audio' && typeof item?.data === 'string' && mimeType}
@@ -78,29 +81,39 @@
 				<source src={`data:${mimeType};base64,${item.data}`} type={mimeType} />
 			</audio>
 		{:else}
-			<p class="text-sm text-muted-content">Unsupported audio type: {mimeType}</p>
+			<p class="text-sm text-muted-content">
+				{m.mcp_tester_unsupported_audio_type({ type: mimeType })}
+			</p>
 		{/if}
 	</div>
 {:else if type === 'resource' && resource}
 	{#if typeof resource.text === 'string'}
-		<CornerCopyButton text={resource.text} label="Copy text" class={`${BOX} space-y-2`}>
+		<CornerCopyButton
+			text={resource.text}
+			label={m.mcp_tester_copy_text()}
+			class={`${BOX} space-y-2`}
+		>
 			<p class="pr-10 text-xs font-medium break-all">
-				{String(resource.uri ?? 'Embedded resource')}
+				{String(resource.uri ?? m.mcp_tester_embedded_resource())}
 			</p>
 			<pre class="overflow-auto text-sm whitespace-pre-wrap wrap-break-word">{resource.text}</pre>
 		</CornerCopyButton>
 	{:else}
 		<div class={`${BOX} space-y-2`}>
-			<p class="text-xs font-medium break-all">{String(resource.uri ?? 'Embedded resource')}</p>
+			<p class="text-xs font-medium break-all">
+				{String(resource.uri ?? m.mcp_tester_embedded_resource())}
+			</p>
 			{#if typeof resource.blob === 'string' && resourceMimeType && isSafeImageMimeType(resourceMimeType)}
 				<img
 					src={`data:${resourceMimeType};base64,${resource.blob}`}
-					alt="Embedded MCP resource"
+					alt={m.mcp_tester_embedded_resource_alt()}
 					class="max-h-96 max-w-full rounded object-contain"
 				/>
 			{:else}
 				<p class="text-sm text-muted-content">
-					Binary or unsupported embedded content ({resourceMimeType || 'unknown type'})
+					{m.mcp_tester_unsupported_embedded({
+						type: resourceMimeType || m.mcp_tester_unknown_type()
+					})}
 				</p>
 			{/if}
 		</div>
@@ -124,7 +137,9 @@
 	</div>
 {:else}
 	<div class={BOX}>
-		<p class="mb-2 text-sm text-muted-content">Unsupported content. Raw metadata is shown.</p>
-		<JsonPreview value={content} ariaLabel="Unsupported MCP content" />
+		<p class="mb-2 text-sm text-muted-content">
+			{m.mcp_tester_unsupported_content()}
+		</p>
+		<JsonPreview value={content} ariaLabel={m.mcp_tester_unsupported_mcp_content()} />
 	</div>
 {/if}
