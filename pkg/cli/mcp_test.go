@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
@@ -192,7 +193,7 @@ func TestMCPSearchRegistryAuthErrors(t *testing.T) {
 	}
 }
 
-func TestMCPValidateCatalogYAML(t *testing.T) {
+func TestMCPValidateCatalog(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "entry.yaml")
 	if err := os.WriteFile(path, []byte(`name: Test
@@ -221,7 +222,7 @@ remoteConfig:
 		t.Fatal(err)
 	}
 
-	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", dir, path)
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +231,7 @@ remoteConfig:
 	}
 }
 
-func TestMCPValidateCatalogYAMLRequiresEntryKey(t *testing.T) {
+func TestMCPValidateCatalogRequiresEntryKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry.yaml")
 	if err := os.WriteFile(path, []byte(`
 - name: Missing
@@ -252,13 +253,13 @@ func TestMCPValidateCatalogYAMLRequiresEntryKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", "--require-entry-key", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", "--require-entry-key", path)
 	if err == nil || !strings.Contains(err.Error(), "entry.yaml[0]: entryKey is required") || !strings.Contains(err.Error(), "entry.yaml[1]: entryKey is required") {
 		t.Fatalf("error = %v, want both missing entryKey errors", err)
 	}
 }
 
-func TestMCPValidateCatalogYAMLSupportsEntryArrays(t *testing.T) {
+func TestMCPValidateCatalogSupportsEntryArrays(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entries.yaml")
 	if err := os.WriteFile(path, []byte(`
 - name: First
@@ -281,7 +282,7 @@ func TestMCPValidateCatalogYAMLSupportsEntryArrays(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +291,7 @@ func TestMCPValidateCatalogYAMLSupportsEntryArrays(t *testing.T) {
 	}
 }
 
-func TestMCPValidateCatalogYAMLSupportsVMCPs(t *testing.T) {
+func TestMCPValidateCatalogSupportsVMCPs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
 	content := `- entryKey: search
   name: Search
@@ -313,13 +314,13 @@ func TestMCPValidateCatalogYAMLSupportsVMCPs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", path)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestMCPValidateCatalogYAMLRequiresVMCPComponentID(t *testing.T) {
+func TestMCPValidateCatalogRequiresVMCPComponentID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
 	content := `type: vmcp
 displayName: Email
@@ -331,13 +332,13 @@ components:
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", path)
 	if err == nil || !strings.Contains(err.Error(), `vMCP "Email" components[0] id is required`) {
 		t.Fatalf("error = %v, want missing vMCP component id error", err)
 	}
 }
 
-func TestMCPValidateCatalogYAMLAggregatesErrors(t *testing.T) {
+func TestMCPValidateCatalogAggregatesErrors(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"duplicate-key.yaml": `name: First
@@ -373,7 +374,7 @@ npxConfig:
 		}
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", dir)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", dir)
 	if err == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -389,8 +390,8 @@ npxConfig:
 	}
 }
 
-func TestMCPValidateCatalogYAMLRejectsLegacyConfiguration(t *testing.T) {
-	for _, command := range []string{"validate-catalog-yaml", "validate-system-catalog-yaml"} {
+func TestMCPValidateCatalogRejectsLegacyConfiguration(t *testing.T) {
+	for _, command := range []string{"validate-catalog", "validate-system-catalog"} {
 		t.Run(command, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "entry.yaml")
 			if err := os.WriteFile(path, []byte("name: Legacy\nenv: []\n"), 0o600); err != nil {
@@ -405,7 +406,7 @@ func TestMCPValidateCatalogYAMLRejectsLegacyConfiguration(t *testing.T) {
 	}
 }
 
-func TestMCPValidateCatalogYAMLAllowsUnknownFields(t *testing.T) {
+func TestMCPValidateCatalogAllowsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry.yaml")
 	content := `name: Test
 entryKey: test
@@ -421,13 +422,13 @@ unknownField: true
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", path)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestMCPValidateSystemCatalogYAML(t *testing.T) {
+func TestMCPValidateSystemCatalog(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "entries.yaml")
 	if err := os.WriteFile(path, []byte(`
@@ -458,7 +459,7 @@ func TestMCPValidateSystemCatalogYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", dir, path)
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog", dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +468,7 @@ func TestMCPValidateSystemCatalogYAML(t *testing.T) {
 	}
 }
 
-func TestMCPValidateSystemCatalogYAMLAggregatesErrors(t *testing.T) {
+func TestMCPValidateSystemCatalogAggregatesErrors(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"unknown-field.yaml": `name: Unknown
@@ -520,7 +521,7 @@ config:
 		}
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", dir)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog", dir)
 	if err == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -538,7 +539,7 @@ config:
 	}
 }
 
-func TestMCPValidateSystemCatalogYAMLAllowsUnknownFields(t *testing.T) {
+func TestMCPValidateSystemCatalogAllowsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry.yaml")
 	content := `name: Test
 shortDescription: Test
@@ -553,13 +554,13 @@ unknownField: true
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog", path)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestMCPValidateSystemCatalogYAMLRejectsDuplicateSanitizedNames(t *testing.T) {
+func TestMCPValidateSystemCatalogRejectsDuplicateSanitizedNames(t *testing.T) {
 	dir := t.TempDir()
 	firstPath := filepath.Join(dir, "first.yaml")
 	secondPath := filepath.Join(dir, "second.yaml")
@@ -580,7 +581,7 @@ npxConfig:
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", firstPath, secondPath)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog", firstPath, secondPath)
 	if err == nil {
 		t.Fatal("expected duplicate sanitized name error")
 	}
@@ -623,4 +624,79 @@ func registryTestServer(name, title, description, remoteURL string, configuratio
 		server.Meta.Obot = &types.RegistryObotMeta{ConfigurationRequired: true}
 	}
 	return server
+}
+
+func TestMCPCatalogFormats(t *testing.T) {
+	for _, command := range []string{"validate-catalog", "validate-system-catalog", "convert-catalog", "generate-vmcp-catalog"} {
+		t.Run(command, func(t *testing.T) {
+			help, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, "--help")
+			require.NoError(t, err)
+			require.Contains(t, help, "mcp "+command)
+			require.Contains(t, help, "--format string")
+			require.Contains(t, help, `(default "yaml")`)
+
+			_, err = executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, "--format", "xml", "unused")
+			require.ErrorContains(t, err, `invalid --format "xml": must be yaml or json`)
+		})
+	}
+}
+
+func TestMCPCatalogYAMLAliases(t *testing.T) {
+	for _, command := range []string{"validate-catalog", "validate-system-catalog", "convert-catalog", "generate-vmcp-catalog"} {
+		t.Run(command, func(t *testing.T) {
+			root := mcpTestRoot("http://unused.example")
+			path := filepath.Join(t.TempDir(), "entry.yaml")
+			content := "name: Test\nshortDescription: Test\ndescription: Test\nicon: icon\nruntime: npx\nnpxConfig:\n  package: test\n"
+			if command == "convert-catalog" {
+				content += "env:\n  - key: TOKEN\n"
+			}
+			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+			if command == "generate-vmcp-catalog" {
+				root = mcpTestRoot(generateTestServer(t, generateTestItems()).URL)
+				path = generateTestSourceURL
+			}
+
+			stdout, err := executeMCPTestCommand(t, root, command+"-yaml", path)
+			require.NoError(t, err)
+			switch command {
+			case "convert-catalog":
+				require.Contains(t, stdout, "Converted 1 catalog files.")
+			case "generate-vmcp-catalog":
+				require.Contains(t, stdout, "- type: vmcp\n")
+			default:
+				require.Contains(t, stdout, "entries in 1 files are valid.")
+			}
+
+			_, err = executeMCPTestCommand(t, root, command+"-yaml", "--format", "xml", path)
+			require.ErrorContains(t, err, `invalid --format "xml": must be yaml or json`)
+		})
+	}
+}
+
+func TestMCPValidateCatalogJSON(t *testing.T) {
+	for _, command := range []string{"validate-catalog", "validate-system-catalog"} {
+		t.Run(command, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "entries.json")
+			entry := `[{"name":"Test","entryKey":"test","shortDescription":"Test","description":"Test","icon":"icon","runtime":"npx","npxConfig":{"package":"test"},"unknownField":true}]`
+			require.NoError(t, os.WriteFile(path, []byte(entry), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "skip.json"), []byte("invalid"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte("skip.json\n"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte("invalid YAML catalog"), 0o600))
+
+			stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, "--format", "json", dir, path)
+			require.NoError(t, err)
+			require.Contains(t, stdout, "entries in 1 files are valid.")
+
+			// Explicit files are checked regardless of extension, and JSON mode rejects YAML.
+			require.NoError(t, os.WriteFile(path, []byte("name: Test\n"), 0o600))
+			_, err = executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, "--format", "json", path)
+			require.ErrorContains(t, err, "invalid JSON catalog")
+
+			// Valid JSON must still pass the catalog schema validation.
+			require.NoError(t, os.WriteFile(path, []byte(`{"name":"Test","env":[]}`), 0o600))
+			_, err = executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), command, "--format", "json", path)
+			require.ErrorContains(t, err, "top-level config")
+		})
+	}
 }

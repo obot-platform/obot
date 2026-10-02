@@ -96,22 +96,31 @@ Wildcards do not cross `/`, and `**` is not recursive. To exclude a whole direct
 With the `obot` CLI installed, run this from your catalog repository root before pushing changes:
 
 ```sh
-obot mcp validate-catalog-yaml .
+obot mcp validate-catalog .
 ```
 
-Directory validation uses the same file-selection rules as catalog sync, including both pattern files and hidden-directory skipping. It checks the selected catalog entries and exits with an error if validation fails, making it suitable for CI.
+Directory validation honors the same pattern files and hidden-directory skipping as catalog sync, then selects files for `--format`: `*.yaml` and `*.yml` for `yaml` (the default), or `*.json` for `json`. It checks the selected catalog entries and exits with an error if validation fails, making it suitable for CI.
 
 You can also validate individual files:
 
 ```sh
-obot mcp validate-catalog-yaml servers/github.yaml
+obot mcp validate-catalog servers/github.yaml
 ```
 
-Explicit file arguments are validated directly, without applying directory filters.
+Explicit file arguments are validated directly, without applying directory filters. Use `--format json` to require JSON input:
+
+```sh
+obot mcp validate-catalog --format json servers/github.json
+obot mcp validate-catalog --format json .
+```
+
+For system MCP catalog entries, use `obot mcp validate-system-catalog` with the same `--format yaml|json` flag. Both commands default to `yaml`; other format values are rejected.
+
+The previous names, `validate-catalog-yaml` and `validate-system-catalog-yaml`, remain available as compatibility aliases with the same flags and YAML default.
 
 ## Configuration Format
 
-MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:
+MCP server configurations can use YAML or JSON files, each defining a single MCP server. The examples below use YAML. These files contain comprehensive metadata including:
 
 - **Name and Description**: Human-readable identification
 - **Tool Previews**: Documentation of available tools and their parameters

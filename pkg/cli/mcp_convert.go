@@ -19,27 +19,22 @@ var (
 	errCompositeCatalogEntry = errors.New("composite catalog entries must be converted to vMCPs separately")
 )
 
-type MCPConvertCatalogYAML struct{}
+type MCPConvertCatalog struct {
+	Format string `usage:"Catalog format: yaml or json" default:"yaml"`
+}
 
-func (*MCPConvertCatalogYAML) Customize(cmd *cobra.Command) {
-	cmd.Use = "convert-catalog-yaml <path>"
-	cmd.Short = "Convert MCP catalog YAML to the config schema in place"
-	cmd.Long = "Convert a catalog YAML file, or recursively convert YAML files in a directory, in place. Directory traversal honors .obotcatalogs and .ignoreobotcatalogs, just like catalog sync. Review the changes in version control before publishing the catalog."
+func (*MCPConvertCatalog) Customize(cmd *cobra.Command) {
+	cmd.Use = "convert-catalog <path>"
+	cmd.Aliases = []string{"convert-catalog-yaml"}
+	cmd.Short = "Convert MCP catalog files to the config schema in place"
+	cmd.Long = "Convert a catalog file, or recursively convert files of the selected format in a directory, in place. The format defaults to yaml; use --format json for JSON. Directory traversal honors .obotcatalogs and .ignoreobotcatalogs, just like catalog sync. Review the changes in version control before publishing the catalog."
 	cmd.Args = cobra.ExactArgs(1)
 }
 
-func (*MCPConvertCatalogYAML) Run(cmd *cobra.Command, args []string) error {
-	info, err := os.Stat(args[0])
-	if err != nil {
-		return err
-	}
+func (m *MCPConvertCatalog) Run(cmd *cobra.Command, args []string) error {
 	converted := 0
-	_, err = validateCatalogPaths(args, func(path string) error {
-		// The shared walker also selects JSON files; this command converts YAML only.
-		if ext := filepath.Ext(path); info.IsDir() && ext != ".yaml" && ext != ".yml" {
-			return nil
-		}
-		changed, err := convertCatalogYAMLFile(path)
+	_, err := validateCatalogPaths(args, m.Format, func(path string) error {
+		changed, err := convertCatalogFile(path, m.Format)
 		if err != nil {
 			if errors.Is(err, errCompositeCatalogEntry) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s contains a composite catalog entry, which is no longer supported by catalog sync. The file was left unchanged; convert composites to vMCPs separately.\n", path)
@@ -56,7 +51,7 @@ func (*MCPConvertCatalogYAML) Run(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func convertCatalogYAMLFile(path string) (bool, error) {
+func convertCatalogFile(path, format string) (bool, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return false, err
@@ -72,6 +67,13 @@ func convertCatalogYAMLFile(path string) (bool, error) {
 	if err != nil || converted == nil {
 		return false, err
 	}
+	if format == "json" {
+		converted, err = catalogJSON(converted)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	// Replace only after conversion and validation succeed. A failed write must
 	// never truncate the original catalog, which may contain static secrets.
 	file, err := os.CreateTemp(filepath.Dir(path), ".obot-catalog-*")

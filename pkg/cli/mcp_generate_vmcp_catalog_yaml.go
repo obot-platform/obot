@@ -22,35 +22,44 @@ const (
 	outputModeDir    = "dir"
 )
 
-type MCPGenerateVMCPCatalogYAML struct {
+type MCPGenerateVMCPCatalog struct {
 	PromptConfig
 
-	Mode      string `usage:"Where to write the YAML: stdout, file, or dir" default:"stdout"`
+	Format    string `usage:"Output format: yaml or json" default:"yaml"`
+	Mode      string `usage:"Where to write the catalog: stdout, file, or dir" default:"stdout"`
 	Overwrite bool   `usage:"Replace existing files in file and dir modes"`
 
 	root *Obot
 }
 
-func (m *MCPGenerateVMCPCatalogYAML) Customize(cmd *cobra.Command) {
-	cmd.Use = "generate-vmcp-catalog-yaml <catalog-source-url> [path]"
-	cmd.Short = "Generate catalog YAML for orphaned vMCPs from a catalog source"
-	cmd.Long = `Generate catalog YAML for orphaned vMCPs from the given catalog source URL. An orphaned vMCP was migrated from a composite catalog entry synced from that source, and no catalog source defines it yet.
+func (m *MCPGenerateVMCPCatalog) Customize(cmd *cobra.Command) {
+	cmd.Use = "generate-vmcp-catalog <catalog-source-url> [path]"
+	cmd.Aliases = []string{"generate-vmcp-catalog-yaml"}
+	cmd.Short = "Generate catalog definitions for orphaned vMCPs from a catalog source"
+	cmd.Long = `Generate catalog definitions for orphaned vMCPs from the given catalog source URL. An orphaned vMCP was migrated from a composite catalog entry synced from that source, and no catalog source defines it yet.
 
-Publish the YAML in that same catalog source in place of the composite definitions. On its next sync, Obot takes over each vMCP and keeps its existing connections, configuration, and credentials.
+Publish the definitions in that same catalog source in place of the composite definitions. On its next sync, Obot takes over each vMCP and keeps its existing connections, configuration, and credentials.
 
 Modes:
-  stdout  Print every vMCP as one YAML list (the default).
-  file    Write every vMCP as one YAML list to [path].
+  stdout  Print every vMCP as one list (the default).
+  file    Write every vMCP as one list to [path].
   dir     Write each vMCP to its own file in the [path] directory, named after its display name.
 
+Output defaults to YAML; use --format json for JSON. In dir mode, file names use the selected format as their extension.
+
 Existing files are never replaced unless --overwrite is set.`
-	cmd.Example = `  obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog
-  obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode file vmcps.yaml
-  obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode dir ./vmcps`
+	cmd.Example = `  obot mcp generate-vmcp-catalog https://github.com/example/catalog
+  obot mcp generate-vmcp-catalog https://github.com/example/catalog --mode file vmcps.yaml
+  obot mcp generate-vmcp-catalog https://github.com/example/catalog --format json --mode file vmcps.json
+  obot mcp generate-vmcp-catalog https://github.com/example/catalog --mode dir ./vmcps`
 	cmd.Args = cobra.RangeArgs(1, 2)
 }
 
-func (m *MCPGenerateVMCPCatalogYAML) Run(cmd *cobra.Command, args []string) error {
+func (m *MCPGenerateVMCPCatalog) Run(cmd *cobra.Command, args []string) error {
+	if err := validateCatalogFormat(m.Format); err != nil {
+		return err
+	}
+
 	switch m.Mode {
 	case outputModeStdout:
 		if len(args) != 1 {
@@ -64,7 +73,7 @@ func (m *MCPGenerateVMCPCatalogYAML) Run(cmd *cobra.Command, args []string) erro
 		return fmt.Errorf("invalid --mode %q: must be stdout, file, or dir", m.Mode)
 	}
 	if m.root == nil || m.root.Client == nil {
-		return fmt.Errorf("mcp generate-vmcp-catalog-yaml: no API client configured")
+		return fmt.Errorf("mcp generate-vmcp-catalog: no API client configured")
 	}
 
 	sourceURL := strings.TrimSpace(args[0])
@@ -108,7 +117,7 @@ func (m *MCPGenerateVMCPCatalogYAML) Run(cmd *cobra.Command, args []string) erro
 
 	switch m.Mode {
 	case outputModeStdout:
-		err = writeVMCPList(cmd.OutOrStdout(), generated)
+		err = writeVMCPList(cmd.OutOrStdout(), generated, m.Format)
 	case outputModeFile:
 		err = m.writeFile(args[1], generated)
 		if err == nil {
@@ -128,7 +137,7 @@ func (m *MCPGenerateVMCPCatalogYAML) Run(cmd *cobra.Command, args []string) erro
 	return nil
 }
 
-func writeVMCPList(w io.Writer, items []types.OrphanedVMCPCatalogItem) error {
+func writeVMCPList(w io.Writer, items []types.OrphanedVMCPCatalogItem, format string) error {
 	list := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
 	for _, item := range items {
 		var document yaml.Node
@@ -141,6 +150,21 @@ func writeVMCPList(w io.Writer, items []types.OrphanedVMCPCatalogItem) error {
 		list.Content = append(list.Content, document.Content[0])
 	}
 
+	if format == "json" {
+		data, err := yaml.Marshal(list)
+		if err != nil {
+			return err
+		}
+
+		data, err = catalogJSON(data)
+		if err != nil {
+			return err
+		}
+
+		_, err = w.Write(data)
+		return err
+	}
+
 	encoder := yaml.NewEncoder(w)
 	encoder.SetIndent(2)
 	if err := encoder.Encode(list); err != nil {
@@ -149,9 +173,9 @@ func writeVMCPList(w io.Writer, items []types.OrphanedVMCPCatalogItem) error {
 	return encoder.Close()
 }
 
-func (m *MCPGenerateVMCPCatalogYAML) writeFile(path string, items []types.OrphanedVMCPCatalogItem) error {
+func (m *MCPGenerateVMCPCatalog) writeFile(path string, items []types.OrphanedVMCPCatalogItem) error {
 	var buf bytes.Buffer
-	if err := writeVMCPList(&buf, items); err != nil {
+	if err := writeVMCPList(&buf, items, m.Format); err != nil {
 		return err
 	}
 	if err := writeOutputFile(path, buf.Bytes(), m.Overwrite); errors.Is(err, os.ErrExist) {
@@ -164,7 +188,7 @@ func (m *MCPGenerateVMCPCatalogYAML) writeFile(path string, items []types.Orphan
 
 // writeDir writes each vMCP to its own file and returns how many were left
 // unwritten because their file already exists.
-func (m *MCPGenerateVMCPCatalogYAML) writeDir(stderr io.Writer, dir string, items []types.OrphanedVMCPCatalogItem) (int, error) {
+func (m *MCPGenerateVMCPCatalog) writeDir(stderr io.Writer, dir string, items []types.OrphanedVMCPCatalogItem) (int, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return 0, err
 	}
@@ -174,15 +198,24 @@ func (m *MCPGenerateVMCPCatalogYAML) writeDir(stderr io.Writer, dir string, item
 		seen       = make(map[string]struct{}, len(items))
 	)
 	for _, item := range items {
-		name := vmcpFileName(item.DisplayName)
+		name := vmcpFileName(item.DisplayName, m.Format)
 		// Display names are not unique, and some file systems ignore case.
 		if _, ok := seen[strings.ToLower(name)]; ok {
-			name = vmcpFileName(item.DisplayName + "-" + item.EntryKey)
+			name = vmcpFileName(item.DisplayName+"-"+item.EntryKey, m.Format)
 		}
 		seen[strings.ToLower(name)] = struct{}{}
 
+		data := []byte(item.YAML)
+		if m.Format == "json" {
+			var err error
+			data, err = catalogJSON(data)
+			if err != nil {
+				return notWritten, fmt.Errorf("invalid YAML for vMCP %q: %w", item.DisplayName, err)
+			}
+		}
+
 		path := filepath.Join(dir, name)
-		if err := writeOutputFile(path, []byte(item.YAML), m.Overwrite); errors.Is(err, os.ErrExist) {
+		if err := writeOutputFile(path, data, m.Overwrite); errors.Is(err, os.ErrExist) {
 			fmt.Fprintf(stderr, "Skipping vMCP %q: %s already exists; use --overwrite to replace it\n", item.DisplayName, path)
 			notWritten++
 			continue
@@ -210,8 +243,8 @@ func writeOutputFile(path string, data []byte, overwrite bool) error {
 	return errors.Join(writeErr, closeErr)
 }
 
-// vmcpFileName returns a portable YAML file name for a vMCP display name.
-func vmcpFileName(displayName string) string {
+// vmcpFileName returns a portable catalog file name for a vMCP display name.
+func vmcpFileName(displayName, format string) string {
 	name := strings.Map(func(r rune) rune {
 		if r < 0x20 || strings.ContainsRune(`/\:*?"<>|`, r) {
 			return '-'
@@ -223,5 +256,5 @@ func vmcpFileName(displayName string) string {
 	if name == "" {
 		name = "vmcp"
 	}
-	return name + ".yaml"
+	return name + "." + format
 }

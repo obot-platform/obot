@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,11 +32,15 @@ type MCP struct {
 	root *Obot
 }
 
-type MCPValidateCatalogYAML struct {
+type MCPValidateCatalog struct {
+	Format string `usage:"Input format: yaml or json" default:"yaml"`
+
 	RequireEntryKey bool `usage:"Require every catalog entry to set entryKey"`
 }
 
-type MCPValidateSystemCatalogYAML struct{}
+type MCPValidateSystemCatalog struct {
+	Format string `usage:"Input format: yaml or json" default:"yaml"`
+}
 
 type MCPSearch struct {
 	PromptConfig
@@ -64,24 +69,25 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Short = "Manage MCP servers"
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
-	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
-	c.AddCommand(cmd.Command(&MCPConvertCatalogYAML{}))
-	c.AddCommand(cmd.Command(&MCPGenerateVMCPCatalogYAML{root: m.root}))
-	c.AddCommand(cmd.Command(&MCPValidateSystemCatalogYAML{}))
+	c.AddCommand(cmd.Command(&MCPValidateCatalog{}))
+	c.AddCommand(cmd.Command(&MCPConvertCatalog{}))
+	c.AddCommand(cmd.Command(&MCPGenerateVMCPCatalog{root: m.root}))
+	c.AddCommand(cmd.Command(&MCPValidateSystemCatalog{}))
 }
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
 }
 
-func (m *MCPValidateCatalogYAML) Customize(cmd *cobra.Command) {
-	cmd.Use = "validate-catalog-yaml <path>..."
+func (m *MCPValidateCatalog) Customize(cmd *cobra.Command) {
+	cmd.Use = "validate-catalog <path>..."
+	cmd.Aliases = []string{"validate-catalog-yaml"}
 	cmd.Short = "Validate MCP catalog entry files"
 	cmd.Args = cobra.MinimumNArgs(1)
 }
 
-func (m *MCPValidateCatalogYAML) Run(cmd *cobra.Command, args []string) error {
-	files, err := validateMCPCatalogPaths(cmd.Context(), args, m.RequireEntryKey)
+func (m *MCPValidateCatalog) Run(cmd *cobra.Command, args []string) error {
+	files, err := validateMCPCatalogPaths(cmd.Context(), args, m.RequireEntryKey, m.Format)
 	if err != nil {
 		return err
 	}
@@ -89,22 +95,23 @@ func (m *MCPValidateCatalogYAML) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKey bool) (int, error) {
+func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKey bool, format string) (int, error) {
 	seenEntryKeys := make(map[string]string)
 	seenVMCPKeys := make(map[string]string)
-	return validateCatalogPaths(paths, func(path string) error {
+	return validateCatalogPaths(paths, format, func(path string) error {
 		return validateMCPCatalogFile(ctx, path, requireEntryKey, seenEntryKeys, seenVMCPKeys)
 	})
 }
 
-func (m *MCPValidateSystemCatalogYAML) Customize(cmd *cobra.Command) {
-	cmd.Use = "validate-system-catalog-yaml <path>..."
+func (m *MCPValidateSystemCatalog) Customize(cmd *cobra.Command) {
+	cmd.Use = "validate-system-catalog <path>..."
+	cmd.Aliases = []string{"validate-system-catalog-yaml"}
 	cmd.Short = "Validate system MCP catalog entry files"
 	cmd.Args = cobra.MinimumNArgs(1)
 }
 
-func (m *MCPValidateSystemCatalogYAML) Run(cmd *cobra.Command, args []string) error {
-	files, err := validateSystemMCPCatalogPaths(cmd.Context(), args)
+func (m *MCPValidateSystemCatalog) Run(cmd *cobra.Command, args []string) error {
+	files, err := validateSystemMCPCatalogPaths(cmd.Context(), args, m.Format)
 	if err != nil {
 		return err
 	}
@@ -112,14 +119,42 @@ func (m *MCPValidateSystemCatalogYAML) Run(cmd *cobra.Command, args []string) er
 	return nil
 }
 
-func validateSystemMCPCatalogPaths(ctx context.Context, paths []string) (int, error) {
+func validateSystemMCPCatalogPaths(ctx context.Context, paths []string, format string) (int, error) {
 	seenSanitizedNames := make(map[string]string)
-	return validateCatalogPaths(paths, func(path string) error {
+	return validateCatalogPaths(paths, format, func(path string) error {
 		return validateSystemMCPCatalogFile(ctx, path, seenSanitizedNames)
 	})
 }
 
-func validateCatalogPaths(paths []string, validateFile func(string) error) (int, error) {
+func validateCatalogFormat(format string) error {
+	switch format {
+	case "yaml", "json":
+		return nil
+	default:
+		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
+	}
+}
+
+// catalogJSON retains unknown fields when formatting catalog YAML as JSON.
+func catalogJSON(data []byte) ([]byte, error) {
+	data, err := yaml.YAMLToJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var output bytes.Buffer
+	if err := json.Indent(&output, data, "", "  "); err != nil {
+		return nil, err
+	}
+
+	return append(output.Bytes(), '\n'), nil
+}
+
+func validateCatalogPaths(paths []string, format string, validateFile func(string) error) (int, error) {
+	if err := validateCatalogFormat(format); err != nil {
+		return 0, err
+	}
+
 	var validationErr error
 	seenFiles := make(map[string]struct{})
 	validateFileOnce := func(path string) error {
@@ -131,6 +166,16 @@ func validateCatalogPaths(paths []string, validateFile func(string) error) (int,
 			return nil
 		}
 		seenFiles[absPath] = struct{}{}
+		if format == "json" {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+			if !json.Valid(data) {
+				return fmt.Errorf("%s: invalid JSON catalog", path)
+			}
+		}
+
 		return validateFile(path)
 	}
 
@@ -155,6 +200,11 @@ func validateCatalogPaths(paths []string, validateFile func(string) error) (int,
 				validationErr = errors.Join(validationErr, fmt.Errorf("%s: %w", input, walkErr))
 				break
 			}
+			ext := filepath.Ext(path)
+			if format == "json" && ext != ".json" || format == "yaml" && ext != ".yaml" && ext != ".yml" {
+				continue
+			}
+
 			validationErr = errors.Join(validationErr, validateFileOnce(path))
 		}
 	}

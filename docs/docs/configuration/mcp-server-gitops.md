@@ -98,22 +98,42 @@ Wildcards do not cross `/`, and `**` is not recursive. To exclude a whole direct
 With the `obot` CLI installed, run this from your catalog repository root before pushing changes:
 
 ```sh
-obot mcp validate-catalog-yaml .
+obot mcp validate-catalog .
 ```
 
-Directory validation uses the same file-selection rules as catalog sync, including both pattern files and hidden-directory skipping. It checks the selected catalog entries and exits with an error if validation fails, making it suitable for CI.
+Directory validation honors the same pattern files and hidden-directory skipping as catalog sync, then selects files for `--format`: `*.yaml` and `*.yml` for `yaml` (the default), or `*.json` for `json`. It checks the selected catalog entries and exits with an error if validation fails, making it suitable for CI.
 
 You can also validate individual files:
 
 ```sh
-obot mcp validate-catalog-yaml servers/github.yaml
+obot mcp validate-catalog servers/github.yaml
 ```
 
-Explicit file arguments are validated directly, without applying directory filters.
+Explicit file arguments are validated directly, without applying directory filters. Use `--format json` to require JSON input:
+
+```sh
+obot mcp validate-catalog --format json servers/github.json
+obot mcp validate-catalog --format json .
+```
+
+For system MCP catalog entries, use `obot mcp validate-system-catalog` with the same `--format yaml|json` flag. Both commands default to `yaml`; other format values are rejected.
+
+The previous names, `validate-catalog-yaml` and `validate-system-catalog-yaml`, remain available as compatibility aliases with the same flags and YAML default.
+
+## Converting Legacy Catalog Configuration
+
+Use `obot mcp convert-catalog` to migrate legacy `env`, header, and `serverUserType` fields to the current `config` schema in place:
+
+```sh
+obot mcp convert-catalog servers/github.yaml
+obot mcp convert-catalog --format json servers/github.json
+```
+
+`--format` defaults to `yaml` and accepts `yaml` or `json`. For a directory, only files with the selected format's extensions are converted, honoring `.obotcatalogs` and `.ignoreobotcatalogs`. YAML conversion preserves comments; JSON conversion writes JSON. Unknown fields are retained, and a file that fails conversion is left unchanged. Review the changes before publishing. Composite definitions must be migrated to vMCPs separately. The previous name, `convert-catalog-yaml`, remains a compatibility alias.
 
 ## Configuration Format
 
-MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:
+MCP server configurations can use YAML or JSON files, each defining a single MCP server. The examples below use YAML. These files contain comprehensive metadata including:
 
 - **Name and Description**: Human-readable identification
 - **Tool Previews**: Documentation of available tools and their parameters
@@ -222,7 +242,7 @@ components:
 
 The source must also contain entries with `entryKey: obot-gmail` and `entryKey: obot-outlook`. If the original composite had no `entryKey`, omit `entryKey: email` above and keep `displayName: Email` unchanged.
 
-Rather than writing replacements by hand, use `obot mcp generate-vmcp-catalog-yaml` to generate them. See [Migrating Git-synced composites to vMCPs](#migrating-git-synced-composites-to-vmcps).
+Rather than writing replacements by hand, use `obot mcp generate-vmcp-catalog` to generate them. See [Migrating Git-synced composites to vMCPs](#migrating-git-synced-composites-to-vmcps).
 
 ### Tool Previews
 
@@ -581,12 +601,12 @@ When Obot upgrades to a release without composite MCP servers, it converts every
 
 Composites that you created in the Obot UI need no further action. A composite that was synced from a Git source becomes an **orphaned** vMCP: Obot keeps serving it, but no catalog source defines it. To manage it through GitOps again, publish a matching vMCP definition in the same source. On its next sync, Obot adopts the vMCP instead of creating a new one, so connections and credentials carry over.
 
-`obot mcp generate-vmcp-catalog-yaml` generates those definitions.
+`obot mcp generate-vmcp-catalog` generates those definitions. The previous name, `generate-vmcp-catalog-yaml`, remains a compatibility alias with the same flags and YAML default.
 
 ### What the command does
 
 ```bash
-obot mcp generate-vmcp-catalog-yaml <catalog-source-url> [path] [--mode stdout|file|dir] [--overwrite]
+obot mcp generate-vmcp-catalog <catalog-source-url> [path] [--format yaml|json] [--mode stdout|file|dir] [--overwrite]
 ```
 
 The command asks Obot for every orphaned vMCP in the default catalog that was migrated from a composite synced from `<catalog-source-url>`. It then writes one `type: vmcp` catalog item for each. Each item contains:
@@ -602,23 +622,23 @@ The command only reads from Obot. It doesn't change Obot or your repository.
 ### Before you begin
 
 - **Use an administrator account.** Sign in with the CLI first (for example, `obot login --url https://obot.example.com`), or set `OBOT_BASE_URL` and `OBOT_TOKEN`.
-- **Finish the upgrade and let the catalog sync.** Component references are built from the catalog entries' current sources. If a source URL changed, entries keep reporting the old URL until the catalog syncs. For example, an upgrade can move the default catalog to a new branch. Obot starts a sync automatically when an upgrade changes the default source URL. If you changed a source yourself, click **Sync** on **Admin → MCP Servers** and wait for it to finish. The command refuses to generate YAML for a component whose entry still reports a removed source.
+- **Finish the upgrade and let the catalog sync.** Component references are built from the catalog entries' current sources. If a source URL changed, entries keep reporting the old URL until the catalog syncs. For example, an upgrade can move the default catalog to a new branch. Obot starts a sync automatically when an upgrade changes the default source URL. If you changed a source yourself, click **Sync** on **Admin → MCP Servers** and wait for it to finish. The command refuses to generate a definition for a component whose entry still reports a removed source.
 - **Know the exact source URL the composite came from.** It must be the URL configured in Obot, including any branch path such as `/v2-schema`. The scheme (`http://` or `https://`) and trailing slashes are ignored when matching.
 
 ### Migrate a catalog source
 
-1. **Generate the vMCP YAML** from a checkout of the catalog repository:
+1. **Generate the vMCP definitions** from a checkout of the catalog repository:
 
    ```bash
-   obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode dir ./vmcps
+   obot mcp generate-vmcp-catalog https://github.com/example/catalog --mode dir ./vmcps
    ```
 
 2. **Replace the composites.** In the same repository and branch, delete each `runtime: composite` definition and commit the matching generated file in its place. The vMCP must be published in the source that the composite came from: Obot derives the vMCP's identity from the catalog, source URL, and `entryKey`, so publishing it anywhere else creates a separate vMCP.
-3. **Review the YAML before committing.** Don't change `entryKey` or component `id` values. Changing either breaks the match with the orphaned vMCP or its stored configuration. You can edit display names, descriptions, tool settings, and profiles.
+3. **Review the definitions before committing.** Don't change `entryKey` or component `id` values. Changing either breaks the match with the orphaned vMCP or its stored configuration. You can edit display names, descriptions, tool settings, and profiles.
 4. **Validate the source:**
 
    ```bash
-   obot mcp validate-catalog-yaml .
+   obot mcp validate-catalog .
    ```
 
 5. **Push the change** and click **Sync** on **Admin → MCP Servers**. If sync can't adopt a vMCP, the error appears next to the source on the **Git Source URLs** tab.
@@ -632,21 +652,22 @@ Once a vMCP is adopted, the catalog source manages it like any other synced item
 
 ### Output modes
 
-Use `--mode` to choose where the YAML goes:
+Use `--format yaml|json` to choose the output format (default: `yaml`) and `--mode` to choose where it goes:
 
 | Mode | Output |
 |------|--------|
-| `stdout` (default) | Every vMCP in one YAML list, printed to standard output. |
-| `file` | Every vMCP in one YAML list, written to the file at `[path]`. |
-| `dir` | Each vMCP in its own file in the `[path]` directory, named after its display name. If two vMCPs share a display name, the second file name also includes the `entryKey`. |
+| `stdout` (default) | Every vMCP in one YAML list or JSON array, printed to standard output. |
+| `file` | Every vMCP in one YAML list or JSON array, written to the file at `[path]`. |
+| `dir` | Each vMCP in its own file in the `[path]` directory, named after its display name. If two vMCPs share a display name, the second file name also includes the `entryKey`. Files use `.yaml` or `.json` according to `--format`. |
 
 ```bash
-obot mcp generate-vmcp-catalog-yaml https://github.com/example/catalog --mode file vmcps.yaml
+obot mcp generate-vmcp-catalog https://github.com/example/catalog --mode file vmcps.yaml
+obot mcp generate-vmcp-catalog https://github.com/example/catalog --format json --mode file vmcps.json
 ```
 
-The command never replaces an existing file unless you pass `--overwrite`. In `stdout` mode, only YAML goes to standard output and all messages go to standard error, so you can redirect the output to a file.
+The command never replaces an existing file unless you pass `--overwrite`. In `stdout` mode, only the generated YAML or JSON goes to standard output and all messages go to standard error, so you can redirect the output to a file.
 
-The command generates YAML for every vMCP it can, even when some vMCPs can't be generated. It prints a `Skipping vMCP` message to standard error for each one it skips, then exits with an error. Scripts can therefore treat a nonzero exit status as "some vMCPs still need attention".
+The command generates definitions for every vMCP it can, even when some vMCPs can't be generated. It prints a `Skipping vMCP` message to standard error for each one it skips, then exits with an error. Scripts can therefore treat a nonzero exit status as "some vMCPs still need attention".
 
 ### Troubleshooting
 

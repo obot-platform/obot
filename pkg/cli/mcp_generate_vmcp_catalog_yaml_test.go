@@ -66,12 +66,12 @@ func executeGenerateTestCommand(t *testing.T, server *httptest.Server, args ...s
 	command.SetContext(t.Context())
 	command.SetOut(&stdout)
 	command.SetErr(&stderr)
-	command.SetArgs(append([]string{"generate-vmcp-catalog-yaml"}, args...))
+	command.SetArgs(append([]string{"generate-vmcp-catalog"}, args...))
 	err := command.Execute()
 	return stdout.String(), stderr.String(), err
 }
 
-func TestMCPGenerateVMCPCatalogYAMLStdoutWritesOneCatalogList(t *testing.T) {
+func TestMCPGenerateVMCPCatalogStdoutWritesOneCatalogList(t *testing.T) {
 	stdout, _, err := executeGenerateTestCommand(t, generateTestServer(t, generateTestItems()), generateTestSourceURL)
 	require.NoError(t, err)
 	require.Equal(t, `- type: vmcp
@@ -95,7 +95,7 @@ func TestMCPGenerateVMCPCatalogYAMLStdoutWritesOneCatalogList(t *testing.T) {
 	require.NoError(t, validateMCPCatalogFile(t.Context(), path, true, map[string]string{}, map[string]string{}))
 }
 
-func TestMCPGenerateVMCPCatalogYAMLFileRefusesToOverwrite(t *testing.T) {
+func TestMCPGenerateVMCPCatalogFileRefusesToOverwrite(t *testing.T) {
 	server := generateTestServer(t, generateTestItems())
 	path := filepath.Join(t.TempDir(), "vmcps.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("existing"), 0o644))
@@ -113,7 +113,7 @@ func TestMCPGenerateVMCPCatalogYAMLFileRefusesToOverwrite(t *testing.T) {
 	require.True(t, strings.HasPrefix(string(data), "- type: vmcp\n"), string(data))
 }
 
-func TestMCPGenerateVMCPCatalogYAMLDirWritesFilePerVMCP(t *testing.T) {
+func TestMCPGenerateVMCPCatalogDirWritesFilePerVMCP(t *testing.T) {
 	items := generateTestItems()
 	// A second vMCP with the same display name must not replace the first.
 	items = append(items, types.OrphanedVMCPCatalogItem{
@@ -152,7 +152,7 @@ func TestMCPGenerateVMCPCatalogYAMLDirWritesFilePerVMCP(t *testing.T) {
 	require.Equal(t, items[0].YAML, string(data))
 }
 
-func TestMCPGenerateVMCPCatalogYAMLReportsSkippedVMCPs(t *testing.T) {
+func TestMCPGenerateVMCPCatalogReportsSkippedVMCPs(t *testing.T) {
 	items := append(generateTestItems()[:1], types.OrphanedVMCPCatalogItem{
 		VMCPID:      "vmcp2",
 		DisplayName: "Broken",
@@ -166,14 +166,14 @@ func TestMCPGenerateVMCPCatalogYAMLReportsSkippedVMCPs(t *testing.T) {
 	require.NotContains(t, stdout, "Broken")
 }
 
-func TestMCPGenerateVMCPCatalogYAMLNothingToGenerate(t *testing.T) {
+func TestMCPGenerateVMCPCatalogNothingToGenerate(t *testing.T) {
 	stdout, stderr, err := executeGenerateTestCommand(t, generateTestServer(t, nil), generateTestSourceURL, "--mode", "file", filepath.Join(t.TempDir(), "vmcps.yaml"))
 	require.NoError(t, err)
 	require.Empty(t, stdout)
 	require.Contains(t, stderr, "No orphaned vMCPs from https://github.com/example/catalog are awaiting catalog sync.")
 }
 
-func TestMCPGenerateVMCPCatalogYAMLValidatesArguments(t *testing.T) {
+func TestMCPGenerateVMCPCatalogValidatesArguments(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -240,7 +240,54 @@ func TestVMCPFileName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.displayName, func(t *testing.T) {
-			require.Equal(t, tc.want, vmcpFileName(tc.displayName))
+			require.Equal(t, tc.want, vmcpFileName(tc.displayName, "yaml"))
+		})
+	}
+}
+
+func TestMCPGenerateVMCPCatalogJSON(t *testing.T) {
+	for _, mode := range []string{"stdout", "file", "dir"} {
+		t.Run(mode, func(t *testing.T) {
+			items := generateTestItems()
+			server := generateTestServer(t, items)
+			path := filepath.Join(t.TempDir(), "output")
+			args := []string{generateTestSourceURL, "--format", "json", "--mode", mode}
+			if mode != "stdout" {
+				args = append(args, path)
+			}
+
+			stdout, _, err := executeGenerateTestCommand(t, server, args...)
+			require.NoError(t, err)
+			if mode == "stdout" {
+				require.NoError(t, os.WriteFile(path, []byte(stdout), 0o600))
+			}
+
+			paths := []string{path}
+			if mode == "dir" {
+				paths = []string{filepath.Join(path, "Email.json"), filepath.Join(path, "Research-Docs.json")}
+			}
+			for i, outputPath := range paths {
+				data, err := os.ReadFile(outputPath)
+				require.NoError(t, err)
+				require.True(t, json.Valid(data), string(data))
+				var output []json.RawMessage
+				if mode == "dir" {
+					output = []json.RawMessage{data}
+				} else {
+					require.NoError(t, json.Unmarshal(data, &output))
+					require.Len(t, output, len(items))
+				}
+				for j, item := range output {
+					var entry struct {
+						Type     string `json:"type"`
+						EntryKey string `json:"entryKey"`
+					}
+					require.NoError(t, json.Unmarshal(item, &entry))
+					require.Equal(t, "vmcp", entry.Type)
+					require.Equal(t, items[i+j].EntryKey, entry.EntryKey)
+				}
+				require.NoError(t, validateMCPCatalogFile(t.Context(), outputPath, true, map[string]string{}, map[string]string{}))
+			}
 		})
 	}
 }
