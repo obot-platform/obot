@@ -15,7 +15,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
 	import { clearUrlParams, goto } from '$lib/url';
-	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Info } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -154,10 +154,11 @@
 														variant="hint"
 														classes={{
 															icon: twMerge(
-																'size-5 shrink-0',
+																'size-4 shrink-0',
 																isSelected ? 'text-white' : 'text-primary'
 															)
 														}}
+														icon={Info}
 														placement="bottom"
 														disablePortal={false}
 														onClick={() => selectView(viewOption.value)}
