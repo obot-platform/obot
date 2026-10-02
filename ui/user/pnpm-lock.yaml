@@ -185,8 +185,8 @@ importers:
         specifier: ^5.0.1
         version: 5.0.1(msw@2.15.0(@types/node@24.13.3)(typescript@6.0.2))(playwright@1.62.1)(vite@8.3.0(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0))(vitest@5.0.1)
       dompurify:
-        specifier: 3.4.13
-        version: 3.4.13
+        specifier: 3.4.16
+        version: 3.4.16
       eslint:
         specifier: ^10.5.0
         version: 10.5.0(jiti@2.7.0)
@@ -289,8 +289,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  '@babel/parser@7.29.8':
-    resolution: {integrity: sha512-E8lTAYNB1KW+FH+VGJuZM1ioAx2E6oVlvQFRrf5P8ZZmsiJXYAD9vTFV7yyEURNzgh1dFqMZuO6tUwcARbqFCA==}
+  '@babel/parser@7.29.9':
+    resolution: {integrity: sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -2123,8 +2123,8 @@ packages:
   docx-preview@0.3.7:
     resolution: {integrity: sha512-Lav69CTA/IYZPJTsKH7oYeoZjyg96N0wEJMNslGJnZJ+dMUZK85Lt5ASC79yUlD48ecWjuv+rkcmFt6EVPV0Xg==}
 
-  dompurify@3.4.13:
-    resolution: {integrity: sha512-2vmYIoqjze2d+kakP8S/nS5shfsl587kzwEjcGlTdiksUVgFHnFCsLYDVj/JNqJVOQZGSYBTmuycv0PodwmnMQ==}
+  dompurify@3.4.16:
+    resolution: {integrity: sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==}
 
   driver.js@1.4.0:
     resolution: {integrity: sha512-Gm64jm6PmcU+si21sQhBrTAM1JvUrR0QhNmjkprNLxohOBzul9+pNHXgQaT9lW84gwg9GMLB3NZGuGolsz5uew==}
@@ -2940,6 +2940,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@3.3.19:
+    resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
+    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
   nanoid@5.1.16:
     resolution: {integrity: sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==}
     engines: {node: ^18 || >=20}
@@ -3208,6 +3213,9 @@ packages:
   prosemirror-transform@1.12.0:
     resolution: {integrity: sha512-GxboyN4AMIsoHNtz5uf2r2Ru551i5hWeCMD6E2Ib4Eogqoub0NflniaBPVQ4MrGE5yZ8JV9tUHg9qcZTTrcN4w==}
 
+  prosemirror-transform@1.12.2:
+    resolution: {integrity: sha512-PE/aY0HEY4zczvmqrilgkUK/WautF0chvMqkmM/iN5/aPHvwrCWaQZjS6CIZp+K84YrvPFqrL+YArrfJX8xX7g==}
+
   prosemirror-view@1.41.8:
     resolution: {integrity: sha512-TnKDdohEatgyZNGCDWIdccOHXhYloJwbwU+phw/a23KBvJIR9lWQWW7WHHK3vBdOLDNuF7TaX98GObUZOWkOnA==}
 
@@ -3392,6 +3400,10 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
+    engines: {node: '>=0.10.0'}
+
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
@@ -3478,6 +3490,10 @@ packages:
 
   tinyrainbow@3.1.1:
     resolution: {integrity: sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==}
+    engines: {node: '>=14.0.0'}
+
+  tinyrainbow@3.2.0:
+    resolution: {integrity: sha512-LgO3D9yZJjApUiuUfl9iFAwrtaX4+lok3wJIqttGoKCHlWUqHqbQpnxCf82L8FjgKsh4iGo78hqJwgL8F6To2A==}
     engines: {node: '>=14.0.0'}
 
   tldts-core@7.4.10:
@@ -3782,7 +3798,7 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.0
 
-  '@babel/parser@7.29.8':
+  '@babel/parser@7.29.9':
     dependencies:
       '@babel/types': 7.29.8
 
@@ -4402,7 +4418,7 @@ snapshots:
       '@milkdown/utils': 7.21.2
       '@types/lodash-es': 4.17.12
       clsx: 2.1.1
-      dompurify: 3.4.13
+      dompurify: 3.4.16
       lodash-es: 4.18.1
       nanoid: 5.1.16
       unist-util-visit: 5.1.0
@@ -4435,7 +4451,7 @@ snapshots:
       '@types/lodash-es': 4.17.12
       clsx: 2.1.1
       codemirror: 6.0.2
-      dompurify: 3.4.13
+      dompurify: 3.4.16
       katex: 0.17.0
       lodash-es: 4.18.1
       prosemirror-virtual-cursor: 0.4.2(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.8)
@@ -5483,7 +5499,7 @@ snapshots:
 
   '@vitest/pretty-format@5.0.1':
     dependencies:
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
 
   '@vitest/spy@5.0.1': {}
 
@@ -5494,22 +5510,22 @@ snapshots:
       flatted: 3.4.4
       pathe: 2.0.3
       sirv: 3.0.2
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
       vitest: 5.0.1(@types/node@24.13.3)(@vitest/browser-playwright@5.0.1)(@vitest/ui@5.0.1)(msw@2.15.0(@types/node@24.13.3)(typescript@6.0.2))(vite@8.3.0(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0))
 
   '@vitest/utils@5.0.1':
     dependencies:
       '@vitest/pretty-format': 5.0.1
       convert-source-map: 2.0.0
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
 
   '@vue/compiler-core@3.5.32':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@vue/shared': 3.5.32
       entities: 7.0.1
       estree-walker: 2.0.2
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   '@vue/compiler-dom@3.5.32':
     dependencies:
@@ -5518,7 +5534,7 @@ snapshots:
 
   '@vue/compiler-sfc@3.5.32':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@vue/compiler-core': 3.5.32
       '@vue/compiler-dom': 3.5.32
       '@vue/compiler-ssr': 3.5.32
@@ -5526,7 +5542,7 @@ snapshots:
       estree-walker: 2.0.2
       magic-string: 0.30.21
       postcss: 8.5.28
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   '@vue/compiler-ssr@3.5.32':
     dependencies:
@@ -5913,7 +5929,7 @@ snapshots:
     dependencies:
       jszip: 3.10.1
 
-  dompurify@3.4.13:
+  dompurify@3.4.16:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -6883,6 +6899,8 @@ snapshots:
 
   nanoid@3.3.18: {}
 
+  nanoid@3.3.19: {}
+
   nanoid@5.1.16: {}
 
   natural-compare@1.4.0: {}
@@ -6996,9 +7014,9 @@ snapshots:
 
   postcss@8.5.28:
     dependencies:
-      nanoid: 3.3.18
+      nanoid: 3.3.19
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   prelude-ls@1.2.1: {}
 
@@ -7089,7 +7107,7 @@ snapshots:
   prosemirror-state@1.4.4:
     dependencies:
       prosemirror-model: 1.25.4
-      prosemirror-transform: 1.12.0
+      prosemirror-transform: 1.12.2
       prosemirror-view: 1.41.8
 
   prosemirror-tables@1.8.5:
@@ -7104,11 +7122,15 @@ snapshots:
     dependencies:
       prosemirror-model: 1.25.4
 
+  prosemirror-transform@1.12.2:
+    dependencies:
+      prosemirror-model: 1.25.4
+
   prosemirror-view@1.41.8:
     dependencies:
       prosemirror-model: 1.25.4
       prosemirror-state: 1.4.4
-      prosemirror-transform: 1.12.0
+      prosemirror-transform: 1.12.2
 
   prosemirror-virtual-cursor@0.4.2(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.8):
     optionalDependencies:
@@ -7380,6 +7402,8 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
+  source-map-js@1.2.2: {}
+
   stackback@0.0.2: {}
 
   statuses@2.0.2: {}
@@ -7476,6 +7500,8 @@ snapshots:
       picomatch: 4.0.7
 
   tinyrainbow@3.1.1: {}
+
+  tinyrainbow@3.2.0: {}
 
   tldts-core@7.4.10: {}
 
