@@ -215,7 +215,7 @@
 	"admin_sub_storage_provider_heading": "ストレージプロバイダー",
 	"admin_sub_storage_provider_label": "プロバイダー",
 	"admin_sub_storage_region_placeholder": "例：us-east-1",
-	"admin_sub_storage_auth_method": "認証方法",
+	"admin_sub_storage_auth_method": "認証方式",
 	"admin_sub_storage_use_obot_credential": "Obot に関連付けられた認証情報を使用",
 	"admin_sub_storage_use_workload_identity": "ワークロード ID を使用",
 	"admin_sub_storage_configure_keys_manually": "キーを手動で設定",

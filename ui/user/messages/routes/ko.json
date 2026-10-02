@@ -548,7 +548,7 @@
 	"routes_mcp_no_mcp_tunnels": "MCP 터널이 없습니다",
 	"routes_mcp_tunnels_description_prefix": "MCP 터널을 사용하면 Obot 네트워크에서 직접 연결할 수 없는 프라이빗 MCP 서버에 Obot이 안전하게 연결할 수 있습니다. 프라이빗 네트워크에서 경량",
 	"routes_mcp_tunnels_description_suffix": "프로세스를 실행하면 Obot으로의 인증된 아웃바운드 연결이 열립니다.",
-	"routes_mcp_col_allowed_urls": "허용된 URL",
+	"routes_mcp_col_allowed_urls": "허용 URL",
 	"routes_mcp_delete_tunnel": "터널 삭제",
 	"routes_mcp_delete_this_tunnel": "이 터널을 삭제하시겠습니까?",
 	"routes_mcp_delete_tunnel_note": "MCP 카탈로그 항목에서 사용 중인 터널은 삭제할 수 없습니다. 삭제하면 활성 연결이 끊어집니다.",

@@ -407,7 +407,7 @@
 	"core_secret_binding_engine_error": "この MCP サーバーは Kubernetes Secret バインディングを使用するため、Obot が Kubernetes エンジンを使用している場合にのみ起動できます。",
 	"core_select_date": "日付を選択",
 	"core_select_date_range": "日付範囲を選択",
-	"core_select_export_time_range": "エクスポート期間を選択",
+	"core_select_export_time_range": "エクスポートの期間を選択",
 	"core_select_server_or_capability": "サーバーを 1 つ以上選択するか、機能を有効にしてください",
 	"core_select_servers_for_identity": "このエージェント ID がアクセスできる MCP サーバーを選択してください。機能のみの ID を作成する場合は、ここを空欄のままにして下の機能を有効にしてください。",
 	"core_select_summary_more": "{first}、{second}、他 {count} 件",
