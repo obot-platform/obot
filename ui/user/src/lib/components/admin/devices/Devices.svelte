@@ -245,7 +245,10 @@
 			{lastPageIndex}
 			{total}
 			{loading}
-			itemLabelSingular="device"
+			itemCountLabel={(count) =>
+				count === 1
+					? m.admin_sub_device_count_one({ count })
+					: m.admin_sub_device_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

@@ -142,7 +142,8 @@
 			{lastPageIndex}
 			{total}
 			{loading}
-			itemLabelSingular="skill"
+			itemCountLabel={(count) =>
+				count === 1 ? m.routes_skill_count_one({ count }) : m.routes_skill_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

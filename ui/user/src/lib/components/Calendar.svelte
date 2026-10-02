@@ -4,7 +4,7 @@
 	import { m } from '$lib/i18n';
 	import { responsive, userDeviceSettings } from '$lib/stores';
 	import CalendarGrid, {
-		months,
+		monthsShort,
 		isToday,
 		isCurrentMonth,
 		isDateDisabled
@@ -72,7 +72,7 @@
 		return format
 			.replace('dd', day)
 			.replace('MM', month)
-			.replace('MMM', months[date.getMonth()].substring(0, 3))
+			.replace('MMM', monthsShort[date.getMonth()])
 			.replace('yyyy', year.toString());
 	}
 

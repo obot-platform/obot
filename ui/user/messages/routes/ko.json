@@ -661,5 +661,9 @@
 	"routes_skills_skill_fallback_title": "스킬",
 	"routes_skills_limited_functionality": "기능 제한",
 	"routes_skills_skill_license_error_prefix": "라이선스 문제로 인해 스킬을 가져오는 중 문제가 발생했습니다. 미해결 라이선스 문제를 해결하거나 다음 주소로 지원팀에 문의하세요:",
-	"routes_skills_access_policy_fallback_title": "스킬 액세스 정책"
+	"routes_skills_access_policy_fallback_title": "스킬 액세스 정책",
+	"routes_skill_count_one": "스킬 {count}개",
+	"routes_skill_count_other": "스킬 {count}개",
+	"routes_client_count_one": "클라이언트 {count}개",
+	"routes_client_count_other": "클라이언트 {count}개"
 }

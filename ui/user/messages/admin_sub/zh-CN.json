@@ -512,5 +512,7 @@
 	"admin_sub_usage_no_stats_hint": "当前所选时间范围或过滤器下没有用量统计。请尝试修改搜索条件或稍后重试。",
 	"admin_sub_usage_no_data": "暂无数据",
 	"admin_sub_usage_page_info": "第 {page} 页，共 {pages} 页（显示 {total} 项中的 {shown} 项）",
-	"admin_sub_filter_or": "或"
+	"admin_sub_filter_or": "或",
+	"admin_sub_device_count_one": "{count} 台设备",
+	"admin_sub_device_count_other": "{count} 台设备"
 }

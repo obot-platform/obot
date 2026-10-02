@@ -1,3 +1,4 @@
+import { getLocale } from '$lib/i18n';
 import type { Model, OrgUser, TokenUsage, TokenUsageWithCategory } from '$lib/services';
 import {
 	CHART_LABEL,
@@ -45,7 +46,7 @@ export const mainTooltipValueKeys: (keyof TokenUsageTimelineItem)[] = [
 
 export function formatTokenUsageUSD(value: number): string {
 	const fractionDigits = value !== 0 && Math.abs(value) < 0.01 ? 4 : 2;
-	return value.toLocaleString(undefined, {
+	return value.toLocaleString(getLocale(), {
 		style: 'currency',
 		currency: 'USD',
 		minimumFractionDigits: 2,

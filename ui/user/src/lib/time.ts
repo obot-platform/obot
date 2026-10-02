@@ -1,4 +1,4 @@
-import { m } from '$lib/i18n';
+import { getLocale, m } from '$lib/i18n';
 
 export type TimeDisplayFormat = '12h' | '24h';
 
@@ -13,14 +13,14 @@ export function formatTime(time: Date | string, format: TimeDisplayFormat) {
 		time.getMonth() == now.getMonth() &&
 		time.getFullYear() == now.getFullYear()
 	) {
-		return time.toLocaleTimeString(undefined, {
+		return time.toLocaleTimeString(getLocale(), {
 			hour: 'numeric',
 			minute: 'numeric',
 			hour12
 		});
 	}
 	return time
-		.toLocaleString(undefined, {
+		.toLocaleString(getLocale(), {
 			year: 'numeric',
 			month: '2-digit',
 			day: '2-digit',
@@ -62,7 +62,7 @@ export function formatTimeAgo(timestamp: string | undefined, granularity?: strin
 		minute: '2-digit',
 		hour12: true
 	};
-	const fullDate = date.toLocaleString(undefined, options);
+	const fullDate = date.toLocaleString(getLocale(), options);
 
 	// Relative time calculation
 	let relativeTime: string;
@@ -146,7 +146,7 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 		minute: '2-digit',
 		hour12: true
 	};
-	const fullDate = date.toLocaleString(undefined, options);
+	const fullDate = date.toLocaleString(getLocale(), options);
 
 	// If the date is in the past, return "Expired"
 	if (seconds < 0) {
@@ -250,7 +250,7 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 
 	if (isWholeDay) {
 		// Format as just the date
-		return start.toLocaleDateString(undefined, {
+		return start.toLocaleDateString(getLocale(), {
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric'
@@ -262,13 +262,13 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 
 	if (bothAtMidnight) {
 		// Format as just date range when both times are at midnight
-		const startDateFormatted = start.toLocaleDateString(undefined, {
+		const startDateFormatted = start.toLocaleDateString(getLocale(), {
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric'
 		});
 
-		const endDateFormatted = end.toLocaleDateString(undefined, {
+		const endDateFormatted = end.toLocaleDateString(getLocale(), {
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric'
@@ -278,7 +278,7 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 	}
 
 	// Format as date & time range
-	const startFormatted = start.toLocaleString(undefined, {
+	const startFormatted = start.toLocaleString(getLocale(), {
 		month: 'numeric',
 		day: 'numeric',
 		year: '2-digit',
@@ -287,7 +287,7 @@ export function formatTimeRange(startTime: Date | string, endTime: Date | string
 		hour12: true
 	});
 
-	const endFormatted = end.toLocaleString(undefined, {
+	const endFormatted = end.toLocaleString(getLocale(), {
 		month: 'numeric',
 		day: 'numeric',
 		year: '2-digit',
@@ -325,7 +325,7 @@ export function getTimeRangeShorthand(startTime: Date | string, endTime: Date | 
 
 export function formatLogTimestamp(time: Date | string, format: TimeDisplayFormat) {
 	return new Date(time)
-		.toLocaleString(undefined, {
+		.toLocaleString(getLocale(), {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -360,4 +360,17 @@ export function formatAuditLogTableTimestamp(time: Date | string) {
 export function isRecent(created: string, withinMinutes = 1): boolean {
 	const diff = Date.now() - new Date(created).getTime();
 	return diff < withinMinutes * 60 * 1000;
+}
+
+/** Localized AM/PM labels for 12-hour time pickers (e.g. 午前/午後, 오전/오후, 上午/下午). */
+export function getDayPeriodLabels(): { am: string; pm: string } {
+	const format = new Intl.DateTimeFormat(getLocale(), {
+		hour: 'numeric',
+		hour12: true,
+		timeZone: 'UTC'
+	});
+	const label = (hour: number) =>
+		format.formatToParts(new Date(Date.UTC(2024, 0, 1, hour))).find((p) => p.type === 'dayPeriod')
+			?.value ?? (hour < 12 ? 'AM' : 'PM');
+	return { am: label(9), pm: label(21) };
 }

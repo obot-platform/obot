@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { m } from '$lib/i18n';
 	import CalendarGrid, {
-		months,
+		monthsShort,
 		isToday,
 		isCurrentMonth,
 		isDateDisabled
@@ -49,7 +49,7 @@
 
 		// Replace MMM before MM (more specific pattern first)
 		return format
-			.replace('MMM', months[date.getMonth()].substring(0, 3))
+			.replace('MMM', monthsShort[date.getMonth()])
 			.replace('MM', month)
 			.replace('dd', day)
 			.replace('yyyy', year.toString());

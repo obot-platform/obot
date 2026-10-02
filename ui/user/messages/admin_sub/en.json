@@ -512,5 +512,7 @@
 	"admin_sub_usage_no_stats_hint": "Currently, there are no usage stats for the range or selected filters. Try modifying your search criteria or try again later.",
 	"admin_sub_usage_no_data": "No data available",
 	"admin_sub_usage_page_info": "Page {page} of {pages} (showing {shown} of {total} items)",
-	"admin_sub_filter_or": "OR"
+	"admin_sub_filter_or": "OR",
+	"admin_sub_device_count_one": "{count} device",
+	"admin_sub_device_count_other": "{count} devices"
 }

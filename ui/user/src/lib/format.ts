@@ -1,3 +1,4 @@
+import { getLocale } from '$lib/i18n';
 import type { FileTimeResult } from './services/nanobot/types';
 import type { TimeDisplayFormat } from './time';
 
@@ -42,7 +43,7 @@ export function formatFileTime(timestamp: unknown, format: TimeDisplayFormat): F
 
 	let formatted: string;
 	try {
-		formatted = new Intl.DateTimeFormat(undefined, {
+		formatted = new Intl.DateTimeFormat(getLocale(), {
 			year: 'numeric',
 			month: 'numeric',
 			day: 'numeric',

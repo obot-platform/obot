@@ -512,5 +512,7 @@
 	"admin_sub_usage_no_stats_hint": "選択した期間またはフィルターに該当する使用状況の統計は現在ありません。検索条件を変更するか、後でもう一度お試しください。",
 	"admin_sub_usage_no_data": "データがありません",
 	"admin_sub_usage_page_info": "{pages} ページ中 {page} ページ（{total} 件中 {shown} 件を表示）",
-	"admin_sub_filter_or": "または"
+	"admin_sub_filter_or": "または",
+	"admin_sub_device_count_one": "{count} 台のデバイス",
+	"admin_sub_device_count_other": "{count} 台のデバイス"
 }

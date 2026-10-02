@@ -661,5 +661,9 @@
 	"routes_skills_skill_fallback_title": "Skill",
 	"routes_skills_limited_functionality": "Limited Functionality",
 	"routes_skills_skill_license_error_prefix": "An issue occurred with fetching the skill due to licensing. Please resolve outstanding licensing issues or contact support at",
-	"routes_skills_access_policy_fallback_title": "Skill Access Policy"
+	"routes_skills_access_policy_fallback_title": "Skill Access Policy",
+	"routes_skill_count_one": "{count} skill",
+	"routes_skill_count_other": "{count} skills",
+	"routes_client_count_one": "{count} client",
+	"routes_client_count_other": "{count} clients"
 }

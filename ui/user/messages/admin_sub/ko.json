@@ -512,5 +512,7 @@
 	"admin_sub_usage_no_stats_hint": "현재 선택한 기간 또는 필터에 해당하는 사용량 통계가 없습니다. 검색 조건을 수정하거나 나중에 다시 시도하세요.",
 	"admin_sub_usage_no_data": "데이터가 없습니다",
 	"admin_sub_usage_page_info": "{pages}페이지 중 {page}페이지 ({total}개 중 {shown}개 표시)",
-	"admin_sub_filter_or": "또는"
+	"admin_sub_filter_or": "또는",
+	"admin_sub_device_count_one": "기기 {count}대",
+	"admin_sub_device_count_other": "기기 {count}대"
 }

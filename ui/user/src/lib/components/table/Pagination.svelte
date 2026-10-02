@@ -10,6 +10,8 @@
 		itemLabelSingular?: string;
 		// Names what is paged, so that the buttons of several pagers on a page are told apart.
 		label?: string;
+		/** Formats the item count shown after the page number, e.g. `(n) => m.devices_count({ count: n })`. */
+		itemCountLabel?: (count: number) => string;
 		onPageChange: (idx: number) => void;
 	}
 
@@ -20,6 +22,7 @@
 		loading = false,
 		itemLabelSingular,
 		label,
+		itemCountLabel,
 		onPageChange
 	}: Props = $props();
 </script>
@@ -35,10 +38,8 @@
 		{m.core_previous()}
 	</button>
 	<p class="text-muted-content text-xs">
-		{m.core_page_of({ page: pageIndex + 1, total: lastPageIndex + 1 })}{#if itemLabelSingular}
-			· {total === 1
-				? m.core_pagination_items_one({ count: total, label: itemLabelSingular })
-				: m.core_pagination_items_other({ count: total, label: itemLabelSingular })}{/if}
+		{m.core_page_of({ page: pageIndex + 1, total: lastPageIndex + 1 })}{#if itemCountLabel}
+			· {itemCountLabel(total)}{/if}
 	</p>
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"

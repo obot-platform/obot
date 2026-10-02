@@ -169,7 +169,8 @@
 		{pageIndex}
 		{lastPageIndex}
 		{total}
-		itemLabelSingular="client"
+		itemCountLabel={(count) =>
+			count === 1 ? m.routes_client_count_one({ count }) : m.routes_client_count_other({ count })}
 		{loading}
 		onPageChange={fetchPage}
 	/>

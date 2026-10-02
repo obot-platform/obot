@@ -1,4 +1,4 @@
-import { m } from '$lib/i18n';
+import { getLocale, m } from '$lib/i18n';
 import type { TimeDisplayFormat } from '$lib/time';
 
 export type TaskFrequency = 'daily' | 'weekly' | 'monthly' | 'no_repeat';
@@ -48,7 +48,7 @@ export function formatScheduleDate(date: string): string {
 		return date;
 	}
 
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat(getLocale(), {
 		year: 'numeric',
 		month: 'numeric',
 		day: 'numeric'
@@ -66,7 +66,7 @@ export function formatScheduleDateTime(
 		return value;
 	}
 
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat(getLocale(), {
 		year: 'numeric',
 		month: 'numeric',
 		day: 'numeric',
@@ -194,7 +194,7 @@ function formatScheduleTime(time: string, format: TimeDisplayFormat): string {
 
 	const d = new Date();
 	d.setHours(hour, minute, 0, 0);
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat(getLocale(), {
 		hour: '2-digit',
 		minute: '2-digit',
 		hour12: format === '12h'

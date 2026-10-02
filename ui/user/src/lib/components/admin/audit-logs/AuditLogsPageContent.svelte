@@ -14,7 +14,7 @@
 	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
-	import { m } from '$lib/i18n';
+	import { getLocale, m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue } from '$lib/multiValue';
 	import { localState } from '$lib/runes/localState.svelte';
@@ -484,7 +484,7 @@
 
 	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
 		if (label === 'start_time' || label === 'end_time') {
-			return new Date(value).toLocaleString(undefined, {
+			return new Date(value).toLocaleString(getLocale(), {
 				year: 'numeric',
 				month: 'short',
 				day: 'numeric',

@@ -661,5 +661,9 @@
 	"routes_skills_skill_fallback_title": "スキル",
 	"routes_skills_limited_functionality": "機能制限",
 	"routes_skills_skill_license_error_prefix": "ライセンスの問題により、スキルの取得中に問題が発生しました。未解決のライセンスの問題を解決するか、次のサポート窓口までお問い合わせください：",
-	"routes_skills_access_policy_fallback_title": "スキルアクセスポリシー"
+	"routes_skills_access_policy_fallback_title": "スキルアクセスポリシー",
+	"routes_skill_count_one": "{count} 件のスキル",
+	"routes_skill_count_other": "{count} 件のスキル",
+	"routes_client_count_one": "{count} 件のクライアント",
+	"routes_client_count_other": "{count} 件のクライアント"
 }

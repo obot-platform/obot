@@ -1,22 +1,27 @@
 <script lang="ts" module>
+	import { getLocale } from '$lib/i18n';
 	import { startOfDay, endOfDay } from 'date-fns';
 
-	export const months = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
+	// Month and weekday names come from Intl so they follow the active locale.
+	const nameFormat = (options: Intl.DateTimeFormatOptions) => {
+		const format = new Intl.DateTimeFormat(getLocale(), { ...options, timeZone: 'UTC' });
+		return (date: Date) => format.format(date);
+	};
+	const monthName = nameFormat({ month: 'short' });
+	const weekdayName = nameFormat({ weekday: 'short' });
 
-	export const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+	export const monthsShort = Array.from({ length: 12 }, (_, i) =>
+		monthName(new Date(Date.UTC(2024, i, 1)))
+	);
+
+	// 2024-09-01 was a Sunday.
+	export const weekdays = Array.from({ length: 7 }, (_, i) =>
+		weekdayName(new Date(Date.UTC(2024, 8, 1 + i)))
+	);
+
+	export function formatMonthYear(date: Date): string {
+		return new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(date);
+	}
 
 	export function isToday(date: Date): boolean {
 		const today = new Date();
@@ -109,8 +114,7 @@
 		</button>
 
 		<h3 class="text-sm font-medium">
-			{months[currentDate.getMonth()]}
-			{currentDate.getFullYear()}
+			{formatMonthYear(currentDate)}
 		</h3>
 
 		<button type="button" class="hover:bg-base-400 rounded p-1" onclick={nextMonth}>

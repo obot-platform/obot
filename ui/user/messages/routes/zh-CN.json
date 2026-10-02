@@ -661,5 +661,9 @@
 	"routes_skills_skill_fallback_title": "技能",
 	"routes_skills_limited_functionality": "功能受限",
 	"routes_skills_skill_license_error_prefix": "由于许可证问题，获取该技能时出现问题。请解决未处理的许可证问题，或通过以下地址联系支持团队：",
-	"routes_skills_access_policy_fallback_title": "技能访问策略"
+	"routes_skills_access_policy_fallback_title": "技能访问策略",
+	"routes_skill_count_one": "{count} 个技能",
+	"routes_skill_count_other": "{count} 个技能",
+	"routes_client_count_one": "{count} 个客户端",
+	"routes_client_count_other": "{count} 个客户端"
 }

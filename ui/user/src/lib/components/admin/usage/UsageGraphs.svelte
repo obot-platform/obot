@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import { m } from '$lib/i18n';
+	import { getLocale, m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		UserService,
@@ -511,7 +511,7 @@
 
 	function getFilterValue(label: SupportedStateFilter, value: string | number) {
 		if (label === 'start_time' || label === 'end_time') {
-			return new Date(value).toLocaleString(undefined, {
+			return new Date(value).toLocaleString(getLocale(), {
 				year: 'numeric',
 				month: 'short',
 				day: 'numeric',

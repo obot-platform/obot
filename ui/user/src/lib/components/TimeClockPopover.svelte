@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
+	import { getDayPeriodLabels } from '$lib/time';
 	import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import { getHours, getMinutes, setHours, setMinutes } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
@@ -195,6 +196,8 @@
 		document.addEventListener('keydown', onKey);
 		return () => document.removeEventListener('keydown', onKey);
 	});
+
+	const dayPeriods = getDayPeriodLabels();
 </script>
 
 {#if open}
@@ -262,12 +265,12 @@
 					<button
 						type="button"
 						class={twMerge('rounded px-2 py-0.5', isAm ? 'opacity-100' : 'opacity-50')}
-						onclick={() => toggleAmPm(true)}>AM</button
+						onclick={() => toggleAmPm(true)}>{dayPeriods.am}</button
 					>
 					<button
 						type="button"
 						class={twMerge('rounded px-2 py-0.5', !isAm ? 'opacity-100' : 'opacity-50')}
-						onclick={() => toggleAmPm(false)}>PM</button
+						onclick={() => toggleAmPm(false)}>{dayPeriods.pm}</button
 					>
 				</div>
 			{/if}
