@@ -129,7 +129,24 @@ func userInputFromResource(body map[string]any) (gclient.SCIMUserInput, error) {
 	if strings.TrimSpace(input.UserName) == "" {
 		return gclient.SCIMUserInput{}, badRequest(scimTypeInvalidValue, "userName is required")
 	}
+	// RFC 7643 section 2.4 allows one primary value at most.
+	for _, attr := range []string{"emails", "phoneNumbers"} {
+		if primaryValues(m[attr]) > 1 {
+			return gclient.SCIMUserInput{}, badRequest(scimTypeInvalidValue, "%s can have at most one primary value", attr)
+		}
+	}
 	return input, nil
+}
+
+// primaryValues returns the number of values of a multi-valued attribute that are primary.
+func primaryValues(value any) int {
+	var n int
+	for _, item := range listValue(value) {
+		if m, ok := item.(map[string]any); ok && m["primary"] == true {
+			n++
+		}
+	}
+	return n
 }
 
 // groupInputFromResource converts a group representation, from a request body or a patched resource, into the
@@ -140,19 +157,13 @@ func groupInputFromResource(body map[string]any) (gclient.SCIMGroupInput, error)
 		return gclient.SCIMGroupInput{}, err
 	}
 
+	memberIDs, err := groupMemberIDs(m["members"])
+	if err != nil {
+		return gclient.SCIMGroupInput{}, err
+	}
 	input := gclient.SCIMGroupInput{
 		DisplayName: stringValue(m, "displayName"),
-	}
-	for _, v := range listValue(m["members"]) {
-		member, _ := v.(map[string]any)
-		id := stringValue(member, "value")
-		if id == "" {
-			return gclient.SCIMGroupInput{}, badRequest(scimTypeInvalidValue, "every member requires a value")
-		}
-		if t := stringValue(member, "type"); t != "" && !strings.EqualFold(t, "User") {
-			return gclient.SCIMGroupInput{}, badRequest(scimTypeInvalidValue, "member %q has type %q; only users can be members", id, t)
-		}
-		input.MemberIDs = append(input.MemberIDs, id)
+		MemberIDs:   memberIDs,
 	}
 
 	if strings.TrimSpace(input.DisplayName) == "" {
@@ -297,6 +308,23 @@ func setString(m map[string]any, key, value string) {
 	if value != "" {
 		m[key] = value
 	}
+}
+
+// groupMemberIDs returns the SCIM user IDs of canonical members values.
+func groupMemberIDs(members any) ([]string, error) {
+	var ids []string
+	for _, v := range listValue(members) {
+		member, _ := v.(map[string]any)
+		id := stringValue(member, "value")
+		if id == "" {
+			return nil, badRequest(scimTypeInvalidValue, "every member requires a value")
+		}
+		if t := stringValue(member, "type"); t != "" && !strings.EqualFold(t, "User") {
+			return nil, badRequest(scimTypeInvalidValue, "member %q has type %q; only users can be members", id, t)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func stringValue(m map[string]any, key string) string {

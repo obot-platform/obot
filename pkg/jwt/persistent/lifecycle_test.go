@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -209,4 +210,37 @@ func TestNewTokenRefusesInactiveUsers(t *testing.T) {
 			assert.Equal(t, types.UserStatusDisabled, denied.Status)
 		})
 	}
+}
+
+// TestNewTokenTrustsTheAdmittedPrincipal covers a token minted while handling a request: the request's authenticator
+// read the status of the user it acts for, so minting does not read it again. Disabling the user in the database
+// after that read shows that minting trusted the request's principal.
+func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
+	user := createLifecycleTestUser(t, gatewayClient, "erin", types.RoleBasic)
+	_, err := gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	require.NoError(t, err)
+
+	extra := map[string][]string{}
+	principal.RecordUserStatus(extra, types.UserStatusActive)
+	admitted := principal.WithAdmittedPrincipal(t.Context(), &kuser.DefaultInfo{
+		UID:   fmt.Sprint(user.ID),
+		Extra: extra,
+	})
+
+	tokenContext := TokenContext{
+		Audience: testServerURL,
+		UserID:   fmt.Sprint(user.ID),
+	}
+	_, _, err = tokenService.NewToken(admitted, tokenContext)
+	require.NoError(t, err)
+
+	// A token for any other user is still checked.
+	other := createLifecycleTestUser(t, gatewayClient, "frank", types.RoleBasic)
+	_, err = gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, other.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	require.NoError(t, err)
+	tokenContext.UserID = fmt.Sprint(other.ID)
+	_, _, err = tokenService.NewToken(admitted, tokenContext)
+	_, isDenied := errors.AsType[*client.UserAccessDeniedError](err)
+	require.True(t, isDenied, "error = %v, want a denial", err)
 }

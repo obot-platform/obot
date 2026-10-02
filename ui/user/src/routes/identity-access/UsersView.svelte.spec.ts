@@ -1,6 +1,8 @@
 import { Group, Role, type OrgUser } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { worker } from '../../tests/mocks/worker';
 import UsersView from './UsersView.svelte';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -44,6 +46,14 @@ const unprovisionedUser = orgUser({
 	managementSource: 'scim'
 });
 
+// A user that SCIM provisions, and the identity provider still has active.
+const provisionedUser = orgUser({
+	id: '5',
+	email: 'provisioned@example.com',
+	status: 'active',
+	managementSource: 'scim'
+});
+
 // A server that predates lifecycle status sends none of its fields.
 const legacyUser = orgUser({
 	id: '4',
@@ -57,6 +67,10 @@ async function renderUsersView(users: OrgUser[]) {
 
 function userRow(email: string) {
 	return page.getByRole('row').filter({ hasText: email });
+}
+
+async function openRowActions(email: string) {
+	await userRow(email).getByRole('button', { name: 'Row actions' }).click();
 }
 
 describe('UsersView', () => {
@@ -95,5 +109,46 @@ describe('UsersView', () => {
 
 		const active = userRow(activeUser.email);
 		await expect.element(active.getByText('Disabled', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('does not offer to delete a user whom the identity provider still provisions', async () => {
+		await renderUsersView([provisionedUser, deactivatedUser, activeUser]);
+
+		await openRowActions(provisionedUser.email);
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+	});
+
+	it('offers to delete a user whom the identity provider deactivated', async () => {
+		await renderUsersView([provisionedUser, deactivatedUser, activeUser]);
+
+		await openRowActions(deactivatedUser.email);
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+	});
+
+	it('offers to delete a user that Obot manages', async () => {
+		await renderUsersView([provisionedUser, deactivatedUser, activeUser]);
+
+		await openRowActions(activeUser.email);
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+	});
+
+	it('closes the confirmation, and leaves the other actions usable, when a deletion is refused', async () => {
+		worker.use(
+			http.delete(`*/api/users/${activeUser.id}`, () =>
+				HttpResponse.json({ error: 'refused' }, { status: 409 })
+			)
+		);
+		await renderUsersView([activeUser]);
+
+		await openRowActions(activeUser.email);
+		await page.getByRole('button', { name: 'Delete User' }).click();
+		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+		await expect
+			.element(page.getByText(`Delete user ${activeUser.email}?`))
+			.not.toBeInTheDocument();
+
+		await openRowActions(activeUser.email);
+		await page.getByRole('button', { name: 'Update Role' }).click();
+		await expect.element(page.getByRole('button', { name: 'Update', exact: true })).toBeEnabled();
 	});
 });

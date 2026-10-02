@@ -3,6 +3,7 @@ package scim
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -78,7 +79,7 @@ func TestAvailabilityAndAuthentication(t *testing.T) {
 
 	// A rotated token keeps working until it is revoked.
 	previous := s.token
-	rotated, err := s.gateway.RotateSCIMConnectionToken(t.Context(), s.conn.ID)
+	_, rotated, err := s.gateway.RotateSCIMConnectionToken(t.Context(), s.conn.ID)
 	if err != nil {
 		t.Fatalf("failed to rotate token: %v", err)
 	}
@@ -135,7 +136,9 @@ func TestDiscoveryAndUnsupportedOperations(t *testing.T) {
 	}
 	s.do(http.MethodGet, "ResourceTypes/Group", nil).expect(t, http.StatusOK)
 
-	resp := s.do(http.MethodDelete, "Users/anything", nil).expect(t, http.StatusMethodNotAllowed)
+	// Deleting a user is an operation the RFC defines that is not supported, and other methods are not defined.
+	s.do(http.MethodDelete, "Users/anything", nil).expect(t, http.StatusNotImplemented)
+	resp := s.do(http.MethodPost, "Users/anything", map[string]any{}).expect(t, http.StatusMethodNotAllowed)
 	if allow := resp.header.Get("Allow"); allow != "GET, PUT, PATCH" {
 		t.Errorf("Allow = %q", allow)
 	}
@@ -390,6 +393,15 @@ func TestUserWireSemantics(t *testing.T) {
 	}
 	s.do(http.MethodPut, "Users/00000000-0000-0000-0000-000000000000", rename).expect(t, http.StatusNotFound)
 
+	// Okta follows RFC 7644, so a replace whose filter matches nothing fails instead of creating the value.
+	if resp := s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
+		"op":    "replace",
+		"path":  `emails[type eq "home"].value`,
+		"value": "home@example.com",
+	})).expect(t, http.StatusBadRequest); resp.body["scimType"] != scimTypeNoTarget {
+		t.Errorf("scimType = %v, want %s", resp.body["scimType"], scimTypeNoTarget)
+	}
+
 	// PATCH rejects read-only targets and validates the result before committing anything.
 	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
 		"op":    "replace",
@@ -510,4 +522,203 @@ func TestEmptyFilterValuesMatchNothing(t *testing.T) {
 			t.Errorf("GET %s = %v, want no resources", resource, resp.body)
 		}
 	}
+}
+
+func TestWriteResponsesAreProjected(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	user := s.do(http.MethodPost, "Users", scimUser("user@example.com", "00u-user")).expect(t, http.StatusCreated).id()
+	group := s.do(http.MethodPost, "Groups", scimGroup("team", user)).expect(t, http.StatusCreated).id()
+
+	tests := []struct {
+		name     string
+		method   string
+		resource string
+		body     map[string]any
+		status   int
+		want     []string
+	}{
+		{
+			name:     "create a user",
+			method:   http.MethodPost,
+			resource: "Users?attributes=userName",
+			body:     scimUser("other@example.com", "00u-other"),
+			status:   http.StatusCreated,
+			want:     []string{"id", "schemas", "userName"},
+		},
+		{
+			name:     "replace a user",
+			method:   http.MethodPut,
+			resource: "Users/" + user + "?attributes=active,name.givenName",
+			body:     scimUser("user@example.com", "00u-user"),
+			status:   http.StatusOK,
+			want:     []string{"active", "id", "name", "schemas"},
+		},
+		{
+			name:     "patch a user",
+			method:   http.MethodPatch,
+			resource: "Users/" + user + "?excludedAttributes=emails,groups,meta,name",
+			body: patchOp(map[string]any{
+				"op":    "replace",
+				"path":  "nickName",
+				"value": "Nick",
+			}),
+			status: http.StatusOK,
+			want:   []string{"active", "displayName", "externalId", "id", "locale", "nickName", "schemas", "userName"},
+		},
+		{
+			name:     "create a group",
+			method:   http.MethodPost,
+			resource: "Groups?excludedAttributes=members",
+			body:     scimGroup("other team", user),
+			status:   http.StatusCreated,
+			want:     []string{"displayName", "id", "meta", "schemas"},
+		},
+		{
+			name:     "replace a group",
+			method:   http.MethodPut,
+			resource: "Groups/" + group + "?attributes=displayName",
+			body:     scimGroup("team", user),
+			status:   http.StatusOK,
+			want:     []string{"displayName", "id", "schemas"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := s.do(tt.method, tt.resource, tt.body).expect(t, tt.status)
+			if got := slices.Sorted(maps.Keys(resp.body)); !slices.Equal(got, tt.want) {
+				t.Fatalf("attributes = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	// An invalid projection is refused before anything is written.
+	s.do(http.MethodPost, "Users?attributes="+url.QueryEscape("not an attribute"), scimUser("third@example.com", "00u-third")).expect(t, http.StatusBadRequest)
+	if n := s.count(new(types.SCIMUserBinding), ""); n != 2 {
+		t.Fatalf("got %d users, want 2", n)
+	}
+}
+
+// TestUserNamesAreComparedAsPrepared checks that userNames that the PRECIS rules prepare alike are the same userName,
+// as RFC 7644 section 5 requires.
+func TestUserNamesAreComparedAsPrepared(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	created := s.do(http.MethodPost, "Users", scimUser("jos\u00e9@example.com", "00u-jose")).expect(t, http.StatusCreated)
+	for i, userName := range []string{
+		// Decomposed.
+		"jose\u0301@example.com",
+		"JOS\u00c9@example.com",
+		// Full-width.
+		"\uff4a\uff4f\uff53\u00e9@example.com",
+	} {
+		if resp := s.do(http.MethodPost, "Users", scimUser(userName, fmt.Sprintf("00u-%d", i))).expect(t, http.StatusConflict); resp.body["scimType"] != scimTypeUniqueness {
+			t.Errorf("POST %q: scimType = %v, want %s", userName, resp.body["scimType"], scimTypeUniqueness)
+		}
+		found := s.do(http.MethodGet, "Users?filter="+url.QueryEscape(`userName eq "`+userName+`"`), nil).expect(t, http.StatusOK).resources()
+		if len(found) != 1 || found[0]["id"] != created.id() {
+			t.Errorf("userName eq %q found %v", userName, found)
+		}
+	}
+
+	// A userName that the rules do not allow is refused, and matches nothing.
+	const invalid = "jos\u00e9\u0007@example.com"
+	if resp := s.do(http.MethodPost, "Users", scimUser(invalid, "00u-invalid")).expect(t, http.StatusBadRequest); resp.body["scimType"] != scimTypeInvalidValue {
+		t.Errorf("scimType = %v, want %s", resp.body["scimType"], scimTypeInvalidValue)
+	}
+	if found := s.do(http.MethodGet, "Users?filter="+url.QueryEscape(`userName eq "jos\u00e9\u0007@example.com"`), nil).expect(t, http.StatusOK).resources(); len(found) != 0 {
+		t.Errorf("userName eq %q found %v", invalid, found)
+	}
+}
+
+// TestSchemasDescribeWhatIsEnforced checks the characteristics of attributes that the server enforces beyond the RFC's
+// own schemas.
+func TestSchemasDescribeWhatIsEnforced(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	attribute := func(attributes any, name string) map[string]any {
+		t.Helper()
+		list, _ := attributes.([]any)
+		for _, a := range list {
+			if m, _ := a.(map[string]any); m["name"] == name {
+				return m
+			}
+		}
+		t.Fatalf("no attribute %q in %v", name, attributes)
+		return nil
+	}
+
+	group := s.do(http.MethodGet, "Schemas/"+groupSchema, nil).expect(t, http.StatusOK).body
+	if displayName := attribute(group["attributes"], "displayName"); displayName["uniqueness"] != uniquenessServer || displayName["required"] != true {
+		t.Errorf("displayName = %v, want required and unique", displayName)
+	}
+	members := attribute(group["attributes"], "members")
+	if value := attribute(members["subAttributes"], "value"); value["required"] != true {
+		t.Errorf("members.value = %v, want required", value)
+	}
+	if ref := attribute(members["subAttributes"], "$ref"); ref["caseExact"] != true {
+		t.Errorf("members.$ref = %v, want case exact, as every reference is", ref)
+	}
+
+	user := s.do(http.MethodGet, "Schemas/"+userSchema, nil).expect(t, http.StatusOK).body
+	if profileURL := attribute(user["attributes"], "profileUrl"); profileURL["caseExact"] != true {
+		t.Errorf("profileUrl = %v, want case exact, as every reference is", profileURL)
+	}
+	for _, a := range user["attributes"].([]any) {
+		if a.(map[string]any)["name"] == "password" {
+			t.Error("the ignored password attribute is advertised")
+		}
+	}
+}
+
+func TestAttributesNamingNoKnownAttributeReturnOnlyTheIDAndSchemas(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	user := s.do(http.MethodPost, "Users", scimUser("user@example.com", "00u-user")).expect(t, http.StatusCreated).id()
+	s.do(http.MethodPost, "Groups", scimGroup("team", user)).expect(t, http.StatusCreated)
+
+	got := s.do(http.MethodGet, "Users/"+user+"?attributes=nosuch", nil).expect(t, http.StatusOK)
+	if keys := slices.Sorted(maps.Keys(got.body)); !slices.Equal(keys, []string{"id", "schemas"}) {
+		t.Errorf("GET /Users/{id}?attributes=nosuch returned %v", keys)
+	}
+	for _, group := range s.do(http.MethodGet, "Groups?attributes=nosuch", nil).expect(t, http.StatusOK).resources() {
+		if keys := slices.Sorted(maps.Keys(group)); !slices.Equal(keys, []string{"id", "schemas"}) {
+			t.Errorf("GET /Groups?attributes=nosuch returned %v", keys)
+		}
+	}
+}
+
+func TestUsersHaveAtMostOnePrimaryValue(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	twoPrimaries := []any{
+		map[string]any{
+			"value":   "work@example.com",
+			"type":    "work",
+			"primary": true,
+		},
+		map[string]any{
+			"value":   "home@example.com",
+			"type":    "home",
+			"primary": true,
+		},
+	}
+	body := scimUser("user@example.com", "00u-user")
+	body["emails"] = twoPrimaries
+	if resp := s.do(http.MethodPost, "Users", body).expect(t, http.StatusBadRequest); resp.body["scimType"] != scimTypeInvalidValue {
+		t.Errorf("POST scimType = %v, want %s", resp.body["scimType"], scimTypeInvalidValue)
+	}
+
+	user := s.do(http.MethodPost, "Users", scimUser("user@example.com", "00u-user")).expect(t, http.StatusCreated).id()
+	s.do(http.MethodPut, "Users/"+user, body).expect(t, http.StatusBadRequest)
+	s.do(http.MethodPatch, "Users/"+user, patchOp(map[string]any{
+		"op":    "replace",
+		"path":  "emails",
+		"value": twoPrimaries,
+	})).expect(t, http.StatusBadRequest)
 }

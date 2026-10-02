@@ -558,7 +558,7 @@ func TestDeliverDisabledEventDeletesOnlyTheUsersRefreshTokens(t *testing.T) {
 
 	// A repeated delivery, from another replica or after a crash before the event was marked delivered, finds
 	// nothing left to delete.
-	if err := c.deliverUserDisabledEvent(ctx, events[0]); err != nil {
+	if err := c.deliverUserDisabledEvent(ctx, events[0], c.listOAuthTokensOnce(ctx)); err != nil {
 		t.Fatalf("failed to deliver the event again: %v", err)
 	}
 	assertOAuthTokenExists(t, c, "other-user-token", true)
@@ -654,22 +654,26 @@ func TestLifecycleEventClaimsAreExclusive(t *testing.T) {
 	event := lifecycleEvents(t, c, user.ID)[0]
 
 	now := time.Now()
-	claimed, err := c.claimUserLifecycleEvent(ctx, event.ID, now)
-	if err != nil || !claimed {
-		t.Fatalf("first claim = %v, %v; want claimed", claimed, err)
+	claimed, err := c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	if err != nil || len(claimed) != 1 || claimed[0].ID != event.ID {
+		t.Fatalf("first claim = %+v, %v; want the event claimed", claimed, err)
 	}
-	claimed, err = c.claimUserLifecycleEvent(ctx, event.ID, now)
-	if err != nil || claimed {
-		t.Fatalf("second claim = %v, %v; want refused", claimed, err)
+	claimed, err = c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	if err != nil || len(claimed) != 0 {
+		t.Fatalf("second claim = %+v, %v; want refused", claimed, err)
 	}
 }
 
 func TestDeliverReconcileEventCreatesRoleAndGroupChanges(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	ctx := t.Context()
-	user := createLifecycleTestUser(t, c, "paul", lifecycleTestProvider)
+	stayed := createLifecycleTestUser(t, c, "paul", lifecycleTestProvider)
+	left := createLifecycleTestUser(t, c, "quinn", lifecycleTestProvider)
 
-	for _, groupsRemoved := range []bool{false, true} {
+	for user, groupsRemoved := range map[*types.User]bool{
+		stayed: false,
+		left:   true,
+	} {
 		if err := recordUserReconcileEvent(c.db.WithContext(ctx), user.ID, groupsRemoved); err != nil {
 			t.Fatalf("failed to record reconcile event: %v", err)
 		}
@@ -678,11 +682,18 @@ func TestDeliverReconcileEventCreatesRoleAndGroupChanges(t *testing.T) {
 		t.Fatalf("failed to deliver lifecycle events: %v", err)
 	}
 
-	events := lifecycleEvents(t, c, user.ID)
+	var events []types.UserLifecycleEvent
+	for _, user := range []*types.User{stayed, left} {
+		events = append(events, lifecycleEvents(t, c, user.ID)...)
+	}
 	if len(events) != 2 {
 		t.Fatalf("lifecycle events = %d, want 2", len(events))
 	}
 	for _, event := range events {
+		user := stayed
+		if event.UserID == left.ID {
+			user = left
+		}
 		if event.DeliveredAt == nil {
 			t.Fatalf("event %d was not delivered", event.ID)
 		}
@@ -870,13 +881,13 @@ func TestHasSignedInOwner(t *testing.T) {
 			want:     false,
 		},
 		{
-			name:     "disabled owner",
+			name:     "disabled owner who signed in",
 			role:     apitypes.RoleOwner,
 			username: "owner",
 			provider: provider,
 			signedIn: true,
 			disabled: true,
-			want:     false,
+			want:     true,
 		},
 		{
 			name:     "owner of another provider",

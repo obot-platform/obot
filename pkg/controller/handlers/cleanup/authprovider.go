@@ -58,8 +58,8 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, resp router.Response) 
 	}
 	if !checkpoint.DataDeleted {
 		// SCIM owns the groups, memberships, role assignments, and policy subjects of the provider it manages. They
-		// survive deconfiguration, so that configuring the provider again resumes SCIM with current data. Nothing
-		// changes then, so no user's roles or groups need recomputing either.
+		// survive deconfiguration, so that configuring the provider again resumes SCIM with current data. Deconfiguring
+		// suspended the provider's SCIM connection, so its groups grant nothing meanwhile.
 		//
 		// The gateway data goes first, because its deletion is refused in the same transaction that would delete it
 		// while a SCIM connection owns it. The policy subjects follow only once it is gone. A connection that already

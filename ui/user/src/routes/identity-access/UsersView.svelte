@@ -50,6 +50,10 @@
 		scim_inactive: 'Deactivated in identity provider',
 		scim_unprovisioned: 'Not provisioned by identity provider'
 	};
+	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
+	// provisions them through SCIM. Once it deactivates them, they can be deleted.
+	const STILL_PROVISIONED_MESSAGE =
+		'This user is still active in your identity provider. Remove their assignment there before deleting them in Obot.';
 
 	const tableData = $derived(
 		users
@@ -331,10 +335,14 @@
 							>
 								Update Role
 							</button>
+							{@const stillProvisioned =
+								d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={d.explicitRole ||
+								disabled={stillProvisioned ||
+									d.explicitRole ||
 									(d.groups.includes(Group.OWNER) && !profile.current.groups.includes(Group.OWNER))}
+								use:tooltip={{ text: stillProvisioned ? STILL_PROVISIONED_MESSAGE : undefined }}
 								onclick={() => (deletingUser = d)}
 							>
 								Delete User
@@ -355,10 +363,15 @@
 	onsuccess={async () => {
 		if (!deletingUser) return;
 		loading = true;
-		await AdminService.deleteUser(deletingUser.id);
-		users = await UserService.listUsers();
-		loading = false;
-		deletingUser = undefined;
+		try {
+			await AdminService.deleteUser(deletingUser.id);
+			users = await UserService.listUsers();
+		} catch {
+			// The refusal is shown as a notification, and asking again would be refused again.
+		} finally {
+			loading = false;
+			deletingUser = undefined;
+		}
 	}}
 	oncancel={() => (deletingUser = undefined)}
 />

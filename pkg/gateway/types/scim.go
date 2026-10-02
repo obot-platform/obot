@@ -1,8 +1,11 @@
 package types
 
 import (
+	"errors"
 	"strings"
 	"time"
+
+	"golang.org/x/text/secure/precis"
 )
 
 const (
@@ -27,6 +30,11 @@ const (
 
 	SCIMResourceTypeUser  SCIMResourceType = "User"
 	SCIMResourceTypeGroup SCIMResourceType = "Group"
+
+	// SCIMTokenLifetime is how long a bearer token is accepted after it is issued. The identity provider keeps the
+	// token for as long as provisioning runs, so this bounds how long a leaked token that nobody revoked keeps
+	// working. A token must be rotated before it expires.
+	SCIMTokenLifetime = 365 * 24 * time.Hour
 )
 
 // SCIMConnectionState is how far a SCIM connection has taken over its auth provider's directory. Both transitions,
@@ -86,6 +94,11 @@ type SCIMConnection struct {
 	// Obot are synchronized.
 	LastRequestAt *time.Time `json:"lastRequestAt,omitempty"`
 	LastSuccessAt *time.Time `json:"lastSuccessAt,omitempty"`
+
+	// SuspendedAt is when the auth provider was deconfigured, and is nil while it is configured. A suspended
+	// connection keeps its users, groups, and memberships, so that configuring the provider again resumes SCIM with
+	// current data, but its groups grant nothing until then.
+	SuspendedAt *time.Time `json:"suspendedAt,omitempty"`
 }
 
 // SCIMUserBinding binds a SCIM user to an Obot user. Its ID is a random (version 4) UUID, like every SCIM ID this
@@ -106,7 +119,7 @@ type SCIMUserBinding struct {
 	// HashedNativeUserID is the hash of the identity provider's immutable user ID, which is also the hashed provider
 	// user ID of the user's identity.
 	HashedNativeUserID string `gorm:"not null;index:idx_scim_user_bindings_native,unique,priority:2"`
-	// HashedUserName is the hash of the case-folded SCIM userName.
+	// HashedUserName is the hash of the SCIM userName's comparison key, which SCIMUserNameKey returns.
 	HashedUserName string `gorm:"not null;index:idx_scim_user_bindings_user_name,unique,priority:2"`
 
 	ExternalID string
@@ -149,7 +162,8 @@ type SCIMGroupBinding struct {
 
 // SCIMPendingGroupDeletion marks a group that was selected for deletion because nothing references it. The mark is
 // committed before the group is deleted, so that writers of group references can refuse new references to the
-// group while its deletion completes.
+// group while its deletion completes. A mark expires a while after CreatedAt, by the database's clock, so that one a
+// deletion left behind does not refuse references forever; the deletion then deletes nothing.
 type SCIMPendingGroupDeletion struct {
 	GroupID      string `gorm:"primaryKey"`
 	ConnectionID string `gorm:"not null;index"`
@@ -157,6 +171,21 @@ type SCIMPendingGroupDeletion struct {
 	// read the references of after marking them.
 	RunID     string `gorm:"not null;default:''"`
 	CreatedAt time.Time
+}
+
+// SCIMGroupSubjectCleanup records a group that a SCIM DELETE deleted while SCIM was enforced, whose subjects in access
+// policies are still to be removed. The policies live in the controller store, which cannot share the transaction
+// that deleted the group.
+type SCIMGroupSubjectCleanup struct {
+	GroupID string `gorm:"primaryKey"`
+	// Namespace holds the access policies whose subjects are removed.
+	Namespace string `gorm:"not null"`
+	CreatedAt time.Time
+	// ClaimedUntil is when a replica's claim to run the cleanup expires. A failed cleanup keeps its claim, so this is
+	// also when it is retried.
+	ClaimedUntil *time.Time
+	Attempts     int `gorm:"not null;default:0"`
+	LastError    string
 }
 
 // SCIMReferenceWrite records a write of new group references that is in progress. A deletion of unreferenced groups
@@ -224,13 +253,47 @@ func (c SCIMConnection) HasToken() bool {
 	return c.TokenVerifier != ""
 }
 
+// TokenExpiresAt returns when the current bearer token stops being accepted, or nil when the connection has none.
+func (c SCIMConnection) TokenExpiresAt() *time.Time {
+	if !c.HasToken() || c.TokenIssuedAt == nil {
+		return nil
+	}
+	expiresAt := c.TokenIssuedAt.Add(SCIMTokenLifetime)
+	return &expiresAt
+}
+
+// TokenAccepted reports whether the current bearer token is still accepted.
+func (c SCIMConnection) TokenAccepted(now time.Time) bool {
+	expiresAt := c.TokenExpiresAt()
+	return expiresAt != nil && now.Before(*expiresAt)
+}
+
 // PreviousTokenAccepted reports whether the token that the last rotation replaced is still accepted.
 func (c SCIMConnection) PreviousTokenAccepted(now time.Time) bool {
 	return c.PreviousTokenVerifier != "" && c.PreviousTokenExpiresAt != nil && now.Before(*c.PreviousTokenExpiresAt)
 }
 
-// NormalizeSCIMName trims and case-folds a SCIM userName or group display name for comparison.
-func NormalizeSCIMName(name string) string {
+// SCIMUserNameKey returns the key that SCIM userNames are compared and checked for uniqueness by, as RFC 7644 section 5
+// requires: the PRECIS UsernameCaseMapped profile of RFC 8265, applied to each whitespace-separated part of the
+// userName, which maps full-width characters and case, and normalizes to NFC. It returns an error for a userName that
+// the profile does not allow, such as one that is empty or has control characters.
+func SCIMUserNameKey(userName string) (string, error) {
+	parts := strings.Fields(userName)
+	if len(parts) == 0 {
+		return "", errors.New("userName is empty")
+	}
+	for i, part := range parts {
+		key, err := precis.UsernameCaseMapped.CompareKey(part)
+		if err != nil {
+			return "", err
+		}
+		parts[i] = key
+	}
+	return strings.Join(parts, " "), nil
+}
+
+// NormalizeSCIMGroupName trims and case-folds a SCIM group display name for comparison.
+func NormalizeSCIMGroupName(name string) string {
 	return strings.ToLower(strings.TrimSpace(name))
 }
 

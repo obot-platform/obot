@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,6 +34,7 @@ type authProviderSCIMTest struct {
 	provider   *v1.AuthProvider
 	storage    kclient.WithWatch
 	gateway    *gclient.Client
+	db         *gorm.DB
 	license    *license.Provider
 	dispatcher *dispatcher.Dispatcher
 }
@@ -65,7 +67,7 @@ func newAuthProviderSCIMTest(t *testing.T) *authProviderSCIMTest {
 		},
 	}
 	storage := newAuthProviderTestStorage(provider)
-	gateway := newHandlerTestGateway(t)
+	gateway, db := newHandlerTestGatewayWithDB(t)
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
 
@@ -74,6 +76,7 @@ func newAuthProviderSCIMTest(t *testing.T) *authProviderSCIMTest {
 		provider:   provider,
 		storage:    storage,
 		gateway:    gateway,
+		db:         db,
 		license:    licenseProvider,
 		dispatcher: dispatcher.New(nil, storage, gateway, licenseProvider, "", "", ""),
 	}
@@ -243,6 +246,51 @@ func TestConfigureWithoutDirectoryParametersRefusesResidualGroupData(t *testing.
 	assert.Equal(t, "client", staged[oktaServiceClientIDParam])
 }
 
+func TestStagingTheActiveProviderIsRefused(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	// Okta serves sign-ins and synchronizes its directory, so its groups are in use, not left from an earlier
+	// configuration.
+	s.storeCredential(map[string]string{
+		oktaIssuerParam:            "https://example.okta.com",
+		oktaServiceClientIDParam:   "client",
+		oktaServicePrivateKeyParam: "key",
+	})
+	_, err := s.gateway.CreateGroupRoleAssignment(t.Context(), "okta/00g-team", clienttypes.RoleAdmin, "")
+	require.NoError(t, err)
+
+	req, _ := s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/stage", `{"`+oktaIssuerParam+`":"https://example.okta.com"}`)
+	err = s.handler().Stage(req)
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "already the active authentication provider")
+	s.requireNoChange()
+}
+
+// TestSignInPageReadsSkipSCIM checks that reads of auth providers by anyone but administrators and auditors, such as
+// the sign-in page's, neither read SCIM data nor fail when it cannot be read.
+func TestSignInPageReadsSkipSCIM(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.connect()
+	require.NoError(t, s.db.Migrator().DropTable(new(gatewaytypes.SCIMConnection)))
+
+	for _, groups := range [][]string{
+		nil,
+		{clienttypes.GroupBasic, clienttypes.GroupAuthenticated},
+	} {
+		req, _ := s.context(http.MethodGet, "/api/auth-providers", "", groups...)
+		require.NoError(t, s.handler().List(req), "list as %v", groups)
+		req, _ = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", groups...)
+		require.NoError(t, s.handler().ByID(req), "get as %v", groups)
+	}
+
+	// Administrators are served what depends on SCIM, so their reads still need it.
+	req, _ := s.context(http.MethodGet, "/api/auth-providers", "", clienttypes.GroupAdmin)
+	require.Error(t, s.handler().List(req))
+	req, _ = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	require.Error(t, s.handler().ByID(req))
+}
+
 func TestConfigureKeepsDirectoryParametersThatAreStillStored(t *testing.T) {
 	s := newAuthProviderSCIMTest(t)
 	s.storeCredential(map[string]string{
@@ -307,6 +355,17 @@ func TestAuthProviderServesEffectiveParametersAndSCIMState(t *testing.T) {
 	}
 	assert.Equal(t, string(gatewaytypes.SCIMConnectionStateConnected), after.SCIMState)
 	assert.Empty(t, get().SCIMState)
+
+	// Once the connection has a token, administrators learn when it expires, so the layout can warn Owners.
+	assert.Nil(t, after.SCIMTokenExpiresAt)
+	conn, err := s.gateway.SCIMConnectionForAuthProvider(t.Context(), s.provider.Namespace, s.provider.Name)
+	require.NoError(t, err)
+	rotated, _, err := s.gateway.RotateSCIMConnectionToken(t.Context(), conn.ID)
+	require.NoError(t, err)
+	withToken := get(clienttypes.GroupAdmin)
+	require.NotNil(t, withToken.SCIMTokenExpiresAt)
+	assert.WithinDuration(t, *rotated.TokenExpiresAt(), withToken.SCIMTokenExpiresAt.Time, time.Second)
+	assert.Nil(t, get().SCIMTokenExpiresAt)
 }
 
 func TestAuthProviderServesTheSetupChoice(t *testing.T) {

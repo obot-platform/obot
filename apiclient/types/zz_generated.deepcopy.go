@@ -932,6 +932,10 @@ func (in *AuthProviderSCIM) DeepCopy() *AuthProviderSCIM {
 func (in *AuthProviderStatus) DeepCopyInto(out *AuthProviderStatus) {
 	*out = *in
 	in.CommonProviderStatus.DeepCopyInto(&out.CommonProviderStatus)
+	if in.SCIMTokenExpiresAt != nil {
+		in, out := &in.SCIMTokenExpiresAt, &out.SCIMTokenExpiresAt
+		*out = (*in).DeepCopy()
+	}
 	if in.SCIM != nil {
 		in, out := &in.SCIM, &out.SCIM
 		*out = new(AuthProviderSCIM)
@@ -6549,6 +6553,10 @@ func (in *SCIMConnection) DeepCopyInto(out *SCIMConnection) {
 	}
 	if in.TokenIssuedAt != nil {
 		in, out := &in.TokenIssuedAt, &out.TokenIssuedAt
+		*out = (*in).DeepCopy()
+	}
+	if in.TokenExpiresAt != nil {
+		in, out := &in.TokenExpiresAt, &out.TokenExpiresAt
 		*out = (*in).DeepCopy()
 	}
 	if in.PreviousTokenExpiresAt != nil {

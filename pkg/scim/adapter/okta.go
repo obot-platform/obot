@@ -129,3 +129,8 @@ func (okta) GroupConsoleURL(issuer, nativeGroupID string) string {
 	}
 	return ""
 }
+
+// PatchRules returns the rules of Okta's PATCH requests, which follow RFC 7644.
+func (okta) PatchRules() PatchRules {
+	return PatchRules{}
+}

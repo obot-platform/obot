@@ -270,6 +270,9 @@ export interface AuthProvider extends BaseProvider {
 	// deconfiguration, and SCIM resumes in it when the provider is configured again. Only
 	// administrators see it.
 	scimState?: SCIMConnectionState;
+	// When the bearer token of the provider's SCIM connection stops being accepted. Absent while the
+	// connection has no token, and for non-administrators.
+	scimTokenExpiresAt?: string;
 	// How the provider supports SCIM. Absent for providers that do not, and for non-administrators.
 	scim?: AuthProviderSCIM;
 }
@@ -1848,6 +1851,8 @@ export interface SCIMConnection {
 	// False until the first bearer token is issued.
 	hasToken: boolean;
 	tokenIssuedAt?: string;
+	// When the token stops being accepted, a year after it was issued.
+	tokenExpiresAt?: string;
 	// True while the token replaced by the last rotation is still accepted.
 	previousTokenAccepted: boolean;
 	previousTokenExpiresAt?: string;

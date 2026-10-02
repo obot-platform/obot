@@ -149,16 +149,25 @@ func (e *scimCreateRaceError) Unwrap() error {
 // Users that SCIM has not provisioned are never returned.
 func (c *Client) ListSCIMUsers(ctx context.Context, connectionID string, filter SCIMUserFilter, page SCIMPage) ([]SCIMUser, int64, error) {
 	var (
-		total int64
-		users []SCIMUser
+		total          int64
+		users          []SCIMUser
+		hashedUserName string
 	)
+	if filter.UserName != "" {
+		var err error
+		if hashedUserName, err = hashSCIMUserName(filter.UserName); err != nil {
+			// No user has a userName that cannot be prepared.
+			return nil, 0, nil
+		}
+	}
+
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := tx.Model(new(types.SCIMUserBinding)).Where("connection_id = ? AND retired_at IS NULL", connectionID)
 		if filter.ID != "" {
 			query = query.Where("id = ?", filter.ID)
 		}
-		if filter.UserName != "" {
-			query = query.Where("hashed_user_name = ?", hashSCIMUserName(filter.UserName))
+		if hashedUserName != "" {
+			query = query.Where("hashed_user_name = ?", hashedUserName)
 		}
 
 		if err := query.Count(&total).Error; err != nil {
@@ -260,11 +269,15 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		changed bool
 	)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockSCIMWrites(tx); err != nil {
+		var err error
+		if conn, err = lockSCIMConnectionWrites(tx, conn.ID); err != nil {
 			return err
 		}
 
-		hashedUserName := hashSCIMUserName(input.UserName)
+		hashedUserName, err := hashSCIMUserName(input.UserName)
+		if err != nil {
+			return err
+		}
 		hashedNativeUserID := hash.String(nativeUserID)
 
 		var conflicts int64
@@ -403,7 +416,10 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 
 		profileChanged := !reflect.DeepEqual(normalizeSCIMUserProfile(current.Profile), normalizeSCIMUserProfile(input.Profile))
 		if current.UserName != input.UserName || current.ExternalID != input.ExternalID || current.Active != active || profileChanged {
-			hashedUserName := hashSCIMUserName(input.UserName)
+			hashedUserName, err := hashSCIMUserName(input.UserName)
+			if err != nil {
+				return err
+			}
 			if hashedUserName != binding.HashedUserName {
 				var conflicts int64
 				if err := tx.Model(new(types.SCIMUserBinding)).
@@ -563,7 +579,7 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		return 0, false, fmt.Errorf("failed to encrypt user: %w", err)
 	}
 	if err := c.createUser(tx, user, opts.UserLimit); err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) || isUniqueViolation(err) {
+		if IsUniqueViolation(err) {
 			// A concurrent sign-in may have just created the user, which the retry binds to.
 			return 0, false, &scimCreateRaceError{
 				err: &SCIMConflictError{
@@ -853,7 +869,8 @@ func validateSCIMUserInput(input SCIMUserInput) error {
 			Message: "userName is required",
 		}
 	}
-	return nil
+	_, err := hashSCIMUserName(input.UserName)
+	return err
 }
 
 // normalizeSCIMUserProfile makes equal profiles compare equal: an empty name is absent, and empty lists are nil.
@@ -888,8 +905,16 @@ func scimAdapterError(err error) error {
 	return err
 }
 
-func hashSCIMUserName(userName string) string {
-	return hash.String(types.NormalizeSCIMName(userName))
+// hashSCIMUserName returns the hash of the key that userName is compared by, or a *SCIMInvalidValueError for a
+// userName that has no key.
+func hashSCIMUserName(userName string) (string, error) {
+	key, err := types.SCIMUserNameKey(userName)
+	if err != nil {
+		return "", &SCIMInvalidValueError{
+			Message: fmt.Sprintf("userName %q has characters that a username cannot have", userName),
+		}
+	}
+	return hash.String(key), nil
 }
 
 func hashOptional(s string) string {
@@ -906,13 +931,6 @@ func isTransactionConflict(err error) bool {
 	return ok && (pgErr.Code == postgresDeadlockDetected || pgErr.Code == postgresSerializationFailure)
 }
 
-// isUniqueViolation reports whether err is a unique constraint violation from SQLite or PostgreSQL, whose drivers do
-// not translate them to gorm.ErrDuplicatedKey unless configured to.
-func isUniqueViolation(err error) bool {
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "unique constraint") || strings.Contains(msg, "duplicate key")
-}
-
 func (c *Client) encryptSCIMUserBinding(ctx context.Context, binding *types.SCIMUserBinding) error {
 	if c.encryptionConfig == nil {
 		return nil
@@ -922,7 +940,7 @@ func (c *Client) encryptSCIMUserBinding(ctx context.Context, binding *types.SCIM
 		return nil
 	}
 
-	dataCtx := scimUserBindingDataCtx(binding)
+	dataCtx := scimUserBindingDataCtx(binding.ID)
 	for _, field := range []*string{&binding.ExternalID, &binding.UserName, &binding.Profile} {
 		b, err := transformer.TransformToStorage(ctx, []byte(*field), dataCtx)
 		if err != nil {
@@ -943,22 +961,42 @@ func (c *Client) decryptSCIMUserBinding(ctx context.Context, binding *types.SCIM
 		return nil
 	}
 
-	dataCtx := scimUserBindingDataCtx(binding)
+	dataCtx := scimUserBindingDataCtx(binding.ID)
 	for _, field := range []*string{&binding.ExternalID, &binding.UserName, &binding.Profile} {
-		decoded, err := base64.StdEncoding.DecodeString(*field)
+		out, err := decryptSCIMUserBindingValue(ctx, transformer, dataCtx, *field)
 		if err != nil {
-			return fmt.Errorf("failed to decode SCIM user binding: %w", err)
+			return err
 		}
-		out, _, err := transformer.TransformFromStorage(ctx, decoded, dataCtx)
-		if err != nil {
-			return fmt.Errorf("failed to decrypt SCIM user binding: %w", err)
-		}
-		*field = string(out)
+		*field = out
 	}
 	binding.Encrypted = false
 	return nil
 }
 
-func scimUserBindingDataCtx(binding *types.SCIMUserBinding) value.Context {
-	return value.DefaultContext(fmt.Sprintf("%s/scim/%s", userGroupResource.String(), binding.ID))
+// decryptSCIMUserBindingField decrypts one encrypted field of the SCIM user binding with the given ID.
+func (c *Client) decryptSCIMUserBindingField(ctx context.Context, bindingID, field string) (string, error) {
+	if c.encryptionConfig == nil {
+		return field, nil
+	}
+	transformer := c.encryptionConfig.Transformers[userGroupResource]
+	if transformer == nil {
+		return field, nil
+	}
+	return decryptSCIMUserBindingValue(ctx, transformer, scimUserBindingDataCtx(bindingID), field)
+}
+
+func decryptSCIMUserBindingValue(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(field)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode SCIM user binding: %w", err)
+	}
+	out, _, err := transformer.TransformFromStorage(ctx, decoded, dataCtx)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt SCIM user binding: %w", err)
+	}
+	return string(out), nil
+}
+
+func scimUserBindingDataCtx(bindingID string) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/scim/%s", userGroupResource.String(), bindingID))
 }

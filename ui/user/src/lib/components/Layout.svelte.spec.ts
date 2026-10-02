@@ -286,21 +286,152 @@ describe('Layout.svelte', () => {
 			}
 		});
 
-		it('can be dismissed for this device', async () => {
+		it('cannot be dismissed, even on a device where it was dismissed before', async () => {
+			localStorage.setItem('@obot/dismiss-scim-setup-banner', 'true');
 			await renderWithAuthProviders([okta()]);
 
-			const dismiss = page.getByRole('button', { name: 'Dismiss SCIM setup banner', exact: true });
-			await expect.element(dismiss).toBeVisible();
+			await expect.element(continueLink()).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Dismiss SCIM setup banner', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('shows instead of the community signup banner', async () => {
+			worker.use(http.get('/api/auth-providers', () => HttpResponse.json({ items: [okta()] })));
+			await adminConfigStore.refresh();
+			await renderLayout([Group.OWNER, Group.ADMIN], {}, {}, owner);
+
+			await expect.element(continueLink()).toBeVisible();
+			await expect
+				.element(page.getByText(COMMUNITY_SIGNUP_BANNER_COPY, { exact: true }))
+				.not.toBeInTheDocument();
+		});
+	});
+
+	describe('SCIM token banner', () => {
+		const day = 24 * 60 * 60 * 1000;
+		const communityLicense: Partial<License> = {
+			licenseKey: 'community-license-key',
+			enterprise: true,
+			entitlements: [COMMUNITY_ENTITLEMENT]
+		};
+		const owner: Partial<Profile> = {
+			isOwner: () => true
+		};
+
+		function oktaWithTokenExpiringIn(
+			ms: number,
+			overrides: Partial<AuthProvider> = {}
+		): AuthProvider {
+			return {
+				id: 'okta-auth-provider',
+				created: '2026-09-01T00:00:00.000Z',
+				type: 'authprovider',
+				name: 'Okta',
+				image: '',
+				port: 0,
+				configured: true,
+				scimState: 'enforced',
+				scimTokenExpiresAt: new Date(Date.now() + ms).toISOString(),
+				...overrides
+			};
+		}
+
+		async function renderWithAuthProviders(
+			authProviders: AuthProvider[],
+			groups: string[] = [Group.OWNER, Group.ADMIN],
+			profileOverrides: Partial<Profile> = owner
+		) {
+			worker.use(
+				http.get('/api/auth-providers', () => HttpResponse.json({ items: authProviders }))
+			);
+			await adminConfigStore.refresh();
+			return renderLayout(groups, {}, communityLicense, profileOverrides);
+		}
+
+		const rotateLink = () => page.getByRole('link', { name: 'Rotate SCIM token', exact: true });
+		const dismissButton = () =>
+			page.getByRole('button', { name: 'Dismiss SCIM token banner', exact: true });
+
+		it('warns Owners within 30 days of the token expiring, and links to the SCIM tab', async () => {
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(10 * day)]);
+
+			await expect.element(page.getByText(/The SCIM token for Okta expires on/)).toBeVisible();
+			await expect
+				.element(rotateLink())
+				.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
+			await expect.element(dismissButton()).toBeVisible();
+		});
+
+		it('says that provisioning fails once the token has expired, until it is rotated', async () => {
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(-day)]);
+
+			await expect
+				.element(
+					page.getByRole('alert').filter({ hasText: /expired on .*provisioning from Okta fails/ })
+				)
+				.toBeVisible();
+			await expect.element(rotateLink()).toBeVisible();
+			await expect.element(dismissButton()).not.toBeInTheDocument();
+		});
+
+		it('does not show while the token is far from expiring', async () => {
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(200 * day)]);
+
+			await expect.element(rotateLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show for a provider that is not configured', async () => {
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(-day, { configured: false })]);
+
+			await expect.element(rotateLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show for administrators who are not Owners, or for the bootstrap user', async () => {
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(-day)], [Group.ADMIN], {});
+			await expect.element(rotateLink()).not.toBeInTheDocument();
+
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(-day)], [Group.OWNER, Group.ADMIN], {
+				...owner,
+				isBootstrapUser: () => true
+			});
+			await expect.element(rotateLink()).not.toBeInTheDocument();
+		});
+
+		it('does not show on the SCIM tab, which warns itself', async () => {
+			const url = vi
+				.spyOn(appPage, 'url', 'get')
+				.mockReturnValue(
+					new URL(
+						'http://localhost/identity-access?view=auth-providers&subview=scim'
+					) as typeof appPage.url
+				);
+			try {
+				await renderWithAuthProviders([oktaWithTokenExpiringIn(-day)]);
+				await expect.element(rotateLink()).not.toBeInTheDocument();
+			} finally {
+				url.mockRestore();
+			}
+		});
+
+		it('stays dismissed until a token with another expiry is issued', async () => {
+			const expiring = oktaWithTokenExpiringIn(10 * day);
+			await renderWithAuthProviders([expiring]);
+
 			// Native DOM click: Playwright actionability fails on driver.js overlays.
-			const el = await dismiss.element();
+			const el = await dismissButton().element();
 			if (!(el instanceof HTMLElement)) {
 				throw new Error('Expected dismiss control to be an HTMLElement');
 			}
 			el.click();
-			await expect.element(continueLink()).not.toBeInTheDocument();
+			await expect.element(rotateLink()).not.toBeInTheDocument();
 
-			await renderWithAuthProviders([okta()]);
-			await expect.element(continueLink()).not.toBeInTheDocument();
+			await renderWithAuthProviders([expiring]);
+			await expect.element(rotateLink()).not.toBeInTheDocument();
+
+			// Every layout rendered so far reads the same providers, so each shows the new token's banner.
+			await renderWithAuthProviders([oktaWithTokenExpiringIn(20 * day)]);
+			await expect.element(rotateLink().first()).toBeVisible();
 		});
 	});
 

@@ -6,8 +6,12 @@ import (
 )
 
 // projection selects the attributes a response returns, from the attributes and excludedAttributes query
-// parameters. The id and schemas attributes are always returned.
+// parameters. They apply to every response that returns a resource, as RFC 7644 section 3.9 says, including those of
+// creates and updates. The id and schemas attributes are always returned.
 type projection struct {
+	// selected is set when the attributes parameter selects what is returned, even when it names no attribute the
+	// schema defines. Then only the attributes it names are returned.
+	selected   bool
 	attributes []attrPath
 	excluded   []attrPath
 }
@@ -22,6 +26,7 @@ func parseProjection(schema *resourceSchema, q url.Values) (*projection, error) 
 		return nil, err
 	}
 	return &projection{
+		selected:   strings.TrimSpace(q.Get("attributes")) != "",
 		attributes: attributes,
 		excluded:   excluded,
 	}, nil
@@ -59,7 +64,7 @@ func parseAttributeList(schema *resourceSchema, s string) ([]attrPath, error) {
 
 // includes reports whether the response returns any part of the top-level attribute.
 func (p *projection) includes(name string) bool {
-	if len(p.attributes) > 0 {
+	if p.selected {
 		for _, a := range p.attributes {
 			if strings.EqualFold(a.Name, name) {
 				return true
@@ -76,7 +81,7 @@ func (p *projection) includes(name string) bool {
 }
 
 func (p *projection) apply(resource map[string]any) map[string]any {
-	if len(p.attributes) > 0 {
+	if p.selected {
 		out := map[string]any{
 			"id":      resource["id"],
 			"schemas": resource["schemas"],

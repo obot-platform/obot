@@ -51,6 +51,18 @@ const (
 	groupFailureCooldown = time.Minute
 
 	groupCursorVersion = 1
+
+	// grantingMembership is a condition on group_memberships that leaves out the memberships of groups whose
+	// auth provider has a suspended SCIM connection. SCIM keeps those groups after the provider is deconfigured,
+	// and they grant nothing until it is configured again. Lookups of a user's groups that are not scoped to one
+	// auth provider, such as those of API keys and tokens, apply it. A lookup scoped to the provider a user
+	// signed in with needs no such condition, as nobody can sign in with a deconfigured provider.
+	grantingMembership = `NOT EXISTS (
+		SELECT 1 FROM groups suspended_groups
+		JOIN scim_connections ON scim_connections.auth_provider_namespace = suspended_groups.auth_provider_namespace
+			AND scim_connections.auth_provider_name = suspended_groups.auth_provider_name
+		WHERE suspended_groups.id = group_memberships.group_id AND scim_connections.suspended_at IS NOT NULL
+	)`
 )
 
 var (
@@ -567,10 +579,10 @@ func (c *Client) cacheResolvedGroups(ctx context.Context, authProviderNamespace,
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.
-// This can include groups from multiple auth providers.
+// This can include groups from multiple auth providers, but not those of a suspended SCIM connection.
 func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string, error) {
 	var groupIDs []string
-	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
+	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Where(grantingMembership).Pluck("group_id", &groupIDs).Error; err != nil {
 		return nil, fmt.Errorf("failed to list user group IDs: %w", err)
 	}
 
@@ -642,7 +654,7 @@ func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNa
 }
 
 // GetUserGroupMemberships fetches group memberships for multiple users in a single query.
-// Returns a map of userID to slice of groupIDs.
+// Returns a map of userID to slice of groupIDs, leaving out the groups of a suspended SCIM connection.
 func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
 	if len(userIDs) == 0 {
 		return nil, nil
@@ -658,6 +670,7 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 		Table("group_memberships").
 		Select("user_id, group_id").
 		Where("user_id IN ?", userIDs).
+		Where(grantingMembership).
 		Find(&results).Error
 
 	if err != nil {

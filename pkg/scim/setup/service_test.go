@@ -22,8 +22,9 @@ import (
 )
 
 type fakeAuthProviders struct {
-	configured string
-	staged     string
+	configured    string
+	staged        string
+	configuredErr error
 }
 
 // racingStorage runs beforeList once, before the list of model access policies that follows the first one, as a
@@ -52,7 +53,7 @@ type serviceTest struct {
 }
 
 func (f *fakeAuthProviders) GetConfiguredAuthProvider(context.Context) (string, error) {
-	return f.configured, nil
+	return f.configured, f.configuredErr
 }
 
 func (f *fakeAuthProviders) GetStagedAuthProvider(context.Context) (string, error) {
@@ -520,6 +521,34 @@ func TestTokenManagement(t *testing.T) {
 
 	if _, err := s.service.RotateToken(t.Context(), "unknown"); err == nil {
 		t.Fatal("a token was issued for an unknown connection")
+	}
+}
+
+func TestFailedTokenReplacementKeepsTheCurrentToken(t *testing.T) {
+	s := newServiceTest(t)
+
+	current, err := s.service.RotateToken(t.Context(), s.conn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A token that is issued but never returned is lost, and replacing it again would retire the token the
+	// identity provider still uses. So a failure to build the response must leave the current token in place.
+	s.providers.configuredErr = errors.New("storage unavailable")
+	for name, replace := range map[string]func(context.Context, string) (*clienttypes.SCIMConnection, error){
+		"RotateToken":        s.service.RotateToken,
+		"RevokeCurrentToken": s.service.RevokeCurrentToken,
+	} {
+		if _, err := replace(t.Context(), s.conn.ID); err == nil {
+			t.Fatalf("%s succeeded without the configured auth provider", name)
+		}
+		stored, err := s.gateway.SCIMConnection(t.Context(), s.conn.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.TokenVerifier != hash.String(current.Token) || stored.PreviousTokenVerifier != "" {
+			t.Fatalf("a failed %s replaced the current token", name)
+		}
 	}
 }
 

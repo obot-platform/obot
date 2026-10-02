@@ -44,11 +44,10 @@ function createFetch(groups: string[], telemetryStatus = 200) {
 	});
 }
 
-async function loadWith(fetch: ReturnType<typeof createFetch>) {
-	return (await load({ fetch } as unknown as Parameters<NonNullable<typeof load>>[0])) as Exclude<
-		Awaited<ReturnType<NonNullable<typeof load>>>,
-		void
-	>;
+async function loadWith(fetch: ReturnType<typeof createFetch>, url = new URL('http://localhost/')) {
+	return (await load({ fetch, url } as unknown as Parameters<
+		NonNullable<typeof load>
+	>[0])) as Exclude<Awaited<ReturnType<NonNullable<typeof load>>>, void>;
 }
 
 describe('root layout product analytics consent', () => {
@@ -128,6 +127,26 @@ describe('root layout account status', () => {
 
 		expect(data.profile.unauthorized).toBe(true);
 		expect(data.profile.accountInactive).toBe(true);
+	});
+
+	it('marks an account inactive when the server sent its page load to the login page', async () => {
+		// The server ended the session as it redirected, so the profile request is merely signed out.
+		const data = await loadWith(
+			createRefusedProfileFetch(401, 'unauthorized'),
+			new URL('http://localhost/?inactive=true')
+		);
+
+		expect(data.profile.unauthorized).toBe(true);
+		expect(data.profile.accountInactive).toBe(true);
+	});
+
+	it('ignores the login page flag once someone is signed in', async () => {
+		const data = await loadWith(
+			createFetch([Group.USER]),
+			new URL('http://localhost/?inactive=true')
+		);
+
+		expect(data.profile.accountInactive).toBeUndefined();
 	});
 
 	it('does not mark a signed-out visitor as inactive', async () => {

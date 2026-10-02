@@ -305,9 +305,9 @@ func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 }
 
 // setupEnabled determines whether bootstrap setup flow is currently available.
-// It is available while there is no configured auth provider, or until an enabled
-// owner has signed in through the currently configured auth provider. It becomes
-// available again if every such owner is disabled.
+// It is available while there is no configured auth provider, or until an owner
+// has signed in through the currently configured auth provider. Disabling every
+// such owner does not make it available again; deleting them does.
 func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
 	if b.authProviderGetter == nil {
 		return false, errors.New("configured auth provider getter is not set")

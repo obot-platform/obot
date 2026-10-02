@@ -104,7 +104,7 @@ func testConcurrencyAndRetries(t *testing.T, s *scimTest) {
 			})
 		})
 		for _, status := range statuses {
-			if status != http.StatusOK {
+			if status != http.StatusNoContent {
 				t.Fatalf("statuses = %v", statuses)
 			}
 		}

@@ -360,13 +360,15 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 		return nil, "", fmt.Errorf("audience is required")
 	}
 
-	// A token is never issued for a disabled or deleted user, including to background work acting for them.
+	// A token is never issued for a disabled or deleted user, including to background work acting for them. A request
+	// that the admission check let through has read the status of the user it acts for already, so a token that it
+	// mints for that user is not checked again.
 	if t.gatewayClient != nil {
 		ownerID := context.UserID
 		if _, err := strconv.ParseUint(ownerID, 10, 64); err != nil {
 			ownerID = context.HostedAgentOwnerID
 		}
-		if userID, err := strconv.ParseUint(ownerID, 10, 64); err == nil {
+		if userID, err := strconv.ParseUint(ownerID, 10, 64); err == nil && !principal.AdmittedActiveUser(ctx, ownerID) {
 			if err := t.gatewayClient.CheckCredentialOwner(ctx, uint(userID)); err != nil {
 				return nil, "", err
 			}

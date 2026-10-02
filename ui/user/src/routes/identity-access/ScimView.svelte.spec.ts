@@ -365,6 +365,46 @@ describe('ScimView', () => {
 		await expect.element(page.getByRole('button', { name: 'Enforce SCIM' })).toBeDisabled();
 	});
 
+	describe('the bearer token expiry', () => {
+		const day = 24 * 60 * 60 * 1000;
+		const reviewWithTokenExpiringIn = (ms: number) =>
+			enforcedReview({
+				connection: connection({
+					state: 'enforced',
+					hasToken: true,
+					tokenIssuedAt: new Date(Date.now() + ms - 365 * day).toISOString(),
+					tokenExpiresAt: new Date(Date.now() + ms).toISOString()
+				})
+			});
+
+		it('is shown without a warning while far off', async () => {
+			await renderScimView([Group.OWNER], { review: reviewWithTokenExpiringIn(200 * day) });
+
+			await expect.element(page.getByText(/^Expires /)).toBeVisible();
+			await expect.element(page.getByText(/The bearer token expires on/)).not.toBeInTheDocument();
+			await expect.element(page.getByText(/The bearer token expired on/)).not.toBeInTheDocument();
+		});
+
+		it('warns within 30 days of it', async () => {
+			await renderScimView([Group.OWNER], { review: reviewWithTokenExpiringIn(10 * day) });
+
+			await expect
+				.element(page.getByRole('status').filter({ hasText: /The bearer token expires on/ }))
+				.toBeVisible();
+			await expect.element(page.getByText(/The bearer token expired on/)).not.toBeInTheDocument();
+		});
+
+		it('says that requests fail once it has passed', async () => {
+			await renderScimView([Group.OWNER], { review: reviewWithTokenExpiringIn(-day) });
+
+			await expect
+				.element(page.getByRole('alert').filter({ hasText: /The bearer token expired on/ }))
+				.toBeVisible();
+			await expect.element(page.getByText(/^Expired /)).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Rotate token' })).toBeVisible();
+		});
+	});
+
 	it('asks for the referenced groups to be pushed before enforcing', async () => {
 		await renderScimView([Group.OWNER, Group.ADMIN], {
 			review: reviewAtEnforce({
@@ -739,6 +779,29 @@ describe('ScimView', () => {
 			.not.toBeInTheDocument();
 	});
 
+	it('shows a page that keeps coming back empty, rather than asking for it again forever', async () => {
+		const requested = vi.fn();
+		worker.use(
+			http.get(`*/api/scim-connections/${connectionID}/users`, ({ request }) => {
+				requested(new URL(request.url).searchParams.get('offset'));
+				// The count says there is a second page, but the page itself is empty.
+				return HttpResponse.json({ items: [], total: 4 });
+			})
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			pageSize: 2,
+			review: enforcedReview({
+				provisionedUsers: { items: [], total: 0 },
+				unprovisionedUsers: { items: [user('1'), user('2')], total: 4 }
+			})
+		});
+
+		await page.getByRole('button', { name: 'Next page of unprovisioned users' }).click();
+
+		await expect.element(page.getByText('2 of 2', { exact: true })).toBeVisible();
+		expect(requested).toHaveBeenCalledExactlyOnceWith('2');
+	});
+
 	it('rotates the token, shows the new one once, and can revoke the previous one', async () => {
 		const revokePrevious = vi.fn();
 		let rotated = false;
@@ -781,6 +844,36 @@ describe('ScimView', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Revoke previous token' }))
 			.not.toBeInTheDocument();
+	});
+
+	it('closes the confirmation before showing the token it issued', async () => {
+		let releaseReview!: () => void;
+		const reviewHeld = new Promise<void>((resolve) => (releaseReview = resolve));
+		worker.use(
+			http.post(`*/api/scim-connections/${connectionID}/rotate-token`, () =>
+				HttpResponse.json(connection({ hasToken: true, token: 'obot_scim_new' }))
+			),
+			http.get(`*/api/scim-connections/${connectionID}/review`, async () => {
+				// The review loaded after the rotation answers only once the test lets it.
+				await reviewHeld;
+				return HttpResponse.json(review({ connection: connection({ hasToken: true }) }));
+			})
+		);
+		try {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: review({ connection: connection({ hasToken: true }) })
+			});
+
+			await page.getByRole('button', { name: 'Rotate token' }).click();
+			await page.getByRole('button', { name: 'Rotate token' }).last().click();
+
+			await expect.element(page.getByText('obot_scim_new')).toBeVisible();
+			await expect
+				.element(page.getByText('Issue a new SCIM bearer token?'))
+				.not.toBeInTheDocument();
+		} finally {
+			releaseReview();
+		}
 	});
 
 	it('replaces a leaked token', async () => {

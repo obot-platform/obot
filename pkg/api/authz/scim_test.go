@@ -3,7 +3,6 @@ package authz
 import (
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -174,17 +173,21 @@ func TestSCIMConnectionAdministration(t *testing.T) {
 		groups      []string
 		allowReads  bool
 		allowWrites bool
+		// allowResidualGroupData is whether the residual group data of an auth provider can be read.
+		allowResidualGroupData bool
 	}{
 		{
-			name:        "owner, including the bootstrap user",
-			groups:      types.RoleOwner.Groups(),
-			allowReads:  true,
-			allowWrites: true,
+			name:                   "owner, including the bootstrap user",
+			groups:                 types.RoleOwner.Groups(),
+			allowReads:             true,
+			allowWrites:            true,
+			allowResidualGroupData: true,
 		},
 		{
-			name:       "admin",
-			groups:     types.RoleAdmin.Groups(),
-			allowReads: true,
+			name:                   "admin",
+			groups:                 types.RoleAdmin.Groups(),
+			allowReads:             true,
+			allowResidualGroupData: true,
 		},
 		{
 			name:       "auditor",
@@ -220,7 +223,7 @@ func TestSCIMConnectionAdministration(t *testing.T) {
 			for _, path := range writes {
 				check(http.MethodPost, path, tt.allowWrites)
 			}
-			check(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", tt.allowWrites || (tt.allowReads && slices.Contains(tt.groups, types.GroupAdmin)))
+			check(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", tt.allowResidualGroupData)
 		})
 	}
 }

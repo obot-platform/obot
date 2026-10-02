@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -196,6 +197,127 @@ func TestNewGroupReferencesMustNameAGroupOfTheSCIMProvider(t *testing.T) {
 	var policy v1.ModelAccessPolicy
 	require.NoError(t, s.storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &policy))
 	assert.Len(t, policy.Spec.Manifest.Subjects, 2)
+}
+
+// TestHandlersRefuseNewReferencesToMissingSCIMGroups checks that every handler that saves group subjects runs them
+// through the group reference guard.
+func TestHandlersRefuseNewReferencesToMissingSCIMGroups(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.connect()
+	require.NoError(t, s.storage.Create(t.Context(), &v1.MCPCatalog{
+		Name:      "default",
+		Namespace: system.DefaultNamespace,
+	}))
+	owner := &user.DefaultInfo{
+		Name:   "owner",
+		UID:    "1",
+		Groups: clienttypes.RoleOwner.Groups(),
+	}
+	missing := []clienttypes.Subject{
+		{
+			Type: clienttypes.SubjectTypeGroup,
+			ID:   "okta/00g-missing",
+		},
+	}
+
+	tests := []struct {
+		name       string
+		path       string
+		pathValues map[string]string
+		body       any
+		create     func(api.Context) error
+		// saved lists the objects of the kind the handler saves, which must stay empty.
+		saved kclient.ObjectList
+	}{
+		{
+			name: "access control rule",
+			path: "/api/mcp-catalogs/default/access-control-rules",
+			pathValues: map[string]string{
+				"catalog_id": "default",
+			},
+			body: clienttypes.AccessControlRuleManifest{
+				DisplayName: "Rule",
+				Subjects:    missing,
+			},
+			create: (&AccessControlRuleHandler{}).Create,
+			saved:  &v1.AccessControlRuleList{},
+		},
+		{
+			name: "hosted agent access rule",
+			path: "/api/hosted-agent-access-rules",
+			body: clienttypes.HostedAgentAccessRuleManifest{
+				DisplayName: "Rule",
+				Subjects:    missing,
+				Resources: []clienttypes.HostedAgentResource{
+					{
+						Type: clienttypes.HostedAgentResourceTypeSelector,
+						ID:   "*",
+					},
+				},
+			},
+			create: (&HostedAgentAccessRuleHandler{}).Create,
+			saved:  &v1.HostedAgentAccessRuleList{},
+		},
+		{
+			name: "message policy",
+			path: "/api/message-policies",
+			body: clienttypes.MessagePolicyManifest{
+				DisplayName: "Policy",
+				Definition:  "Be polite.",
+				Direction:   clienttypes.PolicyDirectionUserMessage,
+				Subjects:    missing,
+			},
+			create: (&MessagePolicyHandler{}).Create,
+			saved:  &v1.MessagePolicyList{},
+		},
+		{
+			name: "model access policy",
+			path: "/api/model-access-policies",
+			body: clienttypes.ModelAccessPolicyManifest{
+				DisplayName: "Models",
+				Subjects:    missing,
+				Models: []clienttypes.ModelResource{
+					{
+						ID: "*",
+					},
+				},
+			},
+			create: (&ModelAccessPolicyHandler{}).Create,
+			saved:  &v1.ModelAccessPolicyList{},
+		},
+		{
+			name: "skill access rule",
+			path: "/api/skill-access-rules",
+			body: clienttypes.SkillAccessRuleManifest{
+				DisplayName: "Rule",
+				Subjects:    missing,
+				Resources: []clienttypes.SkillResource{
+					{
+						Type: clienttypes.SkillResourceTypeSelector,
+						ID:   "*",
+					},
+				},
+			},
+			create: (&SkillAccessRuleHandler{}).Create,
+			saved:  &v1.SkillAccessRuleList{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(tt.body)
+			require.NoError(t, err)
+			req, _ := s.scimContext(http.MethodPost, tt.path, string(body), owner)
+			for name, value := range tt.pathValues {
+				req.SetPathValue(name, value)
+			}
+
+			err = tt.create(req)
+			require.ErrorContains(t, err, "okta/00g-missing")
+			require.ErrorContains(t, err, "push the group")
+			require.NoError(t, s.storage.List(t.Context(), tt.saved))
+			assert.Zero(t, meta.LenList(tt.saved), "a refused object was saved")
+		})
+	}
 }
 
 func TestSCIMEnableHandler(t *testing.T) {

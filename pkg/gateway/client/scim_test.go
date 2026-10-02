@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/system"
-	"gorm.io/gorm"
 )
 
 var (
@@ -251,7 +251,7 @@ func TestSCIMConnectionTokens(t *testing.T) {
 	}
 
 	// The first token of a tokenless connection has no predecessor.
-	first, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	_, first, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
 	if err != nil {
 		t.Fatalf("failed to issue the first token: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestSCIMConnectionTokens(t *testing.T) {
 	}
 
 	// Rotation keeps the previous token until it expires.
-	second, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	_, second, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
 	if err != nil {
 		t.Fatalf("failed to rotate: %v", err)
 	}
@@ -283,11 +283,11 @@ func TestSCIMConnectionTokens(t *testing.T) {
 	}
 
 	// The next rotation replaces the previous token.
-	third, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	_, third, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
 	if err != nil {
 		t.Fatalf("failed to rotate: %v", err)
 	}
-	fourth, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	_, fourth, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
 	if err != nil {
 		t.Fatalf("failed to rotate: %v", err)
 	}
@@ -304,10 +304,10 @@ func TestSCIMConnectionTokens(t *testing.T) {
 	}
 
 	// Revoking the current token replaces it in one step, and nothing earlier is accepted.
-	if _, err := c.RotateSCIMConnectionToken(ctx, conn.ID); err != nil {
+	if _, _, err := c.RotateSCIMConnectionToken(ctx, conn.ID); err != nil {
 		t.Fatal(err)
 	}
-	fresh, err := c.RevokeCurrentSCIMConnectionToken(ctx, conn.ID)
+	_, fresh, err := c.RevokeCurrentSCIMConnectionToken(ctx, conn.ID)
 	if err != nil {
 		t.Fatalf("failed to revoke the current token: %v", err)
 	}
@@ -324,11 +324,11 @@ func TestSCIMConnectionTokens(t *testing.T) {
 
 	for _, fn := range []func() error{
 		func() error {
-			_, err := c.RotateSCIMConnectionToken(ctx, "unknown")
+			_, _, err := c.RotateSCIMConnectionToken(ctx, "unknown")
 			return err
 		},
 		func() error {
-			_, err := c.RevokeCurrentSCIMConnectionToken(ctx, "unknown")
+			_, _, err := c.RevokeCurrentSCIMConnectionToken(ctx, "unknown")
 			return err
 		},
 		func() error {
@@ -812,11 +812,13 @@ func fmtUserID(id uint) string {
 	return strconv.FormatUint(uint64(id), 10)
 }
 
-// TestEnforcedSignInNeverCreatesAnAccount covers a sign-in whose user is deleted, or whose identity is removed, after
-// requireSCIMBindingTx found them: once SCIM is enforced, sign-in refuses rather than create a replacement.
+// TestEnforcedSignInNeverCreatesAnAccount covers sign-ins, once SCIM is enforced, whose user was deleted or whose
+// identity does not exist: sign-in refuses rather than create an account.
 func TestEnforcedSignInNeverCreatesAnAccount(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, false)
+	setSCIMConnectionState(t, c, conn, types.SCIMConnectionStateEnforced)
 	deleted := createLifecycleTestUser(t, c, "deleted", lifecycleTestProvider)
 	if err := c.db.WithContext(ctx).Model(deleted).UpdateColumn("deleted_at", time.Now()).Error; err != nil {
 		t.Fatal(err)
@@ -830,10 +832,8 @@ func TestEnforcedSignInNeverCreatesAnAccount(t *testing.T) {
 		signInIdentity("00u-deleted", "deleted@example.com"),
 		signInIdentity("00u-unknown", "unknown@example.com"),
 	} {
-		id.HashedProviderUserID = hash.String(id.ProviderUserID)
-		err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			_, _, _, err := c.ensureIdentityUser(ctx, tx, true, id, "", apitypes.RoleBasic, UserLimit{Unlimited: true}, false, id.Email, id.ProviderUserID, id.ProviderUsername)
-			return err
+		_, err := c.EnsureIdentity(ctx, id, "", UserLimit{
+			Unlimited: true,
 		})
 		if _, ok := errors.AsType[*UserAccessDeniedError](err); !ok {
 			t.Fatalf("enforced sign-in of %s failed with %v, want a UserAccessDeniedError", id.ProviderUserID, err)
@@ -876,5 +876,334 @@ func TestSignInThroughAnotherProviderLeavesTheSCIMProfileAlone(t *testing.T) {
 	}
 	if got := storedLifecycleUser(t, c, provisioned.UserID); got.Username != "00u-provisioned" || got.Email != "person@example.com" || got.DisplayName != "SCIM Name" {
 		t.Fatalf("a sign-in through another provider changed the SCIM profile: %+v", got)
+	}
+}
+
+func TestSCIMConnectionTokensExpire(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, false)
+
+	authenticates := func(token string) bool {
+		t.Helper()
+		_, err := c.AuthenticateSCIMConnection(ctx, conn.ID, token)
+		if err == nil {
+			return true
+		}
+		if _, ok := errors.AsType[*SCIMAuthenticationError](err); !ok {
+			t.Fatalf("AuthenticateSCIMConnection() failed with %v, want a SCIMAuthenticationError", err)
+		}
+		return false
+	}
+	issuedAgo := func(age time.Duration) {
+		t.Helper()
+		if err := c.db.WithContext(ctx).Model(new(types.SCIMConnection)).Where("id = ?", conn.ID).
+			UpdateColumn("token_issued_at", time.Now().Add(-age)).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	issued, first, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expiresAt := issued.TokenExpiresAt(); expiresAt == nil || !expiresAt.Equal(issued.TokenIssuedAt.Add(types.SCIMTokenLifetime)) {
+		t.Fatalf("TokenExpiresAt() = %v, want a year after %v", expiresAt, issued.TokenIssuedAt)
+	}
+
+	// A token is accepted until it is a year old.
+	issuedAgo(types.SCIMTokenLifetime - time.Minute)
+	if !authenticates(first) {
+		t.Fatal("a token was refused before it expired")
+	}
+	issuedAgo(types.SCIMTokenLifetime + time.Minute)
+	if authenticates(first) {
+		t.Fatal("an expired token was accepted")
+	}
+
+	// Rotating an expired token does not accept it again for a day.
+	rotated, second, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if authenticates(first) || rotated.PreviousTokenAccepted(time.Now()) || !authenticates(second) {
+		t.Fatal("rotating an expired token accepted it again")
+	}
+
+	// The token that a rotation replaces is accepted for a day, but never past its own expiry.
+	issuedAgo(types.SCIMTokenLifetime - time.Hour)
+	expiring, err := c.SCIMConnection(ctx, conn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replaced, _, err := c.RotateSCIMConnectionToken(ctx, conn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.PreviousTokenExpiresAt == nil || !replaced.PreviousTokenExpiresAt.Equal(*expiring.TokenExpiresAt()) {
+		t.Fatalf("PreviousTokenExpiresAt = %v, want the replaced token's expiry %v", replaced.PreviousTokenExpiresAt, expiring.TokenExpiresAt())
+	}
+	if !authenticates(second) {
+		t.Fatal("the replaced token was refused before it expired")
+	}
+}
+
+func TestSuspendedSCIMConnectionGroupsGrantNothing(t *testing.T) {
+	testSuspendedSCIMConnectionGroupsGrantNothing(t, newLifecycleTestClient(t))
+}
+
+func TestSuspendedSCIMConnectionGroupsGrantNothingOnPostgres(t *testing.T) {
+	testSuspendedSCIMConnectionGroupsGrantNothing(t, newPostgresLifecycleTestClient(t))
+}
+
+func testSuspendedSCIMConnectionGroupsGrantNothing(t *testing.T, c *Client) {
+	t.Helper()
+	ctx := t.Context()
+
+	conn, _ := createTestSCIMConnection(t, c, false)
+	scimUser := provisionTestSCIMUser(t, c, conn, "00u-user", "user@example.com")
+	scimGroup, err := c.CreateSCIMGroup(ctx, conn, SCIMGroupInput{
+		DisplayName: "Admins",
+		MemberIDs:   []string{scimUser.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.CreateGroupRoleAssignment(ctx, scimGroup.GroupID, apitypes.RoleAdmin, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	// A group of another auth provider is not affected by the suspension.
+	other := types.Group{
+		ID:                    "entra/engineering",
+		AuthProviderName:      "entra-auth-provider",
+		AuthProviderNamespace: system.DefaultNamespace,
+		Name:                  "Engineering",
+	}
+	if err := c.db.WithContext(ctx).Create(&other).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Create(&types.GroupMemberships{
+		UserID:  scimUser.UserID,
+		GroupID: other.ID,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	assertGranted := func(wantGroupIDs []string, wantAdmin bool) {
+		t.Helper()
+
+		user, groupIDs, err := c.UserByIDWithEffectiveRole(ctx, scimUser.UserID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sameGroupIDs(groupIDs, wantGroupIDs) || user.Role.HasRole(apitypes.RoleAdmin) != wantAdmin {
+			t.Fatalf("UserByIDWithEffectiveRole() = role %v, groups %v; want admin %v, groups %v", user.Role, groupIDs, wantAdmin, wantGroupIDs)
+		}
+
+		listed, err := c.ListGroupIDsForUser(ctx, scimUser.UserID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sameGroupIDs(listed, wantGroupIDs) {
+			t.Fatalf("ListGroupIDsForUser() = %v, want %v", listed, wantGroupIDs)
+		}
+
+		memberships, err := c.GetUserGroupMemberships(ctx, []uint{scimUser.UserID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sameGroupIDs(memberships[scimUser.UserID], wantGroupIDs) {
+			t.Fatalf("GetUserGroupMemberships() = %v, want %v", memberships[scimUser.UserID], wantGroupIDs)
+		}
+
+		// Sign-in through the provider is scoped to it, and nobody can sign in while it is deconfigured.
+		_, scoped, err := c.getUserAndGroupIDs(ctx, scimUser.UserID, lifecycleTestProvider.Namespace, lifecycleTestProvider.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sameGroupIDs(scoped, []string{scimGroup.GroupID}) {
+			t.Fatalf("groups scoped to the provider = %v, want %v", scoped, []string{scimGroup.GroupID})
+		}
+	}
+
+	assertGranted([]string{scimGroup.GroupID, other.ID}, true)
+
+	// Suspending twice is the same as suspending once.
+	for range 2 {
+		if err := c.SuspendSCIMConnection(ctx, lifecycleTestProvider.Namespace, lifecycleTestProvider.Name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertGranted([]string{other.ID}, false)
+
+	if err := c.ResumeSCIMConnection(ctx, lifecycleTestProvider.Namespace, lifecycleTestProvider.Name); err != nil {
+		t.Fatal(err)
+	}
+	assertGranted([]string{scimGroup.GroupID, other.ID}, true)
+
+	// A provider without a connection has nothing to suspend or resume.
+	if err := c.SuspendSCIMConnection(ctx, other.AuthProviderNamespace, other.AuthProviderName); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ResumeSCIMConnection(ctx, other.AuthProviderNamespace, other.AuthProviderName); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// sameGroupIDs reports whether two lists hold the same group IDs, in any order.
+func sameGroupIDs(got, want []string) bool {
+	got, want = slices.Clone(got), slices.Clone(want)
+	slices.Sort(got)
+	slices.Sort(want)
+	return slices.Equal(got, want)
+}
+
+func TestDeletingASCIMGroup(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		state       types.SCIMConnectionState
+		wantDeleted bool
+	}{
+		{
+			name:        "before SCIM is enforced, the group stays and can be bound again by its name",
+			state:       types.SCIMConnectionStateConnected,
+			wantDeleted: false,
+		},
+		{
+			name:        "once SCIM is enforced, the group is deleted with what it was granted",
+			state:       types.SCIMConnectionStateEnforced,
+			wantDeleted: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newLifecycleTestClient(t)
+			ctx := t.Context()
+			conn, _ := createTestSCIMConnection(t, c, false)
+			scimUser := provisionTestSCIMUser(t, c, conn, "00u-user", "user@example.com")
+			group, err := c.CreateSCIMGroup(ctx, conn, SCIMGroupInput{
+				DisplayName: "Admins",
+				MemberIDs:   []string{scimUser.ID},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := c.CreateGroupRoleAssignment(ctx, group.GroupID, apitypes.RoleAdmin, ""); err != nil {
+				t.Fatal(err)
+			}
+			setSCIMConnectionState(t, c, conn, tt.state)
+
+			if err := c.DeleteSCIMGroup(ctx, conn, group.ID); err != nil {
+				t.Fatal(err)
+			}
+			if err := c.DeleteSCIMGroup(ctx, conn, group.ID); !errors.As(err, new(*SCIMNotFoundError)) {
+				t.Fatalf("a second DeleteSCIMGroup() error = %v, want not found", err)
+			}
+
+			count := func(model any, query string, args ...any) int64 {
+				t.Helper()
+				var n int64
+				if err := c.db.WithContext(ctx).Model(model).Where(query, args...).Count(&n).Error; err != nil {
+					t.Fatal(err)
+				}
+				return n
+			}
+			if n := count(new(types.GroupMemberships), "group_id = ?", group.GroupID); n != 0 {
+				t.Fatalf("%d memberships of the deleted group remain", n)
+			}
+			wantKept := int64(1)
+			if tt.wantDeleted {
+				wantKept = 0
+			}
+			if n := count(new(types.Group), "id = ?", group.GroupID); n != wantKept {
+				t.Fatalf("%d groups remain, want %d", n, wantKept)
+			}
+			if n := count(new(types.GroupRoleAssignment), "group_name = ?", group.GroupID); n != wantKept {
+				t.Fatalf("%d group role assignments remain, want %d", n, wantKept)
+			}
+			if n := count(new(types.SCIMGroupSubjectCleanup), "group_id = ?", group.GroupID); n != 1-wantKept {
+				t.Fatalf("%d cleanups of the group's subjects were recorded, want %d", n, 1-wantKept)
+			}
+
+			// A group pushed later under the same name binds to the kept group, or gets a new one with no grants.
+			pushed, err := c.CreateSCIMGroup(ctx, conn, SCIMGroupInput{
+				DisplayName: "Admins",
+				MemberIDs:   []string{scimUser.ID},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (pushed.GroupID == group.GroupID) == tt.wantDeleted {
+				t.Fatalf("the pushed group's ID is %q, and the deleted group's %q", pushed.GroupID, group.GroupID)
+			}
+			user, _, err := c.UserByIDWithEffectiveRole(ctx, scimUser.UserID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if user.Role.HasRole(apitypes.RoleAdmin) == tt.wantDeleted {
+				t.Fatalf("the member of the pushed group has role %v", user.Role)
+			}
+
+			// A new reference to the deleted group is refused, as it names no group.
+			err = c.WithNewSCIMGroupReferences(ctx, []string{group.GroupID}, func() error { return nil })
+			if _, refused := errors.AsType[*SCIMGroupReferenceError](err); refused != tt.wantDeleted {
+				t.Fatalf("WithNewSCIMGroupReferences() for the deleted group's ID error = %v", err)
+			}
+		})
+	}
+}
+
+func TestSCIMGroupSubjectCleanupClaims(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	ctx := t.Context()
+	for _, groupID := range []string{"okta/first", "okta/second"} {
+		if err := c.db.WithContext(ctx).Create(&types.SCIMGroupSubjectCleanup{
+			GroupID:   groupID,
+			Namespace: system.DefaultNamespace,
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	claim := func() []string {
+		t.Helper()
+		cleanups, err := c.ClaimSCIMGroupSubjectCleanups(ctx, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids := make([]string, 0, len(cleanups))
+		for _, cleanup := range cleanups {
+			ids = append(ids, cleanup.GroupID)
+		}
+		slices.Sort(ids)
+		return ids
+	}
+
+	if got := claim(); !slices.Equal(got, []string{"okta/first", "okta/second"}) {
+		t.Fatalf("claimed %v", got)
+	}
+	// A claimed cleanup is not handed out again until its claim expires.
+	if got := claim(); len(got) != 0 {
+		t.Fatalf("claimed cleanups were claimed again: %v", got)
+	}
+
+	if err := c.CompleteSCIMGroupSubjectCleanup(ctx, "okta/first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.FailSCIMGroupSubjectCleanup(ctx, "okta/second", errors.New("conflict")); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Model(new(types.SCIMGroupSubjectCleanup)).Where("group_id = ?", "okta/second").
+		UpdateColumn("claimed_until", time.Now().Add(-time.Second)).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got := claim(); !slices.Equal(got, []string{"okta/second"}) {
+		t.Fatalf("after the claim expired, claimed %v", got)
+	}
+	var failed types.SCIMGroupSubjectCleanup
+	if err := c.db.WithContext(ctx).Where("group_id = ?", "okta/second").Take(&failed).Error; err != nil {
+		t.Fatal(err)
+	}
+	if failed.Attempts != 1 || failed.LastError != "conflict" {
+		t.Fatalf("the failed cleanup = %+v", failed)
 	}
 }

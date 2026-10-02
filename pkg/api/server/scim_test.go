@@ -410,8 +410,10 @@ func TestSCIMRateLimitAnswersWithIntegerRetryAfter(t *testing.T) {
 	s := newSCIMServerTest(t, 1)
 	conn, token := s.enable()
 
-	var limited *httptest.ResponseRecorder
-	var body map[string]any
+	var (
+		limited *httptest.ResponseRecorder
+		body    map[string]any
+	)
 	for range 5 {
 		rec, b := s.do(scimRequest(scim.PathPrefix+conn.ID+"/Users", token))
 		if rec.Code == http.StatusTooManyRequests {

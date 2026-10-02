@@ -53,6 +53,24 @@ type ensuredIdentity struct {
 	scimManaged bool
 }
 
+// scimSignInMode is the SCIM mode of a sign-in's auth provider: whether a SCIM connection manages it, and whether
+// the connection is enforced.
+type scimSignInMode struct {
+	namespace, name string
+
+	connectionID string
+	enforced     bool
+	locked       bool
+}
+
+// signInUserRow is a user that a sign-in matched, with whether SCIM provisioned them: through any connection, and
+// through the connection of the sign-in's auth provider.
+type signInUserRow struct {
+	types.User
+	SCIMBound             bool
+	SCIMBoundToConnection bool
+}
+
 // FindIdentitiesForUser finds all identities for the given user.
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
 	var identities []types.Identity
@@ -70,12 +88,14 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 }
 
 // HasSignedInOwner reports whether a user other than the bootstrap user counts as an Owner of the named auth
-// provider: their stored role includes Owner, they are neither deleted nor disabled, and they have signed in through
-// the provider. An identity alone is not enough, because an identity can exist before its user has signed in.
+// provider: their stored role includes Owner, they are not deleted, and they have signed in through the provider. An
+// identity alone is not enough, because an identity can exist before its user has signed in. A disabled Owner still
+// counts: the identity provider that disabled them can reactivate them, while the bootstrap token was printed to the
+// server logs.
 func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) (bool, error) {
 	var owners []types.User
 	if err := c.db.WithContext(ctx).
-		Where("deleted_at IS NULL AND disabled_at IS NULL AND (role & ?) != 0 AND hashed_username != ?", types2.RoleOwner, hash.String(system.BootstrapName)).
+		Where("deleted_at IS NULL AND (role & ?) != 0 AND hashed_username != ?", types2.RoleOwner, hash.String(system.BootstrapName)).
 		Where("EXISTS (SELECT 1 FROM identities WHERE identities.user_id = users.id AND identities.auth_provider_name = ? AND identities.first_sign_in_at IS NOT NULL)", authProviderName).
 		Find(&owners).Error; err != nil {
 		return false, err
@@ -213,21 +233,14 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		id.HashedEmail = hash.String(id.Email)
 	}
 
-	// The mode is read under the shared mode lock, so a concurrent change of it either commits first or waits for
-	// this transaction. A failed lookup fails the sign-in, and never falls back to the directory.
-	conn, err := scimConnectionForAuthProviderLockedTx(tx, id.AuthProviderNamespace, id.AuthProviderName)
-	if err != nil {
-		return ensuredIdentity{}, err
+	// The SCIM mode is read with the identity, without a lock, which suffices for a sign-in that creates nothing. One
+	// that creates an identity or a user reads it again under the shared mode lock first. A failed lookup fails the
+	// sign-in, and never falls back to the directory.
+	mode := &scimSignInMode{
+		namespace: id.AuthProviderNamespace,
+		name:      id.AuthProviderName,
 	}
-	enforced := conn != nil && conn.State == types.SCIMConnectionStateEnforced
-
-	if enforced {
-		if err := requireSCIMBindingTx(tx, conn, id.HashedProviderUserID); err != nil {
-			return ensuredIdentity{}, err
-		}
-	}
-
-	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, enforced, id, timezone, role, userLimit, verified, email, providerUserID, providerUsername)
+	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, mode, id, timezone, role, userLimit, verified, email, providerUserID, providerUsername)
 	if err != nil {
 		return ensuredIdentity{}, err
 	}
@@ -235,44 +248,61 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		user:        user,
 		created:     created,
 		roleRaised:  roleRaised,
-		scimManaged: conn != nil,
+		scimManaged: mode.connectionID != "",
 	}, nil
 }
 
-// requireSCIMBindingTx returns a *UserAccessDeniedError unless the identity with the hashed provider user ID exists
-// and belongs to a live user that the connection has provisioned. Sign-in would create a new user for a deleted one,
-// so a deleted user never passes.
-func requireSCIMBindingTx(tx *gorm.DB, conn *types.SCIMConnection, hashedProviderUserID string) error {
-	var identities []types.Identity
-	if err := tx.Select("user_id").
-		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", conn.AuthProviderNamespace, conn.AuthProviderName, hashedProviderUserID).
+func (m *scimSignInMode) set(connectionID string, state types.SCIMConnectionState) {
+	m.connectionID = connectionID
+	m.enforced = connectionID != "" && state == types.SCIMConnectionStateEnforced
+}
+
+// lock takes the SCIM mode lock shared and reads the mode again, for a sign-in that is about to create an identity or
+// a user. The mode then holds until the transaction ends.
+func (m *scimSignInMode) lock(tx *gorm.DB) error {
+	if m.locked {
+		return nil
+	}
+	conn, err := scimConnectionForAuthProviderLockedTx(tx, m.namespace, m.name)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		m.set("", "")
+	} else {
+		m.set(conn.ID, conn.State)
+	}
+	m.locked = true
+	return nil
+}
+
+// identityWithSCIMModeTx reads the identity that id's key names into id, and the SCIM mode of its auth provider into
+// mode, in one query. It reports whether the identity exists. When it does not, the mode is not read.
+func identityWithSCIMModeTx(tx *gorm.DB, id *types.Identity, mode *scimSignInMode) (bool, error) {
+	var rows []struct {
+		types.Identity
+		SCIMConnectionID    *string
+		SCIMConnectionState *types.SCIMConnectionState
+	}
+	if err := tx.Model(new(types.Identity)).
+		Select("identities.*, scim_connections.id AS scim_connection_id, scim_connections.state AS scim_connection_state").
+		Joins("LEFT JOIN scim_connections ON scim_connections.auth_provider_namespace = identities.auth_provider_namespace AND scim_connections.auth_provider_name = identities.auth_provider_name").
+		Where("identities.auth_provider_name = ? AND identities.auth_provider_namespace = ? AND identities.hashed_provider_user_id = ?", id.AuthProviderName, id.AuthProviderNamespace, id.HashedProviderUserID).
 		Limit(1).
-		Find(&identities).Error; err != nil {
-		return fmt.Errorf("failed to look up identity: %w", err)
+		Scan(&rows).Error; err != nil {
+		return false, err
+	}
+	if len(rows) == 0 {
+		return false, nil
 	}
 
-	var userID uint
-	if len(identities) > 0 {
-		userID = identities[0].UserID
-
-		var users []types.User
-		if err := tx.Select("id").Where("id = ? AND deleted_at IS NULL", userID).Limit(1).Find(&users).Error; err != nil {
-			return fmt.Errorf("failed to check user %d: %w", userID, err)
-		}
-		if len(users) > 0 {
-			var bound int64
-			if err := tx.Model(new(types.SCIMUserBinding)).
-				Where("connection_id = ? AND user_id = ? AND retired_at IS NULL", conn.ID, userID).
-				Count(&bound).Error; err != nil {
-				return fmt.Errorf("failed to check the SCIM binding of user %d: %w", userID, err)
-			}
-			if bound > 0 {
-				return nil
-			}
-		}
+	groups := id.AuthProviderGroups
+	*id = rows[0].Identity
+	id.AuthProviderGroups = groups
+	if rows[0].SCIMConnectionID != nil && rows[0].SCIMConnectionState != nil {
+		mode.set(*rows[0].SCIMConnectionID, *rows[0].SCIMConnectionState)
 	}
-
-	return scimUnprovisionedSignInError(userID)
+	return true, nil
 }
 
 // scimUnprovisionedSignInError refuses a sign-in that SCIM has not provisioned while SCIM is enforced. The user, if
@@ -284,13 +314,18 @@ func scimUnprovisionedSignInError(userID uint) error {
 	}
 }
 
-// ensureIdentityUser does the work of ensureIdentity once the SCIM mode allows the sign-in. When SCIM is enforced for
-// the identity's auth provider, it never creates an identity or a user: an admin can delete the user, or a cleanup
-// remove the identity, after requireSCIMBindingTx checked them, and sign-in must not replace them.
-func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforced bool, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
+// ensureIdentityUser does the work of ensureIdentity. When SCIM is enforced for the identity's auth provider, sign-in
+// requires an identity whose live user the connection provisioned, and it never creates an identity or a user.
+func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
 	// See if the identity already exists.
-	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		if scimEnforced {
+	if found, err := identityWithSCIMModeTx(tx, id, mode); err != nil {
+		return nil, false, false, fmt.Errorf("failed to look up identity: %w", err)
+	} else if !found {
+		// A first sign-in creates the identity, so the mode must hold until the transaction ends.
+		if err := mode.lock(tx); err != nil {
+			return nil, false, false, err
+		}
+		if mode.enforced {
 			return nil, false, false, scimUnprovisionedSignInError(0)
 		}
 
@@ -335,8 +370,8 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforc
 				return nil, false, false, err
 			}
 		}
-	} else if err != nil {
-		return nil, false, false, err
+	} else if mode.enforced && id.UserID == 0 {
+		return nil, false, false, scimUnprovisionedSignInError(0)
 	}
 	if err := c.decryptIdentity(ctx, id); err != nil {
 		return nil, false, false, fmt.Errorf("failed to decrypt identity: %w", err)
@@ -368,23 +403,39 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforc
 	}
 
 	var created, roleRaised, checkForExistingUser bool
-	userQuery := tx.Where("deleted_at IS NULL")
+	// Whether SCIM provisioned the user is read with them, so that neither enforcement nor the protection of
+	// SCIM-written profiles costs a query of its own.
+	userQuery := tx.Model(new(types.User)).
+		Select("users.*, "+
+			"EXISTS (SELECT 1 FROM scim_user_bindings WHERE scim_user_bindings.user_id = users.id AND scim_user_bindings.retired_at IS NULL) AS scim_bound, "+
+			"EXISTS (SELECT 1 FROM scim_user_bindings WHERE scim_user_bindings.user_id = users.id AND scim_user_bindings.retired_at IS NULL AND scim_user_bindings.connection_id = ?) AS scim_bound_to_connection",
+			mode.connectionID).
+		Where("users.deleted_at IS NULL")
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
-		userQuery = userQuery.Where("id = ?", user.ID)
+		userQuery = userQuery.Where("users.id = ?", user.ID)
 		checkForExistingUser = true
 	} else if verified {
 		// Check for an existing user with this exact verified email address.
 		// We check for both true and null values, because the email might have been verified before we started tracking verified emails.
-		userQuery = userQuery.Where("hashed_email = ? and (verified_email = true or verified_email is null)", user.HashedEmail)
+		userQuery = userQuery.Where("users.hashed_email = ? and (users.verified_email = true or users.verified_email is null)", user.HashedEmail)
 		checkForExistingUser = true
 	}
 
 	if checkForExistingUser {
+		var rows []signInUserRow
+		err := userQuery.Order("users.id").Limit(1).Scan(&rows).Error
+		if err != nil {
+			return nil, false, false, err
+		}
 		// Copy the user so that we don't have to decrypt unless the user already exists.
 		u := *user
-		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			if scimEnforced {
+		if len(rows) == 0 {
+			// Sign-in creates the user, so the mode must hold until the transaction ends.
+			if err := mode.lock(tx); err != nil {
+				return nil, false, false, err
+			}
+			if mode.enforced {
 				return nil, false, false, scimUnprovisionedSignInError(user.ID)
 			}
 
@@ -402,10 +453,13 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforc
 			user.ID = u.ID
 			user.CreatedAt = u.CreatedAt
 			user.Role = u.Role
-		} else if err != nil {
-			return nil, false, false, err
 		} else {
-			if err = c.decryptUser(ctx, &u); err != nil {
+			if mode.enforced && !rows[0].SCIMBoundToConnection {
+				return nil, false, false, scimUnprovisionedSignInError(rows[0].ID)
+			}
+
+			u = rows[0].User
+			if err := c.decryptUser(ctx, &u); err != nil {
 				return nil, false, false, fmt.Errorf("failed to decrypt user: %w", err)
 			}
 
@@ -439,10 +493,10 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforc
 			}
 
 			// SCIM writes the profile of the users it has provisioned, whichever auth provider they sign in
-			// through, so sign-in leaves it alone. The binding is read only when the sign-in would change the
-			// profile, with the user locked, so that SCIM cannot provision them between the check and the write;
-			// SCIM locks the user too before it writes the profile.
-			profileChanged := user.Username != id.ProviderUsername || user.Email != email
+			// through, so sign-in leaves it alone. When the user was read unprovisioned and the sign-in would change
+			// the profile, the binding is read again with the user locked, so that SCIM cannot provision them
+			// between the check and the write; SCIM locks the user too before it writes the profile.
+			profileChanged := !rows[0].SCIMBound && (user.Username != id.ProviderUsername || user.Email != email)
 			if profileChanged {
 				if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", user.ID).Take(new(types.User)).Error; err != nil {
 					return nil, false, false, fmt.Errorf("failed to lock user %d: %w", user.ID, err)
@@ -505,7 +559,11 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, scimEnforc
 			}
 		}
 	} else {
-		if scimEnforced {
+		// Sign-in creates the user, so the mode must hold until the transaction ends.
+		if err := mode.lock(tx); err != nil {
+			return nil, false, false, err
+		}
+		if mode.enforced {
 			return nil, false, false, scimUnprovisionedSignInError(0)
 		}
 

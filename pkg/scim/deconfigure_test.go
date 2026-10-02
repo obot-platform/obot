@@ -60,7 +60,7 @@ func TestDeconfigureAndReconfigurePreservesSCIMData(t *testing.T) {
 		"op":    "remove",
 		"path":  `members[value eq "` + user.id() + `"]`,
 		"value": nil,
-	})).expect(t, http.StatusOK)
+	})).expect(t, http.StatusNoContent)
 	if got := s.memberships("okta/00g-team"); len(got) != 0 {
 		t.Fatalf("the retried task did not apply: %v", got)
 	}

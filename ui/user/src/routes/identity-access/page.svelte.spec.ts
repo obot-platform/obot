@@ -512,37 +512,84 @@ describe('Identity & Access Page', () => {
 					.toBeVisible();
 			});
 
-			it('offers to remove group data left from an earlier configuration', async () => {
-				const deconfigure = vi.fn();
-				worker.use(
-					http.post(`/api/auth-providers/${oktaProvider.id}/configure`, () =>
-						HttpResponse.json(
-							{ error: 'Okta still has group data from an earlier configuration' },
-							{ status: 409 }
-						)
-					),
-					http.get(`/api/auth-providers/${oktaProvider.id}/residual-group-data`, () =>
-						HttpResponse.json({
-							groups: [{ id: 'okta/00g00000000000legacy', name: 'Legacy' }],
-							membershipCount: 2
+			describe('group data left from an earlier configuration', () => {
+				let deconfigure = vi.fn<() => void>();
+
+				beforeEach(async () => {
+					deconfigure = vi.fn<() => void>();
+					worker.use(
+						http.post(`/api/auth-providers/${oktaProvider.id}/configure`, () =>
+							HttpResponse.json(
+								{ error: 'Okta still has group data from an earlier configuration' },
+								{ status: 409 }
+							)
+						),
+						http.get(`/api/auth-providers/${oktaProvider.id}/residual-group-data`, () =>
+							HttpResponse.json({
+								groups: [
+									{
+										id: 'okta/00g00000000000legacy',
+										name: 'Legacy',
+										references: [
+											{
+												kind: 'groupRoleAssignment',
+												id: 'okta/00g00000000000legacy',
+												detail: 'Admin'
+											}
+										]
+									},
+									{ id: 'okta/00g000000000000other', name: 'Other' }
+								],
+								membershipCount: 2
+							})
+						),
+						http.post(`/api/auth-providers/${oktaProvider.id}/deconfigure`, () => {
+							deconfigure();
+							return new HttpResponse(null, { status: 204 });
 						})
-					),
-					http.post(`/api/auth-providers/${oktaProvider.id}/deconfigure`, () => {
-						deconfigure();
-						return new HttpResponse(null, { status: 204 });
-					})
-				);
-				await openOktaForm(oktaProvider);
+					);
+					await openOktaForm(oktaProvider);
 
-				await page.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
-				await page.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
-				await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+					await page.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+					await page.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+					await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+					await page.getByRole('button', { name: 'Remove leftover group data' }).click();
+				});
 
-				await page.getByRole('button', { name: 'Remove leftover group data' }).click();
-				await vi.waitFor(() => expect(deconfigure).toHaveBeenCalledOnce());
-				await expect
-					.element(page.getByText(/cleanup of Okta's leftover group data has started/))
-					.toBeVisible();
+				it('is removed once the admin confirms what the cleanup deletes', async () => {
+					const confirm = page
+						.getByRole('dialog')
+						.filter({ hasText: "Remove Okta's leftover group data?" });
+					await expect
+						.element(confirm.getByText(/deletes 2 groups and 2 group memberships/))
+						.toBeVisible();
+					await expect
+						.element(confirm.getByText('group role assignment (Admin)', { exact: false }))
+						.toBeVisible();
+					await expect.element(confirm.getByText('Other', { exact: true })).not.toBeInTheDocument();
+					expect(deconfigure).not.toHaveBeenCalled();
+
+					await confirm.getByRole('button', { name: 'Remove group data' }).click();
+					await vi.waitFor(() => expect(deconfigure).toHaveBeenCalledOnce());
+					await expect
+						.element(page.getByText(/cleanup of Okta's leftover group data has started/))
+						.toBeVisible();
+				});
+
+				it('is kept when the admin cancels', async () => {
+					const confirm = page
+						.getByRole('dialog')
+						.filter({ hasText: "Remove Okta's leftover group data?" });
+					await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+					await expect
+						.element(page.getByText("Remove Okta's leftover group data?"))
+						.not.toBeVisible();
+					expect(deconfigure).not.toHaveBeenCalled();
+					await expect
+						.element(page.getByRole('button', { name: 'Remove leftover group data' }))
+						.toBeVisible();
+				});
 			});
 		});
 

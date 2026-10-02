@@ -50,6 +50,9 @@ type Adapter interface {
 	// GroupConsoleURL returns the address of a group in the identity provider's admin console, or an empty string
 	// when it cannot be built from the issuer.
 	GroupConsoleURL(issuer, nativeGroupID string) string
+
+	// PatchRules returns how the identity provider's PATCH requests depart from RFC 7644.
+	PatchRules() PatchRules
 }
 
 // DirectoryParameter is a configuration parameter that only login-time directory synchronization uses, with the
@@ -75,6 +78,15 @@ type Identity struct {
 	ProviderUsername      string
 	ProviderUserID        string
 	ProviderGroupLookupID string
+}
+
+// PatchRules holds how an identity provider's PATCH requests depart from RFC 7644. The SCIM endpoint accepts such a
+// request only from the connections of that provider.
+type PatchRules struct {
+	// ReplaceAddsUnmatched makes a replace whose value filter selects no value do what an add does and create the
+	// value, where RFC 7644 section 3.5.2.3 fails it with noTarget. Microsoft Entra ID sends a replace of
+	// emails[type eq "work"].value for a user who has no work email.
+	ReplaceAddsUnmatched bool
 }
 
 // InvalidUserError reports a SCIM user that lacks the attributes the adapter needs.

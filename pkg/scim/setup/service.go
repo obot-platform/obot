@@ -286,10 +286,8 @@ func (s *Service) Failures(ctx context.Context, id string, page Page) (*types2.S
 // refused unless the provider is the configured auth provider, every referenced group of the provider is bound, and
 // actor is an Owner who signed in through the provider and is provisioned and active.
 //
-// The references to groups live in the controller store, which cannot share a transaction with the gateway
-// database, so the unreferenced groups are deleted in two phases. They are first marked for deletion, which makes
-// writers of group references refuse new references to them, and the references are read again once the marks are
-// committed. Enforcing then keeps any marked group that gained a reference, and blocks if that group is unbound.
+// The unreferenced groups are deleted in two phases, as withUnreferencedGroupsMarked describes. Enforcing keeps any
+// marked group that gained a reference, and blocks if that group is unbound.
 func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.SCIMEnforceResult, error) {
 	conn, p, err := s.connection(ctx, id)
 	if err != nil {
@@ -318,46 +316,54 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	}
 
-	run, err := s.gateway.MarkUnreferencedSCIMGroups(ctx, conn, plan.referenced)
-	if err == nil {
-		// The marks are committed, and the reference writes that could have missed them have finished, so these are
-		// the last references that can reach the marked groups.
-		var result *gclient.EnforceSCIMResult
-		if result, err = s.enforceMarked(ctx, conn, p, run.ID, actor); err == nil {
-			slog.Info("Enforced SCIM", "connection", conn.ID, "authProvider", p.name, "disabledUsers", len(result.DisabledUserIDs), "deletedGroupIDs", result.DeletedGroupIDs)
-			return &types2.SCIMEnforceResult{
-				Connection:        s.connectionView(result.Connection, p, configured, ""),
-				DisabledUserCount: len(result.DisabledUserIDs),
-				DeletedGroupCount: len(result.DeletedGroupIDs),
-			}, nil
-		}
+	var result *gclient.EnforceSCIMResult
+	if err := s.withUnreferencedGroupsMarked(ctx, conn, plan, func(run *gclient.SCIMDeletionRun) error {
+		var err error
+		result, err = s.enforceMarked(ctx, conn, p, run.ID, actor)
+		return err
+	}); err != nil {
+		return nil, err
 	}
-	if run != nil && len(run.GroupIDs) > 0 {
-		if clearErr := s.gateway.ClearSCIMGroupDeletionMarks(context.WithoutCancel(ctx), conn.ID, run.ID); clearErr != nil {
-			slog.Error("Failed to clear the marks for deletion of a SCIM connection that was not enforced", "connection", conn.ID, "error", clearErr)
-		}
-	}
-	return nil, err
+
+	slog.Info("Enforced SCIM", "connection", conn.ID, "authProvider", p.name, "disabledUsers", len(result.DisabledUserIDs), "deletedGroupIDs", result.DeletedGroupIDs)
+	return &types2.SCIMEnforceResult{
+		Connection:        s.connectionView(result.Connection, p, configured, ""),
+		DisabledUserCount: len(result.DisabledUserIDs),
+		DeletedGroupCount: len(result.DeletedGroupIDs),
+	}, nil
 }
 
 // RotateToken issues a new bearer token for the connection, including its first token, and returns the connection
 // with it. The token it replaces is still accepted for a day, or until it is revoked.
 func (s *Service) RotateToken(ctx context.Context, id string) (*types2.SCIMConnection, error) {
-	token, err := s.gateway.RotateSCIMConnectionToken(ctx, id)
-	if err != nil {
-		return nil, connectionError(id, err)
-	}
-	return s.Connection(ctx, id, token)
+	return s.replaceToken(ctx, id, s.gateway.RotateSCIMConnectionToken)
 }
 
 // RevokeCurrentToken replaces a leaked bearer token: it issues a new token, which it returns with the connection,
 // and stops accepting both the current and the previous token.
 func (s *Service) RevokeCurrentToken(ctx context.Context, id string) (*types2.SCIMConnection, error) {
-	token, err := s.gateway.RevokeCurrentSCIMConnectionToken(ctx, id)
+	return s.replaceToken(ctx, id, s.gateway.RevokeCurrentSCIMConnectionToken)
+}
+
+// replaceToken issues a new bearer token with replace, and returns the connection with it. A new token is shown only
+// in this response, and replacing it again retires the token the identity provider still uses, so everything that
+// can fail is read before the token is issued.
+func (s *Service) replaceToken(ctx context.Context, id string, replace func(context.Context, string) (*types.SCIMConnection, string, error)) (*types2.SCIMConnection, error) {
+	_, p, err := s.connection(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	configured, err := s.providers.GetConfiguredAuthProvider(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+
+	conn, token, err := replace(ctx, id)
 	if err != nil {
 		return nil, connectionError(id, err)
 	}
-	return s.Connection(ctx, id, token)
+	view := s.connectionView(conn, p, configured, token)
+	return &view, nil
 }
 
 // RevokePreviousToken stops accepting the token that the last rotation replaced.
@@ -552,6 +558,7 @@ func (s *Service) connectionView(conn *types.SCIMConnection, p *provider, config
 		EnforcedAt:              optionalTime(conn.EnforcedAt),
 		HasToken:                conn.HasToken(),
 		TokenIssuedAt:           optionalTime(conn.TokenIssuedAt),
+		TokenExpiresAt:          optionalTime(conn.TokenExpiresAt()),
 		PreviousTokenAccepted:   conn.PreviousTokenAccepted(time.Now()),
 		AuthProviderConfigured:  providerConfigured(conn, configured),
 		Token:                   token,
@@ -602,7 +609,7 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 
 	var (
 		names []string
-		named = make(map[string][]types2.SCIMSetupGroup)
+		named = make(map[string][]types2.SCIMSetupGroup, len(groups))
 	)
 	for _, group := range groups {
 		groupRefs, referenced := refs[group.ID]
@@ -614,7 +621,7 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 		case referenced:
 			plan.unboundReferenced = append(plan.unboundReferenced, setupGroup)
 
-			normalized := types.NormalizeSCIMName(group.Name)
+			normalized := types.NormalizeSCIMGroupName(group.Name)
 			if _, ok := named[normalized]; !ok {
 				names = append(names, normalized)
 			}
@@ -643,7 +650,7 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 		}
 	}
 	for _, group := range plan.unreferencedUnbound {
-		if _, ok := named[types.NormalizeSCIMName(group.Name)]; ok {
+		if _, ok := named[types.NormalizeSCIMGroupName(group.Name)]; ok {
 			plan.namesakes = append(plan.namesakes, group)
 		}
 	}

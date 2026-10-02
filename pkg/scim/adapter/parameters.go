@@ -75,6 +75,8 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, state ProviderSta
 	params.Optional = slices.DeleteFunc(params.Optional, isDirectory)
 
 	if state.Connection == nil {
+		params.Together = make([]string, 0, len(directory))
+		params.Optional = slices.Grow(params.Optional, len(directory))
 		for _, d := range directory {
 			params.Together = append(params.Together, d.Name)
 			params.Optional = append(params.Optional, directoryParameter(manifest, d, d.SetupDescription))
@@ -85,12 +87,17 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, state ProviderSta
 	stillStored := slices.ContainsFunc(directory, func(d DirectoryParameter) bool {
 		return state.Stored[d.Name] != ""
 	})
-	for _, d := range directory {
-		if !stillStored {
+	if !stillStored {
+		params.Dropped = make([]string, 0, len(directory))
+		for _, d := range directory {
 			params.Dropped = append(params.Dropped, d.Name)
-			continue
 		}
+		return params
+	}
 
+	params.Together = make([]string, 0, len(directory))
+	params.Optional = slices.Grow(params.Optional, len(directory))
+	for _, d := range directory {
 		params.Together = append(params.Together, d.Name)
 		params.Optional = append(params.Optional, directoryParameter(manifest, d, d.UnusedDescription))
 	}

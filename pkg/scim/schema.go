@@ -1,6 +1,7 @@
 package scim
 
 import (
+	"slices"
 	"strings"
 )
 
@@ -72,6 +73,8 @@ var (
 				Mutability:  mutabilityReadWrite,
 				Returned:    returnedDefault,
 				Uniqueness:  uniquenessNone,
+				// A user is always active or not, so active can be set but not removed.
+				unremovable: true,
 			},
 			multiValuedAttribute("emails", "Email addresses for the user."),
 			multiValuedAttribute("phoneNumbers", "Phone numbers for the User."),
@@ -93,6 +96,9 @@ var (
 				},
 			},
 		},
+		// Users sign in through the identity provider, so Obot never stores a password, such as the placeholder that
+		// Okta sends.
+		ignored: []string{"password"},
 	}
 
 	groupResourceSchema = &resourceSchema{
@@ -102,6 +108,7 @@ var (
 		Attributes: []*attribute{
 			stringAttribute("displayName", "A human-readable name for the Group.", func(a *attribute) {
 				a.Required = true
+				a.Uniqueness = uniquenessServer
 			}),
 			{
 				Name:        "members",
@@ -113,6 +120,7 @@ var (
 				Uniqueness:  uniquenessNone,
 				SubAttributes: []*attribute{
 					stringAttribute("value", "Identifier of the member of this Group.", func(a *attribute) {
+						a.Required = true
 						a.Mutability = mutabilityImmutable
 					}),
 					referenceAttribute("$ref", "The URI corresponding to a SCIM resource that is a member of this Group.", "User", func(a *attribute) {
@@ -181,6 +189,9 @@ type resourceSchema struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description,omitempty"`
 	Attributes  []*attribute `json:"attributes"`
+	// ignored names attributes that clients send but the server does not support. Requests may set them, and they
+	// are dropped. They are not advertised.
+	ignored []string
 }
 
 // attribute describes one SCIM attribute, as RFC 7643 section 7 defines it.
@@ -197,6 +208,8 @@ type attribute struct {
 	CanonicalValues []string     `json:"canonicalValues,omitempty"`
 	ReferenceTypes  []string     `json:"referenceTypes,omitempty"`
 	SubAttributes   []*attribute `json:"subAttributes,omitempty"`
+	// unremovable is set for an attribute that a PATCH cannot remove although it is not required.
+	unremovable bool
 }
 
 func stringAttribute(name, description string, opts ...func(*attribute)) *attribute {
@@ -214,9 +227,11 @@ func stringAttribute(name, description string, opts ...func(*attribute)) *attrib
 	return a
 }
 
+// referenceAttribute returns a reference attribute, which is case exact, as RFC 7643 section 2.3.7 says.
 func referenceAttribute(name, description, referenceType string, opts ...func(*attribute)) *attribute {
 	a := stringAttribute(name, description, opts...)
 	a.Type = typeReference
+	a.CaseExact = true
 	a.ReferenceTypes = []string{referenceType}
 	return a
 }
@@ -265,6 +280,11 @@ func (s *resourceSchema) attribute(name string) *attribute {
 		}
 	}
 	return nil
+}
+
+// ignores reports whether the attribute with the given name is one that the schema accepts and drops.
+func (s *resourceSchema) ignores(name string) bool {
+	return slices.ContainsFunc(s.ignored, func(ignored string) bool { return strings.EqualFold(ignored, name) })
 }
 
 // subAttribute returns the sub-attribute with the given name, compared case-insensitively.

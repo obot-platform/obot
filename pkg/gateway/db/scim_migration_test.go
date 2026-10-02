@@ -95,12 +95,16 @@ func testSCIMStorage(t *testing.T, database *DB, gormDB *gorm.DB) {
 		&types.SCIMUserBinding{},
 		&types.SCIMGroupBinding{},
 		&types.SCIMPendingGroupDeletion{},
+		&types.SCIMGroupSubjectCleanup{},
 		&types.SCIMRequestFailure{},
 	}
 	for _, table := range scimTables {
 		if err := migrator.DropTable(table); err != nil {
 			t.Fatalf("failed to drop the table of %T: %v", table, err)
 		}
+	}
+	if err := migrator.DropIndex(&types.GroupMemberships{}, "GroupID"); err != nil {
+		t.Fatalf("failed to drop the group ID index of group memberships: %v", err)
 	}
 
 	for _, statement := range []struct {
@@ -139,6 +143,9 @@ func testSCIMStorage(t *testing.T, database *DB, gormDB *gorm.DB) {
 		if !migrator.HasTable(table) {
 			t.Fatalf("the table of %T was not created", table)
 		}
+	}
+	if !migrator.HasIndex(&types.GroupMemberships{}, "GroupID") {
+		t.Fatal("the group ID index of group memberships was not created")
 	}
 
 	var users, groups int64

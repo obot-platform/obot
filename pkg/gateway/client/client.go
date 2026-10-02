@@ -106,6 +106,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	go c.runUserLifecycleEventDelivery(ctx)
+	go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	return c
 }
 

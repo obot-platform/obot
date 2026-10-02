@@ -14,6 +14,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/publishedartifact"
 	"github.com/obot-platform/obot/pkg/skillformat"
@@ -853,5 +855,78 @@ func TestRewriteSkillFrontmatterInZIP_EnforcesActualSize(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "exceeds limit") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPublishedArtifactUpdateRefusesSubjectsForMissingSCIMGroups(t *testing.T) {
+	const artifactName = system.PublishedArtifactPrefix + "artifact"
+	storage := newPublishedArtifactTestStorage(t, &v1.PublishedArtifact{
+		Name:      artifactName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.PublishedArtifactSpec{
+			PublishedArtifactManifest: types.PublishedArtifactManifest{
+				Name:         "workflow-a",
+				Description:  "v1",
+				ArtifactType: types.PublishedArtifactTypeWorkflow,
+			},
+			AuthorID:      "owner",
+			LatestVersion: 1,
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version: 1,
+				},
+			},
+		},
+	})
+	gatewayClient := newHandlerTestGateway(t)
+	if _, _, err := gatewayClient.CreateSCIMConnection(t.Context(), gclient.CreateSCIMConnectionOptions{
+		AuthProviderNamespace: system.DefaultNamespace,
+		AuthProviderName:      "okta-auth-provider",
+		GroupIDPrefix:         "okta/",
+		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	blobStore, err := blobpkg.NewDirectoryStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(publishedArtifactUpdateRequest{
+		Subjects: []types.Subject{
+			{
+				Type: types.SubjectTypeGroup,
+				ID:   "okta/00g-missing",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/published-artifacts/"+artifactName, bytes.NewReader(body))
+	req.SetPathValue("id", artifactName)
+
+	err = NewPublishedArtifactHandler(blobStore, "test-bucket").Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User: &kuser.DefaultInfo{
+			Name:   "owner",
+			UID:    "owner",
+			Groups: []string{types.GroupAuthenticated},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "okta/00g-missing") || !strings.Contains(err.Error(), "push the group") {
+		t.Fatalf("Update() error = %v, want a refusal of the missing group", err)
+	}
+
+	var artifact v1.PublishedArtifact
+	if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: artifactName}, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	if subjects := artifact.Status.Versions[0].Subjects; len(subjects) != 0 {
+		t.Fatalf("refused subjects were saved: %+v", subjects)
 	}
 }

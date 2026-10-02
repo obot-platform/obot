@@ -10,6 +10,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # The PostgreSQL tests skip without OBOT_TEST_POSTGRES_DSN. They cover the locking that SQLite does not exercise.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: obot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d obot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,6 +43,7 @@ jobs:
           make test
         env:
           GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OBOT_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/obot_test?sslmode=disable
 
   integration:
     runs-on: ubuntu-latest

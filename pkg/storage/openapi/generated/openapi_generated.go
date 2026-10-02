@@ -2933,6 +2933,12 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format:      "",
 						},
 					},
+					"scimTokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMTokenExpiresAt is when the bearer token of the provider's SCIM connection stops being accepted, and is unset while the connection has no token. Only administrators see it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
 					"scim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SCIM describes how the provider supports SCIM. It is set only for a provider that supports SCIM, and only administrators see it.",
@@ -2944,7 +2950,7 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM", "github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+			"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM", "github.com/obot-platform/obot/apiclient/types.CommonProviderStatus", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -16764,8 +16770,13 @@ func schema_obot_platform_obot_apiclient_types_SCIMConnection(ref common.Referen
 					},
 					"tokenIssuedAt": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TokenIssuedAt is when the current bearer token was issued.",
+							Description: "TokenIssuedAt is when the current bearer token was issued, and TokenExpiresAt when it stops being accepted, a year later. A token must be rotated before it expires.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"tokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"previousTokenAccepted": {

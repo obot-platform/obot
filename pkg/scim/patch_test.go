@@ -6,12 +6,18 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 )
 
 func TestApplyPatchUser(t *testing.T) {
+	entra := adapter.PatchRules{
+		ReplaceAddsUnmatched: true,
+	}
 	tests := []struct {
 		name         string
 		ops          string
+		rules        adapter.PatchRules
 		want         map[string]any
 		wantScimType string
 	}{
@@ -87,6 +93,42 @@ func TestApplyPatchUser(t *testing.T) {
 			},
 		},
 		{
+			name: "filtered primary sub-attribute makes its email the only primary one",
+			ops: `[{"op":"add","path":"emails","value":[{"value":"home@example.com","type":"home"}]},` +
+				`{"op":"replace","path":"emails[type eq \"home\"].primary","value":true}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value": "user@example.com",
+						"type":  "work",
+					},
+					map[string]any{
+						"value":   "home@example.com",
+						"type":    "home",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name: "filtered replacement with a primary value makes it the only primary one",
+			ops: `[{"op":"add","path":"emails","value":[{"value":"home@example.com","type":"home"}]},` +
+				`{"op":"replace","path":"emails[type eq \"home\"]","value":{"value":"new@example.com","type":"home","primary":true}}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value": "user@example.com",
+						"type":  "work",
+					},
+					map[string]any{
+						"value":   "new@example.com",
+						"type":    "home",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
 			name: "adding the primary email again, twice, changes nothing",
 			ops:  `[{"op":"add","path":"emails","value":[{"value":"user@example.com","type":"work","primary":true}]},{"op":"add","path":"emails","value":[{"value":"user@example.com","type":"work","primary":true}]}]`,
 			want: map[string]any{
@@ -141,16 +183,109 @@ func TestApplyPatchUser(t *testing.T) {
 			},
 		},
 		{
-			name: "pathless read-only and unknown attributes are ignored",
-			ops:  `[{"op":"replace","value":{"id":"other","groups":[],"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"department":"x"},"nickName":"Nick"}}]`,
+			name: "pathless read-only attributes that are unchanged are ignored, as clients echo the id",
+			ops:  `[{"op":"replace","value":{"id":"u1","schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"nickName":"Nick"}}]`,
+			want: map[string]any{
+				"id":       "u1",
+				"nickName": "Nick",
+			},
+		},
+		{
+			name:         "a pathless change to a read-only attribute is refused",
+			ops:          `[{"op":"replace","value":{"id":"other","nickName":"Nick"}}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "a pathless unknown attribute is refused",
+			ops:          `[{"op":"replace","value":{"shoeSize":"10","nickName":"Nick"}}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name:         "a pathless extension attribute is refused",
+			ops:          `[{"op":"replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"department":"x"}}}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name: "pathless members under the schema URN",
+			ops:  `[{"op":"replace","value":{"urn:ietf:params:scim:schemas:core:2.0:User":{"nickName":"Nick","name.givenName":"New"}}}]`,
 			want: map[string]any{
 				"nickName": "Nick",
+				"name": map[string]any{
+					"givenName":  "New",
+					"familyName": "Family",
+				},
+			},
+		},
+		{
+			name: "a password is ignored, with or without a path",
+			ops:  `[{"op":"replace","value":{"password":"secret","nickName":"Nick"}},{"op":"replace","path":"password","value":"secret"}]`,
+			want: map[string]any{
+				"nickName": "Nick",
+				"password": nil,
+			},
+		},
+		{
+			name: "a path to a read-only attribute that restates it is ignored",
+			ops:  `[{"op":"replace","path":"id","value":"u1"}]`,
+			want: map[string]any{
+				"id": "u1",
 			},
 		},
 		{
 			name:         "a path to a read-only attribute is refused",
 			ops:          `[{"op":"replace","path":"id","value":"other"}]`,
 			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "removing a read-only attribute is refused",
+			ops:          `[{"op":"remove","path":"id"}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name: "adding an email again, with empty sub-attributes and in another case, changes nothing",
+			ops:  `[{"op":"add","path":"emails","value":[{"value":"USER@example.com","type":"Work","display":"","primary":false}]}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name: "a listed email is removed by its value alone, in any case",
+			ops:  `[{"op":"remove","path":"emails","value":[{"value":"USER@example.com"}]}]`,
+			want: map[string]any{
+				"emails": []any{},
+			},
+		},
+		{
+			name: "a listed email of another type removes nothing",
+			ops:  `[{"op":"remove","path":"emails","value":[{"value":"user@example.com","type":"home"}]}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name: "a listed email without a value removes nothing",
+			ops:  `[{"op":"remove","path":"emails","value":[{"type":"work"}]}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
 		},
 		{
 			name:         "an unknown path is refused",
@@ -173,6 +308,87 @@ func TestApplyPatchUser(t *testing.T) {
 			wantScimType: scimTypeNoTarget,
 		},
 		{
+			name:         "replace of a sub-attribute with a filter that matches nothing",
+			ops:          `[{"op":"replace","path":"emails[type eq \"home\"].value","value":"home@example.com"}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
+			name:  "replace with a filter that matches nothing adds the value under rules that allow it",
+			ops:   `[{"op":"replace","path":"emails[type eq \"home\"]","value":{"value":"home@example.com"}}]`,
+			rules: entra,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+					map[string]any{
+						"value": "home@example.com",
+						"type":  "home",
+					},
+				},
+			},
+		},
+		{
+			name:  "replace of a sub-attribute with a filter that matches nothing adds the value under rules that allow it, as Entra sends it",
+			ops:   `[{"op":"replace","path":"emails[type eq \"home\"].value","value":"home@example.com"}]`,
+			rules: entra,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+					map[string]any{
+						"value": "home@example.com",
+						"type":  "home",
+					},
+				},
+			},
+		},
+		{
+			name:  "pathless replace with a filter that matches nothing adds the value under rules that allow it, as Entra sends it",
+			ops:   `[{"op":"replace","value":{"emails[type eq \"home\"].value":"home@example.com"}}]`,
+			rules: entra,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+					map[string]any{
+						"value": "home@example.com",
+						"type":  "home",
+					},
+				},
+			},
+		},
+		{
+			name: "filtered add that matches nothing adds the value with the filter's sub-attributes",
+			ops:  `[{"op":"add","path":"emails[type eq \"home\"]","value":{"value":"home@example.com"}}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+					map[string]any{
+						"value": "home@example.com",
+						"type":  "home",
+					},
+				},
+			},
+		},
+		{
+			name:         "filtered add that matches nothing, of a value the filter would not select",
+			ops:          `[{"op":"add","path":"emails[type eq \"home\"]","value":{"value":"home@example.com","type":"work"}}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
 			name:         "wrong value type",
 			ops:          `[{"op":"replace","path":"active","value":"maybe"}]`,
 			wantScimType: scimTypeInvalidValue,
@@ -180,14 +396,37 @@ func TestApplyPatchUser(t *testing.T) {
 		{
 			name:         "invalid filter in path",
 			ops:          `[{"op":"remove","path":"emails[type eq]"}]`,
-			wantScimType: scimTypeInvalidPath,
+			wantScimType: scimTypeInvalidFilter,
+		},
+		{
+			name:         "removing a required attribute is refused",
+			ops:          `[{"op":"remove","path":"userName"}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "removing active is refused",
+			ops:          `[{"op":"remove","path":"active"}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "removing active with a pathless null is refused",
+			ops:          `[{"op":"replace","value":{"active":null}}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name: "removing attributes that are not required",
+			ops:  `[{"op":"replace","path":"nickName","value":"Nick"},{"op":"remove","path":"nickName"},{"op":"replace","value":{"name":null}}]`,
+			want: map[string]any{
+				"nickName": nil,
+				"name":     nil,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resource := testUserResource()
-			err := applyPatch(userResourceSchema, resource, decodeTestOperations(t, tt.ops))
+			err := applyPatch(userResourceSchema, resource, decodeTestOperations(t, tt.ops), tt.rules)
 			if tt.wantScimType != "" {
 				var scimErr *Error
 				if !errors.As(err, &scimErr) || scimErr.ScimType != tt.wantScimType {
@@ -254,6 +493,22 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 			wantMembers: []string{"u1"},
 		},
 		{
+			name:        "listed values match in any case, as a filter does",
+			ops:         `[{"op":"remove","path":"members","value":[{"value":"U2"}]},{"op":"add","path":"members","value":[{"value":"U1"}]}]`,
+			wantName:    "group",
+			wantMembers: []string{"u1"},
+		},
+		{
+			name:         "removing the display name is refused",
+			ops:          `[{"op":"remove","path":"displayName"}]`,
+			wantSCIMType: scimTypeMutability,
+		},
+		{
+			name:         "a pathless rename that changes the id is refused",
+			ops:          `[{"op":"replace","value":{"displayName":"renamed","id":"g2"}}]`,
+			wantSCIMType: scimTypeMutability,
+		},
+		{
 			name:        "replace is the complete set",
 			ops:         `[{"op":"replace","path":"members","value":[{"value":"u3"}]}]`,
 			wantName:    "group",
@@ -270,6 +525,17 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 			ops:         `[{"op":"add","path":"members[value eq \"u1\"]","value":{"display":"one"}}]`,
 			wantName:    "group",
 			wantMembers: []string{"u1", "u2"},
+		},
+		{
+			name:        "filtered add that matches nothing adds the member the filter selects",
+			ops:         `[{"op":"add","path":"members[value eq \"u3\"]","value":{"display":"three"}}]`,
+			wantName:    "group",
+			wantMembers: []string{"u1", "u2", "u3"},
+		},
+		{
+			name:         "filtered add that matches nothing, of a member the filter would not select",
+			ops:          `[{"op":"add","path":"members[value eq \"u9\"]","value":{"value":"u3"}}]`,
+			wantSCIMType: scimTypeNoTarget,
 		},
 		{
 			name:         "filtered replace cannot change a member's value",
@@ -324,7 +590,7 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 					},
 				},
 			}
-			err := applyPatch(groupResourceSchema, resource, decodeTestOperations(t, tt.ops))
+			err := applyPatch(groupResourceSchema, resource, decodeTestOperations(t, tt.ops), adapter.PatchRules{})
 			if tt.wantSCIMType != "" {
 				if e, ok := err.(*Error); !ok || e.ScimType != tt.wantSCIMType {
 					t.Fatalf("applyPatch() error = %v, want scimType %s", err, tt.wantSCIMType)
@@ -347,6 +613,38 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 				t.Fatalf("got %q %v, want %q %v", input.DisplayName, members, tt.wantName, tt.wantMembers)
 			}
 		})
+	}
+}
+
+// TestApplyPatchPathlessOrder applies members of a pathless value that change the same attribute, which a client can
+// write in any order, and expects each attribute to apply before the members that select a part of it.
+func TestApplyPatchPathlessOrder(t *testing.T) {
+	ops := decodeTestOperations(t, `[{"op":"replace","value":{`+
+		`"emails[type eq \"work\"].value":"new@example.com",`+
+		`"emails":[{"value":"other@example.com","type":"work"}],`+
+		`"name.givenName":"New",`+
+		`"name":{"givenName":"Old","familyName":"Replaced"}}}]`)
+	want := testUserResource()
+	want["emails"] = []any{
+		map[string]any{
+			"value": "new@example.com",
+			"type":  "work",
+		},
+	}
+	want["name"] = map[string]any{
+		"givenName":  "New",
+		"familyName": "Replaced",
+	}
+
+	// Go randomizes map iteration, so each run sees the members in a different order.
+	for range 100 {
+		resource := testUserResource()
+		if err := applyPatch(userResourceSchema, resource, ops, adapter.PatchRules{}); err != nil {
+			t.Fatalf("applyPatch() error = %v", err)
+		}
+		if !reflect.DeepEqual(resource, want) {
+			t.Fatalf("resource = %#v, want %#v", resource, want)
+		}
 	}
 }
 

@@ -166,6 +166,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.SCIMUserBinding{},
 		types.SCIMGroupBinding{},
 		types.SCIMPendingGroupDeletion{},
+		types.SCIMGroupSubjectCleanup{},
 		types.SCIMReferenceWrite{},
 		types.SCIMRequestFailure{},
 	); err != nil {

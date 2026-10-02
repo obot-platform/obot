@@ -190,6 +190,36 @@ func (c *Client) SCIMConnectionForAuthProvider(ctx context.Context, namespace, n
 	return scimConnectionForAuthProviderTx(c.db.WithContext(ctx), namespace, name)
 }
 
+// SuspendSCIMConnection suspends the SCIM connection of an auth provider that is being deconfigured, so that its
+// groups stop granting anything. It does nothing when the provider has no connection, or its connection is suspended
+// already.
+func (c *Client) SuspendSCIMConnection(ctx context.Context, namespace, name string) error {
+	now := time.Now()
+	if err := c.db.WithContext(ctx).Model(new(types.SCIMConnection)).
+		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND suspended_at IS NULL", namespace, name).
+		UpdateColumns(map[string]any{
+			"suspended_at": now,
+			"updated_at":   now,
+		}).Error; err != nil {
+		return fmt.Errorf("failed to suspend the SCIM connection of auth provider %s/%s: %w", namespace, name, err)
+	}
+	return nil
+}
+
+// ResumeSCIMConnection resumes the SCIM connection of an auth provider that is configured again, so that its groups
+// grant what they did before it was suspended. It does nothing when the provider has no suspended connection.
+func (c *Client) ResumeSCIMConnection(ctx context.Context, namespace, name string) error {
+	if err := c.db.WithContext(ctx).Model(new(types.SCIMConnection)).
+		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND suspended_at IS NOT NULL", namespace, name).
+		UpdateColumns(map[string]any{
+			"suspended_at": nil,
+			"updated_at":   time.Now(),
+		}).Error; err != nil {
+		return fmt.Errorf("failed to resume the SCIM connection of auth provider %s/%s: %w", namespace, name, err)
+	}
+	return nil
+}
+
 // HasSCIMConnections reports whether any SCIM connection exists.
 func (c *Client) HasSCIMConnections(ctx context.Context) (bool, error) {
 	var conns []types.SCIMConnection
@@ -200,21 +230,21 @@ func (c *Client) HasSCIMConnections(ctx context.Context) (bool, error) {
 }
 
 // AuthenticateSCIMConnection returns the SCIM connection with the given ID if token is its current bearer token or
-// its still-accepted previous one. It returns ErrSCIMConnectionNotFound for an unknown connection, and
-// *SCIMAuthenticationError for any other token, including every token presented to a connection that has none and
-// one issued for another connection.
+// its previous one, while that token is still accepted. It returns ErrSCIMConnectionNotFound for an unknown
+// connection, and *SCIMAuthenticationError for any other token, including an expired one, every token presented to a
+// connection that has none, and one issued for another connection.
 func (c *Client) AuthenticateSCIMConnection(ctx context.Context, id, token string) (*types.SCIMConnection, error) {
 	conn, err := c.SCIMConnection(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Both comparisons always run, so the time taken does not reveal which verifier matched.
-	// REVIEW: would it be better to use bcrypt?
 	verifier := []byte(hash.String(token))
 	current := subtle.ConstantTimeCompare(verifier, []byte(conn.TokenVerifier)) == 1
 	previous := subtle.ConstantTimeCompare(verifier, []byte(conn.PreviousTokenVerifier)) == 1
-	if token == "" || !conn.HasToken() || (!current && (!previous || !conn.PreviousTokenAccepted(time.Now()))) {
+	now := time.Now()
+	accepted := (current && conn.TokenAccepted(now)) || (previous && conn.PreviousTokenAccepted(now))
+	if token == "" || !conn.HasToken() || !accepted {
 		return nil, new(SCIMAuthenticationError)
 	}
 
@@ -258,17 +288,17 @@ func (c *Client) IssueFirstSCIMConnectionToken(ctx context.Context, id string) (
 	return conn, token, nil
 }
 
-// RotateSCIMConnectionToken issues a new bearer token for the connection and returns it. This also issues the first
-// token of a connection that has none. The token it replaces is still accepted for a day, or until
-// RevokePreviousSCIMConnectionToken is called or the token is rotated again, so the identity provider can be switched
-// over without failed requests.
-func (c *Client) RotateSCIMConnectionToken(ctx context.Context, id string) (string, error) {
+// RotateSCIMConnectionToken issues a new bearer token for the connection and returns the updated connection with it.
+// This also issues the first token of a connection that has none. The token it replaces is still accepted for a day,
+// or until it expires, RevokePreviousSCIMConnectionToken is called, or the token is rotated again, so the identity
+// provider can be switched over without failed requests.
+func (c *Client) RotateSCIMConnectionToken(ctx context.Context, id string) (*types.SCIMConnection, string, error) {
 	return c.replaceSCIMConnectionToken(ctx, id, true)
 }
 
 // RevokeCurrentSCIMConnectionToken replaces a leaked bearer token: in one step, it issues a new token, which it
-// returns, and stops accepting both the current token and the previous one.
-func (c *Client) RevokeCurrentSCIMConnectionToken(ctx context.Context, id string) (string, error) {
+// returns with the updated connection, and stops accepting both the current token and the previous one.
+func (c *Client) RevokeCurrentSCIMConnectionToken(ctx context.Context, id string) (*types.SCIMConnection, string, error) {
 	return c.replaceSCIMConnectionToken(ctx, id, false)
 }
 
@@ -291,43 +321,59 @@ func (c *Client) RevokePreviousSCIMConnectionToken(ctx context.Context, id strin
 	})
 }
 
-// replaceSCIMConnectionToken issues a new current token for the connection. When keepPrevious is set, the token it
-// replaces becomes the previous token, which is accepted for a limited time. Otherwise it stops working at once, and
-// so does any previous token.
-func (c *Client) replaceSCIMConnectionToken(ctx context.Context, id string, keepPrevious bool) (string, error) {
+// replaceSCIMConnectionToken issues a new current token for the connection, and returns the updated connection with
+// it. When keepPrevious is set, the token it replaces becomes the previous token, which is accepted for a limited
+// time. Otherwise it stops working at once, and so does any previous token.
+func (c *Client) replaceSCIMConnectionToken(ctx context.Context, id string, keepPrevious bool) (*types.SCIMConnection, string, error) {
 	token, verifier, err := newSCIMToken()
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
+	var conn *types.SCIMConnection
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		conn, err := scimConnectionTx(tx, id, true)
-		if err != nil {
+		if conn, err = scimConnectionTx(tx, id, true); err != nil {
 			return err
 		}
 
-		now := time.Now()
-		columns := map[string]any{
+		var (
+			now                    = time.Now()
+			previousTokenVerifier  string
+			previousTokenExpiresAt *time.Time
+		)
+		if keepPrevious && conn.HasToken() {
+			// The token it replaces is accepted for a little longer, but never past its own expiry, so an expired
+			// token is not accepted again.
+			expiresAt := now.Add(scimPreviousTokenLifetime)
+			if tokenExpiresAt := conn.TokenExpiresAt(); tokenExpiresAt != nil && tokenExpiresAt.Before(expiresAt) {
+				expiresAt = *tokenExpiresAt
+			}
+			if expiresAt.After(now) {
+				previousTokenVerifier = conn.TokenVerifier
+				previousTokenExpiresAt = &expiresAt
+			}
+		}
+
+		if err := tx.Model(conn).UpdateColumns(map[string]any{
 			"token_verifier":            verifier,
 			"token_issued_at":           now,
-			"previous_token_verifier":   "",
-			"previous_token_expires_at": nil,
+			"previous_token_verifier":   previousTokenVerifier,
+			"previous_token_expires_at": previousTokenExpiresAt,
 			"updated_at":                now,
-		}
-		if keepPrevious && conn.HasToken() {
-			columns["previous_token_verifier"] = conn.TokenVerifier
-			columns["previous_token_expires_at"] = now.Add(scimPreviousTokenLifetime)
-		}
-
-		if err := tx.Model(conn).UpdateColumns(columns).Error; err != nil {
+		}).Error; err != nil {
 			return fmt.Errorf("failed to replace the token of SCIM connection %s: %w", id, err)
 		}
+		conn.TokenVerifier = verifier
+		conn.TokenIssuedAt = &now
+		conn.PreviousTokenVerifier = previousTokenVerifier
+		conn.PreviousTokenExpiresAt = previousTokenExpiresAt
+		conn.UpdatedAt = now
 		return nil
 	}); err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	return token, nil
+	return conn, token, nil
 }
 
 // scimConnectionTx returns the SCIM connection with the given ID, locking it when forUpdate is set, or
@@ -417,6 +463,17 @@ func lockSCIMWrites(tx *gorm.DB) error {
 		return fmt.Errorf("failed to lock SCIM writes: %w", err)
 	}
 	return nil
+}
+
+// lockSCIMConnectionWrites serializes SCIM writes for the rest of the transaction, then reads the connection again
+// under that lock, or returns ErrSCIMConnectionNotFound. Callers hold a connection read before the lock, which
+// DeleteUnusedSCIMConnection may have deleted meanwhile under the same lock. A binding or mark written for a deleted
+// connection would leave its user or group managed by a connection that no request can reach.
+func lockSCIMConnectionWrites(tx *gorm.DB, id string) (*types.SCIMConnection, error) {
+	if err := lockSCIMWrites(tx); err != nil {
+		return nil, err
+	}
+	return scimConnectionTx(tx, id, false)
 }
 
 // newSCIMToken returns a new bearer token and its verifier, which is all that is stored.

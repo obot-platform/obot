@@ -8,8 +8,6 @@ import (
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
-	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -50,103 +48,7 @@ func newTestGatewayWithDB(t *testing.T, storage kclient.Client) (*gclient.Client
 	return gateway, services.DB.DB
 }
 
-func TestCreateConnectionRecomputesTheAuthProviderStatus(t *testing.T) {
-	ctx := t.Context()
-	gateway := newTestGateway(t)
-
-	// The provider's credential no longer holds the directory parameters, so it reads as unconfigured until a SCIM
-	// connection relaxes them.
-	provider := &v1.AuthProvider{
-		Name:      "okta-auth-provider",
-		Namespace: system.DefaultNamespace,
-		Spec: v1.AuthProviderSpec{
-			AuthProviderManifest: clienttypes.AuthProviderManifest{
-				CommonProviderMetadata: clienttypes.CommonProviderMetadata{
-					RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
-						{
-							Name: "OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
-						},
-						{
-							Name: "OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
-						},
-						{
-							Name: "OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
-						},
-					},
-				},
-				GroupIDPrefix: "okta/",
-			},
-		},
-		Status: v1.AuthProviderStatus{
-			MissingConfigurationParameters: []string{
-				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
-				"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
-			},
-		},
-	}
-	storage := fake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
-		WithStatusSubresource(&v1.AuthProvider{}).
-		WithObjects(provider).
-		Build()
-	if err := gateway.UpsertCredential(ctx, types.Credential{
-		Context: provider.Name,
-		Name:    provider.Name,
-		Secrets: map[string]string{
-			"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL": "https://example.okta.com/",
-		},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	licenseProvider, err := license.NewProvider(ctx, nil, license.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	conn, token, err := CreateConnection(ctx, storage, gateway, licenseProvider, Options{
-		AuthProviderName: provider.Name,
-		Origin:           types.SCIMConnectionOriginSCIMFirst,
-	})
-	if err != nil {
-		t.Fatalf("failed to create the connection: %v", err)
-	}
-	if token != "" || conn.HasToken() {
-		t.Fatalf("a connection created without a token has one: %+v", conn)
-	}
-	if conn.Issuer != "https://example.okta.com" || conn.GroupIDPrefix != "okta/" || conn.AdapterType != "okta" {
-		t.Fatalf("connection = %+v", conn)
-	}
-
-	var got v1.AuthProvider
-	if err := storage.Get(ctx, kclient.ObjectKeyFromObject(provider), &got); err != nil {
-		t.Fatal(err)
-	}
-	if !got.Status.Configured || len(got.Status.MissingConfigurationParameters) != 0 {
-		t.Fatalf("status after creating the connection = %+v, want configured", got.Status)
-	}
-
-	// An auth provider without an adapter cannot have a connection.
-	other := &v1.AuthProvider{
-		Name:      "github-auth-provider",
-		Namespace: system.DefaultNamespace,
-		Spec: v1.AuthProviderSpec{
-			AuthProviderManifest: clienttypes.AuthProviderManifest{
-				GroupIDPrefix: "github/",
-			},
-		},
-	}
-	if err := storage.Create(ctx, other); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := CreateConnection(ctx, storage, gateway, licenseProvider, Options{
-		AuthProviderName: other.Name,
-		Origin:           types.SCIMConnectionOriginSCIMFirst,
-	}); err == nil {
-		t.Fatal("a connection was created for an auth provider without a SCIM adapter")
-	}
-}
-
-func TestCreateConnectionRefusesWhileACleanupIsPending(t *testing.T) {
+func TestSCIMFirstConnectionRefusedWhileACleanupIsPending(t *testing.T) {
 	provider := &v1.AuthProvider{
 		Name:      "okta-auth-provider",
 		Namespace: system.DefaultNamespace,
@@ -190,22 +92,15 @@ func TestCreateConnectionRefusesWhileACleanupIsPending(t *testing.T) {
 			gateway := newTestGateway(t)
 			storage := fake.NewClientBuilder().
 				WithScheme(storagescheme.Scheme).
-				WithStatusSubresource(&v1.AuthProvider{}).
 				WithObjects(provider.DeepCopy(), tc.cleanup).
 				Build()
-			licenseProvider, err := license.NewProvider(ctx, nil, license.Config{})
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			_, _, err = CreateConnection(ctx, storage, gateway, licenseProvider, Options{
-				AuthProviderName: provider.Name,
-				Origin:           types.SCIMConnectionOriginSCIMFirst,
-				Issuer:           "https://example.okta.com",
+			_, err := EnsureSCIMFirstConnection(ctx, storage, gateway, *provider, map[string]string{
+				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL": "https://example.okta.com",
 			})
 			var pending *CleanupPendingError
 			if !errors.As(err, &pending) || pending.CleanupName != tc.cleanup.Name {
-				t.Fatalf("CreateConnection() error = %v, want the pending cleanup %q", err, tc.cleanup.Name)
+				t.Fatalf("EnsureSCIMFirstConnection() error = %v, want the pending cleanup %q", err, tc.cleanup.Name)
 			}
 
 			conns, err := gateway.SCIMConnections(ctx)

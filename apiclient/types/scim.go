@@ -19,8 +19,10 @@ type SCIMConnection struct {
 	EnforcedAt *Time  `json:"enforcedAt,omitempty"`
 	// HasToken is false until the first bearer token is issued. Every request to a connection without one fails.
 	HasToken bool `json:"hasToken"`
-	// TokenIssuedAt is when the current bearer token was issued.
-	TokenIssuedAt *Time `json:"tokenIssuedAt,omitempty"`
+	// TokenIssuedAt is when the current bearer token was issued, and TokenExpiresAt when it stops being accepted,
+	// a year later. A token must be rotated before it expires.
+	TokenIssuedAt  *Time `json:"tokenIssuedAt,omitempty"`
+	TokenExpiresAt *Time `json:"tokenExpiresAt,omitempty"`
 	// PreviousTokenAccepted is true while the token that the last rotation replaced is still accepted, which it
 	// is until PreviousTokenExpiresAt unless it is revoked first.
 	PreviousTokenAccepted  bool  `json:"previousTokenAccepted"`

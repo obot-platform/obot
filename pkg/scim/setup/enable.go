@@ -185,36 +185,48 @@ func (s *Service) DeleteUnreferencedGroups(ctx context.Context, id string) (*typ
 
 // deleteUnreferencedGroups deletes the unbound groups of the connection's auth provider that nothing references, and
 // returns their IDs.
-//
-// The references live in the controller store, which cannot share a transaction with the gateway database, so the
-// groups are deleted in two phases. They are first marked for deletion, which makes writers of group references
-// refuse new references to them, and the references are read again once the marks are committed. A marked group that
-// gained a reference in between is kept.
 func (s *Service) deleteUnreferencedGroups(ctx context.Context, conn *types.SCIMConnection, p *provider) ([]string, error) {
 	plan, err := s.planGroups(ctx, p)
 	if err != nil {
 		return nil, err
 	}
 
-	run, err := s.gateway.MarkUnreferencedSCIMGroups(ctx, conn, plan.referenced)
-	if err == nil && len(run.GroupIDs) == 0 {
-		return nil, nil
-	}
-
 	var deleted []string
-	if err == nil {
-		// The marks are committed, and the reference writes that could have missed them have finished, so these are
-		// the last references that can reach the marked groups.
-		if plan, err = s.planGroups(ctx, p); err == nil {
-			deleted, err = s.gateway.DeleteMarkedSCIMGroups(ctx, conn.ID, run.ID, plan.referenced)
+	err = s.withUnreferencedGroupsMarked(ctx, conn, plan, func(run *gclient.SCIMDeletionRun) error {
+		if len(run.GroupIDs) == 0 {
+			return nil
 		}
+		plan, err := s.planGroups(ctx, p)
+		if err != nil {
+			return err
+		}
+		deleted, err = s.gateway.DeleteMarkedSCIMGroups(ctx, conn.ID, run.ID, plan.referenced)
+		return err
+	})
+	return deleted, err
+}
+
+// withUnreferencedGroupsMarked runs the first phase of a deletion of the unbound groups of the connection's auth
+// provider that plan does not reference, and then finish, which reads the references again and deletes the groups
+// that the run marked and nothing references then.
+//
+// The references live in the controller store, which cannot share a transaction with the gateway database, so the
+// groups are deleted in two phases. They are first marked for deletion, which makes writers of group references
+// refuse new references to them. Once the marks are committed, and the reference writes that could have missed them
+// have finished, the references that finish reads are the last that can reach the marked groups, and a marked group
+// that gained a reference in between is kept. If the deletion does not finish, its marks are cleared, so that
+// references to its groups are accepted again.
+func (s *Service) withUnreferencedGroupsMarked(ctx context.Context, conn *types.SCIMConnection, plan *groupPlan, finish func(run *gclient.SCIMDeletionRun) error) error {
+	run, err := s.gateway.MarkUnreferencedSCIMGroups(ctx, conn, plan.referenced)
+	if err == nil {
+		err = finish(run)
 	}
 	if err != nil && run != nil && len(run.GroupIDs) > 0 {
 		if clearErr := s.gateway.ClearSCIMGroupDeletionMarks(context.WithoutCancel(ctx), conn.ID, run.ID); clearErr != nil {
 			slog.Error("Failed to clear the marks of a deletion of unreferenced groups that did not finish", "connection", conn.ID, "error", clearErr)
 		}
 	}
-	return deleted, err
+	return err
 }
 
 // EnableConnection creates the SCIM connection that permanently replaces the login-time directory synchronization of

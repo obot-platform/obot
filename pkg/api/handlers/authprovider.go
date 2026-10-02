@@ -52,14 +52,20 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get configured auth provider: %w", err)
-	}
+	var (
+		configured bool
+		conn       *gatewaytypes.SCIMConnection
+	)
+	if seesSCIM(req) {
+		configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+		if err != nil {
+			return fmt.Errorf("failed to get configured auth provider: %w", err)
+		}
+		configured = authProvider.Name == configuredProvider
 
-	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
-	if err != nil {
-		return err
+		if conn, err = req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name); err != nil {
+			return err
+		}
 	}
 
 	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, conn, ap.license)
@@ -71,7 +77,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	params, err := servedAuthProviderParameters(req, authProvider, authProvider.Name == configuredProvider, conn)
+	params, err := servedAuthProviderParameters(req, authProvider, configured, conn)
 	if err != nil {
 		return err
 	}
@@ -85,15 +91,10 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvider, configured bool, conn *gatewaytypes.SCIMConnection) (adapter.Parameters, error) {
 	var stored map[string]string
 	if conn != nil {
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{
-			authProvider.Name,
-			system.GenericAuthProviderCredentialContext,
-			system.ReplacementAuthProviderCredentialContext,
-		}, authProvider.Name)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return adapter.Parameters{}, fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
+		var err error
+		if stored, err = scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider); err != nil {
+			return adapter.Parameters{}, err
 		}
-		stored = cred.Secrets
 	}
 	return adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
 		AuthProviderName: authProvider.Name,
@@ -130,16 +131,21 @@ func setSCIMStatus(req api.Context, authProvider v1.AuthProvider, conn *gatewayt
 	}
 	if conn != nil {
 		status.SCIMState = string(conn.State)
+		if expiresAt := conn.TokenExpiresAt(); expiresAt != nil {
+			status.SCIMTokenExpiresAt = types.NewTime(*expiresAt)
+		}
 	}
 
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return
 	}
+	directory := a.DirectoryParameters()
 	status.SCIM = &types.AuthProviderSCIM{
-		IssuerParameter: a.IssuerConfigurationParameter(),
+		IssuerParameter:     a.IssuerConfigurationParameter(),
+		DirectoryParameters: make([]string, 0, len(directory)),
 	}
-	for _, d := range a.DirectoryParameters() {
+	for _, d := range directory {
 		status.SCIM.DirectoryParameters = append(status.SCIM.DirectoryParameters, d.Name)
 	}
 	if conn != nil {
@@ -179,14 +185,18 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		}
 	}
 
-	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get configured auth provider: %w", err)
-	}
-
-	conns, err := req.GatewayClient.SCIMConnections(req.Context())
-	if err != nil {
-		return err
+	var (
+		configuredProvider string
+		conns              []gatewaytypes.SCIMConnection
+	)
+	if seesSCIM(req) {
+		var err error
+		if configuredProvider, err = ap.dispatcher.GetConfiguredAuthProvider(req.Context()); err != nil {
+			return fmt.Errorf("failed to get configured auth provider: %w", err)
+		}
+		if conns, err = req.GatewayClient.SCIMConnections(req.Context()); err != nil {
+			return err
+		}
 	}
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
@@ -285,29 +295,23 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	})
 }
 
-// validateAuthProviderConfiguration checks a submitted configuration against the auth provider's effective
-// parameters, which depend on its SCIM setup. configured is set for the configured auth provider. It first drops the
-// parameters the provider no longer uses, so that a provider whose directory is managed through SCIM is configured
-// again without them.
+// validateAuthProviderConfiguration checks a submitted configuration against the auth provider's SCIM rules, which
+// the provider configuration change applies again, and against its effective parameters. configured is set for the
+// configured auth provider. It first drops the parameters the provider no longer uses, so that a provider whose
+// directory is managed through SCIM is configured again without them.
 //
 // For a provider that the configuration would set up for SCIM, it also refuses residual group data here, so that the
 // administrator sees what remains. The provider configuration change checks it again under its serialization.
 func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, configured bool, envVars map[string]string) error {
-	conn, err := req.GatewayClient.SCIMConnectionForAuthProvider(req.Context(), authProvider.Namespace, authProvider.Name)
-	if err != nil {
+	params, setup, err := scimsetup.CheckConfiguration(req.Context(), req.GatewayClient, authProvider, func() (bool, error) {
+		return configured, nil
+	}, func() (map[string]string, error) {
+		return scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider)
+	}, envVars)
+	if refused, ok := errors.AsType[*scimsetup.ConfigurationError](err); ok {
+		return types.NewErrBadRequest("%s", refused.Message)
+	} else if err != nil {
 		return err
-	}
-
-	params, err := effectiveAuthProviderParameters(req, authProvider, configured, conn)
-	if err != nil {
-		return err
-	}
-	for _, name := range params.Dropped {
-		delete(envVars, name)
-	}
-	if missing := params.IncompleteGroup(envVars); len(missing) > 0 {
-		return types.NewErrBadRequest("provide all of %s, or none of them; missing: %s",
-			strings.Join(params.Together, " and "), strings.Join(missing, ", "))
 	}
 
 	missingEntitlements, err := ap.license.MissingEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements)
@@ -326,15 +330,10 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		}
 	}
 	if len(missing) > 0 {
-		if a, ok := adapter.ForAuthProvider(authProvider.Name); ok && configured && conn == nil && !adapter.DirectoryParametersProvided(a, envVars) {
-			return types.NewErrBadRequest("%s synchronizes its directory at sign-in, so it requires %s. Moving it to SCIM provisioning is a separate, reviewed step",
-				cmp.Or(authProvider.Spec.Name, authProvider.Name), strings.Join(missing, ", "))
-		}
 		return types.NewErrBadRequest("missing required configuration parameters: %s", strings.Join(missing, ", "))
 	}
 
-	if a, ok := adapter.ForAuthProvider(authProvider.Name); ok && !configured && conn == nil &&
-		adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) && !adapter.DirectoryParametersProvided(a, envVars) {
+	if setup == scimsetup.SetupSCIMFirst {
 		residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
 		if err != nil {
 			return err
@@ -422,6 +421,17 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		return err
 	}
 
+	// The active provider is never a replacement. The controller refuses it too, but the settings are validated
+	// first as a replacement's, which would report the active provider's own groups as left from an earlier
+	// configuration.
+	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+	if configuredProvider == authProvider.Name {
+		return types.NewErrBadRequest("%q is already the active authentication provider", authProvider.Name)
+	}
+
 	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
 		return err
 	}
@@ -435,7 +445,6 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		envVars = make(map[string]string, 1)
 	}
 
-	var err error
 	envVars[CookieSecretEnvVar], err = generateCookieSecret()
 	if err != nil {
 		return err
@@ -447,7 +456,6 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		}
 	}
 
-	// A replacement is never the configured provider; the controller refuses to stage that one.
 	if err := ap.validateAuthProviderConfiguration(req, authProvider, false, envVars); err != nil {
 		return err
 	}

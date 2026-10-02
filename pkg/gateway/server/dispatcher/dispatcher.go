@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
@@ -313,14 +314,19 @@ func (d *Dispatcher) LoginableAuthProvider(ctx context.Context, r *http.Request,
 // We need to check this way instead of using the status fields to avoid race conditions with the controller.
 // Returns: isConfigured (bool)
 func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider v1.AuthProvider) bool {
-	credEnv, err := CredentialEnvForAuthProvider(ctx, d.gatewayClient, authProvider)
+	// The SCIM connection is read with the credential, so that the check costs one query on every request.
+	cred, adapterType, err := d.gatewayClient.RevealAuthProviderCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Namespace, authProvider.Name)
 	if err != nil {
 		return false
 	}
+	credEnv := cred.Secrets
 
-	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
-	if err != nil {
-		return false
+	// The parameters depend only on whether the provider has a connection, and on its adapter type.
+	var conn *gatewaytypes.SCIMConnection
+	if adapterType != "" {
+		conn = &gatewaytypes.SCIMConnection{
+			AdapterType: adapterType,
+		}
 	}
 
 	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{

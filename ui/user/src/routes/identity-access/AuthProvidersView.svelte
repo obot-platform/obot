@@ -12,6 +12,7 @@
 	} from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
+	import { describeGroupReference } from '$lib/components/admin/scim/groupReferences';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import {
 		CommonAuthProviderIds,
@@ -22,7 +23,11 @@
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
-	import type { AuthProvider, ProviderParameter } from '$lib/services/admin/types.js';
+	import type {
+		AuthProvider,
+		ProviderParameter,
+		ResidualGroupData
+	} from '$lib/services/admin/types.js';
 	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { clearUrlParams } from '$lib/url';
@@ -131,8 +136,20 @@
 	// The provider whose configuration was refused for group data left from an earlier
 	// configuration, which its auth provider cleanup removes.
 	let residualProvider = $state<AuthProvider>();
+	let residualData = $state<ResidualGroupData>();
 	let residualCleanupStarted = $state(false);
 	let residualCleanupLoading = $state(false);
+	let confirmResidualCleanup = $state(false);
+	// The cleanup removes admin-authored role assignments and policy subjects along with the groups, so the
+	// confirmation names the groups that something still references.
+	let referencedResidualGroups = $derived(
+		residualData?.groups.filter((group) => group.references?.length) ?? []
+	);
+	let residualCleanupSummary = $derived.by(() => {
+		const groups = residualData?.groups.length ?? 0;
+		const memberships = residualData?.membershipCount ?? 0;
+		return `This deletes ${groups} ${groups === 1 ? 'group' : 'groups'} and ${memberships} ${memberships === 1 ? 'group membership' : 'group memberships'}. It cannot be undone.`;
+	});
 	// A switch is only offered when this provider would replace a different one. Configuring the
 	// first provider on a fresh install stays the plain form.
 	let isOwner = $derived(!!profile.current.isOwner?.());
@@ -346,15 +363,22 @@
 			configureError = parseErrorContent(err).message;
 		} finally {
 			residualCleanupLoading = false;
+			confirmResidualCleanup = false;
 		}
+	}
+
+	function clearResidualGroupData() {
+		residualProvider = undefined;
+		residualData = undefined;
+		residualCleanupStarted = false;
+		confirmResidualCleanup = false;
 	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
 		if (configuringAuthProvider) {
 			loading = true;
 			configureError = undefined;
-			residualProvider = undefined;
-			residualCleanupStarted = false;
+			clearResidualGroupData();
 			try {
 				const staging = isSwitching;
 				if (staging) {
@@ -392,6 +416,7 @@
 						const residual = await AdminService.getResidualGroupData(provider.id);
 						if (residual.groups.length > 0 || residual.membershipCount > 0) {
 							residualProvider = provider;
+							residualData = residual;
 						}
 					} catch {
 						// The refusal itself still explains what remains.
@@ -546,8 +571,7 @@
 		switchError = undefined;
 		// A refusal for leftover group data, and a cleanup started for it, describe an earlier attempt.
 		configureError = undefined;
-		residualProvider = undefined;
-		residualCleanupStarted = false;
+		clearResidualGroupData();
 		configuringAuthProvider = authProvider;
 		try {
 			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
@@ -823,7 +847,7 @@
 							class="btn btn-secondary btn-sm"
 							type="button"
 							disabled={residualCleanupLoading || isReadonly}
-							onclick={handleRemoveResidualGroupData}
+							onclick={() => (confirmResidualCleanup = true)}
 						>
 							Remove leftover group data
 						</button>
@@ -900,6 +924,39 @@
 	onsuccess={handleUnstageProvider}
 	oncancel={() => (confirmDiscardSwitch = false)}
 />
+
+<Confirm
+	show={confirmResidualCleanup}
+	title="Remove leftover group data"
+	msg="Remove {residualProvider?.name}'s leftover group data?"
+	note={residualCleanupNote}
+	classes={{ note: 'text-left' }}
+	submitText="Remove group data"
+	cancelText="Cancel"
+	loading={residualCleanupLoading}
+	onsuccess={handleRemoveResidualGroupData}
+	oncancel={() => (confirmResidualCleanup = false)}
+/>
+
+{#snippet residualCleanupNote()}
+	<div class="flex flex-col gap-2 text-sm">
+		<p>{residualCleanupSummary}</p>
+		{#if referencedResidualGroups.length > 0}
+			<p>
+				It also removes these groups from the roles and policies that reference them. Groups that
+				{residualProvider?.name} pushes through SCIM later will not regain them.
+			</p>
+			<ul class="flex max-h-48 list-disc flex-col gap-1 overflow-y-auto pl-5">
+				{#each referencedResidualGroups as group (group.id)}
+					<li>
+						<span class="font-medium">{group.name || group.id}</span>:
+						{group.references?.map(describeGroupReference).join('; ')}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</div>
+{/snippet}
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}

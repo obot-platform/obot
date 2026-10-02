@@ -607,6 +607,52 @@ func TestDeleteUnusedSCIMConnection(t *testing.T) {
 	}
 }
 
+func TestSCIMWritesAfterTheirConnectionIsDeleted(t *testing.T) {
+	opts := testSCIMConnectionOptions(true)
+	opts.Origin = types.SCIMConnectionOriginSCIMFirst
+
+	c := newLifecycleTestClient(t)
+	conn, _, err := c.CreateSCIMConnection(t.Context(), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A request authenticated with the connection before it was deleted still holds it.
+	if deleted, err := c.DeleteUnusedSCIMConnection(t.Context(), lifecycleTestProvider.Namespace, lifecycleTestProvider.Name); err != nil || !deleted {
+		t.Fatalf("DeleteUnusedSCIMConnection() = %v, %v", deleted, err)
+	}
+
+	if _, err := c.CreateSCIMUser(t.Context(), conn, SCIMUserInput{
+		UserName:   "user@example.com",
+		ExternalID: "00u-user",
+	}, SCIMUserCreateOptions{
+		UserLimit: UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: apitypes.RoleBasic,
+	}); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("CreateSCIMUser() for a deleted connection error = %v", err)
+	}
+	if _, err := c.CreateSCIMGroup(t.Context(), conn, SCIMGroupInput{
+		DisplayName: "Engineering",
+	}); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("CreateSCIMGroup() for a deleted connection error = %v", err)
+	}
+	if _, err := c.MarkUnreferencedSCIMGroups(t.Context(), conn, nil); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("MarkUnreferencedSCIMGroups() for a deleted connection error = %v", err)
+	}
+
+	for _, model := range []any{new(types.SCIMUserBinding), new(types.SCIMGroupBinding), new(types.SCIMPendingGroupDeletion), new(types.Identity)} {
+		var count int64
+		if err := c.db.WithContext(t.Context()).Model(model).Count(&count).Error; err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("a write for a deleted connection stored %d rows of %T", count, model)
+		}
+	}
+}
+
 func TestCreateSCIMConnectionRequiringNoGroupData(t *testing.T) {
 	opts := testSCIMConnectionOptions(false)
 	opts.Origin = types.SCIMConnectionOriginSCIMFirst
@@ -1120,5 +1166,74 @@ func TestEnabledSCIMSurvivesRestarts(t *testing.T) {
 	}
 	if _, err := restarted.SCIMConnection(t.Context(), conn.ID); err != nil {
 		t.Fatalf("the connection is gone: %v", err)
+	}
+}
+
+func TestExpiredDeletionMarksStopRefusingReferences(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		client func(t *testing.T) *Client
+	}{
+		{
+			name: "SQLite",
+			client: func(t *testing.T) *Client {
+				t.Helper()
+				return newLifecycleTestClient(t)
+			},
+		},
+		{
+			name:   "PostgreSQL",
+			client: newPostgresLifecycleTestClient,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.client(t)
+			ctx := t.Context()
+			conn, _ := createTestSCIMConnection(t, c, false)
+			createTestGroup(t, c, "okta/00g-stuck", "Stuck")
+			createTestGroup(t, c, "okta/00g-running", "Running")
+
+			// A deletion marked one group long ago and never finished, and another deletion is marking the other one now.
+			stuck, err := c.MarkUnreferencedSCIMGroups(ctx, conn, map[string]struct{}{"okta/00g-running": {}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.db.WithContext(ctx).Model(new(types.SCIMPendingGroupDeletion)).
+				Where("group_id = ?", "okta/00g-stuck").
+				Update("created_at", time.Now().Add(-scimDeletionMarkLifetime-time.Minute)).Error; err != nil {
+				t.Fatal(err)
+			}
+			if _, err := c.MarkUnreferencedSCIMGroups(ctx, conn, map[string]struct{}{"okta/00g-stuck": {}}); err != nil {
+				t.Fatal(err)
+			}
+
+			write := func() error {
+				return c.WithNewSCIMGroupReferences(ctx, []string{"okta/00g-stuck"}, func() error {
+					return nil
+				})
+			}
+			if refErr, ok := errors.AsType[*SCIMGroupReferenceError](write()); !ok || !slices.Equal(refErr.PendingDeletion, []string{"okta/00g-stuck"}) {
+				t.Fatal("a reference to a group marked for deletion was accepted before the mark expired")
+			}
+
+			if err := c.expireSCIMGroupDeletionMarks(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if got := pendingDeletions(t, c); !slices.Equal(got, []string{"okta/00g-running"}) {
+				t.Fatalf("groups pending deletion = %v, want only the one a running deletion marked", got)
+			}
+			if err := write(); err != nil {
+				t.Fatalf("a reference to a group whose mark expired was refused: %v", err)
+			}
+
+			// The deletion whose marks expired deletes nothing.
+			deleted, err := c.DeleteMarkedSCIMGroups(ctx, conn.ID, stuck.ID, map[string]struct{}{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(deleted) != 0 || !slices.Contains(storedGroupIDs(t, c), "okta/00g-stuck") {
+				t.Fatalf("a deletion whose marks expired deleted %v", deleted)
+			}
+		})
 	}
 }

@@ -15,6 +15,9 @@ import (
 const (
 	// connectionPrincipalPrefix begins the name of a SCIM connection's principal. Its UID is the connection ID.
 	connectionPrincipalPrefix = "scim-connection:"
+
+	wwwAuthenticate    = `Bearer realm="Obot SCIM"`
+	unauthorizedDetail = "a valid bearer token for this SCIM connection is required"
 )
 
 // UnavailableError reports a request to the SCIM endpoint while no SCIM connection exists. The API server answers it
@@ -106,8 +109,8 @@ func WriteError(w http.ResponseWriter, status int, detail string) {
 
 // WriteUnauthorized writes the response to a SCIM request that no connection's token authenticated.
 func WriteUnauthorized(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Bearer realm="Obot SCIM"`)
-	WriteError(w, http.StatusUnauthorized, "a valid bearer token for this SCIM connection is required")
+	w.Header().Set("WWW-Authenticate", wwwAuthenticate)
+	WriteError(w, http.StatusUnauthorized, unauthorizedDetail)
 }
 
 // WriteUnavailable writes the response to a SCIM request while the endpoint is unavailable. The identity provider

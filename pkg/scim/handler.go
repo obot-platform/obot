@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -76,6 +77,8 @@ type request struct {
 type connection struct {
 	*types.SCIMConnection
 	baseURL string
+	// patchRules are how the connection's identity provider departs from RFC 7644 in PATCH requests.
+	patchRules adapter.PatchRules
 }
 
 type statusRecorder struct {
@@ -94,8 +97,9 @@ func NewHandler(gateway *gclient.Client, env Environment, serverURL string) *Han
 	}
 }
 
-// Serve handles requests to PathPrefix + "{connection}/...". It writes every response itself, as a SCIM response, and
-// never returns an error.
+// ANY /scim/v2/{connection}/...
+// Serves the SCIM endpoint of a connection, routing each request by its method and path. It writes every response
+// itself, as a SCIM response, and never returns an error.
 func (h *Handler) Serve(req api.Context) error {
 	h.ServeHTTP(req.ResponseWriter, req.Request, req.User)
 	return nil
@@ -179,9 +183,14 @@ func (h *Handler) connection(ctx context.Context, id string) (*connection, error
 		return nil, nil
 	}
 
+	a, ok := adapter.Lookup(conn.AdapterType)
+	if !ok {
+		return nil, fmt.Errorf("SCIM connection %s has unknown adapter type %q", conn.ID, conn.AdapterType)
+	}
 	return &connection{
 		SCIMConnection: conn,
 		baseURL:        h.serverURL + PathPrefix + conn.ID,
+		patchRules:     a.PatchRules(),
 	}, nil
 }
 
@@ -243,8 +252,13 @@ func (h *Handler) route(w http.ResponseWriter, r *request) {
 			h.replaceUser(w, r, rest[0])
 		case http.MethodPatch:
 			h.patchUser(w, r, rest[0])
-		default:
+		case http.MethodDelete:
 			// Okta deprovisions users by setting active to false. Deleting a user is an Obot action.
+			writeError(w, &Error{
+				Status: http.StatusNotImplemented,
+				Detail: "deleting users is not supported; deprovision a user by setting active to false",
+			})
+		default:
 			methodNotAllowed(w, http.MethodGet, http.MethodPut, http.MethodPatch)
 		}
 	case strings.EqualFold(resource, "Groups") && len(rest) == 0:
@@ -334,6 +348,11 @@ func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 // POST /scim/v2/{connection}/Users
 // Provisions a user, binding it to the existing user with the same native user ID or creating one.
 func (h *Handler) createUser(w http.ResponseWriter, r *request) {
+	proj, err := parseProjection(userResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -370,7 +389,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *request) {
 	}
 
 	w.Header().Set("Location", r.conn.baseURL+"/Users/"+user.ID)
-	writeJSON(w, http.StatusCreated, userResource(user, r.conn.baseURL))
+	writeJSON(w, http.StatusCreated, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
 // GET /scim/v2/{connection}/Users/{id}
@@ -394,6 +413,11 @@ func (h *Handler) getUser(w http.ResponseWriter, r *request, id string) {
 // Replaces a provisioned user's writable attributes. An omitted active keeps the current state, and id, meta, and
 // groups are ignored. There is no upsert.
 func (h *Handler) replaceUser(w http.ResponseWriter, r *request, id string) {
+	proj, err := parseProjection(userResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -412,12 +436,17 @@ func (h *Handler) replaceUser(w http.ResponseWriter, r *request, id string) {
 		writeError(w, toError(err))
 		return
 	}
-	writeJSON(w, http.StatusOK, userResource(user, r.conn.baseURL))
+	writeJSON(w, http.StatusOK, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
 // PATCH /scim/v2/{connection}/Users/{id}
 // Applies PatchOp operations to a provisioned user, including active with and without a path.
 func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
+	proj, err := parseProjection(userResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -431,7 +460,9 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 
 	user, err := h.gateway.UpdateSCIMUser(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMUser) (gclient.SCIMUserInput, error) {
 		resource := userResource(&current, r.conn.baseURL)
-		if err := applyPatch(userResourceSchema, resource, ops); err != nil {
+		// The current user's groups are not loaded. They are read-only, so a PATCH can neither change nor restate them.
+		delete(resource, "groups")
+		if err := applyPatch(userResourceSchema, resource, ops, r.conn.patchRules); err != nil {
 			return gclient.SCIMUserInput{}, err
 		}
 		return userInputFromResource(resource)
@@ -440,7 +471,7 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 		writeError(w, toError(err))
 		return
 	}
-	writeJSON(w, http.StatusOK, userResource(user, r.conn.baseURL))
+	writeJSON(w, http.StatusOK, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
 // GET /scim/v2/{connection}/Groups
@@ -498,6 +529,11 @@ func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 // POST /scim/v2/{connection}/Groups
 // Binds a pushed group to the unbound group with the same name, or creates one, with the complete member list.
 func (h *Handler) createGroup(w http.ResponseWriter, r *request) {
+	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -520,7 +556,7 @@ func (h *Handler) createGroup(w http.ResponseWriter, r *request) {
 	}
 
 	w.Header().Set("Location", r.conn.baseURL+"/Groups/"+group.ID)
-	writeJSON(w, http.StatusCreated, groupResource(group, r.conn.baseURL))
+	writeJSON(w, http.StatusCreated, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
 // GET /scim/v2/{connection}/Groups/{id}
@@ -543,6 +579,11 @@ func (h *Handler) getGroup(w http.ResponseWriter, r *request, id string) {
 // PUT /scim/v2/{connection}/Groups/{id}
 // Replaces a bound group's display name and members. The members are the complete set.
 func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
+	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -565,11 +606,12 @@ func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
 		writeError(w, toError(err))
 		return
 	}
-	writeJSON(w, http.StatusOK, groupResource(group, r.conn.baseURL))
+	writeJSON(w, http.StatusOK, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
 // PATCH /scim/v2/{connection}/Groups/{id}
-// Renames a bound group, and adds, removes, or replaces its members.
+// Renames a bound group, and adds, removes, or replaces its members. The response has no body, as RFC 7644 section
+// 3.5.2 allows: returning the group would mean reading every member of it.
 func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 	body, err := readBody(r)
 	if err != nil {
@@ -591,22 +633,29 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 		return
 	}
 
-	group, err := h.gateway.UpdateSCIMGroup(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
-		resource := groupResource(&current, r.conn.baseURL)
-		if err := applyPatch(groupResourceSchema, resource, ops); err != nil {
-			return gclient.SCIMGroupInput{}, err
-		}
-		return groupInputFromResource(resource)
-	})
+	// The operations Okta sends name the members they change, and apply without reading the group's other members.
+	// Any other operation applies to the whole group.
+	if patch, ok := planGroupPatch(id, ops); ok {
+		err = h.gateway.PatchSCIMGroup(r.Context(), r.conn.SCIMConnection, id, patch)
+	} else {
+		_, err = h.gateway.UpdateSCIMGroup(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
+			resource := groupResource(&current, r.conn.baseURL)
+			if err := applyPatch(groupResourceSchema, resource, ops, r.conn.patchRules); err != nil {
+				return gclient.SCIMGroupInput{}, err
+			}
+			return groupInputFromResource(resource)
+		})
+	}
 	if err != nil {
 		writeError(w, toError(err))
 		return
 	}
-	writeJSON(w, http.StatusOK, groupResource(group, r.conn.baseURL))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // DELETE /scim/v2/{connection}/Groups/{id}
-// Retires the group's binding and removes its memberships. The Obot group and its references remain, unbound.
+// Retires the group's binding and removes its memberships. Until SCIM is enforced, the Obot group and its references
+// remain, unbound. Once it is enforced, the group is deleted, with its role assignments and policy subjects.
 func (h *Handler) deleteGroup(w http.ResponseWriter, r *request, id string) {
 	if err := h.gateway.DeleteSCIMGroup(r.Context(), r.conn.SCIMConnection, id); err != nil {
 		writeError(w, toError(err))
@@ -623,6 +672,13 @@ func toError(err error) *Error {
 	}
 	if e, ok := errors.AsType[*gclient.SCIMNotFoundError](err); ok {
 		return notFound("%s", e.Error())
+	}
+	if errors.Is(err, gclient.ErrSCIMConnectionNotFound) {
+		// The connection was deleted while the request was handled, so its token no longer authenticates.
+		return &Error{
+			Status: http.StatusUnauthorized,
+			Detail: unauthorizedDetail,
+		}
 	}
 	if e, ok := errors.AsType[*gclient.SCIMConflictError](err); ok {
 		return conflict(e.Message)
@@ -791,6 +847,9 @@ func unavailable(w http.ResponseWriter, detail string) {
 func writeError(w http.ResponseWriter, err *Error) {
 	if rec, ok := w.(*statusRecorder); ok {
 		rec.err = err
+	}
+	if err.Status == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", wwwAuthenticate)
 	}
 	writeJSON(w, err.Status, err.response())
 }

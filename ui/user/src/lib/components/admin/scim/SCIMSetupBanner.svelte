@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { SCIM_VIEW_PATH } from '$lib/constants';
-	import { X } from '@lucide/svelte';
 
+	// The banner cannot be dismissed: until SCIM is enforced, users that the identity provider has not
+	// provisioned can still sign in.
 	interface Props {
 		// The display name of the auth provider whose SCIM setup is not finished.
 		providerName: string;
-		onDismiss: () => void;
 	}
 
-	let { providerName, onDismiss }: Props = $props();
+	let { providerName }: Props = $props();
 </script>
 
 <div class="bg-base-100 w-full min-h-8.5">
@@ -25,13 +25,5 @@
 		<a href={resolve(SCIM_VIEW_PATH)} class="btn btn-xs btn-primary shrink-0">
 			Continue SCIM setup
 		</a>
-		<button
-			class="btn btn-circle text-primary hover:text-base-content btn-xs w-fit h-fit p-0.5 dark:hover:bg-base-400"
-			onclick={onDismiss}
-			type="button"
-			aria-label="Dismiss SCIM setup banner"
-		>
-			<X class="size-3" />
-		</button>
 	</div>
 </div>

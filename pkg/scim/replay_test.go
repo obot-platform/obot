@@ -225,6 +225,12 @@ func replayFixtures(t *testing.T, s *scimTest, name string) *replay {
 		}
 
 		resp := s.do(f.Method, resource, body)
+		if f.Method == http.MethodPatch && strings.HasPrefix(resource, "Groups/") && f.Status == http.StatusOK {
+			// The responder answered a group PATCH with the group, where this server answers with no body. The
+			// group it reads afterwards must match the responder's answer.
+			resp.expect(t, http.StatusNoContent)
+			resp = s.do(http.MethodGet, resource, nil)
+		}
 		if resp.status != f.Status {
 			t.Fatalf("%04d %s %s: got status %d, want %d: %v", f.Sequence, f.Method, f.Path, resp.status, f.Status, resp.body)
 		}

@@ -34,11 +34,17 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 		Err:    errors.New("database unavailable"),
 	}
 
+	const pageAccept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
 	for _, tt := range []struct {
-		name            string
-		err             error
+		name string
+		err  error
+		// path is the request's path, /api/me unless set, and accept its Accept header.
+		path            string
+		accept          string
 		wantStatus      int
 		wantBody        string
+		wantLocation    string
 		wantCookieReset bool
 	}{
 		{
@@ -51,6 +57,41 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 		{
 			name:            "denied by an authenticator inside the chain",
 			err:             utilerrors.NewAggregate([]error{utilerrors.NewAggregate([]error{errors.New("declined"), denied})}),
+			wantStatus:      http.StatusForbidden,
+			wantBody:        gclient.AccountNotActiveMessage,
+			wantCookieReset: true,
+		},
+		{
+			name:            "a page load denied by the admission check goes to the login page, which says why",
+			err:             denied,
+			path:            "/mcp-servers",
+			accept:          pageAccept,
+			wantStatus:      http.StatusFound,
+			wantLocation:    accountInactiveLoginPath,
+			wantCookieReset: true,
+		},
+		{
+			name:            "the login page is refused as text rather than redirected again",
+			err:             denied,
+			path:            accountInactiveLoginPath,
+			accept:          pageAccept,
+			wantStatus:      http.StatusForbidden,
+			wantBody:        gclient.AccountNotActiveMessage,
+			wantCookieReset: true,
+		},
+		{
+			name:            "an asset load denied by the admission check",
+			err:             denied,
+			path:            "/_app/immutable/entry/app.js",
+			accept:          "*/*",
+			wantStatus:      http.StatusForbidden,
+			wantBody:        gclient.AccountNotActiveMessage,
+			wantCookieReset: true,
+		},
+		{
+			name:            "an API call from a page denied by the admission check",
+			err:             denied,
+			accept:          pageAccept,
 			wantStatus:      http.StatusForbidden,
 			wantBody:        gclient.AccountNotActiveMessage,
 			wantCookieReset: true,
@@ -79,14 +120,25 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 				return nil
 			})
 
+			path := tt.path
+			if path == "" {
+				path = "/api/me"
+			}
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			if tt.accept != "" {
+				req.Header.Set("Accept", tt.accept)
+			}
 			rec := httptest.NewRecorder()
-			handler(rec, httptest.NewRequest(http.MethodGet, "/api/me", nil))
+			handler(rec, req)
 
 			if rec.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
 			if !strings.Contains(rec.Body.String(), tt.wantBody) {
 				t.Errorf("body = %q, want it to contain %q", rec.Body.String(), tt.wantBody)
+			}
+			if location := rec.Header().Get("Location"); location != tt.wantLocation {
+				t.Errorf("Location = %q, want %q", location, tt.wantLocation)
 			}
 
 			var cookieReset bool

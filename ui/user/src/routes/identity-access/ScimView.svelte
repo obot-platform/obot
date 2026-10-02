@@ -3,12 +3,13 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { describeGroupReference } from '$lib/components/admin/scim/groupReferences';
+	import { tokenExpiryState } from '$lib/components/admin/scim/tokenExpiry';
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
 	import type {
-		GroupReference,
 		SCIMConnection,
 		SCIMConnectionReview,
 		SCIMEnablePreview,
@@ -23,7 +24,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { Circle, CircleAlert, CircleCheck, RefreshCw, TriangleAlert } from '@lucide/svelte';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -67,17 +68,6 @@
 		unreferencedGroups: Paged<SCIMSetupGroup>;
 		failures: Paged<SCIMRequestFailure>;
 	}
-
-	const referenceLabels: Record<GroupReference['kind'], string> = {
-		accessControlRule: 'access control rule',
-		modelAccessPolicy: 'model access policy',
-		skillAccessRule: 'skill access rule',
-		messagePolicy: 'message policy',
-		hostedAgentAccessRule: 'hosted agent access rule',
-		publishedArtifact: 'published artifact',
-		groupRoleAssignment: 'group role assignment',
-		vmcpProfile: 'virtual MCP server'
-	};
 
 	// Names each list in its pager, so the pagers of different lists are told apart.
 	const listNouns: Record<PagedList, string> = {
@@ -249,25 +239,26 @@
 		};
 	}
 
-	function describeReference(ref: GroupReference) {
-		const label = referenceLabels[ref.kind] ?? ref.kind;
-		if (ref.kind === 'groupRoleAssignment') {
-			return ref.detail ? `${label} (${ref.detail})` : label;
-		}
-		let description = ref.displayName ? `${label} “${ref.displayName}”` : `${label} ${ref.id}`;
-		if (ref.detail) {
-			description += `, ${ref.detail}`;
-		}
-		return description;
-	}
-
 	function timeAgo(timestamp?: string) {
 		return formatTimeAgo(timestamp).relativeTime || 'Never';
 	}
 
-	function showToken(title: string, conn: SCIMConnection) {
+	function tokenExpiry(conn: SCIMConnection) {
+		return conn.hasToken ? tokenExpiryState(conn.tokenExpiresAt) : undefined;
+	}
+
+	function formatDate(timestamp?: string) {
+		return timestamp ? new Date(timestamp).toLocaleDateString() : '';
+	}
+
+	// Shows a token just issued. The confirmation that issued it closes first, so that the token's
+	// dialog is the only one open, and keeps the focus.
+	async function showToken(title: string, conn: SCIMConnection) {
 		if (!conn.token) return;
 		issuedToken = { title, baseURL: conn.baseURL, token: conn.token };
+		confirmEnable = false;
+		confirmTokenAction = undefined;
+		await tick();
 		tokenDialog?.open();
 	}
 
@@ -307,10 +298,12 @@
 		// A response for a page that has since been replaced, by a newer page or by loading the review
 		// again, is dropped.
 		const current = () => request === pageRequests[list] && generation === reviewGeneration;
-		// The list shrank since it was shown, so the page is past its end: show its last page instead.
-		const pastEnd = (result: SCIMPage<unknown>) =>
-			result.items.length === 0 && result.total > 0 && page.offset > 0;
 		const lastPage = (total: number) => Math.floor((total - 1) / pageSize) * pageSize;
+		// The list shrank since it was shown, so the page is past its end: show its last page instead.
+		// The last page must come before this one, so that a page that keeps coming back empty is
+		// shown empty rather than asked for again forever.
+		const pastEnd = (result: SCIMPage<unknown>) =>
+			result.items.length === 0 && result.total > 0 && lastPage(result.total) < page.offset;
 
 		actionError = undefined;
 		try {
@@ -374,7 +367,7 @@
 			enabled = true;
 			notice = `SCIM is enabled for ${providerName}.`;
 			deletionError = result.deletionError;
-			showToken('SCIM token', result.connection);
+			await showToken('SCIM token', result.connection);
 			try {
 				await refresh(result.connection.id);
 			} catch (err) {
@@ -458,13 +451,16 @@
 		try {
 			switch (action) {
 				case 'generate':
-					showToken('SCIM token', await AdminService.rotateSCIMToken(connection.id, quiet));
+					await showToken('SCIM token', await AdminService.rotateSCIMToken(connection.id, quiet));
 					break;
 				case 'rotate':
-					showToken('New SCIM token', await AdminService.rotateSCIMToken(connection.id, quiet));
+					await showToken(
+						'New SCIM token',
+						await AdminService.rotateSCIMToken(connection.id, quiet)
+					);
 					break;
 				case 'revokeCurrent':
-					showToken(
+					await showToken(
 						'Replacement SCIM token',
 						await AdminService.revokeCurrentSCIMToken(connection.id, quiet)
 					);
@@ -489,14 +485,14 @@
 		generate: {
 			title: 'Generate token',
 			msg: 'Issue the SCIM bearer token?',
-			note: 'The token is shown only once. Copy it into the SCIM application of the identity provider.',
+			note: 'The token is shown only once. Copy it into the SCIM application of the identity provider. It expires after a year, so rotate it before then.',
 			submit: 'Generate token',
 			type: 'info'
 		},
 		rotate: {
 			title: 'Rotate token',
 			msg: 'Issue a new SCIM bearer token?',
-			note: 'The current token keeps working for a day, or until you revoke it, so you can update the identity provider without failed requests.',
+			note: 'The current token keeps working for a day, or until it expires or you revoke it, so you can update the identity provider without failed requests.',
 			submit: 'Rotate token',
 			type: 'info'
 		},
@@ -605,6 +601,29 @@
 			</div>
 		{/if}
 
+		{#if conn.hasToken}
+			{@const expiry = tokenExpiry(conn)}
+			{#if expiry === 'expired'}
+				<div class="notification-error flex items-start gap-2 text-sm font-light" role="alert">
+					<CircleAlert class="text-error mt-0.5 size-5 shrink-0" />
+					<span>
+						The bearer token expired on {formatDate(conn.tokenExpiresAt)}, so {providerName}'s SCIM
+						requests fail. Rotate the token, update it in {providerName}, and retry the failed
+						provisioning tasks there.
+					</span>
+				</div>
+			{:else if expiry === 'expiring'}
+				<div class="notification-alert flex items-start gap-2 text-sm font-light" role="status">
+					<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+					<span>
+						The bearer token expires on {formatDate(conn.tokenExpiresAt)}. Rotate it before then,
+						and update it in {providerName}: the current token keeps working for up to a day after
+						the rotation.
+					</span>
+				</div>
+			{/if}
+		{/if}
+
 		<dl class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 			<div class="flex min-w-0 flex-col gap-1 md:col-span-2">
 				<dt class="text-muted-content text-xs">Base URL</dt>
@@ -619,6 +638,11 @@
 				<dd>
 					{#if conn.hasToken}
 						Issued {timeAgo(conn.tokenIssuedAt)}
+						{#if conn.tokenExpiresAt}
+							<span class="text-muted-content block text-xs">
+								{`${tokenExpiry(conn) === 'expired' ? 'Expired' : 'Expires'} ${formatDate(conn.tokenExpiresAt)}`}
+							</span>
+						{/if}
 					{:else}
 						Not generated yet
 					{/if}
@@ -782,7 +806,12 @@
 		{providerName} sends the bearer token with each SCIM request. Obot shows it only once, when it is
 		issued.
 	</p>
-	{#if conn.hasToken}
+	{#if conn.hasToken && tokenExpiry(conn) === 'expired'}
+		{@render stepStatus(
+			false,
+			`The token expired on ${formatDate(conn.tokenExpiresAt)}. Rotate it, and update it in ${providerName}.`
+		)}
+	{:else if conn.hasToken}
 		{@render stepStatus(true, `The token was issued ${timeAgo(conn.tokenIssuedAt)}.`)}
 	{:else if canManageToken}
 		<div>
@@ -1089,7 +1118,7 @@
 						{warning.message}
 						{#if warning.references?.length}
 							<span class="text-muted-content text-xs">
-								Referenced by {warning.references.map(describeReference).join('; ')}.
+								Referenced by {warning.references.map(describeGroupReference).join('; ')}.
 							</span>
 						{/if}
 					</li>
@@ -1130,7 +1159,7 @@
 				</div>
 				{#if group.references?.length}
 					<p class="text-muted-content text-xs font-light">
-						Referenced by {group.references.map(describeReference).join('; ')}
+						Referenced by {group.references.map(describeGroupReference).join('; ')}
 					</p>
 				{/if}
 			</li>

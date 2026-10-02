@@ -94,14 +94,14 @@ func TestGroupBinding(t *testing.T) {
 			"id":          eng.id(),
 		},
 	})).expect(t, http.StatusConflict)
-	renamed := s.do(http.MethodPatch, "Groups/"+eng.id(), patchOp(map[string]any{
+	s.do(http.MethodPatch, "Groups/"+eng.id(), patchOp(map[string]any{
 		"op": "replace",
 		"value": map[string]any{
 			"displayName": "Other",
 			"id":          eng.id(),
 		},
-	})).expect(t, http.StatusOK)
-	if renamed.body["displayName"] != "Other" || !slices.Equal(renamed.memberIDs(), []string{aliceID, bobID}) {
+	})).expect(t, http.StatusNoContent)
+	if renamed := s.do(http.MethodGet, "Groups/"+eng.id(), nil).expect(t, http.StatusOK); renamed.body["displayName"] != "Other" || !slices.Equal(renamed.memberIDs(), []string{aliceID, bobID}) {
 		t.Fatalf("renamed group = %v", renamed.body)
 	}
 

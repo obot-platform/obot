@@ -28,6 +28,9 @@ type AuthProviderStatus struct {
 	// SCIMState is the state of the provider's SCIM connection: "connected", "enforced", or empty when
 	// the provider has none. Only administrators see it.
 	SCIMState string `json:"scimState,omitempty"`
+	// SCIMTokenExpiresAt is when the bearer token of the provider's SCIM connection stops being accepted, and is
+	// unset while the connection has no token. Only administrators see it.
+	SCIMTokenExpiresAt *Time `json:"scimTokenExpiresAt,omitempty"`
 	// SCIM describes how the provider supports SCIM. It is set only for a provider that supports SCIM, and only
 	// administrators see it.
 	SCIM *AuthProviderSCIM `json:"scim,omitempty"`

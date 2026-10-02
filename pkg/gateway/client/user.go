@@ -124,7 +124,7 @@ func (c *Client) UserByIDIncludeDeleted(ctx context.Context, id string) (*types.
 }
 
 // UserByIDWithEffectiveRole returns the user with the corresponding ID with their effiective role
-// and auth provider groups.
+// and auth provider groups, leaving out the groups of a suspended SCIM connection.
 func (c *Client) UserByIDWithEffectiveRole(ctx context.Context, id uint) (*types.User, []string, error) {
 	u, groupIDs, err := c.getUserAndGroupIDs(ctx, id, "", "")
 	if err != nil {
@@ -182,9 +182,12 @@ func (c *Client) getUserAndGroupIDs(ctx context.Context, userID any, authProvide
 			Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
 			Where("group_memberships.user_id = ?", userID)
 
-		// Filter by auth provider if specified
+		// Filter by auth provider if specified. Otherwise, the groups of every auth provider count, except those of a
+		// suspended SCIM connection.
 		if authProviderNamespace != "" && authProviderName != "" {
 			query = query.Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", authProviderNamespace, authProviderName)
+		} else {
+			query = query.Where(grantingMembership)
 		}
 
 		// Get the group IDs
@@ -417,26 +420,32 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	}
 
 	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are never
-	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. The mode is checked before the
-	// provider is asked, and again before its answer is written. A failed lookup fails the refresh.
-	if conn, err := c.SCIMConnectionForAuthProvider(ctx, authProviderNamespace, authProviderName); err != nil {
+	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. Both are read with the
+	// identity, before the provider is asked, and checked again before its answer is written. A failed lookup fails
+	// the refresh.
+	var rows []struct {
+		types.Identity
+		SCIMManaged bool
+		SCIMBound   bool
+	}
+	if err := c.db.WithContext(ctx).Model(new(types.Identity)).
+		Select("identities.*, "+
+			"EXISTS (SELECT 1 FROM scim_connections WHERE scim_connections.auth_provider_namespace = identities.auth_provider_namespace AND scim_connections.auth_provider_name = identities.auth_provider_name) AS scim_managed, "+
+			"EXISTS (SELECT 1 FROM scim_user_bindings WHERE scim_user_bindings.user_id = identities.user_id AND scim_user_bindings.retired_at IS NULL) AS scim_bound").
+		Where("identities.user_id = ?", user.ID).
+		Where("identities.auth_provider_name = ?", authProviderName).
+		Where("identities.auth_provider_namespace = ?", authProviderNamespace).
+		Limit(1).
+		Scan(&rows).Error; err != nil {
 		return err
-	} else if conn != nil {
+	}
+	if len(rows) == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	if rows[0].SCIMManaged || rows[0].SCIMBound {
 		return nil
 	}
-	if binding, err := c.SCIMUserBindingForUser(ctx, user.ID); err != nil {
-		return err
-	} else if binding != nil {
-		return nil
-	}
-
-	var identity types.Identity
-	if err := c.db.WithContext(ctx).Where("user_id = ?", user.ID).
-		Where("auth_provider_name = ?", authProviderName).
-		Where("auth_provider_namespace = ?", authProviderNamespace).
-		First(&identity).Error; err != nil {
-		return err
-	}
+	identity := rows[0].Identity
 
 	if err := c.decryptIdentity(ctx, &identity); err != nil {
 		return fmt.Errorf("failed to decrypt identity: %w", err)

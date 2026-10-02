@@ -560,6 +560,64 @@ func TestSwitchToAStagedSCIMProvider(t *testing.T) {
 	assert.True(t, s.status().Configured)
 }
 
+func TestDeconfiguringSuspendsTheConnectionUntilTheProviderIsConfiguredAgain(t *testing.T) {
+	s := newSCIMChangeTest(t)
+	require.Empty(t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))
+	conn := s.connection()
+	require.NotNil(t, conn)
+	assert.Nil(t, conn.SuspendedAt)
+
+	// The connection and its data survive deconfiguration, but its groups grant nothing until the provider is
+	// configured again.
+	require.Empty(t, s.apply(v1.ProviderDesiredStateDeconfigured, nil))
+	suspended := s.connection()
+	require.NotNil(t, suspended)
+	assert.Equal(t, conn.ID, suspended.ID)
+	assert.NotNil(t, suspended.SuspendedAt)
+
+	require.Empty(t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))
+	resumed := s.connection()
+	require.NotNil(t, resumed)
+	assert.Equal(t, conn.ID, resumed.ID)
+	assert.Nil(t, resumed.SuspendedAt)
+}
+
+func TestSwitchingBackToASCIMProviderResumesItsConnection(t *testing.T) {
+	s := newSCIMChangeTest(t)
+	s.activateOtherProvider()
+
+	require.Empty(t, s.apply(v1.ProviderDesiredStateStaged, oidcSettings()))
+	conn := s.connection()
+	require.NotNil(t, conn)
+	// As an earlier switch away from the provider would have left it.
+	require.NoError(t, s.gateway.SuspendSCIMConnection(t.Context(), system.DefaultNamespace, oktaProviderName))
+
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         oktaProviderName,
+			DesiredState:         v1.ProviderDesiredStateSwitched,
+			ReplacesProviderName: activeProviderName,
+		},
+	}
+	require.NoError(t, s.client.Create(t.Context(), change))
+	require.NoError(t, s.handler.Reconcile(router.Request{
+		Client:    s.client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	require.Empty(t, change.Status.Error)
+
+	resumed := s.connection()
+	require.NotNil(t, resumed)
+	assert.Equal(t, conn.ID, resumed.ID)
+	assert.Nil(t, resumed.SuspendedAt)
+}
+
 func TestUnstageKeepsTheConnectionOfTheConfiguredProvider(t *testing.T) {
 	s := newSCIMChangeTest(t)
 	require.Empty(t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))

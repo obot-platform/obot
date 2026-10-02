@@ -57,6 +57,7 @@ import (
 	"github.com/obot-platform/obot/pkg/producttelemetry"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/scim"
+	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -690,6 +691,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
 	)
+	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
 		return nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)

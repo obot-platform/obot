@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -32,6 +33,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+)
+
+const (
+	// accountInactiveLoginPath is the login page, asked to tell its visitor that their account is not active.
+	accountInactiveLoginPath = "/?inactive=true"
 )
 
 type Server struct {
@@ -175,6 +181,12 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					Path:   "/",
 					MaxAge: -1,
 				})
+				// A browser would show the refusal of a page as a bare text page, and the UI that explains it would
+				// never load, so the browser is sent to the login page instead, which says why.
+				if isPageLoad(req) && req.URL.String() != accountInactiveLoginPath {
+					http.Redirect(rw, req, accountInactiveLoginPath, http.StatusFound)
+					return
+				}
 				httpErr := denied.HTTPError()
 				http.Error(rw, httpErr.Message, httpErr.Code)
 			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
@@ -186,6 +198,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 			return
 		}
+		// The admission check let the principal through, so work done for the request can trust its recorded status.
+		req = req.WithContext(principal.WithAdmittedPrincipal(req.Context(), user))
 
 		// Skip rate limiting for static assets (JS chunks, CSS, images) to avoid
 		// hitting limits during page load when many assets are fetched in parallel.
@@ -420,6 +434,17 @@ func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) erro
 		return p.Push(target, opts)
 	}
 	return http.ErrNotSupported
+}
+
+// isPageLoad reports whether a browser is loading a page, rather than calling the API or fetching an asset.
+func isPageLoad(req *http.Request) bool {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		return false
+	}
+	if strings.HasPrefix(req.URL.Path, "/api/") || isStaticAssetPath(req.URL.Path) {
+		return false
+	}
+	return strings.Contains(req.Header.Get("Accept"), "text/html")
 }
 
 // isStaticAssetPath returns true if the path is a static asset that should be

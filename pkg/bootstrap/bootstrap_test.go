@@ -157,7 +157,7 @@ func TestDisabledBootstrapIsOffWhileAuthenticationRemainsEnabled(t *testing.T) {
 	}
 }
 
-func TestBootstrapStaysEnabledUntilAnEnabledOwnerSignsIn(t *testing.T) {
+func TestBootstrapStaysEnabledUntilAnOwnerSignsIn(t *testing.T) {
 	c, db, ctx := newBootstrapTestClientWithDB(t)
 	provider := client.AuthProviderRef{
 		Namespace: system.DefaultNamespace,
@@ -205,18 +205,16 @@ func TestBootstrapStaysEnabledUntilAnEnabledOwnerSignsIn(t *testing.T) {
 	if err := db.Model(new(gwtypes.Identity)).Where("user_id = ?", owner.ID).UpdateColumn("first_sign_in_at", time.Now()).Error; err != nil {
 		t.Fatalf("failed to record sign-in: %v", err)
 	}
+	assertEnabled(false, "once an owner has signed in")
+
+	// The identity provider can reactivate a disabled owner, so disabling every owner does not reopen bootstrap.
 	if _, err := c.DisableUser(ctx, provider, owner.ID, gwtypes.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable owner: %v", err)
 	}
-	assertEnabled(true, "while the only owner is disabled")
+	assertEnabled(false, "while the only owner who signed in is disabled")
 
-	if _, err := c.ReactivateUser(ctx, provider, owner.ID); err != nil {
-		t.Fatalf("failed to reactivate owner: %v", err)
+	if err := db.Model(owner).UpdateColumn("deleted_at", time.Now()).Error; err != nil {
+		t.Fatalf("failed to delete owner: %v", err)
 	}
-	assertEnabled(false, "once an enabled owner has signed in")
-
-	if _, err := c.DisableUser(ctx, provider, owner.ID, gwtypes.UserDisabledReasonSCIMInactive); err != nil {
-		t.Fatalf("failed to disable owner: %v", err)
-	}
-	assertEnabled(true, "after every owner who signed in is disabled")
+	assertEnabled(true, "once the only owner who signed in is deleted")
 }

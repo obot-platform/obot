@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"maps"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -17,7 +17,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/localauth"
-	"github.com/obot-platform/obot/pkg/scim/adapter"
 	"github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -252,6 +251,9 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}); err != nil {
 			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
 		}
+		if err := h.resumeSCIMConnection(ctx, authProvider); err != nil {
+			return err
+		}
 
 	case v1.ProviderDesiredStateSwitched:
 		// Stricter than the configure path: that one accepts an empty slot, this one accepts only
@@ -292,6 +294,9 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 			Secrets: replacement.Secrets,
 		}); err != nil {
 			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
+		}
+		if err := h.resumeSCIMConnection(ctx, authProvider); err != nil {
+			return err
 		}
 		if err := h.deconfigureAuthProvider(ctx, client, outgoingProvider); err != nil {
 			return err
@@ -377,65 +382,28 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 }
 
 // prepareSCIMSetup applies the SCIM rules of an auth provider that is being configured or staged with secrets, and
-// changes secrets to what the provider stores. configured reports whether the provider is already configured. It is
-// called only when the answer matters, so a provider without SCIM rules is never checked.
+// changes secrets to what the provider stores. configured reports whether the provider is already configured. The
+// rules are setup.CheckConfiguration's, which the API applies too. A configuration that omits the directory
+// parameters of a provider that is not configured creates the SCIM connection here, before the provider's credential
+// exists.
 //
-// Only a provider with a SCIM adapter has SCIM rules, and its directory parameters choose the setup:
-//   - A provider with a SCIM connection resumes it. A connection created without directory credentials means the
-//     provider never stores them, so they are dropped.
-//   - A configured provider without a connection synchronizes its directory, and keeps requiring them. Stopping
-//     directory synchronization is Enable and Enforce.
-//   - Any other provider may omit them all. Providing them sets up directory synchronization, and omitting them
-//     creates the SCIM connection before the provider's credential exists.
+// The provider's stored configuration is never decrypted here: a change must apply even when it cannot be, such as
+// after the encryption key changed. The API checked the secrets against it, so they stand for it.
 func (h *Handler) prepareSCIMSetup(ctx context.Context, authProvider v1.AuthProvider, configured func() (bool, error), secrets map[string]string) error {
-	a, ok := adapter.ForAuthProvider(authProvider.Name)
-	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
+	_, scimSetup, err := setup.CheckConfiguration(ctx, h.gatewayClient, authProvider, configured, func() (map[string]string, error) {
+		return maps.Clone(secrets), nil
+	}, secrets)
+	if refused, ok := errors.AsType[*setup.ConfigurationError](err); ok {
+		return terminalf("%s", refused.Message)
+	} else if err != nil {
+		return err
+	}
+	if scimSetup != setup.SetupSCIMFirst {
 		return nil
 	}
+
 	displayName := cmp.Or(authProvider.Spec.Name, authProvider.Name)
-
-	conn, err := h.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
-	if err != nil {
-		return err
-	}
-	if conn != nil {
-		if conn.Origin == gatewaytypes.SCIMConnectionOriginSCIMFirst {
-			for _, d := range a.DirectoryParameters() {
-				delete(secrets, d.Name)
-			}
-		}
-		return nil
-	}
-
-	isConfigured, err := configured()
-	if err != nil {
-		return err
-	}
-	if isConfigured {
-		var missing []string
-		for _, d := range a.DirectoryParameters() {
-			if secrets[d.Name] == "" {
-				missing = append(missing, d.Name)
-			}
-		}
-		if len(missing) > 0 {
-			return terminalf("%s synchronizes its directory at sign-in, so it requires %s. Moving it to SCIM provisioning is a separate, reviewed step",
-				displayName, strings.Join(missing, ", "))
-		}
-		return nil
-	}
-
-	params := adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-	})
-	if missing := params.IncompleteGroup(secrets); len(missing) > 0 {
-		return terminalf("provide all of %s, or none of them; missing: %s", strings.Join(params.Together, " and "), strings.Join(missing, ", "))
-	}
-	if adapter.DirectoryParametersProvided(a, secrets) {
-		return nil
-	}
-
-	conn, err = setup.EnsureSCIMFirstConnection(ctx, h.storage, h.gatewayClient, authProvider, secrets)
+	conn, err := setup.EnsureSCIMFirstConnection(ctx, h.storage, h.gatewayClient, authProvider, secrets)
 	if ineligible, ok := errors.AsType[*setup.IneligibleError](err); ok {
 		return terminalf("%s", ineligible.Error())
 	} else if residual, ok := errors.AsType[*setup.ResidualGroupDataError](err); ok {
@@ -535,6 +503,16 @@ func (h *Handler) deleteUnusedSCIMConnection(ctx context.Context, authProvider v
 	return nil
 }
 
+// resumeSCIMConnection resumes the SCIM connection of an auth provider whose credential was just promoted, so that
+// the groups SCIM kept while the provider was deconfigured grant access again. It runs after the promotion, so that a
+// failure leaves the groups granting nothing rather than granting for a provider that is not configured.
+func (h *Handler) resumeSCIMConnection(ctx context.Context, authProvider v1.AuthProvider) error {
+	if err := h.gatewayClient.ResumeSCIMConnection(ctx, authProvider.Namespace, authProvider.Name); err != nil {
+		return fmt.Errorf("resume SCIM for auth provider %q: %w", authProvider.Name, err)
+	}
+	return nil
+}
+
 func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Client, authProvider v1.AuthProvider) error {
 	var cleanup *v1.AuthProviderCleanup
 	if authProvider.Spec.GroupIDPrefix != "" {
@@ -543,6 +521,13 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 		if err != nil {
 			return err
 		}
+	}
+
+	// The cleanup keeps the groups of a provider that SCIM manages, and suspending its connection stops them from
+	// granting anything. This runs before the credential goes, so that a failure leaves the groups granting nothing
+	// rather than granting for a provider that is no longer configured.
+	if err := h.gatewayClient.SuspendSCIMConnection(ctx, authProvider.Namespace, authProvider.Name); err != nil {
+		return fmt.Errorf("suspend SCIM for auth provider %q: %w", authProvider.Name, err)
 	}
 
 	if err := deleteResolvedCredential(ctx, h.gatewayClient, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name); err != nil {
