@@ -1,4 +1,5 @@
 import { handleRouteError } from '$lib/errors';
+import { m } from '$lib/i18n';
 import { UserService, NanobotService, type OrgUser } from '$lib/services';
 import type { ProjectV2Agent } from '$lib/services/nanobot/types';
 import type { PageLoad } from './$types';
@@ -8,7 +9,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, version } = await parent();
 
 	if (version?.agentsEnabled === false) {
-		throw error(403, 'Obot Agent features are disabled.');
+		throw error(403, m.admin_routes_agents_disabled());
 	}
 
 	let agents: ProjectV2Agent[] = [];

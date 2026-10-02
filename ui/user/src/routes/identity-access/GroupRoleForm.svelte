@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { groupRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores/index.js';
@@ -31,7 +32,7 @@
 	const canAssignAdmin = $derived(canAssignOwner || profile.current.groups.includes(Group.ADMIN));
 
 	let roleOptions: RoleOption[] = $derived([
-		...(canAssignOwner ? [{ label: 'Owner', id: Role.OWNER }] : []),
+		...(canAssignOwner ? [{ label: m.admin_routes_role_owner(), id: Role.OWNER }] : []),
 		...groupRoleOptions
 			.filter((role) => (role.id === Role.ADMIN ? canAssignAdmin : true))
 			.map((d) => ({ id: d.id, label: d.label }))
@@ -87,11 +88,12 @@
 			<div class="w-28 shrink-0 font-semibold whitespace-nowrap">{role.label}</div>
 			<p class="text-muted-content text-xs">
 				{#if role.id === Role.OWNER}
-					All group members will have Owner privileges and can manage all aspects of the platform.
+					{m.admin_routes_groups_owner_description()}
 				{:else if role.id === Role.ADMIN}
-					All group members will have Admin privileges and can manage all aspects of the platform.
+					{m.admin_routes_groups_admin_description()}
 				{:else}
-					{roleDescriptionMap[role.id] || `All group members will have ${role.label} privileges.`}
+					{roleDescriptionMap[role.id] ||
+						m.admin_routes_groups_role_privileges({ role: role.label })}
 				{/if}
 			</p>
 		</div>
@@ -119,14 +121,12 @@
 				disabled={isDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 shrink-0 font-semibold">Auditor</div>
+				<div class="w-28 shrink-0 font-semibold">{m.admin_routes_role_auditor()}</div>
 				<p class="text-muted-content text-xs">
 					{#if auditorReadonlyAdminRoles.includes(roleId)}
-						All group members will have read-only access to the admin system and see additional
-						details such as response, request, and header information in the audit logs.
+						{m.admin_routes_groups_auditor_readonly_description()}
 					{:else}
-						All group members will gain access to additional details such as response, request, and
-						header information in the audit logs.
+						{m.admin_routes_groups_auditor_description()}
 					{/if}
 				</p>
 			</div>
@@ -147,10 +147,9 @@
 				disabled={isUserImpersonationDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 shrink-0 font-semibold">Impersonator</div>
+				<div class="w-28 shrink-0 font-semibold">{m.admin_routes_role_impersonator()}</div>
 				<p class="text-muted-content text-xs">
-					All group members will be able to connect to other users' Obot Agents. Must be combined
-					with Admin or Owner.
+					{m.admin_routes_groups_impersonator_description()}
 				</p>
 			</div>
 		</label>

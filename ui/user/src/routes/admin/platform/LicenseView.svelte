@@ -15,6 +15,7 @@
 		MODEL_PROVIDERS_ENTITLEMENT
 	} from '$lib/constants';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, type License } from '$lib/services';
 	import { errors, license as licenseStore, profile, version } from '$lib/stores';
@@ -30,7 +31,7 @@
 		ENTERPRISE_ENTITLEMENT,
 		CLOUD_ENTITLEMENT
 	]);
-	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
+	const lockedLicenseMessage = m.admin_routes_lic_locked();
 
 	let license = $state(
 		untrack(
@@ -58,7 +59,9 @@
 		license?.entitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
 	);
 	let updateLicenseTitle = $derived(
-		license?.licenseKey && !isCommunityEdition ? 'Update License Key' : 'Add License Key'
+		license?.licenseKey && !isCommunityEdition
+			? m.admin_routes_lic_update_key()
+			: m.admin_routes_lic_add_key()
 	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasValidLicense = $derived(Boolean(license?.enterprise));
@@ -102,7 +105,7 @@
 			updateLicenseDialog?.close();
 			reloadPage();
 		} catch (err) {
-			updateError = err instanceof Error ? err.message : 'An unknown error occurred.';
+			updateError = err instanceof Error ? err.message : m.admin_routes_lic_unknown_error();
 		} finally {
 			updating = false;
 		}
@@ -114,7 +117,7 @@
 			await AdminService.deleteLicense();
 			reloadPage();
 		} catch (err) {
-			errors.append(`Failed to delete license: ${err}`);
+			errors.append(m.admin_routes_lic_delete_failed({ error: `${err}` }));
 		} finally {
 			deleting = false;
 		}
@@ -127,7 +130,7 @@
 			license = await AdminService.recheckLicense({ dontLogErrors: true });
 			licenseStore.initialize(license);
 		} catch (err) {
-			errors.append(`Failed to recheck license: ${err}`);
+			errors.append(m.admin_routes_lic_recheck_failed({ error: `${err}` }));
 		} finally {
 			rechecking = false;
 		}
@@ -204,11 +207,10 @@
 						</div>
 						<div class="flex min-w-0 flex-col gap-1">
 							<h2 id="enterprise-cta-heading" class="text-lg font-semibold tracking-tight">
-								Upgrade to Obot Enterprise
+								{m.admin_routes_lic_upgrade()}
 							</h2>
 							<p class="max-w-md text-sm font-light text-primary-content/85">
-								Need dedicated support and higher limits for your organization? Talk with our team
-								today!
+								{m.admin_routes_lic_upgrade_description()}
 							</p>
 						</div>
 					</div>
@@ -219,8 +221,9 @@
 						rel="noopener noreferrer"
 						class="btn btn-primary bg-white text-black transition-transform hover:scale-105"
 					>
-						Contact Us <ExternalLink class="size-4" aria-hidden="true" />
-						<span class="sr-only">(opens in a new tab)</span>
+						{m.admin_routes_lic_contact_us()}
+						<ExternalLink class="size-4" aria-hidden="true" />
+						<span class="sr-only">{m.admin_routes_opens_new_tab()}</span>
 					</a>
 				</div>
 			</aside>
@@ -230,8 +233,11 @@
 				<div class="flex items-center gap-3">
 					<CircleAlert class="size-6" />
 					<div>
-						The license key is <b class="font-semibold">invalid</b>. Please contact support at
-						<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
+						{m.admin_routes_lic_invalid_prefix()}<b class="font-semibold"
+							>{m.admin_routes_lic_invalid_bold()}</b
+						>{m.admin_routes_lic_invalid_mid()}
+						<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>
+						{m.admin_routes_lic_invalid_suffix()}
 					</div>
 				</div>
 			</div>
@@ -240,9 +246,9 @@
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
 					<div>
-						The license key was added via configuration and therefore <b class="font-semibold"
-							>read-only</b
-						>. It cannot be updated from the UI.
+						{m.admin_routes_lic_readonly_prefix()}<b class="font-semibold"
+							>{m.admin_routes_lic_readonly_bold()}</b
+						>{m.admin_routes_lic_readonly_suffix()}
 					</div>
 				</div>
 			</div>
@@ -253,7 +259,7 @@
 				{#if license}
 					{#if license.licenseKey && !isCommunityEdition}
 						<div class="flex flex-col gap-1">
-							<div class="text-sm font-light">License Key</div>
+							<div class="text-sm font-light">{m.admin_routes_lic_license_key()}</div>
 							<div class="font-mono text-sm text-muted-content">
 								{license.licenseKey}
 							</div>
@@ -261,7 +267,7 @@
 					{/if}
 					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div class="flex flex-col gap-1">
-							<p class="text-sm font-light">License Status</p>
+							<p class="text-sm font-light">{m.admin_routes_lic_status()}</p>
 							<p
 								class={twMerge(
 									'text-sm',
@@ -274,15 +280,16 @@
 								)}
 							>
 								{#if license.licenseKey && !isCommunityEdition}
-									{license.enterprise ? 'Active' : 'Invalid'}
+									{license.enterprise ? m.admin_routes_lic_active() : m.admin_routes_lic_invalid()}
 								{:else}
-									N/A <span class="text-xs font-light">(Open-Source)</span>
+									{m.admin_routes_na()}
+									<span class="text-xs font-light">{m.admin_routes_lic_open_source()}</span>
 								{/if}
 							</p>
 						</div>
 					</div>
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-light">Entitlements</p>
+						<p class="text-sm font-light">{m.admin_routes_lic_entitlements()}</p>
 						{#if license.entitlements}
 							<ul class="flex flex-wrap gap-2">
 								{#each visibleEntitlements as entitlement (entitlement)}
@@ -316,8 +323,8 @@
 								<RefreshCw class="size-4" />
 							{/if}
 							{manualCheckCooldownMs > 0
-								? `Recheck in ${manualCheckCooldownLabel}`
-								: 'Recheck License'}
+								? m.admin_routes_lic_recheck_in({ time: manualCheckCooldownLabel })
+								: m.admin_routes_lic_recheck()}
 						</button>
 					{/if}
 					<div
@@ -341,7 +348,7 @@
 
 		{#if version.current.userLimit}
 			<section class="paper flex-row justify-between py-4">
-				<p class="text-sm">User Limits</p>
+				<p class="text-sm">{m.admin_routes_lic_user_limits()}</p>
 				{#if !hasValidLicense || isCommunityEdition}
 					<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
 				{:else}
@@ -352,7 +359,7 @@
 
 		{#if version.current.deviceLimit}
 			<section class="paper flex-row justify-between py-4">
-				<p class="text-sm">Device Limits</p>
+				<p class="text-sm">{m.admin_routes_lic_device_limits()}</p>
 				{#if !hasValidLicense || isCommunityEdition}
 					<p class="text-sm">{version.current.deviceCount} / {version.current.deviceLimit}</p>
 				{:else}
@@ -363,16 +370,16 @@
 
 		{#if !isAdminReadonly && license && license.licenseKey && !isCommunityEdition}
 			<section class="paper gap-0">
-				<h4 class="font-semibold text-xl">Danger Zone</h4>
+				<h4 class="font-semibold text-xl">{m.admin_routes_lic_danger_zone()}</h4>
 				<p class="text-sm font-light">
-					Destructive actions that could cause irreversible changes. Proceed with caution.
+					{m.admin_routes_lic_danger_description()}
 				</p>
 				<div class="divider my-6"></div>
 				<div class="flex items-center flex-col md:flex-row md:justify-between gap-4">
 					<div>
-						<p class="font-semibold">Delete License</p>
+						<p class="font-semibold">{m.admin_routes_lic_delete()}</p>
 						<p class="text-sm font-light">
-							Removing the license will cause loss of access to license-specific features.
+							{m.admin_routes_lic_delete_description()}
 						</p>
 					</div>
 					<div
@@ -387,7 +394,7 @@
 							disabled={license.locked || isAdminReadonly}
 							onclick={() => (showDeleteLicenseDialog = true)}
 						>
-							Delete License
+							{m.admin_routes_lic_delete()}
 						</button>
 					</div>
 				</div>
@@ -422,7 +429,7 @@
 
 <ResponsiveDialog bind:this={updateLicenseDialog} title={updateLicenseTitle} class="max-w-md">
 	<div class="flex flex-col gap-4">
-		<p class="text-sm font-light">Enter the new license key below.</p>
+		<p class="text-sm font-light">{m.admin_routes_lic_enter_new_key()}</p>
 		<SensitiveInput name="license-key" bind:value={updateLicenseKey} />
 		{#if updateError}
 			<div in:slide={{ duration: 150, axis: 'y' }} class="alert alert-error alert-soft">
@@ -434,7 +441,7 @@
 			disabled={updating || isAdminReadonly}
 			onclick={handleUpdateLicense}
 		>
-			Submit
+			{m.admin_routes_submit()}
 		</button>
 	</div>
 </ResponsiveDialog>
@@ -444,7 +451,7 @@
 	disabled={isAdminReadonly}
 	onsuccess={handleDeleteLicense}
 	oncancel={() => (showDeleteLicenseDialog = false)}
-	msg="Are you sure you want to delete the license?"
-	submitText="Delete License"
+	msg={m.admin_routes_lic_delete_confirm()}
+	submitText={m.admin_routes_lic_delete()}
 	loading={deleting}
 />

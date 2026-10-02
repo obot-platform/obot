@@ -21,6 +21,7 @@
 		SCIM_VIEW_PATH
 	} from '$lib/constants';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
+	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
 	import type {
@@ -46,9 +47,9 @@
 	const SWITCH_STEPS = ['configure', 'signin', 'switch'] as const;
 	type SwitchStep = (typeof SWITCH_STEPS)[number];
 	const SWITCH_STEP_LABELS: Record<SwitchStep, string> = {
-		configure: 'Configure',
-		signin: 'Sign in',
-		switch: 'Switch'
+		configure: m.admin_routes_authp_step_configure(),
+		signin: m.admin_routes_authp_step_signin(),
+		switch: m.admin_routes_authp_step_switch()
 	};
 
 	function sortAuthProviders(authProviders: AuthProvider[]) {
@@ -555,7 +556,7 @@
 		if (updatedMatch) {
 			handleClickConfigure(updatedMatch);
 		} else {
-			errors.append('There was an issue fetching the auth provider configuration.');
+			errors.append(m.admin_routes_authp_fetch_config_failed());
 		}
 
 		licenseRequiredProvider = undefined;
@@ -663,11 +664,12 @@
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
+						<p class="my-0.5 flex flex-col text-sm font-semibold">
+							{m.admin_routes_authp_none_configured()}
+						</p>
 					</div>
 					<span class="text-sm font-light break-all">
-						To finish setting up Obot, you'll need to configure an Auth Provider. Select one below
-						to get started!
+						{m.admin_routes_authp_none_configured_description()}
 					</span>
 				</div>
 			{/if}
@@ -681,7 +683,7 @@
 							!!stagedProvider &&
 							!authProvider.staged)}
 					disableConfigureReason={switchNeedsOwner(authProvider)
-						? 'Only an owner can replace the auth provider everyone signs in with.'
+						? m.admin_routes_authp_only_owner_can_replace()
 						: undefined}
 					provider={authProvider}
 					staged={authProvider.staged}
@@ -699,7 +701,7 @@
 			{/each}
 		</div>
 	{:else}
-		<p class="text-muted-content text-sm font-light">Authentication is not enabled.</p>
+		<p class="text-muted-content text-sm font-light">{m.admin_routes_authp_auth_not_enabled()}</p>
 	{/if}
 </div>
 
@@ -745,33 +747,38 @@
 	{/if}
 	{#if switchStep === 'signin'}
 		<p class="text-sm font-light">
-			Sign in with <b>{configuringAuthProvider?.name}</b> to confirm the connection works. The
-			account you use <b>becomes the owner of Obot</b> after the switch.
+			{m.admin_routes_authp_signin_prefix()}<b>{configuringAuthProvider?.name}</b
+			>{m.admin_routes_authp_signin_mid()}<b>{m.admin_routes_authp_signin_bold()}</b
+			>{m.admin_routes_authp_signin_suffix()}
 		</p>
 		<div class="notification-info p-3 text-sm font-light">
-			{activeProvider?.name ?? 'The current provider'} keeps serving logins until you finish the switch.
-			You can come back to this step later.
+			{m.admin_routes_authp_keeps_serving({
+				provider: activeProvider?.name ?? m.admin_routes_authp_current_provider_capitalized()
+			})}
 		</div>
 	{:else}
 		<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 			<div class="flex min-w-0 flex-col">
 				<span class="truncate text-sm font-medium">{switchVerifiedEmail}</span>
-				<span class="text-muted-content text-xs font-light"> Will own Obot after the switch </span>
+				<span class="text-muted-content text-xs font-light">
+					{m.admin_routes_authp_will_own()}
+				</span>
 			</div>
-			<span class="text-success ml-auto flex-none text-xs">Verified</span>
+			<span class="text-success ml-auto flex-none text-xs">{m.admin_routes_authp_verified()}</span>
 		</div>
 		<p class="text-muted-content text-xs font-light">
-			Not the right account?
+			{m.admin_routes_authp_not_right_account()}
 			<button class="text-link underline" disabled={switching} onclick={handleVerifyStagedProvider}>
-				Sign in again
+				{m.admin_routes_authp_sign_in_again()}
 			</button>
 		</p>
 		<div class="notification-alert flex items-start gap-2 text-sm font-light">
 			<TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
 			<span>
-				{configuringAuthProvider?.name} becomes the only way to sign in, and
-				{activeProvider?.name ?? 'the current provider'} sessions end. Its users and their work will not
-				transfer.
+				{m.admin_routes_authp_switch_warning({
+					name: `${configuringAuthProvider?.name}`,
+					current: activeProvider?.name ?? m.admin_routes_authp_current_provider()
+				})}
 			</span>
 		</div>
 	{/if}
@@ -782,7 +789,7 @@
 		<IconButton
 			variant="danger"
 			disabled={switching}
-			tooltip={{ text: 'Discard staged switch', disablePortal: true }}
+			tooltip={{ text: m.admin_routes_authp_discard_staged_switch(), disablePortal: true }}
 			onclick={() => (confirmDiscardSwitch = true)}
 		>
 			<Trash2 class="size-5" />
@@ -791,24 +798,28 @@
 	<div class="grow"></div>
 	{#if switchStep === 'configure'}
 		<button class="btn" disabled={loading} onclick={() => providerConfigure?.close()}>
-			Cancel
+			{m.common_cancel()}
 		</button>
-		<button class="btn btn-primary" disabled={loading} onclick={submit}>Continue</button>
+		<button class="btn btn-primary" disabled={loading} onclick={submit}
+			>{m.admin_routes_continue()}</button
+		>
 	{:else if switchStep === 'signin'}
 		{#if !configurationLocked}
 			<button class="btn" disabled={switching} onclick={() => goToSwitchStep('configure')}>
-				<ArrowLeft class="size-4" /> Configuration
+				<ArrowLeft class="size-4" />
+				{m.admin_routes_authp_configuration()}
 			</button>
 		{/if}
 		<button class="btn btn-primary" disabled={switching} onclick={handleVerifyStagedProvider}>
-			Sign in with {configuringAuthProvider?.name}
+			{m.admin_routes_authp_sign_in_with({ name: `${configuringAuthProvider?.name}` })}
 		</button>
 	{:else}
 		<button class="btn" disabled={switching} onclick={() => goToSwitchStep('signin')}>
-			<ArrowLeft class="size-4" /> Sign in
+			<ArrowLeft class="size-4" />
+			{m.admin_routes_authp_step_signin()}
 		</button>
 		<button class="btn btn-primary" disabled={switching} onclick={() => (confirmSwitch = true)}>
-			Switch to {configuringAuthProvider?.name}
+			{m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })}
 		</button>
 	{/if}
 {/snippet}
@@ -822,7 +833,9 @@
 	error={configureError}
 	readonly={profile.current.isAdminReadonly?.()}
 	parameterNotice={scimParameterNotice}
-	title={isSwitching ? `Switch to ${configuringAuthProvider?.name}` : undefined}
+	title={isSwitching
+		? m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })
+		: undefined}
 	steps={isSwitching ? switchSteps : undefined}
 	body={isSwitching && switchStep !== 'configure' ? switchBody : undefined}
 	footer={isSwitching ? switchFooter : undefined}
@@ -869,7 +882,7 @@
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
 				<p class="flex flex-wrap items-center gap-2">
-					Note: the callback URL for this auth provider is
+					{m.admin_routes_authp_callback_note()}
 					<CopyButton
 						showTextLeft
 						buttonText={callbackUrl}
@@ -884,12 +897,12 @@
 		</div>
 		{#if documentationUrl}
 			<div class="notification-info p-3 text-xs font-light">
-				For more details, please review <a
+				{m.admin_routes_authp_docs_prefix()}<a
 					class="text-link"
 					href={documentationUrl}
 					rel="external noopener noreferrer"
-					target="_blank">the documentation</a
-				> for configuring this auth provider.
+					target="_blank">{m.admin_routes_authp_docs_link()}</a
+				>{m.admin_routes_authp_docs_suffix()}
 			</div>
 		{/if}
 	{/snippet}
@@ -910,11 +923,11 @@
 
 <Confirm
 	show={confirmSwitch}
-	title="Complete switch"
-	msg="Switch to {configuringAuthProvider?.name}?"
+	title={m.admin_routes_authp_complete_switch()}
+	msg={m.admin_routes_authp_switch_to_question({ name: `${configuringAuthProvider?.name}` })}
 	note={switchNote}
-	submitText="Switch to {configuringAuthProvider?.name}"
-	cancelText="Cancel"
+	submitText={m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })}
+	cancelText={m.common_cancel()}
 	loading={switching}
 	onsuccess={handleActivateStagedProvider}
 	oncancel={() => (confirmSwitch = false)}
@@ -922,13 +935,20 @@
 
 <Confirm
 	show={confirmDiscardSwitch}
-	title="Discard switch"
-	msg="Discard the switch to {configuringAuthProvider?.name}?"
+	title={m.admin_routes_authp_discard_switch()}
+	msg={m.admin_routes_authp_discard_switch_question({ name: `${configuringAuthProvider?.name}` })}
 	note={signedInAsVerifiedAccount
-		? `You are signed in with ${configuringAuthProvider?.name} as ${switchVerifiedEmail}, so this signs you out. The staged settings are removed and ${activeProvider?.name ?? 'the current provider'} keeps serving logins.`
-		: `The staged ${configuringAuthProvider?.name} settings are removed. ${activeProvider?.name ?? 'The current provider'} keeps serving logins either way.`}
-	submitText="Discard switch"
-	cancelText="Keep editing"
+		? m.admin_routes_authp_discard_note_signed_in({
+				name: `${configuringAuthProvider?.name}`,
+				email: `${switchVerifiedEmail}`,
+				current: activeProvider?.name ?? m.admin_routes_authp_current_provider()
+			})
+		: m.admin_routes_authp_discard_note({
+				name: `${configuringAuthProvider?.name}`,
+				current: activeProvider?.name ?? m.admin_routes_authp_current_provider_capitalized()
+			})}
+	submitText={m.admin_routes_authp_discard_switch()}
+	cancelText={m.admin_routes_authp_keep_editing()}
 	loading={switching}
 	onsuccess={handleUnstageProvider}
 	oncancel={() => (confirmDiscardSwitch = false)}
@@ -980,7 +1000,7 @@
 
 <ResponsiveDialog bind:this={setupSignInDialog} class="w-md">
 	{#snippet titleContent()}
-		<h3 class="text-lg font-semibold">Next Step: Owner Setup</h3>
+		<h3 class="text-lg font-semibold">{m.admin_routes_authp_next_step_owner_setup()}</h3>
 	{/snippet}
 
 	<OwnerSetupPrompt
@@ -1000,5 +1020,5 @@
 	licenseKey={license.current.licenseKey}
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={handleCommunitySubmit}
-	signUpMessage="Register to get free access to all additional providers supported by Obot."
+	signUpMessage={m.admin_routes_authp_signup_message()}
 />

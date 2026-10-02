@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SchedulingForm from '$lib/components/admin/SchedulingForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
@@ -116,78 +117,85 @@
 					<div class="notification-info p-3 text-sm font-light">
 						<div class="flex items-center gap-2">
 							<Info class="size-6" />
-							<p class="text-md font-semibold">Configuration Notes</p>
+							<p class="text-md font-semibold">{m.admin_routes_mcfg_notes()}</p>
 						</div>
 						<ul class="list-disc px-8 py-1 text-sm">
 							<li>
-								The below configuration maps directly to Kubernetes fields and functionality. <br />
-								Links have been provided to the relevant Kubernetes documentation inline below.
+								{m.admin_routes_mcfg_note_maps()} <br />
+								{m.admin_routes_mcfg_note_links()}
 							</li>
-							<li>Resource configurations apply to all pods in the deployment.</li>
-							<li>Changes will take effect on the next deployment or pod restart.</li>
-							<li>Invalid YAML/JSON will be rejected during validation.</li>
+							<li>{m.admin_routes_mcfg_note_pods()}</li>
+							<li>{m.admin_routes_mcfg_note_effect()}</li>
+							<li>{m.admin_routes_mcfg_note_invalid()}</li>
 						</ul>
 					</div>
 				{/snippet}
 				{#snippet maximumResources()}
 					{#if k8sSettings}
 						<div>
-							{@render headerContent('Maximum Settings', true)}
+							{@render headerContent(m.admin_routes_mcfg_maximum_settings(), true)}
 							<p class="text-sm">
-								Define the maximum allowed values for CPU and memory requests and limits for hosted
-								MCP server pods. Leave a value empty to allow no maximum.
+								{m.admin_routes_mcfg_maximum_description()}
 							</p>
 						</div>
 						<div class="flex flex-col gap-1">
-							<h3 class="text-base font-semibold">CPU Settings</h3>
+							<h3 class="text-base font-semibold">{m.admin_routes_mcfg_cpu_settings()}</h3>
 							<div class="grid grid-cols-2 gap-4">
 								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-									<label class="input-label" for="max-cpu-request">Max Request</label>
+									<label class="input-label" for="max-cpu-request"
+										>{m.admin_routes_mcfg_max_request()}</label
+									>
 									<input
 										type="text"
 										id="max-cpu-request"
 										bind:value={k8sSettings.maxCpuRequest}
 										class="text-input-filled dark:bg-base-100"
 										disabled={maximumsReadonly}
-										placeholder="example: 500m"
+										placeholder={m.admin_routes_example_value({ value: '500m' })}
 									/>
 								</div>
 								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-									<label class="input-label" for="max-cpu-limit">Max Limit</label>
+									<label class="input-label" for="max-cpu-limit"
+										>{m.admin_routes_mcfg_max_limit()}</label
+									>
 									<input
 										type="text"
 										id="max-cpu-limit"
 										bind:value={k8sSettings.maxCpuLimit}
 										class="text-input-filled dark:bg-base-100"
 										disabled={maximumsReadonly}
-										placeholder="example: 1"
+										placeholder={m.admin_routes_example_value({ value: '1' })}
 									/>
 								</div>
 							</div>
 						</div>
 						<div class="flex flex-col gap-1">
-							<h3 class="text-base font-semibold">Memory Settings</h3>
+							<h3 class="text-base font-semibold">{m.admin_routes_mcfg_memory_settings()}</h3>
 							<div class="grid grid-cols-2 gap-4">
 								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-									<label class="input-label" for="max-memory-request">Max Request</label>
+									<label class="input-label" for="max-memory-request"
+										>{m.admin_routes_mcfg_max_request()}</label
+									>
 									<input
 										type="text"
 										id="max-memory-request"
 										bind:value={k8sSettings.maxMemoryRequest}
 										class="text-input-filled dark:bg-base-100"
 										disabled={maximumsReadonly}
-										placeholder="example: 512Mi"
+										placeholder={m.admin_routes_example_value({ value: '512Mi' })}
 									/>
 								</div>
 								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-									<label class="input-label" for="max-memory-limit">Max Limit</label>
+									<label class="input-label" for="max-memory-limit"
+										>{m.admin_routes_mcfg_max_limit()}</label
+									>
 									<input
 										type="text"
 										id="max-memory-limit"
 										bind:value={k8sSettings.maxMemoryLimit}
 										class="text-input-filled dark:bg-base-100"
 										disabled={maximumsReadonly}
-										placeholder="example: 1Gi"
+										placeholder={m.admin_routes_example_value({ value: '1Gi' })}
 									/>
 								</div>
 							</div>
@@ -196,45 +204,49 @@
 				{/snippet}
 				<div class="paper mt-1">
 					<div>
-						{@render headerContent('Nanobot Workspace Storage')}
+						{@render headerContent(m.admin_routes_mcfg_nanobot_storage())}
 						<p class="text-sm">
-							Configure the storage class and volume size used for nanobot workspace volumes. These
-							values map to Kubernetes StorageClass configuration and persistent volume sizes. See
-							the Kubernetes <a
+							{m.admin_routes_mcfg_storage_description_prefix()}
+							<a
 								href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
 								class="text-link"
 								rel="external noopener noreferrer"
-								target="_blank">StorageClass documentation</a
-							> for more details.
+								target="_blank">{m.admin_routes_mcfg_storage_link()}</a
+							>
+							{m.admin_routes_mcfg_storage_suffix()}
 						</p>
 					</div>
 					<div class="flex flex-col gap-4">
 						<div class="flex flex-col gap-1">
-							<label class="input-label" for="storage-class-name">StorageClass Name</label>
+							<label class="input-label" for="storage-class-name"
+								>{m.admin_routes_mcfg_storage_class_name()}</label
+							>
 							<input
 								type="text"
 								id="storage-class-name"
 								bind:value={k8sSettings.storageClassName}
 								class="text-input-filled dark:bg-base-100"
 								disabled={schedulingReadonly}
-								placeholder="example: fast-ssd"
+								placeholder={m.admin_routes_example_value({ value: 'fast-ssd' })}
 							/>
 							<p class="text-xs font-light text-muted-content">
-								Leave empty to use the cluster default StorageClass.
+								{m.admin_routes_mcfg_storage_class_hint()}
 							</p>
 						</div>
 						<div class="flex flex-col gap-1">
-							<label class="input-label" for="nanobot-workspace-size">Workspace Volume Size</label>
+							<label class="input-label" for="nanobot-workspace-size"
+								>{m.admin_routes_mcfg_volume_size()}</label
+							>
 							<input
 								type="text"
 								id="nanobot-workspace-size"
 								bind:value={k8sSettings.nanobotWorkspaceSize}
 								class="text-input-filled dark:bg-base-100"
 								disabled={schedulingReadonly}
-								placeholder="example: 10Gi"
+								placeholder={m.admin_routes_example_value({ value: '10Gi' })}
 							/>
 							<p class="text-xs font-light text-muted-content">
-								Use units like Gi or Mi (example: 10Gi, 512Mi).
+								{m.admin_routes_mcfg_volume_size_hint()}
 							</p>
 						</div>
 					</div>
@@ -250,7 +262,7 @@
 							in:fade={{ duration: 200 }}
 							class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
 						>
-							Your changes have been saved.
+							{m.admin_routes_changes_saved()}
 						</span>
 					{/if}
 
@@ -261,7 +273,7 @@
 							resourceInfo = parseSchedulingResources(prevK8sSettings?.resources);
 						}}
 					>
-						Reset
+						{m.admin_routes_reset()}
 					</button>
 					<button
 						class="btn btn-primary flex items-center gap-1"
@@ -271,7 +283,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.admin_routes_save()}
 						{/if}
 					</button>
 				</div>
@@ -281,7 +293,7 @@
 		</div>
 	{:else}
 		<p class="text-muted-content text-sm font-light">
-			MCP server scheduling is only available when Obot is running on Kubernetes.
+			{m.admin_routes_mcfg_k8s_only()}
 		</p>
 	{/if}
 </div>
@@ -294,7 +306,8 @@
 		{title}
 		{#if isHelmDeployed}
 			<span class="pill-rounded nowrap font-light">
-				<Lock class="size-3" /> Helm-Deployed
+				<Lock class="size-3" />
+				{m.admin_routes_mcfg_helm_deployed()}
 			</span>
 		{/if}
 	</h2>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { m } from '$lib/i18n';
 	import { Role } from '$lib/services/admin/types';
 	import type { GroupAssignment } from './types';
 
@@ -21,7 +22,7 @@
 </script>
 
 <Confirm
-	title="Confirm Auditor Role"
+	title={m.admin_routes_users_confirm_auditor_title()}
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -30,21 +31,21 @@
 	}}
 	{oncancel}
 	type="info"
-	msg={`Grant ${groupAssignment?.group.name} the Auditor role?`}
+	msg={m.admin_routes_groups_grant_auditor_msg({ name: `${groupAssignment?.group.name}` })}
 >
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
 				{#if auditorReadonlyAdminRoles.includes(roleId)}
-					All members of this group will have read-only access to the admin system and can see
-					additional details such as response, request, and header information in the audit logs.
+					{m.admin_routes_groups_auditor_note_readonly()}
 				{:else}
-					All members of this group will gain access to additional details such as response,
-					request, and header information in the audit logs.
+					{m.admin_routes_groups_auditor_note()}
 				{/if}
 			</p>
 			<p>
-				Are you sure you want to grant the <b>{groupAssignment?.group.name}</b> group this role?
+				{m.admin_routes_groups_grant_confirm_prefix()}
+				<b>{groupAssignment?.group.name}</b>
+				{m.admin_routes_groups_grant_confirm_suffix()}
 			</p>
 		</div>
 	{/snippet}

@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type ImagePullSecret,
@@ -278,14 +279,14 @@
 		const errors: Record<string, string> = {};
 
 		if (form.type === 'basic') {
-			if (!form.server.trim()) errors.server = 'Registry Server is required';
-			if (!form.username.trim()) errors.username = 'Username is required';
+			if (!form.server.trim()) errors.server = m.admin_routes_reg_server_required();
+			if (!form.username.trim()) errors.username = m.admin_routes_reg_username_required();
 			if (!currentSecret?.status?.passwordConfigured && !form.password) {
-				errors.password = 'Password is required';
+				errors.password = m.admin_routes_reg_password_required();
 			}
 		} else {
-			if (!form.roleARN.trim()) errors.roleARN = 'Role ARN is required';
-			if (!form.region.trim()) errors.region = 'Region is required';
+			if (!form.roleARN.trim()) errors.roleARN = m.admin_routes_reg_role_arn_required();
+			if (!form.region.trim()) errors.region = m.admin_routes_reg_region_required();
 		}
 
 		return errors;
@@ -360,7 +361,7 @@
 					} catch (error) {
 						failedCreates.push(draft);
 						errors.append(
-							error instanceof Error ? error.message : 'Unable to save image pull secret'
+							error instanceof Error ? error.message : m.admin_routes_reg_save_failed()
 						);
 					}
 				}),
@@ -377,7 +378,7 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : 'Unable to save image pull secret'
+								error instanceof Error ? error.message : m.admin_routes_reg_save_failed()
 							);
 						}
 					}),
@@ -388,7 +389,7 @@
 					} catch (error) {
 						failedDeletes.push(id);
 						errors.append(
-							error instanceof Error ? error.message : 'Unable to delete image pull secret'
+							error instanceof Error ? error.message : m.admin_routes_reg_delete_failed()
 						);
 					}
 				})
@@ -453,7 +454,7 @@
 				{ dontLogErrors: true }
 			);
 		} catch (err) {
-			testError = err instanceof Error ? err.message : 'Image pull secret test failed';
+			testError = err instanceof Error ? err.message : m.admin_routes_reg_test_failed();
 		} finally {
 			testing = false;
 		}
@@ -472,7 +473,7 @@
 			statusDetails = details;
 			upsertSecret(details);
 		} catch (err) {
-			statusError = err instanceof Error ? err.message : 'Failed to load image pull secret status';
+			statusError = err instanceof Error ? err.message : m.admin_routes_reg_status_failed();
 		} finally {
 			statusLoading = false;
 		}
@@ -491,7 +492,7 @@
 		refreshMessage = '';
 		try {
 			const response = await AdminService.refreshImagePullSecret(secret.id);
-			refreshMessage = response.message ?? 'Refresh started';
+			refreshMessage = response.message ?? m.admin_routes_reg_refresh_started();
 			await refreshList();
 		} finally {
 			refreshing = false;
@@ -528,8 +529,16 @@
 <ResponsiveDialog
 	bind:this={editorDialog}
 	title={mode === 'edit'
-		? `Edit ${currentSecret ? displayName(currentSecret) : form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`
-		: `Add ${form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`}
+		? m.admin_routes_reg_edit_named({
+				name: currentSecret
+					? displayName(currentSecret)
+					: form.type === 'basic'
+						? m.admin_routes_reg_basic_secret()
+						: m.admin_routes_reg_ecr_secret()
+			})
+		: form.type === 'basic'
+			? m.admin_routes_ips_add_basic()
+			: m.admin_routes_ips_add_ecr()}
 	class="w-full md:max-w-4xl"
 	onClose={closeEditor}
 >
@@ -558,7 +567,7 @@
 					disabled={formLocked}
 					onclick={() => editorDialog?.close()}
 				>
-					Cancel
+					{m.common_cancel()}
 				</button>
 				<button
 					type="button"
@@ -566,7 +575,7 @@
 					disabled={formLocked || !canStage}
 					onclick={stageSecret}
 				>
-					{mode === 'edit' ? 'Update' : 'Add'}
+					{mode === 'edit' ? m.admin_routes_update() : m.admin_routes_add()}
 				</button>
 			</div>
 		</div>
@@ -574,13 +583,15 @@
 </ResponsiveDialog>
 
 <Confirm
-	title="Refresh Image Pull Secret"
+	title={m.admin_routes_reg_refresh_title()}
 	type="info"
-	msg={`Refresh ${refreshingSecret ? displayName(refreshingSecret) : 'this image pull secret'}?`}
-	note="This requests an immediate refresh of the generated ECR image pull secret."
+	msg={m.admin_routes_reg_refresh_msg({
+		name: refreshingSecret ? displayName(refreshingSecret) : m.admin_routes_reg_this_secret()
+	})}
+	note={m.admin_routes_reg_refresh_note()}
 	show={Boolean(refreshingSecret)}
 	loading={refreshing}
-	submitText="Refresh"
+	submitText={m.admin_routes_refresh()}
 	onsuccess={async () => {
 		if (!refreshingSecret) return;
 		await refreshECR(refreshingSecret);

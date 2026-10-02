@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { m } from '$lib/i18n';
 	import { Role } from '$lib/services/admin/types';
 	import type { GroupAssignment } from './types';
 
@@ -36,7 +37,7 @@
 </script>
 
 <Confirm
-	title="Confirm Impersonator Role"
+	title={m.admin_routes_users_confirm_impersonator_title()}
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -45,24 +46,24 @@
 	}}
 	{oncancel}
 	type="info"
-	msg={`Grant ${groupAssignment?.group.name} the Impersonator role?`}
+	msg={m.admin_routes_groups_grant_impersonator_msg({ name: `${groupAssignment?.group.name}` })}
 >
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
-				Impersonator grants elevated cross-user access so members of this group can connect to other
-				users' Obot Agents.
+				{m.admin_routes_groups_impersonator_note()}
 			</p>
 			{#if addingAuditor}
 				<p>
-					This update will also grant Auditor, which adds expanded audit visibility (including
-					request/response/header details).
+					{m.admin_routes_users_impersonator_note_adds_auditor()}
 				</p>
 			{:else if removingAuditor}
-				<p>This update will remove Auditor while granting Impersonator access.</p>
+				<p>{m.admin_routes_users_impersonator_note_removes_auditor()}</p>
 			{/if}
 			<p>
-				Are you sure you want to grant the <b>{groupAssignment?.group.name}</b> group this role?
+				{m.admin_routes_groups_grant_confirm_prefix()}
+				<b>{groupAssignment?.group.name}</b>
+				{m.admin_routes_groups_grant_confirm_suffix()}
 			</p>
 		</div>
 	{/snippet}

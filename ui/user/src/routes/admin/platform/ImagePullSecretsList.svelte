@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import type { ImagePullSecret, ImagePullSecretType } from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
 	import { userDeviceSettings } from '$lib/stores';
@@ -58,23 +59,23 @@
 
 <div class="flex flex-col gap-8">
 	<section class="flex flex-col gap-3">
-		{@render sectionHeader('Basic Secrets', 'basic')}
+		{@render sectionHeader(m.admin_routes_ips_basic_secrets(), 'basic')}
 		<Table
 			data={basicSecrets}
 			fields={['displayName', 'detail', 'id']}
 			headers={[
-				{ title: 'Name', property: 'displayName' },
-				{ title: 'Registry', property: 'detail' },
-				{ title: 'Secret', property: 'id' }
+				{ title: m.admin_routes_col_name(), property: 'displayName' },
+				{ title: m.admin_routes_ips_col_registry(), property: 'detail' },
+				{ title: m.admin_routes_ips_col_secret(), property: 'id' }
 			]}
 			sortable={['displayName', 'detail', 'id']}
 			filterable={['displayName', 'detail']}
 			onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
-			noDataMessage="Click '+' to add a basic secret."
+			noDataMessage={m.admin_routes_ips_no_basic()}
 		>
 			{#snippet actions(secret)}
 				<DotDotDot
-					ariaLabel={`Actions for ${displayName(secret)}`}
+					ariaLabel={m.admin_routes_actions_for({ name: displayName(secret) })}
 					class="shrink-0 hover:dark:bg-base-100/50"
 				>
 					{#snippet children({ toggle })}
@@ -89,7 +90,7 @@
 								}}
 							>
 								<ShieldCheck class="size-4" />
-								Test
+								{m.admin_routes_test()}
 							</button>
 						{/if}
 						<button
@@ -102,7 +103,7 @@
 							}}
 						>
 							<Trash2 class="size-4" />
-							Delete
+							{m.admin_routes_delete()}
 						</button>
 					{/snippet}
 				</DotDotDot>
@@ -118,7 +119,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		{@render sectionHeader('ECR Secrets', 'ecr')}
+		{@render sectionHeader(m.admin_routes_ips_ecr_secrets(), 'ecr')}
 		{@render ecrTable()}
 	</section>
 </div>
@@ -129,8 +130,8 @@
 			<h3 class="font-semibold">{title}</h3>
 			<p class="text-muted-content text-sm font-light">
 				{type === 'basic'
-					? 'Basic secrets utilize username/password registry credentials.'
-					: 'ECR secrets utilize AWS IAM role-based ECR access information.'}
+					? m.admin_routes_ips_basic_description()
+					: m.admin_routes_ips_ecr_description()}
 			</p>
 		</div>
 		{#if onCreate && !mutationsDisabled}
@@ -140,7 +141,7 @@
 				onclick={() => onCreate?.(type)}
 			>
 				<Plus class="size-4" />
-				{type === 'basic' ? 'Add Basic Secret' : 'Add ECR Secret'}
+				{type === 'basic' ? m.admin_routes_ips_add_basic() : m.admin_routes_ips_add_ecr()}
 			</button>
 		{/if}
 	</div>
@@ -151,21 +152,21 @@
 		data={ecrSecrets}
 		fields={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess', 'statusMessage']}
 		headers={[
-			{ title: 'Name', property: 'displayName' },
-			{ title: 'Region', property: 'detail' },
-			{ title: 'Secret', property: 'id' },
-			{ title: 'Status', property: 'statusLabel' },
-			{ title: 'Last Success', property: 'lastSuccess' },
-			{ title: 'Message', property: 'statusMessage' }
+			{ title: m.admin_routes_col_name(), property: 'displayName' },
+			{ title: m.admin_routes_ips_col_region(), property: 'detail' },
+			{ title: m.admin_routes_ips_col_secret(), property: 'id' },
+			{ title: m.admin_routes_col_status(), property: 'statusLabel' },
+			{ title: m.admin_routes_ips_col_last_success(), property: 'lastSuccess' },
+			{ title: m.admin_routes_ips_col_message(), property: 'statusMessage' }
 		]}
 		sortable={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess']}
 		filterable={['statusLabel']}
 		onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
-		noDataMessage="Click '+' to add an ECR secret."
+		noDataMessage={m.admin_routes_ips_no_ecr()}
 	>
 		{#snippet actions(secret)}
 			<DotDotDot
-				ariaLabel={`Actions for ${displayName(secret)}`}
+				ariaLabel={m.admin_routes_actions_for({ name: displayName(secret) })}
 				class="shrink-0 hover:dark:bg-base-100/50"
 			>
 				{#snippet children({ toggle })}
@@ -179,7 +180,7 @@
 							}}
 						>
 							<Info class="size-4" />
-							Status
+							{m.admin_routes_col_status()}
 						</button>
 						<button
 							class="menu-button"
@@ -191,7 +192,7 @@
 							}}
 						>
 							<ShieldCheck class="size-4" />
-							Test
+							{m.admin_routes_test()}
 						</button>
 						<button
 							class="menu-button"
@@ -203,7 +204,7 @@
 							}}
 						>
 							<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-							Refresh Now
+							{m.admin_routes_refresh_now()}
 						</button>
 					{/if}
 					<button
@@ -216,7 +217,7 @@
 						}}
 					>
 						<Trash2 class="size-4" />
-						Delete
+						{m.admin_routes_delete()}
 					</button>
 				{/snippet}
 			</DotDotDot>

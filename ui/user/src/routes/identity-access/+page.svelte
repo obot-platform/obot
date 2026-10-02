@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import { AUTH_PROVIDERS_VIEW_PATH, isSCIMView, SCIM_VIEW_PATH } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import AgentsView from './AgentsView.svelte';
 	import AuthProvidersView from './AuthProvidersView.svelte';
@@ -24,11 +25,15 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {showCreateAgent ? 'Create Agent Identity' : 'Identity & Access'}</title>
+	<title
+		>Obot | {showCreateAgent
+			? m.admin_routes_ia_create_agent_identity()
+			: m.admin_routes_ia_title()}</title
+	>
 </svelte:head>
 
 <TabLayout
-	title={showCreateAgent ? 'Create Agent Identity' : 'Identity & Access'}
+	title={showCreateAgent ? m.admin_routes_ia_create_agent_identity() : m.admin_routes_ia_title()}
 	defaultView={hasAdminAccess ? 'users' : 'agents'}
 	showBackButton={showCreateAgent}
 	onBackButtonClick={() => agentsView?.hideCreateForm()}
@@ -36,13 +41,17 @@
 	classes={{ childrenContainer: 'max-w-none' }}
 	views={hasAdminAccess
 		? [
-				{ label: 'Users', value: 'users', content: users },
-				{ label: 'Agents', value: 'agents', content: agents },
-				{ label: 'Groups', value: 'groups', content: groups },
-				{ label: 'Roles', value: 'roles', content: roles },
-				{ label: 'Auth Providers', value: 'auth-providers', content: authProviders }
+				{ label: m.admin_routes_ia_tab_users(), value: 'users', content: users },
+				{ label: m.admin_routes_ia_tab_agents(), value: 'agents', content: agents },
+				{ label: m.admin_routes_ia_tab_groups(), value: 'groups', content: groups },
+				{ label: m.admin_routes_ia_tab_roles(), value: 'roles', content: roles },
+				{
+					label: m.admin_routes_ia_tab_auth_providers(),
+					value: 'auth-providers',
+					content: authProviders
+				}
 			]
-		: [{ label: 'Agents', value: 'agents', content: agents }]}
+		: [{ label: m.admin_routes_ia_tab_agents(), value: 'agents', content: agents }]}
 />
 
 {#snippet navActions(view: string)}
@@ -51,7 +60,8 @@
 			class="btn btn-primary w-full text-sm sm:w-auto"
 			onclick={() => groupsView?.openAddAssignment()}
 		>
-			<Plus class="size-4" /> Add Assignment
+			<Plus class="size-4" />
+			{m.admin_routes_ia_add_assignment()}
 		</button>
 	{:else if view === 'agents' && !showCreateAgent && !isAdminReadonly}
 		<button
@@ -59,7 +69,7 @@
 			onclick={() => agentsView?.showCreateForm()}
 		>
 			<Plus class="size-4" />
-			Create Agent Identity
+			{m.admin_routes_ia_create_agent_identity()}
 		</button>
 	{/if}
 {/snippet}
