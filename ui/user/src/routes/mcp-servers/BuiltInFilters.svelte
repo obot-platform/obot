@@ -1,6 +1,7 @@
 <script lang="ts">
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
@@ -32,12 +33,16 @@
 	<Table
 		data={filteredBuiltInFiltersData}
 		fields={['name', 'created']}
+		headers={[
+			{ title: m.routes_mcp_col_name(), property: 'name' },
+			{ title: m.routes_mcp_col_created(), property: 'created' }
+		]}
 		filterable={['name']}
 		onClickRow={(d) => {
 			onSelect?.(d);
 		}}
 		sortable={['name', 'status', 'type', 'created']}
-		noDataMessage="No built-in servers available."
+		noDataMessage={m.routes_mcp_no_built_in_servers()}
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
@@ -74,5 +79,7 @@
 		</button>
 	</div>
 
-	<div class="text-muted-content text-sm font-light mt-4 text-center italic">More Coming Soon!</div>
+	<div class="text-muted-content text-sm font-light mt-4 text-center italic">
+		{m.routes_mcp_more_coming_soon()}
+	</div>
 {/if}

@@ -7,6 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { sanitizeFilenameSegment, saveBlob } from '$lib/download';
+	import { m } from '$lib/i18n';
 	import { UserService } from '$lib/services';
 	import type { SkillRepository } from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
@@ -79,7 +80,7 @@
 			},
 			{
 				id: 'other',
-				label: 'Other',
+				label: m.routes_skills_other(),
 				command: command('.agents/skills')
 			}
 		];
@@ -121,7 +122,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				value={query}
 				onChange={updateSearchQuery}
-				placeholder="Search skills..."
+				placeholder={m.routes_skills_search_skills()}
 			/>
 		</div>
 	</div>
@@ -132,7 +133,7 @@
 			fields={profile.current.hasAdminAccess?.()
 				? ['displayName', 'description', 'repository']
 				: ['displayName', 'description']}
-			noDataMessage="No skills found."
+			noDataMessage={m.routes_skills_no_skills_found()}
 			classes={{
 				root: 'rounded-md shadow-sm'
 			}}
@@ -142,7 +143,7 @@
 			filterable={profile.current.hasAdminAccess?.() ? ['repository'] : []}
 			headers={[
 				{
-					title: 'Name',
+					title: m.routes_skills_col_name(),
 					property: 'displayName'
 				}
 			]}
@@ -192,7 +193,7 @@
 									installSkillDialog?.open();
 								}}
 							>
-								Install
+								{m.routes_skills_install()}
 							</button>
 						</div>
 					{/if}
@@ -202,7 +203,7 @@
 						rel="external noopener noreferrer"
 						target="_blank"
 						onclick={(e) => e.stopPropagation()}
-						data-tip="View Source on Git"
+						data-tip={m.routes_skills_view_source_on_git()}
 					>
 						<GitBranch class="size-4" />
 					</a>
@@ -212,20 +213,20 @@
 	{:else if showLicenseError}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<TriangleAlert class="size-12 text-warning" />
-			<h4 class="text-muted-content text-lg font-semibold">License Error</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.routes_skills_license_error()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				An issue occurred with fetching skills due to licensing. Please resolve outstanding
-				licensing issues or contact support at
-				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>.
+				{m.routes_skills_license_error_prefix()}
+				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+				>{m.routes_skills_license_error_suffix()}
 			</p>
 		</div>
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<PencilRuler class="text-base-content/80 size-24" />
-			<h4 class="text-muted-content text-lg font-semibold">No current skills.</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.routes_skills_no_skills()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				Once a Git Source URL has been added, the skills <br />
-				discovered will be viewable from here.
+				{m.routes_skills_no_skills_desc_line1()} <br />
+				{m.routes_skills_no_skills_desc_line2()}
 			</p>
 		</div>
 	{/if}
@@ -239,19 +240,26 @@
 >
 	<div id="install-skill-dialog-content" class="w-full @container md:px-0 px-4">
 		<div id="download-skill-container">
-			<div class="divider md:mt-0">1. Download {selectedSkillToInstall?.displayName}</div>
+			<div class="divider md:mt-0">
+				{m.routes_skills_install_step_download({
+					name: selectedSkillToInstall?.displayName ?? ''
+				})}
+			</div>
 			<div class="md:p-0 md:pb-0 p-4">
 				<button
 					class="btn btn-primary btn-sm w-full"
 					onclick={() => handleDownloadSkill(selectedSkillToInstall)}
 				>
-					<Download class="size-4" /> Download
+					<Download class="size-4" />
+					{m.routes_skills_download()}
 				</button>
 			</div>
 		</div>
-		<div class="divider">2. Unzip via CLI</div>
+		<div class="divider">{m.routes_skills_install_step_unzip()}</div>
 		<div class="relative">
-			<p class="absolute top-1/2 -translate-y-1/2 left-2 text-xs font-semibold">Choose your OS:</p>
+			<p class="absolute top-1/2 -translate-y-1/2 left-2 text-xs font-semibold">
+				{m.routes_skills_choose_os()}
+			</p>
 			<div
 				id="install-skill-os-selector"
 				role="tablist"
@@ -292,12 +300,12 @@
 								{#if client.icon || client.iconDark}
 									<img
 										src={client.iconDark ?? client.icon}
-										alt={`${client.label} branding icon`}
+										alt={m.routes_skills_branding_icon_alt({ client: client.label })}
 										class="size-4 dark:block hidden"
 									/>
 									<img
 										src={client?.icon}
-										alt={`${client.label} branding icon`}
+										alt={m.routes_skills_branding_icon_alt({ client: client.label })}
 										class="size-4 block dark:hidden"
 									/>
 								{:else}

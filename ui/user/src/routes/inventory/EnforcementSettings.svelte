@@ -15,6 +15,7 @@
 		mergeAllowlistEntry
 	} from '$lib/enforcement';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -114,12 +115,14 @@
 			serverDisplay: allowlistServerLabel(server),
 			typeDisplay: (() => {
 				const kind = allowlistServerKind(server);
-				return kind ? ALLOWLIST_SERVER_KIND_LABELS[kind] : 'Invalid';
+				return kind ? ALLOWLIST_SERVER_KIND_LABELS[kind] : m.routes_inv_type_invalid();
 			})(),
 			toolsDisplay:
 				(server.tools?.length ?? 0) === 0
-					? 'All tools'
-					: `${server.tools!.length} ${server.tools!.length === 1 ? 'tool' : 'tools'}`
+					? m.routes_inv_all_tools()
+					: server.tools!.length === 1
+						? m.routes_inv_tool_count_one({ count: server.tools!.length })
+						: m.routes_inv_tool_count_other({ count: server.tools!.length })
 		}))
 	);
 
@@ -210,12 +213,11 @@
 <section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection}>
 	<div class="flex flex-col gap-1">
 		<div class="flex flex-wrap items-center gap-2">
-			<h3 class="text-lg font-semibold">Tool Call Enforcement</h3>
-			<span class="badge badge-warning badge-sm">Experimental</span>
+			<h3 class="text-lg font-semibold">{m.routes_inv_tool_call_enforcement()}</h3>
+			<span class="badge badge-warning badge-sm">{m.routes_inv_experimental()}</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
-			Control exactly which tool calls enrolled devices may execute. Calls that aren't allowed are
-			blocked on the device.
+			{m.routes_inv_enforcement_description()}
 		</p>
 	</div>
 
@@ -226,16 +228,14 @@
 			disabled={readOnly || saving}
 			onclick={() => handleToggle(!enabled)}
 		>
-			<span class="font-medium">Enforce tool calls on enrolled devices</span>
+			<span class="font-medium">{m.routes_inv_enforce_tool_calls()}</span>
 			<span class="input-description">
-				Installs enforcement hooks alongside Obot Sentry. Every tool call is checked against the
-				rules below before it runs. This feature is experimental and is not recommended for
-				production use — a misconfigured allowlist blocks real work on every enrolled device.
+				{m.routes_inv_enforcement_toggle_description()}
 			</span>
 		</button>
 		<div class="flex shrink-0 self-start pt-0.5">
 			<Toggle
-				label={enabled ? 'Disable tool call enforcement' : 'Enable tool call enforcement'}
+				label={enabled ? m.routes_inv_disable_enforcement() : m.routes_inv_enable_enforcement()}
 				checked={enabled}
 				disabled={readOnly || saving}
 				onChange={handleToggle}
@@ -247,15 +247,14 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				Enforcement hooks are installed by the Obot Sentry package. Re-download the install package
-				above and reinstall it on your devices for this change to take effect.
+				{m.routes_inv_reinstall_note()}
 			</span>
 		</div>
 	{/if}
 
 	{#if seededNote}
 		<p class="text-muted-content text-xs">
-			Started you off with a default policy. Review it and save, or adjust it first.
+			{m.routes_inv_seeded_note()}
 		</p>
 	{/if}
 
@@ -267,12 +266,12 @@
 			onclick={() => (rulesOpen = !rulesOpen)}
 		>
 			<ChevronDown class="size-4 transition-transform {rulesOpen ? '' : '-rotate-90'}" />
-			<span class="input-label">Allow</span>
+			<span class="input-label">{m.routes_inv_allow()}</span>
 		</button>
 
 		{#if !enabled}
 			<p class="text-muted-content text-xs">
-				Not currently enforced — these rules take effect when enforcement is enabled.
+				{m.routes_inv_not_enforced()}
 			</p>
 		{/if}
 
@@ -291,8 +290,8 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>All Obot-hosted MCP servers</span>
-						<span class="input-description">Any MCP server hosted by this Obot instance.</span>
+						<span>{m.routes_inv_all_obot_hosted()}</span>
+						<span class="input-description">{m.routes_inv_all_obot_hosted_description()}</span>
 					</span>
 				</label>
 
@@ -309,9 +308,9 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>All built-in agent tools</span>
+						<span>{m.routes_inv_all_builtin_tools()}</span>
 						<span class="input-description">
-							The agent's own tools, like reading files, writing files, and running shell commands.
+							{m.routes_inv_all_builtin_tools_description()}
 						</span>
 					</span>
 				</label>
@@ -329,9 +328,9 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>All built-in agent MCP servers</span>
+						<span>{m.routes_inv_all_builtin_mcp()}</span>
 						<span class="input-description">
-							MCP servers that ship inside the coding agent itself.
+							{m.routes_inv_all_builtin_mcp_description()}
 						</span>
 					</span>
 				</label>
@@ -346,9 +345,9 @@
 							(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span class="flex items-center gap-1.5"> Everything </span>
+						<span class="flex items-center gap-1.5"> {m.routes_inv_everything()} </span>
 						<span class="input-description">
-							Allows every tool call and ignores all other rules.
+							{m.routes_inv_everything_description()}
 						</span>
 					</span>
 				</label>
@@ -365,7 +364,7 @@
 							aria-expanded={serversOpen}
 							onclick={() => (serversOpen = !serversOpen)}
 						>
-							Allowed MCP servers
+							{m.routes_inv_allowed_mcp_servers()}
 							<span class="badge badge-ghost badge-sm">{servers.length}</span>
 						</button>
 						{#if !readOnly}
@@ -375,22 +374,21 @@
 								onclick={() => serverDialog?.open()}
 							>
 								<Plus class="size-4" />
-								Add
+								{m.routes_inv_add()}
 							</button>
 						{/if}
 					</div>
 
 					{#if allowlist.allowEverything === true}
 						<p class="text-muted-content text-xs">
-							All other rules are ignored while "Everything" is on.
+							{m.routes_inv_everything_on_note()}
 						</p>
 					{:else if serversOpen}
 						{#if servers.length === 0}
 							<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
 								<ShieldCheck class="text-muted-content size-12 opacity-50" />
 								<p class="text-muted-content max-w-md text-sm font-light">
-									No specific MCP servers allowed. Add one to allow calls to a server that isn't
-									covered by the rules above.
+									{m.routes_inv_no_allowed_servers()}
 								</p>
 							</div>
 						{:else}
@@ -398,9 +396,9 @@
 								data={tableData}
 								fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
 								headers={[
-									{ title: 'Server', property: 'serverDisplay' },
-									{ title: 'Type', property: 'typeDisplay' },
-									{ title: 'Tools', property: 'toolsDisplay' }
+									{ title: m.routes_inv_col_server(), property: 'serverDisplay' },
+									{ title: m.routes_inv_col_type(), property: 'typeDisplay' },
+									{ title: m.routes_inv_col_tools(), property: 'toolsDisplay' }
 								]}
 							>
 								{#snippet onRenderColumn(property, row)}
@@ -409,9 +407,9 @@
 											{row.serverDisplay}
 											{#if errorIndex === row.index}
 												<span
-													use:tooltip={'This entry was rejected'}
+													use:tooltip={m.routes_inv_entry_rejected()}
 													role="img"
-													aria-label="Rejected"
+													aria-label={m.routes_inv_rejected()}
 												>
 													<TriangleAlert class="text-error size-4 shrink-0" />
 												</span>
@@ -437,14 +435,14 @@
 												onclick={() => serverDialog?.open(row.server, row.index)}
 											>
 												<Pencil class="size-4" />
-												Edit
+												{m.routes_inv_edit()}
 											</button>
 											<button
 												class="menu-button text-error"
 												onclick={() => (removingIndex = row.index)}
 											>
 												<Trash2 class="size-4" />
-												Remove
+												{m.routes_inv_remove()}
 											</button>
 										</DotDotDot>
 									{/if}
@@ -461,8 +459,7 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				Enforcement is enabled but nothing is allowed. Every tool call on every enrolled device will
-				be blocked.
+				{m.routes_inv_blocks_everything()}
 			</span>
 		</div>
 	{/if}
@@ -474,7 +471,7 @@
 	{#if !readOnly}
 		<div class="flex justify-end gap-2">
 			<button class="btn btn-secondary text-sm" disabled={!dirty || saving} onclick={reset}>
-				Reset
+				{m.routes_inv_reset()}
 			</button>
 			<button
 				class="btn btn-primary flex items-center gap-2 text-sm"
@@ -482,7 +479,7 @@
 				onclick={requestSave}
 			>
 				{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-				Save
+				{m.routes_inv_save()}
 			</button>
 		</div>
 	{/if}
@@ -495,11 +492,11 @@
 
 <Confirm
 	show={confirmEmpty}
-	title="Block every tool call?"
+	title={m.routes_inv_block_every_title()}
 	type="info"
-	msg="Enforcement is enabled but nothing is allowed. Every tool call on every enrolled device will be blocked."
-	note="You can add rules at any time."
-	submitText="Save anyway"
+	msg={m.routes_inv_blocks_everything()}
+	note={m.routes_inv_add_rules_anytime()}
+	submitText={m.routes_inv_save_anyway()}
 	loading={saving}
 	onsuccess={save}
 	oncancel={() => (confirmEmpty = false)}
@@ -507,10 +504,12 @@
 
 <Confirm
 	show={removingIndex !== undefined}
-	title="Remove allowed server"
-	msg={`Remove "${removingIndex !== undefined ? allowlistServerLabel(servers[removingIndex]) : ''}" from the allowlist? Calls to it will be blocked unless another rule allows them.`}
-	note="This takes effect when you save."
-	submitText="Remove"
+	title={m.routes_inv_remove_allowed_title()}
+	msg={m.routes_inv_remove_allowed_msg({
+		server: removingIndex !== undefined ? allowlistServerLabel(servers[removingIndex]) : ''
+	})}
+	note={m.routes_inv_takes_effect_on_save()}
+	submitText={m.routes_inv_remove()}
 	onsuccess={() => removingIndex !== undefined && removeServer(removingIndex)}
 	oncancel={() => (removingIndex = undefined)}
 />

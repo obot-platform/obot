@@ -1,6 +1,7 @@
 <script lang="ts">
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import Devices from '$lib/components/admin/devices/Devices.svelte';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import Configuration from './Configuration.svelte';
 	import DeviceClients from './DeviceClients.svelte';
@@ -23,47 +24,44 @@
 		...(profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: 'Overview',
+						label: m.routes_inv_tab_overview(),
 						value: 'overview',
 						content: overview,
-						tooltip:
-							'View an overall summary of scans sent through Obot Sentry over a given time period.'
+						tooltip: m.routes_inv_tab_overview_tooltip()
 					},
 					{
-						label: 'Configuration',
+						label: m.routes_inv_tab_configuration(),
 						value: 'configuration',
 						content: configuration,
-						tooltip:
-							"Discover shadow AI and enforce policies for unmanaged MCP servers. Set up or manage Obot Sentry on your organization's devices."
+						tooltip: m.routes_inv_tab_configuration_tooltip()
 					}
 				]
 			: []),
 		{
-			label: 'Devices',
+			label: m.routes_inv_tab_devices(),
 			value: 'devices',
 			content: devices,
-			tooltip:
-				'View results for an individual device, from their most recent scan to historical ones.'
+			tooltip: m.routes_inv_tab_devices_tooltip()
 		},
 		...(profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: 'Device Clients',
+						label: m.routes_inv_tab_device_clients(),
 						value: 'device-clients',
 						content: deviceClients,
-						tooltip: 'Browse AI clients discovered across your enrolled devices.'
+						tooltip: m.routes_inv_tab_device_clients_tooltip()
 					},
 					{
-						label: 'Device MCP Servers',
+						label: m.routes_inv_tab_device_mcp_servers(),
 						value: 'device-mcp-servers',
 						content: deviceMcpServers,
-						tooltip: 'Browse MCP servers discovered across your enrolled devices.'
+						tooltip: m.routes_inv_tab_device_mcp_servers_tooltip()
 					},
 					{
-						label: 'Device Skills',
+						label: m.routes_inv_tab_device_skills(),
 						value: 'device-skills',
 						content: deviceSkills,
-						tooltip: 'Browse skills discovered across your enrolled devices.'
+						tooltip: m.routes_inv_tab_device_skills_tooltip()
 					}
 				]
 			: [])
@@ -71,10 +69,15 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Inventory</title>
+	<title>{m.routes_inv_page_title()}</title>
 </svelte:head>
 
-<TabLayout title="Inventory" {defaultView} classes={{ childrenContainer: 'max-w-none' }} {views} />
+<TabLayout
+	title={m.nav_inventory()}
+	{defaultView}
+	classes={{ childrenContainer: 'max-w-none' }}
+	{views}
+/>
 
 {#snippet overview()}
 	<OverviewView stats={data.stats} range={data.range} />

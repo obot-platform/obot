@@ -13,6 +13,7 @@
 		formatDeviceClient,
 		formatDeviceCommand
 	} from '$lib/format.js';
+	import { m } from '$lib/i18n';
 	import {
 		UserService,
 		AdminService,
@@ -131,11 +132,12 @@
 	};
 
 	let mcpRows = $derived<MCPRow[]>(
-		mcpServers.map((m) => ({
-			...m,
-			client: formatDeviceClient(m.client, m.projectPath),
-			scope: deriveDeviceScope(m.projectPath),
-			endpoint: m.transport === 'stdio' ? formatDeviceCommand(m.command, m.args) : m.url || '—'
+		mcpServers.map((srv) => ({
+			...srv,
+			client: formatDeviceClient(srv.client, srv.projectPath),
+			scope: deriveDeviceScope(srv.projectPath),
+			endpoint:
+				srv.transport === 'stdio' ? formatDeviceCommand(srv.command, srv.args) : srv.url || '—'
 		}))
 	);
 
@@ -201,11 +203,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Device Scan</title>
+	<title>{m.routes_invd_page_title_scan()}</title>
 </svelte:head>
 
 <Layout
-	title="Device Scan"
+	title={m.routes_invd_scan_title()}
 	showBackButton
 	onBackButtonClick={() => goto(`/inventory/devices/${deviceIdParam}`)}
 >
@@ -215,14 +217,16 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan}
-			<p class="text-muted-content text-sm font-light">Scan not found.</p>
+			<p class="text-muted-content text-sm font-light">{m.routes_invd_scan_not_found()}</p>
 		{:else}
 			<!-- Header card -->
 			<div
 				class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm md:flex-row md:items-start md:justify-between"
 			>
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
-					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Device ID</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+						{m.routes_invd_label_device_id()}
+					</dt>
 					<dd class="flex items-center gap-2">
 						<span class="text-base font-semibold">{scan.deviceID}</span>
 						<CopyButton text={scan.deviceID} />
@@ -230,19 +234,21 @@
 							<span
 								class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide"
 							>
-								Latest
+								{m.routes_invd_latest()}
 							</span>
 						{/if}
 					</dd>
 
-					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">OS / Arch</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+						{m.routes_invd_label_os_arch()}
+					</dt>
 					<dd>
 						<span class="pill-primary bg-primary">{scan.os}/{scan.arch}</span>
 					</dd>
 
 					{#if hasAdminAccess}
 						<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-							Submitted by
+							{m.routes_invd_label_submitted_by()}
 						</dt>
 						<dd>
 							{#if submittedByUser}
@@ -269,10 +275,14 @@
 						</dd>
 					{/if}
 
-					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanner</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+						{m.routes_invd_label_scanner()}
+					</dt>
 					<dd>{scan.scannerVersion || '—'}</dd>
 
-					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanned</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+						{m.routes_invd_label_scanned()}
+					</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
 					</dd>
@@ -283,7 +293,8 @@
 						class="btn btn-error flex items-center gap-1.5 self-start"
 						onclick={() => (deleteOpen = true)}
 					>
-						<Trash2 class="size-4" /> Delete
+						<Trash2 class="size-4" />
+						{m.routes_invd_delete()}
 					</button>
 				{/if}
 			</div>
@@ -296,7 +307,8 @@
 						class:tab-active={activeTab === 'clients'}
 						onclick={() => (activeTab = 'clients')}
 					>
-						<MonitorCheck class="size-4" /> Clients
+						<MonitorCheck class="size-4" />
+						{m.routes_invd_tab_clients()}
 						<span class="text-muted-content">({clients.length})</span>
 					</button>
 					<button
@@ -304,7 +316,8 @@
 						class:tab-active={activeTab === 'mcp'}
 						onclick={() => (activeTab = 'mcp')}
 					>
-						<Server class="size-4" /> MCP Servers
+						<Server class="size-4" />
+						{m.routes_invd_tab_mcp_servers()}
 						<span class="text-muted-content">({mcpServers.length})</span>
 					</button>
 					<button
@@ -312,7 +325,8 @@
 						class:tab-active={activeTab === 'skills'}
 						onclick={() => (activeTab = 'skills')}
 					>
-						<PencilRuler class="size-4" /> Skills
+						<PencilRuler class="size-4" />
+						{m.routes_invd_tab_skills()}
 						<span class="text-muted-content">({skills.length})</span>
 					</button>
 					<button
@@ -320,25 +334,26 @@
 						class:tab-active={activeTab === 'plugins'}
 						onclick={() => (activeTab = 'plugins')}
 					>
-						<Boxes class="size-4" /> Plugins
+						<Boxes class="size-4" />
+						{m.routes_invd_tab_plugins()}
 						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 				</div>
 
 				{#if activeTab === 'mcp'}
 					{#if mcpRows.length === 0}
-						{@render emptyTab('No MCP servers found in this scan.')}
+						{@render emptyTab(m.routes_invd_no_mcp_this_scan())}
 					{:else}
 						<Table
 							data={mcpRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
-								{ title: 'Name', property: 'name' },
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Transport', property: 'transport' },
-								{ title: 'Endpoint', property: 'endpoint' }
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_client(), property: 'client' },
+								{ title: m.routes_invd_col_scope(), property: 'scope' },
+								{ title: m.routes_invd_col_transport(), property: 'transport' },
+								{ title: m.routes_invd_col_endpoint(), property: 'endpoint' }
 							]}
 							sortable={['client', 'name', 'transport', 'scope']}
 							filterable={['client', 'transport', 'scope']}
@@ -360,19 +375,19 @@
 					{/if}
 				{:else if activeTab === 'skills'}
 					{#if skillRows.length === 0}
-						{@render emptyTab('No skills found in this scan.')}
+						{@render emptyTab(m.routes_invd_no_skills_this_scan())}
 					{:else}
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
 							headers={[
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
-								{ title: 'Description', property: 'description' },
-								{ title: 'Has Scripts', property: 'hasScripts' },
-								{ title: 'Files', property: 'files_count' }
+								{ title: m.routes_invd_col_client(), property: 'client' },
+								{ title: m.routes_invd_col_scope(), property: 'scope' },
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_description(), property: 'description' },
+								{ title: m.routes_invd_col_has_scripts(), property: 'hasScripts' },
+								{ title: m.routes_invd_col_files(), property: 'files_count' }
 							]}
 							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							filterable={['client', 'scope']}
@@ -387,7 +402,7 @@
 								{#if property === 'description'}
 									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
-									{d.hasScripts ? 'yes' : 'no'}
+									{d.hasScripts ? m.routes_invd_yes() : m.routes_invd_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -398,7 +413,7 @@
 					{/if}
 				{:else if activeTab === 'plugins'}
 					{#if pluginRows.length === 0}
-						{@render emptyTab('No plugins found in this scan.')}
+						{@render emptyTab(m.routes_invd_no_plugins_this_scan())}
 					{:else}
 						<Table
 							data={pluginRows}
@@ -413,13 +428,13 @@
 								'capabilities'
 							]}
 							headers={[
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
-								{ title: 'Type', property: 'pluginType' },
-								{ title: 'Version', property: 'version' },
-								{ title: 'Enabled', property: 'enabled' },
-								{ title: 'Capabilities', property: 'capabilities' }
+								{ title: m.routes_invd_col_client(), property: 'client' },
+								{ title: m.routes_invd_col_scope(), property: 'scope' },
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_type(), property: 'pluginType' },
+								{ title: m.routes_invd_col_version(), property: 'version' },
+								{ title: m.routes_invd_col_enabled(), property: 'enabled' },
+								{ title: m.routes_invd_col_capabilities(), property: 'capabilities' }
 							]}
 							sortable={['client', 'name', 'pluginType', 'version']}
 							filterable={['client', 'pluginType', 'scope']}
@@ -432,7 +447,7 @@
 						>
 							{#snippet onRenderColumn(property, d: PluginRow)}
 								{#if property === 'enabled'}
-									{d.enabled ? 'yes' : 'no'}
+									{d.enabled ? m.routes_invd_yes() : m.routes_invd_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -443,17 +458,17 @@
 					{/if}
 				{:else if activeTab === 'clients'}
 					{#if clientRows.length === 0}
-						{@render emptyTab('No clients observed on this device.')}
+						{@render emptyTab(m.routes_invd_no_clients_on_device())}
 					{:else}
 						<Table
 							data={clientRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'version', 'paths_display', 'has_display']}
 							headers={[
-								{ title: 'Name', property: 'name' },
-								{ title: 'Version', property: 'version' },
-								{ title: 'Paths', property: 'paths_display' },
-								{ title: 'Has', property: 'has_display' }
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_version(), property: 'version' },
+								{ title: m.routes_invd_col_paths(), property: 'paths_display' },
+								{ title: m.routes_invd_col_has(), property: 'has_display' }
 							]}
 							onClickRow={hasAdminAccess
 								? (d, isCtrlClick) => {
@@ -481,10 +496,11 @@
 <Confirm
 	show={deleteOpen}
 	loading={deleting}
-	title="Delete device scan"
-	msg={scan ? `Delete scan for device ${scan.deviceID}?` : 'Delete this scan?'}
-	note={deleteError ??
-		'This permanently removes the scan and all associated MCP server, skill, plugin, client, and file rows. This cannot be undone.'}
+	title={m.routes_invd_delete_scan_title()}
+	msg={scan
+		? m.routes_invd_delete_scan_msg({ deviceId: scan.deviceID })
+		: m.routes_invd_delete_scan_msg_generic()}
+	note={deleteError ?? m.routes_invd_delete_scan_note()}
 	onsuccess={confirmDelete}
 	oncancel={() => {
 		deleteOpen = false;

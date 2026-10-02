@@ -5,6 +5,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { formatDeviceCommand } from '$lib/format.js';
+	import { m } from '$lib/i18n';
 	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
@@ -56,7 +57,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !client}
-			<p class="text-muted-content text-sm font-light">Client not found.</p>
+			<p class="text-muted-content text-sm font-light">{m.routes_invd_client_not_found()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -64,18 +65,28 @@
 						{detail.name}
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
-						<span>{detail.users.length} user{detail.users.length === 1 ? '' : 's'}</span>
+						<span
+							>{detail.users.length === 1
+								? m.routes_invd_users_count_one({ count: detail.users.length })
+								: m.routes_invd_users_count_other({ count: detail.users.length })}</span
+						>
 						<span>·</span>
 						{#if detail.mcpServers}
 							<span
-								>{detail.mcpServers.length} mcp server{detail.mcpServers.length === 1
-									? ''
-									: 's'}</span
+								>{detail.mcpServers.length === 1
+									? m.routes_invd_mcp_servers_count_one({ count: detail.mcpServers.length })
+									: m.routes_invd_mcp_servers_count_other({
+											count: detail.mcpServers.length
+										})}</span
 							>
 						{/if}
 						{#if detail.skills}
 							<span>·</span>
-							<span>{detail.skills.length} skill{detail.skills.length === 1 ? '' : 's'}</span>
+							<span
+								>{detail.skills.length === 1
+									? m.routes_invd_skills_count_one({ count: detail.skills.length })
+									: m.routes_invd_skills_count_other({ count: detail.skills.length })}</span
+							>
 						{/if}
 					</div>
 				</div>
@@ -83,16 +94,26 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="border-base-300 dark:border-base-400 flex gap-2 border-b">
-					{@render tabButton('users', Users, 'Users', detail.users.length)}
-					{@render tabButton('mcp', Server, 'MCP Servers', detail.mcpServers?.length ?? 0)}
-					{@render tabButton('skills', PencilRuler, 'Skills', detail.skills?.length ?? 0)}
+					{@render tabButton('users', Users, m.routes_invd_tab_users(), detail.users.length)}
+					{@render tabButton(
+						'mcp',
+						Server,
+						m.routes_invd_tab_mcp_servers(),
+						detail.mcpServers?.length ?? 0
+					)}
+					{@render tabButton(
+						'skills',
+						PencilRuler,
+						m.routes_invd_tab_skills(),
+						detail.skills?.length ?? 0
+					)}
 				</div>
 
 				{#if activeTab === 'users'}
 					<Table
 						data={detail.users}
 						fields={['email']}
-						headers={[{ title: 'User', property: 'email' }]}
+						headers={[{ title: m.routes_invd_col_user(), property: 'email' }]}
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
@@ -104,7 +125,7 @@
 					</Table>
 				{:else if activeTab === 'mcp'}
 					{#if !hasMcpServers}
-						{@render emptyTab('No MCP servers found for this client.')}
+						{@render emptyTab(m.routes_invd_no_mcp_for_client())}
 					{:else}
 						{@const rows = detail.mcpServers!.map((s, i) => ({
 							...s,
@@ -115,6 +136,11 @@
 						<Table
 							data={rows}
 							fields={['name', 'transport', 'endpoint']}
+							headers={[
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_transport(), property: 'transport' },
+								{ title: m.routes_invd_col_endpoint(), property: 'endpoint' }
+							]}
 							onClickRow={(d, isCtrlClick) => {
 								if (!d.configHash) {
 									console.error('No config hash found for MCP server', d);
@@ -133,7 +159,7 @@
 					{/if}
 				{:else if activeTab === 'skills'}
 					{#if !hasSkills}
-						{@render emptyTab('No skills found for this client.')}
+						{@render emptyTab(m.routes_invd_no_skills_for_client())}
 					{:else}
 						{@const rows = detail.skills!.map((s, i) => ({
 							...s,
@@ -144,9 +170,10 @@
 							data={rows}
 							fields={['name', 'description', 'hasScripts', 'files']}
 							headers={[
-								{ title: 'Name', property: 'name' },
-								{ title: 'Description', property: 'description' },
-								{ title: 'Has Scripts', property: 'hasScripts' }
+								{ title: m.routes_invd_col_name(), property: 'name' },
+								{ title: m.routes_invd_col_description(), property: 'description' },
+								{ title: m.routes_invd_col_has_scripts(), property: 'hasScripts' },
+								{ title: m.routes_invd_col_files(), property: 'files' }
 							]}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(resolve(`/inventory/skills/${encodeURIComponent(d.name)}`), isCtrlClick);

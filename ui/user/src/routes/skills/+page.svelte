@@ -11,6 +11,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import type {
 		GitCredential,
@@ -31,9 +32,9 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: 'None' },
-		{ id: 'shared', label: 'Choose existing' },
-		{ id: 'token', label: 'Enter personal access token' }
+		{ id: 'none', label: m.routes_skills_cred_none() },
+		{ id: 'shared', label: m.routes_skills_cred_shared() },
+		{ id: 'token', label: m.routes_skills_cred_token() }
 	];
 
 	let { data } = $props();
@@ -53,13 +54,21 @@
 			page.url.searchParams.has('new')
 	);
 	const duration = PAGE_TRANSITION_DURATION;
-	let layoutTitle = $derived(creating ? 'Create Skill Access Policy' : 'Skills');
+	let layoutTitle = $derived(
+		creating ? m.routes_skills_create_access_policy() : m.routes_skills_title()
+	);
 	let views = $derived.by(() => {
-		const items: TabView[] = [{ label: 'Skills', value: 'skills', content: skillsView }];
+		const items: TabView[] = [
+			{ label: m.routes_skills_title(), value: 'skills', content: skillsView }
+		];
 		if (hasAdminAccess) {
 			items.push(
-				{ label: 'Sources', value: 'sources', content: sourcesView },
-				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }
+				{ label: m.routes_skills_tab_sources(), value: 'sources', content: sourcesView },
+				{
+					label: m.routes_skills_tab_access_policies(),
+					value: 'access-policies',
+					content: accessPolicy
+				}
 			);
 		}
 		return items;
@@ -222,7 +231,7 @@
 					if (err instanceof HttpError && err.statusCode === 402) {
 						showLicenseError = true;
 					} else {
-						errors.append(`Failed to sync skill repository: ${err}`);
+						errors.append(m.routes_skills_sync_failed({ error: String(err) }));
 					}
 					clearSyncInterval(id);
 					syncing.delete(id);
@@ -237,7 +246,7 @@
 			await AdminService.refreshSkillRepository(id);
 			pollTillSyncComplete(id);
 		} catch (err) {
-			errors.append(`Failed to refresh skill repository sync status: ${err}`);
+			errors.append(m.routes_skills_refresh_failed({ error: String(err) }));
 			syncing.delete(id);
 		}
 	}
@@ -328,11 +337,13 @@
 				class="btn btn-primary flex items-center gap-1 text-sm"
 				onclick={() => goto(`${page.url.pathname}?view=access-policies&new=true`)}
 			>
-				<Plus class="size-4" /> Add Access Policy
+				<Plus class="size-4" />
+				{m.routes_skills_add_access_policy()}
 			</button>
 		{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
-				<Plus class="size-4" /> Add Source URL
+				<Plus class="size-4" />
+				{m.routes_skills_add_source_url()}
 			</button>
 		{/if}
 	{/if}
@@ -344,7 +355,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<div>The system is currently syncing with your configured Git repositories.</div>
+					<div>{m.routes_skills_syncing_notice()}</div>
 				</div>
 			</div>
 		</div>
@@ -365,7 +376,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<div>The system is currently syncing with your configured Git repositories.</div>
+					<div>{m.routes_skills_syncing_notice()}</div>
 				</div>
 			</div>
 		</div>
@@ -392,9 +403,9 @@
 <Confirm
 	msg={deletingSources
 		? deletingSources.length === 1
-			? `Delete ${deletingSources[0].displayName}?`
-			: `Delete the following Git Source URLs?`
-		: 'Confirm Delete'}
+			? m.routes_skills_delete_named({ name: deletingSources[0].displayName })
+			: m.routes_skills_delete_sources_msg()
+		: m.confirm_default_title()}
 	show={Boolean(deletingSources && deletingSources.length > 0)}
 	onsuccess={async () => {
 		if (!deletingSources) return;
@@ -411,7 +422,7 @@
 			if (error instanceof HttpError && error.statusCode === 402) {
 				showLicenseError = true;
 			} else {
-				errors.append(`Failed to delete Git Source URLs: ${error}`);
+				errors.append(m.routes_skills_delete_sources_failed({ error: String(error) }));
 			}
 		} finally {
 			deletingSources = undefined;
@@ -430,20 +441,24 @@
 			</ul>
 		{/if}
 		<p>
-			Are you sure you want to delete {deletingSources && deletingSources.length > 1
-				? 'these'
-				: 'this'}? This will delete all related skills and their information from the system.
+			{deletingSources && deletingSources.length > 1
+				? m.routes_skills_delete_sources_note_other()
+				: m.routes_skills_delete_sources_note_one()}
 		</p>
 	{/snippet}
 </Confirm>
 
-<ResponsiveDialog title="Git Source URL Sync" bind:this={syncErrorDialog} class="md:w-2xl">
+<ResponsiveDialog
+	title={m.routes_skills_sync_dialog_title()}
+	bind:this={syncErrorDialog}
+	class="md:w-2xl"
+>
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					An issue occurred fetching this source URL:
+					{m.routes_skills_sync_issue()}
 				</p>
 			</div>
 			<span class="text-sm font-light break-all">{syncError?.error}</span>
@@ -455,7 +470,9 @@
 	<div class="dialog-container w-full max-w-md p-4 h-134.5 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
-				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
+				{editingSource.index === -1
+					? m.routes_skills_add_source_url()
+					: m.routes_skills_edit_source_url()}
 				<IconButton onclick={() => closeSourceDialog()} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
 				</IconButton>
@@ -464,7 +481,7 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-						>Name
+						>{m.routes_skills_field_name()}
 					</label>
 					<input
 						id="catalog-source-name"
@@ -474,7 +491,7 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-url" class="flex-1 text-sm font-light capitalize"
-						>Source URL
+						>{m.routes_skills_field_source_url()}
 					</label>
 					<input
 						id="catalog-source-url"
@@ -485,18 +502,16 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-ref" class="flex-1 text-sm font-light capitalize"
-						>Reference
+						>{m.routes_skills_field_reference()}
 					</label>
 					<input id="catalog-source-ref" bind:value={editingSource.ref} class="text-input-filled" />
-					<span class="text-muted-content text-xs"
-						>The branch, commit SHA, or tag to index and pull skills from.</span
-					>
+					<span class="text-muted-content text-xs">{m.routes_skills_reference_help()}</span>
 				</div>
 				<div class="flex flex-col gap-2">
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center justify-between gap-4">
 							<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize">
-								Credential
+								{m.routes_skills_field_credential()}
 							</span>
 							{#if credentialLocked}
 								<div class="flex justify-end">
@@ -510,7 +525,7 @@
 											editingSource.clearToken = true;
 										}}
 									>
-										Clear token
+										{m.routes_skills_clear_token()}
 									</button>
 								</div>
 							{/if}
@@ -539,11 +554,12 @@
 							}}
 						/>
 						<p class="text-xs text-muted-content">
-							Need to add or modify a credential? <a
+							{m.routes_skills_manage_credentials_prompt()}
+							<a
 								class="text-blue-500 hover:underline"
 								href={resolve('/admin/platform?view=settings#git-credentials')}
 							>
-								Manage Credentials
+								{m.routes_skills_manage_credentials()}
 							</a>
 						</p>
 					</div>
@@ -569,13 +585,15 @@
 									: undefined}
 							/>
 							<span class="text-muted-content text-xs">
-								Only credentials matching the repository host can be selected.
+								{m.routes_skills_credential_host_help()}
 							</span>
 						</div>
 					{/if}
 					{#if editingSource.credentialType === 'token'}
 						<div class="flex flex-col gap-1">
-							<label for="skill-source-token" class="sr-only">Personal Access Token</label>
+							<label for="skill-source-token" class="sr-only"
+								>{m.routes_skills_personal_access_token()}</label
+							>
 							{#if credentialLocked && existingSkillRepositoryToken}
 								<input
 									id="skill-source-token"
@@ -589,7 +607,7 @@
 							{:else}
 								<SensitiveInput
 									name="skill-source-token"
-									placeholder="Personal Access Token"
+									placeholder={m.routes_skills_personal_access_token()}
 									bind:value={editingSource.token}
 								/>
 							{/if}
@@ -602,7 +620,9 @@
 				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">Error saving source URL:</p>
+						<p class="my-0.5 flex flex-col text-sm font-semibold">
+							{m.routes_skills_error_saving_source()}
+						</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
@@ -612,7 +632,7 @@
 
 			<div class="flex w-full justify-end gap-2">
 				<button class="btn btn-secondary" disabled={saving} onclick={() => closeSourceDialog()}
-					>Cancel</button
+					>{m.common_cancel()}</button
 				>
 				<button
 					class="btn btn-primary"
@@ -662,12 +682,12 @@
 						}
 					}}
 				>
-					{editingSource.repositoryID ? 'Save' : 'Add'}
+					{editingSource.repositoryID ? m.routes_skills_save() : m.routes_skills_add()}
 				</button>
 			</div>
 		{/if}
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={() => closeSourceDialog()}>close</button>
+		<button type="button" onclick={() => closeSourceDialog()}>{m.common_close()}</button>
 	</form>
 </dialog>

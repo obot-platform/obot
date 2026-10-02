@@ -6,6 +6,7 @@
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { getAdminModels } from '$lib/context/admin/models.svelte.js';
 	import { HttpError } from '$lib/errors.js';
+	import { m } from '$lib/i18n';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
 	import {
@@ -130,7 +131,7 @@
 						configureError = errorMessage;
 					}
 				} else {
-					configureError = 'Failed to configure model provider';
+					configureError = m.routes_models_configure_failed();
 				}
 			} finally {
 				loading = false;
@@ -145,11 +146,12 @@
 			<div class="notification-alert mb-4 flex flex-col gap-2">
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">No Model Providers Configured!</p>
+					<p class="my-0.5 flex flex-col text-sm font-semibold">
+						{m.routes_models_no_providers_title()}
+					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					To use Obot chat features, you'll need to set up a Model Provider. Select and configure
-					one below to get started!
+					{m.routes_models_no_providers_desc()}
 				</span>
 			</div>
 		{/if}
@@ -206,7 +208,7 @@
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
 			<p class="text-muted-content py-4 font-light">
-				Note: Anthropic does not have an embeddings model.
+				{m.routes_models_anthropic_no_embeddings()}
 			</p>
 		{/if}
 	{/snippet}

@@ -5,6 +5,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type DeviceMCPServerOccurrence,
@@ -66,11 +67,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | MCP Server</title>
+	<title>{m.routes_invd_page_title_mcp_server()}</title>
 </svelte:head>
 
 <Layout
-	title="MCP Server"
+	title={m.routes_invd_mcp_server()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -86,7 +87,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-muted-content text-sm font-light">MCP server not found.</p>
+			<p class="text-muted-content text-sm font-light">{m.routes_invd_mcp_not_found()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -94,23 +95,37 @@
 						{#if detail.name?.trim()}
 							{detail.name}
 						{:else}
-							<span class="text-muted-content italic">(unnamed)</span>
+							<span class="text-muted-content italic">{m.routes_invd_unnamed()}</span>
 						{/if}
 						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
-						<span>{detail.deviceCount} device{detail.deviceCount === 1 ? '' : 's'}</span>
+						<span
+							>{detail.deviceCount === 1
+								? m.routes_invd_devices_count_one({ count: detail.deviceCount })
+								: m.routes_invd_devices_count_other({ count: detail.deviceCount })}</span
+						>
 						<span>·</span>
-						<span>{detail.userCount} user{detail.userCount === 1 ? '' : 's'}</span>
+						<span
+							>{detail.userCount === 1
+								? m.routes_invd_users_count_one({ count: detail.userCount })
+								: m.routes_invd_users_count_other({ count: detail.userCount })}</span
+						>
 						<span>·</span>
-						<span>{detail.clientCount} client{detail.clientCount === 1 ? '' : 's'}</span>
+						<span
+							>{detail.clientCount === 1
+								? m.routes_invd_clients_count_one({ count: detail.clientCount })
+								: m.routes_invd_clients_count_other({ count: detail.clientCount })}</span
+						>
 					</div>
 				</div>
 
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 					{#if detail.command}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">Command</span>
+							<span class="text-muted-content text-xs uppercase"
+								>{m.routes_invd_label_command()}</span
+							>
 							<code class="font-mono text-xs break-all">
 								{[detail.command, ...(detail.args ?? [])].join(' ')}
 							</code>
@@ -118,13 +133,15 @@
 					{/if}
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">URL</span>
+							<span class="text-muted-content text-xs uppercase">{m.routes_invd_label_url()}</span>
 							<p class="text-sm break-all">{detail.url}</p>
 						</div>
 					{/if}
 					{#if detail.envKeys?.length}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">Env keys</span>
+							<span class="text-muted-content text-xs uppercase"
+								>{m.routes_invd_label_env_keys()}</span
+							>
 							<div class="flex flex-wrap gap-2">
 								{#each detail.envKeys as k (k)}
 									<code class="bg-base-400 rounded px-1.5 py-0.5 text-xs">{k}</code>
@@ -134,7 +151,9 @@
 					{/if}
 					{#if detail.headerKeys?.length}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">Header keys</span>
+							<span class="text-muted-content text-xs uppercase"
+								>{m.routes_invd_label_header_keys()}</span
+							>
 							<div class="flex flex-wrap gap-2">
 								{#each detail.headerKeys as k (k)}
 									<code class="bg-base-400 rounded px-1.5 py-0.5 text-xs">{k}</code>
@@ -147,17 +166,17 @@
 
 			<div class="flex flex-col gap-2">
 				<h3 class="text-muted-content text-sm font-semibold">
-					Occurrences · {total}
+					{m.routes_invd_occurrences({ count: total })}
 				</h3>
 				<Table
 					data={rows}
 					fields={['rowIndex', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
 						{ title: '#', property: 'rowIndex' },
-						{ title: 'Device', property: 'shortDeviceID' },
-						{ title: 'Scanned', property: 'scannedRelative' },
-						{ title: 'Client', property: 'client' },
-						{ title: 'Scope', property: 'scope' }
+						{ title: m.routes_invd_col_device(), property: 'shortDeviceID' },
+						{ title: m.routes_invd_col_scanned(), property: 'scannedRelative' },
+						{ title: m.routes_invd_col_client(), property: 'client' },
+						{ title: m.routes_invd_col_scope(), property: 'scope' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(

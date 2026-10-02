@@ -10,6 +10,7 @@
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		UserService,
@@ -213,7 +214,7 @@
 		<div class="notification-info p-3 text-sm font-light" transition:slide={{ axis: 'y' }}>
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
-				<div>The system is currently syncing with your configured Git repositories.</div>
+				<div>{m.routes_mcp_syncing_git_repos()}</div>
 			</div>
 		</div>
 	{/if}
@@ -231,7 +232,7 @@
 				value={query}
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateSearchQuery}
-				placeholder="Search MCP servers..."
+				placeholder={m.routes_mcp_search_mcp_servers()}
 			/>
 		</div>
 
@@ -243,7 +244,7 @@
 			{/if}
 		{:else if filteredTableData.length === 0 && query}
 			<div class="flex flex-col gap-px">
-				<div class="text-sm text-muted-content">No results found for "{query}".</div>
+				<div class="text-sm text-muted-content">{m.routes_mcp_no_results_for({ query })}</div>
 			</div>
 		{:else}
 			<Table
@@ -252,6 +253,13 @@
 				fields={profile.current.hasAdminAccess?.()
 					? ['name', 'type', 'users', 'created', 'source']
 					: ['name', 'created']}
+				headers={[
+					{ title: m.routes_mcp_col_name(), property: 'name' },
+					{ title: m.routes_mcp_col_type(), property: 'type' },
+					{ title: m.routes_mcp_col_users(), property: 'users' },
+					{ title: m.routes_mcp_col_created(), property: 'created' },
+					{ title: m.routes_mcp_col_source(), property: 'source' }
+				]}
 				filterable={['name', 'type', 'source']}
 				{filters}
 				onClickRow={(d, isCtrlClick) => {
@@ -262,7 +270,7 @@
 				{onClearAllFilters}
 				{onSort}
 				sortable={['name', 'type', 'users', 'created', 'source']}
-				noDataMessage="No catalog servers added."
+				noDataMessage={m.routes_mcp_no_catalog_servers()}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
@@ -304,8 +312,8 @@
 										use:tooltip={{
 											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
 											text: deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)
-												? 'One or multiple deployments require your attention'
-												: 'Configuration requires your attention'
+												? m.routes_mcp_deployments_need_attention()
+												: m.routes_mcp_configuration_needs_attention()
 										}}
 									>
 										<CircleFadingArrowUp class="text-primary size-4" />
@@ -316,15 +324,15 @@
 										use:tooltip={{
 											text:
 												'missingKubernetesSecret' in d && d.missingKubernetesSecret
-													? 'Missing Kubernetes Secret.'
-													: 'Server requires an update.'
+													? m.routes_mcp_missing_k8s_secret()
+													: m.routes_mcp_server_requires_update()
 										}}
 									>
 										<TriangleAlert class="size-4" />
 									</span>
 								{/if}
 								{#if d.status.toLowerCase() === 'deployed'}
-									<span class="badge badge-xs badge-secondary">Deployed</span>
+									<span class="badge badge-xs badge-secondary">{m.routes_mcp_deployed()}</span>
 								{/if}
 								{#if entity === 'catalog'}
 									<McpDetachedNotice
@@ -338,7 +346,7 @@
 					{:else if property === 'type'}
 						{d.type}
 						{#if !isMultiUserCatalogEntry(d.data) && hasEditableConfiguration(d.data)}
-							<div class="p-2" use:tooltip={{ text: 'Requires user configuration' }}>
+							<div class="p-2" use:tooltip={{ text: m.routes_mcp_requires_user_config() }}>
 								<Settings class="size-3 text-muted-content" />
 							</div>
 						{/if}
@@ -352,14 +360,14 @@
 								target="_blank"
 								rel="external noopener noreferrer"
 								use:tooltip={{
-									text: 'View Source on Git'
+									text: m.routes_mcp_view_source_on_git()
 								}}
 								class="link link-hover flex items-center gap-1 shrink-0 hover:text-blue-500"
 							>
 								<GitBranch class="size-4" />
 								<span class="font-light">
 									{#if d.source.startsWith(OBOT_PLATFORM_REPO)}
-										Obot Catalog
+										{m.routes_mcp_obot_catalog()}
 									{:else}
 										{d.source?.split('/').pop()}
 									{/if}
@@ -400,7 +408,8 @@
 												toggle(false);
 											}}
 										>
-											<Settings class="size-4" /> Configure OAuth
+											<Settings class="size-4" />
+											{m.routes_mcp_configure_oauth()}
 										</button>
 									{/if}
 									{#if canDelete}
@@ -413,7 +422,7 @@
 											}}
 										>
 											<Trash2 class="size-4" />
-											{catalogEntry ? 'Delete Entry' : 'Delete Server'}
+											{catalogEntry ? m.routes_mcp_delete_entry() : m.routes_mcp_delete_server()}
 										</button>
 									{/if}
 								</div>

@@ -12,6 +12,7 @@
 	import ScheduledExportsView from '$lib/components/admin/audit-log-exports/ScheduledExportsView.svelte';
 	import StorageCredentialsForm from '$lib/components/admin/audit-log-exports/StorageCredentialsForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState, goto } from '$lib/url';
@@ -166,7 +167,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout showBackButton title="MCP Audit Log Exports">
+<Layout showBackButton title={m.routes_audit_mcp_exports_title()}>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -183,7 +184,7 @@
 					onclick={() => openForm('storage')}
 				>
 					<Settings class="size-4" />
-					Configure Storage
+					{m.routes_audit_configure_storage()}
 				</button>
 			{/if}
 			{@render addButton()}
@@ -202,7 +203,9 @@
 				<Search
 					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={(val) => (query = val)}
-					placeholder={view === 'exports' ? 'Search exports...' : 'Search schedules...'}
+					placeholder={view === 'exports'
+						? m.routes_audit_search_exports()
+						: m.routes_audit_search_schedules()}
 				/>
 			</div>
 		</div>
@@ -213,13 +216,13 @@
 					class={twMerge('page-tab', view === 'exports' && 'page-tab-active')}
 					onclick={() => switchView('exports')}
 				>
-					Exports
+					{m.routes_audit_tab_exports()}
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'scheduled' && 'page-tab-active')}
 					onclick={() => switchView('scheduled')}
 				>
-					Export Schedules
+					{m.routes_audit_tab_export_schedules()}
 				</button>
 			</div>
 
@@ -252,16 +255,19 @@
 	<DotDotDot class="btn btn-block btn-primary w-full text-sm md:w-fit" placement="bottom">
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
-				<Plus class="size-4" /> Add Export
+				<Plus class="size-4" />
+				{m.routes_audit_add_export()}
 			</span>
 		{/snippet}
-		<button class="menu-button" onclick={() => openForm('export')}> Create One-time Export </button>
+		<button class="menu-button" onclick={() => openForm('export')}>
+			{m.routes_audit_create_one_time_export()}
+		</button>
 		<button class="menu-button" onclick={() => openForm('scheduled')}>
-			Create Export Schedule
+			{m.routes_audit_create_export_schedule()}
 		</button>
 	</DotDotDot>
 {/snippet}
 
 <svelte:head>
-	<title>Obot | MCP Audit Log Exports</title>
+	<title>{m.routes_audit_mcp_exports_page_title()}</title>
 </svelte:head>

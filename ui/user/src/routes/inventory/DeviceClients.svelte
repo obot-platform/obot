@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		UserService,
@@ -118,7 +119,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder="Search by client name..."
+	placeholder={m.routes_inv_search_clients()}
 />
 
 {#if loading}
@@ -126,10 +127,10 @@
 {:else if clients.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<MonitorCheck class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No clients observed yet</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.routes_inv_no_clients_title()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			Run <code class="font-mono">obot scan</code> from a managed device with clients to populate this
-			view.
+			{m.routes_inv_no_clients_prefix()}<code class="font-mono">obot scan</code
+			>{m.routes_inv_no_clients_suffix()}
 		</p>
 	</div>
 {:else}
@@ -138,10 +139,10 @@
 		{pageSize}
 		fields={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		headers={[
-			{ title: 'Name', property: 'name' },
-			{ title: 'MCP Servers', property: 'mcpServerCount' },
-			{ title: 'Skills', property: 'skillCount' },
-			{ title: 'Users', property: 'userCount' }
+			{ title: m.routes_inv_col_name(), property: 'name' },
+			{ title: m.routes_inv_col_mcp_servers(), property: 'mcpServerCount' },
+			{ title: m.routes_inv_col_skills(), property: 'skillCount' },
+			{ title: m.routes_inv_col_users(), property: 'userCount' }
 		]}
 		sortable={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		{initSort}
@@ -155,7 +156,7 @@
 				{#if d.name?.trim()}
 					{d.name.trim()}
 				{:else}
-					<span class="text-muted-content italic">(unnamed)</span>
+					<span class="text-muted-content italic">{m.routes_inv_unnamed()}</span>
 				{/if}
 			{:else}
 				{d[property as keyof (typeof rows)[number]]}
