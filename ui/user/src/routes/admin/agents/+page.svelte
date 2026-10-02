@@ -8,7 +8,11 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import { NanobotService, type OrgUser } from '$lib/services';
-	import { getMcpServerDeploymentStatus } from '$lib/services/user/mcp';
+	import {
+		getMcpServerDeploymentStatus,
+		getMcpValueLabel,
+		mcpTableDisplayValue
+	} from '$lib/services/user/mcp';
 	import { profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -99,6 +103,7 @@
 				{ title: m.admin_routes_col_created(), property: 'created' }
 			]}
 			sortable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable', 'created']}
+			displayValue={mcpTableDisplayValue}
 			noDataMessage={m.admin_routes_agents_none_found()}
 			onClickRow={(agent, isCtrlClick) => {
 				openUrl(`/admin/agents/p/${agent.projectID}/s/${agent.id}/details`, isCtrlClick);
@@ -111,10 +116,10 @@
 					<div
 						use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
 					>
-						{d.updateStatus || '--'}
+						{getMcpValueLabel(d.updateStatus) || '--'}
 					</div>
 				{:else if property === 'deploymentStatus'}
-					{d.deploymentStatus || '--'}
+					{getMcpValueLabel(d.deploymentStatus) || '--'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

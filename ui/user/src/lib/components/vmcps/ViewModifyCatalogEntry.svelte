@@ -8,7 +8,11 @@
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, UserService, type LaunchType, type MCPCatalogEntry } from '$lib/services';
-	import { getServerTypeLabelByType, isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import {
+		getServerTypeLabelByType,
+		isDeprecatedMCPServer,
+		getMcpValueLabel
+	} from '$lib/services/user/mcp';
 	import { mcpServerNeedsStaticOAuthConfiguration } from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { Plus } from '@lucide/svelte';
@@ -53,7 +57,9 @@
 	);
 	let title = $derived(
 		creating
-			? m.vmcps_create_type_entry({ type: getServerTypeLabelByType(selectedServerType) })
+			? m.vmcps_create_type_entry({
+					type: getMcpValueLabel(getServerTypeLabelByType(selectedServerType))
+				})
 			: (catalogEntry?.manifest.name ?? m.vmcps_mcp_server())
 	);
 	let formKey = $derived(

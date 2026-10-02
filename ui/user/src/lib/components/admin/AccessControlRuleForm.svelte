@@ -18,7 +18,7 @@
 		type OrgGroup,
 		type MCPCatalogEntry
 	} from '$lib/services';
-	import { getUserRegistry } from '$lib/services/user/mcp';
+	import { getUserRegistry, getMcpValueLabel } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
@@ -208,7 +208,7 @@
 							{@const registry = getUserRegistry(initialAccessControlRule, usersMap)}
 							{#if registry}
 								<div class="dark:bg-base-300 bg-base-400 rounded-full px-3 py-1 text-xs">
-									{registry}
+									{getMcpValueLabel(registry)}
 								</div>
 							{/if}
 						{/if}

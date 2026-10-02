@@ -10,7 +10,7 @@
 		type OrgUser,
 		type VMCP
 	} from '$lib/services';
-	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import { isDeprecatedMCPServer, getMcpValueLabel } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -258,7 +258,7 @@
 
 										{#if item.registry}
 											<div class="badge badge-xs badge-soft badge-primary">
-												{item.registry}
+												{getMcpValueLabel(item.registry)}
 											</div>
 										{/if}
 										<McpDeprecatedNotice deprecated={item.deprecated} />

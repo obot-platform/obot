@@ -39,6 +39,8 @@
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
+		/** Display text for a raw cell value; filtering, sorting, and URL filters keep the raw value. */
+		displayValue?: (property: string, value: unknown) => string;
 		onRenderSubrowContent?: Snippet<[T]>;
 		onSort?: InitSortFn;
 		setRowClasses?: (row: T) => string;
@@ -73,6 +75,7 @@
 		onClearAllFilters,
 		onFilter,
 		onRenderColumn,
+		displayValue,
 		onRenderSubrowContent,
 		onSort,
 		pageSize,
@@ -845,6 +848,7 @@
 					activeSort={sortedBy?.property === property}
 					order={sortedBy?.order}
 					presetFilters={filteredBy?.[property]}
+					formatOption={displayValue ? (value) => displayValue(property, value) : undefined}
 					{disablePortal}
 				/>
 			{/each}
@@ -930,6 +934,8 @@
 				>
 					{#if onRenderColumn}
 						{@render onRenderColumn(fieldName, d)}
+					{:else if displayValue}
+						{displayValue(fieldName, d[fieldName as keyof T])}
 					{:else}
 						{d[fieldName as keyof T]}
 					{/if}

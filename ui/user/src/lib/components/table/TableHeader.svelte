@@ -20,6 +20,7 @@
 		sortable?: boolean;
 		style?: string;
 		presetFilters?: (string | number)[];
+		formatOption?: (value: string | number) => string;
 		disablePortal?: boolean;
 	}
 	let {
@@ -36,6 +37,7 @@
 		sortable,
 		style,
 		presetFilters,
+		formatOption,
 		disablePortal
 	}: Props = $props();
 
@@ -141,7 +143,7 @@
 					root: 'flex grow'
 				}}
 				options={filterOptions?.filter(Boolean).map((option) => ({
-					label: option.toString(),
+					label: formatOption?.(option) ?? option.toString(),
 					id: option.toString()
 				})) ?? []}
 				onClear={(option) => {

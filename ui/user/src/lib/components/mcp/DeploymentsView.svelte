@@ -28,7 +28,9 @@
 		hasEditableConfiguration,
 		hasMissingSecretBindingConfig,
 		isMultiUserServer,
-		supportsMCPBackendDetails
+		supportsMCPBackendDetails,
+		getMcpValueLabel,
+		mcpTableDisplayValue
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
@@ -662,6 +664,7 @@
 				{onClearAllFilters}
 				{onSort}
 				{initSort}
+				displayValue={mcpTableDisplayValue}
 				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
 				noDataMessage={m.mcp_deployments_no_data()}
 				classes={{
@@ -733,19 +736,19 @@
 						<div
 							use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
 						>
-							{d.updateStatus || '--'}
+							{getMcpValueLabel(d.updateStatus) || '--'}
 						</div>
 					{:else if property === 'deploymentStatus'}
-						{d.deploymentStatus || '--'}
+						{getMcpValueLabel(d.deploymentStatus) || '--'}
 					{:else if property === 'type'}
-						{d.type}
+						{getMcpValueLabel(d.type)}
 						{#if d.serverUserType === 'multiUser'}
 							<div class="p-2" use:tooltip={{ text: m.mcp_deployments_multi_tenant() }}>
 								<UsersIcon class="size-3 text-muted-content" />
 							</div>
 						{/if}
 					{:else}
-						{d[property as keyof typeof d]}
+						{mcpTableDisplayValue(property, d[property as keyof typeof d])}
 					{/if}
 				{/snippet}
 

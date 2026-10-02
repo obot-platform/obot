@@ -24,7 +24,8 @@
 		getSource,
 		isMultiUserCatalogEntry,
 		isDeprecatedMCPServer,
-		isMultiUserServer
+		isMultiUserServer,
+		getMcpValueLabel
 	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -678,7 +679,7 @@
 					{/if}
 				</h1>
 				<div class="pill-rounded">
-					{getServerTypeLabel(entry)}
+					{getMcpValueLabel(getServerTypeLabel(entry))}
 				</div>
 				{#if source}
 					{#if source.sourceType === 'git'}
@@ -693,7 +694,7 @@
 						</a>
 					{:else}
 						<div class="pill-rounded">
-							{source.source}
+							{getMcpValueLabel(source.source)}
 						</div>
 					{/if}
 				{/if}

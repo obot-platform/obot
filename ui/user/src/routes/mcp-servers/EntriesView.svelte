@@ -27,7 +27,9 @@
 		isMultiUserCatalogEntry,
 		getMCPDisplayName,
 		hasEditableConfiguration,
-		isDeprecatedMCPServer
+		isDeprecatedMCPServer,
+		getMcpValueLabel,
+		mcpTableDisplayValue
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
@@ -261,6 +263,7 @@
 					{ title: m.routes_mcp_col_source(), property: 'source' }
 				]}
 				filterable={['name', 'type', 'source']}
+				displayValue={mcpTableDisplayValue}
 				{filters}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(getEntryUrl(d), isCtrlClick);
@@ -344,7 +347,7 @@
 							</p>
 						</div>
 					{:else if property === 'type'}
-						{d.type}
+						{getMcpValueLabel(d.type)}
 						{#if !isMultiUserCatalogEntry(d.data) && hasEditableConfiguration(d.data)}
 							<div class="p-2" use:tooltip={{ text: m.routes_mcp_requires_user_config() }}>
 								<Settings class="size-3 text-muted-content" />
@@ -374,7 +377,7 @@
 								</span>
 							</a>
 						{:else}
-							{d.source}
+							{getMcpValueLabel(d.source)}
 						{/if}
 					{:else}
 						{d[property as keyof typeof d]}
