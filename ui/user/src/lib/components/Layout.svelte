@@ -60,6 +60,7 @@
 		getLayout as defaultGetLayout,
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
+	import { m } from '$lib/i18n';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
 	import {
@@ -229,7 +230,7 @@
 					{
 						id: 'mcp-dashboard',
 						icon: LayoutDashboard,
-						label: 'Dashboard',
+						label: m.nav_dashboard(),
 						href: '/dashboard',
 						collapsible: false
 					}
@@ -238,31 +239,31 @@
 		{
 			id: 'ai-resources',
 			icon: Bot,
-			label: 'AI Resources',
+			label: m.nav_ai_resources(),
 			collapsible: true,
 			items: [
 				{
 					id: 'vmcp',
-					label: 'vMCPs',
+					label: m.nav_vmcps(),
 					href: '/vmcps'
 				},
 				...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
 					? [
 							{
 								id: 'mcp-servers',
-								label: 'MCP Servers',
+								label: m.nav_mcp_servers(),
 								href: '/mcp-servers'
 							}
 						]
 					: []),
 				{
 					id: 'skills',
-					label: 'Skills',
+					label: m.nav_skills(),
 					href: '/skills'
 				},
 				{
 					id: 'models',
-					label: 'Models',
+					label: m.nav_models(),
 					href: '/models'
 				}
 			]
@@ -270,30 +271,30 @@
 		{
 			id: 'operations',
 			icon: Logs,
-			label: 'Operations',
+			label: m.nav_operations(),
 			collapsible: true,
 			items: [
 				{
 					id: 'audit-logs',
-					label: 'Audit Logs',
+					label: m.nav_audit_logs(),
 					href: '/audit-logs'
 				},
 				{
 					id: 'usage',
-					label: 'Usage',
+					label: m.nav_usage(),
 					href: '/usage'
 				},
 				...(profile.current.hasAdminAccess?.()
 					? [
 							{
 								id: 'inventory',
-								label: 'Inventory',
+								label: m.nav_inventory(),
 								href: '/inventory',
 								beta: true
 							},
 							{
 								id: 'enforcement-events',
-								label: 'Enforcement Events',
+								label: m.nav_enforcement_events(),
 								href: '/admin/enforcement-events',
 								beta: true
 							}
@@ -305,7 +306,7 @@
 			? [
 					{
 						id: 'hosted-agents',
-						label: 'Hosted Agents',
+						label: m.nav_hosted_agents(),
 						icon: MessageSquareText,
 						href: '/hosted-agents'
 					}
@@ -313,7 +314,7 @@
 			: []),
 		{
 			id: 'identity-and-access',
-			label: 'Identity & Access',
+			label: m.nav_identity_access(),
 			icon: Users,
 			href: '/identity-access'
 		},
@@ -321,7 +322,7 @@
 			? [
 					{
 						id: 'platform',
-						label: 'Platform',
+						label: m.nav_platform(),
 						icon: Settings2,
 						href: '/admin/platform'
 					}
@@ -561,7 +562,7 @@
 					<BetaLogo variant={logoVariant} />
 					{#if responsive.isMobile}
 						<IconButton
-							tooltip={{ text: 'Close Menu', placement: 'left' }}
+							tooltip={{ text: m.nav_close_menu(), placement: 'left' }}
 							onclick={() => (layout.sidebarOpen = false)}
 						>
 							<X class="size-6" />
@@ -589,7 +590,7 @@
 				{#if !responsive.isMobile}
 					<div class="flex justify-end px-3 py-2">
 						<IconButton
-							tooltip={{ text: 'Close Sidebar' }}
+							tooltip={{ text: m.nav_close_sidebar() }}
 							onclick={() => (layout.sidebarOpen = false)}
 						>
 							<PanelLeftClose class="size-6" />
@@ -658,7 +659,7 @@
 								{#if responsive.isMobile}
 									<IconButton
 										class="w-fit"
-										tooltip={{ text: 'Open Menu', placement: 'right' }}
+										tooltip={{ text: m.nav_open_menu(), placement: 'right' }}
 										onclick={() => (layout.sidebarOpen = true)}
 									>
 										<Menu class="size-6" />
@@ -740,7 +741,10 @@
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar && !responsive.isMobile}
 		<div class="fixed bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
-			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
+			<IconButton
+				onclick={() => (layout.sidebarOpen = true)}
+				tooltip={{ text: m.nav_open_sidebar() }}
+			>
 				<PanelLeftOpen class="size-6" />
 			</IconButton>
 		</div>
@@ -753,7 +757,7 @@
 	{#if showBackButton}
 		<IconButton
 			class="btn btn-square btn-ghost shrink-0"
-			tooltip={{ text: 'Back' }}
+			tooltip={{ text: m.common_back() }}
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();
@@ -781,7 +785,8 @@
 				{:else}
 					{title}
 					{#if isBetaRoute}
-						<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+						<span class="badge badge-primary badge-sm font-medium uppercase">{m.common_beta()}</span
+						>
 					{/if}
 				{/if}
 			</h1>
@@ -967,7 +972,7 @@
 	{/if}
 	{link.label}
 	{#if link.beta}
-		<span class="badge badge-primary badge-xs font-medium uppercase">Beta</span>
+		<span class="badge badge-primary badge-xs font-medium uppercase">{m.common_beta()}</span>
 	{/if}
 {/snippet}
 

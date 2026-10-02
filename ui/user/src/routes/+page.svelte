@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/Logo.svelte';
+	import { m } from '$lib/i18n';
 	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -23,7 +24,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot - Build AI agents with MCP</title>
+	<title>{m.login_page_title()}</title>
 </svelte:head>
 
 {#if !loggedIn}
@@ -34,7 +35,7 @@
 			<div class="animate-bounce">
 				<Logo />
 			</div>
-			<p class="text-base font-semibold">Logging in...</p>
+			<p class="text-base font-semibold">{m.login_logging_in()}</p>
 		</div>
 	</div>
 {/if}
@@ -48,9 +49,9 @@
 				class="absolute top-1/2 left-1/2 flex w-md -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
 			>
 				<Logo class="h-16" />
-				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
+				<h1 class="text-2xl font-semibold">{m.login_welcome()}</h1>
 				<p class="text-md text-muted-content mb-1 text-center font-light">
-					Log in or create your account to continue
+					{m.login_subtitle()}
 				</p>
 				{#if accountInactive}
 					<p class="notification-error w-sm p-3 text-center text-sm" role="alert">
@@ -78,20 +79,20 @@
 									src={provider.icon}
 									alt={provider.name}
 								/>
-								<span class="text-center text-sm font-light">Continue with {provider.name}</span>
+								<span class="text-center text-sm font-light"
+									>{m.login_continue_with({ provider: provider.name })}</span
+								>
 							{/if}
 						</button>
 					{/each}
 					{#if authProviders.some((provider) => provider.requiresActivation)}
 						<p class="text-muted-content text-center text-sm font-light">
-							Obot requires activation. Open the setup link from your provisioning email to
-							continue.
+							{m.login_requires_activation()}
 						</p>
 					{/if}
 					{#if authProviders.length === 0}
 						<p>
-							No auth providers configured. Please configure at least one auth provider in the admin
-							panel.
+							{m.login_no_providers()}
 						</p>
 					{/if}
 				</div>

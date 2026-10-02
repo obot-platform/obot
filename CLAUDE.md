@@ -57,6 +57,9 @@ pnpm run ci           # Run format, lint, and check
 pnpm run test         # Run UI integration tests
 ```
 
+### UI Internationalization (in ui/user/)
+The UI uses Paraglide JS. Add new user-facing strings to `messages/en.json` and to every other locale file (`ja`, `ko`, `zh-CN`), then render them with `import { m } from '$lib/i18n'` and `m.some_key()`. Messages compile into `src/lib/paraglide` (generated, git-ignored). Run `pnpm run i18n:compile` to regenerate them outside the dev server.
+
 ### Documentation (in docs/)
 ```bash
 make serve-docs       # Start local docs server

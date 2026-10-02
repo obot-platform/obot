@@ -2,6 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import { m } from '$lib/i18n';
 	import { UserService } from '$lib/services';
 	import { profile, errors, version, userDeviceSettings } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
@@ -30,12 +31,12 @@
 				}
 			});
 			if (response.ok) {
-				success.add('Successfully logged out of all other sessions');
+				success.add(m.account_logged_out_other_sessions());
 				toRevoke = false;
 			}
 		} catch (error) {
 			console.error('Failed to logout all sessions:', error);
-			errors.items.push(new Error('Failed to log out of other sessions'));
+			errors.items.push(new Error(m.account_log_out_other_sessions_failed()));
 		}
 	}
 
@@ -46,7 +47,7 @@
 			goto('/oauth2/sign_out?rd=/');
 		} catch (error) {
 			console.error('Failed to delete account:', error);
-			errors.items.push(new Error('Failed to delete account'));
+			errors.items.push(new Error(m.account_delete_failed()));
 		} finally {
 			toDelete = false;
 		}
@@ -63,12 +64,13 @@
 		dialog?.open();
 	}}
 >
-	<User class="size-4" /> My Account
+	<User class="size-4" />
+	{m.account_my_account()}
 </button>
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="My Account"
+	title={m.account_my_account()}
 	class="w-full max-w-lg"
 	classes={{ content: 'p-6' }}
 	{onClose}
@@ -79,17 +81,17 @@
 		class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
 	/>
 	<div class="flex flex-row py-3">
-		<div class="w-1/2 max-w-[150px]">Display Name:</div>
+		<div class="w-1/2 max-w-[150px]">{m.account_display_name()}</div>
 		<div class="w-1/2 wrap-break-word">{profile.current.displayName}</div>
 	</div>
 	<hr />
 	<div class="flex flex-row py-3">
-		<div class="w-1/2 max-w-[150px]">Email:</div>
+		<div class="w-1/2 max-w-[150px]">{m.account_email()}</div>
 		<div class="w-1/2 wrap-break-word">{profile.current.email}</div>
 	</div>
 	<hr />
 	<div class="flex flex-row py-3">
-		<div class="w-1/2 max-w-[150px]">Role:</div>
+		<div class="w-1/2 max-w-[150px]">{m.account_role()}</div>
 		<div class="w-1/2 wrap-break-word">
 			{getUserRoleLabel(profile.current.effectiveRole)}
 		</div>
@@ -98,9 +100,9 @@
 
 	<div class="flex flex-row items-center justify-between py-3">
 		<div class="flex flex-col gap-1">
-			<p>Display 24 Hour Format</p>
+			<p>{m.account_24h_format()}</p>
 			<span class="text-sm font-light opacity-70">
-				When enabled, time pickers and viewable times will be displayed in 24 hour format.
+				{m.account_24h_format_description()}
 			</span>
 		</div>
 		<Toggle
@@ -119,7 +121,7 @@
 					e.preventDefault();
 					toRevoke = !toRevoke;
 					dialog?.close();
-				}}>Log out all other sessions</button
+				}}>{m.account_log_out_other_sessions()}</button
 			>
 		{/if}
 		<button
@@ -128,14 +130,14 @@
 				e.preventDefault();
 				toDelete = !toDelete;
 				dialog?.close();
-			}}>Delete my account</button
+			}}>{m.account_delete_my_account()}</button
 		>
 	</div>
 </ResponsiveDialog>
 
 <Confirm
 	show={toRevoke}
-	msg="Are you sure you want to log out of all other sessions? This will sign you out of all other devices and browsers, except for this one."
+	msg={m.account_log_out_other_sessions_confirm()}
 	onsuccess={logoutAll}
 	oncancel={() => {
 		toRevoke = false;

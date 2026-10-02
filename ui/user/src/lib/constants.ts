@@ -97,12 +97,6 @@ export const MCP_PUBLISHER_ALL_OPTION = {
 	description: 'Include all MCP servers I have created in my registry'
 };
 
-export const ADMIN_AGENT_DISABLED_MESSAGE =
-	'Set up a model provider w/ default Language Model & Language Model (Fast) models to access this page.';
-
-export const USER_AGENT_DISABLED_MESSAGE =
-	'Agent is currently disabled. Contact your administrator to enable it.';
-
 /** Filter Constants  */
 export const PII_REDACT_TYPES = 'PII_REDACT_TYPES';
 export const PII_BLOCK_TYPES = 'PII_BLOCK_TYPES';

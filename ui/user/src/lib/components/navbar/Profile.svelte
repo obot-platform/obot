@@ -2,13 +2,11 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import LanguageSelect from '$lib/components/LanguageSelect.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import {
-		ADMIN_AGENT_DISABLED_MESSAGE,
-		SEEN_SPLASH_DIALOG_KEY,
-		USER_AGENT_DISABLED_MESSAGE
-	} from '$lib/constants';
+	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, Group, NanobotService, UserService } from '$lib/services';
 	import {
@@ -175,7 +173,7 @@
 
 <Menu
 	bind:this={menu}
-	title={profile.current.displayName || 'Anonymous'}
+	title={profile.current.displayName || m.common_anonymous()}
 	slide={responsive.isMobile ? 'left' : undefined}
 	fixed={responsive.isMobile}
 	classes={{
@@ -204,7 +202,7 @@
 				<ProfileIcon class="size-12" {impersonating} />
 				<div class="flex grow flex-col">
 					<span>
-						{profile.current.displayName || 'Anonymous'}
+						{profile.current.displayName || m.common_anonymous()}
 					</span>
 					<span class="text-muted-content text-sm">
 						{getUserRoleLabel(profile.current.effectiveRole)}
@@ -229,7 +227,8 @@
 			<div class="px-4">
 				<div class="notification-info text-xs">
 					<p class="flex items-center gap-1">
-						<HatGlasses class="size-3" /> You are in impersonation mode.
+						<HatGlasses class="size-3" />
+						{m.profile_impersonation_mode()}
 					</p>
 				</div>
 			</div>
@@ -244,7 +243,8 @@
 						showRestartAgentConfirm = true;
 					}}
 				>
-					<Power class="size-4" /> Restart Agent
+					<Power class="size-4" />
+					{m.profile_restart_agent()}
 				</button>
 			{/if}
 			{#if responsive.isMobile}
@@ -252,7 +252,7 @@
 					href="https://docs.obot.ai"
 					rel="external noopener noreferrer"
 					target="_blank"
-					class="dropdown-link"><Book class="size-4" />Docs</a
+					class="dropdown-link"><Book class="size-4" />{m.common_docs()}</a
 				>
 			{/if}
 			{#if !impersonating}
@@ -267,7 +267,8 @@
 						menu?.toggle(false);
 					}}
 				>
-					<Terminal class="size-4" /> Client Preference
+					<Terminal class="size-4" />
+					{m.profile_client_preference()}
 				</button>
 				<a
 					class="dropdown-link"
@@ -275,16 +276,21 @@
 					target="_blank"
 					rel="external noopener noreferrer"
 				>
-					<SquareTerminal class="size-4" /> Install Obot CLI
+					<SquareTerminal class="size-4" />
+					{m.profile_install_cli()}
 				</a>
+
+				<LanguageSelect />
 
 				{#if profile.current.isBootstrapUser?.()}
 					<button class="dropdown-link" onclick={handleBootstrapLogout}>
-						<LogOut class="size-4" /> Log out
+						<LogOut class="size-4" />
+						{m.profile_log_out()}
 					</button>
 				{:else}
 					<button class="dropdown-link" onclick={handleLogout}>
-						<LogOut class="size-4" /> Log out
+						<LogOut class="size-4" />
+						{m.profile_log_out()}
 					</button>
 				{/if}
 			{/if}
@@ -299,20 +305,22 @@
 						}}
 					>
 						<span class="flex items-center gap-2">
-							<BotMessageSquare class="size-4" /> Launch Obot Chat
-							<span class="badge badge-warning badge-xs">Deprecated</span>
+							<BotMessageSquare class="size-4" />
+							{m.profile_launch_chat()}
+							<span class="badge badge-warning badge-xs">{m.common_deprecated()}</span>
 						</span>
 					</button>
 				{:else}
 					<div class="dropdown-link cursor-default hover:bg-transparent dark:hover:bg-transparent">
 						<span class="flex items-center gap-2 opacity-50">
-							<BotMessageSquare class="size-4" /> Launch Obot Chat
-							<span class="badge badge-warning badge-xs">Deprecated</span>
+							<BotMessageSquare class="size-4" />
+							{m.profile_launch_chat()}
+							<span class="badge badge-warning badge-xs">{m.common_deprecated()}</span>
 						</span>
 						<InfoTooltip
 							text={profile.current.isAdmin?.()
-								? ADMIN_AGENT_DISABLED_MESSAGE
-								: USER_AGENT_DISABLED_MESSAGE}
+								? m.profile_agent_disabled_admin()
+								: m.profile_agent_disabled_user()}
 							icon={LockOpen}
 						/>
 					</div>
@@ -328,7 +336,8 @@
 					rel="external"
 					class="dropdown-link"
 				>
-					<LayoutDashboard class="size-4" /> App Platform
+					<LayoutDashboard class="size-4" />
+					{m.profile_app_platform()}
 				</a>
 			{/if}
 			{#if version.current.obot}
@@ -336,13 +345,14 @@
 					<div class="text-base-content flex items-center gap-1 p-1 text-[11px]">
 						<CircleFadingArrowUp class="text-primary size-4 shrink-0" />
 						<p>
-							Upgrade Available. <br /> Check out the
+							{m.profile_upgrade_available()} <br />
+							{m.profile_check_out_the()}
 							<a
 								rel="external noopener noreferrer"
 								target="_blank"
 								class="text-link"
 								href="https://github.com/obot-platform/obot/releases/latest"
-								>latest release notes.</a
+								>{m.profile_latest_release_notes()}</a
 							>
 						</p>
 					</div>
@@ -358,7 +368,7 @@
 							{/if}
 						{/if}
 						<button
-							use:tooltip={{ disablePortal: true, text: 'Versions' }}
+							use:tooltip={{ disablePortal: true, text: m.profile_versions() }}
 							onclick={() => {
 								versionDialog?.showModal();
 							}}
@@ -383,7 +393,7 @@
 				<X class="size-4" />
 			</IconButton>
 		</div>
-		<h4 class="mb-4 text-base font-semibold">Version Information</h4>
+		<h4 class="mb-4 text-base font-semibold">{m.profile_version_information()}</h4>
 		<div class="flex flex-col gap-1 text-xs">
 			{#each Object.entries(version.current) as [key, value] (key)}
 				{@const canDisplay = typeof value === 'string' && value && key !== 'sessionStore'}
@@ -406,15 +416,19 @@
 	<form class="dialog-backdrop">
 		<button
 			type="button"
-			aria-label="Close dialog"
+			aria-label={m.common_close_dialog()}
 			onclick={() => {
 				versionDialog?.close();
-			}}>close</button
+			}}>{m.common_close()}</button
 		>
 	</form>
 </dialog>
 
-<ResponsiveDialog bind:this={setPreferredClientsDialog} title="Client Preference" class="md:w-sm">
+<ResponsiveDialog
+	bind:this={setPreferredClientsDialog}
+	title={m.profile_client_preference()}
+	class="md:w-sm"
+>
 	<fieldset class="flex flex-col gap-2">
 		<label
 			class={twMerge(
@@ -423,7 +437,7 @@
 			)}
 		>
 			<div class="flex items-center gap-2">
-				<span>No Preference</span>
+				<span>{m.profile_no_preference()}</span>
 			</div>
 			<div class="flex items-center gap-2">
 				<input
@@ -474,7 +488,7 @@
 	</fieldset>
 	<div class="flex justify-end pt-4 gap-2">
 		<button class="btn btn-secondary btn-sm" onclick={() => setPreferredClientsDialog?.close()}>
-			Cancel
+			{m.common_cancel()}
 		</button>
 		<button
 			class="btn btn-primary btn-sm"
@@ -484,7 +498,7 @@
 				selectedClients = [];
 			}}
 		>
-			Apply
+			{m.common_apply()}
 		</button>
 	</div>
 </ResponsiveDialog>
@@ -494,17 +508,16 @@
 	onsuccess={handleRestartAgent}
 	oncancel={() => (showRestartAgentConfirm = false)}
 	loading={restartingAgent}
-	title="Restart Agent"
-	msg="Are you sure you want to restart this agent?"
+	title={m.profile_restart_agent()}
+	msg={m.profile_restart_agent_confirm()}
 	type="info"
 >
 	{#snippet note()}
-		This will restart the current agent with the latest available version. Are you sure you want to
-		continue?
+		{m.profile_restart_agent_note()}
 	{/snippet}
 </Confirm>
 
-<PageLoading show={loadingChat} text="Loading chat..." />
+<PageLoading show={loadingChat} text={m.profile_loading_chat()} />
 
 <style lang="postcss">
 	.dark-selected::after {

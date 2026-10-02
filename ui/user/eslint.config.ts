@@ -38,7 +38,7 @@ export default tseslint.config(
 		}
 	},
 	{
-		ignores: ['build/', 'build-node/', '.svelte-kit/', 'dist/', 'static/']
+		ignores: ['build/', 'build-node/', '.svelte-kit/', 'dist/', 'static/', 'src/lib/paraglide/']
 	},
 	{
 		rules: {
