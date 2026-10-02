@@ -45,7 +45,7 @@ export const COMMON_AI_CLIENTS = [
 		id: AiClient.OpenCode,
 		icon: '/user/images/assistant/opencode-mark.svg',
 		iconDark: '/user/images/assistant/opencode-mark-dark.svg',
-		alt: 'Open Code'
+		alt: 'OpenCode'
 	},
 	{
 		id: AiClient.Hermes,

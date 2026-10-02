@@ -165,7 +165,7 @@ export type AuditLogDetails = {
 	network?: { clientIP?: string };
 	client?: { name?: string; version?: string; userAgent?: string };
 	agent?: {
-		provider?: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
+		provider?: 'claude_code' | 'codex' | 'vscode' | 'cursor' | 'workbuddy' | 'zcode' | 'opencode' | string;
 		version?: string;
 		cliName?: string;
 		cliVersion?: string;

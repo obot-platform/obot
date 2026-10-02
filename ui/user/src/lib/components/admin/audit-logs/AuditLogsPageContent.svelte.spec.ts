@@ -1,4 +1,5 @@
 import { page as appPage } from '$app/state';
+import { goto } from '$lib/url';
 import { preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
 import AuditLogsPageContent from './AuditLogsPageContent.svelte';
@@ -7,7 +8,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-function mockAuditLogApis() {
+vi.mock('$lib/url', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/url')>();
+	return {
+		...actual,
+		goto: vi.fn()
+	};
+});
+
+function mockAuditLogApis(filterOptions: Record<string, string[]> = {}) {
 	const requests = {
 		auditLogs: undefined as string | undefined,
 		filterOptions: [] as string[]
@@ -18,17 +27,20 @@ function mockAuditLogApis() {
 			requests.auditLogs = request.url;
 			return HttpResponse.json({ items: [], total: 0 });
 		}),
-		http.get('/api/mcp-audit-logs/filter-options/:filter', ({ request }) => {
+		http.get('/api/mcp-audit-logs/filter-options/:filter', ({ request, params }) => {
 			requests.filterOptions.push(request.url);
-			return HttpResponse.json({ options: [] });
+			return HttpResponse.json({ options: filterOptions[String(params.filter)] ?? [] });
 		})
 	);
 
 	return requests;
 }
 
-async function renderAuditLogs(props: Record<string, unknown> = {}) {
-	const requests = mockAuditLogApis();
+async function renderAuditLogs(
+	props: Record<string, unknown> = {},
+	filterOptions: Record<string, string[]> = {}
+) {
+	const requests = mockAuditLogApis(filterOptions);
 	await preparePageData();
 	render(AuditLogsPageContent, props);
 	return requests;
@@ -49,6 +61,8 @@ afterEach(() => {
 	appPage.url.searchParams.delete('mcp_server_display_name');
 	appPage.url.searchParams.delete('mcp_server');
 	appPage.url.searchParams.delete('operation');
+	appPage.url.searchParams.delete('client');
+	vi.mocked(goto).mockClear();
 	vi.restoreAllMocks();
 });
 
@@ -105,6 +119,28 @@ describe('AuditLogsPageContent server scoping', () => {
 		const requests = await renderAuditLogs({ mcpId: 'prop-server' });
 
 		expect((await auditLogParams(requests)).get('mcp_id')).toBe('prop-server');
+	});
+});
+
+describe('AuditLogsPageContent unified client filters', () => {
+	it('keeps colliding raw client IDs visible and submits the selected ID', async () => {
+		await renderAuditLogs({}, { client: ['claude-code', 'claude_code'] });
+		await page.getByRole('button', { name: 'Filters' }).click();
+		await page.getByCSS('#filter-client').click();
+
+		await expect
+			.element(page.getByText('claude-code · Claude Code', { exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('claude_code · Claude Code', { exact: true }))
+			.toBeVisible();
+
+		await page.getByText('claude_code · Claude Code', { exact: true }).click();
+		await page.getByRole('button', { name: 'Apply Filters' }).click();
+
+		await vi.waitFor(() => expect(vi.mocked(goto)).toHaveBeenCalled());
+		const target = vi.mocked(goto).mock.calls.at(-1)?.[0] as URL;
+		expect(target.searchParams.get('client')).toBe('claude_code');
 	});
 });
 

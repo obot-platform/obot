@@ -7,7 +7,7 @@ slug: /
 
 Obot is an open-source platform for organizations to manage, secure, and govern their AI ecosystems. It provides shared infrastructure for connecting AI clients to models and tools, distributing approved MCP servers and skills, managing agent access and credentials, running hosted AI workloads, and recording activity across hosted services and user devices.
 
-Obot does not require an organization to standardize on a single AI client, model provider, or tool ecosystem. Desktop agents and tools such as Claude Code, Codex, Cursor, VS Code, and other IDEs and CLIs can use the parts of the platform that apply to them.
+Obot does not require an organization to standardize on a single AI client, model provider, or tool ecosystem. Desktop agents and tools such as Claude Code, Codex, Cursor, VS Code, WorkBuddy, OpenCode, ZCode, and other IDEs and CLIs can use the parts of the platform that apply to them.
 
 ## Architecture
 
@@ -83,7 +83,9 @@ The [Obot CLI](installation/cli-setup.md) brings approved MCP servers and skills
 
 - Enroll devices with the Obot Platform.
 - Inventory installed AI clients, MCP servers, skills, and plugins.
-- Install hooks for Claude Code, Codex, Cursor, and VS Code.
+- Install hooks for Claude Code, Codex, Cursor, VS Code, and WorkBuddy.
+- Record OpenCode tool calls and opt-in V2 enforcement through the companion OpenCode plugin.
+- Record ZCode tool calls and `PreToolUse` enforcement through the ZCode plugin.
 - Record local tool calls alongside activity passing through Obot gateways.
 - Support monitoring and enforcement policies for AI activity on managed devices.
 - Install manually or deploy through MDMs such as Microsoft Intune.

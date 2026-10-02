@@ -13,6 +13,7 @@
 		sourceTypeLabels,
 		sourceTypesFromEventTypeParam
 	} from '$lib/components/admin/audit-log-exports/filterFields';
+	import { auditClientFilterLabel, localAgentProviderLabel } from '$lib/enforcement';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
@@ -368,6 +369,10 @@
 			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
 		const sameLabel = (d: AuditLogFilterOption) =>
 			toAuditLogFilterSelectOption(d, resolveUserDisplayName);
+		const agentProviderLabel = (d: AuditLogFilterOption) => {
+			const option = sameLabel(d);
+			return { ...option, label: localAgentProviderLabel(option.id) };
+		};
 		if (logType === 'llm') {
 			return [
 				{
@@ -488,7 +493,10 @@
 				filterKey: 'client',
 				label: 'Clients',
 				description: 'MCP clients and local-agent providers',
-				options: filtersOptions['client']?.map?.(sameLabel) ?? []
+				options: filtersOptions['client']?.map?.((option) => {
+					const normalized = toAuditLogFilterSelectOption(option, resolveUserDisplayName);
+					return { ...normalized, label: auditClientFilterLabel(normalized.id) };
+				}) ?? []
 			},
 			// API-key attribution is shared by every audit-log source.
 			{
@@ -504,7 +512,7 @@
 				filterKey: 'agent_provider',
 				label: 'Agent Providers',
 				description: 'Local-agent providers',
-				options: filtersOptions['agent_provider']?.map?.(sameLabel) ?? []
+				options: filtersOptions['agent_provider']?.map?.(agentProviderLabel) ?? []
 			},
 			{
 				fieldId: 'status',

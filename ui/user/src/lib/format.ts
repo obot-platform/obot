@@ -1,3 +1,4 @@
+import { localAgentProviderLabel } from './enforcement';
 import type { FileTimeResult } from './services/nanobot/types';
 import type { TimeDisplayFormat } from './time';
 
@@ -133,10 +134,38 @@ export const deriveDeviceScope = (projectPath?: string): string => {
 export const MULTI_CLIENT_NAME = 'multi';
 export const AGENTS_HOME_CLIENT_LABEL = '~/.agents';
 
+const DEVICE_CLIENT_FILTER_ALIASES: Record<string, string> = {
+	'claude code': 'claude-code',
+	claude_code: 'claude-code',
+	'claude-code': 'claude-code',
+	'visual studio code': 'vscode',
+	'vs code': 'vscode',
+	vscode: 'vscode',
+	'open code': 'opencode',
+	'open-code': 'opencode',
+	opencode: 'opencode',
+	'work buddy': 'workbuddy',
+	workbuddy: 'workbuddy',
+	zcode: 'zcode'
+};
+
+/**
+ * Convert a visible branded client name back to the raw value used by the
+ * inventory API. The search field intentionally accepts both forms; URLs and
+ * row identity must continue to use the original raw client ID.
+ */
+export const canonicalDeviceClientNameFilter = (name?: string): string => {
+	const trimmed = name?.trim() ?? '';
+	if (!trimmed) return '';
+	return DEVICE_CLIENT_FILTER_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+};
+
+// Display-only formatter. Keep the original client value for API filters and
+// inventory URLs; several callers use this value beside a raw client ID.
 export const formatDeviceClient = (client?: string, projectPath?: string): string => {
 	if (!client) return '—';
 	if (client.trim() === MULTI_CLIENT_NAME && isAgentsHomeProjectPath(projectPath)) {
 		return AGENTS_HOME_CLIENT_LABEL;
 	}
-	return client;
+	return localAgentProviderLabel(client);
 };

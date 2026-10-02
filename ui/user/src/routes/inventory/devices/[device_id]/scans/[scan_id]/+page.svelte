@@ -111,16 +111,19 @@
 
 	type MCPRow = DeviceScanMCPServer & {
 		id: number;
+		clientID: string;
 		scope: string;
 		endpoint: string;
 	};
 	type SkillRow = DeviceScanSkill & {
 		id: number;
+		clientID: string;
 		scope: string;
 		files_count: number;
 	};
 	type PluginRow = DeviceScanPlugin & {
 		id: number;
+		clientID: string;
 		scope: string;
 		capabilities: string;
 	};
@@ -133,6 +136,7 @@
 	let mcpRows = $derived<MCPRow[]>(
 		mcpServers.map((m) => ({
 			...m,
+			clientID: m.client ?? '',
 			client: formatDeviceClient(m.client, m.projectPath),
 			scope: deriveDeviceScope(m.projectPath),
 			endpoint: m.transport === 'stdio' ? formatDeviceCommand(m.command, m.args) : m.url || '—'
@@ -142,6 +146,7 @@
 	let skillRows = $derived<SkillRow[]>(
 		skills.map((s) => ({
 			...s,
+			clientID: s.client ?? '',
 			client: formatDeviceClient(s.client, s.projectPath),
 			scope: deriveDeviceScope(s.projectPath),
 			files_count: (s.files ?? []).length
@@ -151,6 +156,7 @@
 	let pluginRows = $derived<PluginRow[]>(
 		plugins.map((p) => ({
 			...p,
+			clientID: p.client ?? '',
 			client: formatDeviceClient(p.client, p.projectPath),
 			scope: deriveDeviceScope(p.projectPath),
 			capabilities: capabilitySummary(p)
@@ -351,7 +357,7 @@
 						>
 							{#snippet onRenderColumn(property, d: MCPRow)}
 								{#if property === 'client'}
-									{@render clientLink(d.client)}
+									{@render clientLink(d.client, d.clientID)}
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
 								{/if}
@@ -389,7 +395,7 @@
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
 								{:else if property === 'client'}
-									{@render clientLink(d.client)}
+									{@render clientLink(d.client, d.clientID)}
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -434,7 +440,7 @@
 								{#if property === 'enabled'}
 									{d.enabled ? 'yes' : 'no'}
 								{:else if property === 'client'}
-									{@render clientLink(d.client)}
+									{@render clientLink(d.client, d.clientID)}
 								{:else}
 									{d[property as keyof PluginRow] ?? '—'}
 								{/if}
@@ -468,7 +474,11 @@
 							filterable={['name']}
 						>
 							{#snippet onRenderColumn(property, d: ClientRow)}
-								{d[property as keyof ClientRow] ?? '—'}
+								{#if property === 'name'}
+									{formatDeviceClient(d.name)}
+								{:else}
+									{d[property as keyof ClientRow] ?? '—'}
+								{/if}
 							{/snippet}
 						</Table>
 					{/if}
@@ -492,11 +502,11 @@
 	}}
 />
 
-{#snippet clientLink(client?: string)}
-	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
+{#snippet clientLink(client?: string, clientID?: string)}
+	{#if clientID && clientID.trim() !== 'multi' && clientID !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`/inventory/clients/${encodeURIComponent(client)}`)}
+			href={resolve(`/inventory/clients/${encodeURIComponent(clientID)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

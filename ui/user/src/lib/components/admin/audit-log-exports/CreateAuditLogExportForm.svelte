@@ -15,6 +15,7 @@
 		sourceTypesFromEventTypeParam
 	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import { auditClientFilterLabel, localAgentProviderLabel } from '$lib/enforcement';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
@@ -112,7 +113,8 @@
 			{
 				filterKey: 'client',
 				title: 'Clients',
-				description: 'MCP clients and local-agent providers'
+				description: 'MCP clients and local-agent providers',
+				getOptionLabel: auditClientFilterLabel
 			},
 			// API-key attribution is shared by every audit-log source.
 			{
@@ -180,7 +182,8 @@
 			{
 				filterKey: 'agent_provider',
 				title: 'Agent Providers',
-				description: 'List of local-agent providers'
+				description: 'List of local-agent providers',
+				getOptionLabel: localAgentProviderLabel
 			},
 			{
 				filterKey: 'status',

@@ -135,6 +135,23 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 		t.Fatalf("expected valid local-agent log, got error: %v", err)
 	}
 
+	for _, provider := range []types2.LocalAgentProvider{
+		types2.LocalAgentProviderClaudeCode,
+		types2.LocalAgentProviderCodex,
+		types2.LocalAgentProviderVSCode,
+		types2.LocalAgentProviderCursor,
+		types2.LocalAgentProviderWorkBuddy,
+		types2.LocalAgentProviderOpenCode,
+		types2.LocalAgentProviderZCode,
+	} {
+		accepted := valid
+		accepted.AgentProvider = provider
+		log.LocalAgentToolCallFields = &accepted
+		if err := log.ValidateSourceFields(); err != nil {
+			t.Errorf("provider %q was rejected: %v", provider, err)
+		}
+	}
+
 	invalid := valid
 	invalid.IdempotencyKey = ""
 	log.LocalAgentToolCallFields = &invalid

@@ -79,7 +79,7 @@ Use **Check for updates** to pick up new Obot Sentry releases. If an Update avai
 
 ## Tool call enforcement
 
-Tool call enforcement controls which tool calls Claude Code, Codex, and Cursor may run on enrolled devices. Before a supported client runs a tool, Obot Sentry checks it against the allowlist for the device configuration. A call runs only when an allow rule matches it.
+Tool call enforcement controls which tool calls Claude Code, Codex, Cursor, and WorkBuddy may run on enrolled devices. Before a supported client runs a tool, Obot Sentry checks it against the allowlist for the device configuration. A call runs only when an allow rule matches it.
 
 :::warning Experimental feature
 Tool call enforcement is experimental and is not recommended for production use. Test the policy on non-production devices first. An incomplete allowlist or an unavailable Obot server can block users' work.
@@ -98,6 +98,10 @@ Local tool call auditing for Visual Studio Code continues to work, but Visual St
 Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
 Doing this will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
 :::
+
+WorkBuddy hooks are installed in the active user's `~/.workbuddy/settings.json`.
+Restart WorkBuddy after a hook installation so existing sessions pick up the managed
+configuration.
 
 ### Configure enforcement
 
@@ -249,10 +253,30 @@ Device scans detect and inventory these local AI clients:
 | OpenClaw | Client presence |
 | OpenCode | Client presence, MCP servers, skills, plugins |
 | VS Code | Client presence, MCP servers |
+| WorkBuddy | Client presence, MCP servers |
 | Windsurf | Client presence, MCP servers, skills |
+| ZCode | Client presence, MCP servers, skills, plugins |
 | Zed | Client presence, MCP servers |
 
-Project-scoped configuration is found by walking the user's home directory. Global client configuration is read directly from each client's known config location. Skills are detected from known skill directories, nested plugin skills, and `SKILL.md` files found during the project crawl.
+Project-scoped configuration is found by walking the user's home directory. Global client configuration is read directly from each client's known config location. WorkBuddy inventory includes its user-level `~/.workbuddy/.mcp.json`, legacy user-level alternatives, project-local entries in the user file's `projects` map, and the standard project `.mcp.json` file. ZCode inventory reads `~/.zcode/cli/config.json`, `.zcode/config.json`/`zcode.json`, the `.agents/mcp.json` fallback, ZCode skills, and installed Plugin MCP declarations. Skills are detected from known skill directories, nested plugin skills, and `SKILL.md` files found during the project crawl.
+
+OpenCode audit and V2 enforcement use the companion OpenCode plugin included in
+the Obot Sentry release bundle at `opencode/obot-sentry-audit.js`. It is an
+explicit user-installed plugin; Sentry does not modify OpenCode's global plugin
+directory automatically. The plugin translates OpenCode 1.x and V2 tool events
+into the provider-neutral local-agent audit format. V1 cannot observe a tool
+that rejects before its after hook; V2 reports those failures through its error
+event. V2 enforcement is opt-in through the plugin's `permission.evaluate`
+bridge, remains deny-only, and fails closed when a target cannot be resolved.
+
+ZCode audit and enforcement use the platform-specific ZCode personal marketplace
+archive included in the Obot Sentry release bundle. The archive contains the
+standard `hooks/hooks.json` and invokes the installed Sentry binary directly;
+it does not require Node.js or modify `~/.zcode/cli/config.json`. `PreToolUse`
+is synchronous and fail-closed, while `PostToolUse` and
+`PostToolUseFailure` enqueue asynchronous, fail-open audit events. ZCode 3.14+
+must be installed separately and the plugin must be explicitly enabled in the
+ZCode plugin manager.
 
 ## What scans include
 

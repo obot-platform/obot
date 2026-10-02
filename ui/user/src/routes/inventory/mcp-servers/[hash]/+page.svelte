@@ -5,6 +5,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { formatDeviceClient } from '$lib/format.js';
 	import {
 		AdminService,
 		type DeviceMCPServerOccurrence,
@@ -176,6 +177,8 @@
 							>
 								{d.shortDeviceID}
 							</a>
+						{:else if property === 'client'}
+							{formatDeviceClient(d.client)}
 						{:else}
 							{d[property as keyof Row]}
 						{/if}
