@@ -1,8 +1,10 @@
+import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
+import { page } from 'vitest/browser';
 import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { worker } from '../../../tests/mocks/worker';
 import McpOauth from './McpOauth.svelte';
 import { HttpResponse, http } from 'msw';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
 it.each([
@@ -44,3 +46,24 @@ it.each([
 		await expect.poll(() => requestedPaths).toEqual([path]);
 	}
 );
+
+it('uses CLI login and retries listing tools without requesting a browser OAuth URL', async () => {
+	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/deployed-server';
+	entry.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
+	const oauthRequest = vi.fn();
+	worker.use(
+		http.get('*/api/*/oauth-url', () => {
+			oauthRequest();
+			return HttpResponse.json({ oauthURL: 'https://auth.example/authorize' });
+		})
+	);
+	const onAuthenticate = vi.fn();
+	await render(McpOauth, { entry, onAuthenticate });
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${entry.connectURL}'`);
+	await page.getByRole('button', { name: 'Retry', exact: true }).click();
+	expect(onAuthenticate).toHaveBeenCalledOnce();
+	expect(oauthRequest).not.toHaveBeenCalled();
+});

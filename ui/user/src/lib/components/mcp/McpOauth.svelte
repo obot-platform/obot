@@ -8,6 +8,8 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
+	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
+	import McpLogin from './McpLogin.svelte';
 	import { Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -21,6 +23,7 @@
 	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 	let { onAuthenticate, error = $bindable(), entry, text }: Props = $props();
 
+	let localhostCallback = $derived(Boolean(entry.manifest.remoteConfig?.localhostCallbackEnabled));
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
 	let loading = $state(false);
@@ -92,7 +95,7 @@
 	}
 
 	onMount(() => {
-		loadOauthURL();
+		if (!localhostCallback) loadOauthURL();
 
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -100,7 +103,15 @@
 	});
 </script>
 
-{#if oauthURL}
+{#if localhostCallback && entry.connectURL}
+	<div class="notification-info flex flex-col gap-3 p-3">
+		<McpLogin
+			url={entry.connectURL}
+			callbackPaths={getLocalhostCallbackPaths(entry.manifest.remoteConfig)}
+		/>
+		<button type="button" class="btn btn-primary self-start" onclick={onAuthenticate}>Retry</button>
+	</div>
+{:else if oauthURL}
 	<div class="notification-info flex w-full flex-row justify-between p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
 			<Info class="size-6 shrink-0" />

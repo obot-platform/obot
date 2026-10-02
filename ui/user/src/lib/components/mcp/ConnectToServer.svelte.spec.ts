@@ -109,3 +109,27 @@ it('passes the catalog callback path to client installation', async () => {
 		'/custom/callback'
 	]);
 });
+
+it('shows CLI login when a deployed localhost server needs authentication', async () => {
+	await preparePageData();
+	const server = structuredClone(fixtures.serverSingle);
+	server.connectURL = 'https://obot.example/mcp-connect/deployed';
+	server.manifest.remoteConfig = {
+		url: 'https://mcp.example.com',
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const onConnect = vi.fn();
+	const result = await render(ConnectToServer, { onConnect });
+	await result.component.authenticate(server);
+	await expect
+		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
+		.toHaveTextContent(
+			`obot mcp login --url '${server.connectURL}' --callback-path '/custom/callback'`
+		);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	expect(onConnect).toHaveBeenCalledOnce();
+});

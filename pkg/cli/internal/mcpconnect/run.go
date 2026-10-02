@@ -17,6 +17,15 @@ import (
 )
 
 func Run(ctx context.Context, connectURL string, callbackPaths ...string) error {
+	return run(ctx, connectURL, false, callbackPaths...)
+}
+
+// Login completes authentication without starting a STDIO bridge.
+func Login(ctx context.Context, connectURL string, callbackPaths ...string) error {
+	return run(ctx, connectURL, true, callbackPaths...)
+}
+
+func run(ctx context.Context, connectURL string, loginOnly bool, callbackPaths ...string) error {
 	gateway, err := gatewayBaseURL(connectURL)
 	if err != nil {
 		return err
@@ -62,6 +71,19 @@ func Run(ctx context.Context, connectURL string, callbackPaths ...string) error 
 	}
 	if err := authenticate(ctx, connectURL, handler, &http.Client{Timeout: 30 * time.Second}); err != nil {
 		return err
+	}
+	if loginOnly {
+		client := gomcp.NewClient(&gomcp.Implementation{Name: "Obot CLI", Version: "1.0.0"}, nil)
+		session, err := client.Connect(ctx, &gomcp.StreamableClientTransport{
+			Endpoint:             connectURL,
+			HTTPClient:           &http.Client{Transport: &protocolTransport{base: http.DefaultTransport}},
+			OAuthHandler:         handler,
+			DisableStandaloneSSE: true,
+		}, nil)
+		if err != nil {
+			return fmt.Errorf("verify MCP login: %w", err)
+		}
+		return session.Close()
 	}
 	local, err := (&gomcp.StdioTransport{}).Connect(ctx)
 	if err != nil {

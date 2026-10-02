@@ -3,10 +3,12 @@
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { m } from '$lib/i18n';
 	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
+	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
 	import { version } from '$lib/stores';
 	import { Server, ArrowLeft } from '@lucide/svelte';
 	import type { Component } from 'svelte';
@@ -79,7 +81,15 @@
 			{/snippet}
 
 			{#snippet reauthenticationAction()}
-				{#if data.vmcpID}
+				{#if data.server.manifest.remoteConfig?.localhostCallbackEnabled && data.server.connectURL}
+					<McpLogin
+						url={data.server.connectURL}
+						callbackPaths={getLocalhostCallbackPaths(data.server.manifest.remoteConfig)}
+					/>
+					<button type="button" class="btn btn-primary btn-sm mt-3" onclick={authenticationComplete}
+						>Retry connection</button
+					>
+				{:else if data.vmcpID}
 					<button
 						type="button"
 						class="btn btn-primary btn-sm"

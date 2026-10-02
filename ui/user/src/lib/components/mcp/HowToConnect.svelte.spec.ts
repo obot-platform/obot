@@ -107,3 +107,12 @@ it('includes custom callback paths in install links, commands, and JSON', async 
 			)
 		);
 });
+
+it('shows CLI login in Preconfigure for localhost OAuth', async () => {
+	await preparePageData();
+	await render(HowToConnect, { id: 'local', displayName: 'Local', url, localhostCallback: true });
+	await expect.element(page.getByText('Preconfigure', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${url}'`);
+});

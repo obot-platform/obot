@@ -1153,3 +1153,26 @@ describe('MCP Tester page', () => {
 			.not.toBeInTheDocument();
 	});
 });
+
+it('shows CLI login and retries a localhost server in the inspector', async () => {
+	appPage.url.searchParams.delete('tab');
+	mockMCPInitializationFailure(401);
+	const server = structuredClone(fixtures.serverSingle);
+	server.configured = true;
+	server.deploymentStatus = 'Available';
+	server.connectURL = `https://obot.example/mcp-connect/${server.id}`;
+	server.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
+	const data = await preparePageData<PageData>({
+		server,
+		backTarget: `/mcp-servers/s/${server.id}`
+	});
+	await render(TesterPage, { data });
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${server.connectURL}'`);
+	mockMCPInitialization();
+	await page.getByRole('button', { name: 'Retry connection' }).click();
+	await expect
+		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+		.not.toBeInTheDocument();
+});

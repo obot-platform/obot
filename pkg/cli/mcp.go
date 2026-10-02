@@ -70,6 +70,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPConnect{}))
+	c.AddCommand(cmd.Command(&MCPLogin{}))
 	c.AddCommand(cmd.Command(&MCPValidateCatalog{}))
 	c.AddCommand(cmd.Command(&MCPConvertCatalog{}))
 	c.AddCommand(cmd.Command(&MCPGenerateVMCPCatalog{root: m.root}))

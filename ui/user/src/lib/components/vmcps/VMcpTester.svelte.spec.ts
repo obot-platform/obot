@@ -328,3 +328,22 @@ describe('VMcpTester', () => {
 		}
 	);
 });
+
+it('shows CLI login and retries the inspector for localhost OAuth', async () => {
+	const target = createConfigurableVMcp();
+	target.localhostCallbackPaths = ['/custom/callback'];
+	await renderVMcpTester(
+		{},
+		{ vmcp: target, instance: createInstance({ configured: true }), connectFailureStatus: 401 }
+	);
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(
+			`obot mcp login --url '${window.location.origin}/mcp-connect/vmcp-1' --callback-path '/custom/callback'`
+		);
+	mockMCPInitialization('vmcpi-1');
+	await page.getByRole('button', { name: 'Retry connection' }).click();
+	await expect
+		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+		.not.toBeInTheDocument();
+});

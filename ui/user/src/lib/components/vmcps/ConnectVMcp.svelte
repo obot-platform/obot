@@ -8,6 +8,7 @@
 		type CompositeLaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
@@ -358,7 +359,7 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
+			oauthURL = localhostCallback ? '' : await getOauthURL();
 			if (!oauthURL) {
 				oauthDialog?.close();
 				finishLaunch();
@@ -374,12 +375,12 @@
 
 	async function verifyOauthOrConnect() {
 		oauthVerifying = false;
-		oauthURL = await getOauthURL();
+		oauthURL = localhostCallback ? '' : await getOauthURL();
 		launchProgress = 100;
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 		launchState = undefined;
 		launchProgress = 0;
-		if (oauthURL) {
+		if (localhostCallback || oauthURL) {
 			closeConfigureWithoutDismissing();
 			oauthDialog?.showModal();
 		} else {
@@ -397,8 +398,8 @@
 		if (!vmcp) return;
 		ensureOauthVisibilityListener();
 		oauthVerifying = false;
-		oauthURL = await getOauthURL();
-		if (oauthURL) {
+		oauthURL = localhostCallback ? '' : await getOauthURL();
+		if (localhostCallback || oauthURL) {
 			oauthDialog?.showModal();
 		} else {
 			finishLaunch();
@@ -496,25 +497,25 @@
 
 	{#if connectURL}
 		{#if !localhostCallback}
-		<div id="connection-url-container" class="flex items-end gap-2 md:p-0 pb-0 p-4">
-			<div class="min-w-0 grow">
-				<CopyField
-					bind:this={connectionUrlField}
-					value={connectURL}
-					id="connectURL"
-					label={m.vmcps_connection_url()}
-				/>
+			<div id="connection-url-container" class="flex items-end gap-2 md:p-0 pb-0 p-4">
+				<div class="min-w-0 grow">
+					<CopyField
+						bind:this={connectionUrlField}
+						value={connectURL}
+						id="connectURL"
+						label={m.vmcps_connection_url()}
+					/>
+				</div>
+				<button
+					type="button"
+					aria-label={m.vmcps_test_vmcp()}
+					class="btn btn-primary"
+					onclick={handleTest}
+				>
+					<MessageCircle class="size-4" />
+					{m.vmcps_test_vmcp()}
+				</button>
 			</div>
-			<button
-				type="button"
-				aria-label={m.vmcps_test_vmcp()}
-				class="btn btn-primary"
-				onclick={handleTest}
-			>
-				<MessageCircle class="size-4" />
-				{m.vmcps_test_vmcp()}
-			</button>
-		</div>
 		{/if}
 		<HowToConnect
 			{localhostCallback}
@@ -682,7 +683,7 @@
 <dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
-			{#if oauthURL}
+			{#if localhostCallback || oauthURL}
 				<div class="absolute top-2 right-2">
 					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
@@ -699,23 +700,31 @@
 					{m.vmcps_oauth_required_named({ name: displayName })}
 				</p>
 
-				<p>{m.vmcps_click_link_to_authenticate()}</p>
+				{#if localhostCallback}
+					<McpLogin
+						url={connectURL || ''}
+						callbackPaths={vmcp ? vmcpLocalhostCallbackPaths(vmcp) : []}
+					/>
+					<button type="button" class="btn btn-primary" onclick={handleOauthClose}>Continue</button>
+				{:else}
+					<p>{m.vmcps_click_link_to_authenticate()}</p>
 
-				<a
-					href={oauthURL}
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="btn btn-primary text-center text-sm outline-none"
-					onclick={() => {
-						oauthVerifying = true;
-					}}
-				>
-					{#if oauthVerifying}
-						{m.vmcps_authenticating()}
-					{:else}
-						{m.vmcps_authenticate()}
-					{/if}
-				</a>
+					<a
+						href={oauthURL}
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="btn btn-primary text-center text-sm outline-none"
+						onclick={() => {
+							oauthVerifying = true;
+						}}
+					>
+						{#if oauthVerifying}
+							{m.vmcps_authenticating()}
+						{:else}
+							{m.vmcps_authenticate()}
+						{/if}
+					</a>
+				{/if}
 			{/if}
 		</div>
 	</div>

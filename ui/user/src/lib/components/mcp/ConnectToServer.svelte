@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import {
@@ -214,6 +215,20 @@
 		notifyConnected(skipOnConnect);
 	}
 
+	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
+		connectCompletion = undefined;
+		server = item;
+		entry = parentEntry;
+		instance = undefined;
+		oauthVerifying = false;
+		oauthURL = localhostCallback ? '' : await getOauthURL();
+		if (localhostCallback || oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
+		}
+	}
+
 	function getUniqueAlias(serverName: string): string | undefined {
 		const nameLower = serverName.toLowerCase();
 
@@ -416,7 +431,7 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
+			oauthURL = localhostCallback ? '' : await getOauthURL();
 			if (!oauthURL) {
 				oauthDialog?.close();
 				handleConnect();
@@ -432,13 +447,13 @@
 
 	async function verifyOauthOrConnect() {
 		oauthVerifying = false; // reset
-		oauthURL = await getOauthURL();
+		oauthURL = localhostCallback ? '' : await getOauthURL();
 		launchProgress = 100;
 
 		setTimeout(() => {
 			launchState = undefined;
 			launchProgress = 0;
-			if (oauthURL) {
+			if (localhostCallback || oauthURL) {
 				configDialog?.close();
 				oauthDialog?.showModal();
 			} else {
@@ -659,8 +674,8 @@
 	}
 
 	async function finishMultiUserServerConnect() {
-		oauthURL = await getOauthURL();
-		if (oauthURL) {
+		oauthURL = localhostCallback ? '' : await getOauthURL();
+		if (localhostCallback || oauthURL) {
 			oauthDialog?.showModal();
 		} else {
 			handleConnect();
@@ -1200,7 +1215,7 @@
 <dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
-			{#if oauthURL}
+			{#if localhostCallback || oauthURL}
 				<div class="absolute top-2 right-2">
 					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
@@ -1223,23 +1238,33 @@
 					{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}
 				</p>
 
-				<p>{m.mcps_connect_oauth_click_link()}</p>
+				{#if localhostCallback}
+					<McpLogin
+						url={server?.connectURL || instance?.connectURL || entry?.connectURL || ''}
+						callbackPaths={getLocalhostCallbackPaths(
+							server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig
+						)}
+					/>
+					<button type="button" class="btn btn-primary" onclick={handleOauthClose}>Continue</button>
+				{:else}
+					<p>{m.mcps_connect_oauth_click_link()}</p>
 
-				<a
-					href={oauthURL}
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="btn btn-primary text-center text-sm outline-none"
-					onclick={() => {
-						oauthVerifying = true;
-					}}
-				>
-					{#if oauthVerifying}
-						{m.mcps_oauth_authenticating()}
-					{:else}
-						{m.mcps_oauth_authenticate()}
-					{/if}
-				</a>
+					<a
+						href={oauthURL}
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="btn btn-primary text-center text-sm outline-none"
+						onclick={() => {
+							oauthVerifying = true;
+						}}
+					>
+						{#if oauthVerifying}
+							{m.mcps_oauth_authenticating()}
+						{:else}
+							{m.mcps_oauth_authenticate()}
+						{/if}
+					</a>
+				{/if}
 			{/if}
 		</div>
 	</div>

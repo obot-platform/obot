@@ -510,3 +510,18 @@ it('installs with effective retained callback paths even when the current compon
 	expect(config.command).toBe('obot');
 	expect(config.args.slice(3)).toEqual(['--callback-path', '/retained/callback']);
 });
+
+it('shows CLI login for vMCP authentication using retained callback paths', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/retained/callback'];
+	const result = await renderDialog(vmcp);
+	await result.component.authenticate();
+	await expect
+		.element(page.getByLabelText('Authentication command').last())
+		.toHaveTextContent(
+			`obot mcp login --url '${window.location.origin}/mcp-connect/vmcp1configurable' --callback-path '/retained/callback'`
+		);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+});
