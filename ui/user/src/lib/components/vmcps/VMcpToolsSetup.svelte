@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import { isMissingRequiredConfigurationField } from '$lib/components/mcp/configurationOptions';
 	import { m } from '$lib/i18n';
@@ -13,6 +14,7 @@
 		ToolOverride,
 		VMCPComponent
 	} from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
 	import {
 		catalogConfigurationFields,
@@ -395,6 +397,10 @@
 				</p>
 			{/if}
 
+			{#if oauthURL && isMcpLoginURL(oauthURL)}
+				<McpLogin url={oauthURL} onComplete={fetchLiveTools} />
+			{/if}
+
 			{#if !oauthURL && !oauthSetupRequired}
 				{#each userFields as field (field.key)}
 					<div class="mb-4 flex flex-col gap-2">
@@ -474,7 +480,9 @@
 						{m.vmcps_check_again()}
 					</button>
 				{:else if oauthURL}
-					{#if oauthValidating}
+					{#if isMcpLoginURL(oauthURL)}
+						<!-- The local login command and Continue action are above the form. -->
+					{:else if oauthValidating}
 						<button
 							in:fade
 							class="btn btn-primary flex items-center justify-center gap-2"

@@ -237,6 +237,55 @@ describe('VMcpToolsSetup preview credentials', () => {
 		untrack(() => result.component.open());
 		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
 	});
+	it('keeps preview credentials for the specific CLI authentication attempt', async () => {
+		const preview = vi.fn();
+		const oauth = vi.fn();
+		worker.use(
+			http.post(previewURL, async ({ request }) => {
+				preview(await request.json());
+				if (preview.mock.calls.length === 1) {
+					return HttpResponse.json(
+						{ message: 'MCP server requires OAuth authentication' },
+						{ status: 400 }
+					);
+				}
+				return HttpResponse.json({
+					...entry,
+					manifest: {
+						...entry.manifest,
+						toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
+					}
+				});
+			}),
+			http.post(`${previewURL}/oauth-url`, async ({ request }) => {
+				oauth(await request.json());
+				return HttpResponse.json({
+					oauthURL: 'https://obot.example/oauth/mcp/login/temporary-preview-state'
+				});
+			})
+		);
+		const result = await openSetup();
+		await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeDisabled();
+		await expect.element(page.getByLabelText('Fixed credential')).not.toBeInTheDocument();
+		expect(preview).not.toHaveBeenCalled();
+		await fillConfiguration();
+		await page.getByRole('button', { name: 'Configure Tools' }).click();
+		await expect
+			.element(page.getByLabelText('Authentication command'))
+			.toHaveTextContent(
+				"obot mcp login --url 'https://obot.example/oauth/mcp/login/temporary-preview-state'"
+			);
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).not.toBeInTheDocument();
+		const payload = { TOKEN: 'preview-secret', REGION: 'west' };
+		expect(preview).toHaveBeenCalledWith(payload);
+		expect(oauth).toHaveBeenCalledWith(payload);
+		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+		await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
+		expect(preview).toHaveBeenLastCalledWith(payload);
+		result.component.close();
+		untrack(() => result.component.open());
+		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
+	});
 
 	it('allows retry after a preview error and clears credentials when cancelled', async () => {
 		const preview = vi.fn();

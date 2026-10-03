@@ -47,23 +47,26 @@ it.each([
 	}
 );
 
-it('uses CLI login and retries listing tools without requesting a browser OAuth URL', async () => {
+it('uses the pending UI attempt and checks authentication before resuming', async () => {
 	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
 	entry.connectURL = 'https://obot.example/mcp-connect/deployed-server';
 	entry.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
 	const oauthRequest = vi.fn();
+	const attemptURL = 'https://obot.example/oauth/mcp/login/preview-state';
 	worker.use(
 		http.get('*/api/*/oauth-url', () => {
 			oauthRequest();
-			return HttpResponse.json({ oauthURL: 'https://auth.example/authorize' });
+			return HttpResponse.json({
+				oauthURL: oauthRequest.mock.calls.length === 1 ? attemptURL : ''
+			});
 		})
 	);
 	const onAuthenticate = vi.fn();
 	await render(McpOauth, { entry, onAuthenticate });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${entry.connectURL}'`);
-	await page.getByRole('button', { name: 'Retry', exact: true }).click();
-	expect(onAuthenticate).toHaveBeenCalledOnce();
-	expect(oauthRequest).not.toHaveBeenCalled();
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await vi.waitFor(() => expect(onAuthenticate).toHaveBeenCalledOnce());
+	expect(oauthRequest).toHaveBeenCalledTimes(2);
 });

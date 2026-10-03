@@ -112,6 +112,14 @@ it('passes the catalog callback path to client installation', async () => {
 
 it('shows CLI login when a deployed localhost server needs authentication', async () => {
 	await preparePageData();
+	const attemptURL = 'https://obot.example/oauth/mcp/login/ui-attempt';
+	let checks = 0;
+	worker.use(
+		http.get('*/api/*/oauth-url', () =>
+			HttpResponse.json({ oauthURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
 	const server = structuredClone(fixtures.serverSingle);
 	server.connectURL = 'https://obot.example/mcp-connect/deployed';
 	server.manifest.remoteConfig = {
@@ -124,12 +132,10 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 	await result.component.authenticate(server);
 	await expect
 		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login --url '${server.connectURL}' --callback-path '/custom/callback'`
-		);
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
 	await page.getByRole('button', { name: 'Continue', exact: true }).click();
-	expect(onConnect).toHaveBeenCalledOnce();
+	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import { m } from '$lib/i18n';
@@ -12,10 +12,9 @@
 		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		resolveVMcpComponents,
-		vmcpConnectURL,
-		vmcpLocalhostCallbackPaths,
 		vmcpMissingStaticOAuthComponent,
 		vmcpHasUserAllowedConfiguration
 	} from '$lib/services/vmcps/utils';
@@ -103,13 +102,13 @@
 			{/snippet}
 
 			{#snippet reauthenticationAction()}
-				{#if vmcpLocalhostCallbackPaths(vmcp).length > 0 && vmcpConnectURL(vmcp)}
-					<McpLogin url={vmcpConnectURL(vmcp)!} callbackPaths={vmcpLocalhostCallbackPaths(vmcp)} />
-					<button
-						type="button"
-						class="btn btn-primary btn-sm mt-3"
-						onclick={() => tester?.reconnect()}>Retry connection</button
-					>
+				{#if vmcpLocalhostCallbackPaths(vmcp).length > 0}
+					<McpCompositeOauth
+						class="min-h-0"
+						compositeMcpId={instance?.id ?? vmcp.id}
+						vmcpId={vmcp.id}
+						onComplete={() => tester?.reconnect()}
+					/>
 				{:else}
 					<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}
 						>{m.vmcps_manage_authentication()}</button

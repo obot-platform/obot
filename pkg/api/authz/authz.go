@@ -309,6 +309,8 @@ var (
 			"POST /oauth/token",
 			"GET  /oauth/jwks.json",
 			"GET  /oauth/client-metadata.json",
+			// Pending UI login state is a short-lived, opaque capability.
+			"GET  /oauth/mcp/login/{state}",
 
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.

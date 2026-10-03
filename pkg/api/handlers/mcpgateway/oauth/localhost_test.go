@@ -118,8 +118,13 @@ func TestUpstreamRedirectUsesOriginatingVMCPRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://obot.example.com/oauth/mcp/callback", got)
 	config.LocalhostCallbackEnabled = true
-	_, err = fixture.factory.upstreamRedirectURL(req, config, "")
-	require.ErrorContains(t, err, "obot mcp connect")
+	got, err = fixture.factory.upstreamRedirectURL(req, config, "")
+	require.NoError(t, err)
+	local, err := url.Parse(got)
+	require.NoError(t, err)
+	require.Equal(t, "localhost", local.Hostname())
+	require.NotEmpty(t, local.Port())
+	require.Equal(t, "/oauth/callback", local.Path)
 	request.Spec.UserID++
 	require.NoError(t, fixture.storage.Update(t.Context(), request))
 	_, err = fixture.factory.upstreamRedirectURL(req, config, request.Name)

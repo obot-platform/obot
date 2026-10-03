@@ -1157,6 +1157,14 @@ describe('MCP Tester page', () => {
 it('shows CLI login and retries a localhost server in the inspector', async () => {
 	appPage.url.searchParams.delete('tab');
 	mockMCPInitializationFailure(401);
+	const attemptURL = 'https://obot.example/oauth/mcp/login/ui-attempt';
+	let checks = 0;
+	worker.use(
+		http.get('*/api/*/oauth-url', () =>
+			HttpResponse.json({ oauthURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
 	const server = structuredClone(fixtures.serverSingle);
 	server.configured = true;
 	server.deploymentStatus = 'Available';
@@ -1169,9 +1177,9 @@ it('shows CLI login and retries a localhost server in the inspector', async () =
 	await render(TesterPage, { data });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${server.connectURL}'`);
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
 	mockMCPInitialization();
-	await page.getByRole('button', { name: 'Retry connection' }).click();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
 	await expect
 		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
 		.not.toBeInTheDocument();

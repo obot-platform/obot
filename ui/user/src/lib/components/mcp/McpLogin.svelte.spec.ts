@@ -1,29 +1,36 @@
 import McpLogin from './McpLogin.svelte';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-it('shows a copyable command with deduplicated custom callback paths', async () => {
+it('shows a copyable command for the specific UI attempt', async () => {
 	await render(McpLogin, {
-		url: 'https://obot.example/mcp-connect/test',
-		callbackPaths: ['/custom/callback', '/custom/callback', '/oauth/callback']
+		url: 'https://obot.example/oauth/mcp/login/test'
 	});
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			"obot mcp login --url 'https://obot.example/mcp-connect/test' --callback-path '/custom/callback' --callback-path '/oauth/callback'"
-		);
+		.toHaveTextContent("obot mcp login --url 'https://obot.example/oauth/mcp/login/test'");
 	await expect.element(page.getByRole('button', { name: /Copy/ })).toBeVisible();
 });
 
-it('quotes shell metacharacters and omits the default callback flag', async () => {
+it('quotes shell metacharacters', async () => {
 	await render(McpLogin, {
-		url: "https://obot.example/mcp-connect/test?name=a'b&x=$(echo)",
-		callbackPaths: ['/oauth/callback']
+		url: "https://obot.example/oauth/mcp/login/test?name=a'b&x=$(echo)"
 	});
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			`obot mcp login --url 'https://obot.example/mcp-connect/test?name=a'"'"'b&x=$(echo)'`
+			`obot mcp login --url 'https://obot.example/oauth/mcp/login/test?name=a'"'"'b&x=$(echo)'`
 		);
+});
+
+it('resolves relative attempt URLs and continues only when requested', async () => {
+	const onComplete = vi.fn();
+	await render(McpLogin, { url: '/oauth/mcp/login/attempt', onComplete });
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt'`);
+	expect(onComplete).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	expect(onComplete).toHaveBeenCalledOnce();
 });

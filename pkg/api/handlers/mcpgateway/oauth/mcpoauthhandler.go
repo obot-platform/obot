@@ -229,12 +229,16 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if err != nil || !staticOAuthPending {
 			return "", err
 		}
-		return f.staticOAuthURL(req.Context(), mcpServerConfig, oauthHandler)
+		u, err := f.staticOAuthURL(req.Context(), mcpServerConfig, oauthHandler)
+		if err != nil {
+			return "", err
+		}
+		return f.localLoginURL(u, mcpServerConfig, oauthAppAuthRequestID)
 	case <-req.Context().Done():
 		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", req.Context().Err())
 	case u := <-oauthHandler.URLChan():
 		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
-		return u, nil
+		return f.localLoginURL(u, mcpServerConfig, oauthAppAuthRequestID)
 	}
 }
 

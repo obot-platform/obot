@@ -77,6 +77,7 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	// This is the callback handler for second-level OAuth.
 	// In other words, the third-party OAuth will redirect here.
 	mux.HandleFunc("GET /oauth/mcp/callback", h.oauthCallback)
+	mux.HandleFunc("GET /oauth/mcp/login/{state}", h.localLogin)
 
 	mux.HandleFunc("GET /oauth/jwks.json", h.tokenService.ServeJWKS)
 	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)

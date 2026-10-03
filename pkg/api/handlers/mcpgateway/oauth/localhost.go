@@ -1,7 +1,9 @@
 package oauth
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"net"
 	"net/url"
 	"strings"
@@ -18,7 +20,13 @@ func (f *MCPOAuthHandlerFactory) upstreamRedirectURL(req api.Context, config mcp
 		return defaultURL, nil
 	}
 	if authRequestID == "" {
-		return "", fmt.Errorf("localhost callback requires connecting with obot mcp connect")
+		// Pick the callback port before generating provider state so registration,
+		// authorization, and token exchange all use the same redirect URI.
+		port, err := rand.Int(rand.Reader, big.NewInt(16384))
+		if err != nil {
+			return "", err
+		}
+		return localhostRedirectURL(fmt.Sprintf("http://localhost:%d/oauth/obot/callback", 49152+port.Int64()), config.LocalhostCallbackPath)
 	}
 	var request v1.OAuthAuthRequest
 	if err := req.Get(&request, authRequestID); err != nil {

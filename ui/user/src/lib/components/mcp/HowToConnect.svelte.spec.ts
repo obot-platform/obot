@@ -1,6 +1,6 @@
 import { preparePageData } from '../../../tests/helpers/pageData';
 import HowToConnect from './HowToConnect.svelte';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -108,11 +108,16 @@ it('includes custom callback paths in install links, commands, and JSON', async 
 		);
 });
 
-it('shows CLI login in Preconfigure for localhost OAuth', async () => {
+it('launches the existing preconfigure flow for localhost OAuth', async () => {
 	await preparePageData();
-	await render(HowToConnect, { id: 'local', displayName: 'Local', url, localhostCallback: true });
-	await expect.element(page.getByText('Preconfigure', { exact: true })).toBeVisible();
-	await expect
-		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${url}'`);
+	const onLaunch = vi.fn();
+	await render(HowToConnect, {
+		id: 'local',
+		displayName: 'Local',
+		url,
+		localhostCallback: true,
+		onLaunch
+	});
+	await page.getByRole('button', { name: 'Preconfigure server' }).click();
+	expect(onLaunch).toHaveBeenCalledOnce();
 });

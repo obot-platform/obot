@@ -10,7 +10,6 @@
 	import { userDeviceSettings } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
 	import LocalMcpConnection from './LocalMcpConnection.svelte';
-	import McpLogin from './McpLogin.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -209,11 +208,9 @@
 
 	{#if localhostCallback}
 		<LocalMcpConnection {id} {url} {callbackPaths} />
-		<div class="divider">Preconfigure</div>
-		<McpLogin {url} {callbackPaths} />
 	{/if}
 
-	{#if !localhostCallback && (onLaunch || onEdit || onReauthenticate)}
+	{#if onLaunch || onEdit || onReauthenticate}
 		{#if onLaunch}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
 				{m.mcps_connect_preconfigure()}

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -551,6 +552,17 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return err
 	}
 
+	pending, _ := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
+	if uiLocalLoginState(pending) {
+		if time.Since(pending.CreatedAt) > localLoginTTL {
+			_ = h.oauthChecker.stateMgr.gatewayClient.DeleteMCPOAuthPendingState(req.Context(), pending.HashedState)
+			completeLocalLogin(req, pending, fmt.Errorf("authentication attempt expired"))
+			return nil
+		}
+		_, _, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+		completeLocalLogin(req, pending, err)
+		return nil
+	}
 	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		if oauthAuthRequestID != "" {

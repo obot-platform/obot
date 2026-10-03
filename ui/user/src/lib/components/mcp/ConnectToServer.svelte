@@ -14,6 +14,7 @@
 		Group
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
 	import {
 		convertEnvHeadersToRecord,
@@ -221,8 +222,8 @@
 		entry = parentEntry;
 		instance = undefined;
 		oauthVerifying = false;
-		oauthURL = localhostCallback ? '' : await getOauthURL();
-		if (localhostCallback || oauthURL) {
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
 			oauthDialog?.showModal();
 		} else {
 			handleConnect();
@@ -431,7 +432,7 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = localhostCallback ? '' : await getOauthURL();
+			oauthURL = await getOauthURL();
 			if (!oauthURL) {
 				oauthDialog?.close();
 				handleConnect();
@@ -447,13 +448,13 @@
 
 	async function verifyOauthOrConnect() {
 		oauthVerifying = false; // reset
-		oauthURL = localhostCallback ? '' : await getOauthURL();
+		oauthURL = await getOauthURL();
 		launchProgress = 100;
 
 		setTimeout(() => {
 			launchState = undefined;
 			launchProgress = 0;
-			if (localhostCallback || oauthURL) {
+			if (oauthURL) {
 				configDialog?.close();
 				oauthDialog?.showModal();
 			} else {
@@ -674,8 +675,8 @@
 	}
 
 	async function finishMultiUserServerConnect() {
-		oauthURL = localhostCallback ? '' : await getOauthURL();
-		if (localhostCallback || oauthURL) {
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
 			oauthDialog?.showModal();
 		} else {
 			handleConnect();
@@ -1215,7 +1216,7 @@
 <dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
-			{#if localhostCallback || oauthURL}
+			{#if oauthURL}
 				<div class="absolute top-2 right-2">
 					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
@@ -1238,14 +1239,8 @@
 					{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}
 				</p>
 
-				{#if localhostCallback}
-					<McpLogin
-						url={server?.connectURL || instance?.connectURL || entry?.connectURL || ''}
-						callbackPaths={getLocalhostCallbackPaths(
-							server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig
-						)}
-					/>
-					<button type="button" class="btn btn-primary" onclick={handleOauthClose}>Continue</button>
+				{#if isMcpLoginURL(oauthURL)}
+					<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} />
 				{:else}
 					<p>{m.mcps_connect_oauth_click_link()}</p>
 

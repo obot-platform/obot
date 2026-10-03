@@ -8,11 +8,13 @@
 		type CompositeLaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
@@ -46,6 +48,17 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let compositeAuthID = $derived.by(() => {
+		if (!oauthURL) return '';
+		try {
+			const match = new URL(oauthURL, 'http://localhost').pathname.match(
+				/\/auth\/mcp\/composite\/([^/]+)$/
+			);
+			return match ? decodeURIComponent(match[1]) : '';
+		} catch {
+			return '';
+		}
+	});
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
 	let ignoreNextConfigureClose = false;
@@ -359,7 +372,7 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = localhostCallback ? '' : await getOauthURL();
+			oauthURL = await getOauthURL();
 			if (!oauthURL) {
 				oauthDialog?.close();
 				finishLaunch();
@@ -375,12 +388,12 @@
 
 	async function verifyOauthOrConnect() {
 		oauthVerifying = false;
-		oauthURL = localhostCallback ? '' : await getOauthURL();
+		oauthURL = await getOauthURL();
 		launchProgress = 100;
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 		launchState = undefined;
 		launchProgress = 0;
-		if (localhostCallback || oauthURL) {
+		if (oauthURL) {
 			closeConfigureWithoutDismissing();
 			oauthDialog?.showModal();
 		} else {
@@ -398,8 +411,8 @@
 		if (!vmcp) return;
 		ensureOauthVisibilityListener();
 		oauthVerifying = false;
-		oauthURL = localhostCallback ? '' : await getOauthURL();
-		if (localhostCallback || oauthURL) {
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
 			oauthDialog?.showModal();
 		} else {
 			finishLaunch();
@@ -683,7 +696,7 @@
 <dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
-			{#if localhostCallback || oauthURL}
+			{#if oauthURL}
 				<div class="absolute top-2 right-2">
 					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
@@ -700,12 +713,19 @@
 					{m.vmcps_oauth_required_named({ name: displayName })}
 				</p>
 
-				{#if localhostCallback}
-					<McpLogin
-						url={connectURL || ''}
-						callbackPaths={vmcp ? vmcpLocalhostCallbackPaths(vmcp) : []}
+				{#if isMcpLoginURL(oauthURL)}
+					<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} />
+				{:else if localhostCallback && compositeAuthID && vmcp}
+					<McpCompositeOauth
+						class="min-h-0 p-0"
+						compositeMcpId={compositeAuthID}
+						vmcpId={vmcp.id}
+						onComplete={() => {
+							oauthURL = '';
+							oauthDialog?.close();
+							finishLaunch();
+						}}
 					/>
-					<button type="button" class="btn btn-primary" onclick={handleOauthClose}>Continue</button>
 				{:else}
 					<p>{m.vmcps_click_link_to_authenticate()}</p>
 

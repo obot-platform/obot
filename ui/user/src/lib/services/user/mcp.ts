@@ -1251,3 +1251,12 @@ export function getAiClientMagicLink(
 		? fn[client as keyof typeof fn](displayName, url, localhostCallback, callbackPaths)
 		: '';
 }
+
+// Local UI login URLs refer to a specific pending OAuth attempt, not a server.
+export function isMcpLoginURL(value: string): boolean {
+	try {
+		return /\/oauth\/mcp\/login\/[^/]+$/.test(new URL(value, 'http://localhost').pathname);
+	} catch {
+		return false;
+	}
+}
