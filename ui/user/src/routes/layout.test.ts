@@ -1,6 +1,6 @@
 import { Group } from '$lib/services';
 import { load } from './+layout';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function response(body: unknown, status = 200) {
 	return new Response(JSON.stringify(body), {
@@ -44,11 +44,10 @@ function createFetch(groups: string[], telemetryStatus = 200) {
 	});
 }
 
-async function loadWith(fetch: ReturnType<typeof createFetch>) {
-	return (await load({ fetch } as unknown as Parameters<NonNullable<typeof load>>[0])) as Exclude<
-		Awaited<ReturnType<NonNullable<typeof load>>>,
-		void
-	>;
+async function loadWith(fetch: ReturnType<typeof createFetch>, url = new URL('http://localhost/')) {
+	return (await load({ fetch, url } as unknown as Parameters<
+		NonNullable<typeof load>
+	>[0])) as Exclude<Awaited<ReturnType<NonNullable<typeof load>>>, void>;
 }
 
 describe('root layout product analytics consent', () => {
@@ -88,5 +87,92 @@ describe('root layout product analytics consent', () => {
 	it('does not expose consent UI after another read failure', async () => {
 		const data = await loadWith(createFetch([Group.ADMIN], 500));
 		expect(data.productTelemetryConsentAvailable).toBeUndefined();
+	});
+});
+
+function createRefusedProfileFetch(status: number, body: string) {
+	return vi.fn(async (input: RequestInfo | URL) => {
+		const path = new URL(String(input)).pathname;
+		switch (path) {
+			case '/api/me':
+				return new Response(body, { status });
+			case '/api/version':
+			case '/api/license':
+			case '/api/app-preferences':
+				return response({});
+			default:
+				throw new Error(`Unexpected request: ${path}`);
+		}
+	});
+}
+
+describe('root layout account status', () => {
+	beforeEach(() => {
+		const items = new Map<string, string>();
+		vi.stubGlobal('sessionStorage', {
+			getItem: (key: string) => items.get(key) ?? null,
+			setItem: (key: string, value: string) => items.set(key, value),
+			removeItem: (key: string) => items.delete(key)
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('marks an account the server refused as inactive', async () => {
+		const data = await loadWith(
+			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+		);
+
+		expect(data.profile.unauthorized).toBe(true);
+		expect(data.profile.accountInactive).toBe(true);
+	});
+
+	it('marks an account inactive when the server sent its page load to the login page', async () => {
+		// The server ended the session as it redirected, so the profile request is merely signed out.
+		const data = await loadWith(
+			createRefusedProfileFetch(401, 'unauthorized'),
+			new URL('http://localhost/?inactive=true')
+		);
+
+		expect(data.profile.unauthorized).toBe(true);
+		expect(data.profile.accountInactive).toBe(true);
+	});
+
+	it('ignores the login page flag once someone is signed in', async () => {
+		const data = await loadWith(
+			createFetch([Group.USER]),
+			new URL('http://localhost/?inactive=true')
+		);
+
+		expect(data.profile.accountInactive).toBeUndefined();
+	});
+
+	it('does not mark a signed-out visitor as inactive', async () => {
+		const data = await loadWith(createRefusedProfileFetch(401, 'unauthorized'));
+
+		expect(data.profile.unauthorized).toBe(true);
+		expect(data.profile.accountInactive).toBe(false);
+	});
+
+	it('keeps the account inactive across the loads that follow the refusal', async () => {
+		await loadWith(
+			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+		);
+
+		// The refusal ended the session, so the load after a redirect is merely signed out.
+		const redirected = await loadWith(createRefusedProfileFetch(401, 'unauthorized'));
+		expect(redirected.profile.accountInactive).toBe(true);
+	});
+
+	it('forgets the inactive account once someone signs in', async () => {
+		await loadWith(
+			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+		);
+		await loadWith(createFetch([Group.USER]));
+
+		const signedOut = await loadWith(createRefusedProfileFetch(401, 'unauthorized'));
+		expect(signedOut.profile.accountInactive).toBe(false);
 	});
 });

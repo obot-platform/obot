@@ -12,6 +12,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
+	"github.com/obot-platform/obot/pkg/scim"
+	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
@@ -176,6 +178,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /tunnel/connect", tunnelHandler.Connect)
 	// Obot replicas use a separate internal websocket upgrade path for tunnel peering.
 	mux.HandleFunc("GET /tunnel/peer", tunnelHandler.Peer)
+
+	// The SCIM endpoint of each SCIM connection, authenticated only by the connection's bearer token and authorized
+	// only for that connection.
+	scimHandler := scim.NewHandler(services.GatewayClient, scim.NewEnvironment(services.ProviderDispatcher, services.LicenseProvider, services.StorageClient), services.ServerURL)
+	mux.HandleFunc(scim.PathPrefix, scimHandler.Serve)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)
@@ -608,6 +615,22 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/auth-providers/{id}/verify", authProviders.Verify)
 	mux.HandleFunc("POST /api/auth-providers/{id}/activate", authProviders.Activate)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+	mux.HandleFunc("GET /api/auth-providers/{id}/residual-group-data", authProviders.ResidualGroupData)
+
+	// SCIM connections
+	scimConnections := handlers.NewSCIMConnectionHandler(scimsetup.New(services.GatewayClient, services.StorageClient, services.ProviderDispatcher, services.ServerURL))
+	mux.HandleFunc("GET /api/scim-connections", scimConnections.List)
+	mux.HandleFunc("POST /api/scim-connections", scimConnections.Enable)
+	mux.HandleFunc("GET /api/scim-connections/enable-preview", scimConnections.EnablePreview)
+	mux.HandleFunc("GET /api/scim-connections/{id}/review", scimConnections.Review)
+	mux.HandleFunc("GET /api/scim-connections/{id}/users", scimConnections.Users)
+	mux.HandleFunc("GET /api/scim-connections/{id}/groups", scimConnections.Groups)
+	mux.HandleFunc("GET /api/scim-connections/{id}/failures", scimConnections.Failures)
+	mux.HandleFunc("POST /api/scim-connections/{id}/enforce", scimConnections.Enforce)
+	mux.HandleFunc("POST /api/scim-connections/{id}/delete-unreferenced-groups", scimConnections.DeleteUnreferencedGroups)
+	mux.HandleFunc("POST /api/scim-connections/{id}/rotate-token", scimConnections.RotateToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-current-token", scimConnections.RevokeCurrentToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-previous-token", scimConnections.RevokePreviousToken)
 
 	// Local auth provider users
 	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)

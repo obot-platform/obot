@@ -424,7 +424,14 @@ func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, licenseProvider)
+		// A SCIM connection relaxes the parameters that only directory synchronization uses. The controller does not
+		// watch the gateway database, so whatever creates or deletes a connection recomputes this status.
+		conn, err := gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
+		if err != nil {
+			return err
+		}
+
+		providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, conn, licenseProvider)
 		if err != nil {
 			return err
 		}

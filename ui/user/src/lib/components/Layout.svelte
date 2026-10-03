@@ -54,7 +54,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, isSCIMView } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -77,6 +77,9 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import CommunitySignupBanner from './admin/license/CommunitySignupBanner.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
+	import SCIMSetupBanner from './admin/scim/SCIMSetupBanner.svelte';
+	import SCIMTokenExpiryBanner from './admin/scim/SCIMTokenExpiryBanner.svelte';
+	import { tokenExpiryState } from './admin/scim/tokenExpiry';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -473,6 +476,51 @@
 		return !isCommunitySignupDismissedForCurrentProfile();
 	});
 
+	// The configured auth provider while it provisions users and groups through SCIM and SCIM is not
+	// enforced yet. Its setup continues on the SCIM sub-tab, which is where an Owner who just signed in
+	// for the first time, from Owner Setup, a switch, or an owner email, is sent from here. Its banner
+	// cannot be dismissed.
+	let unfinishedSCIMProvider = $derived.by(() => {
+		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
+		if (pathname === '/identity-access' && isSCIMView(page.url.searchParams)) {
+			return undefined;
+		}
+		return $adminConfigStore.authProviders.find(
+			(provider) => provider.configured && provider.scimState === 'connected'
+		);
+	});
+
+	// Holds the expiry of the last token whose banner was dismissed, so that a new token that expires
+	// later is announced again.
+	const SCIM_TOKEN_BANNER_KEY = '@obot/dismiss-scim-token-banner';
+	let scimTokenBannerDismissedFor = localState<string>(SCIM_TOKEN_BANNER_KEY, '');
+
+	// The configured auth provider while the bearer token of its SCIM connection expires soon, or has
+	// expired, and the Owner who must rotate it is not on the SCIM sub-tab, which says so itself. An
+	// expired token cannot be dismissed, as provisioning fails until the token is rotated.
+	let expiringSCIMToken = $derived.by(() => {
+		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
+		if (pathname === '/identity-access' && isSCIMView(page.url.searchParams)) return undefined;
+
+		const provider = $adminConfigStore.authProviders.find(
+			(p) => p.configured && p.scimTokenExpiresAt
+		);
+		const expiresAt = provider?.scimTokenExpiresAt;
+		const state = tokenExpiryState(expiresAt);
+		if (!provider || !expiresAt || !state) return undefined;
+		if (state === 'expiring') {
+			if (!scimTokenBannerDismissedFor.isReady) return undefined;
+			if (scimTokenBannerDismissedFor.current === expiresAt) return undefined;
+		}
+		return { providerName: provider.name, expiresAt, expired: state === 'expired' };
+	});
+
+	function handleDismissSCIMTokenBanner() {
+		if (expiringSCIMToken) {
+			scimTokenBannerDismissedFor.current = expiringSCIMToken.expiresAt;
+		}
+	}
+
 	let showAppNotificationBanner = $derived.by(() => {
 		if (isAgentRoute) return false;
 
@@ -586,6 +634,15 @@
 						data={appNotificationStore.current?.banner}
 						onDismiss={handleDismissBanner}
 					/>
+				{:else if expiringSCIMToken}
+					<SCIMTokenExpiryBanner
+						providerName={expiringSCIMToken.providerName}
+						expiresAt={expiringSCIMToken.expiresAt}
+						expired={expiringSCIMToken.expired}
+						onDismiss={expiringSCIMToken.expired ? undefined : handleDismissSCIMTokenBanner}
+					/>
+				{:else if unfinishedSCIMProvider}
+					<SCIMSetupBanner providerName={unfinishedSCIMProvider.name} />
 				{:else if canShowCommunitySignup}
 					<CommunitySignupBanner onDismiss={handleDismissCommunitySignupBanner} />
 				{/if}

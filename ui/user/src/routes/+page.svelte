@@ -5,6 +5,7 @@
 
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = $derived(data);
+	let accountInactive = $derived(data.profile?.accountInactive ?? false);
 	let overrideRedirect = $state<string | null>(null);
 
 	let rd = $derived.by(() => {
@@ -51,6 +52,11 @@
 				<p class="text-md text-muted-content mb-1 text-center font-light">
 					Log in or create your account to continue
 				</p>
+				{#if accountInactive}
+					<p class="notification-error w-sm p-3 text-center text-sm" role="alert">
+						Your account is not active. Contact your administrator.
+					</p>
+				{/if}
 
 				<div
 					class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"

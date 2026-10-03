@@ -46,6 +46,18 @@ import type {
 	ModelProxySettingsUpdateManifest,
 	ModelProxyUsage,
 	AuthProvider,
+	ResidualGroupData,
+	SCIMConnection,
+	SCIMConnectionReview,
+	SCIMEnablePreview,
+	SCIMEnableResult,
+	SCIMEnforceResult,
+	SCIMGroupDeletionResult,
+	SCIMGroupList,
+	SCIMPage,
+	SCIMRequestFailure,
+	SCIMSetupGroup,
+	SCIMSetupUser,
 	MCPFilter,
 	MCPFilterManifest,
 	TempUser,
@@ -400,6 +412,140 @@ export async function activateAuthProvider(
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/activate`, {}, opts);
+}
+
+export async function getResidualGroupData(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ResidualGroupData> {
+	return (await doGet(`/auth-providers/${authProviderID}/residual-group-data`, {
+		...opts,
+		dontLogErrors: true
+	})) as ResidualGroupData;
+}
+
+// SCIM provisioning
+
+export async function listSCIMConnections(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<SCIMConnection[]> {
+	const list = (await doGet('/scim-connections', opts)) as ItemsResponse<SCIMConnection>;
+	return list.items ?? [];
+}
+
+// Each list in the review holds its first page of `limit` items.
+export async function getSCIMConnectionReview(
+	id: string,
+	opts?: { fetch?: Fetcher; limit?: number; dontLogErrors?: boolean }
+): Promise<SCIMConnectionReview> {
+	const query = opts?.limit ? `?limit=${opts.limit}` : '';
+	return (await doGet(`/scim-connections/${id}/review${query}`, {
+		fetch: opts?.fetch,
+		dontLogErrors: opts?.dontLogErrors
+	})) as SCIMConnectionReview;
+}
+
+export async function listSCIMUsers(
+	id: string,
+	provisioned: boolean,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMSetupUser>> {
+	return (await doGet(
+		`/scim-connections/${id}/users?provisioned=${provisioned}&offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMSetupUser>;
+}
+
+export async function listSCIMGroups(
+	id: string,
+	list: SCIMGroupList,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMSetupGroup>> {
+	return (await doGet(
+		`/scim-connections/${id}/groups?list=${list}&offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMSetupGroup>;
+}
+
+export async function listSCIMFailures(
+	id: string,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMRequestFailure>> {
+	return (await doGet(
+		`/scim-connections/${id}/failures?offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMRequestFailure>;
+}
+
+export async function getSCIMEnablePreview(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<SCIMEnablePreview> {
+	return (await doGet('/scim-connections/enable-preview', opts)) as SCIMEnablePreview;
+}
+
+// Enabling is permanent. The result carries the token, which is shown only once.
+export async function enableSCIM(opts?: { fetch?: Fetcher }): Promise<SCIMEnableResult> {
+	return (await doPost(
+		'/scim-connections',
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMEnableResult;
+}
+
+export async function deleteUnreferencedSCIMGroups(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SCIMGroupDeletionResult> {
+	return (await doPost(
+		`/scim-connections/${id}/delete-unreferenced-groups`,
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMGroupDeletionResult;
+}
+
+// Enforcing is permanent.
+export async function enforceSCIM(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SCIMEnforceResult> {
+	return (await doPost(
+		`/scim-connections/${id}/enforce`,
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMEnforceResult;
+}
+
+// Issues a new token, including the first one. The result carries it, and it is shown only once.
+export async function rotateSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(`/scim-connections/${id}/rotate-token`, {}, opts)) as SCIMConnection;
+}
+
+// Replaces a leaked token: the current and previous tokens stop working at once. The result
+// carries the new token, which is shown only once.
+export async function revokeCurrentSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(`/scim-connections/${id}/revoke-current-token`, {}, opts)) as SCIMConnection;
+}
+
+export async function revokePreviousSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(
+		`/scim-connections/${id}/revoke-previous-token`,
+		{},
+		opts
+	)) as SCIMConnection;
 }
 
 // Local auth provider users

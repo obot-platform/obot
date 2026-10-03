@@ -3,10 +3,16 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { SCIM_VIEW_PATH, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { reloadPage } from '$lib/navigation';
-	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
+	import { navigateTo, reloadPage } from '$lib/navigation';
+	import {
+		AdminService,
+		UserService,
+		type AuthProvider,
+		type BootstrapStatus,
+		type TempUser
+	} from '$lib/services';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
@@ -24,6 +30,15 @@
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
+	// The configured auth provider, when it provisions users and groups through SCIM. Its setup
+	// continues on the SCIM sub-tab once the new Owner signs in.
+	let scimProvider = $state<AuthProvider>();
+	// Signing out lands on the sign-in page, which returns the new Owner to the SCIM sub-tab once they
+	// sign in. It is sent there directly, because a page that needs a session keeps only its path
+	// when it sends a signed-out browser to sign in.
+	let afterSignOut = $derived(
+		scimProvider ? `/?rd=${encodeURIComponent(SCIM_VIEW_PATH)}` : '/admin'
+	);
 
 	onMount(() => {
 		fetchBootstrapStatus = UserService.getBootstrapStatus();
@@ -32,6 +47,15 @@
 				AdminService.getTempUser(),
 				AdminService.listExplicitRoleEmails()
 			]);
+			AdminService.listAuthProviders()
+				.then((providers) => {
+					scimProvider = providers.find(
+						(provider) => provider.configured && provider.scimState === 'connected'
+					);
+				})
+				.catch(() => {
+					// Only the hint about SCIM setup depends on it.
+				});
 		}
 	});
 
@@ -87,6 +111,14 @@
 							be disabled. Upon completing this action, you'll be logged out and asked to log into
 							Obot again.
 						</p>
+						{#if scimProvider}
+							<p class="text-md px-4 text-left font-light">
+								{scimProvider.name} provisions users and groups through SCIM. After you log in, setup
+								continues on Identity &amp; Access → Auth Providers → SCIM: generate the token, create
+								the SCIM app in
+								{scimProvider.name}, and assign users.
+							</p>
+						{/if}
 					</div>
 					<button
 						class="btn btn-secondary place-items-center"
@@ -95,7 +127,7 @@
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
 							localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
 							clearProductAnalyticsConsentDeferral();
-							window.location.href = '/oauth2/sign_out?rd=/admin';
+							navigateTo(`/oauth2/sign_out?rd=${encodeURIComponent(afterSignOut)}`);
 						}}
 					>
 						Log out

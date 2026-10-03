@@ -95,6 +95,55 @@ func (c *Client) RevealCredential(ctx context.Context, contexts []string, name s
 	return credential, CredentialNotFoundError{Contexts: contexts, Name: name}
 }
 
+// RevealAuthProviderCredential is RevealCredential for the credential of the auth provider namespace/name, and also
+// returns the adapter type of the provider's SCIM connection, or "" when it has none. It reads both in one query.
+func (c *Client) RevealAuthProviderCredential(ctx context.Context, contexts []string, namespace, name string) (types.Credential, string, error) {
+	type credentialRow struct {
+		types.Credential
+		SCIMAdapterType *string
+	}
+
+	for _, credentialContext := range contexts {
+		var rows []credentialRow
+		if err := c.db.WithContext(ctx).Model(new(types.Credential)).
+			Select("credentials.*, (SELECT adapter_type FROM scim_connections WHERE auth_provider_namespace = ? AND auth_provider_name = ?) AS scim_adapter_type", namespace, name).
+			Where("context = ? AND name = ?", credentialContext, name).
+			Limit(1).
+			Scan(&rows).Error; err != nil {
+			return types.Credential{}, "", err
+		}
+		if len(rows) == 0 {
+			continue
+		}
+
+		credential := rows[0].Credential
+		if err := c.decryptCredential(ctx, &credential); err != nil {
+			return types.Credential{}, "", fmt.Errorf("failed to decrypt credential: %w", err)
+		}
+		var adapterType string
+		if rows[0].SCIMAdapterType != nil {
+			adapterType = *rows[0].SCIMAdapterType
+		}
+		return credential, adapterType, nil
+	}
+
+	return types.Credential{}, "", CredentialNotFoundError{Contexts: contexts, Name: name}
+}
+
+// HasCredential reports whether a credential with name exists in any of contexts. It does not decrypt the credential,
+// so it answers even when the credential could not be decrypted.
+func (c *Client) HasCredential(ctx context.Context, contexts []string, name string) (bool, error) {
+	if len(contexts) == 0 {
+		return false, nil
+	}
+
+	var count int64
+	if err := c.db.WithContext(ctx).Model(new(types.Credential)).Where("context IN ? AND name = ?", contexts, name).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check for credential %s: %w", name, err)
+	}
+	return count > 0, nil
+}
+
 // UpsertCredential creates or replaces a credential identified by context+name.
 func (c *Client) UpsertCredential(ctx context.Context, credential types.Credential) error {
 	if credential.Context == "" || credential.Name == "" {

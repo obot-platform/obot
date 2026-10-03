@@ -20,6 +20,10 @@ const (
 	MetricsGroup         = "metrics"
 	UnauthenticatedGroup = "unauthenticated"
 
+	// scimPathPrefix begins the path of every SCIM connection's endpoint, as scimPathPrefix + connection ID. It must
+	// match the SCIM handler's path prefix.
+	scimPathPrefix = "/scim/v2/"
+
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"
 )
@@ -75,6 +79,9 @@ var (
 		"POST /api/auth-providers/{id}/configure",
 		"POST /api/auth-providers/{id}/deconfigure",
 		"POST /api/auth-providers/{id}/reveal",
+		"GET /api/auth-providers/{id}/residual-group-data",
+		"GET /api/scim-connections",
+		"GET /api/scim-connections/",
 		"/api/local-auth/users",
 		"/api/local-auth/users/",
 		"/api/model-providers",
@@ -175,6 +182,12 @@ var (
 		"DELETE /api/auth-providers/{id}/stage",
 		"POST /api/auth-providers/{id}/verify",
 		"POST /api/auth-providers/{id}/activate",
+		"POST /api/scim-connections",
+		"POST /api/scim-connections/{id}/enforce",
+		"POST /api/scim-connections/{id}/delete-unreferenced-groups",
+		"POST /api/scim-connections/{id}/rotate-token",
+		"POST /api/scim-connections/{id}/revoke-current-token",
+		"POST /api/scim-connections/{id}/revoke-previous-token",
 	}
 
 	staticRules = map[string][]string{
@@ -217,6 +230,8 @@ var (
 			"GET /api/git-credentials",
 			"GET /api/git-credentials/",
 			"POST /api/auth-providers/{id}/reveal",
+			"GET /api/scim-connections",
+			"GET /api/scim-connections/",
 			"GET /api/local-auth/users",
 			"GET /api/local-auth/users/",
 			"GET /api/workspaces/",
@@ -469,6 +484,15 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	connection, isSCIM := scimConnectionOfPath(req.URL.Path)
+	if slices.Contains(userInfo.GetGroups(), types.GroupSCIM) {
+		return isSCIM && connection != "" && connection == userInfo.GetUID()
+	}
+
+	if isSCIM {
+		return false
+	}
+
 	// Tunnel credentials are deliberately non-user principals. Keep this check
 	// ahead of anyGroup and UI authorization so the credential cannot inherit
 	// baseline routes intended for ordinary users.
@@ -604,3 +628,15 @@ func rulesFromStatic(static map[string][]string) []rule {
 }
 
 func (f *fake) ServeHTTP(http.ResponseWriter, *http.Request) {}
+
+// scimConnectionOfPath reports whether path is below the SCIM endpoints, and returns the ID of the connection it names,
+// which is empty when it names none. The path is parsed rather than matched against a pattern, so that every path
+// below the prefix is recognized, with or without a trailing slash.
+func scimConnectionOfPath(path string) (string, bool) {
+	rest, ok := strings.CutPrefix(path, scimPathPrefix)
+	if !ok {
+		return "", false
+	}
+	connection, _, _ := strings.Cut(rest, "/")
+	return connection, true
+}

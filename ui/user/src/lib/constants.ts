@@ -11,11 +11,26 @@ export const UNAUTHORIZED_PATHS = new Set([
 	'/login/local',
 	// Activation carries its setup token in the URL fragment, so redirecting an anonymous visitor
 	// away would discard the only browser-side copy of it.
-	'/activate'
+	'/activate',
+	// The login page of the Okta SCIM provisioning app, which explains to anyone who opens the app
+	// that it does not sign them in. Okta requires a separate app just to act as a SCIM provisioning
+	// container, and it needs a login URL, even though it will never be used for login. So we point
+	// it to this page.
+	'/okta-scim'
 ]);
 
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
+
+// The sub-tabs of the Auth Providers tab of Identity & Access: the providers, and SCIM.
+export const AUTH_PROVIDERS_VIEW_PATH = '/identity-access?view=auth-providers';
+export const SCIM_VIEW_PATH = '/identity-access?view=auth-providers&subview=scim';
+const scimViewParams = Array.from(new URL(SCIM_VIEW_PATH, 'http://localhost').searchParams);
+
+// Whether the query of a URL of Identity & Access selects the SCIM sub-tab, as SCIM_VIEW_PATH's does.
+export function isSCIMView(searchParams: URLSearchParams): boolean {
+	return scimViewParams.every(([key, value]) => searchParams.get(key) === value);
+}
 
 export const SEEN_SPLASH_DIALOG_KEY = 'seenSplashDialog';
 

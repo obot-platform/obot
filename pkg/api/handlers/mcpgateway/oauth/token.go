@@ -18,7 +18,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"golang.org/x/crypto/bcrypt"
@@ -176,6 +178,10 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 	}
+	if user.Status() != types.UserStatusActive {
+		// The user was disabled after approving the request.
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
+	}
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
@@ -224,6 +230,9 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create oauth token: %w", err)
 	}
+	if err := revokeIfUserDenied(req, &oauthToken); err != nil {
+		return err
+	}
 	slog.Info("Issued OAuth access and refresh token via authorization_code", "client", oauthClient.Name, "userID", oauthAuthRequest.Spec.UserID, "mcpID", oauthAuthRequest.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
@@ -232,6 +241,23 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
+}
+
+// revokeIfUserDenied deletes a refresh token it was just issued if its user was disabled or deleted while it was
+// being issued. Delivery of the disable event may already have looked for the user's refresh tokens without seeing
+// this one, and would otherwise leave it to work again if the user is reactivated.
+func revokeIfUserDenied(req api.Context, token *v1.OAuthToken) error {
+	err := req.GatewayClient.CheckCredentialOwner(req.Context(), token.Spec.UserID)
+	if err == nil {
+		return nil
+	}
+	if deleteErr := req.Storage.Delete(req.Context(), token); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+		return errors.Join(err, fmt.Errorf("failed to revoke oauth token: %w", deleteErr))
+	}
+	if _, ok := errors.AsType[*gateway.UserAccessDeniedError](err); ok {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
+	}
+	return err
 }
 
 func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, refreshToken string) error {
@@ -266,6 +292,10 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			return invalidGrant("invalid user")
 		}
 		return newOAuthError(ErrServerError, fmt.Sprintf("failed to retrieve user: %v", err), "")
+	}
+	if status, _ := principal.UserStatus(user); status != types.UserStatusActive {
+		// Consuming the refresh token keeps it revoked if the user is reactivated.
+		return invalidGrant("invalid user")
 	}
 
 	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, user, oauthToken.Spec.MCPID)
@@ -335,6 +365,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create new oauth token: %w", err)
+	}
+	if err := revokeIfUserDenied(req, &oauthToken); err != nil {
+		return err
 	}
 	slog.Info("Issued OAuth access and refresh token via refresh_token", "client", oauthClient.Name, "userID", oauthToken.Spec.UserID, "mcpID", oauthToken.Spec.MCPID)
 

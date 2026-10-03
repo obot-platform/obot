@@ -266,6 +266,26 @@ export interface AuthProvider extends BaseProvider {
 	verifiedEmail?: string;
 	// A provisioned initial owner has not opened their setup link yet, so nobody can sign in.
 	requiresActivation?: boolean;
+	// The state of the provider's SCIM connection, absent when it has none. It outlasts
+	// deconfiguration, and SCIM resumes in it when the provider is configured again. Only
+	// administrators see it.
+	scimState?: SCIMConnectionState;
+	// When the bearer token of the provider's SCIM connection stops being accepted. Absent while the
+	// connection has no token, and for non-administrators.
+	scimTokenExpiresAt?: string;
+	// How the provider supports SCIM. Absent for providers that do not, and for non-administrators.
+	scim?: AuthProviderSCIM;
+}
+
+export interface AuthProviderSCIM {
+	// While the provider is configured or staged without a SCIM connection, providing these
+	// parameters sets up directory synchronization, and leaving them empty sets up SCIM.
+	directoryParameters: string[];
+	// The parameter that holds the identity provider's issuer, such as the Okta Org URL.
+	issuerParameter: string;
+	// The issuer recorded when the provider's SCIM connection was created. SCIM bindings belong to
+	// that organization.
+	connectionIssuer?: string;
 }
 
 // A user of the built-in local auth provider. Passwords are never returned by the API.
@@ -1808,3 +1828,162 @@ export type EnforcementDecisionURLFilters = {
 	start_time?: string | null;
 	tool?: string | null;
 };
+
+// SCIM provisioning
+
+export type SCIMConnectionState = 'connected' | 'enforced';
+
+export interface SCIMConnection {
+	id: string;
+	adapterType: string;
+	// 'scim_first' when the provider was configured without directory credentials, 'migrated' when
+	// the connection replaced login-time directory synchronization.
+	origin: 'scim_first' | 'migrated';
+	authProviderNamespace: string;
+	authProviderName: string;
+	authProviderDisplayName: string;
+	state: SCIMConnectionState;
+	// The SCIM base URL to configure in the identity provider.
+	baseURL: string;
+	issuer?: string;
+	enabledAt: string;
+	enforcedAt?: string;
+	// False until the first bearer token is issued.
+	hasToken: boolean;
+	tokenIssuedAt?: string;
+	// When the token stops being accepted, a year after it was issued.
+	tokenExpiresAt?: string;
+	// True while the token replaced by the last rotation is still accepted.
+	previousTokenAccepted: boolean;
+	previousTokenExpiresAt?: string;
+	// False while the connection's auth provider does not serve sign-ins, and SCIM requests fail.
+	authProviderConfigured: boolean;
+	// The bearer token. Only set in the response that issued it.
+	token?: string;
+}
+
+export interface GroupReference {
+	kind:
+		| 'accessControlRule'
+		| 'modelAccessPolicy'
+		| 'skillAccessRule'
+		| 'messagePolicy'
+		| 'hostedAgentAccessRule'
+		| 'publishedArtifact'
+		| 'groupRoleAssignment'
+		| 'vmcpProfile';
+	id: string;
+	displayName?: string;
+	detail?: string;
+}
+
+export interface SCIMSetupGroup {
+	id: string;
+	// Empty for a referenced group ID that no group has.
+	name: string;
+	nativeID?: string;
+	// Link to the group in the identity provider's admin console.
+	consoleURL?: string;
+	// Empty while the group is unbound.
+	scimID?: string;
+	references?: GroupReference[];
+}
+
+export interface SCIMSetupWarning {
+	// 'duplicateName' and 'unreferencedNamesake' name groups whose name a pushed group cannot bind by.
+	type: 'everyoneGroup' | 'missingGroup' | 'duplicateName' | 'unreferencedNamesake';
+	message: string;
+	groupID: string;
+	groupName?: string;
+	references?: GroupReference[];
+}
+
+export interface SCIMSetupUser {
+	id: string;
+	username?: string;
+	email?: string;
+	displayName?: string;
+	status: 'active' | 'disabled';
+	disabledReason?: string;
+	// Empty while the user is unprovisioned.
+	scimID?: string;
+	active?: boolean;
+	// True once the user has signed in through the auth provider.
+	signedIn?: boolean;
+}
+
+export interface SCIMRequestFailure {
+	time: string;
+	method: string;
+	resource: string;
+	status: number;
+	scimType?: string;
+	detail?: string;
+}
+
+export interface SCIMPage<T> {
+	items: T[];
+	total: number;
+}
+
+export type SCIMGroupList = 'bound' | 'unboundReferenced' | 'unreferenced';
+
+export interface SCIMConnectionReview {
+	connection: SCIMConnection;
+	provisionedUsers: SCIMPage<SCIMSetupUser>;
+	unprovisionedUsers: SCIMPage<SCIMSetupUser>;
+	boundGroups: SCIMPage<SCIMSetupGroup>;
+	unboundReferencedGroups: SCIMPage<SCIMSetupGroup>;
+	unreferencedGroups: SCIMPage<SCIMSetupGroup>;
+	warnings: SCIMSetupWarning[];
+	// Why the requesting user cannot enforce SCIM now, besides unboundReferencedGroups, which also
+	// block it. Empty once SCIM is enforced.
+	enforceBlockers: string[];
+	activity: {
+		lastRequestAt?: string;
+		lastSuccessAt?: string;
+		recentFailures: SCIMPage<SCIMRequestFailure>;
+	};
+}
+
+export interface SCIMEnforceResult {
+	connection: SCIMConnection;
+	disabledUserCount: number;
+	deletedGroupCount: number;
+}
+
+// A name that more than one referenced group has. A group pushed under it could bind to neither.
+export interface SCIMDuplicateGroupName {
+	name: string;
+	groups: SCIMSetupGroup[];
+}
+
+// The configured auth provider that SCIM can be enabled for, which synchronizes its directory at
+// sign-in, and what blocks enabling it.
+export interface SCIMEnablePreview {
+	// Absent when no auth provider is configured, or the configured one does not support SCIM.
+	authProviderNamespace?: string;
+	authProviderName?: string;
+	authProviderDisplayName?: string;
+	blockers: string[];
+	duplicateGroupNames: SCIMDuplicateGroupName[];
+}
+
+export interface SCIMEnableResult {
+	// Carries the token, which is shown only once.
+	connection: SCIMConnection;
+	deletedGroupCount: number;
+	// Set when the unreferenced groups could not be deleted. SCIM is enabled regardless.
+	deletionError?: string;
+}
+
+export interface SCIMGroupDeletionResult {
+	deletedGroupCount: number;
+}
+
+// Group data left from an earlier configuration of an auth provider. It blocks configuring the
+// provider without directory credentials until the provider's auth provider cleanup removes it.
+export interface ResidualGroupData {
+	groups: SCIMSetupGroup[];
+	membershipCount: number;
+}

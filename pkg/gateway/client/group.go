@@ -51,6 +51,18 @@ const (
 	groupFailureCooldown = time.Minute
 
 	groupCursorVersion = 1
+
+	// grantingMembership is a condition on group_memberships that leaves out the memberships of groups whose
+	// auth provider has a suspended SCIM connection. SCIM keeps those groups after the provider is deconfigured,
+	// and they grant nothing until it is configured again. Lookups of a user's groups that are not scoped to one
+	// auth provider, such as those of API keys and tokens, apply it. A lookup scoped to the provider a user
+	// signed in with needs no such condition, as nobody can sign in with a deconfigured provider.
+	grantingMembership = `NOT EXISTS (
+		SELECT 1 FROM groups suspended_groups
+		JOIN scim_connections ON scim_connections.auth_provider_namespace = suspended_groups.auth_provider_namespace
+			AND scim_connections.auth_provider_name = suspended_groups.auth_provider_name
+		WHERE suspended_groups.id = group_memberships.group_id AND scim_connections.suspended_at IS NOT NULL
+	)`
 )
 
 var (
@@ -184,6 +196,9 @@ func groupFilterFingerprint(nameFilter string) string {
 // The auth provider is the authoritative source. When it cannot be listed, the response falls back
 // to the groups table, which holds the groups observed during a user sign-in plus any resolved by
 // ID for a policy, and is therefore partial.
+//
+// For a provider that SCIM manages, the groups table holds its groups, bound and unbound alike, and
+// the provider is never asked.
 func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) (ListAuthGroupsResult, error) {
 	if opts.Limit <= 0 {
 		opts.Limit = DefaultGroupPageSize
@@ -191,6 +206,19 @@ func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProvid
 	opts.Limit = min(opts.Limit, MaxGroupPageSize)
 
 	cursor, _ := decodeGroupCursor(opts.Cursor, opts.NameFilter)
+
+	if authProviderURL != "" {
+		// A failed lookup fails the listing rather than falling back to the directory.
+		conn, err := c.SCIMConnectionForAuthProvider(ctx, authProviderNamespace, authProviderName)
+		if err != nil {
+			return ListAuthGroupsResult{}, err
+		}
+
+		if conn != nil {
+			// Mark the URL empty so that no attempt is made to read groups from the auth provider's API.
+			authProviderURL = ""
+		}
+	}
 
 	if authProviderURL != "" {
 		// A cursor minted by the cached listing cannot be replayed against the provider, so drop
@@ -377,6 +405,9 @@ func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamesp
 // Note the shape: cache first, provider only for the remainder. Resolution runs on page loads, so
 // making it an unconditional provider call would put an identity provider round trip, and its rate
 // limit, in front of every admin screen.
+//
+// For a provider that SCIM manages, the groups table holds its groups, and the provider is never
+// asked.
 func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, ids []string) ([]types.Group, error) {
 	if len(ids) == 0 {
 		return []types.Group{}, nil
@@ -396,7 +427,19 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authPro
 		byID[group.ID] = group
 	}
 
-	if missing := missingGroupIDs(ids, byID); len(missing) > 0 && authProviderURL != "" {
+	missing := missingGroupIDs(ids, byID)
+	if len(missing) > 0 && authProviderURL != "" {
+		// A failed lookup fails the resolution rather than falling back to the directory.
+		conn, err := c.SCIMConnectionForAuthProvider(ctx, authProviderNamespace, authProviderName)
+		if err != nil {
+			return nil, err
+		}
+		if conn != nil {
+			authProviderURL = ""
+		}
+	}
+
+	if len(missing) > 0 && authProviderURL != "" {
 		fetched, err := c.resolveAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, missing)
 		if err != nil {
 			// Resolution is best effort. A missing name degrades to the ID, which is still
@@ -409,7 +452,7 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authPro
 				byID[group.ID] = group
 			}
 
-			c.cacheResolvedGroups(ctx, fetched)
+			c.cacheResolvedGroups(ctx, authProviderNamespace, authProviderName, fetched)
 		}
 	}
 
@@ -512,25 +555,34 @@ func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProvider
 }
 
 // cacheResolvedGroups records groups resolved from the provider so the next caller is answered from
-// the database.
-func (c *Client) cacheResolvedGroups(ctx context.Context, groups []types.Group) {
+// the database. It discards them when a SCIM connection for the provider was created while they were
+// being resolved, because SCIM owns the provider's groups from then on.
+func (c *Client) cacheResolvedGroups(ctx context.Context, authProviderNamespace, authProviderName string, groups []types.Group) {
 	if len(groups) == 0 {
 		return
 	}
 
-	if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-	}).Create(&groups).Error; err != nil {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if conn, err := scimConnectionForAuthProviderLockedTx(tx, authProviderNamespace, authProviderName); err != nil {
+			return err
+		} else if conn != nil {
+			return nil
+		}
+
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+		}).Create(&groups).Error
+	}); err != nil {
 		slog.Warn("failed to cache groups resolved from the auth provider", "groups", len(groups), "error", err)
 	}
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.
-// This can include groups from multiple auth providers.
+// This can include groups from multiple auth providers, but not those of a suspended SCIM connection.
 func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string, error) {
 	var groupIDs []string
-	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
+	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Where(grantingMembership).Pluck("group_id", &groupIDs).Error; err != nil {
 		return nil, fmt.Errorf("failed to list user group IDs: %w", err)
 	}
 
@@ -561,8 +613,22 @@ func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authPro
 
 // DeleteAuthProviderGroupData removes all gateway-database state for groups belonging to a
 // deconfigured auth provider. It is transactional and idempotent so controller retries are safe.
+//
+// It returns ErrSCIMManagedGroupData, and deletes nothing, when a SCIM connection owns the data,
+// either because it manages the auth provider or because it manages the group ID prefix. The
+// identity provider holds the IDs of those groups, and nothing could rebuild them.
 func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName, groupIDPrefix string) error {
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The mode lock keeps a connection from being created while the data is deleted.
+		if err := lockSCIMMode(tx, false); err != nil {
+			return err
+		}
+		if conn, err := scimConnectionForGroupDataTx(tx, authProviderNamespace, authProviderName, groupIDPrefix); err != nil {
+			return err
+		} else if conn != nil {
+			return ErrSCIMManagedGroupData
+		}
+
 		if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
 			return fmt.Errorf("delete group role assignments: %w", err)
 		}
@@ -588,7 +654,7 @@ func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNa
 }
 
 // GetUserGroupMemberships fetches group memberships for multiple users in a single query.
-// Returns a map of userID to slice of groupIDs.
+// Returns a map of userID to slice of groupIDs, leaving out the groups of a suspended SCIM connection.
 func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
 	if len(userIDs) == 0 {
 		return nil, nil
@@ -604,6 +670,7 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 		Table("group_memberships").
 		Select("user_id, group_id").
 		Where("user_id IN ?", userIDs).
+		Where(grantingMembership).
 		Find(&results).Error
 
 	if err != nil {
@@ -678,6 +745,15 @@ func (c *Client) refreshGroups(ctx context.Context, providerURL, key string, ide
 		return c.listCachedGroups(ctx, identity)
 	}
 
+	// SCIM owns the memberships of the providers it manages, so they are never refreshed from the directory. The mode
+	// is checked right before the directory call, and again when the response is stored. A failed lookup fails the
+	// refresh rather than falling back to the directory.
+	if conn, err := c.SCIMConnectionForAuthProvider(ctx, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
+		return nil, err
+	} else if conn != nil {
+		return c.listCachedGroups(ctx, identity)
+	}
+
 	// Fetch live auth groups and trigger a refresh backoff for the identity on error
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.GroupLookupID())
 	c.groupCooldown.record(key, err)
@@ -693,7 +769,7 @@ func (c *Client) refreshGroups(ctx context.Context, providerURL, key string, ide
 		return nil, err
 	}
 	if !claimed {
-		// Groups were updated by another instance.
+		// Groups were updated by another instance, or SCIM took them over while they were fetched.
 		// Discard what we fetched and return the latest cached groups.
 		return c.listCachedGroups(ctx, identity)
 	}
@@ -738,9 +814,20 @@ func (g *groupRefreshCooldown) record(key string, err error) {
 
 // persistGroups persists the identity's freshly fetched AuthProviderGroups to the database
 // reconciles group memberships, and returns false if the groups were updated out-of-band.
+//
+// It also returns false, and writes nothing, when a SCIM connection for the identity's provider was
+// created while the groups were being fetched. The shared mode lock keeps a connection from being
+// created until the transaction ends, so the groups are either stored before SCIM can write any
+// group of the provider, or discarded.
 func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, lastChecked time.Time) (bool, error) {
 	var membershipsChanged, groupsLost, claimed bool
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if conn, err := scimConnectionForAuthProviderLockedTx(tx, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
+			return err
+		} else if conn != nil {
+			return nil
+		}
+
 		claim := groupsLastCheckedColumn + " = ?"
 		if lastChecked.IsZero() {
 			claim = fmt.Sprintf("(%s OR %s IS NULL)", claim, groupsLastCheckedColumn)

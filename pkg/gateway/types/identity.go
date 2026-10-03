@@ -22,6 +22,11 @@ type Identity struct {
 	// AuthProviderGroupsLastChecked is the last time the identity's auth provider groups were checked.
 	AuthProviderGroupsLastChecked time.Time `json:"authProviderGroupsLastChecked"`
 
+	// FirstSignInAt is when the identity first signed in through its auth provider. It is unset for an
+	// identity that was created before anyone signed in with it, so an identity alone does not prove that its
+	// user can sign in. The first sign-in of a user who is not disabled sets it, and nothing clears it.
+	FirstSignInAt *time.Time `json:"firstSignInAt,omitempty"`
+
 	// AuthProviderGroups is the set of auth provider groups that the identity is a member of.
 	AuthProviderGroups []Group `json:"groups" gorm:"-"`
 }

@@ -101,6 +101,11 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		return fmt.Errorf("failed to resolve effective roles: %v", err)
 	}
 
+	provisioned, err := apiContext.GatewayClient.SCIMProvisionedUserIDs(apiContext.Context(), userIDs)
+	if err != nil {
+		return fmt.Errorf("failed to get SCIM-provisioned users: %v", err)
+	}
+
 	// Build response with computed effective roles
 	items := make([]types2.User, 0, len(validUsers))
 	for _, user := range validUsers {
@@ -111,6 +116,9 @@ func (s *Server) getUsers(apiContext api.Context) error {
 
 		result := types.ConvertUserWithEffectiveRole(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
 		result.AuthProviderGroups = userGroupMemberships[user.ID]
+		if _, ok := provisioned[user.ID]; ok {
+			result.ManagementSource = types2.UserManagementSourceSCIM
+		}
 		items = append(items, *result)
 	}
 
@@ -167,8 +175,16 @@ func (s *Server) getUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
+	binding, err := apiContext.GatewayClient.SCIMUserBindingForUser(apiContext.Context(), user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
+	}
+
 	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
 	result.AuthProviderGroups = groupIDs
+	if binding != nil {
+		result.ManagementSource = types2.UserManagementSourceSCIM
+	}
 	return apiContext.Write(result)
 }
 
@@ -230,6 +246,8 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusBadRequest
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
+		} else if _, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
+			status = http.StatusBadRequest
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
@@ -249,7 +267,16 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	}
 	slog.Info("Updated user profile via API", "userID", existingUser.ID)
 
-	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
+	binding, err := apiContext.GatewayClient.SCIMUserBindingForUser(apiContext.Context(), existingUser.ID)
+	if err != nil {
+		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
+	}
+
+	converted := types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, "")
+	if binding != nil {
+		converted.ManagementSource = types2.UserManagementSourceSCIM
+	}
+	return apiContext.Write(converted)
 }
 
 func (s *Server) markUserInternal(apiContext api.Context) error {
@@ -292,6 +319,18 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
+	if isDeleteMe {
+		// The identity provider controls the accounts that SCIM has provisioned, so their owners cannot delete them.
+		binding, err := apiContext.GatewayClient.SCIMUserBindingForUser(apiContext.Context(), existingUser.ID)
+		if err != nil {
+			return fmt.Errorf("failed to check the SCIM binding of user: %w", err)
+		}
+		if binding != nil {
+			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "scim_managed_self_delete")
+			return types2.NewErrHTTP(http.StatusForbidden, "your account is managed by your identity provider; ask your administrator to remove your assignment there")
+		}
+	}
+
 	if !apiContext.UserIsOwner() {
 		if existingUser.Role.HasRole(types2.RoleOwner) {
 			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "owner_delete_requires_owner")
@@ -316,6 +355,8 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 			status = http.StatusBadRequest
 		} else if _, ok := errors.AsType[*client.LastOwnerError](err); ok {
 			status = http.StatusBadRequest
+		} else if _, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
+			status = http.StatusConflict
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}

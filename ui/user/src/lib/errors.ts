@@ -64,13 +64,13 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile): n
 
 	if (statusCode === 403) {
 		if (profile?.role === 0) {
-			throw redirect(303, `/?rd=${path}`);
+			throw redirect(303, `/?rd=${encodeURIComponent(path)}`);
 		}
 		throw error(403, appError);
 	}
 
 	if (statusCode === 401) {
-		throw redirect(303, `/?rd=${path}`);
+		throw redirect(303, `/?rd=${encodeURIComponent(path)}`);
 	}
 
 	if (statusCode === 404) {

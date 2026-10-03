@@ -3,11 +3,14 @@ package client
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -66,7 +69,20 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 
 		gatewayUser, err = u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"), userLimit)
 		if err != nil {
-			return nil, false, err
+			if _, ok := errors.AsType[*types2.ErrHTTP](err); ok {
+				return nil, false, err
+			}
+			if _, ok := errors.AsType[*FetchUserGroupsError](err); ok {
+				return nil, false, err
+			}
+			if _, ok := errors.AsType[*UserAccessDeniedError](err); ok {
+				// Such as a sign-in that SCIM has not provisioned, once SCIM is enforced for the auth provider.
+				return nil, false, err
+			}
+			// The user could not be read, so their status is unknown.
+			return nil, false, &UserAccessLookupError{
+				Err: err,
+			}
 		}
 
 		authGroupIDs = identity.GetAuthProviderGroupIDs()
@@ -76,6 +92,9 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 
 	extra := resp.User.GetExtra()
 	extra["auth_provider_groups"] = authGroupIDs
+	// The admission check denies the request unless the user is active. The status comes from the user row that
+	// EnsureIdentity just read, and replaces anything the auth provider supplied.
+	principal.RecordUserStatus(extra, gatewayUser.Status())
 
 	// Resolve effective role by merging individual + group roles
 	effectiveRole, err := u.client.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -217,15 +219,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, persistent.TokenContext{
-				Audience:         compositeAudienceURL,
-				UserID:           req.User.GetUID(),
-				UserName:         req.User.GetName(),
-				UserEmail:        cmp.Or(req.User.GetExtra()["email"]...),
-				UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
-				MCPID:            serverConfig.MCPServerName,
-				AuthorizedMCPIDs: authorizedMCPIDs,
-			}, now)
+			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, now), now)
 			if err != nil {
 				return err
 			}
@@ -405,8 +399,15 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		if err = req.Get(&agent, mcpServerConfig.AgentName); err != nil {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.AgentName, err)
 		}
-		if agent.Spec.UserID != req.User.GetUID() && (!req.UserCanImpersonate() || !req.UserIsAdmin()) {
-			return mcp.ServerConfig{}, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.AgentName)
+		if agent.Spec.UserID != req.User.GetUID() {
+			if !req.UserCanImpersonate() || !req.UserIsAdmin() {
+				return mcp.ServerConfig{}, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.AgentName)
+			}
+			// The admission check covered the impersonator. The agent acts as its owner, so an impersonator cannot
+			// reach it while the owner is denied access.
+			if err := h.checkAgentOwnerAccess(req, agent.Spec.UserID); err != nil {
+				return mcp.ServerConfig{}, err
+			}
 		}
 	}
 
@@ -456,6 +457,43 @@ func writeMCPAuthRequired(req api.Context, requiresConfig bool) {
 	} else {
 		http.Error(req.ResponseWriter, "MCP server requires authentication", http.StatusUnauthorized)
 	}
+}
+
+// compositeLoopbackTokenContext returns the token a composite server's loopback authenticates with, for the caller
+// that reached the composite server.
+func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, now time.Time) persistent.TokenContext {
+	tokenContext := persistent.TokenContext{
+		Audience:         audience,
+		IssuedAt:         persistent.NewTime(now),
+		ExpiresAt:        persistent.NewTime(now.Add(10 * time.Minute)),
+		UserID:           caller.GetUID(),
+		UserName:         caller.GetName(),
+		UserEmail:        cmp.Or(caller.GetExtra()["email"]...),
+		UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		MCPID:            mcpServerName,
+		AuthorizedMCPIDs: authorizedMCPIDs,
+	}
+	if principal.IsHostedAgent(caller) {
+		// The token names the agent, which is not a user, so it records the owner whose status governs it.
+		tokenContext.HostedAgentOwnerID = principal.ResourceOwnerID(caller)
+	}
+	return tokenContext
+}
+
+// checkAgentOwnerAccess returns an error unless the owner of a nanobot agent may access Obot.
+func (h *Handler) checkAgentOwnerAccess(req api.Context, ownerID string) error {
+	id, err := strconv.ParseUint(ownerID, 10, 0)
+	if err != nil {
+		return types.NewErrForbidden("nanobot agent has no valid owner")
+	}
+	status, err := req.GatewayClient.UserStatus(req.Context(), uint(id))
+	if err != nil {
+		return err
+	}
+	if status != types.UserStatusActive {
+		return types.NewErrForbidden("the owner of this nanobot agent is not active")
+	}
+	return nil
 }
 
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, error) {

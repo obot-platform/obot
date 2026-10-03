@@ -49,6 +49,8 @@ const (
 	GroupTunnel             = "obot-tunnel"
 	GroupTunnelBridge       = "obot-tunnel-bridge"
 	GroupTunnelPeer         = "obot-tunnel-peer"
+	// GroupSCIM is the group of a SCIM connection's principal, which may only use that connection's SCIM endpoint.
+	GroupSCIM = "obot-scim"
 )
 
 var (
@@ -84,7 +86,35 @@ type User struct {
 	OriginalEmail          string   `json:"originalEmail,omitempty"`
 	OriginalUsername       string   `json:"originalUsername,omitempty"`
 	RequirePasswordChange  bool     `json:"requirePasswordChange,omitempty"`
+
+	// Status is the user's lifecycle status. A disabled user keeps their account and data but is denied access.
+	Status UserStatus `json:"status,omitempty"`
+	// DisabledAt is when the user was disabled. It is set only while the user is disabled.
+	DisabledAt *Time `json:"disabledAt,omitempty"`
+	// DisabledReason explains why the user is disabled. It is set only while the user is disabled.
+	DisabledReason string `json:"disabledReason,omitempty"`
+	// ManagementSource is what controls the user's lifecycle status.
+	ManagementSource UserManagementSource `json:"managementSource,omitempty"`
 }
+
+// UserStatus is a user's lifecycle status.
+type UserStatus string
+
+const (
+	UserStatusActive   UserStatus = "active"
+	UserStatusDisabled UserStatus = "disabled"
+	UserStatusDeleted  UserStatus = "deleted"
+)
+
+// UserManagementSource is what controls a user's lifecycle status.
+type UserManagementSource string
+
+const (
+	// UserManagementSourceObot means Obot controls the user's status.
+	UserManagementSourceObot UserManagementSource = "obot"
+	// UserManagementSourceSCIM means an identity provider controls the user's status through SCIM.
+	UserManagementSourceSCIM UserManagementSource = "scim"
+)
 
 type UserList List[User]
 
