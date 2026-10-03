@@ -8,7 +8,23 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+// MCPAuditLogEnabled reports whether new MCP audit entries are collected.
+func (c *Client) MCPAuditLogEnabled() bool {
+	return !c.mcpAuditDisabled
+}
+
 func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
+	if !c.MCPAuditLogEnabled() {
+		return
+	}
+
+	// The entry is passed by value, but its nested fields are shared with the
+	// caller. Copy them before replacing bodies and updating audit metadata.
+	if entry.MCPFields != nil {
+		fields := *entry.MCPFields
+		entry.MCPFields = &fields
+	}
+
 	// Encrypt the audit entry before adding to buffer
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -18,9 +34,16 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 		slog.Error("Invalid MCP audit log source fields", "error", err)
 		return
 	}
+
 	mcp := entry.MCP()
-	mcp.RequestMutated = len(mcp.MutatedRequestBody) > 0
-	mcp.ResponseMutated = len(mcp.OriginalResponseBody) > 0
+	mcp.RequestBodyPresent = mcp.RequestBodyPresent || len(mcp.RequestBody) > 0
+	mcp.RequestMutated = mcp.RequestMutated || len(mcp.MutatedRequestBody) > 0
+	mcp.ResponseMutated = mcp.ResponseMutated || len(mcp.OriginalResponseBody) > 0
+
+	mcp.RequestBody = limitAuditBody(mcp.RequestBody, c.mcpAuditMaxBodyBytes)
+	mcp.ResponseBody = limitAuditBody(mcp.ResponseBody, c.mcpAuditMaxBodyBytes)
+	mcp.MutatedRequestBody = limitAuditBody(mcp.MutatedRequestBody, c.mcpAuditMaxBodyBytes)
+	mcp.OriginalResponseBody = limitAuditBody(mcp.OriginalResponseBody, c.mcpAuditMaxBodyBytes)
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		slog.Error("Failed to encrypt MCP audit log", "error", err)
