@@ -197,7 +197,7 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 					TokenSource: tt.tokenSource,
 				}),
 				Rewrite: func(req *httputil.ProxyRequest) {
-					rewriteProxyRequest(req, upstreamURL)
+					rewriteProxyRequest(req, upstreamURL, false)
 				},
 			})
 			defer proxy.Close()
@@ -235,6 +235,64 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 			}
 			if got.Get("X-API-Key") != tt.wantAPIKey {
 				t.Fatalf("X-API-Key = %q, want %q", got.Get("X-API-Key"), tt.wantAPIKey)
+			}
+		})
+	}
+}
+
+func TestProxyForwardedHeaders(t *testing.T) {
+	tests := []struct {
+		name        string
+		remote      bool
+		inboundHost string
+		wantHost    string
+		wantProto   string
+	}{
+		{name: "remote via loopback", remote: true, inboundHost: "localhost:8080"},
+		{name: "remote via public host", remote: true, inboundHost: "obot.example.com", wantHost: "obot.example.com", wantProto: "https"},
+		{name: "hosted via loopback", inboundHost: "localhost:8080", wantHost: "localhost:8080", wantProto: "http"},
+		{name: "hosted via public host", inboundHost: "obot.example.com", wantHost: "obot.example.com", wantProto: "https"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			receivedHeaders := make(chan http.Header, 1)
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				receivedHeaders <- req.Header.Clone()
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer upstream.Close()
+
+			upstreamURL, err := url.Parse(upstream.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			proxy := httptest.NewServer(&httputil.ReverseProxy{
+				Rewrite: func(req *httputil.ProxyRequest) {
+					rewriteProxyRequest(req, upstreamURL, tt.remote)
+				},
+			})
+			defer proxy.Close()
+
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Host = tt.inboundHost
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+
+			got := <-receivedHeaders
+			if got.Get("X-Forwarded-Host") != tt.wantHost {
+				t.Fatalf("X-Forwarded-Host = %q, want %q", got.Get("X-Forwarded-Host"), tt.wantHost)
+			}
+			if got.Get("X-Forwarded-Proto") != tt.wantProto {
+				t.Fatalf("X-Forwarded-Proto = %q, want %q", got.Get("X-Forwarded-Proto"), tt.wantProto)
 			}
 		})
 	}

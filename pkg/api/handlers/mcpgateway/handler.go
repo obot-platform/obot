@@ -289,7 +289,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		(&httputil.ReverseProxy{
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
-				rewriteProxyRequest(r, u)
+				rewriteProxyRequest(r, u, serverConfig.Runtime == types.RuntimeRemote)
 			},
 			ModifyResponse: func(resp *http.Response) error {
 				rewriteMCPAuthResponse(req, resp)
@@ -327,7 +327,7 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
-func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
+func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL, remote bool) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
 	// explicitly configured upstream credentials after this rewrite.
@@ -342,12 +342,22 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	// host rather than from whether this hop happens to be TLS.
 	r.SetXForwarded()
 
-	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-	scheme := "https"
-	if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
-		scheme = "http"
+	loopback := strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]")
+	if remote && loopback {
+		// Obot dialed itself (a vMCP component's local connect URL). A loopback
+		// host means nothing to a third-party server, and a proxy in front of it
+		// that trusts these headers (ingress-nginx with force-ssl-redirect)
+		// answers with a redirect to https://localhost/.
+		r.Out.Header.Del("X-Forwarded-Host")
+		r.Out.Header.Del("X-Forwarded-Proto")
+	} else {
+		r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+		scheme := "https"
+		if loopback {
+			scheme = "http"
+		}
+		r.Out.Header.Set("X-Forwarded-Proto", scheme)
 	}
-	r.Out.Header.Set("X-Forwarded-Proto", scheme)
 
 	r.Out.Host = upstreamURL.Host
 	r.Out.URL.Scheme = upstreamURL.Scheme
