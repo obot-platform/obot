@@ -8,8 +8,10 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -327,6 +329,21 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
+// isLoopbackHost reports whether a Host header value, with or without a port,
+// names localhost or a loopback address.
+func isLoopbackHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.IsLoopback()
+}
+
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL, remote bool) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
@@ -342,7 +359,7 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL, remote 
 	// host rather than from whether this hop happens to be TLS.
 	r.SetXForwarded()
 
-	loopback := strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]")
+	loopback := isLoopbackHost(r.In.Host)
 	if remote && loopback {
 		// Obot dialed itself (a vMCP component's local connect URL). A loopback
 		// host means nothing to a third-party server, and a proxy in front of it

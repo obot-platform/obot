@@ -248,10 +248,52 @@ func TestProxyForwardedHeaders(t *testing.T) {
 		wantHost    string
 		wantProto   string
 	}{
-		{name: "remote via loopback", remote: true, inboundHost: "localhost:8080"},
-		{name: "remote via public host", remote: true, inboundHost: "obot.example.com", wantHost: "obot.example.com", wantProto: "https"},
-		{name: "hosted via loopback", inboundHost: "localhost:8080", wantHost: "localhost:8080", wantProto: "http"},
-		{name: "hosted via public host", inboundHost: "obot.example.com", wantHost: "obot.example.com", wantProto: "https"},
+		{
+			name:        "remote via loopback",
+			remote:      true,
+			inboundHost: "localhost:8080",
+		},
+		{
+			name:        "remote via uppercase loopback",
+			remote:      true,
+			inboundHost: "LOCALHOST:8080",
+		},
+		{
+			name:        "remote via loopback IPv4",
+			remote:      true,
+			inboundHost: "127.0.0.2:8080",
+		},
+		{
+			name:        "remote via loopback IPv6",
+			remote:      true,
+			inboundHost: "[::1]:8080",
+		},
+		{
+			name:        "remote via public host",
+			remote:      true,
+			inboundHost: "obot.example.com",
+			wantHost:    "obot.example.com",
+			wantProto:   "https",
+		},
+		{
+			name:        "remote via public host starting with localhost",
+			remote:      true,
+			inboundHost: "localhost.example.com",
+			wantHost:    "localhost.example.com",
+			wantProto:   "https",
+		},
+		{
+			name:        "hosted via loopback",
+			inboundHost: "localhost:8080",
+			wantHost:    "localhost:8080",
+			wantProto:   "http",
+		},
+		{
+			name:        "hosted via public host",
+			inboundHost: "obot.example.com",
+			wantHost:    "obot.example.com",
+			wantProto:   "https",
+		},
 	}
 
 	for _, tt := range tests {
