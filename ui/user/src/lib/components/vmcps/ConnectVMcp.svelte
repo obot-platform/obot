@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
@@ -21,12 +22,18 @@
 		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { goto, replaceState } from '$lib/url';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, MessageCircle, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+
+	interface Props {
+		connectReturn?: 'list' | 'designer';
+	}
+
+	let { connectReturn }: Props = $props();
 
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
@@ -174,6 +181,22 @@
 	function initLaunch() {
 		showIntroDialog = true;
 		connectDialog?.close();
+	}
+
+	function configureOAuthPath(entryID: string) {
+		return `/mcp-servers/c/${encodeURIComponent(entryID)}?configure-oauth=true` as const;
+	}
+
+	function handleConfigureOAuth(event: MouseEvent, entryID: string) {
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+			return;
+		}
+		event.preventDefault();
+		if (vmcp && connectReturn) {
+			page.url.searchParams.set('connect', connectReturn === 'designer' ? 'true' : vmcp.id);
+			replaceState(page.url, {});
+		}
+		goto(configureOAuthPath(entryID));
 	}
 
 	function goToTester() {
@@ -466,10 +489,11 @@
 		</p>
 		{#if profile.current.isAdmin?.()}
 			<a
-				class="btn btn-primary"
-				href={resolve(
-					`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-				)}>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
+				class="btn btn-primary w-full"
+				href={resolve(configureOAuthPath(missingOAuthComponent.mcpServerCatalogEntryID))}
+				onclick={(event) =>
+					handleConfigureOAuth(event, missingOAuthComponent.mcpServerCatalogEntryID)}
+				>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
 			>
 		{:else}
 			<p>{m.vmcps_ask_admin_configure_oauth()}</p>
@@ -484,7 +508,9 @@
 	onClose={() => {
 		howToConnect?.resetCopied();
 		connectionUrlField?.clear();
+		onDismissed?.();
 	}}
+	class={missingOAuthComponent ? 'md:w-sm' : undefined}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">

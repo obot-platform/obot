@@ -28,9 +28,10 @@
 			configuration: VMCPConfigurationPolicy[],
 			forceSingleUser: boolean
 		) => void | Promise<void>;
+		connectReturn?: 'list' | 'designer';
 	}
 
-	let { onConfigurationNext }: Props = $props();
+	let { onConfigurationNext, connectReturn }: Props = $props();
 
 	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
 	let diffDialog = $state<ReturnType<typeof VMcpDiffDialog>>();
@@ -222,7 +223,7 @@
 	}
 </script>
 
-<ConnectVMcp bind:this={connectVMcpDialog} />
+<ConnectVMcp bind:this={connectVMcpDialog} {connectReturn} />
 
 <VMcpSelectInstance
 	bind:this={selectInstanceDialog}

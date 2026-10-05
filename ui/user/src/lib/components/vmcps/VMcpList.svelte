@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -12,7 +13,7 @@
 	import { getDisplayListText, getVMcpCreator } from '$lib/services/vmcps/utils';
 	import { errors, profile, responsive, version, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto } from '$lib/url';
+	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
@@ -64,6 +65,19 @@
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
 	);
+
+	$effect(() => {
+		if (page.url.searchParams.has('connect')) {
+			const match = items.find((item) => item.id === page.url.searchParams.get('connect'));
+			if (match) {
+				vmcpActions?.openConnect(match.vmcp, undefined, {
+					onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
+				});
+			} else {
+				setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
+			}
+		}
+	});
 
 	type Item = ReturnType<typeof translateItem>;
 
@@ -333,7 +347,7 @@
 	</div>
 {/if}
 
-<VMcpActions bind:this={vmcpActions} />
+<VMcpActions bind:this={vmcpActions} connectReturn="list" />
 
 <Confirm
 	show={Boolean(pendingBulkDelete?.length)}

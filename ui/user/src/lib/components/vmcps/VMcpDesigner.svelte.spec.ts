@@ -231,6 +231,7 @@ describe('VMcpDesigner.svelte', () => {
 		appPage.url.searchParams.delete('view');
 		appPage.url.searchParams.delete('profile');
 		appPage.url.searchParams.delete('tab');
+		appPage.url.searchParams.delete('modify-tools');
 		vmcpInstances.current = { items: [], loading: false };
 		finishVMcpCreateHandoff();
 	});
@@ -248,6 +249,20 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(actions.getByRole('heading', { name: 'Configure GitHub Tools' }))
 				.not.toBeInTheDocument();
+		});
+
+		it('opens the tool editor from modify-tools and clears the param when dismissed', async () => {
+			const vmcp = createIssueTrackerVMcp(toolOverrides);
+			appPage.url.searchParams.set('modify-tools', `component-${componentEntry.id}`);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('button', { name: 'Refresh tools' })).toBeVisible();
+			await page.getByRole('button', { name: 'Cancel' }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Refresh tools' }))
+				.not.toBeInTheDocument();
+			expect(appPage.url.searchParams.get('modify-tools')).toBeNull();
 		});
 
 		it('edits the stored overrides from Modify Tools instead of running setup', async () => {
@@ -587,6 +602,22 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
 				.toBeVisible();
+		});
+
+		it('opens tool setup from modify-tools and clears the param when dismissed', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			appPage.url.searchParams.set('modify-tools', `component-${componentEntry.id}`);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'close' }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
+				.not.toBeInTheDocument();
+			expect(appPage.url.searchParams.get('modify-tools')).toBeNull();
 		});
 
 		it('removes the server from the vMCP without visiting the setup flow', async () => {

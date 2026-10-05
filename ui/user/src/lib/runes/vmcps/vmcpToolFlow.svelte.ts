@@ -185,10 +185,15 @@ export function createVMcpToolFlow() {
 		postCreateConfiguration = false;
 	}
 
+	let onDialogDismissed: (() => void) | undefined;
+
 	function close() {
+		const dismissed = onDialogDismissed;
+		onDialogDismissed = undefined;
 		dialog = undefined;
 		addedServer = undefined;
 		clearConfiguration();
+		dismissed?.();
 	}
 
 	function configure(vmcp: VMCP, component: VMCPComponent, existing: boolean, refresh = false) {
@@ -210,11 +215,15 @@ export function createVMcpToolFlow() {
 	}
 
 	function openSetup(vmcp: VMCP, component: VMCPComponent, existing = false, refresh = false) {
-		if (configure(vmcp, component, existing, refresh)) dialog = 'setup';
+		if (!configure(vmcp, component, existing, refresh)) return false;
+		dialog = 'setup';
+		return true;
 	}
 
 	function openEdit(vmcp: VMCP, component: VMCPComponent) {
-		if (configure(vmcp, component, true)) dialog = 'edit';
+		if (!configure(vmcp, component, true)) return false;
+		dialog = 'edit';
+		return true;
 	}
 
 	function findComponent(vmcp: VMCP, id?: string) {
@@ -243,14 +252,15 @@ export function createVMcpToolFlow() {
 	}
 
 	/** Skip the actions chooser: setup when there are no stored overrides, otherwise edit them. */
-	function editComponent(component: { id?: string }, vmcp: VMCP) {
+	function editComponent(
+		component: { id?: string },
+		vmcp: VMCP,
+		options?: { onDismissed?: () => void }
+	) {
 		const raw = findComponent(vmcp, component.id);
 		if (!raw) return;
-		if (raw.toolOverrides?.length) {
-			openEdit(vmcp, raw);
-			return;
-		}
-		openSetup(vmcp, raw, true);
+		const opened = raw.toolOverrides?.length ? openEdit(vmcp, raw) : openSetup(vmcp, raw, true);
+		if (opened) onDialogDismissed = options?.onDismissed;
 	}
 
 	/** Skip the actions chooser and prompt to remove this component from the vMCP. */

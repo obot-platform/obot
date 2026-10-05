@@ -49,6 +49,7 @@
 		isCatalogSyncedVMcp,
 		mcpServerNeedsStaticOAuthConfiguration,
 		resolveVMcpComponents,
+		vmcpComponentId,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
@@ -91,6 +92,7 @@
 		component: VMCPComponent;
 	}>();
 	const toolFlow = createVMcpToolFlow();
+	let openedModifyToolsFor: string | undefined;
 	let selectedVMcp = $state<VMCP | undefined>(untrack(() => vmcp));
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
@@ -159,6 +161,35 @@
 			if (claimCreationHintForVMcp(created.id)) {
 				creationHintQueued = true;
 			}
+		});
+	});
+
+	$effect(() => {
+		if (page.url.searchParams.get('connect') === 'true' && selectedVMcp?.id) {
+			vmcpActions?.openConnect(selectedVMcp, undefined, {
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
+			});
+		}
+	});
+
+	$effect(() => {
+		const componentID = page.url.searchParams.get('modify-tools');
+		if (!componentID) {
+			openedModifyToolsFor = undefined;
+			return;
+		}
+		const vmcp = selectedVMcp;
+		if (!vmcp?.id || openedModifyToolsFor === componentID) return;
+		const match = vmcp.components?.find((component) => vmcpComponentId(component) === componentID);
+		if (!match) {
+			setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined);
+			return;
+		}
+		openedModifyToolsFor = componentID;
+		untrack(() => {
+			toolFlow.editComponent(match, vmcp, {
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined)
+			});
 		});
 	});
 
@@ -607,7 +638,11 @@
 
 <VMcpToolDialogs flow={toolFlow} readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)} />
 
-<VMcpActions bind:this={vmcpActions} onConfigurationNext={handleConfigurationNext} />
+<VMcpActions
+	bind:this={vmcpActions}
+	connectReturn="designer"
+	onConfigurationNext={handleConfigurationNext}
+/>
 
 <CreateEditVMcp
 	bind:this={createEditVMcp}

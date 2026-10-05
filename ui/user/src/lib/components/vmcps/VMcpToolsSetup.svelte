@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
@@ -19,6 +20,7 @@
 		vmcpMissingStaticOAuthComponent
 	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
+	import { goto, replaceState } from '$lib/url';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -109,6 +111,24 @@
 
 	function componentID(value?: VMCPComponent) {
 		return value?.id || value?.mcpServerCatalogEntryID || '';
+	}
+
+	function configureOAuthPath(entryID: string) {
+		return `/mcp-servers/c/${encodeURIComponent(entryID)}?configure-oauth=true` as const;
+	}
+
+	function handleConfigureOAuth(event: MouseEvent) {
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+			return;
+		}
+		const entryID = component?.mcpServerCatalogEntryID;
+		if (!entryID) return;
+		event.preventDefault();
+		if (oauthSetupRequired && component?.id) {
+			page.url.searchParams.set('modify-tools', component.id);
+			replaceState(page.url, {});
+		}
+		goto(configureOAuthPath(entryID));
 	}
 
 	function cancelToolPreviewRequest(preserveOauthState = false) {
@@ -458,10 +478,11 @@
 					{#if profile.current.isAdmin?.() && component?.mcpServerCatalogEntryID}
 						<a
 							class="btn btn-primary"
-							href={resolve(
-								`/mcp-servers/c/${encodeURIComponent(component.mcpServerCatalogEntryID)}?configure-oauth=true`
-							)}>{m.vmcps_configure_named_oauth({ name: component.name })}</a
+							href={resolve(configureOAuthPath(component.mcpServerCatalogEntryID))}
+							onclick={handleConfigureOAuth}
 						>
+							{m.vmcps_configure_named_oauth({ name: component.name })}
+						</a>
 					{:else}
 						<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 					{/if}

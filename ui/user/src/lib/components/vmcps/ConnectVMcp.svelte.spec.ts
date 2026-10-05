@@ -2,7 +2,7 @@ import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
-import { goto } from '$lib/url';
+import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
@@ -15,7 +15,8 @@ import { page } from 'vitest/browser';
 
 vi.mock('$lib/url', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/url')>()),
-	goto: vi.fn().mockResolvedValue(undefined)
+	goto: vi.fn().mockResolvedValue(undefined),
+	replaceState: vi.fn()
 }));
 
 function configurableVMcp(): VMCP {
@@ -35,10 +36,15 @@ function configurableVMcp(): VMCP {
 	return vmcp;
 }
 
-async function renderDialog(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
+async function renderDialog(
+	vmcp: VMCP,
+	instance?: VMCPInstance,
+	options?: VMcpConnectOptions,
+	connectReturn?: 'list' | 'designer'
+) {
 	await preparePageData();
 	await vmcpInstances.refresh();
-	const result = await render(ConnectVMcp);
+	const result = await render(ConnectVMcp, { connectReturn });
 	result.component.open(vmcp, instance, options);
 	return result;
 }
@@ -57,6 +63,7 @@ async function continueFromIntro() {
 describe('ConnectVMcp.svelte', () => {
 	beforeEach(() => {
 		vi.mocked(goto).mockClear();
+		vi.mocked(replaceState).mockClear();
 		vmcpInstances.current = { items: [], loading: false };
 		worker.use(
 			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
@@ -113,7 +120,7 @@ describe('ConnectVMcp.svelte', () => {
 			.toBeVisible();
 	});
 
-	it('guides setup without launching when a component lacks static OAuth credentials', async () => {
+	function salesforceOAuthVMcp() {
 		const vmcp = createVMCP({ id: 'vmcp1salesforce', displayName: 'Salesforce vMCP' });
 		vmcp.components![0].name = 'Salesforce';
 		vmcp.components![0].mcpServerCatalogEntryID = 'salesforce';
@@ -126,6 +133,11 @@ describe('ConnectVMcp.svelte', () => {
 			ready: false,
 			components: [{ name: 'Salesforce', error: 'static OAuth credentials are not configured' }]
 		};
+		return vmcp;
+	}
+
+	it('guides setup without launching when a component lacks static OAuth credentials', async () => {
+		const vmcp = salesforceOAuthVMcp();
 		const { createInstance, launch } = mockConfigureAndLaunch(vmcp);
 
 		await renderDialog(vmcp);
@@ -147,6 +159,30 @@ describe('ConnectVMcp.svelte', () => {
 			.toHaveClass('btn btn-primary');
 		expect(createInstance).not.toHaveBeenCalled();
 		expect(launch).not.toHaveBeenCalled();
+	});
+
+	it('stores connect=<vmcp id> before opening OAuth setup from the list', async () => {
+		const vmcp = salesforceOAuthVMcp();
+		await renderDialog(vmcp, undefined, undefined, 'list');
+		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
+
+		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+
+		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+		expect(url.searchParams.get('connect')).toBe(vmcp.id);
+		expect(vi.mocked(goto)).toHaveBeenCalledWith('/mcp-servers/c/salesforce?configure-oauth=true');
+	});
+
+	it('stores connect=true before opening OAuth setup from the designer', async () => {
+		const vmcp = salesforceOAuthVMcp();
+		await renderDialog(vmcp, undefined, undefined, 'designer');
+		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
+
+		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+
+		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+		expect(url.searchParams.get('connect')).toBe('true');
+		expect(vi.mocked(goto)).toHaveBeenCalledWith('/mcp-servers/c/salesforce?configure-oauth=true');
 	});
 
 	function mockConfigureAndLaunch(
