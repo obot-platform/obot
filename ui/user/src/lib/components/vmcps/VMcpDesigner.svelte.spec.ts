@@ -617,6 +617,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
 				.not.toBeInTheDocument();
+			await new Promise((resolve) => setTimeout(resolve, 200));
 			expect(appPage.url.searchParams.get('modify-tools')).toBeNull();
 		});
 
