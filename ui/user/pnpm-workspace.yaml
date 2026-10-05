@@ -1,6 +1,10 @@
 overrides:
   cookie: 0.7.0
-  ip-address: 10.4.0
+  ip-address: 10.7.3
+  brace-expansion: 2.1.7
+  devalue: 5.9.4
+  fast-uri: 3.1.8
+
 engineStrict: true
 allowBuilds:
   '@modelcontextprotocol/ext-apps': true
