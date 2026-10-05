@@ -1,3 +1,8 @@
+---
+displayed_sidebar: sidebar
+title: Audit Log Exports
+---
+
 For the current task-based instructions, see [Audit data, privacy, and retention](../security/audit-data.md). This page preserves existing bookmarks and specialized reference material.
 
 Obot can export MCP and LLM gateway audit logs to various cloud storage providers for long-term retention. This feature supports both one-time exports and scheduled recurring exports.

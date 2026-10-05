@@ -1,9 +1,10 @@
 ---
-title: Obot Configuration Reference
+description: Environment variables for configuring the Obot server.
+title: "Server configuration"
 hide_table_of_contents: true
 ---
 
-# Obot Configuration Reference
+# Server configuration {#obot-configuration-reference}
 
 The Obot server is configured via environment variables. The following configuration is available:
 

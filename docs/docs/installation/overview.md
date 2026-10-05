@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: "Deployment overview"
 slug: /installation/overview
 ---
 

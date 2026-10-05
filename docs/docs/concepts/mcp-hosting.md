@@ -1,8 +1,8 @@
 ---
-title: MCP Hosting
+title: "Add hosted MCP servers"
 ---
 
-# MCP Hosting
+# Add hosted MCP servers {#hosted-mcp-servers}
 
 Obot deploys and manages hosted MCP server workloads on Kubernetes or Docker. For production workloads, prefer a container image that packages the server and its dependencies together. Pin the image by digest to deploy the same artifact consistently across environments; rebuild and update it deliberately when dependencies change.
 

@@ -1,3 +1,8 @@
+---
+displayed_sidebar: sidebar
+title: Enabling Authentication
+---
+
 For the current task-based instructions, see [Authentication and identity](../security/authentication.md). This page preserves existing bookmarks.
 
 ## Step 1: Set Environment Variables {#step-1-set-environment-variables}

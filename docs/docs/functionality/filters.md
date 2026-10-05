@@ -1,5 +1,6 @@
 ---
-title: Filters
+displayed_sidebar: sidebar
+title: "Filter MCP traffic"
 ---
 
 Filters inspect MCP requests and responses. Configure a filter to accept, reject, or modify matching traffic; use [private-network tunnels](./mcp-tunnels.md) when the problem is reaching a remote server.

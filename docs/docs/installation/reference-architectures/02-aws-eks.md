@@ -1,3 +1,8 @@
+---
+displayed_sidebar: sidebar
+title: "Amazon EKS"
+---
+
 # Amazon EKS
 
 Deploying Obot to Amazon Elastic Kubernetes Service follows the standard Helm workflow. As a prerequisite, you'll need the following resources set up in your AWS environment:

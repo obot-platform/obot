@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # FAQ
 
 ## Onboarding & Setup

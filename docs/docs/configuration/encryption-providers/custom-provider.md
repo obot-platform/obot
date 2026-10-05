@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Custom Encryption Provider
 
 This guide explains how to set up custom encryption for Obot using a local encryption key.

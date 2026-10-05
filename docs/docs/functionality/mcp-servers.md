@@ -1,4 +1,5 @@
 ---
+displayed_sidebar: sidebar
 title: MCP Servers
 description: Managing MCP servers in the MCP Platform
 ---

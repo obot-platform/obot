@@ -1,5 +1,5 @@
 ---
-title: Model Access Policies
+title: "Control model access"
 ---
 
 ## Overview

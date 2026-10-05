@@ -1,8 +1,8 @@
 ---
-title: MCP Registry
+title: "MCP Servers"
 ---
 
-# MCP Registry
+# MCP Servers {#mcp-registry}
 
 The MCP Registry is a central place to list and discover MCP servers. It provides a curated collection of servers available to users based on their access permissions.
 

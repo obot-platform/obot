@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # AWS KMS
 
 This guide explains how to set up AWS KMS encryption for Obot.

@@ -1,4 +1,5 @@
 ---
+displayed_sidebar: sidebar
 title: Virtual MCPs (vMCPs)
 description: Combine MCP servers behind one governed connection endpoint
 ---

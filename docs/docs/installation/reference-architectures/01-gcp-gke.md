@@ -1,4 +1,9 @@
-# Google Cloud GKE
+---
+displayed_sidebar: sidebar
+title: "Google GKE"
+---
+
+# Google GKE {#google-cloud-gke}
 
 Deploying Obot to Google Kubernetes Engine follows the standard Helm workflow. As a prerequisite, you'll need the following resources set up in your Google Cloud environment:
 

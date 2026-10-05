@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Persistent Storage in Kubernetes
 
 When Obot deploys MCP servers (including Obot Agent workloads) in Kubernetes, those pods need persistent volumes if you want workspace data to survive pod restarts and rescheduling.

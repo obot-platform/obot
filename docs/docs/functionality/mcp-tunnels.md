@@ -1,5 +1,6 @@
 ---
-title: MCP Tunnels
+displayed_sidebar: sidebar
+title: "Connect private-network servers"
 description: Connect Obot to remote MCP servers on private networks through an outbound WebSocket tunnel.
 ---
 

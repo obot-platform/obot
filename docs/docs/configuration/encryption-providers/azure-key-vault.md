@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Azure Key Vault
 
 This guide explains how to set up an Azure VM with a managed identity that can access an Azure Key Vault for encryption operations.

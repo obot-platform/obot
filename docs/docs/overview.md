@@ -1,9 +1,9 @@
 ---
-title: Overview
+title: "What is Obot?"
 slug: /
 ---
 
-# Obot
+# What is Obot? {#obot}
 
 Obot is an open-source platform for organizations to manage, secure, and govern their AI ecosystems. It provides shared infrastructure for connecting AI clients to models and tools, distributing approved MCP servers and skills, managing agent access and credentials, running hosted AI workloads, and recording activity across hosted services and user devices.
 

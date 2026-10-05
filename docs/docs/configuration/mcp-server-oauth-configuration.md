@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # MCP Server OAuth Configuration
 
 Some remote MCP servers require OAuth authentication with pre-registered client credentials. Unlike servers that support dynamic OAuth registration, these servers need administrators to configure a static set of OAuth credentials (Client ID and Client Secret) that all users share.

@@ -1,3 +1,8 @@
+---
+displayed_sidebar: sidebar
+title: Overview
+---
+
 For the current task-based instructions, see [Credentials and encryption](../../security/credentials.md). This page preserves existing bookmarks.
 
 ## Supported Encryption Providers {#supported-encryption-providers}

@@ -1,4 +1,8 @@
-# Docker Deployment
+---
+title: "Docker (evaluation)"
+---
+
+# Docker (evaluation) {#docker-deployment}
 
 Deploy Obot using Docker for local development, testing, and proof-of-concept scenarios.
 

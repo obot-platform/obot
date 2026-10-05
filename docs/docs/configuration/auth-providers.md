@@ -1,8 +1,12 @@
+---
+displayed_sidebar: sidebar
+title: "Configure authentication providers"
+---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Auth Providers
+# Configure authentication providers {#auth-providers}
 
 Authentication providers allow your Obot installation to authenticate users with the identity provider of your choice.
 Administrators must configure an authentication provider before users can log in. Only one authentication provider can be configured at a time.

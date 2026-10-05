@@ -1,8 +1,8 @@
 ---
-title: MCP Gateway
+title: "MCP Gateway overview"
 ---
 
-# MCP Gateway
+# MCP Gateway overview {#mcp-gateway}
 
 The MCP Gateway runs inside Obot and proxies traffic between MCP clients and hosted or remote MCP servers. It authenticates users, checks authorization, ensures hosted servers are running, records audit data, and invokes filters before forwarding allowed messages. Filters can reject traffic or modify it when mutation is allowed.
 

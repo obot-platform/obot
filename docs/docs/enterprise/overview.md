@@ -1,8 +1,8 @@
 ---
-title: Obot Editions
+title: "Editions and feature availability"
 ---
 
-# Obot Editions
+# Editions and feature availability {#obot-editions}
 
 Obot is available in three editions. They are all delivered in the same container image, and you can
 upgrade from one to the next in the app. The editions differ in which capabilities are enabled and

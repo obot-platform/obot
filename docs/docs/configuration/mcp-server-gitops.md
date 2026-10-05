@@ -1,5 +1,5 @@
 ---
-title: MCP Server GitOps
+title: "Git Catalogs"
 ---
 
 ## Overview

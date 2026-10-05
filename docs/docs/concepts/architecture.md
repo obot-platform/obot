@@ -1,8 +1,8 @@
 ---
-title: Architecture
+title: "Platform overview"
 ---
 
-# Architecture
+# Platform overview {#architecture}
 
 Obot connects AI clients and user devices with hosted services and external providers. It provides MCP and LLM gateways, hosting, identity and access control, audit logs, and MCP and Skills registries.
 

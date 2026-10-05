@@ -1,4 +1,8 @@
-# Kubernetes Deployment
+---
+title: "Kubernetes (production)"
+---
+
+# Kubernetes (production) {#kubernetes-deployment}
 
 Deploy Obot on Kubernetes for production-grade reliability, scalability, and high availability.
 
