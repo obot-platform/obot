@@ -88,7 +88,7 @@
 					>
 						{m.mcps_manage_authentication()}
 					</button>
-				{:else if data.server.manifest.remoteConfig?.localhostCallbackEnabled}
+				{:else if data.server.manifest.remoteConfig?.localhostCallbackEnabled && (data.server.vmcpInstanceID || data.server.vmcpID)}
 					<McpOauth entry={data.server} onAuthenticate={authenticationComplete} />
 				{:else}
 					<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}

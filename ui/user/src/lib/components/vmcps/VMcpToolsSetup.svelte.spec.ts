@@ -287,6 +287,68 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
 	});
 
+	it.each(['Continue', 'returning to the tab'])(
+		'prevents duplicate authentication retries after %s starts validation',
+		async (trigger) => {
+			const preview = vi.fn();
+			const aborted = vi.fn();
+			let finishPreview!: () => void;
+			const pendingPreview = new Promise<void>((resolve) => {
+				finishPreview = resolve;
+			});
+			worker.use(
+				http.post(previewURL, async ({ request }) => {
+					preview();
+					if (preview.mock.calls.length === 1) {
+						return HttpResponse.json(
+							{ message: 'MCP server requires OAuth authentication' },
+							{ status: 400 }
+						);
+					}
+					request.signal.addEventListener('abort', aborted);
+					await pendingPreview;
+					return HttpResponse.json({
+						...entry,
+						manifest: {
+							...entry.manifest,
+							toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
+						}
+					});
+				}),
+				http.post(`${previewURL}/oauth-url`, () =>
+					HttpResponse.json({ oauthURL: 'https://obot.example/oauth/mcp/login/preview' })
+				)
+			);
+			await openSetup();
+			await fillConfiguration();
+			await page.getByRole('button', { name: 'Configure Tools' }).click();
+			const continueButton = page.getByRole('button', { name: 'Continue', exact: true });
+			await expect.element(continueButton).toBeVisible();
+			try {
+				// Native clicks exercise repeated activation before Svelte updates the disabled state.
+				const button = continueButton.element() as HTMLButtonElement;
+				if (trigger === 'Continue') {
+					button.click();
+				} else {
+					document.dispatchEvent(new Event('visibilitychange'));
+				}
+				button.click();
+				await expect
+					.element(page.getByRole('button', { name: 'Validating authentication...' }))
+					.toBeDisabled();
+				button.click();
+				document.dispatchEvent(new Event('visibilitychange'));
+				await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+				expect(aborted).not.toHaveBeenCalled();
+			} finally {
+				finishPreview();
+			}
+			await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
+			expect(preview).toHaveBeenCalledTimes(2);
+			expect(aborted).not.toHaveBeenCalled();
+		}
+	);
+
 	it('allows retry after a preview error and clears credentials when cancelled', async () => {
 		const preview = vi.fn();
 		worker.use(

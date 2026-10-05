@@ -173,9 +173,14 @@
 
 	function handleVisibilityChange() {
 		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
-			oauthValidating = true;
-			void fetchLiveTools();
+			validateAuthentication();
 		}
+	}
+
+	function validateAuthentication() {
+		if (loading) return;
+		oauthValidating = true;
+		void fetchLiveTools();
 	}
 
 	$effect(() => {
@@ -398,7 +403,7 @@
 			{/if}
 
 			{#if oauthURL && isMcpLoginURL(oauthURL)}
-				<McpLogin url={oauthURL} onComplete={fetchLiveTools} />
+				<McpLogin url={oauthURL} {loading} onComplete={validateAuthentication} />
 			{/if}
 
 			{#if !oauthURL && !oauthSetupRequired}

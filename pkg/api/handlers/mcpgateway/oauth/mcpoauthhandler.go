@@ -56,6 +56,7 @@ type mcpOAuthHandler struct {
 	catalogEntryName  string
 	credentialContext string
 	redirectURL       string
+	uiLocalLogin      bool
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -175,6 +176,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
+	oauthHandler.uiLocalLogin = mcpServerConfig.LocalhostCallbackEnabled && oauthAppAuthRequestID == ""
 	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
 		if err != nil {
@@ -425,6 +427,10 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 
 func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, resourceURL, verifier string) (string, <-chan mcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
+	// Mark this pending state explicitly: hosted Obot may itself run on localhost.
+	if m.uiLocalLogin {
+		state = uiLocalLoginStatePrefix + state
+	}
 
 	// The channel is required by the nanobot CallbackHandler interface but is not used
 	// in the Obot flow. The auth URL is handled via HandleAuthURL/URLChan, and the

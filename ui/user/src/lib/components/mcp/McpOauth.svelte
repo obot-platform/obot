@@ -23,6 +23,13 @@
 	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 	let { onAuthenticate, error = $bindable(), entry, text }: Props = $props();
 
+	let componentAuthID = $derived(
+		'vmcpInstanceID' in entry && entry.vmcpInstanceID
+			? entry.vmcpInstanceID
+			: 'vmcpID' in entry
+				? entry.vmcpID
+				: undefined
+	);
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
 	let loading = $state(false);
@@ -51,9 +58,12 @@
 		error = '';
 
 		try {
-			// Route by the server's own scope; the backend only serves a workspace or catalog
-			// server's OAuth URL from that server's scoped route.
-			if (entry.powerUserWorkspaceID) {
+			if (componentAuthID) {
+				const result = await UserService.checkCompositeOAuthComponent(componentAuthID, entry.id, {
+					signal: abortController.signal
+				});
+				oauthURL = result.authURL || '';
+			} else if (entry.powerUserWorkspaceID) {
 				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(
 					entry.powerUserWorkspaceID,
 					entry.id,
@@ -102,7 +112,19 @@
 	});
 </script>
 
-{#if isMcpLoginURL(oauthURL)}
+{#if error}
+	<div role="alert" class="notification-error flex flex-col gap-2">
+		<p>{error}</p>
+		<button
+			type="button"
+			class="btn btn-secondary self-start"
+			onclick={() => {
+				showRefresh = true;
+				void loadOauthURL();
+			}}>Retry authentication</button
+		>
+	</div>
+{:else if isMcpLoginURL(oauthURL)}
 	<McpLogin
 		url={oauthURL}
 		onComplete={() => {

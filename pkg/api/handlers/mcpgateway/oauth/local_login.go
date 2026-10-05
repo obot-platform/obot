@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	localLoginTTL = 10 * time.Minute
+	localLoginTTL           = 10 * time.Minute
+	uiLocalLoginStatePrefix = "ui-local-"
 )
 
 // localLoginURL refers to the existing UI OAuth state, not an MCP connection.
@@ -33,7 +34,7 @@ func (f *MCPOAuthHandlerFactory) localLoginURL(authURL string, config mcp.Server
 }
 
 func uiLocalLoginState(ps *gatewaytypes.MCPOAuthPendingState) bool {
-	if ps == nil || ps.OAuthAuthRequestID != "" {
+	if ps == nil || ps.OAuthAuthRequestID != "" || !strings.HasPrefix(ps.State, uiLocalLoginStatePrefix) {
 		return false
 	}
 	u, err := url.Parse(ps.RedirectURL)

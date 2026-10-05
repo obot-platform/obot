@@ -49,15 +49,16 @@ it.each([
 
 it('uses the pending UI attempt and checks authentication before resuming', async () => {
 	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
+	entry.vmcpID = 'vmcp1parent';
 	entry.connectURL = 'https://obot.example/mcp-connect/deployed-server';
 	entry.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
 	const oauthRequest = vi.fn();
 	const attemptURL = 'https://obot.example/oauth/mcp/login/preview-state';
 	worker.use(
-		http.get('*/api/*/oauth-url', () => {
+		http.get(`/api/oauth/vmcp/vmcp1parent/components/${entry.id}`, () => {
 			oauthRequest();
 			return HttpResponse.json({
-				oauthURL: oauthRequest.mock.calls.length === 1 ? attemptURL : ''
+				authURL: oauthRequest.mock.calls.length === 1 ? attemptURL : ''
 			});
 		})
 	);
@@ -69,4 +70,29 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 	await page.getByRole('button', { name: 'Continue', exact: true }).click();
 	await vi.waitFor(() => expect(onAuthenticate).toHaveBeenCalledOnce());
 	expect(oauthRequest).toHaveBeenCalledTimes(2);
+});
+
+it('shows endpoint failures and retries the same component without treating errors as login success', async () => {
+	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
+	entry.vmcpInstanceID = 'vmcpi1exact';
+	let calls = 0;
+	worker.use(
+		http.get(`/api/oauth/vmcp/vmcpi1exact/components/${entry.id}`, () => {
+			if (++calls === 1)
+				return HttpResponse.json({ message: 'Provider unavailable' }, { status: 503 });
+			return HttpResponse.json({ authURL: 'https://obot.example/oauth/mcp/login/retry-attempt' });
+		})
+	);
+	const onAuthenticate = vi.fn();
+	await render(McpOauth, { entry, onAuthenticate });
+	await expect
+		.element(page.getByRole('alert').getByText('Provider unavailable', { exact: false }))
+		.toBeVisible();
+	expect(onAuthenticate).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: 'Retry authentication' }).click();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent("obot mcp login --url 'https://obot.example/oauth/mcp/login/retry-attempt'");
+	expect(onAuthenticate).not.toHaveBeenCalled();
+	expect(calls).toBe(2);
 });

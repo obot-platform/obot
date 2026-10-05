@@ -44,11 +44,31 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 		userID  string
 		denied  bool
 		expired bool
+		hosted  bool
 	}{
-		{name: "temporary tool preview", userID: "system"},
-		{name: "inspector", userID: "1"},
-		{name: "denied", userID: "system", denied: true},
-		{name: "expired", userID: "system", expired: true},
+		{
+			name:   "temporary tool preview",
+			userID: "system",
+		},
+		{
+			name:   "inspector",
+			userID: "1",
+		},
+		{
+			name:   "denied",
+			userID: "system",
+			denied: true,
+		},
+		{
+			name:    "expired",
+			userID:  "system",
+			expired: true,
+		},
+		{
+			name:   "hosted OAuth on localhost",
+			userID: "1",
+			hosted: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
@@ -60,12 +80,16 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, gw.Close()) })
 			sm := newStateManager(gw)
 			exchanges := 0
+			redirectURL := "http://localhost:54321/custom/callback"
+			if tc.hosted {
+				redirectURL = "http://localhost:8080/oauth/mcp/callback"
+			}
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				exchanges++
 				require.NoError(t, r.ParseForm())
 				require.Equal(t, "provider-code", r.Form.Get("code"))
 				require.Equal(t, "private-verifier", r.Form.Get("code_verifier"))
-				require.Equal(t, "http://localhost:54321/custom/callback", r.Form.Get("redirect_uri"))
+				require.Equal(t, redirectURL, r.Form.Get("redirect_uri"))
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"access_token":"upstream-token","token_type":"Bearer"}`))
 			}))
@@ -73,7 +97,7 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 			conf := &oauth2.Config{
 				ClientID:     "provider-client",
 				ClientSecret: "private-secret",
-				RedirectURL:  "http://localhost:54321/custom/callback",
+				RedirectURL:  redirectURL,
 				Scopes:       []string{"read"},
 				Endpoint: oauth2.Endpoint{
 					AuthURL:   provider.URL + "/authorize",
@@ -81,19 +105,27 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 					AuthStyle: oauth2.AuthStyleInParams,
 				},
 			}
-			require.NoError(t, sm.store(t.Context(), tc.userID, "temporary-preview-id", "https://provider.example/mcp", "", "ui-state", "private-verifier", "https://provider.example/mcp", conf))
+			oauthHandler := &mcpOAuthHandler{
+				stateMgr:     sm,
+				userID:       tc.userID,
+				mcpID:        "temporary-preview-id",
+				mcpURL:       "https://provider.example/mcp",
+				uiLocalLogin: !tc.hosted,
+			}
+			state, _, err := oauthHandler.NewState(t.Context(), conf, "https://provider.example/mcp", "private-verifier")
+			require.NoError(t, err)
 			if tc.expired {
 				require.NoError(t, services.DB.DB.Model(&gatewaytypes.MCPOAuthPendingState{}).Where("mcp_id = ?", "temporary-preview-id").Update("created_at", time.Now().Add(-11*time.Minute)).Error)
 			}
 			h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: sm}}
 			fixture := newVMCPOAuthFixture(t)
 			req := fixture.request(t.Context())
-			req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/login/ui-state", nil)
-			req.SetPathValue("state", "ui-state")
+			req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/login/"+state, nil)
+			req.SetPathValue("state", state)
 			response := httptest.NewRecorder()
 			req.ResponseWriter = response
 			err = h.localLogin(req)
-			if tc.expired {
+			if tc.expired || tc.hosted {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
@@ -103,16 +135,16 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 				require.Equal(t, conf.RedirectURL, metadata.RedirectURL)
 				auth, err := url.Parse(metadata.AuthorizationURL)
 				require.NoError(t, err)
-				require.Equal(t, "ui-state", auth.Query().Get("state"))
+				require.Equal(t, state, auth.Query().Get("state"))
 				require.Equal(t, "S256", auth.Query().Get("code_challenge_method"))
 				require.NotEmpty(t, auth.Query().Get("code_challenge"))
 				require.NotContains(t, response.Body.String(), "private-secret")
 				require.NotContains(t, response.Body.String(), "private-verifier")
 				require.NotContains(t, response.Body.String(), "temporary-preview-id")
 			}
-			callbackQuery := "?state=ui-state&code=provider-code"
+			callbackQuery := "?state=" + state + "&code=provider-code"
 			if tc.denied {
-				callbackQuery = "?state=ui-state&error=access_denied"
+				callbackQuery = "?state=" + state + "&error=access_denied"
 			}
 			req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/callback"+callbackQuery, nil)
 			response = httptest.NewRecorder()
@@ -121,9 +153,14 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 			require.Equal(t, http.StatusFound, response.Code)
 			completed, err := url.Parse(response.Header().Get("Location"))
 			require.NoError(t, err)
+			if tc.hosted {
+				require.Equal(t, "/auth/oauth/complete", response.Header().Get("Location"))
+				require.Equal(t, 1, exchanges)
+				return
+			}
 			require.Equal(t, "localhost:54321", completed.Host)
 			require.Equal(t, "/oauth/obot/callback", completed.Path)
-			require.Equal(t, "ui-state", completed.Query().Get("state"))
+			require.Equal(t, state, completed.Query().Get("state"))
 			if tc.denied || tc.expired {
 				require.Equal(t, "authentication_failed", completed.Query().Get("error"))
 				require.Zero(t, exchanges)
@@ -136,7 +173,7 @@ func TestLocalLoginPreservesUIAttempt(t *testing.T) {
 				_, err = gw.GetMCPOAuthToken(t.Context(), "different-user", "temporary-preview-id", "https://provider.example/mcp")
 				require.Error(t, err)
 			}
-			_, err = gw.GetMCPOAuthPendingState(t.Context(), "ui-state")
+			_, err = gw.GetMCPOAuthPendingState(t.Context(), state)
 			require.Error(t, err)
 			require.Error(t, h.oauthCallback(req), "attempt must not be replayable")
 		})

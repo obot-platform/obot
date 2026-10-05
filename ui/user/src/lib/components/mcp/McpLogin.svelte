@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import Loading from '$lib/icons/Loading.svelte';
 	import CopyField from '../CopyField.svelte';
 
-	let { url, onComplete }: { url: string; onComplete?: () => void } = $props();
+	let {
+		url,
+		onComplete,
+		loading = false
+	}: { url: string; onComplete?: () => void; loading?: boolean } = $props();
 	const id = $props.id();
 	const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 	let loginURL = $derived(
@@ -22,6 +27,18 @@
 		busy, continue to get a new command.
 	</p>
 	{#if onComplete}
-		<button type="button" class="btn btn-primary self-start" onclick={onComplete}>Continue</button>
+		<button
+			type="button"
+			class="btn btn-primary self-start flex items-center justify-center gap-2"
+			disabled={loading}
+			onclick={onComplete}
+		>
+			{#if loading}
+				<Loading class="text-primary size-4" />
+				Validating authentication...
+			{:else}
+				Continue
+			{/if}
+		</button>
 	{/if}
 </div>
