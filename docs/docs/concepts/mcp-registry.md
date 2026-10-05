@@ -6,6 +6,8 @@ title: MCP Registry
 
 The MCP Registry is a central place to list and discover MCP servers. It provides a curated collection of servers available to users based on their access permissions.
 
+See the [registry and skills overview](../registries/overview.md) for the difference between a catalog entry, a shared vMCP, and a skill.
+
 ## Registry Concepts
 
 ### Server Sources
@@ -36,5 +38,5 @@ Obot implements the [MCP Registry specification](https://github.com/modelcontext
 
 ## Learn More
 
-- [MCP Access Policies](../functionality/mcp-access-policies.md) - Controlling which servers are available to which users and groups
+- [MCP Access Policies](../mcp-gateway/access.md) - Controlling which servers are available to which users and groups
 - [MCP Registry API](../functionality/mcp-registry-api.md) - Programmatic server discovery and contributing servers

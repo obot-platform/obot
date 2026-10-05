@@ -1,6 +1,4 @@
-# Overview
-
-Obot can encrypt selected sensitive fields in its database and credential store. **Application-level encryption is disabled by default** (`OBOT_SERVER_ENCRYPTION_PROVIDER=none`). Configure a provider to enable it. This protects the fields listed below, not entire records, database files, backups, or exported audit logs.
+For the current task-based instructions, see [Credentials and encryption](../../security/credentials.md). This page preserves existing bookmarks.
 
 ## Supported Encryption Providers {#supported-encryption-providers}
 

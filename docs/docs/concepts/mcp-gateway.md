@@ -35,7 +35,7 @@ See [Filters](../functionality/filters.md) for selectors and contracts.
 
 :::warning Transitional release
 
-Use [virtual MCP (vMCP)](../functionality/virtual-mcps.md) endpoints for new connections. Legacy MCP server endpoints remain available in this release. In a future release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only connection path through the gateway.
+Use [virtual MCP (vMCP)](../mcp-gateway/server-types.md) endpoints for new connections. Legacy MCP server endpoints remain available in this release. Existing composite servers migrate to vMCPs during upgrade; see [Git catalog migration](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) when those composites came from a Git source.
 
 :::
 

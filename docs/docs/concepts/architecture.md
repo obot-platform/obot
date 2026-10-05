@@ -56,7 +56,7 @@ The upstream authorization step is skipped when it is unnecessary or an existing
 
 ### Authorizing MCP Requests
 
-Once connected, the client sends its Obot access token with MCP requests. Obot validates the token, identifies the user, and checks both the user's current server access and the token's permitted servers. Access checks use ownership and applicable [MCP access policies](../functionality/mcp-access-policies.md), including user and group rules.
+Once connected, the client sends its Obot access token with MCP requests. Obot validates the token, identifies the user, and checks both the user's current server access and the token's permitted servers. Access checks use ownership and applicable [MCP access policies](../mcp-gateway/access.md), including user and group rules.
 
 ```mermaid
 sequenceDiagram
@@ -88,7 +88,7 @@ Clients using an existing Obot token or MCP API key begin with authenticated req
 
 ## Encryption
 
-Application-level encryption is disabled by default. When configured, an encryption provider protects selected database fields and credential values, including sensitive audit payloads; it does not encrypt entire records or automatically backfill all historical data. Local passwords are hashed independently of this setting. See [Encryption Providers](../configuration/encryption-providers/overview.md) for field coverage and existing-data considerations.
+Application-level encryption is disabled by default. When configured, an encryption provider protects selected database fields and credential values, including sensitive audit payloads; it does not encrypt entire records or automatically backfill all historical data. Local passwords are hashed independently of this setting. See [Encryption Providers](../security/credentials.md) for field coverage and existing-data considerations.
 
 ## LLMs
 

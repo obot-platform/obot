@@ -2,11 +2,12 @@
 title: Agent Authorization Scopes
 ---
 
-# Agent Authorization Scopes
+For the current task-based instructions, see [Credentials and encryption](../security/credentials.md). This page preserves existing bookmarks and specialized reference material.
 
 Agent authorization scopes provide programmatic access to Obot from scripts, automation tools, external MCP clients, and compatible LLM clients. Instead of using interactive browser-based OAuth authentication, you can create scopes that generate API keys with only the capabilities each integration needs.
 
-## Overview
+## Overview {#overview}
+
 
 API keys for agent authorization scopes are designed for machine-to-machine access to Obot. Each scope:
 
@@ -21,7 +22,8 @@ The API keys generated for a scope use the format `ok1-<userId>-<keyId>-<secret>
 
 Continue to [Creating an Agent Authorization Scope](../security/credentials.md#agent-auth-scopes-creating-an-agent-authorization-scope).
 
-## Using an API Key
+## Using an API Key {#using-an-api-key}
+
 
 Include the API key in the Authorization header when connecting to MCP servers or Obot API endpoints:
 
@@ -41,7 +43,8 @@ API keys can grant access to:
 
 All keys can use `/api/me` to verify authentication.
 
-### Testing an API Key
+### Testing an API Key {#testing-an-api-key}
+
 
 To test an API key, you can use the `/api/me` endpoint:
 
@@ -51,17 +54,19 @@ curl -H "Authorization: Bearer <key>" <obot host>/api/me
 
 If the key is valid, you should receive a response with your user information.
 
-### Configuring MCP Clients
+### Configuring MCP Clients {#configuring-mcp-clients}
+
 
 Once you have an API key, you can configure various MCP clients to connect to your Obot MCP servers. The MCP endpoint URL follows this pattern:
 
 ```
-https://<obot-host>/mcp-connect/<server-id>
+https://<obot-host>/mcp-connect/<vmcp-id>
 ```
 
-Where `<server-id>` is the ID of the MCP server you want to connect to.
+Copy the vMCP's **Connection URL** from Obot. A catalog entry ID is not a connection identifier.
 
-#### VS Code
+#### VS Code {#vs-code}
+
 
 Configure your `.vscode/mcp.json` file to connect to Obot MCP servers using HTTP transport with Bearer token authentication:
 
@@ -89,7 +94,8 @@ Configure your `.vscode/mcp.json` file to connect to Obot MCP servers using HTTP
 
 VS Code will prompt you to enter your API key when connecting. To configure servers globally across all workspaces, add the configuration to your user settings instead.
 
-#### Agno
+#### Agno {#agno}
+
 
 [Agno](https://www.agno.com/) is a Python agent framework that supports MCP integration. Use `StreamableHTTPClientParams` to configure authorization headers:
 
@@ -125,7 +131,8 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-#### LangChain
+#### LangChain {#langchain}
+
 
 [LangChain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters) enable connecting LangChain agents to MCP servers. Configure the `MultiServerMCPClient` with HTTP transport and authorization headers:
 
@@ -164,7 +171,8 @@ Continue to [Viewing Your Agent Authorization Scopes](../security/credentials.md
 
 Continue to [Deleting an Agent Authorization Scope](../security/credentials.md#agent-auth-scopes-deleting-an-agent-authorization-scope).
 
-## MCP Server Access
+## MCP Server Access {#mcp-server-access}
+
 
 When you create an agent authorization scope with specific MCP servers, its API keys can connect only to those servers. If you select **All MCP Servers**, its API keys can access:
 
@@ -175,7 +183,8 @@ Access is still subject to your user permissions. If you lose access to an MCP s
 
 MCP server access is independent of the optional capabilities. For example, you can create an authorization scope that grants access only to MCP servers, only to the LLM proxy, or to MCP servers and other capabilities.
 
-## Creating an Agent Authorization Scope with the CLI
+## Creating an Agent Authorization Scope with the CLI {#creating-an-agent-authorization-scope-with-the-cli}
+
 
 The `obot login` command creates an agent authorization scope through the browser-based login flow and stores its API key. By default, it requests the `llm`, `skills`, and `device-scans` scopes. The generated key therefore cannot call general Obot API endpoints unless you request the `api` scope explicitly:
 
@@ -201,27 +210,31 @@ obot login \
   --print-token
 ```
 
-## Admin Management
+## Admin Management {#admin-management}
+
 
 Administrators can manage agent authorization scopes across all users.
 
-### Viewing All Agent Authorization Scopes
+### Viewing All Agent Authorization Scopes {#viewing-all-agent-authorization-scopes}
 
-1. Navigate to **Administration > Auth Management > Agent Auth Scopes** in the admin sidebar.
+
+1. Navigate to **Identity & Access > Agents** in the admin sidebar.
 2. View all agent authorization scopes in the system with their associated users.
 
 The admin view includes the same information as the user view, plus a **Created By** column showing which user owns each scope.
 
-### Deleting Any Agent Authorization Scope
+### Deleting Any Agent Authorization Scope {#deleting-any-agent-authorization-scope}
+
 
 Administrators can delete any user's agent authorization scope:
 
-1. Navigate to **Administration > Auth Management > Agent Auth Scopes**.
+1. Navigate to **Identity & Access > Agents**.
 2. Click the three-dot menu for the authorization scope.
 3. Select **Delete**.
 4. Confirm the deletion.
 
-## Security Best Practices
+## Security Best Practices {#security-best-practices}
+
 
 - **Use descriptive names**: Name authorization scopes based on their purpose (e.g., "CI/CD Pipeline", "Monitoring Script") to easily identify and manage them
 - **Set expiration dates**: For temporary use cases, always set an expiration date

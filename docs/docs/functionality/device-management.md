@@ -2,9 +2,12 @@
 title: Device Management
 ---
 
-Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations. It can also audit and control tool calls made by supported local AI clients.
+This guide is now organized into focused pages. Existing section links remain available below.
 
-Device management is a **beta feature**.
+- [How Sentry works](../device-management/how-sentry-works.md)
+- [Enroll and deploy](../device-management/enroll.md)
+- [Enforcement and limitations](../device-management/enforcement.md)
+- [Inventory and local auditing](../device-management/inventory.md)
 
 ## What it does {#what-it-does}
 
@@ -93,4 +96,3 @@ See [Inventory and local auditing](../device-management/inventory.md#server-subm
 ## A tool call is unexpectedly blocked {#a-tool-call-is-unexpectedly-blocked}
 
 See [Inventory and local auditing](../device-management/inventory.md#a-tool-call-is-unexpectedly-blocked).
-

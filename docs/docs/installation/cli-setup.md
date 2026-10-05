@@ -2,9 +2,7 @@
 title: Obot CLI Setup
 ---
 
-The `obot setup` command prepares your local workstation to use an Obot server from the command line and from supported local AI clients.
-
-Use it after an Obot server is running and reachable from your machine.
+For the current task-based instructions, see [CLI and APIs](../reference/cli-api.md). This page preserves existing bookmarks.
 
 ## What it does {#what-it-does}
 

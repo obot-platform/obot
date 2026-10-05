@@ -20,7 +20,6 @@ Add `--no-expiration` if you want a key that doesn't expire.
 
 ## Quick start with curl {#quick-start-with-curl}
 
-
 ### Anthropic {#anthropic}
 
 ```bash
@@ -34,7 +33,6 @@ curl $ANTHROPIC_BASE_URL/v1/messages \
   -H "content-type: application/json" \
   -d '{"model":"claude-opus-4.8","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
 ```
-
 
 ### OpenAI {#openai}
 
@@ -50,7 +48,6 @@ curl $OPENAI_BASE_URL/v1/responses \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-5.5","input":[{"role":"user","content":"hi"}]}'
 ```
-
 
 ### Generic Responses Compatible {#generic-responses-compatible}
 
@@ -73,7 +70,6 @@ To list the Generic Responses models you can access:
 curl $OPENAI_BASE_URL/v1/models \
   -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
-
 
 ### Amazon Bedrock {#amazon-bedrock}
 
@@ -133,7 +129,6 @@ curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/models \
 </Tabs>
 
 For Anthropic models on Bedrock, model availability depends on AWS region and account access. See the [AWS Bedrock Anthropic model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html) for region availability.
-
 
 ### Azure {#azure}
 
@@ -198,7 +193,6 @@ Client requests always authenticate to Obot with the Obot API key. Obot supplies
 
 The Azure models endpoint uses Azure's OpenAI-compatible Models API and returns only accessible deployments configured for OpenAI Responses API. Clients may request either `/v1/models` or `/openai/v1/models`. Microsoft Foundry does not implement an Anthropic Models API, so Anthropic deployments are available on Obot's Models page but are not returned by this endpoint.
 
-
 #### Provider setup {#provider-setup}
 
 An administrator configures one of these providers under **Model Providers**:
@@ -231,7 +225,6 @@ Inside Claude Code:
 
 - Run **`/model`** and select an Obot gateway model. Discovered models are labeled **"From gateway"**.
 - Run **`/status`** to confirm which authentication method is active.
-
 
 ### Claude Code with Amazon Bedrock Mantle {#claude-code-with-amazon-bedrock-mantle}
 
@@ -269,7 +262,6 @@ For a local Obot server, replace `https://obot.example.com` with `http://localho
 `--model` is optional, but it is useful since Claude Code does not support model discovery with AWS Bedrock. The default models presented by Claude Code's model selector should be compatible with our Bedrock provider as long as the corresponding Bedrock model ID is enabled in Obot.
 
 For more details, see Claude Code's [Route Mantle through a gateway](https://code.claude.com/docs/en/amazon-bedrock#route-mantle-through-a-gateway) documentation.
-
 
 ### Claude Code with Azure {#claude-code-with-azure}
 
@@ -346,12 +338,11 @@ Codex works with the OpenAI passthrough. Because Codex uses the OpenAI **Respons
    codex app    # Codex App
    ```
 
-Set `model` in your config (or pick one in Codex) to a model name shown on the [Models page](../functionality/llm-gateway.md#the-models-page), for example `gpt-5.5`.
+Set `model` in your config (or pick one in Codex) to a model name shown on the [Models page](./how-it-works.md#the-models-page), for example `gpt-5.5`.
 
 :::note
 Codex uses the OpenAI Responses API by default, which is what the gateway serves. The provider ID (`obot_openai` above) can be any name except the reserved IDs `openai`, `ollama`, and `lmstudio`.
 :::
-
 
 ### Codex with Amazon Bedrock {#codex-with-amazon-bedrock}
 
@@ -401,7 +392,6 @@ supports_websockets = false
 
 For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
 
-
 ### Codex with Azure {#codex-with-azure}
 
 Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Add the configuration for your Azure authentication method to `~/.codex/config.toml`, replacing the example deployment name and Obot URL:
@@ -448,4 +438,3 @@ See the Codex documentation for details:
 
 - [Configuration reference](https://developers.openai.com/codex/config-reference) (the `[model_providers]` keys)
 - [Advanced configuration](https://developers.openai.com/codex/config-advanced) (custom providers and `wire_api`)
-

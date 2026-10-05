@@ -2,8 +2,11 @@
 title: LLM Gateway
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+This guide is now organized into focused pages. Existing section links remain available below.
+
+- [How it works](../llm-gateway/how-it-works.md)
+- [Connect clients and applications](../llm-gateway/connect-clients.md)
+- [API compatibility and limitations](../llm-gateway/compatibility.md)
 
 ## Overview {#overview}
 
@@ -80,4 +83,3 @@ See [API compatibility and limitations](../llm-gateway/compatibility.md#limitati
 ## Related topics {#related-topics}
 
 See [API compatibility and limitations](../llm-gateway/compatibility.md#related-topics).
-

@@ -2,13 +2,7 @@
 title: Audit Logs & Usage
 ---
 
-# Audit Logs & Usage
-
-The MCP Platform provides visibility into MCP and LLM gateway activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers and LLM gateway models are being used.
-
-:::info Auditor Role
-Sensitive data (MCP request/response bodies, conversations, and workflow runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](../configuration/user-roles.md#auditor) for details.
-:::
+For the current task-based instructions, see [Audit data, privacy, and retention](../security/audit-data.md). This page preserves existing bookmarks.
 
 ## MCP Audit Logs {#mcp-audit-logs}
 

@@ -2,11 +2,7 @@
 title: Overview
 ---
 
-# Overview
-
-The MCP Platform is Obot's unified management interface for deploying, managing, and operating MCP servers. It provides role-based access to server management, registries, audit logs, usage tracking, and platform administration.
-
-For detailed permissions and role definitions, see [User Roles](../configuration/user-roles.md).
+For the current task-based instructions, see [Security model](../security/model.md). This page preserves existing bookmarks.
 
 ## Roles and Capabilities {#roles-and-capabilities}
 

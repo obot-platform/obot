@@ -2,10 +2,25 @@
 title: "Encryption and secrets"
 ---
 
-## Creating an Agent Authorization Scope {#agent-auth-scopes-creating-an-agent-authorization-scope}
+Obot credentials serve different connections. Manage them according to their owner and use.
 
-1. Select **Agent Auth Scopes** in the sidebar.
-2. Click **Create Auth Scope**.
+| Credential | Configure and revoke |
+|---|---|
+| Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md); deleting a scope invalidates its keys |
+| Upstream MCP OAuth application | [Static OAuth](../configuration/mcp-server-oauth-configuration.md); changing application credentials can interrupt use |
+| Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
+| Externally managed Kubernetes Secret | [Secret bindings](../concepts/mcp-hosting.md#mcp-servers-kubernetes-secret-bindings), including the required discovery/resolution label |
+| Private image registry credential | [Image Pull Secrets](../configuration/image-pull-secrets.md) |
+| Tunnel secret | [Tunnel rotation](../functionality/mcp-tunnels.md#rotate-a-secret); rotation disconnects old clients |
+
+Application-level encryption is disabled by default. Read the [encryption coverage](./credentials.md#overview-encrypted-resources-and-fields) before enabling a provider. It protects selected database and credential fields, not entire records, exported logs, or backups. Existing data may require a separate migration.
+
+Preserve key access when restoring encrypted data; losing the key or KMS permissions can make a database backup unusable.
+
+## Create an agent identity and authorization scope {#agent-auth-scopes-creating-an-agent-authorization-scope}
+
+1. Open **Identity & Access > Agents**.
+2. Click **Create Agent Identity**.
 3. Fill in the required information:
    - **Name** (required): A descriptive name that identifies the authorization scope's purpose
    - **Description** (optional): Additional context about how the authorization scope is used
@@ -20,15 +35,15 @@ title: "Encryption and secrets"
      - **Device scan access**: Submit and read device scans
 4. Click **Save**.
 
-After creation, you'll see a dialog displaying an initial new API key to use. **Copy and save this key immediately**—it will only be shown once and cannot be retrieved later.
+The UI calls these credentials **agent identities**; each identity has an authorization scope and one or more API keys. For CLI creation and client examples, see the [authorization scope reference](../functionality/agent-auth-scopes.md).
 
+After creation, you'll see a dialog displaying an initial new API key to use. **Copy and save this key immediately**—it will only be shown once and cannot be retrieved later.
 
 ## Managing Agent Authorization Scopes {#agent-auth-scopes-managing-agent-authorization-scopes}
 
-
 ### Viewing Your Agent Authorization Scopes {#agent-auth-scopes-viewing-your-agent-authorization-scopes}
 
-Navigate to **Agent Auth Scopes** in the sidebar to see all your agent authorization scopes. The table displays:
+Open **Identity & Access > Agents** to see all your agent authorization scopes. The table displays:
 
 | Column | Description |
 |--------|-------------|
@@ -37,31 +52,29 @@ Navigate to **Agent Auth Scopes** in the sidebar to see all your agent authoriza
 | Last Used | When an API key generated for the scope was last used |
 | Expires | When the scope will expire (or "Never" if it has no expiration date) |
 
-
 ### Deleting an Agent Authorization Scope {#agent-auth-scopes-deleting-an-agent-authorization-scope}
 
-1. Navigate to **Agent Auth Scopes** in the sidebar
+1. Open **Identity & Access > Agents**
 2. Click the three-dot menu on the authorization scope you want to delete
 3. Select **Delete**
 4. Confirm the deletion
 
 Deleting an agent authorization scope immediately invalidates its API keys. This action cannot be undone.
 
-
 ## Supported Encryption Providers {#overview-supported-encryption-providers}
+
+Application encryption defaults to `OBOT_SERVER_ENCRYPTION_PROVIDER=none`. Configure one of these providers to enable it:
 
 1. [AWS KMS](../configuration/encryption-providers/aws-kms.md)
 2. [Azure Key Vault](../configuration/encryption-providers/azure-key-vault.md)
 3. [Google Cloud KMS](../configuration/encryption-providers/google-cloud-kms.md)
 4. [Custom](../configuration/encryption-providers/custom-provider.md), including a local AES-GCM key
 
-
 ## How Encryption Works {#overview-how-encryption-works}
 
 Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage.
 
 The built-in cloud configurations include the resources below. A custom configuration must include the corresponding resource names to protect those fields.
-
 
 ## Encrypted Resources and Fields {#overview-encrypted-resources-and-fields}
 
@@ -79,18 +92,15 @@ These names identify encryption transformers; they do not mean every field in th
 | `policyviolations.obot.obot.ai` | `blockedContent` |
 | `properties.obot.obot.ai` | Stored property `value` |
 
-
 ### MCP and Local-Agent Audit Details {#overview-mcp-and-local-agent-audit-details}
 
 For MCP traffic, the audit transformer encrypts `requestBody`, `mutatedRequestBody`, `responseBody`, `originalResponseBody`, `requestHeaders`, and `responseHeaders`.
 
 For local-agent tool calls in the same audit store, it encrypts the outcome error, hostname, local username, reported user email, working directory, Git root, Git remotes, Git branch, transcript path, request body, response body, and raw event. Other audit metadata, such as timestamps and tool names, is outside this field-level protection.
 
-
 ### Local Passwords {#overview-local-passwords}
 
 Local-auth passwords are stored as salted Argon2id hashes regardless of whether an encryption provider is configured. The password hash is not reversibly encrypted. This differs from upstream passwords stored as credential secret values, which must be recoverable for use.
-
 
 ## Enabling Encryption on an Existing Installation {#overview-enabling-encryption-on-an-existing-installation}
 

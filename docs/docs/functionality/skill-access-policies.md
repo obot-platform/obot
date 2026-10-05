@@ -2,6 +2,8 @@
 title: Skill Access Policies
 ---
 
+For the current task-based instructions, see [Publish and distribute skills](../registries/publish-skills.md). This page preserves existing bookmarks.
+
 ## Overview {#overview}
 
 Continue to [Overview](../registries/publish-skills.md#skill-access-policies-overview).

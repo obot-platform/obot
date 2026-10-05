@@ -2,6 +2,11 @@
 title: "Device Management (Sentry) overview"
 ---
 
+Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations. It can also audit and control tool calls made by supported local AI clients.
+
+Device management is a **beta feature**.
+
+
 ## What it does {#what-it-does}
 
 Device management helps administrators:
@@ -29,4 +34,3 @@ Under Device Management in the Obot Administration section, Devices contains the
 | Device Clients | AI clients observed across scanned devices, with drilldowns into associated users, MCP servers, and skills. |
 
 The **Enforcement Decisions** view under Device Management shows the tool calls that Obot Sentry allowed or blocked.
-

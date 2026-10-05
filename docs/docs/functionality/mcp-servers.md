@@ -3,25 +3,30 @@ title: MCP Servers
 description: Managing MCP servers in the MCP Platform
 ---
 
-## Overview
+For the current task-based instructions, see [Hosted MCP servers](../concepts/mcp-hosting.md). This page preserves existing bookmarks and specialized reference material.
+
+## Overview {#overview}
+
 
 Managing MCP servers in Obot starts with adding them to the platform. Administrators can control which servers are available to users and how they are configured. Servers may be added individually through the UI, or managed via a Git repository.
 
-The choice of server type depends on how the MCP server was developed. All servers that are not remote servers are deployed and managed by the MCP Gateway.
+Create a catalog entry as a **Hosted Server** when Obot will run it, or a **Remote Server** when it already runs elsewhere. The entry defines its runtime or URL and configuration fields. Add it to a vMCP to choose which values are **Preconfigured** for its connections and which are **Provided at connection** by each user. See [Configure servers in a vMCP](../mcp-gateway/server-types.md).
 
 
 :::warning Migrate to virtual MCPs
 
-Virtual MCPs (vMCPs) replace the existing MCP server model and are now the recommended way to connect through the Obot Gateway. Create all new connection endpoints as [vMCPs](./virtual-mcps.md).
+Virtual MCPs (vMCPs) replace the existing MCP server model and are now the recommended way to connect through the Obot Gateway. Create all new connection endpoints as [vMCPs](../mcp-gateway/server-types.md).
 
 Existing MCP servers remain operational in this release. Obot will automatically migrate any remaining servers to vMCPs in a future update.
 :::
 
-## Server types
+## Server types {#server-types}
 
-The system supports four distinct server types, each designed for specific deployment scenarios:
 
-### Single-user server
+New catalog entries use **Hosted Server** or **Remote Server**. Shared values and user-provided values are configured on the vMCP component. The single-user and multi-user terminology below describes existing legacy deployments, which remain available during the vMCP transition.
+
+### Single-user server (legacy) {#single-user-server}
+
 
 Single-user servers establish a one-to-one mapping between users and server instances. Each user has their own server instance deployed and provides their own individual credentials (such as personal API keys). Most `stdio` servers were designed with this model in mind. The intended use was to run on the individual's laptop.
 
@@ -37,7 +42,8 @@ By default, Obot also blocks MCP servers from connecting to `localhost` addresse
 
 **Configuration**: Define parameters that users must provide when enabling the server (e.g., API keys). For each parameter, specify a user-friendly name, description, environment variable name, and whether it's required or sensitive. Values are passed as environment variables to the server process.
 
-### Multi-user server
+### Multi-user server (legacy) {#multi-user-server}
+
 
 Multi-user servers address organizational deployment patterns through two primary configurations:
 
@@ -55,7 +61,8 @@ Multi-user servers still require the user to authenticate to the gateway's confi
 
 **Configuration**: Pre-configure any required API keys or environment variables. These values are deployed with the server instance. Users connect without being prompted for configuration and authenticate using the built-in authentication or OAuth per the MCP specification.
 
-### Multi-user catalog entry
+### Multi-user catalog entry (legacy) {#multi-user-catalog-entry}
+
 
 A multi-user catalog entry can be deployed as a shared multi-user server. Instead of creating one server per user when users connect, Obot creates a shared deployment from the catalog entry and then creates per-user MCP server instances for the users who connect to that deployment.
 
@@ -118,7 +125,8 @@ Continue to [New Catalog Entry](../concepts/mcp-hosting.md#mcp-servers-new-catal
 
 Continue to [Git-ops Managed Template](../concepts/mcp-hosting.md#mcp-servers-git-ops-managed-template).
 
-## Post-deployment management
+## Post-deployment management {#post-deployment-management}
+
 
 After successfully adding a server:
 

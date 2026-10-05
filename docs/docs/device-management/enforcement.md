@@ -24,7 +24,6 @@ Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, 
 Doing this will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
 :::
 
-
 ### Configure enforcement {#configure-enforcement}
 
 In **Administration > Device Management > Devices**, open the **Configuration** view and find **Tool Call Enforcement**.
@@ -35,7 +34,6 @@ In **Administration > Device Management > Devices**, open the **Configuration** 
 4. Download the updated install package and follow its included `INSTRUCTIONS.md` to apply the change to devices. The included instructions contain the setup steps for the selected operating system and deployment method.
 
 Changing the allowlist takes effect on devices that already have enforcement set up without reinstalling Obot Sentry. Turning enforcement off in Obot stops blocking immediately and stops recording new enforcement decisions. Follow the package's included instructions if you also want to remove enforcement from devices.
-
 
 ### Allow rules {#allow-rules}
 
@@ -61,7 +59,6 @@ For each server, leave **Tools** empty to allow all of its tools, or list the sp
 
 A local MCP server launched directly from an executable or script path does not provide a supported identity for the allowlist. Obot Sentry blocks calls to a server it cannot identify rather than treating its local command as trusted.
 
-
 ### Review enforcement decisions {#review-enforcement-decisions}
 
 Open **Administration > Device Management > Enforcement Decisions** to review calls checked while enforcement was enabled. The view shows allowed and blocked totals for the selected date range and supports searching and filtering by result, device, agent, tool type, MCP server, and tool.
@@ -74,4 +71,3 @@ Open a decision to see:
 - The device that made the call.
 
 For an identified, blocked MCP call, an administrator can add an allow rule directly from the decision. Depending on the identity available, the rule can allow the hostname, all tools on that server, or only the tool in that decision. The new rule applies to matching calls from every device using the configuration; it does not change the historical decision.
-

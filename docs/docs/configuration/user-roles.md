@@ -2,9 +2,7 @@
 title: User Roles
 ---
 
-# User Roles
-
-Obot uses role-based access control to manage what users can do in the MCP Platform. Each role has different permissions and sees different parts of the interface.
+For the current task-based instructions, see [Roles, permissions, and policy coverage](../security/policy-coverage.md). This page preserves existing bookmarks.
 
 ## Available Roles {#available-roles}
 

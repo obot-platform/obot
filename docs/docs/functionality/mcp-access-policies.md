@@ -2,6 +2,8 @@
 title: MCP Access Policies
 ---
 
+For the current task-based instructions, see [Control server and tool access](../mcp-gateway/access.md). This page preserves existing bookmarks.
+
 ## Overview {#overview}
 
 Continue to [Overview](../mcp-gateway/access.md#mcp-access-policies-overview).

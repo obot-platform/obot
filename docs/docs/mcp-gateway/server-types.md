@@ -2,6 +2,12 @@
 title: "Create vMCP"
 ---
 
+Define a server in the catalog, then add it to a vMCP and choose how its configuration values are supplied. The catalog entry describes how a hosted server runs or where a remote server is located. The vMCP is where you decide which values are shared and which each connecting user provides.
+
+## Prerequisites {#define-the-catalog-entry}
+
+vMCPs are built from existing catalog entries. Before creating one, make sure the required servers are available in **MCP Servers**. See [Hosted MCP servers](../concepts/mcp-hosting.md) or [Register remote servers](./register-remote.md) to add missing entries. A personal vMCP's owner must have access to the entries they use.
+
 ## How vMCPs work {#virtual-mcps-how-vmcps-work}
 
 ```mermaid
@@ -23,7 +29,6 @@ The main resources are:
 
 A vMCP with one component replaces a standalone MCP server connection. A vMCP with several components replaces a composite server and aggregates their tools behind the same endpoint.
 
-
 ## Shared and personal vMCPs {#virtual-mcps-shared-and-personal-vmcps}
 
 The creator's role determines the scope of a new vMCP.
@@ -38,14 +43,13 @@ The creator's role determines the scope of a new vMCP.
 
 Only administrators can create a vMCP that other users can consume. Any user who can access catalog entries can use them in a personal vMCP, but non-administrators cannot publish that vMCP to other users or groups.
 
-
 ### Create a shared vMCP as an administrator {#virtual-mcps-create-a-shared-vmcp-as-an-administrator}
 
 1. Open **vMCPs** and select **Create vMCP**.
 2. Drag an MCP server from the **MCP Servers** panel onto the vMCP. Repeat to add more components.
 3. Enter a name and description, then select **Create**.
-4. For each component, choose how every configuration field is supplied. See [Configuration policies](../functionality/virtual-mcps.md#configuration-policies).
-5. Configure the component's exposed tools. You can disable tools, rename them, change their descriptions, or add a prefix to avoid name collisions.
+4. For each component, choose how every configuration field is supplied. See [Configuration policies](./server-types.md#virtual-mcps-configuration-policies).
+5. Choose **Managed** in the **Add Tools** dialog to discover and select the component's exposed tools. You can disable tools, rename them, change their descriptions, or add a prefix to avoid name collisions. **As-is** instead passes through the upstream tools and definitions, including future changes, without discovery during setup.
 6. Open **Profiles** and replace or refine the default access grant. Assign users, groups, or **All Obot Users**, then choose the tools that profile grants.
 7. Connect to or test the vMCP after its components are ready.
 
@@ -57,7 +61,6 @@ A new administrator-created shared vMCP includes a default profile that grants a
 
 Profiles are grant-only and additive. If a user matches several profiles, Obot combines their tool grants. A narrower profile cannot deny a tool granted by another matching profile, so review broad profiles when troubleshooting unexpected access.
 
-
 ### Create a personal vMCP as a user {#virtual-mcps-create-a-personal-vmcp-as-a-user}
 
 1. Open **vMCPs** and select **Create vMCP**.
@@ -68,22 +71,31 @@ Profiles are grant-only and additive. If a user matches several profiles, Obot c
 
 The personal vMCP is accessible only by its owner, and the owner has no **Profiles** view. Selecting **Provided at connection** prompts the owner for that value when connecting.
 
-If the owner later loses access to a selected MCP server, Obot removes that component and its component-specific configuration from the personal vMCP. If no components remain, Obot removes the personal vMCP and its instance. Deleting a source catalog entry is different: its existing snapshot can continue to run as described in [Snapshots and updates](../functionality/virtual-mcps.md#snapshots-and-updates).
+If the owner later loses access to a selected MCP server, Obot removes that component and its component-specific configuration from the personal vMCP. If no components remain, Obot removes the personal vMCP and its instance. Deleting a source catalog entry is different: its existing snapshot can continue to run as described in [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
 
+## Choose how values are supplied
 
 ### Configuration policies {#virtual-mcps-configuration-policies}
 
-When a catalog entry declares configuration, the vMCP creator assigns one policy to each field.
+When adding a server to a shared vMCP, configure each field that still needs a value:
 
-| UI option | Behavior |
+| vMCP option | Who supplies the value |
 |---|---|
-| **Preconfigured** | The creator supplies one fixed value used by every connection. |
-| **Provided at connection** | Each connecting user supplies a value stored with that user's vMCP instance. |
-| **Ignore** | The vMCP does not accept or supply a value for the field. |
+| **Preconfigured** | The vMCP creator sets the value once. Every connection to that server within the vMCP uses it. |
+| **Provided at connection** | Each user supplies their own value when connecting to the vMCP. |
+| **Ignore** | No value is supplied for an optional field. |
 
-Required fields must be either **Preconfigured** or **Provided at connection**. Optional fields default to **Ignore** in the UI.
+For example, preconfigure a shared region or service-account credential, and request a personal API token at connection time. You can use both options on different fields of the same server. Required fields must be **Preconfigured** or **Provided at connection**.
 
-Configuration also determines whether a component can share a deployment:
+After configuring the values, select the exposed tools and use [profiles](./access.md#virtual-mcps-tools-and-profiles) to grant access. Preconfiguring a value shares it across that vMCP's connections; it does not grant everyone in Obot access to the vMCP.
+
+Optional fields default to **Ignore** in the UI.
+
+For a [Git-managed vMCP](../configuration/mcp-server-gitops.md#vmcp-definitions), configuration policies are defined in YAML. A `fixed` field can use a Kubernetes `secretBinding` instead of a clear-text value. This component-level binding is available only through Git catalog sources, requires the Kubernetes backend, and cannot override a static catalog field or accompany a `value`. Required fixed fields must have a value already stored for that component, a value supplied by the source, or a Secret binding before sync can create or update the vMCP.
+
+## How configuration affects deployment
+
+Configuration determines whether a component can share a deployment:
 
 - A component with only fixed or ignored configuration is normally eligible to use a shared deployment.
 - User-provided headers remain isolated per connection but do not require separate deployments.
@@ -92,3 +104,4 @@ Configuration also determines whether a component can share a deployment:
 
 Obot makes this decision independently for every component. One vMCP can therefore use shared and per-user component deployments at the same time.
 
+Existing legacy single-user and multi-user connections remain available during the [vMCP transition](./publish.md#virtual-mcps-gitops-and-migration). Use vMCPs for new endpoints. Multiple components replace the former composite-server setup; `runtime: composite` is no longer supported in [catalog GitOps](../configuration/mcp-server-gitops.md).

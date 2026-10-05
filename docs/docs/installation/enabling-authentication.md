@@ -1,13 +1,4 @@
-# Enabling Authentication
-
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-This guide covers the step-by-step process to enable and configure authentication in Obot. Configure either the built-in Local provider or an external identity provider to enable user login. The bootstrap user is not implemented to operate as a regular user.
-
-:::note
-If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
-:::
+For the current task-based instructions, see [Authentication and identity](../security/authentication.md). This page preserves existing bookmarks.
 
 ## Step 1: Set Environment Variables {#step-1-set-environment-variables}
 

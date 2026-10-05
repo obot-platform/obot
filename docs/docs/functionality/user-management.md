@@ -2,9 +2,7 @@
 title: User Management
 ---
 
-# User Management
-
-User Management provides administrators with tools to manage users, configure roles, and set up authentication. Access these features from **User Management** in the sidebar.
+For the current task-based instructions, see [Authentication and identity](../security/authentication.md). This page preserves existing bookmarks.
 
 ## Users {#users}
 

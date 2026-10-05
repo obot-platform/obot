@@ -147,11 +147,9 @@ Creating the device configuration, changing agent or enforcement settings, and m
 
 ## Troubleshooting {#troubleshooting}
 
-
 ### Server submission fails {#server-submission-fails}
 
 Check that the Obot server is reachable from the workstation and that the API key has permission to submit device scans.
-
 
 ### A tool call is unexpectedly blocked {#a-tool-call-is-unexpectedly-blocked}
 

@@ -114,7 +114,7 @@ To manage policies, go to **AI Judge Policies** under **AI Resources** > **MCP S
 
 ### Creating a Policy
 
-1. Click **Add New Policy**
+1. Click **Add AI Judge Policy**
 2. Enter a descriptive name
 3. Write the policy definition in natural language. Be as specific as you can about specific actions that are or are not allowed.
 4. Add the users or groups the policy should cover
@@ -146,7 +146,7 @@ latency will not scale as much as token usage will when more than one policy is 
 
 ## Related Topics
 
-- [Obot Agent Management](./obot-agent-management.md) - Overview of the admin area where AI Judge Policies appear
+- [Obot Agent Management](../agents/first-agent.md) - Overview of the admin area where AI Judge Policies appear
 - [Model Providers](../configuration/model-providers.md) - Configure the default `llm` and `llm-mini` aliases used for policy evaluation
 - [Obot Configuration Reference](../configuration/server-configuration.md) - Enable the feature with server configuration
-- [User Roles](../configuration/user-roles.md) - Understand Admin, Owner, and Auditor permissions
+- [User Roles](../security/policy-coverage.md) - Understand Admin, Owner, and Auditor permissions

@@ -3,19 +3,7 @@ title: Virtual MCPs (vMCPs)
 description: Combine MCP servers behind one governed connection endpoint
 ---
 
-# Virtual MCPs (vMCPs)
-
-A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint. The source servers become **components** of the vMCP. Each component keeps its own deployment and configuration behavior, while the vMCP provides one place to manage the connection, tools, and access.
-
-:::warning Transitional release
-
-vMCPs are in a transitional state. Legacy MCP server connections continue to work in this release, but new connection workflows should use vMCPs.
-
-In a future release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only way to connect to MCP servers through the Obot Gateway.
-
-GitOps synchronization currently manages MCP catalog entries, not vMCPs. Direct GitOps synchronization of vMCP definitions is planned for a future release.
-
-:::
+For the current task-based instructions, see [Configure servers in a vMCP](../mcp-gateway/server-types.md). This page preserves existing bookmarks.
 
 ## How vMCPs work {#how-vmcps-work}
 

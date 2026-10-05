@@ -2,6 +2,8 @@
 title: Skills
 ---
 
+For the current task-based instructions, see [Publish and distribute skills](../registries/publish-skills.md). This page preserves existing bookmarks.
+
 ## Overview {#overview}
 
 Continue to [Overview](../registries/publish-skills.md#skills-overview).

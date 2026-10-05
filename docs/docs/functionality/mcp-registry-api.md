@@ -17,7 +17,7 @@ The registry is exposed at `/v0.1/servers` and supports:
 
 ## Authentication Modes
 
-**No-Auth Mode (Default)**: Returns servers that have been granted access to all users via [MCP Access Policies](./mcp-access-policies.md). Ideal for public instances.
+**No-Auth Mode (Default)**: Returns servers that have been granted access to all users via [MCP Access Policies](../mcp-gateway/access.md). Ideal for public instances.
 
 **Auth Mode**: Returns all servers the authenticated user has access to. Enable with `OBOT_SERVER_ENABLE_REGISTRY_AUTH=true`.
 

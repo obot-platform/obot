@@ -2,6 +2,28 @@
 title: Workflows and scheduling
 ---
 
+Workflows are an Obot Agent feature. Enable the agent experience and validate an interactive run before scheduling automation.
+
+## Create and run
+
+Ask the agent to create a workflow for a specific task, with explicit inputs and expected output. Run it manually with harmless data first. Review the result, required MCP access, and any files it writes.
+
+## Schedule execution
+
+Open the project's scheduler and add a schedule. The schedule editor supports daily, weekly, monthly, and non-repeating schedules. Review the prompt, timing, timezone, and any expiration before saving. Use the scheduler's run, enable/disable, and delete controls to manage execution.
+
+Check the resulting session after a run. A schedule does not supply missing model access, upstream credentials, or persistent storage. Disable scheduled execution while investigating failures or changing a workflow that can perform external actions.
+
+## Share a workflow
+
+Publish the complete workflow package, then choose who can access each published version using the steps below. Publishing a workflow does not configure another user's credentials or grant them access to its dependencies.
+
+[Server Scheduling](../operations/capacity.md) is different: it controls Kubernetes pod placement and resources, not workflow execution times.
+
+Workflow sharing lets users publish a workflow from Obot Agent so it can be discovered and installed by other users as a reusable starting point.
+
+This feature is designed for sharing complete workflow packages, not just a single markdown file. When a workflow is published, Obot stores the workflow's `SKILL.md` plus every other file in the workflow directory.
+
 ## How It Works {#workflow-sharing-how-it-works}
 
 Each published workflow has:
@@ -16,7 +38,6 @@ Publishing the same workflow name again as the same user creates a new version o
 
 Two different users can publish workflows with the same name. They will be stored as separate published workflows with different IDs.
 
-
 ## Publishing a Workflow {#workflow-sharing-publishing-a-workflow}
 
 Workflow sharing is exposed through the workflow tools available to Obot Agent's Nanobot integration.
@@ -30,7 +51,6 @@ When publishing succeeds:
 - Version `1` starts owner-only, with no additional subjects
 - New versions inherit the previous version's subject list until you change it
 
-
 ## Discovering Shared Workflows {#workflow-sharing-discovering-shared-workflows}
 
 Agents also have a tool that they can use to search for published workflows.
@@ -42,7 +62,6 @@ Search matches against:
 - The workflow description
 
 Search results include the workflow ID, name, display name, description, the latest version you can access, version summaries for the versions you can access, and author email when available.
-
 
 ## Installing a Shared Workflow {#workflow-sharing-installing-a-shared-workflow}
 
@@ -59,7 +78,6 @@ Installation behavior:
 :::note
 The current install flow relies on the runtime having `unzip` available and does not support Windows-based runtimes.
 :::
-
 
 ## Access and Subjects {#workflow-sharing-access-and-subjects}
 
@@ -86,7 +104,6 @@ Access rules are enforced on the Obot side:
 - Workflows and versions with non-matching subjects are hidden from other users
 - Only the owner or an admin can change sharing, edit metadata, or delete a published workflow
 
-
 ## Versioning {#workflow-sharing-versioning}
 
 Versioning is per workflow name and per publisher.
@@ -99,11 +116,9 @@ That means:
 
 Older versions remain downloadable by version number as long as the published workflow still exists.
 
-
 ## Operational Requirements {#workflow-sharing-operational-requirements}
 
 Workflow sharing depends on storage being available for published workflow ZIP files.
-
 
 ### Published Workflow Storage {#workflow-sharing-published-workflow-storage}
 
@@ -126,7 +141,6 @@ Provider-specific behavior:
 - `custom` is for S3-compatible systems such as MinIO or Cloudflare R2
 - `gcs` can use Application Default Credentials or an inline service account JSON document
 - `azure` can use default Azure credentials or explicit client credentials
-
 
 ## Deployment Guidance {#workflow-sharing-deployment-guidance}
 

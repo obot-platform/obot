@@ -100,7 +100,7 @@ For published workflow storage in HA, use one of these:
 For detailed configuration options, see:
 
 - **[Server Configuration](../configuration/server-configuration.md)** - All available environment variables, including published workflow storage configuration
-- **[Workflow Sharing](../functionality/workflow-sharing.md)** - How shared workflows work and how to configure their storage
+- **[Workflow Sharing](../agents/workflows.md)** - How shared workflows work and how to configure their storage
 - **[Encryption Providers](../configuration/encryption-providers/aws-kms.md)** - KMS encryption setup
 
 ## Cloud-Specific Guides
@@ -152,7 +152,7 @@ For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../con
 
 ### Restricting Obot Server Egress
 
-The [Network Policy for MCP Servers](#network-policy-for-mcp-servers) above restricts the **MCP server pods**. It does not restrict the **Obot server** itself, which makes its own outbound connections as part of normal operation. In multi-tenant deployments or deployments with untrusted users, you may want to constrain which destinations the Obot server can reach, as a defense-in-depth measure.
+The [Network Policy for MCP Servers](./kubernetes-deployment.md#network-policy-for-mcp-servers) above restricts the **MCP server pods**. It does not restrict the **Obot server** itself, which makes its own outbound connections as part of normal operation. In multi-tenant deployments or deployments with untrusted users, you may want to constrain which destinations the Obot server can reach, as a defense-in-depth measure.
 
 If you want to constrain the Obot server's egress as a defense-in-depth measure, scope it tightly to your specific deployment — there is no safe blanket blocklist. Depending on your setup, the Obot server legitimately needs to reach private ranges (its database and in-cluster services such as a self-hosted model provider or the MCP namespace) and, with some cloud authentication methods, the cloud instance metadata endpoint (`169.254.169.254`), where it obtains credentials for integrations such as KMS.
 
