@@ -1,0 +1,10 @@
+{
+  "extends": "@docusaurus/tsconfig",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "resolveJsonModule": true
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".docusaurus/**/*.d.ts"],
+  "exclude": ["node_modules", "build", ".wrangler"]
+}

@@ -12,7 +12,11 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "verify": "npm run typecheck && npm run build",
+    "test:docs": "playwright test navigation.spec.ts",
+    "preview:pages": "WRANGLER_SEND_METRICS=false wrangler pages dev build --ip 0.0.0.0 --port 3000 --compatibility-date=2026-09-25",
+    "test:obot": "playwright test --config playwright.obot.config.ts"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",
@@ -29,7 +33,9 @@
     "@docusaurus/module-type-aliases": "3.10.2",
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
-    "typescript": "~6.0.2"
+    "@playwright/test": "^1.63.0",
+    "typescript": "~6.0.2",
+    "wrangler": "^4.140.0"
   },
   "browserslist": {
     "production": [
@@ -44,7 +50,7 @@
     ]
   },
   "engines": {
-    "node": ">=20.0"
+    "node": ">=22.0.0"
   },
   "overrides": {
     "qs": "6.16.0",

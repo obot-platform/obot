@@ -45,6 +45,7 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	"concepts/mcp-gateway/servers-and-tools": "concepts/mcp-gateway",
 
 	// functionality renames
+	"functionality/api-keys": "functionality/agent-auth-scopes",
 	"functionality/message-policies": "functionality/ai-judge-policies",
 
 	// configuration renames

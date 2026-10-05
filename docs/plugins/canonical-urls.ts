@@ -229,6 +229,12 @@ async function processHtmlFile(
 
     // pagePath is everything after the version prefix, e.g. "concepts/architecture/"
     const normalizedPath = pagePath.replace(/\/$/, "");
+    // New unreleased pages have no released equivalent yet. Keep their own
+    // canonical (and noindex) instead of claiming that the homepage is equivalent.
+    // This branch deliberately does not change named versions.
+    if (version === "next" && !validPaths.has(normalizedPath) && !(normalizedPath in PATH_REDIRECTS)) {
+      return tag;
+    }
     const resolvedPath = resolveCanonicalPath(normalizedPath, validPaths, redirectMap);
 
     // Build the final canonical URL with trailing slash

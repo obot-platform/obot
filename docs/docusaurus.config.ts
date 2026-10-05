@@ -43,6 +43,7 @@ const config: Config = {
   organizationName: "obot-platform",
   projectName: "obot",
   onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
 
   i18n: {
     defaultLocale: "en",
@@ -51,6 +52,7 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    hooks: { onBrokenMarkdownLinks: "throw" },
   },
 
   themes: ["@docusaurus/theme-mermaid"],
@@ -93,14 +95,14 @@ const config: Config = {
             to: "/concepts/obot-agent",
           },
         ],
-        createRedirects(existingPath) {
+        createRedirects(existingPath: string) {
           if (existingPath.endsWith("/functionality/agent-auth-scopes/")) {
             return existingPath.replace(
               "/functionality/agent-auth-scopes/",
               "/functionality/api-keys/",
             );
           }
-          if (existingPath.endsWith("/functionality/ai-judge-policies/")) {
+          if (!existingPath.startsWith("/next/") && existingPath.endsWith("/functionality/ai-judge-policies/")) {
             return existingPath.replace(
               "/functionality/ai-judge-policies/",
               "/functionality/message-policies/",
