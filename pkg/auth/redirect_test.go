@@ -49,6 +49,20 @@ func TestSafeRedirectPath(t *testing.T) {
 			want: "/",
 		},
 
+		// Browsers strip tabs and newlines, so these become "//evil.com".
+		{
+			rd:   "/\t/evil.com",
+			want: "/",
+		},
+		{
+			rd:   "/\n/evil.com",
+			want: "/",
+		},
+		{
+			rd:   "/\r\n/evil.com",
+			want: "/",
+		},
+
 		// A percent-encoded backslash is not a separator, so this stays on our origin.
 		{
 			rd:   "/%5Cevil.com",

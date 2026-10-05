@@ -158,6 +158,30 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 		{
+			name: "url path prefix does not match after dot-segments escape it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/../admin/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix matches after dot-segments stay within it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/a/../b/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
 			name: "url with no path constraint matches any path",
 			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/anything/here"}},
 			allowlist: types.EnforcementAllowlist{
