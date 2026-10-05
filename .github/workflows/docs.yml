@@ -7,6 +7,7 @@ on:
       - 'feat/*'
     paths:
       - "docs/**"
+      - ".github/workflows/docs.yml"
 
 jobs:
   build:
@@ -22,9 +23,26 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: docs
 
       - name: Build documentation
-        run: npm run build
+        run: npm run verify
         working-directory: docs
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: docs
+
+      - name: Check documentation in a headed browser
+        run: xvfb-run --auto-servernum npm run test:docs
+        working-directory: docs
+
+      - name: Upload browser test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-browser-tests
+          path: |
+            docs/playwright-report
+            docs/test-results
