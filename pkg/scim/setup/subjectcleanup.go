@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
+	"slices"
 	"time"
 
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -49,20 +51,37 @@ func CleanUpGroupSubjects(ctx context.Context, gateway *gclient.Client, storage 
 		return err
 	}
 
-	var errs []error
+	// The policies of each namespace are read once for every cleanup claimed in it.
+	groupIDs := make(map[string][]string)
 	for _, cleanup := range cleanups {
-		if _, err := groupref.RemoveGroupSubjects(ctx, storage, cleanup.Namespace, func(groupID string) bool {
-			return groupID == cleanup.GroupID
+		groupIDs[cleanup.Namespace] = append(groupIDs[cleanup.Namespace], cleanup.GroupID)
+	}
+
+	var errs []error
+	for _, namespace := range slices.Sorted(maps.Keys(groupIDs)) {
+		ids := groupIDs[namespace]
+		deleted := make(map[string]struct{}, len(ids))
+		for _, id := range ids {
+			deleted[id] = struct{}{}
+		}
+		if _, err := groupref.RemoveGroupSubjects(ctx, storage, namespace, func(groupID string) bool {
+			_, ok := deleted[groupID]
+			return ok
 		}); err != nil {
-			slog.Warn("Failed to remove the subjects of a group deleted through SCIM", "groupID", cleanup.GroupID, "error", err)
-			errs = append(errs, err, gateway.FailSCIMGroupSubjectCleanup(ctx, cleanup.GroupID, err))
-			continue
-		}
-		if err := gateway.CompleteSCIMGroupSubjectCleanup(ctx, cleanup.GroupID); err != nil {
+			slog.Warn("Failed to remove the subjects of groups deleted through SCIM", "namespace", namespace, "groupIDs", ids, "error", err)
 			errs = append(errs, err)
+			for _, id := range ids {
+				errs = append(errs, gateway.FailSCIMGroupSubjectCleanup(ctx, id, err))
+			}
 			continue
 		}
-		slog.Info("Removed the subjects of a group deleted through SCIM", "groupID", cleanup.GroupID)
+		for _, id := range ids {
+			if err := gateway.CompleteSCIMGroupSubjectCleanup(ctx, id); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			slog.Info("Removed the subjects of a group deleted through SCIM", "groupID", id)
+		}
 	}
 	return errors.Join(errs...)
 }

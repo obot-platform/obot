@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 	"uuid"
 
@@ -17,9 +18,11 @@ const (
 	// scimMemberBatchSize bounds the number of parameters in a single membership query.
 	scimMemberBatchSize = 500
 
-	// scimGroupSubjectCleanupClaimDuration is how long a replica holds a cleanup of group subjects it is running. A
-	// failed cleanup keeps its claim, so this is also the delay before it is retried.
-	scimGroupSubjectCleanupClaimDuration = time.Minute
+	// scimGroupSubjectCleanupClaimDuration is how long a replica holds a cleanup of group subjects it is running. It
+	// covers a run, which waits up to scimReferenceWriteLifetime for writes of references, and then reads and updates
+	// the policies of each namespace once. A failed cleanup keeps its claim, so this is also the delay before it is
+	// retried.
+	scimGroupSubjectCleanupClaimDuration = 5 * time.Minute
 )
 
 // SCIMGroupInput holds the writable attributes of a SCIM group, as a create or a full replacement sends them.
@@ -159,8 +162,8 @@ func (c *Client) CreateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 	}
 
 	var (
-		group   *SCIMGroup
-		changed bool
+		bindingID string
+		changed   bool
 	)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
@@ -226,9 +229,8 @@ func (c *Client) CreateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 			return err
 		}
 		changed = len(changes) > 0
-
-		group, err = c.scimGroupTx(ctx, tx, conn.ID, binding.ID, true, false)
-		return err
+		bindingID = binding.ID
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -237,17 +239,16 @@ func (c *Client) CreateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 		c.kickUserLifecycleDelivery()
 	}
 
-	return group, nil
+	// The group is read once the write lock is released, so that reading its members holds up no other SCIM write.
+	return c.GetSCIMGroup(ctx, conn.ID, bindingID, true)
 }
 
 // UpdateSCIMGroup changes a bound group's display name and members. The replacement is computed by mutate from the
 // group's current state, with its members, inside the transaction that writes it. A replacement identical to the
-// current state changes nothing and emits nothing.
-func (c *Client) UpdateSCIMGroup(ctx context.Context, conn *types.SCIMConnection, id string, mutate func(current SCIMGroup) (SCIMGroupInput, error)) (*SCIMGroup, error) {
-	var (
-		group   *SCIMGroup
-		changed bool
-	)
+// current state changes nothing and emits nothing. A replacement that does not depend on the current state is a
+// PatchSCIMGroup that replaces the members, which reads none of them.
+func (c *Client) UpdateSCIMGroup(ctx context.Context, conn *types.SCIMConnection, id string, mutate func(current SCIMGroup) (SCIMGroupInput, error)) error {
+	var changed bool
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockSCIMWrites(tx); err != nil {
 			return err
@@ -303,18 +304,15 @@ func (c *Client) UpdateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 				return fmt.Errorf("failed to update SCIM group binding: %w", err)
 			}
 		}
-
-		group, err = c.scimGroupTx(ctx, tx, conn.ID, id, true, false)
-		return err
+		return nil
 	}); err != nil {
-		return nil, err
+		return err
 	}
 
 	if changed {
 		c.kickUserLifecycleDelivery()
 	}
-
-	return group, nil
+	return nil
 }
 
 // PatchSCIMGroup applies a patch to a bound group. Unlike UpdateSCIMGroup, it never loads the group's members: adding
@@ -620,7 +618,7 @@ func (c *Client) scimGroupMembersTx(ctx context.Context, tx *gorm.DB, connection
 func resolveSCIMMembersTx(tx *gorm.DB, connectionID string, memberIDs []string) (map[uint]struct{}, error) {
 	ids := make([]string, 0, len(memberIDs))
 	seen := make(map[string]struct{}, len(memberIDs))
-	for _, id := range memberIDs {
+	for _, id := range scimIDs(memberIDs) {
 		if _, ok := seen[id]; ok {
 			continue
 		}
@@ -674,7 +672,7 @@ func resolveSCIMMembersTx(tx *gorm.DB, connectionID string, memberIDs []string) 
 // resolveSCIMMembersTx, it ignores values that are not users of the connection, which removing changes nothing for.
 func scimMemberUserIDsTx(tx *gorm.DB, connectionID string, memberIDs []string) (map[uint]struct{}, error) {
 	users := make(map[uint]struct{}, len(memberIDs))
-	for batch := range slices.Chunk(memberIDs, scimMemberBatchSize) {
+	for batch := range slices.Chunk(scimIDs(memberIDs), scimMemberBatchSize) {
 		var userIDs []uint
 		if err := tx.Model(new(types.SCIMUserBinding)).
 			Where("connection_id = ? AND retired_at IS NULL AND id IN ?", connectionID, batch).
@@ -686,6 +684,16 @@ func scimMemberUserIDsTx(tx *gorm.DB, connectionID string, memberIDs []string) (
 		}
 	}
 	return users, nil
+}
+
+// scimIDs returns member values as the SCIM IDs they refer to. SCIM IDs are lowercase UUIDs, and member values match
+// them case-insensitively, as the filters that select members do.
+func scimIDs(memberIDs []string) []string {
+	ids := make([]string, 0, len(memberIDs))
+	for _, id := range memberIDs {
+		ids = append(ids, strings.ToLower(id))
+	}
+	return ids
 }
 
 // replaceGroupMembershipsTx makes users the complete member set of the group. It returns the users whose membership
@@ -737,7 +745,7 @@ func changeGroupMembershipsTx(tx *gorm.DB, groupID string, added, removed map[ui
 		}
 	}
 
-	changes := make(map[uint]bool)
+	changes := make(map[uint]bool, len(named))
 	for _, userID := range named {
 		_, member := members[userID]
 		_, adding := added[userID]

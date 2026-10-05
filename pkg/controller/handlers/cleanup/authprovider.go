@@ -57,16 +57,16 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, resp router.Response) 
 		return err
 	}
 	if !checkpoint.DataDeleted {
-		// SCIM owns the groups, memberships, role assignments, and policy subjects of the provider it manages. They
-		// survive deconfiguration, so that configuring the provider again resumes SCIM with current data. Deconfiguring
-		// suspended the provider's SCIM connection, so its groups grant nothing meanwhile.
-		//
-		// The gateway data goes first, because its deletion is refused in the same transaction that would delete it
-		// while a SCIM connection owns it. The policy subjects follow only once it is gone. A connection that already
-		// exists keeps both, and none can be created until the cleanup finishes, because connection setup refuses
-		// while a cleanup is pending for the provider or its group ID prefix.
+		// Deconfiguring a provider that SCIM manages deleted its SCIM connection, with its group data, before the
+		// cleanup became ready, so the cleanup goes on as for any other provider. The gateway data goes first, because
+		// its deletion is refused in the same transaction that would delete it while a SCIM connection owns it: the
+		// provider's own connection, which is retried, or that of another provider with the same group ID prefix,
+		// whose groups and policy subjects are kept. The policy subjects follow only once the gateway data is gone. No
+		// connection can be created until the cleanup finishes, because connection setup refuses while a cleanup is
+		// pending for the provider or its group ID prefix.
 		if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); errors.Is(err, gclient.ErrSCIMManagedGroupData) {
-			slog.Info("Kept the group data of an auth provider that SCIM manages", "authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix)
+			slog.Warn("Kept the group data of an auth provider whose group ID prefix another provider's SCIM connection manages",
+				"authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix)
 			return req.Delete(cleanup)
 		} else if err != nil {
 			return err

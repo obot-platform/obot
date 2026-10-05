@@ -12,10 +12,7 @@ import (
 func TestSCIMAuthorization(t *testing.T) {
 	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
 
-	const (
-		connection = "0b6bd0a4-7e44-4c3c-9d0b-8a3d1f1b8f6e"
-		other      = "9a1f4d1e-2c0b-4f3a-8e5d-6b7c8d9e0f1a"
-	)
+	const connection = "0b6bd0a4-7e44-4c3c-9d0b-8a3d1f1b8f6e"
 
 	tests := []struct {
 		name    string
@@ -26,69 +23,56 @@ func TestSCIMAuthorization(t *testing.T) {
 		allowed bool
 	}{
 		{
-			name:    "connection principal can list its users",
+			name:    "connection principal can list users",
 			method:  http.MethodGet,
-			path:    "/scim/v2/" + connection + "/Users",
+			path:    "/scim/v2/Users",
 			uid:     connection,
 			groups:  []string{types.GroupSCIM},
 			allowed: true,
 		},
 		{
-			name:    "connection principal can write its groups",
+			name:    "connection principal can write groups",
 			method:  http.MethodPatch,
-			path:    "/scim/v2/" + connection + "/Groups/abc",
+			path:    "/scim/v2/Groups/abc",
 			uid:     connection,
 			groups:  []string{types.GroupSCIM},
 			allowed: true,
 		},
 		{
-			name:   "connection principal cannot reach another connection",
-			method: http.MethodGet,
-			path:   "/scim/v2/" + other + "/Users",
-			uid:    connection,
-			groups: []string{types.GroupSCIM},
-		},
-		{
-			name:   "connection principal without a UID cannot reach any connection",
-			method: http.MethodGet,
-			path:   "/scim/v2/" + connection + "/Users",
-			groups: []string{types.GroupSCIM},
-		},
-		{
-			name:    "connection principal can reach its base URL without a trailing slash",
+			name:    "connection principal can reach the SCIM root, which the handler answers",
 			method:  http.MethodGet,
-			path:    "/scim/v2/" + connection,
+			path:    "/scim/v2/",
 			uid:     connection,
 			groups:  []string{types.GroupSCIM},
 			allowed: true,
 		},
 		{
-			name:   "connection principal cannot reach another connection without a trailing slash",
+			name:    "connection principal can reach the base URL, which the handler answers",
+			method:  http.MethodGet,
+			path:    "/scim/v2",
+			uid:     connection,
+			groups:  []string{types.GroupSCIM},
+			allowed: true,
+		},
+		{
+			name:   "connection principal cannot reach a path that only begins like the base URL",
 			method: http.MethodGet,
-			path:   "/scim/v2/" + other,
+			path:   "/scim/v2x",
 			uid:    connection,
 			groups: []string{types.GroupSCIM},
 		},
 		{
-			name:   "connection principal cannot reach the SCIM root",
+			name:   "anonymous cannot reach the base URL",
 			method: http.MethodGet,
-			path:   "/scim/v2/",
-			uid:    connection,
+			path:   "/scim/v2",
+			uid:    "anonymous",
+			groups: []string{UnauthenticatedGroup},
+		},
+		{
+			name:   "connection principal without a UID cannot reach the SCIM endpoint",
+			method: http.MethodGet,
+			path:   "/scim/v2/Users",
 			groups: []string{types.GroupSCIM},
-		},
-		{
-			name:   "anonymous cannot reach a connection without a trailing slash",
-			method: http.MethodGet,
-			path:   "/scim/v2/" + connection,
-			uid:    "anonymous",
-			groups: []string{UnauthenticatedGroup},
-		},
-		{
-			name:   "anonymous cannot reach a connection through an encoded slash",
-			method: http.MethodGet,
-			path:   "/scim/v2/" + connection + "%2FUsers",
-			uid:    "anonymous",
-			groups: []string{UnauthenticatedGroup},
 		},
 		{
 			name:   "connection principal cannot reach an API route",
@@ -114,14 +98,21 @@ func TestSCIMAuthorization(t *testing.T) {
 		{
 			name:   "owner cannot reach a SCIM route",
 			method: http.MethodGet,
-			path:   "/scim/v2/" + connection + "/Users",
+			path:   "/scim/v2/Users",
 			uid:    "1",
 			groups: types.RoleOwner.Groups(),
 		},
 		{
 			name:   "anonymous cannot reach a SCIM route",
 			method: http.MethodGet,
-			path:   "/scim/v2/" + connection + "/ServiceProviderConfig",
+			path:   "/scim/v2/ServiceProviderConfig",
+			uid:    "anonymous",
+			groups: []string{UnauthenticatedGroup},
+		},
+		{
+			name:   "anonymous cannot reach the SCIM root",
+			method: http.MethodGet,
+			path:   "/scim/v2/",
 			uid:    "anonymous",
 			groups: []string{UnauthenticatedGroup},
 		},

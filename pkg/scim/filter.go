@@ -430,6 +430,19 @@ func lookupKey(m map[string]any, key string) any {
 	return nil
 }
 
+// hasKey reports whether m has key, matched as lookupKey matches it.
+func hasKey(m map[string]any, key string) bool {
+	if _, ok := m[key]; ok {
+		return true
+	}
+	for k := range m {
+		if strings.EqualFold(k, key) {
+			return true
+		}
+	}
+	return false
+}
+
 func present(v any) bool {
 	switch v := v.(type) {
 	case nil:

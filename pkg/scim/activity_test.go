@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -38,7 +39,9 @@ func TestRequestActivity(t *testing.T) {
 	s.env.name = ""
 	s.do(http.MethodGet, "Users", nil).expect(t, http.StatusServiceUnavailable)
 
-	failures, err := s.gateway.SCIMRequestFailures(t.Context(), s.conn.ID, 10)
+	failures, _, err := s.gateway.SCIMRequestFailurePage(t.Context(), s.conn.ID, gclient.SCIMPage{
+		Limit: 10,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

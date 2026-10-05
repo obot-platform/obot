@@ -166,8 +166,9 @@ func (h *SCIMConnectionHandler) DeleteUnreferencedGroups(req api.Context) error 
 
 // POST /api/scim-connections/{id}/rotate-token
 // Issues a new bearer token, including the first token of a connection that has none, and returns it, shown only in
-// this response. The previous token is still accepted for a day, or until it is revoked, so the identity provider can
-// be switched over without failed requests.
+// this response. The token it replaces is still accepted for up to a day, but never past its own expiry, or until it
+// is revoked, so the identity provider can be switched over without failed requests. It is refused with 400 unless the
+// connection's auth provider is the configured auth provider.
 func (h *SCIMConnectionHandler) RotateToken(req api.Context) error {
 	if err := requireSCIMTokenManager(req); err != nil {
 		return err
@@ -182,7 +183,8 @@ func (h *SCIMConnectionHandler) RotateToken(req api.Context) error {
 
 // POST /api/scim-connections/{id}/revoke-current-token
 // Replaces a leaked bearer token in one step: issues a new token, returned only in this response, and stops
-// accepting both the current token and the previous one.
+// accepting both the current token and the previous one. It is refused with 400 unless the connection's auth provider
+// is the configured auth provider.
 func (h *SCIMConnectionHandler) RevokeCurrentToken(req api.Context) error {
 	if err := requireSCIMTokenManager(req); err != nil {
 		return err

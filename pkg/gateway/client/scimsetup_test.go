@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 )
 
 // enforceFixture is a connected SCIM connection whose auth provider has a provisioned Owner who signed in, an
@@ -526,105 +529,303 @@ func TestMarkingWaitsForReferenceWritesOnPostgres(t *testing.T) {
 	testMarkingWaitsForReferenceWrites(t, newPostgresLifecycleTestClient(t))
 }
 
-func TestDeleteUnusedSCIMConnection(t *testing.T) {
-	scimFirst := testSCIMConnectionOptions(true)
-	scimFirst.Origin = types.SCIMConnectionOriginSCIMFirst
+// countRows returns how many rows of model match the query, or all of them without one.
+func countRows(t *testing.T, c *Client, model any, query ...any) int64 {
+	t.Helper()
 
+	db := c.db.WithContext(t.Context()).Model(model)
+	if len(query) > 0 {
+		db = db.Where(query[0], query[1:]...)
+	}
+	var n int64
+	if err := db.Count(&n).Error; err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// scimNotFound reports whether err says that a SCIM resource or its connection does not exist.
+func scimNotFound(err error) bool {
+	_, ok := errors.AsType[*SCIMNotFoundError](err)
+	return ok || errors.Is(err, ErrSCIMConnectionNotFound)
+}
+
+func TestDeleteAuthProviderSCIMConnection(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, true)
+	entra := AuthProviderRef{
+		Namespace: system.DefaultNamespace,
+		Name:      "entra-auth-provider",
+	}
+
+	// SCIM data of every kind, and the provider's group data.
+	member := provisionTestSCIMUser(t, c, conn, "00u-member", "member@example.com")
+	group, err := c.CreateSCIMGroup(ctx, conn, SCIMGroupInput{
+		DisplayName: "Engineering",
+		MemberIDs:   []string{member.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTestGroup(t, c, "okta/00g-unbound", "Unbound")
+	for _, row := range []any{
+		&types.GroupRoleAssignment{
+			GroupName: group.GroupID,
+			Role:      apitypes.RoleAdmin,
+		},
+		&types.SCIMPendingGroupDeletion{
+			GroupID:      "okta/00g-unbound",
+			ConnectionID: conn.ID,
+			RunID:        "run",
+		},
+		&types.SCIMGroupSubjectCleanup{
+			GroupID:   "okta/00g-deleted",
+			Namespace: system.DefaultNamespace,
+		},
+		&types.SCIMGroupSubjectCleanup{
+			GroupID:   "entra/deleted",
+			Namespace: system.DefaultNamespace,
+		},
+	} {
+		if err := c.db.WithContext(ctx).Create(row).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.RecordSCIMRequest(ctx, conn.ID, SCIMRequestOutcome{
+		Method:   http.MethodPost,
+		Resource: "/Users",
+		Status:   http.StatusConflict,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Users that SCIM disabled, one of them with an API key created while they were active, and a user of another
+	// provider whose groups stay.
+	deactivated := provisionTestSCIMUser(t, c, conn, "00u-deactivated", "deactivated@example.com")
+	deactivatedKey, err := c.CreateAPIKey(ctx, deactivated.UserID, "cli", "", nil, types.APIKeyScopes{
+		CanAccessAPI: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unprovisioned := createLifecycleTestUser(t, c, "unprovisioned", lifecycleTestProvider)
+	disabled := map[uint]types.UserDisabledReason{
+		deactivated.UserID: types.UserDisabledReasonSCIMInactive,
+		unprovisioned.ID:   types.UserDisabledReasonSCIMUnprovisioned,
+	}
+	for userID, reason := range disabled {
+		if _, err := disableUser(t, c, lifecycleTestProvider, userID, reason); err != nil {
+			t.Fatal(err)
+		}
+	}
+	other := createLifecycleTestUser(t, c, "other", entra)
+	if err := c.db.WithContext(ctx).Create(&types.Group{
+		ID:                    "entra/team",
+		AuthProviderName:      entra.Name,
+		AuthProviderNamespace: entra.Namespace,
+		Name:                  "Team",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Create(&types.GroupMemberships{
+		UserID:  other.ID,
+		GroupID: "entra/team",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	identities := countRows(t, c, new(types.Identity))
+
+	// A provider without a connection changes nothing.
+	if deleted, err := c.DeleteAuthProviderSCIMConnection(ctx, entra); err != nil || deleted != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() of a provider without a connection = %+v, %v", deleted, err)
+	}
+	if got := storedLifecycleUser(t, c, unprovisioned.ID); got.DisabledAt == nil {
+		t.Fatal("deleting no connection enabled a user that SCIM disabled")
+	}
+	if _, err := c.SCIMConnection(ctx, conn.ID); err != nil {
+		t.Fatalf("deleting no connection deleted another provider's: %v", err)
+	}
+
+	deleted, err := c.DeleteAuthProviderSCIMConnection(ctx, lifecycleTestProvider)
+	if err != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() error = %v", err)
+	}
+	if deleted == nil || deleted.ConnectionID != conn.ID {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() = %+v, want connection %s", deleted, conn.ID)
+	}
+
+	if _, err := c.SCIMConnection(ctx, conn.ID); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("the connection after its deletion: %v", err)
+	}
+	for _, tt := range []struct {
+		name  string
+		model any
+		query []any
+		want  int64
+	}{
+		{
+			name:  "user bindings",
+			model: new(types.SCIMUserBinding),
+		},
+		{
+			name:  "group bindings",
+			model: new(types.SCIMGroupBinding),
+		},
+		{
+			name:  "marks for deletion",
+			model: new(types.SCIMPendingGroupDeletion),
+		},
+		{
+			name:  "request failures",
+			model: new(types.SCIMRequestFailure),
+		},
+		{
+			name:  "group subject cleanups of other prefixes",
+			model: new(types.SCIMGroupSubjectCleanup),
+			want:  1,
+		},
+		{
+			name:  "groups of the provider",
+			model: new(types.Group),
+			query: []any{"auth_provider_name = ?", lifecycleTestProvider.Name},
+		},
+		{
+			name:  "groups of another provider",
+			model: new(types.Group),
+			query: []any{"auth_provider_name = ?", entra.Name},
+			want:  1,
+		},
+		{
+			name:  "memberships of the provider's groups",
+			model: new(types.GroupMemberships),
+			query: []any{"group_id LIKE ?", "okta/%"},
+		},
+		{
+			name:  "memberships of another provider's groups",
+			model: new(types.GroupMemberships),
+			query: []any{"group_id = ?", "entra/team"},
+			want:  1,
+		},
+		{
+			name:  "group role assignments",
+			model: new(types.GroupRoleAssignment),
+		},
+		{
+			name:  "live users",
+			model: new(types.User),
+			query: []any{"deleted_at IS NULL"},
+			want:  4,
+		},
+		{
+			name:  "disabled users",
+			model: new(types.User),
+			query: []any{"disabled_at IS NOT NULL"},
+			want:  2,
+		},
+		{
+			name:  "identities",
+			model: new(types.Identity),
+			want:  identities,
+		},
+	} {
+		if got := countRows(t, c, tt.model, tt.query...); got != tt.want {
+			t.Errorf("%s after the deletion = %d, want %d", tt.name, got, tt.want)
+		}
+	}
+	// Users that SCIM disabled stay disabled, until an administrator enables them, and their API keys stay refused.
+	for userID, reason := range disabled {
+		if got := storedLifecycleUser(t, c, userID); got.DisabledAt == nil || got.DisabledReason != reason {
+			t.Errorf("user %d after the deletion = %+v, want still disabled as %q", userID, got, reason)
+		}
+	}
+	if key, err := c.ValidateAPIKey(ctx, deactivatedKey.Key); err != nil || key.OwnerStatus != apitypes.UserStatusDisabled {
+		t.Errorf("ValidateAPIKey() of a disabled user's key = %+v, %v, want its owner disabled", key, err)
+	}
+
+	// A retry finds nothing to delete.
+	if again, err := c.DeleteAuthProviderSCIMConnection(ctx, lifecycleTestProvider); err != nil || again != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() again = %+v, %v", again, err)
+	}
+}
+
+func TestDeleteStagedSCIMConnection(t *testing.T) {
 	tests := []struct {
 		name        string
-		opts        CreateSCIMConnectionOptions
-		use         func(t *testing.T, c *Client, conn *types.SCIMConnection)
+		contexts    []string
 		wantDeleted bool
 	}{
 		{
-			name:        "an unused connection created without directory credentials",
-			opts:        scimFirst,
+			name:        "a staged provider",
+			contexts:    []string{system.ReplacementAuthProviderCredentialContext},
 			wantDeleted: true,
 		},
 		{
-			name: "a connection that provisioned a user",
-			opts: scimFirst,
-			use: func(t *testing.T, c *Client, conn *types.SCIMConnection) {
-				t.Helper()
-				provisionTestSCIMUser(t, c, conn, "00u-user", "user@example.com")
-			},
+			name: "a provider that is not staged",
 		},
 		{
-			name: "a connection that bound a group, even after the group was deleted in the target",
-			opts: scimFirst,
-			use: func(t *testing.T, c *Client, conn *types.SCIMConnection) {
-				t.Helper()
-				group, err := c.CreateSCIMGroup(t.Context(), conn, SCIMGroupInput{
-					DisplayName: "Engineering",
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := c.DeleteSCIMGroup(t.Context(), conn, group.ID); err != nil {
-					t.Fatal(err)
-				}
-			},
+			name:     "a configured provider",
+			contexts: []string{system.ReplacementAuthProviderCredentialContext, lifecycleTestProvider.Name},
 		},
 		{
-			name: "an enforced connection",
-			opts: scimFirst,
-			use: func(t *testing.T, c *Client, conn *types.SCIMConnection) {
-				t.Helper()
-				setSCIMConnectionState(t, c, conn, types.SCIMConnectionStateEnforced)
-			},
-		},
-		{
-			name: "a connection that replaced directory synchronization",
-			opts: testSCIMConnectionOptions(true),
+			name:     "a provider configured in the generic context",
+			contexts: []string{system.ReplacementAuthProviderCredentialContext, system.GenericAuthProviderCredentialContext},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newLifecycleTestClient(t)
-			conn, _, err := c.CreateSCIMConnection(t.Context(), tt.opts)
+			opts := testSCIMConnectionOptions(false)
+			opts.Origin = types.SCIMConnectionOriginSCIMFirst
+			conn, _, err := c.CreateSCIMConnection(t.Context(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tt.use != nil {
-				tt.use(t, c, conn)
+			for _, context := range tt.contexts {
+				if err := c.db.WithContext(t.Context()).Create(&types.Credential{
+					Context: context,
+					Name:    lifecycleTestProvider.Name,
+				}).Error; err != nil {
+					t.Fatal(err)
+				}
 			}
 
-			deleted, err := c.DeleteUnusedSCIMConnection(t.Context(), lifecycleTestProvider.Namespace, lifecycleTestProvider.Name)
+			deleted, err := c.DeleteStagedSCIMConnection(t.Context(), lifecycleTestProvider)
 			if err != nil {
-				t.Fatalf("DeleteUnusedSCIMConnection() error = %v", err)
+				t.Fatalf("DeleteStagedSCIMConnection() error = %v", err)
 			}
-			if deleted != tt.wantDeleted {
-				t.Fatalf("DeleteUnusedSCIMConnection() = %v, want %v", deleted, tt.wantDeleted)
+			if (deleted != nil) != tt.wantDeleted {
+				t.Fatalf("DeleteStagedSCIMConnection() = %+v, want deleted %v", deleted, tt.wantDeleted)
 			}
-			remaining, err := c.SCIMConnectionForAuthProvider(t.Context(), lifecycleTestProvider.Namespace, lifecycleTestProvider.Name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if (remaining == nil) != tt.wantDeleted {
-				t.Fatalf("connection after DeleteUnusedSCIMConnection() = %+v", remaining)
+			_, err = c.SCIMConnection(t.Context(), conn.ID)
+			if gone := errors.Is(err, ErrSCIMConnectionNotFound); gone != tt.wantDeleted {
+				t.Fatalf("connection after DeleteStagedSCIMConnection() error = %v, want deleted %v", err, tt.wantDeleted)
 			}
 		})
 	}
 }
 
 func TestSCIMWritesAfterTheirConnectionIsDeleted(t *testing.T) {
-	opts := testSCIMConnectionOptions(true)
-	opts.Origin = types.SCIMConnectionOriginSCIMFirst
-
 	c := newLifecycleTestClient(t)
-	conn, _, err := c.CreateSCIMConnection(t.Context(), opts)
+	conn, _ := createTestSCIMConnection(t, c, true)
+	provisioned := provisionTestSCIMUser(t, c, conn, "00u-user", "user@example.com")
+	group, err := c.CreateSCIMGroup(t.Context(), conn, SCIMGroupInput{
+		DisplayName: "Engineering",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// A request authenticated with the connection before it was deleted still holds it.
-	if deleted, err := c.DeleteUnusedSCIMConnection(t.Context(), lifecycleTestProvider.Namespace, lifecycleTestProvider.Name); err != nil || !deleted {
-		t.Fatalf("DeleteUnusedSCIMConnection() = %v, %v", deleted, err)
+	// A write that read the connection before it was deleted still holds it.
+	if deleted, err := c.DeleteAuthProviderSCIMConnection(t.Context(), lifecycleTestProvider); err != nil || deleted == nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() = %+v, %v", deleted, err)
 	}
+	identities := countRows(t, c, new(types.Identity))
 
 	if _, err := c.CreateSCIMUser(t.Context(), conn, SCIMUserInput{
-		UserName:   "user@example.com",
-		ExternalID: "00u-user",
+		UserName:   "new@example.com",
+		ExternalID: "00u-new",
 	}, SCIMUserCreateOptions{
 		UserLimit: UserLimit{
 			Unlimited: true,
@@ -633,23 +834,231 @@ func TestSCIMWritesAfterTheirConnectionIsDeleted(t *testing.T) {
 	}); !errors.Is(err, ErrSCIMConnectionNotFound) {
 		t.Fatalf("CreateSCIMUser() for a deleted connection error = %v", err)
 	}
+	if _, err := c.UpdateSCIMUser(t.Context(), conn, provisioned.ID, func(current SCIMUser) (SCIMUserInput, error) {
+		return SCIMUserInput{
+			UserName:   current.UserName,
+			ExternalID: current.ExternalID,
+			Profile:    current.Profile,
+		}, nil
+	}); !scimNotFound(err) {
+		t.Fatalf("UpdateSCIMUser() for a deleted connection error = %v", err)
+	}
 	if _, err := c.CreateSCIMGroup(t.Context(), conn, SCIMGroupInput{
-		DisplayName: "Engineering",
+		DisplayName: "Sales",
 	}); !errors.Is(err, ErrSCIMConnectionNotFound) {
 		t.Fatalf("CreateSCIMGroup() for a deleted connection error = %v", err)
+	}
+	if err := c.PatchSCIMGroup(t.Context(), conn, group.ID, SCIMGroupPatch{
+		DisplayName: "Renamed",
+	}); !scimNotFound(err) {
+		t.Fatalf("PatchSCIMGroup() for a deleted connection error = %v", err)
+	}
+	if err := c.DeleteSCIMGroup(t.Context(), conn, group.ID); !scimNotFound(err) {
+		t.Fatalf("DeleteSCIMGroup() for a deleted connection error = %v", err)
 	}
 	if _, err := c.MarkUnreferencedSCIMGroups(t.Context(), conn, nil); !errors.Is(err, ErrSCIMConnectionNotFound) {
 		t.Fatalf("MarkUnreferencedSCIMGroups() for a deleted connection error = %v", err)
 	}
+	if err := c.RecordSCIMRequest(t.Context(), conn.ID, SCIMRequestOutcome{
+		Method:   http.MethodPost,
+		Resource: "/Groups",
+		Status:   http.StatusInternalServerError,
+	}); err != nil {
+		t.Fatalf("RecordSCIMRequest() for a deleted connection error = %v", err)
+	}
 
-	for _, model := range []any{new(types.SCIMUserBinding), new(types.SCIMGroupBinding), new(types.SCIMPendingGroupDeletion), new(types.Identity)} {
-		var count int64
-		if err := c.db.WithContext(t.Context()).Model(model).Count(&count).Error; err != nil {
-			t.Fatal(err)
-		}
-		if count != 0 {
+	for _, model := range []any{new(types.SCIMUserBinding), new(types.SCIMGroupBinding), new(types.SCIMPendingGroupDeletion), new(types.SCIMRequestFailure), new(types.Group)} {
+		if count := countRows(t, c, model); count != 0 {
 			t.Fatalf("a write for a deleted connection stored %d rows of %T", count, model)
 		}
+	}
+	if count := countRows(t, c, new(types.Identity)); count != identities {
+		t.Fatalf("a write for a deleted connection left %d identities, want %d", count, identities)
+	}
+}
+
+// holdTransaction runs hold in a transaction that stays open until the returned release is called, and returns once
+// hold has run. The transaction's result arrives on done. A failed test releases it too, or dropping the test's schema
+// would wait for it forever.
+func holdTransaction(t *testing.T, c *Client, hold func(tx *gorm.DB) error) (release func(), done <-chan error) {
+	t.Helper()
+
+	var (
+		held     = make(chan struct{})
+		released = make(chan struct{})
+		result   = make(chan error, 1)
+	)
+	release = sync.OnceFunc(func() { close(released) })
+	t.Cleanup(release)
+	go func() {
+		result <- c.db.WithContext(t.Context()).Transaction(func(tx *gorm.DB) error {
+			if err := hold(tx); err != nil {
+				return err
+			}
+			close(held)
+			<-released
+			return nil
+		})
+	}()
+	select {
+	case <-held:
+	case err := <-result:
+		t.Fatalf("the held transaction failed: %v", err)
+	}
+	return release, result
+}
+
+// requireWaiting fails the test if waiting sends a result within a short while.
+func requireWaiting(t *testing.T, waiting <-chan error, what string) {
+	t.Helper()
+
+	select {
+	case err := <-waiting:
+		t.Fatalf("%s did not wait: %v", what, err)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+// deleteTestSCIMConnectionAsync deletes the lifecycle test provider's SCIM connection in the background.
+func deleteTestSCIMConnectionAsync(ctx context.Context, c *Client) <-chan error {
+	deleted := make(chan error, 1)
+	go func() {
+		_, err := c.DeleteAuthProviderSCIMConnection(ctx, lifecycleTestProvider)
+		deleted <- err
+	}()
+	return deleted
+}
+
+func TestDeconfigureWaitsForAnInFlightSCIMWriteOnPostgres(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, true)
+
+	// A SCIM write holds the write lock when the provider is deconfigured. It writes a group of the provider, which
+	// the deletion must not miss.
+	release, write := holdTransaction(t, c, func(tx *gorm.DB) error {
+		if _, err := lockSCIMConnectionWrites(tx, conn.ID); err != nil {
+			return err
+		}
+		return tx.Create(&types.Group{
+			ID:                    "okta/00g-written",
+			AuthProviderName:      lifecycleTestProvider.Name,
+			AuthProviderNamespace: lifecycleTestProvider.Namespace,
+			Name:                  "Written",
+		}).Error
+	})
+
+	deleted := deleteTestSCIMConnectionAsync(ctx, c)
+	requireWaiting(t, deleted, "the deletion")
+
+	release()
+	if err := <-write; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-deleted; err != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() error = %v", err)
+	}
+	if n := countRows(t, c, new(types.Group)); n != 0 {
+		t.Fatalf("%d groups survived the deletion", n)
+	}
+	if _, err := c.SCIMConnection(ctx, conn.ID); !errors.Is(err, ErrSCIMConnectionNotFound) {
+		t.Fatalf("the connection after its deletion: %v", err)
+	}
+}
+
+func TestDeconfigureWaitsForASignInThatChecksTheSCIMModeOnPostgres(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	createTestSCIMConnection(t, c, true)
+
+	// A sign-in that creates a user holds the mode lock shared, and has decided that SCIM manages the provider.
+	release, signIn := holdTransaction(t, c, func(tx *gorm.DB) error {
+		return lockSCIMMode(tx, false)
+	})
+
+	deleted := deleteTestSCIMConnectionAsync(ctx, c)
+	requireWaiting(t, deleted, "the deletion")
+
+	release()
+	if err := <-signIn; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-deleted; err != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() error = %v", err)
+	}
+}
+
+func TestDeconfigureDeletesAFailureRecordedMeanwhileOnPostgres(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, true)
+
+	// A failed request is being recorded when the provider is deconfigured: it holds the connection's row, as
+	// RecordSCIMRequest does, and takes no advisory lock.
+	release, record := holdTransaction(t, c, func(tx *gorm.DB) error {
+		if _, err := scimConnectionTx(tx, conn.ID, true); err != nil {
+			return err
+		}
+		return tx.Create(&types.SCIMRequestFailure{
+			ConnectionID: conn.ID,
+			CreatedAt:    time.Now(),
+			Method:       http.MethodPost,
+			Resource:     "/Users",
+			Status:       http.StatusConflict,
+		}).Error
+	})
+
+	deleted := deleteTestSCIMConnectionAsync(ctx, c)
+	requireWaiting(t, deleted, "the deletion")
+
+	release()
+	if err := <-record; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-deleted; err != nil {
+		t.Fatalf("DeleteAuthProviderSCIMConnection() error = %v", err)
+	}
+	if n := countRows(t, c, new(types.SCIMRequestFailure)); n != 0 {
+		t.Fatalf("%d request failures survived the deletion of their connection", n)
+	}
+}
+
+func TestRecordingAFailureWaitsForTheDeletionOfItsConnectionOnPostgres(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, true)
+	// The request time was recorded a moment ago, so recording this one leaves the connection's row alone.
+	if err := c.db.WithContext(ctx).Model(conn).UpdateColumn("last_request_at", time.Now()).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// The connection is being deleted when a failed request of it is recorded.
+	release, deletion := holdTransaction(t, c, func(tx *gorm.DB) error {
+		if _, err := scimConnectionTx(tx, conn.ID, true); err != nil {
+			return err
+		}
+		return tx.Delete(conn).Error
+	})
+
+	recorded := make(chan error, 1)
+	go func() {
+		recorded <- c.RecordSCIMRequest(ctx, conn.ID, SCIMRequestOutcome{
+			Method:   http.MethodPost,
+			Resource: "/Users",
+			Status:   http.StatusConflict,
+		})
+	}()
+	requireWaiting(t, recorded, "recording the failure")
+
+	release()
+	if err := <-deletion; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-recorded; err != nil {
+		t.Fatalf("RecordSCIMRequest() error = %v", err)
+	}
+	if n := countRows(t, c, new(types.SCIMRequestFailure)); n != 0 {
+		t.Fatalf("recorded %d failures of a deleted connection", n)
 	}
 }
 
@@ -701,8 +1110,8 @@ func TestCreateSCIMConnectionRequiringNoGroupData(t *testing.T) {
 			if _, ok := errors.AsType[*SCIMResidualGroupDataError](err); !ok {
 				t.Fatalf("CreateSCIMConnection() = %v, want residual group data", err)
 			}
-			if has, err := c.HasSCIMConnections(t.Context()); err != nil || has {
-				t.Fatalf("a connection was created: %v, %v", has, err)
+			if conns, err := c.SCIMConnections(t.Context()); err != nil || len(conns) != 0 {
+				t.Fatalf("a connection was created: %+v, %v", conns, err)
 			}
 		})
 	}
@@ -863,12 +1272,11 @@ func testMarkingWaitsOnlyForUnexpiredReferenceWrites(t *testing.T, c *Client) {
 	}
 }
 
-func TestEnforceDeletesOnlyTheGroupsItsRunMarked(t *testing.T) {
+func TestEnforceWaitsForAnotherDeletionThatHoldsMarks(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	f := newEnforceFixture(t, c)
 
-	// Two deletions mark the same group. The later one holds the mark, so the earlier one keeps the group: it may have
-	// read the references before the later one marked it.
+	// Two deletions mark the same group, and the later one holds the mark.
 	first, err := c.MarkUnreferencedSCIMGroups(t.Context(), f.conn, f.referenced())
 	if err != nil {
 		t.Fatal(err)
@@ -880,12 +1288,36 @@ func TestEnforceDeletesOnlyTheGroupsItsRunMarked(t *testing.T) {
 	if first.ID == second.ID || !slices.Equal(second.GroupIDs, []string{"okta/00g-stale"}) {
 		t.Fatalf("deletion runs = %+v and %+v", first, second)
 	}
+	if inProgress, err := c.SCIMGroupDeletionInProgress(t.Context(), f.conn.ID); err != nil || !inProgress {
+		t.Fatalf("SCIMGroupDeletionInProgress() = %v, %v; want true", inProgress, err)
+	}
 
-	result, err := c.EnforceSCIMConnection(t.Context(), f.conn.ID, EnforceSCIMOptions{
-		RunID:              first.ID,
-		ReferencedGroupIDs: f.referenced(),
-		Actor:              f.actor,
-	})
+	// Enforcing would clear the marks of the other deletion, which is under way, so it is refused and changes nothing.
+	enforce := func() (*EnforceSCIMResult, error) {
+		return c.EnforceSCIMConnection(t.Context(), f.conn.ID, EnforceSCIMOptions{
+			RunID:              first.ID,
+			ReferencedGroupIDs: f.referenced(),
+			Actor:              f.actor,
+		})
+	}
+	if _, err := enforce(); !errors.Is(err, ErrSCIMGroupDeletionInProgress) {
+		t.Fatalf("Enforce() error = %v, want ErrSCIMGroupDeletionInProgress", err)
+	}
+	if ids := pendingDeletions(t, c); !slices.Equal(ids, []string{"okta/00g-stale"}) {
+		t.Fatalf("groups pending deletion after a refused Enforce = %v", ids)
+	}
+	if conn, err := c.SCIMConnection(t.Context(), f.conn.ID); err != nil || conn.State != types.SCIMConnectionStateConnected {
+		t.Fatalf("connection after a refused Enforce = %+v, %v", conn, err)
+	}
+
+	// The other deletion never finished, and its marks expired. Enforcing goes ahead, and deletes none of the groups
+	// it did not mark itself: it may have read the references before the other deletion marked them.
+	if err := c.db.WithContext(t.Context()).Model(new(types.SCIMPendingGroupDeletion)).
+		Where("run_id = ?", second.ID).
+		UpdateColumn("created_at", time.Now().Add(-scimDeletionMarkLifetime-time.Minute)).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, err := enforce()
 	if err != nil {
 		t.Fatalf("failed to enforce: %v", err)
 	}
@@ -1087,7 +1519,7 @@ func testIssueFirstSCIMConnectionTokenHasOneWinner(t *testing.T, c *Client) {
 	if len(issued) != 1 {
 		t.Fatalf("%d callers were given a first token, want exactly one", len(issued))
 	}
-	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, issued[0]); err != nil {
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), issued[0]); err != nil {
 		t.Fatalf("the winner's token does not authenticate: %v", err)
 	}
 }
@@ -1103,7 +1535,7 @@ func TestIssueFirstSCIMConnectionToken(t *testing.T) {
 	if !issued.HasToken() || issued.TokenIssuedAt == nil || token == "" {
 		t.Fatalf("connection with its first token = %+v", issued)
 	}
-	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, token); err != nil {
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), token); err != nil {
 		t.Fatalf("the first token does not authenticate: %v", err)
 	}
 
@@ -1111,7 +1543,7 @@ func TestIssueFirstSCIMConnectionToken(t *testing.T) {
 	if _, _, err := c.IssueFirstSCIMConnectionToken(t.Context(), conn.ID); !errors.Is(err, ErrSCIMConnectionHasToken) {
 		t.Fatalf("issuing the first token again = %v, want ErrSCIMConnectionHasToken", err)
 	}
-	if _, err := c.AuthenticateSCIMConnection(t.Context(), conn.ID, token); err != nil {
+	if _, err := c.AuthenticateSCIMConnection(t.Context(), token); err != nil {
 		t.Fatalf("a refused second issue replaced the first token: %v", err)
 	}
 	if _, _, err := c.IssueFirstSCIMConnectionToken(t.Context(), "unknown"); !errors.Is(err, ErrSCIMConnectionNotFound) {
@@ -1160,9 +1592,9 @@ func TestEnabledSCIMSurvivesRestarts(t *testing.T) {
 		t.Fatalf("sign-in after a restart made %d directory requests", after-before)
 	}
 
-	// Enabling cannot be undone: only an unused SCIM-first connection is ever deleted.
-	if deleted, err := restarted.DeleteUnusedSCIMConnection(t.Context(), conn.AuthProviderNamespace, conn.AuthProviderName); err != nil || deleted {
-		t.Fatalf("DeleteUnusedSCIMConnection() = %v, %v", deleted, err)
+	// Discarding a staging never deletes an enabled connection, whose provider is not staged.
+	if deleted, err := restarted.DeleteStagedSCIMConnection(t.Context(), lifecycleTestProvider); err != nil || deleted != nil {
+		t.Fatalf("DeleteStagedSCIMConnection() = %+v, %v", deleted, err)
 	}
 	if _, err := restarted.SCIMConnection(t.Context(), conn.ID); err != nil {
 		t.Fatalf("the connection is gone: %v", err)
@@ -1235,5 +1667,88 @@ func TestExpiredDeletionMarksStopRefusingReferences(t *testing.T) {
 				t.Fatalf("a deletion whose marks expired deleted %v", deleted)
 			}
 		})
+	}
+}
+
+func TestMarkExpiryWaitsForTheSCIMWriteLockOnPostgres(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	conn, _ := createTestSCIMConnection(t, c, false)
+	createTestGroup(t, c, "okta/00g-stuck", "Stuck")
+	if _, err := c.MarkUnreferencedSCIMGroups(ctx, conn, map[string]struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Model(new(types.SCIMPendingGroupDeletion)).
+		Where("group_id = ?", "okta/00g-stuck").
+		Update("created_at", time.Now().Add(-scimDeletionMarkLifetime-time.Minute)).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// A deletion holds the SCIM write lock while it reads its marks and deletes their groups, so the mark does not
+	// expire until it is done.
+	locked := make(chan struct{})
+	release := make(chan struct{})
+	held := make(chan error, 1)
+	go func() {
+		held <- c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := lockSCIMWrites(tx); err != nil {
+				return err
+			}
+			close(locked)
+			<-release
+			return nil
+		})
+	}()
+	<-locked
+
+	expired := make(chan error, 1)
+	go func() {
+		expired <- c.expireSCIMGroupDeletionMarks(ctx)
+	}()
+	select {
+	case err := <-expired:
+		t.Fatalf("marks expired while a deletion held the SCIM write lock: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	if got := pendingDeletions(t, c); !slices.Equal(got, []string{"okta/00g-stuck"}) {
+		t.Fatalf("groups pending deletion while the lock is held = %v", got)
+	}
+
+	close(release)
+	if err := <-held; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-expired; err != nil {
+		t.Fatal(err)
+	}
+	if got := pendingDeletions(t, c); len(got) != 0 {
+		t.Fatalf("groups pending deletion once the lock is released = %v", got)
+	}
+}
+
+func TestNewStartsTheExpiryOfDeletionMarks(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	conn, _ := createTestSCIMConnection(t, c, false)
+	createTestGroup(t, c, "okta/00g-stuck", "Stuck")
+	if _, err := c.MarkUnreferencedSCIMGroups(t.Context(), conn, map[string]struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	// A deletion marked the group before a restart, and never finished.
+	if err := c.db.WithContext(t.Context()).Model(new(types.SCIMPendingGroupDeletion)).
+		Where("group_id = ?", "okta/00g-stuck").
+		Update("created_at", time.Now().Add(-scimDeletionMarkLifetime-time.Minute)).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// The client of the restarted replica expires the mark once it starts.
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	New(ctx, c.db, c.storageClient, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	deadline := time.Now().Add(5 * time.Second)
+	for len(pendingDeletions(t, c)) != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("the mark of a deletion that never finished did not expire once the client started")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }

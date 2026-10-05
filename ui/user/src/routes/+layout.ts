@@ -21,19 +21,35 @@ export const prerender = 'auto';
 export const ssr = dev;
 
 const ACCOUNT_INACTIVE_KEY = 'obot-account-inactive';
-// ACCOUNT_INACTIVE_PARAM is set to "true" on the login page that the server sends a browser to when it refuses to load
-// a page for an account that is not active.
-const ACCOUNT_INACTIVE_PARAM = 'inactive';
+// ACCOUNT_INACTIVE_COOKIE is set by the server as it sends a refused page load of an account that is not active to the
+// login page (accountInactiveCookie in pkg/api/server/server.go). A link can add a parameter to the login page's URL,
+// but cannot set a cookie, so only the cookie is trusted.
+const ACCOUNT_INACTIVE_COOKIE = 'obot_account_inactive';
+
+// takeAccountInactiveCookie reports whether the server set ACCOUNT_INACTIVE_COOKIE, and clears it, so that it is read
+// once.
+function takeAccountInactiveCookie(): boolean {
+	if (typeof document === 'undefined') {
+		return false;
+	}
+	const set = document.cookie
+		.split(';')
+		.some((cookie) => cookie.trim() === `${ACCOUNT_INACTIVE_COOKIE}=true`);
+	if (set) {
+		document.cookie = `${ACCOUNT_INACTIVE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+	}
+	return set;
+}
 
 // accountInactive reports whether to tell the visitor that their account is not active. The server refuses every
 // request from such an account and ends its session, so only the first response says why: a 403 from the API, or a
-// redirect of a page load to the login page with ACCOUNT_INACTIVE_PARAM. The answer is kept for the rest of the visit,
+// redirect of a page load to the login page with ACCOUNT_INACTIVE_COOKIE. The answer is kept for the rest of the visit,
 // so that it survives the redirects that follow, until someone signs in.
-function accountInactive(profileResult: PromiseSettledResult<Profile>, url: URL): boolean {
+function accountInactive(profileResult: PromiseSettledResult<Profile>): boolean {
+	const redirected = takeAccountInactiveCookie();
 	const refused =
 		profileResult.status === 'rejected' &&
-		(getHttpStatusCode(profileResult.reason) === 403 ||
-			url.searchParams.get(ACCOUNT_INACTIVE_PARAM) === 'true');
+		(getHttpStatusCode(profileResult.reason) === 403 || redirected);
 	if (typeof sessionStorage === 'undefined') {
 		return refused;
 	}
@@ -65,7 +81,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		appPreferencesResult.status === 'fulfilled'
 			? compileAppPreferences(appPreferencesResult.value)
 			: compileAppPreferences();
-	const inactive = accountInactive(profileResult, url);
+	const inactive = accountInactive(profileResult);
 	const profile: Profile =
 		profileResult.status === 'fulfilled'
 			? profileResult.value

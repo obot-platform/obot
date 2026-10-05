@@ -250,7 +250,7 @@ func replayFixtures(t *testing.T, s *scimTest, name string) *replay {
 
 // remap replaces the responder's IDs and base URL in s with this server's.
 func (r *replay) remap(s string) string {
-	s = strings.ReplaceAll(s, fixtureBaseURL, testServerURL+strings.TrimSuffix(PathPrefix, "/")+"/"+r.s.conn.ID)
+	s = strings.ReplaceAll(s, fixtureBaseURL, BaseURL(testServerURL))
 	for fixtureID, id := range r.ids {
 		s = strings.ReplaceAll(s, fixtureID, id)
 	}

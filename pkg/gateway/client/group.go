@@ -51,18 +51,6 @@ const (
 	groupFailureCooldown = time.Minute
 
 	groupCursorVersion = 1
-
-	// grantingMembership is a condition on group_memberships that leaves out the memberships of groups whose
-	// auth provider has a suspended SCIM connection. SCIM keeps those groups after the provider is deconfigured,
-	// and they grant nothing until it is configured again. Lookups of a user's groups that are not scoped to one
-	// auth provider, such as those of API keys and tokens, apply it. A lookup scoped to the provider a user
-	// signed in with needs no such condition, as nobody can sign in with a deconfigured provider.
-	grantingMembership = `NOT EXISTS (
-		SELECT 1 FROM groups suspended_groups
-		JOIN scim_connections ON scim_connections.auth_provider_namespace = suspended_groups.auth_provider_namespace
-			AND scim_connections.auth_provider_name = suspended_groups.auth_provider_name
-		WHERE suspended_groups.id = group_memberships.group_id AND scim_connections.suspended_at IS NOT NULL
-	)`
 )
 
 var (
@@ -579,10 +567,10 @@ func (c *Client) cacheResolvedGroups(ctx context.Context, authProviderNamespace,
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.
-// This can include groups from multiple auth providers, but not those of a suspended SCIM connection.
+// This can include groups from multiple auth providers.
 func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string, error) {
 	var groupIDs []string
-	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Where(grantingMembership).Pluck("group_id", &groupIDs).Error; err != nil {
+	if err := c.db.WithContext(ctx).Table("group_memberships").Where("user_id = ?", userID).Pluck("group_id", &groupIDs).Error; err != nil {
 		return nil, fmt.Errorf("failed to list user group IDs: %w", err)
 	}
 
@@ -614,9 +602,10 @@ func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authPro
 // DeleteAuthProviderGroupData removes all gateway-database state for groups belonging to a
 // deconfigured auth provider. It is transactional and idempotent so controller retries are safe.
 //
-// It returns ErrSCIMManagedGroupData, and deletes nothing, when a SCIM connection owns the data,
-// either because it manages the auth provider or because it manages the group ID prefix. The
-// identity provider holds the IDs of those groups, and nothing could rebuild them.
+// It deletes nothing while a SCIM connection owns the data. It returns ErrSCIMManagedGroupData when
+// the connection of another auth provider manages the group ID prefix: the identity provider holds
+// the IDs of those groups, and nothing could rebuild them. It returns an error to retry when the
+// provider's own connection still exists, which deconfiguring the provider deletes first.
 func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName, groupIDPrefix string) error {
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// The mode lock keeps a connection from being created while the data is deleted.
@@ -625,27 +614,13 @@ func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNa
 		}
 		if conn, err := scimConnectionForGroupDataTx(tx, authProviderNamespace, authProviderName, groupIDPrefix); err != nil {
 			return err
+		} else if conn != nil && conn.AuthProviderNamespace == authProviderNamespace && conn.AuthProviderName == authProviderName {
+			return fmt.Errorf("the auth provider still has SCIM connection %s", conn.ID)
 		} else if conn != nil {
 			return ErrSCIMManagedGroupData
 		}
 
-		if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
-			return fmt.Errorf("delete group role assignments: %w", err)
-		}
-		if err := tx.Where("substr(group_id, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupMemberships{}).Error; err != nil {
-			return fmt.Errorf("delete group memberships: %w", err)
-		}
-		if err := tx.
-			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
-			Delete(&types.Group{}).Error; err != nil {
-			return fmt.Errorf("delete cached groups: %w", err)
-		}
-		if err := tx.Model(&types.Identity{}).
-			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
-			Update("auth_provider_groups_last_checked", time.Time{}).Error; err != nil {
-			return fmt.Errorf("reset identity group check timestamps: %w", err)
-		}
-		return nil
+		return deleteAuthProviderGroupDataTx(tx, authProviderNamespace, authProviderName, groupIDPrefix)
 	}); err != nil {
 		return fmt.Errorf("failed to delete group data for auth provider %s/%s with prefix %q: %w", authProviderNamespace, authProviderName, groupIDPrefix, err)
 	}
@@ -654,7 +629,7 @@ func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNa
 }
 
 // GetUserGroupMemberships fetches group memberships for multiple users in a single query.
-// Returns a map of userID to slice of groupIDs, leaving out the groups of a suspended SCIM connection.
+// Returns a map of userID to slice of groupIDs.
 func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
 	if len(userIDs) == 0 {
 		return nil, nil
@@ -670,7 +645,6 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 		Table("group_memberships").
 		Select("user_id, group_id").
 		Where("user_id IN ?", userIDs).
-		Where(grantingMembership).
 		Find(&results).Error
 
 	if err != nil {
@@ -1091,4 +1065,26 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 	}
 
 	return userGroups, nil
+}
+
+// deleteAuthProviderGroupDataTx deletes an auth provider's groups, and the memberships and group role assignments of
+// group IDs with its group ID prefix, and resets when its identities' groups were last checked.
+func deleteAuthProviderGroupDataTx(tx *gorm.DB, authProviderNamespace, authProviderName, groupIDPrefix string) error {
+	if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
+		return fmt.Errorf("delete group role assignments: %w", err)
+	}
+	if err := tx.Where("substr(group_id, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupMemberships{}).Error; err != nil {
+		return fmt.Errorf("delete group memberships: %w", err)
+	}
+	if err := tx.
+		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Delete(&types.Group{}).Error; err != nil {
+		return fmt.Errorf("delete cached groups: %w", err)
+	}
+	if err := tx.Model(&types.Identity{}).
+		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Update("auth_provider_groups_last_checked", time.Time{}).Error; err != nil {
+		return fmt.Errorf("reset identity group check timestamps: %w", err)
+	}
+	return nil
 }

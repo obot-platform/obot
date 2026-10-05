@@ -46,6 +46,8 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 		wantBody        string
 		wantLocation    string
 		wantCookieReset bool
+		// wantInactiveCookie is set when the response tells the login page that the account is not active.
+		wantInactiveCookie bool
 	}{
 		{
 			name:            "denied by the admission check",
@@ -62,13 +64,14 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 			wantCookieReset: true,
 		},
 		{
-			name:            "a page load denied by the admission check goes to the login page, which says why",
-			err:             denied,
-			path:            "/mcp-servers",
-			accept:          pageAccept,
-			wantStatus:      http.StatusFound,
-			wantLocation:    accountInactiveLoginPath,
-			wantCookieReset: true,
+			name:               "a page load denied by the admission check goes to the login page, which says why",
+			err:                denied,
+			path:               "/mcp-servers",
+			accept:             pageAccept,
+			wantStatus:         http.StatusFound,
+			wantLocation:       accountInactiveLoginPath,
+			wantCookieReset:    true,
+			wantInactiveCookie: true,
 		},
 		{
 			name:            "the login page is refused as text rather than redirected again",
@@ -141,14 +144,20 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 				t.Errorf("Location = %q, want %q", location, tt.wantLocation)
 			}
 
-			var cookieReset bool
+			var cookieReset, inactiveCookie bool
 			for _, cookie := range rec.Result().Cookies() {
 				if cookie.Name == proxy.ObotAccessTokenCookie && cookie.MaxAge < 0 {
 					cookieReset = true
 				}
+				if cookie.Name == accountInactiveCookie && cookie.Value == "true" && cookie.MaxAge > 0 {
+					inactiveCookie = true
+				}
 			}
 			if cookieReset != tt.wantCookieReset {
 				t.Errorf("session cookie cleared = %v, want %v", cookieReset, tt.wantCookieReset)
+			}
+			if inactiveCookie != tt.wantInactiveCookie {
+				t.Errorf("account inactive cookie set = %v, want %v", inactiveCookie, tt.wantInactiveCookie)
 			}
 		})
 	}

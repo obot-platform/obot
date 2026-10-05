@@ -97,10 +97,10 @@ func effectiveAuthProviderParameters(req api.Context, authProvider v1.AuthProvid
 		}
 	}
 	return adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-		Configured:       configured,
-		Connection:       conn,
-		Stored:           stored,
+		AuthProviderName:      authProvider.Name,
+		Configured:            configured,
+		ConnectionAdapterType: adapter.ConnectionAdapterType(conn),
+		Stored:                stored,
 	}), nil
 }
 
@@ -382,6 +382,9 @@ func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthPro
 	return nil
 }
 
+// POST /api/auth-providers/{id}/deconfigure
+// Deconfigures an auth provider. It is refused for the provider serving logins, which a switch replaces instead, and
+// for a staged provider, whose staging is discarded instead.
 func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	var authProvider v1.AuthProvider
 	if err := req.Get(&authProvider, req.PathValue("id")); err != nil {
@@ -400,6 +403,14 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 			"deconfiguring %q would leave no way to sign in. Configure a replacement and complete the switch instead",
 			authProvider.Name,
 		)
+	}
+	// Deconfiguring would leave the staging in place without what it set up, such as its SCIM connection.
+	staged, err := ap.dispatcher.GetStagedAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get staged auth provider: %w", err)
+	}
+	if staged == authProvider.Name {
+		return types.NewErrBadRequest("%q is staged as a replacement. Discard the staged switch instead", authProvider.Name)
 	}
 
 	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{

@@ -404,10 +404,10 @@ func TestEnable(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Connection.ID != conn.ID || !result.Connection.HasToken || !strings.HasPrefix(result.Connection.Token, "obot_scim_") ||
-		result.Connection.BaseURL != "https://obot.example.com/scim/v2/"+conn.ID || !result.Connection.AuthProviderConfigured || result.Connection.Origin != string(types.SCIMConnectionOriginMigrated) {
+		result.Connection.BaseURL != "https://obot.example.com/scim/v2" || !result.Connection.AuthProviderConfigured || result.Connection.Origin != string(types.SCIMConnectionOriginMigrated) {
 		t.Fatalf("connection = %+v", result.Connection)
 	}
-	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), conn.ID, result.Connection.Token); err != nil {
+	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), result.Connection.Token); err != nil {
 		t.Fatalf("the token does not authenticate: %v", err)
 	}
 
@@ -429,7 +429,7 @@ func TestEnable(t *testing.T) {
 	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict {
 		t.Fatalf("CompleteEnable() again = %v, want a conflict", err)
 	}
-	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), conn.ID, result.Connection.Token); err != nil {
+	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), result.Connection.Token); err != nil {
 		t.Fatalf("completing Enable again replaced the token: %v", err)
 	}
 
@@ -578,7 +578,7 @@ func TestCompleteEnableDeletesGroupsEvenWhenAnOwnerGeneratedTheToken(t *testing.
 	if ids, pending := s.groups(); slices.Contains(ids, staleGroupID) || len(pending) != 0 {
 		t.Fatalf("groups = %v, pending deletion %v, want the unreferenced group deleted", ids, pending)
 	}
-	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), conn.ID, generated.Token); err != nil {
+	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), generated.Token); err != nil {
 		t.Fatalf("the Owner's token no longer authenticates: %v", err)
 	}
 }

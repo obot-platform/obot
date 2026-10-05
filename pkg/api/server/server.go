@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -36,8 +37,12 @@ import (
 )
 
 const (
-	// accountInactiveLoginPath is the login page, asked to tell its visitor that their account is not active.
+	// accountInactiveLoginPath is the login page that a refused page load is sent to, with accountInactiveCookie. Its
+	// parameter tells a refused load of the login page itself apart, which is not sent there again.
 	accountInactiveLoginPath = "/?inactive=true"
+	// accountInactiveCookie tells the login page that its visitor's account is not active. The UI's root layout reads
+	// and clears it (ACCOUNT_INACTIVE_COOKIE in ui/user/src/routes/+layout.ts).
+	accountInactiveCookie = "obot_account_inactive"
 )
 
 type Server struct {
@@ -57,6 +62,8 @@ type Server struct {
 
 	mux         *http.ServeMux
 	otelHandler http.Handler
+	// scimHandler serves the SCIM endpoint, which HandleSCIM sets.
+	scimHandler http.Handler
 }
 
 type headersResponseWriter struct {
@@ -91,19 +98,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 		mux:                     http.NewServeMux(),
 		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
 	}
-	s.otelHandler = otelhttp.NewHandler(
-		s.mux,
-		"obot/http",
-		otelhttp.WithFilter(func(r *http.Request) bool {
-			return r.URL.Path != "/api/healthz" && !isStaticAssetPath(r.URL.Path)
-		}),
-		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
-			if r.Pattern == "" {
-				return operation
-			}
-			return r.Pattern
-		}),
-	)
+	s.otelHandler = traced(s.mux)
 	return s
 }
 
@@ -128,6 +123,18 @@ func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
 	s.mux.Handle(pattern, s.Wrap(f))
 }
 
+// HandleSCIM serves the SCIM endpoint with f. SCIM requests bypass the mux, which would answer the base URL without a
+// trailing slash, and any path it would clean, such as one with a doubled slash, with a redirect that no SCIM client
+// expects, rather than with a SCIM response.
+func (s *Server) HandleSCIM(f api.HandlerFunc) {
+	wrapped := s.Wrap(f)
+	s.scimHandler = traced(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// The password change check and tracing read the pattern that the mux would have matched.
+		req.Pattern = scim.PathPrefix
+		wrapped(rw, req)
+	}))
+}
+
 func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 	s.HandleFunc(pattern, func(req api.Context) error {
 		f.ServeHTTP(req.ResponseWriter, req.Request)
@@ -136,7 +143,39 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.scimHandler != nil {
+		if scim.IsSCIMPath(r.URL.Path) {
+			s.scimHandler.ServeHTTP(w, r)
+			return
+		}
+		// A path that is a SCIM path only once cleaned, such as one that a server URL with a trailing slash leaves
+		// beginning with a doubled slash, would get the mux's redirect to the cleaned path. It is served as that path.
+		if cleaned := path.Clean(r.URL.Path); scim.IsSCIMPath(cleaned) {
+			r = r.Clone(r.Context())
+			r.URL.Path = cleaned
+			r.URL.RawPath = ""
+			s.scimHandler.ServeHTTP(w, r)
+			return
+		}
+	}
 	s.otelHandler.ServeHTTP(w, r)
+}
+
+// traced traces the requests that h serves, other than health checks and static assets.
+func traced(h http.Handler) http.Handler {
+	return otelhttp.NewHandler(
+		h,
+		"obot/http",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/api/healthz" && !isStaticAssetPath(r.URL.Path)
+		}),
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			if r.Pattern == "" {
+				return operation
+			}
+			return r.Pattern
+		}),
+	)
 }
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
@@ -184,6 +223,13 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				// A browser would show the refusal of a page as a bare text page, and the UI that explains it would
 				// never load, so the browser is sent to the login page instead, which says why.
 				if isPageLoad(req) && req.URL.String() != accountInactiveLoginPath {
+					http.SetCookie(rw, &http.Cookie{
+						Name:     accountInactiveCookie,
+						Value:    "true",
+						Path:     "/",
+						MaxAge:   60,
+						SameSite: http.SameSiteLaxMode,
+					})
 					http.Redirect(rw, req, accountInactiveLoginPath, http.StatusFound)
 					return
 				}

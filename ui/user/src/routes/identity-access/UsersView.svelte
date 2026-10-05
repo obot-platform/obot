@@ -52,6 +52,7 @@
 	};
 	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.
+	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR | Role.USER_IMPERSONATION;
 	const STILL_PROVISIONED_MESSAGE =
 		'This user is still active in your identity provider. Remove their assignment there before deleting them in Obot.';
 
@@ -70,7 +71,9 @@
 				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
 				roleId: user.role & ~(Role.AUDITOR | Role.USER_IMPERSONATION),
 				auditor: user.role & Role.AUDITOR ? true : false,
-				userImpersonation: user.role & Role.USER_IMPERSONATION ? true : false
+				userImpersonation: user.role & Role.USER_IMPERSONATION ? true : false,
+				// Only an Owner can enable a user with any of these roles, from their own role or a group.
+				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0
 			}))
 			.filter(
 				(user) =>
@@ -85,6 +88,7 @@
 	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
+	let enablingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let confirmAuditorAdditionToUser = $state<TableItem>();
 	let confirmUserImpersonationAdditionToUser = $state<TableItem>();
@@ -335,6 +339,15 @@
 							>
 								Update Role
 							</button>
+							{#if d.lifecycleStatus === 'disabled'}
+								<button
+									class="menu-button"
+									disabled={d.privileged && !profile.current.groups.includes(Group.OWNER)}
+									onclick={() => (enablingUser = d)}
+								>
+									Enable User
+								</button>
+							{/if}
 							{@const stillProvisioned =
 								d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
@@ -360,6 +373,7 @@
 <Confirm
 	msg={`Delete user ${deletingUser?.email}?`}
 	show={Boolean(deletingUser)}
+	{loading}
 	onsuccess={async () => {
 		if (!deletingUser) return;
 		loading = true;
@@ -374,6 +388,30 @@
 		}
 	}}
 	oncancel={() => (deletingUser = undefined)}
+/>
+
+<Confirm
+	title="Confirm Enable"
+	msg={`Enable user ${enablingUser?.email}?`}
+	note="They regain access to Obot with their account, including their API keys and agents."
+	show={Boolean(enablingUser)}
+	{loading}
+	type="info"
+	submitText="Enable"
+	onsuccess={async () => {
+		if (!enablingUser) return;
+		loading = true;
+		try {
+			await AdminService.enableUser(enablingUser.id);
+			users = await UserService.listUsers();
+		} catch {
+			// The refusal is shown as a notification, and asking again would be refused again.
+		} finally {
+			loading = false;
+			enablingUser = undefined;
+		}
+	}}
+	oncancel={() => (enablingUser = undefined)}
 />
 
 <ResponsiveDialog

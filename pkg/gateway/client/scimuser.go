@@ -379,7 +379,13 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		if err := c.decryptSCIMUserBinding(ctx, binding); err != nil {
 			return err
 		}
-		current, err := scimUserFromBinding(binding, nil)
+		// The user's groups are read-only here, so the current ones are also those of the response. mutate gets them,
+		// so that a PATCH can restate them unchanged.
+		groups, err := scimUserGroupsTx(tx, conn.ID, []uint{binding.UserID})
+		if err != nil {
+			return err
+		}
+		current, err := scimUserFromBinding(binding, groups[binding.UserID])
 		if err != nil {
 			return err
 		}
@@ -467,10 +473,6 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 			return err
 		}
 
-		groups, err := scimUserGroupsTx(tx, conn.ID, []uint{binding.UserID})
-		if err != nil {
-			return err
-		}
 		user, err = scimUserFromBinding(binding, groups[binding.UserID])
 		return err
 	}); err != nil {
@@ -531,7 +533,7 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 	}
 
 	// Roles are never set from SCIM, so an explicit role for the SCIM email is not granted here. Sign-in grants it for
-	// the email the identity provider asserts.
+	// that email.
 	email := input.Profile.PrimaryEmail()
 	verified := slices.Contains(verifiedAuthProviders, conn.AuthProviderNamespace+"/"+conn.AuthProviderName)
 
@@ -771,8 +773,8 @@ func (c *Client) SCIMUserBindingForUser(ctx context.Context, userID uint) (*type
 	return activeSCIMUserBindingForUserTx(c.db.WithContext(ctx), userID, false)
 }
 
-// SCIMProvisionedUserIDs returns the IDs in userIDs of users with an unretired SCIM binding.
-func (c *Client) SCIMProvisionedUserIDs(ctx context.Context, userIDs []uint) (map[uint]struct{}, error) {
+// SCIMManagedUsers returns the users in userIDs with an unretired SCIM binding.
+func (c *Client) SCIMManagedUsers(ctx context.Context, userIDs []uint) (map[uint]struct{}, error) {
 	provisioned := make(map[uint]struct{}, len(userIDs))
 	for batch := range slices.Chunk(userIDs, scimMemberBatchSize) {
 		var ids []uint

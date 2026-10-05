@@ -57,12 +57,22 @@ func WriteNewGroups(ctx context.Context, gateway *gclient.Client, storage kclien
 	}
 
 	var problems []string
-	if len(refErr.Missing) > 0 {
+	switch len(refErr.Missing) {
+	case 0:
+	case 1:
 		problems = append(problems, fmt.Sprintf("no %s group has the ID %s. %s provisions its groups through SCIM, so push the group from %s first, or choose an existing group",
+			name, refErr.Missing[0], name, name))
+	default:
+		problems = append(problems, fmt.Sprintf("no %s groups have the IDs %s. %s provisions its groups through SCIM, so push the groups from %s first, or choose existing groups",
 			name, strings.Join(refErr.Missing, ", "), name, name))
 	}
-	if len(refErr.PendingDeletion) > 0 {
-		problems = append(problems, fmt.Sprintf("the %s groups %s are being deleted because nothing referenced them. Choose another group, or try again once the deletion finishes",
+	switch len(refErr.PendingDeletion) {
+	case 0:
+	case 1:
+		problems = append(problems, fmt.Sprintf("the %s group %s is being deleted because nothing referenced it. Choose another group, or try again once the deletion finishes",
+			name, refErr.PendingDeletion[0]))
+	default:
+		problems = append(problems, fmt.Sprintf("the %s groups %s are being deleted because nothing referenced them. Choose other groups, or try again once the deletion finishes",
 			name, strings.Join(refErr.PendingDeletion, ", ")))
 	}
 	return types.NewErrBadRequest("%s", strings.Join(problems, "; "))

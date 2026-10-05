@@ -104,16 +104,21 @@ func TestWriteNewSubjects(t *testing.T) {
 			wantProblems: []string{"no Okta group has the ID " + missingGroupID, "push the group from Okta first"},
 		},
 		{
+			name:         "new references to groups that the provider does not have",
+			subjects:     []types.Subject{groupSubject(missingGroupID), groupSubject("okta/00g-also-missing")},
+			wantProblems: []string{"no Okta groups have the IDs ", missingGroupID, "okta/00g-also-missing", "push the groups from Okta first"},
+		},
+		{
 			name:         "a new reference to a group that is being deleted",
 			subjects:     []types.Subject{groupSubject(pendingGroupID)},
-			wantProblems: []string{"the Okta groups " + pendingGroupID + " are being deleted"},
+			wantProblems: []string{"the Okta group " + pendingGroupID + " is being deleted because nothing referenced it"},
 		},
 		{
 			name:     "new references to a missing group and to one being deleted",
 			subjects: []types.Subject{groupSubject(missingGroupID), groupSubject(pendingGroupID)},
 			wantProblems: []string{
 				"no Okta group has the ID " + missingGroupID,
-				"the Okta groups " + pendingGroupID + " are being deleted",
+				"the Okta group " + pendingGroupID + " is being deleted",
 			},
 		},
 		{

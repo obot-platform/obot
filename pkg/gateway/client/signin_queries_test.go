@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
@@ -117,7 +118,8 @@ func testSteadySignInsRunNoQueryForSCIM(t *testing.T, c *Client) {
 				t.Helper()
 				id := tt.identity()
 				if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-					_, err := c.ensureIdentity(ctx, tx, id, "", c.emailsWithExplicitRoles[strings.ToLower(id.Email)], UserLimit{
+					// As EnsureIdentity calls it.
+					_, err := c.ensureIdentity(ctx, tx, id, "", apitypes.RoleUnknown, UserLimit{
 						Unlimited: true,
 					})
 					return err
@@ -176,6 +178,40 @@ func TestRevealAuthProviderCredentialReadsTheSCIMConnectionInTheSameQuery(t *tes
 
 	if _, _, err := c.RevealAuthProviderCredential(ctx, contexts, lifecycleTestProvider.Namespace, "unknown"); !errorsAsCredentialNotFound(err) {
 		t.Fatalf("RevealAuthProviderCredential() for an unknown provider error = %v", err)
+	}
+
+	// The first context that has the credential wins, and a later one is read in the same query.
+	if err := c.UpsertCredential(ctx, types.Credential{
+		Context: system.GenericAuthProviderCredentialContext,
+		Name:    lifecycleTestProvider.Name,
+		Secrets: map[string]string{
+			"OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID": "generic",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		contexts []string
+		want     string
+	}{
+		{
+			contexts: contexts,
+			want:     "client",
+		},
+		{
+			contexts: []string{"missing", system.GenericAuthProviderCredentialContext},
+			want:     "generic",
+		},
+	} {
+		statements := counter.measure(func() {
+			credential, _, err = c.RevealAuthProviderCredential(ctx, tt.contexts, lifecycleTestProvider.Namespace, lifecycleTestProvider.Name)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := credential.Secrets["OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID"]; got != tt.want || len(statements) != 1 {
+			t.Fatalf("RevealAuthProviderCredential(%v) = %q in %d statements, want %q in 1", tt.contexts, got, len(statements), tt.want)
+		}
 	}
 }
 

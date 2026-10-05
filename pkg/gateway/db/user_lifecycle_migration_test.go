@@ -211,6 +211,9 @@ func testUserLifecycleMigration(t *testing.T, database *DB, gormDB *gorm.DB) {
 	if !migrator.HasTable(&types.UserLifecycleEvent{}) {
 		t.Error("the lifecycle event table was not created")
 	}
+	if !migrator.HasIndex(&types.UserLifecycleEvent{}, "idx_user_lifecycle_events_pending") {
+		t.Error("the index of pending lifecycle events was not created")
+	}
 
 	// The backfill runs once. An identity created later, before anyone signs in with it, keeps no sign-in across
 	// restarts.

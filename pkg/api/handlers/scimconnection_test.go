@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
@@ -34,10 +36,10 @@ func (s *authProviderSCIMTest) scimContext(method, path, body string, principal 
 	}, rec
 }
 
-// settleChange stands in for the controller: it waits for the handler to submit the auth provider configuration
-// change, applies apply to it, and settles it with status until the handler returns what errC receives. The status is
-// written until the handler sees it, because the handler may start watching the change after the first write.
-func (s *authProviderSCIMTest) settleChange(errC <-chan error, apply func(*v1.ProviderConfigurationChange), status v1.ProviderConfigurationChangeStatus) error {
+// settleChange waits for the handler to submit the auth provider configuration change, applies it with apply, and
+// settles it with the status that apply returns until the handler returns what errC receives. The status is written
+// until the handler sees it, because the handler may start watching the change after the first write.
+func (s *authProviderSCIMTest) settleChange(errC <-chan error, apply func(*v1.ProviderConfigurationChange) v1.ProviderConfigurationChangeStatus) error {
 	s.t.Helper()
 
 	var change v1.ProviderConfigurationChange
@@ -47,9 +49,7 @@ func (s *authProviderSCIMTest) settleChange(errC <-chan error, apply func(*v1.Pr
 			Name:      system.ProviderChangeAuthName,
 		}, &change))
 	}, time.Second, 10*time.Millisecond)
-	if apply != nil {
-		apply(&change)
-	}
+	status := apply(&change)
 
 	deadline := time.After(5 * time.Second)
 	for {
@@ -67,6 +67,22 @@ func (s *authProviderSCIMTest) settleChange(errC <-chan error, apply func(*v1.Pr
 	}
 }
 
+// reconcileChange applies a provider configuration change with the provider configuration change controller, and
+// returns the status it records.
+func (s *authProviderSCIMTest) reconcileChange(change *v1.ProviderConfigurationChange) v1.ProviderConfigurationChangeStatus {
+	s.t.Helper()
+
+	controller := providerconfigurationchange.New(s.gateway, s.dispatcher, s.license, "", s.storage)
+	require.NoError(s.t, controller.Reconcile(router.Request{
+		Client:    s.storage,
+		Object:    change,
+		Ctx:       s.t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	return change.Status
+}
+
 func TestSCIMConnectionHandlerRoles(t *testing.T) {
 	s := newAuthProviderSCIMTest(t)
 	conn, _, err := s.gateway.CreateSCIMConnection(t.Context(), gclient.CreateSCIMConnectionOptions{
@@ -76,6 +92,10 @@ func TestSCIMConnectionHandlerRoles(t *testing.T) {
 		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
 	})
 	require.NoError(t, err)
+	// The provider was configured without directory credentials.
+	s.storeCredential(map[string]string{
+		oktaIssuerParam: "https://example.okta.com",
+	})
 	h := NewSCIMConnectionHandler(scimsetup.New(s.gateway, s.storage, s.dispatcher, "https://obot.example.com"))
 
 	bootstrap := &user.DefaultInfo{
@@ -104,7 +124,7 @@ func TestSCIMConnectionHandlerRoles(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &issued))
 	assert.True(t, issued.HasToken)
 	assert.NotEmpty(t, issued.Token)
-	assert.Equal(t, "https://obot.example.com/scim/v2/"+conn.ID, issued.BaseURL)
+	assert.Equal(t, "https://obot.example.com/scim/v2", issued.BaseURL)
 
 	// Neither the bootstrap user nor an administrator can enforce, and an administrator cannot manage the token.
 	for _, principal := range []*user.DefaultInfo{bootstrap, admin} {
@@ -362,14 +382,11 @@ func TestSCIMEnableHandler(t *testing.T) {
 	}()
 
 	// The connection is created by a provider configuration change, which the controller applies.
-	require.NoError(t, s.settleChange(errC, func(change *v1.ProviderConfigurationChange) {
+	require.NoError(t, s.settleChange(errC, func(change *v1.ProviderConfigurationChange) v1.ProviderConfigurationChangeStatus {
 		assert.Equal(t, v1.ProviderDesiredStateMigrated, change.Spec.DesiredState)
 		assert.Equal(t, s.provider.Name, change.Spec.ProviderName)
 		assert.Empty(t, change.Spec.StagedCredentialName)
-		_, err := scimsetup.EnableConnection(t.Context(), s.storage, s.gateway, *s.provider)
-		require.NoError(t, err)
-	}, v1.ProviderConfigurationChangeStatus{
-		Applied: true,
+		return s.reconcileChange(change)
 	}))
 	require.NoError(t, s.storage.Delete(t.Context(), &v1.ProviderConfigurationChange{
 		Name:      system.ProviderChangeAuthName,
@@ -381,7 +398,7 @@ func TestSCIMEnableHandler(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
 	assert.NotEmpty(t, result.Connection.Token)
 	assert.Equal(t, string(gatewaytypes.SCIMConnectionOriginMigrated), result.Connection.Origin)
-	assert.Equal(t, "https://obot.example.com/scim/v2/"+result.Connection.ID, result.Connection.BaseURL)
+	assert.Equal(t, "https://obot.example.com/scim/v2", result.Connection.BaseURL)
 	assert.Empty(t, result.DeletionError)
 
 	// Enabling again is blocked before any change is submitted.
@@ -427,8 +444,15 @@ func TestSCIMEnableHandlerReportsTheControllersRefusal(t *testing.T) {
 
 	// The controller finds a blocker under the serialization of provider configuration changes, such as a switch
 	// staged after the preview was read.
-	err := s.settleChange(errC, nil, v1.ProviderConfigurationChangeStatus{
-		Error: "a switch to GitHub is staged. Complete or discard it before enabling SCIM",
+	err := s.settleChange(errC, func(change *v1.ProviderConfigurationChange) v1.ProviderConfigurationChangeStatus {
+		require.NoError(t, s.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+			Context: system.ReplacementAuthProviderCredentialContext,
+			Name:    "github-auth-provider",
+			Secrets: map[string]string{
+				"GITHUB_CLIENT_SECRET": "secret",
+			},
+		}))
+		return s.reconcileChange(change)
 	})
 
 	var httpErr *clienttypes.ErrHTTP
@@ -438,4 +462,45 @@ func TestSCIMEnableHandlerReportsTheControllersRefusal(t *testing.T) {
 	conn, err := s.gateway.SCIMConnectionForAuthProvider(t.Context(), s.provider.Namespace, s.provider.Name)
 	require.NoError(t, err)
 	assert.Nil(t, conn)
+}
+
+func TestWaitForProviderConfigurationChangeAnswersWithTheRecordedStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   v1.ProviderConfigurationChangeStatus
+		wantCode int
+	}{
+		{
+			name: "a refusal without a status is a bad request",
+			status: v1.ProviderConfigurationChangeStatus{
+				Error: "refused",
+			},
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name: "a refusal with a status is answered with it",
+			status: v1.ProviderConfigurationChangeStatus{
+				Error:     "the provider still has group data",
+				ErrorCode: http.StatusConflict,
+			},
+			wantCode: http.StatusConflict,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newAuthProviderSCIMTest(t)
+			change := &v1.ProviderConfigurationChange{
+				Name:      system.ProviderChangeAuthName,
+				Namespace: system.DefaultNamespace,
+				Status:    tt.status,
+			}
+			require.NoError(t, s.storage.Create(t.Context(), change))
+
+			req, _ := s.scimContext(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", "", nil)
+			var httpErr *clienttypes.ErrHTTP
+			require.ErrorAs(t, waitForProviderConfigurationChange(req, change), &httpErr)
+			assert.Equal(t, tt.wantCode, httpErr.Code)
+			assert.Equal(t, tt.status.Error, httpErr.Message)
+		})
+	}
 }

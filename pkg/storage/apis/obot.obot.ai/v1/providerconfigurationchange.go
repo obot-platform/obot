@@ -59,6 +59,9 @@ type ProviderConfigurationChangeStatus struct {
 	// Error describes a terminal rejection. The remaining reconciliation only
 	// removes the staged credential and this task.
 	Error string `json:"error,omitempty"`
+	// ErrorCode is the HTTP status that the API answers a terminal rejection
+	// with. It is 400 when unset.
+	ErrorCode int `json:"errorCode,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

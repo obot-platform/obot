@@ -469,6 +469,8 @@
 					await AdminService.revokePreviousSCIMToken(connection.id, quiet);
 					break;
 			}
+			// The layout warns Owners of a token that expires soon, which a new token replaces.
+			if (action !== 'revokePrevious') void adminConfigStore.refresh();
 			await refresh();
 		} catch (err) {
 			actionError = parseErrorContent(err).message;
@@ -595,13 +597,19 @@
 			<div class="notification-alert flex items-start gap-2 text-sm font-light" role="alert">
 				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 				<span>
-					{providerName} is not the configured auth provider, so SCIM requests fail. Once it is configured
-					again, retry the failed provisioning tasks in {providerName}.
+					{#if conn.hasToken}
+						{providerName} is not the configured auth provider, so SCIM requests fail, and its token cannot
+						be rotated or replaced.
+					{:else}
+						{providerName} is not the configured auth provider yet, so SCIM requests fail. The token can
+						be generated once it serves sign-ins.
+					{/if}
 				</span>
 			</div>
 		{/if}
 
-		{#if conn.hasToken}
+		<!-- Its token cannot be rotated while the provider is not configured, which the alert above says. -->
+		{#if conn.hasToken && conn.authProviderConfigured}
 			{@const expiry = tokenExpiry(conn)}
 			{#if expiry === 'expired'}
 				<div class="notification-error flex items-start gap-2 text-sm font-light" role="alert">
@@ -673,20 +681,23 @@
 						Revoke previous token
 					</button>
 				{/if}
-				<button
-					class="btn btn-secondary"
-					disabled={loading}
-					onclick={() => (confirmTokenAction = 'revokeCurrent')}
-				>
-					Revoke current token
-				</button>
-				<button
-					class="btn btn-secondary"
-					disabled={loading}
-					onclick={() => (confirmTokenAction = 'rotate')}
-				>
-					Rotate token
-				</button>
+				<!-- The server issues tokens only for the configured auth provider. -->
+				{#if conn.authProviderConfigured}
+					<button
+						class="btn btn-secondary"
+						disabled={loading}
+						onclick={() => (confirmTokenAction = 'revokeCurrent')}
+					>
+						Revoke current token
+					</button>
+					<button
+						class="btn btn-secondary"
+						disabled={loading}
+						onclick={() => (confirmTokenAction = 'rotate')}
+					>
+						Rotate token
+					</button>
+				{/if}
 			</div>
 		{/if}
 	</section>
@@ -809,11 +820,13 @@
 	{#if conn.hasToken && tokenExpiry(conn) === 'expired'}
 		{@render stepStatus(
 			false,
-			`The token expired on ${formatDate(conn.tokenExpiresAt)}. Rotate it, and update it in ${providerName}.`
+			conn.authProviderConfigured
+				? `The token expired on ${formatDate(conn.tokenExpiresAt)}. Rotate it, and update it in ${providerName}.`
+				: `The token expired on ${formatDate(conn.tokenExpiresAt)}.`
 		)}
 	{:else if conn.hasToken}
 		{@render stepStatus(true, `The token was issued ${timeAgo(conn.tokenIssuedAt)}.`)}
-	{:else if canManageToken}
+	{:else if canManageToken && conn.authProviderConfigured}
 		<div>
 			<button
 				class="btn btn-primary"
@@ -823,6 +836,11 @@
 				Generate token
 			</button>
 		</div>
+	{:else if canManageToken}
+		{@render stepStatus(
+			false,
+			`The token can be generated once ${providerName} is the configured auth provider.`
+		)}
 	{:else}
 		{@render stepStatus(false, 'An Owner generates the token.')}
 	{/if}

@@ -75,6 +75,47 @@ func createLifecycleTestUser(t *testing.T, gatewayClient *client.Client, usernam
 	return user
 }
 
+// deactivateThroughSCIM has the identity provider of provider deactivate the user with the native ID nativeID and the
+// email email through SCIM, as it does in production, setting up the provider's SCIM connection first if it has none.
+// A user who signed in with that ID is bound to their account, and disabled.
+func deactivateThroughSCIM(t *testing.T, c *client.Client, provider client.AuthProviderRef, nativeID, email string) error {
+	t.Helper()
+
+	conn, err := c.SCIMConnectionForAuthProvider(t.Context(), provider.Namespace, provider.Name)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		if conn, _, err = c.CreateSCIMConnection(t.Context(), client.CreateSCIMConnectionOptions{
+			AuthProviderNamespace: provider.Namespace,
+			AuthProviderName:      provider.Name,
+			GroupIDPrefix:         "okta/",
+			Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = c.CreateSCIMUser(t.Context(), conn, client.SCIMUserInput{
+		UserName:   email,
+		ExternalID: nativeID,
+		Active:     new(false),
+		Profile: gatewaytypes.SCIMUserProfile{
+			Emails: []gatewaytypes.SCIMMultiValue{
+				{
+					Value:   email,
+					Primary: true,
+				},
+			},
+		},
+	}, client.SCIMUserCreateOptions{
+		UserLimit: client.UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: types.RoleBasic,
+	})
+	return err
+}
+
 func authenticateToken(t *testing.T, tokenService *TokenService, tokenContext TokenContext) (*http.Request, string) {
 	t.Helper()
 
@@ -109,7 +150,7 @@ func TestAuthenticateRequestRecomputesRolesAndReportsTheUsersStatus(t *testing.T
 	assert.True(t, recorded)
 	assert.Equal(t, types.UserStatusActive, status)
 
-	_, err = gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	err = deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+user.Username, user.Email)
 	require.NoError(t, err)
 
 	response, ok, err = tokenService.AuthenticateRequest(req)
@@ -176,7 +217,7 @@ func TestAuthenticateRequestReportsAHostedAgentOwnersStatus(t *testing.T) {
 	assert.True(t, recorded)
 	assert.Equal(t, types.UserStatusActive, status)
 
-	_, err = gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, owner.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	err = deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+owner.Username, owner.Email)
 	require.NoError(t, err)
 
 	response, ok, err = tokenService.AuthenticateRequest(req)
@@ -190,7 +231,7 @@ func TestAuthenticateRequestReportsAHostedAgentOwnersStatus(t *testing.T) {
 func TestNewTokenRefusesInactiveUsers(t *testing.T) {
 	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "dave", types.RoleBasic)
-	_, err := gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	err := deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+user.Username, user.Email)
 	require.NoError(t, err)
 
 	for name, tokenContext := range map[string]TokenContext{
@@ -218,7 +259,7 @@ func TestNewTokenRefusesInactiveUsers(t *testing.T) {
 func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
 	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "erin", types.RoleBasic)
-	_, err := gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	err := deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+user.Username, user.Email)
 	require.NoError(t, err)
 
 	extra := map[string][]string{}
@@ -237,7 +278,7 @@ func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
 
 	// A token for any other user is still checked.
 	other := createLifecycleTestUser(t, gatewayClient, "frank", types.RoleBasic)
-	_, err = gatewayClient.DisableUser(t.Context(), lifecycleTestProvider, other.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
+	err = deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+other.Username, other.Email)
 	require.NoError(t, err)
 	tokenContext.UserID = fmt.Sprint(other.ID)
 	_, _, err = tokenService.NewToken(admitted, tokenContext)

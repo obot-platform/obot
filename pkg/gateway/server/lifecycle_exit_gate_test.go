@@ -235,23 +235,16 @@ func TestLifecycleExitGate(t *testing.T) {
 	assertAdmitted(oktaCredentials, oktaUser.ID)
 	assertAdmitted(localCredentials, localUser.ID)
 
-	if _, err := client.DisableUser(ctx, provider, oktaUser.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
-		t.Fatalf("failed to disable the Okta user: %v", err)
+	// Okta deactivates its user through SCIM. The local-auth user is outside the provider, and unaffected.
+	provisioned := provisionThroughSCIM(t, client, "00u-okta", oktaUser.Email, false)
+	if provisioned.UserID != oktaUser.ID {
+		t.Fatalf("SCIM bound user %d, want %d", provisioned.UserID, oktaUser.ID)
 	}
 	assertDenied(oktaCredentials, types2.UserStatusDisabled)
 	assertAdmitted(localCredentials, localUser.ID)
 
-	// The local-auth user is outside the provider and cannot be disabled through it.
-	if _, err := client.DisableUser(ctx, provider, localUser.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err == nil {
-		t.Fatal("disabled a user of another auth provider")
-	}
-
-	reactivated, err := client.ReactivateUser(ctx, provider, oktaUser.ID)
-	if err != nil {
+	if err := setActiveThroughSCIM(t, client, provisioned.ID, true); err != nil {
 		t.Fatalf("failed to reactivate the Okta user: %v", err)
-	}
-	if reactivated.ID != oktaUser.ID {
-		t.Fatalf("reactivated user %d, want %d", reactivated.ID, oktaUser.ID)
 	}
 	assertAdmitted(oktaCredentials, oktaUser.ID)
 
@@ -260,12 +253,16 @@ func TestLifecycleExitGate(t *testing.T) {
 		t.Fatalf("anonymous request = %v, %v; want admitted as anonymous", u, err)
 	}
 
-	// A deleted user stays deleted: every credential is denied, and the user cannot be reactivated.
+	// A deleted user stays deleted: every credential is denied, and the user cannot be reactivated. Okta deactivates
+	// the user first, because a user it still provisions cannot be deleted.
+	if err := setActiveThroughSCIM(t, client, provisioned.ID, false); err != nil {
+		t.Fatalf("failed to deactivate the Okta user: %v", err)
+	}
 	if err := client.DeleteUser(ctx, fmt.Sprint(oktaUser.ID)); err != nil {
 		t.Fatalf("failed to delete the Okta user: %v", err)
 	}
 	assertDenied(oktaCredentials[1:], types2.UserStatusDeleted)
-	if _, err := client.ReactivateUser(ctx, provider, oktaUser.ID); err == nil {
+	if err := setActiveThroughSCIM(t, client, provisioned.ID, true); err == nil {
 		t.Fatal("reactivated a deleted user")
 	}
 	// Signing in again creates a new, empty account, as it does today.

@@ -19,7 +19,8 @@ type UserLifecycleEventType string
 // gateway database cannot share a transaction with. It is written in the same transaction as the change, and
 // delivered after the commit until delivery succeeds.
 type UserLifecycleEvent struct {
-	ID        uint                   `json:"id" gorm:"primaryKey"`
+	// ID orders the events. idx_user_lifecycle_events_pending serves delivery, which reads the pending events in order.
+	ID        uint                   `json:"id" gorm:"primaryKey;index:idx_user_lifecycle_events_pending,where:delivered_at IS NULL"`
 	CreatedAt time.Time              `json:"createdAt"`
 	UserID    uint                   `json:"userID" gorm:"index"`
 	Type      UserLifecycleEventType `json:"type"`

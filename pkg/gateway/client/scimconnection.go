@@ -36,12 +36,19 @@ const (
 )
 
 var (
-	// ErrSCIMConnectionNotFound reports that no SCIM connection has the requested ID.
+	// ErrSCIMConnectionNotFound reports that no SCIM connection has the requested ID, or that none exists.
 	ErrSCIMConnectionNotFound = errors.New("SCIM connection not found")
-	// ErrSCIMManagedGroupData reports an attempt to delete group data that a SCIM connection owns.
+	// ErrMultipleSCIMConnections reports that more than one SCIM connection exists, which only one may. No SCIM request
+	// is served then, because none can tell which connection it is for.
+	ErrMultipleSCIMConnections = errors.New("more than one SCIM connection exists")
+	// ErrSCIMManagedGroupData reports an attempt to delete the group data of an auth provider whose group ID prefix the
+	// SCIM connection of another auth provider manages.
 	ErrSCIMManagedGroupData = errors.New("the group data is managed by a SCIM connection")
 	// ErrSCIMConnectionHasToken reports an attempt to issue the first bearer token of a connection that has one.
 	ErrSCIMConnectionHasToken = errors.New("the SCIM connection already has a token")
+	// ErrSCIMGroupDeletionInProgress reports an attempt to enforce SCIM while another deletion of unreferenced groups
+	// holds marks for deletion.
+	ErrSCIMGroupDeletionInProgress = errors.New("another deletion of unreferenced groups is in progress")
 )
 
 // SCIMConnectionExistsError reports an attempt to create a second SCIM connection.
@@ -190,54 +197,23 @@ func (c *Client) SCIMConnectionForAuthProvider(ctx context.Context, namespace, n
 	return scimConnectionForAuthProviderTx(c.db.WithContext(ctx), namespace, name)
 }
 
-// SuspendSCIMConnection suspends the SCIM connection of an auth provider that is being deconfigured, so that its
-// groups stop granting anything. It does nothing when the provider has no connection, or its connection is suspended
-// already.
-func (c *Client) SuspendSCIMConnection(ctx context.Context, namespace, name string) error {
-	now := time.Now()
-	if err := c.db.WithContext(ctx).Model(new(types.SCIMConnection)).
-		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND suspended_at IS NULL", namespace, name).
-		UpdateColumns(map[string]any{
-			"suspended_at": now,
-			"updated_at":   now,
-		}).Error; err != nil {
-		return fmt.Errorf("failed to suspend the SCIM connection of auth provider %s/%s: %w", namespace, name, err)
-	}
-	return nil
-}
-
-// ResumeSCIMConnection resumes the SCIM connection of an auth provider that is configured again, so that its groups
-// grant what they did before it was suspended. It does nothing when the provider has no suspended connection.
-func (c *Client) ResumeSCIMConnection(ctx context.Context, namespace, name string) error {
-	if err := c.db.WithContext(ctx).Model(new(types.SCIMConnection)).
-		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND suspended_at IS NOT NULL", namespace, name).
-		UpdateColumns(map[string]any{
-			"suspended_at": nil,
-			"updated_at":   time.Now(),
-		}).Error; err != nil {
-		return fmt.Errorf("failed to resume the SCIM connection of auth provider %s/%s: %w", namespace, name, err)
-	}
-	return nil
-}
-
-// HasSCIMConnections reports whether any SCIM connection exists.
-func (c *Client) HasSCIMConnections(ctx context.Context) (bool, error) {
+// AuthenticateSCIMConnection returns the SCIM connection if token is its current bearer token or its previous one,
+// while that token is still accepted. There is at most one connection, which serves every SCIM request. It returns
+// ErrSCIMConnectionNotFound when there is none, ErrMultipleSCIMConnections when there is more than one, and
+// *SCIMAuthenticationError for any other token, including an expired one, every token presented to a connection that
+// has none, and one issued for an earlier connection.
+func (c *Client) AuthenticateSCIMConnection(ctx context.Context, token string) (*types.SCIMConnection, error) {
 	var conns []types.SCIMConnection
-	if err := c.db.WithContext(ctx).Select("id").Limit(1).Find(&conns).Error; err != nil {
-		return false, fmt.Errorf("failed to check for SCIM connections: %w", err)
+	if err := c.db.WithContext(ctx).Limit(2).Find(&conns).Error; err != nil {
+		return nil, fmt.Errorf("failed to get the SCIM connection: %w", err)
 	}
-	return len(conns) > 0, nil
-}
-
-// AuthenticateSCIMConnection returns the SCIM connection with the given ID if token is its current bearer token or
-// its previous one, while that token is still accepted. It returns ErrSCIMConnectionNotFound for an unknown
-// connection, and *SCIMAuthenticationError for any other token, including an expired one, every token presented to a
-// connection that has none, and one issued for another connection.
-func (c *Client) AuthenticateSCIMConnection(ctx context.Context, id, token string) (*types.SCIMConnection, error) {
-	conn, err := c.SCIMConnection(ctx, id)
-	if err != nil {
-		return nil, err
+	if len(conns) == 0 {
+		return nil, ErrSCIMConnectionNotFound
 	}
+	if len(conns) > 1 {
+		return nil, ErrMultipleSCIMConnections
+	}
+	conn := &conns[0]
 
 	verifier := []byte(hash.String(token))
 	current := subtle.ConstantTimeCompare(verifier, []byte(conn.TokenVerifier)) == 1
@@ -467,8 +443,8 @@ func lockSCIMWrites(tx *gorm.DB) error {
 
 // lockSCIMConnectionWrites serializes SCIM writes for the rest of the transaction, then reads the connection again
 // under that lock, or returns ErrSCIMConnectionNotFound. Callers hold a connection read before the lock, which
-// DeleteUnusedSCIMConnection may have deleted meanwhile under the same lock. A binding or mark written for a deleted
-// connection would leave its user or group managed by a connection that no request can reach.
+// deconfiguring or unstaging its auth provider may have deleted meanwhile under the same lock. A binding or mark
+// written for a deleted connection would leave its user or group managed by a connection that no request can reach.
 func lockSCIMConnectionWrites(tx *gorm.DB, id string) (*types.SCIMConnection, error) {
 	if err := lockSCIMWrites(tx); err != nil {
 		return nil, err

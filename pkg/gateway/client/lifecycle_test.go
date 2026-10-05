@@ -119,6 +119,45 @@ func createLifecycleTestUser(t *testing.T, c *Client, username string, provider 
 	return user
 }
 
+// disableUser disables a user of provider in a transaction of its own, as SCIM does within its own transactions when
+// the identity provider deactivates them, and returns the decrypted user. A user who is already disabled only gets
+// the new reason.
+func disableUser(t *testing.T, c *Client, provider AuthProviderRef, userID uint, reason types.UserDisabledReason) (*types.User, error) {
+	t.Helper()
+
+	var (
+		user    *types.User
+		changed bool
+	)
+	if err := c.db.WithContext(t.Context()).Transaction(func(tx *gorm.DB) error {
+		var err error
+		user, changed, err = disableUserTx(tx, provider, userID, reason)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	if changed {
+		c.kickUserLifecycleDelivery()
+	}
+	return user, c.decryptUser(t.Context(), user)
+}
+
+// reactivateUser reactivates a disabled user of provider in a transaction of its own, as SCIM does within its own
+// transactions when the identity provider reactivates them, and returns the decrypted user.
+func reactivateUser(t *testing.T, c *Client, provider AuthProviderRef, userID uint) (*types.User, error) {
+	t.Helper()
+
+	var user *types.User
+	if err := c.db.WithContext(t.Context()).Transaction(func(tx *gorm.DB) error {
+		var err error
+		user, _, err = reactivateUserTx(tx, provider, userID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return user, c.decryptUser(t.Context(), user)
+}
+
 func storedLifecycleUser(t *testing.T, c *Client, userID uint) types.User {
 	t.Helper()
 
@@ -164,7 +203,7 @@ func TestDisableUserKeepsTheAccountAndReactivateRestoresIt(t *testing.T) {
 		t.Fatalf("failed to create API key: %v", err)
 	}
 
-	disabled, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
+	disabled, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
 	if err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
@@ -208,7 +247,7 @@ func TestDisableUserKeepsTheAccountAndReactivateRestoresIt(t *testing.T) {
 		t.Fatalf("lifecycle events after disable = %+v, want one undelivered disabled event", events)
 	}
 
-	reactivated, err := c.ReactivateUser(ctx, lifecycleTestProvider, user.ID)
+	reactivated, err := reactivateUser(t, c, lifecycleTestProvider, user.ID)
 	if err != nil {
 		t.Fatalf("failed to reactivate user: %v", err)
 	}
@@ -230,14 +269,13 @@ func TestDisableUserKeepsTheAccountAndReactivateRestoresIt(t *testing.T) {
 
 func TestDisableUserTwiceOnlyUpdatesTheReason(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "bob", lifecycleTestProvider)
 
-	first, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMUnprovisioned)
+	first, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMUnprovisioned)
 	if err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
-	second, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
+	second, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
 	if err != nil {
 		t.Fatalf("failed to disable user again: %v", err)
 	}
@@ -255,14 +293,13 @@ func TestDisableUserTwiceOnlyUpdatesTheReason(t *testing.T) {
 
 func TestLifecycleChangesAreScopedToTheAuthProvider(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	ctx := t.Context()
 	localUser := createLifecycleTestUser(t, c, "carol", lifecycleTestLocalProvider)
 
-	_, err := c.DisableUser(ctx, lifecycleTestProvider, localUser.ID, types.UserDisabledReasonSCIMInactive)
+	_, err := disableUser(t, c, lifecycleTestProvider, localUser.ID, types.UserDisabledReasonSCIMInactive)
 	if _, ok := errors.AsType[*UserOutsideAuthProviderError](err); !ok {
 		t.Fatalf("disable error = %v, want *UserOutsideAuthProviderError", err)
 	}
-	_, err = c.ReactivateUser(ctx, lifecycleTestProvider, localUser.ID)
+	_, err = reactivateUser(t, c, lifecycleTestProvider, localUser.ID)
 	if _, ok := errors.AsType[*UserOutsideAuthProviderError](err); !ok {
 		t.Fatalf("reactivate error = %v, want *UserOutsideAuthProviderError", err)
 	}
@@ -285,11 +322,11 @@ func TestLifecycleChangesLeaveDeletedUsersDeleted(t *testing.T) {
 		t.Fatalf("failed to delete user: %v", err)
 	}
 
-	_, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
+	_, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive)
 	if _, ok := errors.AsType[*UserDeletedError](err); !ok {
 		t.Fatalf("disable error = %v, want *UserDeletedError", err)
 	}
-	_, err = c.ReactivateUser(ctx, lifecycleTestProvider, user.ID)
+	_, err = reactivateUser(t, c, lifecycleTestProvider, user.ID)
 	if _, ok := errors.AsType[*UserDeletedError](err); !ok {
 		t.Fatalf("reactivate error = %v, want *UserDeletedError", err)
 	}
@@ -303,7 +340,7 @@ func TestDisableUserRejectsUnknownReasons(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	user := createLifecycleTestUser(t, c, "erin", lifecycleTestProvider)
 
-	if _, err := c.DisableUser(t.Context(), lifecycleTestProvider, user.ID, "admin_block"); err == nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, "admin_block"); err == nil {
 		t.Fatal("expected an unknown disable reason to be refused")
 	}
 	if stored := storedLifecycleUser(t, c, user.ID); stored.DisabledAt != nil {
@@ -340,11 +377,11 @@ func TestLoginProfileRefreshNeverChangesLifecycleState(t *testing.T) {
 	}
 
 	// A copy read while the user was disabled must not re-disable them after reactivation.
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	staleDisabled := storedLifecycleUser(t, c, user.ID)
-	if _, err := c.ReactivateUser(ctx, lifecycleTestProvider, user.ID); err != nil {
+	if _, err := reactivateUser(t, c, lifecycleTestProvider, user.ID); err != nil {
 		t.Fatalf("failed to reactivate user: %v", err)
 	}
 	refreshProfile(staleDisabled)
@@ -358,7 +395,7 @@ func TestLoginProfileRefreshNeverChangesLifecycleState(t *testing.T) {
 
 	// And a copy read while the user was enabled must not re-enable them after they are disabled.
 	staleEnabled := storedLifecycleUser(t, c, user.ID)
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	refreshProfile(staleEnabled)
@@ -374,7 +411,7 @@ func TestCredentialsAreNotIssuedToInactiveUsers(t *testing.T) {
 	deleted := createLifecycleTestUser(t, c, "hank", lifecycleTestProvider)
 	createLifecycleTestUser(t, c, "owner", lifecycleTestProvider)
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, disabled.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, disabled.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if err := c.DeleteUser(ctx, fmt.Sprint(deleted.ID)); err != nil {
@@ -457,7 +494,7 @@ func TestValidateAPIKeyReportsItsOwnersCurrentStatus(t *testing.T) {
 	assertOwnerStatus(apitypes.UserStatusActive)
 	assertOwnerStatus(apitypes.UserStatusActive)
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	assertOwnerStatus(apitypes.UserStatusDisabled)
@@ -465,7 +502,7 @@ func TestValidateAPIKeyReportsItsOwnersCurrentStatus(t *testing.T) {
 	c.invalidateValidatedAPIKeysByID(created.ID)
 	assertOwnerStatus(apitypes.UserStatusDisabled)
 
-	if _, err := c.ReactivateUser(ctx, lifecycleTestProvider, user.ID); err != nil {
+	if _, err := reactivateUser(t, c, lifecycleTestProvider, user.ID); err != nil {
 		t.Fatalf("failed to reactivate user: %v", err)
 	}
 	assertOwnerStatus(apitypes.UserStatusActive)
@@ -542,7 +579,7 @@ func TestDeliverDisabledEventDeletesOnlyTheUsersRefreshTokens(t *testing.T) {
 		t.Fatalf("user IDs = %d and %d, want 1 and 2", disabled.ID, other.ID)
 	}
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, disabled.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, disabled.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
@@ -576,10 +613,10 @@ func TestDeliverDisabledEventForAReactivatedUserDeletesNothing(t *testing.T) {
 	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "mia", lifecycleTestProvider)
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
-	if _, err := c.ReactivateUser(ctx, lifecycleTestProvider, user.ID); err != nil {
+	if _, err := reactivateUser(t, c, lifecycleTestProvider, user.ID); err != nil {
 		t.Fatalf("failed to reactivate user: %v", err)
 	}
 	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
@@ -607,7 +644,7 @@ func TestFailedLifecycleDeliveryIsRetriedAfterItsClaimExpires(t *testing.T) {
 		},
 	})
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
@@ -648,7 +685,7 @@ func TestLifecycleEventClaimsAreExclusive(t *testing.T) {
 	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "olga", lifecycleTestProvider)
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	event := lifecycleEvents(t, c, user.ID)[0]
@@ -786,7 +823,7 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "sam", lifecycleTestProvider)
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 
@@ -805,6 +842,29 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 	}
 	if stored := storedLifecycleUser(t, c, user.ID); stored.DisabledAt == nil {
 		t.Fatal("sign-in re-enabled a disabled user")
+	}
+}
+
+func TestSignInCreatesAUserWithTheExplicitRoleOfTheAssertedEmail(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	c.emailsWithExplicitRoles = map[string]apitypes.Role{
+		"owner@example.com": apitypes.RoleOwner,
+	}
+
+	user, err := c.EnsureIdentity(t.Context(), &types.Identity{
+		AuthProviderName:      lifecycleTestProvider.Name,
+		AuthProviderNamespace: lifecycleTestProvider.Namespace,
+		ProviderUsername:      "owner",
+		ProviderUserID:        "00u-owner",
+		Email:                 "owner@example.com",
+	}, "", UserLimit{
+		Unlimited: true,
+	})
+	if err != nil {
+		t.Fatalf("failed to sign in: %v", err)
+	}
+	if stored := storedLifecycleUser(t, c, user.ID); !stored.Role.HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the user that sign-in created = %d, want Owner", stored.Role)
 	}
 }
 
@@ -928,7 +988,7 @@ func TestHasSignedInOwner(t *testing.T) {
 				}
 			}
 			if tt.disabled {
-				if _, err := c.DisableUser(ctx, tt.provider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+				if _, err := disableUser(t, c, tt.provider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 					t.Fatalf("failed to disable user: %v", err)
 				}
 			}
@@ -1017,7 +1077,7 @@ func TestUserDecoratorRecordsTheUsersStatusOverAnyProviderValue(t *testing.T) {
 		t.Fatalf("status of an active user = %q, want %q", got, apitypes.UserStatusActive)
 	}
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if got := authenticate(); got != apitypes.UserStatusDisabled {
@@ -1070,7 +1130,7 @@ func TestDeliverDisabledEventEndsTheUsersSessions(t *testing.T) {
 		t.Fatalf("failed to create session: %v", err)
 	}
 
-	if _, err := c.DisableUser(ctx, lifecycleTestLocalProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestLocalProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
@@ -1155,7 +1215,7 @@ func TestADeniedSignInIsNotRecordedAsASignIn(t *testing.T) {
 	if err := c.db.WithContext(ctx).Model(owner).UpdateColumn("role", apitypes.RoleOwner).Error; err != nil {
 		t.Fatalf("failed to make the user an Owner: %v", err)
 	}
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, owner.ID, types.UserDisabledReasonSCIMUnprovisioned); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, owner.ID, types.UserDisabledReasonSCIMUnprovisioned); err != nil {
 		t.Fatalf("failed to disable the Owner: %v", err)
 	}
 
@@ -1192,7 +1252,7 @@ func TestADeniedSignInIsNotRecordedAsASignIn(t *testing.T) {
 		t.Fatalf("a denied sign-in was recorded at %v", identity.FirstSignInAt)
 	}
 
-	if _, err := c.ReactivateUser(ctx, lifecycleTestProvider, owner.ID); err != nil {
+	if _, err := reactivateUser(t, c, lifecycleTestProvider, owner.ID); err != nil {
 		t.Fatalf("failed to reactivate the Owner: %v", err)
 	}
 	assertHasSignedInOwner(false)
@@ -1202,4 +1262,125 @@ func TestADeniedSignInIsNotRecordedAsASignIn(t *testing.T) {
 		t.Fatal("the reactivated Owner's sign-in was not recorded")
 	}
 	assertHasSignedInOwner(true)
+}
+
+func TestEnableUser(t *testing.T) {
+	github := AuthProviderRef{
+		Namespace: system.DefaultNamespace,
+		Name:      "github-auth-provider",
+	}
+
+	tests := []struct {
+		name string
+		// setup returns the user to enable.
+		setup       func(t *testing.T, c *Client) uint
+		wantManaged bool
+		wantDeleted bool
+		wantEnabled bool
+	}{
+		{
+			name: "a user that SCIM disabled, whose provider has no SCIM connection any more",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+				if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+					t.Fatal(err)
+				}
+				return user.ID
+			},
+			wantEnabled: true,
+		},
+		{
+			name: "a user who is not disabled",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				return createLifecycleTestUser(t, c, "alice", lifecycleTestProvider).ID
+			},
+			wantEnabled: true,
+		},
+		{
+			name: "a user whom SCIM provisions, and deactivated",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				conn, _ := createTestSCIMConnection(t, c, true)
+				user := provisionTestSCIMUser(t, c, conn, "00u-alice", "alice@example.com")
+				if _, err := disableUser(t, c, lifecycleTestProvider, user.UserID, types.UserDisabledReasonSCIMInactive); err != nil {
+					t.Fatal(err)
+				}
+				return user.UserID
+			},
+			wantManaged: true,
+		},
+		{
+			name: "an unprovisioned user of a provider that has a SCIM connection",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+				if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMUnprovisioned); err != nil {
+					t.Fatal(err)
+				}
+				createTestSCIMConnection(t, c, true)
+				return user.ID
+			},
+			wantManaged: true,
+		},
+		{
+			name: "a user of another provider than the SCIM connection's",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				createTestSCIMConnection(t, c, true)
+				user := createLifecycleTestUser(t, c, "alice", github)
+				if _, err := disableUser(t, c, github, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+					t.Fatal(err)
+				}
+				return user.ID
+			},
+			wantEnabled: true,
+		},
+		{
+			name: "a deleted user",
+			setup: func(t *testing.T, c *Client) uint {
+				t.Helper()
+				user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+				if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+					t.Fatal(err)
+				}
+				if err := c.db.WithContext(t.Context()).Model(user).UpdateColumn("deleted_at", time.Now()).Error; err != nil {
+					t.Fatal(err)
+				}
+				return user.ID
+			},
+			wantDeleted: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newLifecycleTestClient(t)
+			userID := tt.setup(t, c)
+			before := storedLifecycleUser(t, c, userID)
+
+			enabled, err := c.EnableUser(t.Context(), userID)
+			if _, managed := errors.AsType[*SCIMManagedUserError](err); managed != tt.wantManaged {
+				t.Fatalf("EnableUser() error = %v, want SCIM managed %v", err, tt.wantManaged)
+			}
+			if _, deleted := errors.AsType[*UserDeletedError](err); deleted != tt.wantDeleted {
+				t.Fatalf("EnableUser() error = %v, want deleted %v", err, tt.wantDeleted)
+			}
+			if tt.wantEnabled && (err != nil || enabled.DisabledAt != nil || enabled.Email != "alice@example.com") {
+				t.Fatalf("EnableUser() = %+v, %v, want the decrypted user enabled", enabled, err)
+			}
+
+			got := storedLifecycleUser(t, c, userID)
+			if tt.wantEnabled && (got.DisabledAt != nil || got.DisabledReason != "") {
+				t.Fatalf("user after EnableUser() = %+v, want enabled", got)
+			}
+			if !tt.wantEnabled && (got.DisabledAt == nil || got.DisabledReason != before.DisabledReason) {
+				t.Fatalf("user after a refused EnableUser() = %+v, want unchanged", got)
+			}
+		})
+	}
+
+	if _, err := newLifecycleTestClient(t).EnableUser(t.Context(), 4242); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("EnableUser() of an unknown user = %v, want gorm.ErrRecordNotFound", err)
+	}
 }

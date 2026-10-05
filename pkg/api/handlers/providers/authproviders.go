@@ -18,9 +18,9 @@ func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred 
 
 	// A stored configuration is the provider's active one, so without a connection it synchronizes its directory.
 	required := adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-		Configured:       true,
-		Connection:       conn,
+		AuthProviderName:      authProvider.Name,
+		Configured:            true,
+		ConnectionAdapterType: adapter.ConnectionAdapterType(conn),
 	}).Required
 	if cred != nil {
 		for _, envVar := range required {

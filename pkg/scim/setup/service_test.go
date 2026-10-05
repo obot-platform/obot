@@ -254,7 +254,7 @@ func TestReview(t *testing.T) {
 	}
 
 	conn := review.Connection
-	if conn.BaseURL != "https://obot.example.com/scim/v2/"+s.conn.ID || conn.Origin != "scim_first" || conn.AuthProviderDisplayName != "Okta" ||
+	if conn.BaseURL != "https://obot.example.com/scim/v2" || conn.Origin != "scim_first" || conn.AuthProviderDisplayName != "Okta" ||
 		!conn.AuthProviderConfigured || conn.HasToken {
 		t.Fatalf("connection = %+v", conn)
 	}
@@ -413,7 +413,32 @@ func TestEnforce(t *testing.T) {
 	if _, err := s.service.Enforce(t.Context(), s.conn.ID, s.owner); err == nil || !strings.Contains(err.Error(), "not the configured auth provider") {
 		t.Fatalf("Enforce() of a provider that is not configured = %v", err)
 	}
+	// The review says so, rather than offering to enforce.
+	unconfiguredReview, err := s.service.Review(t.Context(), s.conn.ID, s.owner, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(unconfiguredReview.EnforceBlockers, func(blocker string) bool {
+		return strings.Contains(blocker, "not the configured auth provider")
+	}) {
+		t.Fatalf("enforce blockers of a provider that is not configured = %q", unconfiguredReview.EnforceBlockers)
+	}
 	s.providers.configured = "okta-auth-provider"
+
+	// Nor while another deletion of unreferenced groups is under way, whose marks enforcing would clear.
+	run, err := s.gateway.MarkUnreferencedSCIMGroups(t.Context(), s.conn, map[string]struct{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.service.Enforce(t.Context(), s.conn.ID, s.owner); !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict {
+		t.Fatalf("Enforce() during another deletion = %v, want a conflict", err)
+	}
+	if s.userStatus(s.stranger) != clienttypes.UserStatusActive {
+		t.Fatal("an Enforce refused during another deletion disabled a user")
+	}
+	if err := s.gateway.ClearSCIMGroupDeletionMarks(t.Context(), s.conn.ID, run.ID); err != nil {
+		t.Fatal(err)
+	}
 
 	result, err := s.service.Enforce(t.Context(), s.conn.ID, s.owner)
 	if err != nil {
@@ -478,6 +503,38 @@ func TestEnforceKeepsAGroupThatGainsAReferenceWhileItIsMarked(t *testing.T) {
 	}
 }
 
+func TestTokensAreIssuedOnlyForTheConfiguredProvider(t *testing.T) {
+	s := newServiceTest(t)
+
+	// A connection that staging created, whose provider is not configured yet, stays tokenless until the switch.
+	refused := func(when string) {
+		t.Helper()
+		for name, issue := range map[string]func(context.Context, string) (*clienttypes.SCIMConnection, error){
+			"RotateToken":        s.service.RotateToken,
+			"RevokeCurrentToken": s.service.RevokeCurrentToken,
+		} {
+			var httpErr *clienttypes.ErrHTTP
+			if _, err := issue(t.Context(), s.conn.ID); !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest ||
+				!strings.Contains(httpErr.Message, "SCIM tokens are issued only for the configured auth provider") {
+				t.Fatalf("%s() %s = %v, want a refusal", name, when, err)
+			}
+		}
+		if conn, err := s.gateway.SCIMConnection(t.Context(), s.conn.ID); err != nil || conn.HasToken() {
+			t.Fatalf("connection after a refused token %s = %+v, %v", when, conn, err)
+		}
+	}
+
+	s.providers.configured = "github-auth-provider"
+	refused("while another provider is configured")
+	s.providers.configured = ""
+	refused("while no provider is configured")
+
+	s.providers.configured = "okta-auth-provider"
+	if _, err := s.service.RotateToken(t.Context(), s.conn.ID); err != nil {
+		t.Fatalf("RotateToken() for the configured provider = %v", err)
+	}
+}
+
 func TestTokenManagement(t *testing.T) {
 	s := newServiceTest(t)
 
@@ -497,7 +554,7 @@ func TestTokenManagement(t *testing.T) {
 		!rotated.PreviousTokenExpiresAt.Time.After(time.Now().Add(23*time.Hour)) {
 		t.Fatalf("rotated token = %+v", rotated)
 	}
-	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), s.conn.ID, issued.Token); err != nil {
+	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), issued.Token); err != nil {
 		t.Fatalf("the previous token is not accepted after a rotation: %v", err)
 	}
 
@@ -511,11 +568,11 @@ func TestTokenManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, token := range []string{issued.Token, rotated.Token} {
-		if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), s.conn.ID, token); err == nil {
+		if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), token); err == nil {
 			t.Fatal("a revoked token is still accepted")
 		}
 	}
-	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), s.conn.ID, replaced.Token); err != nil {
+	if _, err := s.gateway.AuthenticateSCIMConnection(t.Context(), replaced.Token); err != nil {
 		t.Fatalf("the replacement token is not accepted: %v", err)
 	}
 

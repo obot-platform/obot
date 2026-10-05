@@ -203,7 +203,7 @@ func (s *scimTest) enable() {
 
 // path returns the URL path of a SCIM resource of the test's connection.
 func (s *scimTest) path(resource string) string {
-	return PathPrefix + s.conn.ID + "/" + strings.TrimPrefix(resource, "/")
+	return PathPrefix + strings.TrimPrefix(resource, "/")
 }
 
 // do sends an authenticated request to a resource of the test's connection.

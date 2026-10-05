@@ -124,7 +124,7 @@ func (c *Client) UserByIDIncludeDeleted(ctx context.Context, id string) (*types.
 }
 
 // UserByIDWithEffectiveRole returns the user with the corresponding ID with their effiective role
-// and auth provider groups, leaving out the groups of a suspended SCIM connection.
+// and auth provider groups.
 func (c *Client) UserByIDWithEffectiveRole(ctx context.Context, id uint) (*types.User, []string, error) {
 	u, groupIDs, err := c.getUserAndGroupIDs(ctx, id, "", "")
 	if err != nil {
@@ -182,12 +182,9 @@ func (c *Client) getUserAndGroupIDs(ctx context.Context, userID any, authProvide
 			Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
 			Where("group_memberships.user_id = ?", userID)
 
-		// Filter by auth provider if specified. Otherwise, the groups of every auth provider count, except those of a
-		// suspended SCIM connection.
+		// Filter by auth provider if specified
 		if authProviderNamespace != "" && authProviderName != "" {
 			query = query.Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", authProviderNamespace, authProviderName)
-		} else {
-			query = query.Where(grantingMembership)
 		}
 
 		// Get the group IDs

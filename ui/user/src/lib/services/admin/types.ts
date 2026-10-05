@@ -266,9 +266,8 @@ export interface AuthProvider extends BaseProvider {
 	verifiedEmail?: string;
 	// A provisioned initial owner has not opened their setup link yet, so nobody can sign in.
 	requiresActivation?: boolean;
-	// The state of the provider's SCIM connection, absent when it has none. It outlasts
-	// deconfiguration, and SCIM resumes in it when the provider is configured again. Only
-	// administrators see it.
+	// The state of the provider's SCIM connection, absent when it has none. Deconfiguring the
+	// provider deletes the connection. Only administrators see it.
 	scimState?: SCIMConnectionState;
 	// When the bearer token of the provider's SCIM connection stops being accepted. Absent while the
 	// connection has no token, and for non-administrators.

@@ -27,10 +27,19 @@ type ProviderState struct {
 	// auth provider, and for every check of whether a stored configuration is complete. Without a SCIM connection,
 	// such a provider synchronizes its directory at sign-in.
 	Configured bool
-	// Connection is the provider's SCIM connection, or nil when it has none.
-	Connection *types.SCIMConnection
+	// ConnectionAdapterType is the adapter type of the provider's SCIM connection, or empty when it has none.
+	ConnectionAdapterType string
 	// Stored is the provider's stored configuration, or nil when it has none.
 	Stored map[string]string
+}
+
+// ConnectionAdapterType returns the adapter type of conn, an auth provider's SCIM connection, or an empty string when
+// conn is nil, as ProviderState.ConnectionAdapterType takes it.
+func ConnectionAdapterType(conn *types.SCIMConnection) string {
+	if conn == nil {
+		return ""
+	}
+	return conn.AdapterType
 }
 
 // EffectiveParameters returns an auth provider's effective configuration parameters, from its manifest, its adapter,
@@ -55,8 +64,8 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, state ProviderSta
 		ok bool
 	)
 	switch {
-	case state.Connection != nil:
-		a, ok = Lookup(state.Connection.AdapterType)
+	case state.ConnectionAdapterType != "":
+		a, ok = Lookup(state.ConnectionAdapterType)
 	case !state.Configured && SupportsSCIM(state.AuthProviderName, manifest):
 		a, ok = ForAuthProvider(state.AuthProviderName)
 	}
@@ -74,7 +83,7 @@ func EffectiveParameters(manifest types2.AuthProviderManifest, state ProviderSta
 	params.Required = slices.DeleteFunc(params.Required, isDirectory)
 	params.Optional = slices.DeleteFunc(params.Optional, isDirectory)
 
-	if state.Connection == nil {
+	if state.ConnectionAdapterType == "" {
 		params.Together = make([]string, 0, len(directory))
 		params.Optional = slices.Grow(params.Optional, len(directory))
 		for _, d := range directory {

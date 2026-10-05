@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -72,5 +73,52 @@ func TestCreateGroupRoleAssignmentRefusesAMissingSCIMGroup(t *testing.T) {
 	}
 	if len(assignments) != 0 {
 		t.Fatalf("a refused role assignment was saved: %+v", assignments)
+	}
+}
+
+func TestCreateGroupRoleAssignmentRefusesADuplicate(t *testing.T) {
+	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(); err != nil {
+		t.Fatal(err)
+	}
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+
+	create := func() error {
+		t.Helper()
+		body, err := json.Marshal(types2.GroupRoleAssignment{
+			GroupName: "github/engineering",
+			Role:      types2.RoleAdmin,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return (&Server{}).createGroupRoleAssignment(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        httptest.NewRequest(http.MethodPost, "/api/group-role-assignments", bytes.NewReader(body)),
+			Storage:        clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(),
+			GatewayClient:  gatewayClient,
+			User: &user.DefaultInfo{
+				Name:   "owner",
+				UID:    "1",
+				Groups: types2.RoleOwner.Groups(),
+			},
+		})
+	}
+
+	if err := create(); err != nil {
+		t.Fatalf("createGroupRoleAssignment() = %v", err)
+	}
+	// SQLite reports the duplicate by its message, which IsUniqueViolation recognizes.
+	var httpErr *types2.ErrHTTP
+	if err := create(); !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict || !strings.Contains(httpErr.Message, "already exists") {
+		t.Fatalf("a duplicate createGroupRoleAssignment() = %v, want a conflict", err)
 	}
 }

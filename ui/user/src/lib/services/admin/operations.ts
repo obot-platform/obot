@@ -2638,6 +2638,11 @@ export async function deleteUser(userID: string): Promise<void> {
 	await doDelete(`/users/${userID}`);
 }
 
+// Restores a disabled user's access. Refused while SCIM manages the user.
+export async function enableUser(userID: string): Promise<void> {
+	await doPost(`/users/${userID}/enable`, {});
+}
+
 // Workspaces
 
 export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {

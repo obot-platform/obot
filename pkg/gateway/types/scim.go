@@ -53,7 +53,7 @@ type SCIMResourceType string
 // SCIMConnection connects one auth provider to an identity provider's SCIM client. Once it exists, SCIM replaces
 // login-time directory synchronization for that provider, permanently. The installation has at most one.
 type SCIMConnection struct {
-	// ID is the server-issued UUID that appears in the connection's SCIM base URL.
+	// ID is the server-issued UUID of the connection, and the UID of its SCIM principal.
 	ID        string    `json:"id" gorm:"primaryKey"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -94,11 +94,6 @@ type SCIMConnection struct {
 	// Obot are synchronized.
 	LastRequestAt *time.Time `json:"lastRequestAt,omitempty"`
 	LastSuccessAt *time.Time `json:"lastSuccessAt,omitempty"`
-
-	// SuspendedAt is when the auth provider was deconfigured, and is nil while it is configured. A suspended
-	// connection keeps its users, groups, and memberships, so that configuring the provider again resumes SCIM with
-	// current data, but its groups grant nothing until then.
-	SuspendedAt *time.Time `json:"suspendedAt,omitempty"`
 }
 
 // SCIMUserBinding binds a SCIM user to an Obot user. Its ID is a random (version 4) UUID, like every SCIM ID this
@@ -111,9 +106,10 @@ type SCIMConnection struct {
 // ExternalID, UserName, and Profile hold data from the identity provider and are encrypted like users are.
 // HashedNativeUserID and HashedUserName support equality lookups without decrypting.
 type SCIMUserBinding struct {
-	// ID is the server-issued SCIM user ID.
-	ID           string `gorm:"primaryKey"`
-	ConnectionID string `gorm:"not null;index:idx_scim_user_bindings_native,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user_name,unique,priority:1,where:retired_at IS NULL"`
+	// ID is the server-issued SCIM user ID. idx_scim_user_bindings_list serves the pages of a connection's users,
+	// which are ordered by creation.
+	ID           string `gorm:"primaryKey;index:idx_scim_user_bindings_list,priority:3,where:retired_at IS NULL"`
+	ConnectionID string `gorm:"not null;index:idx_scim_user_bindings_native,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user_name,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_list,priority:1"`
 	UserID       uint   `gorm:"not null;index:idx_scim_user_bindings_user,unique,priority:2;index"`
 
 	// HashedNativeUserID is the hash of the identity provider's immutable user ID, which is also the hashed provider
@@ -132,8 +128,8 @@ type SCIMUserBinding struct {
 	Active bool `gorm:"not null;default:false"`
 
 	// Revision counts the changes to the binding.
-	Revision  int64 `gorm:"not null;default:0"`
-	CreatedAt time.Time
+	Revision  int64     `gorm:"not null;default:0"`
+	CreatedAt time.Time `gorm:"index:idx_scim_user_bindings_list,priority:2"`
 	UpdatedAt time.Time
 	RetiredAt *time.Time `gorm:"index"`
 }

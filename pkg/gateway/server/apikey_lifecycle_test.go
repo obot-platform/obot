@@ -40,6 +40,73 @@ func createAPIKeyLifecycleTestUser(t *testing.T, client *gatewayclient.Client, u
 	return user
 }
 
+// oktaSCIMConnection returns the SCIM connection of the Okta provider, setting it up on first use.
+func oktaSCIMConnection(t *testing.T, client *gatewayclient.Client) *gatewaytypes.SCIMConnection {
+	t.Helper()
+
+	conn, err := client.SCIMConnectionForAuthProvider(t.Context(), apiKeyLifecycleTestProvider.Namespace, apiKeyLifecycleTestProvider.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if conn != nil {
+		return conn
+	}
+	conn, _, err = client.CreateSCIMConnection(t.Context(), gatewayclient.CreateSCIMConnectionOptions{
+		AuthProviderNamespace: apiKeyLifecycleTestProvider.Namespace,
+		AuthProviderName:      apiKeyLifecycleTestProvider.Name,
+		GroupIDPrefix:         "okta/",
+		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+	})
+	if err != nil {
+		t.Fatalf("failed to set up SCIM: %v", err)
+	}
+	return conn
+}
+
+// provisionThroughSCIM has Okta provision the user with the native ID nativeID and the email email through SCIM,
+// active or deactivated, as it does in production. A user who signed in with that ID is bound to their account.
+func provisionThroughSCIM(t *testing.T, client *gatewayclient.Client, nativeID, email string, active bool) *gatewayclient.SCIMUser {
+	t.Helper()
+
+	user, err := client.CreateSCIMUser(t.Context(), oktaSCIMConnection(t, client), gatewayclient.SCIMUserInput{
+		UserName:   email,
+		ExternalID: nativeID,
+		Active:     &active,
+		Profile: gatewaytypes.SCIMUserProfile{
+			Emails: []gatewaytypes.SCIMMultiValue{
+				{
+					Value:   email,
+					Primary: true,
+				},
+			},
+		},
+	}, gatewayclient.SCIMUserCreateOptions{
+		UserLimit: gatewayclient.UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: types2.RoleBasic,
+	})
+	if err != nil {
+		t.Fatalf("failed to provision %s through SCIM: %v", nativeID, err)
+	}
+	return user
+}
+
+// setActiveThroughSCIM has Okta activate or deactivate the user it provisioned as scimUserID through SCIM.
+func setActiveThroughSCIM(t *testing.T, client *gatewayclient.Client, scimUserID string, active bool) error {
+	t.Helper()
+
+	_, err := client.UpdateSCIMUser(t.Context(), oktaSCIMConnection(t, client), scimUserID, func(current gatewayclient.SCIMUser) (gatewayclient.SCIMUserInput, error) {
+		return gatewayclient.SCIMUserInput{
+			UserName:   current.UserName,
+			ExternalID: current.ExternalID,
+			Active:     &active,
+			Profile:    current.Profile,
+		}, nil
+	})
+	return err
+}
+
 func apiKeyRequest(key string) *http.Request {
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer "+key)
@@ -71,12 +138,10 @@ func TestAPIKeyAuthenticatorReportsTheUsersStatus(t *testing.T) {
 
 	assertStatus(types2.UserStatusActive)
 
-	if _, err := client.DisableUser(ctx, apiKeyLifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
-		t.Fatalf("failed to disable user: %v", err)
-	}
+	provisioned := provisionThroughSCIM(t, client, "00u-alice", user.Email, false)
 	assertStatus(types2.UserStatusDisabled)
 
-	if _, err := client.ReactivateUser(ctx, apiKeyLifecycleTestProvider, user.ID); err != nil {
+	if err := setActiveThroughSCIM(t, client, provisioned.ID, true); err != nil {
 		t.Fatalf("failed to reactivate user: %v", err)
 	}
 	assertStatus(types2.UserStatusActive)
@@ -173,9 +238,7 @@ func TestHostedAgentKeyCarriesItsOwnersStatus(t *testing.T) {
 
 	assertOwnerStatus(types2.UserStatusActive)
 
-	if _, err := client.DisableUser(ctx, apiKeyLifecycleTestProvider, owner.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
-		t.Fatalf("failed to disable owner: %v", err)
-	}
+	provisionThroughSCIM(t, client, "00u-dave", owner.Email, false)
 	assertOwnerStatus(types2.UserStatusDisabled)
 }
 
@@ -208,9 +271,7 @@ func TestAPIKeyWebhookDeniesInactiveUsers(t *testing.T) {
 		t.Fatalf("webhook response for an active user = %+v, want allowed", response)
 	}
 
-	if _, err := client.DisableUser(ctx, apiKeyLifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
-		t.Fatalf("failed to disable user: %v", err)
-	}
+	provisionThroughSCIM(t, client, "00u-erin", user.Email, false)
 	if response := authenticate(); response.Allowed || response.Reason != "user is not active" {
 		t.Fatalf("webhook response for a disabled user = %+v, want denied as not active", response)
 	}

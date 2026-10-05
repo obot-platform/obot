@@ -16794,7 +16794,7 @@ func schema_obot_platform_obot_apiclient_types_SCIMConnection(ref common.Referen
 					},
 					"authProviderConfigured": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AuthProviderConfigured is false while the connection's auth provider is not the one serving sign-ins, including while it is only staged, and the SCIM endpoint answers 503.",
+							Description: "AuthProviderConfigured is false while the connection's auth provider is not the one serving sign-ins, such as while it is only staged. The SCIM endpoint then answers 503, and no token is issued.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -28400,6 +28400,13 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref com
 							Description: "Error describes a terminal rejection. The remaining reconciliation only removes the staged credential and this task.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"errorCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ErrorCode is the HTTP status that the API answers a terminal rejection with. It is 400 when unset.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

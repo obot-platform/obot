@@ -3,7 +3,7 @@ import { createMockProfile, preparePageData } from '../../tests/helpers/pageData
 import { worker } from '../../tests/mocks/worker';
 import UsersView from './UsersView.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -60,8 +60,8 @@ const legacyUser = orgUser({
 	email: 'legacy@example.com'
 });
 
-async function renderUsersView(users: OrgUser[]) {
-	await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+async function renderUsersView(users: OrgUser[], viewerGroups: string[] = [Group.ADMIN]) {
+	await preparePageData({ profile: createMockProfile(viewerGroups) });
 	return render(UsersView, { users });
 }
 
@@ -130,6 +130,98 @@ describe('UsersView', () => {
 
 		await openRowActions(activeUser.email);
 		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+	});
+
+	it('enables a disabled user after confirmation', async () => {
+		const enable = vi.fn();
+		worker.use(
+			http.post(`*/api/users/${deactivatedUser.id}/enable`, () => {
+				enable();
+				return HttpResponse.json({ ...deactivatedUser, status: 'active' });
+			}),
+			http.get('*/api/users', () =>
+				HttpResponse.json({
+					items: [
+						{
+							...deactivatedUser,
+							status: 'active',
+							disabledAt: undefined,
+							disabledReason: undefined
+						}
+					]
+				})
+			)
+		);
+		await renderUsersView([deactivatedUser]);
+
+		await openRowActions(deactivatedUser.email);
+		await page.getByRole('button', { name: 'Enable User' }).click();
+		const confirm = page.getByRole('dialog').filter({ hasText: 'Enable user' });
+		await expect.element(confirm.getByText('Confirm Enable', { exact: true })).toBeVisible();
+		await expect.element(confirm.getByText('Confirm Delete')).not.toBeInTheDocument();
+		await expect.element(page.getByText(/including their API keys and agents/)).toBeVisible();
+		await page.getByRole('button', { name: 'Enable', exact: true }).click();
+
+		await vi.waitFor(() => expect(enable).toHaveBeenCalledOnce());
+		await expect
+			.element(userRow(deactivatedUser.email).getByText('Active', { exact: true }))
+			.toBeVisible();
+	});
+
+	it('does not offer to enable a user who is active', async () => {
+		await renderUsersView([activeUser]);
+
+		await openRowActions(activeUser.email);
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Enable User' })).not.toBeInTheDocument();
+	});
+
+	describe('enabling a user with a role that only an Owner can restore', () => {
+		const privileged = [
+			{ name: 'an Owner', role: Role.OWNER, effectiveRole: Role.OWNER },
+			{
+				name: 'an auditor',
+				role: Role.BASIC | Role.AUDITOR,
+				effectiveRole: Role.BASIC | Role.AUDITOR
+			},
+			{
+				name: 'a user with the user impersonation role',
+				role: Role.ADMIN | Role.USER_IMPERSONATION,
+				effectiveRole: Role.ADMIN | Role.USER_IMPERSONATION
+			},
+			{
+				name: 'a user whose group grants the Owner role',
+				role: Role.BASIC,
+				effectiveRole: Role.OWNER
+			}
+		];
+
+		for (const target of privileged) {
+			const user = orgUser({
+				id: '6',
+				email: 'privileged@example.com',
+				status: 'disabled',
+				disabledAt: '2026-09-01T00:00:00.000Z',
+				disabledReason: 'scim_inactive',
+				managementSource: 'scim',
+				role: target.role,
+				effectiveRole: target.effectiveRole
+			});
+
+			it(`is not offered to an administrator who is not an Owner, for ${target.name}`, async () => {
+				await renderUsersView([user]);
+
+				await openRowActions(user.email);
+				await expect.element(page.getByRole('button', { name: 'Enable User' })).toBeDisabled();
+			});
+
+			it(`is offered to an Owner, for ${target.name}`, async () => {
+				await renderUsersView([user], [Group.OWNER, Group.ADMIN]);
+
+				await openRowActions(user.email);
+				await expect.element(page.getByRole('button', { name: 'Enable User' })).toBeEnabled();
+			});
+		}
 	});
 
 	it('closes the confirmation, and leaves the other actions usable, when a deletion is refused', async () => {

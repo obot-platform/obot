@@ -168,8 +168,8 @@ func (s *Service) Connections(ctx context.Context) ([]types2.SCIMConnection, err
 	return result, nil
 }
 
-// Connection returns the SCIM connection with the given ID. token is set only in the response that issued it.
-func (s *Service) Connection(ctx context.Context, id, token string) (*types2.SCIMConnection, error) {
+// viewConnection returns the SCIM connection with the given ID, as the API serves it without a token.
+func (s *Service) viewConnection(ctx context.Context, id string) (*types2.SCIMConnection, error) {
 	conn, p, err := s.connection(ctx, id)
 	if err != nil {
 		return nil, err
@@ -178,7 +178,7 @@ func (s *Service) Connection(ctx context.Context, id, token string) (*types2.SCI
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
-	view := s.connectionView(conn, p, configured, token)
+	view := s.connectionView(conn, p, configured, "")
 	return &view, nil
 }
 
@@ -287,7 +287,8 @@ func (s *Service) Failures(ctx context.Context, id string, page Page) (*types2.S
 // actor is an Owner who signed in through the provider and is provisioned and active.
 //
 // The unreferenced groups are deleted in two phases, as withUnreferencedGroupsMarked describes. Enforcing keeps any
-// marked group that gained a reference, and blocks if that group is unbound.
+// marked group that gained a reference, and blocks if that group is unbound. It clears every mark for deletion, so it
+// is refused with a conflict while another deletion of unreferenced groups holds marks.
 func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.SCIMEnforceResult, error) {
 	conn, p, err := s.connection(ctx, id)
 	if err != nil {
@@ -316,12 +317,22 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
 	}
 
+	// Enforcing finishes no other deletion of unreferenced groups, so it waits for one under way. The gateway checks
+	// again once the groups are marked, in case one started meanwhile.
+	if inProgress, err := s.gateway.SCIMGroupDeletionInProgress(ctx, conn.ID); err != nil {
+		return nil, err
+	} else if inProgress {
+		return nil, groupDeletionInProgressError()
+	}
+
 	var result *gclient.EnforceSCIMResult
 	if err := s.withUnreferencedGroupsMarked(ctx, conn, plan, func(run *gclient.SCIMDeletionRun) error {
 		var err error
 		result, err = s.enforceMarked(ctx, conn, p, run.ID, actor)
 		return err
-	}); err != nil {
+	}); errors.Is(err, gclient.ErrSCIMGroupDeletionInProgress) {
+		return nil, groupDeletionInProgressError()
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -334,7 +345,8 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 }
 
 // RotateToken issues a new bearer token for the connection, including its first token, and returns the connection
-// with it. The token it replaces is still accepted for a day, or until it is revoked.
+// with it. The token it replaces is still accepted for up to a day, but never past its own expiry, or until it is
+// revoked.
 func (s *Service) RotateToken(ctx context.Context, id string) (*types2.SCIMConnection, error) {
 	return s.replaceToken(ctx, id, s.gateway.RotateSCIMConnectionToken)
 }
@@ -349,13 +361,18 @@ func (s *Service) RevokeCurrentToken(ctx context.Context, id string) (*types2.SC
 // in this response, and replacing it again retires the token the identity provider still uses, so everything that
 // can fail is read before the token is issued.
 func (s *Service) replaceToken(ctx context.Context, id string, replace func(context.Context, string) (*types.SCIMConnection, string, error)) (*types2.SCIMConnection, error) {
-	_, p, err := s.connection(ctx, id)
+	current, p, err := s.connection(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	configured, err := s.providers.GetConfiguredAuthProvider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configured auth provider: %w", err)
+	}
+	// Only the connection of the configured auth provider can serve the identity provider, so only it gets a token. A
+	// connection that staging created stays tokenless until the provider is activated.
+	if !providerConfigured(current, configured) {
+		return nil, types2.NewErrBadRequest("%s is not the configured auth provider; SCIM tokens are issued only for the configured auth provider", p.displayName)
 	}
 
 	conn, token, err := replace(ctx, id)
@@ -371,7 +388,7 @@ func (s *Service) RevokePreviousToken(ctx context.Context, id string) (*types2.S
 	if err := s.gateway.RevokePreviousSCIMConnectionToken(ctx, id); err != nil {
 		return nil, connectionError(id, err)
 	}
-	return s.Connection(ctx, id, "")
+	return s.viewConnection(ctx, id)
 }
 
 // enforceMarked reads the references again, now that the deletion runID has marked the unreferenced groups, and
@@ -552,7 +569,7 @@ func (s *Service) connectionView(conn *types.SCIMConnection, p *provider, config
 		AuthProviderName:        conn.AuthProviderName,
 		AuthProviderDisplayName: p.displayName,
 		State:                   string(conn.State),
-		BaseURL:                 s.serverURL + scim.PathPrefix + conn.ID,
+		BaseURL:                 scim.BaseURL(s.serverURL),
 		Issuer:                  conn.Issuer,
 		EnabledAt:               *types2.NewTime(conn.EnabledAt),
 		EnforcedAt:              optionalTime(conn.EnforcedAt),
@@ -846,6 +863,11 @@ func describeReference(ref types2.GroupReference) string {
 		description += ", " + ref.Detail
 	}
 	return description
+}
+
+// groupDeletionInProgressError refuses to enforce SCIM while another deletion of unreferenced groups is under way.
+func groupDeletionInProgressError() error {
+	return types2.NewErrHTTP(http.StatusConflict, "unreferenced groups are being deleted; try again once that finishes")
 }
 
 func connectionError(id string, err error) error {

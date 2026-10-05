@@ -107,12 +107,30 @@ function createRefusedProfileFetch(status: number, body: string) {
 }
 
 describe('root layout account status', () => {
+	// cookies holds the browser's cookies for the page, as document.cookie reads them.
+	let cookies: Map<string, string>;
+
 	beforeEach(() => {
 		const items = new Map<string, string>();
 		vi.stubGlobal('sessionStorage', {
 			getItem: (key: string) => items.get(key) ?? null,
 			setItem: (key: string, value: string) => items.set(key, value),
 			removeItem: (key: string) => items.delete(key)
+		});
+		cookies = new Map();
+		vi.stubGlobal('document', {
+			get cookie() {
+				return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ');
+			},
+			set cookie(cookie: string) {
+				const [pair, ...attributes] = cookie.split(';');
+				const [name, value] = pair.split('=');
+				if (attributes.some((attribute) => attribute.trim() === 'Max-Age=0')) {
+					cookies.delete(name);
+				} else {
+					cookies.set(name, value);
+				}
+			}
 		});
 	});
 
@@ -131,6 +149,7 @@ describe('root layout account status', () => {
 
 	it('marks an account inactive when the server sent its page load to the login page', async () => {
 		// The server ended the session as it redirected, so the profile request is merely signed out.
+		cookies.set('obot_account_inactive', 'true');
 		const data = await loadWith(
 			createRefusedProfileFetch(401, 'unauthorized'),
 			new URL('http://localhost/?inactive=true')
@@ -138,15 +157,28 @@ describe('root layout account status', () => {
 
 		expect(data.profile.unauthorized).toBe(true);
 		expect(data.profile.accountInactive).toBe(true);
+		expect(cookies.has('obot_account_inactive')).toBe(false);
 	});
 
-	it('ignores the login page flag once someone is signed in', async () => {
+	it('does not trust the login page parameter without the cookie that the server sets', async () => {
+		// Anyone can link to the login page with the parameter.
+		const data = await loadWith(
+			createRefusedProfileFetch(401, 'unauthorized'),
+			new URL('http://localhost/?inactive=true')
+		);
+
+		expect(data.profile.accountInactive).toBe(false);
+	});
+
+	it("ignores the server's cookie once someone is signed in", async () => {
+		cookies.set('obot_account_inactive', 'true');
 		const data = await loadWith(
 			createFetch([Group.USER]),
 			new URL('http://localhost/?inactive=true')
 		);
 
 		expect(data.profile.accountInactive).toBeUndefined();
+		expect(cookies.has('obot_account_inactive')).toBe(false);
 	});
 
 	it('does not mark a signed-out visitor as inactive', async () => {

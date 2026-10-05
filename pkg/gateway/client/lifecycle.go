@@ -149,42 +149,67 @@ func checkCredentialOwner(tx *gorm.DB, userID uint) error {
 	return nil
 }
 
-// DisableUser denies a user access without deleting anything: the user keeps their account, identities, roles,
-// memberships, API keys, and resources, and can be reactivated. Only a user with an identity for provider can be
-// changed, and a deleted user cannot.
-//
-// In the same transaction, disabling deletes the user's gateway auth tokens and records an outbox event whose
-// delivery deletes the user's MCP OAuth refresh tokens. Neither is restored on reactivation.
-//
-// Disabling a user who is already disabled only updates the reason, and records no event.
-func (c *Client) DisableUser(ctx context.Context, provider AuthProviderRef, userID uint, reason types.UserDisabledReason) (*types.User, error) {
-	var (
-		user    *types.User
-		changed bool
-	)
+// EnableUser restores the access of a disabled user, as an administrator decides to, with the same ID and data. It is
+// refused with *SCIMManagedUserError while SCIM manages the user's access: while the user has a SCIM binding, or an
+// identity of an auth provider that has a SCIM connection, whose identity provider decides whom it provisions. A
+// deleted user cannot be enabled, and enabling a user who is not disabled changes nothing.
+func (c *Client) EnableUser(ctx context.Context, userID uint) (*types.User, error) {
+	user := new(types.User)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		user, changed, err = disableUserTx(tx, provider, userID, reason)
-		return err
-	}); err != nil {
-		return nil, err
-	}
+		// No connection can be created, and SCIM cannot provision the user, while this transaction runs.
+		if err := lockSCIMMode(tx, false); err != nil {
+			return err
+		}
+		if err := lockSCIMWrites(tx); err != nil {
+			return err
+		}
 
-	if changed {
-		c.kickUserLifecycleDelivery()
-	}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(user).Error; err != nil {
+			return err
+		}
+		if user.DeletedAt != nil {
+			return &UserDeletedError{
+				UserID: userID,
+			}
+		}
+		if user.DisabledAt == nil {
+			return nil
+		}
 
-	return user, c.decryptUser(ctx, user)
-}
+		binding, err := activeSCIMUserBindingForUserTx(tx, userID, false)
+		if err != nil {
+			return err
+		}
+		if binding != nil {
+			return &SCIMManagedUserError{
+				UserID:  userID,
+				Message: "this user is managed by the identity provider through SCIM; reactivate them there",
+			}
+		}
+		var managed int64
+		if err := tx.Model(new(types.Identity)).
+			Joins("JOIN scim_connections ON scim_connections.auth_provider_namespace = identities.auth_provider_namespace AND scim_connections.auth_provider_name = identities.auth_provider_name").
+			Where("identities.user_id = ?", userID).
+			Count(&managed).Error; err != nil {
+			return fmt.Errorf("failed to check whether SCIM manages user %d: %w", userID, err)
+		}
+		if managed > 0 {
+			return &SCIMManagedUserError{
+				UserID:  userID,
+				Message: "this user signs in through an auth provider that provisions users through SCIM; assign them in the identity provider instead",
+			}
+		}
 
-// ReactivateUser restores access for a disabled user of provider, with the same ID and data. A deleted user cannot
-// be reactivated. Reactivating a user who is not disabled changes nothing.
-func (c *Client) ReactivateUser(ctx context.Context, provider AuthProviderRef, userID uint) (*types.User, error) {
-	var user *types.User
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		user, _, err = reactivateUserTx(tx, provider, userID)
-		return err
+		// Explicit columns, because struct updates skip the zero values that mark a user as enabled.
+		if err := tx.Model(user).UpdateColumns(map[string]any{
+			"disabled_at":     nil,
+			"disabled_reason": "",
+		}).Error; err != nil {
+			return fmt.Errorf("failed to enable user %d: %w", userID, err)
+		}
+		user.DisabledAt = nil
+		user.DisabledReason = ""
+		return nil
 	}); err != nil {
 		return nil, err
 	}

@@ -312,8 +312,9 @@ func setString(m map[string]any, key, value string) {
 
 // groupMemberIDs returns the SCIM user IDs of canonical members values.
 func groupMemberIDs(members any) ([]string, error) {
-	var ids []string
-	for _, v := range listValue(members) {
+	values := listValue(members)
+	ids := make([]string, 0, len(values))
+	for _, v := range values {
 		member, _ := v.(map[string]any)
 		id := stringValue(member, "value")
 		if id == "" {

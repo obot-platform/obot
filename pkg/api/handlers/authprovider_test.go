@@ -154,6 +154,8 @@ func newAuthProviderTestStorage(objects ...kclient.Object) kclient.WithWatch {
 		WithIndex(&v1.AuthProvider{}, "status.configured", func(object kclient.Object) []string {
 			return []string{strconv.FormatBool(object.(*v1.AuthProvider).Status.Configured)}
 		}).
+		// The provider configuration change controller, which some tests run, writes the status of auth providers.
+		WithStatusSubresource(&v1.AuthProvider{}).
 		Build()
 }
 
@@ -337,12 +339,21 @@ func TestDeconfigureAuthProviderRefusesToRemoveTheLastWayIn(t *testing.T) {
 		Name:      "other-auth-provider",
 		Namespace: system.DefaultNamespace,
 	}
-	storage := newAuthProviderTestStorage(activeProvider, otherProvider)
+	stagedProvider := &v1.AuthProvider{
+		Name:      "staged-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	storage := newAuthProviderTestStorage(activeProvider, otherProvider, stagedProvider)
 	gatewayClient := newHandlerTestGateway(t)
 	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
 		Context: activeProvider.Name,
 		Name:    activeProvider.Name,
 		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.ReplacementAuthProviderCredentialContext,
+		Name:    stagedProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "staged-secret"},
 	}))
 
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
@@ -362,6 +373,8 @@ func TestDeconfigureAuthProviderRefusesToRemoveTheLastWayIn(t *testing.T) {
 	}
 
 	require.ErrorContains(t, deconfigure(activeProvider.Name), "would leave no way to sign in")
+	// A staged replacement is discarded instead, which undoes what staging it set up.
+	require.ErrorContains(t, deconfigure(stagedProvider.Name), "is staged as a replacement")
 
 	// A provider that is not the one serving logins has nothing to do with this, and is still
 	// deconfigured normally.

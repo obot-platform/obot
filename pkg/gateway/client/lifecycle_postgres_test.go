@@ -6,6 +6,7 @@ import (
 	"testing"
 	"uuid"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -64,7 +65,22 @@ func newPostgresLifecycleTestClient(t *testing.T) *Client {
 func TestDisabledUsersRefreshTokensAreDeletedWhenTheirSessionsCannotBe(t *testing.T) {
 	c := newPostgresLifecycleTestClient(t)
 	ctx := t.Context()
-	// The user's auth provider no longer exists, so their sessions cannot be looked up to be deleted.
+	// The sessions table of the user's auth provider lacks the columns that deleting a user's sessions matches, so the
+	// deletion fails.
+	if err := c.storageClient.Create(ctx, &v1.AuthProvider{
+		Namespace: lifecycleTestProvider.Namespace,
+		Name:      lifecycleTestProvider.Name,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: apitypes.AuthProviderManifest{
+				PostgresTablePrefix: "broken_",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("failed to create auth provider: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Exec("CREATE TABLE broken_sessions (key TEXT)").Error; err != nil {
+		t.Fatalf("failed to create sessions table: %v", err)
+	}
 	user := createLifecycleTestUser(t, c, "zoe", lifecycleTestProvider)
 	if err := c.storageClient.Create(ctx, &v1.OAuthToken{
 		Namespace: system.DefaultNamespace,
@@ -77,7 +93,7 @@ func TestDisabledUsersRefreshTokensAreDeletedWhenTheirSessionsCannotBe(t *testin
 		t.Fatalf("failed to create OAuth token: %v", err)
 	}
 
-	if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 		t.Fatalf("failed to disable user: %v", err)
 	}
 	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
@@ -90,5 +106,35 @@ func TestDisabledUsersRefreshTokensAreDeletedWhenTheirSessionsCannotBe(t *testin
 	events := lifecycleEvents(t, c, user.ID)
 	if len(events) != 1 || events[0].DeliveredAt != nil || events[0].Attempts != 1 || !strings.Contains(events[0].LastError, "failed to end the sessions") {
 		t.Fatalf("lifecycle events after delivery = %+v, want one undelivered event that failed to end sessions", events)
+	}
+}
+
+func TestDisabledEventIsDeliveredWhenTheAuthProviderNoLongerExists(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	ctx := t.Context()
+	// The user's auth provider no longer exists, so it has no sessions table to delete their sessions from.
+	user := createLifecycleTestUser(t, c, "zoe", lifecycleTestProvider)
+	if err := c.storageClient.Create(ctx, &v1.OAuthToken{
+		Namespace: system.DefaultNamespace,
+		Name:      "zoe-token",
+		Spec: v1.OAuthTokenSpec{
+			ClientID: "client",
+			UserID:   user.ID,
+		},
+	}); err != nil {
+		t.Fatalf("failed to create OAuth token: %v", err)
+	}
+
+	if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+		t.Fatalf("failed to disable user: %v", err)
+	}
+	if err := c.deliverUserLifecycleEvents(ctx); err != nil {
+		t.Fatalf("failed to deliver lifecycle events: %v", err)
+	}
+
+	assertOAuthTokenExists(t, c, "zoe-token", false)
+	events := lifecycleEvents(t, c, user.ID)
+	if len(events) != 1 || events[0].DeliveredAt == nil || events[0].LastError != "" {
+		t.Fatalf("lifecycle events after delivery = %+v, want one delivered event", events)
 	}
 }

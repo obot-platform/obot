@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -115,8 +114,9 @@ func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) 
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
+// The user gets the explicit role of their email, which ensureIdentityUser applies.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit UserLimit) (*types.User, error) {
-	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)], userLimit)
+	return c.EnsureIdentityWithRole(ctx, id, timezone, types2.RoleUnknown, userLimit)
 }
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
@@ -392,6 +392,12 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		updateIdentity = true
 	}
 
+	// A user that sign-in creates has the email the identity provider asserts, so its explicit role applies. An
+	// existing user replaces this one, and gets the explicit role of its own email below.
+	newUserRole := role
+	if r := c.HasExplicitRole(email); !newUserRole.HasRole(r) {
+		newUserRole = newUserRole.SwitchBaseRole(r)
+	}
 	user := &types.User{
 		ID:             id.UserID,
 		Username:       id.ProviderUsername,
@@ -399,7 +405,7 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		Email:          id.Email,
 		HashedEmail:    id.HashedEmail,
 		VerifiedEmail:  &verified,
-		Role:           role,
+		Role:           newUserRole,
 	}
 
 	var created, roleRaised, checkForExistingUser bool
@@ -474,9 +480,14 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 				roleRaised = true
 			}
 
-			// Explicit roles follow the email the identity provider asserts at sign-in, never the stored email, which
-			// SCIM writes for the users it has provisioned.
-			if r := c.HasExplicitRole(email); !user.Role.HasRole(r) {
+			// Explicit roles follow the user's email. SCIM writes the email of the users it has provisioned, and every
+			// other check of explicit roles reads the stored email, so for those users it is the one that counts, not
+			// the one the identity provider asserts at sign-in.
+			explicitRoleEmail := email
+			if rows[0].SCIMBound {
+				explicitRoleEmail = user.Email
+			}
+			if r := c.HasExplicitRole(explicitRoleEmail); !user.Role.HasRole(r) {
 				user.Role = user.Role.SwitchBaseRole(r)
 				userChanged = true
 				roleRaised = true

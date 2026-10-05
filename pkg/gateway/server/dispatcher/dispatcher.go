@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
@@ -150,10 +149,10 @@ func (d *Dispatcher) missingDaemonParameters(ctx context.Context, authProvider v
 
 	var missing []string
 	for _, param := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-		Configured:       true,
-		Connection:       conn,
-		Stored:           credEnv,
+		AuthProviderName:      authProvider.Name,
+		Configured:            true,
+		ConnectionAdapterType: adapter.ConnectionAdapterType(conn),
+		Stored:                credEnv,
 	}).Required {
 		if _, ok := credEnv[param.Name]; !ok {
 			missing = append(missing, param.Name)
@@ -321,19 +320,11 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider 
 	}
 	credEnv := cred.Secrets
 
-	// The parameters depend only on whether the provider has a connection, and on its adapter type.
-	var conn *gatewaytypes.SCIMConnection
-	if adapterType != "" {
-		conn = &gatewaytypes.SCIMConnection{
-			AdapterType: adapterType,
-		}
-	}
-
 	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-		Configured:       true,
-		Connection:       conn,
-		Stored:           credEnv,
+		AuthProviderName:      authProvider.Name,
+		Configured:            true,
+		ConnectionAdapterType: adapterType,
+		Stored:                credEnv,
 	}).Required {
 		if _, ok := credEnv[envVar.Name]; !ok {
 			return false
@@ -341,10 +332,6 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider 
 	}
 
 	return true
-}
-
-func CredentialEnvForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.AuthProvider) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gatewayClient, &authProvider, system.GenericAuthProviderCredentialContext)
 }
 
 func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ModelProvider) (map[string]string, error) {

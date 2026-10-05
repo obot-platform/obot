@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -82,6 +83,47 @@ func ensureOwner(t *testing.T, c *client.Client, username, email, authProviderNa
 	}, "", types2.RoleOwner, client.UserLimit{Unlimited: true}); err != nil {
 		t.Fatalf("failed to ensure owner identity: %v", err)
 	}
+}
+
+// deactivateThroughSCIM has the identity provider of provider deactivate the user with the native ID nativeID and the
+// email email through SCIM, as it does in production, setting up the provider's SCIM connection first if it has none.
+// A user who signed in with that ID is bound to their account, and disabled.
+func deactivateThroughSCIM(t *testing.T, c *client.Client, provider client.AuthProviderRef, nativeID, email string) error {
+	t.Helper()
+
+	conn, err := c.SCIMConnectionForAuthProvider(t.Context(), provider.Namespace, provider.Name)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		if conn, _, err = c.CreateSCIMConnection(t.Context(), client.CreateSCIMConnectionOptions{
+			AuthProviderNamespace: provider.Namespace,
+			AuthProviderName:      provider.Name,
+			GroupIDPrefix:         "okta/",
+			Origin:                gwtypes.SCIMConnectionOriginSCIMFirst,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = c.CreateSCIMUser(t.Context(), conn, client.SCIMUserInput{
+		UserName:   email,
+		ExternalID: nativeID,
+		Active:     new(false),
+		Profile: gwtypes.SCIMUserProfile{
+			Emails: []gwtypes.SCIMMultiValue{
+				{
+					Value:   email,
+					Primary: true,
+				},
+			},
+		},
+	}, client.SCIMUserCreateOptions{
+		UserLimit: client.UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: types2.RoleBasic,
+	})
+	return err
 }
 
 func TestBootstrapEnabledDependsOnConfiguredProviderOwner(t *testing.T) {
@@ -195,7 +237,7 @@ func TestBootstrapStaysEnabledUntilAnOwnerSignsIn(t *testing.T) {
 		AuthProviderName:      provider.Name,
 		AuthProviderNamespace: provider.Namespace,
 		ProviderUserID:        "00u-owner",
-		HashedProviderUserID:  "hashed-00u-owner",
+		HashedProviderUserID:  hash.String("00u-owner"),
 		UserID:                owner.ID,
 	}).Error; err != nil {
 		t.Fatalf("failed to create owner identity: %v", err)
@@ -208,7 +250,7 @@ func TestBootstrapStaysEnabledUntilAnOwnerSignsIn(t *testing.T) {
 	assertEnabled(false, "once an owner has signed in")
 
 	// The identity provider can reactivate a disabled owner, so disabling every owner does not reopen bootstrap.
-	if _, err := c.DisableUser(ctx, provider, owner.ID, gwtypes.UserDisabledReasonSCIMInactive); err != nil {
+	if err := deactivateThroughSCIM(t, c, provider, "00u-owner", owner.Email); err != nil {
 		t.Fatalf("failed to disable owner: %v", err)
 	}
 	assertEnabled(false, "while the only owner who signed in is disabled")

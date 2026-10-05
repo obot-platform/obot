@@ -112,7 +112,7 @@ func residualEmpty(data *types2.ResidualGroupData) bool {
 }
 
 // EnsureSCIMFirstConnection makes sure that an auth provider being configured or staged without directory
-// credentials has its SCIM connection, and returns it. A provider that already has one resumes it, which is also how
+// credentials has its SCIM connection, and returns it. A provider that already has one keeps it, which is also how
 // a retried configuration change reuses the connection an earlier attempt created. Otherwise the connection is
 // created in the connected state, with no token, before any sign-in through the provider can ask it for groups.
 //

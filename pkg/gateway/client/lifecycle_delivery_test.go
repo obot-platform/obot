@@ -159,7 +159,7 @@ func TestDeliveryDeliversEveryBatchAtOnce(t *testing.T) {
 }
 
 func TestDisabledEventsOfABatchListOAuthTokensOnce(t *testing.T) {
-	var tokens []kclient.Object
+	tokens := make([]kclient.Object, 0, 4)
 	for userID := uint(1); userID <= 4; userID++ {
 		tokens = append(tokens, &v1.OAuthToken{
 			Namespace: system.DefaultNamespace,
@@ -179,7 +179,7 @@ func TestDisabledEventsOfABatchListOAuthTokensOnce(t *testing.T) {
 
 	for _, name := range []string{"ann", "bob", "cid"} {
 		user := createLifecycleTestUser(t, c, name, lifecycleTestProvider)
-		if _, err := c.DisableUser(ctx, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
+		if _, err := disableUser(t, c, lifecycleTestProvider, user.ID, types.UserDisabledReasonSCIMInactive); err != nil {
 			t.Fatal(err)
 		}
 	}

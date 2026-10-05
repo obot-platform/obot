@@ -28,7 +28,7 @@ function connection(overrides: Partial<SCIMConnection> = {}): SCIMConnection {
 		authProviderName: 'okta-auth-provider',
 		authProviderDisplayName: 'Okta',
 		state: 'connected',
-		baseURL: `https://obot.example.com/scim/v2/${connectionID}`,
+		baseURL: 'https://obot.example.com/scim/v2',
 		issuer: 'https://example.okta.com',
 		enabledAt: '2026-09-01T00:00:00.000Z',
 		hasToken: false,
@@ -290,7 +290,7 @@ describe('ScimView', () => {
 		await renderScimView([Group.OWNER, Group.ADMIN], { review: review() });
 
 		await expect
-			.element(page.getByText(`https://obot.example.com/scim/v2/${connectionID}`))
+			.element(page.getByText('https://obot.example.com/scim/v2', { exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Copy base URL' })).toBeVisible();
 	});
@@ -332,6 +332,49 @@ describe('ScimView', () => {
 		await expect.element(page.getByText('An Owner generates the token.')).toBeVisible();
 		await expect
 			.element(page.getByRole('button', { name: 'Generate token' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('offers no token while its provider is not the configured auth provider yet', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: review({ connection: connection({ authProviderConfigured: false }) })
+		});
+
+		await expect
+			.element(page.getByRole('alert').getByText(/not the configured auth provider yet/))
+			.toBeVisible();
+		await expect
+			.element(
+				page.getByText('The token can be generated once Okta is the configured auth provider.')
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Generate token' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('does not offer to replace the token of a connection whose provider is not configured', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: reviewAtEnforce({
+				connection: connection({
+					hasToken: true,
+					previousTokenAccepted: true,
+					authProviderConfigured: false
+				})
+			})
+		});
+
+		await expect
+			.element(
+				page.getByRole('alert').getByText(/its\s+token\s+cannot\s+be\s+rotated\s+or\s+replaced/)
+			)
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Revoke previous token' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Rotate token' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Revoke current token' }))
 			.not.toBeInTheDocument();
 	});
 
@@ -402,6 +445,18 @@ describe('ScimView', () => {
 				.toBeVisible();
 			await expect.element(page.getByText(/^Expired /)).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Rotate token' })).toBeVisible();
+		});
+
+		it('does not ask to rotate an expired token while the provider is not configured', async () => {
+			const review = reviewWithTokenExpiringIn(-day);
+			await renderScimView([Group.OWNER], {
+				review: { ...review, connection: { ...review.connection, authProviderConfigured: false } }
+			});
+
+			await expect
+				.element(page.getByRole('alert').getByText(/its\s+token\s+cannot\s+be\s+rotated/))
+				.toBeVisible();
+			await expect.element(page.getByText(/Rotate the token/)).not.toBeInTheDocument();
 		});
 	});
 
@@ -844,6 +899,31 @@ describe('ScimView', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Revoke previous token' }))
 			.not.toBeInTheDocument();
+	});
+
+	it("refreshes the layout's token expiry warning after issuing a token", async () => {
+		const listed = vi.fn();
+		worker.use(
+			http.get('*/api/auth-providers', () => {
+				listed();
+				return HttpResponse.json({ items: [] });
+			}),
+			http.post(`*/api/scim-connections/${connectionID}/rotate-token`, () =>
+				HttpResponse.json(connection({ hasToken: true, token: 'obot_scim_rotated' }))
+			),
+			http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+				HttpResponse.json(review({ connection: connection({ hasToken: true }) }))
+			)
+		);
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: review({ connection: connection({ hasToken: true }) })
+		});
+		listed.mockClear();
+
+		await page.getByRole('button', { name: 'Rotate token' }).click();
+		await page.getByRole('button', { name: 'Rotate token' }).last().click();
+		await expect.element(page.getByText('obot_scim_rotated')).toBeVisible();
+		await vi.waitFor(() => expect(listed).toHaveBeenCalledOnce());
 	});
 
 	it('closes the confirmation before showing the token it issued', async () => {

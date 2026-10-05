@@ -11,6 +11,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -63,7 +64,11 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 		}
 
 		var authProvider v1.AuthProvider
-		if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: identity.AuthProviderNamespace, Name: identity.AuthProviderName}, &authProvider); err != nil {
+		if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: identity.AuthProviderNamespace, Name: identity.AuthProviderName}, &authProvider); apierrors.IsNotFound(err) {
+			// Without the auth provider, its sessions table is unknown, and retrying cannot find it.
+			logger.Info("skipped deleting sessions of an auth provider that no longer exists", "provider", identity.AuthProviderName)
+			continue
+		} else if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get auth provider %q: %w", identity.AuthProviderName, err))
 			continue
 		}

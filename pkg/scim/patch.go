@@ -24,6 +24,8 @@ type patchOperation struct {
 	Op    string
 	Path  string
 	Value any
+	// HasValue is set when the operation has a value member, even a null one.
+	HasValue bool
 }
 
 // patchPath is a PATCH target: an attribute, an optional value filter, and an optional sub-attribute.
@@ -85,9 +87,10 @@ func decodePatchOperations(body map[string]any) ([]patchOperation, error) {
 		}
 
 		ops = append(ops, patchOperation{
-			Op:    op,
-			Path:  strings.TrimSpace(path),
-			Value: lookupKey(m, "value"),
+			Op:       op,
+			Path:     strings.TrimSpace(path),
+			Value:    lookupKey(m, "value"),
+			HasValue: hasKey(m, "value"),
 		})
 	}
 	return ops, nil
@@ -120,7 +123,7 @@ func applyOperation(schema *resourceSchema, resource map[string]any, op patchOpe
 			return err
 		}
 
-		// Each member of the value applies as though its key were the path, except that null removes the attribute.
+		// Each member of the value applies as though its key were the path.
 		for _, m := range members {
 			if err := applyToTarget(schema, resource, op.Op, m.key, m.path, m.value, rules); err != nil {
 				return err
@@ -133,7 +136,7 @@ func applyOperation(schema *resourceSchema, resource map[string]any, op patchOpe
 	if err != nil {
 		return err
 	}
-	if op.Op != patchRemove && op.Value == nil {
+	if op.Op != patchRemove && !op.HasValue {
 		return badRequest(scimTypeInvalidValue, "%s requires a value", op.Op)
 	}
 	return applyToTarget(schema, resource, op.Op, op.Path, path, op.Value, rules)
@@ -206,18 +209,54 @@ func applyToTarget(schema *resourceSchema, resource map[string]any, op, target s
 	if attr == nil {
 		return badRequest(scimTypeInvalidPath, "unknown attribute %q", path.Attr.Name)
 	}
+	// Adding to a multi-valued attribute only adds values, as RFC 7644 section 3.5.2.1 says, and null, like an empty
+	// array, adds none. That changes nothing, even of a read-only attribute.
+	if value == nil && op == patchAdd && attr.MultiValued && path.Attr.Sub == "" && path.Sub == "" {
+		return nil
+	}
 	if attr.Mutability == mutabilityReadOnly {
 		if op != patchRemove && path.Filter == nil && path.Attr.Sub == "" && unchanged(resource, attr, value) {
 			return nil
 		}
+		// An add of values the attribute already holds changes nothing either.
+		if op == patchAdd && attr.MultiValued && path.Filter == nil && path.Attr.Sub == "" && alreadyHeld(resource, attr, value) {
+			return nil
+		}
 		return badRequest(scimTypeMutability, "attribute %q is read-only", attr.Name)
 	}
+	// Otherwise, a null value makes what it is assigned to unassigned, as RFC 7643 section 2.5 says, which removes it.
+	// A replace through a filter still needs a target, as one with a value does, so applyFiltered handles it.
+	if value == nil && (op != patchReplace || path.Filter == nil) {
+		op = patchRemove
+	}
 	// Removing an attribute that must have a value is refused, as RFC 7644 section 3.5.2.2 says of required ones.
-	// A null value without a path removes it too.
-	if (attr.Required || attr.unremovable) && path.Filter == nil && path.Attr.Sub == "" && (op == patchRemove || value == nil) {
+	if (attr.Required || attr.unremovable) && path.Filter == nil && path.Attr.Sub == "" && op == patchRemove {
 		return badRequest(scimTypeMutability, "attribute %q cannot be removed", attr.Name)
 	}
 	return applyToPath(resource, attr, path, op, value, rules)
+}
+
+// alreadyHeld reports whether the multi-valued attribute already holds every value that an add of value would add, so
+// that the add changes nothing.
+func alreadyHeld(resource map[string]any, attr *attribute, value any) bool {
+	added, err := canonicalList(attr, value)
+	if err != nil {
+		return false
+	}
+	existing := listValue(resource[attr.Name])
+	set := newValueSet(attr, existing)
+	for _, v := range added {
+		if set.byValue != nil {
+			if !set.contains(v) {
+				return false
+			}
+			continue
+		}
+		if !slices.ContainsFunc(existing, func(e any) bool { return sameValue(attr, e, v) }) {
+			return false
+		}
+	}
+	return true
 }
 
 // unchanged reports whether value is the attribute's current value.
@@ -393,6 +432,15 @@ func applyFiltered(resource map[string]any, attr *attribute, path patchPath, op 
 		}
 	}
 
+	// A replace with null removes what the filter selects. Like any replace, it fails when the filter selects nothing,
+	// unless the client's rules make it do what an add does, which with null adds nothing.
+	if op == patchReplace && value == nil {
+		if len(matched) == 0 && !rules.ReplaceAddsUnmatched {
+			return badRequest(scimTypeNoTarget, "no value of %q matches the filter", attr.Name)
+		}
+		op = patchRemove
+	}
+
 	switch op {
 	case patchRemove:
 		// Removing a value that is already gone is not an error, so that repeated requests converge.
@@ -416,6 +464,7 @@ func applyFiltered(resource map[string]any, attr *attribute, path patchPath, op 
 		setList(resource, attr, values)
 		return nil
 	case patchAdd, patchReplace:
+		var created bool
 		if len(matched) == 0 {
 			// An add whose filter selects no value creates one. A replace fails, as RFC 7644 section 3.5.2.3 says,
 			// unless the client's rules make it do what an add does.
@@ -427,12 +476,13 @@ func applyFiltered(resource map[string]any, attr *attribute, path patchPath, op 
 			}
 			// A sub-attribute of a value selected by equality creates the value, as clients do for
 			// emails[type eq "work"].value.
-			created, ok := valueFromEqualityFilter(attr, path.Filter)
+			newValue, ok := valueFromEqualityFilter(attr, path.Filter)
 			if !ok {
 				return badRequest(scimTypeNoTarget, "no value of %q matches the filter", attr.Name)
 			}
-			values = append(values, created)
+			values = append(values, newValue)
 			matched = []int{len(values) - 1}
+			created = true
 		}
 
 		for _, i := range matched {
@@ -447,6 +497,10 @@ func applyFiltered(resource map[string]any, attr *attribute, path patchPath, op 
 					return immutableError(attr, sub)
 				}
 				existing[sub.Name] = v
+				// The value created for the filter must be one it selects, as addForFilter requires.
+				if created && !path.Filter.matches(attr, existing) {
+					return badRequest(scimTypeNoTarget, "no value of %q matches the filter", attr.Name)
+				}
 				continue
 			}
 

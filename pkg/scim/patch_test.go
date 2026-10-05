@@ -308,6 +308,11 @@ func TestApplyPatchUser(t *testing.T) {
 			wantScimType: scimTypeNoTarget,
 		},
 		{
+			name:         "add of a sub-attribute that the filter selecting its value would no longer select",
+			ops:          `[{"op":"add","path":"emails[value eq \"home@example.com\"].value","value":"other@example.com"}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
 			name:         "replace of a sub-attribute with a filter that matches nothing",
 			ops:          `[{"op":"replace","path":"emails[type eq \"home\"].value","value":"home@example.com"}]`,
 			wantScimType: scimTypeNoTarget,
@@ -421,6 +426,108 @@ func TestApplyPatchUser(t *testing.T) {
 				"name":     nil,
 			},
 		},
+		{
+			name: "a null value removes what it is assigned to, with or without a path",
+			ops: `[{"op":"replace","path":"title","value":"Engineer"},{"op":"replace","path":"title","value":null},` +
+				`{"op":"add","path":"nickName","value":"Nick"},{"op":"add","path":"nickName","value":null},` +
+				`{"op":"replace","path":"name.givenName","value":null},` +
+				`{"op":"replace","value":{"emails[type eq \"work\"]":null}}]`,
+			want: map[string]any{
+				"title":    nil,
+				"nickName": nil,
+				"name": map[string]any{
+					"familyName": "Family",
+				},
+				"emails": []any{},
+			},
+		},
+		{
+			name: "adding null to a multi-valued attribute adds nothing, with or without a filter or a path",
+			ops: `[{"op":"add","path":"emails","value":null},` +
+				`{"op":"add","path":"emails[type eq \"work\"]","value":null},` +
+				`{"op":"add","value":{"emails":null}}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name:         "replacing values that a filter selects with null needs a value it selects",
+			ops:          `[{"op":"replace","path":"emails[type eq \"home\"]","value":null}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
+			name:         "replacing a sub-attribute of values that a filter selects with null needs a value it selects",
+			ops:          `[{"op":"replace","path":"emails[type eq \"home\"].value","value":null}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
+			name: "replacing values that a filter selects with null removes them",
+			ops: `[{"op":"add","path":"emails","value":[{"value":"home@example.com","type":"home"}]},` +
+				`{"op":"replace","path":"emails[type eq \"home\"]","value":null}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name:  "replacing values that a filter selects with null changes nothing when it selects none and the client's rules add unmatched values",
+			ops:   `[{"op":"replace","path":"emails[type eq \"home\"]","value":null}]`,
+			rules: entra,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value":   "user@example.com",
+						"type":    "work",
+						"primary": true,
+					},
+				},
+			},
+		},
+		{
+			name:         "replacing an unknown sub-attribute of values that a filter selects with null is an invalid path",
+			ops:          `[{"op":"replace","path":"emails[type eq \"home\"].bogus","value":null}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name: "adding null to a read-only multi-valued attribute adds nothing",
+			ops:  `[{"op":"add","path":"groups","value":null}]`,
+			want: map[string]any{
+				"groups": []any{},
+			},
+		},
+		{
+			name: "adding null to a sub-attribute of a filtered value removes it",
+			ops:  `[{"op":"add","path":"emails[type eq \"work\"].primary","value":null}]`,
+			want: map[string]any{
+				"emails": []any{
+					map[string]any{
+						"value": "user@example.com",
+						"type":  "work",
+					},
+				},
+			},
+		},
+		{
+			name:         "removing active with a null value is refused",
+			ops:          `[{"op":"replace","path":"active","value":null}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "a replace without a value is refused",
+			ops:          `[{"op":"replace","path":"title"}]`,
+			wantScimType: scimTypeInvalidValue,
+		},
 	}
 
 	for _, tt := range tests {
@@ -479,6 +586,18 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 			ops:         `[{"op":"remove","path":"members[value eq \"u9\"]"}]`,
 			wantName:    "group",
 			wantMembers: []string{"u1", "u2"},
+		},
+		{
+			name:        "adding null members changes nothing",
+			ops:         `[{"op":"add","path":"members","value":null}]`,
+			wantName:    "group",
+			wantMembers: []string{"u1", "u2"},
+		},
+		{
+			name:        "replacing the members with null removes them all",
+			ops:         `[{"op":"replace","path":"members","value":null}]`,
+			wantName:    "group",
+			wantMembers: []string{},
 		},
 		{
 			name:        "remove all",
@@ -580,12 +699,12 @@ func TestApplyPatchGroupMembers(t *testing.T) {
 				"members": []any{
 					map[string]any{
 						"value": "u1",
-						"$ref":  "https://obot.example.com/scim/v2/c/Users/u1",
+						"$ref":  "https://obot.example.com/scim/v2/Users/u1",
 						"type":  "User",
 					},
 					map[string]any{
 						"value": "u2",
-						"$ref":  "https://obot.example.com/scim/v2/c/Users/u2",
+						"$ref":  "https://obot.example.com/scim/v2/Users/u2",
 						"type":  "User",
 					},
 				},

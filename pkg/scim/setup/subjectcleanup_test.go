@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -16,10 +17,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// failingUpdates fails every update while fail is set.
+// failingUpdates fails every update while fail is set, and counts the lists of each kind.
 type failingUpdates struct {
 	kclient.Client
-	fail bool
+	fail  bool
+	lists map[reflect.Type]int
+}
+
+func (f *failingUpdates) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
+	f.lists[reflect.TypeOf(list)]++
+	return f.Client.List(ctx, list, opts...)
 }
 
 func (f *failingUpdates) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
@@ -35,20 +42,26 @@ func TestCleanUpGroupSubjects(t *testing.T) {
 	both.Spec.Manifest.Subjects = append(both.Spec.Manifest.Subjects, clienttypes.Subject{
 		Type: clienttypes.SubjectTypeGroup,
 		ID:   "okta/kept",
+	}, clienttypes.Subject{
+		Type: clienttypes.SubjectTypeGroup,
+		ID:   "okta/also-deleted",
 	})
 	storage := &failingUpdates{
 		Client: fake.NewClientBuilder().
 			WithScheme(storagescheme.Scheme).
 			WithObjects(both, policy("other", "okta/kept")).
 			Build(),
-		fail: true,
+		fail:  true,
+		lists: map[reflect.Type]int{},
 	}
 	gateway, db := newTestGatewayWithDB(t, storage)
-	if err := db.Create(&types.SCIMGroupSubjectCleanup{
-		GroupID:   "okta/deleted",
-		Namespace: system.DefaultNamespace,
-	}).Error; err != nil {
-		t.Fatal(err)
+	for _, groupID := range []string{"okta/deleted", "okta/also-deleted"} {
+		if err := db.Create(&types.SCIMGroupSubjectCleanup{
+			GroupID:   groupID,
+			Namespace: system.DefaultNamespace,
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	subjects := func(name string) []string {
@@ -63,39 +76,46 @@ func TestCleanUpGroupSubjects(t *testing.T) {
 		}
 		return ids
 	}
-	cleanup := func() *types.SCIMGroupSubjectCleanup {
+	cleanups := func() []types.SCIMGroupSubjectCleanup {
 		t.Helper()
 		var cleanups []types.SCIMGroupSubjectCleanup
-		if err := db.Find(&cleanups).Error; err != nil {
+		if err := db.Order("group_id").Find(&cleanups).Error; err != nil {
 			t.Fatal(err)
 		}
-		if len(cleanups) == 0 {
-			return nil
-		}
-		return &cleanups[0]
+		return cleanups
 	}
 
-	// A failed cleanup is kept, and retried once its claim expires.
+	// Failed cleanups are kept, and retried once their claims expire.
 	if err := CleanUpGroupSubjects(ctx, gateway, storage); err == nil {
 		t.Fatal("a cleanup whose updates were refused succeeded")
 	}
-	if failed := cleanup(); failed == nil || failed.Attempts != 1 {
-		t.Fatalf("the failed cleanup = %+v", failed)
+	if failed := cleanups(); len(failed) != 2 || failed[0].Attempts != 1 || failed[1].Attempts != 1 {
+		t.Fatalf("the failed cleanups = %+v", failed)
 	}
 	storage.fail = false
 	if err := CleanUpGroupSubjects(ctx, gateway, storage); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(subjects("both"), []string{"okta/deleted", "okta/kept"}) {
+	if !slices.Equal(subjects("both"), []string{"okta/deleted", "okta/kept", "okta/also-deleted"}) {
 		t.Fatal("a cleanup ran before its claim expired")
 	}
-	if err := db.Model(new(types.SCIMGroupSubjectCleanup)).Where("group_id = ?", "okta/deleted").
+	if err := db.Model(new(types.SCIMGroupSubjectCleanup)).Where("1 = 1").
 		UpdateColumn("claimed_until", time.Now().Add(-time.Second)).Error; err != nil {
 		t.Fatal(err)
 	}
 
+	// Both cleanups run in one pass over the namespace's policies.
+	clear(storage.lists)
 	if err := CleanUpGroupSubjects(ctx, gateway, storage); err != nil {
 		t.Fatal(err)
+	}
+	if len(storage.lists) == 0 {
+		t.Fatal("the cleanup listed no policies")
+	}
+	for kind, lists := range storage.lists {
+		if lists != 1 {
+			t.Errorf("listed %v %d times, want once", kind, lists)
+		}
 	}
 	if got := subjects("both"); !slices.Equal(got, []string{"okta/kept"}) {
 		t.Fatalf("subjects after the cleanup = %v", got)
@@ -103,7 +123,50 @@ func TestCleanUpGroupSubjects(t *testing.T) {
 	if got := subjects("other"); !slices.Equal(got, []string{"okta/kept"}) {
 		t.Fatalf("an unrelated policy's subjects = %v", got)
 	}
-	if remaining := cleanup(); remaining != nil {
-		t.Fatalf("the completed cleanup remains: %+v", remaining)
+	if remaining := cleanups(); len(remaining) != 0 {
+		t.Fatalf("the completed cleanups remain: %+v", remaining)
+	}
+}
+
+func TestRunGroupSubjectCleanupsRunsAtOnceAndStopsWithItsContext(t *testing.T) {
+	storage := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(policy("deleted", "okta/deleted")).
+		Build()
+	gateway, db := newTestGatewayWithDB(t, storage)
+	if err := db.Create(&types.SCIMGroupSubjectCleanup{
+		GroupID:   "okta/deleted",
+		Namespace: system.DefaultNamespace,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		RunGroupSubjectCleanups(ctx, gateway, storage)
+		close(done)
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var p v1.ModelAccessPolicy
+		if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "deleted"}, &p); err != nil {
+			t.Fatal(err)
+		}
+		if len(p.Spec.Manifest.Subjects) == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the cleanup did not run once the runner started")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the runner did not stop once its context was done")
 	}
 }

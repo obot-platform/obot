@@ -28,7 +28,7 @@ type SCIMConnection struct {
 	PreviousTokenAccepted  bool  `json:"previousTokenAccepted"`
 	PreviousTokenExpiresAt *Time `json:"previousTokenExpiresAt,omitempty"`
 	// AuthProviderConfigured is false while the connection's auth provider is not the one serving sign-ins,
-	// including while it is only staged, and the SCIM endpoint answers 503.
+	// such as while it is only staged. The SCIM endpoint then answers 503, and no token is issued.
 	AuthProviderConfigured bool `json:"authProviderConfigured"`
 	// Token is the bearer token. It is set only in the response that issued it, and cannot be retrieved again.
 	Token string `json:"token,omitempty"`

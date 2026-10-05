@@ -42,19 +42,64 @@ var (
 // commits while the token is being issued would, after its delivery already looked for the user's refresh tokens.
 type disableOnTokenCreateStorage struct {
 	storage.Client
+	t             *testing.T
 	gatewayClient *gatewayclient.Client
+	// nativeID and email identify the user to the identity provider.
+	nativeID string
+	email    string
 }
 
 func (s *disableOnTokenCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
 	if err := s.Client.Create(ctx, obj, opts...); err != nil {
 		return err
 	}
-	if token, ok := obj.(*v1.OAuthToken); ok {
-		if _, err := s.gatewayClient.DisableUser(ctx, oauthLifecycleTestProvider, token.Spec.UserID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
+	if _, ok := obj.(*v1.OAuthToken); ok {
+		if err := deactivateThroughSCIM(s.t, s.gatewayClient, oauthLifecycleTestProvider, s.nativeID, s.email); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// deactivateThroughSCIM has the identity provider of provider deactivate the user with the native ID nativeID and the
+// email email through SCIM, as it does in production, setting up the provider's SCIM connection first if it has none.
+// A user who signed in with that ID is bound to their account, and disabled.
+func deactivateThroughSCIM(t *testing.T, c *gatewayclient.Client, provider gatewayclient.AuthProviderRef, nativeID, email string) error {
+	t.Helper()
+
+	conn, err := c.SCIMConnectionForAuthProvider(t.Context(), provider.Namespace, provider.Name)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		if conn, _, err = c.CreateSCIMConnection(t.Context(), gatewayclient.CreateSCIMConnectionOptions{
+			AuthProviderNamespace: provider.Namespace,
+			AuthProviderName:      provider.Name,
+			GroupIDPrefix:         "okta/",
+			Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = c.CreateSCIMUser(t.Context(), conn, gatewayclient.SCIMUserInput{
+		UserName:   email,
+		ExternalID: nativeID,
+		Active:     new(false),
+		Profile: gatewaytypes.SCIMUserProfile{
+			Emails: []gatewaytypes.SCIMMultiValue{
+				{
+					Value:   email,
+					Primary: true,
+				},
+			},
+		},
+	}, gatewayclient.SCIMUserCreateOptions{
+		UserLimit: gatewayclient.UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: types.RoleBasic,
+	})
+	return err
 }
 
 // createDisabledOAuthTestUser creates a user of the Okta provider and disables them. It returns once the disable
@@ -82,8 +127,7 @@ func createDisabledOAuthTestUser(t *testing.T, storage kclient.Client, gatewayCl
 	}
 	require.NoError(t, storage.Create(t.Context(), heldToken))
 
-	_, err = gatewayClient.DisableUser(t.Context(), oauthLifecycleTestProvider, user.ID, gatewaytypes.UserDisabledReasonSCIMInactive)
-	require.NoError(t, err)
+	require.NoError(t, deactivateThroughSCIM(t, gatewayClient, oauthLifecycleTestProvider, "00u-disabled", user.Email))
 
 	require.Eventually(t, func() bool {
 		return apierrors.IsNotFound(storage.Get(t.Context(), kclient.ObjectKeyFromObject(heldToken), &v1.OAuthToken{}))
@@ -225,7 +269,10 @@ func TestRefreshTokensIssuedWhileTheUserIsDisabledAreRevoked(t *testing.T) {
 				Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
 				Storage: &disableOnTokenCreateStorage{
 					Client:        baseStorage,
+					t:             t,
 					gatewayClient: gatewayClient,
+					nativeID:      "00u-racing",
+					email:         user.Email,
 				},
 				GatewayClient: gatewayClient,
 			}

@@ -79,7 +79,7 @@ func TestSCIMConnectionIsLimitedByConnectionAtTheAuthenticatedRate(t *testing.T)
 		UID:    "conn-1",
 		Groups: []string{types.GroupSCIM},
 	}
-	request := httptest.NewRequest(http.MethodGet, "/scim/v2/conn-1/Users", nil)
+	request := httptest.NewRequest(http.MethodGet, "/scim/v2/Users", nil)
 
 	for i := range 2 {
 		response := httptest.NewRecorder()
@@ -100,7 +100,7 @@ func TestSCIMConnectionIsLimitedByConnectionAtTheAuthenticatedRate(t *testing.T)
 		t.Fatalf("%s = %q, want a positive integer number of seconds", headerRetryAfter, retryAfter)
 	}
 
-	// Another connection's principal has its own budget.
+	// A new connection, after SCIM is set up again, has its own budget.
 	response = httptest.NewRecorder()
 	if err := limiter.ApplyLimit(&user.DefaultInfo{
 		Name:   "scim-connection:conn-2",

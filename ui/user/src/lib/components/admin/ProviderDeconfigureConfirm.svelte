@@ -34,6 +34,9 @@
 	}
 
 	let authProvider = $derived(providers?.find((p) => p.type === 'authprovider'));
+	let scimManaged = $derived(
+		!!authProvider && 'scimState' in authProvider && !!authProvider.scimState
+	);
 	let listOfProviders = $derived(
 		providers
 			?.map((p) => p.name)
@@ -80,6 +83,15 @@
 								The accounts tied to this provider will continue to exist and will require manual
 								cleanup by an administrator.
 							</li>
+							{#if scimManaged}
+								<li>
+									Its SCIM connection is deleted, with its groups, group memberships, and group role
+									assignments, and its groups are removed from access policies. Users that SCIM
+									disabled stay disabled until an administrator enables them. Turn off provisioning
+									in
+									{authProvider.name}. Using SCIM with it again starts over with a new token.
+								</li>
+							{/if}
 						</ul>
 					</div>
 				{/if}

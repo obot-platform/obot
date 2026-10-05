@@ -3,10 +3,14 @@ package client
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
@@ -32,7 +36,7 @@ type SCIMRequestOutcome struct {
 }
 
 // RecordSCIMRequest records an authenticated SCIM request of the connection: its time, and for a failed request,
-// the failure.
+// the failure. It records nothing for a connection that no longer exists.
 func (c *Client) RecordSCIMRequest(ctx context.Context, connectionID string, outcome SCIMRequestOutcome) error {
 	now := time.Now()
 	stale := now.Add(-scimActivityInterval)
@@ -60,56 +64,55 @@ func (c *Client) RecordSCIMRequest(ctx context.Context, connectionID string, out
 		return nil
 	}
 
-	detail := outcome.Detail
-	if len(detail) > maxSCIMFailureDetailLength {
-		detail = detail[:maxSCIMFailureDetailLength]
-	}
 	failure := &types.SCIMRequestFailure{
 		ConnectionID: connectionID,
 		CreatedAt:    now,
 		Method:       outcome.Method,
-		Resource:     outcome.Resource,
+		Resource:     strings.ToValidUTF8(outcome.Resource, "\uFFFD"),
 		Status:       outcome.Status,
 		SCIMType:     outcome.SCIMType,
-		Detail:       detail,
+		Detail:       truncateUTF8(outcome.Detail, maxSCIMFailureDetailLength),
 	}
 	if err := c.encryptSCIMRequestFailure(ctx, failure); err != nil {
 		return err
 	}
-	if err := db.Create(failure).Error; err != nil {
-		return fmt.Errorf("failed to record SCIM request failure: %w", err)
-	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		// A request can fail because its connection was deleted while it was handled. The connection is locked, as
+		// deleting it does, so that a failure is either recorded first and deleted with the connection, or not at all.
+		if _, err := scimConnectionTx(tx, connectionID, true); errors.Is(err, ErrSCIMConnectionNotFound) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := tx.Create(failure).Error; err != nil {
+			return fmt.Errorf("failed to record SCIM request failure: %w", err)
+		}
 
-	// Only the most recent failures are kept.
-	if err := db.Where("connection_id = ? AND id NOT IN (?)", connectionID,
-		db.Model(new(types.SCIMRequestFailure)).
-			Select("id").
-			Where("connection_id = ?", connectionID).
-			Order("id DESC").
-			Limit(scimRequestFailuresKept),
-	).Delete(new(types.SCIMRequestFailure)).Error; err != nil {
-		return fmt.Errorf("failed to prune SCIM request failures: %w", err)
-	}
-	return nil
+		// Only the most recent failures are kept.
+		if err := tx.Where("connection_id = ? AND id NOT IN (?)", connectionID,
+			tx.Model(new(types.SCIMRequestFailure)).
+				Select("id").
+				Where("connection_id = ?", connectionID).
+				Order("id DESC").
+				Limit(scimRequestFailuresKept),
+		).Delete(new(types.SCIMRequestFailure)).Error; err != nil {
+			return fmt.Errorf("failed to prune SCIM request failures: %w", err)
+		}
+		return nil
+	})
 }
 
-// SCIMRequestFailures returns the connection's most recent failed requests, newest first.
-func (c *Client) SCIMRequestFailures(ctx context.Context, connectionID string, limit int) ([]types.SCIMRequestFailure, error) {
-	var failures []types.SCIMRequestFailure
-	if err := c.db.WithContext(ctx).
-		Where("connection_id = ?", connectionID).
-		Order("id DESC").
-		Limit(limit).
-		Find(&failures).Error; err != nil {
-		return nil, fmt.Errorf("failed to list SCIM request failures: %w", err)
+// truncateUTF8 returns s, as valid UTF-8, cut to at most n bytes without splitting a character. A failure's details
+// can quote what the request sent, and PostgreSQL refuses text that is not valid UTF-8.
+func truncateUTF8(s string, n int) string {
+	s = strings.ToValidUTF8(s, "\uFFFD")
+	if len(s) <= n {
+		return s
 	}
-
-	for i := range failures {
-		if err := c.decryptSCIMRequestFailure(ctx, &failures[i]); err != nil {
-			return nil, err
-		}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
 	}
-	return failures, nil
+	return s[:n]
 }
 
 func (c *Client) encryptSCIMRequestFailure(ctx context.Context, failure *types.SCIMRequestFailure) error {

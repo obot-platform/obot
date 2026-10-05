@@ -55,8 +55,8 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	hasRules := ok && adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest)
 	state := adapter.ProviderState{
-		AuthProviderName: authProvider.Name,
-		Connection:       conn,
+		AuthProviderName:      authProvider.Name,
+		ConnectionAdapterType: adapter.ConnectionAdapterType(conn),
 	}
 	if conn != nil {
 		if conn.Origin == types.SCIMConnectionOriginMigrated {

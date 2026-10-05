@@ -203,6 +203,14 @@ func TestGroupPatchMatchesTheWholeGroupPatch(t *testing.T) {
 			ops:  `[{"op":"remove","path":"members[value eq \"{BOB}\"]"}]`,
 		},
 		{
+			name: "add a member by its uppercased value",
+			ops:  `[{"op":"add","path":"members","value":[{"value":"{CAROL}"}]}]`,
+		},
+		{
+			name: "replace the members by their uppercased values",
+			ops:  `[{"op":"replace","path":"members","value":[{"value":"{BOB}"},{"value":"{carol}"}]}]`,
+		},
+		{
 			name: "remove a member that is not a user",
 			ops:  `[{"op":"remove","path":"members[value eq \"00000000-0000-0000-0000-000000000000\"]"}]`,
 		},
@@ -259,7 +267,7 @@ func TestGroupPatchMatchesTheWholeGroupPatch(t *testing.T) {
 				"schemas":    []string{patchOpSchema},
 				"Operations": operations,
 			})
-			_, err := s.gateway.UpdateSCIMGroup(t.Context(), s.conn, whole.id(), func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
+			err := s.gateway.UpdateSCIMGroup(t.Context(), s.conn, whole.id(), func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
 				resource := groupResource(&current, testServerURL)
 				if err := applyPatch(groupResourceSchema, resource, decoded, adapter.PatchRules{}); err != nil {
 					return gclient.SCIMGroupInput{}, err

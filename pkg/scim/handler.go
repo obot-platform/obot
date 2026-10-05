@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	// PathPrefix is the path under which every SCIM connection is served, as PathPrefix + connection ID.
+	// PathPrefix is the path under which the SCIM connection's resources are served. There is at most one connection,
+	// so its base URL names none.
 	PathPrefix = "/scim/v2/"
 
 	contentType = "application/scim+json; charset=utf-8"
@@ -60,8 +61,8 @@ type Environment interface {
 }
 
 // Handler serves the SCIM endpoint. The API server authenticates its requests with the SCIM authenticator, which
-// accepts only a connection's own bearer token, and authorizes them only for that connection, so no cookie, Obot
-// credential, redirect, or just-in-time user creation ever reaches it.
+// accepts only the SCIM connection's bearer token, and authorizes them only for that connection's principal, so no
+// cookie, Obot credential, redirect, or just-in-time user creation ever reaches it.
 type Handler struct {
 	gateway   *gclient.Client
 	env       Environment
@@ -97,16 +98,16 @@ func NewHandler(gateway *gclient.Client, env Environment, serverURL string) *Han
 	}
 }
 
-// ANY /scim/v2/{connection}/...
-// Serves the SCIM endpoint of a connection, routing each request by its method and path. It writes every response
+// ANY /scim/v2 and /scim/v2/...
+// Serves the SCIM endpoint of the SCIM connection, routing each request by its method and path. It writes every response
 // itself, as a SCIM response, and never returns an error.
 func (h *Handler) Serve(req api.Context) error {
 	h.ServeHTTP(req.ResponseWriter, req.Request, req.User)
 	return nil
 }
 
-// ServeHTTP handles a request that principal made. Only the principal of the connection named in the path, which the
-// SCIM authenticator yields, is served.
+// ServeHTTP handles a request that principal made. Only the principal of a SCIM connection, which the SCIM
+// authenticator yields, is served, for that connection.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal user.Info) {
 	start := time.Now()
 	rec := &statusRecorder{
@@ -120,7 +121,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal us
 	rec.Header().Set("Cache-Control", "no-store")
 	rec.Header().Set("X-Content-Type-Options", "nosniff")
 
-	connectionID, segments := splitPath(r.URL.Path)
+	connectionID, segments := principal.GetUID(), splitPath(r.URL.Path)
 	resource, operation := describeRequest(r.Method, segments)
 	var authenticated bool
 	defer func() {
@@ -134,9 +135,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal us
 		}
 	}()
 
-	// Authorization already confined the connection's principal to its own connection. This repeats the check, so the
-	// handler never serves a request it was not meant for.
-	if !IsConnectionPrincipal(principal) || principal.GetUID() != connectionID {
+	// Authorization already confined the SCIM endpoint to connection principals. This repeats the check, so the handler
+	// never serves a request it was not meant for.
+	if !IsConnectionPrincipal(principal) || connectionID == "" {
 		writeError(rec, &Error{
 			Status: http.StatusForbidden,
 			Detail: "this credential cannot access this SCIM connection",
@@ -189,13 +190,13 @@ func (h *Handler) connection(ctx context.Context, id string) (*connection, error
 	}
 	return &connection{
 		SCIMConnection: conn,
-		baseURL:        h.serverURL + PathPrefix + conn.ID,
+		baseURL:        BaseURL(h.serverURL),
 		patchRules:     a.PatchRules(),
 	}, nil
 }
 
 // recordActivity records the outcome of a request that the connection's token authenticated as the connection's
-// activity. Unauthenticated requests never reach the handler, so anyone who knows a base URL cannot fill its failure
+// activity. Unauthenticated requests never reach the handler, so anyone who knows the base URL cannot fill the failure
 // log. A failure to record it is logged, and never changes the response.
 func (h *Handler) recordActivity(r *http.Request, rec *statusRecorder, connectionID string, segments []string) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), activityTimeout)
@@ -293,7 +294,7 @@ func (h *Handler) route(w http.ResponseWriter, r *request) {
 	}
 }
 
-// GET /scim/v2/{connection}/Users
+// GET /scim/v2/Users
 // Lists the users that SCIM has provisioned, optionally filtered by userName or id.
 func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 	q := r.URL.Query()
@@ -345,7 +346,7 @@ func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 	writeList(w, resources, total, startIndex)
 }
 
-// POST /scim/v2/{connection}/Users
+// POST /scim/v2/Users
 // Provisions a user, binding it to the existing user with the same native user ID or creating one.
 func (h *Handler) createUser(w http.ResponseWriter, r *request) {
 	proj, err := parseProjection(userResourceSchema, r.URL.Query())
@@ -392,7 +393,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *request) {
 	writeJSON(w, http.StatusCreated, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
-// GET /scim/v2/{connection}/Users/{id}
+// GET /scim/v2/Users/{id}
 // Returns a provisioned user, including active and the read-only groups.
 func (h *Handler) getUser(w http.ResponseWriter, r *request, id string) {
 	proj, err := parseProjection(userResourceSchema, r.URL.Query())
@@ -409,7 +410,7 @@ func (h *Handler) getUser(w http.ResponseWriter, r *request, id string) {
 	writeJSON(w, http.StatusOK, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
-// PUT /scim/v2/{connection}/Users/{id}
+// PUT /scim/v2/Users/{id}
 // Replaces a provisioned user's writable attributes. An omitted active keeps the current state, and id, meta, and
 // groups are ignored. There is no upsert.
 func (h *Handler) replaceUser(w http.ResponseWriter, r *request, id string) {
@@ -439,7 +440,7 @@ func (h *Handler) replaceUser(w http.ResponseWriter, r *request, id string) {
 	writeJSON(w, http.StatusOK, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
-// PATCH /scim/v2/{connection}/Users/{id}
+// PATCH /scim/v2/Users/{id}
 // Applies PatchOp operations to a provisioned user, including active with and without a path.
 func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 	proj, err := parseProjection(userResourceSchema, r.URL.Query())
@@ -460,10 +461,13 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 
 	user, err := h.gateway.UpdateSCIMUser(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMUser) (gclient.SCIMUserInput, error) {
 		resource := userResource(&current, r.conn.baseURL)
-		// The current user's groups are not loaded. They are read-only, so a PATCH can neither change nor restate them.
-		delete(resource, "groups")
 		if err := applyPatch(userResourceSchema, resource, ops, r.conn.patchRules); err != nil {
 			return gclient.SCIMUserInput{}, err
+		}
+		// A user's externalId is the identity evidence it was bound by. A PUT that omits it keeps it, but a PATCH that
+		// removes it asks for what cannot be done.
+		if current.ExternalID != "" && stringValue(resource, "externalId") == "" {
+			return gclient.SCIMUserInput{}, badRequest(scimTypeMutability, "externalId identifies the user and cannot be removed")
 		}
 		return userInputFromResource(resource)
 	})
@@ -474,7 +478,7 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 	writeJSON(w, http.StatusOK, proj.apply(userResource(user, r.conn.baseURL)))
 }
 
-// GET /scim/v2/{connection}/Groups
+// GET /scim/v2/Groups
 // Lists the groups that SCIM has bound or created, optionally filtered by displayName or id.
 func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 	q := r.URL.Query()
@@ -526,7 +530,7 @@ func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 	writeList(w, resources, total, startIndex)
 }
 
-// POST /scim/v2/{connection}/Groups
+// POST /scim/v2/Groups
 // Binds a pushed group to the unbound group with the same name, or creates one, with the complete member list.
 func (h *Handler) createGroup(w http.ResponseWriter, r *request) {
 	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
@@ -559,7 +563,7 @@ func (h *Handler) createGroup(w http.ResponseWriter, r *request) {
 	writeJSON(w, http.StatusCreated, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
-// GET /scim/v2/{connection}/Groups/{id}
+// GET /scim/v2/Groups/{id}
 // Returns a bound group with its full member list, unless attributes are projected.
 func (h *Handler) getGroup(w http.ResponseWriter, r *request, id string) {
 	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
@@ -576,7 +580,7 @@ func (h *Handler) getGroup(w http.ResponseWriter, r *request, id string) {
 	writeJSON(w, http.StatusOK, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
-// PUT /scim/v2/{connection}/Groups/{id}
+// PUT /scim/v2/Groups/{id}
 // Replaces a bound group's display name and members. The members are the complete set.
 func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
 	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
@@ -599,9 +603,17 @@ func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
 		return
 	}
 
-	group, err := h.gateway.UpdateSCIMGroup(r.Context(), r.conn.SCIMConnection, id, func(gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
-		return input, nil
-	})
+	// The replacement does not depend on the current members, so it is applied without reading them, and the response
+	// reads them once the write is committed, only if it includes them.
+	if err := h.gateway.PatchSCIMGroup(r.Context(), r.conn.SCIMConnection, id, gclient.SCIMGroupPatch{
+		DisplayName:    input.DisplayName,
+		ReplaceMembers: true,
+		MemberIDs:      input.MemberIDs,
+	}); err != nil {
+		writeError(w, toError(err))
+		return
+	}
+	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.ID, id, proj.includes("members"))
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -609,10 +621,16 @@ func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
 	writeJSON(w, http.StatusOK, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
-// PATCH /scim/v2/{connection}/Groups/{id}
+// PATCH /scim/v2/Groups/{id}
 // Renames a bound group, and adds, removes, or replaces its members. The response has no body, as RFC 7644 section
-// 3.5.2 allows: returning the group would mean reading every member of it.
+// 3.5.2 allows: returning the group would mean reading every member of it. A request with the attributes parameter
+// gets the group, with the attributes it selects, as that section requires.
 func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
+	proj, err := parseProjection(groupResourceSchema, r.URL.Query())
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
 	body, err := readBody(r)
 	if err != nil {
 		writeError(w, toError(err))
@@ -638,7 +656,7 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 	if patch, ok := planGroupPatch(id, ops); ok {
 		err = h.gateway.PatchSCIMGroup(r.Context(), r.conn.SCIMConnection, id, patch)
 	} else {
-		_, err = h.gateway.UpdateSCIMGroup(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
+		err = h.gateway.UpdateSCIMGroup(r.Context(), r.conn.SCIMConnection, id, func(current gclient.SCIMGroup) (gclient.SCIMGroupInput, error) {
 			resource := groupResource(&current, r.conn.baseURL)
 			if err := applyPatch(groupResourceSchema, resource, ops, r.conn.patchRules); err != nil {
 				return gclient.SCIMGroupInput{}, err
@@ -650,10 +668,20 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 		writeError(w, toError(err))
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+
+	if !proj.selected {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.ID, id, proj.includes("members"))
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, proj.apply(groupResource(group, r.conn.baseURL)))
 }
 
-// DELETE /scim/v2/{connection}/Groups/{id}
+// DELETE /scim/v2/Groups/{id}
 // Retires the group's binding and removes its memberships. Until SCIM is enforced, the Obot group and its references
 // remain, unbound. Once it is enforced, the group is deleted, with its role assignments and policy subjects.
 func (h *Handler) deleteGroup(w http.ResponseWriter, r *request, id string) {
@@ -792,23 +820,24 @@ func pageParams(q url.Values) (int, int, error) {
 	return startIndex, count, nil
 }
 
-// IsSCIMPath reports whether a request path is served by the SCIM endpoint.
+// IsSCIMPath reports whether a request path is served by the SCIM endpoint: the base URL, and every path below it.
 func IsSCIMPath(path string) bool {
-	return strings.HasPrefix(path, PathPrefix)
+	return path == strings.TrimSuffix(PathPrefix, "/") || strings.HasPrefix(path, PathPrefix)
 }
 
-// splitPath returns the connection ID of a SCIM request path and the path segments below the connection's base URL.
-func splitPath(path string) (string, []string) {
+// BaseURL returns the base URL of the SCIM connection, which every SCIM request is relative to. The server URL is
+// configured by hand, so any trailing slashes on it are dropped.
+func BaseURL(serverURL string) string {
+	return strings.TrimRight(serverURL, "/") + strings.TrimSuffix(PathPrefix, "/")
+}
+
+// splitPath returns the path segments of a SCIM request path below the connection's base URL.
+func splitPath(path string) []string {
 	rest, ok := strings.CutPrefix(path, PathPrefix)
 	if !ok {
-		return "", nil
+		return nil
 	}
-
-	parts := strings.Split(strings.Trim(rest, "/"), "/")
-	if len(parts) == 0 || parts[0] == "" {
-		return "", nil
-	}
-	return parts[0], slices.DeleteFunc(parts[1:], func(s string) bool { return s == "" })
+	return slices.DeleteFunc(strings.Split(rest, "/"), func(s string) bool { return s == "" })
 }
 
 func bearerToken(r *http.Request) (string, bool) {

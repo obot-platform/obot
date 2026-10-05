@@ -20,7 +20,7 @@ func TestAvailabilityAndAuthentication(t *testing.T) {
 	s := newSCIMTest(t)
 
 	// Before any connection exists, the endpoint is unavailable, and says so before authenticating.
-	resp := s.request(http.MethodGet, PathPrefix+"00000000-0000-0000-0000-000000000000/Users", "", nil).expect(t, http.StatusServiceUnavailable)
+	resp := s.request(http.MethodGet, s.path("Users"), "", nil).expect(t, http.StatusServiceUnavailable)
 	if resp.header.Get("Retry-After") == "" {
 		t.Fatal("503 without Retry-After")
 	}
@@ -48,10 +48,10 @@ func TestAvailabilityAndAuthentication(t *testing.T) {
 			status: http.StatusUnauthorized,
 		},
 		{
-			name:   "token of another connection",
+			name:   "a path that names a connection, which the base URL does not",
 			path:   PathPrefix + "00000000-0000-0000-0000-000000000000/Users",
 			token:  s.token,
-			status: http.StatusUnauthorized,
+			status: http.StatusNotFound,
 		},
 		{
 			name:   "valid token",
@@ -236,9 +236,18 @@ func TestUserBinding(t *testing.T) {
 		t.Fatalf("totalResults = %v, want 2", total)
 	}
 
-	// A user disabled for never having been provisioned is re-enabled when it is.
-	if _, err := s.gateway.DisableUser(t.Context(), oktaProvider(), unprovisioned.ID, types.UserDisabledReasonSCIMUnprovisioned); err != nil {
+	// A user disabled for never having been provisioned, when the bound Owner enforced SCIM, is re-enabled when it is.
+	if _, err := s.gateway.EnforceSCIMConnection(t.Context(), s.conn.ID, gclient.EnforceSCIMOptions{
+		Actor: gclient.SCIMEnforceActor{
+			UserID:                existing.ID,
+			AuthProviderNamespace: system.DefaultNamespace,
+			AuthProviderName:      testOktaProviderName,
+		},
+	}); err != nil {
 		t.Fatal(err)
+	}
+	if u := s.user(unprovisioned.ID); u.DisabledReason != types.UserDisabledReasonSCIMUnprovisioned {
+		t.Fatalf("unprovisioned user after enforcing = %+v, want disabled as unprovisioned", u)
 	}
 	s.do(http.MethodPost, "Users", scimUser("unprovisioned@example.com", "00u-unprovisioned")).expect(t, http.StatusCreated)
 	if u := s.user(unprovisioned.ID); u.DisabledAt != nil {
@@ -402,12 +411,46 @@ func TestUserWireSemantics(t *testing.T) {
 		t.Errorf("scimType = %v, want %s", resp.body["scimType"], scimTypeNoTarget)
 	}
 
-	// PATCH rejects read-only targets and validates the result before committing anything.
+	// PATCH rejects read-only targets and validates the result before committing anything. Restating the user's
+	// groups unchanged is not a change.
+	current := s.do(http.MethodGet, "Users/"+user.id(), nil).expect(t, http.StatusOK)
+	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
+		"op": "replace",
+		"value": map[string]any{
+			"groups":   current.body["groups"],
+			"nickName": "Nick",
+		},
+	})).expect(t, http.StatusOK)
 	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
 		"op":    "replace",
 		"path":  "groups",
 		"value": []any{},
 	})).expect(t, http.StatusBadRequest)
+	// Adding a group the user is already in changes nothing, but adding one they are not in is refused.
+	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
+		"op":   "add",
+		"path": "groups",
+		"value": []any{
+			map[string]any{
+				"value": group.id(),
+			},
+		},
+	})).expect(t, http.StatusOK)
+	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
+		"op":   "add",
+		"path": "groups",
+		"value": []any{
+			map[string]any{
+				"value": "00000000-0000-0000-0000-000000000000",
+			},
+		},
+	})).expect(t, http.StatusBadRequest)
+	if resp := s.do(http.MethodPatch, "Users/"+user.id(), patchOp(map[string]any{
+		"op":   "remove",
+		"path": "externalId",
+	})).expect(t, http.StatusBadRequest); resp.body["scimType"] != scimTypeMutability {
+		t.Errorf("removing externalId: scimType = %v, want %s", resp.body["scimType"], scimTypeMutability)
+	}
 	s.do(http.MethodPatch, "Users/"+user.id(), patchOp(
 		map[string]any{
 			"op":    "replace",
@@ -497,13 +540,6 @@ func (s *scimTest) bindingByID(id string) types.SCIMUserBinding {
 	return binding
 }
 
-func oktaProvider() gclient.AuthProviderRef {
-	return gclient.AuthProviderRef{
-		Namespace: system.DefaultNamespace,
-		Name:      testOktaProviderName,
-	}
-}
-
 func TestEmptyFilterValuesMatchNothing(t *testing.T) {
 	s := newSCIMTest(t)
 	s.enable()
@@ -582,6 +618,29 @@ func TestWriteResponsesAreProjected(t *testing.T) {
 			body:     scimGroup("team", user),
 			status:   http.StatusOK,
 			want:     []string{"displayName", "id", "schemas"},
+		},
+		{
+			name:     "patch a group with attributes",
+			method:   http.MethodPatch,
+			resource: "Groups/" + group + "?attributes=displayName,members",
+			body: patchOp(map[string]any{
+				"op":    "replace",
+				"path":  "displayName",
+				"value": "renamed team",
+			}),
+			status: http.StatusOK,
+			want:   []string{"displayName", "id", "members", "schemas"},
+		},
+		{
+			name:     "patch a group without attributes",
+			method:   http.MethodPatch,
+			resource: "Groups/" + group + "?excludedAttributes=members",
+			body: patchOp(map[string]any{
+				"op":    "replace",
+				"path":  "displayName",
+				"value": "team",
+			}),
+			status: http.StatusNoContent,
 		},
 	}
 	for _, tt := range tests {
@@ -721,4 +780,85 @@ func TestUsersHaveAtMostOnePrimaryValue(t *testing.T) {
 		"path":  "emails",
 		"value": twoPrimaries,
 	})).expect(t, http.StatusBadRequest)
+}
+
+func TestBaseURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		serverURL string
+		want      string
+	}{
+		{
+			name:      "a server URL without a trailing slash",
+			serverURL: "https://obot.example.com",
+			want:      "https://obot.example.com/scim/v2",
+		},
+		{
+			name:      "a server URL with a trailing slash",
+			serverURL: "https://obot.example.com/",
+			want:      "https://obot.example.com/scim/v2",
+		},
+		{
+			name:      "a server URL with a path and trailing slashes",
+			serverURL: "https://example.com/obot//",
+			want:      "https://example.com/obot/scim/v2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BaseURL(tt.serverURL); got != tt.want {
+				t.Fatalf("BaseURL(%q) = %q, want %q", tt.serverURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPathsBelowTheBaseURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		path         string
+		wantSCIM     bool
+		wantSegments []string
+	}{
+		{
+			name:         "a resource",
+			path:         "/scim/v2/Users/abc",
+			wantSCIM:     true,
+			wantSegments: []string{"Users", "abc"},
+		},
+		{
+			name:         "doubled and trailing slashes",
+			path:         "/scim/v2//Users/",
+			wantSCIM:     true,
+			wantSegments: []string{"Users"},
+		},
+		{
+			name:     "the base URL",
+			path:     "/scim/v2",
+			wantSCIM: true,
+		},
+		{
+			name:     "the SCIM root",
+			path:     "/scim/v2/",
+			wantSCIM: true,
+		},
+		{
+			name: "another path that begins the same",
+			path: "/scim/v2x/Users",
+		},
+		{
+			name: "an API path",
+			path: "/api/me",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSCIMPath(tt.path); got != tt.wantSCIM {
+				t.Fatalf("IsSCIMPath(%q) = %v, want %v", tt.path, got, tt.wantSCIM)
+			}
+			if got := splitPath(tt.path); !slices.Equal(got, tt.wantSegments) {
+				t.Fatalf("splitPath(%q) = %q, want %q", tt.path, got, tt.wantSegments)
+			}
+		})
+	}
 }

@@ -113,25 +113,26 @@
 	});
 	let confirmDiscardSwitch = $state(false);
 	let confirmSwitch = $state(false);
-	// SCIM keeps a provider's users, groups, and policies while the provider is deconfigured, and
-	// resumes when it is configured again, so a switch says which of the two it does.
+	// Switching away from a provider that SCIM manages deletes its SCIM data, so a switch says so,
+	// and what setting SCIM up for the incoming provider takes.
 	let switchNote = $derived.by(() => {
 		const incoming = configuringAuthProvider?.name;
 		const notes = [`This cannot be undone. Everyone signs in through ${incoming} afterwards.`];
 		if (activeProvider?.scimState) {
+			const outgoing = activeProvider.name;
 			notes.push(
-				`SCIM provisioning for ${activeProvider.name} pauses: its users, groups, and policies are kept, and provisioning requests from ${activeProvider.name} fail until it is configured again. Then retry the failed tasks in ${activeProvider.name}, rather than marking them complete.`
+				`Switching deletes ${outgoing}'s SCIM connection, with its groups, group memberships, and group role assignments, and removes its groups from access policies. Its users are kept. Users that SCIM disabled stay disabled until an administrator enables them. Turn off provisioning in ${outgoing}: its requests fail from then on. Using SCIM with ${outgoing} again starts over, with a new token.`
 			);
 		}
 		if (configuringAuthProvider?.scimState) {
 			notes.push(
-				`${incoming} provisions users and groups through SCIM. If it was configured before, SCIM resumes; retry the provisioning tasks that failed in ${incoming} rather than marking them complete.`
+				`${incoming} provisions users and groups through SCIM. After the switch, generate its SCIM token and enter it in ${incoming}.`
 			);
 		}
 		return notes.join(' ');
 	});
-	// Set once a switch completes to a provider that provisions through SCIM, whose failed
-	// provisioning tasks need retrying. The layout's banner covers unfinished SCIM setup.
+	// Set once a switch completes to a provider that provisions through SCIM, whose setup is
+	// finished on the SCIM tab. The layout's banner covers unfinished SCIM setup too.
 	let scimNotice = $state<string>();
 	// The provider whose configuration was refused for group data left from an earlier
 	// configuration, which its auth provider cleanup removes.
@@ -146,7 +147,8 @@
 		residualData?.groups.filter((group) => group.references?.length) ?? []
 	);
 	let residualCleanupSummary = $derived.by(() => {
-		const groups = residualData?.groups.length ?? 0;
+		// A referenced group ID that no group has is listed for its references, which go, but is no group.
+		const groups = residualData?.groups.filter((group) => group.name).length ?? 0;
 		const memberships = residualData?.membershipCount ?? 0;
 		return `This deletes ${groups} ${groups === 1 ? 'group' : 'groups'} and ${memberships} ${memberships === 1 ? 'group membership' : 'group memberships'}. It cannot be undone.`;
 	});
@@ -479,7 +481,7 @@
 			providerConfigure?.close();
 			await refreshAuthProviders();
 			if (incoming.scimState) {
-				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Continue on Auth Providers → SCIM, and retry the provisioning tasks that failed in ${incoming.name} while it was not configured.`;
+				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Finish setting it up on Auth Providers → SCIM: generate the token and enter it in ${incoming.name}.`;
 			}
 		} catch (err) {
 			confirmSwitch = false;
@@ -842,16 +844,23 @@
 						from roles and policies. Alternatively, provide the directory credentials to fetch groups
 						at sign-in.
 					</p>
-					<div>
-						<button
-							class="btn btn-secondary btn-sm"
-							type="button"
-							disabled={residualCleanupLoading || isReadonly}
-							onclick={() => (confirmResidualCleanup = true)}
-						>
-							Remove leftover group data
-						</button>
-					</div>
+					{#if residualProvider.staged}
+						<p>
+							{residualProvider.name} is staged as a replacement. Discard the staged switch first, then
+							remove the leftover group data.
+						</p>
+					{:else}
+						<div>
+							<button
+								class="btn btn-secondary btn-sm"
+								type="button"
+								disabled={residualCleanupLoading || isReadonly}
+								onclick={() => (confirmResidualCleanup = true)}
+							>
+								Remove leftover group data
+							</button>
+						</div>
+					{/if}
 				{/if}
 			</div>
 		{/if}

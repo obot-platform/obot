@@ -22,6 +22,47 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// deactivateThroughSCIM has the identity provider of provider deactivate the user with the native ID nativeID and the
+// email email through SCIM, as it does in production, setting up the provider's SCIM connection first if it has none.
+// A user who signed in with that ID is bound to their account, and disabled.
+func deactivateThroughSCIM(t *testing.T, c *gatewayclient.Client, provider gatewayclient.AuthProviderRef, nativeID, email string) error {
+	t.Helper()
+
+	conn, err := c.SCIMConnectionForAuthProvider(t.Context(), provider.Namespace, provider.Name)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		if conn, _, err = c.CreateSCIMConnection(t.Context(), gatewayclient.CreateSCIMConnectionOptions{
+			AuthProviderNamespace: provider.Namespace,
+			AuthProviderName:      provider.Name,
+			GroupIDPrefix:         "okta/",
+			Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = c.CreateSCIMUser(t.Context(), conn, gatewayclient.SCIMUserInput{
+		UserName:   email,
+		ExternalID: nativeID,
+		Active:     new(false),
+		Profile: gatewaytypes.SCIMUserProfile{
+			Emails: []gatewaytypes.SCIMMultiValue{
+				{
+					Value:   email,
+					Primary: true,
+				},
+			},
+		},
+	}, gatewayclient.SCIMUserCreateOptions{
+		UserLimit: gatewayclient.UserLimit{
+			Unlimited: true,
+		},
+		DefaultRole: types.RoleBasic,
+	})
+	return err
+}
+
 func TestCompositeLoopbackTokenRecordsAHostedAgentsOwner(t *testing.T) {
 	now := time.Now()
 
@@ -114,7 +155,7 @@ func TestImpersonatorCannotReachTheAgentOfAnInactiveOwner(t *testing.T) {
 		t.Fatalf("check for an active owner = %v, want allowed", err)
 	}
 
-	if _, err := gatewayClient.DisableUser(t.Context(), provider, owner.ID, gatewaytypes.UserDisabledReasonSCIMInactive); err != nil {
+	if err := deactivateThroughSCIM(t, gatewayClient, provider, "00u-owner", owner.Email); err != nil {
 		t.Fatalf("failed to disable agent owner: %v", err)
 	}
 	for name, ownerID := range map[string]string{

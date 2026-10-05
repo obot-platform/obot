@@ -12,6 +12,7 @@ import (
 	"uuid"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -157,6 +158,11 @@ type SCIMGroupReferenceError struct {
 	PendingDeletion []string
 }
 
+// DeletedSCIMConnection is what deleting the SCIM connection of an auth provider did.
+type DeletedSCIMConnection struct {
+	ConnectionID string
+}
+
 type scimSetupUserRow struct {
 	types.User
 	SCIMID   string `gorm:"column:scim_id"`
@@ -211,13 +217,41 @@ func (c *Client) SCIMProviderGroups(ctx context.Context, namespace, name string)
 	return scimProviderGroupsTx(c.db.WithContext(ctx), namespace, name)
 }
 
-// DeleteUnusedSCIMConnection deletes the SCIM connection of an auth provider if it was created when the provider
-// was configured or staged without directory credentials, and has never been used: it was never enforced, and no
-// user or group was ever bound to it. It reports whether it deleted a connection. A connection that has been used
-// holds the SCIM IDs the identity provider knows, and is never deleted.
-func (c *Client) DeleteUnusedSCIMConnection(ctx context.Context, namespace, name string) (bool, error) {
-	var deleted bool
+// DeleteAuthProviderSCIMConnection deletes the SCIM connection of an auth provider that is being deconfigured, with
+// all of its SCIM data and the provider's group data: its groups, and the memberships and group role assignments of
+// group IDs with its group ID prefix. The provider's users and identities are kept. Users that SCIM disabled stay
+// disabled, with their API keys and agents, until an administrator enables them: enabling them here would give their
+// API keys, and the agents that mint keys for them, access again without any sign-in. Configuring the provider again
+// starts SCIM over, with a new connection that the identity provider pushes its users and groups to again.
+//
+// It records no reconcile events: the auth provider cleanup removes the provider's groups from access policies and
+// reconciles every user with an identity of the provider. It returns nil, and changes nothing, when the provider has
+// no connection, so that a retried deconfiguration is safe.
+func (c *Client) DeleteAuthProviderSCIMConnection(ctx context.Context, provider AuthProviderRef) (*DeletedSCIMConnection, error) {
+	return c.deleteSCIMConnection(ctx, provider, nil)
+}
+
+// DeleteStagedSCIMConnection deletes the SCIM connection that staging an auth provider without directory credentials
+// created, as DeleteAuthProviderSCIMConnection does, when the staging is discarded. It deletes nothing, and returns
+// nil, unless the provider holds a staged credential and no credential in its own or the generic auth provider
+// context: deleting the connection of the configured provider would stop its sign-ins.
+func (c *Client) DeleteStagedSCIMConnection(ctx context.Context, provider AuthProviderRef) (*DeletedSCIMConnection, error) {
+	return c.deleteSCIMConnection(ctx, provider, func(tx *gorm.DB) (bool, error) {
+		staged, err := hasCredentialTx(tx, []string{system.ReplacementAuthProviderCredentialContext}, provider.Name)
+		if err != nil || !staged {
+			return false, err
+		}
+		active, err := hasCredentialTx(tx, []string{provider.Name, system.GenericAuthProviderCredentialContext}, provider.Name)
+		return !active, err
+	})
+}
+
+// deleteSCIMConnection deletes the SCIM connection of the auth provider as DeleteAuthProviderSCIMConnection says,
+// if it has one and allowed, when given, reports that it may be deleted.
+func (c *Client) deleteSCIMConnection(ctx context.Context, provider AuthProviderRef, allowed func(*gorm.DB) (bool, error)) (*DeletedSCIMConnection, error) {
+	var deleted *DeletedSCIMConnection
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Sign-ins and SCIM writes either finish before the connection is deleted, or find it gone.
 		if err := lockSCIMMode(tx, true); err != nil {
 			return err
 		}
@@ -225,34 +259,29 @@ func (c *Client) DeleteUnusedSCIMConnection(ctx context.Context, namespace, name
 			return err
 		}
 
-		conn, err := scimConnectionForAuthProviderTx(tx, namespace, name)
+		conn, err := scimConnectionForAuthProviderTx(tx, provider.Namespace, provider.Name)
 		if err != nil || conn == nil {
 			return err
 		}
-		if conn.Origin != types.SCIMConnectionOriginSCIMFirst || conn.State != types.SCIMConnectionStateConnected || conn.EnforcedAt != nil {
-			return nil
+		// Token changes and recorded request failures lock the connection row, and take neither advisory lock.
+		if conn, err = scimConnectionTx(tx, conn.ID, true); err != nil {
+			return err
 		}
-
-		for _, model := range []any{new(types.SCIMUserBinding), new(types.SCIMGroupBinding), new(types.SCIMPendingGroupDeletion)} {
-			var count int64
-			if err := tx.Model(model).Where("connection_id = ?", conn.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("failed to check whether SCIM connection %s was used: %w", conn.ID, err)
-			}
-			if count > 0 {
-				return nil
+		if allowed != nil {
+			if ok, err := allowed(tx); err != nil || !ok {
+				return err
 			}
 		}
 
-		if err := tx.Where("connection_id = ?", conn.ID).Delete(new(types.SCIMRequestFailure)).Error; err != nil {
-			return fmt.Errorf("failed to delete the request failures of SCIM connection %s: %w", conn.ID, err)
+		if err := deleteSCIMConnectionTx(tx, conn); err != nil {
+			return err
 		}
-		if err := tx.Delete(conn).Error; err != nil {
-			return fmt.Errorf("failed to delete SCIM connection %s: %w", conn.ID, err)
+		deleted = &DeletedSCIMConnection{
+			ConnectionID: conn.ID,
 		}
-		deleted = true
 		return nil
 	}); err != nil {
-		return false, err
+		return nil, fmt.Errorf("failed to delete the SCIM connection of auth provider %s/%s: %w", provider.Namespace, provider.Name, err)
 	}
 	return deleted, nil
 }
@@ -321,43 +350,83 @@ func (c *Client) MarkUnreferencedSCIMGroups(ctx context.Context, conn *types.SCI
 	}
 
 	if len(run.GroupIDs) > 0 {
-		if err := c.waitForSCIMReferenceWrites(ctx); err != nil {
+		if err := c.WaitForSCIMReferenceWrites(ctx); err != nil {
 			return run, err
 		}
 	}
 	return run, nil
 }
 
-// runSCIMGroupDeletionMarkExpiry removes expired marks for deletion until ctx is done.
+// runSCIMGroupDeletionMarkExpiry removes expired marks for deletion until ctx is done. It starts at once, so that the
+// marks of a deletion that a restart interrupted expire without waiting for the first interval.
 func (c *Client) runSCIMGroupDeletionMarkExpiry(ctx context.Context) {
 	timer := time.NewTimer(scimDeletionMarkExpiryInterval)
 	defer timer.Stop()
 
 	for {
+		if err := c.expireSCIMGroupDeletionMarks(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("Failed to remove expired marks for the deletion of unreferenced SCIM groups", "error", err)
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
-		}
-
-		if err := c.expireSCIMGroupDeletionMarks(ctx); err != nil && ctx.Err() == nil {
-			slog.Error("Failed to remove expired marks for the deletion of unreferenced SCIM groups", "error", err)
 		}
 		timer.Reset(scimDeletionMarkExpiryInterval)
 	}
 }
 
 // expireSCIMGroupDeletionMarks removes the marks for deletion that are older than scimDeletionMarkLifetime, so that
-// references to their groups are accepted again.
+// references to their groups are accepted again. It holds the SCIM write lock, as a deletion does while it reads its
+// marks and deletes their groups, so that a mark never expires in between: a reference accepted once it expired
+// could then be to a deleted group.
 func (c *Client) expireSCIMGroupDeletionMarks(ctx context.Context) error {
 	now, err := c.scimReferenceClock(ctx)
 	if err != nil {
 		return err
 	}
-	if err := c.db.WithContext(ctx).Where("created_at < ?", now.Add(-scimDeletionMarkLifetime)).Delete(new(types.SCIMPendingGroupDeletion)).Error; err != nil {
-		return fmt.Errorf("failed to remove expired marks for deletion: %w", err)
+	// Most runs find nothing to expire, and take no lock.
+	var marks int64
+	if err := c.db.WithContext(ctx).Model(new(types.SCIMPendingGroupDeletion)).
+		Where("created_at < ?", now.Add(-scimDeletionMarkLifetime)).
+		Count(&marks).Error; err != nil {
+		return fmt.Errorf("failed to count expired marks for deletion: %w", err)
 	}
-	return nil
+	if marks == 0 {
+		return nil
+	}
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockSCIMWrites(tx); err != nil {
+			return err
+		}
+		if err := tx.Where("created_at < ?", now.Add(-scimDeletionMarkLifetime)).Delete(new(types.SCIMPendingGroupDeletion)).Error; err != nil {
+			return fmt.Errorf("failed to remove expired marks for deletion: %w", err)
+		}
+		return nil
+	})
+}
+
+// SCIMGroupDeletionInProgress reports whether a deletion of the connection's unreferenced groups holds marks for
+// deletion that have not expired.
+func (c *Client) SCIMGroupDeletionInProgress(ctx context.Context, connectionID string) (bool, error) {
+	now, err := c.scimReferenceClock(ctx)
+	if err != nil {
+		return false, err
+	}
+	return otherSCIMGroupDeletionMarksTx(c.db.WithContext(ctx), connectionID, "", now)
+}
+
+// otherSCIMGroupDeletionMarksTx reports whether a deletion of the connection's unreferenced groups other than the run
+// runID holds marks for deletion that have not expired by now.
+func otherSCIMGroupDeletionMarksTx(tx *gorm.DB, connectionID, runID string, now time.Time) (bool, error) {
+	var marks int64
+	if err := tx.Model(new(types.SCIMPendingGroupDeletion)).
+		Where("connection_id = ? AND run_id != ? AND created_at >= ?", connectionID, runID, now.Add(-scimDeletionMarkLifetime)).
+		Count(&marks).Error; err != nil {
+		return false, fmt.Errorf("failed to check for other deletions of unreferenced groups: %w", err)
+	}
+	return marks > 0, nil
 }
 
 // ClearSCIMGroupDeletionMarks unmarks the groups that a deletion marked and still holds, so that references to them
@@ -401,7 +470,8 @@ func (c *Client) DeleteMarkedSCIMGroups(ctx context.Context, connectionID, runID
 //
 // Enforcing is refused with *SCIMEnforceBlockedError while a referenced group of the provider is unbound, because the
 // memberships of a group the identity provider never pushes would be frozen forever, or while the actor could not
-// be known to sign in afterwards. A refused Enforce clears the connection's marks for deletion.
+// be known to sign in afterwards. A refused Enforce clears the connection's marks for deletion. It is refused with
+// ErrSCIMGroupDeletionInProgress, and changes nothing, while another deletion holds marks that have not expired.
 //
 // Otherwise, in one transaction, it disables every live user of the provider that the connection has not
 // provisioned, deletes the groups still marked for deletion with their memberships, and records the enforcement. It
@@ -412,6 +482,10 @@ func (c *Client) EnforceSCIMConnection(ctx context.Context, id string, opts Enfo
 		result  = new(EnforceSCIMResult)
 		blocked *SCIMEnforceBlockedError
 	)
+	now, err := c.scimReferenceClock(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Sign-ins read the mode under the shared lock, so each one either completes before enforcement or sees it.
 		// SCIM writes wait too, so a user is never provisioned between being found unprovisioned and being disabled.
@@ -430,6 +504,13 @@ func (c *Client) EnforceSCIMConnection(ctx context.Context, id string, opts Enfo
 			return &SCIMConnectionStateError{
 				State: conn.State,
 			}
+		}
+		// Enforcing clears every mark for deletion, so it would stop another deletion that is under way from deleting
+		// what it marked, or that deletion took over marks of this one.
+		if held, err := otherSCIMGroupDeletionMarksTx(tx, conn.ID, opts.RunID, now); err != nil {
+			return err
+		} else if held {
+			return ErrSCIMGroupDeletionInProgress
 		}
 
 		groups, err := scimProviderGroupsTx(tx, conn.AuthProviderNamespace, conn.AuthProviderName)
@@ -655,14 +736,8 @@ func (c *Client) scimReferenceClock(ctx context.Context) (time.Time, error) {
 }
 
 // WaitForSCIMReferenceWrites waits until the writes of group references recorded now have finished or expired. A
-// write recorded later checks its groups after the caller's changes to them committed.
+// write recorded later checks its groups after the caller's changes to them, such as marks for deletion, committed.
 func (c *Client) WaitForSCIMReferenceWrites(ctx context.Context) error {
-	return c.waitForSCIMReferenceWrites(ctx)
-}
-
-// waitForSCIMReferenceWrites waits until the writes of group references recorded now have finished or expired.
-// Writes recorded later check for marks after the caller's marks committed.
-func (c *Client) waitForSCIMReferenceWrites(ctx context.Context) error {
 	db := c.db.WithContext(ctx)
 	now, err := c.scimReferenceClock(ctx)
 	if err != nil {
@@ -939,4 +1014,26 @@ func checkSCIMEnforceActorTx(tx *gorm.DB, conn *types.SCIMConnection, actor SCIM
 		return SCIMEnforceActorDisabled, nil
 	}
 	return "", nil
+}
+
+// deleteSCIMConnectionTx deletes the connection, with all of its SCIM data and its auth provider's group data. The
+// caller holds the SCIM mode and write locks, and the connection's row lock.
+func deleteSCIMConnectionTx(tx *gorm.DB, conn *types.SCIMConnection) error {
+	for _, model := range []any{new(types.SCIMUserBinding), new(types.SCIMGroupBinding), new(types.SCIMPendingGroupDeletion), new(types.SCIMRequestFailure)} {
+		if err := tx.Where("connection_id = ?", conn.ID).Delete(model).Error; err != nil {
+			return fmt.Errorf("failed to delete the data of SCIM connection %s: %w", conn.ID, err)
+		}
+	}
+	// The auth provider cleanup removes every group with the prefix from access policies.
+	if err := tx.Where("substr(group_id, 1, ?) = ?", len(conn.GroupIDPrefix), conn.GroupIDPrefix).
+		Delete(new(types.SCIMGroupSubjectCleanup)).Error; err != nil {
+		return fmt.Errorf("failed to delete the group subject cleanups of SCIM connection %s: %w", conn.ID, err)
+	}
+	if err := deleteAuthProviderGroupDataTx(tx, conn.AuthProviderNamespace, conn.AuthProviderName, conn.GroupIDPrefix); err != nil {
+		return err
+	}
+	if err := tx.Delete(conn).Error; err != nil {
+		return fmt.Errorf("failed to delete SCIM connection %s: %w", conn.ID, err)
+	}
+	return nil
 }

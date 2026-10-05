@@ -26,6 +26,7 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -57,6 +58,7 @@ type scimServerTest struct {
 	t       *testing.T
 	server  *Server
 	gateway *gclient.Client
+	db      *gorm.DB
 	users   *ownerAuthenticator
 	audit   *recordingAuditLogger
 }
@@ -173,7 +175,8 @@ func newSCIMServerTest(t *testing.T, authenticatedRateLimit int) *scimServerTest
 		rateLimiter:   limiter,
 		mux:           http.NewServeMux(),
 	}
-	s.HandleFunc(scim.PathPrefix, scim.NewHandler(gateway, scimTestEnvironment{}, "https://obot.example.com").Serve)
+	s.otelHandler = traced(s.mux)
+	s.HandleSCIM(scim.NewHandler(gateway, scimTestEnvironment{}, "https://obot.example.com").Serve)
 	s.HandleFunc("GET /api/me", func(req api.Context) error {
 		return req.Write(map[string]string{
 			"uid": req.User.GetUID(),
@@ -184,6 +187,7 @@ func newSCIMServerTest(t *testing.T, authenticatedRateLimit int) *scimServerTest
 		t:       t,
 		server:  s,
 		gateway: gateway,
+		db:      services.DB.DB,
 		users:   users,
 		audit:   logger,
 	}
@@ -211,7 +215,7 @@ func (s *scimServerTest) do(req *http.Request) (*httptest.ResponseRecorder, map[
 	s.t.Helper()
 
 	rec := httptest.NewRecorder()
-	s.server.mux.ServeHTTP(rec, req)
+	s.server.ServeHTTP(rec, req)
 
 	var body map[string]any
 	if rec.Body.Len() > 0 {
@@ -253,7 +257,7 @@ func TestSCIMRoutesWithoutAConnectionAreUnavailable(t *testing.T) {
 
 	// Without a connection, the endpoint answers 503 before it looks at the token.
 	for _, token := range []string{"", "obot_scim_anything"} {
-		rec, body := s.do(scimRequest(scim.PathPrefix+"00000000-0000-0000-0000-000000000000/Users", token))
+		rec, body := s.do(scimRequest(scim.PathPrefix+"Users", token))
 		assertSCIMError(t, rec, body, http.StatusServiceUnavailable)
 		if rec.Header().Get("Retry-After") == "" {
 			t.Fatal("503 without Retry-After")
@@ -266,8 +270,7 @@ func TestSCIMRoutesWithoutAConnectionAreUnavailable(t *testing.T) {
 
 func TestSCIMRoutesAuthenticateOnlyTheConnectionToken(t *testing.T) {
 	s := newSCIMServerTest(t, 1000)
-	conn, token := s.enable()
-	base := scim.PathPrefix + conn.ID
+	_, token := s.enable()
 
 	tests := []struct {
 		name   string
@@ -277,35 +280,35 @@ func TestSCIMRoutesAuthenticateOnlyTheConnectionToken(t *testing.T) {
 		{
 			name: "the connection's token",
 			req: func() *http.Request {
-				return scimRequest(base+"/Users", token)
+				return scimRequest(scim.PathPrefix+"Users", token)
 			},
 			status: http.StatusOK,
 		},
 		{
 			name: "no token",
 			req: func() *http.Request {
-				return scimRequest(base+"/Users", "")
+				return scimRequest(scim.PathPrefix+"Users", "")
 			},
 			status: http.StatusUnauthorized,
 		},
 		{
 			name: "a wrong token",
 			req: func() *http.Request {
-				return scimRequest(base+"/Users", "obot_scim_wrong")
+				return scimRequest(scim.PathPrefix+"Users", "obot_scim_wrong")
 			},
 			status: http.StatusUnauthorized,
 		},
 		{
-			name: "an unknown connection",
+			name: "a path that names a connection, which the base URL does not",
 			req: func() *http.Request {
 				return scimRequest(scim.PathPrefix+"00000000-0000-0000-0000-000000000000/Users", token)
 			},
-			status: http.StatusUnauthorized,
+			status: http.StatusNotFound,
 		},
 		{
 			name: "an Owner's credential",
 			req: func() *http.Request {
-				req := scimRequest(base+"/Users", "")
+				req := scimRequest(scim.PathPrefix+"Users", "")
 				req.Header.Set(scimTestUserHeader, "owner")
 				return req
 			},
@@ -314,7 +317,7 @@ func TestSCIMRoutesAuthenticateOnlyTheConnectionToken(t *testing.T) {
 		{
 			name: "an Owner's credential alongside the token",
 			req: func() *http.Request {
-				req := scimRequest(base+"/Users", token)
+				req := scimRequest(scim.PathPrefix+"Users", token)
 				req.Header.Set(scimTestUserHeader, "owner")
 				return req
 			},
@@ -331,7 +334,7 @@ func TestSCIMRoutesAuthenticateOnlyTheConnectionToken(t *testing.T) {
 				return
 			}
 			assertSCIMError(t, rec, body, tt.status)
-			if rec.Header().Get("WWW-Authenticate") == "" {
+			if tt.status == http.StatusUnauthorized && rec.Header().Get("WWW-Authenticate") == "" {
 				t.Fatal("401 without WWW-Authenticate")
 			}
 		})
@@ -342,12 +345,12 @@ func TestSCIMRoutesAuthenticateOnlyTheConnectionToken(t *testing.T) {
 	}
 }
 
-func TestSCIMConnectionPrincipalReachesOnlyItsOwnEndpoint(t *testing.T) {
+func TestSCIMConnectionPrincipalReachesOnlySCIMRoutes(t *testing.T) {
 	s := newSCIMServerTest(t, 1000)
 	_, token := s.enable()
 
-	// An Owner is refused on a SCIM route even when the route names no connection's token.
-	owner := scimRequest(scim.PathPrefix+"00000000-0000-0000-0000-000000000000/Users", "")
+	// An Owner's credential is refused on a SCIM route.
+	owner := scimRequest(scim.PathPrefix+"Users", "")
 	owner.Header.Set(scimTestUserHeader, "owner")
 	rec, body := s.do(owner)
 	assertSCIMError(t, rec, body, http.StatusUnauthorized)
@@ -356,7 +359,7 @@ func TestSCIMConnectionPrincipalReachesOnlyItsOwnEndpoint(t *testing.T) {
 	// authenticators run as usual, and the request is anonymous.
 	before := s.users.callCount()
 	rec = httptest.NewRecorder()
-	s.server.mux.ServeHTTP(rec, scimRequest("/api/me", token))
+	s.server.ServeHTTP(rec, scimRequest("/api/me", token))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("GET /api/me with the SCIM token = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -365,34 +368,120 @@ func TestSCIMConnectionPrincipalReachesOnlyItsOwnEndpoint(t *testing.T) {
 	}
 }
 
-func TestSCIMBaseURLWithoutTrailingSlash(t *testing.T) {
+func TestSCIMPathsThatAreNotClean(t *testing.T) {
+	s := newSCIMServerTest(t, 1000)
+	_, token := s.enable()
+
+	tests := []struct {
+		name   string
+		path   string
+		token  string
+		status int
+	}{
+		{
+			name:   "the base URL, which names no resource",
+			path:   strings.TrimSuffix(scim.PathPrefix, "/"),
+			token:  token,
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "the base URL without a token",
+			path:   strings.TrimSuffix(scim.PathPrefix, "/"),
+			status: http.StatusUnauthorized,
+		},
+		{
+			name:   "the SCIM root",
+			path:   scim.PathPrefix,
+			token:  token,
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "the SCIM root without a token",
+			path:   scim.PathPrefix,
+			status: http.StatusUnauthorized,
+		},
+		{
+			name:   "a doubled slash, as a base URL entered with a trailing slash makes",
+			path:   scim.PathPrefix + "/Users",
+			token:  token,
+			status: http.StatusOK,
+		},
+		{
+			name:   "a trailing slash",
+			path:   scim.PathPrefix + "Users/",
+			token:  token,
+			status: http.StatusOK,
+		},
+		{
+			name:   "a doubled slash before the base URL, as a server URL with a trailing slash makes",
+			path:   "/" + scim.PathPrefix + "Users",
+			token:  token,
+			status: http.StatusOK,
+		},
+		{
+			name:   "a doubled slash before the base URL without a token",
+			path:   "/" + scim.PathPrefix + "Users",
+			status: http.StatusUnauthorized,
+		},
+		{
+			name:   "a path that climbs into the SCIM endpoint",
+			path:   "/api/.." + scim.PathPrefix + "Users",
+			token:  token,
+			status: http.StatusOK,
+		},
+		{
+			name:   "a path that climbs out of the SCIM endpoint",
+			path:   scim.PathPrefix + "../api/me",
+			token:  token,
+			status: http.StatusNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, body := s.do(scimRequest(tt.path, tt.token))
+			if tt.status == http.StatusOK {
+				if rec.Code != http.StatusOK {
+					t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+				}
+				return
+			}
+			assertSCIMError(t, rec, body, tt.status)
+		})
+	}
+}
+
+func TestSCIMRoutesRefuseEveryRequestWhileTwoConnectionsExist(t *testing.T) {
 	s := newSCIMServerTest(t, 1000)
 	conn, token := s.enable()
 
-	// The base URL itself names no SCIM resource, whether or not the request is authenticated.
-	rec, body := s.do(scimRequest(scim.PathPrefix+conn.ID, ""))
-	assertSCIMError(t, rec, body, http.StatusUnauthorized)
-	rec, body = s.do(scimRequest(scim.PathPrefix+conn.ID, token))
-	assertSCIMError(t, rec, body, http.StatusNotFound)
-	rec, body = s.do(scimRequest(scim.PathPrefix+"00000000-0000-0000-0000-000000000000", token))
-	assertSCIMError(t, rec, body, http.StatusUnauthorized)
+	// Creating a connection refuses a second one, so only a database changed by other means can hold two.
+	second := *conn
+	second.ID = "second"
+	second.AuthProviderNamespace = "other"
+	if err := s.db.Create(&second).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{token, ""} {
+		rec, body := s.do(scimRequest(scim.PathPrefix+"Users", token))
+		assertSCIMError(t, rec, body, http.StatusInternalServerError)
+	}
 }
 
 func TestSCIMRoutesAreAuditedWithoutQueryOrBody(t *testing.T) {
 	s := newSCIMServerTest(t, 1000)
 	conn, token := s.enable()
 
-	req := scimRequest(scim.PathPrefix+conn.ID+"/Users?filter=userName%20eq%20%22secret%40example.com%22", token)
+	req := scimRequest(scim.PathPrefix+"Users?filter=userName%20eq%20%22secret%40example.com%22", token)
 	if rec, _ := s.do(req); rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
 	}
-	s.do(scimRequest(scim.PathPrefix+conn.ID+"/Users", ""))
+	s.do(scimRequest(scim.PathPrefix+"Users", ""))
 
 	entries := s.audit.all()
 	if len(entries) != 2 {
 		t.Fatalf("got %d audit entries, want 2: %+v", len(entries), entries)
 	}
-	if entries[0].UserID != conn.ID || entries[0].Path != scim.PathPrefix+conn.ID+"/Users" || entries[0].ResponseCode != http.StatusOK {
+	if entries[0].UserID != conn.ID || entries[0].Path != scim.PathPrefix+"Users" || entries[0].ResponseCode != http.StatusOK {
 		t.Errorf("audit entry = %+v", entries[0])
 	}
 	if entries[1].ResponseCode != http.StatusUnauthorized {
@@ -408,14 +497,14 @@ func TestSCIMRoutesAreAuditedWithoutQueryOrBody(t *testing.T) {
 
 func TestSCIMRateLimitAnswersWithIntegerRetryAfter(t *testing.T) {
 	s := newSCIMServerTest(t, 1)
-	conn, token := s.enable()
+	_, token := s.enable()
 
 	var (
 		limited *httptest.ResponseRecorder
 		body    map[string]any
 	)
 	for range 5 {
-		rec, b := s.do(scimRequest(scim.PathPrefix+conn.ID+"/Users", token))
+		rec, b := s.do(scimRequest(scim.PathPrefix+"Users", token))
 		if rec.Code == http.StatusTooManyRequests {
 			limited, body = rec, b
 			break

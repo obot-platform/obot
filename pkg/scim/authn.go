@@ -24,9 +24,9 @@ const (
 // with 503.
 type UnavailableError struct{}
 
-// Authenticator authenticates requests to the SCIM endpoint with the bearer token of the connection named in the
-// path. It runs ahead of every other authenticator and ends the chain on SCIM routes, so no cookie, Obot credential,
-// redirect, or just-in-time user creation ever applies to them. Off SCIM routes, it declines.
+// Authenticator authenticates requests to the SCIM endpoint with the bearer token of the SCIM connection. It runs
+// ahead of every other authenticator and ends the chain on SCIM routes, so no cookie, Obot credential, redirect, or
+// just-in-time user creation ever applies to them. Off SCIM routes, it declines.
 type Authenticator struct {
 	gateway *gclient.Client
 }
@@ -42,32 +42,19 @@ func NewAuthenticator(gateway *gclient.Client) *Authenticator {
 	}
 }
 
-// AuthenticateRequest yields the principal of the connection named in the path when the request carries its current
-// or still-accepted previous token. A missing or invalid token, a connection without a token, and an unknown
-// connection all yield the anonymous principal, which authorization answers with 401. Without any connection, it
-// returns an *UnavailableError before it looks at the token.
+// AuthenticateRequest yields the principal of the SCIM connection when the request carries its current or
+// still-accepted previous token. There is at most one connection, so the path names none. A missing or invalid token
+// and a connection without a token yield the anonymous principal, which authorization answers with 401. Without any
+// connection, it returns an *UnavailableError before it looks at the token, and with more than one, an error.
 func (a *Authenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	if !IsSCIMPath(req.URL.Path) {
 		return nil, false, nil
 	}
 
-	exists, err := a.gateway.HasSCIMConnections(req.Context())
-	if err != nil {
-		return nil, false, err
-	}
-	if !exists {
-		return nil, false, new(UnavailableError)
-	}
-
-	connectionID, _ := splitPath(req.URL.Path)
-	token, ok := bearerToken(req)
-	if connectionID == "" || !ok {
-		return anonymous(), true, nil
-	}
-
-	conn, err := a.gateway.AuthenticateSCIMConnection(req.Context(), connectionID, token)
+	token, _ := bearerToken(req)
+	conn, err := a.gateway.AuthenticateSCIMConnection(req.Context(), token)
 	if errors.Is(err, gclient.ErrSCIMConnectionNotFound) {
-		return anonymous(), true, nil
+		return nil, false, new(UnavailableError)
 	} else if _, ok := errors.AsType[*gclient.SCIMAuthenticationError](err); ok {
 		return anonymous(), true, nil
 	} else if err != nil {
@@ -113,8 +100,9 @@ func WriteUnauthorized(w http.ResponseWriter) {
 	WriteError(w, http.StatusUnauthorized, unauthorizedDetail)
 }
 
-// WriteUnavailable writes the response to a SCIM request while the endpoint is unavailable. The identity provider
-// records the request as a failed task, which an administrator retries once the endpoint is available again.
+// WriteUnavailable writes the response to a SCIM request while the endpoint is unavailable, because no SCIM connection
+// exists. The identity provider records the request as a failed task. Once a connection exists, requests with an
+// earlier connection's token answer 401.
 func WriteUnavailable(w http.ResponseWriter, detail string) {
 	unavailable(w, detail)
 }

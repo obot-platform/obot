@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/http"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -44,24 +45,37 @@ type Handler struct {
 	storage kclient.Reader
 }
 
+// authProviderConflictError refuses a change while another provider holds an active configuration.
 type authProviderConflictError struct {
-	configuredProvider string
+	// provider is the provider that holds it, which must be deconfigured first.
+	provider string
 }
 
 // terminalError rejects a change on its own merits rather than on a transient failure. It is
 // recorded on the change instead of requeued, so the waiting caller gets the reason, not a timeout.
 type terminalError struct {
 	msg string
+	// code is the HTTP status the API answers the rejection with, 400 when unset.
+	code int
 }
 
 func (e *authProviderConflictError) Error() string {
-	return fmt.Sprintf("only one authentication provider can be configured at a time. Please deconfigure %q first", e.configuredProvider)
+	return fmt.Sprintf("only one authentication provider can be configured at a time. Please deconfigure %q first", e.provider)
 }
 
 func (e *terminalError) Error() string { return e.msg }
 
 func terminalf(format string, args ...any) error {
 	return &terminalError{msg: fmt.Sprintf(format, args...)}
+}
+
+// terminalConflictf rejects a change that the current state of the provider's data conflicts with, as the API does
+// when it finds that state first.
+func terminalConflictf(format string, args ...any) error {
+	return &terminalError{
+		msg:  fmt.Sprintf(format, args...),
+		code: http.StatusConflict,
+	}
 }
 
 // New returns the Handler. storage must read without a cache.
@@ -111,6 +125,7 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 			}
 			if terminal, ok := errors.AsType[*terminalError](err); ok {
 				change.Status.Error = terminal.Error()
+				change.Status.ErrorCode = terminal.code
 				return nil
 			}
 			return err
@@ -229,7 +244,7 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 			return fmt.Errorf("get configured auth provider: %w", err)
 		}
 		if configuredProvider != "" && configuredProvider != authProvider.Name {
-			return &authProviderConflictError{configuredProvider: configuredProvider}
+			return &authProviderConflictError{provider: configuredProvider}
 		}
 		// The SCIM connection of a provider configured without directory credentials must exist before the
 		// credential does, so that no sign-in through the provider ever asks it for groups. Whether the provider is
@@ -251,19 +266,16 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}); err != nil {
 			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
 		}
-		if err := h.resumeSCIMConnection(ctx, authProvider); err != nil {
-			return err
-		}
 
 	case v1.ProviderDesiredStateSwitched:
 		// Stricter than the configure path: that one accepts an empty slot, this one accepts only
-		// the exact provider the caller expects to replace.
+		// the exact provider the caller expects to replace, or this provider when a retry resumes the switch.
 		configuredProvider, err := h.dispatcher.GetConfiguredAuthProvider(ctx)
 		if err != nil {
 			return fmt.Errorf("get configured auth provider: %w", err)
 		}
-		if configuredProvider != change.Spec.ReplacesProviderName {
-			return &authProviderConflictError{configuredProvider: configuredProvider}
+		if configuredProvider != change.Spec.ReplacesProviderName && configuredProvider != authProvider.Name {
+			return &authProviderConflictError{provider: configuredProvider}
 		}
 
 		var outgoingProvider v1.AuthProvider
@@ -271,32 +283,61 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 			return fmt.Errorf("get outgoing auth provider %q: %w", change.Spec.ReplacesProviderName, err)
 		}
 
-		replacement, err := h.gatewayClient.RevealCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
-		if err != nil {
-			if errors.As(err, &gateway.CredentialNotFoundError{}) {
-				return terminalf("no staged configuration for auth provider %q", authProvider.Name)
+		// A retry finds this provider configured once an earlier attempt promoted it: as the only configured provider
+		// once the outgoing provider's credential is gone, or listed before the outgoing provider while both hold one.
+		// The retry resumes the switch, whose steps can all be repeated, while the switch is unfinished: while this
+		// provider is still staged, or the outgoing provider holds no credential. A switch whose outgoing provider is
+		// staged again finished long ago, and is refused: deconfiguring the outgoing provider would delete what staging
+		// it set up, such as its SCIM connection.
+		resumed := false
+		if configuredProvider == authProvider.Name {
+			outgoingStaged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, outgoingProvider.Name)
+			if err != nil {
+				return fmt.Errorf("check for the staged configuration of auth provider %q: %w", outgoingProvider.Name, err)
 			}
+			if outgoingStaged {
+				return terminalf("the switch to %q finished already, and %q is staged again", authProvider.Name, outgoingProvider.Name)
+			}
+			stillStaged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+			if err != nil {
+				return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
+			}
+			active, err := h.hasActiveCredential(ctx, outgoingProvider)
+			if err != nil {
+				return err
+			}
+			if active && !stillStaged {
+				return &authProviderConflictError{provider: outgoingProvider.Name}
+			}
+			resumed = true
+		}
+
+		replacement, err := h.gatewayClient.RevealCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+		notFound := errors.As(err, &gateway.CredentialNotFoundError{})
+		switch {
+		case notFound && resumed:
+			// The staged configuration goes last, so the earlier attempt promoted it already.
+		case notFound:
+			return terminalf("no staged configuration for auth provider %q", authProvider.Name)
+		case err != nil:
 			return fmt.Errorf("read staged configuration for auth provider %q: %w", authProvider.Name, err)
-		}
+		default:
+			// Staging without directory credentials created the SCIM connection already. Applying the SCIM rules
+			// again means a switch never promotes a credential that no sign-in could use, and fails before the
+			// outgoing provider is touched.
+			if err := h.prepareSCIMSetup(ctx, authProvider, notConfigured, replacement.Secrets); err != nil {
+				return err
+			}
 
-		// Staging without directory credentials created the SCIM connection already. Applying the SCIM rules again
-		// means a switch never promotes a credential that no sign-in could use, and fails before the outgoing
-		// provider is touched.
-		if err := h.prepareSCIMSetup(ctx, authProvider, notConfigured, replacement.Secrets); err != nil {
-			return err
-		}
-
-		// Promote before deconfiguring, so a failure in the second half leaves the provider the
-		// owner is signed in through configured rather than locking everyone out.
-		if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
-			Context: authProvider.Name,
-			Name:    authProvider.Name,
-			Secrets: replacement.Secrets,
-		}); err != nil {
-			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
-		}
-		if err := h.resumeSCIMConnection(ctx, authProvider); err != nil {
-			return err
+			// Promote before deconfiguring, so a failure in the second half leaves the provider the
+			// owner is signed in through configured rather than locking everyone out.
+			if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+				Context: authProvider.Name,
+				Name:    authProvider.Name,
+				Secrets: replacement.Secrets,
+			}); err != nil {
+				return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
+			}
 		}
 		if err := h.deconfigureAuthProvider(ctx, client, outgoingProvider); err != nil {
 			return err
@@ -347,11 +388,18 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}
 
 	case v1.ProviderDesiredStateUnstaged:
-		// Staging without directory credentials created a SCIM connection, which cannot have served a request while
-		// the provider was only staged. It goes with the staging, before the staged settings, so that a retry after a
-		// failure still finds the staging to discard. A switch creates the connection again if the settings stay.
-		if err := h.deleteUnusedSCIMConnection(ctx, authProvider); err != nil {
+		// Staging without directory credentials created a SCIM connection. A staged provider's connection never has a
+		// bearer token, so it cannot have been set up in the identity provider, and it goes with the staging. It goes
+		// first, so that a retry after a failure still finds the staging to discard.
+		deletedConn, err := h.gatewayClient.DeleteStagedSCIMConnection(ctx, gateway.AuthProviderRef{
+			Namespace: authProvider.Namespace,
+			Name:      authProvider.Name,
+		})
+		if err != nil {
 			return err
+		}
+		if deletedConn != nil {
+			slog.Info("Deleted the SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 		}
 		deleted, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name)
 		if err != nil {
@@ -367,6 +415,15 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}
 
 	default:
+		// Deconfiguring would leave the staging in place without what it set up, such as its SCIM connection, so a
+		// verification sign-in would ask a provider staged without directory credentials for groups.
+		staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil {
+			return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
+		}
+		if staged {
+			return terminalf("%q is staged as a replacement. Discard the staged switch instead", authProvider.Name)
+		}
 		if err := h.deconfigureAuthProvider(ctx, client, authProvider); err != nil {
 			return err
 		}
@@ -407,7 +464,7 @@ func (h *Handler) prepareSCIMSetup(ctx context.Context, authProvider v1.AuthProv
 	if ineligible, ok := errors.AsType[*setup.IneligibleError](err); ok {
 		return terminalf("%s", ineligible.Error())
 	} else if residual, ok := errors.AsType[*setup.ResidualGroupDataError](err); ok {
-		return terminalf("%s", residual.Error())
+		return terminalConflictf("%s", residual.Error())
 	} else if pending, ok := errors.AsType[*setup.CleanupPendingError](err); ok {
 		return terminalf("%s is still being deconfigured (%s); wait for its cleanup to finish before configuring it again", displayName, pending.CleanupName)
 	} else if err != nil {
@@ -473,46 +530,6 @@ func (h *Handler) hasActiveCredential(ctx context.Context, authProvider v1.AuthP
 	return active, nil
 }
 
-// deleteUnusedSCIMConnection deletes the SCIM connection that staging an auth provider without directory credentials
-// created, if the provider is still staged and the connection has never been used. It fails closed: a provider that
-// holds an active configuration keeps its connection, because deleting the connection of the configured provider
-// would stop its sign-ins. A provider without a connection is left as unstaging always left it.
-func (h *Handler) deleteUnusedSCIMConnection(ctx context.Context, authProvider v1.AuthProvider) error {
-	conn, err := h.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
-	if err != nil || conn == nil {
-		return err
-	}
-	staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
-	if err != nil {
-		return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
-	}
-	if !staged {
-		return nil
-	}
-	if active, err := h.hasActiveCredential(ctx, authProvider); err != nil || active {
-		return err
-	}
-
-	deleted, err := h.gatewayClient.DeleteUnusedSCIMConnection(ctx, authProvider.Namespace, authProvider.Name)
-	if err != nil {
-		return fmt.Errorf("delete the unused SCIM connection of auth provider %q: %w", authProvider.Name, err)
-	}
-	if deleted {
-		slog.Info("Deleted the unused SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name)
-	}
-	return nil
-}
-
-// resumeSCIMConnection resumes the SCIM connection of an auth provider whose credential was just promoted, so that
-// the groups SCIM kept while the provider was deconfigured grant access again. It runs after the promotion, so that a
-// failure leaves the groups granting nothing rather than granting for a provider that is not configured.
-func (h *Handler) resumeSCIMConnection(ctx context.Context, authProvider v1.AuthProvider) error {
-	if err := h.gatewayClient.ResumeSCIMConnection(ctx, authProvider.Namespace, authProvider.Name); err != nil {
-		return fmt.Errorf("resume SCIM for auth provider %q: %w", authProvider.Name, err)
-	}
-	return nil
-}
-
 func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Client, authProvider v1.AuthProvider) error {
 	var cleanup *v1.AuthProviderCleanup
 	if authProvider.Spec.GroupIDPrefix != "" {
@@ -523,15 +540,26 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 		}
 	}
 
-	// The cleanup keeps the groups of a provider that SCIM manages, and suspending its connection stops them from
-	// granting anything. This runs before the credential goes, so that a failure leaves the groups granting nothing
-	// rather than granting for a provider that is no longer configured.
-	if err := h.gatewayClient.SuspendSCIMConnection(ctx, authProvider.Namespace, authProvider.Name); err != nil {
-		return fmt.Errorf("suspend SCIM for auth provider %q: %w", authProvider.Name, err)
-	}
-
 	if err := deleteResolvedCredential(ctx, h.gatewayClient, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name); err != nil {
 		return fmt.Errorf("remove credential for auth provider %q: %w", authProvider.Name, err)
+	}
+
+	// A provider that SCIM manages loses its SCIM connection, with everything SCIM wrote and its groups, as any
+	// deconfigured provider loses its groups. Its users are kept, and those that SCIM disabled stay disabled until an
+	// administrator enables them. The credential goes first, so that no sign-in that starts afterwards is served by the
+	// provider, which without its connection would create users that SCIM never provisioned. A sign-in that read the
+	// configured provider just before the credential went can still finish after the connection is gone; that is one
+	// request, and the provider is not configured for the next. The cleanup then removes the groups from access
+	// policies and reconciles the provider's users.
+	deletedConn, err := h.gatewayClient.DeleteAuthProviderSCIMConnection(ctx, gateway.AuthProviderRef{
+		Namespace: authProvider.Namespace,
+		Name:      authProvider.Name,
+	})
+	if err != nil {
+		return err
+	}
+	if deletedConn != nil {
+		slog.Info("Deleted the SCIM connection of a deconfigured auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 	}
 
 	if authProvider.Name == localauth.ProviderName {

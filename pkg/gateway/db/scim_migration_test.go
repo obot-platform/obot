@@ -147,6 +147,9 @@ func testSCIMStorage(t *testing.T, database *DB, gormDB *gorm.DB) {
 	if !migrator.HasIndex(&types.GroupMemberships{}, "GroupID") {
 		t.Fatal("the group ID index of group memberships was not created")
 	}
+	if !migrator.HasIndex(&types.SCIMUserBinding{}, "idx_scim_user_bindings_list") {
+		t.Fatal("the index of the pages of SCIM users was not created")
+	}
 
 	var users, groups int64
 	if err := gormDB.Model(new(types.User)).Count(&users).Error; err != nil {

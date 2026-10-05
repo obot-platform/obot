@@ -101,7 +101,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		return fmt.Errorf("failed to resolve effective roles: %v", err)
 	}
 
-	provisioned, err := apiContext.GatewayClient.SCIMProvisionedUserIDs(apiContext.Context(), userIDs)
+	managed, err := apiContext.GatewayClient.SCIMManagedUsers(apiContext.Context(), userIDs)
 	if err != nil {
 		return fmt.Errorf("failed to get SCIM-provisioned users: %v", err)
 	}
@@ -116,9 +116,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 
 		result := types.ConvertUserWithEffectiveRole(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
 		result.AuthProviderGroups = userGroupMemberships[user.ID]
-		if _, ok := provisioned[user.ID]; ok {
-			result.ManagementSource = types2.UserManagementSourceSCIM
-		}
+		setSCIMManagement(result, user.ID, managed)
 		items = append(items, *result)
 	}
 
@@ -175,16 +173,14 @@ func (s *Server) getUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
-	binding, err := apiContext.GatewayClient.SCIMUserBindingForUser(apiContext.Context(), user.ID)
+	managed, err := apiContext.GatewayClient.SCIMManagedUsers(apiContext.Context(), []uint{user.ID})
 	if err != nil {
 		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
 	}
 
 	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
 	result.AuthProviderGroups = groupIDs
-	if binding != nil {
-		result.ManagementSource = types2.UserManagementSourceSCIM
-	}
+	setSCIMManagement(result, user.ID, managed)
 	return apiContext.Write(result)
 }
 
@@ -247,7 +243,8 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
 		} else if _, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
-			status = http.StatusBadRequest
+			// As for a deletion: the identity provider manages the user.
+			status = http.StatusConflict
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
@@ -267,16 +264,21 @@ func (s *Server) updateUser(apiContext api.Context) error {
 	}
 	slog.Info("Updated user profile via API", "userID", existingUser.ID)
 
-	binding, err := apiContext.GatewayClient.SCIMUserBindingForUser(apiContext.Context(), existingUser.ID)
+	managed, err := apiContext.GatewayClient.SCIMManagedUsers(apiContext.Context(), []uint{existingUser.ID})
 	if err != nil {
 		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
 	}
 
 	converted := types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, "")
-	if binding != nil {
-		converted.ManagementSource = types2.UserManagementSourceSCIM
-	}
+	setSCIMManagement(converted, existingUser.ID, managed)
 	return apiContext.Write(converted)
+}
+
+// setSCIMManagement reports the user with userID as managed by SCIM if SCIMManagedUsers returned them in managed.
+func setSCIMManagement(user *types2.User, userID uint, managed map[uint]struct{}) {
+	if _, ok := managed[userID]; ok {
+		user.ManagementSource = types2.UserManagementSourceSCIM
+	}
 }
 
 func (s *Server) markUserInternal(apiContext api.Context) error {
@@ -301,6 +303,60 @@ func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool)
 	}
 
 	return nil
+}
+
+// POST /api/users/{user_id}/enable
+// Enables a disabled user, restoring their access with the same account and data. It is refused with 409 while SCIM
+// manages the user, whose identity provider decides that, and only an Owner can enable a user who has, through their
+// own role, a group, or an explicit role of their email, the Owner, auditor, or user impersonation role.
+func (s *Server) enableUser(apiContext api.Context) error {
+	userID := apiContext.PathValue("user_id")
+	existingUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types2.NewErrNotFound("user %s not found", userID)
+		}
+		return fmt.Errorf("failed to get user: %v", err)
+	}
+
+	if !apiContext.UserIsOwner() {
+		// Enabling restores every role the user gets: their own, those of their groups, and an explicit role of their
+		// email.
+		groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), existingUser.ID)
+		if err != nil {
+			return fmt.Errorf("failed to list the groups of user: %v", err)
+		}
+		role, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), existingUser, groupIDs)
+		if err != nil {
+			return fmt.Errorf("failed to resolve the role of user: %v", err)
+		}
+		role |= apiContext.GatewayClient.HasExplicitRole(existingUser.Email)
+		if role.HasRole(types2.RoleOwner) || role.HasRole(types2.RoleAuditor) || role.HasRole(types2.RoleUserImpersonation) {
+			slog.Info("Denied enabling user", "targetUserID", userID, "reason", "privileged_user_enable_requires_owner")
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can enable an owner, an auditor, or a user with user impersonation role")
+		}
+	}
+
+	enabled, err := apiContext.GatewayClient.EnableUser(apiContext.Context(), existingUser.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types2.NewErrNotFound("user %s not found", userID)
+		} else if _, ok := errors.AsType[*client.UserDeletedError](err); ok {
+			return types2.NewErrNotFound("user %s not found", userID)
+		} else if managed, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
+			return types2.NewErrHTTP(http.StatusConflict, managed.Message)
+		}
+		return fmt.Errorf("failed to enable user: %v", err)
+	}
+	slog.Info("Enabled user via API", "targetUserID", enabled.ID)
+
+	managed, err := apiContext.GatewayClient.SCIMManagedUsers(apiContext.Context(), []uint{enabled.ID})
+	if err != nil {
+		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
+	}
+	converted := types.ConvertUser(enabled, apiContext.GatewayClient.HasExplicitRole(enabled.Email) != types2.RoleUnknown, "")
+	setSCIMManagement(converted, enabled.ID, managed)
+	return apiContext.Write(converted)
 }
 
 func (s *Server) deleteUser(apiContext api.Context) (err error) {
