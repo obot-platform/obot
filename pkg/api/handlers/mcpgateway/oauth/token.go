@@ -101,7 +101,7 @@ func (h *handler) token(req api.Context) (err error) {
 			return newInvalidClientErr("invalid client credentials")
 		}
 	case "private_key_jwt":
-		if err := h.validatePrivateKeyJWT(req.Context(), req.Form, client, clientID); err != nil {
+		if err := h.validatePrivateKeyJWT(req.Context(), req.Form, client, clientID, req.PathValue("mcp_id")); err != nil {
 			slog.Info("Denied OAuth token request due to invalid private_key_jwt client assertion", "clientNamespace", client.Namespace, "clientName", client.Name, "error", err)
 			return newInvalidClientErr(err.Error())
 		}
