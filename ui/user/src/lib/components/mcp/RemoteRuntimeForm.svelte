@@ -16,7 +16,7 @@
 	import Label from './CatalogFormLabel.svelte';
 	import CustomConfigurationOptions from './CustomConfigurationOptions.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
-	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
+	import { Plus, Trash2, Info, Settings, TriangleAlert } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -505,14 +505,21 @@
 										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
 									>
 								</p>
-								<br />
+							</div>
+						</div>
+					</div>
+
+					<div class="notification-alert p-3 text-sm font-light">
+						<div class="flex items-start gap-3">
+							<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+							<div class="flex flex-col gap-1">
+								<p class="font-semibold">URLs are not secret</p>
 								<p>
-									Avoid including variables in your URL template that may contain sensitive
-									information, such as API keys. Even when using HTTPS, URLs can be logged or cached
-									by browsers, servers, and monitoring systems, potentially exposing confidential
-									data. Instead, place sensitive values in HTTP headers (for example, <code
-										>Authorization: Bearer &lt;token&gt;</code
-									>).
+									Values in a URL template, including static values, become part of the server's
+									URL. Users who connect to the server may be able to see that URL, and URLs can be
+									logged or cached by browsers, servers, and monitoring systems. Do not put API keys
+									or other secrets in a URL template. Place them in HTTP headers instead (for
+									example, <code>Authorization: Bearer &lt;token&gt;</code>).
 								</p>
 							</div>
 						</div>

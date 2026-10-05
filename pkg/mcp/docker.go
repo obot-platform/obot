@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -1482,7 +1483,7 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 
 	for _, filename := range fileNames {
 		containerPath := path.Join("/files", filename)
-		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
+		script.WriteString(writeFileCommand(containerPath, fileContents[filename]))
 	}
 
 	return d.runInitContainer(ctx, containerName+"-init", script.String(), []mount.Mount{{
@@ -1490,6 +1491,17 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 		Source: volumeName,
 		Target: "/files",
 	}})
+}
+
+// writeFileCommand returns a shell command that writes content, followed by a newline, to filePath.
+// The content is base64 encoded and the path is quoted so that neither can break out of the
+// command, which a heredoc cannot guarantee for arbitrary content.
+func writeFileCommand(filePath, content string) string {
+	return fmt.Sprintf("echo '%s' | base64 -d > %s\n", base64.StdEncoding.EncodeToString([]byte(content+"\n")), shellQuote(filePath))
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
@@ -1557,7 +1569,7 @@ func (d *dockerBackend) prepareMCPServerMMMCPConfig(ctx context.Context, server 
 		return "", fmt.Errorf("failed to create MCP server mmmcp config volume: %w", err)
 	}
 
-	script := fmt.Sprintf("cat > /config/mmmcp.yaml << 'EOF'\n%s\nEOF\n", mmmcpYAML)
+	script := writeFileCommand("/config/mmmcp.yaml", string(mmmcpYAML))
 	if err = d.runInitContainer(ctx, server.MCPServerName+"-mmmcp-init", script, []mount.Mount{
 		{
 			Type:   mount.TypeVolume,

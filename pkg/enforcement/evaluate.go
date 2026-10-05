@@ -2,6 +2,7 @@ package enforcement
 
 import (
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 
@@ -134,7 +135,8 @@ func pathPrefixMatches(entryPath, callPath string) bool {
 	if entryPath == "" {
 		return true
 	}
-	callPath = strings.TrimSuffix(callPath, "/")
+	// Resolve dot-segments so "/allowed/../other" cannot satisfy the "/allowed" prefix.
+	callPath = strings.TrimSuffix(path.Clean("/"+callPath), "/")
 	if callPath == entryPath {
 		return true
 	}

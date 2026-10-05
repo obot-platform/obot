@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -437,13 +438,13 @@ func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPUR
 			continue
 		}
 
-		if !config.AllowLocalhostMCP && ip.IsLoopback() {
+		if !config.AllowLocalhostMCP && safehttp.IsLoopback(ip) {
 			return fmt.Errorf("MCP server URL must not be a localhost URL: %s", rawURL)
 		}
-		if !config.AllowPrivateIPMCP && ip.IsPrivate() {
+		if !config.AllowPrivateIPMCP && safehttp.IsPrivate(ip) {
 			return fmt.Errorf("MCP server URL must not resolve to a private IP address: %s", rawURL)
 		}
-		if !config.AllowLinkLocalMCP && (ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()) {
+		if !config.AllowLinkLocalMCP && safehttp.IsLinkLocal(ip) {
 			return fmt.Errorf("MCP server URL must not resolve to a link-local address: %s", rawURL)
 		}
 	}
