@@ -387,11 +387,11 @@ export function createVMcpToolFlow() {
 		}
 	}
 
-	function modifyToolsFromActions() {
+	function modifyToolsFromActions(readonly = false) {
 		const vmcp = modifyingVMcp;
 		const component = configuringComponent;
 		if (!vmcp || !component) return;
-		if (component.toolOverrides?.length) {
+		if (readonly || component.toolOverrides?.length) {
 			openEdit(vmcp, component);
 			return;
 		}

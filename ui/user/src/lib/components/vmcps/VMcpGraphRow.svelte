@@ -12,6 +12,8 @@
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
 	import { getToolCounts, getVMcpCreator } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
+	import { hasAccessWithinSubjects } from '$lib/subjectResolver';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -85,6 +87,18 @@
 	});
 
 	let owner = $derived(getVMcpCreator(vmcp, usersMap));
+	const sharedViaProfile = $derived(
+		Boolean(readonly) &&
+			!profile.current.hasAdminAccess?.() &&
+			hasAccessWithinSubjects(
+				(vmcp.profiles ?? []).flatMap((item) => item.subjects),
+				profile.current
+			)
+	);
+
+	function componentSelectable(component: VMcpComponentView) {
+		return Boolean(onSelectComponent) && !(sharedViaProfile && !component.toolOverrides?.length);
+	}
 
 	function chainDelay(index: number) {
 		return Math.min(index, CHAIN_STAGGER_MAX_STEPS) * CHAIN_STAGGER_MS;
@@ -281,10 +295,14 @@
 {/snippet}
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
+	{@const selectable = componentSelectable(component)}
 	<div
-		class="hover:aura hover:aura-glow p-0.5 text-transparent hover:text-primary hover:-translate-y-0.5"
+		class={twMerge(
+			'p-0.5 text-transparent',
+			selectable && 'hover:aura hover:aura-glow hover:text-primary hover:-translate-y-0.5'
+		)}
 	>
-		{#if onSelectComponent}
+		{#if selectable}
 			<button
 				use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
 				class={twMerge(

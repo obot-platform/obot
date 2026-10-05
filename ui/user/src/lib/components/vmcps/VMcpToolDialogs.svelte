@@ -303,7 +303,10 @@
 	{/snippet}
 	<div class="flex flex-col gap-2 md:px-0 px-4">
 		<p class="text-sm text-center mb-3 md:mt-0 mt-4">What would you like to do?</p>
-		<button class="btn btn-secondary w-full" onclick={flow.modifyToolsFromActions}>
+		<button
+			class="btn btn-secondary w-full"
+			onclick={() => flow.modifyToolsFromActions(Boolean(readonly))}
+		>
 			{readonly ? 'View Tools' : 'Modify Tools'}
 		</button>
 		{#if flow.canSeeComponentConfiguration}
