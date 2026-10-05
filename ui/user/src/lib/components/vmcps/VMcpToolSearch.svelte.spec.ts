@@ -24,6 +24,10 @@ it('creates a vMCP with tool search when selected', async () => {
 	await page.getByRole('textbox', { name: 'Description' }).fill('Search enabled');
 	const toggle = page.getByRole('checkbox', { name: /Tool search/ });
 	await expect.element(toggle).not.toBeChecked();
+	await expect.element(toggle).toHaveClass(/toggle/);
+	await expect
+		.element(page.getByCSS('label[for="vmcp-tool-search"]'))
+		.toHaveClass(/justify-between/);
 	await toggle.click();
 	await page.getByRole('button', { name: 'Create', exact: true }).click();
 	await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());

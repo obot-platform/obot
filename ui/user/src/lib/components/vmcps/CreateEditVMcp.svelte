@@ -250,21 +250,25 @@
 			{/if}
 		</div>
 
-		<div class="mt-4 flex items-start gap-3 text-sm">
-			<input
-				id="vmcp-tool-search"
-				type="checkbox"
-				class="checkbox checkbox-sm mt-0.5"
-				bind:checked={form.toolSearch}
-				disabled={readonly}
-			/>
-			<label for="vmcp-tool-search">
-				<span class="font-medium">Tool search</span>
+		<label
+			for="vmcp-tool-search"
+			class="border-base-300 dark:border-base-400 mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
+		>
+			<span>
+				<span class="text-sm font-medium">Tool search</span>
 				<span class="block text-xs opacity-70">
 					Expose search and generic invocation instead of listing tools directly.
 				</span>
-			</label>
-		</div>
+			</span>
+			<input
+				id="vmcp-tool-search"
+				type="checkbox"
+				class="toggle shrink-0"
+				bind:checked={form.toolSearch}
+				disabled={readonly}
+				aria-label="Tool search"
+			/>
+		</label>
 
 		<div class="flex grow"></div>
 
