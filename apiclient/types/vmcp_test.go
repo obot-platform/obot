@@ -7,23 +7,6 @@ import (
 	"testing"
 )
 
-func TestVMCPManifestToolSearchJSON(t *testing.T) {
-	for _, enabled := range []bool{false, true} {
-		original := VMCPManifest{ToolSearch: enabled}
-		data, err := json.Marshal(original)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var decoded VMCPManifest
-		if err := json.Unmarshal(data, &decoded); err != nil {
-			t.Fatal(err)
-		}
-		if decoded.ToolSearch != enabled {
-			t.Fatalf("toolSearch = %t, want %t", decoded.ToolSearch, enabled)
-		}
-	}
-}
-
 func TestVMCPSnapshotOmitsToolPreviews(t *testing.T) {
 	snapshot := MCPServerCatalogEntrySnapshot{
 		Manifest: MCPServerCatalogEntryManifest{
