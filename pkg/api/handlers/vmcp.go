@@ -36,14 +36,15 @@ func (*VMCPHandler) List(req api.Context) error {
 
 	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 
+	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
+	if err != nil {
+		return fmt.Errorf("resolve vMCP callback paths: %w", err)
+	}
+
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
 		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
-			converted, err := convertVMCPForUser(req, list.Items[itemIndex])
-			if err != nil {
-				return err
-			}
-			items = append(items, converted)
+			items = append(items, convertVMCPForInstance(req, list.Items[itemIndex], instances[list.Items[itemIndex].Name]))
 		}
 	}
 	return req.Write(types.VMCPList{Items: items})
@@ -299,7 +300,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 			return fmt.Errorf("failed to update vMCP configuration hashes: %v", err)
 		}
 
-		return req.Write(convertVMCP(vmcp))
+		converted, err := convertVMCPForUser(req, vmcp)
+		if err != nil {
+			return err
+		}
+		return req.Write(converted)
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
@@ -502,6 +507,11 @@ func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
 	if err != nil {
 		return types.VMCP{}, fmt.Errorf("resolve vMCP callback paths: %w", err)
 	}
+	return convertVMCPForInstance(req, vmcp, instance), nil
+}
+
+// convertVMCPForInstance is convertVMCPForUser with the user's instance, if any, already resolved.
+func convertVMCPForInstance(req api.Context, vmcp v1.VMCP, instance *v1.VMCPInstance) types.VMCP {
 	components := slices.Clone(vmcp.Spec.Manifest.Components)
 	if instance != nil {
 		components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
@@ -522,5 +532,5 @@ func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
 			result.LocalhostCallbackPaths = append(result.LocalhostCallbackPaths, path)
 		}
 	}
-	return result, nil
+	return result
 }

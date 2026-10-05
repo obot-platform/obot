@@ -90,10 +90,32 @@ func FindInstance(ctx context.Context, client kclient.Client, namespace, vmcpID,
 	if err := client.List(ctx, &instances, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.manifest.vmcpID": vmcpID, "spec.userID": userID}); err != nil {
 		return nil, err
 	}
-	if len(instances.Items) == 0 {
-		return nil, nil
+	return oldestInstance(instances.Items), nil
+}
+
+// FindInstances chooses the same connection as FindInstance for every vMCP the
+// user has connected to, keyed by vMCP ID, using a single list.
+func FindInstances(ctx context.Context, client kclient.Client, namespace, userID string) (map[string]*v1.VMCPInstance, error) {
+	var instances v1.VMCPInstanceList
+	if err := client.List(ctx, &instances, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.userID": userID}); err != nil {
+		return nil, err
 	}
-	slices.SortFunc(instances.Items, func(a, b v1.VMCPInstance) int {
+	byVMCP := map[string][]v1.VMCPInstance{}
+	for _, instance := range instances.Items {
+		byVMCP[instance.Spec.Manifest.VMCPID] = append(byVMCP[instance.Spec.Manifest.VMCPID], instance)
+	}
+	result := make(map[string]*v1.VMCPInstance, len(byVMCP))
+	for vmcpID, items := range byVMCP {
+		result[vmcpID] = oldestInstance(items)
+	}
+	return result, nil
+}
+
+func oldestInstance(items []v1.VMCPInstance) *v1.VMCPInstance {
+	if len(items) == 0 {
+		return nil
+	}
+	slices.SortFunc(items, func(a, b v1.VMCPInstance) int {
 		aTime, bTime := a.CreationTimestamp, b.CreationTimestamp
 		if a.Spec.LegacyCreatedAt != nil {
 			aTime = *a.Spec.LegacyCreatedAt
@@ -109,5 +131,5 @@ func FindInstance(ctx context.Context, client kclient.Client, namespace, vmcpID,
 		}
 		return cmp.Compare(a.Name, b.Name)
 	})
-	return &instances.Items[0], nil
+	return &items[0]
 }

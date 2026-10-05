@@ -179,6 +179,7 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthChecking = $state(false);
 
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 
@@ -430,14 +431,20 @@
 	}
 
 	async function handleOauthVisibilityChange() {
-		if (!oauthURL && !oauthVerifying) return;
+		// The Continue button and the visibility listener can both fire; run one check at a time.
+		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
-			if (!oauthURL) {
-				oauthDialog?.close();
-				handleConnect();
+			oauthChecking = true;
+			try {
+				oauthURL = await getOauthURL();
+				if (!oauthURL) {
+					oauthDialog?.close();
+					handleConnect();
+				}
+				oauthVerifying = false;
+			} finally {
+				oauthChecking = false;
 			}
-			oauthVerifying = false;
 		}
 	}
 
@@ -1240,7 +1247,11 @@
 				</p>
 
 				{#if isMcpLoginURL(oauthURL)}
-					<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} />
+					<McpLogin
+						url={oauthURL}
+						onComplete={handleOauthVisibilityChange}
+						loading={oauthChecking}
+					/>
 				{:else}
 					<p>{m.mcps_connect_oauth_click_link()}</p>
 

@@ -178,7 +178,8 @@ func bridge(ctx context.Context, local gomcp.Connection, endpoint string, handle
 // protocol versions carry server messages on request streams instead.
 func standalone(ctx context.Context, client *http.Client, endpoint, session string, handler auth.OAuthHandler, local gomcp.Connection) error {
 	lastID := ""
-	for attempt := 0; ; attempt++ {
+	delay := time.Second
+	for {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		if err != nil {
 			return err
@@ -217,20 +218,22 @@ func standalone(ctx context.Context, client *http.Client, endpoint, session stri
 				_ = resp.Body.Close()
 				return fmt.Errorf("MCP event stream has invalid content type")
 			}
-			err = readEvents(ctx, resp.Body, local, &lastID)
+			// The stream was established, so start the next reconnect from the shortest delay.
+			delay = time.Second
+			_ = readEvents(ctx, resp.Body, local, &lastID)
 			_ = resp.Body.Close()
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if attempt >= 5 {
-			return fmt.Errorf("MCP event stream disconnected: %w", err)
-		}
+		// Keep reconnecting through outages until the bridge is closed; the POST
+		// transport may still be usable while the stream is down.
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second):
+		case <-time.After(delay):
 		}
+		delay = min(delay*2, 30*time.Second)
 	}
 }
 

@@ -51,7 +51,8 @@
 		}
 
 		// Create new AbortController for this request
-		abortController = new AbortController();
+		const controller = new AbortController();
+		abortController = controller;
 
 		loading = true;
 		oauthURL = '';
@@ -60,7 +61,7 @@
 		try {
 			if (componentAuthID) {
 				const result = await UserService.checkCompositeOAuthComponent(componentAuthID, entry.id, {
-					signal: abortController.signal
+					signal: controller.signal
 				});
 				oauthURL = result.authURL || '';
 			} else if (entry.powerUserWorkspaceID) {
@@ -68,16 +69,16 @@
 					entry.powerUserWorkspaceID,
 					entry.id,
 					{
-						signal: abortController.signal
+						signal: controller.signal
 					}
 				);
 			} else if ('mcpCatalogID' in entry && entry.mcpCatalogID) {
 				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
-					signal: abortController.signal
+					signal: controller.signal
 				});
 			} else {
 				oauthURL = await UserService.getMcpServerOauthURL(entry.id, {
-					signal: abortController.signal
+					signal: controller.signal
 				});
 			}
 		} catch (err: unknown) {
@@ -88,17 +89,20 @@
 				error = message;
 			}
 		} finally {
-			loading = false;
+			// A superseded request must not complete authentication with the shared, cleared URL.
+			if (abortController === controller) {
+				loading = false;
 
-			if (!oauthURL && !error && showRefresh) {
-				onAuthenticate?.();
-				showRefresh = false;
-			}
+				if (!oauthURL && !error && showRefresh) {
+					onAuthenticate?.();
+					showRefresh = false;
+				}
 
-			if (oauthURL && !initializedListener) {
-				document.addEventListener('visibilitychange', handleVisibilityChange);
-			} else if (!oauthURL) {
-				document.removeEventListener('visibilitychange', handleVisibilityChange);
+				if (oauthURL && !initializedListener) {
+					document.addEventListener('visibilitychange', handleVisibilityChange);
+				} else if (!oauthURL) {
+					document.removeEventListener('visibilitychange', handleVisibilityChange);
+				}
 			}
 		}
 	}
@@ -127,7 +131,9 @@
 {:else if isMcpLoginURL(oauthURL)}
 	<McpLogin
 		url={oauthURL}
+		{loading}
 		onComplete={() => {
+			if (loading) return;
 			showRefresh = true;
 			void loadOauthURL();
 		}}

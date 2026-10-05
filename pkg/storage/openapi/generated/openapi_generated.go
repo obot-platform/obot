@@ -189,6 +189,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption":                    schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                    schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                 schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPLocalLogin":                             schema_obot_platform_obot_apiclient_types_MCPLocalLogin(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                        schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                      schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                       schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
@@ -10176,6 +10177,41 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption", "github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPLocalLogin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPLocalLogin describes a pending UI OAuth attempt. All credentials and the PKCE verifier remain on the server; the CLI only relays browser callbacks.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authorizationURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"redirectURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"authorizationURL", "redirectURL", "state"},
+			},
+		},
 	}
 }
 
