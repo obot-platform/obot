@@ -168,6 +168,7 @@ Set top-level `type: vmcp` to synchronize a vMCP. An omitted or empty `type` mea
 type: vmcp
 entryKey: research
 displayName: Research
+toolSearch: true # Optional; defaults to false for direct tool listing and calls.
 components:
   - name: Search
     id: search-component

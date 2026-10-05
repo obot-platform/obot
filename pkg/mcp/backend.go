@@ -278,6 +278,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 	}
 
 	if server.Runtime == types.RuntimeVMCP {
+		config.ToolSearch = server.ToolSearch
 		// Component connections are authenticated by the gateway's composite OAuth
 		// handler, not the frontend Authorization header: pooled sessions replay
 		// the headers of the request that opened them long after it expires.

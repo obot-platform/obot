@@ -2,6 +2,7 @@ package mcpgateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -9,16 +10,97 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
+	"github.com/obot-platform/mmmcp/toolsearch"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"golang.org/x/oauth2"
 )
+
+func TestVMCPToolSearchThroughEmbeddedMMMCP(t *testing.T) {
+	var called atomic.Bool
+	server := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
+	server.AddTool(&gomcp.Tool{Name: "echo", Description: "Echo a message", InputSchema: map[string]any{"type": "object"}}, func(_ context.Context, _ *gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		called.Store(true)
+		return &gomcp.CallToolResult{Content: []gomcp.Content{&gomcp.TextContent{Text: "called"}}}, nil
+	})
+	upstream := httptest.NewServer(gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil))
+	defer upstream.Close()
+
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handler.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{
+		Runtime:    types.RuntimeVMCP,
+		ToolSearch: true,
+		Components: []obotmcp.ComponentServer{{
+			DisplayName: "component",
+			URL:         upstream.URL,
+		}},
+	}, nil)
+	frontend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.composite.HTTPHandler().ServeHTTP(w, r.WithContext(mmmcp.ContextWithConfig(r.Context(), cfg)))
+	}))
+	defer frontend.Close()
+
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "test", Version: "1"}, nil)
+	session, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{Endpoint: frontend.URL, DisableStandaloneSSE: true}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	listed, err := session.ListTools(t.Context(), nil)
+	if err != nil || len(listed.Tools) != 2 {
+		t.Fatalf("listed tools = %#v, error = %v", listed, err)
+	}
+	listedNames := map[string]bool{}
+	for _, tool := range listed.Tools {
+		listedNames[tool.Name] = true
+	}
+	if !listedNames["search_tools"] || !listedNames["call_tool"] {
+		t.Fatalf("unexpected search-mode tools: %v", listedNames)
+	}
+	if _, err := session.CallTool(t.Context(), &gomcp.CallToolParams{Name: "echo"}); err == nil {
+		t.Fatal("direct component call succeeded in search mode")
+	}
+	if called.Load() {
+		t.Fatal("direct call reached the component")
+	}
+
+	result, err := session.CallTool(t.Context(), &gomcp.CallToolParams{
+		Name:      toolsearch.SearchToolName,
+		Arguments: map[string]any{"query": "echo"},
+	})
+	if err != nil || result.IsError {
+		t.Fatalf("search result = %#v, error = %v", result, err)
+	}
+	var found toolsearch.Results
+	if err := json.Unmarshal([]byte(result.Content[0].(*gomcp.TextContent).Text), &found); err != nil {
+		t.Fatal(err)
+	}
+	if len(found.Tools) != 1 || found.Tools[0].Tool.InputSchema == nil {
+		t.Fatalf("search results = %#v", found)
+	}
+	result, err = session.CallTool(t.Context(), &gomcp.CallToolParams{
+		Name: toolsearch.CallToolName,
+		Arguments: map[string]any{
+			"name":     found.Tools[0].Reference.Name,
+			"revision": found.Tools[0].Revision,
+		},
+	})
+	if err != nil || result.IsError || !called.Load() {
+		t.Fatalf("generic invocation = %#v, error = %v, component called = %t", result, err, called.Load())
+	}
+}
 
 func TestCompositeUpstreamClientIdentity(t *testing.T) {
 	identities := make(chan gomcp.Implementation, 2)

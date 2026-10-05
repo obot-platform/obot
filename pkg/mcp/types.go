@@ -53,6 +53,7 @@ type ServerConfig struct {
 	// vMCP configuration.
 	Components []ComponentServer `json:"components"`
 	ConfigHash string            `json:"configHash"`
+	ToolSearch bool              `json:"toolSearch,omitempty"`
 
 	Scope                string `json:"scope"`
 	UserID               string `json:"userID"`

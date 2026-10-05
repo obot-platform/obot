@@ -222,6 +222,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	return ServerConfig{
 		Runtime:              types.RuntimeVMCP,
 		ConfigHash:           instance.Status.ConfigurationCheckHash,
+		ToolSearch:           vmcp.Spec.Manifest.ToolSearch,
 		MCPServerName:        connectID,
 		MCPServerDisplayName: vmcp.Spec.Manifest.DisplayName,
 		Audiences:            []string{system.MCPConnectURL(sm.baseURL, connectID), system.MCPConnectURL(sm.baseURL, vmcp.Name)},

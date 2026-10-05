@@ -3,6 +3,7 @@
 	import JsonSchemaField from './JsonSchemaField.svelte';
 	import { defaultJSONSchemaValue, nonNullableJSONSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		schema: JSONSchema;
@@ -27,6 +28,8 @@
 	// separator, so sibling `a-b` and nested `a`/`b` would otherwise share a DOM id.
 	const uid = $props.id();
 	const id = `mcp-tester-field-${uid}`;
+	let objectJSON = $state(untrack(() => JSON.stringify(value ?? {}, null, 2)));
+	let objectJSONError = $state<string>();
 	let nonNullable = $derived(nonNullableJSONSchema(schema));
 	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
@@ -49,6 +52,18 @@
 
 	function updateProperty(name: string, next: unknown) {
 		onchange({ ...objectValue(), [name]: next });
+	}
+
+	function updateObjectJSON(next: string) {
+		objectJSON = next;
+		try {
+			onchange(JSON.parse(next) as unknown);
+			objectJSONError = undefined;
+		} catch (error) {
+			// Keep the parent form invalid until the JSON can be parsed again.
+			onchange(next);
+			objectJSONError = error instanceof Error ? error.message : 'Invalid JSON';
+		}
 	}
 
 	function arrayValue(): unknown[] {
@@ -90,26 +105,45 @@
 		/>
 	</div>
 {:else if type === 'object'}
-	<fieldset class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4">
-		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
-		{#if schema.description}
-			<p class="text-xs text-muted-content">{schema.description}</p>
-		{/if}
-		{#each Object.entries(schema.properties ?? {}) as [name, property] (name)}
-			<JsonSchemaField
-				schema={property}
-				value={objectValue()[name]}
-				label={property.title || name}
-				path={`${path}-${name}`}
-				required={schema.required?.includes(name)}
+	{#if Object.keys(schema.properties ?? {}).length === 0}
+		<div class="space-y-2">
+			<label for={id} class="block text-sm font-medium">{label}{required ? ' *' : ''}</label>
+			{#if schema.description}
+				<p class="text-xs text-muted-content">{schema.description}</p>
+			{/if}
+			<textarea
+				{id}
+				class="text-input-filled min-h-32 w-full font-mono text-sm"
+				value={objectJSON}
 				{disabled}
-				onchange={(next) => updateProperty(name, next)}
-			/>
-		{/each}
-		{#if Object.keys(schema.properties ?? {}).length === 0}
-			<p class="text-sm text-muted-content">{m.mcps_tester_no_declared_properties()}</p>
-		{/if}
-	</fieldset>
+				aria-invalid={Boolean(objectJSONError)}
+				aria-describedby={objectJSONError ? `${id}-error` : undefined}
+				oninput={(event) => updateObjectJSON(event.currentTarget.value)}></textarea>
+			{#if objectJSONError}
+				<p id={`${id}-error`} class="text-sm text-error" role="alert">
+					Invalid JSON: {objectJSONError}
+				</p>
+			{/if}
+		</div>
+	{:else}
+		<fieldset class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4">
+			<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
+			{#if schema.description}
+				<p class="text-xs text-muted-content">{schema.description}</p>
+			{/if}
+			{#each Object.entries(schema.properties ?? {}) as [name, property] (name)}
+				<JsonSchemaField
+					schema={property}
+					value={objectValue()[name]}
+					label={property.title || name}
+					path={`${path}-${name}`}
+					required={schema.required?.includes(name)}
+					{disabled}
+					onchange={(next) => updateProperty(name, next)}
+				/>
+			{/each}
+		</fieldset>
+	{/if}
 {:else if type === 'array'}
 	<fieldset class="border-base-300 dark:border-base-400 space-y-3 rounded-lg border p-4">
 		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>

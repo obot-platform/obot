@@ -28,6 +28,8 @@ Tool controls apply in layers:
 
 When several components expose the same tool name, configure a component prefix or rename a tool so clients receive unique names. Refreshing tool information may require the component's fixed configuration and OAuth authentication.
 
+The **Tool search** setting is off by default, so clients list and call the selected tools directly. When enabled, clients see two tools: `search_tools` finds relevant tools, and `call_tool` invokes a result. This can improve model performance when a vMCP has many tools by reducing the tool definitions in the model's context and helping it focus on relevant tools. The same component, profile, and user selections determine which tools can be found and called.
+
 ## Catalog access policies {#mcp-access-policies-overview}
 
 MCP Access Policies control which MCP servers are available to which users. Administrators use access policies to map server entries from the MCP Servers page to specific users and groups, ensuring each team has access to the tools they need.

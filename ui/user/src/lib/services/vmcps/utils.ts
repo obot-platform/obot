@@ -65,11 +65,13 @@ export function appendComponentLabel(
 export type VMcpFormData = {
 	displayName: string;
 	description: string;
+	toolSearch: boolean;
 };
 
 export const initVMcp = (): VMcpFormData => ({
 	displayName: '',
-	description: ''
+	description: '',
+	toolSearch: false
 });
 
 // Catalog-synced vMCPs are managed by their source catalog and cannot be
@@ -256,6 +258,7 @@ export function vmcpManifest(vmcp: VMCP): VMCPManifest {
 		displayName: vmcp.displayName,
 		description: vmcp.description,
 		icon: vmcp.icon,
+		toolSearch: vmcp.toolSearch,
 		components: vmcp.components ?? [],
 		profiles: vmcp.profiles
 	};

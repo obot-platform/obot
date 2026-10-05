@@ -19539,6 +19539,12 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"toolSearch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"components": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -20120,6 +20126,12 @@ func schema_obot_platform_obot_apiclient_types_VMCPManifest(ref common.Reference
 					"icon": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolSearch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
