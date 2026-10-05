@@ -6,11 +6,7 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
-	import {
-		configurationWithRevealedValues,
-		isCatalogSyncedVMcp,
-		vmcpComponentId
-	} from '$lib/services/vmcps/utils';
+	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
 	import { goto, setUrlParam } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -20,9 +16,10 @@
 
 	interface Props {
 		flow: VMcpToolFlow;
+		readonly?: boolean;
 	}
 
-	let { flow }: Props = $props();
+	let { flow, readonly }: Props = $props();
 	let addedCreateDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let asIsButton = $state<HTMLButtonElement>();
 	let setupDialog = $state<ReturnType<typeof VMcpToolsSetup>>();
@@ -33,7 +30,6 @@
 	let synchronizing = false;
 	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
-	const readonly = $derived(Boolean(flow.modifyingVMcp && isCatalogSyncedVMcp(flow.modifyingVMcp)));
 	const lastComponentTooltip = 'VMCP requires at least one component.';
 
 	async function openConfigureDialog() {
@@ -310,7 +306,7 @@
 		<button class="btn btn-secondary w-full" onclick={flow.modifyToolsFromActions}>
 			{readonly ? 'View Tools' : 'Modify Tools'}
 		</button>
-		{#if flow.canConfigureComponent}
+		{#if flow.canSeeComponentConfiguration}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				{readonly ? 'View Configuration' : 'Change Configuration'}
 			</button>

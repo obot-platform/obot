@@ -593,8 +593,11 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
-		get canConfigureComponent() {
-			return Boolean(configuringEntry);
+		get canSeeComponentConfiguration() {
+			if (!configuringEntry) return false;
+			const vmcp = modifyingVMcp;
+			if (!vmcp) return false;
+			return Boolean(profile.current.isAdmin?.() || profile.current.id === vmcp.userID);
 		},
 		get postCreateConfiguration() {
 			return postCreateConfiguration;

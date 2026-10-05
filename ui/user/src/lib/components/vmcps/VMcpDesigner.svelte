@@ -483,7 +483,6 @@
 					<VMcpGraphRow
 						vmcp={item}
 						components={vmcpComponents(item)}
-						{canEdit}
 						context={ctx}
 						drag={entryDrag}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
@@ -496,11 +495,10 @@
 						onUpdate={(updated) => {
 							selectedVMcp = updated;
 						}}
-						onModifyComponent={canEdit
-							? (component) => toolFlow.openComponent(component, item)
-							: undefined}
+						onSelectComponent={(component) => toolFlow.openComponent(component, item)}
 						bind:connectEl={connectButtonEl}
 						{usersMap}
+						readonly={!canEdit}
 					/>
 				{/snippet}
 				{#snippet empty()}
@@ -603,7 +601,7 @@
 
 <VMcpDragOverlay drag={entryDrag} />
 
-<VMcpToolDialogs flow={toolFlow} />
+<VMcpToolDialogs flow={toolFlow} readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)} />
 
 <VMcpActions bind:this={vmcpActions} onConfigurationNext={handleConfigurationNext} />
 

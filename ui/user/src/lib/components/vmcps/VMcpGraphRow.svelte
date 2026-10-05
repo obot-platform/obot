@@ -28,14 +28,13 @@
 	interface Props {
 		vmcp: VMCP;
 		components: VMcpComponentView[];
-		canEdit?: boolean;
 		context: RowContext;
 		drag: EntryDrag;
 		onEdit?: () => void;
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		onUpdate?: (vmcp: VMCP) => void;
-		onModifyComponent?: (component: VMcpComponentView) => void;
+		onSelectComponent?: (component: VMcpComponentView) => void;
 		usersMap: Map<string, OrgUser>;
 		openSelectInstance?: (
 			instances: VMCPInstance[],
@@ -46,25 +45,26 @@
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 		connectEl?: HTMLElement;
+		readonly?: boolean;
 	}
 
 	let {
 		vmcp,
 		components,
-		canEdit = true,
 		context,
 		drag,
 		onEdit,
 		onConnect,
 		onDelete,
 		onUpdate,
-		onModifyComponent,
+		onSelectComponent,
 		usersMap,
 		openSelectInstance,
 		openDiff,
 		openUpdateConfirm,
 		openEditInstanceConfiguration,
-		connectEl = $bindable()
+		connectEl = $bindable(),
+		readonly
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -198,7 +198,7 @@
 				'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
 				linked
 					? 'vmcp-drop-target border-primary text-primary'
-					: canEdit
+					: !readonly
 						? 'p-0.5 aura text-primary'
 						: 'p-0.5'
 			)}
@@ -206,7 +206,7 @@
 		>
 			<VMcpCard
 				{vmcp}
-				selectAriaLabel={canEdit ? `Edit ${name}` : name}
+				selectAriaLabel={!readonly ? `Edit ${name}` : name}
 				bind:connectEl
 				{onConnect}
 				hideTest
@@ -216,10 +216,10 @@
 				{openDiff}
 				{openUpdateConfirm}
 				{openEditInstanceConfiguration}
-				onEditDetails={canEdit ? onEdit : undefined}
+				onEditDetails={!readonly ? onEdit : undefined}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
-					canEdit && 'cursor-pointer'
+					!readonly && 'cursor-pointer'
 				)}
 				{owner}
 			>
@@ -275,19 +275,16 @@
 		in:fade={{ delay: CREATE_WIRE_DURATION_MS, duration: 200 }}
 	>
 		<p class="text-muted-content text-xs italic">
-			{canEdit ? 'No servers yet. Drag one in from the MCP Servers panel.' : 'No servers yet.'}
+			{!readonly ? 'No servers yet. Drag one in from the MCP Servers panel.' : 'No servers yet.'}
 		</p>
 	</div>
 {/snippet}
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
 	<div
-		class={twMerge(
-			canEdit &&
-				'hover:aura hover:aura-glow p-0.5 text-transparent hover:text-primary hover:-translate-y-0.5'
-		)}
+		class="hover:aura hover:aura-glow p-0.5 text-transparent hover:text-primary hover:-translate-y-0.5"
 	>
-		{#if canEdit}
+		{#if onSelectComponent}
 			<button
 				use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
 				class={twMerge(
@@ -295,7 +292,7 @@
 				)}
 				aria-label={component.name}
 				in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
-				onclick={() => onModifyComponent?.(component)}
+				onclick={() => onSelectComponent?.(component)}
 			>
 				{@render componentContent(component)}
 			</button>
@@ -332,7 +329,11 @@
 		{@const total = withToolOverrides.length}
 		{@const selectedCount = withToolOverrides.filter((tool) => tool.enabled === true).length}
 		<p class="text-muted-content font-mono text-xs text-center w-full">
-			{selectedCount} / {total} selected
+			{#if readonly}
+				{total} total tools
+			{:else}
+				{selectedCount} / {total} selected
+			{/if}
 		</p>
 	{:else}
 		<p class="text-muted-content font-mono text-xs text-center w-full">
