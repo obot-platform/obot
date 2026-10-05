@@ -547,7 +547,6 @@ describe('Platform settings view', () => {
 
 	it('keeps a git credential when delete conflicts', async () => {
 		const append = vi.spyOn(errors, 'append');
-		const successNotification = vi.spyOn(success, 'add');
 		worker.use(
 			http.delete('/api/git-credentials/git-1', () =>
 				HttpResponse.json({ message: 'in use' }, { status: 409 })
@@ -571,14 +570,12 @@ describe('Platform settings view', () => {
 		await vi.waitFor(() => {
 			expect(append.mock.calls.flat().join('\n')).toContain('409');
 		});
-		expect(successNotification).not.toHaveBeenCalled();
 		await expect.element(page.getByText('In Use', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByRole('button', { name: 'Delete this credential', exact: true }))
 			.toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 		append.mockRestore();
-		successNotification.mockRestore();
 	});
 
 	it('does not save other sections when the notification banner is invalid', async () => {

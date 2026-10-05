@@ -1167,11 +1167,21 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Delete', exact: true }))
 				.not.toBeInTheDocument();
+			await page.getByCSS('#click-catch').click();
 
-			await expect.element(componentBlock()).not.toBeInTheDocument();
-			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'View Configuration' }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Remove GitHub' }))
 				.not.toBeInTheDocument();
 		});
 
@@ -1369,7 +1379,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(connect).toBeDisabled();
 		});
 
-		it('does not open edit or component actions, and omits delete from the card menu', async () => {
+		it('opens component actions as view-only and omits delete from the card menu', async () => {
 			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
 
 			// Viewers cannot edit details, so clicking the title does not open the dialog.
@@ -1381,10 +1391,19 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('heading', { name: 'Edit Details' }))
 				.not.toBeInTheDocument();
 
-			await expect.element(componentBlock()).not.toBeInTheDocument();
-			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'View Configuration' }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Remove GitHub' }))
 				.not.toBeInTheDocument();
 
 			await expect
