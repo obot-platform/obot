@@ -191,6 +191,7 @@ describe('Platform settings view', () => {
 
 	it('creates a git credential from the dialog', async () => {
 		const create = vi.fn();
+		const successNotification = vi.spyOn(success, 'add');
 		worker.use(
 			http.post('/api/git-credentials', async ({ request }) => {
 				create(await request.json());
@@ -247,12 +248,15 @@ describe('Platform settings view', () => {
 				host: 'github.com',
 				token: 'ghp_token'
 			});
+			expect(successNotification).toHaveBeenCalledWith('Git credentials updated successfully.');
 		});
 		await expect.element(pageSave).toBeDisabled();
+		successNotification.mockRestore();
 	});
 
 	it('stages an image pull secret in the dialog and saves it with the shared button', async () => {
 		const create = vi.fn();
+		const successNotification = vi.spyOn(success, 'add');
 		worker.use(
 			http.post('/api/image-pull-secrets', async ({ request }) => {
 				const body = await request.json();
@@ -307,8 +311,12 @@ describe('Platform settings view', () => {
 					password: 'secret-token'
 				}
 			});
+			expect(successNotification).toHaveBeenCalledWith(
+				'Registry connections updated successfully.'
+			);
 		});
 		await expect.element(save).toBeDisabled();
+		successNotification.mockRestore();
 	});
 
 	it('edits a staged image pull secret before it is saved', async () => {
@@ -539,6 +547,7 @@ describe('Platform settings view', () => {
 
 	it('keeps a git credential when delete conflicts', async () => {
 		const append = vi.spyOn(errors, 'append');
+		const successNotification = vi.spyOn(success, 'add');
 		worker.use(
 			http.delete('/api/git-credentials/git-1', () =>
 				HttpResponse.json({ message: 'in use' }, { status: 409 })
@@ -562,12 +571,14 @@ describe('Platform settings view', () => {
 		await vi.waitFor(() => {
 			expect(append.mock.calls.flat().join('\n')).toContain('409');
 		});
+		expect(successNotification).not.toHaveBeenCalled();
 		await expect.element(page.getByText('In Use', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByRole('button', { name: 'Delete this credential', exact: true }))
 			.toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 		append.mockRestore();
+		successNotification.mockRestore();
 	});
 
 	it('does not save other sections when the notification banner is invalid', async () => {

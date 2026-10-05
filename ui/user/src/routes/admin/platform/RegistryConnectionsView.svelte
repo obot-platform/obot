@@ -12,6 +12,7 @@
 	} from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
 	import { errors, profile } from '$lib/stores/index.js';
+	import { success } from '$lib/stores/success';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import CapabilityBanner from './CapabilityBanner.svelte';
@@ -404,11 +405,14 @@
 			pendingCreates = failedCreates;
 			pendingEdits = failedEdits;
 			pendingDeletes = failedDeletes;
-			return (
+			const succeeded =
 				failedCreates.length === 0 &&
 				Object.keys(failedEdits).length === 0 &&
-				failedDeletes.length === 0
-			);
+				failedDeletes.length === 0;
+			if (succeeded) {
+				success.add('Registry connections updated successfully.');
+			}
+			return succeeded;
 		} finally {
 			requestPending = false;
 		}
