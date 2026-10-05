@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 )
 
 func usersSchema(t *testing.T) []byte {
@@ -266,4 +267,29 @@ func TestURLImport(t *testing.T) {
 		require.Error(t, err)
 		require.NotContains(t, err.Error(), "secret")
 	}
+}
+
+func TestURLImportDoesNotForwardConfiguredCredentials(t *testing.T) {
+	schema := usersSchema(t)
+	received := make(chan http.Header, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Clone()
+		_, _ = w.Write(schema)
+	}))
+	defer server.Close()
+
+	importer := NewImporter(safehttp.Options{
+		Headers: http.Header{
+			"Authorization": {"Bearer configured-header"},
+			"X-API-Key":     {"configured-key"},
+		},
+		TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "configured-token"}),
+	})
+	_, err := importer.Import(t.Context(), types.OpenAPIRuntimeConfig{
+		Source: types.OpenAPISource{URL: server.URL},
+	})
+	require.NoError(t, err)
+	header := <-received
+	require.Empty(t, header.Get("Authorization"))
+	require.Empty(t, header.Get("X-API-Key"))
 }

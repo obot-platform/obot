@@ -39,6 +39,9 @@ type Result struct {
 // NewImporter applies the configured network policy to schema fetches.
 // Redirects are not followed, including same-origin ones.
 func NewImporter(options safehttp.Options) *Importer {
+	// Schema sources never receive credentials configured for API requests.
+	options.Headers = nil
+	options.TokenSource = nil
 	if options.Timeout == 0 {
 		options.Timeout = 30 * time.Second
 	}
