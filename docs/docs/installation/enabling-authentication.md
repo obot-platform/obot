@@ -9,90 +9,34 @@ This guide covers the step-by-step process to enable and configure authenticatio
 If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
 :::
 
-## Step 1: Set Environment Variables
+## Step 1: Set Environment Variables {#step-1-set-environment-variables}
 
-Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](./docker-deployment.md) or [Kubernetes](./kubernetes-deployment.md) deployment guides for full setup details.
+Continue to [Step 1: Set Environment Variables](../configuration/auth-providers.md#enabling-authentication-step-1-set-environment-variables).
 
-<Tabs>
-  <TabItem value="docker" label="Docker" default>
+## Step 2: Start Obot and Login {#step-2-start-obot-and-login}
 
-```bash
-docker run \
-  ... # other flags
-  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
-  -e OBOT_BOOTSTRAP_TOKEN=your-secret-token \
-  -e OBOT_SERVER_AUTH_OWNER_EMAILS=owner@company.com \
-  ghcr.io/obot-platform/obot:latest
-```
+Continue to [Step 2: Start Obot and Login](../configuration/auth-providers.md#enabling-authentication-step-2-start-obot-and-login).
 
-  </TabItem>
-  <TabItem value="kubernetes" label="Kubernetes">
+## Step 3: Configure Authentication Provider {#step-3-configure-authentication-provider}
 
-```yaml
-config:
-  # Required: Enable authentication
-  OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
+Continue to [Step 3: Configure Authentication Provider](../configuration/auth-providers.md#enabling-authentication-step-3-configure-authentication-provider).
 
-  # Required: Set the owner email (can also be configured in the UI later)
-  OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
+## Post-Setup {#post-setup}
 
-  # Optional: Set additional admin emails
-  OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
+Continue to [Post-Setup](../configuration/auth-providers.md#enabling-authentication-post-setup).
 
-secret:
-  # Optional: generated automatically when omitted from the chart-managed Secret
-  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
-```
+## Troubleshooting {#troubleshooting}
 
-  </TabItem>
-</Tabs>
+Continue to [Troubleshooting](../configuration/auth-providers.md#enabling-authentication-troubleshooting).
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
-| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
-| `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
-| `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
-| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | No | Initial local-auth owner's email. Must be set with the setup token. |
-| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | No | At least 32 characters of high-entropy, randomly generated secret material used to activate the initial owner. Store as a secret; `openssl rand -hex 32` is the recommended generator. |
-| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | No | Setup-link validity in hours. Defaults to `168`. |
+### Bootstrap Token Not Working {#bootstrap-token-not-working}
 
-## Step 2: Start Obot and Login
+Continue to [Bootstrap Token Not Working](../configuration/auth-providers.md#enabling-authentication-bootstrap-token-not-working).
 
-Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and use the bootstrap token to login. You'll now see User Management options enabled in the left navigation.
+### Authentication Provider Issues {#authentication-provider-issues}
 
-## Step 3: Configure Authentication Provider
+Continue to [Authentication Provider Issues](../configuration/auth-providers.md#enabling-authentication-authentication-provider-issues).
 
-1. Go to **Auth Providers** under the **User Management** section in the left navigation
-2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require Community registration or an Enterprise license.
-3. Follow the provider-specific configuration steps
+## Next Steps {#next-steps}
 
-For detailed provider configuration, see the [Auth Providers](../configuration/auth-providers.md) documentation.
-
-## Post-Setup
-
-Once you have configured an authentication provider:
-
-1. Users can login using the configured authentication provider
-2. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will have owner access
-3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will have admin access
-
-Note that you can always assign the owner or admin role to additional users through the User pages.
-
-## Troubleshooting
-
-### Bootstrap Token Not Working
-
-- Ensure `OBOT_SERVER_ENABLE_AUTHENTICATION=true` is set
-- Check that you're using the correct token
-- If an auth provider has already been configured and a non-bootstrap owner user exists, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
-
-### Authentication Provider Issues
-
-- Verify callback URLs match between Obot and your OAuth provider
-- Check that client ID and secret are correct
-- Ensure proper scopes and permissions are configured
-
-## Next Steps
-
-- Review [Auth Providers configuration](../configuration/auth-providers.md) for detailed provider setup
+Continue to [Next Steps](../configuration/auth-providers.md#enabling-authentication-next-steps).

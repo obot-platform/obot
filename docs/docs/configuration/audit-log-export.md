@@ -155,56 +155,17 @@ Use the identity associated with your Obot deployment. This method is more secur
 - Google Cloud Storage (when running on Google GKE). See [Workload Identity for Google Cloud](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) for more information.
 - Azure Blob Storage (when running on Azure AKS). See [Workload Identity for Azure](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster) for more information.
 
-## Creating Exports
+## Creating Exports {#creating-exports}
 
-### One-Time Exports
+Continue to [Creating Exports](../security/audit-data.md#audit-log-export-creating-exports).
 
-One-time exports allow you to export MCP or LLM audit logs for a specific time range with optional filters.
+### One-Time Exports {#one-time-exports}
 
-1. **Navigate to Audit Logs**:
+Continue to [One-Time Exports](../security/audit-data.md#audit-log-export-one-time-exports).
 
-   - For MCP audit logs, go to MCP Management → Audit Logs
-   - For LLM audit logs, go to LLM Gateway → Audit Logs
-   - Apply any desired filters
+### Scheduled Exports {#scheduled-exports}
 
-2. **Create Export**:
-
-   - Click "Create Export" → "Create One-time Export"
-   - If filters are applied, you'll be asked whether to include them
-
-3. **Configure Export**:
-
-   - **Name**: Descriptive name for the export
-   - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
-   - **Time Range**: Start and end dates/times
-   - **Filters**: Additional filters to apply
-
-4. **Submit Export**:
-   - Click "Create Export" to start the process
-   - Monitor progress in the exports list
-
-### Scheduled Exports
-
-Scheduled exports run automatically at specified intervals.
-
-1. **Create Schedule**:
-
-   - Click "Create Export" → "Create Export Schedule"
-   - Configure the same options as one-time exports
-
-2. **Schedule Configuration**:
-
-   - **Frequency**: Hourly, Daily, Weekly, or Monthly
-   - **Time**: Specific time to run (for daily/weekly/monthly)
-   - **Day**: Day of week (weekly) or month (monthly)
-   - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
-
-3. **Manage Schedules**:
-   - View and manage schedules in the "Export Schedules" tab
-   - Enable/disable schedules as needed
-   - Edit schedule configuration
+Continue to [Scheduled Exports](../security/audit-data.md#audit-log-export-scheduled-exports).
 
 ## Export Format
 

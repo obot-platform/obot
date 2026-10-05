@@ -10,26 +10,22 @@ Obot Agent features are disabled by default for new deployments, and the **Obot 
 
 Obot Agent Management provides administrators with tools to configure default agent settings and monitor agent and conversation activity. Access these features from **Obot Agent Management** in the sidebar.
 
-## Token Usage
+## Token Usage {#token-usage}
 
-View token usage across users and models to monitor costs and identify optimization opportunities.
+Continue to [Token Usage](../agents/first-agent.md#obot-agent-management-token-usage).
 
-:::note
-Token counts are reported for the Azure API key provider. Obot estimates spend when a deployment name exactly matches a model in its pricing catalog; deployments with different names cannot be reliably mapped to the underlying model and do not have estimated spend.
-:::
+## Model Providers {#model-providers}
 
-## Model Providers
+Continue to [Model Providers](../agents/first-agent.md#obot-agent-management-model-providers).
 
-Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers.md) for setup details.
+## Model Access Policies {#model-access-policies}
 
-## Model Access Policies
+Continue to [Model Access Policies](../agents/first-agent.md#obot-agent-management-model-access-policies).
 
-Control which users and groups can access which models in Obot Agent. See [Model Access Policies](./model-access-policies.md) for details.
+## AI Judge Policies {#message-policies}
 
-## AI Judge Policies
+Continue to [AI Judge Policies](../agents/first-agent.md#obot-agent-management-message-policies).
 
-Use natural language to enforce content rules on user prompts and tool calls. See [AI Judge Policies](./ai-judge-policies.md) for details.
+## AI Judge Policy Violations {#message-policy-violations}
 
-## AI Judge Policy Violations
-
-Review policy violations, trends, and blocked content metadata for AI Judge Policies from the same admin area.
+Continue to [AI Judge Policy Violations](../agents/first-agent.md#obot-agent-management-message-policy-violations).

@@ -6,143 +6,54 @@ The `obot setup` command prepares your local workstation to use an Obot server f
 
 Use it after an Obot server is running and reachable from your machine.
 
-## What it does
+## What it does {#what-it-does}
 
-`obot setup` performs these steps:
+Continue to [What it does](../reference/cli-api.md#cli-setup-what-it-does).
 
-1. Resolves the Obot app URL to use, either from `--url`, from an existing local default, or by prompting you.
-2. Authenticates to that Obot server. If `OBOT_TOKEN` is set, the CLI uses that token. Otherwise, it uses the same browser-based API key flow as `obot login`.
-3. Stores the normalized default Obot URL in the local Obot CLI config.
-4. Stores a newly acquired Obot API key in the host OS keyring, scoped to that Obot URL.
-5. Optionally installs Obot bootstrap skills into supported local AI clients.
+## Prerequisites {#prerequisites}
 
-The bootstrap skills let local agents use the `obot` CLI to search for Obot-managed skills, install skills, and run local client scans without manually editing client configuration.
+Continue to [Prerequisites](../reference/cli-api.md#cli-setup-prerequisites).
 
-:::note
-`obot setup` configures the local CLI and local client bootstrap files. It does not deploy the Obot server or configure server-side authentication providers.
-:::
+## Basic usage {#basic-usage}
 
-## Prerequisites
+Continue to [Basic usage](../reference/cli-api.md#cli-setup-basic-usage).
 
-- The `obot` CLI is installed and available on your `PATH`.
-- The Obot server URL is reachable from your workstation.
-- If authentication is enabled, Obot has at least one configured authentication provider that your user can use.
-- Your local OS keyring is available so the CLI can store a newly acquired API key.
+## Choosing local client targets {#choosing-local-client-targets}
 
-If Obot authentication is enabled but no provider is configured yet, finish server-side authentication setup first. See [Enabling Authentication](./enabling-authentication.md) and [Auth Providers](../configuration/auth-providers.md).
+Continue to [Choosing local client targets](../reference/cli-api.md#cli-setup-choosing-local-client-targets).
 
-## Basic usage
+## Non-interactive setup {#non-interactive-setup}
 
-Run setup with your Obot app URL:
+Continue to [Non-interactive setup](../reference/cli-api.md#cli-setup-non-interactive-setup).
 
-```bash
-obot setup --url https://obot.example.com
-```
+## Check setup status {#check-setup-status}
 
-For a local Docker deployment using the default port:
+Continue to [Check setup status](../reference/cli-api.md#cli-setup-check-setup-status).
 
-```bash
-obot setup --url http://localhost:8080
-```
+## What setup writes locally {#what-setup-writes-locally}
 
-If authentication is required, the CLI opens a browser to complete login. After login succeeds, setup saves the default URL and asks where to install local bootstrap skills.
+Continue to [What setup writes locally](../reference/cli-api.md#cli-setup-what-setup-writes-locally).
 
-## Choosing local client targets
+## Troubleshooting {#troubleshooting}
 
-Use `--clients` to choose where bootstrap skills are installed:
+Continue to [Troubleshooting](../reference/cli-api.md#cli-setup-troubleshooting).
 
-| Value | Description | Install location |
-|-------|-------------|------------------|
-| `agents` | Install into the shared Agent Skills directory used by clients that support `~/.agents`. | `~/.agents/skills` |
-| `claude-code` | Install into Claude Code's skills directory. | `~/.claude/skills` |
-| `none` | Skip local client bootstrap installation. | Not applicable |
+### `auth_unavailable` {#auth_unavailable}
 
-You can install into more than one target:
+Continue to [`auth_unavailable`](../reference/cli-api.md#cli-setup-auth_unavailable).
 
-```bash
-obot setup --url https://obot.example.com --clients agents,claude-code
-```
+### `server_unreachable` {#server_unreachable}
 
-To configure only CLI authentication and the default URL:
+Continue to [`server_unreachable`](../reference/cli-api.md#cli-setup-server_unreachable).
 
-```bash
-obot setup --url https://obot.example.com --clients none
-```
+### Missing `--url` in non-interactive mode {#missing---url-in-non-interactive-mode}
 
-When `--clients` is omitted in an interactive terminal, setup prompts you. The prompt always offers `agents`. It offers `claude-code` when Claude Code is detected locally. You can still install Claude Code support explicitly with `--clients claude-code`.
+Continue to [Missing `--url` in non-interactive mode](../reference/cli-api.md#cli-setup-missing---url-in-non-interactive-mode).
 
-## Non-interactive setup
+### `--clients is required in non-interactive mode` {#--clients-is-required-in-non-interactive-mode}
 
-For scripts or GUI wrappers, pass both `--url` and `--clients` with `--non-interactive`:
+Continue to [`--clients is required in non-interactive mode`](../reference/cli-api.md#cli-setup---clients-is-required-in-non-interactive-mode).
 
-```bash
-obot setup \
-  --url https://obot.example.com \
-  --clients agents \
-  --non-interactive
-```
+### Existing URL mismatch {#existing-url-mismatch}
 
-Non-interactive mode never reads from stdin. It still uses the normal API key flow, so it may open a browser and wait for authentication unless a valid key is already stored.
-
-Use `--yes` to accept defaults and confirmations. If `--clients` is omitted with `--yes`, setup installs the shared `agents` target by default:
-
-```bash
-obot setup --url https://obot.example.com --yes
-```
-
-If a different default Obot URL is already configured, setup refuses to replace it unless you pass `--yes`:
-
-```bash
-obot setup --url https://new-obot.example.com --yes
-```
-
-## Check setup status
-
-Use `obot setup status` to verify the local configuration:
-
-```bash
-obot setup status
-```
-
-The command prints:
-
-- CLI version
-- Default Obot URL
-- Whether the stored API key is valid
-- Whether setup is complete
-
-For JSON output:
-
-```bash
-obot setup status --json
-```
-
-## What setup writes locally
-
-`obot setup` writes:
-
-- The default Obot URL to the Obot CLI config file under the user's XDG config directory.
-- An API key to the host OS keyring under the `obot` service, scoped by Obot app URL, when setup acquires a new key through the login flow.
-- Bootstrap skill files under the selected client skill directories, such as `~/.agents/skills` or `~/.claude/skills`.
-
-## Troubleshooting
-
-### `auth_unavailable`
-
-The Obot server did not report exactly one usable configured authentication provider. Configure an auth provider first.
-
-### `server_unreachable`
-
-Check that the URL points to the Obot app, that the server is running, and that the CLI can reach it from your workstation.
-
-### Missing `--url` in non-interactive mode
-
-Pass `--url`, or run setup interactively and enter the URL when prompted.
-
-### `--clients is required in non-interactive mode`
-
-Pass `--clients agents`, `--clients claude-code`, `--clients agents,claude-code`, or `--clients none`.
-
-### Existing URL mismatch
-
-If setup reports that another Obot URL is already configured, pass `--yes` to replace the stored default URL.
+Continue to [Existing URL mismatch](../reference/cli-api.md#cli-setup-existing-url-mismatch).

@@ -17,25 +17,9 @@ API keys for agent authorization scopes are designed for machine-to-machine acce
 
 The API keys generated for a scope use the format `ok1-<userId>-<keyId>-<secret>` and are passed as Bearer tokens in the Authorization header.
 
-## Creating an Agent Authorization Scope
+## Creating an Agent Authorization Scope {#creating-an-agent-authorization-scope}
 
-1. Select **Agent Auth Scopes** in the sidebar.
-2. Click **Create Auth Scope**.
-3. Fill in the required information:
-   - **Name** (required): A descriptive name that identifies the authorization scope's purpose
-   - **Description** (optional): Additional context about how the authorization scope is used
-   - **Expiration Date** (optional): When the authorization scope should automatically expire. Authorization scopes without an expiration date remain valid until deleted.
-   - **MCP Servers**: Select which MCP servers this authorization scope can access. You can:
-     - Select **All MCP Servers** to grant access to all servers you currently have access to, including any servers you gain access to in the future
-     - Select individual servers to restrict the authorization scope to only those specific servers
-     - Leave this empty when you are creating a capability-only scope
-   - **API Scopes**: Select any non-MCP capabilities this authorization scope should allow:
-     - **LLM proxy access**: Call LLM proxy endpoints
-     - **Skill access**: Discover and download skills
-     - **Device scan access**: Submit and read device scans
-4. Click **Save**.
-
-After creation, you'll see a dialog displaying an initial new API key to use. **Copy and save this key immediately**—it will only be shown once and cannot be retrieved later.
+Continue to [Creating an Agent Authorization Scope](../security/credentials.md#agent-auth-scopes-creating-an-agent-authorization-scope).
 
 ## Using an API Key
 
@@ -168,27 +152,17 @@ agent = create_agent("openai:gpt-4.1", tools)
 response = await agent.ainvoke({"messages": "your message here"})
 ```
 
-## Managing Agent Authorization Scopes
+## Managing Agent Authorization Scopes {#managing-agent-authorization-scopes}
 
-### Viewing Your Agent Authorization Scopes
+Continue to [Managing Agent Authorization Scopes](../security/credentials.md#agent-auth-scopes-managing-agent-authorization-scopes).
 
-Navigate to **Agent Auth Scopes** in the sidebar to see all your agent authorization scopes. The table displays:
+### Viewing Your Agent Authorization Scopes {#viewing-your-agent-authorization-scopes}
 
-| Column | Description |
-|--------|-------------|
-| Name | The authorization scope's descriptive name |
-| Capabilities | Capabilities enabled for the scope; a **Servers** badge indicates MCP server access |
-| Last Used | When an API key generated for the scope was last used |
-| Expires | When the scope will expire (or "Never" if it has no expiration date) |
+Continue to [Viewing Your Agent Authorization Scopes](../security/credentials.md#agent-auth-scopes-viewing-your-agent-authorization-scopes).
 
-### Deleting an Agent Authorization Scope
+### Deleting an Agent Authorization Scope {#deleting-an-agent-authorization-scope}
 
-1. Navigate to **Agent Auth Scopes** in the sidebar
-2. Click the three-dot menu on the authorization scope you want to delete
-3. Select **Delete**
-4. Confirm the deletion
-
-Deleting an agent authorization scope immediately invalidates its API keys. This action cannot be undone.
+Continue to [Deleting an Agent Authorization Scope](../security/credentials.md#agent-auth-scopes-deleting-an-agent-authorization-scope).
 
 ## MCP Server Access
 

@@ -18,6 +18,144 @@ Obot deploys and manages hosted MCP server workloads on the underlying Kubernete
 - **[Multi-user](../functionality/mcp-servers.md#multi-user-server)**: A shared instance serves multiple users with shared or per-user credentials
 - **[Remote](../functionality/mcp-servers.md#remote-server)**: External MCP servers accessed via HTTP, not hosted by Obot
 
+## Adding a server {#mcp-servers-adding-a-server}
+
+Navigate to **MCP Management > MCP Servers** in the MCP Platform, then select **Add MCP Server**.
+
+Select the type of server you want to deploy.
+
+![Alt text](/img/add-mcp-server-type-selector.png)
+
+
+## Basic configuration {#mcp-servers-basic-configuration}
+
+All server types require the same basic identifying information:
+
+- **Name and description**: Provide a clear name and description to help users understand the server's purpose
+- **Icon URL**: Optionally specify an icon URL to improve visual identification in the user interface
+- **Categories/tags**: Add optional categorization to facilitate server discovery and filtering
+
+
+## Runtime selection {#mcp-servers-runtime-selection}
+
+Single-user and multi-user servers require runtime environment configuration. Remote servers skip this section since they connect to existing deployments.
+
+Select the appropriate runtime environment based on your server's requirements:
+
+
+### NPX: Node/Typescript Based MCP Servers {#mcp-servers-npx-nodetypescript-based-mcp-servers}
+
+If you found an MCP server like Firecrawl and want to add it to the MCP Gateway you would do the following.
+
+From the README.md:
+
+```json
+{
+  "mcpServers": {
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "YOUR-API-KEY"
+      }
+    }
+  }
+}
+```
+
+In the MCP Gateway
+
+- You would select NPX from the drop down.
+- Then put `firecrawl-mcp` in the package text box.
+
+For single-user setup, you would add User supplied configuration
+
+- Name: Firecrawl API Key
+- Description: The api key for Firecrawl
+- Key: FIRECRAWL_API_KEY
+
+In this case you would select `required` and `sensitive` options as well.
+
+For multi-user setup, you would follow the same steps but would be configuring this to **SHARE** a common API key with ALL users.
+
+
+### UVX: For Python-based packages {#mcp-servers-uvx-for-python-based-packages}
+
+If you found an MCP server like Duckduckgo and want it added to the gateway you would do the following.
+
+From the README.md:
+
+```json
+{
+    "mcpServers": {
+        "ddg-search": {
+            "command": "uvx",
+            "args": ["duckduckgo-mcp-server"]
+        }
+    }
+}
+```
+
+In the gateway you would:
+
+- Select UVX from the drop down
+- In the package field put in `duckduckgo-mcp-server`
+
+If environment variables need to be configured, you would use the user or multi-user configuration to supply or prompt for the values.
+
+
+### Containerized: For Docker-based deployments {#mcp-servers-containerized-for-docker-based-deployments}
+
+If you want to provide a container to run your MCP server because you are running a non-TypeScript or Python MCP server you must configure it to run as either Streaming HTTP or SSE.
+
+You will need to select the container option from the drop down. Then provide the following bits of info:
+
+- Image: The uri of the OCI image. (ex. docker.elastic.co/mcp/elasticsearch)
+- Port: port the MCP server will be listening on inside the container.
+- Path: the URI path. (typically /MCP or /SSE)
+- Command: primary command to execute
+- Arguments: arguments to pass to the command.
+
+You can also provide configuration through environment variables by filling in the configurations.
+
+
+## Kubernetes Secret Bindings {#mcp-servers-kubernetes-secret-bindings}
+
+MCP secret bindings let Admins select a key from an externally managed Kubernetes Secret as the value source for a multi-user MCP deployment configuration field.
+
+Secret bindings are available only when Obot is using the Kubernetes MCP runtime backend.
+
+
+### Required Kubernetes Secret Label {#mcp-servers-required-kubernetes-secret-label}
+
+Secret binding selection in the admin UI is available for multi-user MCP deployments. The Kubernetes Secret must be in the Obot server's namespace and must have the [configured allowed secret-binding label](../configuration/server-configuration.md).
+
+The label controls whether a Secret can be discovered and selected in the admin UI, and Obot also checks the label when resolving the binding at runtime. If the label is removed after an MCP server is already bound to that Secret, the binding is treated as unavailable. Required fields then appear as missing configuration until the label is restored or the binding is changed.
+
+Secrets without data keys are not shown as bindable targets.
+
+
+### Configure a Binding in the Admin UI {#mcp-servers-configure-a-binding-in-the-admin-ui}
+
+
+#### New Catalog Entry {#mcp-servers-new-catalog-entry}
+1. Go to **MCP Management > MCP Catalog**.
+2. Use "Add Catalog Entry" to create a new Hosted Server (Multi-tenant)
+3. Add a configuration value or header.
+4. In **Value Source**, select **Kubernetes Secret**.
+5. Select the Secret name and key.
+6. Save the MCP server.
+
+
+#### Git-ops Managed Template {#mcp-servers-git-ops-managed-template}
+1. Go to **MCP Management > MCP Catalog**.
+2. Locate a multi-user template created from a Git source
+3. Click "Connect URL" to launch a new deployment
+4. In **Value Source**, select **Kubernetes Secret**.
+5. Select the Secret name and key.
+6. Save the MCP server.
+
+
 ## Virtual MCPs (vMCPs)
 
 Clients connect to new MCP endpoints through a virtual MCP (vMCP), which exposes tools from one or more catalog components through a single endpoint. A vMCP controls which tools users can access, while its backing servers use shared or per-user runtimes according to the component configuration.
@@ -69,3 +207,4 @@ See [User Roles — Security Model](../configuration/user-roles.md#security-mode
 
 - [MCP Servers](../functionality/mcp-servers.md) - Adding and configuring MCP servers
 - [Installation](../installation/overview.md) - Deployment environments and setup
+

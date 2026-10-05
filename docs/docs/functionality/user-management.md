@@ -6,31 +6,18 @@ title: User Management
 
 User Management provides administrators with tools to manage users, configure roles, and set up authentication. Access these features from **User Management** in the sidebar.
 
-## Users
+## Users {#users}
 
-View and manage all users on the platform. From this page you can:
+Continue to [Users](../security/authentication.md#user-management-users).
 
-- See all registered users and their current roles
-- Update individual user roles
-- Monitor user activity
+## User Roles {#user-roles}
 
-For details on updating roles, see [User Roles](../configuration/user-roles.md#managing-user-roles).
+Continue to [User Roles](../security/authentication.md#user-management-user-roles).
 
-## User Roles
+## Agent Authorization Scopes {#agent-authorization-scopes}
 
-Configure the default role assigned to new users when they first log in. Choose from:
+Continue to [Agent Authorization Scopes](../security/authentication.md#user-management-agent-authorization-scopes).
 
-- **Standard User**: Connect to MCP servers and use Obot Agent
-- **Power User**: Standard User features plus publish personal MCP servers
-- **Power User Plus**: Power User features plus share MCP servers through registries
-- **Admin**: Full platform management
+## Auth Providers {#auth-providers}
 
-For detailed role descriptions and permissions, see [User Roles](../configuration/user-roles.md).
-
-## Agent Authorization Scopes
-
-View and manage agent authorization scopes for all users. Administrators can see which users have created agent authorization scopes and delete any if necessary. For details, see [Agent Authorization Scopes](./agent-auth-scopes.md).
-
-## Auth Providers
-
-Configure identity providers for user authentication. See [Auth Providers](../configuration/auth-providers.md) for setup details.
+Continue to [Auth Providers](../security/authentication.md#user-management-auth-providers).
