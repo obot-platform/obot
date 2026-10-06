@@ -51,7 +51,7 @@ func clientIDFromClientAssertion(form url.Values) (string, error) {
 	return claims.Subject, nil
 }
 
-func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, client v1.OAuthClient, clientID string) error {
+func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, client v1.OAuthClient, clientID, mcpID string) error {
 	if form.Get("client_assertion_type") != clientAssertionTypeJWTBearer {
 		return fmt.Errorf("client_assertion_type must be %s", clientAssertionTypeJWTBearer)
 	}
@@ -69,6 +69,12 @@ func (h *handler) validatePrivateKeyJWT(ctx context.Context, form url.Values, cl
 	tokenEndpoint := h.oauthConfig.TokenEndpoint
 	if tokenEndpoint == "" {
 		tokenEndpoint = strings.TrimRight(h.baseURL, "/") + "/oauth/token"
+	}
+	if mcpID != "" {
+		tokenEndpoint, err = url.JoinPath(tokenEndpoint, mcpID)
+		if err != nil {
+			return fmt.Errorf("failed to determine token endpoint audience: %w", err)
+		}
 	}
 
 	validMethods := h.oauthConfig.TokenEndpointAuthSigningAlgValuesSupported
