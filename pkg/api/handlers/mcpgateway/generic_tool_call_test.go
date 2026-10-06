@@ -1,6 +1,8 @@
 package mcpgateway
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -220,6 +222,70 @@ func TestGenericToolCallDiscoveryFailureIsAudited(t *testing.T) {
 		string(collector.entries[1].ResponseBody) != w.Body.String() ||
 		collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
 		t.Fatalf("discovery failure response=%s audit count=%d", w.Body.String(), len(collector.entries))
+	}
+}
+
+func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "discovery unavailable", http.StatusInternalServerError)
+	}))
+	defer upstream.Close()
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handler.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{
+		Runtime:    types.RuntimeVMCP,
+		ToolSearch: true,
+		Components: []obotmcp.ComponentServer{{
+			DisplayName: "component",
+			URL:         upstream.URL,
+		}},
+	}, nil)
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err := writer.Write([]byte(`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "http://obot.example/mcp", bytes.NewReader(compressed.Bytes()))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	collector := new(recordingProxyAuditCollector)
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = handler.resolveGenericToolCall(req, cfg, "", true)
+	if err == nil {
+		t.Fatal("discovery failure was not returned")
+	}
+	w := httptest.NewRecorder()
+	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
+		t.Fatalf("gzip discovery failure was not written as JSON-RPC: %v", err)
+	}
+	var response struct {
+		ID    int `json:"id"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || response.ID != 37 || response.Error.Message == "" {
+		t.Fatalf("gzip discovery response = %s", w.Body.String())
+	}
+	if len(collector.entries) != 2 || collector.entries[0].CallType != "tools/call" ||
+		collector.entries[0].CallIdentifier != toolsearch.CallToolName ||
+		collector.entries[0].RequestID != "37" || collector.entries[1].RequestID != "37" ||
+		!json.Valid(collector.entries[0].RequestBody) ||
+		string(collector.entries[1].ResponseBody) != w.Body.String() ||
+		collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
+		t.Fatalf("gzip discovery audit count=%d", len(collector.entries))
 	}
 }
 

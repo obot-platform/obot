@@ -70,11 +70,16 @@ func writeMCPJSONRPCError(w http.ResponseWriter, req *http.Request, rpcErr error
 }
 
 func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) ([]byte, bool) {
-	if req.Method != http.MethodPost {
+	if req.Method != http.MethodPost || req.Body == nil {
 		return nil, false
 	}
 
-	body, err := io.ReadAll(io.LimitReader(req.Body, maxJSONRPCErrorRequestBody+1))
+	decoded, _, err := decodeMCPHookBody(req.Body, req.Header.Get("Content-Encoding"))
+	if err != nil {
+		return nil, false
+	}
+	defer decoded.Close()
+	body, err := io.ReadAll(io.LimitReader(decoded, maxJSONRPCErrorRequestBody+1))
 	if err != nil || len(body) > maxJSONRPCErrorRequestBody {
 		return nil, false
 	}
