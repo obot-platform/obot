@@ -714,6 +714,9 @@
 	{/if}
 
 	{#if hasStaticOauth}
+		{@const oauthCredentialsLabel = requiresStaticOauth
+			? m.mcps_catalog_configure_oauth_credentials()
+			: m.mcps_catalog_manage_oauth_credentials()}
 		<div
 			class="flex items-center gap-3 rounded-lg border p-4 {requiresStaticOauth
 				? 'border-warning bg-warning/10'
@@ -733,14 +736,14 @@
 				</p>
 			</div>
 			<button
+				type="button"
 				class="btn btn-secondary flex items-center gap-1.5 font-normal"
+				aria-label={oauthCredentialsLabel}
 				onclick={handleConfigureOAuth}
 				disabled={!canConfigureOAuthCredentials}
 			>
 				<Settings class="size-4" />
-				{requiresStaticOauth
-					? m.mcps_catalog_configure_oauth_credentials()
-					: m.mcps_catalog_manage_oauth_credentials()}
+				{oauthCredentialsLabel}
 			</button>
 		</div>
 	{/if}
