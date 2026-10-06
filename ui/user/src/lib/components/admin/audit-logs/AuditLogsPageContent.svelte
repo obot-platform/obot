@@ -243,7 +243,7 @@
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
 		if (key === 'event_type') {
-			if (value === 'mcp_call') return 'Obot Gateway';
+			if (value === 'mcp_call') return m.core_obot_gateway();
 			if (value === 'local_agent_tool_call') return m.audit_usage_audit_logs_source_local_agent_hook();
 		}
 		return value;

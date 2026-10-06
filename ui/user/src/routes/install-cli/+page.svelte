@@ -165,7 +165,7 @@
 						<div class="mb-2">
 							{@render slashCommandPreview(
 								'/obot-search-mcp-servers',
-								'Search Obot for installable MCP servers. (user)'
+								m.install_cli_blurb_search_mcp_servers()
 							)}
 						</div>
 					</li>
@@ -189,12 +189,12 @@
 						<div class="mb-2">
 							{@render slashCommandPreview(
 								'/obot-search-skills',
-								'Search Obot for installable skills. (user)'
+								m.install_cli_blurb_search_skills()
 							)}
 						</div>
 						{@render slashCommandPreview(
 							'/obot-install-skill',
-							'Install a skill from Obot. (user)'
+							m.install_cli_blurb_install_skill()
 						)}
 					</li>
 				</ul>

@@ -99,7 +99,7 @@
 	}
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
-		return eventType === 'mcp_call' ? 'Obot Gateway' : m.audit_usage_audit_logs_source_local_agent_hook();
+		return eventType === 'mcp_call' ? m.core_obot_gateway() : m.audit_usage_audit_logs_source_local_agent_hook();
 	}
 
 	function formatDuration(ms?: number) {

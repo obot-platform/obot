@@ -626,6 +626,7 @@
 	"mcps_runtime_http_entries_only": "仅支持 Streamable HTTP 和 SSE 条目。",
 	"mcps_runtime_image": "镜像",
 	"mcps_runtime_package": "包",
+	"mcps_runtime_healthz": "Healthz",
 	"mcps_runtime_path": "路径",
 	"mcps_runtime_port": "端口",
 	"mcps_runtime_remove_argument": "移除参数",

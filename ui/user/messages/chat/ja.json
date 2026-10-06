@@ -165,6 +165,8 @@
 	"chat_modify_workflow": "ワークフローを変更",
 	"chat_most_recent_runs": "最近の実行",
 	"chat_my_workflows": "マイワークフロー",
+	"chat_new_agent": "新規エージェント",
+	"chat_new_project": "新規プロジェクト",
 	"chat_next_run": "次回の実行",
 	"chat_no": "いいえ",
 	"chat_no_agent_selected": "チャットメッセージを送信するためのエージェントが選択されていないか、利用できません。",

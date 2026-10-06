@@ -1,5 +1,8 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"install_cli_blurb_install_skill": "Install a skill from Obot. (user)",
+	"install_cli_blurb_search_mcp_servers": "Search Obot for installable MCP servers. (user)",
+	"install_cli_blurb_search_skills": "Search Obot for installable skills. (user)",
 	"install_cli_coming_soon": "Coming Soon",
 	"install_cli_commands_heading": "Obot CLI Commands",
 	"install_cli_get_latest_release": "Get Latest Release",

@@ -307,6 +307,7 @@
 	"identity_access_users_role_user": "User",
 	"identity_access_users_search_placeholder": "Search by name or email...",
 	"identity_access_users_search_users_groups": "Search by user name, email, or group name...",
+	"identity_access_users_selector": "Selector",
 	"identity_access_users_tab": "Users",
 	"identity_access_users_update_role_failed": "Failed to update user role. Please try again.",
 	"identity_access_users_update_role_title": "Update {name}'s Role",

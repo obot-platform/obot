@@ -192,16 +192,20 @@
 		<p>
 			<span class="text-lg font-semibold">{m.identity_access_agents_mcp_servers()}</span>
 			{#if serverError}
-				<span class="text-xs text-error"> {m.identity_access_agents_select_server_or_capability()} </span>
+				<span class="text-xs text-error">
+					{m.identity_access_agents_select_server_or_capability()}
+				</span>
 			{/if}
 		</p>
 		<p class="input-description">
 			{m.identity_access_agents_select_servers_for_identity()}
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
-					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.core_n_selected({
-							count: selectedServerIds.size
-						})}{/if})
+					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.core_n_selected(
+							{
+								count: selectedServerIds.size
+							}
+						)}{/if})
 				</span>
 			{/if}
 		</p>
@@ -221,7 +225,9 @@
 		>
 			{#if filteredServers.length === 0}
 				<div class="text-muted-content flex items-center justify-center py-8 text-sm">
-					{search ? m.identity_access_agents_no_servers_match_search() : m.identity_access_agents_no_mcp_servers_available()}
+					{search
+						? m.identity_access_agents_no_servers_match_search()
+						: m.identity_access_agents_no_mcp_servers_available()}
 				</div>
 			{:else}
 				{#each filteredServers as server (server.id)}
@@ -265,7 +271,9 @@
 	</section>
 
 	<section class="paper gap-2 p-4">
-		<p class="text-lg font-semibold" id="agent-auth-scope-scopes">API Scopes</p>
+		<p class="text-lg font-semibold" id="agent-auth-scope-scopes">
+			m.identity_access_agents_api_scopes()
+		</p>
 		<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 			{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 				<label

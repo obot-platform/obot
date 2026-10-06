@@ -1,5 +1,8 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"install_cli_blurb_install_skill": "Obot からスキルをインストールします。(user)",
+	"install_cli_blurb_search_mcp_servers": "インストール可能な MCP サーバーを Obot で検索します。(user)",
+	"install_cli_blurb_search_skills": "インストール可能なスキルを Obot で検索します。(user)",
 	"install_cli_coming_soon": "近日公開",
 	"install_cli_commands_heading": "Obot CLI コマンド",
 	"install_cli_get_latest_release": "最新リリースを入手",

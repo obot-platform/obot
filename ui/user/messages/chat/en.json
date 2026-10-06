@@ -165,6 +165,8 @@
 	"chat_modify_workflow": "Modify workflow",
 	"chat_most_recent_runs": "Most recent runs",
 	"chat_my_workflows": "My Workflows",
+	"chat_new_agent": "New Agent",
+	"chat_new_project": "New Project",
 	"chat_next_run": "Next run",
 	"chat_no": "No",
 	"chat_no_agent_selected": "No agent selected or available for sending chat messages.",

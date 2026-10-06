@@ -411,9 +411,9 @@
 								class="text-input-filled bg-base-200 dark:bg-base-100"
 								classes={{ root: 'w-full' }}
 								options={[
-									{ id: 's3', label: 'Amazon S3' },
-									{ id: 'gcs', label: 'Google Cloud Storage' },
-									{ id: 'azure', label: 'Azure Blob Storage' },
+									{ id: 's3', label: m.audit_usage_exports_amazon_s3() },
+									{ id: 'gcs', label: m.audit_usage_exports_google_cloud_storage() },
+									{ id: 'azure', label: m.audit_usage_exports_azure_blob_storage() },
 									{ id: 'custom', label: m.audit_usage_exports_custom_s3() }
 								]}
 								selected={form.provider}

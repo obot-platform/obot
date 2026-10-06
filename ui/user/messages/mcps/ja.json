@@ -626,6 +626,7 @@
 	"mcps_runtime_http_entries_only": "Streamable HTTP および SSE エントリのみサポートされています。",
 	"mcps_runtime_image": "イメージ",
 	"mcps_runtime_package": "パッケージ",
+	"mcps_runtime_healthz": "Healthz",
 	"mcps_runtime_path": "パス",
 	"mcps_runtime_port": "ポート",
 	"mcps_runtime_remove_argument": "引数を削除",

@@ -212,7 +212,9 @@
 
 	<!-- Health check path field (optional) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-healthz-path" class="w-20 text-sm font-light">Healthz</label>
+		<label for="containerized-healthz-path" class="w-20 text-sm font-light"
+			>{m.mcps_runtime_healthz()}</label
+		>
 		<input
 			id="containerized-healthz-path"
 			class="text-input-filled dark:bg-base-100 w-full"

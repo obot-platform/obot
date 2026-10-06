@@ -307,6 +307,7 @@
 	"identity_access_users_role_user": "사용자",
 	"identity_access_users_search_placeholder": "이름 또는 이메일로 검색...",
 	"identity_access_users_search_users_groups": "사용자 이름, 이메일 또는 그룹 이름으로 검색...",
+	"identity_access_users_selector": "선택기",
 	"identity_access_users_tab": "사용자",
 	"identity_access_users_update_role_failed": "사용자 역할을 업데이트하지 못했습니다. 다시 시도하세요.",
 	"identity_access_users_update_role_title": "{name}의 역할 업데이트",

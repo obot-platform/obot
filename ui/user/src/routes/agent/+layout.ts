@@ -55,7 +55,10 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 	try {
 		projects = await NanobotService.listProjects({ fetch });
 		if (projects.length === 0) {
-			const project = await NanobotService.createProject({ displayName: 'New Project' }, { fetch });
+			const project = await NanobotService.createProject(
+				{ displayName: m.chat_new_project() },
+				{ fetch }
+			);
 			projects = [project];
 		}
 
@@ -63,7 +66,7 @@ export const load: LayoutLoad = async ({ fetch, url, parent }) => {
 		if (agents.length === 0) {
 			agent = await NanobotService.createProjectAgent(
 				projects[0].id,
-				{ displayName: 'New Agent' },
+				{ displayName: m.chat_new_agent() },
 				{ fetch }
 			);
 			isNewAgent = true;

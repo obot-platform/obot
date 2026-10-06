@@ -231,8 +231,10 @@
 									class="text-input-filled"
 									bind:value={answers[question.key]}
 								>
-									<option value="true">{m.chat_yes()}</option>
-									<option value="false">{m.chat_no()}</option>
+									<option value="true">{m.hosted_agents_templates_questions_boolean_true()}</option>
+									<option value="false"
+										>{m.hosted_agents_templates_questions_boolean_false()}</option
+									>
 								</select>
 							{:else if question.sensitive}
 								<SensitiveInput bind:value={answers[question.key]} name="q-{question.key}" />

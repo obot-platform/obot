@@ -165,6 +165,8 @@
 	"chat_modify_workflow": "워크플로 수정",
 	"chat_most_recent_runs": "최근 실행",
 	"chat_my_workflows": "내 워크플로",
+	"chat_new_agent": "새 에이전트",
+	"chat_new_project": "새 프로젝트",
 	"chat_next_run": "다음 실행",
 	"chat_no": "아니요",
 	"chat_no_agent_selected": "채팅 메시지를 보낼 에이전트가 선택되지 않았거나 사용할 수 없습니다.",

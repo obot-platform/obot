@@ -173,8 +173,10 @@
 									disabled={readonly}
 								>
 									<option value="">{m.hosted_agents_templates_questions_none()}</option>
-									<option value="true">true</option>
-									<option value="false">false</option>
+									<option value="true">{m.hosted_agents_templates_questions_boolean_true()}</option>
+									<option value="false"
+										>{m.hosted_agents_templates_questions_boolean_false()}</option
+									>
 								</select>
 							{:else}
 								<input

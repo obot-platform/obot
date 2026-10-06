@@ -165,6 +165,8 @@
 	"chat_modify_workflow": "修改工作流",
 	"chat_most_recent_runs": "最近的运行",
 	"chat_my_workflows": "我的工作流",
+	"chat_new_agent": "新智能体",
+	"chat_new_project": "新项目",
 	"chat_next_run": "下次运行",
 	"chat_no": "否",
 	"chat_no_agent_selected": "没有选择或可用的智能体来发送聊天消息。",

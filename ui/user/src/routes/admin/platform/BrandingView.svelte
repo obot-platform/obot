@@ -194,8 +194,8 @@
 	<CustomConfigurationForm
 		config={[
 			{
-				key: 'Example Key',
-				value: 'Example Value',
+				key: m.platform_branding_example_key(),
+				value: m.platform_branding_example_value(),
 				description: 'Example Description',
 				name: 'Example Name',
 				required: true,

@@ -307,6 +307,7 @@
 	"identity_access_users_role_user": "用户",
 	"identity_access_users_search_placeholder": "按名称或邮箱搜索...",
 	"identity_access_users_search_users_groups": "按用户名、电子邮件或用户组名称搜索...",
+	"identity_access_users_selector": "选择器",
 	"identity_access_users_tab": "用户",
 	"identity_access_users_update_role_failed": "更新用户角色失败。请重试。",
 	"identity_access_users_update_role_title": "更新 {name} 的角色",

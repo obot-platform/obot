@@ -99,7 +99,10 @@
 	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
 	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.core_all_obot_users() };
-	const ADMIN_GROUP: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
+	const ADMIN_GROUP: OrgGroup = {
+		id: OBOT_ADMIN_PICKER_ID,
+		name: m.identity_access_users_obot_admin()
+	};
 	const GROUP_PAGE_SIZE = 50;
 
 	// Validation messages double as error identity, so each is resolved once and compared by reference.

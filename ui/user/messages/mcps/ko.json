@@ -626,6 +626,7 @@
 	"mcps_runtime_http_entries_only": "Streamable HTTP 및 SSE 항목만 지원됩니다.",
 	"mcps_runtime_image": "이미지",
 	"mcps_runtime_package": "패키지",
+	"mcps_runtime_healthz": "Healthz",
 	"mcps_runtime_path": "경로",
 	"mcps_runtime_port": "포트",
 	"mcps_runtime_remove_argument": "인수 제거",

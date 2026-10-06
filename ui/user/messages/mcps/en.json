@@ -626,6 +626,7 @@
 	"mcps_runtime_http_entries_only": "Only Streamable HTTP and SSE entries are supported.",
 	"mcps_runtime_image": "Image",
 	"mcps_runtime_package": "Package",
+	"mcps_runtime_healthz": "Healthz",
 	"mcps_runtime_path": "Path",
 	"mcps_runtime_port": "Port",
 	"mcps_runtime_remove_argument": "Remove argument",

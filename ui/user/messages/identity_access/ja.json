@@ -307,6 +307,7 @@
 	"identity_access_users_role_user": "ユーザー",
 	"identity_access_users_search_placeholder": "名前またはメールで検索...",
 	"identity_access_users_search_users_groups": "ユーザー名、メールアドレス、グループ名で検索...",
+	"identity_access_users_selector": "セレクター",
 	"identity_access_users_tab": "ユーザー",
 	"identity_access_users_update_role_failed": "ユーザーロールの更新に失敗しました。もう一度お試しください。",
 	"identity_access_users_update_role_title": "{name} のロールを更新",

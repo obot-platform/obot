@@ -114,11 +114,11 @@
 	function getProviderDisplayName(provider: string): string {
 		switch (provider) {
 			case 's3':
-				return 'Amazon S3';
+				return m.audit_usage_exports_amazon_s3();
 			case 'gcs':
-				return 'Google Cloud Storage';
+				return m.audit_usage_exports_google_cloud_storage();
 			case 'azure':
-				return 'Azure Blob Storage';
+				return m.audit_usage_exports_azure_blob_storage();
 			case 'custom':
 				return m.audit_usage_exports_custom_s3();
 		}

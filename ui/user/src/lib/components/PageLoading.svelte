@@ -146,7 +146,7 @@
 			>
 				<div class="flex items-center gap-2">
 					<Loading class="size-8" />
-					<p class="text-xl font-semibold">{text ?? 'Loading...'}</p>
+					<p class="text-xl font-semibold">{text ?? m.core_loading()}</p>
 				</div>
 				{#if isLongLoad && longLoadMessage}
 					<p in:fade class="text-md text-muted-content mt-4 font-light">
