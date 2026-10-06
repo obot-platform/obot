@@ -384,6 +384,33 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('component without stored tool overrides', () => {
+		it('hides configuration actions when a remote server has nothing to configure', async () => {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-remote',
+				name: 'Remote Server',
+				runtime: 'remote',
+				manifest: { remoteConfig: { fixedURL: 'https://example.com/mcp' } }
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [createVMCPComponent(entry)]
+				},
+				[entry]
+			);
+			await renderDesigner([entry], vmcp);
+
+			await page.getByRole('button', { name: 'Remote Server', exact: true }).click();
+			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'View Configuration' }))
+				.not.toBeInTheDocument();
+		});
+
 		it('offers modifying tools or deleting the server', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			await renderDesigner([componentEntry], vmcp);
@@ -534,6 +561,12 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Preconfigured');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+			const advanced = page
+				.getByRole('dialog')
+				.getByRole('checkbox', { name: 'Advanced', exact: true });
+			await expect.element(advanced).toBeInTheDocument();
+			const advancedInput = advanced.element() as HTMLInputElement;
+			if (!advancedInput.checked) advancedInput.click();
 			await page.getByRole('checkbox', { name: 'Force single-user' }).click();
 			await page.getByRole('button', { name: 'Save' }).click();
 

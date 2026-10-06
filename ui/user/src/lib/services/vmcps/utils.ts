@@ -275,6 +275,15 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 	};
 }
 
+export function hasVMcpComponentConfiguration(entry: {
+	manifest: MCPCatalogEntry['manifest'];
+}): boolean {
+	const editable = catalogConfigurationFields(entry).some(
+		(field) => !field.value && !field.static && !field.secretBinding
+	);
+	return editable || entry.manifest.runtime !== 'remote';
+}
+
 export function catalogConfigurationFields(entry: {
 	manifest: MCPCatalogEntry['manifest'];
 }): MCPConfig[] {

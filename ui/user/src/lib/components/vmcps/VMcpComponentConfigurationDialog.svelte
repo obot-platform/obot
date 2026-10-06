@@ -68,15 +68,22 @@
 	let error = $state<string>();
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
-	let hasUserAllowedNonHeaderConfiguration = $derived(
-		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
-	);
+	let advancedExpanded = $state(false);
 	let submitLabel = $state('Next');
 	let failureMessage = $state('Failed to add MCP server to vMCP.');
 
+	let hasUserAllowedNonHeaderConfiguration = $derived(
+		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
+	);
 	let displayName = $derived(entry?.manifest.name || entry?.id || 'MCP server');
 	let requiredDrafts = $derived(drafts.filter((draft) => draft.field.required));
 	let optionalDrafts = $derived(drafts.filter((draft) => !draft.field.required));
+	let hasAdvanced = $derived(
+		!hasUserAllowedNonHeaderConfiguration && entry?.manifest.runtime !== 'remote'
+	);
+	let hasConfiguration = $derived(
+		!entry || entry.manifest.runtime !== 'remote' || catalogConfigurationFields(entry).length > 0
+	);
 
 	export function open(
 		target: MCPCatalogEntry,
@@ -106,6 +113,7 @@
 		highlighted = [];
 		error = undefined;
 		saving = false;
+		advancedExpanded = false;
 		dialog?.open();
 	}
 
@@ -333,19 +341,27 @@
 			{#each optionalDrafts as draft, index (draft.field.key)}
 				{@render policyField(draft, requiredDrafts.length + index)}
 			{/each}
-			{#if !hasUserAllowedNonHeaderConfiguration}
-				<label class="flex items-center gap-2">
-					<input
-						type="checkbox"
-						class="checkbox checkbox-sm"
-						bind:checked={forceSingleUser}
-						disabled={saving || readonly}
-					/>
-					<span>Force single-user</span>
-				</label>
-				<p class="text-xs font-light text-muted-content">
-					Run a separate instance of this component for each user.
-				</p>
+			{#if hasAdvanced}
+				<div class="collapse collapse-arrow border border-base-300 dark:border-base-400">
+					<input type="checkbox" aria-label="Advanced" bind:checked={advancedExpanded} />
+					<div class="collapse-title text-sm font-medium">Advanced</div>
+					<div class="collapse-content">
+						<div class="flex flex-col gap-2">
+							<label class="flex items-center gap-2">
+								<input
+									type="checkbox"
+									class="checkbox checkbox-sm"
+									bind:checked={forceSingleUser}
+									disabled={saving || readonly}
+								/>
+								<span>Force single-user</span>
+							</label>
+							<p class="text-xs font-light text-muted-content">
+								Run a separate instance of this component for each user.
+							</p>
+						</div>
+					</div>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -356,9 +372,9 @@
 			onclick={() => dialog?.close()}
 			disabled={saving}
 		>
-			{readonly ? 'Close' : 'Cancel'}
+			{readonly || !hasConfiguration ? 'Close' : 'Cancel'}
 		</button>
-		{#if !readonly}
+		{#if !readonly && hasConfiguration}
 			<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>
 				{#if saving}
 					<Loading class="text-primary-content size-4" />
