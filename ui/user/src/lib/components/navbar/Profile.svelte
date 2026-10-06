@@ -280,7 +280,7 @@
 					{m.profile_install_cli()}
 				</a>
 
-				<LanguageSelect />
+				<LanguageSelect onOpen={() => menu?.toggle(false)} />
 
 				{#if profile.current.isBootstrapUser?.()}
 					<button class="dropdown-link" onclick={handleBootstrapLogout}>

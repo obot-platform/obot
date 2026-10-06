@@ -11,6 +11,13 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 	'zh-CN': '简体中文'
 };
 
+export const LOCALE_SHORTHAND: Record<Locale, string> = {
+	en: 'EN',
+	ja: 'JA',
+	ko: 'KO',
+	'zh-CN': 'ZH-CN'
+};
+
 /** Persists the locale and reloads the page so every message re-renders in the new language. */
 export function changeLocale(locale: Locale) {
 	if (locale === getLocale()) return;
