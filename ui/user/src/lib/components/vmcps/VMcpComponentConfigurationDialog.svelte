@@ -15,10 +15,7 @@
 		VMCPConfigurationPolicy,
 		VMCPConfigurationPolicyType
 	} from '$lib/services';
-	import {
-		catalogConfigurationFields,
-		hasVMcpComponentConfiguration
-	} from '$lib/services/vmcps/utils';
+	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -71,6 +68,7 @@
 	let error = $state<string>();
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
+	let advancedExpanded = $state(false);
 	let submitLabel = $state('Next');
 	let failureMessage = $state('Failed to add MCP server to vMCP.');
 
@@ -83,7 +81,9 @@
 	let hasAdvanced = $derived(
 		!hasUserAllowedNonHeaderConfiguration && entry?.manifest.runtime !== 'remote'
 	);
-	let hasConfiguration = $derived(!entry || hasVMcpComponentConfiguration(entry));
+	let hasConfiguration = $derived(
+		!entry || entry.manifest.runtime !== 'remote' || catalogConfigurationFields(entry).length > 0
+	);
 
 	export function open(
 		target: MCPCatalogEntry,
@@ -113,6 +113,7 @@
 		highlighted = [];
 		error = undefined;
 		saving = false;
+		advancedExpanded = false;
 		dialog?.open();
 	}
 
@@ -342,7 +343,7 @@
 			{/each}
 			{#if hasAdvanced}
 				<div class="collapse collapse-arrow border border-base-300 dark:border-base-400">
-					<input type="checkbox" aria-label="Advanced" />
+					<input type="checkbox" aria-label="Advanced" bind:checked={advancedExpanded} />
 					<div class="collapse-title text-sm font-medium">Advanced</div>
 					<div class="collapse-content">
 						<div class="flex flex-col gap-2">

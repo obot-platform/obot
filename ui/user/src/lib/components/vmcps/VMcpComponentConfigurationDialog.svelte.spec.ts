@@ -113,6 +113,17 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		expect(onNext).toHaveBeenCalledWith([], false);
 	});
 
+	it('offers only Close for a remote server with no catalog fields', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry({ runtime: 'remote', config: [] }));
+
+		await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+		expect(onNext).not.toHaveBeenCalled();
+	});
+
 	it('shows a value field when Fixed is selected and submits policies on Next', async () => {
 		await preparePageData();
 		const onNext = vi.fn();
