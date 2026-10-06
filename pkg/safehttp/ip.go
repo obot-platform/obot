@@ -22,9 +22,10 @@ func mustParseCIDR(s string) *net.IPNet {
 }
 
 // IsLoopback reports whether ip is a loopback address, the unspecified address (which
-// connects to the local host), or an IPv6 transition address that embeds one.
+// connects to the local host), or an IPv6 transition address that embeds a loopback address.
+// An embedded 0.0.0.0 does not count: a translator would deliver it to its own host, not ours.
 func IsLoopback(ip net.IP) bool {
-	return anyIP(ip, func(ip net.IP) bool { return ip.IsLoopback() || ip.IsUnspecified() })
+	return ip.IsUnspecified() || anyIP(ip, net.IP.IsLoopback)
 }
 
 // IsPrivate reports whether ip is a private address or an IPv6 transition address that embeds one.
@@ -56,15 +57,7 @@ func embeddedIPv4(ip net.IP) []net.IP {
 	case nat64WellKnown.Contains(ip16):
 		return []net.IP{net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])}
 	case nat64LocalUse.Contains(ip16):
-		// The local-use range can hold a /48, /56, /64 or /96 translation prefix, and RFC 6052
-		// places the IPv4 address differently for each, skipping the reserved byte 8. The
-		// prefix length is not encoded in the address, so check every layout.
-		return []net.IP{
-			net.IPv4(ip16[6], ip16[7], ip16[9], ip16[10]),
-			net.IPv4(ip16[7], ip16[9], ip16[10], ip16[11]),
-			net.IPv4(ip16[9], ip16[10], ip16[11], ip16[12]),
-			net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]),
-		}
+		return nat64LocalUseIPv4(ip16)
 	case sixToFour.Contains(ip16):
 		return []net.IP{net.IPv4(ip16[2], ip16[3], ip16[4], ip16[5])}
 	case teredo.Contains(ip16):
@@ -77,4 +70,35 @@ func embeddedIPv4(ip net.IP) []net.IP {
 		return []net.IP{net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])}
 	}
 	return nil
+}
+
+// nat64LocalUseIPv4 returns the IPv4 addresses that ip16 could carry under each RFC 6052
+// translation prefix length that fits in the local-use range (/48, /56, /64 and /96). The
+// prefix length is not part of the address, so every layout whose structure is valid is
+// returned: the reserved byte 8 and the suffix after the IPv4 address must be zero. A /96
+// prefix has neither, so it always applies.
+func nat64LocalUseIPv4(ip16 net.IP) []net.IP {
+	result := []net.IP{net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])}
+	if ip16[8] != 0 {
+		return result
+	}
+	if allZero(ip16[11:]) {
+		result = append(result, net.IPv4(ip16[6], ip16[7], ip16[9], ip16[10]))
+	}
+	if allZero(ip16[12:]) {
+		result = append(result, net.IPv4(ip16[7], ip16[9], ip16[10], ip16[11]))
+	}
+	if allZero(ip16[13:]) {
+		result = append(result, net.IPv4(ip16[9], ip16[10], ip16[11], ip16[12]))
+	}
+	return result
+}
+
+func allZero(b []byte) bool {
+	for _, v := range b {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
 }
