@@ -13,7 +13,10 @@ const (
 )
 
 var (
-	// percentEncodedDot matches the forms of "." that WHATWG URL parsers treat as a dot-segment.
+	// percentEncodedDot decodes every encoded ".". WHATWG URL parsers treat "%2e" as "." in
+	// dot-segments, and elsewhere it is an encoded unreserved character, which RFC 3986
+	// section 6.2.2.2 makes equivalent to ".". It never adds or removes a "/", so it cannot
+	// move a path outside an allowed prefix.
 	percentEncodedDot = strings.NewReplacer("%2e", ".", "%2E", ".")
 )
 
