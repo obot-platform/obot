@@ -95,11 +95,11 @@ func urlMatches(entryURL, callURL string) bool {
 		return false
 	}
 
-	entry, err := url.Parse(entryURL)
+	entry, err := parseHTTPURL(entryURL)
 	if err != nil {
 		return false
 	}
-	actual, err := url.Parse(callURL)
+	actual, err := parseHTTPURL(callURL)
 	if err != nil {
 		return false
 	}
@@ -115,6 +115,21 @@ func urlMatches(entryURL, callURL string) bool {
 	}
 
 	return pathPrefixMatches(resolvedPath(entry), resolvedPath(actual))
+}
+
+// parseHTTPURL parses rawURL, first treating a literal backslash before the query or fragment
+// of an http(s) URL as "/", which is how browsers and Node parse it. An encoded backslash
+// ("%5C") is left alone, because those clients do not treat it as a separator.
+func parseHTTPURL(rawURL string) (*url.URL, error) {
+	scheme, _, _ := strings.Cut(rawURL, ":")
+	if !strings.EqualFold(scheme, "http") && !strings.EqualFold(scheme, "https") {
+		return url.Parse(rawURL)
+	}
+	end := strings.IndexAny(rawURL, "?#")
+	if end < 0 {
+		end = len(rawURL)
+	}
+	return url.Parse(strings.ReplaceAll(rawURL[:end], `\`, "/") + rawURL[end:])
 }
 
 // resolvedPath returns u's escaped path with dot-segments removed the way browsers and Node
