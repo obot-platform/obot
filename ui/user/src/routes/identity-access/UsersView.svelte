@@ -355,7 +355,11 @@
 								disabled={stillProvisioned ||
 									d.explicitRole ||
 									(d.groups.includes(Group.OWNER) && !profile.current.groups.includes(Group.OWNER))}
-								use:tooltip={{ text: stillProvisioned ? STILL_PROVISIONED_MESSAGE : undefined }}
+								use:tooltip={{
+									text: stillProvisioned ? STILL_PROVISIONED_MESSAGE : undefined,
+									placement: 'left',
+									classes: ['z-50']
+								}}
 								onclick={() => (deletingUser = d)}
 							>
 								Delete User
