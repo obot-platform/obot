@@ -33,19 +33,26 @@ type pendingRequest struct {
 
 // hookProcessor filters MCP messages for one proxied HTTP exchange.
 type hookProcessor struct {
-	ctx       context.Context
-	runner    mcp.HookRunner
-	hooks     mcp.Hooks
-	servers   mcp.HookServerConfigs
-	audit     *proxyAudit
-	store     *hookCorrelationStore
-	sessionID string
-	request   *pendingRequest
-	requestID string
-	disabled  bool
+	ctx        context.Context
+	runner     mcp.HookRunner
+	hooks      mcp.Hooks
+	servers    mcp.HookServerConfigs
+	audit      *proxyAudit
+	store      *hookCorrelationStore
+	sessionID  string
+	request    *pendingRequest
+	requestID  string
+	disabled   bool
+	toolSearch bool
+	resolved   *resolvedToolCall
 
 	requestError    error
 	requestResponse []byte
+}
+
+type hookProcessorOptions struct {
+	toolSearch bool
+	resolved   *resolvedToolCall
 }
 
 type gzipHookBody struct {
@@ -97,7 +104,7 @@ type hookSSELine struct {
 	value, ending string
 }
 
-func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore) (*hookProcessor, error) {
+func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore, options ...hookProcessorOptions) (*hookProcessor, error) {
 	processor := &hookProcessor{
 		ctx:       req.Context(),
 		runner:    runner,
@@ -107,6 +114,10 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 		store:     store,
 		sessionID: mcpSessionID(req.Header, req.URL),
 		disabled:  runner == nil || len(hooks) == 0,
+	}
+	if len(options) > 0 {
+		processor.toolSearch = options[0].toolSearch
+		processor.resolved = options[0].resolved
 	}
 	if req.Method != http.MethodPost || req.Body == nil || (processor.disabled && processor.audit == nil) {
 		return processor, nil
@@ -396,12 +407,37 @@ func (h *hookProcessor) filterRequestMessage(body []byte, wireMessage mcp.Messag
 }
 
 func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, origin hookOrigin) (filteredRequest, error) {
-	result := h.run(wireMessage, wireMessage.Method, mcpHookMessageName(wireMessage), "request", nil)
+	hookMessage := wireMessage
+	name := mcpHookMessageName(wireMessage)
+	if origin == hookOriginClient && h.resolved != nil && wireMessage.Method == "tools/call" {
+		var err error
+		hookMessage, err = h.resolved.hookMessage(wireMessage)
+		if err != nil {
+			return filteredRequest{}, err
+		}
+		name = h.resolved.name
+	}
+	result := h.run(hookMessage, wireMessage.Method, name, "request", nil)
 	if result.err != nil {
 		return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", result.err), hooks: result}, nil
 	}
 
 	message := result.message
+	if h.resolved != nil && origin == hookOriginClient && wireMessage.Method == "tools/call" {
+		if result.mutated {
+			var err error
+			message, err = h.resolved.restoreHookMutation(wireMessage, message)
+			if err != nil {
+				result.err = err
+				result.message = wireMessage
+				result.mutated = false
+				return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", err), hooks: result}, nil
+			}
+		} else {
+			message = wireMessage
+		}
+		result.message = message
+	}
 	if result.mutated {
 		if origin == hookOriginServer {
 			message.JSONRPC = wireMessage.JSONRPC
@@ -416,10 +452,14 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 	}
 
 	requestID, _ := mcpHookMessageID(message.ID)
+	requestName := mcpHookMessageName(message)
+	if h.resolved != nil && origin == hookOriginClient && wireMessage.Method == "tools/call" {
+		requestName = name
+	}
 	return filteredRequest{
 		body: body,
 		request: pendingRequest{
-			message: message, name: mcpHookMessageName(message), mutations: cloneMCPHookMutations(result.mutations),
+			message: message, name: requestName, mutations: cloneMCPHookMutations(result.mutations),
 		},
 		requestID: requestID,
 		hooks:     result,
@@ -467,7 +507,7 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 		"name": name, "direction": direction, "callOnError": strconv.FormatBool(message.Error != nil), "method": method,
 	}
 	for _, hook := range h.hooks {
-		if !hook.Matches(method, params) {
+		if !hook.Matches(method, params) && !h.matchesGenericCallHook(hook, method, params) {
 			continue
 		}
 		for _, target := range hook.Targets {

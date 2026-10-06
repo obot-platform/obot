@@ -249,8 +249,24 @@ func (h *Handler) Proxy(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
 		}
+		var resolvedCall *resolvedToolCall
+		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token)
+			if err != nil {
+				if writeMCPJSONRPCError(req.ResponseWriter, req.Request, err) {
+					return nil
+				}
+				return err
+			}
+			if resolvedCall != nil && audit != nil {
+				audit.entry.CallIdentifier = resolvedCall.name
+			}
+		}
 
-		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata))
+		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), hookProcessorOptions{
+			toolSearch: serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch,
+			resolved:   resolvedCall,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request hooks: %w", err)
 		}
