@@ -26,6 +26,9 @@ const (
 	CurrentAuthProviderCookie  = "current_auth_provider"
 	ObotAccessTokenCookie      = "obot_access_token"
 	ObotAuthProviderQueryParam = "obot-auth-provider"
+	// loginRestartedCookie marks a login that was restarted because its callback arrived without
+	// CurrentAuthProviderCookie, so that a second such callback fails instead of restarting again.
+	loginRestartedCookie = "obot_login_restarted"
 )
 
 var (
@@ -157,6 +160,15 @@ func clearCurrentAuthProviderCookie(w http.ResponseWriter) {
 	})
 }
 
+func clearLoginRestartedCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:   loginRestartedCookie,
+		Value:  "",
+		Path:   "/oauth2/callback",
+		MaxAge: -1,
+	})
+}
+
 func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Request) {
 	// If the proxy manager is not set up, just redirect the user.
 	// This can happen when auth is disabled.
@@ -193,7 +205,24 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 
 			// Now delete the current auth provider cookie so that it doesn't interfere with anything.
 			clearCurrentAuthProviderCookie(w)
+			clearLoginRestartedCookie(w)
+		} else if _, err := r.Cookie(loginRestartedCookie); err != nil {
+			// The callback belongs to no login that Obot started here: one the identity provider
+			// started itself, such as from an app tile, one that outlived the cookie, or one finished
+			// in another browser. Restart the login from Obot, so that it can complete.
+			http.SetCookie(w, &http.Cookie{
+				Name:     loginRestartedCookie,
+				Value:    "true",
+				Path:     "/oauth2/callback",
+				MaxAge:   60 * 15,
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+			})
+			http.Redirect(w, r, "/oauth2/start?rd=%2F", http.StatusFound)
+			return
 		} else {
+			// The login was already restarted once and still came back without the cookie.
+			clearLoginRestartedCookie(w)
 			http.Error(w, "Login timed out. Please try again.", http.StatusUnauthorized)
 			return
 		}
