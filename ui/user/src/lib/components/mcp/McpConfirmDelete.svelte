@@ -24,7 +24,9 @@
 		entityPlural,
 		additionalNote
 	}: Props = $props();
-	let plural = $derived(entityPlural ? entityPlural : m.mcps_servers_entity_plural_fallback({ entity }));
+	let plural = $derived(
+		entityPlural ? entityPlural : m.mcps_servers_entity_plural_fallback({ entity })
+	);
 </script>
 
 <Confirm

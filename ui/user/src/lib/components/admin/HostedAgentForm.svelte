@@ -371,7 +371,9 @@
 					<div class="flex flex-col gap-2">
 						<span class="text-sm font-light">{m.hosted_agents_templates_model_providers()}</span>
 						{#if modelProviders.length === 0}
-							<p class="text-muted-content text-sm">{m.hosted_agents_templates_no_model_providers()}</p>
+							<p class="text-muted-content text-sm">
+								{m.hosted_agents_templates_no_model_providers()}
+							</p>
 						{:else}
 							<div class="flex flex-col gap-1">
 								{#each modelProviders as provider (provider.id)}
@@ -469,7 +471,9 @@
 							<span class="text-sm font-light">{m.hosted_agents_templates_mcp_servers()}</span>
 							{#if selectedMcpServers.length > 0}
 								<span class="text-muted-content text-xs"
-									>{m.hosted_agents_templates_selected_count({ count: selectedMcpServers.length })}</span
+									>{m.hosted_agents_templates_selected_count({
+										count: selectedMcpServers.length
+									})}</span
 								>
 							{/if}
 						</div>

@@ -109,7 +109,10 @@
 				label: m.platform_settings_git_credentials_skill_repositories(),
 				uses: credential?.uses.skillRepositories ?? []
 			},
-			{ label: m.platform_settings_git_credentials_mcp_catalogs(), uses: credential?.uses.mcpCatalogs ?? [] },
+			{
+				label: m.platform_settings_git_credentials_mcp_catalogs(),
+				uses: credential?.uses.mcpCatalogs ?? []
+			},
 			{
 				label: m.platform_settings_git_credentials_system_mcp_catalogs(),
 				uses: credential?.uses.systemMcpCatalogs ?? []
@@ -282,7 +285,9 @@
 					} catch (error) {
 						failedCreates.push(draft);
 						errors.append(
-							error instanceof Error ? error.message : m.platform_settings_git_credentials_save_failed()
+							error instanceof Error
+								? error.message
+								: m.platform_settings_git_credentials_save_failed()
 						);
 					}
 				}),
@@ -302,7 +307,9 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : m.platform_settings_git_credentials_save_failed()
+								error instanceof Error
+									? error.message
+									: m.platform_settings_git_credentials_save_failed()
 							);
 						}
 					}),
@@ -319,7 +326,10 @@
 									...current,
 									uses: {
 										skillRepositories: [
-											{ id: 'resource', displayName: m.platform_settings_git_credentials_unknown_resource() }
+											{
+												id: 'resource',
+												displayName: m.platform_settings_git_credentials_unknown_resource()
+											}
 										],
 										mcpCatalogs: [],
 										systemMcpCatalogs: []
@@ -501,7 +511,9 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-host" class="text-sm font-light">{m.platform_settings_git_credentials_host()}</label>
+		<label for="git-credential-host" class="text-sm font-light"
+			>{m.platform_settings_git_credentials_host()}</label
+		>
 		<input
 			id="git-credential-host"
 			bind:value={host}
@@ -509,11 +521,13 @@
 			placeholder="github.com"
 			class="text-input-filled"
 		/>
-		<span class="text-muted-content text-xs">{m.platform_settings_git_credentials_host_hint()}</span>
+		<span class="text-muted-content text-xs">{m.platform_settings_git_credentials_host_hint()}</span
+		>
 	</div>
 	<div class="flex flex-col gap-1">
 		<div class="flex items-center justify-between gap-4">
-			<label for="git-credential-token" class="text-sm font-light">{m.platform_settings_git_credentials_pat()}</label
+			<label for="git-credential-token" class="text-sm font-light"
+				>{m.platform_settings_git_credentials_pat()}</label
 			>
 			{#if showExistingToken && !inputsDisabled}
 				<button

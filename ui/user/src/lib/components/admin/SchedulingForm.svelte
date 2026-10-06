@@ -85,7 +85,9 @@
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<div class="text-sm font-light">{m.platform_mcp_config_scheduling_affinity_configuration()}</div>
+		<div class="text-sm font-light">
+			{m.platform_mcp_config_scheduling_affinity_configuration()}
+		</div>
 		<YamlEditor bind:value={affinity} disabled={readonly} placeholder="" rows={6} autoHeight />
 	</div>
 </div>
@@ -117,7 +119,9 @@
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<div class="text-sm font-light">{m.platform_mcp_config_scheduling_tolerations_configuration()}</div>
+		<div class="text-sm font-light">
+			{m.platform_mcp_config_scheduling_tolerations_configuration()}
+		</div>
 		<YamlEditor bind:value={tolerations} disabled={readonly} placeholder="" rows={6} autoHeight />
 	</div>
 </div>
@@ -144,7 +148,9 @@
 	<h3 class="text-base font-semibold">{m.platform_mcp_config_cpu_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="cpu-request">{m.platform_mcp_config_scheduling_request()}</label>
+			<label class="input-label" for="cpu-request"
+				>{m.platform_mcp_config_scheduling_request()}</label
+			>
 			<input
 				type="text"
 				id="cpu-request"
@@ -169,7 +175,9 @@
 	<h3 class="text-base font-semibold">{m.platform_mcp_config_memory_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="memory-request">{m.platform_mcp_config_scheduling_request()}</label>
+			<label class="input-label" for="memory-request"
+				>{m.platform_mcp_config_scheduling_request()}</label
+			>
 			<input
 				type="text"
 				id="memory-request"
@@ -180,7 +188,9 @@
 			/>
 		</div>
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="memory-limit">{m.platform_mcp_config_scheduling_limit()}</label>
+			<label class="input-label" for="memory-limit"
+				>{m.platform_mcp_config_scheduling_limit()}</label
+			>
 			<input
 				type="text"
 				id="memory-limit"
@@ -231,7 +241,9 @@
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label class="input-label" for="runtime-class-name">{m.platform_mcp_config_scheduling_runtime_class_name()}</label>
+		<label class="input-label" for="runtime-class-name"
+			>{m.platform_mcp_config_scheduling_runtime_class_name()}</label
+		>
 		<input
 			type="text"
 			id="runtime-class-name"

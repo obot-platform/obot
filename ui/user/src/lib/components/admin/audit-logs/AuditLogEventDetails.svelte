@@ -70,7 +70,10 @@
 					{@render jsonBody(m.audit_usage_audit_logs_request_tool_input(), details.request?.body)}
 				{/if}
 				{#if hasBody(details.request?.mutatedBody)}
-					{@render jsonBody(m.audit_usage_audit_logs_mutated_request_body(), details.request?.mutatedBody)}
+					{@render jsonBody(
+						m.audit_usage_audit_logs_mutated_request_body(),
+						details.request?.mutatedBody
+					)}
 				{/if}
 
 				{#if hasBody(details.response?.originalBody)}
@@ -80,11 +83,16 @@
 					)}
 				{/if}
 				{#if hasBody(details.response?.body)}
-					{@render jsonBody(m.audit_usage_audit_logs_response_tool_output(), details.response?.body)}
+					{@render jsonBody(
+						m.audit_usage_audit_logs_response_tool_output(),
+						details.response?.body
+					)}
 				{/if}
 			{/if}
 
-			<div class="divider my-0 text-xs uppercase">{m.audit_usage_audit_logs_additional_information()}</div>
+			<div class="divider my-0 text-xs uppercase">
+				{m.audit_usage_audit_logs_additional_information()}
+			</div>
 
 			{#if details}
 				{#if details.payloadRedacted}
@@ -98,16 +106,28 @@
 						<div class="flex flex-col gap-0.5">
 							{@render title(m.audit_usage_audit_logs_environment())}
 							<div class="flex flex-col gap-1 px-4 text-sm font-light">
-								{@render field(m.audit_usage_audit_logs_working_directory(), details.environment.cwd)}
+								{@render field(
+									m.audit_usage_audit_logs_working_directory(),
+									details.environment.cwd
+								)}
 								{@render field(m.audit_usage_audit_logs_git_root(), details.environment.gitRoot)}
-								{@render field(m.audit_usage_audit_logs_git_branch(), details.environment.gitBranch)}
-								{@render field(m.audit_usage_audit_logs_git_commit(), details.environment.gitCommit)}
+								{@render field(
+									m.audit_usage_audit_logs_git_branch(),
+									details.environment.gitBranch
+								)}
+								{@render field(
+									m.audit_usage_audit_logs_git_commit(),
+									details.environment.gitCommit
+								)}
 								{@render field(
 									m.audit_usage_audit_logs_git_remotes(),
 									details.environment.gitRemotes?.join(', ')
 								)}
 								{@render field(m.core_col_hostname(), details.device?.hostname)}
-								{@render field(m.audit_usage_audit_logs_local_username(), details.device?.localUsername)}
+								{@render field(
+									m.audit_usage_audit_logs_local_username(),
+									details.device?.localUsername
+								)}
 								{@render field(
 									m.audit_usage_audit_logs_reported_email(),
 									details.environment.reportedUserEmail
@@ -121,10 +141,16 @@
 					{/if}
 
 					{#if hasBody(details.request?.headers)}
-						{@render headersBody(m.audit_usage_audit_logs_request_headers(), details.request?.headers)}
+						{@render headersBody(
+							m.audit_usage_audit_logs_request_headers(),
+							details.request?.headers
+						)}
 					{/if}
 					{#if hasBody(details.response?.headers)}
-						{@render headersBody(m.audit_usage_audit_logs_response_headers(), details.response?.headers)}
+						{@render headersBody(
+							m.audit_usage_audit_logs_response_headers(),
+							details.response?.headers
+						)}
 					{/if}
 					{#if hasBody(details.rawEvent)}
 						{@render jsonBody(m.audit_usage_audit_logs_raw_event(), details.rawEvent)}
@@ -146,7 +172,10 @@
 					{@render field(m.core_col_credential(), auditLog.actor.credentialID)}
 					{@render field(m.audit_usage_audit_logs_action(), auditLog.action.name)}
 					{@render field(m.audit_usage_audit_logs_action_kind(), auditLog.action.kind)}
-					{@render field(m.audit_usage_audit_logs_target(), auditLog.target.name || auditLog.target.id)}
+					{@render field(
+						m.audit_usage_audit_logs_target(),
+						auditLog.target.name || auditLog.target.id
+					)}
 					{@render field(
 						m.audit_usage_audit_logs_parent_target(),
 						auditLog.target.parent?.name || auditLog.target.parent?.id
@@ -178,7 +207,10 @@
 						<div class="flex flex-col gap-1 px-4 text-sm font-light">
 							{@render field(m.audit_usage_audit_logs_session_id(), details.trace?.sessionID)}
 							{@render field(m.audit_usage_audit_logs_request_id(), details.trace?.requestID)}
-							{@render field(m.audit_usage_audit_logs_idempotency_key(), details.trace?.idempotencyKey)}
+							{@render field(
+								m.audit_usage_audit_logs_idempotency_key(),
+								details.trace?.idempotencyKey
+							)}
 							{@render field(m.audit_usage_audit_logs_tool_use_id(), details.trace?.toolUseID)}
 							{@render field(m.audit_usage_audit_logs_turn_id(), details.trace?.turnID)}
 							{@render field(m.audit_usage_audit_logs_client_ip(), details.network?.clientIP)}
@@ -202,7 +234,10 @@
 								[details.client?.name, details.client?.version].filter(Boolean).join(' / ')
 							)}
 							{@render field(m.audit_usage_audit_logs_user_agent(), details.client?.userAgent)}
-							{@render field(m.audit_usage_audit_logs_workspace(), details.scope?.powerUserWorkspaceID)}
+							{@render field(
+								m.audit_usage_audit_logs_workspace(),
+								details.scope?.powerUserWorkspaceID
+							)}
 							{@render field(
 								m.audit_usage_audit_logs_catalog_entry(),
 								details.scope?.mcpServerCatalogEntryName
@@ -228,9 +263,15 @@
 								m.audit_usage_audit_logs_model(),
 								[details.agent?.model, details.agent?.modelID].filter(Boolean).join(' / ')
 							)}
-							{@render field(m.audit_usage_audit_logs_permission_mode(), details.agent?.permissionMode)}
+							{@render field(
+								m.audit_usage_audit_logs_permission_mode(),
+								details.agent?.permissionMode
+							)}
 							{@render field(m.audit_usage_audit_logs_device(), details.device?.id)}
-							{@render field(m.audit_usage_audit_logs_deployment_id(), details.device?.deploymentID)}
+							{@render field(
+								m.audit_usage_audit_logs_deployment_id(),
+								details.device?.deploymentID
+							)}
 							{@render field(
 								m.audit_usage_audit_logs_os_architecture(),
 								[details.device?.os, details.device?.architecture].filter(Boolean).join(' / ')

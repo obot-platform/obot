@@ -55,7 +55,7 @@
 				</p>
 				{#if accountInactive}
 					<p class="notification-error w-sm p-3 text-center text-sm" role="alert">
-						Your account is not active. Contact your administrator.
+						{m.login_account_inactive()}
 					</p>
 				{/if}
 

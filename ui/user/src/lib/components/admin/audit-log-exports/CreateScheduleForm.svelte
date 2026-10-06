@@ -442,7 +442,9 @@
 					options: toStringFilterSelectOptions(
 						filtersOptions['message_policy_triggered'],
 						(value) =>
-							value === 'true' ? m.audit_usage_exports_triggered() : m.audit_usage_exports_not_triggered()
+							value === 'true'
+								? m.audit_usage_exports_triggered()
+								: m.audit_usage_exports_not_triggered()
 					)
 				}
 			];
@@ -837,7 +839,9 @@
 
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="name">{m.audit_usage_export_schedules_name_label()}</label>
+					<label class="text-sm font-medium" for="name"
+						>{m.audit_usage_export_schedules_name_label()}</label
+					>
 					<input
 						class="text-input-filled"
 						id="name"
@@ -849,7 +853,8 @@
 					<p class="text-muted-content text-xs">{m.audit_usage_export_schedules_name_help()}</p>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="bucket">{m.audit_usage_exports_bucket_label()}</label
+					<label class="text-sm font-medium" for="bucket"
+						>{m.audit_usage_exports_bucket_label()}</label
 					>
 					<input
 						class="text-input-filled"

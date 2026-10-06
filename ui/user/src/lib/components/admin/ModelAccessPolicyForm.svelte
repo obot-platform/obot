@@ -131,8 +131,7 @@
 				aliasName: aliasName,
 				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
 				usage: model?.usage,
-				effectiveModelName:
-					model?.displayName || model?.targetModel || m.models_not_configured(),
+				effectiveModelName: model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				warning: isAllowed ? undefined : llmModelWarning
 			};

@@ -425,7 +425,9 @@
 											}}
 										>
 											<Trash2 class="size-4" />
-											{catalogEntry ? m.mcps_servers_delete_entry() : m.mcps_catalog_delete_server()}
+											{catalogEntry
+												? m.mcps_servers_delete_entry()
+												: m.mcps_catalog_delete_server()}
 										</button>
 									{/if}
 								</div>

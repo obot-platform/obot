@@ -7,7 +7,6 @@
 		lastPageIndex: number;
 		total: number;
 		loading?: boolean;
-		itemLabelSingular?: string;
 		// Names what is paged, so that the buttons of several pagers on a page are told apart.
 		label?: string;
 		/** Formats the item count shown after the page number, e.g. `(n) => m.devices_count({ count: n })`. */
@@ -20,7 +19,6 @@
 		lastPageIndex,
 		total,
 		loading = false,
-		itemLabelSingular,
 		label,
 		itemCountLabel,
 		onPageChange
@@ -31,7 +29,7 @@
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
 		disabled={pageIndex === 0 || loading}
-		aria-label={label ? `Previous page of ${label}` : undefined}
+		aria-label={label ? m.core_page_previous_of({ label }) : undefined}
 		onclick={() => onPageChange(pageIndex - 1)}
 	>
 		<ChevronsLeft class="size-4" />
@@ -44,7 +42,7 @@
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
 		disabled={pageIndex >= lastPageIndex || loading}
-		aria-label={label ? `Next page of ${label}` : undefined}
+		aria-label={label ? m.core_page_next_of({ label }) : undefined}
 		onclick={() => onPageChange(pageIndex + 1)}
 	>
 		{m.core_next()}

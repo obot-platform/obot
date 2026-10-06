@@ -11,9 +11,7 @@
 	const { skillAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(
-		skillAccessPolicy?.displayName ?? m.skills_access_policy_fallback_title()
-	);
+	let title = $derived(skillAccessPolicy?.displayName ?? m.skills_access_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

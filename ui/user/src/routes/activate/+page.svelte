@@ -52,9 +52,7 @@
 			});
 		} catch (err) {
 			error =
-				err instanceof Error
-					? parseErrorContent(err).message
-					: m.auth_activate_link_invalid();
+				err instanceof Error ? parseErrorContent(err).message : m.auth_activate_link_invalid();
 		}
 	}
 

@@ -150,9 +150,7 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<label for="mcp-tunnel-description" class="text-sm font-light"
-				>{m.core_description()}</label
-			>
+			<label for="mcp-tunnel-description" class="text-sm font-light">{m.core_description()}</label>
 			<textarea
 				id="mcp-tunnel-description"
 				class="text-input-filled dark:bg-base-100 min-h-28 resize-y"

@@ -58,7 +58,9 @@
 		{#if hostedAgents.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<Bot class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_templates_no_templates()}</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.hosted_agents_templates_no_templates()}
+				</h4>
 				{#if !isReadonly}
 					<p class="text-muted-content text-sm font-light">
 						{m.hosted_agents_templates_no_templates_desc()}

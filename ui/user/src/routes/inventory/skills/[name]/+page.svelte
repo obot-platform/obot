@@ -90,14 +90,18 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_skills_skill_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_device_skills_skill_not_found()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{detail.name}
 						{#if detail.hasScripts}
-							<span class="pill-primary bg-primary text-xs">{m.inventory_enforcement_device_skills_has_scripts()}</span>
+							<span class="pill-primary bg-primary text-xs"
+								>{m.inventory_enforcement_device_skills_has_scripts()}</span
+							>
 						{/if}
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
@@ -115,17 +119,19 @@
 						<span>·</span>
 						<span>
 							{detail.observationCount === 1
-								? m.inventory_enforcement_device_skills_observations_count_one({ count: detail.observationCount })
-								: m.inventory_enforcement_device_skills_observations_count_other({ count: detail.observationCount })}
+								? m.inventory_enforcement_device_skills_observations_count_one({
+										count: detail.observationCount
+									})
+								: m.inventory_enforcement_device_skills_observations_count_other({
+										count: detail.observationCount
+									})}
 						</span>
 					</div>
 				</div>
 
 				{#if detail.description}
 					<div class="flex flex-col gap-1">
-						<span class="text-muted-content text-xs uppercase"
-							>{m.core_description()}</span
-						>
+						<span class="text-muted-content text-xs uppercase">{m.core_description()}</span>
 						<p class="text-sm">{detail.description}</p>
 					</div>
 				{/if}

@@ -312,7 +312,8 @@
 				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
-				const apiKeyLabel = labels.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID });
+				const apiKeyLabel =
+					labels.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID });
 				return {
 					apiKeyID,
 					apiKeyLabel,
@@ -796,7 +797,8 @@
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.audit_usage_audit_logs_user_label()}</span>{userPill.label}
+								<span class="font-semibold">{m.audit_usage_audit_logs_user_label()}</span
+								>{userPill.label}
 								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -807,7 +809,8 @@
 						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
 							<div class="filter-primary">
 								<span class="font-semibold">{m.audit_usage_audit_logs_model_api_key_label()}</span
-								>{apiKeyOptionsMap.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID })}
+								>{apiKeyOptionsMap.get(apiKeyID) ??
+									m.audit_usage_usage_api_key_number({ id: apiKeyID })}
 								<button class="ml-1" onclick={() => handleRemoveAPIKeyFilter(apiKeyID)}>
 									<X class="size-3" />
 								</button>
@@ -821,7 +824,8 @@
 						}))}
 						{#each modelPills as modelPill (modelPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.audit_usage_usage_pill_model()}</span>{modelPill.label}
+								<span class="font-semibold">{m.audit_usage_usage_pill_model()}</span
+								>{modelPill.label}
 								<button class="ml-1" onclick={() => handleRemoveModelFilter(modelPill.id)}>
 									<X class="size-3" />
 								</button>

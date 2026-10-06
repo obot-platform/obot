@@ -32,7 +32,8 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch LLM audit log details:', err);
-				fetchError = err instanceof Error ? err.message : m.audit_usage_audit_logs_model_load_details_failed();
+				fetchError =
+					err instanceof Error ? err.message : m.audit_usage_audit_logs_model_load_details_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;

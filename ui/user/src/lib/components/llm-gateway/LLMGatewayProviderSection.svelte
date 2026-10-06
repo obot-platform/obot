@@ -67,7 +67,11 @@
 					class="bg-base-200 dark:bg-base-300 flex items-center justify-between gap-3 rounded-md px-3 py-2"
 				>
 					<code class="truncate font-mono text-xs">{ctx.baseURL}</code>
-					<CopyButton showTextLeft text={ctx.baseURL} tooltipText={m.models_gateway_copy_base_url()} />
+					<CopyButton
+						showTextLeft
+						text={ctx.baseURL}
+						tooltipText={m.models_gateway_copy_base_url()}
+					/>
 				</div>
 			</div>
 

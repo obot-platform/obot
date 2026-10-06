@@ -142,7 +142,9 @@
 
 		{#if kind === 'url'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-url" class="input-label">{m.inventory_enforcement_allowlist_server_url()}</label>
+				<label for="allowlist-url" class="input-label"
+					>{m.inventory_enforcement_allowlist_server_url()}</label
+				>
 				<input
 					id="allowlist-url"
 					type="text"
@@ -156,9 +158,7 @@
 			</div>
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
-				<span id="allowlist-package-source-label" class="input-label"
-					>{m.core_col_registry()}</span
-				>
+				<span id="allowlist-package-source-label" class="input-label">{m.core_col_registry()}</span>
 				<Select
 					id="allowlist-package-source"
 					class="bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
@@ -198,9 +198,7 @@
 			</div>
 		{:else if kind === 'hostname'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-hostname" class="input-label"
-					>{m.core_col_hostname()}</label
-				>
+				<label for="allowlist-hostname" class="input-label">{m.core_col_hostname()}</label>
 				<input
 					id="allowlist-hostname"
 					type="text"
@@ -231,7 +229,9 @@
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="allowlist-tools" class="input-label">{m.inventory_enforcement_allowlist_tools()}</label>
+			<label for="allowlist-tools" class="input-label"
+				>{m.inventory_enforcement_allowlist_tools()}</label
+			>
 			{#if tools.length > 0}
 				<div class="flex flex-wrap gap-1.5 pb-1">
 					{#each tools as tool (tool)}

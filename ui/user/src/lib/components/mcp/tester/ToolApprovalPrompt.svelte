@@ -37,7 +37,9 @@
 			<div class="min-w-0">
 				<h3 class="font-semibold break-all">{call.name}</h3>
 				<p class="text-xs text-muted-content" aria-live="polite">
-					{call.execution === 'executing' ? m.mcps_tester_running() : m.mcps_tester_approval_needed()}
+					{call.execution === 'executing'
+						? m.mcps_tester_running()
+						: m.mcps_tester_approval_needed()}
 				</p>
 			</div>
 			{#if queue.length > 1}

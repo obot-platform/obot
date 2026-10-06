@@ -51,6 +51,7 @@
 	"footer_rights": "© 2025 Acorn. All rights reserved.",
 	"footer_terms_of_service": "서비스 약관",
 	"language_label": "언어",
+	"login_account_inactive": "계정이 활성 상태가 아닙니다. 관리자에게 문의하세요.",
 	"login_continue_with": "{provider}(으)로 계속",
 	"login_local_heading": "Obot에 로그인",
 	"login_local_no_account": "계정이 없으신가요? 관리자에게 계정 생성을 요청하세요.",

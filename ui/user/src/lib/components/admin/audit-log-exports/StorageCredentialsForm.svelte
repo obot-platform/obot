@@ -403,8 +403,7 @@
 				<div class="space-y-4">
 					<h3 class="text-lg font-semibold">{m.audit_usage_exports_provider_heading()}</h3>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="storage-provider"
-							>{m.core_col_provider()}</label
+						<label class="text-sm font-medium" for="storage-provider">{m.core_col_provider()}</label
 						>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Select

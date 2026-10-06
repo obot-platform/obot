@@ -185,7 +185,8 @@
 	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
-		{m.vmcps_delete_confirm_prefix()}<b>{confirmDeleteVMcp?.displayName ?? m.vmcps_deployments_this_vmcp()}</b
+		{m.vmcps_delete_confirm_prefix()}<b
+			>{confirmDeleteVMcp?.displayName ?? m.vmcps_deployments_this_vmcp()}</b
 		>{m.vmcps_delete_confirm_suffix()}
 	{/snippet}
 </Confirm>

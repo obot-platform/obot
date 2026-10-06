@@ -84,7 +84,9 @@
 	</div>
 
 	{#if questions.length === 0}
-		<p class="text-muted-content py-4 text-center text-sm">{m.hosted_agents_templates_questions_empty()}</p>
+		<p class="text-muted-content py-4 text-center text-sm">
+			{m.hosted_agents_templates_questions_empty()}
+		</p>
 	{:else}
 		<div class="flex flex-col gap-3">
 			{#each questions as question, i (i)}
@@ -103,7 +105,9 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="q-name-{i}" class="text-sm font-light">{m.hosted_agents_templates_questions_label()}</label>
+							<label for="q-name-{i}" class="text-sm font-light"
+								>{m.hosted_agents_templates_questions_label()}</label
+							>
 							<input
 								id="q-name-{i}"
 								bind:value={question.name}
@@ -139,9 +143,7 @@
 
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="q-desc-{i}" class="text-sm font-light"
-								>{m.core_description()}</label
-							>
+							<label for="q-desc-{i}" class="text-sm font-light">{m.core_description()}</label>
 							<input
 								id="q-desc-{i}"
 								bind:value={question.description}
@@ -150,9 +152,7 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="q-default-{i}" class="text-sm font-light"
-								>{m.core_default()}</label
-							>
+							<label for="q-default-{i}" class="text-sm font-light">{m.core_default()}</label>
 							{#if question.type === 'select'}
 								<select
 									id="q-default-{i}"
@@ -217,7 +217,9 @@
 					{#if question.type === 'select'}
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center justify-between">
-								<span class="text-sm font-light">{m.hosted_agents_templates_questions_options()}</span>
+								<span class="text-sm font-light"
+									>{m.hosted_agents_templates_questions_options()}</span
+								>
 								{#if !readonly}
 									<button
 										class="btn btn-secondary flex items-center gap-1 text-xs"
@@ -249,7 +251,9 @@
 								</div>
 							{/each}
 							{#if (question.options ?? []).length === 0}
-								<p class="text-muted-content text-xs">{m.hosted_agents_templates_questions_needs_option()}</p>
+								<p class="text-muted-content text-xs">
+									{m.hosted_agents_templates_questions_needs_option()}
+								</p>
 							{/if}
 						</div>
 					{/if}

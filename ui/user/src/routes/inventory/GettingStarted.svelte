@@ -43,7 +43,9 @@
 		</div>
 
 		<div class="flex max-w-lg flex-col gap-2">
-			<h3 class="text-xl font-semibold">{m.inventory_enforcement_configuration_configure_managed_devices()}</h3>
+			<h3 class="text-xl font-semibold">
+				{m.inventory_enforcement_configuration_configure_managed_devices()}
+			</h3>
 			<p class="text-muted-content text-sm">
 				{m.inventory_enforcement_configuration_getting_started_subtitle()}
 			</p>

@@ -230,7 +230,8 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch LLM audit logs:', err);
-				fetchError = err instanceof Error ? err.message : m.audit_usage_audit_logs_model_load_logs_failed();
+				fetchError =
+					err instanceof Error ? err.message : m.audit_usage_audit_logs_model_load_logs_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -280,8 +281,10 @@
 		if (_key === 'response_status') return m.core_status();
 		if (_key === 'user_id') return m.core_col_user();
 		if (_key === 'user_agent') return m.audit_usage_audit_logs_user_agent();
-		if (_key === 'client_session_id') return m.audit_usage_audit_logs_model_filter_client_session_id();
-		if (_key === 'hide_models_requests') return m.audit_usage_audit_logs_model_filter_model_discovery();
+		if (_key === 'client_session_id')
+			return m.audit_usage_audit_logs_model_filter_client_session_id();
+		if (_key === 'hide_models_requests')
+			return m.audit_usage_audit_logs_model_filter_model_discovery();
 		if (_key === 'message_policy_triggered')
 			return m.audit_usage_exports_filter_title_message_policy_action();
 
@@ -299,10 +302,14 @@
 			return getUserDisplayName(usersMap, value + '');
 		}
 		if (label === 'message_policy_triggered') {
-			return value === 'true' ? m.audit_usage_exports_triggered() : m.audit_usage_exports_not_triggered();
+			return value === 'true'
+				? m.audit_usage_exports_triggered()
+				: m.audit_usage_exports_not_triggered();
 		}
 		if (label === 'hide_models_requests')
-			return value === 'true' ? m.audit_usage_audit_logs_model_hidden() : m.audit_usage_audit_logs_model_shown();
+			return value === 'true'
+				? m.audit_usage_audit_logs_model_hidden()
+				: m.audit_usage_audit_logs_model_shown();
 
 		return value + '';
 	}
@@ -411,7 +418,9 @@
 {:else}
 	<div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center w-full">
 		<Captions class="text-muted-content size-20 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_audit_logs_model_no_logs()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.audit_usage_audit_logs_model_no_logs()}
+		</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
 			{m.audit_usage_audit_logs_model_no_logs_hint()}
 		</p>

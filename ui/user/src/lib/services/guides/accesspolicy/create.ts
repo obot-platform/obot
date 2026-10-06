@@ -88,7 +88,8 @@ export const steps: GuideStep[] = [
 														selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn },
 														side: 'top',
 														title: m.mcps_access_policies_guide_confirm_selection(),
-														description: m.mcps_access_policies_guide_then_you_can_apply_your_changes()
+														description:
+															m.mcps_access_policies_guide_then_you_can_apply_your_changes()
 													},
 													listener: {
 														id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn,
@@ -97,7 +98,8 @@ export const steps: GuideStep[] = [
 																selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.serversSection },
 																side: 'top',
 																title: m.mcps_servers_tab(),
-																description: m.mcps_access_policies_guide_this_is_where_you_can_select(),
+																description:
+																	m.mcps_access_policies_guide_this_is_where_you_can_select(),
 																noDescendantInteraction: true
 															},
 															listener: {
@@ -108,7 +110,8 @@ export const steps: GuideStep[] = [
 																		selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn },
 																		side: 'left',
 																		title: m.mcps_access_policies_add_server(),
-																		description: m.mcps_access_policies_guide_you_can_add_a_server_from()
+																		description:
+																			m.mcps_access_policies_guide_you_can_add_a_server_from()
 																	},
 																	listener: {
 																		id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn,
@@ -130,7 +133,8 @@ export const steps: GuideStep[] = [
 																						},
 																						side: 'right',
 																						title: m.mcps_access_policies_guide_add_a_server(),
-																						description: m.mcps_access_policies_guide_for_this_guide_we_ll_go()
+																						description:
+																							m.mcps_access_policies_guide_for_this_guide_we_ll_go()
 																					},
 																					listener: {
 																						id: MCP_ACCESS_POLICY_FIELD_IDS.everythingOption,
@@ -140,7 +144,8 @@ export const steps: GuideStep[] = [
 																									id: MCP_ACCESS_POLICY_FIELD_IDS.serverConfirmBtn
 																								},
 																								side: 'top',
-																								title: m.mcps_access_policies_guide_confirm_changes(),
+																								title:
+																									m.mcps_access_policies_guide_confirm_changes(),
 																								description:
 																									m.mcps_access_policies_guide_then_you_can_apply_your_changes()
 																							},
@@ -152,7 +157,8 @@ export const steps: GuideStep[] = [
 																											id: MCP_ACCESS_POLICY_FIELD_IDS.saveBtn
 																										},
 																										side: 'left',
-																										title: m.mcps_access_policies_guide_save_access_policy(),
+																										title:
+																											m.mcps_access_policies_guide_save_access_policy(),
 																										description:
 																											m.mcps_access_policies_guide_once_you_ve_finished_configuring_the()
 																									},

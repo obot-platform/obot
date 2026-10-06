@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { SCIM_VIEW_PATH } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { TriangleAlert, X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -29,23 +30,23 @@
 		<TriangleAlert class="size-4 shrink-0" />
 		<p class="text-xs font-light max-w-2xl">
 			{#if expired}
-				{`The SCIM token for ${providerName} expired on ${expiryDate}, so provisioning from ${providerName} fails. Rotate the token, and update it in ${providerName}.`}
+				{m.identity_access_scim_token_expired_banner({ provider: providerName, date: expiryDate })}
 			{:else}
-				{`The SCIM token for ${providerName} expires on ${expiryDate}. Rotate it before then, and update it in ${providerName}.`}
+				{m.identity_access_scim_token_expiring_banner({ provider: providerName, date: expiryDate })}
 			{/if}
 		</p>
 		<a
 			href={resolve(SCIM_VIEW_PATH)}
 			class={twMerge('btn btn-xs shrink-0', expired ? 'btn-error' : 'btn-warning')}
 		>
-			Rotate SCIM token
+			{m.identity_access_scim_rotate_token_action()}
 		</a>
 		{#if onDismiss}
 			<button
 				class="btn btn-circle btn-ghost btn-xs w-fit h-fit p-0.5"
 				onclick={onDismiss}
 				type="button"
-				aria-label="Dismiss SCIM token banner"
+				aria-label={m.identity_access_scim_dismiss_token_banner()}
 			>
 				<X class="size-3" />
 			</button>

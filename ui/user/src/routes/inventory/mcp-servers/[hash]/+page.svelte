@@ -87,7 +87,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_mcp_servers_mcp_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_device_mcp_servers_mcp_not_found()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -115,7 +117,9 @@
 						<span
 							>{detail.clientCount === 1
 								? m.inventory_enforcement_device_clients_count_one({ count: detail.clientCount })
-								: m.inventory_enforcement_device_clients_count_other({ count: detail.clientCount })}</span
+								: m.inventory_enforcement_device_clients_count_other({
+										count: detail.clientCount
+									})}</span
 						>
 					</div>
 				</div>

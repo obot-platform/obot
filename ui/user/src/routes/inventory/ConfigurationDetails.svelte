@@ -60,7 +60,8 @@
 	const keyTableData = $derived(
 		enrollmentKeys.map((key) => ({
 			...key,
-			nameDisplay: key.name || m.inventory_enforcement_configuration_key_name_fallback({ id: key.id }),
+			nameDisplay:
+				key.name || m.inventory_enforcement_configuration_key_name_fallback({ id: key.id }),
 			prefix: `ode1-${configuration.id}-${key.id}-*****`,
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt
@@ -121,7 +122,9 @@
 			<section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection}>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="flex flex-col gap-1">
-						<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_enrollment_keys()}</h3>
+						<h3 class="text-lg font-semibold">
+							{m.inventory_enforcement_configuration_enrollment_keys()}
+						</h3>
 						<p class="text-muted-content text-sm font-light">
 							{m.inventory_enforcement_configuration_enrollment_keys_description()}
 						</p>
@@ -153,7 +156,10 @@
 							{ title: m.core_name(), property: 'nameDisplay' },
 							{ title: m.inventory_enforcement_configuration_col_key(), property: 'prefix' },
 							{ title: m.core_col_created(), property: 'createdAt' },
-							{ title: m.inventory_enforcement_configuration_col_last_used(), property: 'lastUsedAt' },
+							{
+								title: m.inventory_enforcement_configuration_col_last_used(),
+								property: 'lastUsedAt'
+							},
 							{ title: m.inventory_enforcement_configuration_col_expires(), property: 'expiresAt' }
 						]}
 					>
@@ -200,7 +206,9 @@
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-name" class="input-label">{m.inventory_enforcement_configuration_name_optional()}</label>
+			<label for="mdm-key-name" class="input-label"
+				>{m.inventory_enforcement_configuration_name_optional()}</label
+			>
 			<input
 				id="mdm-key-name"
 				type="text"
@@ -210,7 +218,9 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-expires" class="input-label">{m.inventory_enforcement_configuration_expiration_date()}</label>
+			<label for="mdm-key-expires" class="input-label"
+				>{m.inventory_enforcement_configuration_expiration_date()}</label
+			>
 			<DatePicker
 				id="mdm-key-expires"
 				bind:value={newKeyExpiresAt}
@@ -242,7 +252,9 @@
 />
 
 <Confirm
-	msg={m.inventory_enforcement_configuration_revoke_key_msg({ name: revokingKey?.name || `#${revokingKey?.id}` })}
+	msg={m.inventory_enforcement_configuration_revoke_key_msg({
+		name: revokingKey?.name || `#${revokingKey?.id}`
+	})}
 	show={Boolean(revokingKey)}
 	loading={revokeLoading}
 	onsuccess={handleRevokeKey}

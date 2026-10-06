@@ -83,7 +83,10 @@
 			})
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
-				fetchError = err instanceof Error ? err.message : m.inventory_enforcement_enforcement_events_load_details_failed();
+				fetchError =
+					err instanceof Error
+						? err.message
+						: m.inventory_enforcement_enforcement_events_load_details_failed();
 			});
 
 		return () => controller.abort();
@@ -124,7 +127,9 @@
 		class="dark:bg-base-200 bg-base-100 relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
 	>
 		<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
-		<h3 class="text-lg font-semibold">{m.inventory_enforcement_enforcement_events_decision_detail()}</h3>
+		<h3 class="text-lg font-semibold">
+			{m.inventory_enforcement_enforcement_events_decision_detail()}
+		</h3>
 		<IconButton onclick={onClose}>
 			<X class="size-5" />
 		</IconButton>
@@ -136,15 +141,23 @@
 		<div class="flex flex-col gap-1 p-4 pl-5">
 			<div class="flex flex-wrap items-center gap-2">
 				{#if decision.decision === 'allow'}
-					<span class="badge badge-success badge-sm">{m.inventory_enforcement_enforcement_events_allowed()}</span>
+					<span class="badge badge-success badge-sm"
+						>{m.inventory_enforcement_enforcement_events_allowed()}</span
+					>
 				{:else}
-					<span class="badge badge-error badge-sm">{m.inventory_enforcement_enforcement_events_blocked()}</span>
+					<span class="badge badge-error badge-sm"
+						>{m.inventory_enforcement_enforcement_events_blocked()}</span
+					>
 				{/if}
 				{#if decision.unresolved}
-					<span class="badge badge-warning badge-sm">{m.inventory_enforcement_enforcement_events_unidentified()}</span>
+					<span class="badge badge-warning badge-sm"
+						>{m.inventory_enforcement_enforcement_events_unidentified()}</span
+					>
 				{/if}
 				{#if decision.obotHosted}
-					<span class="badge badge-ghost badge-sm">{m.inventory_enforcement_enforcement_events_obot_hosted()}</span>
+					<span class="badge badge-ghost badge-sm"
+						>{m.inventory_enforcement_enforcement_events_obot_hosted()}</span
+					>
 				{/if}
 				<span class="text-muted-content text-xs">
 					{formatLogTimestamp(decision.createdAt, userDeviceSettings.timeFormat)}
@@ -184,7 +197,9 @@
 			{#if decision.server}
 				{@const server = decision.server}
 				<div class="flex flex-col gap-1.5">
-					<p class="text-base font-semibold">{m.inventory_enforcement_enforcement_events_resolved_target()}</p>
+					<p class="text-base font-semibold">
+						{m.inventory_enforcement_enforcement_events_resolved_target()}
+					</p>
 					<div class="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-1 text-sm font-light">
 						{#if server.url}
 							<span class="font-medium">URL</span>
@@ -197,19 +212,25 @@
 						{#if server.package}
 							<span class="font-medium">{m.core_col_registry()}</span>
 							<span>{PACKAGE_SOURCE_LABELS[server.package.source] ?? server.package.source}</span>
-							<span class="font-medium">{m.inventory_enforcement_enforcement_events_package()}</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_package()}</span
+							>
 							<span class="break-all">{server.package.name}</span>
-							<span class="font-medium">{m.inventory_enforcement_enforcement_events_version()}</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_version()}</span
+							>
 							<span class="break-all"
-								>{server.package.version || m.inventory_enforcement_enforcement_events_not_reported()}</span
+								>{server.package.version ||
+									m.inventory_enforcement_enforcement_events_not_reported()}</span
 							>
 						{/if}
 						{#if server.connector}
-							<span class="font-medium">{m.inventory_enforcement_enforcement_events_connector()}</span>
+							<span class="font-medium"
+								>{m.inventory_enforcement_enforcement_events_connector()}</span
+							>
 							<span class="break-all">{server.connector}</span>
 						{/if}
 						{#if server.command}
-							<span class="font-medium">{m.inventory_enforcement_enforcement_events_command()}</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_command()}</span
+							>
 							<span class="break-all">{server.command}</span>
 						{/if}
 					</div>
@@ -235,13 +256,17 @@
 			{#if decision.decision === 'deny' && canQuickAllow}
 				<div class="flex flex-col gap-2">
 					{#if checkingAllowlist}
-						<p class="text-base font-semibold">{m.inventory_enforcement_enforcement_events_allow_going_forward()}</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_allow_going_forward()}
+						</p>
 						<div class="text-muted-content flex items-center gap-2 text-sm font-light">
 							<Loading class="size-4" />
 							<span>{m.inventory_enforcement_enforcement_events_checking_allowlist()}</span>
 						</div>
 					{:else if alreadyAllowed}
-						<p class="text-base font-semibold">{m.inventory_enforcement_enforcement_events_already_allowed()}</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_already_allowed()}
+						</p>
 						<div class="notification-info flex items-start gap-2.5 p-2.5">
 							<ShieldCheck class="size-4 shrink-0" />
 							<div class="flex flex-col gap-1">
@@ -256,7 +281,9 @@
 							</div>
 						</div>
 					{:else}
-						<p class="text-base font-semibold">{m.inventory_enforcement_enforcement_events_allow_going_forward()}</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_allow_going_forward()}
+						</p>
 						{#if readOnly}
 							<p class="text-muted-content text-sm font-light">
 								{m.inventory_enforcement_enforcement_events_requires_write_access()}

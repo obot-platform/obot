@@ -36,10 +36,14 @@
 			<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
 			<div class="text-sm">
 				<p class="font-medium">
-					{child ? m.mcps_servers_deprecated_component_title() : m.mcps_servers_deprecated_server_title()}
+					{child
+						? m.mcps_servers_deprecated_component_title()
+						: m.mcps_servers_deprecated_server_title()}
 				</p>
 				<p class="text-muted-content">
-					{child ? m.mcps_servers_deprecated_component_description() : m.mcps_servers_deprecated_server_description()}
+					{child
+						? m.mcps_servers_deprecated_component_description()
+						: m.mcps_servers_deprecated_server_description()}
 				</p>
 			</div>
 		</div>

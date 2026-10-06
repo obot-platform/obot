@@ -96,7 +96,9 @@
 	</div>
 
 	{#if env.length === 0}
-		<p class="text-muted-content py-4 text-center text-sm">{m.hosted_agents_templates_environment_empty()}</p>
+		<p class="text-muted-content py-4 text-center text-sm">
+			{m.hosted_agents_templates_environment_empty()}
+		</p>
 	{:else}
 		<div class="flex flex-col gap-3">
 			{#each env as item, i (i)}
@@ -122,7 +124,9 @@
 								bind:value={item.value}
 								type={item.sensitive && !revealed ? 'password' : 'text'}
 								class="text-input-filled"
-								placeholder={item.sensitive ? m.hosted_agents_templates_environment_stored_securely() : ''}
+								placeholder={item.sensitive
+									? m.hosted_agents_templates_environment_stored_securely()
+									: ''}
 								disabled={readonly}
 							/>
 						</div>
@@ -139,9 +143,7 @@
 
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-desc-{i}" class="text-sm font-light"
-								>{m.core_description()}</label
-							>
+							<label for="env-desc-{i}" class="text-sm font-light">{m.core_description()}</label>
 							<input
 								id="env-desc-{i}"
 								bind:value={item.description}

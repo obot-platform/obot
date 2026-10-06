@@ -400,7 +400,7 @@
 					}}
 					options={[
 						{ label: m.mcps_catalog_remote_remote_exact_url(), id: 'fixedURL' },
-						...(!disableHostnameOption ? [{ label: m.core_col_hostname()(), id: 'hostname' }] : []),
+						...(!disableHostnameOption ? [{ label: m.core_col_hostname(), id: 'hostname' }] : []),
 						{ label: m.mcps_catalog_remote_remote_url_template(), id: 'urlTemplate' }
 					]}
 					selected={selectedType}

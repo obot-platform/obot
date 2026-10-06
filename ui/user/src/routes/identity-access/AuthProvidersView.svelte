@@ -118,17 +118,17 @@
 	// and what setting SCIM up for the incoming provider takes.
 	let switchNote = $derived.by(() => {
 		const incoming = configuringAuthProvider?.name;
-		const notes = [`This cannot be undone. Everyone signs in through ${incoming} afterwards.`];
+		const notes = [
+			m.identity_access_auth_providers_switch_cannot_undo({
+				name: `${configuringAuthProvider?.name}`
+			})
+		];
 		if (activeProvider?.scimState) {
 			const outgoing = activeProvider.name;
-			notes.push(
-				`Switching deletes ${outgoing}'s SCIM connection, with its groups, group memberships, and group role assignments, and removes its groups from access policies. Its users are kept. Users that SCIM disabled stay disabled until an administrator enables them. Turn off provisioning in ${outgoing}: its requests fail from then on. Using SCIM with ${outgoing} again starts over, with a new token.`
-			);
+			notes.push(m.identity_access_auth_providers_scim_switch_deletes({ name: outgoing }));
 		}
 		if (configuringAuthProvider?.scimState) {
-			notes.push(
-				`${incoming} provisions users and groups through SCIM. After the switch, generate its SCIM token and enter it in ${incoming}.`
-			);
+			notes.push(m.identity_access_auth_providers_scim_switch_incoming({ name: incoming ?? '' }));
 		}
 		return notes.join(' ');
 	});
@@ -151,7 +151,18 @@
 		// A referenced group ID that no group has is listed for its references, which go, but is no group.
 		const groups = residualData?.groups.filter((group) => group.name).length ?? 0;
 		const memberships = residualData?.membershipCount ?? 0;
-		return `This deletes ${groups} ${groups === 1 ? 'group' : 'groups'} and ${memberships} ${memberships === 1 ? 'group membership' : 'group memberships'}. It cannot be undone.`;
+		const groupLabel =
+			groups === 1
+				? m.identity_access_scim_count_group_one({ count: groups })
+				: m.identity_access_scim_count_group_other({ count: groups });
+		const membershipLabel =
+			memberships === 1
+				? m.identity_access_scim_count_membership_one({ count: memberships })
+				: m.identity_access_scim_count_membership_other({ count: memberships });
+		return m.identity_access_auth_providers_scim_residual_summary({
+			groups: groupLabel,
+			memberships: membershipLabel
+		});
 	});
 	// A switch is only offered when this provider would replace a different one. Configuring the
 	// first provider on a fresh install stays the plain form.
@@ -337,7 +348,10 @@
 			if (value && value !== scim.connectionIssuer) {
 				return {
 					kind: 'warning',
-					text: `SCIM users and groups belong to the ${provider.name} organization they were provisioned from, ${scim.connectionIssuer}. Change this only if that organization moved, for example to a custom domain. Pointing ${provider.name} at another organization leaves them bound to the old one.`
+					text: m.identity_access_auth_providers_scim_issuer_warning({
+						name: provider.name,
+						issuer: scim.connectionIssuer
+					})
 				};
 			}
 		}
@@ -348,8 +362,8 @@
 			return {
 				kind: 'info',
 				text: empty
-					? `With these left empty, ${provider.name} provisions users and groups through SCIM, and Obot never fetches groups from it. Setup continues on Identity & Access → Auth Providers → SCIM once an Owner has signed in.`
-					: `With these provided, Obot fetches each user's groups from ${provider.name} when they sign in. Leave both empty to provision users and groups through SCIM instead.`
+					? m.identity_access_auth_providers_scim_directory_empty({ name: provider.name })
+					: m.identity_access_auth_providers_scim_directory_provided({ name: provider.name })
 			};
 		}
 		return undefined;
@@ -482,7 +496,7 @@
 			providerConfigure?.close();
 			await refreshAuthProviders();
 			if (incoming.scimState) {
-				scimNotice = `${incoming.name} now serves sign-ins, and provisions users and groups through SCIM. Finish setting it up on Auth Providers → SCIM: generate the token and enter it in ${incoming.name}.`;
+				scimNotice = m.identity_access_auth_providers_scim_notice({ name: incoming.name });
 			}
 		} catch (err) {
 			confirmSwitch = false;
@@ -656,7 +670,7 @@
 					<Info class="mt-0.5 size-5 shrink-0" />
 					<p class="text-sm font-light">
 						{scimNotice}
-						<a class="text-link" href={resolve(SCIM_VIEW_PATH)}>Go to SCIM</a>
+						<a class="text-link" href={resolve(SCIM_VIEW_PATH)}>{m.identity_access_scim_go_to()}</a>
 					</p>
 				</div>
 			{/if}
@@ -853,21 +867,21 @@
 			<div class="notification-alert flex flex-col gap-2 p-3 text-sm font-light" role="alert">
 				{#if residualCleanupStarted}
 					<p>
-						The cleanup of {residualProvider.name}'s leftover group data has started. Confirm again
-						once it finishes.
+						{m.identity_access_auth_providers_scim_cleanup_started({
+							name: residualProvider.name
+						})}
 					</p>
 				{:else}
 					<p>
-						{residualProvider.name} still has groups, or references to them, from an earlier configuration.
-						Remove them to provision users and groups through SCIM. This runs the cleanup that deconfiguring
-						{residualProvider.name} runs, which deletes its groups and memberships, and removes its groups
-						from roles and policies. Alternatively, provide the directory credentials to fetch groups
-						at sign-in.
+						{m.identity_access_auth_providers_scim_still_has_groups({
+							name: residualProvider.name
+						})}
 					</p>
 					{#if residualProvider.staged}
 						<p>
-							{residualProvider.name} is staged as a replacement. Discard the staged switch first, then
-							remove the leftover group data.
+							{m.identity_access_auth_providers_scim_residual_staged({
+								name: residualProvider.name
+							})}
 						</p>
 					{:else}
 						<div>
@@ -877,7 +891,7 @@
 								disabled={residualCleanupLoading || isReadonly}
 								onclick={() => (confirmResidualCleanup = true)}
 							>
-								Remove leftover group data
+								{m.identity_access_auth_providers_scim_residual_title()}
 							</button>
 						</div>
 					{/if}
@@ -970,12 +984,14 @@
 
 <Confirm
 	show={confirmResidualCleanup}
-	title="Remove leftover group data"
-	msg="Remove {residualProvider?.name}'s leftover group data?"
+	title={m.identity_access_auth_providers_scim_residual_title()}
+	msg={m.identity_access_auth_providers_scim_residual_msg({
+		name: residualProvider?.name ?? ''
+	})}
 	note={residualCleanupNote}
 	classes={{ note: 'text-left' }}
-	submitText="Remove group data"
-	cancelText="Cancel"
+	submitText={m.identity_access_auth_providers_scim_residual_submit()}
+	cancelText={m.common_cancel()}
 	loading={residualCleanupLoading}
 	onsuccess={handleRemoveResidualGroupData}
 	oncancel={() => (confirmResidualCleanup = false)}
@@ -986,8 +1002,9 @@
 		<p>{residualCleanupSummary}</p>
 		{#if referencedResidualGroups.length > 0}
 			<p>
-				It also removes these groups from the roles and policies that reference them. Groups that
-				{residualProvider?.name} pushes through SCIM later will not regain them.
+				{m.identity_access_auth_providers_scim_residual_also({
+					name: residualProvider?.name ?? ''
+				})}
 			</p>
 			<ul class="flex max-h-48 list-disc flex-col gap-1 overflow-y-auto pl-5">
 				{#each referencedResidualGroups as group (group.id)}

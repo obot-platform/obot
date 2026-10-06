@@ -52,7 +52,10 @@
 
 	let filteredData = $derived.by(() => {
 		const everyoneGroup: OrgGroup = { id: '*', name: m.core_all_obot_users() };
-		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: m.identity_access_users_obot_admin() };
+		const adminGroup: OrgGroup = {
+			id: OBOT_ADMIN_PICKER_ID,
+			name: m.identity_access_users_obot_admin()
+		};
 		const query = searchNames.toLowerCase();
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
@@ -233,9 +236,7 @@
 							{#if !isGroup(item)}
 								<p>{item.displayName ?? item.email ?? item.username ?? item.id}</p>
 								<p class="text-muted-content font-light">
-									{item.effectiveRole
-										? getUserRoleLabel(item.effectiveRole)
-										: m.core_col_user()}
+									{item.effectiveRole ? getUserRoleLabel(item.effectiveRole) : m.core_col_user()}
 								</p>
 							{:else}
 								<p>{item.name}</p>

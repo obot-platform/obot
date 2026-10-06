@@ -91,11 +91,7 @@
 
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">{m.mcps_tunnels_connect()}</p>
-				<div
-					class="tabs tabs-box w-fit"
-					role="tablist"
-					aria-label={m.mcps_tunnels_command_type()}
-				>
+				<div class="tabs tabs-box w-fit" role="tablist" aria-label={m.mcps_tunnels_command_type()}>
 					<button
 						type="button"
 						role="tab"

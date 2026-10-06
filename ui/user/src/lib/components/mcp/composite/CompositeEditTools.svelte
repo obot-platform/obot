@@ -477,7 +477,11 @@
 </ResponsiveDialog>
 
 <!-- Confirmation Dialog for Unsaved Changes -->
-<ResponsiveDialog bind:this={confirmDialog} title={m.mcps_composite_discard_changes_title()} class="max-w-xl">
+<ResponsiveDialog
+	bind:this={confirmDialog}
+	title={m.mcps_composite_discard_changes_title()}
+	class="max-w-xl"
+>
 	<p class="text-muted-content mb-4 text-sm">
 		{m.mcps_composite_unsaved_changes({
 			name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
@@ -485,7 +489,9 @@
 	</p>
 
 	<div class="flex justify-end gap-3">
-		<button class="btn btn-secondary" onclick={cancelDiscard}>{m.mcps_composite_keep_editing()}</button>
+		<button class="btn btn-secondary" onclick={cancelDiscard}
+			>{m.mcps_composite_keep_editing()}</button
+		>
 		<button class="btn btn-error" onclick={confirmDiscard}>
 			{m.mcps_composite_discard_changes()}
 		</button>

@@ -54,13 +54,9 @@
 			page.url.searchParams.has('new')
 	);
 	const duration = PAGE_TRANSITION_DURATION;
-	let layoutTitle = $derived(
-		creating ? m.skills_create_access_policy() : m.skills_title()
-	);
+	let layoutTitle = $derived(creating ? m.skills_create_access_policy() : m.skills_title());
 	let views = $derived.by(() => {
-		const items: TabView[] = [
-			{ label: m.skills_title(), value: 'skills', content: skillsView }
-		];
+		const items: TabView[] = [{ label: m.skills_title(), value: 'skills', content: skillsView }];
 		if (hasAdminAccess) {
 			items.push(
 				{ label: m.skills_sources_tab(), value: 'sources', content: sourcesView },
@@ -448,11 +444,7 @@
 	{/snippet}
 </Confirm>
 
-<ResponsiveDialog
-	title={m.skills_sync_dialog_title()}
-	bind:this={syncErrorDialog}
-	class="md:w-2xl"
->
+<ResponsiveDialog title={m.skills_sync_dialog_title()} bind:this={syncErrorDialog} class="md:w-2xl">
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
@@ -470,9 +462,7 @@
 	<div class="dialog-container w-full max-w-md p-4 h-134.5 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
-				{editingSource.index === -1
-					? m.skills_add_source_url()
-					: m.skills_edit_source_url()}
+				{editingSource.index === -1 ? m.skills_add_source_url() : m.skills_edit_source_url()}
 				<IconButton onclick={() => closeSourceDialog()} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
 				</IconButton>

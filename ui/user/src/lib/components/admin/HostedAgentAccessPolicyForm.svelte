@@ -86,7 +86,9 @@
 		try {
 			hostedAgents = await AdminService.listHostedAgents();
 		} catch (error) {
-			errors.append(m.hosted_agents_access_policies_load_templates_failed({ error: String(error) }));
+			errors.append(
+				m.hosted_agents_access_policies_load_templates_failed({ error: String(error) })
+			);
 		} finally {
 			loadingHostedAgents = false;
 		}
@@ -424,7 +426,9 @@
 />
 
 <Confirm
-	msg={m.core_delete_named_form({ name: policy.displayName || m.hosted_agents_access_policies_this_policy() })}
+	msg={m.core_delete_named_form({
+		name: policy.displayName || m.hosted_agents_access_policies_this_policy()
+	})}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!policy.id) return;

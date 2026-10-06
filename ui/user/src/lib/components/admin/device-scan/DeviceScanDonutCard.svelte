@@ -123,7 +123,9 @@
 								{bucket.label}
 								{#if bucket.isOther && bucket.otherCount !== undefined}
 									<span class="text-muted-content ml-1 not-italic"
-										>{m.inventory_enforcement_devices_scan_n_more({ count: bucket.otherCount })}</span
+										>{m.inventory_enforcement_devices_scan_n_more({
+											count: bucket.otherCount
+										})}</span
 									>
 								{/if}
 							</span>

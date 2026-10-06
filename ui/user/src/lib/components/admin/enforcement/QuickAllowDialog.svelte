@@ -105,7 +105,9 @@
 		<div class="notification-error flex items-start gap-3 p-3">
 			<CircleAlert class="size-4 shrink-0" />
 			<div class="flex flex-col gap-1">
-				<p class="text-sm font-semibold">{m.inventory_enforcement_enforcement_events_unable_to_load_policy()}</p>
+				<p class="text-sm font-semibold">
+					{m.inventory_enforcement_enforcement_events_unable_to_load_policy()}
+				</p>
 				<p class="text-sm font-light break-all">{loadError}</p>
 			</div>
 		</div>
@@ -128,7 +130,8 @@
 					</div>
 				{:else if kind === 'connector'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.inventory_enforcement_enforcement_events_connector()}</span>
+						<span class="font-medium">{m.inventory_enforcement_enforcement_events_connector()}</span
+						>
 						<span class="break-all">{entry.connector}</span>
 					</div>
 				{:else if kind === 'package'}
@@ -148,7 +151,9 @@
 				<div class="grid grid-cols-[7rem_1fr] gap-2">
 					<span class="font-medium">{m.audit_usage_exports_filter_title_tools()}</span>
 					<span class="break-all"
-						>{entry.tools?.length ? entry.tools.join(', ') : m.inventory_enforcement_enforcement_events_all()}</span
+						>{entry.tools?.length
+							? entry.tools.join(', ')
+							: m.inventory_enforcement_enforcement_events_all()}</span
 					>
 				</div>
 			</div>

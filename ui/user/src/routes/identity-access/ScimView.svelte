@@ -8,6 +8,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import type {
 		SCIMConnection,
@@ -70,14 +71,14 @@
 	}
 
 	// Names each list in its pager, so the pagers of different lists are told apart.
-	const listNouns: Record<PagedList, string> = {
-		provisionedUsers: 'provisioned users',
-		unprovisionedUsers: 'unprovisioned users',
-		boundGroups: 'pushed groups',
-		unboundReferencedGroups: 'referenced groups not pushed yet',
-		unreferencedGroups: 'unreferenced groups',
-		failures: 'recent failures'
-	};
+	let listNouns = $derived<Record<PagedList, string>>({
+		provisionedUsers: m.identity_access_scim_list_provisioned_users(),
+		unprovisionedUsers: m.identity_access_scim_list_unprovisioned_users(),
+		boundGroups: m.identity_access_scim_list_pushed_groups(),
+		unboundReferencedGroups: m.identity_access_scim_list_unpushed_groups(),
+		unreferencedGroups: m.identity_access_scim_list_unreferenced_groups(),
+		failures: m.identity_access_scim_list_failures()
+	});
 
 	const groupLists = {
 		boundGroups: 'bound',
@@ -98,7 +99,7 @@
 	let providerName = $derived(
 		connection?.authProviderDisplayName ||
 			enablePreview?.authProviderDisplayName ||
-			'the identity provider'
+			m.identity_access_scim_provider_fallback()
 	);
 
 	// The page each list shows, which starts as the review's first page.
@@ -144,15 +145,20 @@
 	let issuedToken = $state<IssuedToken>();
 	let tokenDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
-	let enableNote = $derived(
-		`This cannot be undone. Obot stops fetching groups from ${providerName} at sign-in, so until ${providerName} pushes a referenced group, it keeps its current members, including anyone removed from it in ${providerName}. The bearer token for ${providerName} is shown next, only once.`
-	);
+	let enableNote = $derived(m.identity_access_scim_enable_note({ provider: providerName }));
 	let enforceNote = $derived.by(() => {
 		const unprovisioned = pages.unprovisionedUsers.total;
 		if (unprovisioned === 0) {
-			return `This cannot be undone. Only provisioned users can sign in with ${providerName} afterwards.`;
+			return m.identity_access_scim_enforce_note_none({ provider: providerName });
 		}
-		return `This cannot be undone. Enforcing disables ${count(unprovisioned, 'user')} that ${providerName} has not provisioned, and only provisioned users can sign in with ${providerName} afterwards.`;
+		return m.identity_access_scim_enforce_note_some({
+			provider: providerName,
+			users: counted(
+				unprovisioned,
+				m.identity_access_scim_count_user_one,
+				m.identity_access_scim_count_user_other
+			)
+		});
 	});
 
 	// The steps that finish setting up a connection that is not enforced yet, one at a time. Each must
@@ -162,33 +168,36 @@
 		return [
 			{
 				id: 'token',
-				label: 'Token',
-				title: 'Generate the bearer token',
+				label: m.identity_access_scim_step_token(),
+				title: m.identity_access_scim_step_token_title(),
 				done: connection.hasToken
 			},
 			{
 				id: 'app',
-				label: 'SCIM app',
-				title: `Create the SCIM app in ${providerName}`,
+				label: m.identity_access_scim_step_app(),
+				title: m.identity_access_scim_step_app_title({ provider: providerName }),
 				done: !!review.activity.lastRequestAt
 			},
 			{
 				id: 'users',
-				label: 'Users',
-				title: 'Assign users',
+				label: m.identity_access_users_tab(),
+				title: m.identity_access_scim_step_assign_users(),
 				done: pages.provisionedUsers.total > 0
 			},
 			{
 				id: 'groups',
-				label: 'Groups',
+				label: m.identity_access_groups_tab(),
 				// A migrated connection's referenced groups must be pushed, under the names Obot has for them.
-				title: connection.origin === 'migrated' ? 'Push the referenced groups' : 'Push groups',
+				title:
+					connection.origin === 'migrated'
+						? m.identity_access_scim_step_push_referenced()
+						: m.identity_access_scim_step_push_groups(),
 				done: pages.unboundReferencedGroups.total === 0
 			},
 			{
 				id: 'enforce',
-				label: 'Enforce',
-				title: 'Enforce SCIM',
+				label: m.identity_access_scim_step_enforce(),
+				title: m.identity_access_scim_enforce_title(),
 				done: false
 			}
 		];
@@ -220,8 +229,12 @@
 			)
 	);
 	// Counts a noun, as in "1 group" or "2 groups".
-	function count(n: number, singular: string, plural = `${singular}s`) {
-		return `${n} ${n === 1 ? singular : plural}`;
+	function counted(
+		n: number,
+		one: (args: { count: number }) => string,
+		other: (args: { count: number }) => string
+	) {
+		return (n === 1 ? one : other)({ count: n });
 	}
 
 	function firstPage<T>(page?: SCIMPage<T>): Paged<T> {
@@ -240,7 +253,7 @@
 	}
 
 	function timeAgo(timestamp?: string) {
-		return formatTimeAgo(timestamp).relativeTime || 'Never';
+		return formatTimeAgo(timestamp).relativeTime || m.identity_access_scim_never();
 	}
 
 	function tokenExpiry(conn: SCIMConnection) {
@@ -365,9 +378,9 @@
 		try {
 			const result = await AdminService.enableSCIM();
 			enabled = true;
-			notice = `SCIM is enabled for ${providerName}.`;
+			notice = m.identity_access_scim_enabled_notice({ provider: providerName });
 			deletionError = result.deletionError;
-			await showToken('SCIM token', result.connection);
+			await showToken(m.identity_access_scim_token_title(), result.connection);
 			try {
 				await refresh(result.connection.id);
 			} catch (err) {
@@ -398,7 +411,13 @@
 		notice = undefined;
 		try {
 			const result = await AdminService.deleteUnreferencedSCIMGroups(connection.id);
-			notice = `Deleted ${count(result.deletedGroupCount, 'unreferenced group')}.`;
+			notice = m.identity_access_scim_deleted_groups({
+				groups: counted(
+					result.deletedGroupCount,
+					m.identity_access_scim_count_unreferenced_group_one,
+					m.identity_access_scim_count_unreferenced_group_other
+				)
+			});
 			deletionError = undefined;
 			await refresh();
 		} catch (err) {
@@ -425,8 +444,14 @@
 			deletionError = undefined;
 			notice =
 				result.disabledUserCount > 0
-					? `SCIM is enforced. Disabled ${count(result.disabledUserCount, 'unprovisioned user')}.`
-					: 'SCIM is enforced.';
+					? m.identity_access_scim_enforced_disabled({
+							users: counted(
+								result.disabledUserCount,
+								m.identity_access_scim_count_unprovisioned_user_one,
+								m.identity_access_scim_count_unprovisioned_user_other
+							)
+						})
+					: m.identity_access_scim_enforced_notice();
 			await refresh();
 			// The layout stops asking Owners to finish setting up SCIM.
 			void adminConfigStore.refresh();
@@ -451,17 +476,20 @@
 		try {
 			switch (action) {
 				case 'generate':
-					await showToken('SCIM token', await AdminService.rotateSCIMToken(connection.id, quiet));
+					await showToken(
+						m.identity_access_scim_token_title(),
+						await AdminService.rotateSCIMToken(connection.id, quiet)
+					);
 					break;
 				case 'rotate':
 					await showToken(
-						'New SCIM token',
+						m.identity_access_scim_new_token(),
 						await AdminService.rotateSCIMToken(connection.id, quiet)
 					);
 					break;
 				case 'revokeCurrent':
 					await showToken(
-						'Replacement SCIM token',
+						m.identity_access_scim_replacement_token(),
 						await AdminService.revokeCurrentSCIMToken(connection.id, quiet)
 					);
 					break;
@@ -480,39 +508,41 @@
 		}
 	}
 
-	const tokenConfirmations: Record<
-		TokenAction,
-		{ title: string; msg: string; note: string; submit: string; type: 'info' | 'delete' }
-	> = {
+	let tokenConfirmations = $derived<
+		Record<
+			TokenAction,
+			{ title: string; msg: string; note: string; submit: string; type: 'info' | 'delete' }
+		>
+	>({
 		generate: {
-			title: 'Generate token',
-			msg: 'Issue the SCIM bearer token?',
-			note: 'The token is shown only once. Copy it into the SCIM application of the identity provider. It expires after a year, so rotate it before then.',
-			submit: 'Generate token',
+			title: m.identity_access_scim_generate_token(),
+			msg: m.identity_access_scim_issue_token_msg(),
+			note: m.identity_access_scim_issue_token_note(),
+			submit: m.identity_access_scim_generate_token(),
 			type: 'info'
 		},
 		rotate: {
-			title: 'Rotate token',
-			msg: 'Issue a new SCIM bearer token?',
-			note: 'The current token keeps working for a day, or until it expires or you revoke it, so you can update the identity provider without failed requests.',
-			submit: 'Rotate token',
+			title: m.identity_access_scim_rotate_token(),
+			msg: m.identity_access_scim_rotate_token_msg(),
+			note: m.identity_access_scim_rotate_token_note(),
+			submit: m.identity_access_scim_rotate_token(),
 			type: 'info'
 		},
 		revokePrevious: {
-			title: 'Revoke previous token',
-			msg: 'Stop accepting the previous SCIM token?',
-			note: 'Requests that still use it fail. Make sure the identity provider uses the new token first.',
-			submit: 'Revoke',
+			title: m.identity_access_scim_revoke_previous(),
+			msg: m.identity_access_scim_revoke_previous_msg(),
+			note: m.identity_access_scim_revoke_previous_note(),
+			submit: m.identity_access_scim_revoke(),
 			type: 'delete'
 		},
 		revokeCurrent: {
-			title: 'Revoke current token',
-			msg: 'Replace the current SCIM token?',
-			note: 'Use this when the token has leaked. A new token is issued, and both the current and the previous token stop working at once, so provisioning fails until the identity provider uses the new one.',
-			submit: 'Revoke and replace',
+			title: m.identity_access_scim_revoke_current(),
+			msg: m.identity_access_scim_revoke_current_msg(),
+			note: m.identity_access_scim_revoke_current_note(),
+			submit: m.identity_access_scim_revoke_replace(),
 			type: 'delete'
 		}
-	};
+	});
 </script>
 
 <div class="flex flex-col gap-6 pb-8" in:fade={{ duration: PAGE_TRANSITION_DURATION }}>
@@ -550,27 +580,22 @@
 		{@render activitySection(review)}
 	{:else if enabled}
 		<section class="paper" aria-labelledby="scim-enabled-title">
-			<h2 id="scim-enabled-title" class="text-lg font-semibold">SCIM provisioning is enabled</h2>
-			<p class="text-muted-content text-sm font-light">
-				Reload this page to review the move to SCIM.
-			</p>
+			<h2 id="scim-enabled-title" class="text-lg font-semibold">
+				{m.identity_access_scim_enabled_title()}
+			</h2>
+			<p class="text-muted-content text-sm font-light">{m.identity_access_scim_reload()}</p>
 		</section>
 	{:else if offerEnable && enablePreview}
 		{@render enableSection(enablePreview)}
 	{:else}
 		<section class="paper" aria-labelledby="scim-none-title">
-			<h2 id="scim-none-title" class="text-lg font-semibold">SCIM provisioning is not set up</h2>
-			<p class="text-muted-content text-sm font-light">
-				To provision users and groups through SCIM, configure an auth provider that supports it,
-				such as Okta, on the Providers tab, and leave its directory credentials (the API Services
-				client ID and private key) empty. Setup then continues here once an Owner has signed in.
-			</p>
-			<p class="text-muted-content text-sm font-light">
-				An auth provider that supports SCIM and already fetches groups from its directory at sign-in
-				can be moved to SCIM here.
-			</p>
+			<h2 id="scim-none-title" class="text-lg font-semibold">
+				{m.identity_access_scim_not_setup_title()}
+			</h2>
+			<p class="text-muted-content text-sm font-light">{m.identity_access_scim_not_setup_body()}</p>
+			<p class="text-muted-content text-sm font-light">{m.identity_access_scim_not_setup_move()}</p>
 			{#if enablePreview?.blockers.length}
-				{@render blockerList('SCIM cannot be enabled', enablePreview.blockers)}
+				{@render blockerList(m.identity_access_scim_cannot_enable(), enablePreview.blockers)}
 			{/if}
 		</section>
 	{/if}
@@ -579,17 +604,20 @@
 {#snippet connectionDetails(conn: SCIMConnection)}
 	<section class="paper" aria-labelledby="scim-connection-title">
 		<div class="flex flex-wrap items-center gap-2">
-			<h2 id="scim-connection-title" class="text-lg font-semibold">SCIM provisioning</h2>
+			<h2 id="scim-connection-title" class="text-lg font-semibold">
+				{m.identity_access_scim_provisioning()}
+			</h2>
 			<span class={conn.state === 'enforced' ? 'pill-primary' : 'pill-warning'}>
-				{conn.state === 'enforced' ? 'Enforced' : 'Not finished'}
+				{conn.state === 'enforced'
+					? m.identity_access_scim_enforced()
+					: m.identity_access_scim_not_finished()}
 			</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
 			{#if conn.state === 'enforced'}
-				Signing in with {providerName} requires an account that {providerName} provisioned.
+				{m.identity_access_scim_enforced_body({ provider: providerName })}
 			{:else}
-				{providerName} provisions users and groups through SCIM. Users it has not provisioned can still
-				sign in until SCIM is enforced.
+				{m.identity_access_scim_connected_body({ provider: providerName })}
 			{/if}
 		</p>
 
@@ -598,11 +626,9 @@
 				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 				<span>
 					{#if conn.hasToken}
-						{providerName} is not the configured auth provider, so SCIM requests fail, and its token cannot
-						be rotated or replaced.
+						{m.identity_access_scim_provider_not_configured_token({ provider: providerName })}
 					{:else}
-						{providerName} is not the configured auth provider yet, so SCIM requests fail. The token can
-						be generated once it serves sign-ins.
+						{m.identity_access_scim_provider_not_configured({ provider: providerName })}
 					{/if}
 				</span>
 			</div>
@@ -615,18 +641,20 @@
 				<div class="notification-error flex items-start gap-2 text-sm font-light" role="alert">
 					<CircleAlert class="text-error mt-0.5 size-5 shrink-0" />
 					<span>
-						The bearer token expired on {formatDate(conn.tokenExpiresAt)}, so {providerName}'s SCIM
-						requests fail. Rotate the token, update it in {providerName}, and retry the failed
-						provisioning tasks there.
+						{m.identity_access_scim_bearer_expired({
+							date: formatDate(conn.tokenExpiresAt),
+							provider: providerName
+						})}
 					</span>
 				</div>
 			{:else if expiry === 'expiring'}
 				<div class="notification-alert flex items-start gap-2 text-sm font-light" role="status">
 					<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 					<span>
-						The bearer token expires on {formatDate(conn.tokenExpiresAt)}. Rotate it before then,
-						and update it in {providerName}: the current token keeps working for up to a day after
-						the rotation.
+						{m.identity_access_scim_bearer_expiring({
+							date: formatDate(conn.tokenExpiresAt),
+							provider: providerName
+						})}
 					</span>
 				</div>
 			{/if}
@@ -634,39 +662,45 @@
 
 		<dl class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 			<div class="flex min-w-0 flex-col gap-1 md:col-span-2">
-				<dt class="text-muted-content text-xs">Base URL</dt>
-				<dd class="min-w-0">{@render copyableValue(conn.baseURL, 'Copy base URL')}</dd>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_base_url()}</dt>
+				<dd class="min-w-0">
+					{@render copyableValue(conn.baseURL, m.identity_access_scim_copy_base_url())}
+				</dd>
 			</div>
 			<div class="flex flex-col gap-1">
-				<dt class="text-muted-content text-xs">Auth provider</dt>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_auth_provider()}</dt>
 				<dd>{providerName}</dd>
 			</div>
 			<div class="flex flex-col gap-1">
-				<dt class="text-muted-content text-xs">Bearer token</dt>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_bearer_token()}</dt>
 				<dd>
 					{#if conn.hasToken}
-						Issued {timeAgo(conn.tokenIssuedAt)}
+						{m.identity_access_scim_issued({ time: timeAgo(conn.tokenIssuedAt) })}
 						{#if conn.tokenExpiresAt}
 							<span class="text-muted-content block text-xs">
-								{`${tokenExpiry(conn) === 'expired' ? 'Expired' : 'Expires'} ${formatDate(conn.tokenExpiresAt)}`}
+								{tokenExpiry(conn) === 'expired'
+									? m.identity_access_scim_expired_on({ date: formatDate(conn.tokenExpiresAt) })
+									: m.identity_access_scim_expires_on({ date: formatDate(conn.tokenExpiresAt) })}
 							</span>
 						{/if}
 					{:else}
-						Not generated yet
+						{m.identity_access_scim_not_generated()}
 					{/if}
 				</dd>
 			</div>
 			{#if conn.previousTokenAccepted}
 				<div class="flex flex-col gap-1">
-					<dt class="text-muted-content text-xs">Previous token</dt>
+					<dt class="text-muted-content text-xs">{m.identity_access_scim_previous_token()}</dt>
 					<dd>
-						Accepted until {new Date(conn.previousTokenExpiresAt ?? '').toLocaleString()}
+						{m.identity_access_scim_accepted_until({
+							time: new Date(conn.previousTokenExpiresAt ?? '').toLocaleString()
+						})}
 					</dd>
 				</div>
 			{/if}
 			<div class="flex flex-col gap-1">
-				<dt class="text-muted-content text-xs">Enforced</dt>
-				<dd>{conn.enforcedAt ? timeAgo(conn.enforcedAt) : 'Not yet'}</dd>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_enforced_label()}</dt>
+				<dd>{conn.enforcedAt ? timeAgo(conn.enforcedAt) : m.identity_access_scim_not_yet()}</dd>
 			</div>
 		</dl>
 
@@ -678,7 +712,7 @@
 						disabled={loading}
 						onclick={() => (confirmTokenAction = 'revokePrevious')}
 					>
-						Revoke previous token
+						{m.identity_access_scim_revoke_previous()}
 					</button>
 				{/if}
 				<!-- The server issues tokens only for the configured auth provider. -->
@@ -688,14 +722,14 @@
 						disabled={loading}
 						onclick={() => (confirmTokenAction = 'revokeCurrent')}
 					>
-						Revoke current token
+						{m.identity_access_scim_revoke_current()}
 					</button>
 					<button
 						class="btn btn-secondary"
 						disabled={loading}
 						onclick={() => (confirmTokenAction = 'rotate')}
 					>
-						Rotate token
+						{m.identity_access_scim_rotate_token()}
 					</button>
 				{/if}
 			</div>
@@ -707,12 +741,14 @@
 	<section class="paper" aria-labelledby="scim-setup-title">
 		<div class="flex items-center justify-between gap-2">
 			<h2 id="scim-setup-title" class="text-lg font-semibold">
-				{conn.origin === 'migrated' ? 'Finish moving to SCIM' : 'Set up provisioning'}
+				{conn.origin === 'migrated'
+					? m.identity_access_scim_finish_move()
+					: m.identity_access_scim_setup_provisioning()}
 			</h2>
 			<button
 				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
-				use:tooltip={'Refresh'}
-				aria-label="Refresh"
+				use:tooltip={m.platform_refresh()}
+				aria-label={m.platform_refresh()}
 				disabled={loading}
 				onclick={handleRefresh}
 			>
@@ -720,13 +756,16 @@
 			</button>
 		</div>
 
-		<ol class="flex flex-wrap items-center gap-x-3 gap-y-2" aria-label="Setup steps">
+		<ol
+			class="flex flex-wrap items-center gap-x-3 gap-y-2"
+			aria-label={m.identity_access_scim_setup_steps()}
+		>
 			{#each setupSteps as step, index (step.id)}
 				{@const done = index < lastReachableStep}
 				<li class="flex items-center gap-3" aria-current={index === stepIndex ? 'step' : undefined}>
 					<button
 						class="flex items-center gap-1.5 text-xs disabled:cursor-default"
-						aria-label={done ? `${step.label}, done` : step.label}
+						aria-label={done ? m.identity_access_scim_step_done({ label: step.label }) : step.label}
 						disabled={index > lastReachableStep || index === stepIndex}
 						onclick={() => (chosenStep = step.id)}
 					>
@@ -776,7 +815,7 @@
 						class="btn btn-secondary"
 						onclick={() => (chosenStep = setupSteps[stepIndex - 1].id)}
 					>
-						Back
+						{m.common_back()}
 					</button>
 				{/if}
 				{#if currentStep.id === 'enforce'}
@@ -785,7 +824,7 @@
 						disabled={!canEnforce || loading || r.enforceBlockers.length > 0}
 						onclick={() => (confirmEnforce = true)}
 					>
-						Enforce SCIM
+						{m.identity_access_scim_enforce_title()}
 					</button>
 				{:else}
 					<button
@@ -793,7 +832,7 @@
 						disabled={!currentStep.done}
 						onclick={() => (chosenStep = setupSteps[stepIndex + 1].id)}
 					>
-						Next
+						{m.core_next()}
 					</button>
 				{/if}
 			</div>
@@ -814,18 +853,23 @@
 
 {#snippet tokenStep(conn: SCIMConnection)}
 	<p class="text-muted-content text-sm font-light">
-		{providerName} sends the bearer token with each SCIM request. Obot shows it only once, when it is
-		issued.
+		{m.identity_access_scim_token_help({ provider: providerName })}
 	</p>
 	{#if conn.hasToken && tokenExpiry(conn) === 'expired'}
 		{@render stepStatus(
 			false,
 			conn.authProviderConfigured
-				? `The token expired on ${formatDate(conn.tokenExpiresAt)}. Rotate it, and update it in ${providerName}.`
-				: `The token expired on ${formatDate(conn.tokenExpiresAt)}.`
+				? m.identity_access_scim_token_expired_rotate({
+						date: formatDate(conn.tokenExpiresAt),
+						provider: providerName
+					})
+				: m.identity_access_scim_token_expired_on({ date: formatDate(conn.tokenExpiresAt) })
 		)}
 	{:else if conn.hasToken}
-		{@render stepStatus(true, `The token was issued ${timeAgo(conn.tokenIssuedAt)}.`)}
+		{@render stepStatus(
+			true,
+			m.identity_access_scim_token_issued({ time: timeAgo(conn.tokenIssuedAt) })
+		)}
 	{:else if canManageToken && conn.authProviderConfigured}
 		<div>
 			<button
@@ -833,54 +877,65 @@
 				disabled={loading}
 				onclick={() => (confirmTokenAction = 'generate')}
 			>
-				Generate token
+				{m.identity_access_scim_generate_token()}
 			</button>
 		</div>
 	{:else if canManageToken}
 		{@render stepStatus(
 			false,
-			`The token can be generated once ${providerName} is the configured auth provider.`
+			m.identity_access_scim_token_when_configured({ provider: providerName })
 		)}
 	{:else}
-		{@render stepStatus(false, 'An Owner generates the token.')}
+		{@render stepStatus(false, m.identity_access_scim_owner_generates())}
 	{/if}
 {/snippet}
 
 {#snippet appStep(r: SCIMConnectionReview)}
 	<p class="text-muted-content text-sm font-light">
-		In {providerName}, create a SCIM 2.0 application, and enter the base URL shown above and the
-		bearer token. This step is done once {providerName} sends Obot a request.
+		{m.identity_access_scim_app_help({ provider: providerName })}
 	</p>
 	{#if r.activity.lastRequestAt}
 		{@render stepStatus(
 			true,
-			`${providerName} sent its last request ${timeAgo(r.activity.lastRequestAt)}.`
+			m.identity_access_scim_last_request_sent({
+				provider: providerName,
+				time: timeAgo(r.activity.lastRequestAt)
+			})
 		)}
 	{:else}
-		{@render stepStatus(false, `Waiting for ${providerName} to send a request.`)}
+		{@render stepStatus(false, m.identity_access_scim_waiting_request({ provider: providerName }))}
 	{/if}
 	{#if pages.failures.total > 0}
 		<p class="text-muted-content text-xs font-light">
-			{count(pages.failures.total, 'recent request')} failed, as listed under Activity.
+			{m.identity_access_scim_requests_failed({
+				requests: counted(
+					pages.failures.total,
+					m.identity_access_scim_count_recent_request_one,
+					m.identity_access_scim_count_recent_request_other
+				)
+			})}
 		</p>
 	{/if}
 {/snippet}
 
 {#snippet usersStep()}
 	<p class="text-muted-content text-sm font-light">
-		Assign everyone who should be able to sign in to the SCIM application in {providerName}, which
-		then provisions them in Obot.
+		{m.identity_access_scim_assign_help({ provider: providerName })}
 	</p>
 	{@render stepStatus(
 		pages.provisionedUsers.total > 0,
-		`${pages.provisionedUsers.total} provisioned, ${pages.unprovisionedUsers.total} not provisioned yet.`
+		m.identity_access_scim_provisioned_counts({
+			provisioned: pages.provisionedUsers.total,
+			unprovisioned: pages.unprovisionedUsers.total
+		})
 	)}
 	{#if pages.unprovisionedUsers.total > 0}
 		<div class="flex flex-col gap-2">
-			<h4 class="text-sm font-semibold">Not provisioned ({pages.unprovisionedUsers.total})</h4>
+			<h4 class="text-sm font-semibold">
+				{m.identity_access_scim_not_provisioned_heading({ count: pages.unprovisionedUsers.total })}
+			</h4>
 			<p class="text-muted-content text-xs font-light">
-				Enforcing SCIM disables these users. Provisioning them later re-enables them with their
-				account and data.
+				{m.identity_access_scim_enforce_disables()}
 			</p>
 			{@render userList('unprovisionedUsers', '')}
 		</div>
@@ -890,11 +945,9 @@
 {#snippet groupsStep(r: SCIMConnectionReview, conn: SCIMConnection)}
 	<p class="text-muted-content text-sm font-light">
 		{#if conn.origin === 'migrated'}
-			Push each referenced group from {providerName} under exactly the name shown, renaming it there first
-			if needed, or remove its references.
+			{m.identity_access_scim_groups_migrated({ provider: providerName })}
 		{:else}
-			Push the groups from {providerName} that roles and policies should be granted to. More can be pushed
-			at any time.
+			{m.identity_access_scim_groups_new({ provider: providerName })}
 		{/if}
 	</p>
 	{@render warnings(r.warnings)}
@@ -904,22 +957,36 @@
 	{#if pages.unboundReferencedGroups.total > 0}
 		{@render stepStatus(
 			false,
-			`${count(pages.unboundReferencedGroups.total, 'referenced group')} not pushed yet.`
+			m.identity_access_scim_not_pushed_yet({
+				groups: counted(
+					pages.unboundReferencedGroups.total,
+					m.identity_access_scim_count_referenced_group_one,
+					m.identity_access_scim_count_referenced_group_other
+				)
+			})
 		)}
 		{@render groupList('unboundReferencedGroups', '')}
 	{:else if conn.origin === 'migrated'}
-		{@render stepStatus(true, 'Every referenced group has been pushed.')}
+		{@render stepStatus(true, m.identity_access_scim_every_group_pushed())}
 	{:else}
 		{@render stepStatus(
 			true,
 			pages.boundGroups.total > 0
-				? `${count(pages.boundGroups.total, 'group')} pushed.`
-				: 'No groups have been pushed yet.'
+				? m.identity_access_scim_groups_pushed({
+						groups: counted(
+							pages.boundGroups.total,
+							m.identity_access_scim_count_group_one,
+							m.identity_access_scim_count_group_other
+						)
+					})
+				: m.identity_access_scim_no_groups_pushed()
 		)}
 	{/if}
 	{#if pages.boundGroups.total > 0}
 		<div class="flex flex-col gap-2">
-			<h4 class="text-sm font-semibold">Pushed groups ({pages.boundGroups.total})</h4>
+			<h4 class="text-sm font-semibold">
+				{m.identity_access_scim_pushed_groups_heading({ count: pages.boundGroups.total })}
+			</h4>
 			{@render groupList('boundGroups', '')}
 		</div>
 	{/if}
@@ -927,53 +994,64 @@
 
 {#snippet enforceStep(r: SCIMConnectionReview)}
 	<p class="text-muted-content text-sm font-light">
-		Once SCIM is enforced, only accounts that {providerName} provisioned can sign in.
+		{m.identity_access_scim_enforce_help({ provider: providerName })}
 		{#if pages.unprovisionedUsers.total > 0}
-			Enforcing disables the {count(pages.unprovisionedUsers.total, 'user')} that it has not provisioned.
-			Group memberships do not change, and nothing is deleted from the users.
+			{m.identity_access_scim_enforce_disables_users({
+				users: counted(
+					pages.unprovisionedUsers.total,
+					m.identity_access_scim_count_user_one,
+					m.identity_access_scim_count_user_other
+				)
+			})}
 		{/if}
-		It cannot be undone.
+		{m.identity_access_scim_cannot_undo()}
 	</p>
 	{#if r.enforceBlockers.length > 0}
-		{@render blockerList('SCIM cannot be enforced yet', r.enforceBlockers)}
+		{@render blockerList(m.identity_access_scim_cannot_enforce_yet(), r.enforceBlockers)}
 	{:else}
-		{@render stepStatus(true, 'Ready to enforce SCIM.')}
+		{@render stepStatus(true, m.identity_access_scim_ready_to_enforce())}
 	{/if}
 {/snippet}
 
 {#snippet groupsSection(r: SCIMConnectionReview)}
 	<section class="paper" aria-labelledby="scim-groups-title">
-		<h2 id="scim-groups-title" class="text-lg font-semibold">Groups</h2>
+		<h2 id="scim-groups-title" class="text-lg font-semibold">{m.identity_access_groups_tab()}</h2>
 		{@render warnings(r.warnings)}
 
 		{#if pages.unboundReferencedGroups.total > 0}
 			<div class="flex flex-col gap-2">
 				<h3 class="text-sm font-semibold">
-					Referenced groups not pushed yet ({pages.unboundReferencedGroups.total})
+					{m.identity_access_scim_referenced_not_pushed_heading({
+						count: pages.unboundReferencedGroups.total
+					})}
 				</h3>
 				<p class="text-muted-content text-xs font-light">
-					Push each group from {providerName}, renaming it there first if its name differs from the
-					one shown here, or remove its references.
+					{m.identity_access_scim_push_or_remove({ provider: providerName })}
 				</p>
 				{@render groupList('unboundReferencedGroups', '')}
 			</div>
 		{/if}
 
 		<div class="flex flex-col gap-2">
-			<h3 class="text-sm font-semibold">Pushed groups ({pages.boundGroups.total})</h3>
+			<h3 class="text-sm font-semibold">
+				{m.identity_access_scim_pushed_groups_heading({ count: pages.boundGroups.total })}
+			</h3>
 			<p class="text-muted-content text-xs font-light">
-				{providerName} manages these groups and their members. Grant roles and policies to them.
+				{m.identity_access_scim_pushed_help({ provider: providerName })}
 			</p>
-			{@render groupList('boundGroups', `No groups have been pushed from ${providerName} yet.`)}
+			{@render groupList(
+				'boundGroups',
+				m.identity_access_scim_no_groups_from({ provider: providerName })
+			)}
 		</div>
 
 		{#if pages.unreferencedGroups.total > 0}
 			<div class="flex flex-col gap-2">
 				<h3 class="text-sm font-semibold">
-					Unreferenced groups ({pages.unreferencedGroups.total})
+					{m.identity_access_scim_unreferenced_heading({ count: pages.unreferencedGroups.total })}
 				</h3>
 				<p class="text-muted-content text-xs font-light">
-					Nothing references these unbound groups, so they grant nothing.
+					{m.identity_access_scim_unreferenced_help()}
 				</p>
 				{@render groupList('unreferencedGroups', '')}
 				{#if canDeleteGroups}
@@ -986,19 +1064,27 @@
 
 {#snippet usersSection()}
 	<section class="paper" aria-labelledby="scim-users-title">
-		<h2 id="scim-users-title" class="text-lg font-semibold">Users</h2>
+		<h2 id="scim-users-title" class="text-lg font-semibold">{m.identity_access_users_tab()}</h2>
 
 		<div class="flex flex-col gap-2">
-			<h3 class="text-sm font-semibold">Provisioned ({pages.provisionedUsers.total})</h3>
-			{@render userList('provisionedUsers', `${providerName} has not provisioned any users yet.`)}
+			<h3 class="text-sm font-semibold">
+				{m.identity_access_scim_provisioned_heading({ count: pages.provisionedUsers.total })}
+			</h3>
+			{@render userList(
+				'provisionedUsers',
+				m.identity_access_scim_no_users_yet({ provider: providerName })
+			)}
 		</div>
 
 		{#if pages.unprovisionedUsers.total > 0}
 			<div class="flex flex-col gap-2">
-				<h3 class="text-sm font-semibold">Not provisioned ({pages.unprovisionedUsers.total})</h3>
+				<h3 class="text-sm font-semibold">
+					{m.identity_access_scim_not_provisioned_heading({
+						count: pages.unprovisionedUsers.total
+					})}
+				</h3>
 				<p class="text-muted-content text-xs font-light">
-					These users cannot sign in until {providerName} provisions them, which re-enables them with
-					their account and data.
+					{m.identity_access_scim_unprovisioned_help({ provider: providerName })}
 				</p>
 				{@render userList('unprovisionedUsers', '')}
 			</div>
@@ -1009,26 +1095,30 @@
 {#snippet activitySection(r: SCIMConnectionReview)}
 	<section class="paper" aria-labelledby="scim-activity-title">
 		<div class="flex flex-col gap-1">
-			<h2 id="scim-activity-title" class="text-lg font-semibold">Activity</h2>
+			<h2 id="scim-activity-title" class="text-lg font-semibold">
+				{m.identity_access_scim_activity()}
+			</h2>
 			<p class="text-muted-content text-xs font-light">
-				Requests show activity, not that {providerName} and Obot are synchronized.
+				{m.identity_access_scim_activity_help({ provider: providerName })}
 			</p>
 		</div>
 		<dl class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 			<div class="flex flex-col gap-1">
-				<dt class="text-muted-content text-xs">Last request</dt>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_last_request()}</dt>
 				<dd>{timeAgo(r.activity.lastRequestAt)}</dd>
 			</div>
 			<div class="flex flex-col gap-1">
-				<dt class="text-muted-content text-xs">Last successful request</dt>
+				<dt class="text-muted-content text-xs">{m.identity_access_scim_last_success()}</dt>
 				<dd>{timeAgo(r.activity.lastSuccessAt)}</dd>
 			</div>
 		</dl>
 
 		<div class="flex flex-col gap-2">
-			<h3 class="text-sm font-semibold">Recent failures</h3>
+			<h3 class="text-sm font-semibold">{m.identity_access_scim_recent_failures()}</h3>
 			{#if pages.failures.total === 0}
-				<p class="text-muted-content text-sm font-light">No recent failures.</p>
+				<p class="text-muted-content text-sm font-light">
+					{m.identity_access_scim_no_recent_failures()}
+				</p>
 			{:else}
 				<ul class="divide-base-300 flex flex-col divide-y">
 					{#each pages.failures.items as failure, i (i)}
@@ -1055,26 +1145,28 @@
 {#snippet enableSection(p: SCIMEnablePreview)}
 	<section class="paper" aria-labelledby="scim-enable-title">
 		<div class="flex flex-col gap-1">
-			<h2 id="scim-enable-title" class="text-lg font-semibold">Move {providerName} to SCIM</h2>
+			<h2 id="scim-enable-title" class="text-lg font-semibold">
+				{m.identity_access_scim_move_title({ provider: providerName })}
+			</h2>
 			<p class="text-muted-content text-sm font-light">
-				Obot fetches each user's groups from {providerName} when they sign in. Enabling SCIM lets {providerName}
-				provision users, account status, groups, and memberships instead, and Obot stops fetching groups
-				at sign-in. It cannot be undone.
+				{m.identity_access_scim_move_body({ provider: providerName })}
 			</p>
 			<p class="text-muted-content text-sm font-light">
-				Everyone can still sign in once SCIM is enabled. Enforcing SCIM, a later step, will allow
-				only accounts provisioned by {providerName} to sign in.
+				{m.identity_access_scim_move_still_signin({ provider: providerName })}
 			</p>
 		</div>
 
 		{#if p.blockers.length > 0}
-			{@render blockerList('SCIM cannot be enabled yet', p.blockers)}
+			{@render blockerList(m.identity_access_scim_cannot_enable_yet(), p.blockers)}
 		{/if}
 
 		{#each p.duplicateGroupNames as duplicate (duplicate.name)}
 			<div class="flex flex-col gap-2">
 				<h3 class="text-sm font-semibold">
-					Referenced groups named "{duplicate.name}" ({duplicate.groups.length})
+					{m.identity_access_scim_named_groups({
+						name: duplicate.name,
+						count: duplicate.groups.length
+					})}
 				</h3>
 				{@render groupItems(duplicate.groups)}
 			</div>
@@ -1082,14 +1174,14 @@
 
 		<div class="flex items-center justify-end gap-2">
 			{#if !canEnable}
-				<p class="text-muted-content text-xs font-light">Only an owner can enable SCIM.</p>
+				<p class="text-muted-content text-xs font-light">{m.identity_access_scim_owner_only()}</p>
 			{/if}
 			<button
 				class="btn btn-primary"
 				disabled={!canEnable || loading || p.blockers.length > 0}
 				onclick={() => (confirmEnable = true)}
 			>
-				Enable SCIM
+				{m.identity_access_scim_enable()}
 			</button>
 		</div>
 	</section>
@@ -1101,7 +1193,7 @@
 		disabled={loading}
 		onclick={() => (confirmDeleteGroups = true)}
 	>
-		Delete unreferenced groups
+		{m.identity_access_scim_delete_unreferenced()}
 	</button>
 {/snippet}
 
@@ -1136,7 +1228,9 @@
 						{warning.message}
 						{#if warning.references?.length}
 							<span class="text-muted-content text-xs">
-								Referenced by {warning.references.map(describeGroupReference).join('; ')}.
+								{m.identity_access_scim_referenced_by({
+									references: warning.references.map(describeGroupReference).join('; ')
+								})}
 							</span>
 						{/if}
 					</li>
@@ -1171,13 +1265,15 @@
 							target="_blank"
 							rel="external noopener noreferrer"
 						>
-							Open in {providerName}
+							{m.identity_access_scim_open_in({ provider: providerName })}
 						</a>
 					{/if}
 				</div>
 				{#if group.references?.length}
 					<p class="text-muted-content text-xs font-light">
-						Referenced by {group.references.map(describeGroupReference).join('; ')}
+						{m.identity_access_scim_referenced_by_inline({
+							references: group.references.map(describeGroupReference).join('; ')
+						})}
 					</p>
 				{/if}
 			</li>
@@ -1198,12 +1294,14 @@
 						<span class="text-muted-content text-xs">{user.email}</span>
 					{/if}
 					{#if user.status === 'disabled'}
-						<span class="pill-warning">Disabled</span>
+						<span class="pill-warning">{m.core_status_disabled()}</span>
 					{:else if user.scimID && !user.active}
-						<span class="pill-warning">Deactivated</span>
+						<span class="pill-warning">{m.identity_access_scim_deactivated()}</span>
 					{/if}
 					{#if !user.scimID && !user.signedIn}
-						<span class="text-muted-content text-xs">Never signed in</span>
+						<span class="text-muted-content text-xs"
+							>{m.identity_access_scim_never_signed_in()}</span
+						>
 					{/if}
 				</li>
 			{/each}
@@ -1228,10 +1326,10 @@
 
 <Confirm
 	show={confirmEnable}
-	title="Enable SCIM"
-	msg="Enable SCIM for {providerName}?"
+	title={m.identity_access_scim_enable()}
+	msg={m.identity_access_scim_enable_confirm({ provider: providerName })}
 	note={enableNote}
-	submitText="Enable SCIM"
+	submitText={m.identity_access_scim_enable()}
 	{loading}
 	onsuccess={handleEnable}
 	oncancel={() => (confirmEnable = false)}
@@ -1239,10 +1337,16 @@
 
 <Confirm
 	show={confirmDeleteGroups}
-	title="Delete unreferenced groups"
-	msg="Delete {count(pages.unreferencedGroups.total, 'unreferenced group')}?"
-	note="They grant nothing, so no one loses access. The groups will still exist in {providerName} but will no longer be known to Obot."
-	submitText="Delete groups"
+	title={m.identity_access_scim_delete_unreferenced()}
+	msg={m.identity_access_scim_delete_groups_msg({
+		groups: counted(
+			pages.unreferencedGroups.total,
+			m.identity_access_scim_count_unreferenced_group_one,
+			m.identity_access_scim_count_unreferenced_group_other
+		)
+	})}
+	note={m.identity_access_scim_delete_groups_note({ provider: providerName })}
+	submitText={m.identity_access_scim_delete_groups()}
 	{loading}
 	onsuccess={handleDeleteUnreferencedGroups}
 	oncancel={() => (confirmDeleteGroups = false)}
@@ -1250,10 +1354,10 @@
 
 <Confirm
 	show={confirmEnforce}
-	title="Enforce SCIM"
-	msg="Enforce SCIM for {providerName}?"
+	title={m.identity_access_scim_enforce_title()}
+	msg={m.identity_access_scim_enforce_confirm({ provider: providerName })}
 	note={enforceNote}
-	submitText="Enforce SCIM"
+	submitText={m.identity_access_scim_enforce_title()}
 	{loading}
 	onsuccess={handleEnforce}
 	oncancel={() => (confirmEnforce = false)}
@@ -1283,20 +1387,21 @@
 			<div class="notification-alert flex items-start gap-2 text-sm font-light">
 				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
 				<span>
-					Copy the token now. It is shown only once. Enter the base URL and the token in the SCIM
-					application in {providerName}.
+					{m.identity_access_scim_copy_token_now({ provider: providerName })}
 				</span>
 			</div>
 			<div class="flex min-w-0 flex-col gap-1">
-				<span class="text-muted-content text-xs">Base URL</span>
-				{@render copyableValue(issuedToken.baseURL, 'Copy base URL')}
+				<span class="text-muted-content text-xs">{m.identity_access_scim_base_url()}</span>
+				{@render copyableValue(issuedToken.baseURL, m.identity_access_scim_copy_base_url())}
 			</div>
 			<div class="flex min-w-0 flex-col gap-1">
-				<span class="text-muted-content text-xs">Bearer token</span>
-				{@render copyableValue(issuedToken.token, 'Copy token')}
+				<span class="text-muted-content text-xs">{m.identity_access_scim_bearer_token()}</span>
+				{@render copyableValue(issuedToken.token, m.identity_access_scim_copy_token())}
 			</div>
 			<div class="flex justify-end">
-				<button class="btn btn-primary" onclick={() => tokenDialog?.close()}>Done</button>
+				<button class="btn btn-primary" onclick={() => tokenDialog?.close()}
+					>{m.vmcps_done()}</button
+				>
 			</div>
 		</div>
 	{/if}

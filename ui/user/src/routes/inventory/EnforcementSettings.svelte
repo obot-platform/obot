@@ -115,14 +115,18 @@
 			serverDisplay: allowlistServerLabel(server),
 			typeDisplay: (() => {
 				const kind = allowlistServerKind(server);
-				return kind ? ALLOWLIST_SERVER_KIND_LABELS[kind] : m.inventory_enforcement_configuration_type_invalid();
+				return kind
+					? ALLOWLIST_SERVER_KIND_LABELS[kind]
+					: m.inventory_enforcement_configuration_type_invalid();
 			})(),
 			toolsDisplay:
 				(server.tools?.length ?? 0) === 0
 					? m.inventory_enforcement_configuration_all_tools()
 					: server.tools!.length === 1
 						? m.inventory_enforcement_configuration_tool_count_one({ count: server.tools!.length })
-						: m.inventory_enforcement_configuration_tool_count_other({ count: server.tools!.length })
+						: m.inventory_enforcement_configuration_tool_count_other({
+								count: server.tools!.length
+							})
 		}))
 	);
 
@@ -213,7 +217,9 @@
 <section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection}>
 	<div class="flex flex-col gap-1">
 		<div class="flex flex-wrap items-center gap-2">
-			<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_tool_call_enforcement()}</h3>
+			<h3 class="text-lg font-semibold">
+				{m.inventory_enforcement_configuration_tool_call_enforcement()}
+			</h3>
 			<span class="badge badge-warning badge-sm">{m.core_experimental()}</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
@@ -235,7 +241,9 @@
 		</button>
 		<div class="flex shrink-0 self-start pt-0.5">
 			<Toggle
-				label={enabled ? m.inventory_enforcement_configuration_disable_enforcement() : m.inventory_enforcement_configuration_enable_enforcement()}
+				label={enabled
+					? m.inventory_enforcement_configuration_disable_enforcement()
+					: m.inventory_enforcement_configuration_enable_enforcement()}
 				checked={enabled}
 				disabled={readOnly || saving}
 				onChange={handleToggle}
@@ -291,7 +299,9 @@
 					/>
 					<span class="flex flex-col gap-0.5">
 						<span>{m.inventory_enforcement_configuration_all_obot_hosted()}</span>
-						<span class="input-description">{m.inventory_enforcement_configuration_all_obot_hosted_description()}</span>
+						<span class="input-description"
+							>{m.inventory_enforcement_configuration_all_obot_hosted_description()}</span
+						>
 					</span>
 				</label>
 
@@ -345,7 +355,9 @@
 							(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span class="flex items-center gap-1.5"> {m.inventory_enforcement_configuration_everything()} </span>
+						<span class="flex items-center gap-1.5">
+							{m.inventory_enforcement_configuration_everything()}
+						</span>
 						<span class="input-description">
 							{m.inventory_enforcement_configuration_everything_description()}
 						</span>

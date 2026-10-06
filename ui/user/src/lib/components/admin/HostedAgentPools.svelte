@@ -390,7 +390,9 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted-content py-6 text-center text-sm">{m.hosted_agents_pools_no_pools()}</p>
+				<p class="text-muted-content py-6 text-center text-sm">
+					{m.hosted_agents_pools_no_pools()}
+				</p>
 			{/each}
 		</div>
 	</section>

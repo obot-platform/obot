@@ -138,7 +138,9 @@
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Link2 class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.mcps_sources_no_git_source_urls()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.mcps_sources_no_git_source_urls()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
 				{m.mcps_sources_no_git_source_urls_line1()} <br />
 				{m.mcps_sources_no_git_source_urls_line2()}

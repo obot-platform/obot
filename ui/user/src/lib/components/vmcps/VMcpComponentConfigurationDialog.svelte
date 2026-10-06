@@ -341,8 +341,12 @@
 			{/each}
 			{#if hasAdvanced}
 				<div class="collapse collapse-arrow border border-base-300 dark:border-base-400">
-					<input type="checkbox" aria-label="Advanced" bind:checked={advancedExpanded} />
-					<div class="collapse-title text-sm font-medium">Advanced</div>
+					<input
+						type="checkbox"
+						aria-label={m.platform_advanced()}
+						bind:checked={advancedExpanded}
+					/>
+					<div class="collapse-title text-sm font-medium">{m.platform_advanced()}</div>
 					<div class="collapse-content">
 						<div class="flex flex-col gap-2">
 							<label class="flex items-center gap-2">

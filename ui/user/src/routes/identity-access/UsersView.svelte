@@ -43,19 +43,18 @@
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
 	const statusLabels: Record<OrgUserStatus, string> = {
-		active: 'Active',
-		disabled: 'Disabled',
-		deleted: 'Deleted'
+		active: m.identity_access_users_status_active(),
+		disabled: m.core_status_disabled(),
+		deleted: m.identity_access_users_status_deleted()
 	};
 	const disabledReasonLabels: Record<string, string> = {
-		scim_inactive: 'Deactivated in identity provider',
-		scim_unprovisioned: 'Not provisioned by identity provider'
+		scim_inactive: m.identity_access_users_status_scim_inactive(),
+		scim_unprovisioned: m.identity_access_users_status_scim_unprovisioned()
 	};
 	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.
 	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR | Role.USER_IMPERSONATION;
-	const STILL_PROVISIONED_MESSAGE =
-		'This user is still active in your identity provider. Remove their assignment there before deleting them in Obot.';
+	const STILL_PROVISIONED_MESSAGE = m.identity_access_users_still_provisioned();
 
 	const tableData = $derived(
 		users
@@ -249,10 +248,9 @@
 				sortable={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				headers={[
 					{
-						title: 'Status',
+						title: m.core_status(),
 						property: 'status',
-						tooltip:
-							'Disabled users keep their account, roles, and data, but cannot sign in or use their credentials.'
+						tooltip: m.identity_access_users_status_disabled_tooltip()
 					},
 					{ title: m.core_name(), property: 'name' },
 					{ title: m.identity_access_col_email(), property: 'email' },
@@ -285,9 +283,9 @@
 								{#if d.managementSource === 'scim'}
 									<span
 										class="badge badge-ghost badge-xs"
-										use:tooltip={"This user's status is managed by your identity provider through SCIM. Change it there."}
+										use:tooltip={m.identity_access_users_scim_managed_tooltip()}
 									>
-										SCIM
+										{m.identity_access_scim_tab()}
 									</span>
 								{/if}
 							</div>
@@ -348,7 +346,7 @@
 									disabled={d.privileged && !profile.current.groups.includes(Group.OWNER)}
 									onclick={() => (enablingUser = d)}
 								>
-									Enable User
+									{m.identity_access_users_enable()}
 								</button>
 							{/if}
 							{@const stillProvisioned =
@@ -398,13 +396,13 @@
 />
 
 <Confirm
-	title="Confirm Enable"
-	msg={`Enable user ${enablingUser?.email}?`}
-	note="They regain access to Obot with their account, including their API keys and agents."
+	title={m.identity_access_users_confirm_enable()}
+	msg={m.identity_access_users_enable_msg({ email: enablingUser?.email ?? '' })}
+	note={m.identity_access_users_enable_note()}
 	show={Boolean(enablingUser)}
 	{loading}
 	type="info"
-	submitText="Enable"
+	submitText={m.chat_enable()}
 	onsuccess={async () => {
 		if (!enablingUser) return;
 		loading = true;

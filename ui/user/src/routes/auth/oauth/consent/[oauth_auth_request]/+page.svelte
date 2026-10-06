@@ -336,8 +336,7 @@
 				configDialog?.close();
 			}
 		} catch (err) {
-			configError =
-				err instanceof Error ? err.message : m.auth_consent_save_config_failed();
+			configError = err instanceof Error ? err.message : m.auth_consent_save_config_failed();
 		} finally {
 			savingConfig = false;
 		}
@@ -399,13 +398,11 @@
 						<p class="min-w-0 text-sm">
 							{#if consent.mcpAuthRequired}
 								<b class="font-semibold"
-									>{consent.mcpServerName ||
-										m.auth_consent_this_mcp_server_capitalized()}</b
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
 								>{m.auth_consent_requires_oauth_redirect_suffix()}
 							{:else if consent.userHasSecondLevelOAuthed}
 								<b class="font-semibold"
-									>{consent.mcpServerName ||
-										m.auth_consent_this_mcp_server_capitalized()}</b
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
 								>{m.auth_consent_requires_oauth_authorized_suffix()}
 							{/if}
 						</p>

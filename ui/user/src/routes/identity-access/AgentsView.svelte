@@ -116,7 +116,9 @@
 					{m.identity_access_agents_no_identities()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{isAdmin ? m.identity_access_agents_none_in_system() : m.identity_access_agents_none_for_you()}
+					{isAdmin
+						? m.identity_access_agents_none_in_system()
+						: m.identity_access_agents_none_for_you()}
 					<br />
 					{m.identity_access_agents_click_create()}
 				</p>
@@ -145,9 +147,7 @@
 					? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
 					: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 				headers={[
-					...(isAdmin
-						? [{ title: m.core_col_created_by(), property: 'userDisplay' }]
-						: []),
+					...(isAdmin ? [{ title: m.core_col_created_by(), property: 'userDisplay' }] : []),
 					{ title: m.core_name(), property: 'name' },
 					{ title: m.identity_access_agents_col_capabilities(), property: 'capabilitiesDisplay' },
 					{ title: m.identity_access_agents_col_last_used(), property: 'lastUsedAt' },

@@ -56,12 +56,7 @@
 		{:else if details}
 			<section class="flex flex-col gap-3">
 				<div class="grid gap-3 md:grid-cols-3">
-					{@render statusValue(
-						m.core_status(),
-						statusLabel(details),
-						Server,
-						statusClass(details)
-					)}
+					{@render statusValue(m.core_status(), statusLabel(details), Server, statusClass(details))}
 					{@render statusValue(
 						m.platform_settings_image_pull_secrets_col_last_success(),
 						formatDate(details.status?.lastSuccessTime),

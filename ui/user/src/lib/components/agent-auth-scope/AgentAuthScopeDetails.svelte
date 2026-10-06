@@ -190,7 +190,9 @@
 			</section>
 
 			<section class="paper gap-2 p-4">
-				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">{m.identity_access_agents_api_scopes()}</p>
+				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">
+					{m.identity_access_agents_api_scopes()}
+				</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 					{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 						<label
@@ -218,7 +220,9 @@
 			</section>
 
 			<section class="paper gap-2 p-4">
-				<p class="text-lg font-semibold" id="agent-auth-scope-keys">{m.identity_access_agents_api_keys()}</p>
+				<p class="text-lg font-semibold" id="agent-auth-scope-keys">
+					{m.identity_access_agents_api_keys()}
+				</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
 					{#if isAdmin}
 						<a

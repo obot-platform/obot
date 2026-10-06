@@ -197,7 +197,9 @@
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Calendar class="text-base-content/80 size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_export_schedules_none_found()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.audit_usage_export_schedules_none_found()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
 				{m.audit_usage_export_schedules_empty_hint()}
 			</p>

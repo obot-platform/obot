@@ -251,7 +251,9 @@
 				<span class="text-sm font-medium text-red-500">{requiredErrors.password}</span>
 			{/if}
 			{#if currentSecret?.status?.passwordConfigured}
-				<span class="input-description">{m.platform_settings_image_pull_secrets_password_configured()}</span>
+				<span class="input-description"
+					>{m.platform_settings_image_pull_secrets_password_configured()}</span
+				>
 			{/if}
 		</label>
 	</div>

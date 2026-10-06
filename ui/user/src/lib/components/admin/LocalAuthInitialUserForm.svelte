@@ -83,11 +83,14 @@
 			return;
 		}
 		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			initialUserError = m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
+			initialUserError = m.identity_access_auth_providers_local_auth_password_min({
+				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+			});
 			return;
 		}
 		if (initialPassword !== initialPasswordConfirm) {
-			initialUserError = m.identity_access_auth_providers_local_auth_initial_user_passwords_mismatch();
+			initialUserError =
+				m.identity_access_auth_providers_local_auth_initial_user_passwords_mismatch();
 			return;
 		}
 
@@ -102,7 +105,10 @@
 			await AdminService.createLocalAuthUser(email, initialPassword, false);
 		} catch (err) {
 			saving = false;
-			initialUserError = errorMessage(err, m.identity_access_auth_providers_local_auth_initial_user_create_failed());
+			initialUserError = errorMessage(
+				err,
+				m.identity_access_auth_providers_local_auth_initial_user_create_failed()
+			);
 		}
 
 		if (!initialUserError) {
@@ -110,7 +116,10 @@
 				const users = await AdminService.listLocalAuthUsers();
 				userCount = users.length;
 			} catch (err) {
-				initialUserError = errorMessage(err, m.identity_access_auth_providers_local_auth_initial_user_list_failed());
+				initialUserError = errorMessage(
+					err,
+					m.identity_access_auth_providers_local_auth_initial_user_list_failed()
+				);
 				userCount = 1;
 			} finally {
 				onCreated?.(userCount, email);
@@ -131,12 +140,16 @@
 	{:else}
 		<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 	{/if}
-	<h2 class="text-lg font-semibold">{m.identity_access_auth_providers_local_auth_initial_user_title()}</h2>
+	<h2 class="text-lg font-semibold">
+		{m.identity_access_auth_providers_local_auth_initial_user_title()}
+	</h2>
 </div>
 
 <div class="notification-info mb-4 flex flex-col items-start gap-1">
 	<div class="flex items-center gap-1">
-		<p class="text-sm font-semibold">{m.identity_access_auth_providers_local_auth_initial_user_intro()}</p>
+		<p class="text-sm font-semibold">
+			{m.identity_access_auth_providers_local_auth_initial_user_intro()}
+		</p>
 	</div>
 	<div>
 		<p class="text-xs font-light">
@@ -189,7 +202,9 @@
 			data1pIgnore={false}
 		/>
 		<span class="text-muted-content min-h-4 pt-0.5 text-xs">
-			{m.identity_access_auth_providers_local_auth_initial_user_password_min_required({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
+			{m.identity_access_auth_providers_local_auth_initial_user_password_min_required({
+				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+			})}
 		</span>
 	</label>
 

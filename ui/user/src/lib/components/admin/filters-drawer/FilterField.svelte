@@ -71,10 +71,7 @@
 			shouldShowClearButton
 				? {
 						id: 'clear',
-						label:
-							parseMultiValue(value).length > 1
-								? m.core_clear_all()
-								: m.core_clear(),
+						label: parseMultiValue(value).length > 1 ? m.core_clear_all() : m.core_clear(),
 						onclick: () => onClearAll?.(),
 						class: 'opacity-50 hover:opacity-80 active:opacity-100'
 					}

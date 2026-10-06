@@ -346,7 +346,9 @@ export function quickAllowBlockedReason(
 		return m.inventory_enforcement_allowlist_validation_blocked_unresolved();
 	}
 	if (event.kind !== 'mcp') {
-		return m.inventory_enforcement_allowlist_validation_blocked_not_mcp({ kind: kindLabel(event.kind).toLowerCase() });
+		return m.inventory_enforcement_allowlist_validation_blocked_not_mcp({
+			kind: kindLabel(event.kind).toLowerCase()
+		});
 	}
 	if (action === 'tool' && !event.tool?.trim()) {
 		return m.inventory_enforcement_allowlist_validation_blocked_no_tool_name();

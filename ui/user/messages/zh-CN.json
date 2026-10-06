@@ -51,6 +51,7 @@
 	"footer_rights": "© 2025 Acorn. All rights reserved.",
 	"footer_terms_of_service": "服务条款",
 	"language_label": "语言",
+	"login_account_inactive": "您的账户未激活。请联系管理员。",
 	"login_continue_with": "使用 {provider} 继续",
 	"login_local_heading": "登录 Obot",
 	"login_local_no_account": "还没有账户？请联系管理员为您创建。",

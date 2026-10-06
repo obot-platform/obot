@@ -173,7 +173,8 @@
 	});
 	let downloadNote = $derived.by(() => {
 		if (!selectedTarget) return;
-		if (selectedArtifact && dirty) return m.inventory_enforcement_configuration_save_before_download();
+		if (selectedArtifact && dirty)
+			return m.inventory_enforcement_configuration_save_before_download();
 		if (!selectedArtifact) return m.inventory_enforcement_configuration_save_to_generate();
 	});
 
@@ -335,7 +336,9 @@
 			operationError = problem.message;
 			if (problem.status === 409) {
 				await loadAssets();
-				operationError = m.inventory_enforcement_configuration_fields_reloaded({ message: problem.message });
+				operationError = m.inventory_enforcement_configuration_fields_reloaded({
+					message: problem.message
+				});
 			}
 		} finally {
 			saving = false;
@@ -365,17 +368,23 @@
 	<div class="flex flex-col gap-1.5">
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-2.5">
-				<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_install_sentry()}</h3>
+				<h3 class="text-lg font-semibold">
+					{m.inventory_enforcement_configuration_install_sentry()}
+				</h3>
 				{#if versionChip}
 					<span class="badge badge-ghost badge-sm">{versionChip}</span>
 				{/if}
 				{#if configState === 'update'}
-					<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_update_available()}</span>
+					<span class="badge badge-warning badge-sm"
+						>{m.inventory_enforcement_configuration_update_available()}</span
+					>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				{#if checkingForUpdates}
-					<span class="text-muted-content text-xs">{m.inventory_enforcement_configuration_checking()}</span>
+					<span class="text-muted-content text-xs"
+						>{m.inventory_enforcement_configuration_checking()}</span
+					>
 				{:else if checkNote}
 					<span class="text-muted-content text-xs">{checkNote}</span>
 				{:else if assetSource?.lastSyncTime}
@@ -482,7 +491,11 @@
 				class="flex flex-wrap items-center justify-between gap-3 py-3"
 				id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-1`}
 			>
-				{@render setupStep('1', m.inventory_enforcement_configuration_step_key_title(), m.inventory_enforcement_configuration_step_key_description())}
+				{@render setupStep(
+					'1',
+					m.inventory_enforcement_configuration_step_key_title(),
+					m.inventory_enforcement_configuration_step_key_description()
+				)}
 				{#if enrollmentKeyCount > 0}
 					<span
 						use:tooltip={m.inventory_enforcement_configuration_key_exists()}
@@ -529,7 +542,11 @@
 					class="flex flex-wrap items-center justify-between gap-3 py-3"
 					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`}
 				>
-					{@render setupStep('3', m.inventory_enforcement_configuration_step_os_title(), m.inventory_enforcement_configuration_step_os_description())}
+					{@render setupStep(
+						'3',
+						m.inventory_enforcement_configuration_step_os_title(),
+						m.inventory_enforcement_configuration_step_os_description()
+					)}
 					{#if selectedGroup}
 						<div class="flex shrink-0 flex-wrap justify-end">
 							{#each selectedGroup.targets as { option, index } (targetKey(option))}
@@ -553,7 +570,11 @@
 					class="flex flex-wrap items-center justify-between gap-3 py-3"
 					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-4`}
 				>
-					{@render setupStep('4', m.inventory_enforcement_configuration_step_download_title(), selectedTarget?.description)}
+					{@render setupStep(
+						'4',
+						m.inventory_enforcement_configuration_step_download_title(),
+						selectedTarget?.description
+					)}
 					{#if selectedArtifact && !dirty}
 						<button
 							type="button"
@@ -623,7 +644,9 @@
 {#snippet fieldsForm()}
 	<div class="flex flex-col gap-4">
 		{#if formFields.length === 0}
-			<p class="text-muted-content text-sm">{m.inventory_enforcement_configuration_no_editable_values()}</p>
+			<p class="text-muted-content text-sm">
+				{m.inventory_enforcement_configuration_no_editable_values()}
+			</p>
 		{/if}
 		{#each formFields as [fieldName, field] (fieldName)}
 			{@const problem = mdmFieldProblem(fieldName, field, values[fieldName], requiredFields)}

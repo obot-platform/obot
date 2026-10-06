@@ -51,6 +51,7 @@
 	"footer_rights": "© 2025 Acorn. All rights reserved.",
 	"footer_terms_of_service": "Terms of Service",
 	"language_label": "Language",
+	"login_account_inactive": "Your account is not active. Contact your administrator.",
 	"login_continue_with": "Continue with {provider}",
 	"login_local_heading": "Sign in to Obot",
 	"login_local_no_account": "Don't have an account? Ask an administrator to create one for you.",

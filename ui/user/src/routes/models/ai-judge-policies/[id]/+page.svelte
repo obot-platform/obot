@@ -12,9 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 	const listHref = '/models?view=ai-judge-policies';
 
-	let title = $derived(
-		messagePolicy?.displayName ?? m.models_message_policy_fallback_title()
-	);
+	let title = $derived(messagePolicy?.displayName ?? m.models_message_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

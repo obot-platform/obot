@@ -108,9 +108,12 @@
 {:else if total === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<PencilRuler class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_device_skills_no_skills_title()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_device_skills_no_skills_title()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.inventory_enforcement_device_skills_no_skills_prefix()}<code class="font-mono">obot scan</code
+			{m.inventory_enforcement_device_skills_no_skills_prefix()}<code class="font-mono"
+				>obot scan</code
 			>{m.inventory_enforcement_device_skills_no_skills_suffix()}
 		</p>
 	</div>
@@ -143,7 +146,9 @@
 			{total}
 			{loading}
 			itemCountLabel={(count) =>
-				count === 1 ? m.skills_device_skills_count_one({ count }) : m.skills_device_skills_count_other({ count })}
+				count === 1
+					? m.skills_device_skills_count_one({ count })
+					: m.skills_device_skills_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

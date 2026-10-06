@@ -115,10 +115,7 @@
 						{/if}
 					</div>
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-description-container-${i}`}>
-						<Label
-							title={m.core_description()}
-							forInput={`env-option-description-${id}-${i}`}
-						/>
+						<Label title={m.core_description()} forInput={`env-option-description-${id}-${i}`} />
 						<input
 							id={`env-option-description-${id}-${i}`}
 							class={twMerge(

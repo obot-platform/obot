@@ -68,7 +68,9 @@
 					<TriangleAlert class="size-5 shrink-0 text-warning" />
 					<p class="font-semibold">{m.platform_settings_model_proxy_missing_url()}</p>
 				</div>
-				<span class="font-light break-all"> {m.platform_settings_model_proxy_missing_url_description()}</span>
+				<span class="font-light break-all">
+					{m.platform_settings_model_proxy_missing_url_description()}</span
+				>
 			</div>
 		</div>
 	{/if}

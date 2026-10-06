@@ -3,7 +3,7 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import { SCIM_VIEW_PATH, SEEN_SPLASH_DIALOG_KEY, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { SCIM_VIEW_PATH, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { navigateTo, reloadPage } from '$lib/navigation';
@@ -196,9 +196,7 @@
 							{#if loadingCancelTempUser}
 								<Loading class="size-4" />
 							{:else}
-								{isExplicitAdmin
-									? m.auth_bootstrap_go_back()
-									: m.auth_bootstrap_cancel_go_back()}
+								{isExplicitAdmin ? m.auth_bootstrap_go_back() : m.auth_bootstrap_cancel_go_back()}
 							{/if}
 						</button>
 					</div>
@@ -296,9 +294,7 @@
 				<p class="text-md font-light">{m.auth_bootstrap_enter_bootstrap()}</p>
 
 				<div class="text-md flex flex-col gap-1">
-					<label for="bootstrap-token" class="font-semibold"
-						>{m.auth_bootstrap_token()}</label
-					>
+					<label for="bootstrap-token" class="font-semibold">{m.auth_bootstrap_token()}</label>
 					<SensitiveInput name="bootstrap-token" bind:value={bootstrapToken} />
 				</div>
 

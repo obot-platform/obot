@@ -122,7 +122,8 @@
 					<AntennaIcon class="@2xl/cli:size-10 size-6 text-primary translate-y-0.5" />
 				</div>
 				<h4 class="text-xl font-semibold text-center my-2">
-					{m.install_cli_what_does_prefix()}<code class="font-mono font-normal mx-2">obot setup</code
+					{m.install_cli_what_does_prefix()}<code class="font-mono font-normal mx-2"
+						>obot setup</code
 					>{m.install_cli_what_does_suffix()}
 				</h4>
 				<ul class="list-disc font-light flex flex-col gap-2 px-4">

@@ -311,7 +311,10 @@
 				return parts[parts.length - 1];
 			},
 			formatTooltipText: (data) =>
-				m.audit_usage_usage_tooltip_errors({ count: data.errorCount, name: data.serverDisplayName }),
+				m.audit_usage_usage_tooltip_errors({
+					count: data.errorCount,
+					name: data.serverDisplayName
+				}),
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();

@@ -473,7 +473,8 @@
 			statusDetails = details;
 			upsertSecret(details);
 		} catch (err) {
-			statusError = err instanceof Error ? err.message : m.platform_settings_registry_status_failed();
+			statusError =
+				err instanceof Error ? err.message : m.platform_settings_registry_status_failed();
 		} finally {
 			statusLoading = false;
 		}
@@ -586,7 +587,9 @@
 	title={m.platform_settings_registry_refresh_title()}
 	type="info"
 	msg={m.platform_settings_registry_refresh_msg({
-		name: refreshingSecret ? displayName(refreshingSecret) : m.platform_settings_registry_this_secret()
+		name: refreshingSecret
+			? displayName(refreshingSecret)
+			: m.platform_settings_registry_this_secret()
 	})}
 	note={m.platform_settings_registry_refresh_note()}
 	show={Boolean(refreshingSecret)}

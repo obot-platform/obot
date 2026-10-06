@@ -170,7 +170,8 @@ export const steps: GuideStep[] = [
 								},
 								side: 'top',
 								title: m.inventory_enforcement_guides_installation_method(),
-								description: m.inventory_enforcement_guides_select_the_appropriate_installation_method_for()
+								description:
+									m.inventory_enforcement_guides_select_the_appropriate_installation_method_for()
 							},
 							listener: {
 								id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`,

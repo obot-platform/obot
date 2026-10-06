@@ -120,7 +120,9 @@
 	const shortDescriptionError = $derived(
 		showRequired.shortDescription
 			? m.mcps_catalog_form_short_description_required()
-			: m.mcps_catalog_form_short_description_max({ max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH })
+			: m.mcps_catalog_form_short_description_max({
+					max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+				})
 	);
 	const hasShortDescriptionError = $derived(
 		showRequired.shortDescription ?? showInvalid.shortDescription
@@ -788,7 +790,9 @@
 						id={CATALOG_SERVER_FIELD_IDS.shortDescriptionHint}
 						class="text-muted-content text-xs"
 					>
-						{m.mcps_catalog_form_max_characters({ max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH })}
+						{m.mcps_catalog_form_max_characters({
+							max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+						})}
 					</span>
 				</label>
 				<input

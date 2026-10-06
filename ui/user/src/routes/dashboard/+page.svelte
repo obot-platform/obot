@@ -460,9 +460,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<h4 class="flex items-center gap-1 font-semibold">
 					{m.dashboard_top_servers_used()}
-					<span class="text-muted-content text-xs font-light"
-						>{m.dashboard_last_30_days()}</span
-					>
+					<span class="text-muted-content text-xs font-light">{m.dashboard_last_30_days()}</span>
 				</h4>
 			</div>
 			<HorizontalBarGraph

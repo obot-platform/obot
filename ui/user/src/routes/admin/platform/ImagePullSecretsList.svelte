@@ -141,7 +141,9 @@
 				onclick={() => onCreate?.(type)}
 			>
 				<Plus class="size-4" />
-				{type === 'basic' ? m.platform_settings_image_pull_secrets_add_basic() : m.platform_settings_image_pull_secrets_add_ecr()}
+				{type === 'basic'
+					? m.platform_settings_image_pull_secrets_add_basic()
+					: m.platform_settings_image_pull_secrets_add_ecr()}
 			</button>
 		{/if}
 	</div>

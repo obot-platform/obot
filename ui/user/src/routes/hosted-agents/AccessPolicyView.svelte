@@ -41,13 +41,17 @@
 {#if creating}
 	{@render createPolicyScreen()}
 {:else if !hostedAgentsEnabled}
-	<p class="text-muted-content text-sm font-light">{m.hosted_agents_access_policies_not_enabled()}</p>
+	<p class="text-muted-content text-sm font-light">
+		{m.hosted_agents_access_policies_not_enabled()}
+	</p>
 {:else}
 	<div class="flex flex-col gap-8" in:fade={{ duration }}>
 		{#if hostedAgentAccessPolicies.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<Vault class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_access_policies_no_access_policies()}</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.hosted_agents_access_policies_no_access_policies()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
 					{m.hosted_agents_access_policies_no_access_policies_desc()} <br />
 					{#if !isReadonly}
@@ -116,7 +120,9 @@
 {/snippet}
 
 <Confirm
-	msg={m.chat_delete_named({ name: policyToDelete?.displayName || m.chat_access_policies_this_policy() })}
+	msg={m.chat_delete_named({
+		name: policyToDelete?.displayName || m.chat_access_policies_this_policy()
+	})}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { SCIM_VIEW_PATH } from '$lib/constants';
+	import { m } from '$lib/i18n';
 
 	// The banner cannot be dismissed: until SCIM is enforced, users that the identity provider has not
 	// provisioned can still sign in.
@@ -18,12 +19,10 @@
 		role="status"
 	>
 		<p class="text-xs font-light max-w-2xl">
-			{providerName} provisions users and groups through SCIM, and SCIM is not enforced yet. Continue
-			setup on Identity & Access → Auth Providers → SCIM: create the SCIM app in {providerName} with the
-			base URL and token, assign users, push groups, and enforce SCIM.
+			{m.identity_access_scim_setup_banner({ provider: providerName })}
 		</p>
 		<a href={resolve(SCIM_VIEW_PATH)} class="btn btn-xs btn-primary shrink-0">
-			Continue SCIM setup
+			{m.identity_access_scim_continue_setup()}
 		</a>
 	</div>
 </div>

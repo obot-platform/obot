@@ -97,7 +97,10 @@ function getSubmitAction(): GuideAction {
 
 export const steps: GuideStep[] = [
 	{
-		content: [m.mcps_servers_guide_what_is_a_hosted_catalog_entry(), addCatalogEntryDescriptions.hosted]
+		content: [
+			m.mcps_servers_guide_what_is_a_hosted_catalog_entry(),
+			addCatalogEntryDescriptions.hosted
+		]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('hosted'),

@@ -87,11 +87,9 @@
 							</li>
 							{#if scimManaged}
 								<li>
-									Its SCIM connection is deleted, with its groups, group memberships, and group role
-									assignments, and its groups are removed from access policies. Users that SCIM
-									disabled stay disabled until an administrator enables them. Turn off provisioning
-									in
-									{authProvider.name}. Using SCIM with it again starts over with a new token.
+									{m.identity_access_auth_providers_scim_deconfigure_effect({
+										name: authProvider.name
+									})}
 								</li>
 							{/if}
 						</ul>

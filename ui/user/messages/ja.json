@@ -51,6 +51,7 @@
 	"footer_rights": "© 2025 Acorn. All rights reserved.",
 	"footer_terms_of_service": "利用規約",
 	"language_label": "言語",
+	"login_account_inactive": "アカウントは有効ではありません。管理者にお問い合わせください。",
 	"login_continue_with": "{provider} で続行",
 	"login_local_heading": "Obot にサインイン",
 	"login_local_no_account": "アカウントをお持ちでない場合は、管理者に作成を依頼してください。",

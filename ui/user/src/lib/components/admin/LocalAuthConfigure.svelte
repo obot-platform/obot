@@ -202,7 +202,10 @@
 		try {
 			users = await AdminService.listLocalAuthUsers();
 		} catch (err) {
-			const loadError = errorMessage(err, m.identity_access_auth_providers_local_auth_load_users_failed());
+			const loadError = errorMessage(
+				err,
+				m.identity_access_auth_providers_local_auth_load_users_failed()
+			);
 			userError = [...(forwardError ? [forwardError] : []), loadError];
 		} finally {
 			loadingUsers = false;
@@ -337,7 +340,11 @@
 			return false;
 		}
 		if (draftPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH }));
+			attentionDraftNewUser(
+				m.identity_access_auth_providers_local_auth_password_min({
+					min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+				})
+			);
 			return false;
 		}
 
@@ -372,7 +379,9 @@
 
 	function startResetPassword(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_finish_new_before_updating());
+			attentionDraftNewUser(
+				m.identity_access_auth_providers_local_auth_finish_new_before_updating()
+			);
 			return;
 		}
 		if (draftReset) {
@@ -400,7 +409,9 @@
 			attentionDraftReset(
 				!draftReset.password
 					? m.identity_access_auth_providers_local_auth_fill_password()
-					: m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })
+					: m.identity_access_auth_providers_local_auth_password_min({
+							min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+						})
 			);
 			return false;
 		}
@@ -421,11 +432,15 @@
 
 	function markDeleted(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_finish_new_before_updating());
+			attentionDraftNewUser(
+				m.identity_access_auth_providers_local_auth_finish_new_before_updating()
+			);
 			return;
 		}
 		if (draftReset && draftReset.id !== user.id) {
-			attentionDraftReset(m.identity_access_auth_providers_local_auth_finish_reset_before_updating());
+			attentionDraftReset(
+				m.identity_access_auth_providers_local_auth_finish_reset_before_updating()
+			);
 			return;
 		}
 
@@ -458,13 +473,17 @@
 				return m.identity_access_auth_providers_local_auth_new_user_needs_email();
 			}
 			if (user.password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
+				return m.identity_access_auth_providers_local_auth_password_min({
+					min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+				});
 			}
 		}
 		for (const [id, { password }] of resetPassword) {
 			if (deleteUsers.has(id)) continue;
 			if (password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
+				return m.identity_access_auth_providers_local_auth_password_min({
+					min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+				});
 			}
 		}
 		return undefined;
@@ -517,7 +536,9 @@
 			await refreshUsers();
 			close();
 		} catch (err) {
-			await refreshUsers(errorMessage(err, m.identity_access_auth_providers_local_auth_save_failed()));
+			await refreshUsers(
+				errorMessage(err, m.identity_access_auth_providers_local_auth_save_failed())
+			);
 		} finally {
 			saving = false;
 		}
@@ -552,7 +573,9 @@
 			{/if}
 
 			<div class="flex flex-col gap-1">
-				<label for="local-auth-domains">{m.identity_access_auth_providers_local_auth_allowed_domains()}</label>
+				<label for="local-auth-domains"
+					>{m.identity_access_auth_providers_local_auth_allowed_domains()}</label
+				>
 				<span class="text-gray text-xs">
 					{m.identity_access_auth_providers_local_auth_allowed_domains_hint()}
 				</span>
@@ -665,7 +688,10 @@
 										<div class="flex shrink-0 items-center gap-1">
 											{#if isDeleted}
 												<IconButton
-													tooltip={{ text: m.identity_access_auth_providers_local_auth_undo_delete(), disablePortal: true }}
+													tooltip={{
+														text: m.identity_access_auth_providers_local_auth_undo_delete(),
+														disablePortal: true
+													}}
 													disabled={saving}
 													onclick={() => undoDelete(user)}
 												>
@@ -675,7 +701,10 @@
 												<IconButton
 													id={'reset-confirm-' + user.id}
 													variant="primary"
-													tooltip={{ text: m.identity_access_auth_providers_local_auth_confirm_reset(), disablePortal: true }}
+													tooltip={{
+														text: m.identity_access_auth_providers_local_auth_confirm_reset(),
+														disablePortal: true
+													}}
 													disabled={saving}
 													onclick={confirmResetPassword}
 												>
@@ -683,7 +712,10 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: m.identity_access_auth_providers_local_auth_cancel_reset(), disablePortal: true }}
+													tooltip={{
+														text: m.identity_access_auth_providers_local_auth_cancel_reset(),
+														disablePortal: true
+													}}
 													disabled={saving}
 													onclick={cancelResetPassword}
 												>
@@ -704,7 +736,10 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: m.identity_access_auth_providers_local_auth_delete_user(), disablePortal: true }}
+													tooltip={{
+														text: m.identity_access_auth_providers_local_auth_delete_user(),
+														disablePortal: true
+													}}
 													disabled={saving}
 													onclick={() => markDeleted(user)}
 												>
@@ -739,7 +774,9 @@
 												onkeydown={handleDraftResetKeydown}
 											/>
 											<span class="text-muted-content pt-0.5 text-xs">
-												{m.identity_access_auth_providers_local_auth_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
+												{m.identity_access_auth_providers_local_auth_password_hint({
+													min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+												})}
 											</span>
 										</label>
 
@@ -794,7 +831,9 @@
 							class:draft-shake={shakingDraft}
 						>
 							<div class="flex items-center justify-between gap-2">
-								<span class="text-sm font-medium">{m.identity_access_auth_providers_local_auth_new_user()}</span>
+								<span class="text-sm font-medium"
+									>{m.identity_access_auth_providers_local_auth_new_user()}</span
+								>
 								<div class="flex shrink-0 items-center gap-1">
 									<IconButton
 										id={DRAFT_CONFIRM_ID}
@@ -849,7 +888,9 @@
 									data1pIgnore={false}
 								/>
 								<span class="text-muted-content pt-0.5 text-xs">
-									{m.identity_access_auth_providers_local_auth_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
+									{m.identity_access_auth_providers_local_auth_password_hint({
+										min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+									})}
 								</span>
 							</label>
 
@@ -878,9 +919,7 @@
 					class="sticky bottom-0 left-0 w-full border-base-300 dark:border-base-400 flex justify-end border-t pt-4"
 				>
 					{#if readonly}
-						<button class="btn btn-primary" type="button" onclick={close}
-							>{m.core_close()}</button
-						>
+						<button class="btn btn-primary" type="button" onclick={close}>{m.core_close()}</button>
 					{:else}
 						<button class="btn btn-primary" type="submit" disabled={saving || loadingUsers}>
 							{#if saving}
@@ -937,7 +976,10 @@
 	</div>
 {/snippet}
 
-{#snippet addNewUserButton(klass?: string, label = m.identity_access_auth_providers_local_auth_add_new_user())}
+{#snippet addNewUserButton(
+	klass?: string,
+	label = m.identity_access_auth_providers_local_auth_add_new_user()
+)}
 	<IconButton
 		tooltip={{ text: label, disablePortal: true }}
 		disabled={saving}

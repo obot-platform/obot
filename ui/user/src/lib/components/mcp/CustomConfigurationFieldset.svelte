@@ -199,7 +199,9 @@
 		{/if}
 		{#if !usesSecretBindingSource(data)}
 			<div class="flex w-full flex-col gap-1">
-				<label for={`env-value-${id}`} class="sr-only">{m.mcps_catalog_fieldset_static_value()}</label>
+				<label for={`env-value-${id}`} class="sr-only"
+					>{m.mcps_catalog_fieldset_static_value()}</label
+				>
 				{#if isFileConfiguration(data)}
 					<textarea
 						id={`env-value-${id}`}
@@ -295,12 +297,7 @@
 
 {#snippet nameAndDescriptionInputs()}
 	<div class="flex w-full flex-col gap-1" id={`${id}-name-container`}>
-		<Label
-			title={m.core_name()}
-			forInput={`env-name-${id}`}
-			required
-			showError={missingName}
-		/>
+		<Label title={m.core_name()} forInput={`env-name-${id}`} required showError={missingName} />
 		<input
 			id={`env-name-${id}`}
 			class={classes?.input}

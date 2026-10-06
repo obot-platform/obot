@@ -198,7 +198,9 @@
 		if (now - lastAnnounced < 2000) return;
 		lastAnnounced = now;
 		announcement =
-			count === 1 ? m.mcps_tester_log_entries_one({ count }) : m.mcps_tester_log_entries_other({ count });
+			count === 1
+				? m.mcps_tester_log_entries_one({ count })
+				: m.mcps_tester_log_entries_other({ count });
 	});
 </script>
 
@@ -380,7 +382,9 @@
 									<JsonPreview
 										value={entry.message ?? entry}
 										maxHeight="18rem"
-										ariaLabel={m.mcps_tester_log_payload({ name: entry.method ?? KIND_LABEL[entry.kind] })}
+										ariaLabel={m.mcps_tester_log_payload({
+											name: entry.method ?? KIND_LABEL[entry.kind]
+										})}
 									/>
 								</CornerCopyButton>
 							{/if}

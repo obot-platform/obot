@@ -1061,8 +1061,7 @@
 								'tab-button text-nowrap',
 								deploymentToDisplayTools === undefined && 'tab-active'
 							)}
-							onclick={() => (deploymentToDisplayTools = undefined)}
-							>{m.core_preview()}</button
+							onclick={() => (deploymentToDisplayTools = undefined)}>{m.core_preview()}</button
 						>
 					{/if}
 
@@ -1171,12 +1170,16 @@
 						>
 							<Wrench class="text-muted-content size-24 opacity-50" />
 							{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
-								<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
+								<h4 class="text-muted-content text-lg font-semibold">
+									{m.mcps_catalog_no_tools()}
+								</h4>
 								<p class="text-muted-content text-sm font-light">
 									{m.mcps_catalog_no_tools_available()}
 								</p>
 							{:else if !readonly && !connectOnly}
-								<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
+								<h4 class="text-muted-content text-lg font-semibold">
+									{m.mcps_catalog_no_tools()}
+								</h4>
 								{#if !isMultiTenant}
 									<button
 										class="btn btn-primary flex items-center gap-1 text-sm"

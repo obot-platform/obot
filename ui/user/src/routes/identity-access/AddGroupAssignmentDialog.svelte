@@ -198,7 +198,11 @@
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
-				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label={m.identity_access_go_back()}>
+				<IconButton
+					onclick={handleBack}
+					class="mr-2 -ml-2"
+					aria-label={m.identity_access_go_back()}
+				>
 					<ChevronLeft class="size-6" />
 				</IconButton>
 			{:else if isSmallScreen}

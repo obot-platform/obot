@@ -217,7 +217,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan}
-			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_scan_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_devices_scan_not_found()}
+			</p>
 		{:else}
 			<!-- Header card -->
 			<div
@@ -402,7 +404,9 @@
 								{#if property === 'description'}
 									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
-									{d.hasScripts ? m.inventory_enforcement_devices_yes() : m.inventory_enforcement_devices_no()}
+									{d.hasScripts
+										? m.inventory_enforcement_devices_yes()
+										: m.inventory_enforcement_devices_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -432,9 +436,15 @@
 								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
 								{ title: m.core_name(), property: 'name' },
 								{ title: m.core_type(), property: 'pluginType' },
-								{ title: m.inventory_enforcement_enforcement_events_version(), property: 'version' },
+								{
+									title: m.inventory_enforcement_enforcement_events_version(),
+									property: 'version'
+								},
 								{ title: m.core_status_enabled(), property: 'enabled' },
-								{ title: m.inventory_enforcement_devices_col_capabilities(), property: 'capabilities' }
+								{
+									title: m.inventory_enforcement_devices_col_capabilities(),
+									property: 'capabilities'
+								}
 							]}
 							sortable={['client', 'name', 'pluginType', 'version']}
 							filterable={['client', 'pluginType', 'scope']}
@@ -447,7 +457,9 @@
 						>
 							{#snippet onRenderColumn(property, d: PluginRow)}
 								{#if property === 'enabled'}
-									{d.enabled ? m.inventory_enforcement_devices_yes() : m.inventory_enforcement_devices_no()}
+									{d.enabled
+										? m.inventory_enforcement_devices_yes()
+										: m.inventory_enforcement_devices_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -466,7 +478,10 @@
 							fields={['name', 'version', 'paths_display', 'has_display']}
 							headers={[
 								{ title: m.core_name(), property: 'name' },
-								{ title: m.inventory_enforcement_enforcement_events_version(), property: 'version' },
+								{
+									title: m.inventory_enforcement_enforcement_events_version(),
+									property: 'version'
+								},
 								{ title: m.inventory_enforcement_devices_col_paths(), property: 'paths_display' },
 								{ title: m.inventory_enforcement_devices_col_has(), property: 'has_display' }
 							]}

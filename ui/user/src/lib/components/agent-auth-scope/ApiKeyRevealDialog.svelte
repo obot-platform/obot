@@ -70,7 +70,9 @@
 		</div>
 
 		<div class="mt-6 flex justify-end">
-			<button class="btn btn-primary" onclick={handleClose}> {m.identity_access_agents_ive_saved_my_key()} </button>
+			<button class="btn btn-primary" onclick={handleClose}>
+				{m.identity_access_agents_ive_saved_my_key()}
+			</button>
 		</div>
 	</ResponsiveDialog>
 {/if}

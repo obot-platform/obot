@@ -138,7 +138,9 @@
 	{#if agentCatalogs.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<GitBranch class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_config_sources_no_config_sources()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.hosted_agents_config_sources_no_config_sources()}
+			</h4>
 			{#if !isReadonly}
 				<p class="text-muted-content text-sm font-light">
 					{m.hosted_agents_config_sources_no_config_sources_desc()}
@@ -219,7 +221,9 @@
 
 <ResponsiveDialog
 	bind:this={catalogDialog}
-	title={editingCatalog ? m.hosted_agents_config_sources_edit_config_source() : m.hosted_agents_config_sources_add_config_source()}
+	title={editingCatalog
+		? m.hosted_agents_config_sources_edit_config_source()
+		: m.hosted_agents_config_sources_add_config_source()}
 	class="md:max-w-md"
 >
 	<div class="flex flex-col gap-4">
@@ -228,7 +232,9 @@
 			<input id="source-name" bind:value={catalogForm.displayName} class="text-input-filled" />
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="source-repo" class="text-sm font-light">{m.hosted_agents_config_sources_repository_url()}</label>
+			<label for="source-repo" class="text-sm font-light"
+				>{m.hosted_agents_config_sources_repository_url()}</label
+			>
 			<input
 				id="source-repo"
 				bind:value={catalogForm.repoURL}
@@ -239,7 +245,9 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="source-ref" class="text-sm font-light">{m.hosted_agents_config_sources_ref()}</label>
+			<label for="source-ref" class="text-sm font-light"
+				>{m.hosted_agents_config_sources_ref()}</label
+			>
 			<input
 				id="source-ref"
 				bind:value={catalogForm.ref}
@@ -269,7 +277,9 @@
 </ResponsiveDialog>
 
 <Confirm
-	msg={m.chat_delete_named({ name: catalogToDelete?.displayName || m.chat_config_sources_this_source() })}
+	msg={m.chat_delete_named({
+		name: catalogToDelete?.displayName || m.chat_config_sources_this_source()
+	})}
 	note={m.hosted_agents_config_sources_delete_source_note()}
 	show={Boolean(catalogToDelete)}
 	onsuccess={async () => {

@@ -370,7 +370,9 @@
 	{#if hostedAgents.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Bot class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_agents_no_hosted_agents()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.hosted_agents_agents_no_hosted_agents()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
 				{m.hosted_agents_agents_no_hosted_agents_desc()}
 			</p>
@@ -388,7 +390,9 @@
 				<div class="bg-base-100 dark:bg-base-300 flex items-center justify-between gap-4 px-4 py-3">
 					<div class="min-w-0">
 						<h2 class="text-sm font-semibold">
-							{pool.id ? m.hosted_agents_agents_pool_n({ n: poolIndex + 1 }) : m.hosted_agents_agents_your_pool()}
+							{pool.id
+								? m.hosted_agents_agents_pool_n({ n: poolIndex + 1 })
+								: m.hosted_agents_agents_your_pool()}
 						</h2>
 						<p class="text-muted-content truncate text-xs">
 							{#if pool.id}
@@ -477,7 +481,9 @@
 									<p class="truncate text-sm font-medium">{agent.name}</p>
 									{#if unavailableReason(agent)}
 										<p class="text-warning truncate text-xs" title={unavailableReason(agent)}>
-											{m.hosted_agents_agents_unavailable_reason({ reason: unavailableReason(agent) })}
+											{m.hosted_agents_agents_unavailable_reason({
+												reason: unavailableReason(agent)
+											})}
 										</p>
 									{:else}
 										<p class="text-muted-content truncate text-xs">{agent.description ?? ''}</p>
@@ -535,7 +541,8 @@
 											</p>
 										</div>
 									</div>
-									<span class="text-muted-content text-xs">{m.hosted_agents_agents_instance()}</span>
+									<span class="text-muted-content text-xs">{m.hosted_agents_agents_instance()}</span
+									>
 									<div>
 										<span
 											class="badge badge-sm {instanceState(instance) === 'ready'
@@ -614,7 +621,9 @@
 	bind:this={formDialog}
 	title={editing
 		? m.hosted_agents_agents_edit_instance()
-		: m.hosted_agents_agents_new_named({ name: selectedAgent?.name ?? m.hosted_agents_agents_instance_lower() })}
+		: m.hosted_agents_agents_new_named({
+				name: selectedAgent?.name ?? m.hosted_agents_agents_instance_lower()
+			})}
 	class="default-scrollbar-thin max-h-[90vh] overflow-y-auto md:max-w-5xl"
 >
 	{#if selectedAgent}<HostedAgentInstanceForm

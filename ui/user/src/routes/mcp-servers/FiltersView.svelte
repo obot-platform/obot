@@ -173,9 +173,7 @@
 						class={d.status === 'Disabled'
 							? 'text-muted-content font-light italic text-xs'
 							: 'pill-primary bg-primary'}
-						>{d.status === 'Disabled'
-							? m.core_status_disabled()
-							: m.core_status_enabled()}</span
+						>{d.status === 'Disabled' ? m.core_status_disabled() : m.core_status_enabled()}</span
 					>
 				{:else}
 					-

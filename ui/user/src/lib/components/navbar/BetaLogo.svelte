@@ -40,9 +40,5 @@
 
 <div class={twMerge('flex shrink-0', klass)}>
 	<img src={logoPair.light} class={twMerge(imgClass, 'dark:hidden')} alt={m.obot_logo()} />
-	<img
-		src={logoPair.dark}
-		class={twMerge(imgClass, 'hidden dark:block')}
-		alt={m.obot_logo()}
-	/>
+	<img src={logoPair.dark} class={twMerge(imgClass, 'hidden dark:block')} alt={m.obot_logo()} />
 </div>

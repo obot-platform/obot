@@ -144,7 +144,9 @@
 
 	<!-- Command field (optional) -->
 	<div class="flex items-center gap-4">
-		<label for="uvx-command" class="text-sm font-light">{m.mcps_catalog_uvx_runtime_command()}</label>
+		<label for="uvx-command" class="text-sm font-light"
+			>{m.mcps_catalog_uvx_runtime_command()}</label
+		>
 		<input
 			id="uvx-command"
 			class="text-input-filled dark:bg-base-100 w-full"

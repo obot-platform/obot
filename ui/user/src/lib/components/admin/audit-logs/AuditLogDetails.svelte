@@ -116,7 +116,10 @@
 					{/if}
 
 					{#if hasBody(auditLog?.mutatedRequestBody)}
-						{@render jsonBody(m.audit_usage_audit_logs_mutated_request_body(), auditLog?.mutatedRequestBody)}
+						{@render jsonBody(
+							m.audit_usage_audit_logs_mutated_request_body(),
+							auditLog?.mutatedRequestBody
+						)}
 					{/if}
 				{/if}
 			{/if}
@@ -140,7 +143,9 @@
 				{/if}
 			{/if}
 
-			<div class="divider text-xs uppercase my-0">{m.audit_usage_audit_logs_additional_information()}</div>
+			<div class="divider text-xs uppercase my-0">
+				{m.audit_usage_audit_logs_additional_information()}
+			</div>
 			{#if hasHeaders(auditLog.requestHeaders)}
 				{@render jsonBody(m.audit_usage_audit_logs_request_headers(), auditLog.requestHeaders)}
 			{/if}

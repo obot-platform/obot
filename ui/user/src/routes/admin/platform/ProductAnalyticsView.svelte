@@ -51,7 +51,9 @@
 <div class="relative flex w-full flex-col gap-2 @container">
 	<div class="paper gap-5">
 		<fieldset class="flex flex-col gap-3" disabled={saving}>
-			<legend class="mb-2 text-sm font-medium">{m.platform_settings_product_analytics_share_legend()}</legend>
+			<legend class="mb-2 text-sm font-medium"
+				>{m.platform_settings_product_analytics_share_legend()}</legend
+			>
 			<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-base-300 p-3">
 				<input
 					type="radio"
@@ -91,7 +93,8 @@
 				class="text-link"
 				href="https://docs.obot.ai/configuration/product-analytics#upgrade-checks-are-separate"
 				target="_blank"
-				rel="external noopener noreferrer">{m.platform_settings_product_analytics_update_checks_link()}</a
+				rel="external noopener noreferrer"
+				>{m.platform_settings_product_analytics_update_checks_link()}</a
 			>{m.platform_settings_product_analytics_update_checks_suffix()}
 		</p>
 	</div>

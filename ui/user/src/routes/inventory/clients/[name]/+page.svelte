@@ -57,7 +57,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !client}
-			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_clients_client_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_device_clients_client_not_found()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -74,7 +76,9 @@
 						{#if detail.mcpServers}
 							<span
 								>{detail.mcpServers.length === 1
-									? m.inventory_enforcement_device_clients_mcp_servers_count_one({ count: detail.mcpServers.length })
+									? m.inventory_enforcement_device_clients_mcp_servers_count_one({
+											count: detail.mcpServers.length
+										})
 									: m.inventory_enforcement_device_clients_mcp_servers_count_other({
 											count: detail.mcpServers.length
 										})}</span
@@ -84,8 +88,12 @@
 							<span>·</span>
 							<span
 								>{detail.skills.length === 1
-									? m.inventory_enforcement_device_clients_skills_count_one({ count: detail.skills.length })
-									: m.inventory_enforcement_device_clients_skills_count_other({ count: detail.skills.length })}</span
+									? m.inventory_enforcement_device_clients_skills_count_one({
+											count: detail.skills.length
+										})
+									: m.inventory_enforcement_device_clients_skills_count_other({
+											count: detail.skills.length
+										})}</span
 							>
 						{/if}
 					</div>
@@ -94,7 +102,12 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="border-base-300 dark:border-base-400 flex gap-2 border-b">
-					{@render tabButton('users', Users, m.inventory_enforcement_col_users(), detail.users.length)}
+					{@render tabButton(
+						'users',
+						Users,
+						m.inventory_enforcement_col_users(),
+						detail.users.length
+					)}
 					{@render tabButton(
 						'mcp',
 						Server,

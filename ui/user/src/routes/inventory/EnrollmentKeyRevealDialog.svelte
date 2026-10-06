@@ -38,7 +38,9 @@
 				<div class="flex items-start gap-3">
 					<TriangleAlert class="size-5 shrink-0" />
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">{m.inventory_enforcement_configuration_save_key_now()}</p>
+						<p class="text-sm font-medium">
+							{m.inventory_enforcement_configuration_save_key_now()}
+						</p>
 						<p class="text-xs">
 							{m.inventory_enforcement_configuration_key_shown_once()}
 						</p>
@@ -57,7 +59,9 @@
 		</div>
 
 		<div class="mt-6 flex justify-end">
-			<button class="btn btn-primary" onclick={handleClose}> {m.inventory_enforcement_configuration_saved_my_key()} </button>
+			<button class="btn btn-primary" onclick={handleClose}>
+				{m.inventory_enforcement_configuration_saved_my_key()}
+			</button>
 		</div>
 	</ResponsiveDialog>
 {/if}

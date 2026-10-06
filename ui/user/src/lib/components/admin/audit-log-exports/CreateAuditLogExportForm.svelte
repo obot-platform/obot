@@ -257,7 +257,9 @@
 				title: m.audit_usage_exports_filter_title_message_policy_action(),
 				description: m.audit_usage_exports_filter_desc_message_policy_triggered(),
 				getOptionLabel: (value) =>
-					value === 'true' ? m.audit_usage_exports_triggered() : m.audit_usage_exports_not_triggered()
+					value === 'true'
+						? m.audit_usage_exports_triggered()
+						: m.audit_usage_exports_not_triggered()
 			}
 		];
 
@@ -733,7 +735,8 @@
 					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="bucket">{m.audit_usage_exports_bucket_label()}</label
+					<label class="text-sm font-medium" for="bucket"
+						>{m.audit_usage_exports_bucket_label()}</label
 					>
 					<input
 						class={twMerge(
@@ -778,7 +781,9 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="timeRange">{m.audit_usage_exports_time_range()}</label>
+				<label class="text-sm font-medium" for="timeRange"
+					>{m.audit_usage_exports_time_range()}</label
+				>
 				<AuditLogCalendar
 					start={form.startTime}
 					end={form.endTime}
@@ -926,7 +931,9 @@
 				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
 						<Loading class="size-4" />
-						{mode === 'edit' ? m.audit_usage_exports_saving_changes() : m.audit_usage_exports_creating()}
+						{mode === 'edit'
+							? m.audit_usage_exports_saving_changes()
+							: m.audit_usage_exports_creating()}
 					{:else}
 						{mode === 'edit' ? m.core_save_changes() : m.audit_usage_audit_logs_create_export()}
 					{/if}

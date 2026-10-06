@@ -397,7 +397,9 @@
 				<div class="flex w-full flex-1 items-center justify-center p-6">
 					<div class="text-center">
 						<div class="text-muted-content font-medium">{m.mcps_deployments_logs_empty()}</div>
-						<p class="text-muted-content mt-1 text-sm">{m.mcps_deployments_logs_try_refreshing()}</p>
+						<p class="text-muted-content mt-1 text-sm">
+							{m.mcps_deployments_logs_try_refreshing()}
+						</p>
 					</div>
 				</div>
 			{/if}

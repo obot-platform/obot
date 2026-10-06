@@ -69,7 +69,9 @@
 					onclick={acceptOwnership}
 					disabled={acceptingOwnership}
 				>
-					{acceptingOwnership ? m.mcps_servers_detached_accepting() : m.mcps_servers_detached_accept_ownership()}
+					{acceptingOwnership
+						? m.mcps_servers_detached_accepting()
+						: m.mcps_servers_detached_accept_ownership()}
 				</button>
 			{/if}
 		</div>

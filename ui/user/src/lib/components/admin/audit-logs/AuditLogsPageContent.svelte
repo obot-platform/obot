@@ -244,7 +244,8 @@
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
 		if (key === 'event_type') {
 			if (value === 'mcp_call') return m.core_obot_gateway();
-			if (value === 'local_agent_tool_call') return m.audit_usage_audit_logs_source_local_agent_hook();
+			if (value === 'local_agent_tool_call')
+				return m.audit_usage_audit_logs_source_local_agent_hook();
 		}
 		return value;
 	}
@@ -651,7 +652,9 @@
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"
 	>
-		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">{m.audit_usage_audit_logs_timeline()}</h3>
+		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">
+			{m.audit_usage_audit_logs_timeline()}
+		</h3>
 		<div class="px-4">
 			{#if displayTimelineData.length > 0}
 				<div
@@ -681,7 +684,9 @@
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
 			<div class="flex gap-4">
 				<div>
-					{m.audit_usage_audit_logs_results({ count: Intl.NumberFormat().format(remoteAuditLogs.length) })}
+					{m.audit_usage_audit_logs_results({
+						count: Intl.NumberFormat().format(remoteAuditLogs.length)
+					})}
 				</div>
 
 				<div class="flex items-center">

@@ -51,7 +51,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.inventory_enforcement_devices_page_title_mcp_server_named({ name: server?.name ?? '' })}</title>
+	<title
+		>{m.inventory_enforcement_devices_page_title_mcp_server_named({
+			name: server?.name ?? ''
+		})}</title
+	>
 </svelte:head>
 
 <Layout
@@ -71,7 +75,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan || !server}
-			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_mcp_not_found_in_scan()}</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_devices_mcp_not_found_in_scan()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
@@ -91,7 +97,9 @@
 						<dd class="break-all">{endpoint}</dd>
 					{/if}
 					{#if server.command}
-						<dt class="text-muted-content">{m.inventory_enforcement_enforcement_events_command()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_enforcement_events_command()}
+						</dt>
 						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
@@ -141,7 +149,9 @@
 						<dd class="text-sm break-all">{server.file}</dd>
 					{/if}
 					{#if parentPlugin}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_part_of_plugin()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_part_of_plugin()}
+						</dt>
 						<dd>
 							<a
 								class="text-sm text-link"
@@ -154,11 +164,15 @@
 						</dd>
 					{/if}
 					{#if server.projectPath}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_project_path()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_project_path()}
+						</dt>
 						<dd class="break-all">{server.projectPath}</dd>
 					{/if}
 					{#if server.configHash}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_config_hash()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_config_hash()}
+						</dt>
 						<dd class="flex items-center gap-1">
 							<span class="text-sm" use:tooltip={server.configHash}>
 								{shortHash(server.configHash)}

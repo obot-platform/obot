@@ -713,7 +713,8 @@
 				{#if secretBinding}
 					<span class="text-muted-content flex flex-wrap items-center gap-2 text-sm">
 						<span>
-							{m.mcps_servers_k8s_secret_label()} <code class="font-mono">{secretBinding.name}</code>
+							{m.mcps_servers_k8s_secret_label()}
+							<code class="font-mono">{secretBinding.name}</code>
 							/
 							<code class="font-mono">{secretBinding.key}</code>
 						</span>

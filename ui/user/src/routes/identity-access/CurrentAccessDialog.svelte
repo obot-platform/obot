@@ -231,7 +231,10 @@
 					};
 				}
 				if (resource.id.endsWith('*')) {
-					return { name: resource.id, typeLabel: m.identity_access_current_access_type_model_pattern() };
+					return {
+						name: resource.id,
+						typeLabel: m.identity_access_current_access_type_model_pattern()
+					};
 				}
 				const model = modelsMap.get(resource.id);
 				return { name: model?.displayName || model?.name || resource.id };
@@ -256,14 +259,26 @@
 
 	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
 	const tabs = $derived([
-		{ label: m.nav_vmcps(), value: 'vmcps' as const, noun: m.identity_access_current_access_noun_vmcps() },
+		{
+			label: m.nav_vmcps(),
+			value: 'vmcps' as const,
+			noun: m.identity_access_current_access_noun_vmcps()
+		},
 		{
 			label: m.nav_mcp_servers(),
 			value: 'mcp' as const,
 			noun: m.identity_access_current_access_noun_mcp_servers()
 		},
-		{ label: m.nav_models(), value: 'models' as const, noun: m.identity_access_current_access_noun_models() },
-		{ label: m.nav_skills(), value: 'skills' as const, noun: m.identity_access_current_access_noun_skills() },
+		{
+			label: m.nav_models(),
+			value: 'models' as const,
+			noun: m.identity_access_current_access_noun_models()
+		},
+		{
+			label: m.nav_skills(),
+			value: 'skills' as const,
+			noun: m.identity_access_current_access_noun_skills()
+		},
 		...(hostedAgentsFeatureEnabled
 			? [
 					{
@@ -276,7 +291,8 @@
 	]);
 
 	const currentNoun = $derived(
-		tabs.find((tab) => tab.value === currentTab)?.noun ?? m.identity_access_current_access_noun_resources()
+		tabs.find((tab) => tab.value === currentTab)?.noun ??
+			m.identity_access_current_access_noun_resources()
 	);
 	const currentPolicies = $derived(sections[currentTab]);
 	const currentResources = $derived(
@@ -440,7 +456,9 @@
 	bind:this={dialog}
 	{onOpen}
 	{onClose}
-	title={titleName ? m.identity_access_current_access_title_named({ name: titleName }) : m.identity_access_current_access_title()}
+	title={titleName
+		? m.identity_access_current_access_title_named({ name: titleName })
+		: m.identity_access_current_access_title()}
 	class="w-full overflow-hidden md:h-150 md:max-w-4xl"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >

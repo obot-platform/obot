@@ -92,10 +92,14 @@
 
 {#snippet authProviders()}
 	<div class="flex flex-col gap-4">
-		<nav class="flex" aria-label="Auth Providers">
+		<nav class="flex" aria-label={m.identity_access_auth_providers_nav()}>
 			<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
-				{@render subview('Providers', AUTH_PROVIDERS_VIEW_PATH, !showSCIM)}
-				{@render subview('SCIM', SCIM_VIEW_PATH, showSCIM)}
+				{@render subview(
+					m.identity_access_auth_providers_tab_providers(),
+					AUTH_PROVIDERS_VIEW_PATH,
+					!showSCIM
+				)}
+				{@render subview(m.identity_access_scim_tab(), SCIM_VIEW_PATH, showSCIM)}
 			</div>
 		</nav>
 		{#if showSCIM}

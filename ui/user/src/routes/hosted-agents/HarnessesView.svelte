@@ -96,7 +96,9 @@
 	{#if harnesses.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Cpu class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_harnesses_no_harnesses()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.hosted_agents_harnesses_no_harnesses()}
+			</h4>
 			{#if !isReadonly}
 				<p class="text-muted-content text-sm font-light">
 					{m.hosted_agents_harnesses_no_harnesses_desc()}
@@ -159,7 +161,9 @@
 
 <ResponsiveDialog
 	bind:this={harnessDialog}
-	title={editingHarness ? m.hosted_agents_harnesses_edit_harness() : m.hosted_agents_harnesses_add_harness()}
+	title={editingHarness
+		? m.hosted_agents_harnesses_edit_harness()
+		: m.hosted_agents_harnesses_add_harness()}
 	class="md:max-w-md"
 >
 	<div class="flex flex-col gap-4">
@@ -181,7 +185,9 @@
 				rows="2"></textarea>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-image" class="text-sm font-light">{m.hosted_agents_harnesses_docker_image()}</label>
+			<label for="harness-image" class="text-sm font-light"
+				>{m.hosted_agents_harnesses_docker_image()}</label
+			>
 			<input
 				id="harness-image"
 				bind:value={harnessForm.image}
@@ -207,7 +213,9 @@
 			</div>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-icon-dark" class="text-sm font-light">{m.chat_harnesses_icon_url_dark()}</label>
+			<label for="harness-icon-dark" class="text-sm font-light"
+				>{m.chat_harnesses_icon_url_dark()}</label
+			>
 			<div class="flex items-center gap-3">
 				{#if harnessForm.iconDark}
 					<img

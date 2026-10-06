@@ -29,7 +29,9 @@
 			<h2 class="text-lg font-semibold">{m.mcps_oauth_metadata_title()}</h2>
 			{#if metadata}
 				<span class="text-muted-content text-xs">
-					{hasMetadata ? m.mcps_oauth_metadata_discovered() : m.mcps_oauth_metadata_none_discovered()}
+					{hasMetadata
+						? m.mcps_oauth_metadata_discovered()
+						: m.mcps_oauth_metadata_none_discovered()}
 				</span>
 			{/if}
 		</div>

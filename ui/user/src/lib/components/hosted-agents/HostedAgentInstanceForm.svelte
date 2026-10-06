@@ -121,7 +121,8 @@
 						rows="2"></textarea>
 				</div>
 				<div class="flex flex-col gap-2">
-					<label for="instance-icon" class="text-sm font-light">{m.chat_harnesses_icon_url()}</label>
+					<label for="instance-icon" class="text-sm font-light">{m.chat_harnesses_icon_url()}</label
+					>
 					<div class="flex items-center gap-3">
 						{#if icon}
 							<img src={icon} alt="" class="size-10 shrink-0 rounded-md object-contain" />

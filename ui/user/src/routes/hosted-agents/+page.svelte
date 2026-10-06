@@ -33,13 +33,19 @@
 	let configSourcesView = $state<ReturnType<typeof ConfigSourcesView>>();
 
 	let views = $derived.by(() => {
-		const items: TabView[] = [{ label: m.hosted_agents_agents_tab(), value: 'agents', content: agents }];
+		const items: TabView[] = [
+			{ label: m.hosted_agents_agents_tab(), value: 'agents', content: agents }
+		];
 		if (hasAdminAccess) {
 			items.push(
 				{ label: m.hosted_agents_templates_tab(), value: 'templates', content: templates },
 				{ label: m.hosted_agents_harnesses_tab(), value: 'harnesses', content: harnesses },
 				{ label: m.hosted_agents_pools(), value: 'pools', content: pools },
-				{ label: m.hosted_agents_config_sources_tab(), value: 'config-sources', content: configSources },
+				{
+					label: m.hosted_agents_config_sources_tab(),
+					value: 'config-sources',
+					content: configSources
+				},
 				{
 					label: m.hosted_agents_access_policies_tab(),
 					value: 'access-policies',

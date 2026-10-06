@@ -6,7 +6,10 @@ import { getNavigateToMcpServersTabStep } from './steps';
 
 export const steps: GuideStep[] = [
 	{
-		content: [m.mcps_filters_guide_what_is_an_mcp_filter(), m.mcps_filters_guide_an_mcp_filter_is_a_way()]
+		content: [
+			m.mcps_filters_guide_what_is_an_mcp_filter(),
+			m.mcps_filters_guide_an_mcp_filter_is_a_way()
+		]
 	},
 	getNavigateToMcpServersTabStep(
 		MCP_SERVERS_TAB_FILTERS,

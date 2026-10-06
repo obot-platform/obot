@@ -27,7 +27,10 @@
 		try {
 			scheduleData = await AdminService.getScheduledAuditLogExport(scheduleId);
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.audit_usage_audit_logs_failed_load_scheduled_export();
+			error =
+				err instanceof Error
+					? err.message
+					: m.audit_usage_audit_logs_failed_load_scheduled_export();
 		} finally {
 			loading = false;
 		}
@@ -46,7 +49,9 @@
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
 				<Loading class="size-8" />
-				<span class="ml-2 text-lg">{m.audit_usage_audit_logs_loading_scheduled_export_details()}</span>
+				<span class="ml-2 text-lg"
+					>{m.audit_usage_audit_logs_loading_scheduled_export_details()}</span
+				>
 			</div>
 		{:else if error}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>

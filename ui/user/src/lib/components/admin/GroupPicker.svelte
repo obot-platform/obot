@@ -146,7 +146,9 @@
 				<Loading class="size-6" />
 			</div>
 		{:else if errored}
-			<p class="text-muted-content py-8 text-center text-sm">{m.identity_access_groups_load_failed()}</p>
+			<p class="text-muted-content py-8 text-center text-sm">
+				{m.identity_access_groups_load_failed()}
+			</p>
 		{:else if visibleGroups.length === 0}
 			<p class="text-muted-content py-8 text-center text-sm">
 				{query ? m.identity_access_groups_no_match() : m.identity_access_groups_none()}

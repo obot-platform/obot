@@ -140,8 +140,7 @@
 				id: aliasId,
 				aliasName,
 				label: ModelAliasLabels[aliasName as keyof typeof ModelAliasLabels] || aliasName,
-				effectiveModelName:
-					model?.displayName || model?.targetModel || m.models_not_configured(),
+				effectiveModelName: model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				isExcluded: exclude?.includes(aliasId) ?? false
 			};

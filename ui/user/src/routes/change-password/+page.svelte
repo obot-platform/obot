@@ -43,8 +43,7 @@
 			// same-origin absolute path above.
 			window.location.assign(redirectTarget());
 		} catch (err) {
-			error =
-				err instanceof Error ? parseErrorContent(err).message : m.auth_password_set_failed();
+			error = err instanceof Error ? parseErrorContent(err).message : m.auth_password_set_failed();
 		} finally {
 			saving = false;
 		}

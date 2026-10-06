@@ -35,7 +35,9 @@
 </script>
 
 <svelte:head>
-	<title>{m.inventory_enforcement_devices_page_title_plugin_named({ name: plugin?.name ?? '' })}</title>
+	<title
+		>{m.inventory_enforcement_devices_page_title_plugin_named({ name: plugin?.name ?? '' })}</title
+	>
 </svelte:head>
 
 <Layout
@@ -71,7 +73,9 @@
 						class:bg-success={plugin.enabled}
 						class:bg-base-400={!plugin.enabled}
 					>
-						{plugin.enabled ? m.inventory_enforcement_devices_enabled() : m.inventory_enforcement_devices_disabled()}
+						{plugin.enabled
+							? m.inventory_enforcement_devices_enabled()
+							: m.inventory_enforcement_devices_disabled()}
 					</span>
 				</div>
 
@@ -85,7 +89,9 @@
 						<dd>{plugin.author}</dd>
 					{/if}
 					{#if plugin.marketplace}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_marketplace()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_marketplace()}
+						</dt>
 						<dd class="break-all">{plugin.marketplace}</dd>
 					{/if}
 					{#if plugin.configPath}
@@ -93,13 +99,17 @@
 						<dd class="break-all">{plugin.configPath}</dd>
 					{/if}
 					{#if plugin.projectPath}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_project_path()}</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_project_path()}
+						</dt>
 						<dd class="break-all">{plugin.projectPath}</dd>
 					{/if}
 					<dt class="text-muted-content">{m.inventory_enforcement_devices_col_capabilities()}</dt>
 					<dd>
 						{#if capabilities.length === 0}
-							<span class="text-muted-content">{m.inventory_enforcement_devices_none_detected()}</span>
+							<span class="text-muted-content"
+								>{m.inventory_enforcement_devices_none_detected()}</span
+							>
 						{:else}
 							<div class="flex flex-wrap gap-2">
 								{#each capabilities as c (c.key)}
@@ -118,7 +128,9 @@
 					{m.inventory_enforcement_devices_supporting_files({ count: files.length })}
 				</h3>
 				{#if files.length === 0}
-					<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_no_supporting_files()}</p>
+					<p class="text-muted-content text-sm font-light">
+						{m.inventory_enforcement_devices_no_supporting_files()}
+					</p>
 				{:else}
 					<div class="flex flex-col gap-3">
 						{#each files as { path, file } (path)}
@@ -130,10 +142,14 @@
 									{#if file}
 										<span class="text-muted-content">{formatBytes(file.sizeBytes)}</span>
 										{#if file.oversized}
-											<span class="pill bg-warning">{m.inventory_enforcement_devices_oversized()}</span>
+											<span class="pill bg-warning"
+												>{m.inventory_enforcement_devices_oversized()}</span
+											>
 										{/if}
 									{:else}
-										<span class="text-muted-content">{m.inventory_enforcement_devices_not_collected()}</span>
+										<span class="text-muted-content"
+											>{m.inventory_enforcement_devices_not_collected()}</span
+										>
 									{/if}
 								</div>
 								{#if file?.content}

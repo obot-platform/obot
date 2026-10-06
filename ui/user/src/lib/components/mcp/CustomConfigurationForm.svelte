@@ -91,9 +91,7 @@
 					<div class="flex w-full flex-col gap-4">
 						{#if !urlTemplateVariables}
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light"
-									>{m.core_type()}</label
-								>
+								<label for={`env-type-${i}`} class="text-sm font-light">{m.core_type()}</label>
 								<Select
 									class="dark:border-base-400 bg-base-100 border border-transparent"
 									classes={{
@@ -206,8 +204,7 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.core_type()}</label
-						>
+						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.core_type()}</label>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-type`}

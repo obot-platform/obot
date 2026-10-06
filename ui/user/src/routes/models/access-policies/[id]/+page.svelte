@@ -11,9 +11,7 @@
 	const { modelAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(
-		modelAccessPolicy?.displayName ?? m.models_access_policy_fallback_title()
-	);
+	let title = $derived(modelAccessPolicy?.displayName ?? m.models_access_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

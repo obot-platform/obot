@@ -216,7 +216,9 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		const object = value as Record<string, unknown>;
 		for (const required of schema.required ?? []) {
 			if (!(required in object) || object[required] === undefined || object[required] === '') {
-				errors.push(m.mcps_tester_schema_is_required({ name: `${path ? `${path}.` : ''}${required}` }));
+				errors.push(
+					m.mcps_tester_schema_is_required({ name: `${path ? `${path}.` : ''}${required}` })
+				);
 			}
 		}
 		for (const [name, property] of Object.entries(schema.properties ?? {})) {
@@ -252,7 +254,8 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 	}
 
 	if (type === 'string') {
-		if (typeof value !== 'string') return [...errors, m.mcps_tester_schema_must_be_string({ label })];
+		if (typeof value !== 'string')
+			return [...errors, m.mcps_tester_schema_must_be_string({ label })];
 		if (schema.minLength !== undefined && value.length < schema.minLength) {
 			errors.push(m.mcps_tester_schema_min_length({ label, count: schema.minLength }));
 		}
@@ -276,10 +279,14 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 			errors.push(m.mcps_tester_schema_maximum({ label, value: schema.maximum }));
 		}
 		if (schema.exclusiveMinimum !== undefined && value <= schema.exclusiveMinimum) {
-			errors.push(m.mcps_tester_schema_exclusive_minimum({ label, value: schema.exclusiveMinimum }));
+			errors.push(
+				m.mcps_tester_schema_exclusive_minimum({ label, value: schema.exclusiveMinimum })
+			);
 		}
 		if (schema.exclusiveMaximum !== undefined && value >= schema.exclusiveMaximum) {
-			errors.push(m.mcps_tester_schema_exclusive_maximum({ label, value: schema.exclusiveMaximum }));
+			errors.push(
+				m.mcps_tester_schema_exclusive_maximum({ label, value: schema.exclusiveMaximum })
+			);
 		}
 		if (schema.multipleOf !== undefined && !isMultipleOf(value, schema.multipleOf)) {
 			errors.push(m.mcps_tester_schema_multiple_of({ label, value: schema.multipleOf }));
