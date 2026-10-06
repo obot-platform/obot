@@ -378,7 +378,7 @@
 				</div>{/if}
 			{#if agent.allowUserGitRepo}<div class="flex justify-between gap-2">
 					<span class="text-muted-content">{m.core_repository()}</span><span
-						class="max-w-28 truncate">{gitRepo ? m.chat_custom() : m.chat_default()}</span
+						class="max-w-28 truncate">{gitRepo ? m.chat_custom() : m.core_default()}</span
 					>
 				</div>{/if}
 			{#if agent.allowUserMCPServers}<div class="flex justify-between gap-2">
@@ -395,7 +395,7 @@
 					<span class="text-muted-content">{m.chat_models()}</span><span
 						>{models.length
 							? m.chat_count_selected({ count: models.length })
-							: m.chat_default()}</span
+							: m.core_default()}</span
 					>
 				</div>{/if}
 			{#if !questions.length && !agent.allowUserGitRepo && !allowsAnyUserResource}<p

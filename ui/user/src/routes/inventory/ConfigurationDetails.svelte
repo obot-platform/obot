@@ -65,10 +65,10 @@
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt
 				? formatTimeAgo(key.lastUsedAt).relativeTime
-				: m.inventory_enforcement_configuration_never(),
+				: m.core_never_used(),
 			expiresAtDisplay: key.expiresAt
 				? formatTimeUntil(key.expiresAt).relativeTime
-				: m.inventory_enforcement_configuration_never()
+				: m.core_never_expires()
 		}))
 	);
 

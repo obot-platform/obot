@@ -1190,7 +1190,7 @@
 										>
 											{@render componentIdentity()}
 											<span class="text-muted-content shrink-0 text-xs">
-												{resource && !granted ? m.vmcps_disabled() : ''}
+												{resource && !granted ? m.core_status_disabled() : ''}
 											</span>
 										</div>
 									{/if}
@@ -1278,10 +1278,10 @@
 										<span class="text-sm font-light">{display.name}</span>
 										<span class="text-muted-content text-xs">
 											{display.group
-												? m.vmcps_group()
+												? m.core_col_group()
 												: display.role
 													? getUserRoleLabel(display.role)
-													: m.vmcps_deployments_user()}
+													: m.core_col_user()}
 										</span>
 									</div>
 								</div>
@@ -1400,8 +1400,8 @@
 																? m.vmcps_tool_count_one({ count: resource.enabled })
 																: m.vmcps_tool_count_other({ count: resource.enabled })
 														: resource.granted
-															? m.vmcps_default()
-															: m.vmcps_disabled()}
+															? m.core_default()
+															: m.core_status_disabled()}
 												</span>
 											</li>
 										{/each}

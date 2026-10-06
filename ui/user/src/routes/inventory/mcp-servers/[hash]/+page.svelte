@@ -133,7 +133,7 @@
 					{/if}
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">{m.inventory_enforcement_label_url()}</span>
+							<span class="text-muted-content text-xs uppercase">{m.core_col_url()}</span>
 							<p class="text-sm break-all">{detail.url}</p>
 						</div>
 					{/if}

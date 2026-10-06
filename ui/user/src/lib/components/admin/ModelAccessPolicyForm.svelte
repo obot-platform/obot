@@ -427,7 +427,7 @@
 					fields={['name', 'provider']}
 					headers={[
 						{ property: 'name', title: m.models_access_policies_col_model() },
-						{ property: 'provider', title: m.models_access_policies_col_provider() }
+						{ property: 'provider', title: m.core_col_provider() }
 					]}
 					noDataMessage={m.models_access_policies_no_models_added()}
 				>

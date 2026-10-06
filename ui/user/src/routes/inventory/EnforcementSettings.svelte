@@ -396,7 +396,7 @@
 								data={tableData}
 								fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
 								headers={[
-									{ title: m.inventory_enforcement_configuration_col_server(), property: 'serverDisplay' },
+									{ title: m.core_col_server(), property: 'serverDisplay' },
 									{ title: m.core_type(), property: 'typeDisplay' },
 									{ title: m.inventory_enforcement_allowlist_tools(), property: 'toolsDisplay' }
 								]}

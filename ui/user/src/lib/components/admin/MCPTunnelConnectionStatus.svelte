@@ -16,7 +16,7 @@
 {#snippet statusBadge()}
 	{@const badgeClass = connection ? 'badge-success' : known ? 'badge-neutral' : 'badge-secondary'}
 	{@const badgeText = connection
-		? m.mcps_tunnels_connected()
+		? m.core_mcp_value_connected()
 		: known
 			? m.mcps_tunnels_disconnected()
 			: m.core_unknown()}

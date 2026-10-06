@@ -157,7 +157,7 @@
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
 				<span id="allowlist-package-source-label" class="input-label"
-					>{m.inventory_enforcement_enforcement_events_registry()}</span
+					>{m.core_col_registry()}</span
 				>
 				<Select
 					id="allowlist-package-source"
@@ -199,7 +199,7 @@
 		{:else if kind === 'hostname'}
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-hostname" class="input-label"
-					>{m.inventory_enforcement_allowlist_hostname()}</label
+					>{m.core_col_hostname()}</label
 				>
 				<input
 					id="allowlist-hostname"

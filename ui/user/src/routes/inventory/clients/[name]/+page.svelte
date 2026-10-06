@@ -113,7 +113,7 @@
 					<Table
 						data={detail.users}
 						fields={['email']}
-						headers={[{ title: m.inventory_enforcement_device_clients_col_user(), property: 'email' }]}
+						headers={[{ title: m.core_col_user(), property: 'email' }]}
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}

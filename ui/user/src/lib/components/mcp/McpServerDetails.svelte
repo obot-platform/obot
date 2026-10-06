@@ -98,8 +98,8 @@
 							{d.email || d.username || m.core_unknown()}
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
-								? m.mcps_servers_details_not_configured()
-								: m.mcps_servers_details_up_to_date()}
+								? m.core_mcp_value_not_configured()
+								: m.core_mcp_value_up_to_date()}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}

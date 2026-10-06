@@ -453,7 +453,7 @@
 			<div class="border-base-300 border-t px-5 py-4">
 				<div class="flex flex-wrap items-center justify-between gap-4">
 					<div class="space-y-1">
-						<div class="text-sm font-medium">{m.chat_enabled()}</div>
+						<div class="text-sm font-medium">{m.core_status_enabled()}</div>
 						<p class="text-muted-content text-sm">
 							{m.chat_schedule_enabled_desc()}
 						</p>

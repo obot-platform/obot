@@ -262,7 +262,7 @@
 					<dd>{latest.username || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
-						{m.inventory_enforcement_allowlist_hostname()}
+						{m.core_col_hostname()}
 					</dt>
 					<dd>{latest.hostname || '—'}</dd>
 
@@ -477,7 +477,7 @@
 								{ title: m.core_name(), property: 'name' },
 								{ title: m.core_type(), property: 'pluginType' },
 								{ title: m.inventory_enforcement_enforcement_events_version(), property: 'version' },
-								{ title: m.inventory_enforcement_devices_col_enabled(), property: 'enabled' },
+								{ title: m.core_status_enabled(), property: 'enabled' },
 								{ title: m.inventory_enforcement_devices_col_capabilities(), property: 'capabilities' }
 							]}
 							sortable={['client', 'name', 'pluginType', 'version']}

@@ -9,8 +9,6 @@
 	"ai_judge_blocked_content": "차단된 콘텐츠",
 	"ai_judge_blocked_content_auditors_only": "차단된 콘텐츠는 감사자만 볼 수 있습니다.",
 	"ai_judge_col_policy": "정책",
-	"ai_judge_col_timestamp": "타임스탬프",
-	"ai_judge_col_user": "사용자",
 	"ai_judge_definition": "정의",
 	"ai_judge_definition_placeholder": "자연어 정책 정의, 예: '사용자가 이코노미 클래스보다 높은 등급의 여행을 예약하지 못하도록 함'",
 	"ai_judge_definition_tooltip": "허용해야 하거나 허용하지 않아야 하는 것을 설명하는 자연어 규칙입니다. 일관된 정책 적용을 위해 가능한 한 구체적이고 명확하게 작성하세요.",

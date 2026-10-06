@@ -480,12 +480,12 @@
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								{m.ai_judge_col_timestamp()}
+								{m.core_col_timestamp()}
 							</th>
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								{m.ai_judge_col_user()}
+								{m.core_col_user()}
 							</th>
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
@@ -633,11 +633,11 @@
 					<div class="p-4 pl-5">
 						<div class="flex flex-col gap-1 text-sm font-light">
 							<p>
-								<span class="font-medium">{m.ai_judge_col_timestamp()}</span>:
+								<span class="font-medium">{m.core_col_timestamp()}</span>:
 								{formatLogTimestamp(detailedViolation.createdAt, userDeviceSettings.timeFormat)}
 							</p>
 							<p>
-								<span class="font-medium">{m.ai_judge_col_user()}</span>:
+								<span class="font-medium">{m.core_col_user()}</span>:
 								{displayName(detailedViolation.userID)}
 							</p>
 						</div>

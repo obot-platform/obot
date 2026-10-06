@@ -161,7 +161,7 @@ export function pruneClearedProperties(schema: JSONSchema, value: unknown): unkn
 }
 
 function labelPath(path: string): string {
-	return path || m.mcps_field_value();
+	return path || m.core_col_value();
 }
 
 export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''): string[] {

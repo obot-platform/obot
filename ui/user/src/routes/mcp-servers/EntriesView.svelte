@@ -260,7 +260,7 @@
 					{ title: m.mcps_servers_col_type(), property: 'type' },
 					{ title: m.mcps_servers_info_users(), property: 'users' },
 					{ title: m.core_col_created(), property: 'created' },
-					{ title: m.mcps_servers_col_source(), property: 'source' }
+					{ title: m.core_col_source(), property: 'source' }
 				]}
 				filterable={['name', 'type', 'source']}
 				displayValue={mcpTableDisplayValue}

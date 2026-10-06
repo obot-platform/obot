@@ -458,13 +458,13 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof AuditLogURLFilters;
 
-		if (_key === 'event_type') return m.audit_usage_audit_logs_filter_source();
+		if (_key === 'event_type') return m.core_col_source();
 		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
 		if (_key === 'actor') return m.audit_usage_audit_logs_actor();
 		if (_key === 'operation') return m.audit_usage_audit_logs_operation();
 		if (_key === 'mcp_server') return m.audit_usage_audit_logs_filter_identifier_mcp_server();
 		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
-		if (_key === 'mcp_server_display_name') return m.audit_usage_audit_logs_filter_server();
+		if (_key === 'mcp_server_display_name') return m.core_col_server();
 		if (_key === 'tool') return m.audit_usage_audit_logs_filter_identifier_tool();
 		if (_key === 'outcome') return m.core_status();
 		if (_key === 'client') return m.audit_usage_audit_logs_client();

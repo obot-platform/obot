@@ -116,7 +116,7 @@ export function convertSubjectsToTableData(
 					return {
 						id: subject.id,
 						displayName: getUserDisplayName(userMap, subject.id),
-						type: m.identity_access_users_role_user()
+						type: m.core_col_user()
 					};
 				}
 
@@ -126,7 +126,7 @@ export function convertSubjectsToTableData(
 					return {
 						id: subject.id,
 						displayName: group?.name ?? subject.id,
-						type: m.identity_access_users_role_group()
+						type: m.core_col_group()
 					};
 				}
 
@@ -134,7 +134,7 @@ export function convertSubjectsToTableData(
 					return {
 						id: resolveSubjectPickerById(subject),
 						displayName: obotGroupDisplayName(subject.id),
-						type: m.identity_access_users_role_group()
+						type: m.core_col_group()
 					};
 				}
 

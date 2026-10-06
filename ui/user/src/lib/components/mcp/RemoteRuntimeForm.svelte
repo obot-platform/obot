@@ -149,7 +149,7 @@
 								<div class="flex w-full flex-col gap-1">
 									{#if variant === 'catalog'}
 										<label for={`header-value-type-${i}`} class="text-sm font-light"
-											>{m.mcps_field_value()}</label
+											>{m.core_col_value()}</label
 										>
 										<Select
 											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
@@ -264,7 +264,7 @@
 										<div class="flex flex-col gap-2">
 											{#if variant === 'server'}
 												<label for={`header-description-${i}`} class="text-sm font-light"
-													>{m.mcps_field_value()}</label
+													>{m.core_col_value()}</label
 												>
 											{/if}
 											<input
@@ -400,9 +400,7 @@
 					}}
 					options={[
 						{ label: m.mcps_catalog_remote_remote_exact_url(), id: 'fixedURL' },
-						...(!disableHostnameOption
-							? [{ label: m.mcps_catalog_remote_remote_hostname(), id: 'hostname' }]
-							: []),
+						...(!disableHostnameOption ? [{ label: m.core_col_hostname()(), id: 'hostname' }] : []),
 						{ label: m.mcps_catalog_remote_remote_url_template(), id: 'urlTemplate' }
 					]}
 					selected={selectedType}
@@ -456,7 +454,7 @@
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
-						>{m.mcps_catalog_remote_remote_hostname()}</label
+						>{m.core_col_hostname()}</label
 					>
 					<input
 						class={twMerge(

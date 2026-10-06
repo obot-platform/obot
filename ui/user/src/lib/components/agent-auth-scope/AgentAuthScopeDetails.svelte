@@ -79,12 +79,12 @@
 	let lastUsedDisplay = $derived(
 		agentAuthScope?.lastUsedAt
 			? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime
-			: m.identity_access_agents_never()
+			: m.core_never_used()
 	);
 	let expiresDisplay = $derived(
 		agentAuthScope?.expiresAt
 			? formatTimeUntil(agentAuthScope.expiresAt).relativeTime
-			: m.identity_access_agents_never()
+			: m.core_never_expires()
 	);
 	let mcpServerData = $derived(
 		isAllServers

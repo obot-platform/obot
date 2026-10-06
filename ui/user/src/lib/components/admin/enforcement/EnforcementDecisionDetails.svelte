@@ -191,11 +191,11 @@
 							<span class="break-all">{server.url}</span>
 						{/if}
 						{#if server.hostname}
-							<span class="font-medium">{m.audit_usage_audit_logs_hostname()}</span>
+							<span class="font-medium">{m.core_col_hostname()}</span>
 							<span class="break-all">{server.hostname}</span>
 						{/if}
 						{#if server.package}
-							<span class="font-medium">{m.inventory_enforcement_enforcement_events_registry()}</span>
+							<span class="font-medium">{m.core_col_registry()}</span>
 							<span>{PACKAGE_SOURCE_LABELS[server.package.source] ?? server.package.source}</span>
 							<span class="font-medium">{m.inventory_enforcement_enforcement_events_package()}</span>
 							<span class="break-all">{server.package.name}</span>
@@ -220,7 +220,7 @@
 				<p class="text-base font-semibold">{m.audit_usage_audit_logs_device()}</p>
 				<div class="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-1 text-sm font-light">
 					{#if deviceName && deviceName !== decision.deviceID}
-						<span class="font-medium">{m.audit_usage_audit_logs_hostname()}</span>
+						<span class="font-medium">{m.core_col_hostname()}</span>
 						<span class="break-all">{deviceName}</span>
 					{/if}
 					<span class="font-medium">{m.inventory_enforcement_enforcement_events_device_id()}</span>

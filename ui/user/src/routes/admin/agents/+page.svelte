@@ -99,7 +99,7 @@
 			headers={[
 				{ title: m.core_role_owner(), property: 'ownerDisplay' },
 				{ title: m.identity_access_agents_col_health(), property: 'deploymentStatus' },
-				{ title: m.identity_access_agents_col_update_status(), property: 'updatesAvailable' },
+				{ title: m.core_col_update_status(), property: 'updatesAvailable' },
 				{ title: m.core_col_created(), property: 'created' }
 			]}
 			sortable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable', 'created']}

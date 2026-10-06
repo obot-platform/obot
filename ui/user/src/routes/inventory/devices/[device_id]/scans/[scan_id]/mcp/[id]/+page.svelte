@@ -105,7 +105,7 @@
 						</dd>
 					{/if}
 					{#if server.url}
-						<dt class="text-muted-content">{m.inventory_enforcement_label_url()}</dt>
+						<dt class="text-muted-content">{m.core_col_url()}</dt>
 						<dd class="break-all">{server.url}</dd>
 					{/if}
 					<dt class="text-muted-content">{m.inventory_enforcement_label_env_keys()}</dt>

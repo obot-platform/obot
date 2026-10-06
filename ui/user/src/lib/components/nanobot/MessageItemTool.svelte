@@ -158,7 +158,7 @@
 								<thead>
 									<tr>
 										<th class="text-xs">{m.chat_tool_key()}</th>
-										<th class="text-xs">{m.chat_tool_value()}</th>
+										<th class="text-xs">{m.core_col_value()}</th>
 									</tr>
 								</thead>
 								<tbody>

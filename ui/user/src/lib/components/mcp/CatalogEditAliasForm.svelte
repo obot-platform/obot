@@ -68,7 +68,7 @@
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{newName || getMCPDisplayName(server, m.mcps_server_fallback_short())}
+			{newName || getMCPDisplayName(server, m.core_col_server())}
 		</div>
 	{/snippet}
 

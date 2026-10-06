@@ -24,7 +24,7 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: m.mcps_sources_cred_none() },
+		{ id: 'none', label: m.core_col_none() },
 		{ id: 'shared', label: m.mcps_sources_cred_choose_existing() },
 		{ id: 'token', label: m.mcps_sources_cred_enter_pat() }
 	];
@@ -236,7 +236,7 @@
 			<div class="mb-2 flex flex-col gap-1">
 				<div class="flex items-center justify-between gap-4">
 					<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize">
-						{m.mcps_sources_credential()}
+						{m.core_col_credential()}
 					</span>
 					{#if credentialLocked}
 						<button

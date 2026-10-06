@@ -144,7 +144,7 @@
 
 	{#if !urlTemplateVariable}
 		<div class="flex w-full flex-col gap-1" id={`${id}-value-type-container`}>
-			<Label title={m.mcps_field_value()} forInput={`env-value-type-${id}`} required />
+			<Label title={m.core_col_value()} forInput={`env-value-type-${id}`} required />
 			<Select
 				class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 				classes={{

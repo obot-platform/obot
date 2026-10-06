@@ -66,7 +66,6 @@
 	"auth_consent_wants_to_authenticate": "{client}에서 MCP 서버 연결을 위해 Obot 인증을 요청합니다. 승인하면 Obot이 이 요청을 시작한 OAuth 클라이언트로 다시 리디렉션합니다.",
 	"auth_device_code_label": "기기 코드",
 	"auth_device_complete": "인증이 완료되었습니다. 이 창을 닫고 터미널로 돌아가세요.",
-	"auth_device_connected": "연결됨",
 	"auth_device_enter_code_prefix": "터미널에서",
 	"auth_device_enter_code_suffix": "에 표시된 코드를 입력하세요.",
 	"auth_device_heading": "기기 연결",

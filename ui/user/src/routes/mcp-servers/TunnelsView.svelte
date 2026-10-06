@@ -47,7 +47,7 @@
 					connections === undefined
 						? m.core_unknown()
 						: connection
-							? m.mcps_tunnels_connected()
+							? m.core_mcp_value_connected()
 							: m.mcps_tunnels_disconnected()
 			};
 		});

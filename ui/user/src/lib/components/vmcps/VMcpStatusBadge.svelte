@@ -49,7 +49,7 @@
 {#if ctx.needsAdminConfiguration}
 	<div class={twMerge(badgeClass, 'badge-warning')} role="status">
 		<span class="status status-warning" aria-hidden="true"></span>
-		<span>{m.vmcps_configuration_required()}</span>
+		<span>{m.core_mcp_value_configuration_required()}</span>
 	</div>
 {:else if openUpdateConfirm && ctx.needsUpdate && ctx.canUpdate}
 	<button
@@ -72,12 +72,12 @@
 		}}
 	>
 		<span class="status status-warning"></span>
-		{m.vmcps_deployments_not_configured()}
+		{m.core_mcp_value_not_configured()}
 	</button>
 {:else if ctx.connected}
 	<div class={twMerge(badgeClass, 'badge-primary')} role="status">
 		<span class="status status-primary" aria-hidden="true"></span>
-		<span>{m.vmcps_connected()}</span>
+		<span>{m.core_mcp_value_connected()}</span>
 	</div>
 {:else if showEmpty}
 	<span class="text-muted-content text-xs">—</span>

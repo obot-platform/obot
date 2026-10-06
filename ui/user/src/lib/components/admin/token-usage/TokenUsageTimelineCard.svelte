@@ -224,7 +224,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.SPEND)}
 					>
-						{m.audit_usage_usage_tokens_spend()}
+						{m.core_spend()}
 					</button>
 				</div>
 			{/if}

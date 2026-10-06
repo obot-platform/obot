@@ -179,7 +179,7 @@
 {#snippet enabledToggle()}
 	<div class="border-base-300 dark:border-base-400 flex items-center gap-1 border-t pt-4 text-sm">
 		<Toggle
-			label={m.platform_enabled()}
+			label={m.core_status_enabled()}
 			labelInline
 			checked={form.enabled}
 			disabled={mutationsDisabled}

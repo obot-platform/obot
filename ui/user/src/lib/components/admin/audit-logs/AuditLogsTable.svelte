@@ -248,8 +248,8 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.audit_usage_audit_logs_col_time(), { class: 'w-[28ch]', minWidth: '24ch' })}
-						{@render th(m.audit_usage_audit_logs_filter_source(), { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th(m.core_col_time(), { class: 'w-[28ch]', minWidth: '24ch' })}
+						{@render th(m.core_col_source(), { class: 'w-[20ch]', minWidth: '18ch' })}
 						{@render th(m.audit_usage_audit_logs_actor(), { class: 'w-[26ch]', minWidth: '22ch' })}
 						{@render th(m.audit_usage_audit_logs_operation(), { class: 'w-[20ch]', minWidth: '18ch' })}
 						{@render th(m.audit_usage_audit_logs_col_identifier(), {

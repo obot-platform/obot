@@ -53,7 +53,7 @@
 			headers={[
 				{
 					property: 'url',
-					title: m.mcps_sources_col_url()
+					title: m.core_col_url()
 				}
 			]}
 			noDataMessage={m.mcps_sources_no_git_source_urls_added()}

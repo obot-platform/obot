@@ -189,16 +189,16 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.audit_usage_audit_logs_model_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.core_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th(m.audit_usage_audit_logs_actor(), { class: 'w-[28ch]', minWidth: '24ch' })}
-						{@render th(m.audit_usage_exports_provider_label(), {
+						{@render th(m.core_col_provider(), {
 							class: 'w-[18ch]',
 							minWidth: '18ch'
 						})}
 						{@render th(m.audit_usage_audit_logs_model(), { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th(m.core_status(), { class: 'w-[16ch]', minWidth: '16ch' })}
-						{@render th(m.audit_usage_usage_input(), { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th(m.audit_usage_usage_output(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.core_col_input(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.core_col_output(), { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th(m.audit_usage_audit_logs_user_agent(), { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th(m.audit_usage_audit_logs_model_col_session(), { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th(m.audit_usage_audit_logs_duration_ms(), { class: 'w-[22ch]', minWidth: '18ch' })}

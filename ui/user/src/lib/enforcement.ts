@@ -62,7 +62,7 @@ export type AllowlistServerKind = 'url' | 'package' | 'hostname' | 'connector';
 
 export const ALLOWLIST_SERVER_KIND_LABELS: Record<AllowlistServerKind, string> = {
 	connector: m.inventory_enforcement_enforcement_events_connector(),
-	hostname: m.inventory_enforcement_allowlist_hostname(),
+	hostname: m.core_col_hostname(),
 	package: m.inventory_enforcement_enforcement_events_package(),
 	url: 'URL'
 };

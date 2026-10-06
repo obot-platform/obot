@@ -62,7 +62,7 @@
 					onchange={() => (selectedConsent = true)}
 				/>
 				<span>
-					<span class="block text-sm font-medium">{m.platform_enabled()}</span>
+					<span class="block text-sm font-medium">{m.core_status_enabled()}</span>
 					<span class="block text-xs font-light text-muted-content">
 						{m.platform_settings_product_analytics_enabled_description()}
 					</span>
@@ -78,7 +78,7 @@
 					onchange={() => (selectedConsent = false)}
 				/>
 				<span>
-					<span class="block text-sm font-medium">{m.platform_disabled()}</span>
+					<span class="block text-sm font-medium">{m.core_status_disabled()}</span>
 					<span class="block text-xs font-light text-muted-content">
 						{m.platform_settings_product_analytics_disabled_description()}
 					</span>

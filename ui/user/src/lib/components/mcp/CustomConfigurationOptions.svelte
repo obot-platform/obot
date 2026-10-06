@@ -88,7 +88,7 @@
 					</div>
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-value-container-${i}`}>
 						<Label
-							title={m.mcps_field_value()}
+							title={m.core_col_value()}
 							forInput={`env-option-value-${id}-${i}`}
 							required
 							showError={missingOptionValue || duplicateOptionValue}

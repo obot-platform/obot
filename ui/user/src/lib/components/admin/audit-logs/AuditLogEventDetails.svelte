@@ -106,7 +106,7 @@
 									m.audit_usage_audit_logs_git_remotes(),
 									details.environment.gitRemotes?.join(', ')
 								)}
-								{@render field(m.audit_usage_audit_logs_hostname(), details.device?.hostname)}
+								{@render field(m.core_col_hostname(), details.device?.hostname)}
 								{@render field(m.audit_usage_audit_logs_local_username(), details.device?.localUsername)}
 								{@render field(
 									m.audit_usage_audit_logs_reported_email(),
@@ -143,7 +143,7 @@
 						auditLog.user || auditLog.actor.id || m.core_unknown()
 					)}
 					{@render field(m.audit_usage_audit_logs_actor_type(), auditLog.actor.actorType)}
-					{@render field(m.audit_usage_audit_logs_credential(), auditLog.actor.credentialID)}
+					{@render field(m.core_col_credential(), auditLog.actor.credentialID)}
 					{@render field(m.audit_usage_audit_logs_action(), auditLog.action.name)}
 					{@render field(m.audit_usage_audit_logs_action_kind(), auditLog.action.kind)}
 					{@render field(m.audit_usage_audit_logs_target(), auditLog.target.name || auditLog.target.id)}

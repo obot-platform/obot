@@ -123,7 +123,7 @@
 					</div>
 				{:else if kind === 'hostname'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.audit_usage_audit_logs_hostname()}</span>
+						<span class="font-medium">{m.core_col_hostname()}</span>
 						<span class="break-all">{entry.hostname}</span>
 					</div>
 				{:else if kind === 'connector'}
@@ -133,7 +133,7 @@
 					</div>
 				{:else if kind === 'package'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.inventory_enforcement_enforcement_events_registry()}</span>
+						<span class="font-medium">{m.core_col_registry()}</span>
 						<span>{PACKAGE_SOURCE_LABELS[entry.package!.source]}</span>
 					</div>
 					<div class="grid grid-cols-[7rem_1fr] gap-2">

@@ -66,7 +66,6 @@
 	"auth_consent_wants_to_authenticate": "{client} が MCP サーバー接続のために Obot での認証を求めています。承認すると、Obot はこのリクエストを開始した OAuth クライアントにリダイレクトします。",
 	"auth_device_code_label": "デバイスコード",
 	"auth_device_complete": "認証が完了しました。このウィンドウを閉じてターミナルに戻ってください。",
-	"auth_device_connected": "接続済み",
 	"auth_device_enter_code_prefix": "ターミナルで",
 	"auth_device_enter_code_suffix": "に表示されたコードを入力してください。",
 	"auth_device_heading": "デバイスを接続",

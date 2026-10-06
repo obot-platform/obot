@@ -137,8 +137,8 @@
 			return m.chat_subject_everyone();
 		}
 		return subject.type === 'group' || subject.type === 'obotGroup'
-			? m.chat_subject_group()
-			: m.chat_subject_user();
+			? m.core_col_group()
+			: m.core_col_user();
 	}
 </script>
 

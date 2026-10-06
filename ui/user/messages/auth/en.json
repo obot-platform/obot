@@ -66,7 +66,6 @@
 	"auth_consent_wants_to_authenticate": "{client} wants to authenticate with Obot for an MCP server connection. If you approve, Obot will redirect you back to the OAuth client that started this request.",
 	"auth_device_code_label": "Device code",
 	"auth_device_complete": "Authentication is complete. You can close this window and return to your terminal.",
-	"auth_device_connected": "Connected",
 	"auth_device_enter_code_prefix": "Enter the code shown by",
 	"auth_device_enter_code_suffix": "in your terminal.",
 	"auth_device_heading": "Connect your device",

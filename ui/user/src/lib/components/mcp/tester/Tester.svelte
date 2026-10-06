@@ -70,7 +70,7 @@
 	let activeSection = $derived(normalizeTesterSection(page.url.searchParams.get('tab')));
 	let statusLabel = $derived(
 		server?.deploymentStatus ||
-			(server?.configured ? m.mcps_tester_status_configured() : m.mcps_tester_status_setup_required())
+			(server?.configured ? m.core_status_configured() : m.mcps_tester_status_setup_required())
 	);
 
 	const sections: Array<{ id: TesterSection; label: string }> = [

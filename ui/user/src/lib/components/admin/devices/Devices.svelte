@@ -180,7 +180,7 @@
 		headers={[
 			{ title: m.audit_usage_audit_logs_device(), property: 'short_device_id' },
 			{ title: m.inventory_enforcement_devices_col_os_arch(), property: 'os_arch' },
-			{ title: m.audit_usage_audit_logs_model_filter_user(), property: 'username' },
+			{ title: m.core_col_user(), property: 'username' },
 			{ title: 'MCP', property: 'mcp_count' },
 			{ title: m.inventory_enforcement_skills_tab(), property: 'skill_count' },
 			{ title: m.inventory_enforcement_devices_col_plugins(), property: 'plugin_count' },

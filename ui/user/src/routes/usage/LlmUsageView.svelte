@@ -706,16 +706,16 @@
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
 					{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.audit_usage_usage_input(), totalTokensData?.inputTokens ?? 0)}
+					{@render summary(m.core_col_input(), totalTokensData?.inputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.audit_usage_usage_output(), totalTokensData?.outputTokens ?? 0)}
+					{@render summary(m.core_col_output(), totalTokensData?.outputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
 					{@render summary(
 						m.audit_usage_usage_cached_input(),
 						(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
 					)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render spendSummary(m.audit_usage_usage_spend(), totalTokensData?.totalSpend)}
+					{@render spendSummary(m.core_spend(), totalTokensData?.totalSpend)}
 				</div>
 			</div>
 		</div>
@@ -888,7 +888,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.SPEND)}
 						>
-							{m.audit_usage_usage_spend()}
+							{m.core_spend()}
 						</button>
 					</div>
 					{#if !responsive.isMobile}

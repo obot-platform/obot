@@ -112,7 +112,7 @@
 		...mcpCatalogServers.map((server) => ({
 			id: server.id,
 			name: server.manifest?.name || server.alias || server.id,
-			detail: m.hosted_agents_templates_server()
+			detail: m.core_col_server()
 		}))
 	]);
 
@@ -549,7 +549,7 @@
 						type="number"
 						min="0"
 						max="65535"
-						placeholder={m.hosted_agents_templates_none()}
+						placeholder={m.core_col_none()}
 						value={agent.port ?? ''}
 						oninput={(e) =>
 							(agent.port =

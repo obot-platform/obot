@@ -116,7 +116,7 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-value-{i}" class="text-sm font-light">{m.hosted_agents_templates_environment_value()}</label>
+							<label for="env-value-{i}" class="text-sm font-light">{m.core_col_value()}</label>
 							<input
 								id="env-value-{i}"
 								bind:value={item.value}

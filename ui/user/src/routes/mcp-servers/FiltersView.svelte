@@ -174,8 +174,8 @@
 							? 'text-muted-content font-light italic text-xs'
 							: 'pill-primary bg-primary'}
 						>{d.status === 'Disabled'
-							? m.mcps_filters_status_disabled()
-							: m.mcps_filters_status_enabled()}</span
+							? m.core_status_disabled()
+							: m.core_status_enabled()}</span
 					>
 				{:else}
 					-

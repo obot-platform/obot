@@ -228,7 +228,7 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.audit_usage_audit_logs_model_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.core_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th(m.inventory_enforcement_enforcement_events_result(), { class: 'w-[22ch]', minWidth: '22ch' })}
 						{@render th(m.audit_usage_audit_logs_agent(), { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th(m.inventory_enforcement_enforcement_events_tool_type(), { class: 'w-[14ch]', minWidth: '14ch' })}

@@ -235,11 +235,11 @@
 								<p class="text-muted-content font-light">
 									{item.effectiveRole
 										? getUserRoleLabel(item.effectiveRole)
-										: m.identity_access_users_role_user()}
+										: m.core_col_user()}
 								</p>
 							{:else}
 								<p>{item.name}</p>
-								<p class="text-muted-content font-light">{m.identity_access_users_role_group()}</p>
+								<p class="text-muted-content font-light">{m.core_col_group()}</p>
 							{/if}
 						</div>
 						<div class="flex items-center justify-center">

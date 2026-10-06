@@ -585,7 +585,7 @@
 					data={tableData}
 					fields={['time', 'eventType', 'message']}
 					headers={[
-						{ title: m.mcps_servers_col_time(), property: 'time' },
+						{ title: m.core_col_time(), property: 'time' },
 						{ title: m.mcps_servers_col_event_type(), property: 'eventType' },
 						{ title: m.mcps_tester_message(), property: 'message' }
 					]}
@@ -629,7 +629,7 @@
 			: missingSecretBindings.length > 0
 				? m.mcps_servers_missing_k8s_secret_component()
 				: needsUpdate
-					? m.mcps_servers_status_config_required()
+					? m.core_mcp_value_configuration_required()
 					: undefined}
 		<div class="flex flex-col gap-2">
 			<div

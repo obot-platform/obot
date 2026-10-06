@@ -9,8 +9,6 @@
 	"ai_judge_blocked_content": "Blocked Content",
 	"ai_judge_blocked_content_auditors_only": "Blocked content is only visible to auditors.",
 	"ai_judge_col_policy": "Policy",
-	"ai_judge_col_timestamp": "Timestamp",
-	"ai_judge_col_user": "User",
 	"ai_judge_definition": "Definition",
 	"ai_judge_definition_placeholder": "Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'",
 	"ai_judge_definition_tooltip": "A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.",

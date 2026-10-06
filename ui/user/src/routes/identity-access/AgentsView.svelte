@@ -48,10 +48,10 @@
 				createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 				lastUsedAtDisplay: key.lastUsedAt
 					? formatTimeAgo(key.lastUsedAt).relativeTime
-					: m.identity_access_never_used(),
+					: m.core_never_used(),
 				expiresAtDisplay: key.expiresAt
 					? formatTimeUntil(key.expiresAt).relativeTime
-					: m.identity_access_never_expires(),
+					: m.core_never_expires(),
 				mcpServerIds: key.mcpServerIds ?? []
 			}))
 			.filter((key) => (isAdmin ? true : key.userId.toString() === profile.current.id.toString()))

@@ -297,7 +297,7 @@
 				></span>
 				<span class="status-label">
 					{#if connected}
-						{m.chat_browser_connected()}
+						{m.core_mcp_value_connected()}
 					{:else if error}
 						{m.chat_browser_connection_issue()}
 					{:else if connecting}

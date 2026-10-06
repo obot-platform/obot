@@ -498,13 +498,13 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as SupportedStateFilter;
 
-		if (_key === 'mcp_server_display_names') return m.audit_usage_audit_logs_filter_server();
+		if (_key === 'mcp_server_display_names') return m.core_col_server();
 		if (_key === 'mcp_server_catalog_entry_names')
 			return m.audit_usage_usage_filter_catalog_entry_name();
 		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
 		if (_key === 'start_time') return m.audit_usage_audit_logs_filter_start_time();
 		if (_key === 'end_time') return m.audit_usage_audit_logs_filter_end_time();
-		if (_key === 'user_ids') return m.audit_usage_audit_logs_model_filter_user();
+		if (_key === 'user_ids') return m.core_col_user();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}

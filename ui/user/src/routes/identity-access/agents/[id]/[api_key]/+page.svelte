@@ -214,16 +214,16 @@
 			<div class="paper flex flex-col flex-wrap items-stretch gap-4 p-4 md:flex-row">
 				{@render summary(m.core_total_label(), totalTokensData.totalTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary(m.identity_access_tokens_input(), totalTokensData.inputTokens ?? 0)}
+				{@render summary(m.core_col_input(), totalTokensData.inputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary(m.identity_access_tokens_output(), totalTokensData.outputTokens ?? 0)}
+				{@render summary(m.core_col_output(), totalTokensData.outputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
 				{@render summary(
 					m.identity_access_tokens_cached_input(),
 					(totalTokensData.cacheReadTokens ?? 0) + (totalTokensData.cacheWriteTokens ?? 0)
 				)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render spendSummary(m.identity_access_tokens_spend(), totalTokensData.totalSpend)}
+				{@render spendSummary(m.core_spend(), totalTokensData.totalSpend)}
 			</div>
 			<TokenUsageTimelineCard
 				{startDate}

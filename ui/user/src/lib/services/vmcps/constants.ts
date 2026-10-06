@@ -113,7 +113,7 @@ export const VMCP_SORT_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
 
 export const VMCP_STATUS_FILTER_OPTIONS: Array<{ id: VMcpStatusFilter; label: string }> = [
 	{ id: 'needs-update', label: m.vmcps_status_needs_update() },
-	{ id: 'not-configured', label: m.vmcps_deployments_not_configured() },
-	{ id: 'connected', label: m.vmcps_connected() },
+	{ id: 'not-configured', label: m.core_mcp_value_not_configured() },
+	{ id: 'connected', label: m.core_mcp_value_connected() },
 	{ id: 'not-connected', label: m.vmcps_status_not_connected() }
 ];

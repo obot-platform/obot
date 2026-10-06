@@ -9,8 +9,6 @@
 	"ai_judge_blocked_content": "ブロックされたコンテンツ",
 	"ai_judge_blocked_content_auditors_only": "ブロックされたコンテンツは監査担当者のみが表示できます。",
 	"ai_judge_col_policy": "ポリシー",
-	"ai_judge_col_timestamp": "タイムスタンプ",
-	"ai_judge_col_user": "ユーザー",
 	"ai_judge_definition": "定義",
 	"ai_judge_definition_placeholder": "自然言語によるポリシーの定義（例：「エコノミークラスより上のクラスの旅行をユーザーに予約させない」）",
 	"ai_judge_definition_tooltip": "許可すべきこと、または許可すべきでないことを記述する自然言語のルールです。一貫して適用されるよう、できるだけ具体的かつ明確に記述してください。",

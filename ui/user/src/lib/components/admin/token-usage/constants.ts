@@ -69,8 +69,8 @@ export const GRAPH_METRIC = {
 export type GraphMetric = (typeof GRAPH_METRIC)[keyof typeof GRAPH_METRIC];
 
 export const USAGE_BUCKET_LABEL = {
-	INPUT: m.audit_usage_usage_input(),
-	OUTPUT: m.audit_usage_usage_output()
+	INPUT: m.core_col_input(),
+	OUTPUT: m.core_col_output()
 } as const;
 
 export const TOKEN_USAGE_CATEGORY = {
@@ -88,7 +88,7 @@ export const CHART_LABEL = {
 export const TOKEN_TYPE_OPTIONS: { label: string; id: TokenType }[] = [
 	{ label: m.audit_usage_usage_tokens_input_tokens(), id: TOKEN_TYPE.INPUT },
 	{ label: m.audit_usage_usage_tokens_output_tokens(), id: TOKEN_TYPE.OUTPUT },
-	{ label: m.audit_usage_usage_tokens_spend(), id: TOKEN_TYPE.SPEND }
+	{ label: m.core_spend(), id: TOKEN_TYPE.SPEND }
 ];
 
 export const TOKEN_GROUP_BY_OPTIONS: {

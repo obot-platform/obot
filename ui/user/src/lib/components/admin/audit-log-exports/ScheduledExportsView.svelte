@@ -212,7 +212,7 @@
 				{ title: m.core_name(), property: 'displayName' },
 				{ title: m.audit_usage_exports_col_schedule(), property: 'scheduleDisplay' },
 				{ title: m.audit_usage_exports_col_last_run(), property: 'lastRunAt' },
-				{ title: m.audit_usage_exports_col_enabled(), property: 'enabled' }
+				{ title: m.core_status_enabled(), property: 'enabled' }
 			]}
 			sortable={['displayName', 'scheduleDisplay', 'lastRun']}
 			noDataMessage={m.audit_usage_export_schedules_none_found()}

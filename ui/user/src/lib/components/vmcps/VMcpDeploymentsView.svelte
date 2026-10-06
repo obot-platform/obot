@@ -92,8 +92,8 @@
 					userName: getUserDisplayName(usersMap, instance.userID),
 					vmcp,
 					updateStatus: vmcpInstanceNeedsUserConfiguration(instance)
-						? m.vmcps_deployments_not_configured()
-						: m.vmcps_deployments_configured()
+						? m.core_mcp_value_not_configured()
+						: m.core_status_configured()
 				};
 			});
 
@@ -192,8 +192,8 @@
 				fields={['displayName', 'userName', 'updateStatus', 'created']}
 				headers={[
 					{ title: m.core_name(), property: 'displayName' },
-					{ title: m.vmcps_deployments_user(), property: 'userName' },
-					{ title: m.vmcps_deployments_update_status(), property: 'updateStatus' },
+					{ title: m.core_col_user(), property: 'userName' },
+					{ title: m.core_col_update_status(), property: 'updateStatus' },
 					{ title: m.core_col_created(), property: 'created' }
 				]}
 				filterable={['displayName', 'userName']}

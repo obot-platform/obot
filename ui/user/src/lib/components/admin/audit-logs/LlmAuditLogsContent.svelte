@@ -278,7 +278,7 @@
 		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
 		if (_key === 'request_path') return m.audit_usage_audit_logs_model_filter_path();
 		if (_key === 'response_status') return m.core_status();
-		if (_key === 'user_id') return m.audit_usage_audit_logs_model_filter_user();
+		if (_key === 'user_id') return m.core_col_user();
 		if (_key === 'user_agent') return m.audit_usage_audit_logs_user_agent();
 		if (_key === 'client_session_id') return m.audit_usage_audit_logs_model_filter_client_session_id();
 		if (_key === 'hide_models_requests') return m.audit_usage_audit_logs_model_filter_model_discovery();

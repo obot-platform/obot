@@ -9,8 +9,6 @@
 	"ai_judge_blocked_content": "被阻止的内容",
 	"ai_judge_blocked_content_auditors_only": "被阻止的内容仅对审计员可见。",
 	"ai_judge_col_policy": "策略",
-	"ai_judge_col_timestamp": "时间戳",
-	"ai_judge_col_user": "用户",
 	"ai_judge_definition": "定义",
 	"ai_judge_definition_placeholder": "自然语言策略定义，例如：“不允许用户预订经济舱以上的行程”",
 	"ai_judge_definition_tooltip": "用自然语言描述应允许或不应允许的内容的规则。请尽可能具体、清晰，以确保策略执行的一致性。",

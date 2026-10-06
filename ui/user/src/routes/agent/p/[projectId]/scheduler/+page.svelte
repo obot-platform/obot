@@ -318,7 +318,7 @@
 							<span
 								class={`badge badge-sm ${taskMeta(task)?.enabled ? 'badge-success badge-soft' : 'badge-neutral badge-soft'}`}
 							>
-								{taskMeta(task)?.enabled ? m.chat_enabled() : m.chat_status_disabled()}
+								{taskMeta(task)?.enabled ? m.core_status_enabled() : m.core_status_disabled()}
 							</span>
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>

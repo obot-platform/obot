@@ -82,7 +82,7 @@
 				<div class="bg-success/10 flex size-12 items-center justify-center rounded-full">
 					<CircleCheck class="text-success size-7" />
 				</div>
-				<h1 class="text-xl font-semibold">{m.auth_device_connected()}</h1>
+				<h1 class="text-xl font-semibold">{m.core_mcp_value_connected()}</h1>
 				<p class="text-muted-content text-sm font-light">
 					{m.auth_device_complete()}
 				</p>

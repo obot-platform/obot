@@ -151,7 +151,7 @@
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
 							<label for="q-default-{i}" class="text-sm font-light"
-								>{m.hosted_agents_templates_questions_default()}</label
+								>{m.core_default()}</label
 							>
 							{#if question.type === 'select'}
 								<select

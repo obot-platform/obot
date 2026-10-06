@@ -356,7 +356,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	}
 ];
 export const PII_FILTER_OPTION_VALUES = [
-	{ id: 'none', label: m.mcps_sources_cred_none() },
+	{ id: 'none', label: m.core_col_none() },
 	{ id: 'block', label: m.mcps_filters_personal_data_option_block() },
 	{ id: 'redact', label: m.mcps_filters_personal_data_option_redact() }
 ];

@@ -140,13 +140,13 @@
 				{/if}
 			{:else if provider.configured}
 				<CircleCheck class="size-4 text-success" />
-				{m.models_providers_configured()}
+				{m.core_status_configured()}
 			{:else if staged}
 				<TriangleAlert class="size-4 text-warning" />
 				{m.models_providers_staged()}
 			{:else}
 				<CircleSlash class="size-4 text-error" />
-				{m.models_providers_not_configured_title()}
+				{m.core_mcp_value_not_configured()}
 			{/if}
 		</span>
 	</div>

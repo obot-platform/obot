@@ -65,7 +65,7 @@
 			fields={['displayName', 'detail', 'id']}
 			headers={[
 				{ title: m.core_name(), property: 'displayName' },
-				{ title: m.platform_settings_image_pull_secrets_col_registry(), property: 'detail' },
+				{ title: m.core_col_registry(), property: 'detail' },
 				{ title: m.platform_settings_image_pull_secrets_col_secret(), property: 'id' }
 			]}
 			sortable={['displayName', 'detail', 'id']}

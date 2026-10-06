@@ -66,7 +66,6 @@
 	"auth_consent_wants_to_authenticate": "{client} 请求通过 Obot 进行身份验证以建立 MCP 服务器连接。如果您批准，Obot 会将您重定向回发起此请求的 OAuth 客户端。",
 	"auth_device_code_label": "设备代码",
 	"auth_device_complete": "身份验证已完成。您可以关闭此窗口并返回终端。",
-	"auth_device_connected": "已连接",
 	"auth_device_enter_code_prefix": "请输入终端中",
 	"auth_device_enter_code_suffix": "显示的代码。",
 	"auth_device_heading": "连接您的设备",

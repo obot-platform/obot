@@ -43,7 +43,7 @@
 	const STATUS_LABEL: Record<TesterStatus, string> = {
 		idle: m.mcps_tester_log_status_idle(),
 		initializing: m.mcps_tester_log_status_initializing(),
-		ready: m.mcps_tunnels_connected(),
+		ready: m.core_mcp_value_connected(),
 		'access-denied': m.mcps_tester_access_denied(),
 		unhealthy: m.mcps_tester_server_unavailable(),
 		'reauthentication-required': m.mcps_tester_reauth_required(),

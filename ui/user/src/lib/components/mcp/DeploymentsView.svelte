@@ -648,10 +648,10 @@
 				headers={[
 					{ title: m.core_name(), property: 'displayName' },
 					{ title: m.core_type(), property: 'type' },
-					{ title: m.mcps_deployments_column_user(), property: 'userName' },
+					{ title: m.core_col_user(), property: 'userName' },
 					{ title: m.mcps_deployments_column_health(), property: 'deploymentStatus' },
-					{ title: m.mcps_deployments_column_update_status(), property: 'updatesAvailable' },
-					{ title: m.mcps_deployments_column_registry(), property: 'registry' },
+					{ title: m.core_col_update_status(), property: 'updatesAvailable' },
+					{ title: m.core_col_registry(), property: 'registry' },
 					{ title: m.core_col_created(), property: 'created' }
 				]}
 				onClickRow={(d, isCtrlClick) => {

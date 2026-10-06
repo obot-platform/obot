@@ -157,7 +157,7 @@
 				{ title: m.core_name(), property: 'name' },
 				{ title: m.core_status(), property: 'state' },
 				{ title: m.audit_usage_exports_col_storage(), property: 'storageProvider' },
-				{ title: m.audit_usage_exports_col_size(), property: 'sizeDisplay' },
+				{ title: m.core_col_size(), property: 'sizeDisplay' },
 				{ title: m.core_col_created(), property: 'created' }
 			]}
 			sortable={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}

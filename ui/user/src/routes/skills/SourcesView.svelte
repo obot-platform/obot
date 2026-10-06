@@ -78,7 +78,7 @@
 				},
 				{
 					property: 'repoURL',
-					title: m.skills_col_url()
+					title: m.core_col_url()
 				}
 			]}
 			noDataMessage={m.skills_no_source_urls_added()}

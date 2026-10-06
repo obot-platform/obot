@@ -285,7 +285,7 @@
 				<thead>
 					<tr>
 						<th>{m.core_name()}</th>
-						<th>{m.chat_col_size()}</th>
+						<th>{m.core_col_size()}</th>
 						<th>{m.chat_col_last_modified()}</th>
 						<th>{m.chat_col_location()}</th>
 					</tr>

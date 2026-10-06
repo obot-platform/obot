@@ -32,7 +32,7 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: m.skills_cred_none() },
+		{ id: 'none', label: m.core_col_none() },
 		{ id: 'shared', label: m.skills_cred_shared() },
 		{ id: 'token', label: m.skills_cred_token() }
 	];
@@ -511,7 +511,7 @@
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center justify-between gap-4">
 							<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize">
-								{m.skills_field_credential()}
+								{m.core_col_credential()}
 							</span>
 							{#if credentialLocked}
 								<div class="flex justify-end">
