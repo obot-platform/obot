@@ -1,3 +1,4 @@
+import { getLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 import type {
 	MCPCatalogEntry,
 	MCPConfig,
@@ -304,5 +305,18 @@ describe('MCP table value labels', () => {
 		);
 		// A server that happens to be named like a status keeps its name.
 		expect(mcpTableDisplayValue('displayName', 'Remote')).toBe('Remote');
+	});
+
+	it('translates registry and status values in another locale and leaves a server name unchanged', () => {
+		const restoreLocale = getLocale;
+		overwriteGetLocale(() => 'ja');
+		try {
+			expect(mcpTableDisplayValue('registry', 'Global Registry')).toBe('グローバルレジストリ');
+			expect(mcpTableDisplayValue('registry', "Jane's Registry")).toBe('Jane のレジストリ');
+			expect(mcpTableDisplayValue('status', ['Not Configured', 'Up to date'])).toBe('未設定, 最新');
+			expect(mcpTableDisplayValue('displayName', 'Remote')).toBe('Remote');
+		} finally {
+			overwriteGetLocale(restoreLocale);
+		}
 	});
 });
