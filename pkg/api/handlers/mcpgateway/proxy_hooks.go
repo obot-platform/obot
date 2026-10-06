@@ -98,6 +98,10 @@ type hookSSELine struct {
 }
 
 func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore) (*hookProcessor, error) {
+	if !audit.enabled() {
+		audit = nil
+	}
+
 	processor := &hookProcessor{
 		ctx:       req.Context(),
 		runner:    runner,
@@ -149,8 +153,10 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 	}
 
 	filtered, err := processor.filterRequest(body, message, hookOriginClient)
-	filtered.hooks.captureBody(body)
-	processor.audit.recordRequestHooks(filtered.hooks)
+	if processor.audit.enabled() {
+		filtered.hooks.captureBody(body)
+		processor.audit.recordRequestHooks(filtered.hooks)
+	}
 	if filtered.hooks.err != nil {
 		processor.requestError = fmt.Errorf("failed to call request hooks: %w", filtered.hooks.err)
 		processor.requestResponse = filtered.body
@@ -327,7 +333,9 @@ func (h *hookProcessor) filterResponseMessage(body []byte, origin hookOrigin) []
 	hookMessage.Method = request.message.Method
 	hookMessage.HookMutations = cloneMCPHookMutations(request.mutations)
 	result := h.run(hookMessage, request.message.Method, request.name, "response", request.mutations)
-	result.captureBody(body)
+	if h.audit.enabled() {
+		result.captureBody(body)
+	}
 
 	if result.err != nil {
 		hookErr := result.err
@@ -372,7 +380,9 @@ func (h *hookProcessor) filterResponseMessage(body []byte, origin hookOrigin) []
 
 func (h *hookProcessor) filterRequestMessage(body []byte, wireMessage mcp.Message) []byte {
 	filtered, err := h.filterRequest(body, wireMessage, hookOriginServer)
-	filtered.hooks.captureBody(body)
+	if h.audit.enabled() {
+		filtered.hooks.captureBody(body)
+	}
 	auditID := mcp.MessageIDString(wireMessage.ID)
 
 	if filtered.hooks.err != nil {

@@ -31,6 +31,10 @@ type chunkReadCloser struct {
 	chunks []string
 }
 
+func (*recordingProxyAuditCollector) MCPAuditLogEnabled() bool {
+	return true
+}
+
 func (c *recordingProxyAuditCollector) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	c.CollectMCPProxyAuditEntry(entry, false, "")
 }

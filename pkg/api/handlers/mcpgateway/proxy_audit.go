@@ -33,6 +33,7 @@ const (
 )
 
 type proxyAuditCollector interface {
+	MCPAuditLogEnabled() bool
 	auditlogs.Collector
 	CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string)
 }
@@ -41,8 +42,9 @@ type proxyAuditCollector interface {
 // awaits a correlated JSON-RPC response.
 type proxyMessageKind int
 
-// proxyAudit only retains state for one proxied HTTP exchange. Protocol
-// requests and responses are emitted as separate audit entries; the database
+// proxyAudit retains protocol session state for one proxied HTTP exchange even
+// when audit collection is disabled. A nil collector disables audit-only capture.
+// Protocol requests and responses are emitted as separate audit entries; the database
 // persistence layer correlates same-exchange entries by proxyExchangeID and
 // uses protocol session metadata only for legacy cross-request responses.
 type proxyAudit struct {
@@ -88,12 +90,24 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 		return nil, nil
 	}
 
-	entry := buildMCPProxyAuditEntry(req, metadata)
+	enabled := collector.MCPAuditLogEnabled()
+	entry := auditlogs.MCPAuditLog{
+		Metadata:  metadata,
+		SessionID: mcpSessionID(req.Header, req.URL),
+	}
+	if enabled {
+		entry = buildMCPProxyAuditEntry(req, metadata)
+	}
+
 	kind := proxyMessageUnknown
 	if req.Method == http.MethodDelete {
-		entry.RequestBody = json.RawMessage(mcpSessionDeleteRequest)
+		if enabled {
+			entry.RequestBody = json.RawMessage(mcpSessionDeleteRequest)
+		}
 		kind = proxyMessageNotification
 	} else if req.Body != nil {
+		// Session initialization and client identity still need bounded request
+		// parsing when auditing is disabled. Do not retain a separate audit copy.
 		body, err := io.ReadAll(io.LimitReader(req.Body, maxMCPProxyHookBodySize+1))
 		if err != nil {
 			_ = req.Body.Close()
@@ -108,24 +122,29 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 		}
 
 		req.Body = io.NopCloser(bytes.NewReader(body))
-		entry.RequestBody = jsonBody(body)
+		if enabled {
+			entry.RequestBody = jsonBody(body)
+		}
 		kind = populateMCPMessageFields(&entry, body)
 	}
 
 	audit := &proxyAudit{
-		collector:              collector,
-		storage:                storageClient,
-		ctx:                    req.Context(),
-		entry:                  entry,
-		method:                 req.Method,
-		kind:                   kind,
-		initialize:             entry.CallType == "initialize",
-		responseHooksByID:      make(map[string]hookResult),
-		streamRequestHooksByID: make(map[string]hookResult),
+		storage:    storageClient,
+		ctx:        req.Context(),
+		entry:      entry,
+		method:     req.Method,
+		kind:       kind,
+		initialize: entry.CallType == "initialize",
 	}
-	if kind == proxyMessageRequest {
-		audit.proxyExchangeID = rand.Text()
+	if enabled {
+		audit.collector = collector
+		audit.responseHooksByID = make(map[string]hookResult)
+		audit.streamRequestHooksByID = make(map[string]hookResult)
+		if kind == proxyMessageRequest {
+			audit.proxyExchangeID = rand.Text()
+		}
 	}
+
 	virtualSession, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
 	if err != nil {
 		slog.ErrorContext(req.Context(), "failed to load MCP client session for audit logging", "error", err)
@@ -139,8 +158,12 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	return audit, nil
 }
 
+func (a *proxyAudit) enabled() bool {
+	return a != nil && a.collector != nil
+}
+
 func (a *proxyAudit) recordRequestHooks(result hookResult) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 	a.entry.WebhookStatuses = append(a.entry.WebhookStatuses, auditHookStatuses(result.statuses)...)
@@ -150,14 +173,14 @@ func (a *proxyAudit) recordRequestHooks(result hookResult) {
 }
 
 func (a *proxyAudit) recordResponseHooks(requestID string, result hookResult) {
-	if a == nil || requestID == "" {
+	if !a.enabled() || requestID == "" {
 		return
 	}
 	a.responseHooksByID[requestID] = result
 }
 
 func (a *proxyAudit) recordStreamRequestHooks(requestID string, result hookResult) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 	if requestID == "" {
@@ -168,7 +191,7 @@ func (a *proxyAudit) recordStreamRequestHooks(requestID string, result hookResul
 }
 
 func (a *proxyAudit) takeStreamRequestHooks(requestID string) (hookResult, bool) {
-	if a == nil {
+	if !a.enabled() {
 		return hookResult{}, false
 	}
 	if requestID == "" {
@@ -185,7 +208,7 @@ func (a *proxyAudit) takeStreamRequestHooks(requestID string) (hookResult, bool)
 }
 
 func (a *proxyAudit) applyResponseHooks(entry *auditlogs.MCPAuditLog, requestID string) {
-	if a == nil || requestID == "" {
+	if !a.enabled() || requestID == "" {
 		return
 	}
 	result, ok := a.responseHooksByID[requestID]
@@ -214,7 +237,7 @@ func auditHookStatuses(statuses []hookStatus) []auditlogs.MCPWebhookStatus {
 }
 
 func (a *proxyAudit) recordBlockedRequest(body []byte, err error) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 	if a.kind == proxyMessageNotification {
@@ -314,7 +337,7 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 	if a == nil {
 		return nil
 	}
-	if resp.Body != nil && strings.EqualFold(strings.TrimSpace(resp.Header.Get("Content-Encoding")), "gzip") {
+	if a.enabled() && resp.Body != nil && strings.EqualFold(strings.TrimSpace(resp.Header.Get("Content-Encoding")), "gzip") {
 		body, _, err := decodeMCPHookBody(resp.Body, resp.Header.Get("Content-Encoding"))
 		if err != nil {
 			return fmt.Errorf("failed to decode MCP response for audit logging: %w", err)
@@ -336,6 +359,11 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, virtual); err != nil {
 		slog.Error("failed to save MCP client session for audit logging", "error", err)
 	}
+
+	if !a.enabled() {
+		return nil
+	}
+
 	responseHeaders, _ := json.Marshal(sanitizedMCPHeaders(resp.Header))
 	a.entry.ResponseHeaders = responseHeaders
 	a.recordNotification(resp.StatusCode, nil)
@@ -364,7 +392,7 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 }
 
 func (a *proxyAudit) recordRequest() {
-	if a == nil || a.method != http.MethodPost {
+	if !a.enabled() || a.method != http.MethodPost {
 		return
 	}
 	if a.kind != proxyMessageRequest {
@@ -376,7 +404,7 @@ func (a *proxyAudit) recordRequest() {
 }
 
 func (a *proxyAudit) recordNotification(statusCode int, responseErr error) {
-	if a == nil || a.kind != proxyMessageNotification {
+	if !a.enabled() || a.kind != proxyMessageNotification {
 		return
 	}
 	entry := a.entry
@@ -389,7 +417,7 @@ func (a *proxyAudit) recordNotification(statusCode int, responseErr error) {
 }
 
 func (a *proxyAudit) recordHTTPResponse(body []byte, statusCode int, readErr error) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 	if a.kind == proxyMessageNotification {
@@ -416,7 +444,7 @@ func (a *proxyAudit) recordHTTPResponse(body []byte, statusCode int, readErr err
 }
 
 func (a *proxyAudit) recordTransportError(err error, statusCode int) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 	if a.kind == proxyMessageNotification {
@@ -437,7 +465,7 @@ func (a *proxyAudit) recordTransportError(err error, statusCode int) {
 }
 
 func (a *proxyAudit) recordResponse(body []byte, statusCode int, readErr error, fallbackRequestID string) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 
@@ -463,7 +491,7 @@ func (a *proxyAudit) recordResponse(body []byte, statusCode int, readErr error, 
 }
 
 func (a *proxyAudit) recordClientResponse(body []byte) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 
@@ -474,7 +502,7 @@ func (a *proxyAudit) recordClientResponse(body []byte) {
 }
 
 func (a *proxyAudit) recordSSEEvent(event string, data []byte, statusCode int) {
-	if a == nil {
+	if !a.enabled() {
 		return
 	}
 
@@ -540,7 +568,7 @@ func (a *proxyAudit) recordSSEEvent(event string, data []byte, statusCode int) {
 }
 
 func (a *proxyAudit) newResponseEntry(requestID string) auditlogs.MCPAuditLog {
-	if a == nil {
+	if !a.enabled() {
 		return auditlogs.MCPAuditLog{}
 	}
 
@@ -560,7 +588,7 @@ func (a *proxyAudit) newResponseEntry(requestID string) auditlogs.MCPAuditLog {
 }
 
 func (a *proxyAudit) submit(entry auditlogs.MCPAuditLog, responseReceived bool) {
-	if a == nil || a.collector == nil || entry.CallType == "" {
+	if !a.enabled() || entry.CallType == "" {
 		return
 	}
 	a.collector.CollectMCPProxyAuditEntry(entry, responseReceived, a.proxyExchangeID)
