@@ -1,6 +1,8 @@
 package client
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestTruncateUTF8(t *testing.T) {
 	tests := []struct {
