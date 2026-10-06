@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -94,6 +95,20 @@ func writeMCPJSONRPCError(w http.ResponseWriter, req *http.Request, rpcErr error
 }
 
 func writeGenericToolCallError(req api.Context, callErr error) bool {
+	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {
+		result, err := json.Marshal(completed.result)
+		if err != nil {
+			return false
+		}
+		response, err := json.Marshal(mcp.Message{JSONRPC: "2.0", ID: completed.id, Result: result})
+		if err != nil {
+			return false
+		}
+		req.ResponseWriter.Header().Set("Content-Type", "application/json")
+		req.WriteHeader(http.StatusOK)
+		_, _ = req.ResponseWriter.Write(response)
+		return true
+	}
 	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](callErr); ok && authErr.StatusCode == http.StatusUnauthorized {
 		writeMCPAuthRequired(req, false)
 		return true
@@ -259,7 +274,8 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
-			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token)
+			inspect := audit != nil || (h.hookRunner != nil && len(hookConfig) > 0)
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token, inspect)
 			if err != nil {
 				if writeGenericToolCallError(req, err) {
 					return nil

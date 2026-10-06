@@ -80,7 +80,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolved, err := handler.resolveGenericToolCall(req, cfg, "")
+	resolved, err := handler.resolveGenericToolCall(req, cfg, "", true)
 	if err != nil || resolved == nil || resolved.name != "delete_file" {
 		t.Fatalf("resolved call = %#v, error = %v", resolved, err)
 	}
@@ -114,8 +114,53 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	}
 
 	stale := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"stale","arguments":{"path":"secret.txt"}}}}`)
-	if resolved, err := handler.resolveGenericToolCall(stale, cfg, ""); err == nil || resolved != nil {
-		t.Fatalf("stale generic call was allowed to forward: resolved=%#v error=%v", resolved, err)
+	resolved, err = handler.resolveGenericToolCall(stale, cfg, "", true)
+	if resolved != nil {
+		t.Fatalf("stale generic call was allowed to forward: %#v", resolved)
+	}
+	if _, ok := errors.AsType[*completedGenericToolCall](err); !ok {
+		t.Fatalf("stale generic call did not return a completed tool result: %v", err)
+	}
+	w := httptest.NewRecorder()
+	if !writeGenericToolCallError(api.Context{Request: stale, ResponseWriter: w}, err) {
+		t.Fatal("stale tool result was not written")
+	}
+	var response struct {
+		ID     int `json:"id"`
+		Result struct {
+			IsError bool `json:"isError"`
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"result"`
+		Error json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || response.ID != 2 || !response.Result.IsError || len(response.Result.Content) == 0 ||
+		!strings.Contains(response.Result.Content[0].Text, "STALE_TOOL_REFERENCE") || len(response.Error) != 0 {
+		t.Fatalf("stale tool response = %s", w.Body.Bytes())
+	}
+}
+
+func TestGenericToolCallSkipsInspectionWithoutHooksOrAudit(t *testing.T) {
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
+	for _, method := range []string{"tools/call", "ping"} {
+		t.Run(method, func(t *testing.T) {
+			body := `{"jsonrpc":"2.0","id":1,"method":"` + method + `","params":{"name":"other_tool","arguments":{"data":"` +
+				strings.Repeat("x", maxMCPProxyHookBodySize) + `"}}}`
+			req := httptest.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(body))
+			originalBody := req.Body
+			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", false)
+			if err != nil || resolved != nil || req.Body != originalBody {
+				t.Fatalf("unrelated request changed: resolved=%#v error=%v", resolved, err)
+			}
+			forwarded, err := io.ReadAll(req.Body)
+			if err != nil || string(forwarded) != body {
+				t.Fatalf("request was not preserved: error=%v", err)
+			}
+		})
 	}
 }
 
@@ -258,7 +303,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
 	req.URL.Path = "/mcp-connect/vmcpi1test"
 	req.SetPathValue("mcp_id", "vmcpi1test")
-	_, err = handler.resolveGenericToolCall(req, cfg, "")
+	_, err = handler.resolveGenericToolCall(req, cfg, "", true)
 	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](err); !ok || authErr.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("discovery error = %v, want authorization error", err)
 	}

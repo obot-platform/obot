@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp/component"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/mmmcp/toolsearch"
@@ -22,8 +23,17 @@ type resolvedToolCall struct {
 	arguments json.RawMessage
 }
 
-func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string) (*resolvedToolCall, error) {
-	if !cfg.ToolSearch || req.Method != http.MethodPost || req.Body == nil {
+type completedGenericToolCall struct {
+	id     any
+	result *gomcp.CallToolResult
+}
+
+func (e *completedGenericToolCall) Error() string {
+	return "generic tool call completed during resolution"
+}
+
+func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string, inspect bool) (*resolvedToolCall, error) {
+	if !inspect || !cfg.ToolSearch || req.Method != http.MethodPost || req.Body == nil {
 		return nil, nil
 	}
 
@@ -69,6 +79,9 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, fmt.Errorf("resolve generic tool call: %w", err)
 	}
 	if !ok || call.Route == nil {
+		if call.Result != nil {
+			return nil, &completedGenericToolCall{id: message.ID, result: call.Result}
+		}
 		// The composite owner may have a newer catalog. Forwarding an unresolved
 		// call could let it invoke a tool without its tool-specific hooks.
 		return nil, fmt.Errorf("generic tool call cannot be resolved against the current catalog")
