@@ -42,17 +42,13 @@ func TestIPClassification(t *testing.T) {
 			loopback: true,
 		},
 		{
-			// Read as a /96 prefix, this address embeds 0.0.0.0, so it is also treated as loopback.
 			name:      "NAT64 local-use /48 metadata",
 			ip:        "64:ff9b:1:a9fe:a9:fe00::",
-			loopback:  true,
 			linkLocal: true,
 		},
 		{
-			// Read as a /96 prefix, this address embeds 0.0.0.0, so it is also treated as loopback.
 			name:      "NAT64 local-use /56 metadata",
 			ip:        "64:ff9b:1:a9:fe:a9fe::",
-			loopback:  true,
 			linkLocal: true,
 		},
 		{
@@ -89,6 +85,23 @@ func TestIPClassification(t *testing.T) {
 			name:    "Teredo obfuscated private client",
 			ip:      "2001:0:4136:e378:8000:63bf:f5ff:fffe",
 			private: true,
+		},
+		{
+			name: "NAT64 local-use /96 public",
+			ip:   "64:ff9b:1::808:808",
+		},
+		{
+			name: "NAT64 local-use /48 public",
+			ip:   "64:ff9b:1:808:8:800::",
+		},
+		{
+			name: "NAT64 local-use /56 public",
+			ip:   "64:ff9b:1:8:8:808::",
+		},
+		{
+			// A nonzero reserved byte rules out the /48, /56 and /64 layouts.
+			name: "NAT64 local-use with nonzero reserved byte",
+			ip:   "64:ff9b:1:a9fe:ffa9:fe00::",
 		},
 		{
 			name: "NAT64 public",

@@ -2,7 +2,6 @@ package enforcement
 
 import (
 	"net/url"
-	"path"
 	"slices"
 	"strings"
 
@@ -11,6 +10,11 @@ import (
 
 const (
 	defaultUnresolvedReason = "the device could not determine what this tool call targets"
+)
+
+var (
+	// percentEncodedDot matches the forms of "." that WHATWG URL parsers treat as a dot-segment.
+	percentEncodedDot = strings.NewReplacer("%2e", ".", "%2E", ".")
 )
 
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
@@ -110,7 +114,18 @@ func urlMatches(entryURL, callURL string) bool {
 		return false
 	}
 
-	return pathPrefixMatches(entry.Path, actual.Path)
+	return pathPrefixMatches(resolvedPath(entry), resolvedPath(actual))
+}
+
+// resolvedPath returns u's escaped path with dot-segments removed the way browsers and Node
+// resolve them, which is the path an MCP client actually requests. Empty segments are kept
+// and encoded slashes stay encoded, so "/a//../b" becomes "/a/b", not "/b".
+func resolvedPath(u *url.URL) string {
+	escaped, err := url.Parse("http://host" + percentEncodedDot.Replace(u.EscapedPath()))
+	if err != nil {
+		return u.EscapedPath()
+	}
+	return escaped.ResolveReference(&url.URL{}).EscapedPath()
 }
 
 // NormalizedPort returns the explicit port or the scheme's default port.
@@ -130,13 +145,13 @@ func NormalizedPort(u *url.URL) string {
 
 // pathPrefixMatches reports whether callPath is equal to, or a path-boundary
 // descendant of, entryPath. An empty (or "/") entry path imposes no constraint.
+// Both paths must already be escaped and resolved with resolvedPath.
 func pathPrefixMatches(entryPath, callPath string) bool {
 	entryPath = strings.TrimSuffix(entryPath, "/")
 	if entryPath == "" {
 		return true
 	}
-	// Resolve dot-segments so "/allowed/../other" cannot satisfy the "/allowed" prefix.
-	callPath = strings.TrimSuffix(path.Clean("/"+callPath), "/")
+	callPath = strings.TrimSuffix(callPath, "/")
 	if callPath == entryPath {
 		return true
 	}

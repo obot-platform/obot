@@ -170,6 +170,66 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 		{
+			name: "url path prefix keeps empty segments when resolving dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/other//../team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not decode encoded slashes before resolving dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/other/%2f/../team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix resolves percent-encoded dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/%2e%2e/admin/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not match an encoded slash after the prefix",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team%2f..%2fadmin"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix matches after a single-dot segment",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/./mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
 			name: "url path prefix matches after dot-segments stay within it",
 			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/a/../b/mcp"}},
 			allowlist: types.EnforcementAllowlist{
