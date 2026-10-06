@@ -74,31 +74,17 @@ func embeddedIPv4(ip net.IP) []net.IP {
 
 // nat64LocalUseIPv4 returns the IPv4 addresses that ip16 could carry under each RFC 6052
 // translation prefix length that fits in the local-use range (/48, /56, /64 and /96). The
-// prefix length is not part of the address, so every layout whose structure is valid is
-// returned: the reserved byte 8 and the suffix after the IPv4 address must be zero. A /96
-// prefix has neither, so it always applies.
+// prefix length is not part of the address, so every possible layout is returned. The /48,
+// /56 and /64 layouts require the reserved byte 8 to be zero. Their suffix bytes are not
+// checked, because RFC 6052 tells translators to ignore a nonzero suffix.
 func nat64LocalUseIPv4(ip16 net.IP) []net.IP {
 	result := []net.IP{net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])}
 	if ip16[8] != 0 {
 		return result
 	}
-	if allZero(ip16[11:]) {
-		result = append(result, net.IPv4(ip16[6], ip16[7], ip16[9], ip16[10]))
-	}
-	if allZero(ip16[12:]) {
-		result = append(result, net.IPv4(ip16[7], ip16[9], ip16[10], ip16[11]))
-	}
-	if allZero(ip16[13:]) {
-		result = append(result, net.IPv4(ip16[9], ip16[10], ip16[11], ip16[12]))
-	}
-	return result
-}
-
-func allZero(b []byte) bool {
-	for _, v := range b {
-		if v != 0 {
-			return false
-		}
-	}
-	return true
+	return append(result,
+		net.IPv4(ip16[6], ip16[7], ip16[9], ip16[10]),
+		net.IPv4(ip16[7], ip16[9], ip16[10], ip16[11]),
+		net.IPv4(ip16[9], ip16[10], ip16[11], ip16[12]),
+	)
 }
