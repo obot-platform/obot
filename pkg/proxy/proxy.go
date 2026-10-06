@@ -206,7 +206,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 			// Now delete the current auth provider cookie so that it doesn't interfere with anything.
 			clearCurrentAuthProviderCookie(w)
 			clearLoginRestartedCookie(w)
-		} else if _, err := r.Cookie(loginRestartedCookie); err != nil {
+		} else if cookie, err := r.Cookie(loginRestartedCookie); err != nil || cookie.Value != "true" {
 			// The callback belongs to no login that Obot started here: one the identity provider
 			// started itself, such as from an app tile, one that outlived the cookie, or one finished
 			// in another browser. Restart the login from Obot, so that it can complete.
