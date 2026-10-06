@@ -93,6 +93,14 @@ func writeMCPJSONRPCError(w http.ResponseWriter, req *http.Request, rpcErr error
 	return true
 }
 
+func writeGenericToolCallError(req api.Context, callErr error) bool {
+	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](callErr); ok && authErr.StatusCode == http.StatusUnauthorized {
+		writeMCPAuthRequired(req, false)
+		return true
+	}
+	return writeMCPJSONRPCError(req.ResponseWriter, req.Request, callErr)
+}
+
 func compositeLoopbackURLs(serverURL, mcpServerName string, transform func(string) string) (audienceURL, targetURL string) {
 	audienceURL = fmt.Sprintf("%s/mcp-connect-composite/%s", strings.TrimSuffix(serverURL, "/"), mcpServerName)
 	return audienceURL, transform(audienceURL)
@@ -253,7 +261,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
 			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token)
 			if err != nil {
-				if writeMCPJSONRPCError(req.ResponseWriter, req.Request, err) {
+				if writeGenericToolCallError(req, err) {
 					return nil
 				}
 				return err

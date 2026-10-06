@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/mmmcp/toolsearch"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 )
 
@@ -230,5 +232,56 @@ func TestGenericToolCallNamedSearchToolsMatchesCallToolHooksAcrossRequests(t *te
 	}
 	if searchRunner.callCount() != 1 || searchRunner.calls[0].target != "policy/underlying-request" {
 		t.Fatalf("search request matched a generic-call hook: %#v", searchRunner.calls)
+	}
+}
+
+func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="https://upstream.example/secret"`)
+		http.Error(w, "upstream authentication details", http.StatusUnauthorized)
+	}))
+	defer upstream.Close()
+
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handler.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{
+		Runtime:    types.RuntimeVMCP,
+		ToolSearch: true,
+		Components: []obotmcp.ComponentServer{{
+			DisplayName: "component",
+			URL:         upstream.URL,
+		}},
+	}, nil)
+	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
+	req.URL.Path = "/mcp-connect/vmcpi1test"
+	req.SetPathValue("mcp_id", "vmcpi1test")
+	_, err = handler.resolveGenericToolCall(req, cfg, "")
+	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](err); !ok || authErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("discovery error = %v, want authorization error", err)
+	}
+
+	w := httptest.NewRecorder()
+	ctx := api.Context{Request: req, ResponseWriter: w, APIBaseURL: "https://obot.example/api"}
+	if !writeGenericToolCallError(ctx, err) {
+		t.Fatal("authorization error was not handled")
+	}
+	resp := w.Result()
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", resp.StatusCode)
+	}
+	wantChallenge := `Bearer realm="Obot MCP Gateway", resource_metadata="https://obot.example/.well-known/oauth-protected-resource/mcp-connect/vmcpi1test"`
+	if challenge := resp.Header.Get("WWW-Authenticate"); challenge != wantChallenge {
+		t.Fatalf("challenge = %q, want %q", challenge, wantChallenge)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "MCP server requires authentication\n" || strings.Contains(string(body), "upstream") {
+		t.Fatalf("component authentication details leaked: %q", body)
 	}
 }
