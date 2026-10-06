@@ -58,6 +58,10 @@
     "uuid": "11.1.1",
     "gray-matter": {
       "js-yaml": "3.15.0"
-    }
+    },
+    "tinypool": "2.1.2",
+    "sharp": "0.35.5",
+    "postcss-selector-parser": "7.1.6",
+    "katex": "0.18.2"
   }
 }
