@@ -230,6 +230,54 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: true,
 		},
 		{
+			name: "url path prefix treats a literal backslash as a separator",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team/\../../admin`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not treat an encoded backslash as a separator",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team/%5C../admin`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix matches backslash separators within it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team\mcp`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url host ends at a literal backslash",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com\@evil.com/team/mcp`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
 			name: "url path prefix matches after dot-segments stay within it",
 			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/a/../b/mcp"}},
 			allowlist: types.EnforcementAllowlist{
