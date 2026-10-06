@@ -7,8 +7,9 @@ overrides:
   fast-uri: 3.1.8
   proxy-addr: 2.0.8
   source-map-js: 1.2.2
-  '@vue/server-renderer': 3.5.42
+  vue: 3.5.42
   prosemirror-view: 1.42.3
+  prosemirror-model: 1.25.12
   postcss-selector-parser: 7.1.6
   katex: 0.18.2
 
