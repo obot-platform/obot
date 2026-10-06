@@ -53,8 +53,18 @@ func embeddedIPv4(ip net.IP) []net.IP {
 	}
 
 	switch {
-	case nat64WellKnown.Contains(ip16), nat64LocalUse.Contains(ip16):
+	case nat64WellKnown.Contains(ip16):
 		return []net.IP{net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])}
+	case nat64LocalUse.Contains(ip16):
+		// The local-use range can hold a /48, /56, /64 or /96 translation prefix, and RFC 6052
+		// places the IPv4 address differently for each, skipping the reserved byte 8. The
+		// prefix length is not encoded in the address, so check every layout.
+		return []net.IP{
+			net.IPv4(ip16[6], ip16[7], ip16[9], ip16[10]),
+			net.IPv4(ip16[7], ip16[9], ip16[10], ip16[11]),
+			net.IPv4(ip16[9], ip16[10], ip16[11], ip16[12]),
+			net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]),
+		}
 	case sixToFour.Contains(ip16):
 		return []net.IP{net.IPv4(ip16[2], ip16[3], ip16[4], ip16[5])}
 	case teredo.Contains(ip16):

@@ -42,6 +42,30 @@ func TestIPClassification(t *testing.T) {
 			loopback: true,
 		},
 		{
+			// Read as a /96 prefix, this address embeds 0.0.0.0, so it is also treated as loopback.
+			name:      "NAT64 local-use /48 metadata",
+			ip:        "64:ff9b:1:a9fe:a9:fe00::",
+			loopback:  true,
+			linkLocal: true,
+		},
+		{
+			// Read as a /96 prefix, this address embeds 0.0.0.0, so it is also treated as loopback.
+			name:      "NAT64 local-use /56 metadata",
+			ip:        "64:ff9b:1:a9:fe:a9fe::",
+			loopback:  true,
+			linkLocal: true,
+		},
+		{
+			name:      "NAT64 local-use /64 metadata",
+			ip:        "64:ff9b:1:0:a9:fea9:fe00:0",
+			linkLocal: true,
+		},
+		{
+			name:    "NAT64 local-use /64 private",
+			ip:      "64:ff9b:1:0:0a:0000:0100:0",
+			private: true,
+		},
+		{
 			name:    "6to4 private",
 			ip:      "2002:0a00:0001::",
 			private: true,
