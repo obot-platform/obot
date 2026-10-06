@@ -96,6 +96,19 @@ func TestURLPathSpacesAndControls(t *testing.T) {
 	}
 }
 
+func TestSchemaSourceHTTPSRequirement(t *testing.T) {
+	_, err := schemaSourceURL("http://example.com/schema", false)
+	require.ErrorContains(t, err, "HTTPS")
+
+	httpSource, err := schemaSourceURL("http://example.com/schema", true)
+	require.NoError(t, err)
+	require.Equal(t, "http", httpSource.Scheme)
+
+	httpsSource, err := schemaSourceURL("https://example.com/schema", false)
+	require.NoError(t, err)
+	require.Equal(t, "https", httpsSource.Scheme)
+}
+
 func TestReferencesAndParameters(t *testing.T) {
 	for _, test := range []struct {
 		name      string

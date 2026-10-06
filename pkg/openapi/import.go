@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -26,6 +27,7 @@ const (
 type Importer struct {
 	client  *http.Client
 	options safehttp.Options
+	devMode bool
 }
 
 // Result contains the stored schema, resolved API destination, and suggested
@@ -36,9 +38,10 @@ type Result struct {
 	SuggestedHeaders []types.MCPConfig
 }
 
-// NewImporter applies the configured network policy to schema fetches.
+// NewImporter applies the configured network policy to schema fetches. devMode
+// permits HTTP schema sources and API destinations for local development.
 // Redirects are not followed, including same-origin ones.
-func NewImporter(options safehttp.Options) *Importer {
+func NewImporter(options safehttp.Options, devMode bool) *Importer {
 	// Schema sources never receive credentials configured for API requests.
 	options.Headers = nil
 	options.TokenSource = nil
@@ -47,7 +50,7 @@ func NewImporter(options safehttp.Options) *Importer {
 	}
 	client := safehttp.NewClient(options)
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &Importer{client: client, options: options}
+	return &Importer{client: client, options: options, devMode: devMode}
 }
 
 // Import always reads Source anew, ignoring any previous Schema snapshot.
@@ -62,7 +65,7 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 		return i.parse(ctx, []byte(source.Content), config)
 	}
 
-	u, err := sourceURL(source.URL)
+	u, err := schemaSourceURL(source.URL, i.devMode)
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +96,16 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	return i.parse(ctx, data, config)
 }
 
-// parse checks the resolved destination against the importer's network policy.
+// parse checks the resolved destination against the importer's transport and
+// network policies.
 // It makes no request to the destination.
 func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	result, err := Parse(data, config)
 	if err != nil {
 		return nil, err
+	}
+	if !i.devMode && strings.HasPrefix(result.BaseURL, "http://") {
+		return nil, fmt.Errorf("API destination must use HTTPS unless Obot development mode is enabled")
 	}
 	if err := safehttp.ValidateURL(ctx, result.BaseURL, i.options); err != nil {
 		return nil, fmt.Errorf("API destination is blocked: %w", err)
@@ -108,6 +115,7 @@ func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIR
 
 // Parse normalizes JSON/YAML and checks the wrapper's supported subset. It does
 // not resolve remote references or claim to validate every OpenAPI constraint.
+// The importer applies transport and network policies after parsing.
 // SuggestedHeaders are editable definitions, not credential values.
 func Parse(data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	document, canonical, err := normalize(data)

@@ -76,7 +76,7 @@ func TestInlineImport(t *testing.T) {
 	data := usersSchema(t)
 	want, err := Parse(data, types.OpenAPIRuntimeConfig{})
 	require.NoError(t, err)
-	got, err := NewImporter(safehttp.Options{}).Import(context.Background(), types.OpenAPIRuntimeConfig{
+	got, err := NewImporter(safehttp.Options{}, false).Import(context.Background(), types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{Content: string(data)},
 	})
 	require.NoError(t, err)
@@ -90,16 +90,30 @@ func TestDestinationNetworkPolicy(t *testing.T) {
 				BaseURL: baseURL,
 				Source:  types.OpenAPISource{Content: string(usersSchema(t))},
 			}
-			blocked := NewImporter(safehttp.Options{BlockLoopback: true})
+			blocked := NewImporter(safehttp.Options{BlockLoopback: true}, true)
 			_, err := blocked.Import(t.Context(), config)
 			require.ErrorContains(t, err, "API destination is blocked")
 
-			allowed := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true})
+			allowed := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true}, true)
 			result, err := allowed.Import(t.Context(), config)
 			require.NoError(t, err)
 			require.Equal(t, baseURL+"/", result.BaseURL)
 		})
 	}
+}
+
+func TestDestinationHTTPSRequirement(t *testing.T) {
+	config := types.OpenAPIRuntimeConfig{
+		BaseURL: "http://api.example.com",
+		Source:  types.OpenAPISource{Content: string(usersSchema(t))},
+	}
+
+	_, err := NewImporter(safehttp.Options{}, false).Import(t.Context(), config)
+	require.ErrorContains(t, err, "API destination must use HTTPS")
+
+	result, err := NewImporter(safehttp.Options{}, true).Import(t.Context(), config)
+	require.NoError(t, err)
+	require.Equal(t, "http://api.example.com/", result.BaseURL)
 }
 
 func TestTypedParsingPreservesSnapshot(t *testing.T) {
@@ -222,14 +236,17 @@ func TestURLImport(t *testing.T) {
 		Schema:  &types.OpenAPISchema{Raw: json.RawMessage(`{"old":"snapshot"}`)},
 		BaseURL: "http://127.0.0.1",
 	}
-	_, err := NewImporter(safehttp.Options{
+	_, err := NewImporter(safehttp.Options{}, false).Import(context.Background(), config)
+	require.ErrorContains(t, err, "HTTPS")
+	require.Zero(t, requests.Load(), "production mode must reject HTTP before fetching")
+	_, err = NewImporter(safehttp.Options{
 		BlockLoopback:  true,
 		BlockPrivateIP: true,
 		BlockLinkLocal: true,
-	}).Import(context.Background(), config)
+	}, true).Import(context.Background(), config)
 	require.Error(t, err)
 	require.Zero(t, requests.Load())
-	importer := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true})
+	importer := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true}, true)
 	first, err := importer.Import(context.Background(), config)
 	require.NoError(t, err)
 	second, err := importer.Import(context.Background(), config)
@@ -284,7 +301,7 @@ func TestURLImportDoesNotForwardConfiguredCredentials(t *testing.T) {
 			"X-API-Key":     {"configured-key"},
 		},
 		TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "configured-token"}),
-	})
+	}, true)
 	_, err := importer.Import(t.Context(), types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{URL: server.URL},
 	})
