@@ -17,7 +17,7 @@
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
 	let mcpServer = $state<MCPCatalogServer>();
-	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? m.mcps_unknown());
+	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? m.core_unknown());
 
 	async function fetchUserInfo() {
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);

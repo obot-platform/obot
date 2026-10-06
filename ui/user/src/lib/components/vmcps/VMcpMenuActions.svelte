@@ -80,7 +80,7 @@
 	{:else}
 		<Power class="size-4" />
 	{/if}
-	{m.vmcps_reset()}
+	{m.core_reset_page()}
 </button>
 {#if openUpdateConfirm && ctx.needsUpdate && ctx.canUpdate}
 	<button
@@ -173,6 +173,6 @@
 		}}
 	>
 		<Trash2 class="size-4" />
-		{m.vmcps_deployments_delete()}
+		{m.core_delete()}
 	</button>
 {/if}

@@ -73,7 +73,7 @@
 		/>
 		<button class="btn btn-neutral h-12.5" id={BUTTON_ID} onclick={() => dialog?.open()}>
 			<Funnel class="size-4" />
-			{m.vmcps_filters()}
+			{m.core_filters_title()}
 		</button>
 	</div>
 	{#if activeFilterPills.length > 0}

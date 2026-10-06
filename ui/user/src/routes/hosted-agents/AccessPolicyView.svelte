@@ -69,7 +69,7 @@
 	<Table
 		data={hostedAgentAccessPolicies}
 		fields={['displayName']}
-		headers={[{ property: 'displayName', title: m.chat_col_name() }]}
+		headers={[{ property: 'displayName', title: m.core_name() }]}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(`/hosted-agents/access-policies/${d.id}`, isCtrlClick);
 		}}
@@ -83,7 +83,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.hosted_agents_access_policies_delete_policy() }}
+					tooltip={{ text: m.core_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

@@ -29,7 +29,7 @@ function getEnforcementEventsAction(): GuideAction[] {
 	const highlight = {
 		selector: { id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementEventsLink },
 		side: 'right' as const,
-		title: m.inventory_enforcement_guides_enforcement_events(),
+		title: m.inventory_enforcement_enforcement_events_enforcement_events(),
 		description: m.inventory_enforcement_guides_when_enforcement_is_enabled_and_tool()
 	};
 	const listener = {
@@ -224,7 +224,7 @@ export const steps: GuideStep[] = [
 							id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection
 						},
 						side: 'top',
-						title: m.inventory_enforcement_guides_enrollment_keys(),
+						title: m.inventory_enforcement_configuration_enrollment_keys(),
 						description: m.inventory_enforcement_guides_once_you_ve_set_up_an(),
 						noDescendantInteraction: true
 					},
@@ -237,7 +237,7 @@ export const steps: GuideStep[] = [
 									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection
 								},
 								side: 'top',
-								title: m.inventory_enforcement_guides_tool_call_enforcement(),
+								title: m.inventory_enforcement_configuration_tool_call_enforcement(),
 								description: m.inventory_enforcement_guides_here_you_can_control_which_tool(),
 								experimental: true
 							},
@@ -257,15 +257,15 @@ export const steps: GuideStep[] = [
 		content: [m.inventory_enforcement_guides_once_obot_sentry_has_been_installed()],
 		action: getInventoryTabAction(
 			MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabOverview,
-			m.inventory_enforcement_guides_overview(),
+			m.inventory_enforcement_overview_tab(),
 			m.inventory_enforcement_guides_view_an_overall_summary_of_scans(),
 			getInventoryTabAction(
 				MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabDevices,
-				m.inventory_enforcement_guides_devices(),
+				m.inventory_enforcement_devices_tab(),
 				m.inventory_enforcement_guides_view_results_for_an_individual_device(),
 				getInventoryTabAction(
 					MDM_DEVICES_CONFIGURATION_FIELD_IDS.inventoryTabDeviceMcpServers,
-					m.inventory_enforcement_guides_device_mcp_servers(),
+					m.inventory_enforcement_device_mcp_servers_tab(),
 					m.inventory_enforcement_guides_browse_mcp_servers_discovered_across_your(),
 					getEnforcementEventsAction()
 				)

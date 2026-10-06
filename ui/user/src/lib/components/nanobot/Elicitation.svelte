@@ -520,7 +520,7 @@
 									disabled={!hasAnswer(currentStep)}
 									onclick={nextStep}
 								>
-									{m.chat_next()}
+									{m.core_next()}
 									<ChevronRight class="h-4 w-4" />
 								</button>
 							{:else}
@@ -535,7 +535,7 @@
 										reviewMode = true;
 									}}
 								>
-									{m.chat_next()}
+									{m.core_next()}
 									<ChevronRight class="h-4 w-4" />
 								</button>
 							{/if}

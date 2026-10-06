@@ -113,7 +113,7 @@
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
-			<h4 class="text-sm font-semibold">{m.mcps_catalog_remote_remote_headers()}</h4>
+			<h4 class="text-sm font-semibold">{m.mcps_servers_headers()}</h4>
 			<p class="text-muted-content text-xs font-light">
 				{#if showUrlTemplateHelp}
 					{m.mcps_catalog_remote_remote_headers_description_template()}
@@ -202,7 +202,7 @@
 								{#if config.headers[i].required}
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-name-${i}`} class="text-sm font-light"
-											>{m.mcps_field_name()}</label
+											>{m.core_name()}</label
 										>
 										<input
 											id={`header-name-${i}`}
@@ -213,7 +213,7 @@
 									</div>
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-description-${i}`} class="text-sm font-light"
-											>{m.mcps_field_description()}</label
+											>{m.core_description()}</label
 										>
 										<input
 											id={`header-description-${i}`}
@@ -641,7 +641,7 @@
 							type="button"
 						>
 							<Settings class="size-4" />
-							{m.mcps_catalog_remote_remote_configure_oauth_credentials()}
+							{m.mcps_catalog_configure_oauth_credentials()}
 						</button>
 					{/if}
 				</div>

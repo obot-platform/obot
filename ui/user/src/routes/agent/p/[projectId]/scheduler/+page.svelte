@@ -290,9 +290,9 @@
 	<table class="mb-8 table">
 		<thead>
 			<tr>
-				<th>{m.chat_col_title()}</th>
-				<th>{m.chat_col_schedule()}</th>
-				<th>{m.chat_col_status()}</th>
+				<th>{m.chat_title()}</th>
+				<th>{m.chat_schedule()}</th>
+				<th>{m.core_status()}</th>
 				<th class="w-0"></th>
 			</tr>
 		</thead>
@@ -318,7 +318,7 @@
 							<span
 								class={`badge badge-sm ${taskMeta(task)?.enabled ? 'badge-success badge-soft' : 'badge-neutral badge-soft'}`}
 							>
-								{taskMeta(task)?.enabled ? m.chat_status_enabled() : m.chat_status_disabled()}
+								{taskMeta(task)?.enabled ? m.chat_enabled() : m.chat_status_disabled()}
 							</span>
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>
@@ -386,7 +386,7 @@
 										}}
 									>
 										<Trash2 class="size-4 shrink-0" />
-										{m.chat_delete()}
+										{m.core_delete()}
 									</button>
 								{/snippet}
 							</DotDotDot>

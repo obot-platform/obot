@@ -536,7 +536,7 @@
 					disabled={hasLicenseEntitlementViolations}
 				>
 					{#if isMultiUserCatalogEntry(entry)}
-						{m.mcps_servers_actions_launch_server()}
+						{m.mcps_servers_launch_server()}
 					{:else}
 						{m.mcps_servers_actions_connect()}
 					{/if}

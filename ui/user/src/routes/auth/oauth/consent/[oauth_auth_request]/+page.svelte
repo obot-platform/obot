@@ -352,7 +352,7 @@
 			case 'dynamic_client':
 				return m.auth_consent_source_dynamic();
 			default:
-				return m.auth_consent_unknown();
+				return m.core_unknown();
 		}
 	}
 </script>

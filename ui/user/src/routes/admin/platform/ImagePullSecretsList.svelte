@@ -64,7 +64,7 @@
 			data={basicSecrets}
 			fields={['displayName', 'detail', 'id']}
 			headers={[
-				{ title: m.core_col_name(), property: 'displayName' },
+				{ title: m.core_name(), property: 'displayName' },
 				{ title: m.platform_settings_image_pull_secrets_col_registry(), property: 'detail' },
 				{ title: m.platform_settings_image_pull_secrets_col_secret(), property: 'id' }
 			]}
@@ -152,10 +152,10 @@
 		data={ecrSecrets}
 		fields={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess', 'statusMessage']}
 		headers={[
-			{ title: m.core_col_name(), property: 'displayName' },
+			{ title: m.core_name(), property: 'displayName' },
 			{ title: m.platform_settings_image_pull_secrets_col_region(), property: 'detail' },
 			{ title: m.platform_settings_image_pull_secrets_col_secret(), property: 'id' },
-			{ title: m.platform_col_status(), property: 'statusLabel' },
+			{ title: m.core_status(), property: 'statusLabel' },
 			{ title: m.platform_settings_image_pull_secrets_col_last_success(), property: 'lastSuccess' },
 			{ title: m.platform_settings_image_pull_secrets_col_message(), property: 'statusMessage' }
 		]}
@@ -180,7 +180,7 @@
 							}}
 						>
 							<Info class="size-4" />
-							{m.platform_col_status()}
+							{m.core_status()}
 						</button>
 						<button
 							class="menu-button"

@@ -82,7 +82,7 @@
 					{#if revealed}
 						<EyeOff class="size-4" /> {m.hosted_agents_templates_environment_revealed()}
 					{:else}
-						<Eye class="size-4" /> {m.hosted_agents_templates_environment_reveal()}
+						<Eye class="size-4" /> {m.core_reveal()}
 					{/if}
 				</button>
 			{/if}

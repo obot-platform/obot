@@ -98,7 +98,7 @@
 	let confirmDeleteProfile = $state<{ id: string; name: string }>();
 	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
-	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.vmcps_all_obot_users() };
+	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.core_all_obot_users() };
 	const ADMIN_GROUP: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: 'Obot Admin' };
 	const GROUP_PAGE_SIZE = 50;
 
@@ -206,7 +206,7 @@
 			component.name ||
 			component.catalogEntry?.manifest?.name ||
 			componentId(component) ||
-			m.vmcps_unknown()
+			m.core_unknown()
 		);
 	}
 
@@ -1034,7 +1034,7 @@
 			<section>
 				<label class="flex flex-col gap-0.5" for="profile-name">
 					<span class={twMerge('font-light text-sm', nameError && 'text-error')}
-						>{m.vmcps_deployments_name()}</span
+						>{m.core_name()}</span
 					>
 					<input
 						id="profile-name"

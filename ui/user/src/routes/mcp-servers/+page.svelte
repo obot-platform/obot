@@ -152,7 +152,7 @@
 						tooltip: m.mcps_deployments_tab_tooltip()
 					},
 					{
-						label: m.mcps_filters_tab(),
+						label: m.core_filters_title(),
 						value: 'filters',
 						content: filters,
 						tooltip: m.mcps_filters_tab_tooltip()

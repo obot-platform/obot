@@ -150,9 +150,9 @@
 						data={keyTableData}
 						fields={['nameDisplay', 'prefix', 'createdAt', 'lastUsedAt', 'expiresAt']}
 						headers={[
-							{ title: m.inventory_enforcement_col_name(), property: 'nameDisplay' },
+							{ title: m.core_name(), property: 'nameDisplay' },
 							{ title: m.inventory_enforcement_configuration_col_key(), property: 'prefix' },
-							{ title: m.inventory_enforcement_configuration_col_created(), property: 'createdAt' },
+							{ title: m.core_col_created(), property: 'createdAt' },
 							{ title: m.inventory_enforcement_configuration_col_last_used(), property: 'lastUsedAt' },
 							{ title: m.inventory_enforcement_configuration_col_expires(), property: 'expiresAt' }
 						]}

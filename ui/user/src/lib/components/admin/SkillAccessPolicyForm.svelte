@@ -266,8 +266,8 @@
 					data={subjectTableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.core_col_name() },
-						{ property: 'type', title: m.core_col_type() }
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
 					]}
 					noDataMessage={m.core_no_users_or_groups_added()}
 				>
@@ -292,7 +292,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.skills_access_policies_skills()}</h2>
+				<h2 class="text-lg font-semibold">{m.skills_title()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -314,8 +314,8 @@
 					data={resourceTableData}
 					fields={['name', 'description']}
 					headers={[
-						{ property: 'name', title: m.skills_access_policies_col_skill() },
-						{ property: 'description', title: m.skills_access_policies_col_description() }
+						{ property: 'name', title: m.skills_skill_fallback_title() },
+						{ property: 'description', title: m.core_description() }
 					]}
 					noDataMessage={m.skills_access_policies_no_skills_added()}
 				>

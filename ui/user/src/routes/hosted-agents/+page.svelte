@@ -38,7 +38,7 @@
 			items.push(
 				{ label: m.hosted_agents_templates_tab(), value: 'templates', content: templates },
 				{ label: m.hosted_agents_harnesses_tab(), value: 'harnesses', content: harnesses },
-				{ label: m.hosted_agents_pools_tab(), value: 'pools', content: pools },
+				{ label: m.hosted_agents_pools(), value: 'pools', content: pools },
 				{ label: m.hosted_agents_config_sources_tab(), value: 'config-sources', content: configSources },
 				{
 					label: m.hosted_agents_access_policies_tab(),

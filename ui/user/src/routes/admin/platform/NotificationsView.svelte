@@ -158,7 +158,7 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-4">
 					<label for="banner-type-selector" class="text-sm font-light"
-						>{m.platform_settings_notifications_type()}</label
+						>{m.core_type()}</label
 					>
 					<div class="w-full">
 						<Select
@@ -171,7 +171,7 @@
 							disabled={isAdminReadonly || saving}
 							options={[
 								{ id: 'info', label: m.platform_settings_notifications_info() },
-								{ id: 'warning', label: m.platform_settings_notifications_warning() }
+								{ id: 'warning', label: m.platform_branding_warning() }
 							]}
 						/>
 					</div>
@@ -184,7 +184,7 @@
 							bannerTextValidationError && 'text-error'
 						)}
 					>
-						{m.platform_settings_notifications_text()}
+						{m.platform_branding_text()}
 						<InfoTooltip text={m.platform_settings_notifications_text_help()} />
 					</p>
 					<MarkdownInput

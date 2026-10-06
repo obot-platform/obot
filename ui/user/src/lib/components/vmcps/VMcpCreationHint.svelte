@@ -277,7 +277,7 @@
 								: m.vmcps_hint_next_tip()}
 						onclick={advance}
 					>
-						{isLast ? m.vmcps_done() : isFirst ? m.vmcps_hint_start_tour() : m.vmcps_next()}
+						{isLast ? m.vmcps_done() : isFirst ? m.vmcps_hint_start_tour() : m.core_next()}
 					</button>
 				</div>
 			</div>

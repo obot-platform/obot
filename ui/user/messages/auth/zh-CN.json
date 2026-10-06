@@ -61,7 +61,6 @@
 	"auth_consent_third_party_oauth": "第三方 OAuth",
 	"auth_consent_this_mcp_server": "此 MCP 服务器",
 	"auth_consent_this_mcp_server_capitalized": "此 MCP 服务器",
-	"auth_consent_unknown": "未知",
 	"auth_consent_update_config_prefix": "您可以更新",
 	"auth_consent_update_config_suffix": " 的配置",
 	"auth_consent_wants_to_authenticate": "{client} 请求通过 Obot 进行身份验证以建立 MCP 服务器连接。如果您批准，Obot 会将您重定向回发起此请求的 OAuth 客户端。",

@@ -33,7 +33,7 @@
 					</button>
 				</div>
 				<details class="mt-2">
-					<summary class="cursor-pointer text-xs font-medium">{m.mcps_tester_preview()}</summary>
+					<summary class="cursor-pointer text-xs font-medium">{m.core_preview()}</summary>
 					{#if context.type === 'prompt'}
 						<div class="mt-2 space-y-2">
 							{#each context.messages as message, index (index)}

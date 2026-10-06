@@ -495,7 +495,7 @@
 							<th
 								class="dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 							>
-								{m.ai_judge_col_applies_to()}
+								{m.ai_judge_applies_to()}
 							</th>
 						</tr>
 					</thead>
@@ -553,7 +553,7 @@
 								fetchData();
 							}}
 						>
-							{m.ai_judge_previous()}
+							{m.core_previous()}
 						</button>
 						<button
 							class="hover:text-base-content/80 active:text-base-content flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"

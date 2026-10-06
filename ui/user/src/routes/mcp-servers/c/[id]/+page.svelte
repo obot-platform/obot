@@ -40,7 +40,7 @@
 		);
 	}
 
-	let title = $derived(catalogEntry?.manifest?.name ?? m.mcps_mcp_server());
+	let title = $derived(catalogEntry?.manifest?.name ?? m.mcps_server_fallback_name());
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
@@ -99,5 +99,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_mcp_server()}</title>
+	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_server_fallback_name()}</title>
 </svelte:head>

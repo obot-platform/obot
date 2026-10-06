@@ -399,7 +399,7 @@
 					<table class="table">
 						<thead>
 							<tr>
-								<th>{m.chat_col_title()}</th>
+								<th>{m.chat_title()}</th>
 								<th>{m.chat_col_started()}</th>
 							</tr>
 						</thead>

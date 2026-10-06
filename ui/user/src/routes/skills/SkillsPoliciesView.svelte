@@ -37,7 +37,7 @@
 			<p class="text-muted-content text-sm font-light">
 				{m.skills_no_access_policies_desc()} <br />
 				{#if !isReadonly}
-					{m.skills_click_to_get_started()}
+					{m.core_click_below_to_start()}
 				{/if}
 			</p>
 
@@ -54,7 +54,7 @@
 	<Table
 		data={skillAccessPolicies}
 		fields={['displayName']}
-		headers={[{ property: 'displayName', title: m.skills_col_name() }]}
+		headers={[{ property: 'displayName', title: m.core_name() }]}
 		onClickRow={(d, isCtrlClick) => {
 			const url = `/skills/access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
@@ -69,7 +69,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.skills_delete_policy() }}
+					tooltip={{ text: m.core_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

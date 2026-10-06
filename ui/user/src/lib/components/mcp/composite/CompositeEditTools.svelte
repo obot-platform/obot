@@ -289,7 +289,7 @@
 							toolPrefix = '';
 						}}
 					>
-						{m.mcps_log_clear()}
+						{m.core_clear()}
 					</button>
 				{/if}
 			</div>
@@ -431,7 +431,7 @@
 							</div>
 
 							<div class="flex flex-col gap-1">
-								<p class="text-xs text-muted-content">{m.mcps_field_description()}</p>
+								<p class="text-xs text-muted-content">{m.core_description()}</p>
 								<textarea
 									class="text-input-filled h-24 resize-none text-xs"
 									bind:value={tool.overrideDescription}
@@ -462,14 +462,14 @@
 	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
 		<div class="flex gap-2 items-center">
 			<button class="btn btn-secondary" onclick={handleCancel}
-				>{readonly ? m.mcps_composite_close() : m.common_cancel()}</button
+				>{readonly ? m.core_close() : m.common_cancel()}</button
 			>
 			{#if !readonly}
 				<button
 					id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
 					class="btn btn-primary"
 					disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
-					onclick={handleSave}>{m.mcps_composite_confirm()}</button
+					onclick={handleSave}>{m.core_confirm()}</button
 				>
 			{/if}
 		</div>
@@ -497,7 +497,7 @@
 	onsuccess={confirmSave}
 	oncancel={cancelSave}
 	title={m.mcps_composite_confirm_save()}
-	submitText={m.mcps_save()}
+	submitText={m.core_save()}
 	type="info"
 	msg={m.mcps_composite_confirm_save_msg()}
 >
@@ -507,7 +507,7 @@
 		<table class="table table-xs my-4">
 			<thead class="text-xs">
 				<tr>
-					<th>{m.mcps_column_name()}</th>
+					<th>{m.core_name()}</th>
 					<th>{m.mcps_composite_affected_tools()}</th>
 				</tr>
 			</thead>

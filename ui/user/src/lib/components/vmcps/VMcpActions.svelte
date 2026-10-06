@@ -132,7 +132,7 @@
 		configurationDialog?.open(current.entry, {
 			configuration,
 			forceSingleUser: current.component.forceSingleUser,
-			submitLabel: pending.index === pending.queue.length - 1 ? m.vmcps_update() : m.vmcps_next(),
+			submitLabel: pending.index === pending.queue.length - 1 ? m.core_update() : m.core_next(),
 			errorMessage: m.vmcps_failed_to_update()
 		});
 	}

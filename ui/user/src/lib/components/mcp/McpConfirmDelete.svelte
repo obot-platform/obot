@@ -33,7 +33,7 @@
 	{oncancel}
 	{loading}
 	msg={names.length === 1
-		? m.mcps_servers_confirm_delete_msg_one({ name: names[0] })
+		? m.mcps_delete_named({ name: names[0] })
 		: m.mcps_servers_confirm_delete_msg_other({ plural })}
 	classes={{ body: 'p-0', actions: 'p-4 pt-0' }}
 >

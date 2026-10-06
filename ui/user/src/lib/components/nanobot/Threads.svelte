@@ -277,7 +277,7 @@
 								<li>
 									<button onclick={() => handleDelete(session.id)} class="text-error text-sm">
 										<Trash2 class="h-4 w-4" />
-										{m.chat_delete()}
+										{m.core_delete()}
 									</button>
 								</li>
 							</ul>

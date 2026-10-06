@@ -153,7 +153,7 @@
 			const role = groupRoleMap[group.id]?.role;
 			return role ? getUserRoleLabel(role) : undefined;
 		}}
-		placeholder={m.identity_access_groups_search_groups()}
+		placeholder={m.identity_access_groups_search()}
 	/>
 {/snippet}
 

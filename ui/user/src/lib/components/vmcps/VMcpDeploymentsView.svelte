@@ -191,9 +191,10 @@
 				data={tableData}
 				fields={['displayName', 'userName', 'updateStatus', 'created']}
 				headers={[
-					{ title: m.vmcps_deployments_name(), property: 'displayName' },
+					{ title: m.core_name(), property: 'displayName' },
 					{ title: m.vmcps_deployments_user(), property: 'userName' },
-					{ title: m.vmcps_deployments_update_status(), property: 'updateStatus' }
+					{ title: m.vmcps_deployments_update_status(), property: 'updateStatus' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				filterable={['displayName', 'userName']}
 				sortable={['displayName', 'userName', 'created']}
@@ -279,7 +280,7 @@
 										}}
 									>
 										<Trash2 class="size-4" />
-										{m.vmcps_deployments_delete()}
+										{m.core_delete()}
 									</button>
 								{/if}
 							</div>
@@ -290,7 +291,9 @@
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center mx-auto">
 				<Layers class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">{m.vmcps_deployments_no_deployments_found()}</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.vmcps_deployments_no_deployments_found()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
 					{m.vmcps_deployments_no_deployments_yet()} <br />
 					{m.vmcps_deployments_created_hint()}

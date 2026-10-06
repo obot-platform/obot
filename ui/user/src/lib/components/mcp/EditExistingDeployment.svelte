@@ -468,7 +468,7 @@
 	icon={editingManifest?.icon}
 	name={getMCPDisplayName(server)}
 	onSave={handleConfigureForm}
-	submitText={m.mcps_deployments_update()}
+	submitText={m.core_update()}
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}

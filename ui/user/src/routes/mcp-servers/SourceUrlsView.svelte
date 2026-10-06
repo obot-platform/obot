@@ -130,7 +130,7 @@
 						disabled={readonly}
 					>
 						<Trash2 class="size-4" />
-						{m.mcps_sources_delete()}
+						{m.core_delete()}
 					</button>
 				</div>
 			{/snippet}

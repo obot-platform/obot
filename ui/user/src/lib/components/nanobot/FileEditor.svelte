@@ -419,7 +419,7 @@
 </div>
 
 {#snippet closeButton()}
-	<div class="md:tooltip md:tooltip-left" data-tip={m.chat_close()}>
+	<div class="md:tooltip md:tooltip-left" data-tip={m.core_close()}>
 		<button class="btn md:btn-sm btn-square" onclick={onClose}>
 			<X class="size-5 md:size-4" />
 		</button>

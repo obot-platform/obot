@@ -69,13 +69,13 @@ function statusKey(secret: ImagePullSecret): ImagePullSecretStatus {
 export function statusLabel(secret: ImagePullSecret) {
 	switch (statusKey(secret)) {
 		case 'disabled':
-			return m.platform_settings_image_pull_secrets_status_disabled();
+			return m.platform_disabled();
 		case 'error':
-			return m.platform_settings_image_pull_secrets_status_error();
+			return m.platform_branding_error();
 		case 'ready':
-			return m.platform_settings_image_pull_secrets_status_ready();
+			return m.core_status_ready();
 		default:
-			return m.platform_settings_image_pull_secrets_status_pending();
+			return m.core_status_pending();
 	}
 }
 

@@ -576,7 +576,7 @@
 					{#if configuring}
 						<Loading class="size-4" />
 					{:else}
-						{m.identity_access_continue()}
+						{m.core_continue()}
 					{/if}
 				</button>
 			</div>
@@ -593,7 +593,7 @@
 					}}
 				>
 					<ArrowLeft class="size-3.5" />
-					{m.identity_access_auth_providers_local_auth_configuration()}
+					{m.identity_access_auth_providers_configuration()}
 				</button>
 			{/if}
 
@@ -611,7 +611,7 @@
 
 			<form class="flex flex-col gap-4 grow max-w-full overflow-hidden" onsubmit={handleSave}>
 				<div class="flex items-center justify-between gap-2">
-					<h4 class="text-sm font-semibold">{m.identity_access_auth_providers_local_auth_users()}</h4>
+					<h4 class="text-sm font-semibold">{m.identity_access_users_tab()}</h4>
 					{#if !readonly && canAddUser}
 						{@render addNewUserButton()}
 					{/if}
@@ -799,7 +799,7 @@
 									<IconButton
 										id={DRAFT_CONFIRM_ID}
 										variant="primary"
-										tooltip={{ text: m.identity_access_auth_providers_local_auth_confirm(), disablePortal: true }}
+										tooltip={{ text: m.core_confirm(), disablePortal: true }}
 										disabled={saving}
 										onclick={confirmNewUser}
 									>

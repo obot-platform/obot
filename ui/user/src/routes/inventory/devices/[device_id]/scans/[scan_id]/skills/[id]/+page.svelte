@@ -65,7 +65,7 @@
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if skill.description}
-						<dt class="text-muted-content">{m.inventory_enforcement_label_description()}</dt>
+						<dt class="text-muted-content">{m.core_description()}</dt>
 						<dd>{skill.description}</dd>
 					{/if}
 					{#if skill.gitRemoteURL}

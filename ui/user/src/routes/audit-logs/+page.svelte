@@ -35,7 +35,7 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: m.audit_usage_audit_logs_tab_model(), value: 'llm', content: llm }
+				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm }
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />

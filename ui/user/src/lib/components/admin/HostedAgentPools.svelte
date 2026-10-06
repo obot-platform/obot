@@ -327,10 +327,10 @@
 											? 'badge-success'
 											: 'badge-secondary'}"
 									>{pool.suspended
-										? m.hosted_agents_pools_suspended()
+										? m.hosted_agents_suspended()
 										: pool.status?.ready
-											? m.hosted_agents_pools_ready()
-											: m.hosted_agents_pools_pending()}</span
+											? m.core_status_ready()
+											: m.core_status_pending()}</span
 								>
 							</div>
 							<p class="text-muted-content mt-1 text-sm">

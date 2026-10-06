@@ -321,7 +321,7 @@
 				disabled={deletable.length === 0}
 			>
 				<Trash2 class="size-4" />
-				{m.vmcps_deployments_delete()}
+				{m.core_delete()}
 				{#if deletable.length > 0}
 					<span class="pill-primary">{deletable.length}</span>
 				{/if}
@@ -363,9 +363,10 @@
 			data={items}
 			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
-				{ title: m.vmcps_deployments_name(), property: 'displayName' },
+				{ title: m.core_name(), property: 'displayName' },
 				{ title: m.vmcps_servers(), property: 'serverNames' },
-				{ title: m.vmcps_created_by(), property: 'owner' }
+				{ title: m.core_col_created_by(), property: 'owner' },
+				{ title: m.core_status(), property: 'status' }
 			]}
 			noDataMessage={m.vmcps_no_vmcps_available_period()}
 			noAutoHideFields={['displayName']}
@@ -518,7 +519,7 @@
 						disabled={deletable.length === 0}
 					>
 						<Trash2 class="size-4" />
-						{m.vmcps_deployments_delete()}
+						{m.core_delete()}
 						{#if deletable.length > 0}
 							<span class="pill-primary">{deletable.length}</span>
 						{/if}

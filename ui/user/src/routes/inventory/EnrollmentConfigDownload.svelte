@@ -467,7 +467,7 @@
 							onclick={handleSave}
 						>
 							{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-							{m.inventory_enforcement_configuration_save()}
+							{m.core_save()}
 						</button>
 					</div>
 				{/if}

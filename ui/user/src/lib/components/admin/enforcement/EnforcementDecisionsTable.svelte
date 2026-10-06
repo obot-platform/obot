@@ -60,7 +60,7 @@
 	function identifierParts(decision: EnforcementDecisionEvent) {
 		const server = serverDisplay(decision);
 		if (!server)
-			return { primary: decision.tool || m.audit_usage_audit_logs_unknown(), secondary: undefined };
+			return { primary: decision.tool || m.core_unknown(), secondary: undefined };
 		return { primary: server, secondary: decision.tool || undefined };
 	}
 </script>

@@ -66,7 +66,7 @@
 				<span class="flex flex-col gap-0.5">
 					<span class="flex flex-wrap items-center gap-1.5 font-medium">
 						{m.inventory_enforcement_configuration_enforce_tool_calls()}
-						<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_experimental()}</span>
+						<span class="badge badge-warning badge-sm">{m.core_experimental()}</span>
 					</span>
 					<span class="input-description">
 						{m.inventory_enforcement_configuration_getting_started_enforce_description()}

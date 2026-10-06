@@ -139,9 +139,9 @@
 		{pageSize}
 		fields={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		headers={[
-			{ title: m.inventory_enforcement_col_name(), property: 'name' },
-			{ title: m.inventory_enforcement_device_clients_col_mcp_servers(), property: 'mcpServerCount' },
-			{ title: m.inventory_enforcement_device_clients_col_skills(), property: 'skillCount' },
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.inventory_enforcement_tab_mcp_servers(), property: 'mcpServerCount' },
+			{ title: m.inventory_enforcement_skills_tab(), property: 'skillCount' },
 			{ title: m.inventory_enforcement_col_users(), property: 'userCount' }
 		]}
 		sortable={['name', 'mcpServerCount', 'skillCount', 'userCount']}

@@ -38,7 +38,7 @@
 	bind:this={dialog}
 	title={secret
 		? m.platform_settings_image_pull_secrets_status_title_named({ name: displayName(secret) })
-		: m.platform_settings_image_pull_secrets_status_title()}
+		: m.core_status()}
 	class="w-full md:max-w-4xl"
 	{onClose}
 >
@@ -57,7 +57,7 @@
 			<section class="flex flex-col gap-3">
 				<div class="grid gap-3 md:grid-cols-3">
 					{@render statusValue(
-						m.platform_col_status(),
+						m.core_status(),
 						statusLabel(details),
 						Server,
 						statusClass(details)

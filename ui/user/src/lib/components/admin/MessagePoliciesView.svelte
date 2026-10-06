@@ -178,7 +178,7 @@
 		}}
 		headers={[
 			{
-				title: m.core_col_name(),
+				title: m.core_name(),
 				property: 'displayName'
 			}
 		]}

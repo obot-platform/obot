@@ -259,7 +259,7 @@
 					</button>
 					<button type="button" class="btn btn-error flex items-center gap-1" onclick={onDelete}>
 						<Trash2 class="size-4" />
-						{m.mcps_tunnels_delete()}
+						{m.core_delete()}
 					</button>
 				{/if}
 			</div>

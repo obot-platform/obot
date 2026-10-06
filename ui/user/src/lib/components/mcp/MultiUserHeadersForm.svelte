@@ -34,7 +34,7 @@
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-name-${i}`} class="text-sm font-light"
-							>{m.mcps_field_name()}</label
+							>{m.core_name()}</label
 						>
 						<input
 							id={`multi-user-header-name-${i}`}
@@ -46,7 +46,7 @@
 
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-description-${i}`} class="text-sm font-light"
-							>{m.mcps_field_description()}</label
+							>{m.core_description()}</label
 						>
 						<input
 							id={`multi-user-header-description-${i}`}

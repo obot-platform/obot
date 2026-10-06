@@ -1111,7 +1111,7 @@ export const ModelUsageLabels = {
 	[ModelUsage.ImageGeneration]: m.core_model_usage_image_generation(),
 	[ModelUsage.Vision]: m.core_model_usage_vision(),
 	[ModelUsage.Other]: m.core_model_usage_other(),
-	[ModelUsage.Unknown]: m.core_model_usage_unknown()
+	[ModelUsage.Unknown]: m.core_unknown()
 } as const;
 export const NanobotModelAlias = {
 	Llm: 'llm',

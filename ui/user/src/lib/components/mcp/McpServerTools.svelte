@@ -282,7 +282,7 @@
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Wrench class="text-muted-content size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">{m.mcps_servers_tools_none()}</h4>
+					<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
 					<p class="text-muted-content text-sm font-light">
 						{#if showRealTools}
 							{m.mcps_servers_tools_none_available()}

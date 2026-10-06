@@ -646,13 +646,13 @@
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
-					{ title: m.mcps_column_name(), property: 'displayName' },
-					{ title: m.mcps_deployments_column_type(), property: 'type' },
+					{ title: m.core_name(), property: 'displayName' },
+					{ title: m.core_type(), property: 'type' },
 					{ title: m.mcps_deployments_column_user(), property: 'userName' },
 					{ title: m.mcps_deployments_column_health(), property: 'deploymentStatus' },
 					{ title: m.mcps_deployments_column_update_status(), property: 'updatesAvailable' },
 					{ title: m.mcps_deployments_column_registry(), property: 'registry' },
-					{ title: m.mcps_deployments_column_created(), property: 'created' }
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
@@ -958,7 +958,7 @@
 										}}
 									>
 										<Trash2 class="size-4" />
-										{m.mcps_deployments_delete_server()}
+										{m.mcps_catalog_delete_server()}
 									</button>
 								{/if}
 							</div>
@@ -1059,7 +1059,7 @@
 							disabled={readonly || deletableCount === 0}
 						>
 							<Trash2 class="size-4" />
-							{m.mcps_deployments_delete()}
+							{m.core_delete()}
 							{#if deletableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{deletableCount}

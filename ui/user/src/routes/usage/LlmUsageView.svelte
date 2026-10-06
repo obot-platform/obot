@@ -704,7 +704,7 @@
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
 				<h4 class="font-semibold">{m.audit_usage_usage_overall_stats()}</h4>
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					{@render summary(m.audit_usage_usage_total(), totalTokensData?.totalTokens ?? 0)}
+					{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
 					{@render summary(m.audit_usage_usage_input(), totalTokensData?.inputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
@@ -741,7 +741,7 @@
 					searchInDropdown
 					placeholder={m.audit_usage_usage_filter_by_api_key()}
 					buttonReadOnly
-					buttonTitle={m.audit_usage_usage_api_keys()}
+					buttonTitle={m.audit_usage_exports_filter_title_api_keys()}
 					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
@@ -761,7 +761,7 @@
 					searchInDropdown
 					placeholder={m.audit_usage_usage_filter_by_user()}
 					buttonReadOnly
-					buttonTitle={m.audit_usage_usage_users()}
+					buttonTitle={m.audit_usage_exports_filter_title_users()}
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
 				/>
 				<Select
@@ -796,7 +796,7 @@
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.audit_usage_usage_pill_user()}</span>{userPill.label}
+								<span class="font-semibold">{m.audit_usage_audit_logs_user_label()}</span>{userPill.label}
 								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -806,7 +806,7 @@
 					{#if selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.audit_usage_usage_pill_api_key()}</span
+								<span class="font-semibold">{m.audit_usage_audit_logs_model_api_key_label()}</span
 								>{apiKeyOptionsMap.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID })}
 								<button class="ml-1" onclick={() => handleRemoveAPIKeyFilter(apiKeyID)}>
 									<X class="size-3" />
@@ -855,7 +855,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
 						>
-							{m.audit_usage_usage_api_keys()}
+							{m.audit_usage_exports_filter_title_api_keys()}
 						</button>
 						<button
 							class={twMerge(
@@ -877,7 +877,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.USERS)}
 						>
-							{m.audit_usage_usage_users()}
+							{m.audit_usage_exports_filter_title_users()}
 						</button>
 						<button
 							class={twMerge(

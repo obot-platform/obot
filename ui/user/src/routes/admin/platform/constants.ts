@@ -10,7 +10,7 @@ const LOGO_LABELS = {
 
 const INDICATOR_LABELS = {
 	secondary: m.platform_branding_secondary(),
-	success: m.platform_branding_success(),
+	success: m.platform_success(),
 	warning: m.platform_branding_warning(),
 	error: m.platform_branding_error()
 };

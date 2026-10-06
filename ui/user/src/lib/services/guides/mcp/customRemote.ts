@@ -29,7 +29,7 @@ function getStaticOAuthAction(): GuideAction {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth },
 			side: 'top',
 			align: 'center',
-			title: m.mcps_servers_guide_static_oauth(),
+			title: m.mcps_catalog_remote_remote_static_oauth(),
 			description: m.mcps_servers_guide_enable_this_only_when_the_remote(),
 			noDescendantInteraction: true
 		},
@@ -101,7 +101,7 @@ export const steps: GuideStep[] = [
 					highlight: {
 						selector: { id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn },
 						side: 'top',
-						title: m.mcps_servers_guide_advanced_configuration(),
+						title: m.mcps_catalog_remote_remote_advanced(),
 						description: m.mcps_servers_guide_open_this_to_restrict_connections_by()
 					},
 					listener: {

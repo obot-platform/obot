@@ -124,7 +124,7 @@
 				{#if detail.description}
 					<div class="flex flex-col gap-1">
 						<span class="text-muted-content text-xs uppercase"
-							>{m.inventory_enforcement_label_description()}</span
+							>{m.core_description()}</span
 						>
 						<p class="text-sm">{detail.description}</p>
 					</div>
@@ -173,7 +173,7 @@
 					]}
 					headers={[
 						{ title: '#', property: 'rowIndex' },
-						{ title: m.inventory_enforcement_col_device(), property: 'shortDeviceID' },
+						{ title: m.inventory_enforcement_devices_device_title(), property: 'shortDeviceID' },
 						{ title: m.inventory_enforcement_col_scanned(), property: 'scannedRelative' },
 						{ title: m.inventory_enforcement_col_client(), property: 'client' },
 						{ title: m.inventory_enforcement_col_scope(), property: 'scope' },

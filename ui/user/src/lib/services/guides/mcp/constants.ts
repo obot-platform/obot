@@ -15,7 +15,7 @@ export const highlightMcpServersLink: GuideHighlight = {
 	selector: {
 		id: SIDEBAR_MCP_SERVERS_LINK
 	},
-	title: m.mcps_guide_mcp_servers(),
+	title: m.mcps_filters_mcp_servers(),
 	description: m.mcps_guides_this_is_where_you_can_manage()
 };
 
@@ -51,7 +51,7 @@ export function getMcpServersTabListener(
 
 export const highlightMcpAccessPoliciesTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_ACCESS_POLICIES,
-	m.mcps_guide_access_policies(),
+	m.mcps_access_policies_tab(),
 	m.mcps_guide_click_here_to_manage_mcp_access()
 );
 
@@ -59,7 +59,7 @@ export const listenMcpAccessPoliciesTab = getMcpServersTabListener(MCP_SERVERS_T
 
 export const highlightMcpFiltersTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_FILTERS,
-	m.mcps_guide_filters(),
+	m.core_filters_title(),
 	m.mcps_guide_click_here_to_view_mcp_filters()
 );
 

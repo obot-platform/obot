@@ -70,7 +70,7 @@
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
 	let advancedExpanded = $state(false);
-	let submitLabel = $state<string>(m.vmcps_next());
+	let submitLabel = $state<string>(m.core_next());
 	let failureMessage = $state<string>(m.vmcps_failed_to_add_server_to_vmcp());
 
 	let hasUserAllowedNonHeaderConfiguration = $derived(
@@ -109,7 +109,7 @@
 				};
 			});
 		forceSingleUser = !hasUserAllowedNonHeaderConfiguration && (options?.forceSingleUser ?? false);
-		submitLabel = options?.submitLabel ?? m.vmcps_next();
+		submitLabel = options?.submitLabel ?? m.core_next();
 		failureMessage = options?.errorMessage ?? m.vmcps_failed_to_add_server_to_vmcp();
 		highlighted = [];
 		error = undefined;
@@ -370,7 +370,7 @@
 			onclick={() => dialog?.close()}
 			disabled={saving}
 		>
-			{readonly || !hasConfiguration ? m.vmcps_close() : m.common_cancel()}
+			{readonly || !hasConfiguration ? m.core_close() : m.common_cancel()}
 		</button>
 		{#if !readonly && hasConfiguration}
 			<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>

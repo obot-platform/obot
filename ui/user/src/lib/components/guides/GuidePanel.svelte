@@ -833,7 +833,7 @@
 						onclick={() => void handlePrimaryNext()}
 						disabled={Boolean(guide.stream[guide.currentStep]?.buttons?.length)}
 					>
-						{m.core_guides_next()}
+						{m.core_next()}
 					</button>
 				</div>
 			</div>
@@ -855,7 +855,7 @@
 
 				<div class="flex justify-end pt-4 mt-4 border-t border-base-300">
 					<button class="btn btn-sm btn-primary" onclick={() => stepDialog?.close()}>
-						{stepDialogContent?.next ? m.core_guides_next() : m.core_guides_close()}
+						{stepDialogContent?.next ? m.core_next() : m.core_close()}
 					</button>
 				</div>
 			{/if}
@@ -886,7 +886,7 @@
 				closeGuide();
 			}}
 		>
-			{m.core_guides_close()}
+			{m.core_close()}
 		</button>
 	</ResponsiveDialog>
 {/if}

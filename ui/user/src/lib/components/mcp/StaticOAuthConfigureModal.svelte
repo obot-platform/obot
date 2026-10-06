@@ -213,7 +213,7 @@
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						{m.mcps_save()}
+						{m.core_save()}
 					{/if}
 				</button>
 			</div>

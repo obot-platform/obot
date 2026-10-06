@@ -176,7 +176,7 @@
 					<span class="break-all">{decision.tool || '—'}</span>
 					<span class="font-medium">{m.inventory_enforcement_enforcement_events_tool_type()}</span>
 					<span>{kindLabel(decision.kind)}</span>
-					<span class="font-medium">{m.inventory_enforcement_enforcement_events_mcp_server()}</span>
+					<span class="font-medium">{m.inventory_enforcement_mcp_server()}</span>
 					<span class="break-all">{decision.serverName || '—'}</span>
 				</div>
 			</div>
@@ -227,7 +227,7 @@
 					<span class="break-all">{decision.deviceID || '—'}</span>
 					<span class="font-medium">{m.audit_usage_audit_logs_model_col_ip_address()}</span>
 					<span class="break-all">{decision.clientIP || '—'}</span>
-					<span class="font-medium">{m.inventory_enforcement_enforcement_events_configuration()}</span>
+					<span class="font-medium">{m.inventory_enforcement_configuration_tab()}</span>
 					<span>#{decision.mdmConfigurationID}</span>
 				</div>
 			</div>

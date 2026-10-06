@@ -118,7 +118,7 @@
 
 	let columnCount = $derived(responsive.isMobile ? 2 : 4);
 	let columnHeaders = $derived([
-		{ property: 'name', title: m.chat_col_name() },
+		{ property: 'name', title: m.core_name() },
 		{ property: 'size', title: m.chat_col_size() },
 		...(responsive.isMobile
 			? []

@@ -108,11 +108,11 @@
 			</div>
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="flex flex-col gap-2 sm:col-span-2">
-					<label for="instance-name" class="text-sm font-light">{m.chat_name()}</label>
+					<label for="instance-name" class="text-sm font-light">{m.core_name()}</label>
 					<input id="instance-name" bind:value={name} class="text-input-filled" />
 				</div>
 				<div class="flex flex-col gap-2 sm:col-span-2">
-					<label for="instance-description" class="text-sm font-light">{m.chat_harnesses_description()}</label
+					<label for="instance-description" class="text-sm font-light">{m.core_description()}</label
 					>
 					<textarea
 						id="instance-description"
@@ -143,7 +143,7 @@
 		{#if agent.allowUserGitRepo}
 			<section class="border-base-400 bg-base-300 rounded-lg border p-4">
 				<div class="mb-3">
-					<h3 class="text-sm font-semibold">{m.chat_instance_form_repository()}</h3>
+					<h3 class="text-sm font-semibold">{m.core_repository()}</h3>
 					<p class="text-muted-content text-xs">{m.chat_instance_form_repository_desc()}</p>
 				</div>
 				<div class="flex flex-col gap-2">
@@ -375,7 +375,7 @@
 					<span class="text-muted-content">{m.chat_settings()}</span><span>{questions.length}</span>
 				</div>{/if}
 			{#if agent.allowUserGitRepo}<div class="flex justify-between gap-2">
-					<span class="text-muted-content">{m.chat_instance_form_repository()}</span><span
+					<span class="text-muted-content">{m.core_repository()}</span><span
 						class="max-w-28 truncate">{gitRepo ? m.chat_custom() : m.chat_default()}</span
 					>
 				</div>{/if}

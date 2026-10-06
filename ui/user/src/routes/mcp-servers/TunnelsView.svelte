@@ -45,10 +45,10 @@
 				displayName: tunnel.manifest.displayName?.trim() || tunnel.id,
 				status:
 					connections === undefined
-						? m.mcps_unknown()
+						? m.core_unknown()
 						: connection
-							? m.mcps_tunnels_status_connected()
-							: m.mcps_tunnels_status_disconnected()
+							? m.mcps_tunnels_connected()
+							: m.mcps_tunnels_disconnected()
 			};
 		});
 	});
@@ -101,9 +101,9 @@
 			data={tableData}
 			fields={['displayName', 'status', 'allowedURLs']}
 			headers={[
-				{ title: m.mcps_col_name(), property: 'displayName' },
-				{ title: m.mcps_col_status(), property: 'status' },
-				{ title: m.mcps_tunnels_col_allowed_urls(), property: 'allowedURLs' }
+				{ title: m.core_name(), property: 'displayName' },
+				{ title: m.core_status(), property: 'status' },
+				{ title: m.mcps_tunnels_allowed_urls(), property: 'allowedURLs' }
 			]}
 			filterable={['displayName', 'status']}
 			sortable={['displayName', 'status']}

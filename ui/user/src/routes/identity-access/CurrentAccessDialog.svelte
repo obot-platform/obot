@@ -356,7 +356,7 @@
 		}
 		const owner = mcpOwnersMap.get(powerUserID);
 		return m.identity_access_current_access_owner_registry({
-			name: owner ? getUserDisplayName(mcpOwnersMap, powerUserID) : m.identity_access_current_access_unknown()
+			name: owner ? getUserDisplayName(mcpOwnersMap, powerUserID) : m.core_unknown()
 		});
 	}
 

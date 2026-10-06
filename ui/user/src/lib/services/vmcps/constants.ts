@@ -106,8 +106,8 @@ export const MCP_SERVER_POPULARITY_ORDER = [
 export const VMCP_FILTER_OWNER_NONE = '__none__';
 
 export const VMCP_SORT_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
-	{ id: 'name', label: m.vmcps_sort_name() },
-	{ id: 'created', label: m.vmcps_sort_created() },
+	{ id: 'name', label: m.core_name() },
+	{ id: 'created', label: m.core_col_created() },
 	{ id: 'componentServers', label: m.vmcps_mcp_servers() }
 ];
 

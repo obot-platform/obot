@@ -64,7 +64,7 @@
 	}
 </script>
 
-<Layout title={m.identity_access_agents_title()}>
+<Layout title={m.identity_access_agents_tab()}>
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between">
 			<p class="text-sm text-muted-content">
@@ -97,7 +97,7 @@
 			]}
 			filterable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable']}
 			headers={[
-				{ title: m.identity_access_agents_col_owner(), property: 'ownerDisplay' },
+				{ title: m.core_role_owner(), property: 'ownerDisplay' },
 				{ title: m.identity_access_agents_col_health(), property: 'deploymentStatus' },
 				{ title: m.identity_access_agents_col_update_status(), property: 'updatesAvailable' },
 				{ title: m.core_col_created(), property: 'created' }
@@ -173,5 +173,5 @@
 </Confirm>
 
 <svelte:head>
-	<title>Obot | {m.identity_access_agents_title()}</title>
+	<title>Obot | {m.identity_access_agents_tab()}</title>
 </svelte:head>

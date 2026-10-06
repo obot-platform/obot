@@ -445,7 +445,7 @@
 							</div>
 						{/if}
 						{#if pool.suspended}<span class="badge badge-warning badge-sm"
-								>{m.hosted_agents_agents_suspended()}</span
+								>{m.hosted_agents_suspended()}</span
 							>{/if}
 					</div>
 				</div>
@@ -453,7 +453,7 @@
 					class="text-muted-content bg-base-300 dark:bg-base-200 border-base-200 dark:border-base-400 grid grid-cols-[minmax(13rem,2fr)_6rem_minmax(8rem,1fr)_11rem] gap-3 border-t px-4 py-2 text-xs font-medium uppercase"
 				>
 					<span>{m.chat_agents_col_agent()}</span><span>{m.chat_agents_col_instances()}</span><span
-						>{m.chat_col_status()}</span
+						>{m.core_status()}</span
 					><span></span>
 				</div>
 				{#each hostedAgents as agent (agent.id)}
@@ -645,7 +645,7 @@
 					(!editing && Boolean(selectedAgent && isAtInstanceLimit(selectedAgent)))}
 				onclick={save}
 				>{#if saving}<Loading class="size-4" />{:else}{editing
-						? m.chat_update()
+						? m.core_update()
 						: m.chat_agents_create()}{/if}</button
 			>
 		</div>

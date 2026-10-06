@@ -97,12 +97,12 @@
 	let roleUpdateError = $state('');
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER)
-			? [{ label: m.identity_access_roles_owner(), id: Role.OWNER }]
+			? [{ label: m.core_role_owner(), id: Role.OWNER }]
 			: []),
-		{ label: m.identity_access_roles_admin(), id: Role.ADMIN },
+		{ label: m.core_role_admin(), id: Role.ADMIN },
 		{ label: m.identity_access_roles_power_user_plus_short(), id: Role.POWERUSER_PLUS },
-		{ label: m.identity_access_roles_power_user(), id: Role.POWERUSER },
-		{ label: m.identity_access_roles_standard_user(), id: Role.BASIC }
+		{ label: m.core_role_power_user(), id: Role.POWERUSER },
+		{ label: m.core_role_standard_user(), id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
@@ -165,7 +165,7 @@
 			user?.originalEmail ??
 			user?.username ??
 			user?.email ??
-			m.identity_access_unknown_user();
+			m.core_unknown_user();
 
 		if (user?.deletedAt) {
 			display = m.identity_access_name_deleted({ name: display });
@@ -254,7 +254,7 @@
 						tooltip:
 							'Disabled users keep their account, roles, and data, but cannot sign in or use their credentials.'
 					},
-					{ title: m.core_col_name(), property: 'name' },
+					{ title: m.core_name(), property: 'name' },
 					{ title: m.identity_access_col_email(), property: 'email' },
 					{ title: m.identity_access_users_col_assigned_role(), property: 'role' },
 					{
@@ -473,7 +473,7 @@
 				<label class="mt-4 flex gap-4">
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
-						<p class="w-28 shrink-0 font-semibold">{m.identity_access_roles_auditor()}</p>
+						<p class="w-28 shrink-0 font-semibold">{m.core_role_auditor()}</p>
 						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
 							<p class="text-muted-content">
 								{m.identity_access_users_auditor_readonly_description()}

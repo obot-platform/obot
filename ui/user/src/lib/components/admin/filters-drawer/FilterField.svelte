@@ -63,7 +63,7 @@
 			shouldShowResetButton
 				? {
 						id: 'reset',
-						label: m.audit_usage_exports_filter_reset(),
+						label: m.core_reset_page(),
 						onclick: () => onReset?.(),
 						class: 'text-primary opacity-80 hover:opacity-90 active:opacity-100'
 					}
@@ -73,8 +73,8 @@
 						id: 'clear',
 						label:
 							parseMultiValue(value).length > 1
-								? m.audit_usage_exports_filter_clear_all()
-								: m.audit_usage_exports_filter_clear(),
+								? m.core_clear_all()
+								: m.core_clear(),
 						onclick: () => onClearAll?.(),
 						class: 'opacity-50 hover:opacity-80 active:opacity-100'
 					}

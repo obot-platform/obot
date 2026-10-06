@@ -457,10 +457,10 @@
 
 	function userDisplayName(user?: OrgUser): string {
 		if (!user) {
-			return m.audit_usage_audit_logs_unknown();
+			return m.core_unknown();
 		}
 
-		let display = user.originalEmail || user.email || user.id || m.audit_usage_audit_logs_unknown();
+		let display = user.originalEmail || user.email || user.id || m.core_unknown();
 		if (user.deletedAt) {
 			display = m.audit_usage_usage_deleted_user({ name: display });
 		}

@@ -262,8 +262,8 @@
 					data={tableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.core_col_name() },
-						{ property: 'type', title: m.core_col_type() }
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
 					]}
 					noDataMessage={m.core_no_users_or_groups_added()}
 				>

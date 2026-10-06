@@ -34,8 +34,8 @@
 		data={filteredBuiltInFiltersData}
 		fields={['name', 'created']}
 		headers={[
-			{ title: m.mcps_col_name(), property: 'name' },
-			{ title: m.mcps_col_created(), property: 'created' }
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.core_col_created(), property: 'created' }
 		]}
 		filterable={['name']}
 		onClickRow={(d) => {

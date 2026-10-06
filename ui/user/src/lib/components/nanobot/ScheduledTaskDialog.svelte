@@ -393,7 +393,7 @@
 							onChange={(selectedDate) => {
 								date = valueFromDate(selectedDate);
 							}}
-							placeholder={m.chat_select_date()}
+							placeholder={m.core_select_date()}
 							format="MM-dd-yyyy"
 							class="border-base-300 min-h-12 rounded-xl border px-4 py-3 text-base shadow-none"
 						/>
@@ -487,7 +487,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{/if}
-				{m.chat_save()}
+				{m.core_save()}
 			</button>
 		</div>
 	</div>

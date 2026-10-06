@@ -179,7 +179,7 @@
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'role']}
 					headers={[
-						{ property: 'name', title: m.core_col_name() },
+						{ property: 'name', title: m.core_name() },
 						{ property: 'role', title: m.identity_access_col_role() }
 					]}
 					{initSort}

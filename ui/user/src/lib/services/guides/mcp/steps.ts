@@ -116,7 +116,7 @@ export function getHighlightAddCatalogEntryStep(type: 'hosted' | 'remote'): Guid
 				selector: {
 					id: 'add-catalog-entry-button'
 				},
-				title: m.mcps_guides_add_mcp_server(),
+				title: m.mcps_add_mcp_server(),
 				description: m.mcps_guides_this_is_where_you_can_create(),
 				side: 'left'
 			},

@@ -150,7 +150,11 @@
 {#if associatedUsers.length > 0}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">{m.vmcps_associated_user()}</h2>
-		<Table data={associatedUsers} fields={['name']}>
+		<Table
+			data={associatedUsers}
+			fields={['name']}
+			headers={[{ property: 'name', title: m.core_name() }]}
+		>
 			{#snippet onRenderColumn(property: string, d: OrgUser)}
 				{#if property === 'name'}
 					{getUserDisplayName(usersMap, d.id)}

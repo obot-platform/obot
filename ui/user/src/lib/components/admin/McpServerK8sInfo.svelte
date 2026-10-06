@@ -275,7 +275,7 @@
 			},
 			{
 				id: 'status',
-				label: m.mcps_servers_status(),
+				label: m.core_status(),
 				value: info.isAvailable ? m.mcps_servers_healthy() : m.mcps_servers_unhealthy()
 			}
 		];
@@ -345,7 +345,7 @@
 				const env = envMap.get(key);
 				envs.push({
 					id: key,
-					label: env?.name ?? m.mcps_servers_unknown(),
+					label: env?.name ?? m.core_unknown(),
 					value: env?.prefix ? env.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
 					sensitive: env?.sensitive || false,
 					file: env?.file,
@@ -355,7 +355,7 @@
 				const header = headerMap.get(key);
 				headers.push({
 					id: key,
-					label: header?.name ?? m.mcps_servers_unknown(),
+					label: header?.name ?? m.core_unknown(),
 					value: header?.prefix
 						? header.prefix + revealedValues![key]
 						: (revealedValues![key] ?? ''),
@@ -551,7 +551,7 @@
 				{/if}
 
 				<div>
-					<h2 class="mb-2 text-lg font-semibold">{m.mcps_servers_configuration()}</h2>
+					<h2 class="mb-2 text-lg font-semibold">{m.mcps_catalog_config_heading()}</h2>
 					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
 							{#each envs as env (env.id)}
@@ -587,7 +587,7 @@
 					headers={[
 						{ title: m.mcps_servers_col_time(), property: 'time' },
 						{ title: m.mcps_servers_col_event_type(), property: 'eventType' },
-						{ title: m.mcps_servers_col_message(), property: 'message' }
+						{ title: m.mcps_tester_message(), property: 'message' }
 					]}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -625,7 +625,7 @@
 
 	{#if hasAdminAccess}
 		{@const status = isPending
-			? m.mcps_servers_status_pending()
+			? m.core_status_pending()
 			: missingSecretBindings.length > 0
 				? m.mcps_servers_missing_k8s_secret_component()
 				: needsUpdate
@@ -636,7 +636,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 			>
 				<div class="grid grid-cols-2 gap-1 md:gap-4">
-					<p class="text-sm font-semibold col-span-2 md:col-span-1">{m.mcps_servers_status()}</p>
+					<p class="text-sm font-semibold col-span-2 md:col-span-1">{m.core_status()}</p>
 					<p class="text-sm font-light col-span-2 md:col-span-1">
 						{status ??
 							m.mcps_servers_status_error_detail({ message: parseErrorContent(error).message })}
@@ -722,7 +722,7 @@
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
 								title={m.mcps_servers_file_badge_title()}
 							>
-								{m.mcps_servers_file_badge()}
+								{m.mcps_catalog_badge_file()}
 							</span>
 						{/if}
 						{#if dynamicFile}
@@ -730,7 +730,7 @@
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
 								title={m.mcps_servers_dynamic_badge_title()}
 							>
-								{m.mcps_servers_dynamic_badge()}
+								{m.mcps_catalog_badge_dynamic()}
 							</span>
 						{/if}
 					</span>

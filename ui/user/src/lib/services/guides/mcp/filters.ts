@@ -10,7 +10,7 @@ export const steps: GuideStep[] = [
 	},
 	getNavigateToMcpServersTabStep(
 		MCP_SERVERS_TAB_FILTERS,
-		m.mcps_guide_filters(),
+		m.core_filters_title(),
 		m.mcps_guide_click_here_to_view_mcp_filters(),
 		m.mcps_filters_guide_let_s_head_to_the_filters()
 	),
@@ -21,7 +21,7 @@ export const steps: GuideStep[] = [
 				selector: {
 					id: MCP_FILTERS_FIELD_IDS.addFilterBtn
 				},
-				title: m.mcps_filters_guide_add_new_filter(),
+				title: m.mcps_add_new_filter(),
 				description: m.mcps_filters_guide_this_is_where_you_can_add(),
 				side: 'left'
 			},
@@ -108,7 +108,7 @@ export const steps: GuideStep[] = [
 												},
 												side: 'top',
 												align: 'center',
-												title: m.mcps_guide_mcp_servers(),
+												title: m.mcps_filters_mcp_servers(),
 												description: m.mcps_filters_guide_select_the_mcp_servers_that_will(),
 												noDescendantInteraction: true
 											},

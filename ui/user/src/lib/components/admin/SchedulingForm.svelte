@@ -141,7 +141,7 @@
 		</p>
 	</div>
 
-	<h3 class="text-base font-semibold">{m.platform_mcp_config_scheduling_cpu_settings()}</h3>
+	<h3 class="text-base font-semibold">{m.platform_mcp_config_cpu_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
 			<label class="input-label" for="cpu-request">{m.platform_mcp_config_scheduling_request()}</label>
@@ -151,7 +151,7 @@
 				bind:value={resourceInfo.requests.cpu}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '500m' })}
+				placeholder={m.platform_example_value({ value: '500m' })}
 			/>
 		</div>
 		<div class="flex flex-1 flex-col gap-1">
@@ -162,11 +162,11 @@
 				bind:value={resourceInfo.limits.cpu}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '1' })}
+				placeholder={m.platform_example_value({ value: '1' })}
 			/>
 		</div>
 	</div>
-	<h3 class="text-base font-semibold">{m.platform_mcp_config_scheduling_memory_settings()}</h3>
+	<h3 class="text-base font-semibold">{m.platform_mcp_config_memory_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
 			<label class="input-label" for="memory-request">{m.platform_mcp_config_scheduling_request()}</label>
@@ -176,7 +176,7 @@
 				bind:value={resourceInfo.requests.memory}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '512Mi' })}
+				placeholder={m.platform_example_value({ value: '512Mi' })}
 			/>
 		</div>
 		<div class="flex flex-1 flex-col gap-1">
@@ -187,7 +187,7 @@
 				bind:value={resourceInfo.limits.memory}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '1Gi' })}
+				placeholder={m.platform_example_value({ value: '1Gi' })}
 			/>
 		</div>
 	</div>
@@ -238,7 +238,7 @@
 			bind:value={runtimeClassName}
 			class="text-input-filled dark:bg-base-100"
 			disabled={readonly}
-			placeholder={m.platform_mcp_config_scheduling_example_value({ value: 'gvisor' })}
+			placeholder={m.platform_example_value({ value: 'gvisor' })}
 		/>
 		<p class="text-xs font-light text-muted-content">
 			{m.platform_mcp_config_scheduling_runtime_leave_empty()}

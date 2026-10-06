@@ -154,11 +154,11 @@
 			fields={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
 			filterable={['name', 'state']}
 			headers={[
-				{ title: m.audit_usage_exports_col_name(), property: 'name' },
-				{ title: m.audit_usage_exports_col_status(), property: 'state' },
+				{ title: m.core_name(), property: 'name' },
+				{ title: m.core_status(), property: 'state' },
 				{ title: m.audit_usage_exports_col_storage(), property: 'storageProvider' },
 				{ title: m.audit_usage_exports_col_size(), property: 'sizeDisplay' },
-				{ title: m.audit_usage_exports_col_created(), property: 'created' }
+				{ title: m.core_col_created(), property: 'created' }
 			]}
 			sortable={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
 			noDataMessage={m.audit_usage_exports_none_found()}

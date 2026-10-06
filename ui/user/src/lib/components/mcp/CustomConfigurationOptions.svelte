@@ -68,7 +68,7 @@
 				<div class="flex flex-col gap-4 grow">
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-name-container-${i}`}>
 						<Label
-							title={m.mcps_field_name()}
+							title={m.core_name()}
 							forInput={`env-option-name-${id}-${i}`}
 							required
 							showError={missingOptionName}
@@ -116,7 +116,7 @@
 					</div>
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-description-container-${i}`}>
 						<Label
-							title={m.mcps_field_description()}
+							title={m.core_description()}
 							forInput={`env-option-description-${id}-${i}`}
 						/>
 						<input

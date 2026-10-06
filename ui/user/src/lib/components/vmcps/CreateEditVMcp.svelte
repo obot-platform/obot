@@ -207,7 +207,7 @@
 				for="vmcp-name"
 				class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
 			>
-				{m.vmcps_deployments_name()}
+				{m.core_name()}
 				<span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
 			</label>
 			<input
@@ -229,7 +229,7 @@
 				for="vmcp-description"
 				class={twMerge('text-sm font-light', showRequired.description && 'error')}
 			>
-				{m.vmcps_description()}
+				{m.core_description()}
 				<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
 			</label>
 			<textarea
@@ -257,7 +257,7 @@
 					{#if saving}
 						<Loading class="text-primary-content size-4" />
 					{:else}
-						{editing ? m.vmcps_save() : m.vmcps_create()}
+						{editing ? m.core_save() : m.vmcps_create()}
 					{/if}
 				</button>
 			</div>

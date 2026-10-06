@@ -137,7 +137,7 @@
 			filterId = response.id;
 		} catch (err) {
 			console.error('error: ', err);
-			launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		}
 
 		if (response) {
@@ -160,7 +160,7 @@
 					onSuccess?.();
 				}
 			} catch (err) {
-				launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
+				launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -247,7 +247,7 @@
 	icon={manifest?.icon}
 	name={manifest?.name || ''}
 	onSave={handleConfigureForm}
-	submitText={m.mcps_filters_next()}
+	submitText={m.core_next()}
 	loading={saving}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
@@ -266,7 +266,7 @@
 	onClose={handleCancel}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">{m.mcps_filters_launch_failed_page_mcp()}</h4>
+		<h4 class="text-xl font-semibold">{m.mcps_deployments_launch_failed_title()}</h4>
 	{/snippet}
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
@@ -327,7 +327,7 @@
 					}}>{m.mcps_filters_go_back()}</button
 				>
 			{/if}
-			<button class="btn btn-primary text-sm" onclick={handleFinish}>{m.mcps_filters_save()}</button>
+			<button class="btn btn-primary text-sm" onclick={handleFinish}>{m.core_save()}</button>
 		</div>
 	</div>
 </ResponsiveDialog>

@@ -284,7 +284,7 @@
 			<table class="table w-full table-fixed">
 				<thead>
 					<tr>
-						<th>{m.chat_col_name()}</th>
+						<th>{m.core_name()}</th>
 						<th>{m.chat_col_size()}</th>
 						<th>{m.chat_col_last_modified()}</th>
 						<th>{m.chat_col_location()}</th>
@@ -409,9 +409,9 @@
 				<table class="table w-full">
 					<thead>
 						<tr>
-							<th>{m.chat_col_title()}</th>
+							<th>{m.chat_title()}</th>
 							{#if !responsive.isMobile}
-								<th>{m.chat_col_created()}</th>
+								<th>{m.core_col_created()}</th>
 							{/if}
 							<th class="flex justify-end">
 								<select class="select w-42" bind:value={sortBy}>
@@ -498,7 +498,7 @@
 			confirmInstallModal = undefined;
 			reloadPage();
 		}}
-		confirmButtonText={m.chat_update()}
+		confirmButtonText={m.core_update()}
 		message={m.chat_update_workflow_confirm()}
 	>
 		{#snippet loadingText()}
@@ -586,7 +586,7 @@
 <Confirm
 	msg={m.chat_workflow_published_msg({ name: workflowDisplayName ?? workflowId })}
 	title={m.chat_workflow_published_title()}
-	cancelText={m.chat_close()}
+	cancelText={m.core_close()}
 	show={showPublishSuccess}
 	oncancel={() => (showPublishSuccess = false)}
 	type="info"

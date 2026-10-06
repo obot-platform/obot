@@ -163,7 +163,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{m.mcps_filters_add_mcp_server()}
+					{m.mcps_add_mcp_server()}
 				</button>
 			</div>
 		{/if}
@@ -302,7 +302,7 @@
 	<Table
 		data={mcpServersTableData}
 		fields={['name']}
-		headers={[{ property: 'name', title: m.core_col_name() }]}
+		headers={[{ property: 'name', title: m.core_name() }]}
 		noDataMessage={m.mcps_filters_no_mcp_servers_added()}
 	>
 		{#snippet actions(d)}

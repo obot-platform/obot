@@ -308,7 +308,7 @@
 			agent: m.audit_usage_audit_logs_agent(),
 			decision: m.inventory_enforcement_enforcement_events_result(),
 			kind: m.inventory_enforcement_enforcement_events_tool_type(),
-			server: m.inventory_enforcement_enforcement_events_mcp_server(),
+			server: m.inventory_enforcement_mcp_server(),
 			tool: m.inventory_enforcement_enforcement_events_tool()
 		};
 		return labels[key] ?? key.replace(/_(\w)/g, ' $1');

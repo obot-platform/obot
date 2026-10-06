@@ -13,7 +13,7 @@ export const steps: GuideStep[] = [
 	},
 	getNavigateToMcpServersTabStep(
 		MCP_SERVERS_TAB_ACCESS_POLICIES,
-		m.mcps_guide_access_policies(),
+		m.mcps_access_policies_tab(),
 		m.mcps_guide_click_here_to_manage_mcp_access(),
 		m.mcps_access_policies_guide_let_s_head_to_the_access()
 	),
@@ -24,7 +24,7 @@ export const steps: GuideStep[] = [
 			highlight: {
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn },
 				side: 'left',
-				title: m.mcps_access_policies_guide_add_access_policy(),
+				title: m.mcps_access_policies_add_access_policy(),
 				description: m.mcps_access_policies_guide_this_is_where_you_go_to()
 			},
 			listener: {
@@ -48,7 +48,7 @@ export const steps: GuideStep[] = [
 					highlight: {
 						selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.usersGroupsSection },
 						side: 'top',
-						title: m.mcps_access_policies_guide_users_groups(),
+						title: m.core_users_and_groups(),
 						description: m.mcps_access_policies_guide_here_is_where_you_can_add(),
 						noDescendantInteraction: true
 					},
@@ -59,7 +59,7 @@ export const steps: GuideStep[] = [
 							highlight: {
 								selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn },
 								side: 'left',
-								title: m.mcps_access_policies_guide_add_user_group(),
+								title: m.core_add_user_group(),
 								description: m.mcps_access_policies_guide_you_can_add_user_and_groups()
 							},
 							listener: {
@@ -96,7 +96,7 @@ export const steps: GuideStep[] = [
 															highlight: {
 																selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.serversSection },
 																side: 'top',
-																title: m.mcps_access_policies_guide_servers(),
+																title: m.mcps_servers_tab(),
 																description: m.mcps_access_policies_guide_this_is_where_you_can_select(),
 																noDescendantInteraction: true
 															},
@@ -107,7 +107,7 @@ export const steps: GuideStep[] = [
 																	highlight: {
 																		selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn },
 																		side: 'left',
-																		title: m.mcps_access_policies_guide_add_server(),
+																		title: m.mcps_access_policies_add_server(),
 																		description: m.mcps_access_policies_guide_you_can_add_a_server_from()
 																	},
 																	listener: {
@@ -189,7 +189,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: m.mcps_access_policies_guide_create_mcp_access_policy(),
+	title: m.mcps_create_mcp_access_policy(),
 	description: m.mcps_access_policies_guide_grant_users_and_groups_access_to(),
 	id: 'mcp-create-access-policy-guide'
 };

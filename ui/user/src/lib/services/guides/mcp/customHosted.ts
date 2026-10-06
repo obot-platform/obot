@@ -67,7 +67,7 @@ function getHostedFieldsAction(): GuideAction {
 			},
 			side: 'top',
 			align: 'center',
-			title: m.mcps_servers_guide_runtime(),
+			title: m.mcps_catalog_runtime_heading(),
 			description: m.mcps_servers_guide_this_is_where_you_choose_the(),
 			noDescendantInteraction: true
 		},
@@ -125,7 +125,7 @@ export const steps: GuideStep[] = [
 					},
 					side: 'top',
 					align: 'center',
-					title: m.mcps_servers_guide_user_defined_headers(),
+					title: m.mcps_catalog_headers_title(),
 					description: m.mcps_servers_guide_these_allow_you_to_collect_configuration(),
 					noDescendantInteraction: true
 				},

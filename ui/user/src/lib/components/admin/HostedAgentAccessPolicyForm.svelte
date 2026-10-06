@@ -141,7 +141,7 @@
 					} else if (resource.type === 'selector') {
 						return {
 							id: resource.id,
-							name: resource.id === '*' ? m.hosted_agents_access_policies_all_templates() : resource.id,
+							name: resource.id === '*' ? m.hosted_agents_all_templates() : resource.id,
 							description: '',
 							type: 'Selector'
 						};
@@ -186,7 +186,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.hosted_agents_access_policies_delete_policy() }}
+						tooltip={{ text: m.core_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -222,7 +222,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.hosted_agents_access_policies_users_groups()}</h2>
+				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -233,7 +233,7 @@
 							}}
 						>
 							<Plus class="size-4" />
-							{m.mcps_access_policies_add_user_group()}
+							{m.core_add_user_group()}
 						</button>
 					</div>
 				{/if}
@@ -250,7 +250,7 @@
 						{ property: 'displayName', title: m.core_name() },
 						{ property: 'type', title: m.core_type() }
 					]}
-					noDataMessage={m.mcps_access_policies_no_users_groups()}
+					noDataMessage={m.core_no_users_or_groups_added()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -261,7 +261,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: m.mcps_access_policies_delete_user_group() }}
+								tooltip={{ text: m.core_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -273,7 +273,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.hosted_agents_access_policies_templates()}</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_templates_tab()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -282,7 +282,7 @@
 						}}
 					>
 						<Plus class="size-4" />
-						{m.hosted_agents_access_policies_add_template()}
+						{m.hosted_agents_templates_add_template()}
 					</button>
 				{/if}
 			</div>

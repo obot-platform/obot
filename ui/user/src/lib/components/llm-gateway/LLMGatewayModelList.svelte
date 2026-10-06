@@ -38,7 +38,7 @@
 		class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 		onChange={(val) => (search = val)}
 		value={search}
-		placeholder={m.models_gateway_search_models_placeholder()}
+		placeholder={m.models_providers_search_models()}
 	/>
 
 	{#if filteredModels.length === 0}

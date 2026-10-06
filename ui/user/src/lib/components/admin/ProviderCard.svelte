@@ -73,7 +73,7 @@
 					class="bg-warning/15 text-warning rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
 				>
 					<FlaskConicalIcon class="size-3 text-warning" />
-					{m.models_providers_experimental()}
+					{m.core_experimental()}
 				</span>
 			{/if}
 		</div>

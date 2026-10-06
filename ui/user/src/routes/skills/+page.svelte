@@ -481,7 +481,7 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-						>{m.skills_field_name()}
+						>{m.core_name()}
 					</label>
 					<input
 						id="catalog-source-name"
@@ -682,7 +682,7 @@
 						}
 					}}
 				>
-					{editingSource.repositoryID ? m.skills_save() : m.skills_add()}
+					{editingSource.repositoryID ? m.core_save() : m.skills_add()}
 				</button>
 			</div>
 		{/if}

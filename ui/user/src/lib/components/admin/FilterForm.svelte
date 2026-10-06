@@ -101,10 +101,10 @@
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
 		{ id: 'webhook-url', label: m.mcps_filters_webhook_url() },
-		{ id: 'remote', label: m.mcps_filters_runtime_remote() },
+		{ id: 'remote', label: m.mcps_catalog_runtime_remote() },
 		{ id: 'npx', label: 'NPX' },
 		{ id: 'uvx', label: 'UVX' },
-		{ id: 'containerized', label: m.mcps_filters_runtime_containerized() }
+		{ id: 'containerized', label: m.mcps_catalog_runtime_containerized() }
 	];
 
 	let saving = $state<boolean | undefined>();
@@ -488,7 +488,7 @@
 				}
 			}
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -509,7 +509,7 @@
 			{@render topContent()}
 		{/if}
 		{#if !initialFilterId}
-			<h1 class="text-2xl font-semibold">{m.mcps_filters_create()}</h1>
+			<h1 class="text-2xl font-semibold">{m.mcps_filters_create_filter()}</h1>
 		{/if}
 
 		<div

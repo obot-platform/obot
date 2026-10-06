@@ -140,7 +140,7 @@
 				<div class="flex flex-col gap-1 px-4 text-sm font-light">
 					{@render field(
 						m.audit_usage_audit_logs_actor(),
-						auditLog.user || auditLog.actor.id || m.audit_usage_audit_logs_unknown()
+						auditLog.user || auditLog.actor.id || m.core_unknown()
 					)}
 					{@render field(m.audit_usage_audit_logs_actor_type(), auditLog.actor.actorType)}
 					{@render field(m.audit_usage_audit_logs_credential(), auditLog.actor.credentialID)}

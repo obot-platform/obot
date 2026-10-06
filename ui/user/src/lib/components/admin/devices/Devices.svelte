@@ -182,7 +182,7 @@
 			{ title: m.inventory_enforcement_devices_col_os_arch(), property: 'os_arch' },
 			{ title: m.audit_usage_audit_logs_model_filter_user(), property: 'username' },
 			{ title: 'MCP', property: 'mcp_count' },
-			{ title: m.inventory_enforcement_devices_col_skills(), property: 'skill_count' },
+			{ title: m.inventory_enforcement_skills_tab(), property: 'skill_count' },
 			{ title: m.inventory_enforcement_devices_col_plugins(), property: 'plugin_count' },
 			{ title: m.audit_usage_exports_filter_title_clients(), property: 'client_count' },
 			{ title: m.inventory_enforcement_devices_col_last_scanned(), property: 'scannedAt' }

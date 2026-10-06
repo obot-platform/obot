@@ -296,7 +296,7 @@
 {#snippet nameAndDescriptionInputs()}
 	<div class="flex w-full flex-col gap-1" id={`${id}-name-container`}>
 		<Label
-			title={m.mcps_field_name()}
+			title={m.core_name()}
 			forInput={`env-name-${id}`}
 			required
 			showError={missingName}
@@ -312,7 +312,7 @@
 		/>
 	</div>
 	<div class="flex w-full flex-col gap-1" id={`${id}-description-container`}>
-		<Label title={m.mcps_field_description()} forInput={`env-description-${id}`} />
+		<Label title={m.core_description()} forInput={`env-description-${id}`} />
 		<input
 			id={`env-description-${id}`}
 			class={classes?.input}

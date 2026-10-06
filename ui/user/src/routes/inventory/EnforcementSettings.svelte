@@ -214,7 +214,7 @@
 	<div class="flex flex-col gap-1">
 		<div class="flex flex-wrap items-center gap-2">
 			<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_tool_call_enforcement()}</h3>
-			<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_experimental()}</span>
+			<span class="badge badge-warning badge-sm">{m.core_experimental()}</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
 			{m.inventory_enforcement_configuration_enforcement_description()}
@@ -397,8 +397,8 @@
 								fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
 								headers={[
 									{ title: m.inventory_enforcement_configuration_col_server(), property: 'serverDisplay' },
-									{ title: m.inventory_enforcement_configuration_col_type(), property: 'typeDisplay' },
-									{ title: m.inventory_enforcement_configuration_col_tools(), property: 'toolsDisplay' }
+									{ title: m.core_type(), property: 'typeDisplay' },
+									{ title: m.inventory_enforcement_allowlist_tools(), property: 'toolsDisplay' }
 								]}
 							>
 								{#snippet onRenderColumn(property, row)}
@@ -442,7 +442,7 @@
 												onclick={() => (removingIndex = row.index)}
 											>
 												<Trash2 class="size-4" />
-												{m.inventory_enforcement_configuration_remove()}
+												{m.core_remove()}
 											</button>
 										</DotDotDot>
 									{/if}
@@ -471,7 +471,7 @@
 	{#if !readOnly}
 		<div class="flex justify-end gap-2">
 			<button class="btn btn-secondary text-sm" disabled={!dirty || saving} onclick={reset}>
-				{m.inventory_enforcement_configuration_reset()}
+				{m.core_reset_shared()}
 			</button>
 			<button
 				class="btn btn-primary flex items-center gap-2 text-sm"
@@ -479,7 +479,7 @@
 				onclick={requestSave}
 			>
 				{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-				{m.inventory_enforcement_configuration_save()}
+				{m.core_save()}
 			</button>
 		</div>
 	{/if}
@@ -509,7 +509,7 @@
 		server: removingIndex !== undefined ? allowlistServerLabel(servers[removingIndex]) : ''
 	})}
 	note={m.inventory_enforcement_configuration_takes_effect_on_save()}
-	submitText={m.inventory_enforcement_configuration_remove()}
+	submitText={m.core_remove()}
 	onsuccess={() => removingIndex !== undefined && removeServer(removingIndex)}
 	oncancel={() => (removingIndex = undefined)}
 />

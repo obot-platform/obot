@@ -9,7 +9,7 @@
 	let views = $derived.by(() => {
 		const items: TabView[] = [{ label: 'MCP', value: 'mcp', content: mcp }];
 		if (hasAdminAccess) {
-			items.push({ label: m.audit_usage_usage_tab_model(), value: 'llm', content: llm });
+			items.push({ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm });
 		}
 		return items;
 	});

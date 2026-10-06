@@ -974,10 +974,10 @@
 <Confirm
 	show={showIntroDialog}
 	onsuccess={handleLaunchOrConfigure}
-	submitText={m.mcps_continue()}
+	submitText={m.core_continue()}
 	type="info"
 	title={introTitle ??
-		(isMultiUserCatalogEntry(entry) ? m.mcps_servers_actions_launch_server() : m.mcps_connect_to_server())}
+		(isMultiUserCatalogEntry(entry) ? m.mcps_servers_launch_server() : m.mcps_connect_to_server())}
 	oncancel={() => (showIntroDialog = false)}
 	hideCancelButton
 >
@@ -1020,8 +1020,8 @@
 	submitText={isDeployingMultiUserCatalogEntry
 		? m.mcps_servers_actions_create_server()
 		: isConfigured
-			? m.mcps_deployments_update()
-			: m.mcps_connect_launch()}
+			? m.core_update()
+			: m.mcps_catalog_launch()}
 	loading={saving || launchState === 'launching'}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
@@ -1089,7 +1089,7 @@
 										configDialog?.close();
 									}}
 								>
-									{m.mcps_composite_close()}
+									{m.core_close()}
 								</button>
 							{/if}
 							<DotDotDot
@@ -1157,7 +1157,7 @@
 										configDialog?.close();
 									}}
 								>
-									{m.mcps_composite_close()}
+									{m.core_close()}
 								</button>
 							{/if}
 						</div>

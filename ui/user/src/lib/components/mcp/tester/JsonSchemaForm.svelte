@@ -89,7 +89,7 @@
 		<JsonSchemaField
 			{schema}
 			value={formValue}
-			label={m.mcps_tester_arguments()}
+			label={m.mcps_runtime_arguments()}
 			path="arguments"
 			required
 			{disabled}

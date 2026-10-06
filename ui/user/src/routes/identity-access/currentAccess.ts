@@ -85,7 +85,7 @@ export interface CurrentAccessSections {
 export type CurrentAccessSectionKey = keyof CurrentAccessSections;
 
 export const ACCESS_MATCH_REASON_LABEL: Record<AccessMatchReason, string> = {
-	everyone: m.identity_access_current_access_reason_everyone(),
+	everyone: m.core_all_obot_users(),
 	'direct-user': m.identity_access_current_access_reason_direct_user(),
 	'direct-group': m.identity_access_current_access_reason_direct_group(),
 	'via-group': m.identity_access_current_access_reason_via_group(),

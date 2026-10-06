@@ -89,13 +89,13 @@
 					data={connectedUsers ?? []}
 					fields={['name', 'updateStatus']}
 					headers={[
-						{ title: m.mcps_column_name(), property: 'name' },
+						{ title: m.core_name(), property: 'name' },
 						{ title: m.mcps_servers_details_config_status(), property: 'updateStatus' }
 					]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							{d.email || d.username || m.mcps_servers_unknown()}
+							{d.email || d.username || m.core_unknown()}
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
 								? m.mcps_servers_details_not_configured()

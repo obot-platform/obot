@@ -112,8 +112,8 @@
 			data={harnessTableData}
 			fields={['name', 'description', 'image']}
 			headers={[
-				{ property: 'name', title: m.chat_col_name() },
-				{ property: 'description', title: m.chat_harnesses_col_description() },
+				{ property: 'name', title: m.core_name() },
+				{ property: 'description', title: m.core_description() },
 				{ property: 'image', title: m.chat_harnesses_col_image() }
 			]}
 			sortable={['name', 'image']}
@@ -164,7 +164,7 @@
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="harness-name" class="text-sm font-light">{m.chat_name()}</label>
+			<label for="harness-name" class="text-sm font-light">{m.core_name()}</label>
 			<input
 				id="harness-name"
 				bind:value={harnessForm.name}
@@ -173,7 +173,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-description" class="text-sm font-light">{m.chat_harnesses_description()}</label>
+			<label for="harness-description" class="text-sm font-light">{m.core_description()}</label>
 			<textarea
 				id="harness-description"
 				bind:value={harnessForm.description}
@@ -239,7 +239,7 @@
 			{#if savingHarness}
 				<Loading class="size-4" />
 			{:else}
-				{editingHarness ? m.chat_update() : m.chat_add()}
+				{editingHarness ? m.core_update() : m.chat_add()}
 			{/if}
 		</button>
 	</div>

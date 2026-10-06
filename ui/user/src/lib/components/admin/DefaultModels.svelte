@@ -231,7 +231,7 @@
 					}}
 					disabled={readonly}
 					searchInDropdown
-					placeholder={m.models_providers_default_models_search()}
+					placeholder={m.models_providers_search_models()}
 				/>
 			</div>
 		{/each}

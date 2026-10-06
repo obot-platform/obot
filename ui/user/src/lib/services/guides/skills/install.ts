@@ -7,7 +7,7 @@ const highlightSkillsLink: GuideHighlight = {
 	selector: {
 		id: SIDEBAR_SKILLS_LINK
 	},
-	title: m.skills_guides_skills(),
+	title: m.skills_title(),
 	description: m.skills_guides_click_here_to_view_the_skills()
 };
 

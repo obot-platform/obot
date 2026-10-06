@@ -157,7 +157,7 @@
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
 				<span id="allowlist-package-source-label" class="input-label"
-					>{m.inventory_enforcement_allowlist_registry()}</span
+					>{m.inventory_enforcement_enforcement_events_registry()}</span
 				>
 				<Select
 					id="allowlist-package-source"

@@ -43,7 +43,7 @@
 			</div>
 
 			<details class="mt-2">
-				<summary class="cursor-pointer text-xs font-medium">{m.mcps_tester_arguments()}</summary>
+				<summary class="cursor-pointer text-xs font-medium">{m.mcps_runtime_arguments()}</summary>
 				<CornerCopyButton
 					text={JSON.stringify(call.arguments, null, 2)}
 					label={m.mcps_tester_copy_arguments()}

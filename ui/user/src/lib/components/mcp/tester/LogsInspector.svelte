@@ -43,12 +43,12 @@
 	const STATUS_LABEL: Record<TesterStatus, string> = {
 		idle: m.mcps_tester_log_status_idle(),
 		initializing: m.mcps_tester_log_status_initializing(),
-		ready: m.mcps_tester_log_status_ready(),
+		ready: m.mcps_tunnels_connected(),
 		'access-denied': m.mcps_tester_access_denied(),
 		unhealthy: m.mcps_tester_server_unavailable(),
 		'reauthentication-required': m.mcps_tester_reauth_required(),
 		'setup-required': m.mcps_tester_status_setup_required(),
-		error: m.mcps_tester_log_status_error(),
+		error: m.mcps_servers_connection_failed(),
 		closed: m.mcps_tester_log_status_closed()
 	};
 	const KIND_OPTIONS: Array<{ id: 'all' | TesterLogKind; label: string }> = [
@@ -273,7 +273,7 @@
 			onclick={clearLog}
 		>
 			<Trash2 class="size-4" aria-hidden="true" />
-			{m.mcps_log_clear()}
+			{m.core_clear()}
 		</button>
 	</div>
 

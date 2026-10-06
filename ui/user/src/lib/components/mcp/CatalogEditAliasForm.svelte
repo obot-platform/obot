@@ -101,7 +101,7 @@
 			{#if saving}
 				<Loading class="size-4" />
 			{:else}
-				{m.mcps_deployments_update()}
+				{m.core_update()}
 			{/if}
 		</button>
 	</div>

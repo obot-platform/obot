@@ -143,8 +143,16 @@
 			filterable={profile.current.hasAdminAccess?.() ? ['repository'] : []}
 			headers={[
 				{
-					title: m.skills_col_name(),
+					title: m.core_name(),
 					property: 'displayName'
+				},
+				{
+					title: m.core_description(),
+					property: 'description'
+				},
+				{
+					title: m.core_repository(),
+					property: 'repository'
 				}
 			]}
 			onClickRow={(d, isCtrlClick) => {

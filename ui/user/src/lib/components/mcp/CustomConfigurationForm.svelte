@@ -92,7 +92,7 @@
 						{#if !urlTemplateVariables}
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light"
-									>{m.mcps_catalog_runtime_type()}</label
+									>{m.core_type()}</label
 								>
 								<Select
 									class="dark:border-base-400 bg-base-100 border border-transparent"
@@ -206,7 +206,7 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.mcps_catalog_runtime_type()}</label
+						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.core_type()}</label
 						>
 						<input
 							class={inputClass}
@@ -221,7 +221,7 @@
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">{m.mcps_field_name()}</label>
+						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">{m.core_name()}</label>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-name`}
@@ -233,7 +233,7 @@
 					{#if item.description}
 						<div class="flex w-full flex-col gap-1">
 							<label for={`sb-${sbIdx}-description`} class="text-sm font-light"
-								>{m.mcps_field_description()}</label
+								>{m.core_description()}</label
 							>
 							<input
 								class={inputClass}

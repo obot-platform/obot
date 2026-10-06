@@ -362,7 +362,7 @@
 	data={tableData}
 	fields={['displayName', 'host', 'usedBy']}
 	headers={[
-		{ title: m.core_col_name(), property: 'displayName' },
+		{ title: m.core_name(), property: 'displayName' },
 		{ title: m.platform_settings_git_credentials_col_host(), property: 'host' },
 		{ title: m.platform_settings_git_credentials_col_used_by(), property: 'usedBy' }
 	]}
@@ -492,7 +492,7 @@
 
 {#snippet credentialForm()}
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-name" class="text-sm font-light">{m.core_col_name()}</label>
+		<label for="git-credential-name" class="text-sm font-light">{m.core_name()}</label>
 		<input
 			id="git-credential-name"
 			bind:value={displayName}

@@ -43,8 +43,8 @@
 		data={servers}
 		fields={['name', 'created']}
 		headers={[
-			{ title: m.mcps_column_name(), property: 'name' },
-			{ title: m.mcps_deployments_column_created(), property: 'created' }
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.core_col_created(), property: 'created' }
 		]}
 		onClickRow={async (d) => {
 			selectServerDialog?.close();

@@ -56,7 +56,7 @@
 		configurationDialog?.open(flow.configuringEntry, {
 			configuration,
 			forceSingleUser: flow.configuringComponent?.forceSingleUser,
-			submitLabel: flow.postCreateConfiguration ? m.vmcps_next() : m.vmcps_save(),
+			submitLabel: flow.postCreateConfiguration ? m.core_next() : m.core_save(),
 			errorMessage: m.vmcps_failed_to_update_configuration()
 		});
 	}

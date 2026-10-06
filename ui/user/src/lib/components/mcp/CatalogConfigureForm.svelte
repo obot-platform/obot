@@ -84,7 +84,7 @@
 		name,
 		icon,
 		cancelText = m.common_cancel(),
-		submitText = m.mcps_save(),
+		submitText = m.core_save(),
 		loading,
 		loadingContent,
 		error,
@@ -382,7 +382,7 @@
 			openConfig();
 		}}
 	>
-		{m.mcps_continue()}
+		{m.core_continue()}
 	</button>
 </ResponsiveDialog>
 

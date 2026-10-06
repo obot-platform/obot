@@ -554,7 +554,7 @@
 		}
 		dismissConnect();
 	}}
-	submitText={instance ? m.vmcps_update() : m.vmcps_configure()}
+	submitText={instance ? m.core_update() : m.vmcps_configure()}
 	loading={saving || launchState === 'launching'}
 	{error}
 	isNew={false}
@@ -615,7 +615,7 @@
 								if (vmcp) connectDialog?.open();
 							}}
 						>
-							{m.vmcps_close()}
+							{m.core_close()}
 						</button>
 					</div>
 				</div>
@@ -644,7 +644,7 @@
 <Confirm
 	show={showIntroDialog}
 	onsuccess={handleConfigure}
-	submitText={m.vmcps_continue()}
+	submitText={m.core_continue()}
 	disabled={Boolean(missingOAuthComponent)}
 	type="info"
 	title={m.vmcps_connect_to_server()}

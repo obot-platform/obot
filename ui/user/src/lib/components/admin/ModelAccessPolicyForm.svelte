@@ -370,8 +370,8 @@
 					data={tableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.core_col_name() },
-						{ property: 'type', title: m.core_col_type() }
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
 					]}
 					noDataMessage={m.core_no_users_or_groups_added()}
 				>
@@ -396,7 +396,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.models_access_policies_models()}</h2>
+				<h2 class="text-lg font-semibold">{m.models_title()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"

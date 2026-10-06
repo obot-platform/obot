@@ -285,7 +285,7 @@ export const getUserRoleLabel = (role: number) => {
 	if (role & Role.POWERUSER_PLUS)
 		return m.core_role_power_user_plus() + withAuditor + withUserImpersonation;
 	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor + withUserImpersonation;
-	return m.core_role_unknown() + withAuditor + withUserImpersonation;
+	return m.core_unknown() + withAuditor + withUserImpersonation;
 };
 
 /**

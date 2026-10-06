@@ -60,7 +60,7 @@
 				<p class="text-muted-content text-sm font-light">
 					{m.models_no_access_policies_desc()} <br />
 					{#if !isReadonly}
-						{m.models_click_to_get_started()}
+						{m.core_click_below_to_start()}
 					{/if}
 				</p>
 
@@ -84,11 +84,11 @@
 		}}
 		headers={[
 			{
-				title: m.models_col_name(),
+				title: m.core_name(),
 				property: 'displayName'
 			},
 			{
-				title: m.models_col_models(),
+				title: m.models_title(),
 				property: 'modelsCount'
 			}
 		]}
@@ -103,7 +103,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.models_delete_policy() }}
+					tooltip={{ text: m.core_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

@@ -209,7 +209,7 @@
 			fields={['name', 'scheduleDisplay', 'lastRunAt', 'enabled']}
 			filterable={['displayName', 'scheduleDisplay']}
 			headers={[
-				{ title: m.audit_usage_exports_col_name(), property: 'displayName' },
+				{ title: m.core_name(), property: 'displayName' },
 				{ title: m.audit_usage_exports_col_schedule(), property: 'scheduleDisplay' },
 				{ title: m.audit_usage_exports_col_last_run(), property: 'lastRunAt' },
 				{ title: m.audit_usage_exports_col_enabled(), property: 'enabled' }
@@ -298,7 +298,7 @@
 								}}
 							>
 								<Trash2 class="size-4" />
-								{m.audit_usage_exports_action_delete()}
+								{m.core_delete()}
 							</button>
 						{/if}
 					{/snippet}
@@ -353,7 +353,7 @@
 						disabled={readonly}
 					>
 						<Trash2 class="size-4" />
-						{m.audit_usage_exports_action_delete()}
+						{m.core_delete()}
 						{#if !readonly}
 							<span class="pill-primary">
 								{Object.keys(currentSelected).length}
@@ -394,7 +394,7 @@
 			<CircleAlert class="size-5" />
 			{showDeleteConfirm?.type === 'single'
 				? m.audit_usage_export_schedules_delete_single_title()
-				: m.audit_usage_export_schedules_delete_multi_title()}
+				: m.audit_usage_export_schedules_delete_multi_msg()}
 		</h4>
 	{/snippet}
 	{#snippet note()}

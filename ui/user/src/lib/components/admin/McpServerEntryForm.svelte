@@ -239,16 +239,16 @@
 						// owned by the upstream catalog entry, not the deployment.
 						...(trueOwner &&
 						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
-							? [{ label: m.mcps_catalog_tab_configuration(), view: 'configuration' }]
+							? [{ label: m.mcps_catalog_config_heading(), view: 'configuration' }]
 							: []),
 						...(belongsToUser
 							? [{ label: m.mcps_catalog_tab_server_details(), view: 'server-instances' }]
 							: []),
-						{ label: m.mcps_catalog_tab_tools(), view: 'tools' },
+						{ label: m.mcps_tester_tools(), view: 'tools' },
 						...(isAtLeastPowerUserPlus && trueOwner
-							? [{ label: m.mcps_catalog_tab_access_policies(), view: 'access-control' }]
+							? [{ label: m.mcps_access_policies_tab(), view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.() ? [{ label: m.mcps_catalog_tab_filters(), view: 'filters' }] : []),
+						...(profile.current?.hasAdminAccess?.() ? [{ label: m.core_filters_title(), view: 'filters' }] : []),
 						...(profile.current?.hasAdminAccess?.() && entry.manifest?.runtime === 'remote'
 							? [{ label: m.mcps_catalog_tab_troubleshooting(), view: 'troubleshooting' }]
 							: [])
@@ -258,7 +258,7 @@
 						...(belongsToUser
 							? [{ label: m.mcps_catalog_tab_server_details(), view: 'server-instances' }]
 							: []),
-						{ label: m.mcps_catalog_tab_tools(), view: 'tools' },
+						{ label: m.mcps_tester_tools(), view: 'tools' },
 						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
 							? [{ label: m.mcps_catalog_tab_troubleshooting(), view: 'troubleshooting' }]
 							: [])
@@ -496,7 +496,7 @@
 				configDialog?.close();
 			}
 		} catch (err) {
-			const errMessage = err instanceof Error ? err.message : m.mcps_catalog_unknown_error();
+			const errMessage = err instanceof Error ? err.message : m.mcps_unknown_error();
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
 				const oauthResponse =
 					entity === 'workspace'
@@ -515,7 +515,7 @@
 					handleTemporaryInstanceOauth(oauthResponse);
 				}
 			} else {
-				error = err instanceof Error ? err.message : m.mcps_catalog_unknown_error();
+				error = err instanceof Error ? err.message : m.mcps_unknown_error();
 				showButtonInlineError = showInlineError;
 			}
 		} finally {
@@ -987,8 +987,8 @@
 					data={serverFilters}
 					fields={['name', 'url', 'selectors']}
 					headers={[
-						{ title: m.core_col_name(), property: 'name' },
-						{ title: m.mcps_catalog_col_webhook_url(), property: 'url' },
+						{ title: m.core_name(), property: 'name' },
+						{ title: m.mcps_filters_webhook_url(), property: 'url' },
 						{ title: m.mcps_catalog_col_selectors(), property: 'selectors' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
@@ -1062,7 +1062,7 @@
 								deploymentToDisplayTools === undefined && 'tab-active'
 							)}
 							onclick={() => (deploymentToDisplayTools = undefined)}
-							>{m.mcps_catalog_preview()}</button
+							>{m.core_preview()}</button
 						>
 					{/if}
 

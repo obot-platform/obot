@@ -47,7 +47,7 @@
 			{/if}
 		</div>
 
-		<p class="mt-3 text-xs font-medium">{m.mcps_tester_arguments()}</p>
+		<p class="mt-3 text-xs font-medium">{m.mcps_runtime_arguments()}</p>
 		<CornerCopyButton text={argumentsJSON} label={m.mcps_tester_copy_arguments()} class="mt-1">
 			<pre
 				class="default-scrollbar-thin bg-base-200 dark:bg-base-300 max-h-40 overflow-auto rounded-lg p-3 pr-10 text-xs whitespace-pre-wrap wrap-break-word"

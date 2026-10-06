@@ -227,7 +227,7 @@
 			{#if saving}
 				<Loading class="size-4" />
 			{:else}
-				{m.identity_access_continue()}
+				{m.core_continue()}
 			{/if}
 		</button>
 	</div>

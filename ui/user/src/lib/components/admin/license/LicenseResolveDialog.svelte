@@ -89,7 +89,7 @@
 
 			reloadPage();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.platform_license_notice_unknown_error();
+			error = err instanceof Error ? err.message : m.platform_license_unknown_error();
 		} finally {
 			confirmDowngradeDialog?.close();
 			downgrading = false;

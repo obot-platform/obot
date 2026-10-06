@@ -81,7 +81,7 @@
 						class="flex w-full flex-col items-center justify-center gap-2 @min-[768px]:flex-col @min-[768px]:justify-end"
 					>
 						<button type="button" class="flex w-full justify-center p-3 btn btn-primary">
-							{m.platform_confirm()}
+							{m.core_confirm()}
 						</button>
 						<button type="button" class="btn btn-secondary w-full justify-center"
 							>{m.common_cancel()}</button
@@ -95,23 +95,23 @@
 		<div class="flex gap-4 grow flex-wrap">
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-primary"><HouseIcon /></button>
-				<button class="btn btn-primary">{m.platform_confirm()}</button>
+				<button class="btn btn-primary">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-secondary"><HouseIcon /></button>
-				<button class="btn btn-secondary">{m.platform_confirm()}</button>
+				<button class="btn btn-secondary">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-success"><HouseIcon /></button>
-				<button class="btn btn-success">{m.platform_confirm()}</button>
+				<button class="btn btn-success">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-warning"><HouseIcon /></button>
-				<button class="btn btn-warning">{m.platform_confirm()}</button>
+				<button class="btn btn-warning">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-error"><HouseIcon /></button>
-				<button class="btn btn-error">{m.platform_confirm()}</button>
+				<button class="btn btn-error">{m.core_confirm()}</button>
 			</div>
 		</div>
 	</div>
@@ -129,8 +129,8 @@
 				filterable={['name', 'status']}
 				sortable={['name', 'created', 'status']}
 				headers={[
-					{ title: m.core_col_name(), property: 'name' },
-					{ title: m.platform_col_status(), property: 'status' },
+					{ title: m.core_name(), property: 'name' },
+					{ title: m.core_status(), property: 'status' },
 					{ title: m.core_col_created(), property: 'created' }
 				]}
 			>
@@ -159,7 +159,7 @@
 	<div class="w-full paper my-8">
 		<h4 class="text-lg font-semibold">{m.platform_branding_custom_form()}</h4>
 		<div class="flex flex-col gap-1">
-			<label for="description" class="text-sm font-light">{m.platform_description()}</label>
+			<label for="description" class="text-sm font-light">{m.core_description()}</label>
 			<input
 				class="text-input-filled"
 				placeholder={m.platform_branding_description_placeholder()}

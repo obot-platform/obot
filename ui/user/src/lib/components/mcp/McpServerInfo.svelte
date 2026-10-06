@@ -164,7 +164,7 @@
 
 {#snippet detailsSection()}
 	<div class="flex flex-col gap-2">
-		<h4 class="text-md font-semibold">{m.mcps_servers_info_details()}</h4>
+		<h4 class="text-md font-semibold">{m.core_details()}</h4>
 		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail, i (i)}
 				<div

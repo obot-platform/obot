@@ -126,7 +126,7 @@
 			onClearAllFilters={clearUrlParams}
 			headers={[
 				{
-					title: m.mcps_col_name(),
+					title: m.core_name(),
 					property: 'name'
 				},
 				{
@@ -134,7 +134,7 @@
 					property: 'selectors'
 				},
 				{
-					title: m.mcps_col_status(),
+					title: m.core_status(),
 					property: 'status'
 				}
 			]}

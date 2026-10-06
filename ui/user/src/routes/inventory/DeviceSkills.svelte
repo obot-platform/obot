@@ -119,8 +119,8 @@
 		data={rows}
 		fields={['name', 'deviceCount', 'userCount', 'observationCount']}
 		headers={[
-			{ title: m.inventory_enforcement_col_name(), property: 'name' },
-			{ title: m.inventory_enforcement_col_devices(), property: 'deviceCount' },
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.inventory_enforcement_devices_tab(), property: 'deviceCount' },
 			{ title: m.inventory_enforcement_col_users(), property: 'userCount' },
 			{ title: m.inventory_enforcement_col_observations(), property: 'observationCount' }
 		]}

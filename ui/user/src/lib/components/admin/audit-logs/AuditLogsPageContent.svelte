@@ -466,7 +466,7 @@
 		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
 		if (_key === 'mcp_server_display_name') return m.audit_usage_audit_logs_filter_server();
 		if (_key === 'tool') return m.audit_usage_audit_logs_filter_identifier_tool();
-		if (_key === 'outcome') return m.audit_usage_exports_col_status();
+		if (_key === 'outcome') return m.core_status();
 		if (_key === 'client') return m.audit_usage_audit_logs_client();
 		if (_key === 'duration') return m.audit_usage_audit_logs_filter_duration();
 		if (_key === 'start_time') return m.audit_usage_audit_logs_filter_start_time();

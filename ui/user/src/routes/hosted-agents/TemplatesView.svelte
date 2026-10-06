@@ -77,7 +77,7 @@
 				data={tableData}
 				fields={['name', 'harness']}
 				headers={[
-					{ property: 'name', title: m.chat_col_name() },
+					{ property: 'name', title: m.core_name() },
 					{ property: 'harness', title: m.chat_templates_col_harness() }
 				]}
 				onClickRow={(d, isCtrlClick) => {

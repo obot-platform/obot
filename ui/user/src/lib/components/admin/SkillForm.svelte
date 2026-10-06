@@ -47,7 +47,7 @@
 	<div class="flex grow flex-col gap-4 pb-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
 		<div class="flex w-full items-center justify-between gap-4">
 			<h1 class="flex items-center gap-4 text-2xl font-semibold">
-				{skill.displayName || m.skills_access_policies_col_skill()}
+				{skill.displayName || m.skills_skill_fallback_title()}
 			</h1>
 			{#if skill.id}
 				<a
@@ -88,7 +88,7 @@
 
 				<div class="flex flex-col gap-2">
 					<label for="skill-description" class="flex-1 text-sm font-light capitalize">
-						{m.skills_description()}
+						{m.core_description()}
 					</label>
 					<textarea
 						id="skill-description"

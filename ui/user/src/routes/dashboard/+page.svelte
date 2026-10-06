@@ -180,8 +180,8 @@
 		Unavailable: m.dashboard_status_unavailable,
 		'Needs Attention': m.dashboard_status_needs_attention,
 		Shutdown: m.dashboard_status_shutdown,
-		Unknown: m.dashboard_status_unknown,
-		Pending: m.dashboard_status_pending
+		Unknown: m.core_unknown,
+		Pending: m.core_status_pending
 	};
 
 	function deploymentStatusLabel(status: string) {

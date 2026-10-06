@@ -143,7 +143,7 @@
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-name" class="input-label">
-					{m.identity_access_agents_name()}
+					{m.core_name()}
 					{#if nameError}
 						<span class="text-xs text-error">{m.identity_access_agents_name_is_required()}</span>
 					{/if}
@@ -199,7 +199,7 @@
 			{m.identity_access_agents_select_servers_for_identity()}
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
-					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.identity_access_agents_n_selected({
+					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.core_n_selected({
 							count: selectedServerIds.size
 						})}{/if})
 				</span>
@@ -304,7 +304,7 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					{m.identity_access_agents_save()}
+					{m.core_save()}
 				{/if}
 			</button>
 		</div>

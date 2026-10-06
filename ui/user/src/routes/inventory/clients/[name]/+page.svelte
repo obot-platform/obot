@@ -94,7 +94,7 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="border-base-300 dark:border-base-400 flex gap-2 border-b">
-					{@render tabButton('users', Users, m.inventory_enforcement_device_clients_tab_users(), detail.users.length)}
+					{@render tabButton('users', Users, m.inventory_enforcement_col_users(), detail.users.length)}
 					{@render tabButton(
 						'mcp',
 						Server,
@@ -137,7 +137,7 @@
 							data={rows}
 							fields={['name', 'transport', 'endpoint']}
 							headers={[
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.core_name(), property: 'name' },
 								{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
 								{ title: m.inventory_enforcement_col_endpoint(), property: 'endpoint' }
 							]}
@@ -170,8 +170,8 @@
 							data={rows}
 							fields={['name', 'description', 'hasScripts', 'files']}
 							headers={[
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
-								{ title: m.inventory_enforcement_col_description(), property: 'description' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.core_description(), property: 'description' },
 								{ title: m.inventory_enforcement_col_has_scripts(), property: 'hasScripts' },
 								{ title: m.inventory_enforcement_col_files(), property: 'files' }
 							]}

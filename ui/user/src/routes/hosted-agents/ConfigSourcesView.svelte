@@ -154,8 +154,8 @@
 			data={catalogTableData}
 			fields={['displayName', 'repoURL', 'ref', 'discoveredAgentCount', 'discoveredHarnessCount']}
 			headers={[
-				{ property: 'displayName', title: m.chat_col_name() },
-				{ property: 'repoURL', title: m.chat_config_sources_col_repository() },
+				{ property: 'displayName', title: m.core_name() },
+				{ property: 'repoURL', title: m.core_repository() },
 				{ property: 'ref', title: m.chat_config_sources_col_ref() },
 				{ property: 'discoveredAgentCount', title: m.chat_config_sources_col_agents() },
 				{ property: 'discoveredHarnessCount', title: m.chat_config_sources_col_harnesses() }
@@ -224,7 +224,7 @@
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="source-name" class="text-sm font-light">{m.chat_name()}</label>
+			<label for="source-name" class="text-sm font-light">{m.core_name()}</label>
 			<input id="source-name" bind:value={catalogForm.displayName} class="text-input-filled" />
 		</div>
 		<div class="flex flex-col gap-2">
@@ -262,7 +262,7 @@
 			{#if savingCatalog}
 				<Loading class="size-4" />
 			{:else}
-				{editingCatalog ? m.chat_update() : m.chat_add()}
+				{editingCatalog ? m.core_update() : m.chat_add()}
 			{/if}
 		</button>
 	</div>

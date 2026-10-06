@@ -44,12 +44,12 @@ function titleCase(value: string): string {
 }
 
 export function agentLabel(agent?: string): string {
-	if (!agent) return m.inventory_enforcement_allowlist_validation_unknown();
+	if (!agent) return m.core_unknown();
 	return AGENT_LABELS[agent] ?? titleCase(agent);
 }
 
 export function kindLabel(kind?: string): string {
-	if (!kind) return m.inventory_enforcement_allowlist_validation_unknown();
+	if (!kind) return m.core_unknown();
 	return KIND_LABELS[kind] ?? titleCase(kind);
 }
 
@@ -61,9 +61,9 @@ export const PACKAGE_SOURCE_LABELS: Record<AllowlistServerPackageSource, string>
 export type AllowlistServerKind = 'url' | 'package' | 'hostname' | 'connector';
 
 export const ALLOWLIST_SERVER_KIND_LABELS: Record<AllowlistServerKind, string> = {
-	connector: m.inventory_enforcement_allowlist_validation_server_kind_connector(),
-	hostname: m.inventory_enforcement_allowlist_validation_server_kind_hostname(),
-	package: m.inventory_enforcement_allowlist_validation_server_kind_package(),
+	connector: m.inventory_enforcement_enforcement_events_connector(),
+	hostname: m.inventory_enforcement_allowlist_hostname(),
+	package: m.inventory_enforcement_enforcement_events_package(),
 	url: 'URL'
 };
 

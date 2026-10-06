@@ -12,7 +12,7 @@ export function sharingLabel(subjects?: PublishedArtifactSubject[]): string {
 		return m.chat_sharing_owner_only();
 	}
 	if (hasAllUsersSubject(subjects)) {
-		return m.chat_all_obot_users();
+		return m.core_all_obot_users();
 	}
 
 	const users = subjects.filter((subject) => subject.type === 'user').length;

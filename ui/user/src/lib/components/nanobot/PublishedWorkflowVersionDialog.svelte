@@ -121,7 +121,7 @@
 
 	function getSubjectDisplayName(subject: AccessControlRuleSubject): string {
 		if (subject.type === 'selector' && subject.id === '*') {
-			return m.chat_all_obot_users();
+			return m.core_all_obot_users();
 		}
 		if (subject.type === 'obotGroup') {
 			return `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`;
@@ -255,7 +255,7 @@
 			onclick={() => addUserGroupDialog?.open()}
 		>
 			<Plus class="size-4" />
-			{m.chat_add_user_group()}
+			{m.core_add_user_group()}
 		</button>
 	</div>
 	<div class="border-base-300 rounded-md border">

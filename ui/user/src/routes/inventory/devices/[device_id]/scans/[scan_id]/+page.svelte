@@ -225,7 +225,7 @@
 			>
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.inventory_enforcement_devices_label_device_id()}
+						{m.inventory_enforcement_enforcement_events_device_id()}
 					</dt>
 					<dd class="flex items-center gap-2">
 						<span class="text-base font-semibold">{scan.deviceID}</span>
@@ -281,7 +281,7 @@
 					<dd>{scan.scannerVersion || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.inventory_enforcement_devices_label_scanned()}
+						{m.inventory_enforcement_col_scanned()}
 					</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
@@ -294,7 +294,7 @@
 						onclick={() => (deleteOpen = true)}
 					>
 						<Trash2 class="size-4" />
-						{m.inventory_enforcement_devices_delete()}
+						{m.core_delete()}
 					</button>
 				{/if}
 			</div>
@@ -308,7 +308,7 @@
 						onclick={() => (activeTab = 'clients')}
 					>
 						<MonitorCheck class="size-4" />
-						{m.inventory_enforcement_devices_tab_clients()}
+						{m.inventory_enforcement_overview_clients()}
 						<span class="text-muted-content">({clients.length})</span>
 					</button>
 					<button
@@ -335,7 +335,7 @@
 						onclick={() => (activeTab = 'plugins')}
 					>
 						<Boxes class="size-4" />
-						{m.inventory_enforcement_devices_tab_plugins()}
+						{m.inventory_enforcement_devices_col_plugins()}
 						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 				</div>
@@ -349,7 +349,7 @@
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.core_name(), property: 'name' },
 								{ title: m.inventory_enforcement_col_client(), property: 'client' },
 								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
 								{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
@@ -384,8 +384,8 @@
 							headers={[
 								{ title: m.inventory_enforcement_col_client(), property: 'client' },
 								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
-								{ title: m.inventory_enforcement_col_description(), property: 'description' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.core_description(), property: 'description' },
 								{ title: m.inventory_enforcement_col_has_scripts(), property: 'hasScripts' },
 								{ title: m.inventory_enforcement_col_files(), property: 'files_count' }
 							]}
@@ -430,9 +430,9 @@
 							headers={[
 								{ title: m.inventory_enforcement_col_client(), property: 'client' },
 								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
-								{ title: m.inventory_enforcement_devices_col_type(), property: 'pluginType' },
-								{ title: m.inventory_enforcement_devices_col_version(), property: 'version' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.core_type(), property: 'pluginType' },
+								{ title: m.inventory_enforcement_enforcement_events_version(), property: 'version' },
 								{ title: m.inventory_enforcement_devices_col_enabled(), property: 'enabled' },
 								{ title: m.inventory_enforcement_devices_col_capabilities(), property: 'capabilities' }
 							]}
@@ -465,8 +465,8 @@
 							pageSize={PAGE_SIZE}
 							fields={['name', 'version', 'paths_display', 'has_display']}
 							headers={[
-								{ title: m.inventory_enforcement_col_name(), property: 'name' },
-								{ title: m.inventory_enforcement_devices_col_version(), property: 'version' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.inventory_enforcement_enforcement_events_version(), property: 'version' },
 								{ title: m.inventory_enforcement_devices_col_paths(), property: 'paths_display' },
 								{ title: m.inventory_enforcement_devices_col_has(), property: 'has_display' }
 							]}

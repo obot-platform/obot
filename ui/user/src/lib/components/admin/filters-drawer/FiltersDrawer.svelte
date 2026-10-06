@@ -261,7 +261,7 @@
 		<div class="mt-auto flex flex-col gap-2">
 			<button
 				class="btn btn-secondary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleClearAllFilters}>{m.audit_usage_exports_filter_clear_all()}</button
+				onclick={handleClearAllFilters}>{m.core_clear_all()}</button
 			>
 			<button
 				class="btn btn-primary text-md w-full rounded-lg px-4 py-2"

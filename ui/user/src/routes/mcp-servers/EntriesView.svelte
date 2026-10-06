@@ -256,10 +256,10 @@
 					? ['name', 'type', 'users', 'created', 'source']
 					: ['name', 'created']}
 				headers={[
-					{ title: m.mcps_col_name(), property: 'name' },
+					{ title: m.core_name(), property: 'name' },
 					{ title: m.mcps_servers_col_type(), property: 'type' },
-					{ title: m.mcps_servers_col_users(), property: 'users' },
-					{ title: m.mcps_col_created(), property: 'created' },
+					{ title: m.mcps_servers_info_users(), property: 'users' },
+					{ title: m.core_col_created(), property: 'created' },
 					{ title: m.mcps_servers_col_source(), property: 'source' }
 				]}
 				filterable={['name', 'type', 'source']}
@@ -327,7 +327,7 @@
 										use:tooltip={{
 											text:
 												'missingKubernetesSecret' in d && d.missingKubernetesSecret
-													? m.mcps_servers_missing_k8s_secret_page_mcp()
+													? m.mcps_deployments_missing_secret()
 													: m.mcps_servers_server_requires_update()
 										}}
 									>
@@ -425,7 +425,7 @@
 											}}
 										>
 											<Trash2 class="size-4" />
-											{catalogEntry ? m.mcps_servers_delete_entry() : m.mcps_servers_delete_server()}
+											{catalogEntry ? m.mcps_servers_delete_entry() : m.mcps_catalog_delete_server()}
 										</button>
 									{/if}
 								</div>

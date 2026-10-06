@@ -203,7 +203,7 @@
 
 			<div class="modal-action">
 				<form method="dialog">
-					<button class="btn">{m.chat_close()}</button>
+					<button class="btn">{m.core_close()}</button>
 				</form>
 			</div>
 		</div>

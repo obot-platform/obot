@@ -77,7 +77,7 @@
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if plugin.description}
-						<dt class="text-muted-content">{m.inventory_enforcement_label_description()}</dt>
+						<dt class="text-muted-content">{m.core_description()}</dt>
 						<dd>{plugin.description}</dd>
 					{/if}
 					{#if plugin.author}
@@ -96,7 +96,7 @@
 						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_project_path()}</dt>
 						<dd class="break-all">{plugin.projectPath}</dd>
 					{/if}
-					<dt class="text-muted-content">{m.inventory_enforcement_devices_label_capabilities()}</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_devices_col_capabilities()}</dt>
 					<dd>
 						{#if capabilities.length === 0}
 							<span class="text-muted-content">{m.inventory_enforcement_devices_none_detected()}</span>

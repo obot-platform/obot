@@ -95,7 +95,7 @@
 						{#if detail.name?.trim()}
 							{detail.name}
 						{:else}
-							<span class="text-muted-content italic">{m.inventory_enforcement_device_mcp_servers_unnamed()}</span>
+							<span class="text-muted-content italic">{m.inventory_enforcement_unnamed()}</span>
 						{/if}
 						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
 					</h2>
@@ -114,8 +114,8 @@
 						<span>·</span>
 						<span
 							>{detail.clientCount === 1
-								? m.inventory_enforcement_device_mcp_servers_clients_count_one({ count: detail.clientCount })
-								: m.inventory_enforcement_device_mcp_servers_clients_count_other({ count: detail.clientCount })}</span
+								? m.inventory_enforcement_device_clients_count_one({ count: detail.clientCount })
+								: m.inventory_enforcement_device_clients_count_other({ count: detail.clientCount })}</span
 						>
 					</div>
 				</div>
@@ -124,7 +124,7 @@
 					{#if detail.command}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase"
-								>{m.inventory_enforcement_label_command()}</span
+								>{m.inventory_enforcement_enforcement_events_command()}</span
 							>
 							<code class="font-mono text-xs break-all">
 								{[detail.command, ...(detail.args ?? [])].join(' ')}
@@ -173,7 +173,7 @@
 					fields={['rowIndex', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
 						{ title: '#', property: 'rowIndex' },
-						{ title: m.inventory_enforcement_col_device(), property: 'shortDeviceID' },
+						{ title: m.inventory_enforcement_devices_device_title(), property: 'shortDeviceID' },
 						{ title: m.inventory_enforcement_col_scanned(), property: 'scannedRelative' },
 						{ title: m.inventory_enforcement_col_client(), property: 'client' },
 						{ title: m.inventory_enforcement_col_scope(), property: 'scope' }

@@ -74,7 +74,7 @@
 			headers={[
 				{
 					property: 'displayName',
-					title: m.skills_col_name()
+					title: m.core_name()
 				},
 				{
 					property: 'repoURL',
@@ -178,7 +178,7 @@
 						disabled={isAdminReadonly}
 					>
 						<Trash2 class="size-4" />
-						{m.skills_delete()}
+						{m.core_delete()}
 					</button>
 				</div>
 			{/snippet}

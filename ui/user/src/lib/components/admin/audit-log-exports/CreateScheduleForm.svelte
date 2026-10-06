@@ -829,7 +829,7 @@
 				{#if mode === 'view'}
 					{m.audit_usage_export_schedules_details()}
 				{:else if mode === 'edit'}
-					{m.audit_usage_export_schedules_edit()}
+					{m.audit_usage_audit_logs_edit_scheduled_export()}
 				{:else}
 					{m.audit_usage_exports_basic_information()}
 				{/if}
@@ -1170,7 +1170,7 @@
 							? m.audit_usage_exports_saving_changes()
 							: m.audit_usage_export_schedules_creating()}
 					{:else}
-						{mode === 'edit' ? m.audit_usage_exports_save_changes() : m.audit_usage_export_schedules_create()}
+						{mode === 'edit' ? m.core_save_changes() : m.audit_usage_export_schedules_create()}
 					{/if}
 				</button>
 			{/if}

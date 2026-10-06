@@ -32,7 +32,7 @@
 	const canAssignAdmin = $derived(canAssignOwner || profile.current.groups.includes(Group.ADMIN));
 
 	let roleOptions: RoleOption[] = $derived([
-		...(canAssignOwner ? [{ label: m.identity_access_roles_owner(), id: Role.OWNER }] : []),
+		...(canAssignOwner ? [{ label: m.core_role_owner(), id: Role.OWNER }] : []),
 		...groupRoleOptions
 			.filter((role) => (role.id === Role.ADMIN ? canAssignAdmin : true))
 			.map((d) => ({ id: d.id, label: d.label }))
@@ -121,7 +121,7 @@
 				disabled={isDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 shrink-0 font-semibold">{m.identity_access_roles_auditor()}</div>
+				<div class="w-28 shrink-0 font-semibold">{m.core_role_auditor()}</div>
 				<p class="text-muted-content text-xs">
 					{#if auditorReadonlyAdminRoles.includes(roleId)}
 						{m.identity_access_groups_auditor_readonly_description()}

@@ -146,9 +146,9 @@
 					: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 				headers={[
 					...(isAdmin
-						? [{ title: m.identity_access_agents_col_created_by(), property: 'userDisplay' }]
+						? [{ title: m.core_col_created_by(), property: 'userDisplay' }]
 						: []),
-					{ title: m.core_col_name(), property: 'name' },
+					{ title: m.core_name(), property: 'name' },
 					{ title: m.identity_access_agents_col_capabilities(), property: 'capabilitiesDisplay' },
 					{ title: m.identity_access_agents_col_last_used(), property: 'lastUsedAt' },
 					{ title: m.identity_access_agents_col_expires(), property: 'expiresAt' }

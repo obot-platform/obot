@@ -69,13 +69,13 @@ export const GRAPH_METRIC = {
 export type GraphMetric = (typeof GRAPH_METRIC)[keyof typeof GRAPH_METRIC];
 
 export const USAGE_BUCKET_LABEL = {
-	INPUT: m.audit_usage_audit_logs_model_col_input(),
-	OUTPUT: m.audit_usage_audit_logs_model_col_output()
+	INPUT: m.audit_usage_usage_input(),
+	OUTPUT: m.audit_usage_usage_output()
 } as const;
 
 export const TOKEN_USAGE_CATEGORY = {
 	DEFAULT: m.audit_usage_usage_tokens_category_default(),
-	UNKNOWN: m.audit_usage_audit_logs_unknown()
+	UNKNOWN: m.core_unknown()
 } as const;
 
 export const CHART_LABEL = {

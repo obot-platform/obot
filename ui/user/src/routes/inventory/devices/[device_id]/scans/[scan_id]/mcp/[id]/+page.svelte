@@ -87,11 +87,11 @@
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if endpoint}
-						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_endpoint()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_col_endpoint()}</dt>
 						<dd class="break-all">{endpoint}</dd>
 					{/if}
 					{#if server.command}
-						<dt class="text-muted-content">{m.inventory_enforcement_label_command()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_enforcement_events_command()}</dt>
 						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
@@ -171,7 +171,7 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
-					<h3 class="text-base font-semibold">{m.inventory_enforcement_devices_configuration()}</h3>
+					<h3 class="text-base font-semibold">{m.inventory_enforcement_configuration_tab()}</h3>
 					<CopyButton showTextLeft text={renderConfig(server)} />
 				</div>
 				<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-2 rounded-md p-3 shadow-sm">

@@ -263,7 +263,7 @@
 								disabled
 							>
 								<Plus class="size-4" />
-								{m.mcps_access_policies_add_user_group()}
+								{m.core_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -274,7 +274,7 @@
 								}}
 							>
 								<Plus class="size-4" />
-								{m.mcps_access_policies_add_user_group()}
+								{m.core_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -297,7 +297,7 @@
 						{ property: 'displayName', title: m.core_name() },
 						{ property: 'type', title: m.core_type() }
 					]}
-					noDataMessage={m.mcps_access_policies_no_users_groups()}
+					noDataMessage={m.core_no_users_or_groups_added()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -308,7 +308,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: m.mcps_access_policies_delete_user_group() }}
+								tooltip={{ text: m.core_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -320,7 +320,7 @@
 
 		<div id={MCP_ACCESS_POLICY_FIELD_IDS.serversSection} class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.mcps_access_policies_servers()}</h2>
+				<h2 class="text-lg font-semibold">{m.mcps_servers_tab()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -340,6 +340,7 @@
 				data={mcpServersTableData}
 				fields={['name']}
 				noDataMessage={m.mcps_access_policies_no_entries_servers()}
+				headers={[{ property: 'name', title: m.core_name() }]}
 			>
 				{#snippet actions(d)}
 					{#if !readonly}
@@ -349,7 +350,7 @@
 								accessControlRule.resources =
 									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
 							}}
-							tooltip={{ text: m.mcps_access_policies_remove_mcp_server() }}
+							tooltip={{ text: m.mcps_filters_remove_mcp_server() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -414,7 +415,7 @@
 							saving = false;
 						}}
 					>
-						{m.mcps_access_policies_reset()}
+						{m.core_reset_shared()}
 					</button>
 					<button
 						class="btn btn-primary"

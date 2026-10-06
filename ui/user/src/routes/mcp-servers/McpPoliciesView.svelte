@@ -89,7 +89,7 @@
 
 		return {
 			...rule,
-			owner: owner || m.mcps_unknown(),
+			owner: owner || m.core_unknown(),
 			serversCount: count || 0
 		};
 	}
@@ -179,11 +179,11 @@
 				}}
 				headers={[
 					{
-						title: m.mcps_col_name(),
+						title: m.core_name(),
 						property: 'displayName'
 					},
 					{
-						title: m.mcps_access_policies_col_servers(),
+						title: m.mcps_servers_tab(),
 						property: 'servers'
 					}
 				]}
@@ -234,15 +234,15 @@
 		}}
 		headers={[
 			{
-				title: m.mcps_col_name(),
+				title: m.core_name(),
 				property: 'displayName'
 			},
 			{
-				title: m.mcps_access_policies_col_servers(),
+				title: m.mcps_servers_tab(),
 				property: 'serversCount'
 			},
 			{
-				title: m.mcps_access_policies_col_owner(),
+				title: m.core_role_owner(),
 				property: 'owner'
 			}
 		]}

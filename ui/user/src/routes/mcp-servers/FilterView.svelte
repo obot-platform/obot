@@ -31,8 +31,8 @@
 	let deletingFilter = $state(false);
 
 	const tabs = [
-		{ label: m.mcps_filters_tab_configuration(), view: 'configuration' },
-		{ label: m.mcps_filters_tab_server_details(), view: 'server-details' },
+		{ label: m.mcps_catalog_config_heading(), view: 'configuration' },
+		{ label: m.mcps_catalog_tab_server_details(), view: 'server-details' },
 		{ label: m.nav_audit_logs(), view: 'audit-logs' },
 		{ label: m.nav_usage(), view: 'usage' }
 	];
@@ -106,7 +106,7 @@
 					readonly={profile.current.isAdminReadonly?.()}
 					connectedUsers={[]}
 					k8sOverrides={{
-						title: m.mcps_filters_details(),
+						title: m.core_details(),
 						classes: {
 							title: 'text-lg font-semibold'
 						}

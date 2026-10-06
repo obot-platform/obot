@@ -19,7 +19,7 @@
 		? m.mcps_tunnels_connected()
 		: known
 			? m.mcps_tunnels_disconnected()
-			: m.mcps_tunnels_unknown()}
+			: m.core_unknown()}
 	{@const BadgeIcon = connection ? CircleCheck : known ? CircleMinus : CircleQuestionMark}
 	<span
 		class={twMerge('badge badge-soft badge-sm gap-1', badgeClass)}

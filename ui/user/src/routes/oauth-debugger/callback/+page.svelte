@@ -49,7 +49,7 @@
 					</div>
 					{#if errorDescription}
 						<div>
-							<dt class="text-error text-sm font-medium">{m.mcps_oauth_debugger_description()}</dt>
+							<dt class="text-error text-sm font-medium">{m.core_description()}</dt>
 							<dd class="text-base-content mt-1 text-sm wrap-break-word">{errorDescription}</dd>
 						</div>
 					{/if}

@@ -928,7 +928,7 @@
 						<Loading class="size-4" />
 						{mode === 'edit' ? m.audit_usage_exports_saving_changes() : m.audit_usage_exports_creating()}
 					{:else}
-						{mode === 'edit' ? m.audit_usage_exports_save_changes() : m.audit_usage_exports_create()}
+						{mode === 'edit' ? m.core_save_changes() : m.audit_usage_audit_logs_create_export()}
 					{/if}
 				</button>
 			{/if}

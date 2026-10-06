@@ -430,12 +430,12 @@
 		<!-- head -->
 		<thead>
 			<tr>
-				<th>{m.chat_col_name()}</th>
+				<th>{m.core_name()}</th>
 				{#if (activeTab === 'my' || showingSearchResults) && !responsive.isMobile}
 					<th>{m.chat_col_last_published()}</th>
 				{/if}
 				{#if activeTab === 'shared' || showingSearchResults}
-					<th>{m.chat_col_owner()}</th>
+					<th>{m.core_role_owner()}</th>
 				{/if}
 				<th class="flex justify-end">
 					<select class="select w-32 md:w-42" bind:value={sortBy}>
@@ -625,7 +625,7 @@
 			pollAndNavigateToWorkflow();
 		}}
 		title={installType === 'new' ? m.chat_install_workflow_title() : m.chat_workflow_update_title()}
-		confirmButtonText={installType === 'new' ? m.chat_install() : m.chat_update()}
+		confirmButtonText={installType === 'new' ? m.chat_install() : m.core_update()}
 		message={installType === 'update' ? m.chat_update_workflow_confirm() : undefined}
 	>
 		{#snippet loadingText()}

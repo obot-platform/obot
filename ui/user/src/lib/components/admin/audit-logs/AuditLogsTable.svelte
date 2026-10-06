@@ -56,7 +56,7 @@
 	function actorLabel(actor: (typeof data)[number]['actor']) {
 		if (actor.actorType === 'user' && actor.id) return getUserDisplayName(actor.id);
 		return (
-			actor.id || (actor.actorType === 'unknown' ? m.audit_usage_audit_logs_unknown() : actor.actorType)
+			actor.id || (actor.actorType === 'unknown' ? m.core_unknown() : actor.actorType)
 		);
 	}
 
@@ -85,17 +85,17 @@
 		if (target.parent) {
 			const server = resolveServerName(target.parent);
 			return {
-				primary: server || tool || m.audit_usage_audit_logs_unknown(),
+				primary: server || tool || m.core_unknown(),
 				secondary: server && tool ? `${tool}` : undefined
 			};
 		}
 		if (target.targetType === 'mcp_server') {
 			return {
-				primary: resolveServerName(target) || m.audit_usage_audit_logs_unknown(),
+				primary: resolveServerName(target) || m.core_unknown(),
 				secondary: undefined
 			};
 		}
-		return { primary: tool || m.audit_usage_audit_logs_unknown(), secondary: undefined };
+		return { primary: tool || m.core_unknown(), secondary: undefined };
 	}
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
@@ -256,7 +256,7 @@
 							class: 'w-[32ch]',
 							minWidth: '26ch'
 						})}
-						{@render th(m.audit_usage_exports_col_status(), { class: 'w-[18ch]', minWidth: '16ch' })}
+						{@render th(m.core_status(), { class: 'w-[18ch]', minWidth: '16ch' })}
 						{@render th(m.audit_usage_audit_logs_client(), { class: 'w-[22ch]', minWidth: '18ch' })}
 						{@render th(m.audit_usage_audit_logs_filter_duration(), {
 							class: 'w-[16ch]',
