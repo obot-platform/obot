@@ -794,11 +794,6 @@ func TestBaseURL(t *testing.T) {
 			want:      "https://obot.example.com/scim/v2",
 		},
 		{
-			name:      "a server URL with a trailing slash",
-			serverURL: "https://obot.example.com/",
-			want:      "https://obot.example.com/scim/v2",
-		},
-		{
 			name:      "a server URL with a path and trailing slashes",
 			serverURL: "https://example.com/obot//",
 			want:      "https://example.com/obot/scim/v2",

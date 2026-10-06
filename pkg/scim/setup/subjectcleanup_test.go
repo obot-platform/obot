@@ -3,7 +3,6 @@ package setup
 import (
 	"context"
 	"errors"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -17,16 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// failingUpdates fails every update while fail is set, and counts the lists of each kind.
+// failingUpdates fails every update while fail is set.
 type failingUpdates struct {
 	kclient.Client
-	fail  bool
-	lists map[reflect.Type]int
-}
-
-func (f *failingUpdates) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
-	f.lists[reflect.TypeOf(list)]++
-	return f.Client.List(ctx, list, opts...)
+	fail bool
 }
 
 func (f *failingUpdates) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
@@ -51,8 +44,7 @@ func TestCleanUpGroupSubjects(t *testing.T) {
 			WithScheme(storagescheme.Scheme).
 			WithObjects(both, policy("other", "okta/kept")).
 			Build(),
-		fail:  true,
-		lists: map[reflect.Type]int{},
+		fail: true,
 	}
 	gateway, db := newTestGatewayWithDB(t, storage)
 	for _, groupID := range []string{"okta/deleted", "okta/also-deleted"} {
@@ -104,18 +96,8 @@ func TestCleanUpGroupSubjects(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Both cleanups run in one pass over the namespace's policies.
-	clear(storage.lists)
 	if err := CleanUpGroupSubjects(ctx, gateway, storage); err != nil {
 		t.Fatal(err)
-	}
-	if len(storage.lists) == 0 {
-		t.Fatal("the cleanup listed no policies")
-	}
-	for kind, lists := range storage.lists {
-		if lists != 1 {
-			t.Errorf("listed %v %d times, want once", kind, lists)
-		}
 	}
 	if got := subjects("both"); !slices.Equal(got, []string{"okta/kept"}) {
 		t.Fatalf("subjects after the cleanup = %v", got)

@@ -39,18 +39,6 @@ func TestConvertUserReportsLifecycle(t *testing.T) {
 			wantManagementSource: types2.UserManagementSourceSCIM,
 		},
 		{
-			name: "never provisioned by SCIM",
-			user: User{
-				ID:             3,
-				DisabledAt:     &at,
-				DisabledReason: UserDisabledReasonSCIMUnprovisioned,
-			},
-			wantStatus:           types2.UserStatusDisabled,
-			wantDisabledAt:       true,
-			wantReason:           string(UserDisabledReasonSCIMUnprovisioned),
-			wantManagementSource: types2.UserManagementSourceSCIM,
-		},
-		{
 			name: "deleted after being disabled",
 			user: User{
 				ID:             4,

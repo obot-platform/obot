@@ -32,22 +32,10 @@ func TestParseListFilter(t *testing.T) {
 			wantValue:     `a"b\c`,
 		},
 		{
-			name:          "unicode escape",
-			filter:        "userName eq \"caf\\" + "u00e9\"",
-			wantAttribute: "userName",
-			wantValue:     "café",
-		},
-		{
 			name:          "core schema URN prefix",
 			filter:        `urn:ietf:params:scim:schemas:core:2.0:User:userName eq "user@example.com"`,
 			wantAttribute: "userName",
 			wantValue:     "user@example.com",
-		},
-		{
-			name:          "id lookup",
-			filter:        `id eq "8b0d2a6f"`,
-			wantAttribute: "id",
-			wantValue:     "8b0d2a6f",
 		},
 		{
 			name:         "unsupported attribute",

@@ -13,13 +13,11 @@ import (
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesstoken"
-	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,32 +55,6 @@ func newLifecycleTestClient(t *testing.T, objects ...kclient.Object) *Client {
 			},
 		}, objects...)...).
 		Build()
-	return c
-}
-
-// newSQLiteLifecycleTestClient returns a lifecycle test client over the SQLite database at dsn, as a restarted Obot would
-// open it.
-func newSQLiteLifecycleTestClient(t *testing.T, dsn string) *Client {
-	t.Helper()
-
-	services, err := sservices.New(sservices.Config{
-		DSN: dsn,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.AutoMigrate(); err != nil {
-		t.Fatal(err)
-	}
-	c := newLifecycleTestClient(t)
-	c.db = db
-	t.Cleanup(func() {
-		_ = services.DB.SQLDB.Close()
-	})
 	return c
 }
 

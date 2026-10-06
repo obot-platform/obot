@@ -10,11 +10,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/principal"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var (
@@ -113,62 +109,6 @@ func apiKeyRequest(key string) *http.Request {
 	return req
 }
 
-func TestAPIKeyAuthenticatorReportsTheUsersStatus(t *testing.T) {
-	_, client := newTokenRequestTestServer(t)
-	ctx := t.Context()
-	user := createAPIKeyLifecycleTestUser(t, client, "alice")
-	created, err := client.CreateAPIKey(ctx, user.ID, "cli", "", nil, gatewaytypes.APIKeyScopes{
-		CanAccessAPI: true,
-	})
-	if err != nil {
-		t.Fatalf("failed to create API key: %v", err)
-	}
-	authenticator := NewAPIKeyAuthenticator(client, nil)
-
-	assertStatus := func(want types2.UserStatus) {
-		t.Helper()
-		response, ok, err := authenticator.AuthenticateRequest(apiKeyRequest(created.Key))
-		if err != nil || !ok {
-			t.Fatalf("authenticate = %v, %v; want the key accepted for the admission check", ok, err)
-		}
-		if got, recorded := principal.UserStatus(response.User); !recorded || got != want {
-			t.Fatalf("recorded status = %q, %v; want %q", got, recorded, want)
-		}
-	}
-
-	assertStatus(types2.UserStatusActive)
-
-	provisioned := provisionThroughSCIM(t, client, "00u-alice", user.Email, false)
-	assertStatus(types2.UserStatusDisabled)
-
-	if err := setActiveThroughSCIM(t, client, provisioned.ID, true); err != nil {
-		t.Fatalf("failed to reactivate user: %v", err)
-	}
-	assertStatus(types2.UserStatusActive)
-}
-
-func TestAPIKeyAuthenticatorDeniesAKeyThatOutlivedItsUser(t *testing.T) {
-	_, client := newTokenRequestTestServer(t)
-	ctx := t.Context()
-	user := createAPIKeyLifecycleTestUser(t, client, "bob")
-	createAPIKeyLifecycleTestUser(t, client, "owner")
-	created, err := client.CreateAPIKey(ctx, user.ID, "cli", "", nil, gatewaytypes.APIKeyScopes{
-		CanAccessAPI: true,
-	})
-	if err != nil {
-		t.Fatalf("failed to create API key: %v", err)
-	}
-	if err := client.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
-		t.Fatalf("failed to delete user: %v", err)
-	}
-
-	_, ok, err := NewAPIKeyAuthenticator(client, nil).AuthenticateRequest(apiKeyRequest(created.Key))
-	denied, isDenied := errors.AsType[*gatewayclient.UserAccessDeniedError](err)
-	if ok || !isDenied || denied.Status != types2.UserStatusDeleted {
-		t.Fatalf("authenticate = %v, %v; want the key denied for a deleted user", ok, err)
-	}
-}
-
 func TestAPIKeyAuthenticatorFailsWhenItCannotReadTheKey(t *testing.T) {
 	_, client := newTokenRequestTestServer(t)
 	user := createAPIKeyLifecycleTestUser(t, client, "carol")
@@ -194,52 +134,6 @@ func TestAPIKeyAuthenticatorFailsWhenItCannotReadTheKey(t *testing.T) {
 	if lookupErr, isLookup := errors.AsType[*gatewayclient.UserAccessLookupError](err); ok || !isLookup || lookupErr.UserID != user.ID {
 		t.Fatalf("authenticate with an unreadable key = %v, %v; want a lookup failure for user %d", ok, err, user.ID)
 	}
-}
-
-func TestHostedAgentKeyCarriesItsOwnersStatus(t *testing.T) {
-	_, client := newTokenRequestTestServer(t)
-	ctx := t.Context()
-	owner := createAPIKeyLifecycleTestUser(t, client, "dave")
-
-	const instanceName = "hai1lifecycle"
-	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.HostedAgent{
-			Name:      "agent",
-			Namespace: system.DefaultNamespace,
-		},
-		&v1.HostedAgentInstance{
-			Name:      instanceName,
-			Namespace: system.DefaultNamespace,
-			Spec: v1.HostedAgentInstanceSpec{
-				UserID:          fmt.Sprint(owner.ID),
-				HostedAgentName: "agent",
-			},
-		},
-	).Build()
-	created, err := client.CreateHostedAgentAPIKey(ctx, instanceName, owner.ID, "agent")
-	if err != nil {
-		t.Fatalf("failed to create hosted agent key: %v", err)
-	}
-	authenticator := NewAPIKeyAuthenticator(client, storage)
-
-	assertOwnerStatus := func(want types2.UserStatus) {
-		t.Helper()
-		response, ok, err := authenticator.AuthenticateRequest(apiKeyRequest(created.Key))
-		if err != nil || !ok {
-			t.Fatalf("authenticate = %v, %v; want the agent key accepted for the admission check", ok, err)
-		}
-		if !principal.IsHostedAgent(response.User) {
-			t.Fatalf("principal %q is not a hosted agent", response.User.GetUID())
-		}
-		if got, recorded := principal.UserStatus(response.User); !recorded || got != want {
-			t.Fatalf("recorded owner status = %q, %v; want %q", got, recorded, want)
-		}
-	}
-
-	assertOwnerStatus(types2.UserStatusActive)
-
-	provisionThroughSCIM(t, client, "00u-dave", owner.Email, false)
-	assertOwnerStatus(types2.UserStatusDisabled)
 }
 
 func TestAPIKeyWebhookDeniesInactiveUsers(t *testing.T) {

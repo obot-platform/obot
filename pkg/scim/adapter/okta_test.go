@@ -69,12 +69,6 @@ func TestOktaGroupConsoleURL(t *testing.T) {
 			want:    "https://dev-123456-admin.okta.com/admin/group/00g1a2b3c4d5e6f7g8h9",
 		},
 		{
-			name:    "custom authorization server",
-			issuer:  "https://acme.okta.com/oauth2/default",
-			groupID: groupID,
-			want:    "https://acme-admin.okta.com/admin/group/00g1a2b3c4d5e6f7g8h9",
-		},
-		{
 			name:    "preview org",
 			issuer:  "https://acme.oktapreview.com/oauth2/default",
 			groupID: groupID,

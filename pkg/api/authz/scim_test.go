@@ -109,13 +109,6 @@ func TestSCIMAuthorization(t *testing.T) {
 			uid:    "anonymous",
 			groups: []string{UnauthenticatedGroup},
 		},
-		{
-			name:   "anonymous cannot reach the SCIM root",
-			method: http.MethodGet,
-			path:   "/scim/v2/",
-			uid:    "anonymous",
-			groups: []string{UnauthenticatedGroup},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

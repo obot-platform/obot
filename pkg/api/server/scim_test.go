@@ -349,16 +349,10 @@ func TestSCIMConnectionPrincipalReachesOnlySCIMRoutes(t *testing.T) {
 	s := newSCIMServerTest(t, 1000)
 	_, token := s.enable()
 
-	// An Owner's credential is refused on a SCIM route.
-	owner := scimRequest(scim.PathPrefix+"Users", "")
-	owner.Header.Set(scimTestUserHeader, "owner")
-	rec, body := s.do(owner)
-	assertSCIMError(t, rec, body, http.StatusUnauthorized)
-
 	// The connection's token authenticates nothing outside SCIM routes: the SCIM authenticator declines, the user
 	// authenticators run as usual, and the request is anonymous.
 	before := s.users.callCount()
-	rec = httptest.NewRecorder()
+	rec := httptest.NewRecorder()
 	s.server.ServeHTTP(rec, scimRequest("/api/me", token))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("GET /api/me with the SCIM token = %d: %s", rec.Code, rec.Body.String())

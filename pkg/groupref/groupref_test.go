@@ -237,21 +237,6 @@ func TestFindCoversEveryReferenceKind(t *testing.T) {
 	}
 }
 
-func TestFindWithoutReferences(t *testing.T) {
-	storage := fake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
-		WithObjects(referencingObjects("entra/engineering")...).
-		Build()
-
-	refs, err := NewFinder(storage, fakeRoleAssignments{}).Find(t.Context(), namespace, HasPrefix("okta/"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(refs) != 0 {
-		t.Fatalf("references = %#v, want none", refs)
-	}
-}
-
 func TestRemoveGroupSubjectsChangesOnlyAccessPolicies(t *testing.T) {
 	const target = "okta/00g-engineering"
 

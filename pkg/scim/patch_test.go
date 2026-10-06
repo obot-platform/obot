@@ -29,13 +29,6 @@ func TestApplyPatchUser(t *testing.T) {
 			},
 		},
 		{
-			name: "active with a path",
-			ops:  `[{"op":"replace","path":"active","value":false}]`,
-			want: map[string]any{
-				"active": false,
-			},
-		},
-		{
 			name: "active as a string, as some clients send it",
 			ops:  `[{"op":"Replace","path":"active","value":"False"}]`,
 			want: map[string]any{

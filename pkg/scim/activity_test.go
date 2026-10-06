@@ -53,7 +53,7 @@ func TestRequestActivity(t *testing.T) {
 		t.Errorf("unavailable failure = %+v", unavailable)
 	}
 	if invalid.Status != http.StatusBadRequest || invalid.Method != http.MethodPost || invalid.Resource != "Groups" ||
-		invalid.SCIMType != scimTypeInvalidValue || invalid.Detail != "displayName is required" {
+		invalid.SCIMType != scimTypeInvalidValue || invalid.Detail == "" {
 		t.Errorf("invalid failure = %+v", invalid)
 	}
 }

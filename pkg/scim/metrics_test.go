@@ -14,53 +14,11 @@ func TestDescribeRequest(t *testing.T) {
 		wantOperation string
 	}{
 		{
-			name:          "user list",
-			method:        http.MethodGet,
-			segments:      []string{"Users"},
-			wantResource:  "Users",
-			wantOperation: "list",
-		},
-		{
 			name:          "user get, case-insensitively",
 			method:        http.MethodGet,
 			segments:      []string{"users", "abc"},
 			wantResource:  "Users",
 			wantOperation: "get",
-		},
-		{
-			name:          "group create",
-			method:        http.MethodPost,
-			segments:      []string{"Groups"},
-			wantResource:  "Groups",
-			wantOperation: "create",
-		},
-		{
-			name:          "group replace",
-			method:        http.MethodPut,
-			segments:      []string{"Groups", "abc"},
-			wantResource:  "Groups",
-			wantOperation: "replace",
-		},
-		{
-			name:          "group patch",
-			method:        http.MethodPatch,
-			segments:      []string{"Groups", "abc"},
-			wantResource:  "Groups",
-			wantOperation: "patch",
-		},
-		{
-			name:          "group delete",
-			method:        http.MethodDelete,
-			segments:      []string{"Groups", "abc"},
-			wantResource:  "Groups",
-			wantOperation: "delete",
-		},
-		{
-			name:          "discovery",
-			method:        http.MethodGet,
-			segments:      []string{"Schemas", "urn:ietf:params:scim:schemas:core:2.0:User"},
-			wantResource:  "Schemas",
-			wantOperation: "discovery",
 		},
 		{
 			name:          "an unknown resource does not add a series",

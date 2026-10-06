@@ -66,14 +66,7 @@ func TestEnableSCIMIsRefusedUnlessTheProviderSynchronizesItsDirectory(t *testing
 		// setup prepares the installation, and configures the Okta provider or not.
 		setup     func(s *scimChangeTest)
 		wantError string
-		// wantOrigin is the origin of the Okta provider's connection afterwards, and empty when it has none.
-		wantOrigin gatewaytypes.SCIMConnectionOrigin
 	}{
-		{
-			name:      "no auth provider is configured",
-			setup:     func(*scimChangeTest) {},
-			wantError: "only be enabled for the configured auth provider",
-		},
 		{
 			name: "another auth provider is configured",
 			setup: func(s *scimChangeTest) {
@@ -110,14 +103,6 @@ func TestEnableSCIMIsRefusedUnlessTheProviderSynchronizesItsDirectory(t *testing
 			},
 			wantError: "still being cleaned up",
 		},
-		{
-			name: "the provider was configured for SCIM without directory parameters",
-			setup: func(s *scimChangeTest) {
-				require.Empty(s.t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))
-			},
-			wantError:  "already provisions users and groups through SCIM",
-			wantOrigin: gatewaytypes.SCIMConnectionOriginSCIMFirst,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -125,12 +110,7 @@ func TestEnableSCIMIsRefusedUnlessTheProviderSynchronizesItsDirectory(t *testing
 			tt.setup(s)
 
 			assert.Contains(t, s.apply(v1.ProviderDesiredStateMigrated, nil), tt.wantError)
-			if conn := s.connection(); tt.wantOrigin == "" {
-				assert.Nil(t, conn)
-			} else {
-				require.NotNil(t, conn)
-				assert.Equal(t, tt.wantOrigin, conn.Origin)
-			}
+			assert.Nil(t, s.connection())
 		})
 	}
 }

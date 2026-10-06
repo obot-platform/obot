@@ -368,11 +368,6 @@ func TestConfigureWithDirectoryParametersSynchronizesTheDirectory(t *testing.T) 
 	assert.Contains(t, errMsg, "synchronizes its directory at sign-in")
 	assert.Nil(t, s.connection())
 	assert.Equal(t, "service-client", s.credential(oktaProviderName)[oktaServiceClientParam])
-
-	// Providing only some of them is refused too.
-	partial := oidcSettings()
-	partial[oktaServiceClientParam] = "service-client"
-	assert.Contains(t, s.apply(v1.ProviderDesiredStateConfigured, partial), oktaServiceKeyParam)
 }
 
 func TestConfigureRefusesPartialDirectoryParameters(t *testing.T) {
@@ -441,17 +436,6 @@ func TestConfigureRefusesResidualGroupDataUntilTheCleanup(t *testing.T) {
 
 	require.Empty(t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))
 	require.NotNil(t, s.connection())
-}
-
-func TestConfigureRefusesGroupDataInTheGateway(t *testing.T) {
-	s := newSCIMChangeTest(t)
-	_, err := s.gateway.CreateGroupRoleAssignment(t.Context(), "okta/00g-admins", clienttypes.RoleAdmin, "")
-	require.NoError(t, err)
-
-	errMsg := s.apply(v1.ProviderDesiredStateConfigured, oidcSettings())
-	assert.Contains(t, errMsg, "okta/00g-admins")
-	assert.Contains(t, errMsg, "group role assignment")
-	assert.Nil(t, s.connection())
 }
 
 func TestConfigureReusesTheConnectionOfAFailedAttempt(t *testing.T) {

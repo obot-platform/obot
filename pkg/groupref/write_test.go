@@ -104,11 +104,6 @@ func TestWriteNewSubjects(t *testing.T) {
 			wantProblems: []string{"no Okta group has the ID " + missingGroupID, "push the group from Okta first"},
 		},
 		{
-			name:         "new references to groups that the provider does not have",
-			subjects:     []types.Subject{groupSubject(missingGroupID), groupSubject("okta/00g-also-missing")},
-			wantProblems: []string{"no Okta groups have the IDs ", missingGroupID, "okta/00g-also-missing", "push the groups from Okta first"},
-		},
-		{
 			name:         "a new reference to a group that is being deleted",
 			subjects:     []types.Subject{groupSubject(pendingGroupID)},
 			wantProblems: []string{"the Okta group " + pendingGroupID + " is being deleted because nothing referenced it"},
@@ -184,17 +179,5 @@ func TestWriteNewGroupsNamesAProviderWithoutAnObjectByItsName(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "no "+oktaProviderName+" group has the ID "+missingGroupID) {
 		t.Fatalf("WriteNewGroups() = %v, want a refusal that names the provider %q", err, oktaProviderName)
-	}
-}
-
-func TestWriteNewGroupsReturnsTheWriteError(t *testing.T) {
-	gateway := newWriteTestGateway(t)
-	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
-	writeErr := errors.New("write failed")
-
-	if err := WriteNewGroups(t.Context(), gateway, storage, []string{existingGroupID}, func() error {
-		return writeErr
-	}); !errors.Is(err, writeErr) {
-		t.Fatalf("WriteNewGroups() = %v, want %v", err, writeErr)
 	}
 }

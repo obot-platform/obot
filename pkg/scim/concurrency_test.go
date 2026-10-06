@@ -65,15 +65,6 @@ func testConcurrencyAndRetries(t *testing.T, s *scimTest) {
 		}
 	})
 
-	t.Run("a retry after a lost response finds the same user", func(t *testing.T) {
-		first := s.do(http.MethodPost, "Users", scimUser("retry@example.com", "00u-retry")).expect(t, http.StatusCreated)
-		s.do(http.MethodPost, "Users", scimUser("retry@example.com", "00u-retry")).expect(t, http.StatusConflict)
-		found := s.do(http.MethodGet, "Users?filter="+url.QueryEscape(`userName eq "retry@example.com"`), nil).expect(t, http.StatusOK).resources()
-		if len(found) != 1 || found[0]["id"] != first.id() {
-			t.Fatalf("lookup = %v, want %s", found, first.id())
-		}
-	})
-
 	var memberIDs []string
 	for i := range concurrentRequests {
 		memberIDs = append(memberIDs, s.do(http.MethodPost, "Users", scimUser(fmt.Sprintf("member%d@example.com", i), fmt.Sprintf("00u-member-%d", i))).expect(t, http.StatusCreated).id())

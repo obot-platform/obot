@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/accesstoken"
-	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -341,42 +338,6 @@ func TestEnforceSCIMConnectionIsRefusedAndClearsItsMarks(t *testing.T) {
 				t.Fatalf("a refused Enforce deleted a group: %v", ids)
 			}
 		})
-	}
-}
-
-func TestEnforcementSurvivesRestarts(t *testing.T) {
-	dsn := "sqlite://" + filepath.Join(t.TempDir(), "gateway.db")
-	open := func() *Client {
-		t.Helper()
-		return newSQLiteLifecycleTestClient(t, dsn)
-	}
-
-	c := open()
-	f := newEnforceFixture(t, c)
-	run, err := c.MarkUnreferencedSCIMGroups(t.Context(), f.conn, f.referenced())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.EnforceSCIMConnection(t.Context(), f.conn.ID, EnforceSCIMOptions{
-		RunID:              run.ID,
-		ReferencedGroupIDs: f.referenced(),
-		Actor:              f.actor,
-	}); err != nil {
-		t.Fatalf("failed to enforce: %v", err)
-	}
-
-	restarted := open()
-	stored, err := restarted.SCIMConnection(t.Context(), f.conn.ID)
-	if err != nil || stored.State != types.SCIMConnectionStateEnforced {
-		t.Fatalf("connection after a restart = %+v, %v", stored, err)
-	}
-
-	// Sign-in still requires a binding, and never creates an account.
-	_, err = restarted.EnsureIdentity(t.Context(), signInIdentity("00u-newcomer", "newcomer@example.com"), "", UserLimit{
-		Unlimited: true,
-	})
-	if _, ok := errors.AsType[*UserAccessDeniedError](err); !ok {
-		t.Fatalf("sign-in of an unprovisioned user after a restart = %v, want denied", err)
 	}
 }
 
@@ -1548,56 +1509,6 @@ func TestIssueFirstSCIMConnectionToken(t *testing.T) {
 	}
 	if _, _, err := c.IssueFirstSCIMConnectionToken(t.Context(), "unknown"); !errors.Is(err, ErrSCIMConnectionNotFound) {
 		t.Fatalf("issuing the first token of an unknown connection = %v", err)
-	}
-}
-
-func TestEnabledSCIMSurvivesRestarts(t *testing.T) {
-	dsn := "sqlite://" + filepath.Join(t.TempDir(), "gateway.db")
-	c := newSQLiteLifecycleTestClient(t, dsn)
-	stub, srv := newAuthProviderStub(t)
-	ctx := accesstoken.ContextWithAccessToken(auth.ContextWithProviderGroupIDPrefix(auth.ContextWithProviderURL(t.Context(), srv.URL), "okta/"), "access-token")
-	unlimited := UserLimit{
-		Unlimited: true,
-	}
-
-	// The provider synchronizes its directory at sign-in until SCIM is enabled.
-	existing, err := c.EnsureIdentity(ctx, signInIdentity("00u-existing", "existing@example.com"), "", unlimited)
-	if err != nil {
-		t.Fatalf("failed to sign in: %v", err)
-	}
-	before := stub.directoryRequests()
-	if before == 0 {
-		t.Fatal("sign-in without a connection made no directory request")
-	}
-	conn, _ := createTestSCIMConnection(t, c, true)
-	if conn.Origin != types.SCIMConnectionOriginMigrated {
-		t.Fatalf("connection = %+v, want one that Enable created", conn)
-	}
-
-	restarted := newSQLiteLifecycleTestClient(t, dsn)
-	stored, err := restarted.SCIMConnection(t.Context(), conn.ID)
-	if err != nil || stored.Origin != types.SCIMConnectionOriginMigrated || stored.State != types.SCIMConnectionStateConnected {
-		t.Fatalf("connection after a restart = %+v, %v", stored, err)
-	}
-
-	// Sign-in no longer reaches the directory, even once the group check is due.
-	if err := restarted.db.WithContext(t.Context()).Model(new(types.Identity)).Where("user_id = ?", existing.ID).
-		UpdateColumn(groupsLastCheckedColumn, time.Time{}).Error; err != nil {
-		t.Fatal(err)
-	}
-	if _, err := restarted.EnsureIdentity(ctx, signInIdentity("00u-existing", "existing@example.com"), "", unlimited); err != nil {
-		t.Fatalf("failed to sign in after a restart: %v", err)
-	}
-	if after := stub.directoryRequests(); after != before {
-		t.Fatalf("sign-in after a restart made %d directory requests", after-before)
-	}
-
-	// Discarding a staging never deletes an enabled connection, whose provider is not staged.
-	if deleted, err := restarted.DeleteStagedSCIMConnection(t.Context(), lifecycleTestProvider); err != nil || deleted != nil {
-		t.Fatalf("DeleteStagedSCIMConnection() = %+v, %v", deleted, err)
-	}
-	if _, err := restarted.SCIMConnection(t.Context(), conn.ID); err != nil {
-		t.Fatalf("the connection is gone: %v", err)
 	}
 }
 

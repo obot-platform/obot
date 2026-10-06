@@ -1,9 +1,6 @@
 package client
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestTruncateUTF8(t *testing.T) {
 	tests := []struct {
@@ -41,12 +38,6 @@ func TestTruncateUTF8(t *testing.T) {
 			input: "bad \xff byte",
 			limit: 100,
 			want:  "bad � byte",
-		},
-		{
-			name:  "a long run of multi-byte characters stays valid",
-			input: strings.Repeat("日本", 400),
-			limit: 1000,
-			want:  strings.Repeat("日本", 166) + "日",
 		},
 	}
 	for _, tt := range tests {

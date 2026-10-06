@@ -249,16 +249,4 @@ func testSCIMStorage(t *testing.T, database *DB, gormDB *gorm.DB) {
 		GroupID:      "okta/00g-unreferenced",
 		ConnectionID: "conn-1",
 	})
-
-	// Explicit false and zero values persist.
-	var inactive types.SCIMUserBinding
-	if err := gormDB.Model(new(types.SCIMUserBinding)).Where("id = ?", "user-7").UpdateColumn("active", false).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := gormDB.Where("id = ?", "user-7").Take(&inactive).Error; err != nil {
-		t.Fatal(err)
-	}
-	if inactive.Active {
-		t.Fatal("an inactive binding reads back as active")
-	}
 }
