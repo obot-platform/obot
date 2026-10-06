@@ -35,7 +35,7 @@
     "@docusaurus/types": "3.10.2",
     "@playwright/test": "^1.63.0",
     "typescript": "~6.0.2",
-    "wrangler": "^4.140.0"
+    "wrangler": "^4.147.0"
   },
   "browserslist": {
     "production": [
