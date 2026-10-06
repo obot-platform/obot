@@ -157,7 +157,7 @@
 
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-4">
-					<label for="banner-type-selector" class="text-sm font-light"
+					<label for="banner-type-selector" class="text-sm font-light shrink-0"
 						>{m.core_type()}</label
 					>
 					<div class="w-full">
