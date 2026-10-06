@@ -87,6 +87,21 @@ func TestIPClassification(t *testing.T) {
 			private: true,
 		},
 		{
+			name:      "NAT64 local-use /48 metadata with nonzero suffix",
+			ip:        "64:ff9b:1:a9fe:a9:fe00:0:1",
+			linkLocal: true,
+		},
+		{
+			name:      "NAT64 local-use /56 metadata with nonzero suffix",
+			ip:        "64:ff9b:1:a9:fe:a9fe:0:1",
+			linkLocal: true,
+		},
+		{
+			name:      "NAT64 local-use /64 metadata with nonzero suffix",
+			ip:        "64:ff9b:1:0:a9:fea9:fe00:1",
+			linkLocal: true,
+		},
+		{
 			name: "NAT64 local-use /96 public",
 			ip:   "64:ff9b:1::808:808",
 		},
