@@ -665,6 +665,8 @@
 			catalogConfig.hostname = undefined;
 			catalogConfig.tunnelName = undefined;
 			catalogConfig.urlTemplate = undefined;
+			catalogConfig.localhostCallbackEnabled = undefined;
+			catalogConfig.localhostCallbackPath = undefined;
 			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
 		}
 	}}

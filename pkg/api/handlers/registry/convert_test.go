@@ -5,6 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestConvertMCPServerCatalogEntryToRegistryRemoteFixedURLHasRemote(t *testing.T) {
@@ -112,7 +113,7 @@ func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 		},
 	}
 
-	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", "user-1", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +167,7 @@ func TestLocalhostCallbackServerHasNoDirectRemote(t *testing.T) {
 		URL:                      "https://example.com/mcp",
 		LocalhostCallbackEnabled: true,
 	}
-	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", "user-1", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}

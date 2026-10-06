@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,10 +24,10 @@ func ConvertMCPServerToRegistry(
 	serverURL string,
 	slug string,
 	reverseDNS string,
-	userID string,
+	user kuser.Info,
 	mimeFetcher *mimeFetcher,
 ) (obottypes.RegistryServerResponse, error) {
-	localhostCallback, err := serverRequiresLocalhostCallback(ctx, storage, server)
+	localhostCallback, err := serverRequiresLocalhostCallback(ctx, storage, server, user)
 	if err != nil {
 		return obottypes.RegistryServerResponse{}, err
 	}
@@ -80,7 +81,7 @@ func ConvertMCPServerToRegistry(
 	}
 
 	// Determine if server should show connection URL
-	isPersonalServer := convertedServer.UserID == userID && convertedServer.IsSingleUser()
+	isPersonalServer := user != nil && convertedServer.UserID == user.GetUID() && convertedServer.IsSingleUser()
 	isMultiUserServer := !convertedServer.IsSingleUser()
 
 	// Advertise configured servers through HTTP unless OAuth requires the CLI relay.
@@ -260,7 +261,7 @@ func guessRepoSource(repoURL string) string {
 
 // serverRequiresLocalhostCallback uses the same component snapshots as runtime
 // resolution, including snapshots retained by migrated vMCP connections.
-func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader, server v1.MCPServer) (bool, error) {
+func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader, server v1.MCPServer, user kuser.Info) (bool, error) {
 	if remote := server.Spec.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
 		return true, nil
 	}
@@ -282,6 +283,10 @@ func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader
 	components := vmcp.Spec.Manifest.Components
 	if instance.Name != "" {
 		components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	}
+	// Anonymous registry results cannot be personalized; keep their conservative scan.
+	if registryUserAuthenticated(user) {
+		components = vmcpconfig.EnabledComponents(user, vmcp, components)
 	}
 	for _, component := range components {
 		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {

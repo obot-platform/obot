@@ -42,3 +42,37 @@ it('opens advanced configuration for an existing localhost OAuth setting', async
 	await expect.element(page.getByLabelText('Callback path')).toBeEnabled();
 	await expect.element(page.getByLabelText('Callback path')).toHaveValue('/custom');
 });
+
+it('clears localhost callback settings when resetting a catalog entry', async () => {
+	const config = {
+		fixedURL: 'https://example.com/mcp',
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom'
+	};
+	await render(RemoteRuntimeForm, { variant: 'catalog', config });
+	await page.getByRole('button', { name: 'Reset Default Configuration' }).click();
+	expect(config.localhostCallbackEnabled).toBeUndefined();
+	expect(config.localhostCallbackPath).toBeUndefined();
+	await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+	const toggle = page.getByRole('switch', { name: /Localhost OAuth callback/ });
+	await expect.element(toggle).not.toBeChecked();
+	await toggle.click();
+	await expect.element(page.getByLabelText('Callback path')).toHaveValue('');
+});
+
+it('preserves localhost callback settings when hiding server configuration', async () => {
+	await render(RemoteRuntimeForm, {
+		variant: 'server',
+		config: {
+			url: 'https://example.com/mcp',
+			localhostCallbackEnabled: true,
+			localhostCallbackPath: '/custom'
+		}
+	});
+	await page.getByRole('button', { name: 'Hide Advanced Configuration' }).click();
+	await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+	await expect
+		.element(page.getByRole('switch', { name: /Localhost OAuth callback/ }))
+		.toBeChecked();
+	await expect.element(page.getByLabelText('Callback path')).toHaveValue('/custom');
+});
