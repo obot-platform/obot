@@ -53,7 +53,7 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 	entry.connectURL = 'https://obot.example/mcp-connect/deployed-server';
 	entry.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
 	const oauthRequest = vi.fn();
-	const attemptURL = 'https://obot.example/oauth/mcp/login/preview-state';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/preview-state`;
 	worker.use(
 		http.get(`/api/oauth/vmcp/vmcp1parent/components/${entry.id}`, () => {
 			oauthRequest();
@@ -80,7 +80,9 @@ it('shows endpoint failures and retries the same component without treating erro
 		http.get(`/api/oauth/vmcp/vmcpi1exact/components/${entry.id}`, () => {
 			if (++calls === 1)
 				return HttpResponse.json({ message: 'Provider unavailable' }, { status: 503 });
-			return HttpResponse.json({ authURL: 'https://obot.example/oauth/mcp/login/retry-attempt' });
+			return HttpResponse.json({
+				authURL: `${window.location.origin}/oauth/mcp/login/retry-attempt`
+			});
 		})
 	);
 	const onAuthenticate = vi.fn();
@@ -92,7 +94,25 @@ it('shows endpoint failures and retries the same component without treating erro
 	await page.getByRole('button', { name: 'Retry authentication' }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent("obot mcp login --url 'https://obot.example/oauth/mcp/login/retry-attempt'");
+		.toHaveTextContent(
+			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/retry-attempt'`
+		);
 	expect(onAuthenticate).not.toHaveBeenCalled();
 	expect(calls).toBe(2);
+});
+
+it('keeps provider URLs with a matching login path in the browser OAuth flow', async () => {
+	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
+	entry.vmcpID = 'vmcp1parent';
+	const providerURL = 'https://provider.example/oauth/mcp/login/attempt';
+	worker.use(
+		http.get(`/api/oauth/vmcp/vmcp1parent/components/${entry.id}`, () =>
+			HttpResponse.json({ authURL: providerURL })
+		)
+	);
+	await render(McpOauth, { entry });
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate' }))
+		.toHaveAttribute('href', providerURL);
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
 });

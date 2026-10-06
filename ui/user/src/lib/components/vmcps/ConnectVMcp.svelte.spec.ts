@@ -510,7 +510,7 @@ it('installs with effective retained callback paths even when the current compon
 });
 
 it('shows CLI login for vMCP authentication using retained callback paths', async () => {
-	const attemptURL = 'https://obot.example/oauth/mcp/login/ui-attempt';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
 	let checks = 0;
 	worker.use(
 		http.get('*/api/*/oauth-url', () =>
@@ -534,7 +534,7 @@ it('shows component login commands directly during vMCP preconfiguration', async
 	const vmcp = configurableVMcp();
 	vmcp.localhostCallbackPaths = ['/oauth/callback'];
 	const checked = vi.fn();
-	const attemptURL = 'https://obot.example/oauth/mcp/login/component-state';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/component-state`;
 	worker.use(
 		http.get('/api/vmcps/vmcp1configurable/oauth-url', () =>
 			HttpResponse.json({

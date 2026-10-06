@@ -1157,7 +1157,7 @@ describe('MCP Tester page', () => {
 it('shows CLI login and retries a localhost component in the inspector', async () => {
 	appPage.url.searchParams.delete('tab');
 	mockMCPInitializationFailure(401);
-	const attemptURL = 'https://obot.example/oauth/mcp/login/ui-attempt';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
 	let checks = 0;
 	worker.use(
 		http.get(`/api/oauth/vmcp/vmcpi1component/components/${fixtures.serverSingle.id}`, () =>

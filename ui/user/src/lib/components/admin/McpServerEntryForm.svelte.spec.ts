@@ -69,7 +69,7 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 		http.post(path + '/oauth-url', async ({ request }) => {
 			oauth(await request.json());
 			return HttpResponse.json({
-				oauthURL: 'https://obot.example/oauth/mcp/login/catalog-preview'
+				oauthURL: `${window.location.origin}/oauth/mcp/login/catalog-preview`
 			});
 		})
 	);
@@ -85,7 +85,7 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			"obot mcp login --url 'https://obot.example/oauth/mcp/login/catalog-preview'"
+			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/catalog-preview'`
 		);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))

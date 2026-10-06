@@ -260,7 +260,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 			http.post(`${previewURL}/oauth-url`, async ({ request }) => {
 				oauth(await request.json());
 				return HttpResponse.json({
-					oauthURL: 'https://obot.example/oauth/mcp/login/temporary-preview-state'
+					oauthURL: `${window.location.origin}/oauth/mcp/login/temporary-preview-state`
 				});
 			})
 		);
@@ -273,7 +273,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect
 			.element(page.getByLabelText('Authentication command'))
 			.toHaveTextContent(
-				"obot mcp login --url 'https://obot.example/oauth/mcp/login/temporary-preview-state'"
+				`obot mcp login --url '${window.location.origin}/oauth/mcp/login/temporary-preview-state'`
 			);
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).not.toBeInTheDocument();
 		const payload = { TOKEN: 'preview-secret', REGION: 'west' };
@@ -316,7 +316,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 					});
 				}),
 				http.post(`${previewURL}/oauth-url`, () =>
-					HttpResponse.json({ oauthURL: 'https://obot.example/oauth/mcp/login/preview' })
+					HttpResponse.json({ oauthURL: `${window.location.origin}/oauth/mcp/login/preview` })
 				)
 			);
 			await openSetup();

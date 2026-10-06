@@ -112,7 +112,7 @@ it('passes the catalog callback path to client installation', async () => {
 
 it('shows CLI login when a deployed localhost server needs authentication', async () => {
 	await preparePageData();
-	const attemptURL = 'https://obot.example/oauth/mcp/login/ui-attempt';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
 	let checks = 0;
 	worker.use(
 		http.get('*/api/*/oauth-url', () =>

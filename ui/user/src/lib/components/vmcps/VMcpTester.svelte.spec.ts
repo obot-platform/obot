@@ -331,7 +331,7 @@ describe('VMcpTester', () => {
 
 it('shows CLI login and retries the inspector for localhost OAuth', async () => {
 	const target = createConfigurableVMcp();
-	const attemptURL = 'https://obot.example/oauth/mcp/login/component-attempt';
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/component-attempt`;
 	worker.use(
 		http.get('/api/oauth/vmcp/vmcpi-1', () =>
 			HttpResponse.json([{ mcpServerID: 'temp-component', authURL: attemptURL }])
