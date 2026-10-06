@@ -82,24 +82,24 @@
 			<div>
 				<h2 class="mb-2 text-lg font-semibold">
 					{server?.serverUserType === 'multiUser'
-						? m.mcp_details_connected_users()
-						: m.mcp_details_associated_user()}
+						? m.mcps_servers_details_connected_users()
+						: m.mcps_servers_details_associated_user()}
 				</h2>
 				<Table
 					data={connectedUsers ?? []}
 					fields={['name', 'updateStatus']}
 					headers={[
-						{ title: m.mcp_column_name(), property: 'name' },
-						{ title: m.mcp_details_config_status(), property: 'updateStatus' }
+						{ title: m.mcps_column_name(), property: 'name' },
+						{ title: m.mcps_servers_details_config_status(), property: 'updateStatus' }
 					]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							{d.email || d.username || m.mcp_unknown()}
+							{d.email || d.username || m.mcps_servers_unknown()}
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
-								? m.mcp_details_not_configured()
-								: m.mcp_details_up_to_date()}
+								? m.mcps_servers_details_not_configured()
+								: m.mcps_servers_details_up_to_date()}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
@@ -115,7 +115,7 @@
 	<div class="notification-info p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
 			<Info class="size-6" />
-			<p>{m.mcp_details_unavailable()}</p>
+			<p>{m.mcps_servers_details_unavailable()}</p>
 		</div>
 	</div>
 {/if}

@@ -86,7 +86,7 @@
 		try {
 			hostedAgents = await AdminService.listHostedAgents();
 		} catch (error) {
-			errors.append(m.admin_forms_haap_load_templates_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_access_policies_load_templates_failed({ error: String(error) }));
 		} finally {
 			loadingHostedAgents = false;
 		}
@@ -141,7 +141,7 @@
 					} else if (resource.type === 'selector') {
 						return {
 							id: resource.id,
-							name: resource.id === '*' ? m.admin_forms_haap_all_templates() : resource.id,
+							name: resource.id === '*' ? m.hosted_agents_access_policies_all_templates() : resource.id,
 							description: '',
 							type: 'Selector'
 						};
@@ -186,7 +186,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.admin_forms_haap_delete_policy() }}
+						tooltip={{ text: m.hosted_agents_access_policies_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -207,7 +207,7 @@
 							for="hosted-agent-access-policy-name"
 							class="flex-1 text-sm font-light capitalize"
 						>
-							{m.admin_forms_name()}
+							{m.core_name()}
 						</label>
 						<input
 							id="hosted-agent-access-policy-name"
@@ -222,7 +222,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_forms_users_groups()}</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_access_policies_users_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -233,7 +233,7 @@
 							}}
 						>
 							<Plus class="size-4" />
-							{m.admin_forms_acr_add_user_group()}
+							{m.mcps_access_policies_add_user_group()}
 						</button>
 					</div>
 				{/if}
@@ -247,10 +247,10 @@
 					data={subjectTableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.admin_forms_name() },
-						{ property: 'type', title: m.admin_forms_type() }
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
 					]}
-					noDataMessage={m.admin_forms_acr_no_users_groups()}
+					noDataMessage={m.mcps_access_policies_no_users_groups()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -261,7 +261,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: m.admin_forms_acr_delete_user_group() }}
+								tooltip={{ text: m.mcps_access_policies_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -273,7 +273,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_forms_haap_templates()}</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_access_policies_templates()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -282,7 +282,7 @@
 						}}
 					>
 						<Plus class="size-4" />
-						{m.admin_forms_haap_add_template()}
+						{m.hosted_agents_access_policies_add_template()}
 					</button>
 				{/if}
 			</div>
@@ -295,10 +295,10 @@
 					data={resourceTableData}
 					fields={['name', 'description']}
 					headers={[
-						{ property: 'name', title: m.admin_forms_haap_template() },
-						{ property: 'description', title: m.admin_forms_description() }
+						{ property: 'name', title: m.hosted_agents_access_policies_template() },
+						{ property: 'description', title: m.core_description() }
 					]}
-					noDataMessage={m.admin_forms_haap_no_templates()}
+					noDataMessage={m.hosted_agents_access_policies_no_templates()}
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
@@ -314,7 +314,7 @@
 								onclick={() => {
 									policy.resources = policy.resources?.filter((r) => r.id !== d.id) ?? [];
 								}}
-								tooltip={{ text: m.admin_forms_haap_remove_template() }}
+								tooltip={{ text: m.hosted_agents_access_policies_remove_template() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -357,7 +357,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -382,7 +382,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_update()}
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -424,7 +424,7 @@
 />
 
 <Confirm
-	msg={m.admin_forms_delete_named({ name: policy.displayName || m.admin_forms_haap_this_policy() })}
+	msg={m.core_delete_named_form({ name: policy.displayName || m.hosted_agents_access_policies_this_policy() })}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!policy.id) return;

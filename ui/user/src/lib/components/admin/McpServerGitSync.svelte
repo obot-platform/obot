@@ -24,9 +24,9 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: m.admin_misc_cred_none() },
-		{ id: 'shared', label: m.admin_misc_cred_choose_existing() },
-		{ id: 'token', label: m.admin_misc_cred_enter_pat() }
+		{ id: 'none', label: m.mcps_sources_cred_none() },
+		{ id: 'shared', label: m.mcps_sources_cred_choose_existing() },
+		{ id: 'token', label: m.mcps_sources_cred_enter_pat() }
 	];
 
 	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
@@ -189,13 +189,13 @@
 
 {#snippet tokenScopesTooltip()}
 	<div class="text-left">
-		<p>{m.admin_misc_required_scopes()}</p>
+		<p>{m.mcps_sources_required_scopes()}</p>
 		<ul class="list-disc pl-4">
 			<li>GitHub: repo</li>
 			<li>GitLab: read_repository + read_api</li>
 		</ul>
 		<p class="mt-2">
-			{m.admin_misc_token_fallback_env()}
+			{m.mcps_sources_token_fallback_env()}
 		</p>
 	</div>
 {/snippet}
@@ -205,8 +205,8 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1
-					? m.admin_misc_add_source_url()
-					: m.admin_misc_edit_source_url()}
+					? m.mcps_sources_add_source_url()
+					: m.mcps_sources_edit_source_url()}
 				<IconButton onclick={closeSourceDialog} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
 				</IconButton>
@@ -214,10 +214,10 @@
 
 			<div class="mb-4 flex flex-col gap-1">
 				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
-					{m.admin_misc_source_url()}
+					{m.mcps_sources_source_url()}
 					<span
 						use:tooltip={{
-							text: m.admin_misc_source_url_formats_tooltip(),
+							text: m.mcps_sources_source_url_formats_tooltip(),
 							classes: ['max-w-md', 'whitespace-pre-line'],
 							disablePortal: true
 						}}
@@ -236,7 +236,7 @@
 			<div class="mb-2 flex flex-col gap-1">
 				<div class="flex items-center justify-between gap-4">
 					<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize">
-						{m.admin_misc_credential()}
+						{m.mcps_sources_credential()}
 					</span>
 					{#if credentialLocked}
 						<button
@@ -250,7 +250,7 @@
 								tokenExplicitlyCleared = true;
 							}}
 						>
-							{m.admin_misc_clear_token()}
+							{m.mcps_sources_clear_token()}
 						</button>
 					{/if}
 				</div>
@@ -279,11 +279,11 @@
 					}}
 				/>
 				<p class="text-xs text-muted-content font-light">
-					{m.admin_misc_need_modify_credential()}
+					{m.mcps_sources_need_modify_credential()}
 					<a
 						class="text-blue-500 hover:underline"
 						href={resolve('/admin/platform?view=settings#git-credentials')}
-						>{m.admin_misc_manage_credentials()}</a
+						>{m.mcps_sources_manage_credentials()}</a
 					>
 				</p>
 			</div>
@@ -311,7 +311,7 @@
 							: undefined}
 					/>
 					<span class="text-muted-content text-xs">
-						{m.admin_misc_only_matching_host_credentials()}
+						{m.mcps_sources_only_matching_host_credentials()}
 					</span>
 				</div>
 			{/if}
@@ -319,7 +319,7 @@
 			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
 					<label for="catalog-source-token" class="sr-only"
-						>{m.admin_misc_personal_access_token()}</label
+						>{m.mcps_sources_personal_access_token()}</label
 					>
 					<div class="flex items-center gap-2 min-h-10">
 						{#if credentialLocked && hasSourceURLCredential(editingSourceURL)}
@@ -335,7 +335,7 @@
 						{:else}
 							<SensitiveInput
 								name="catalog-source-token"
-								placeholder={m.admin_misc_personal_access_token()}
+								placeholder={m.mcps_sources_personal_access_token()}
 								bind:value={editingSource.token}
 							/>
 						{/if}
@@ -357,14 +357,14 @@
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">
-							{m.admin_misc_error_adding_source_url()}
+							{m.mcps_sources_error_adding_source_url()}
 						</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
 			{:else if sourceURLChangedWithCredential && !tokenExplicitlyCleared}
 				<p class="mb-4 text-xs notification-alert" in:slide={{ axis: 'y' }}>
-					{m.admin_misc_source_url_changed_notice()}
+					{m.mcps_sources_source_url_changed_notice()}
 				</p>
 			{/if}
 
@@ -388,7 +388,7 @@
 						}
 
 						if (!catalogToUse) {
-							sourceError = m.admin_misc_failed_fetch_catalog();
+							sourceError = m.mcps_sources_failed_fetch_catalog();
 							return;
 						}
 
@@ -464,13 +464,13 @@
 							closeSourceDialog();
 						} catch (error) {
 							sourceError =
-								error instanceof Error ? error.message : m.admin_misc_unexpected_error();
+								error instanceof Error ? error.message : m.mcps_sources_unexpected_error();
 						} finally {
 							saving = false;
 						}
 					}}
 				>
-					{editingSource.index === -1 ? m.admin_misc_add() : m.admin_misc_save()}
+					{editingSource.index === -1 ? m.mcps_sources_add() : m.core_save()}
 				</button>
 			</div>
 		{/if}

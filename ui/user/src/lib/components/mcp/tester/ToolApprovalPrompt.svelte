@@ -31,27 +31,27 @@
 {#if call}
 	<section
 		class="border-warning/50 dark:border-warning/40 bg-base-100 dark:bg-base-200 mt-4 shrink-0 rounded-lg border p-4 shadow-sm"
-		aria-label={m.mcp_tester_tool_approval()}
+		aria-label={m.mcps_tester_tool_approval()}
 	>
 		<div class="flex flex-wrap items-start justify-between gap-2">
 			<div class="min-w-0">
 				<h3 class="font-semibold break-all">{call.name}</h3>
 				<p class="text-xs text-muted-content" aria-live="polite">
-					{call.execution === 'executing' ? m.mcp_tester_running() : m.mcp_tester_approval_needed()}
+					{call.execution === 'executing' ? m.mcps_tester_running() : m.mcps_tester_approval_needed()}
 				</p>
 			</div>
 			{#if queue.length > 1}
 				<span class="badge badge-outline"
-					>{m.mcp_tester_tool_request_position({ position, total: queue.length })}</span
+					>{m.mcps_tester_tool_request_position({ position, total: queue.length })}</span
 				>
 			{/if}
 		</div>
 
-		<p class="mt-3 text-xs font-medium">{m.mcp_tester_arguments()}</p>
-		<CornerCopyButton text={argumentsJSON} label={m.mcp_tester_copy_arguments()} class="mt-1">
+		<p class="mt-3 text-xs font-medium">{m.mcps_tester_arguments()}</p>
+		<CornerCopyButton text={argumentsJSON} label={m.mcps_tester_copy_arguments()} class="mt-1">
 			<pre
 				class="default-scrollbar-thin bg-base-200 dark:bg-base-300 max-h-40 overflow-auto rounded-lg p-3 pr-10 text-xs whitespace-pre-wrap wrap-break-word"
-				aria-label={m.mcp_tester_arguments_named({ name: call.name })}>{argumentsJSON}</pre>
+				aria-label={m.mcps_tester_arguments_named({ name: call.name })}>{argumentsJSON}</pre>
 		</CornerCopyButton>
 
 		{#if call.execution === 'executing'}
@@ -61,7 +61,7 @@
 				onclick={() => chat.cancelExecutingTool()}
 			>
 				<Ban class="size-4" aria-hidden="true" />
-				{m.mcp_tester_cancel_tool({ name: call.name })}
+				{m.mcps_tester_cancel_tool({ name: call.name })}
 			</button>
 		{:else}
 			<div class="mt-3 flex flex-wrap gap-2">
@@ -72,11 +72,11 @@
 					onclick={() => chat.approve(call.id)}
 				>
 					<Check class="size-4" aria-hidden="true" />
-					{m.mcp_tester_approve_tool({ name: call.name })}
+					{m.mcps_tester_approve_tool({ name: call.name })}
 				</button>
 				<button type="button" class="btn btn-secondary btn-sm" onclick={() => chat.reject(call.id)}>
 					<X class="size-4" aria-hidden="true" />
-					{m.mcp_tester_reject_tool({ name: call.name })}
+					{m.mcps_tester_reject_tool({ name: call.name })}
 				</button>
 			</div>
 		{/if}

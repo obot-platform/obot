@@ -213,7 +213,7 @@
 		{m.vmcps_remove_confirm_prefix()}<b
 			>{flow.pendingRemoval?.component.name ?? m.vmcps_this_server()}</b
 		>{m.vmcps_remove_confirm_middle()}<b
-			>{flow.pendingRemoval?.vmcp.displayName ?? m.vmcps_this_vmcp()}</b
+			>{flow.pendingRemoval?.vmcp.displayName ?? m.vmcps_deployments_this_vmcp()}</b
 		>{m.vmcps_remove_confirm_suffix()}
 	{/snippet}
 </Confirm>

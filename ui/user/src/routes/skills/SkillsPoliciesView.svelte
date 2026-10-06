@@ -32,12 +32,12 @@
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Vault class="text-muted-content size-24 opacity-25" />
 			<h4 class="text-muted-content text-lg font-semibold">
-				{m.routes_skills_no_access_policies()}
+				{m.skills_no_access_policies()}
 			</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.routes_skills_no_access_policies_desc()} <br />
+				{m.skills_no_access_policies_desc()} <br />
 				{#if !isReadonly}
-					{m.routes_skills_click_to_get_started()}
+					{m.skills_click_to_get_started()}
 				{/if}
 			</p>
 
@@ -54,7 +54,7 @@
 	<Table
 		data={skillAccessPolicies}
 		fields={['displayName']}
-		headers={[{ property: 'displayName', title: m.routes_skills_col_name() }]}
+		headers={[{ property: 'displayName', title: m.skills_col_name() }]}
 		onClickRow={(d, isCtrlClick) => {
 			const url = `/skills/access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
@@ -69,7 +69,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.routes_skills_delete_policy() }}
+					tooltip={{ text: m.skills_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -92,14 +92,14 @@
 			}}
 		>
 			<Plus class="size-4" />
-			{m.routes_skills_add_access_policy()}
+			{m.skills_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
 
 <Confirm
-	msg={m.routes_skills_delete_named({
-		name: policyToDelete?.displayName || m.routes_skills_this_policy()
+	msg={m.skills_delete_named({
+		name: policyToDelete?.displayName || m.skills_this_policy()
 	})}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {

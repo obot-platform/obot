@@ -38,7 +38,7 @@
 	}
 
 	let title = $derived(
-		getMCPDisplayName(mcpServer) || getMCPDisplayName(catalogEntry) || m.routes_mcp_mcp_server()
+		getMCPDisplayName(mcpServer) || getMCPDisplayName(catalogEntry) || m.mcps_mcp_server()
 	);
 </script>
 
@@ -73,5 +73,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? m.routes_mcp_mcp_server()}</title>
+	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_mcp_server()}</title>
 </svelte:head>

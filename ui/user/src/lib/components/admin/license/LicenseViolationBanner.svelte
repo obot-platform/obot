@@ -73,20 +73,20 @@
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
 					{hasUserLimitViolation
-						? m.admin_sub_license_banner_at_limit({ limit: userLimitText })
-						: m.admin_sub_license_banner_almost_at_limit({ limit: userLimitText })}
+						? m.platform_license_notice_banner_at_limit({ limit: userLimitText })
+						: m.platform_license_notice_banner_almost_at_limit({ limit: userLimitText })}
 				</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<button class="btn btn-xs btn-warning" onclick={() => resolveLicenseDialog?.open()}>
-					{m.admin_sub_license_resolve()}
+					{m.platform_license_notice_resolve()}
 				</button>
 				{#if !hasUserLimitViolation}
 					<button
 						class="btn btn-circle btn-ghost btn-xs w-fit h-fit p-0.5"
 						onclick={handleDismissUserLimitBanner}
 						type="button"
-						aria-label={m.admin_sub_license_dismiss_user_limit_banner()}
+						aria-label={m.platform_license_notice_dismiss_user_limit_banner()}
 					>
 						<X class="size-3" />
 					</button>
@@ -101,11 +101,11 @@
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
 					{#if profile.current.hasAdminAccess?.()}
-						{m.admin_sub_license_status_prefix()}<b class="font-semibold uppercase"
+						{m.platform_license_notice_status_prefix()}<b class="font-semibold uppercase"
 							>{licenseKey
-								? m.admin_sub_license_status_invalid()
-								: m.admin_sub_license_status_missing()}</b
-						>{m.admin_sub_license_status_suffix()}
+								? m.platform_license_notice_status_invalid()
+								: m.platform_license_notice_status_missing()}</b
+						>{m.platform_license_notice_status_suffix()}
 					{:else}
 						{MCP_CONNECTION_INVALID_LICENSE_MESSAGE}
 					{/if}
@@ -113,7 +113,7 @@
 			</div>
 			{#if profile.current.hasAdminAccess?.()}
 				<button class="btn btn-xs btn-warning" onclick={() => resolveLicenseDialog?.open()}>
-					{m.admin_sub_license_resolve()}
+					{m.platform_license_notice_resolve()}
 				</button>
 			{/if}
 		</div>

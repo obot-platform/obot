@@ -84,7 +84,7 @@
 		name,
 		icon,
 		cancelText = m.common_cancel(),
-		submitText = m.mcp_save(),
+		submitText = m.mcps_save(),
 		loading,
 		loadingContent,
 		error,
@@ -287,13 +287,13 @@
 
 		localError = undefined;
 		if (!hasAtLeastOneEnabled(form)) {
-			localError = m.mcp_configure_enable_one_component();
+			localError = m.mcps_configure_enable_one_component();
 			return;
 		}
 
 		if (missingRequiredFields(form)) {
 			highlightMissingRequiredFields(form);
-			localError = m.mcp_configure_complete_fields();
+			localError = m.mcps_configure_complete_fields();
 			return;
 		}
 
@@ -353,10 +353,10 @@
 <ResponsiveDialog
 	bind:this={compositeInfoDialog}
 	{animate}
-	title={m.mcp_configure_composite_title()}
+	title={m.mcps_configure_composite_title()}
 	class="max-w-md"
 >
-	<p class="font-light">{m.mcp_configure_composite_of()}</p>
+	<p class="font-light">{m.mcps_configure_composite_of()}</p>
 	{#if form && 'componentConfigs' in form}
 		<div class="my-4 flex flex-col items-center justify-center gap-2">
 			{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
@@ -373,7 +373,7 @@
 		</div>
 	{/if}
 	<p class="font-light">
-		{m.mcp_configure_composite_description()}
+		{m.mcps_configure_composite_description()}
 	</p>
 	<button
 		class="btn btn-secondary mt-4"
@@ -382,7 +382,7 @@
 			openConfig();
 		}}
 	>
-		{m.mcp_continue()}
+		{m.mcps_continue()}
 	</button>
 </ResponsiveDialog>
 
@@ -441,7 +441,7 @@
 		<div class="notification-error flex items-center gap-2">
 			<CircleAlert class="size-6 shrink-0 text-error" />
 			<p class="flex flex-col text-sm font-light">
-				<span class="font-semibold">{m.mcp_error_label()}</span>
+				<span class="font-semibold">{m.mcps_error_label()}</span>
 				<span>
 					{error || localError}
 				</span>
@@ -463,9 +463,9 @@
 				{#if showAlias}
 					<div class={twMerge('flex flex-col gap-1', isCompositeForm(form) && 'paper p-2')}>
 						<span class="flex items-center gap-2">
-							<label for="name"> {m.mcp_alias_label()} </label>
-							<span class="text-muted-content">{m.mcp_optional()}</span>
-							<InfoTooltip text={m.mcp_configure_alias_tooltip()} />
+							<label for="name"> {m.mcps_alias_label()} </label>
+							<span class="text-muted-content">{m.mcps_optional()}</span>
+							<InfoTooltip text={m.mcps_configure_alias_tooltip()} />
 						</span>
 						<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
 					</div>
@@ -486,7 +486,7 @@
 									<Toggle
 										checked={!form.componentConfigs[compId].disabled}
 										onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
-										label={m.mcp_enable()}
+										label={m.mcps_enable()}
 										labelInline
 										classes={{ label: 'text-sm gap-2' }}
 									/>
@@ -517,7 +517,7 @@
 													>
 														{fieldLabel(env.data)}
 														{#if !env.data.required}
-															<span class="text-muted-content">{m.mcp_optional()}</span>
+															<span class="text-muted-content">{m.mcps_optional()}</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
@@ -529,7 +529,7 @@
 														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 													>
 														<span class="text-muted-content text-xs font-light"
-															>{m.mcp_secret_source_kubernetes()}</span
+															>{m.mcps_catalog_secret_source_kubernetes()}</span
 														>
 														<span class="font-mono"
 															>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
@@ -554,7 +554,7 @@
 														)}
 														options={configurationSelectOptions(env.data.options)}
 														selected={comp.envs![env.index].value}
-														placeholder={m.mcp_select_a_value()}
+														placeholder={m.mcps_select_a_value()}
 														ariaLabelledby={`${compId}-${env.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) => (comp.envs![env.index].value = option.value)}
@@ -624,7 +624,7 @@
 													>
 														{fieldLabel(header.data)}
 														{#if !header.data.required}
-															<span class="text-muted-content">{m.mcp_optional()}</span>
+															<span class="text-muted-content">{m.mcps_optional()}</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
@@ -636,7 +636,7 @@
 														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 													>
 														<span class="text-muted-content text-xs font-light"
-															>{m.mcp_secret_source_kubernetes()}</span
+															>{m.mcps_catalog_secret_source_kubernetes()}</span
 														>
 														<span class="font-mono"
 															>{header.data.secretBinding?.name} / {header.data.secretBinding
@@ -662,7 +662,7 @@
 														)}
 														options={configurationSelectOptions(header.data.options)}
 														selected={comp.headers![header.index].value}
-														placeholder={m.mcp_select_a_value()}
+														placeholder={m.mcps_select_a_value()}
 														ariaLabelledby={`${compId}-${header.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) =>
@@ -717,7 +717,7 @@
 											)}
 										/>
 										<span class="text-muted-content font-light">
-											{m.mcp_configure_url_must_contain_hostname()}
+											{m.mcps_configure_url_must_contain_hostname()}
 											<b class="font-semibold">{comp.hostname}</b>
 										</span>
 									{/if}
@@ -744,7 +744,7 @@
 									>
 										{fieldLabel(env.data)}
 										{#if !env.data.required}
-											<span class="text-muted-content">{m.mcp_optional()}</span>
+											<span class="text-muted-content">{m.mcps_optional()}</span>
 										{/if}
 									</label>
 									{#if !displayDescriptionInline}
@@ -756,7 +756,7 @@
 										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 									>
 										<span class="text-muted-content text-xs font-light"
-											>{m.mcp_secret_source_kubernetes()}</span
+											>{m.mcps_catalog_secret_source_kubernetes()}</span
 										>
 										<span class="font-mono"
 											>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
@@ -780,7 +780,7 @@
 										)}
 										options={configurationSelectOptions(env.data.options)}
 										selected={form.envs![env.index].value}
-										placeholder={m.mcp_select_a_value()}
+										placeholder={m.mcps_select_a_value()}
 										ariaLabelledby={`${env.data.key}-label`}
 										onSelect={(option) => (form.envs![env.index].value = option.value)}
 										onClear={() => (form.envs![env.index].value = '')}
@@ -843,7 +843,7 @@
 									>
 										{fieldLabel(header.data)}
 										{#if !header.data.required}
-											<span class="text-muted-content">{m.mcp_optional()}</span>
+											<span class="text-muted-content">{m.mcps_optional()}</span>
 										{/if}
 									</label>
 									<InfoTooltip text={header.data.description} />
@@ -853,7 +853,7 @@
 										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 									>
 										<span class="text-muted-content text-xs font-light"
-											>{m.mcp_secret_source_kubernetes()}</span
+											>{m.mcps_catalog_secret_source_kubernetes()}</span
 										>
 										<span class="font-mono"
 											>{header.data.secretBinding?.name} / {header.data.secretBinding?.key}</span
@@ -877,7 +877,7 @@
 										)}
 										options={configurationSelectOptions(header.data.options)}
 										selected={form.headers![header.index].value}
-										placeholder={m.mcp_select_a_value()}
+										placeholder={m.mcps_select_a_value()}
 										ariaLabelledby={`${header.data.key}-label`}
 										onSelect={(option) => (form.headers![header.index].value = option.value)}
 										onClear={() => (form.headers![header.index].value = '')}
@@ -917,7 +917,7 @@
 							class="text-input-filled"
 						/>
 						<span class="text-muted-content font-light">
-							{m.mcp_configure_url_must_contain_hostname()}
+							{m.mcps_configure_url_must_contain_hostname()}
 							<b class="font-semibold">
 								{form.hostname}
 							</b>
@@ -959,16 +959,16 @@
 	}}
 	oncancel={() => (showConfirmClose = false)}
 	type="info"
-	title={m.mcp_confirm_cancel()}
+	title={m.mcps_confirm_cancel()}
 >
 	{#snippet msgContent()}
 		<h3 class="text-base-content text-lg font-semibold wrap-break-word">
-			{m.mcp_confirm_exit()}
+			{m.mcps_confirm_exit()}
 		</h3>
 	{/snippet}
 	{#snippet note()}
 		<p class="w-sm">
-			{m.mcp_confirm_exit_note()}
+			{m.mcps_confirm_exit_note()}
 		</p>
 	{/snippet}
 </Confirm>

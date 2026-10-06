@@ -89,7 +89,7 @@
 
 		return {
 			...rule,
-			owner: owner || m.routes_mcp_unknown(),
+			owner: owner || m.mcps_unknown(),
 			serversCount: count || 0
 		};
 	}
@@ -145,12 +145,12 @@
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<BookOpenText class="text-muted-content size-24 opacity-25" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.routes_mcp_no_access_policies()}
+					{m.mcps_access_policies_no_access_policies()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{m.routes_mcp_no_access_policies_line1()} <br />
+					{m.mcps_access_policies_no_access_policies_line1()} <br />
 					{#if !isReadonly}
-						{m.routes_mcp_click_button_below()}
+						{m.mcps_access_policies_click_button_below()}
 					{/if}
 				</p>
 
@@ -158,13 +158,13 @@
 			</div>
 		{:else if isAdmin}
 			<div class="flex flex-col gap-2">
-				<h4 class="text-base font-semibold">{m.routes_mcp_admin_managed_policies()}</h4>
+				<h4 class="text-base font-semibold">{m.mcps_access_policies_admin_managed_policies()}</h4>
 				{@render accessControlRuleTable('global')}
 			</div>
 
 			<details class="collapse bg-base-300 collapse-arrow mb-2 w-full border border-transparent">
 				<summary class="collapse-title text-base font-semibold"
-					>{m.routes_mcp_user_managed_policies()}</summary
+					>{m.mcps_access_policies_user_managed_policies()}</summary
 				>
 				<div class="collapse-content bg-base-200 p-2 text-sm">
 					{@render accessControlRuleTable('user')}
@@ -179,11 +179,11 @@
 				}}
 				headers={[
 					{
-						title: m.routes_mcp_col_name(),
+						title: m.mcps_col_name(),
 						property: 'displayName'
 					},
 					{
-						title: m.routes_mcp_col_servers(),
+						title: m.mcps_access_policies_col_servers(),
 						property: 'servers'
 					}
 				]}
@@ -196,7 +196,7 @@
 								e.stopPropagation();
 								ruleToDelete = d;
 							}}
-							tooltip={{ text: m.routes_mcp_delete_rule() }}
+							tooltip={{ text: m.mcps_access_policies_delete_rule() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -234,15 +234,15 @@
 		}}
 		headers={[
 			{
-				title: m.routes_mcp_col_name(),
+				title: m.mcps_col_name(),
 				property: 'displayName'
 			},
 			{
-				title: m.routes_mcp_col_servers(),
+				title: m.mcps_access_policies_col_servers(),
 				property: 'serversCount'
 			},
 			{
-				title: m.routes_mcp_col_owner(),
+				title: m.mcps_access_policies_col_owner(),
 				property: 'owner'
 			}
 		]}
@@ -257,7 +257,7 @@
 						e.stopPropagation();
 						ruleToDelete = d;
 					}}
-					tooltip={{ text: m.routes_mcp_delete_rule() }}
+					tooltip={{ text: m.mcps_access_policies_delete_rule() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -285,7 +285,7 @@
 			}}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_add_access_policy()}
+			{m.mcps_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -311,8 +311,8 @@
 
 <Confirm
 	msg={ruleToDelete?.displayName
-		? m.routes_mcp_delete_named({ name: ruleToDelete.displayName })
-		: m.routes_mcp_delete_this_rule()}
+		? m.mcps_delete_named({ name: ruleToDelete.displayName })
+		: m.mcps_access_policies_delete_this_rule()}
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;

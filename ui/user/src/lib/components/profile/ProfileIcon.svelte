@@ -45,7 +45,7 @@
 		<img
 			class={twMerge('size-8 rounded-full', klass)}
 			src={profile.current.iconURL}
-			alt={m.core_profile_alt()}
+			alt={m.profile_alt()}
 			referrerpolicy="no-referrer"
 		/>
 	{:else if profile.current.isBootstrapUser?.()}

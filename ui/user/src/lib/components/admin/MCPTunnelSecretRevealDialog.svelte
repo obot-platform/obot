@@ -63,7 +63,7 @@
 	<ResponsiveDialog
 		bind:this={dialog}
 		{onClose}
-		title={action === 'created' ? m.admin_forms_tsr_created() : m.admin_forms_tsr_rotated()}
+		title={action === 'created' ? m.mcps_tunnels_created() : m.mcps_tunnels_rotated()}
 		class="w-full max-w-2xl"
 		disableClickOutside
 	>
@@ -72,16 +72,16 @@
 				<div class="flex items-start gap-3">
 					<TriangleAlert class="size-5 shrink-0" />
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">{m.admin_forms_tsr_save_now()}</p>
+						<p class="text-sm font-medium">{m.mcps_tunnels_save_now()}</p>
 						<p class="text-xs">
-							{m.admin_forms_tsr_only_time()}
+							{m.mcps_tunnels_only_time()}
 						</p>
 					</div>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">{m.admin_forms_tsr_tunnel_secret()}</p>
+				<p class="text-sm font-medium">{m.mcps_tunnels_tunnel_secret()}</p>
 				<CopyField value={tunnel.token} id="mcp-tunnel-secret">
 					{#snippet preContent()}
 						<KeyRound class="size-4" />
@@ -90,11 +90,11 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">{m.admin_forms_tsr_connect()}</p>
+				<p class="text-sm font-medium">{m.mcps_tunnels_connect()}</p>
 				<div
 					class="tabs tabs-box w-fit"
 					role="tablist"
-					aria-label={m.admin_forms_tsr_command_type()}
+					aria-label={m.mcps_tunnels_command_type()}
 				>
 					<button
 						type="button"
@@ -137,7 +137,7 @@
 
 		<div class="mt-6 flex justify-end">
 			<button class="btn btn-primary" onclick={() => dialog?.close()}>
-				{m.admin_forms_tsr_saved()}
+				{m.mcps_tunnels_saved()}
 			</button>
 		</div>
 	</ResponsiveDialog>

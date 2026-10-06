@@ -11,7 +11,7 @@
 	const { hostedAgent } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(hostedAgent?.name ?? m.chat_ha_agent_template());
+	let title = $derived(hostedAgent?.name ?? m.hosted_agents_agent_template());
 </script>
 
 <Layout {title} showBackButton>

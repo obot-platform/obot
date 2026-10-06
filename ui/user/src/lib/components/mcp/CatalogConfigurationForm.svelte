@@ -24,11 +24,11 @@
 	}: Props = $props();
 
 	const usageOptions: { id: MCPConfigUsage; label: string }[] = [
-		{ id: 'env', label: m.mcp_config_usage_env() },
-		{ id: 'header', label: m.mcp_config_usage_header() },
-		{ id: 'file', label: m.mcp_config_usage_file() },
-		{ id: 'dynamicFile', label: m.mcp_config_usage_dynamic_file() },
-		{ id: 'interpolated', label: m.mcp_config_usage_interpolated() }
+		{ id: 'env', label: m.mcps_catalog_config_usage_env() },
+		{ id: 'header', label: m.mcps_config_usage_header() },
+		{ id: 'file', label: m.mcps_catalog_config_usage_file() },
+		{ id: 'dynamicFile', label: m.mcps_config_usage_dynamic_file() },
+		{ id: 'interpolated', label: m.mcps_config_usage_interpolated() }
 	];
 </script>
 
@@ -38,9 +38,9 @@
 		id={CATALOG_SERVER_FIELD_IDS.configuration}
 	>
 		<div class="flex flex-col gap-1">
-			<h4 class="text-sm font-semibold">{m.mcp_config_heading()}</h4>
+			<h4 class="text-sm font-semibold">{m.mcps_catalog_config_heading()}</h4>
 			<p class="text-muted-content text-xs font-light">
-				{m.mcp_config_description()}
+				{m.mcps_config_description()}
 			</p>
 		</div>
 
@@ -51,7 +51,7 @@
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
 						<label for={`catalog-config-usage-${i}`} class="text-sm font-light"
-							>{m.mcp_config_usage()}</label
+							>{m.mcps_config_usage()}</label
 						>
 						<Select
 							id={`catalog-config-usage-${i}`}
@@ -80,7 +80,7 @@
 					{#if item.usage === 'header'}
 						<div class="flex w-full flex-col gap-1">
 							<label for={`catalog-config-prefix-${i}`} class="text-sm font-light"
-								>{m.mcp_value_prefix()}</label
+								>{m.mcps_value_prefix()}</label
 							>
 							<input
 								id={`catalog-config-prefix-${i}`}
@@ -95,7 +95,7 @@
 					<IconButton
 						class="mt-6"
 						id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
-						aria-label={m.mcp_config_remove()}
+						aria-label={m.mcps_config_remove()}
 						variant="danger"
 						onclick={() => config?.splice(i, 1)}
 					>
@@ -125,7 +125,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{m.mcp_config_heading()}
+					{m.mcps_catalog_config_heading()}
 				</button>
 			</div>
 		{/if}

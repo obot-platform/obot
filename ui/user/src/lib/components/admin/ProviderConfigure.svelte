@@ -68,11 +68,11 @@
 	const collection = $derived.by(() => {
 		if (isAzureOpenAIProvider)
 			return {
-				title: m.admin_misc_authentication_method(),
+				title: m.models_providers_authentication_method(),
 				items: [
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
-						name: m.admin_misc_api_key()
+						name: m.models_providers_api_key()
 					},
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
@@ -336,7 +336,7 @@
 			{:else}
 				<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 			{/if}
-			{title ?? m.admin_misc_set_up_named({ name: provider?.name ?? '' })}
+			{title ?? m.models_providers_set_up_named({ name: provider?.name ?? '' })}
 		</div>
 	{/snippet}
 	{#if provider}
@@ -363,9 +363,9 @@
 				<div class="notification-error flex min-w-0 items-start gap-2 overflow-hidden">
 					<CircleAlert class="mt-0.5 size-6 shrink-0 text-error" />
 					<p class="min-w-0 flex flex-col text-sm font-light">
-						<span class="font-semibold">{m.admin_misc_an_error_occurred()}</span>
+						<span class="font-semibold">{m.models_providers_an_error_occurred()}</span>
 						<span class="max-h-28 overflow-auto wrap-break-word whitespace-pre-line pr-1">
-							{m.admin_misc_config_failed_validation()}
+							{m.models_providers_config_failed_validation()}
 							<b class="break-all font-semibold">{error}</b>
 						</span>
 					</p>
@@ -403,7 +403,7 @@
 						</div>
 					{/if}
 
-					<h4 class="text-lg font-semibold">{m.admin_misc_required_configuration()}</h4>
+					<h4 class="text-lg font-semibold">{m.models_providers_required_configuration()}</h4>
 
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
@@ -433,10 +433,10 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-													? { '*': m.admin_misc_all_domains() }
+													? { '*': m.models_providers_all_domains() }
 													: {}}
 												class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
-												placeholder={m.admin_misc_hit_enter_to_insert()}
+												placeholder={m.models_providers_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -468,7 +468,7 @@
 
 			{#if optionalConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-2">
-					<h4 class="text-lg font-semibold">{m.admin_misc_optional_configuration()}</h4>
+					<h4 class="text-lg font-semibold">{m.models_providers_optional_configuration()}</h4>
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
@@ -493,7 +493,7 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												class="text-input-filled"
-												placeholder={m.admin_misc_hit_enter_to_insert()}
+												placeholder={m.models_providers_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -538,7 +538,7 @@
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						{m.admin_misc_confirm()}
+						{m.core_confirm()}
 					{/if}
 				</button>
 			</div>

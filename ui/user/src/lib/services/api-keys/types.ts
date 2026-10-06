@@ -25,27 +25,27 @@ export type APIKeyCreatableCapabilityKey = Exclude<APIKeyCapabilityKey, 'canAcce
 export const API_KEY_CAPABILITIES = [
 	{
 		key: 'canAccessAPI',
-		label: m.core_capability_api_label(),
+		label: m.identity_access_agents_capability_api_label(),
 		shortLabel: 'API',
-		description: m.core_capability_api_description()
+		description: m.identity_access_agents_capability_api_description()
 	},
 	{
 		key: 'canAccessLLMProxy',
-		label: m.core_capability_llm_label(),
+		label: m.identity_access_agents_capability_llm_label(),
 		shortLabel: 'LLM',
-		description: m.core_capability_llm_description()
+		description: m.identity_access_agents_capability_llm_description()
 	},
 	{
 		key: 'canAccessSkills',
-		label: m.core_capability_skills_label(),
-		shortLabel: m.core_capability_skills_short(),
-		description: m.core_capability_skills_description()
+		label: m.identity_access_agents_capability_skills_label(),
+		shortLabel: m.identity_access_agents_capability_skills_short(),
+		description: m.identity_access_agents_capability_skills_description()
 	},
 	{
 		key: 'canAccessDeviceScans',
-		label: m.core_capability_scans_label(),
-		shortLabel: m.core_capability_scans_short(),
-		description: m.core_capability_scans_description()
+		label: m.identity_access_agents_capability_scans_label(),
+		shortLabel: m.identity_access_agents_capability_scans_short(),
+		description: m.identity_access_agents_capability_scans_description()
 	}
 ] as const satisfies ReadonlyArray<{
 	key: APIKeyCapabilityKey;

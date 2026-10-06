@@ -24,44 +24,44 @@
 		...(profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: m.routes_inv_tab_overview(),
+						label: m.inventory_enforcement_overview_tab(),
 						value: 'overview',
 						content: overview,
-						tooltip: m.routes_inv_tab_overview_tooltip()
+						tooltip: m.inventory_enforcement_overview_tab_tooltip()
 					},
 					{
-						label: m.routes_inv_tab_configuration(),
+						label: m.inventory_enforcement_configuration_tab(),
 						value: 'configuration',
 						content: configuration,
-						tooltip: m.routes_inv_tab_configuration_tooltip()
+						tooltip: m.inventory_enforcement_configuration_tab_tooltip()
 					}
 				]
 			: []),
 		{
-			label: m.routes_inv_tab_devices(),
+			label: m.inventory_enforcement_devices_tab(),
 			value: 'devices',
 			content: devices,
-			tooltip: m.routes_inv_tab_devices_tooltip()
+			tooltip: m.inventory_enforcement_devices_tab_tooltip()
 		},
 		...(profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: m.routes_inv_tab_device_clients(),
+						label: m.inventory_enforcement_device_clients_tab(),
 						value: 'device-clients',
 						content: deviceClients,
-						tooltip: m.routes_inv_tab_device_clients_tooltip()
+						tooltip: m.inventory_enforcement_device_clients_tab_tooltip()
 					},
 					{
-						label: m.routes_inv_tab_device_mcp_servers(),
+						label: m.inventory_enforcement_device_mcp_servers_tab(),
 						value: 'device-mcp-servers',
 						content: deviceMcpServers,
-						tooltip: m.routes_inv_tab_device_mcp_servers_tooltip()
+						tooltip: m.inventory_enforcement_device_mcp_servers_tab_tooltip()
 					},
 					{
-						label: m.routes_inv_tab_device_skills(),
+						label: m.inventory_enforcement_device_skills_tab(),
 						value: 'device-skills',
 						content: deviceSkills,
-						tooltip: m.routes_inv_tab_device_skills_tooltip()
+						tooltip: m.inventory_enforcement_device_skills_tab_tooltip()
 					}
 				]
 			: [])
@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_inv_page_title()}</title>
+	<title>{m.inventory_enforcement_page_title()}</title>
 </svelte:head>
 
 <TabLayout

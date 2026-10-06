@@ -41,9 +41,9 @@
 		<div class="flex gap-6">
 			<div class="flex grow flex-col gap-4">
 				<div class="flex flex-col gap-1">
-					<h4 class="text-lg font-semibold">{m.admin_routes_roles_default_user_role()}</h4>
+					<h4 class="text-lg font-semibold">{m.identity_access_roles_default_user_role()}</h4>
 					<p class="text-muted-content text-sm font-light">
-						{m.admin_routes_roles_default_user_role_description()}
+						{m.identity_access_roles_default_user_role_description()}
 					</p>
 
 					<div class="mt-4 flex flex-col gap-4">
@@ -80,7 +80,7 @@
 					in:fade={{ duration: 200 }}
 					class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
 				>
-					{m.admin_routes_changes_saved()}
+					{m.core_changes_saved()}
 				</span>
 			{/if}
 
@@ -90,7 +90,7 @@
 					baseDefaultRole = prevBaseDefaultRole;
 				}}
 			>
-				{m.admin_routes_reset()}
+				{m.core_reset_page()}
 			</button>
 			<button
 				class="btn btn-primary flex items-center gap-1"
@@ -100,7 +100,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{:else}
-					{m.admin_routes_save()}
+					{m.core_save()}
 				{/if}
 			</button>
 		</div>

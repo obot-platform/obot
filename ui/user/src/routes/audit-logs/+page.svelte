@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_audit_page_title()}</title>
+	<title>{m.audit_usage_audit_logs_page_title()}</title>
 </svelte:head>
 
 <TabLayout
@@ -35,7 +35,7 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: m.routes_audit_tab_model(), value: 'llm', content: llm }
+				{ label: m.audit_usage_audit_logs_tab_model(), value: 'llm', content: llm }
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />
@@ -44,39 +44,39 @@
 	{#if view === 'mcp' && canManageMcpExports}
 		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/mcp/exports')}>
 			<Settings class="size-4" />
-			{m.routes_audit_manage_exports()}
+			{m.audit_usage_audit_logs_manage_exports()}
 		</button>
 		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
 					<Plus class="size-4" />
-					{m.routes_audit_create_export()}
+					{m.audit_usage_audit_logs_create_export()}
 				</span>
 			{/snippet}
 			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('export')}>
-				{m.routes_audit_create_one_time_export()}
+				{m.audit_usage_audit_logs_create_one_time_export()}
 			</button>
 			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('scheduled')}>
-				{m.routes_audit_create_export_schedule()}
+				{m.audit_usage_audit_logs_create_export_schedule()}
 			</button>
 		</DotDotDot>
 	{:else if view === 'llm' && !isAdminReadonly}
 		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/llm/exports')}>
 			<Settings class="size-4" />
-			{m.routes_audit_manage_exports()}
+			{m.audit_usage_audit_logs_manage_exports()}
 		</button>
 		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
 					<Plus class="size-4" />
-					{m.routes_audit_create_export()}
+					{m.audit_usage_audit_logs_create_export()}
 				</span>
 			{/snippet}
 			<button class="menu-button" onclick={() => llmLogs?.openExportForm('export')}>
-				{m.routes_audit_create_one_time_export()}
+				{m.audit_usage_audit_logs_create_one_time_export()}
 			</button>
 			<button class="menu-button" onclick={() => llmLogs?.openExportForm('scheduled')}>
-				{m.routes_audit_create_export_schedule()}
+				{m.audit_usage_audit_logs_create_export_schedule()}
 			</button>
 		</DotDotDot>
 	{/if}

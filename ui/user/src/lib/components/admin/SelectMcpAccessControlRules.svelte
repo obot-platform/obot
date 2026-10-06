@@ -166,29 +166,29 @@
 			return obotGroupDisplayName(subject.id);
 		}
 
-		if (subject.id === '*') return m.admin_misc_all_obot_users();
+		if (subject.id === '*') return m.core_all_obot_users();
 		return '';
 	}
 </script>
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={m.admin_misc_add_to_access_policies()}
+	title={m.mcps_access_policies_add_to_access_policies()}
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
-		<p class="text-md font-light">{m.admin_misc_no_mcp_access_policies_yet()}</p>
-		<p class="text-md mb-4 font-light">{m.admin_misc_create_one_now()}</p>
+		<p class="text-md font-light">{m.mcps_access_policies_no_mcp_access_policies_yet()}</p>
+		<p class="text-md mb-4 font-light">{m.mcps_access_policies_create_one_now()}</p>
 	{:else}
 		<p class="text-md mb-4 font-light">
-			{m.admin_misc_select_policies_to_apply()}
+			{m.mcps_access_policies_select_policies_to_apply()}
 		</p>
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mb-8 flex flex-col">
 			<div class="grid grid-cols-2 gap-2 pb-1 text-xs font-semibold uppercase">
-				<p>{m.admin_misc_col_rule()}</p>
-				<p>{m.admin_misc_user_groups()}</p>
+				<p>{m.mcps_col_rule()}</p>
+				<p>{m.mcps_access_policies_user_groups()}</p>
 			</div>
 			<div class="flex flex-col gap-1">
 				{#each accessControlRules as rule (rule.id)}
@@ -218,7 +218,7 @@
 										{#if rule.subjects && rule.subjects.length > 0}
 											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
-											<i class="text-muted-content">{m.admin_misc_empty_parens()}</i>
+											<i class="text-muted-content">{m.mcps_access_policies_empty_parens()}</i>
 										{/if}
 									</p>
 									<div class="shrink-0">
@@ -227,7 +227,7 @@
 												class="size-4"
 												classes={{ icon: 'size-4' }}
 												placement="top-end"
-												text={m.admin_misc_available_to_everyone_in_rule()}
+												text={m.mcps_access_policies_available_to_everyone_in_rule()}
 											/>
 										{:else if selectedRules.includes(rule.id)}
 											<CircleCheck class="text-primary size-4" />
@@ -255,7 +255,7 @@
 					{#if savingRules}
 						<Loading class="size-4" />
 					{:else}
-						{m.admin_misc_continue()}
+						{m.core_continue()}
 					{/if}
 				</button>
 			</div>
@@ -263,7 +263,7 @@
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
 			<button class="btn btn-secondary" onclick={close}>
-				{m.admin_misc_skip_step()}
+				{m.mcps_access_policies_skip_step()}
 			</button>
 			{@render createAccessPolicyButton()}
 		</div>
@@ -275,14 +275,14 @@
 		{#if creating}
 			<Loading class="size-4" />
 		{:else}
-			{m.admin_misc_create_access_policy()}
+			{m.mcps_access_policies_create_access_policy()}
 		{/if}
 	</button>
 {/snippet}
 
 <ResponsiveDialog
 	bind:this={createNewRuleDialog}
-	title={m.admin_misc_create_access_policy()}
+	title={m.mcps_access_policies_create_access_policy()}
 	class="md:w-4xl bg-base-200 dark:bg-base-100"
 	classes={{ content: 'max-h-dvh overflow-y-auto' }}
 	onClose={handleCreateDialogClose}

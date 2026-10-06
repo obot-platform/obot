@@ -16,13 +16,13 @@
 	// Define available runtime options based on server type
 	const runtimeOptions = $derived.by(() => {
 		if (serverType === 'remote') {
-			return [{ id: 'remote', label: m.mcp_runtime_remote() }];
+			return [{ id: 'remote', label: m.mcps_catalog_runtime_remote() }];
 		}
 
 		return [
 			{ id: 'npx', label: 'NPX' },
 			{ id: 'uvx', label: 'UVX' },
-			{ id: 'containerized', label: m.mcp_runtime_containerized() }
+			{ id: 'containerized', label: m.mcps_catalog_runtime_containerized() }
 		];
 	});
 
@@ -56,11 +56,11 @@
 	id={CATALOG_SERVER_FIELD_IDS.runtime}
 >
 	<h4 id={`${CATALOG_SERVER_FIELD_IDS.runtime}-heading`} class="text-sm font-semibold">
-		{m.mcp_runtime_heading()}
+		{m.mcps_catalog_runtime_heading()}
 	</h4>
 
 	<div class="flex items-center gap-4">
-		<span id="runtime-selector-label" class="text-sm font-light">{m.mcp_runtime_type()}</span>
+		<span id="runtime-selector-label" class="text-sm font-light">{m.mcps_catalog_runtime_type()}</span>
 		<div class="w-full">
 			<Select
 				id="runtime-selector"
@@ -77,7 +77,7 @@
 
 	{#if !readonly && serverType !== 'remote'}
 		<p id="runtime-selector-hint" class="text-muted-content text-xs">
-			{m.mcp_runtime_hint()}
+			{m.mcps_catalog_runtime_hint()}
 		</p>
 	{/if}
 </div>

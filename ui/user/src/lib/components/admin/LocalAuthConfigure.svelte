@@ -169,7 +169,7 @@
 		}
 
 		if (!domains.trim()) {
-			configError = m.admin_forms_la_domains_required();
+			configError = m.identity_access_auth_providers_local_auth_domains_required();
 			return;
 		}
 
@@ -202,7 +202,7 @@
 		try {
 			users = await AdminService.listLocalAuthUsers();
 		} catch (err) {
-			const loadError = errorMessage(err, m.admin_forms_la_load_users_failed());
+			const loadError = errorMessage(err, m.identity_access_auth_providers_local_auth_load_users_failed());
 			userError = [...(forwardError ? [forwardError] : []), loadError];
 		} finally {
 			loadingUsers = false;
@@ -299,11 +299,11 @@
 		if (!canAddUser) return;
 
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.admin_forms_la_finish_new_before_adding());
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_finish_new_before_adding());
 			return;
 		}
 		if (draftReset) {
-			attentionDraftReset(m.admin_forms_la_finish_reset_before_adding());
+			attentionDraftReset(m.identity_access_auth_providers_local_auth_finish_reset_before_adding());
 			return;
 		}
 		newUserError = undefined;
@@ -333,11 +333,11 @@
 		if (!draftingNewUser) return false;
 
 		if (!draftEmail.trim() || !draftPassword) {
-			attentionDraftNewUser(m.admin_forms_la_fill_email_password());
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_fill_email_password());
 			return false;
 		}
 		if (draftPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			attentionDraftNewUser(m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH }));
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH }));
 			return false;
 		}
 
@@ -364,7 +364,7 @@
 
 	function removeNewUser(index: number) {
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.admin_forms_la_apply_or_remove_new());
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_apply_or_remove_new());
 			return;
 		}
 		newUsers.splice(index, 1);
@@ -372,14 +372,14 @@
 
 	function startResetPassword(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.admin_forms_la_finish_new_before_updating());
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_finish_new_before_updating());
 			return;
 		}
 		if (draftReset) {
 			attentionDraftReset(
 				draftReset.id === user.id
-					? m.admin_forms_la_confirm_reset_first()
-					: m.admin_forms_la_finish_reset_before_resetting()
+					? m.identity_access_auth_providers_local_auth_confirm_reset_first()
+					: m.identity_access_auth_providers_local_auth_finish_reset_before_resetting()
 			);
 			return;
 		}
@@ -399,8 +399,8 @@
 		if (!draftReset.password || draftReset.password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
 			attentionDraftReset(
 				!draftReset.password
-					? m.admin_forms_la_fill_password()
-					: m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })
+					? m.identity_access_auth_providers_local_auth_fill_password()
+					: m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })
 			);
 			return false;
 		}
@@ -421,11 +421,11 @@
 
 	function markDeleted(user: LocalAuthUser) {
 		if (draftingNewUser) {
-			attentionDraftNewUser(m.admin_forms_la_finish_new_before_updating());
+			attentionDraftNewUser(m.identity_access_auth_providers_local_auth_finish_new_before_updating());
 			return;
 		}
 		if (draftReset && draftReset.id !== user.id) {
-			attentionDraftReset(m.admin_forms_la_finish_reset_before_updating());
+			attentionDraftReset(m.identity_access_auth_providers_local_auth_finish_reset_before_updating());
 			return;
 		}
 
@@ -439,7 +439,7 @@
 
 	function undoDelete(user: LocalAuthUser) {
 		if (bootstrap && (newUsers.length > 0 || draftingNewUser)) {
-			userError = [m.admin_forms_la_remove_new_before_restoring()];
+			userError = [m.identity_access_auth_providers_local_auth_remove_new_before_restoring()];
 			return;
 		}
 
@@ -448,23 +448,23 @@
 
 	function validatePending(): string | undefined {
 		if (draftingNewUser) {
-			return m.admin_forms_la_finish_new_before_saving();
+			return m.identity_access_auth_providers_local_auth_finish_new_before_saving();
 		}
 		if (draftReset) {
-			return m.admin_forms_la_finish_reset_before_saving();
+			return m.identity_access_auth_providers_local_auth_finish_reset_before_saving();
 		}
 		for (const user of newUsers) {
 			if (!user.email.trim()) {
-				return m.admin_forms_la_new_user_needs_email();
+				return m.identity_access_auth_providers_local_auth_new_user_needs_email();
 			}
 			if (user.password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
+				return m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
 			}
 		}
 		for (const [id, { password }] of resetPassword) {
 			if (deleteUsers.has(id)) continue;
 			if (password.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-				return m.admin_forms_la_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
+				return m.identity_access_auth_providers_local_auth_password_min({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH });
 			}
 		}
 		return undefined;
@@ -517,7 +517,7 @@
 			await refreshUsers();
 			close();
 		} catch (err) {
-			await refreshUsers(errorMessage(err, m.admin_forms_la_save_failed()));
+			await refreshUsers(errorMessage(err, m.identity_access_auth_providers_local_auth_save_failed()));
 		} finally {
 			saving = false;
 		}
@@ -552,16 +552,16 @@
 			{/if}
 
 			<div class="flex flex-col gap-1">
-				<label for="local-auth-domains">{m.admin_forms_la_allowed_domains()}</label>
+				<label for="local-auth-domains">{m.identity_access_auth_providers_local_auth_allowed_domains()}</label>
 				<span class="text-gray text-xs">
-					{m.admin_forms_la_allowed_domains_hint()}
+					{m.identity_access_auth_providers_local_auth_allowed_domains_hint()}
 				</span>
 				<MultiValueInput
 					bind:value={domains}
 					id="local-auth-domains"
-					labels={{ '*': m.admin_forms_la_all_domains() }}
+					labels={{ '*': m.identity_access_auth_providers_local_auth_all_domains() }}
 					class="text-input-filled"
-					placeholder={m.admin_forms_la_enter_to_insert()}
+					placeholder={m.identity_access_auth_providers_local_auth_enter_to_insert()}
 					disabled={readonly}
 				/>
 			</div>
@@ -576,7 +576,7 @@
 					{#if configuring}
 						<Loading class="size-4" />
 					{:else}
-						{m.admin_forms_continue()}
+						{m.identity_access_continue()}
 					{/if}
 				</button>
 			</div>
@@ -593,25 +593,25 @@
 					}}
 				>
 					<ArrowLeft class="size-3.5" />
-					{m.admin_forms_la_configuration()}
+					{m.identity_access_auth_providers_local_auth_configuration()}
 				</button>
 			{/if}
 
 			<p class="text-muted-content text-sm font-light">
 				{#if bootstrap && users.length <= 1}
-					{m.admin_forms_la_bootstrap_intro()}
+					{m.identity_access_auth_providers_local_auth_bootstrap_intro()}
 				{:else}
-					{m.admin_forms_la_users_intro()}
+					{m.identity_access_auth_providers_local_auth_users_intro()}
 				{/if}
 			</p>
 
 			<p class="text-muted-content text-sm font-light">
-				{m.admin_forms_la_provider_note()}
+				{m.identity_access_auth_providers_local_auth_provider_note()}
 			</p>
 
 			<form class="flex flex-col gap-4 grow max-w-full overflow-hidden" onsubmit={handleSave}>
 				<div class="flex items-center justify-between gap-2">
-					<h4 class="text-sm font-semibold">{m.admin_forms_la_users()}</h4>
+					<h4 class="text-sm font-semibold">{m.identity_access_auth_providers_local_auth_users()}</h4>
 					{#if !readonly && canAddUser}
 						{@render addNewUserButton()}
 					{/if}
@@ -628,12 +628,12 @@
 					<div class="flex justify-center py-4"><Loading class="size-5" /></div>
 				{:else if users.length === 0 && newUsers.length === 0 && !draftingNewUser}
 					<p class="text-muted-content py-2 text-center text-xs font-light">
-						{m.admin_forms_la_no_users_prefix()}
+						{m.identity_access_auth_providers_local_auth_no_users_prefix()}
 						{@render addNewUserButton(
 							'inline-block justify-items-center mx-1',
-							m.admin_forms_la_create_new_user()
+							m.identity_access_auth_providers_local_auth_create_new_user()
 						)}
-						{m.admin_forms_la_no_users_suffix()}
+						{m.identity_access_auth_providers_local_auth_no_users_suffix()}
 					</p>
 				{:else}
 					<ul class="flex flex-col gap-1">
@@ -657,7 +657,7 @@
 										</span>
 										{#if user.requirePasswordChange && !isDeleted}
 											<span class="badge badge-warning shrink-0 text-xs">
-												{m.admin_forms_la_password_change_required()}
+												{m.identity_access_auth_providers_local_auth_password_change_required()}
 											</span>
 										{/if}
 									</div>
@@ -665,7 +665,7 @@
 										<div class="flex shrink-0 items-center gap-1">
 											{#if isDeleted}
 												<IconButton
-													tooltip={{ text: m.admin_forms_la_undo_delete(), disablePortal: true }}
+													tooltip={{ text: m.identity_access_auth_providers_local_auth_undo_delete(), disablePortal: true }}
 													disabled={saving}
 													onclick={() => undoDelete(user)}
 												>
@@ -675,7 +675,7 @@
 												<IconButton
 													id={'reset-confirm-' + user.id}
 													variant="primary"
-													tooltip={{ text: m.admin_forms_la_confirm_reset(), disablePortal: true }}
+													tooltip={{ text: m.identity_access_auth_providers_local_auth_confirm_reset(), disablePortal: true }}
 													disabled={saving}
 													onclick={confirmResetPassword}
 												>
@@ -683,7 +683,7 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: m.admin_forms_la_cancel_reset(), disablePortal: true }}
+													tooltip={{ text: m.identity_access_auth_providers_local_auth_cancel_reset(), disablePortal: true }}
 													disabled={saving}
 													onclick={cancelResetPassword}
 												>
@@ -693,8 +693,8 @@
 												<IconButton
 													tooltip={{
 														text: hasPendingReset
-															? m.admin_forms_la_edit_reset()
-															: m.admin_forms_la_reset_password(),
+															? m.identity_access_auth_providers_local_auth_edit_reset()
+															: m.identity_access_auth_providers_local_auth_reset_password(),
 														disablePortal: true
 													}}
 													disabled={saving}
@@ -704,7 +704,7 @@
 												</IconButton>
 												<IconButton
 													variant="danger"
-													tooltip={{ text: m.admin_forms_la_delete_user(), disablePortal: true }}
+													tooltip={{ text: m.identity_access_auth_providers_local_auth_delete_user(), disablePortal: true }}
 													disabled={saving}
 													onclick={() => markDeleted(user)}
 												>
@@ -717,7 +717,7 @@
 
 								{#if isDeleted}
 									<p class="text-muted-content text-xs">
-										{m.admin_forms_la_marked_for_deletion()}
+										{m.identity_access_auth_providers_local_auth_marked_for_deletion()}
 									</p>
 								{:else if isDraftResetting && draftReset}
 									<div class="flex flex-col gap-3">
@@ -725,7 +725,7 @@
 											class="flex flex-col gap-1 text-sm font-light"
 											for="reset-password-{user.id}"
 										>
-											{m.admin_forms_la_new_password()}
+											{m.identity_access_auth_providers_local_auth_new_password()}
 											<SensitiveInput
 												name="reset-password-{user.id}"
 												bind:value={draftReset.password}
@@ -739,7 +739,7 @@
 												onkeydown={handleDraftResetKeydown}
 											/>
 											<span class="text-muted-content pt-0.5 text-xs">
-												{m.admin_forms_la_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
+												{m.identity_access_auth_providers_local_auth_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
 											</span>
 										</label>
 
@@ -750,7 +750,7 @@
 												disabled={saving}
 												bind:checked={draftReset.requirePasswordChange}
 											/>
-											{m.admin_forms_la_require_change()}
+											{m.identity_access_auth_providers_local_auth_require_change()}
 										</label>
 
 										{#if draftError}
@@ -765,7 +765,7 @@
 									</div>
 								{:else if hasPendingReset}
 									<p class="text-muted-content text-xs">
-										{m.admin_forms_la_reset_pending()}
+										{m.identity_access_auth_providers_local_auth_reset_pending()}
 									</p>
 								{/if}
 							</li>
@@ -778,7 +778,7 @@
 								<span class="truncate text-sm">{user.email}</span>
 								<IconButton
 									variant="danger"
-									tooltip={{ text: m.admin_forms_remove(), disablePortal: true }}
+									tooltip={{ text: m.core_remove(), disablePortal: true }}
 									disabled={saving}
 									onclick={() => removeNewUser(i)}
 								>
@@ -794,12 +794,12 @@
 							class:draft-shake={shakingDraft}
 						>
 							<div class="flex items-center justify-between gap-2">
-								<span class="text-sm font-medium">{m.admin_forms_la_new_user()}</span>
+								<span class="text-sm font-medium">{m.identity_access_auth_providers_local_auth_new_user()}</span>
 								<div class="flex shrink-0 items-center gap-1">
 									<IconButton
 										id={DRAFT_CONFIRM_ID}
 										variant="primary"
-										tooltip={{ text: m.admin_forms_confirm(), disablePortal: true }}
+										tooltip={{ text: m.identity_access_auth_providers_local_auth_confirm(), disablePortal: true }}
 										disabled={saving}
 										onclick={confirmNewUser}
 									>
@@ -807,7 +807,7 @@
 									</IconButton>
 									<IconButton
 										variant="danger"
-										tooltip={{ text: m.admin_forms_remove(), disablePortal: true }}
+										tooltip={{ text: m.core_remove(), disablePortal: true }}
 										disabled={saving}
 										onclick={cancelDraftNewUser}
 									>
@@ -849,7 +849,7 @@
 									data1pIgnore={false}
 								/>
 								<span class="text-muted-content pt-0.5 text-xs">
-									{m.admin_forms_la_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
+									{m.identity_access_auth_providers_local_auth_password_hint({ min: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
 								</span>
 							</label>
 
@@ -860,7 +860,7 @@
 									disabled={saving}
 									bind:checked={draftRequirePasswordChange}
 								/>
-								{m.admin_forms_la_require_change()}
+								{m.identity_access_auth_providers_local_auth_require_change()}
 							</label>
 
 							{#if newUserError}
@@ -879,14 +879,14 @@
 				>
 					{#if readonly}
 						<button class="btn btn-primary" type="button" onclick={close}
-							>{m.admin_forms_close()}</button
+							>{m.core_close()}</button
 						>
 					{:else}
 						<button class="btn btn-primary" type="submit" disabled={saving || loadingUsers}>
 							{#if saving}
 								<Loading class="size-4" />
 							{:else}
-								{m.admin_forms_save()}
+								{m.core_save()}
 							{/if}
 						</button>
 					{/if}
@@ -933,11 +933,11 @@
 		{:else}
 			<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		{m.admin_forms_la_set_up({ name: provider?.name ?? '' })}
+		{m.identity_access_auth_providers_local_auth_set_up({ name: provider?.name ?? '' })}
 	</div>
 {/snippet}
 
-{#snippet addNewUserButton(klass?: string, label = m.admin_forms_la_add_new_user())}
+{#snippet addNewUserButton(klass?: string, label = m.identity_access_auth_providers_local_auth_add_new_user())}
 	<IconButton
 		tooltip={{ text: label, disablePortal: true }}
 		disabled={saving}

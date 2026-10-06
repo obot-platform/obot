@@ -67,9 +67,9 @@
 <div class="flex flex-col gap-2">
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col">
-			<h2 class="text-lg font-semibold">{m.admin_forms_env_title()}</h2>
+			<h2 class="text-lg font-semibold">{m.hosted_agents_templates_environment_title()}</h2>
 			<span class="text-muted-content text-xs">
-				{m.admin_forms_env_hint()}
+				{m.hosted_agents_templates_environment_hint()}
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
@@ -80,23 +80,23 @@
 					onclick={reveal}
 				>
 					{#if revealed}
-						<EyeOff class="size-4" /> {m.admin_forms_env_revealed()}
+						<EyeOff class="size-4" /> {m.hosted_agents_templates_environment_revealed()}
 					{:else}
-						<Eye class="size-4" /> {m.admin_forms_env_reveal()}
+						<Eye class="size-4" /> {m.hosted_agents_templates_environment_reveal()}
 					{/if}
 				</button>
 			{/if}
 			{#if !readonly}
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={addRow}>
 					<Plus class="size-4" />
-					{m.admin_forms_env_add_variable()}
+					{m.hosted_agents_templates_environment_add_variable()}
 				</button>
 			{/if}
 		</div>
 	</div>
 
 	{#if env.length === 0}
-		<p class="text-muted-content py-4 text-center text-sm">{m.admin_forms_env_empty()}</p>
+		<p class="text-muted-content py-4 text-center text-sm">{m.hosted_agents_templates_environment_empty()}</p>
 	{:else}
 		<div class="flex flex-col gap-3">
 			{#each env as item, i (i)}
@@ -105,7 +105,7 @@
 				>
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-key-{i}" class="text-sm font-light">{m.admin_forms_key()}</label>
+							<label for="env-key-{i}" class="text-sm font-light">{m.hosted_agents_key()}</label>
 							<input
 								id="env-key-{i}"
 								value={item.key}
@@ -116,13 +116,13 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-value-{i}" class="text-sm font-light">{m.admin_forms_value()}</label>
+							<label for="env-value-{i}" class="text-sm font-light">{m.hosted_agents_templates_environment_value()}</label>
 							<input
 								id="env-value-{i}"
 								bind:value={item.value}
 								type={item.sensitive && !revealed ? 'password' : 'text'}
 								class="text-input-filled"
-								placeholder={item.sensitive ? m.admin_forms_env_stored_securely() : ''}
+								placeholder={item.sensitive ? m.hosted_agents_templates_environment_stored_securely() : ''}
 								disabled={readonly}
 							/>
 						</div>
@@ -130,7 +130,7 @@
 							<IconButton
 								variant="danger"
 								onclick={() => removeRow(i)}
-								tooltip={{ text: m.admin_forms_remove() }}
+								tooltip={{ text: m.core_remove() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -140,7 +140,7 @@
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
 							<label for="env-desc-{i}" class="text-sm font-light"
-								>{m.admin_forms_description()}</label
+								>{m.core_description()}</label
 							>
 							<input
 								id="env-desc-{i}"
@@ -158,7 +158,7 @@
 									onchange={() => toggleSensitive(i)}
 									disabled={readonly}
 								/>
-								{m.admin_forms_sensitive()}
+								{m.hosted_agents_sensitive()}
 							</label>
 							<label class="flex items-center gap-2 text-sm font-light">
 								<input
@@ -167,7 +167,7 @@
 									bind:checked={item.required}
 									disabled={readonly}
 								/>
-								{m.admin_forms_required()}
+								{m.hosted_agents_required()}
 							</label>
 						</div>
 					</div>

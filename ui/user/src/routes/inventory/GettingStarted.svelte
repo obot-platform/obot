@@ -43,9 +43,9 @@
 		</div>
 
 		<div class="flex max-w-lg flex-col gap-2">
-			<h3 class="text-xl font-semibold">{m.routes_inv_configure_managed_devices()}</h3>
+			<h3 class="text-xl font-semibold">{m.inventory_enforcement_configuration_configure_managed_devices()}</h3>
 			<p class="text-muted-content text-sm">
-				{m.routes_inv_getting_started_subtitle()}
+				{m.inventory_enforcement_configuration_getting_started_subtitle()}
 			</p>
 		</div>
 
@@ -58,18 +58,18 @@
 
 		{#if readOnly}
 			<p class="text-muted-content text-sm">
-				{m.routes_inv_readonly_create_note()}
+				{m.inventory_enforcement_configuration_readonly_create_note()}
 			</p>
 		{:else}
 			<label class="flex w-full items-start gap-3 text-left text-sm">
 				<input type="checkbox" class="mt-0.5" bind:checked={enforcementEnabled} />
 				<span class="flex flex-col gap-0.5">
 					<span class="flex flex-wrap items-center gap-1.5 font-medium">
-						{m.routes_inv_enforce_tool_calls()}
-						<span class="badge badge-warning badge-sm">{m.routes_inv_experimental()}</span>
+						{m.inventory_enforcement_configuration_enforce_tool_calls()}
+						<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_experimental()}</span>
 					</span>
 					<span class="input-description">
-						{m.routes_inv_getting_started_enforce_description()}
+						{m.inventory_enforcement_configuration_getting_started_enforce_description()}
 					</span>
 				</span>
 			</label>
@@ -81,7 +81,7 @@
 				onclick={handleCreate}
 			>
 				{#if loading}<Loading class="size-4" />{/if}
-				{m.routes_inv_get_started()}
+				{m.inventory_enforcement_configuration_get_started()}
 			</button>
 		{/if}
 	</div>

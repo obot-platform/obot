@@ -106,27 +106,27 @@ export const PII_BLOCK_TYPES = 'PII_BLOCK_TYPES';
 export const PII_FILTER_DEFAULT_OPTIONS = [
 	{
 		id: 'EMAIL_ADDRESS',
-		label: m.core_pii_email_address()
+		label: m.mcps_filters_personal_data_email_address()
 	},
 	{
 		id: 'PHONE_NUMBER',
-		label: m.core_pii_phone_number()
+		label: m.mcps_filters_personal_data_phone_number()
 	},
 	{
 		id: 'CREDIT_CARD',
-		label: m.core_pii_credit_card()
+		label: m.mcps_filters_personal_data_credit_card()
 	},
 	{
 		id: 'CRYPTO',
-		label: m.core_pii_crypto()
+		label: m.mcps_filters_personal_data_crypto()
 	},
 	{
 		id: 'IBAN_CODE',
-		label: m.core_pii_iban_code()
+		label: m.mcps_filters_personal_data_iban_code()
 	},
 	{
 		id: 'IP_ADDRESS',
-		label: m.core_pii_ip_address()
+		label: m.mcps_filters_personal_data_ip_address()
 	},
 	{
 		id: 'US_SSN',
@@ -134,19 +134,19 @@ export const PII_FILTER_DEFAULT_OPTIONS = [
 	},
 	{
 		id: 'US_BANK_NUMBER',
-		label: m.core_pii_us_bank_number()
+		label: m.mcps_filters_personal_data_us_bank_number()
 	},
 	{
 		id: 'US_PASSPORT',
-		label: m.core_pii_us_passport()
+		label: m.mcps_filters_personal_data_us_passport()
 	},
 	{
 		id: 'MEDICAL_LICENSE',
-		label: m.core_pii_medical_license()
+		label: m.mcps_filters_personal_data_medical_license()
 	},
 	{
 		id: 'US_DRIVER_LICENSE',
-		label: m.core_pii_us_driver_license()
+		label: m.mcps_filters_personal_data_us_driver_license()
 	}
 ];
 export const PII_FILTER_OPTIONAL_OPTIONS = [
@@ -160,7 +160,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'AU_MEDICARE',
-		label: m.core_pii_au_medicare()
+		label: m.mcps_filters_personal_data_au_medicare()
 	},
 	{
 		id: 'AU_TFN',
@@ -168,7 +168,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'DATE_TIME',
-		label: m.core_pii_date_time()
+		label: m.mcps_filters_personal_data_date_time()
 	},
 	{
 		id: 'ES_NIE',
@@ -180,7 +180,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'FI_PERSONAL_IDENTITY_CODE',
-		label: m.core_pii_fi_personal_identity_code()
+		label: m.mcps_filters_personal_data_fi_personal_identity_code()
 	},
 	{
 		id: 'IN_AADHAAR',
@@ -196,35 +196,35 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'IN_PASSPORT',
-		label: m.core_pii_in_passport()
+		label: m.mcps_filters_personal_data_in_passport()
 	},
 	{
 		id: 'IN_VEHICLE_REGISTRATION',
-		label: m.core_pii_in_vehicle_registration()
+		label: m.mcps_filters_personal_data_in_vehicle_registration()
 	},
 	{
 		id: 'IN_VOTER',
-		label: m.core_pii_in_voter()
+		label: m.mcps_filters_personal_data_in_voter()
 	},
 	{
 		id: 'IT_DRIVER_LICENSE',
-		label: m.core_pii_it_driver_license()
+		label: m.mcps_filters_personal_data_it_driver_license()
 	},
 	{
 		id: 'IT_FISCAL_CODE',
-		label: m.core_pii_it_fiscal_code()
+		label: m.mcps_filters_personal_data_it_fiscal_code()
 	},
 	{
 		id: 'IT_IDENTITY_CARD',
-		label: m.core_pii_it_identity_card()
+		label: m.mcps_filters_personal_data_it_identity_card()
 	},
 	{
 		id: 'IT_PASSPORT',
-		label: m.core_pii_it_passport()
+		label: m.mcps_filters_personal_data_it_passport()
 	},
 	{
 		id: 'IT_VAT_CODE',
-		label: m.core_pii_it_vat_code()
+		label: m.mcps_filters_personal_data_it_vat_code()
 	},
 	{
 		id: 'KR_BRN',
@@ -232,7 +232,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'KR_DRIVER_LICENSE',
-		label: m.core_pii_kr_driver_license()
+		label: m.mcps_filters_personal_data_kr_driver_license()
 	},
 	{
 		id: 'KR_FRN',
@@ -240,7 +240,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'KR_PASSPORT',
-		label: m.core_pii_kr_passport()
+		label: m.mcps_filters_personal_data_kr_passport()
 	},
 	{
 		id: 'KR_RRN',
@@ -248,43 +248,43 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'LOCATION',
-		label: m.core_pii_location()
+		label: m.mcps_filters_personal_data_location()
 	},
 	{
 		id: 'MAC_ADDRESS',
-		label: m.core_pii_mac_address()
+		label: m.mcps_filters_personal_data_mac_address()
 	},
 	{
 		id: 'MEDICAL_BIOLOGICAL_ATTRIBUTE',
-		label: m.core_pii_medical_biological_attribute()
+		label: m.mcps_filters_personal_data_medical_biological_attribute()
 	},
 	{
 		id: 'MEDICAL_BIOLOGICAL_STRUCTURE',
-		label: m.core_pii_medical_biological_structure()
+		label: m.mcps_filters_personal_data_medical_biological_structure()
 	},
 	{
 		id: 'MEDICAL_CLINICAL_EVENT',
-		label: m.core_pii_medical_clinical_event()
+		label: m.mcps_filters_personal_data_medical_clinical_event()
 	},
 	{
 		id: 'MEDICAL_DISEASE_DISORDER',
-		label: m.core_pii_medical_disease_disorder()
+		label: m.mcps_filters_personal_data_medical_disease_disorder()
 	},
 	{
 		id: 'MEDICAL_FAMILY_HISTORY',
-		label: m.core_pii_medical_family_history()
+		label: m.mcps_filters_personal_data_medical_family_history()
 	},
 	{
 		id: 'MEDICAL_HISTORY',
-		label: m.core_pii_medical_history()
+		label: m.mcps_filters_personal_data_medical_history()
 	},
 	{
 		id: 'MEDICAL_MEDICATION',
-		label: m.core_pii_medical_medication()
+		label: m.mcps_filters_personal_data_medical_medication()
 	},
 	{
 		id: 'MEDICAL_THERAPEUTIC_PROCEDURE',
-		label: m.core_pii_medical_therapeutic_procedure()
+		label: m.mcps_filters_personal_data_medical_therapeutic_procedure()
 	},
 	{
 		id: 'NG_NIN',
@@ -292,7 +292,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'NG_VEHICLE_REGISTRATION',
-		label: m.core_pii_ng_vehicle_registration()
+		label: m.mcps_filters_personal_data_ng_vehicle_registration()
 	},
 	{
 		id: 'NRP',
@@ -300,7 +300,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'PERSON',
-		label: m.core_pii_person()
+		label: m.mcps_filters_personal_data_person()
 	},
 	{
 		id: 'PL_PESEL',
@@ -328,15 +328,15 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'UK_PASSPORT',
-		label: m.core_pii_uk_passport()
+		label: m.mcps_filters_personal_data_uk_passport()
 	},
 	{
 		id: 'UK_POSTCODE',
-		label: m.core_pii_uk_postcode()
+		label: m.mcps_filters_personal_data_uk_postcode()
 	},
 	{
 		id: 'UK_VEHICLE_REGISTRATION',
-		label: m.core_pii_uk_vehicle_registration()
+		label: m.mcps_filters_personal_data_uk_vehicle_registration()
 	},
 	{
 		id: 'URL',
@@ -356,9 +356,9 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	}
 ];
 export const PII_FILTER_OPTION_VALUES = [
-	{ id: 'none', label: m.core_pii_option_none() },
-	{ id: 'block', label: m.core_pii_option_block() },
-	{ id: 'redact', label: m.core_pii_option_redact() }
+	{ id: 'none', label: m.mcps_filters_personal_data_option_none() },
+	{ id: 'block', label: m.mcps_filters_personal_data_option_block() },
+	{ id: 'redact', label: m.mcps_filters_personal_data_option_redact() }
 ];
 
 export const OBOT_GUIDE_KEYS = {

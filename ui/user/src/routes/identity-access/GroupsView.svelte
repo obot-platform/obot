@@ -167,7 +167,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				value={query}
 				onChange={updateQuery}
-				placeholder={m.admin_routes_groups_search_placeholder()}
+				placeholder={m.identity_access_groups_search_placeholder()}
 			/>
 			<div class="groups-table">
 				<Table
@@ -179,8 +179,8 @@
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'role']}
 					headers={[
-						{ property: 'name', title: m.admin_routes_col_name() },
-						{ property: 'role', title: m.admin_routes_col_role() }
+						{ property: 'name', title: m.core_col_name() },
+						{ property: 'role', title: m.identity_access_col_role() }
 					]}
 					{initSort}
 					onSort={setSortUrlParams}
@@ -207,7 +207,7 @@
 									});
 								}}
 							>
-								{m.admin_routes_view_access_policies()}
+								{m.identity_access_view_access_policies()}
 							</button>
 							{#if !isAdminReadonly}
 								<button
@@ -219,7 +219,7 @@
 										showAssignGroupRoleDialog = true;
 									}}
 								>
-									{d.assignment ? m.admin_routes_update_role() : m.admin_routes_assign_role()}
+									{d.assignment ? m.identity_access_update_role() : m.identity_access_assign_role()}
 								</button>
 								{#if d.assignment}
 									<button
@@ -228,7 +228,7 @@
 											d.roleId === Role.OWNER}
 										onclick={() => (deletingGroup = d)}
 									>
-										{m.admin_routes_groups_remove_role_assignment()}
+										{m.identity_access_groups_remove_role_assignment()}
 									</button>
 								{/if}
 							{/if}
@@ -243,8 +243,8 @@
 <CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
-	title={m.admin_routes_groups_confirm_role_removal()}
-	msg={m.admin_routes_groups_remove_role_assignment_msg({ name: `${deletingGroup?.name}` })}
+	title={m.identity_access_groups_confirm_role_removal()}
+	msg={m.identity_access_groups_remove_role_assignment_msg({ name: `${deletingGroup?.name}` })}
 	show={Boolean(deletingGroup)}
 	onsuccess={async () => {
 		if (!deletingGroup) return;
@@ -261,7 +261,7 @@
 	oncancel={() => (deletingGroup = undefined)}
 >
 	{#snippet note()}
-		{m.admin_routes_groups_remove_role_assignment_note()}
+		{m.identity_access_groups_remove_role_assignment_note()}
 	{/snippet}
 </Confirm>
 

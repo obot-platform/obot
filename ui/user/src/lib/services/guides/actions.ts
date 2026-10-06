@@ -24,8 +24,8 @@ export function getExpandAdvancedPaneAction({
 			selector: {
 				id: parentID
 			},
-			title: title || m.core_guide_expand_mcp_management(),
-			description: description || m.core_guide_let_s_expand_this_section_to()
+			title: title || m.core_guides_expand_mcp_management(),
+			description: description || m.core_guides_let_s_expand_this_section_to()
 		},
 		listener: {
 			id: parentID,

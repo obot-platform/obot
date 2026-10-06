@@ -12,7 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 	const listHref = '/mcp-servers?view=ai-judge-policies';
 
-	let title = $derived(messagePolicy?.displayName ?? m.routes_mcp_message_policy());
+	let title = $derived(messagePolicy?.displayName ?? m.mcps_ai_judge_policies_message_policy());
 </script>
 
 <Layout {title} showBackButton>

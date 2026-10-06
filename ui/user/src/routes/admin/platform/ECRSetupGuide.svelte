@@ -13,9 +13,9 @@
 </script>
 
 <div class="flex flex-col gap-1">
-	<h3 class="text-base font-semibold">{m.admin_routes_ecr_guide_title()}</h3>
+	<h3 class="text-base font-semibold">{m.platform_settings_registry_guide_title()}</h3>
 	<p class="text-muted-content text-sm">
-		{m.admin_routes_ecr_guide_description()}
+		{m.platform_settings_registry_guide_description()}
 	</p>
 </div>
 
@@ -24,42 +24,42 @@
 		<div class="pb-5">
 			{@render setupStep(
 				'1',
-				m.admin_routes_ecr_step1_title(),
-				m.admin_routes_ecr_step1_description()
+				m.platform_settings_registry_step1_title(),
+				m.platform_settings_registry_step1_description()
 			)}
 			<div class="mt-4 grid gap-x-6 gap-y-3 pl-9 lg:grid-cols-2">
-				{@render setupValue(m.admin_routes_ecr_issuer_url(), effectiveIssuerURL)}
-				{@render setupValue(m.admin_routes_ipsf_audience(), effectiveAudience)}
+				{@render setupValue(m.platform_settings_registry_issuer_url(), effectiveIssuerURL)}
+				{@render setupValue(m.platform_settings_image_pull_secrets_audience(), effectiveAudience)}
 			</div>
 		</div>
 
 		<div class="py-5">
 			{@render setupStep(
 				'2',
-				m.admin_routes_ecr_step2_title(),
-				m.admin_routes_ecr_step2_description()
+				m.platform_settings_registry_step2_title(),
+				m.platform_settings_registry_step2_description()
 			)}
 			<div class="mt-4 pl-9">
-				{@render policyBlock(m.admin_routes_ecr_trust_policy(), trustPolicyJSON)}
+				{@render policyBlock(m.platform_settings_registry_trust_policy(), trustPolicyJSON)}
 			</div>
 		</div>
 
 		<div class="py-5">
 			{@render setupStep(
 				'3',
-				m.admin_routes_ecr_step3_title(),
-				m.admin_routes_ecr_step3_description()
+				m.platform_settings_registry_step3_title(),
+				m.platform_settings_registry_step3_description()
 			)}
 			<div class="mt-4 pl-9">
-				{@render policyBlock(m.admin_routes_ecr_iam_policy(), ecrPolicyJSON)}
+				{@render policyBlock(m.platform_settings_registry_iam_policy(), ecrPolicyJSON)}
 			</div>
 		</div>
 
 		<div class="pt-5">
 			{@render setupStep(
 				'4',
-				m.admin_routes_ecr_step4_title(),
-				m.admin_routes_ecr_step4_description()
+				m.platform_settings_registry_step4_title(),
+				m.platform_settings_registry_step4_description()
 			)}
 		</div>
 	</div>

@@ -31,7 +31,7 @@
 
 <div class="flex flex-col gap-4" in:fade={{ duration }}>
 	<p class="text-muted-content text-sm font-light">
-		{m.chat_ha_pools_desc()}
+		{m.hosted_agents_pools_desc()}
 	</p>
 	<HostedAgentPools
 		bind:pools

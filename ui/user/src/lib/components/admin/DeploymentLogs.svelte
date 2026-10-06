@@ -30,7 +30,7 @@
 		refreshing = false,
 		onRefresh,
 		onClear,
-		title = m.admin_forms_logs_title(),
+		title = m.mcps_deployments_logs_title(),
 		showRefresh = true
 	}: Props = $props();
 
@@ -231,16 +231,16 @@
 		{#if showRefresh && onRefresh}
 			<button
 				onclick={onRefresh}
-				use:tooltip={m.admin_forms_logs_refresh()}
+				use:tooltip={m.mcps_deployments_logs_refresh()}
 				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={refreshing}
-				aria-label={m.admin_forms_logs_refresh()}
+				aria-label={m.mcps_deployments_logs_refresh()}
 			>
 				<RefreshCw class="size-4 {refreshing ? 'animate-spin' : ''}" />
 			</button>
 		{/if}
 		{#if error}
-			<div use:tooltip={m.admin_forms_logs_stream_error()}>
+			<div use:tooltip={m.mcps_deployments_logs_stream_error()}>
 				<TriangleAlert class="size-4 text-warning" />
 			</div>
 		{/if}
@@ -248,10 +248,10 @@
 		<div class="ml-auto flex items-center gap-1">
 			<button
 				onclick={clearLogs}
-				use:tooltip={m.admin_forms_logs_clear()}
+				use:tooltip={m.mcps_deployments_logs_clear()}
 				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages || refreshing}
-				aria-label={m.admin_forms_logs_clear()}
+				aria-label={m.mcps_deployments_logs_clear()}
 			>
 				<X class="size-4" />
 			</button>
@@ -260,10 +260,10 @@
 				onclick={() => {
 					isMaximized = true;
 				}}
-				use:tooltip={m.admin_forms_logs_maximize_tooltip()}
+				use:tooltip={m.mcps_deployments_logs_maximize_tooltip()}
 				class="text-muted-content hover:bg-base-300 hover:text-base-content rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages}
-				aria-label={m.admin_forms_logs_maximize()}
+				aria-label={m.mcps_deployments_logs_maximize()}
 			>
 				<Maximize class="size-4" />
 			</button>
@@ -306,10 +306,10 @@
 							bind:this={searchInput}
 							class="placeholder:text-muted-content flex-1 bg-transparent py-3 outline-none"
 							type="text"
-							placeholder={m.admin_forms_logs_search_placeholder()}
+							placeholder={m.mcps_deployments_logs_search_placeholder()}
 							bind:value={query}
 							onkeydown={handleSearchKeydown}
-							aria-label={m.admin_forms_logs_search()}
+							aria-label={m.mcps_deployments_logs_search()}
 						/>
 
 						<div class="flex h-full items-center gap-1 p-0.5">
@@ -325,8 +325,8 @@
 									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
 									onclick={navigateToPreviousMatch}
 									disabled={!hasMatches}
-									use:tooltip={m.admin_forms_logs_previous_match_tooltip()}
-									aria-label={m.admin_forms_logs_previous_match()}
+									use:tooltip={m.mcps_deployments_logs_previous_match_tooltip()}
+									aria-label={m.mcps_deployments_logs_previous_match()}
 								>
 									<ChevronUp class="size-full text-current" />
 								</button>
@@ -334,8 +334,8 @@
 									class="hover:bg-base-300/80 active:bg-base-300 flex h-full max-h-8 items-center justify-center rounded-md p-1.5 opacity-30 hover:opacity-60 disabled:opacity-20"
 									onclick={navigateToNextMatch}
 									disabled={!hasMatches}
-									use:tooltip={m.admin_forms_logs_next_match_tooltip()}
-									aria-label={m.admin_forms_logs_next_match()}
+									use:tooltip={m.mcps_deployments_logs_next_match_tooltip()}
+									aria-label={m.mcps_deployments_logs_next_match()}
 								>
 									<ChevronDown class="size-full text-current" />
 								</button>
@@ -344,7 +344,7 @@
 									onclick={() => {
 										query = '';
 									}}
-									aria-label={m.admin_forms_logs_clear_search()}
+									aria-label={m.mcps_deployments_logs_clear_search()}
 								>
 									<X class="size-full text-current" />
 								</button>
@@ -356,8 +356,8 @@
 									onclick={() => {
 										isMaximized = false;
 									}}
-									use:tooltip={m.admin_forms_logs_close_tooltip()}
-									aria-label={m.admin_forms_logs_close_maximized()}
+									use:tooltip={m.mcps_deployments_logs_close_tooltip()}
+									aria-label={m.mcps_deployments_logs_close_maximized()}
 								>
 									<Minimize class="size-full text-current" />
 								</button>
@@ -396,8 +396,8 @@
 			{:else}
 				<div class="flex w-full flex-1 items-center justify-center p-6">
 					<div class="text-center">
-						<div class="text-muted-content font-medium">{m.admin_forms_logs_empty()}</div>
-						<p class="text-muted-content mt-1 text-sm">{m.admin_forms_logs_try_refreshing()}</p>
+						<div class="text-muted-content font-medium">{m.mcps_deployments_logs_empty()}</div>
+						<p class="text-muted-content mt-1 text-sm">{m.mcps_deployments_logs_try_refreshing()}</p>
 					</div>
 				</div>
 			{/if}

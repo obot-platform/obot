@@ -56,7 +56,7 @@
 	function actorLabel(actor: (typeof data)[number]['actor']) {
 		if (actor.actorType === 'user' && actor.id) return getUserDisplayName(actor.id);
 		return (
-			actor.id || (actor.actorType === 'unknown' ? m.admin_sub_log_unknown() : actor.actorType)
+			actor.id || (actor.actorType === 'unknown' ? m.audit_usage_audit_logs_unknown() : actor.actorType)
 		);
 	}
 
@@ -85,21 +85,21 @@
 		if (target.parent) {
 			const server = resolveServerName(target.parent);
 			return {
-				primary: server || tool || m.admin_sub_log_unknown(),
+				primary: server || tool || m.audit_usage_audit_logs_unknown(),
 				secondary: server && tool ? `${tool}` : undefined
 			};
 		}
 		if (target.targetType === 'mcp_server') {
 			return {
-				primary: resolveServerName(target) || m.admin_sub_log_unknown(),
+				primary: resolveServerName(target) || m.audit_usage_audit_logs_unknown(),
 				secondary: undefined
 			};
 		}
-		return { primary: tool || m.admin_sub_log_unknown(), secondary: undefined };
+		return { primary: tool || m.audit_usage_audit_logs_unknown(), secondary: undefined };
 	}
 
 	function eventTypeLabel(eventType: (typeof data)[number]['eventType']) {
-		return eventType === 'mcp_call' ? 'Obot Gateway' : m.admin_sub_audit_source_local_agent_hook();
+		return eventType === 'mcp_call' ? 'Obot Gateway' : m.audit_usage_audit_logs_source_local_agent_hook();
 	}
 
 	function formatDuration(ms?: number) {
@@ -248,17 +248,17 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.admin_sub_audit_col_time(), { class: 'w-[28ch]', minWidth: '24ch' })}
-						{@render th(m.admin_sub_audit_filter_source(), { class: 'w-[20ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_log_actor(), { class: 'w-[26ch]', minWidth: '22ch' })}
-						{@render th(m.admin_sub_log_operation(), { class: 'w-[20ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_audit_col_identifier(), {
+						{@render th(m.audit_usage_audit_logs_col_time(), { class: 'w-[28ch]', minWidth: '24ch' })}
+						{@render th(m.audit_usage_audit_logs_filter_source(), { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_actor(), { class: 'w-[26ch]', minWidth: '22ch' })}
+						{@render th(m.audit_usage_audit_logs_operation(), { class: 'w-[20ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_col_identifier(), {
 							class: 'w-[32ch]',
 							minWidth: '26ch'
 						})}
-						{@render th(m.admin_sub_col_status(), { class: 'w-[18ch]', minWidth: '16ch' })}
-						{@render th(m.admin_sub_log_client(), { class: 'w-[22ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_audit_filter_duration(), {
+						{@render th(m.audit_usage_exports_col_status(), { class: 'w-[18ch]', minWidth: '16ch' })}
+						{@render th(m.audit_usage_audit_logs_client(), { class: 'w-[22ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_filter_duration(), {
 							class: 'w-[16ch]',
 							minWidth: '14ch'
 						})}

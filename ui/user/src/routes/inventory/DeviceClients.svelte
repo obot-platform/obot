@@ -119,7 +119,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder={m.routes_inv_search_clients()}
+	placeholder={m.inventory_enforcement_device_clients_search_clients()}
 />
 
 {#if loading}
@@ -127,10 +127,10 @@
 {:else if clients.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<MonitorCheck class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_inv_no_clients_title()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_device_clients_no_clients_title()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_inv_no_clients_prefix()}<code class="font-mono">obot scan</code
-			>{m.routes_inv_no_clients_suffix()}
+			{m.inventory_enforcement_device_clients_no_clients_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_device_clients_no_clients_suffix()}
 		</p>
 	</div>
 {:else}
@@ -139,10 +139,10 @@
 		{pageSize}
 		fields={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		headers={[
-			{ title: m.routes_inv_col_name(), property: 'name' },
-			{ title: m.routes_inv_col_mcp_servers(), property: 'mcpServerCount' },
-			{ title: m.routes_inv_col_skills(), property: 'skillCount' },
-			{ title: m.routes_inv_col_users(), property: 'userCount' }
+			{ title: m.inventory_enforcement_col_name(), property: 'name' },
+			{ title: m.inventory_enforcement_device_clients_col_mcp_servers(), property: 'mcpServerCount' },
+			{ title: m.inventory_enforcement_device_clients_col_skills(), property: 'skillCount' },
+			{ title: m.inventory_enforcement_col_users(), property: 'userCount' }
 		]}
 		sortable={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		{initSort}
@@ -156,7 +156,7 @@
 				{#if d.name?.trim()}
 					{d.name.trim()}
 				{:else}
-					<span class="text-muted-content italic">{m.routes_inv_unnamed()}</span>
+					<span class="text-muted-content italic">{m.inventory_enforcement_unnamed()}</span>
 				{/if}
 			{:else}
 				{d[property as keyof (typeof rows)[number]]}
@@ -170,7 +170,7 @@
 		{lastPageIndex}
 		{total}
 		itemCountLabel={(count) =>
-			count === 1 ? m.routes_client_count_one({ count }) : m.routes_client_count_other({ count })}
+			count === 1 ? m.inventory_enforcement_device_clients_count_one({ count }) : m.inventory_enforcement_device_clients_count_other({ count })}
 		{loading}
 		onPageChange={fetchPage}
 	/>

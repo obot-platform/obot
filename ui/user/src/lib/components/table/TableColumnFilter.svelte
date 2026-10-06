@@ -94,6 +94,6 @@
 		selected={fields.filter((_f, index) => !hiddenFieldIndices.has(index)).join(',')}
 		placeholder={m.core_filter_columns_placeholder()}
 		onClearAll={showReset ? onReset : undefined}
-		clearAllLabel={m.core_reset()}
+		clearAllLabel={m.core_reset_shared()}
 	/>
 </div>

@@ -21,14 +21,14 @@
 		try {
 			exportData = (await AdminService.getAuditLogExport(exportId)) as AuditLogExport;
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.routes_audit_failed_load_export();
+			error = err instanceof Error ? err.message : m.audit_usage_audit_logs_failed_load_export();
 		} finally {
 			loading = false;
 		}
 	});
 
 	const duration = PAGE_TRANSITION_DURATION;
-	let title = $derived(exportData?.name ?? m.routes_audit_view_export());
+	let title = $derived(exportData?.name ?? m.audit_usage_audit_logs_view_export());
 </script>
 
 <Layout classes={{ navbar: 'bg-base-200' }} {title} showBackButton>
@@ -36,7 +36,7 @@
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
 				<Loading class="size-8" />
-				<span class="ml-2 text-lg">{m.routes_audit_loading_export_details()}</span>
+				<span class="ml-2 text-lg">{m.audit_usage_audit_logs_loading_export_details()}</span>
 			</div>
 		{:else if error}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
@@ -44,7 +44,7 @@
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-5 text-error" />
 						<span class="text-sm font-medium text-error"
-							>{m.routes_audit_error_loading_export()}</span
+							>{m.audit_usage_audit_logs_error_loading_export()}</span
 						>
 					</div>
 					<p class="mt-2 text-sm text-error">{error}</p>
@@ -64,5 +64,5 @@
 </Layout>
 
 <svelte:head>
-	<title>{m.routes_audit_obot_title({ title })}</title>
+	<title>{m.audit_usage_audit_logs_obot_title({ title })}</title>
 </svelte:head>

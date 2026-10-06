@@ -173,8 +173,8 @@
 
 			const allLabel = owner
 				? isMe
-					? m.admin_forms_acr_everything_in_my_registry()
-					: m.admin_forms_acr_everything_in_owner_registry({ owner })
+					? m.mcps_access_policies_everything_in_my_registry()
+					: m.mcps_access_policies_everything_in_owner_registry({ owner })
 				: all.label;
 
 			return {
@@ -217,7 +217,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.admin_forms_acr_delete_catalog() }}
+						tooltip={{ text: m.mcps_access_policies_delete_catalog() }}
 						onclick={() => {
 							deletingRule = true;
 						}}
@@ -238,7 +238,7 @@
 							for={MCP_ACCESS_POLICY_FIELD_IDS.name}
 							class="flex-1 text-sm font-light capitalize"
 						>
-							{m.admin_forms_name()}
+							{m.core_name()}
 						</label>
 						<input
 							id={MCP_ACCESS_POLICY_FIELD_IDS.name}
@@ -253,7 +253,7 @@
 
 		<div id={MCP_ACCESS_POLICY_FIELD_IDS.usersGroupsSection} class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_forms_acr_users_groups()}</h2>
+				<h2 class="text-lg font-semibold">{m.mcps_access_policies_users_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
@@ -263,7 +263,7 @@
 								disabled
 							>
 								<Plus class="size-4" />
-								{m.admin_forms_acr_add_user_group()}
+								{m.mcps_access_policies_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -274,7 +274,7 @@
 								}}
 							>
 								<Plus class="size-4" />
-								{m.admin_forms_acr_add_user_group()}
+								{m.mcps_access_policies_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -294,10 +294,10 @@
 					data={tableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.admin_forms_name() },
-						{ property: 'type', title: m.admin_forms_type() }
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
 					]}
-					noDataMessage={m.admin_forms_acr_no_users_groups()}
+					noDataMessage={m.mcps_access_policies_no_users_groups()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -308,7 +308,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: m.admin_forms_acr_delete_user_group() }}
+								tooltip={{ text: m.mcps_access_policies_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -320,7 +320,7 @@
 
 		<div id={MCP_ACCESS_POLICY_FIELD_IDS.serversSection} class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_forms_acr_servers()}</h2>
+				<h2 class="text-lg font-semibold">{m.mcps_access_policies_servers()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -331,7 +331,7 @@
 							}}
 						>
 							<Plus class="size-4" />
-							{m.admin_forms_acr_add_server()}
+							{m.mcps_access_policies_add_server()}
 						</button>
 					</div>
 				{/if}
@@ -339,7 +339,7 @@
 			<Table
 				data={mcpServersTableData}
 				fields={['name']}
-				noDataMessage={m.admin_forms_acr_no_entries_servers()}
+				noDataMessage={m.mcps_access_policies_no_entries_servers()}
 			>
 				{#snippet actions(d)}
 					{#if !readonly}
@@ -349,7 +349,7 @@
 								accessControlRule.resources =
 									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
 							}}
-							tooltip={{ text: m.admin_forms_acr_remove_mcp_server() }}
+							tooltip={{ text: m.mcps_access_policies_remove_mcp_server() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -397,7 +397,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -414,7 +414,7 @@
 							saving = false;
 						}}
 					>
-						{m.admin_forms_reset()}
+						{m.mcps_access_policies_reset()}
 					</button>
 					<button
 						class="btn btn-primary"
@@ -441,7 +441,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_update()}
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -498,7 +498,7 @@
 />
 
 <Confirm
-	msg={m.admin_forms_delete_named({ name: accessControlRule.displayName })}
+	msg={m.core_delete_named_form({ name: accessControlRule.displayName })}
 	show={deletingRule}
 	onsuccess={async () => {
 		if (!accessControlRule.id || !id) return;

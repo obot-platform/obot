@@ -62,7 +62,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				value={query}
 				onChange={updateSearchQuery}
-				placeholder={m.routes_skills_search_sources()}
+				placeholder={m.skills_search_sources()}
 			/>
 		</div>
 	</div>
@@ -74,14 +74,14 @@
 			headers={[
 				{
 					property: 'displayName',
-					title: m.routes_skills_col_name()
+					title: m.skills_col_name()
 				},
 				{
 					property: 'repoURL',
-					title: m.routes_skills_col_url()
+					title: m.skills_col_url()
 				}
 			]}
-			noDataMessage={m.routes_skills_no_source_urls_added()}
+			noDataMessage={m.skills_no_source_urls_added()}
 			setRowClasses={(d) => {
 				if (d.syncError) {
 					return 'bg-warning/10';
@@ -139,7 +139,7 @@
 									onOpenSyncError(d.repoURL, d.syncError ?? '');
 								}}
 								use:tooltip={{
-									text: m.routes_skills_sync_error_tooltip(),
+									text: m.skills_sync_error_tooltip(),
 									classes: ['wrap-break-word']
 								}}
 							>
@@ -164,10 +164,10 @@
 					>
 						{#if isSyncing}
 							<Loading class="size-4" />
-							{m.routes_skills_syncing()}
+							{m.skills_syncing()}
 						{:else}
 							<RefreshCcw class="size-4" />
-							{m.routes_skills_sync()}
+							{m.skills_sync()}
 						{/if}
 					</button>
 					<button
@@ -178,7 +178,7 @@
 						disabled={isAdminReadonly}
 					>
 						<Trash2 class="size-4" />
-						{m.routes_skills_delete()}
+						{m.skills_delete()}
 					</button>
 				</div>
 			{/snippet}
@@ -186,10 +186,10 @@
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<PencilRuler class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.routes_skills_no_source_urls()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.skills_no_source_urls()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.routes_skills_no_source_urls_desc_line1()} <br />
-				{m.routes_skills_no_source_urls_desc_line2()}
+				{m.skills_no_source_urls_desc_line1()} <br />
+				{m.skills_no_source_urls_desc_line2()}
 			</p>
 		</div>
 	{/if}

@@ -59,7 +59,7 @@
 		{:else}
 			<img src={provider.icon} alt={provider.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		{m.admin_forms_list_models_title({ provider: provider.name })}
+		{m.models_providers_list_models_title({ provider: provider.name })}
 	{/snippet}
 	{#if provider}
 		<form class="flex flex-col gap-4" onsubmit={(e) => e.preventDefault()}>
@@ -76,9 +76,9 @@
 					data={modelsByProvider}
 					fields={['name', 'usage', 'active']}
 					headers={[
-						{ property: 'name', title: m.admin_forms_name() },
-						{ property: 'usage', title: m.admin_forms_list_models_usage() },
-						{ property: 'active', title: m.admin_forms_list_models_active() }
+						{ property: 'name', title: m.core_name() },
+						{ property: 'usage', title: m.models_providers_list_models_usage() },
+						{ property: 'active', title: m.models_providers_list_models_active() }
 					]}
 					classes={{ root: 'dark:bg-base-200' }}
 					setRowClasses={(row) => {
@@ -99,7 +99,7 @@
 										modelsByProvider[index].active = value;
 									}
 								}}
-								label={m.admin_forms_list_models_toggle_active()}
+								label={m.models_providers_list_models_toggle_active()}
 								disabled={readonly}
 							/>
 						{:else if field === 'usage'}

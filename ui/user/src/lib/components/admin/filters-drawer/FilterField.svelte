@@ -63,7 +63,7 @@
 			shouldShowResetButton
 				? {
 						id: 'reset',
-						label: m.admin_sub_filter_reset(),
+						label: m.audit_usage_exports_filter_reset(),
 						onclick: () => onReset?.(),
 						class: 'text-primary opacity-80 hover:opacity-90 active:opacity-100'
 					}
@@ -73,8 +73,8 @@
 						id: 'clear',
 						label:
 							parseMultiValue(value).length > 1
-								? m.admin_sub_filter_clear_all()
-								: m.admin_sub_filter_clear(),
+								? m.audit_usage_exports_filter_clear_all()
+								: m.audit_usage_exports_filter_clear(),
 						onclick: () => onClearAll?.(),
 						class: 'opacity-50 hover:opacity-80 active:opacity-100'
 					}
@@ -97,7 +97,7 @@
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-1">
 			<label for={filter.property} class="text-md font-light capitalize">
-				{m.admin_sub_filter_by_label({ label: filter.label })}
+				{m.audit_usage_exports_filter_by_label({ label: filter.label })}
 			</label>
 			{#if filter.tooltip}
 				<InfoTooltip text={filter.tooltip} popoverWidth="fit" />

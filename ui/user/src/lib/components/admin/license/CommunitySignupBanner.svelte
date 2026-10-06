@@ -20,13 +20,13 @@
 			{COMMUNITY_SIGNUP_BANNER_COPY}
 		</p>
 		<a href={resolve('/admin/platform?view=license')} class="btn btn-xs btn-primary shrink-0">
-			{m.admin_sub_license_register()}
+			{m.platform_license_notice_register()}
 		</a>
 		<button
 			class="btn btn-circle text-primary hover:text-base-content btn-xs w-fit h-fit p-0.5 dark:hover:bg-base-400"
 			onclick={onDismiss}
 			type="button"
-			aria-label={m.admin_sub_license_dismiss_banner()}
+			aria-label={m.platform_license_notice_dismiss_banner()}
 		>
 			<X class="size-3" />
 		</button>

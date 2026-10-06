@@ -16,10 +16,10 @@
 {#snippet statusBadge()}
 	{@const badgeClass = connection ? 'badge-success' : known ? 'badge-neutral' : 'badge-secondary'}
 	{@const badgeText = connection
-		? m.admin_forms_tunnel_connected()
+		? m.mcps_tunnels_connected()
 		: known
-			? m.admin_forms_tunnel_disconnected()
-			: m.admin_forms_tunnel_unknown()}
+			? m.mcps_tunnels_disconnected()
+			: m.mcps_tunnels_unknown()}
 	{@const BadgeIcon = connection ? CircleCheck : known ? CircleMinus : CircleQuestionMark}
 	<span
 		class={twMerge('badge badge-soft badge-sm gap-1', badgeClass)}
@@ -38,9 +38,9 @@
 	>
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div class="flex flex-col gap-1">
-				<h2 class="text-sm font-semibold">{m.admin_forms_tunnel_connection_status()}</h2>
+				<h2 class="text-sm font-semibold">{m.mcps_tunnels_connection_status()}</h2>
 				<p class="text-muted-content text-xs font-light">
-					{m.admin_forms_tunnel_status_refreshes()}
+					{m.mcps_tunnels_status_refreshes()}
 				</p>
 			</div>
 			{@render statusBadge()}
@@ -48,11 +48,11 @@
 
 		<p class="text-muted-content text-sm font-light">
 			{#if connection}
-				{m.admin_forms_tunnel_client_connected()}
+				{m.mcps_tunnels_client_connected()}
 			{:else if known}
-				{m.admin_forms_tunnel_no_client_connected()}
+				{m.mcps_tunnels_no_client_connected()}
 			{:else}
-				{m.admin_forms_tunnel_status_unavailable()}
+				{m.mcps_tunnels_status_unavailable()}
 			{/if}
 		</p>
 	</section>

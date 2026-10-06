@@ -45,10 +45,10 @@
 				displayName: tunnel.manifest.displayName?.trim() || tunnel.id,
 				status:
 					connections === undefined
-						? m.routes_mcp_unknown()
+						? m.mcps_unknown()
 						: connection
-							? m.routes_mcp_status_connected()
-							: m.routes_mcp_status_disconnected()
+							? m.mcps_tunnels_status_connected()
+							: m.mcps_tunnels_status_disconnected()
 			};
 		});
 	});
@@ -79,31 +79,31 @@
 {:else if localTunnels.length === 0}
 	<div class="mx-auto mt-12 flex w-md max-w-full flex-col items-center gap-4 text-center">
 		<Cable class="text-muted-content size-24 opacity-25" />
-		<h2 class="text-muted-content text-lg font-semibold">{m.routes_mcp_no_mcp_tunnels()}</h2>
+		<h2 class="text-muted-content text-lg font-semibold">{m.mcps_tunnels_no_mcp_tunnels()}</h2>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_mcp_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
-			{m.routes_mcp_tunnels_description_suffix()}
+			{m.mcps_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
+			{m.mcps_tunnels_description_suffix()}
 		</p>
 		{#if !isReadonly}
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={createTunnel}>
 				<Plus class="size-4" />
-				{m.routes_mcp_create_mcp_tunnel()}
+				{m.mcps_tunnels_create_mcp_tunnel()}
 			</button>
 		{/if}
 	</div>
 {:else}
 	<div class="flex flex-col gap-6">
 		<p class="text-muted-content text-sm">
-			{m.routes_mcp_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
-			{m.routes_mcp_tunnels_description_suffix()}
+			{m.mcps_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
+			{m.mcps_tunnels_description_suffix()}
 		</p>
 		<Table
 			data={tableData}
 			fields={['displayName', 'status', 'allowedURLs']}
 			headers={[
-				{ title: m.routes_mcp_col_name(), property: 'displayName' },
-				{ title: m.routes_mcp_col_status(), property: 'status' },
-				{ title: m.routes_mcp_col_allowed_urls(), property: 'allowedURLs' }
+				{ title: m.mcps_col_name(), property: 'displayName' },
+				{ title: m.mcps_col_status(), property: 'status' },
+				{ title: m.mcps_tunnels_col_allowed_urls(), property: 'allowedURLs' }
 			]}
 			filterable={['displayName', 'status']}
 			sortable={['displayName', 'status']}
@@ -119,7 +119,7 @@
 							event.stopPropagation();
 							tunnelToDelete = tunnel;
 						}}
-						tooltip={{ text: m.routes_mcp_delete_tunnel() }}
+						tooltip={{ text: m.mcps_tunnels_delete_tunnel() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -145,11 +145,11 @@
 
 <Confirm
 	msg={tunnelToDelete?.manifest.displayName || tunnelToDelete?.id
-		? m.routes_mcp_delete_named({
+		? m.mcps_delete_named({
 				name: tunnelToDelete.manifest.displayName || tunnelToDelete.id
 			})
-		: m.routes_mcp_delete_this_tunnel()}
-	note={m.routes_mcp_delete_tunnel_note()}
+		: m.mcps_tunnels_delete_this_tunnel()}
+	note={m.mcps_tunnels_delete_tunnel_note()}
 	show={Boolean(tunnelToDelete)}
 	loading={deleting}
 	onsuccess={async () => {
@@ -159,7 +159,7 @@
 			await AdminService.deleteMCPTunnel(tunnelToDelete.id);
 			localTunnels = localTunnels.filter((tunnel) => tunnel.id !== tunnelToDelete?.id);
 			mcpTunnels = localTunnels;
-			success.add(m.routes_mcp_tunnel_deleted());
+			success.add(m.mcps_tunnels_tunnel_deleted());
 			tunnelToDelete = undefined;
 		} finally {
 			deleting = false;

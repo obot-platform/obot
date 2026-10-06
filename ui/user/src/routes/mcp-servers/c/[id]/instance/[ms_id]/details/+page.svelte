@@ -17,7 +17,7 @@
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
 	let mcpServer = $state<MCPCatalogServer>();
-	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? m.routes_mcp_unknown());
+	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? m.mcps_unknown());
 
 	async function fetchUserInfo() {
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
@@ -58,7 +58,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<p>{m.routes_mcp_server_info_unavailable()}</p>
+					<p>{m.mcps_server_info_unavailable()}</p>
 				</div>
 			</div>
 		{/if}

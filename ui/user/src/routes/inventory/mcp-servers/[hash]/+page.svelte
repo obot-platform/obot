@@ -67,11 +67,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_invd_page_title_mcp_server()}</title>
+	<title>{m.inventory_enforcement_device_mcp_servers_page_title_mcp_server()}</title>
 </svelte:head>
 
 <Layout
-	title={m.routes_invd_mcp_server()}
+	title={m.inventory_enforcement_mcp_server()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -87,7 +87,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_mcp_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_mcp_servers_mcp_not_found()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -95,27 +95,27 @@
 						{#if detail.name?.trim()}
 							{detail.name}
 						{:else}
-							<span class="text-muted-content italic">{m.routes_invd_unnamed()}</span>
+							<span class="text-muted-content italic">{m.inventory_enforcement_device_mcp_servers_unnamed()}</span>
 						{/if}
 						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span
 							>{detail.deviceCount === 1
-								? m.routes_invd_devices_count_one({ count: detail.deviceCount })
-								: m.routes_invd_devices_count_other({ count: detail.deviceCount })}</span
+								? m.inventory_enforcement_devices_count_one({ count: detail.deviceCount })
+								: m.inventory_enforcement_devices_count_other({ count: detail.deviceCount })}</span
 						>
 						<span>·</span>
 						<span
 							>{detail.userCount === 1
-								? m.routes_invd_users_count_one({ count: detail.userCount })
-								: m.routes_invd_users_count_other({ count: detail.userCount })}</span
+								? m.inventory_enforcement_users_count_one({ count: detail.userCount })
+								: m.inventory_enforcement_users_count_other({ count: detail.userCount })}</span
 						>
 						<span>·</span>
 						<span
 							>{detail.clientCount === 1
-								? m.routes_invd_clients_count_one({ count: detail.clientCount })
-								: m.routes_invd_clients_count_other({ count: detail.clientCount })}</span
+								? m.inventory_enforcement_device_mcp_servers_clients_count_one({ count: detail.clientCount })
+								: m.inventory_enforcement_device_mcp_servers_clients_count_other({ count: detail.clientCount })}</span
 						>
 					</div>
 				</div>
@@ -124,7 +124,7 @@
 					{#if detail.command}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase"
-								>{m.routes_invd_label_command()}</span
+								>{m.inventory_enforcement_label_command()}</span
 							>
 							<code class="font-mono text-xs break-all">
 								{[detail.command, ...(detail.args ?? [])].join(' ')}
@@ -133,14 +133,14 @@
 					{/if}
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-content text-xs uppercase">{m.routes_invd_label_url()}</span>
+							<span class="text-muted-content text-xs uppercase">{m.inventory_enforcement_label_url()}</span>
 							<p class="text-sm break-all">{detail.url}</p>
 						</div>
 					{/if}
 					{#if detail.envKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase"
-								>{m.routes_invd_label_env_keys()}</span
+								>{m.inventory_enforcement_label_env_keys()}</span
 							>
 							<div class="flex flex-wrap gap-2">
 								{#each detail.envKeys as k (k)}
@@ -152,7 +152,7 @@
 					{#if detail.headerKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase"
-								>{m.routes_invd_label_header_keys()}</span
+								>{m.inventory_enforcement_label_header_keys()}</span
 							>
 							<div class="flex flex-wrap gap-2">
 								{#each detail.headerKeys as k (k)}
@@ -166,17 +166,17 @@
 
 			<div class="flex flex-col gap-2">
 				<h3 class="text-muted-content text-sm font-semibold">
-					{m.routes_invd_occurrences({ count: total })}
+					{m.inventory_enforcement_occurrences({ count: total })}
 				</h3>
 				<Table
 					data={rows}
 					fields={['rowIndex', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
 						{ title: '#', property: 'rowIndex' },
-						{ title: m.routes_invd_col_device(), property: 'shortDeviceID' },
-						{ title: m.routes_invd_col_scanned(), property: 'scannedRelative' },
-						{ title: m.routes_invd_col_client(), property: 'client' },
-						{ title: m.routes_invd_col_scope(), property: 'scope' }
+						{ title: m.inventory_enforcement_col_device(), property: 'shortDeviceID' },
+						{ title: m.inventory_enforcement_col_scanned(), property: 'scannedRelative' },
+						{ title: m.inventory_enforcement_col_client(), property: 'client' },
+						{ title: m.inventory_enforcement_col_scope(), property: 'scope' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(

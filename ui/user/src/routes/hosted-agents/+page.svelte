@@ -25,23 +25,23 @@
 	);
 	let createTitle = $derived(
 		selectedView === 'access-policies'
-			? m.chat_ha_create_access_policy()
-			: m.chat_ha_create_template()
+			? m.hosted_agents_create_access_policy()
+			: m.hosted_agents_create_template()
 	);
 
 	let harnessesView = $state<ReturnType<typeof HarnessesView>>();
 	let configSourcesView = $state<ReturnType<typeof ConfigSourcesView>>();
 
 	let views = $derived.by(() => {
-		const items: TabView[] = [{ label: m.chat_ha_tab_agents(), value: 'agents', content: agents }];
+		const items: TabView[] = [{ label: m.hosted_agents_agents_tab(), value: 'agents', content: agents }];
 		if (hasAdminAccess) {
 			items.push(
-				{ label: m.chat_ha_tab_templates(), value: 'templates', content: templates },
-				{ label: m.chat_ha_tab_harnesses(), value: 'harnesses', content: harnesses },
-				{ label: m.chat_ha_tab_pools(), value: 'pools', content: pools },
-				{ label: m.chat_ha_tab_config_sources(), value: 'config-sources', content: configSources },
+				{ label: m.hosted_agents_templates_tab(), value: 'templates', content: templates },
+				{ label: m.hosted_agents_harnesses_tab(), value: 'harnesses', content: harnesses },
+				{ label: m.hosted_agents_pools_tab(), value: 'pools', content: pools },
+				{ label: m.hosted_agents_config_sources_tab(), value: 'config-sources', content: configSources },
 				{
-					label: m.chat_ha_tab_access_policies(),
+					label: m.hosted_agents_access_policies_tab(),
 					value: 'access-policies',
 					content: accessPolicy
 				}
@@ -90,7 +90,7 @@
 			onclick={() => showCreate(view)}
 		>
 			<Plus class="size-4" />
-			{m.chat_ha_add_template()}
+			{m.hosted_agents_templates_add_template()}
 		</button>
 	{:else if !isAdminReadonly && view === 'harnesses'}
 		<button
@@ -98,7 +98,7 @@
 			onclick={() => harnessesView?.openCreate()}
 		>
 			<Plus class="size-4" />
-			{m.chat_ha_add_harness()}
+			{m.hosted_agents_harnesses_add_harness()}
 		</button>
 	{:else if !isAdminReadonly && view === 'config-sources'}
 		<button
@@ -106,7 +106,7 @@
 			onclick={() => configSourcesView?.openCreate()}
 		>
 			<Plus class="size-4" />
-			{m.chat_ha_add_config_source()}
+			{m.hosted_agents_config_sources_add_config_source()}
 		</button>
 	{:else if !isAdminReadonly && view === 'access-policies'}
 		<button
@@ -114,7 +114,7 @@
 			onclick={() => showCreate(view)}
 		>
 			<Plus class="size-4" />
-			{m.chat_ha_add_access_policy()}
+			{m.hosted_agents_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}

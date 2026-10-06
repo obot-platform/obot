@@ -12,22 +12,22 @@
 	let { questions = $bindable([]), readonly }: Props = $props();
 
 	const TYPES: { value: HostedAgentQuestionType; label: string; hint: string }[] = [
-		{ value: 'string', label: m.admin_forms_q_type_text(), hint: '' },
-		{ value: 'number', label: m.admin_forms_q_type_number(), hint: '' },
+		{ value: 'string', label: m.hosted_agents_templates_questions_type_text(), hint: '' },
+		{ value: 'number', label: m.hosted_agents_templates_questions_type_number(), hint: '' },
 		{
 			value: 'boolean',
-			label: m.admin_forms_q_type_boolean(),
-			hint: m.admin_forms_q_type_boolean_hint()
+			label: m.hosted_agents_templates_questions_type_boolean(),
+			hint: m.hosted_agents_templates_questions_type_boolean_hint()
 		},
 		{
 			value: 'select',
-			label: m.admin_forms_q_type_select(),
-			hint: m.admin_forms_q_type_select_hint()
+			label: m.hosted_agents_templates_questions_type_select(),
+			hint: m.hosted_agents_templates_questions_type_select_hint()
 		},
 		{
 			value: 'schedule',
-			label: m.admin_forms_q_type_schedule(),
-			hint: m.admin_forms_q_type_schedule_hint()
+			label: m.hosted_agents_templates_questions_type_schedule(),
+			hint: m.hosted_agents_templates_questions_type_schedule_hint()
 		}
 	];
 
@@ -70,21 +70,21 @@
 <div class="flex flex-col gap-2">
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col">
-			<h2 class="text-lg font-semibold">{m.admin_forms_q_title()}</h2>
+			<h2 class="text-lg font-semibold">{m.hosted_agents_templates_questions_title()}</h2>
 			<span class="text-muted-content text-xs">
-				{m.admin_forms_q_hint()}
+				{m.hosted_agents_templates_questions_hint()}
 			</span>
 		</div>
 		{#if !readonly}
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={addQuestion}>
 				<Plus class="size-4" />
-				{m.admin_forms_q_add()}
+				{m.hosted_agents_templates_questions_add()}
 			</button>
 		{/if}
 	</div>
 
 	{#if questions.length === 0}
-		<p class="text-muted-content py-4 text-center text-sm">{m.admin_forms_q_empty()}</p>
+		<p class="text-muted-content py-4 text-center text-sm">{m.hosted_agents_templates_questions_empty()}</p>
 	{:else}
 		<div class="flex flex-col gap-3">
 			{#each questions as question, i (i)}
@@ -93,7 +93,7 @@
 				>
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="q-key-{i}" class="text-sm font-light">{m.admin_forms_key()}</label>
+							<label for="q-key-{i}" class="text-sm font-light">{m.hosted_agents_key()}</label>
 							<input
 								id="q-key-{i}"
 								bind:value={question.key}
@@ -103,17 +103,17 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="q-name-{i}" class="text-sm font-light">{m.admin_forms_q_label()}</label>
+							<label for="q-name-{i}" class="text-sm font-light">{m.hosted_agents_templates_questions_label()}</label>
 							<input
 								id="q-name-{i}"
 								bind:value={question.name}
 								class="text-input-filled"
-								placeholder={m.admin_forms_q_type_schedule()}
+								placeholder={m.hosted_agents_templates_questions_type_schedule()}
 								disabled={readonly}
 							/>
 						</div>
 						<div class="flex flex-col gap-2">
-							<label for="q-type-{i}" class="text-sm font-light">{m.admin_forms_type()}</label>
+							<label for="q-type-{i}" class="text-sm font-light">{m.core_type()}</label>
 							<select
 								id="q-type-{i}"
 								class="text-input-filled"
@@ -130,7 +130,7 @@
 							<IconButton
 								variant="danger"
 								onclick={() => removeQuestion(i)}
-								tooltip={{ text: m.admin_forms_q_remove() }}
+								tooltip={{ text: m.hosted_agents_templates_questions_remove() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -140,7 +140,7 @@
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
 							<label for="q-desc-{i}" class="text-sm font-light"
-								>{m.admin_forms_description()}</label
+								>{m.core_description()}</label
 							>
 							<input
 								id="q-desc-{i}"
@@ -151,7 +151,7 @@
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
 							<label for="q-default-{i}" class="text-sm font-light"
-								>{m.admin_forms_q_default()}</label
+								>{m.hosted_agents_templates_questions_default()}</label
 							>
 							{#if question.type === 'select'}
 								<select
@@ -160,7 +160,7 @@
 									bind:value={question.default}
 									disabled={readonly}
 								>
-									<option value="">{m.admin_forms_q_none()}</option>
+									<option value="">{m.hosted_agents_templates_questions_none()}</option>
 									{#each (question.options ?? []).filter((o) => o) as option (option)}
 										<option value={option}>{option}</option>
 									{/each}
@@ -172,7 +172,7 @@
 									bind:value={question.default}
 									disabled={readonly}
 								>
-									<option value="">{m.admin_forms_q_none()}</option>
+									<option value="">{m.hosted_agents_templates_questions_none()}</option>
 									<option value="true">true</option>
 									<option value="false">false</option>
 								</select>
@@ -194,7 +194,7 @@
 									bind:checked={question.required}
 									disabled={readonly}
 								/>
-								{m.admin_forms_required()}
+								{m.hosted_agents_required()}
 							</label>
 							<label class="flex items-center gap-2 text-sm font-light">
 								<input
@@ -203,7 +203,7 @@
 									bind:checked={question.sensitive}
 									disabled={readonly}
 								/>
-								{m.admin_forms_sensitive()}
+								{m.hosted_agents_sensitive()}
 							</label>
 						</div>
 					</div>
@@ -215,14 +215,14 @@
 					{#if question.type === 'select'}
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center justify-between">
-								<span class="text-sm font-light">{m.admin_forms_q_options()}</span>
+								<span class="text-sm font-light">{m.hosted_agents_templates_questions_options()}</span>
 								{#if !readonly}
 									<button
 										class="btn btn-secondary flex items-center gap-1 text-xs"
 										onclick={() => addOption(i)}
 									>
 										<Plus class="size-3" />
-										{m.admin_forms_q_add_option()}
+										{m.hosted_agents_templates_questions_add_option()}
 									</button>
 								{/if}
 							</div>
@@ -231,15 +231,15 @@
 									<input
 										bind:value={question.options![oi]}
 										class="text-input-filled grow"
-										placeholder={m.admin_forms_q_option_value()}
+										placeholder={m.hosted_agents_templates_questions_option_value()}
 										disabled={readonly}
-										aria-label={m.admin_forms_q_option_n({ n: oi + 1 })}
+										aria-label={m.hosted_agents_templates_questions_option_n({ n: oi + 1 })}
 									/>
 									{#if !readonly}
 										<IconButton
 											variant="danger"
 											onclick={() => removeOption(i, oi)}
-											tooltip={{ text: m.admin_forms_q_remove_option() }}
+											tooltip={{ text: m.hosted_agents_templates_questions_remove_option() }}
 										>
 											<Trash2 class="size-4" />
 										</IconButton>
@@ -247,7 +247,7 @@
 								</div>
 							{/each}
 							{#if (question.options ?? []).length === 0}
-								<p class="text-muted-content text-xs">{m.admin_forms_q_needs_option()}</p>
+								<p class="text-muted-content text-xs">{m.hosted_agents_templates_questions_needs_option()}</p>
 							{/if}
 						</div>
 					{/if}

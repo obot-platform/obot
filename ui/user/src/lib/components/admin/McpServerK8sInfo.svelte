@@ -174,7 +174,7 @@
 					error = undefined;
 				},
 				onError: () => {
-					error = m.admin_misc_connection_failed();
+					error = m.mcps_servers_connection_failed();
 				},
 				onClose: () => {
 					console.debug(`${mcpServerId} event stream closed`);
@@ -246,7 +246,7 @@
 						error = undefined;
 					},
 					onError: () => {
-						error = m.admin_misc_connection_failed();
+						error = m.mcps_servers_connection_failed();
 					},
 					onClose: () => {
 						console.debug(`${mcpServerId} event stream closed`);
@@ -265,18 +265,18 @@
 		const details = [
 			{
 				id: 'kubernetes_deployments',
-				label: m.admin_misc_deployment(),
+				label: m.mcps_servers_deployment(),
 				value: `${info.namespace}/${info.deploymentName}`
 			},
 			{
 				id: 'last_restart',
-				label: m.admin_misc_last_restart(),
+				label: m.mcps_servers_last_restart(),
 				value: formatTimeAgo(info.lastRestart).relativeTime
 			},
 			{
 				id: 'status',
-				label: m.admin_misc_status(),
-				value: info.isAvailable ? m.admin_misc_healthy() : m.admin_misc_unhealthy()
+				label: m.mcps_servers_status(),
+				value: info.isAvailable ? m.mcps_servers_healthy() : m.mcps_servers_unhealthy()
 			}
 		];
 		return details;
@@ -345,7 +345,7 @@
 				const env = envMap.get(key);
 				envs.push({
 					id: key,
-					label: env?.name ?? m.admin_misc_unknown(),
+					label: env?.name ?? m.mcps_servers_unknown(),
 					value: env?.prefix ? env.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
 					sensitive: env?.sensitive || false,
 					file: env?.file,
@@ -355,7 +355,7 @@
 				const header = headerMap.get(key);
 				headers.push({
 					id: key,
-					label: header?.name ?? m.admin_misc_unknown(),
+					label: header?.name ?? m.mcps_servers_unknown(),
 					value: header?.prefix
 						? header.prefix + revealedValues![key]
 						: (revealedValues![key] ?? ''),
@@ -453,10 +453,10 @@
 				? 'btn btn-secondary btn-sm'
 				: 'btn btn-ghost btn-sm btn-square text-muted-content tooltip tooltip-right'}
 			disabled={refreshingEvents}
-			data-tip={m.admin_misc_refresh_events()}
+			data-tip={m.mcps_servers_refresh_events()}
 		>
 			<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
-			{hideTitle ? m.admin_misc_refresh_events() : ''}
+			{hideTitle ? m.mcps_servers_refresh_events() : ''}
 		</button>
 	{/if}
 </div>
@@ -466,7 +466,7 @@
 		<div class="flex items-center gap-3">
 			<Info class="size-6" />
 			<p>
-				{m.admin_misc_multi_user_instance_notice()}
+				{m.mcps_servers_multi_user_instance_notice()}
 			</p>
 		</div>
 	</div>
@@ -479,30 +479,30 @@
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
 					{hasAdminAccess && missingSecretBindings.length > 1
-						? m.admin_misc_missing_k8s_secrets()
-						: m.admin_misc_missing_k8s_secret()}
+						? m.mcps_servers_missing_k8s_secrets()
+						: m.mcps_servers_missing_k8s_secret_component()}
 				</p>
 			</div>
 			<div class="text-sm font-light">
 				{#if hasAdminAccess}
-					{m.admin_misc_k8s_secrets_unresolved()}
+					{m.mcps_servers_k8s_secrets_unresolved()}
 					<ul class="mt-1 list-disc pl-5">
 						{#each missingSecretBindings as binding, i (`${binding.label}/${binding.secretName}/${binding.secretKey}/${i}`)}
 							<li>
 								{#if binding.secretName && binding.secretKey}
 									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code>
-									{m.admin_misc_for_label_prefix()}
-									<strong>{binding.label}</strong>{m.admin_misc_for_label_suffix()}
+									{m.mcps_servers_for_label_prefix()}
+									<strong>{binding.label}</strong>{m.mcps_servers_for_label_suffix()}
 								{:else}
-									{m.admin_misc_secret_bound_config()} <strong>{binding.label}</strong>
+									{m.mcps_servers_secret_bound_config()} <strong>{binding.label}</strong>
 								{/if}
 							</li>
 						{/each}
 					</ul>
 				{:else}
-					{m.admin_misc_k8s_secret_unresolved_single()}
+					{m.mcps_servers_k8s_secret_unresolved_single()}
 				{/if}
-				<p class="mt-2">{m.admin_misc_details_logs_unavailable()}</p>
+				<p class="mt-2">{m.mcps_servers_details_logs_unavailable()}</p>
 			</div>
 		</div>
 	</div>
@@ -535,7 +535,7 @@
 				{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
 				{#if catalogEntry?.manifest.runtime === 'remote'}
 					<div>
-						<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_headers()}</h2>
+						<h2 class="mb-2 text-lg font-semibold">{m.mcps_servers_headers()}</h2>
 						{#if headers.length > 0}
 							<div class="flex flex-col gap-2">
 								{#each headers as h (h.id)}
@@ -544,14 +544,14 @@
 							</div>
 						{:else}
 							<span class="text-muted-content text-sm font-light"
-								>{m.admin_misc_no_configured_headers()}</span
+								>{m.mcps_servers_no_configured_headers()}</span
 							>
 						{/if}
 					</div>
 				{/if}
 
 				<div>
-					<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_configuration()}</h2>
+					<h2 class="mb-2 text-lg font-semibold">{m.mcps_servers_configuration()}</h2>
 					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
 							{#each envs as env (env.id)}
@@ -567,7 +567,7 @@
 						</div>
 					{:else}
 						<span class="text-muted-content text-sm font-light"
-							>{m.admin_misc_no_configured_env()}</span
+							>{m.mcps_servers_no_configured_env()}</span
 						>
 					{/if}
 				</div>
@@ -575,7 +575,7 @@
 		{/if}
 
 		<div>
-			<h2 class="mb-2 text-lg font-semibold">{m.admin_misc_recent_events()}</h2>
+			<h2 class="mb-2 text-lg font-semibold">{m.mcps_servers_recent_events()}</h2>
 			{#if info?.events && info.events.length > 0}
 				{@const tableData = info.events.map((event, index) => ({
 					id: `${event.time}-${index}`,
@@ -585,9 +585,9 @@
 					data={tableData}
 					fields={['time', 'eventType', 'message']}
 					headers={[
-						{ title: m.admin_misc_col_time(), property: 'time' },
-						{ title: m.admin_misc_col_event_type(), property: 'eventType' },
-						{ title: m.admin_misc_col_message(), property: 'message' }
+						{ title: m.mcps_servers_col_time(), property: 'time' },
+						{ title: m.mcps_servers_col_event_type(), property: 'eventType' },
+						{ title: m.mcps_servers_col_message(), property: 'message' }
 					]}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -599,7 +599,7 @@
 					{/snippet}
 				</Table>
 			{:else}
-				<span class="text-muted-content text-sm font-light">{m.admin_misc_no_events()}</span>
+				<span class="text-muted-content text-sm font-light">{m.mcps_servers_no_events()}</span>
 			{/if}
 		</div>
 	{/if}
@@ -613,11 +613,11 @@
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">
-						{m.admin_misc_user_config_required()}
+						{m.mcps_servers_user_config_required()}
 					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					{m.admin_misc_user_config_missing_notice()}
+					{m.mcps_servers_user_config_missing_notice()}
 				</span>
 			</div>
 		</div>
@@ -625,21 +625,21 @@
 
 	{#if hasAdminAccess}
 		{@const status = isPending
-			? m.admin_misc_status_pending()
+			? m.mcps_servers_status_pending()
 			: missingSecretBindings.length > 0
-				? m.admin_misc_missing_k8s_secret()
+				? m.mcps_servers_missing_k8s_secret_component()
 				: needsUpdate
-					? m.admin_misc_status_config_required()
+					? m.mcps_servers_status_config_required()
 					: undefined}
 		<div class="flex flex-col gap-2">
 			<div
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 			>
 				<div class="grid grid-cols-2 gap-1 md:gap-4">
-					<p class="text-sm font-semibold col-span-2 md:col-span-1">{m.admin_misc_status()}</p>
+					<p class="text-sm font-semibold col-span-2 md:col-span-1">{m.mcps_servers_status()}</p>
 					<p class="text-sm font-light col-span-2 md:col-span-1">
 						{status ??
-							m.admin_misc_status_error_detail({ message: parseErrorContent(error).message })}
+							m.mcps_servers_status_error_detail({ message: parseErrorContent(error).message })}
 					</p>
 				</div>
 			</div>
@@ -671,7 +671,7 @@
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />
-						{m.admin_misc_restart()}
+						{m.mcps_servers_restart()}
 					</button>
 				{:else if id === 'kubernetes_deployments' && !readonly}
 					{#await listK8sSettingsStatus}
@@ -686,7 +686,7 @@
 								onclick={() => (showUpdateK8sSettingsConfirm = true)}
 							>
 								<CircleFadingArrowUp class="size-3" />
-								{m.admin_misc_redeploy_latest_settings()}
+								{m.mcps_servers_redeploy_latest_settings()}
 							</button>
 						{/if}
 					{/await}
@@ -713,24 +713,24 @@
 				{#if secretBinding}
 					<span class="text-muted-content flex flex-wrap items-center gap-2 text-sm">
 						<span>
-							{m.admin_misc_k8s_secret_label()} <code class="font-mono">{secretBinding.name}</code>
+							{m.mcps_servers_k8s_secret_label()} <code class="font-mono">{secretBinding.name}</code>
 							/
 							<code class="font-mono">{secretBinding.key}</code>
 						</span>
 						{#if file}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-								title={m.admin_misc_file_badge_title()}
+								title={m.mcps_servers_file_badge_title()}
 							>
-								{m.admin_misc_file_badge()}
+								{m.mcps_servers_file_badge()}
 							</span>
 						{/if}
 						{#if dynamicFile}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
-								title={m.admin_misc_dynamic_badge_title()}
+								title={m.mcps_servers_dynamic_badge_title()}
 							>
-								{m.admin_misc_dynamic_badge()}
+								{m.mcps_servers_dynamic_badge()}
 							</span>
 						{/if}
 					</span>
@@ -746,27 +746,27 @@
 
 <Confirm
 	show={showRestartConfirm}
-	msg={m.admin_misc_restart_named({ name: title || name })}
+	msg={m.mcps_servers_restart_named({ name: title || name })}
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
-	title={m.admin_misc_confirm_restart()}
+	title={m.mcps_servers_confirm_restart()}
 	type="info"
 >
 	{#snippet note()}
-		{m.admin_misc_confirm_restart_note()}
+		{m.mcps_servers_confirm_restart_note()}
 	{/snippet}
 </Confirm>
 <Confirm
 	show={showUpdateK8sSettingsConfirm}
-	msg={m.admin_misc_redeploy_named({ name: title || name })}
+	msg={m.mcps_servers_redeploy_named({ name: title || name })}
 	onsuccess={handleRedeployWithK8sSettings}
 	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
 	loading={updatingK8sSettings}
-	title={m.admin_misc_confirm_redeploy()}
+	title={m.mcps_servers_confirm_redeploy()}
 	type="info"
 >
 	{#snippet note()}
-		{m.admin_misc_confirm_redeploy_note()}
+		{m.mcps_servers_confirm_redeploy_note()}
 	{/snippet}
 </Confirm>

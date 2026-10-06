@@ -153,7 +153,7 @@
 			const role = groupRoleMap[group.id]?.role;
 			return role ? getUserRoleLabel(role) : undefined;
 		}}
-		placeholder={m.admin_routes_groups_search_groups()}
+		placeholder={m.identity_access_groups_search_groups()}
 	/>
 {/snippet}
 
@@ -166,9 +166,9 @@
 				</div>
 				<div class="text-muted-content text-xs">
 					{#if groupRoleMap[selectedGroup.id]}
-						{m.admin_routes_groups_update_role_for_group()}
+						{m.identity_access_groups_update_role_for_group()}
 					{:else}
-						{m.admin_routes_groups_select_role_for_group()}
+						{m.identity_access_groups_select_role_for_group()}
 					{/if}
 				</div>
 			</div>
@@ -180,7 +180,7 @@
 			/>
 		{:else}
 			<div class="text-muted-content flex h-full items-center justify-center py-12 text-sm">
-				{m.admin_routes_groups_select_group_to_assign()}
+				{m.identity_access_groups_select_group_to_assign()}
 			</div>
 		{/if}
 	</div>
@@ -198,7 +198,7 @@
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
-				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label={m.admin_routes_go_back()}>
+				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label={m.identity_access_go_back()}>
 					<ChevronLeft class="size-6" />
 				</IconButton>
 			{:else if isSmallScreen}
@@ -207,9 +207,9 @@
 
 			<span class="flex-1 text-center text-lg font-semibold md:text-start md:text-xl">
 				{#if selectedGroup && groupRoleMap[selectedGroup.id]}
-					{m.admin_routes_groups_update_group_role()}
+					{m.identity_access_groups_update_group_role()}
 				{:else}
-					{m.admin_routes_groups_assign_group_role()}
+					{m.identity_access_groups_assign_group_role()}
 				{/if}
 			</span>
 		{/snippet}
@@ -219,12 +219,12 @@
 			<div class="grid flex-1 grid-cols-2 gap-8 overflow-hidden">
 				<div class="flex flex-col overflow-hidden">
 					<h4 class="mb-4 shrink-0 text-sm font-semibold">
-						{m.admin_routes_groups_select_group()}
+						{m.identity_access_groups_select_group()}
 					</h4>
 					{@render groupList()}
 				</div>
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 shrink-0 text-sm font-semibold">{m.admin_routes_assign_role()}</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">{m.identity_access_assign_role()}</h4>
 					{@render roleForm()}
 				</div>
 			</div>
@@ -233,7 +233,7 @@
 			{#if !selectedGroup}
 				<div class="flex flex-1 flex-col overflow-hidden">
 					<h4 class="mb-4 shrink-0 text-sm font-semibold">
-						{m.admin_routes_groups_select_group()}
+						{m.identity_access_groups_select_group()}
 					</h4>
 					{@render groupList()}
 				</div>
@@ -254,9 +254,9 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else if selectedGroup && groupRoleMap[selectedGroup.id]}
-					{m.admin_routes_update_role()}
+					{m.identity_access_update_role()}
 				{:else}
-					{m.admin_routes_assign_role()}
+					{m.identity_access_assign_role()}
 				{/if}
 			</button>
 		</div>

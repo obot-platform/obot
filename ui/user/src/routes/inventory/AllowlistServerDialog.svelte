@@ -117,13 +117,13 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	title={editingIndex === undefined
-		? m.routes_inv_allowlist_add_title()
-		: m.routes_inv_allowlist_edit_title()}
+		? m.inventory_enforcement_allowlist_add_title()
+		: m.inventory_enforcement_allowlist_edit_title()}
 	class="w-full max-w-lg"
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<span class="input-label">{m.routes_inv_allowlist_identify_by()}</span>
+			<span class="input-label">{m.inventory_enforcement_allowlist_identify_by()}</span>
 			<div class="flex flex-wrap gap-2">
 				{#each kinds as option (option)}
 					<button
@@ -142,7 +142,7 @@
 
 		{#if kind === 'url'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-url" class="input-label">{m.routes_inv_allowlist_server_url()}</label>
+				<label for="allowlist-url" class="input-label">{m.inventory_enforcement_allowlist_server_url()}</label>
 				<input
 					id="allowlist-url"
 					type="text"
@@ -151,13 +151,13 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					{m.routes_inv_allowlist_url_description()}
+					{m.inventory_enforcement_allowlist_url_description()}
 				</span>
 			</div>
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
 				<span id="allowlist-package-source-label" class="input-label"
-					>{m.routes_inv_allowlist_registry()}</span
+					>{m.inventory_enforcement_allowlist_registry()}</span
 				>
 				<Select
 					id="allowlist-package-source"
@@ -171,7 +171,7 @@
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-package-name" class="input-label"
-					>{m.routes_inv_allowlist_package_name()}</label
+					>{m.inventory_enforcement_allowlist_package_name()}</label
 				>
 				<input
 					id="allowlist-package-name"
@@ -183,23 +183,23 @@
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-package-version" class="input-label"
-					>{m.routes_inv_allowlist_version_optional()}</label
+					>{m.inventory_enforcement_allowlist_version_optional()}</label
 				>
 				<input
 					id="allowlist-package-version"
 					type="text"
 					bind:value={packageVersion}
-					placeholder={m.routes_inv_allowlist_any_version()}
+					placeholder={m.inventory_enforcement_allowlist_any_version()}
 					class="text-input-filled w-40"
 				/>
 				<span class="input-description">
-					{m.routes_inv_allowlist_version_description()}
+					{m.inventory_enforcement_allowlist_version_description()}
 				</span>
 			</div>
 		{:else if kind === 'hostname'}
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-hostname" class="input-label"
-					>{m.routes_inv_allowlist_hostname()}</label
+					>{m.inventory_enforcement_allowlist_hostname()}</label
 				>
 				<input
 					id="allowlist-hostname"
@@ -209,13 +209,13 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					{m.routes_inv_allowlist_hostname_description()}
+					{m.inventory_enforcement_allowlist_hostname_description()}
 				</span>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-connector" class="input-label"
-					>{m.routes_inv_allowlist_connector_name()}</label
+					>{m.inventory_enforcement_allowlist_connector_name()}</label
 				>
 				<input
 					id="allowlist-connector"
@@ -225,13 +225,13 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					{m.routes_inv_allowlist_connector_description()}
+					{m.inventory_enforcement_allowlist_connector_description()}
 				</span>
 			</div>
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="allowlist-tools" class="input-label">{m.routes_inv_allowlist_tools()}</label>
+			<label for="allowlist-tools" class="input-label">{m.inventory_enforcement_allowlist_tools()}</label>
 			{#if tools.length > 0}
 				<div class="flex flex-wrap gap-1.5 pb-1">
 					{#each tools as tool (tool)}
@@ -242,7 +242,7 @@
 							<button
 								type="button"
 								class="text-muted-content hover:text-base-content"
-								aria-label={m.routes_inv_allowlist_remove_tool({ tool })}
+								aria-label={m.inventory_enforcement_allowlist_remove_tool({ tool })}
 								onclick={() => (tools = tools.filter((candidate) => candidate !== tool))}
 							>
 								<X class="size-3" />
@@ -257,11 +257,11 @@
 				bind:value={toolDraft}
 				onkeydown={handleToolKeydown}
 				onblur={addTool}
-				placeholder={m.routes_inv_allowlist_tool_placeholder()}
+				placeholder={m.inventory_enforcement_allowlist_tool_placeholder()}
 				class="text-input-filled"
 			/>
 			<span class="input-description">
-				{m.routes_inv_allowlist_tools_description()}
+				{m.inventory_enforcement_allowlist_tools_description()}
 			</span>
 		</div>
 
@@ -274,8 +274,8 @@
 		<button class="btn btn-secondary" onclick={() => dialog?.close()}>{m.common_cancel()}</button>
 		<button class="btn btn-primary" disabled={Boolean(problem)} onclick={handleSubmit}>
 			{editingIndex === undefined
-				? m.routes_inv_allowlist_add_server()
-				: m.routes_inv_allowlist_save_server()}
+				? m.inventory_enforcement_allowlist_add_server()
+				: m.inventory_enforcement_allowlist_save_server()}
 		</button>
 	</div>
 </ResponsiveDialog>

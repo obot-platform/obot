@@ -113,15 +113,15 @@
 		if (!creating) return m.nav_mcp_servers();
 		switch (selectedView) {
 			case 'entries':
-				return m.routes_mcp_add_mcp_server();
+				return m.mcps_add_mcp_server();
 			case 'filters':
-				return m.routes_mcp_create_filter();
+				return m.mcps_filters_create_filter();
 			case 'tunnels':
-				return m.routes_mcp_create_mcp_tunnel();
+				return m.mcps_tunnels_create_mcp_tunnel();
 			case 'ai-judge-policies':
-				return m.routes_mcp_create_ai_judge_policy();
+				return m.mcps_create_ai_judge_policy();
 			case 'access-policies':
-				return m.routes_mcp_create_mcp_access_policy();
+				return m.mcps_create_mcp_access_policy();
 			default:
 				return m.nav_mcp_servers();
 		}
@@ -130,58 +130,58 @@
 		...(hasAdminAccess || isPowerUser
 			? [
 					{
-						label: m.routes_mcp_tab_servers(),
+						label: m.mcps_servers_tab(),
 						value: 'servers',
 						content: servers,
-						tooltip: m.routes_mcp_tab_servers_tooltip()
+						tooltip: m.mcps_servers_tab_tooltip()
 					}
 				]
 			: []),
 		...(hasAdminAccess
 			? [
 					{
-						label: m.routes_mcp_tab_sources(),
+						label: m.mcps_sources_tab(),
 						value: 'sources',
 						content: sources,
-						tooltip: m.routes_mcp_tab_sources_tooltip()
+						tooltip: m.mcps_sources_tab_tooltip()
 					},
 					{
-						label: m.routes_mcp_tab_deployments(),
+						label: m.mcps_deployments_tab(),
 						value: 'deployments',
 						content: deployments,
-						tooltip: m.routes_mcp_tab_deployments_tooltip()
+						tooltip: m.mcps_deployments_tab_tooltip()
 					},
 					{
-						label: m.routes_mcp_tab_filters(),
+						label: m.mcps_filters_tab(),
 						value: 'filters',
 						content: filters,
-						tooltip: m.routes_mcp_tab_filters_tooltip()
+						tooltip: m.mcps_filters_tab_tooltip()
 					},
 					{
-						label: m.routes_mcp_tab_tunnels(),
+						label: m.mcps_tunnels_tab(),
 						value: 'tunnels',
 						content: tunnels,
-						tooltip: m.routes_mcp_tab_tunnels_tooltip()
+						tooltip: m.mcps_tunnels_tab_tooltip()
 					}
 				]
 			: []),
 		...(isPowerUserPlus || hasAdminAccess
 			? [
 					{
-						label: m.routes_mcp_tab_access_policies(),
+						label: m.mcps_access_policies_tab(),
 						value: 'access-policies',
 						content: accessPolicy,
-						tooltip: m.routes_mcp_tab_access_policies_tooltip()
+						tooltip: m.mcps_access_policies_tab_tooltip()
 					}
 				]
 			: []),
 		...(hasAdminAccess && messagePoliciesEnabled
 			? [
 					{
-						label: m.routes_mcp_tab_ai_judge_policies(),
+						label: m.mcps_ai_judge_policies_tab(),
 						value: 'ai-judge-policies',
 						content: messagePolicies,
-						tooltip: m.routes_mcp_tab_ai_judge_policies_tooltip()
+						tooltip: m.mcps_ai_judge_policies_tab_tooltip()
 					}
 				]
 			: [])
@@ -314,15 +314,15 @@
 			onclick={() => selectServerTypeDialog?.open()}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_add_mcp_server()}
+			{m.mcps_add_mcp_server()}
 		</button>
 	{:else if view === 'sources' && hasAdminAccess && !isAdminReadonly}
 		<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>
 			{#if syncing}
-				<Loading class="size-4" /> {m.routes_mcp_syncing()}
+				<Loading class="size-4" /> {m.mcps_syncing()}
 			{:else}
 				<RefreshCcw class="size-4" />
-				{m.routes_mcp_sync()}
+				{m.mcps_sync()}
 			{/if}
 		</button>
 		<button
@@ -331,7 +331,7 @@
 			onclick={() => sourceDialog?.open()}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_add_source_url()}
+			{m.mcps_add_source_url()}
 		</button>
 	{:else if view === 'filters' && !isAdminReadonly}
 		{#if filtersLoading}
@@ -342,12 +342,12 @@
 			placement="bottom"
 			classes={{ popover: 'z-50' }}
 			id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
-			ariaLabel={m.routes_mcp_add_new_filter()}
+			ariaLabel={m.mcps_add_new_filter()}
 		>
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
 					<Plus class="size-4" />
-					{m.routes_mcp_add_new_filter()}
+					{m.mcps_add_new_filter()}
 				</span>
 			{/snippet}
 			<button
@@ -355,7 +355,7 @@
 				class="menu-button"
 				onclick={() => openCreate('filters')}
 			>
-				{m.routes_mcp_create_custom()}
+				{m.mcps_create_custom()}
 			</button>
 			<button
 				id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
@@ -363,7 +363,7 @@
 				disabled={data.systemCatalogEntries.length === 0}
 				onclick={() => filtersTab?.openBuiltInPicker()}
 			>
-				{m.routes_mcp_create_from_built_in()}
+				{m.mcps_create_from_built_in()}
 			</button>
 		</DotDotDot>
 	{:else if view === 'tunnels' && !isAdminReadonly}
@@ -372,7 +372,7 @@
 			onclick={() => openCreate('tunnels')}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_create_mcp_tunnel()}
+			{m.mcps_tunnels_create_mcp_tunnel()}
 		</button>
 	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
@@ -380,7 +380,7 @@
 			onclick={() => openCreate('ai-judge-policies')}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_add_ai_judge_policy()}
+			{m.mcps_add_ai_judge_policy()}
 		</button>
 	{:else if view === 'access-policies' && !isAdminReadonly}
 		<button
@@ -389,7 +389,7 @@
 			onclick={() => openCreate('access-policies')}
 		>
 			<Plus class="size-4" />
-			{m.routes_mcp_add_access_policy()}
+			{m.mcps_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -461,9 +461,9 @@
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_mcp_no_created_servers()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_no_created_servers()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_mcp_no_created_servers_description()}
+			{m.mcps_no_created_servers_description()}
 		</p>
 	</div>
 {/snippet}

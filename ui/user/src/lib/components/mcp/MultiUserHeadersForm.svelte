@@ -20,9 +20,9 @@
 	id={CATALOG_SERVER_FIELD_IDS.headers}
 >
 	<div class="flex flex-col gap-1">
-		<h4 class="text-sm font-semibold">{m.mcp_headers_title()}</h4>
+		<h4 class="text-sm font-semibold">{m.mcps_catalog_headers_title()}</h4>
 		<p class="text-muted-content text-xs font-light">
-			{m.mcp_headers_description()}
+			{m.mcps_catalog_headers_description()}
 		</p>
 	</div>
 
@@ -34,7 +34,7 @@
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-name-${i}`} class="text-sm font-light"
-							>{m.mcp_field_name()}</label
+							>{m.mcps_field_name()}</label
 						>
 						<input
 							id={`multi-user-header-name-${i}`}
@@ -46,7 +46,7 @@
 
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-description-${i}`} class="text-sm font-light"
-							>{m.mcp_field_description()}</label
+							>{m.mcps_field_description()}</label
 						>
 						<input
 							id={`multi-user-header-description-${i}`}
@@ -58,13 +58,13 @@
 
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-key-${i}`} class="text-sm font-light"
-							>{m.mcp_field_key()}</label
+							>{m.mcps_field_key()}</label
 						>
 						<input
 							id={`multi-user-header-key-${i}`}
 							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].key}
-							placeholder={m.mcp_example({ example: 'X-API-Key' })}
+							placeholder={m.mcps_example({ example: 'X-API-Key' })}
 							disabled={readonly}
 						/>
 					</div>
@@ -74,8 +74,8 @@
 							for={`multi-user-header-prefix-${i}`}
 							class="flex items-center gap-1 text-sm font-light"
 						>
-							{m.mcp_value_prefix()}
-							<InfoTooltip text={m.mcp_value_prefix_tooltip()} popoverWidth="lg" />
+							{m.mcps_value_prefix()}
+							<InfoTooltip text={m.mcps_catalog_value_prefix_tooltip()} popoverWidth="lg" />
 						</label>
 						<input
 							id={`multi-user-header-prefix-${i}`}
@@ -89,7 +89,7 @@
 						<Toggle
 							classes={{ label: 'text-sm text-inherit' }}
 							disabled={readonly}
-							label={m.mcp_field_sensitive()}
+							label={m.mcps_field_sensitive()}
 							labelInline
 							checked={!!header.sensitive}
 							onChange={(checked) => {
@@ -99,7 +99,7 @@
 						<Toggle
 							classes={{ label: 'text-sm text-inherit' }}
 							disabled={readonly}
-							label={m.mcp_field_required()}
+							label={m.mcps_catalog_field_required()}
 							labelInline
 							checked={!!header.required}
 							onChange={(checked) => {
@@ -143,7 +143,7 @@
 				}}
 			>
 				<Plus class="size-4" />
-				{m.mcp_config_usage_header()}
+				{m.mcps_config_usage_header()}
 			</button>
 		</div>
 	{/if}

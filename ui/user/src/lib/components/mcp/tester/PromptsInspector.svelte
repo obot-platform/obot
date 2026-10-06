@@ -79,23 +79,23 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">{m.mcp_tester_prompts()}</h2>
+	<h2 class="sr-only">{m.mcps_tester_prompts()}</h2>
 
 	{#if cache.unsupported}
 		<div class="bg-base-200 dark:bg-base-300 shrink-0 rounded-lg p-5" role="status">
-			<h3 class="font-medium">{m.mcp_tester_not_supported()}</h3>
-			<p class="mt-1 text-sm text-muted-content">{m.mcp_tester_prompts_unsupported()}</p>
+			<h3 class="font-medium">{m.mcps_tester_not_supported()}</h3>
+			<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_prompts_unsupported()}</p>
 		</div>
 	{:else if cache.error && !cache.loading}
 		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
 			<strong
 				>{cache.errorStatus === 'cancelled'
-					? m.mcp_tester_loading_cancelled()
-					: m.mcp_tester_prompts_load_failed()}</strong
+					? m.mcps_tester_loading_cancelled()
+					: m.mcps_tester_prompts_load_failed()}</strong
 			>
 			<p class="mt-1 text-sm">{cache.error}</p>
 			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadPrompts(true)}
-				>{m.mcp_retry()}</button
+				>{m.mcps_retry()}</button
 			>
 		</div>
 	{/if}
@@ -105,7 +105,7 @@
 			class="default-scrollbar-thin grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.7fr)] md:overflow-hidden"
 		>
 			<CapabilityList
-				label={m.mcp_tester_prompts()}
+				label={m.mcps_tester_prompts()}
 				items={listItems}
 				selectedId={inspector.selectedName}
 				loading={cache.loading}
@@ -117,7 +117,7 @@
 
 			<section
 				class="default-scrollbar-thin min-w-0 p-1 md:min-h-0 md:overflow-y-auto"
-				aria-label={m.mcp_tester_prompt_details()}
+				aria-label={m.mcps_tester_prompt_details()}
 			>
 				{#if selected}
 					<div class="space-y-5">
@@ -130,7 +130,7 @@
 						</div>
 
 						{#if selected.arguments?.length}
-							<div class="space-y-3" aria-label={m.mcp_tester_prompt_arguments()}>
+							<div class="space-y-3" aria-label={m.mcps_tester_prompt_arguments()}>
 								{#each selected.arguments as argument (argument.name)}
 									<div class="space-y-1">
 										<label
@@ -161,7 +161,7 @@
 								onclick={getPrompt}
 							>
 								<Play class="size-4" aria-hidden="true" />
-								{m.mcp_tester_get_prompt()}
+								{m.mcps_tester_get_prompt()}
 							</button>
 							{#if getActive}
 								<button class="btn btn-secondary" onclick={() => session.cancelActiveWorkflow()}>
@@ -172,8 +172,8 @@
 						</div>
 
 						{#if inspector.result?.value}
-							<section class="space-y-3" aria-label={m.mcp_tester_resolved_prompt_preview()}>
-								<h4 class="font-medium">{m.mcp_tester_resolved_messages()}</h4>
+							<section class="space-y-3" aria-label={m.mcps_tester_resolved_prompt_preview()}>
+								<h4 class="font-medium">{m.mcps_tester_resolved_messages()}</h4>
 								{#each inspector.result.value.messages as message, index (index)}
 									<div class="border-base-300 dark:border-base-400 rounded-lg border p-3">
 										<p class="mb-2 text-xs font-semibold uppercase text-muted-content">
@@ -184,7 +184,7 @@
 								{/each}
 								{#if !promptSupported}
 									<p class="text-sm text-error" role="alert">
-										{m.mcp_tester_prompt_not_stageable()}
+										{m.mcps_tester_prompt_not_stageable()}
 									</p>
 								{/if}
 							</section>
@@ -200,7 +200,7 @@
 						{#if inspector.result?.status === 'success' && inspector.result.value && promptSupported}
 							<button class="btn btn-secondary" onclick={useInChat}>
 								<MessageSquarePlus class="size-4" aria-hidden="true" />
-								{m.mcp_tester_use_in_chat()}
+								{m.mcps_tester_use_in_chat()}
 							</button>
 						{/if}
 					</div>
@@ -209,9 +209,9 @@
 						class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 					>
 						{#if cache.loaded && !cache.loading && !cache.error && cache.items.length === 0}
-							{m.mcp_tester_prompts_unsupported()}
+							{m.mcps_tester_prompts_unsupported()}
 						{:else}
-							{m.mcp_tester_select_prompt()}
+							{m.mcps_tester_select_prompt()}
 						{/if}
 					</div>
 				{/if}

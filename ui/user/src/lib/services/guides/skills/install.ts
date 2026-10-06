@@ -7,8 +7,8 @@ const highlightSkillsLink: GuideHighlight = {
 	selector: {
 		id: SIDEBAR_SKILLS_LINK
 	},
-	title: m.core_guide_skills(),
-	description: m.core_guide_click_here_to_view_the_skills()
+	title: m.skills_guides_skills(),
+	description: m.skills_guides_click_here_to_view_the_skills()
 };
 
 const listenSkillsLink: GuideListener = {
@@ -20,7 +20,7 @@ const listenSkillsLink: GuideListener = {
 
 export const steps: GuideStep[] = [
 	{
-		content: [m.core_guide_to_get_started_view_the_skills()],
+		content: [m.skills_guides_to_get_started_view_the_skills()],
 		action: [
 			{
 				elementExists: SIDEBAR_SKILLS_LINK,
@@ -33,19 +33,19 @@ export const steps: GuideStep[] = [
 				listener: listenSkillsLink,
 				parentID: SIDEBAR_AI_RESOURCES_COLLAPSE,
 				title: m.core_guide_expand_ai_resources(),
-				description: m.core_guide_expand_ai_resources_to_access_skills()
+				description: m.skills_guides_expand_ai_resources_to_access_skills()
 			})
 		]
 	},
 	{
-		content: [m.core_guide_for_the_purpose_of_this_guide()],
+		content: [m.skills_guides_for_the_purpose_of_this_guide()],
 		action: {
 			highlight: {
 				selector: {
 					beginsWith: ['install-skill-btn-container']
 				},
-				title: m.core_guide_install_skill(),
-				description: m.core_guide_click_here_to_begin_installing_the(),
+				title: m.skills_guides_install_skill(),
+				description: m.skills_guides_click_here_to_begin_installing_the(),
 				side: 'left',
 				align: 'end'
 			},
@@ -58,14 +58,14 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: [m.core_guide_to_install_the_skill_follow_the()],
+		content: [m.skills_guides_to_install_the_skill_follow_the()],
 		action: {
 			highlight: {
 				selector: {
 					id: 'download-skill-container'
 				},
-				title: m.core_guide_download_the_zip_file(),
-				description: m.core_guide_to_install_the_skill_you_ll()
+				title: m.skills_guides_download_the_zip_file(),
+				description: m.skills_guides_to_install_the_skill_you_ll()
 			},
 			listener: {
 				id: 'download-skill-container',
@@ -75,8 +75,8 @@ export const steps: GuideStep[] = [
 						selector: {
 							id: 'install-skill-os-selector'
 						},
-						title: m.core_guide_select_your_operating_system(),
-						description: m.core_guide_select_your_operating_system_to_see()
+						title: m.skills_guides_select_your_operating_system(),
+						description: m.skills_guides_select_your_operating_system_to_see()
 					},
 					listener: {
 						id: 'install-skill-os-selector',
@@ -86,8 +86,8 @@ export const steps: GuideStep[] = [
 								selector: {
 									id: 'unzip-skill-commands-container'
 								},
-								title: m.core_guide_copy_paste_the_unzip_command(),
-								description: m.core_guide_after_installing_run_the_appropriate_command()
+								title: m.skills_guides_copy_paste_the_unzip_command(),
+								description: m.skills_guides_after_installing_run_the_appropriate_command()
 							},
 							listener: {
 								id: 'unzip-skill-commands-container',
@@ -96,8 +96,8 @@ export const steps: GuideStep[] = [
 										selector: {
 											id: 'install-skill-dialog-content'
 										},
-										title: m.core_guide_try_it_out(),
-										description: m.core_guide_try_using_the_appropriate_cli_command()
+										title: m.skills_guides_try_it_out(),
+										description: m.skills_guides_try_using_the_appropriate_cli_command()
 									},
 									next: {
 										action: {
@@ -118,7 +118,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: m.core_guide_discover_install_skills(),
-	description: m.core_guide_view_the_skills_you_have_access(),
+	title: m.skills_guides_discover_install_skills(),
+	description: m.skills_guides_view_the_skills_you_have_access(),
 	id: 'skills-install-guide'
 };

@@ -100,11 +100,11 @@
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
-		{ id: 'webhook-url', label: m.admin_forms_filter_webhook_url() },
-		{ id: 'remote', label: m.admin_forms_runtime_remote() },
+		{ id: 'webhook-url', label: m.mcps_filters_webhook_url() },
+		{ id: 'remote', label: m.mcps_filters_runtime_remote() },
 		{ id: 'npx', label: 'NPX' },
 		{ id: 'uvx', label: 'UVX' },
-		{ id: 'containerized', label: m.admin_forms_runtime_containerized() }
+		{ id: 'containerized', label: m.mcps_filters_runtime_containerized() }
 	];
 
 	let saving = $state<boolean | undefined>();
@@ -118,7 +118,7 @@
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
 
-	const UNSAVED_LAUNCH_EXIT_MESSAGE = m.admin_forms_filter_unsaved_exit();
+	const UNSAVED_LAUNCH_EXIT_MESSAGE = m.mcps_filters_unsaved_exit();
 
 	beforeNavigate(({ cancel }) => {
 		if (!launchFilterData) return;
@@ -488,7 +488,7 @@
 				}
 			}
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : m.admin_forms_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -509,7 +509,7 @@
 			{@render topContent()}
 		{/if}
 		{#if !initialFilterId}
-			<h1 class="text-2xl font-semibold">{m.admin_forms_filter_create()}</h1>
+			<h1 class="text-2xl font-semibold">{m.mcps_filters_create()}</h1>
 		{/if}
 
 		<div
@@ -519,7 +519,7 @@
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
 					<label for="filter-name" class="flex-1 text-sm font-light capitalize">
-						{m.admin_forms_name()}
+						{m.core_name()}
 					</label>
 					<div class="flex grow flex-col gap-0.5">
 						<input
@@ -531,7 +531,7 @@
 							disabled={readonly}
 						/>
 						{#if nameError}
-							<p class="text-xs text-error">{m.admin_forms_name_required()}</p>
+							<p class="text-xs text-error">{m.mcps_name_required()}</p>
 						{/if}
 					</div>
 				</div>
@@ -539,7 +539,7 @@
 				{#if !mcpSystemCatalogEntryId}
 					<div class="flex flex-col gap-2">
 						<label for={MCP_FILTERS_FIELD_IDS.runtimeSelector} class="text-sm font-light"
-							>{m.admin_forms_type()}</label
+							>{m.core_type()}</label
 						>
 						<div class="w-full">
 							<Select
@@ -563,7 +563,7 @@
 			>
 				<div class="flex flex-col gap-2">
 					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
-						{m.admin_forms_filter_webhook_url()}
+						{m.mcps_filters_webhook_url()}
 					</label>
 					<input
 						id="webhook-url"
@@ -575,13 +575,13 @@
 						disabled={readonly || isPrebuiltEntry}
 					/>
 					{#if urlError}
-						<p class="text-xs text-error">{m.admin_forms_filter_webhook_url_required()}</p>
+						<p class="text-xs text-error">{m.mcps_filters_webhook_url_required()}</p>
 					{/if}
 				</div>
 
 				<div class="flex flex-col gap-2">
 					<label for="webhook-secret" class="flex-1 text-sm font-light capitalize">
-						{m.admin_forms_filter_secret_optional()}
+						{m.mcps_filters_secret_optional()}
 					</label>
 					<div class="relative">
 						<input
@@ -598,7 +598,7 @@
 								class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-muted-content hover:text-base-content dark:text-muted-content dark:hover:text-base-content"
 								onclick={() => (showSecret = !showSecret)}
 								use:tooltip={{
-									text: showSecret ? m.admin_forms_hide_secret() : m.admin_forms_show_secret(),
+									text: showSecret ? m.mcps_filters_hide_secret() : m.mcps_filters_show_secret(),
 									placement: 'top-end'
 								}}
 							>
@@ -615,7 +615,7 @@
 					{#if initialFilter?.hasSecret}
 						<div class="flex items-start justify-between gap-4">
 							<p class="flex-1 text-xs text-amber-600 dark:text-amber-400">
-								{m.admin_forms_filter_secret_configured()}
+								{m.mcps_filters_secret_configured()}
 							</p>
 							{#if !readonly}
 								<button
@@ -626,16 +626,16 @@
 								>
 									{#if removingSecret}
 										<Loading class="size-3 inline-block" />
-										{m.admin_forms_removing()}
+										{m.mcps_filters_removing()}
 									{:else}
-										{m.admin_forms_filter_remove_secret()}
+										{m.mcps_filters_remove_secret()}
 									{/if}
 								</button>
 							{/if}
 						</div>
 					{:else}
 						<p class="text-muted-content text-xs">
-							{m.admin_forms_filter_secret_hint()}
+							{m.mcps_filters_secret_hint()}
 						</p>
 					{/if}
 				</div>
@@ -729,7 +729,7 @@
 							{#if saving}
 								<Loading class="size-4" />
 							{:else}
-								{filter.disabled ? m.admin_forms_filter_enable() : m.admin_forms_filter_disable()}
+								{filter.disabled ? m.mcps_filters_enable() : m.mcps_filters_disable()}
 							{/if}
 						</button>
 					{/if}
@@ -756,7 +756,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 				</div>
@@ -768,7 +768,7 @@
 <PageLoading
 	isProgressBar
 	show={!!saving}
-	text={m.admin_forms_filter_configuring()}
+	text={m.mcps_filters_configuring()}
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{
@@ -777,7 +777,7 @@
 	onClose={handleCloseLaunch}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">{m.admin_forms_filter_launch_failed()}</h4>
+		<h4 class="text-xl font-semibold">{m.mcps_filters_launch_failed_form_filter()}</h4>
 	{/snippet}
 
 	{#snippet errorPostContent()}
@@ -792,12 +792,12 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-md self-start">{m.admin_forms_filter_launch_issue()}</p>
+			<p class="text-md self-start">{m.mcps_filters_launch_issue_form_filter()}</p>
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}
-				>{m.admin_forms_close()}</button
+				>{m.core_close()}</button
 			>
 		</div>
 	{/snippet}
@@ -817,7 +817,7 @@
 				runtimeFormData?.runtime === 'containerized' ? 'w-20' : ''
 			)}
 		>
-			{m.admin_forms_filter_tool_name()}
+			{m.mcps_filters_tool_name()}
 		</label>
 		<div class="flex grow flex-col gap-0.5">
 			<input
@@ -830,7 +830,7 @@
 				disabled={readonly || isPrebuiltEntry}
 			/>
 			{#if toolNameError}
-				<p class="text-xs text-error">{m.admin_forms_filter_tool_name_required()}</p>
+				<p class="text-xs text-error">{m.mcps_filters_tool_name_required()}</p>
 			{/if}
 		</div>
 	</div>
@@ -845,13 +845,13 @@
 					filter.allowedToMutate = checked;
 				}}
 				disabled={readonly || isPrebuiltEntry}
-				label={m.admin_forms_filter_enable_mutable()}
+				label={m.mcps_filters_enable_mutable()}
 				labelInline
 			/>
 		</div>
 
 		<p class="text-muted-content text-xs font-light">
-			{m.admin_forms_filter_mutable_hint()}
+			{m.mcps_filters_mutable_hint()}
 		</p>
 	</div>
 {/snippet}

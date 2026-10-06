@@ -56,7 +56,7 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		title = m.admin_misc_add_servers(),
+		title = m.mcps_servers_add_servers(),
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -115,7 +115,7 @@
 					deprecated: isDeprecatedMCPServer(entry),
 					registry:
 						entry.powerUserID && isAdminView
-							? m.admin_misc_users_registry({
+							? m.mcps_servers_users_registry({
 									name: getUserDisplayName(usersMap, entry.powerUserID)
 								})
 							: ''
@@ -147,7 +147,7 @@
 					deprecated: isDeprecatedMCPServer(server),
 					registry:
 						server.userID && server.powerUserWorkspaceID && isAdminView
-							? m.admin_misc_users_registry({ name: getUserDisplayName(usersMap, server.userID) })
+							? m.mcps_servers_users_registry({ name: getUserDisplayName(usersMap, server.userID) })
 							: ''
 				}))
 		].filter((item) => !exclude?.includes(item.id))
@@ -211,7 +211,7 @@
 						class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 						onChange={(val) => (search = val)}
 						value={search}
-						placeholder={m.admin_misc_search_by_name()}
+						placeholder={m.mcps_servers_search_by_name()}
 					/>
 				</div>
 
@@ -284,7 +284,7 @@
 			<div class="flex items-center gap-1 font-light">
 				{#if selected.length > 0}
 					<Server class="size-4" />
-					{m.admin_misc_n_selected({ count: selected.length })}
+					{m.core_n_selected({ count: selected.length })}
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -302,7 +302,7 @@
 					class="btn btn-primary w-full md:w-fit"
 					onclick={handleAdd}
 				>
-					{m.admin_misc_confirm()}
+					{m.core_confirm()}
 				</button>
 			</div>
 		{/if}

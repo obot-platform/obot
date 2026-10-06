@@ -20,8 +20,8 @@
 
 	let { chat, session }: Props = $props();
 	const suggestedPrompts = [
-		m.mcp_tester_suggested_test_server(),
-		m.mcp_tester_suggested_list_tools()
+		m.mcps_tester_suggested_test_server(),
+		m.mcps_tester_suggested_list_tools()
 	];
 	let messagesElement: HTMLElement;
 	let latestMessageContent = $derived.by(() => {
@@ -49,18 +49,18 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">{m.mcp_tester_chat()}</h2>
+	<h2 class="sr-only">{m.mcps_tester_chat()}</h2>
 
 	<div
 		class="default-scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-		aria-label={m.mcp_tester_chat_messages()}
+		aria-label={m.mcps_tester_chat_messages()}
 		bind:this={messagesElement}
 	>
 		{#if chat.timeline.length === 0}
 			<div
 				class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 			>
-				{m.mcp_tester_chat_empty()}
+				{m.mcps_tester_chat_empty()}
 			</div>
 		{/if}
 
@@ -68,12 +68,12 @@
 			{#if message.role === 'user'}
 				<article
 					class="ml-auto max-w-[90%] sm:max-w-[80%]"
-					aria-label={m.mcp_tester_user_message()}
+					aria-label={m.mcps_tester_user_message()}
 				>
 					<div class="bg-base-200 dark:bg-base-300 rounded-lg p-4">
 						{#if message.stagedName}
 							<p class="mb-2 text-xs font-medium text-muted-content">
-								{m.mcp_tester_staged_name({ name: message.stagedName })}
+								{m.mcps_tester_staged_name({ name: message.stagedName })}
 							</p>
 						{/if}
 						{#each message.content ?? [] as content, index (index)}
@@ -87,10 +87,10 @@
 					</div>
 				</article>
 			{:else if message.role === 'assistant'}
-				<article class="max-w-full" aria-label={m.mcp_tester_assistant_message()}>
+				<article class="max-w-full" aria-label={m.mcps_tester_assistant_message()}>
 					{#if message.stagedName}
 						<p class="mb-2 text-xs font-medium text-muted-content">
-							{m.mcp_tester_staged_name_assistant({ name: message.stagedName })}
+							{m.mcps_tester_staged_name_assistant({ name: message.stagedName })}
 						</p>
 					{/if}
 					{#if message.text}
@@ -103,7 +103,7 @@
 								<CopyButton
 									noButtonText
 									text={message.text}
-									tooltipText={m.mcp_tester_copy_response()}
+									tooltipText={m.mcps_tester_copy_response()}
 									classes={{
 										button:
 											'bg-base-200 dark:bg-base-300 hover:bg-base-300 dark:hover:bg-base-400 rounded p-1.5'
@@ -124,24 +124,24 @@
 							{/if}
 						</div>
 					{:else if message.state === 'streaming'}
-						<p class="text-sm text-muted-content">{m.mcp_tester_thinking()}</p>
+						<p class="text-sm text-muted-content">{m.mcps_tester_thinking()}</p>
 					{/if}
 					{#if completedCalls(message).length}
 						<ToolCallRecord calls={completedCalls(message)} />
 					{/if}
 					{#if message.state === 'failed'}
 						<div class="notification-error mt-3 p-3" role="alert">
-							<p class="font-medium">{m.mcp_tester_response_failed()}</p>
+							<p class="font-medium">{m.mcps_tester_response_failed()}</p>
 							<p class="mt-1 text-sm">{message.error?.message}</p>
 							{#if message.error?.retryable}
 								<button class="btn btn-secondary btn-sm mt-3" onclick={() => chat.retry()}>
 									<RotateCw class="size-4" aria-hidden="true" />
-									{m.mcp_tester_retry_response()}
+									{m.mcps_tester_retry_response()}
 								</button>
 							{/if}
 						</div>
 					{:else if message.state === 'cancelled'}
-						<p class="mt-2 text-sm text-muted-content">{m.mcp_tester_generation_stopped()}</p>
+						<p class="mt-2 text-sm text-muted-content">{m.mcps_tester_generation_stopped()}</p>
 					{/if}
 				</article>
 			{/if}
@@ -151,12 +151,12 @@
 	{#if chat.status === 'snapshotting' || chat.status === 'streaming'}
 		<p class="sr-only" aria-live="polite">
 			{chat.status === 'snapshotting'
-				? m.mcp_tester_snapshotting()
-				: m.mcp_tester_assistant_responding()}
+				? m.mcps_tester_snapshotting()
+				: m.mcps_tester_assistant_responding()}
 		</p>
 	{:else if chat.status === 'round-limit' && chat.error}
 		<div class="notification-alert mt-4 p-3" role="status">
-			<p class="font-medium">{m.mcp_tester_turn_stopped()}</p>
+			<p class="font-medium">{m.mcps_tester_turn_stopped()}</p>
 			<p class="mt-1 text-sm">{chat.error.message}</p>
 		</div>
 	{:else if chat.error && !chat.timeline.some((message) => message.error)}
@@ -169,7 +169,7 @@
 		<div
 			class="mt-3 flex flex-wrap gap-2"
 			role="group"
-			aria-label={m.mcp_tester_suggested_messages()}
+			aria-label={m.mcps_tester_suggested_messages()}
 		>
 			{#each suggestedPrompts as prompt (prompt)}
 				<button

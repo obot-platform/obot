@@ -160,7 +160,7 @@
 				dontLogErrors: true
 			});
 		} catch (err) {
-			errors.append(m.mcp_secret_targets_load_failed({ error: String(err) }));
+			errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
 			secretBindingTargets = [];
 		} finally {
 			secretBindingTargetsLoaded = true;
@@ -311,7 +311,7 @@
 		item: MCPCatalogServer,
 		currentInstance?: MCPServerInstance
 	) {
-		configureFormTitle = m.mcp_connect_user_specific_configuration();
+		configureFormTitle = m.mcps_connect_user_specific_configuration();
 		let values: Record<string, string> = {};
 		if (currentInstance) {
 			try {
@@ -396,7 +396,7 @@
 		];
 		if (missing.length === 0) return undefined;
 
-		return m.mcp_connect_missing_secret({ keys: missing.join(', ') });
+		return m.mcps_connect_missing_secret({ keys: missing.join(', ') });
 	}
 
 	async function getOauthURL() {
@@ -475,7 +475,7 @@
 			const configuredResponse = server;
 			await validateConfiguredServerAndConnect(configuredResponse);
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -514,7 +514,7 @@
 			server = response;
 		} catch (err) {
 			console.error('error: ', err);
-			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		}
 
 		if (response) {
@@ -527,7 +527,7 @@
 				);
 				await validateConfiguredServerAndConnect(configuredResponse);
 			} catch (err) {
-				launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
+				launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -548,14 +548,14 @@
 			instance = response;
 			await finishMultiUserServerConnect();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.mcp_unknown_error();
+			error = err instanceof Error ? err.message : m.mcps_unknown_error();
 		}
 	}
 
 	async function handleLaunchMultiUserCatalogEntry() {
 		if (!entry) return;
 		if (!catalogID && !workspaceID) {
-			error = m.mcp_connect_catalog_required();
+			error = m.mcps_connect_catalog_required();
 			return;
 		}
 
@@ -630,7 +630,7 @@
 				notifyConnected();
 			}
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : m.mcp_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 			launchMissingSecretBinding = launchError.includes('secret binding');
 			if (created && !launchHandedOff) {
 				try {
@@ -745,7 +745,7 @@
 				configDialog?.close();
 				await finishMultiUserServerConnect();
 			} catch (err) {
-				error = err instanceof Error ? err.message : m.mcp_unknown_error();
+				error = err instanceof Error ? err.message : m.mcps_unknown_error();
 			} finally {
 				saving = false;
 			}
@@ -942,7 +942,7 @@
 					bind:this={connectionUrlField}
 					value={url}
 					id="connectURL"
-					label={m.mcp_connection_url()}
+					label={m.mcps_servers_connection_url()}
 				/>
 			</div>
 			<HowToConnect
@@ -974,10 +974,10 @@
 <Confirm
 	show={showIntroDialog}
 	onsuccess={handleLaunchOrConfigure}
-	submitText={m.mcp_continue()}
+	submitText={m.mcps_continue()}
 	type="info"
 	title={introTitle ??
-		(isMultiUserCatalogEntry(entry) ? m.mcp_actions_launch_server() : m.mcp_connect_to_server())}
+		(isMultiUserCatalogEntry(entry) ? m.mcps_servers_actions_launch_server() : m.mcps_connect_to_server())}
 	oncancel={() => (showIntroDialog = false)}
 	hideCancelButton
 >
@@ -997,14 +997,14 @@
 			{#if renderIntroText}
 				{renderIntroText({ entry, server })}
 			{:else if isMultiUserCatalogEntry(entry)}
-				{m.mcp_connect_intro_launch()}
+				{m.mcps_connect_intro_launch()}
 			{:else}
-				{m.mcp_connect_intro_setup()}
+				{m.mcps_connect_intro_setup()}
 			{/if}
 			{#if (entry && hasEditableConfiguration(entry)) || (server && hasMultiUserInstanceConfiguration(server))}
-				{m.mcp_connect_intro_additional_config()}
+				{m.mcps_connect_intro_additional_config()}
 			{:else}
-				<br />{m.mcp_connect_intro_click_below()}
+				<br />{m.mcps_connect_intro_click_below()}
 			{/if}
 		</p>
 	{/snippet}
@@ -1018,10 +1018,10 @@
 	name={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 	onSave={handleConfigureForm}
 	submitText={isDeployingMultiUserCatalogEntry
-		? m.mcp_actions_create_server()
+		? m.mcps_servers_actions_create_server()
 		: isConfigured
-			? m.mcp_update()
-			: m.mcp_connect_launch()}
+			? m.mcps_deployments_update()
+			: m.mcps_connect_launch()}
 	loading={saving || launchState === 'launching'}
 	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
@@ -1038,22 +1038,22 @@
 					<div class="notification-error">
 						<div class="flex items-center gap-2">
 							<CircleAlert class="size-5 text-error" />
-							<h4 class="text-md font-medium">{m.mcp_launch_failed_title()}</h4>
+							<h4 class="text-md font-medium">{m.mcps_deployments_launch_failed_title()}</h4>
 						</div>
 
 						<div class="text-xs mt-2">
-							{m.mcp_connect_launch_issue()}
+							{m.mcps_connect_launch_issue()}
 
 							<ul class="list-disc px-4 py-1 space-y-1">
 								{#if isEditableCatalogEntry(entry)}
-									<li>{m.mcp_connect_verify_launch_config()}</li>
+									<li>{m.mcps_connect_verify_launch_config()}</li>
 								{/if}
 								{#if canModifyCatalogEntry}
 									<li>
-										{m.mcp_connect_verify_entry_config()}
+										{m.mcps_connect_verify_entry_config()}
 									</li>
 								{/if}
-								<li>{m.mcp_connect_contact_support()}</li>
+								<li>{m.mcps_connect_contact_support()}</li>
 							</ul>
 						</div>
 					</div>
@@ -1077,7 +1077,7 @@
 									onclick={handleCancelLaunch}
 									class="flex grow items-center justify-center btn btn-secondary rounded-r-none!"
 								>
-									{m.mcp_connect_cancel_and_delete()}
+									{m.mcps_connect_cancel_and_delete()}
 								</button>
 							{:else}
 								<button
@@ -1089,7 +1089,7 @@
 										configDialog?.close();
 									}}
 								>
-									{m.mcp_close()}
+									{m.mcps_composite_close()}
 								</button>
 							{/if}
 							<DotDotDot
@@ -1108,7 +1108,7 @@
 											toggle(false);
 										}}
 									>
-										{m.mcp_launch_update_and_retry()}
+										{m.mcps_deployments_launch_update_and_retry()}
 									</button>
 									<button
 										class="menu-button"
@@ -1119,7 +1119,7 @@
 											toggle(false);
 										}}
 									>
-										{m.mcp_connect_go_to_entry()}
+										{m.mcps_connect_go_to_entry()}
 									</button>
 								{/snippet}
 							</DotDotDot>
@@ -1137,7 +1137,7 @@
 										saving = false;
 									}}
 								>
-									{m.mcp_launch_update_and_retry()}
+									{m.mcps_deployments_launch_update_and_retry()}
 								</button>
 							{/if}
 							{#if server}
@@ -1145,7 +1145,7 @@
 									class="btn btn-secondary w-full md:w-1/2 md:flex-1"
 									onclick={handleCancelLaunch}
 								>
-									{m.mcp_connect_cancel_and_delete()}
+									{m.mcps_connect_cancel_and_delete()}
 								</button>
 							{:else}
 								<button
@@ -1157,7 +1157,7 @@
 										configDialog?.close();
 									}}
 								>
-									{m.mcp_close()}
+									{m.mcps_composite_close()}
 								</button>
 							{/if}
 						</div>
@@ -1177,7 +1177,7 @@
 					</div>
 
 					<div class="flex w-md flex-col justify-center gap-2 text-center">
-						<p class="text-xs font-light">{m.mcp_launching_server()}</p>
+						<p class="text-xs font-light">{m.mcps_deployments_launching_server()}</p>
 					</div>
 				</div>
 			{/if}
@@ -1208,10 +1208,10 @@
 				</div>
 
 				<p>
-					{m.mcp_connect_oauth_required({ name: getMCPDisplayName(server) })}
+					{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}
 				</p>
 
-				<p>{m.mcp_connect_oauth_click_link()}</p>
+				<p>{m.mcps_connect_oauth_click_link()}</p>
 
 				<a
 					href={oauthURL}
@@ -1223,9 +1223,9 @@
 					}}
 				>
 					{#if oauthVerifying}
-						{m.mcp_oauth_authenticating()}
+						{m.mcps_oauth_authenticating()}
 					{:else}
-						{m.mcp_oauth_authenticate()}
+						{m.mcps_oauth_authenticate()}
 					{/if}
 				</a>
 			{/if}

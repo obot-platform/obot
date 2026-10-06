@@ -37,14 +37,14 @@
 <ResponsiveDialog
 	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
-	title={m.mcp_select_your_server()}
+	title={m.mcps_deployments_select_your_server()}
 >
 	<Table
 		data={servers}
 		fields={['name', 'created']}
 		headers={[
-			{ title: m.mcp_column_name(), property: 'name' },
-			{ title: m.mcp_column_created(), property: 'created' }
+			{ title: m.mcps_column_name(), property: 'name' },
+			{ title: m.mcps_deployments_column_created(), property: 'created' }
 		]}
 		onClickRow={async (d) => {
 			selectServerDialog?.close();
@@ -71,7 +71,7 @@
 							<span
 								use:tooltip={{
 									classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-									text: m.mcp_config_requires_attention()
+									text: m.mcps_deployments_config_requires_attention()
 								}}
 							>
 								<CircleFadingArrowUp class="text-primary size-4" />

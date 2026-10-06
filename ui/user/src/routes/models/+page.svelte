@@ -33,33 +33,33 @@
 	let views = $derived.by(() => {
 		const items: TabView[] = [
 			{
-				label: m.routes_models_title(),
+				label: m.models_title(),
 				value: 'models',
 				content: models,
-				tooltip: m.routes_models_tab_models_tooltip()
+				tooltip: m.models_tab_tooltip()
 			}
 		];
 		if (hasAdminAccess) {
 			items.push(
 				{
-					label: m.routes_models_tab_providers(),
+					label: m.models_providers_tab(),
 					value: 'model-providers',
 					content: modelProviders,
-					tooltip: m.routes_models_tab_providers_tooltip()
+					tooltip: m.models_providers_tab_tooltip()
 				},
 				{
-					label: m.routes_models_tab_access_policies(),
+					label: m.models_access_policies_tab(),
 					value: 'access-policies',
 					content: accessPolicies,
-					tooltip: m.routes_models_tab_access_policies_tooltip()
+					tooltip: m.models_access_policies_tab_tooltip()
 				}
 			);
 			if (messagePoliciesEnabled) {
 				items.push({
-					label: m.routes_models_tab_ai_judge(),
+					label: m.models_tab_ai_judge(),
 					value: 'ai-judge-policies',
 					content: messagePolicies,
-					tooltip: m.routes_models_tab_ai_judge_tooltip()
+					tooltip: m.models_tab_ai_judge_tooltip()
 				});
 			}
 		}
@@ -77,10 +77,10 @@
 	}
 
 	let title = $derived.by(() => {
-		if (!creating) return m.routes_models_title();
+		if (!creating) return m.models_title();
 		return creatingView === 'ai-judge-policies'
-			? m.routes_models_create_ai_judge_policy()
-			: m.routes_models_create_access_policy();
+			? m.models_create_ai_judge_policy()
+			: m.models_create_access_policy();
 	});
 
 	function handleFirstConfigure(required: boolean) {
@@ -106,7 +106,7 @@
 	</Layout>
 {:else}
 	<TabLayout
-		title={m.routes_models_title()}
+		title={m.models_title()}
 		defaultView="models"
 		rightNavActions={navActions}
 		{views}
@@ -127,7 +127,7 @@
 			onclick={() => showCreate('access-policies')}
 		>
 			<Plus class="size-4" />
-			{m.routes_models_add_access_policy()}
+			{m.models_add_access_policy()}
 		</button>
 	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
@@ -135,7 +135,7 @@
 			onclick={() => showCreate('ai-judge-policies')}
 		>
 			<Plus class="size-4" />
-			{m.routes_models_add_ai_judge_policy()}
+			{m.models_add_ai_judge_policy()}
 		</button>
 	{/if}
 {/snippet}

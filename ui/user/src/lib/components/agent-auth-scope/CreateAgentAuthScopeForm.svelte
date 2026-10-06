@@ -42,7 +42,7 @@
 	onMount(() => {
 		UserService.listVMCPs()
 			.then((items) => (vmcps = items))
-			.catch(() => errors.append(m.core_failed_to_load_vmcps()));
+			.catch(() => errors.append(m.identity_access_agents_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived([
@@ -75,8 +75,8 @@
 
 	const allServersOption = {
 		id: '*',
-		name: m.core_all_mcp_servers(),
-		description: m.core_all_mcp_servers_description(),
+		name: m.identity_access_agents_all_mcp_servers(),
+		description: m.identity_access_agents_all_mcp_servers_description(),
 		icon: '',
 		legacy: undefined
 	};
@@ -143,9 +143,9 @@
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-name" class="input-label">
-					{m.core_name()}
+					{m.identity_access_agents_name()}
 					{#if nameError}
-						<span class="text-xs text-error">{m.core_name_is_required()}</span>
+						<span class="text-xs text-error">{m.identity_access_agents_name_is_required()}</span>
 					{/if}
 				</label>
 				<input
@@ -161,45 +161,45 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-description" class="input-label"
-					>{m.core_description_optional()}</label
+					>{m.identity_access_agents_description_optional()}</label
 				>
 				<input
 					id="agent-auth-scope-description"
 					type="text"
 					bind:value={description}
-					placeholder={m.core_agent_identity_description_placeholder()}
+					placeholder={m.identity_access_agents_agent_identity_description_placeholder()}
 					class="text-input-filled"
 				/>
 			</div>
 
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-expires" class="input-label"
-					>{m.core_expiration_date_optional()}</label
+					>{m.identity_access_agents_expiration_date_optional()}</label
 				>
 				<DatePicker
 					id="agent-auth-scope-expires"
 					bind:value={expiresAt}
 					onChange={(date) => (expiresAt = date)}
-					placeholder={m.core_no_expiration()}
+					placeholder={m.identity_access_agents_no_expiration()}
 					minDate={new Date()}
 				/>
-				<p class="input-description">{m.core_leave_empty_no_expiration()}</p>
+				<p class="input-description">{m.identity_access_agents_leave_empty_no_expiration()}</p>
 			</div>
 		</div>
 	</div>
 
 	<section class="paper flex flex-col gap-2 p-4">
 		<p>
-			<span class="text-lg font-semibold">{m.core_mcp_servers()}</span>
+			<span class="text-lg font-semibold">{m.identity_access_agents_mcp_servers()}</span>
 			{#if serverError}
-				<span class="text-xs text-error"> {m.core_select_server_or_capability()} </span>
+				<span class="text-xs text-error"> {m.identity_access_agents_select_server_or_capability()} </span>
 			{/if}
 		</p>
 		<p class="input-description">
-			{m.core_select_servers_for_identity()}
+			{m.identity_access_agents_select_servers_for_identity()}
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
-					({#if selectedServerIds.has('*')}{m.core_all_selected()}{:else}{m.core_n_selected({
+					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.identity_access_agents_n_selected({
 							count: selectedServerIds.size
 						})}{/if})
 				</span>
@@ -210,7 +210,7 @@
 			class="text-input-filled"
 			onChange={(val) => (search = val)}
 			value={search}
-			placeholder={m.core_search_servers_placeholder()}
+			placeholder={m.identity_access_agents_search_servers_placeholder()}
 		/>
 
 		<div
@@ -221,7 +221,7 @@
 		>
 			{#if filteredServers.length === 0}
 				<div class="text-muted-content flex items-center justify-center py-8 text-sm">
-					{search ? m.core_no_servers_match_search() : m.core_no_mcp_servers_available()}
+					{search ? m.identity_access_agents_no_servers_match_search() : m.identity_access_agents_no_mcp_servers_available()}
 				</div>
 			{:else}
 				{#each filteredServers as server (server.id)}
@@ -304,7 +304,7 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					{m.core_save()}
+					{m.identity_access_agents_save()}
 				{/if}
 			</button>
 		</div>

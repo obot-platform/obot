@@ -65,7 +65,7 @@
 		<div>
 			{#if recommended && !isComingSoon}
 				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
-					>{m.admin_misc_recommended()}</span
+					>{m.models_providers_recommended()}</span
 				>
 			{/if}
 			{#if experimental}
@@ -73,7 +73,7 @@
 					class="bg-warning/15 text-warning rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
 				>
 					<FlaskConicalIcon class="size-3 text-warning" />
-					{m.admin_misc_experimental()}
+					{m.models_providers_experimental()}
 				</span>
 			{/if}
 		</div>
@@ -90,7 +90,7 @@
 							class="menu-button text-error"
 							onclick={() => onDeconfigure()}
 						>
-							{m.admin_misc_deconfigure_provider()}
+							{m.models_providers_deconfigure_provider()}
 						</button>
 					</DotDotDot>
 				{/if}
@@ -124,7 +124,7 @@
 					class="rounded-md bg-warning px-2 py-1 text-[10px] font-medium"
 					use:tooltip={{
 						classes: ['w-fit'],
-						text: m.admin_misc_deprecated_use_bedrock()
+						text: m.models_providers_deprecated_use_bedrock()
 					}}
 				>
 					{m.common_deprecated()}
@@ -133,20 +133,20 @@
 			{#if isLicenseRequired}
 				{#if provider.configured}
 					<TriangleAlert class="size-4 text-warning" />
-					{licenseKey ? m.admin_misc_license_invalid() : m.admin_misc_license_missing()}
+					{licenseKey ? m.models_providers_license_invalid() : m.models_providers_license_missing()}
 				{:else}
 					<CircleAlert class="size-4 text-muted-content" />
-					{m.admin_misc_registration_required()}
+					{m.models_providers_registration_required()}
 				{/if}
 			{:else if provider.configured}
 				<CircleCheck class="size-4 text-success" />
-				{m.admin_misc_configured()}
+				{m.models_providers_configured()}
 			{:else if staged}
 				<TriangleAlert class="size-4 text-warning" />
-				{m.admin_misc_staged()}
+				{m.models_providers_staged()}
 			{:else}
 				<CircleSlash class="size-4 text-error" />
-				{m.admin_misc_not_configured_title()}
+				{m.models_providers_not_configured_title()}
 			{/if}
 		</span>
 	</div>
@@ -157,7 +157,7 @@
 				class="bg-base-200 dark:bg-base-400 text-muted-content flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
 			>
 				<Construction class="size-4" />
-				{m.admin_misc_coming_soon()}
+				{m.models_providers_coming_soon()}
 			</div>
 		{:else}
 			<div
@@ -175,13 +175,13 @@
 					disabled={disableConfigure}
 				>
 					{#if readonly}
-						{m.admin_misc_view()}
+						{m.models_providers_view()}
 					{:else if provider.configured}
-						{m.admin_misc_modify()}
+						{m.models_providers_modify()}
 					{:else if staged}
-						{m.admin_misc_resume_switch()}
+						{m.models_providers_resume_switch()}
 					{:else}
-						{m.admin_misc_configure()}
+						{m.models_providers_configure()}
 					{/if}
 				</button>
 			</div>

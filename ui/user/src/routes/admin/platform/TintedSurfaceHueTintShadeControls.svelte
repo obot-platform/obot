@@ -7,7 +7,7 @@
 		hue = $bindable(0),
 		tint = $bindable(0),
 		shade = $bindable(SHADE_TICK_NEUTRAL),
-		hueAriaLabel = m.admin_routes_tint_surface_hue()
+		hueAriaLabel = m.platform_branding_surface_hue()
 	}: {
 		hue?: number;
 		tint?: number;
@@ -17,12 +17,12 @@
 </script>
 
 <div class="flex items-center justify-between gap-2">
-	<p class="text-sm font-light w-20 shrink-0">{m.admin_routes_tint_hue()}</p>
+	<p class="text-sm font-light w-20 shrink-0">{m.platform_branding_hue()}</p>
 	<SpectrumSlider bind:hue aria-label={hueAriaLabel} class="min-w-0 grow" />
 </div>
 
 <div class="flex items-center justify-between gap-2 mb-2">
-	<p class="text-sm font-light w-20 shrink-0">{m.admin_routes_tint_tint()}</p>
+	<p class="text-sm font-light w-20 shrink-0">{m.platform_branding_tint()}</p>
 	<input
 		type="range"
 		min="0"
@@ -35,7 +35,7 @@
 
 <div class="flex flex-col gap-1">
 	<div class="flex items-center justify-between gap-2">
-		<p class="text-sm font-light w-20 shrink-0">{m.admin_routes_tint_shade()}</p>
+		<p class="text-sm font-light w-20 shrink-0">{m.platform_branding_shade()}</p>
 		<div class="flex grow items-center gap-2 min-w-0 justify-end">
 			<input
 				type="range"
@@ -48,10 +48,10 @@
 				aria-valuemax={SHADE_TICK_MAX}
 				aria-valuenow={shade}
 				aria-valuetext={shade === SHADE_TICK_NEUTRAL
-					? m.admin_routes_tint_balanced()
+					? m.platform_branding_balanced()
 					: shade < SHADE_TICK_NEUTRAL
-						? m.admin_routes_tint_darker()
-						: m.admin_routes_tint_lighter()}
+						? m.platform_branding_darker()
+						: m.platform_branding_lighter()}
 			/>
 			<span class="text-xs font-light tabular-nums text-base-content/60 w-4 shrink-0 text-right"
 				>{shade}</span

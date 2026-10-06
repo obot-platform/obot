@@ -9,7 +9,7 @@
 
 	let { data } = $props();
 	const { apiKey, isAdmin } = $derived(data);
-	let title = $derived(apiKey?.name || m.admin_routes_agents_agent_identity());
+	let title = $derived(apiKey?.name || m.identity_access_agents_agent_identity());
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 

@@ -33,7 +33,7 @@
 		const normalizedCode = code.replaceAll('-', '');
 		if (!deviceCodeAlphabet.test(normalizedCode)) {
 			formState = 'invalid';
-			errorMessage = m.admin_routes_device_invalid();
+			errorMessage = m.auth_device_invalid();
 			return;
 		}
 
@@ -50,23 +50,23 @@
 			const status = getHttpStatusCode(error);
 			if (status === 400) {
 				formState = 'invalid';
-				errorMessage = m.admin_routes_device_invalid();
+				errorMessage = m.auth_device_invalid();
 			} else if (status === 429) {
 				formState = 'rate-limited';
-				errorMessage = m.admin_routes_device_rate_limited();
+				errorMessage = m.auth_device_rate_limited();
 			} else if (status === 401) {
 				formState = 'error';
-				errorMessage = m.admin_routes_device_session_expired();
+				errorMessage = m.auth_device_session_expired();
 			} else {
 				formState = 'error';
-				errorMessage = m.admin_routes_device_verify_failed();
+				errorMessage = m.auth_device_verify_failed();
 			}
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_device_page_title()}</title>
+	<title>Obot | {m.auth_device_page_title()}</title>
 </svelte:head>
 
 <div
@@ -82,18 +82,18 @@
 				<div class="bg-success/10 flex size-12 items-center justify-center rounded-full">
 					<CircleCheck class="text-success size-7" />
 				</div>
-				<h1 class="text-xl font-semibold">{m.admin_routes_device_connected()}</h1>
+				<h1 class="text-xl font-semibold">{m.auth_device_connected()}</h1>
 				<p class="text-muted-content text-sm font-light">
-					{m.admin_routes_device_complete()}
+					{m.auth_device_complete()}
 				</p>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1 text-center">
-				<h1 class="text-xl font-semibold">{m.admin_routes_device_heading()}</h1>
+				<h1 class="text-xl font-semibold">{m.auth_device_heading()}</h1>
 				<p class="text-muted-content text-sm font-light">
-					{m.admin_routes_device_enter_code_prefix()}
+					{m.auth_device_enter_code_prefix()}
 					<span class="font-medium">obot login</span>
-					{m.admin_routes_device_enter_code_suffix()}
+					{m.auth_device_enter_code_suffix()}
 				</p>
 			</div>
 
@@ -115,7 +115,7 @@
 
 			<form class="flex flex-col gap-4" onsubmit={submit}>
 				<label class="flex flex-col gap-1 text-sm font-light" for="device-code">
-					{m.admin_routes_device_code_label()}
+					{m.auth_device_code_label()}
 					<input
 						id="device-code"
 						class="text-input-filled text-center font-mono text-lg tracking-[0.18em] uppercase"
@@ -137,9 +137,9 @@
 				<button class="btn btn-primary w-full" type="submit" disabled={formState === 'submitting'}>
 					{#if formState === 'submitting'}
 						<LoaderCircle class="size-4 animate-spin" />
-						{m.admin_routes_device_verifying()}
+						{m.auth_device_verifying()}
 					{:else}
-						{m.admin_routes_continue()}
+						{m.core_continue()}
 					{/if}
 				</button>
 			</form>

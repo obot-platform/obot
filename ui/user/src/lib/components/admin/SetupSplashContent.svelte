@@ -74,28 +74,28 @@
 <div class="flex w-full items-center justify-center">
 	<Logo class="size-18" />
 </div>
-<h2 class="mb-6 text-center text-2xl font-semibold">{m.admin_misc_welcome_to_obot()}</h2>
+<h2 class="mb-6 text-center text-2xl font-semibold">{m.auth_setup_welcome_to_obot()}</h2>
 
 <div class="w-fit self-center px-4">
 	{#if !version.current.authEnabled}
 		<p class="mb-4">
-			<span class="text-muted-content">{m.admin_misc_auth_disabled()}</span>
+			<span class="text-muted-content">{m.auth_setup_auth_disabled()}</span>
 			<a
 				href="https://docs.obot.ai/installation/enabling-authentication"
 				rel="external noopener noreferrer"
 				target="_blank"
-				class="text-link">{m.admin_misc_learn_more()}</a
+				class="text-link">{m.auth_setup_learn_more()}</a
 			>
 		</p>
 	{/if}
 	<p>
-		{m.admin_misc_agree_eula_prefix()}
+		{m.auth_setup_agree_eula_prefix()}
 		<a
 			href="https://obot.ai/eul"
 			rel="external noopener noreferrer"
 			target="_blank"
 			class="text-link">EULA</a
-		>{m.admin_misc_agree_eula_suffix()}
+		>{m.auth_setup_agree_eula_suffix()}
 	</p>
 	{#if needsProductAnalyticsConsent}
 		<div class="flex items-start gap-2 pt-4 text-sm">
@@ -107,14 +107,14 @@
 				disabled={loading}
 			/>
 			<label for="share-product-usage" class="leading-tight">
-				{m.admin_misc_share_usage_data()}
+				{m.auth_setup_share_usage_data()}
 				<br />
-				<span class="text-muted-content">{m.admin_misc_share_usage_help()}</span>
+				<span class="text-muted-content">{m.auth_setup_share_usage_help()}</span>
 				<a
 					href="https://docs.obot.ai/configuration/product-analytics"
 					rel="external noopener noreferrer"
 					target="_blank"
-					class="text-link">{m.admin_misc_learn_more()}</a
+					class="text-link">{m.auth_setup_learn_more()}</a
 				>
 			</label>
 		</div>
@@ -129,6 +129,6 @@
 	{#if loading}
 		<Loading class="size-4" />
 	{:else}
-		{m.admin_misc_continue()}
+		{m.core_continue()}
 	{/if}
 </button>

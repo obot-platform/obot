@@ -25,18 +25,18 @@
 	let showRegistryConnections = $derived(version.current.engine === 'kubernetes');
 
 	let views = $derived([
-		{ label: m.admin_routes_platform_tab_license(), value: 'license', content: license },
-		{ label: m.admin_routes_platform_tab_settings(), value: 'settings', content: settings },
+		{ label: m.platform_license_tab(), value: 'license', content: license },
+		{ label: m.platform_settings_tab(), value: 'settings', content: settings },
 		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 			? [
 					{
-						label: m.admin_routes_platform_tab_mcp_config(),
+						label: m.platform_mcp_config_tab(),
 						value: 'mcp-config',
 						content: mcpConfig
 					}
 				]
 			: []),
-		{ label: m.admin_routes_platform_tab_branding(), value: 'branding', content: branding }
+		{ label: m.platform_branding_tab(), value: 'branding', content: branding }
 	]);
 
 	$effect(() => {
@@ -50,11 +50,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_platform_title()}</title>
+	<title>Obot | {m.platform_title()}</title>
 </svelte:head>
 
 <TabLayout
-	title={m.admin_routes_platform_title()}
+	title={m.platform_title()}
 	defaultView="license"
 	classes={{ container: 'pb-0', childrenContainer: 'max-w-none' }}
 	rightSidebar={viewSidebar}

@@ -28,7 +28,7 @@
 	>
 		{#if totalCalls}
 			<div class="flex items-center justify-between gap-4 text-sm">
-				<p class="font-semibold">{m.admin_misc_total_calls()}</p>
+				<p class="font-semibold">{m.core_total_calls()}</p>
 				<p>
 					{totalCalls}
 				</p>
@@ -39,7 +39,7 @@
 		{/if}
 		{#if uniqueUsers}
 			<div class="flex items-center justify-between gap-4 text-sm">
-				<p class="font-semibold">{m.admin_misc_unique_users()}</p>
+				<p class="font-semibold">{m.core_unique_users()}</p>
 				<p>
 					{uniqueUsers}
 				</p>

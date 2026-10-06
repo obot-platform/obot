@@ -8,11 +8,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_enforcement_events()}</title>
+	<title>Obot | {m.inventory_enforcement_enforcement_events_enforcement_events()}</title>
 </svelte:head>
 
 <Layout
-	title={m.admin_routes_enforcement_events()}
+	title={m.inventory_enforcement_enforcement_events_enforcement_events()}
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
 		component: VirtualPageRoot as unknown as Component,

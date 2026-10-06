@@ -321,7 +321,7 @@
 				disabled={deletable.length === 0}
 			>
 				<Trash2 class="size-4" />
-				{m.vmcps_delete()}
+				{m.vmcps_deployments_delete()}
 				{#if deletable.length > 0}
 					<span class="pill-primary">{deletable.length}</span>
 				{/if}
@@ -341,12 +341,12 @@
 	oncancel={() => (pendingBulkDelete = undefined)}
 	msg=""
 	loading={bulkDeleting}
-	title={m.vmcps_confirm_delete()}
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
 		{#if pendingBulkDelete?.length === 1}
 			{m.vmcps_delete_confirm_prefix()}<b
-				>{pendingBulkDelete[0].displayName ?? m.vmcps_this_vmcp()}</b
+				>{pendingBulkDelete[0].displayName ?? m.vmcps_deployments_this_vmcp()}</b
 			>{m.vmcps_delete_confirm_suffix()}
 		{:else}
 			{m.vmcps_bulk_delete_confirm_prefix()}<b
@@ -363,7 +363,7 @@
 			data={items}
 			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
-				{ title: m.vmcps_name(), property: 'displayName' },
+				{ title: m.vmcps_deployments_name(), property: 'displayName' },
 				{ title: m.vmcps_servers(), property: 'serverNames' },
 				{ title: m.vmcps_created_by(), property: 'owner' }
 			]}
@@ -455,7 +455,7 @@
 						<DotDotDot
 							class="hover:dark:bg-base-100/50"
 							classes={{ menu: 'min-w-48' }}
-							ariaLabel={m.vmcps_actions_for_named({ name: ctx.name })}
+							ariaLabel={m.vmcps_deployments_actions_for_named({ name: ctx.name })}
 						>
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
@@ -518,7 +518,7 @@
 						disabled={deletable.length === 0}
 					>
 						<Trash2 class="size-4" />
-						{m.vmcps_delete()}
+						{m.vmcps_deployments_delete()}
 						{#if deletable.length > 0}
 							<span class="pill-primary">{deletable.length}</span>
 						{/if}

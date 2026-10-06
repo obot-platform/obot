@@ -23,22 +23,22 @@
 	function label(status: DirectOperationStatus): string {
 		switch (status) {
 			case 'success':
-				return m.mcp_tester_call_succeeded();
+				return m.mcps_tester_call_succeeded();
 			case 'mcp-error':
-				return m.mcp_tester_status_mcp_error();
+				return m.mcps_tester_status_mcp_error();
 			case 'denied':
-				return m.mcp_tester_status_denied();
+				return m.mcps_tester_status_denied();
 			case 'timeout':
-				return m.mcp_tester_status_timeout();
+				return m.mcps_tester_status_timeout();
 			case 'cancelled':
-				return m.mcp_tester_call_cancelled();
+				return m.mcps_tester_call_cancelled();
 			default:
-				return m.mcp_tester_status_request_failed();
+				return m.mcps_tester_status_request_failed();
 		}
 	}
 </script>
 
-<section class="space-y-4" aria-label={m.mcp_tester_operation_result()}>
+<section class="space-y-4" aria-label={m.mcps_tester_operation_result()}>
 	<div
 		class={`flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm ${
 			result.status === 'success'
@@ -66,7 +66,7 @@
 	</div>
 
 	{#if content.length}
-		<div class="space-y-3" aria-label={m.mcp_tester_rendered_content()}>
+		<div class="space-y-3" aria-label={m.mcps_tester_rendered_content()}>
 			{#each content as item, index (index)}
 				<McpContent content={item} collapseLongText />
 			{/each}
@@ -75,12 +75,12 @@
 
 	{#if structuredContent !== undefined}
 		<div>
-			<h4 class="mb-2 text-sm font-medium">{m.mcp_tester_structured_content()}</h4>
+			<h4 class="mb-2 text-sm font-medium">{m.mcps_tester_structured_content()}</h4>
 			<CornerCopyButton
 				text={JSON.stringify(structuredContent, null, 2)}
-				label={m.mcp_tester_copy_structured_json()}
+				label={m.mcps_tester_copy_structured_json()}
 			>
-				<JsonPreview value={structuredContent} ariaLabel={m.mcp_tester_structured_mcp_content()} />
+				<JsonPreview value={structuredContent} ariaLabel={m.mcps_tester_structured_mcp_content()} />
 			</CornerCopyButton>
 		</div>
 	{/if}
@@ -98,13 +98,13 @@
 				}
 			}}
 		>
-			<summary class="cursor-pointer text-sm font-medium">{m.mcp_tester_raw_response()}</summary>
+			<summary class="cursor-pointer text-sm font-medium">{m.mcps_tester_raw_response()}</summary>
 			<div class="mt-2">
 				<!-- Offset so the copy icon sits beside the preview's maximize button. -->
-				<CornerCopyButton text={rawJSON} label={m.mcp_tester_copy_raw_json()} offset="2.25rem">
+				<CornerCopyButton text={rawJSON} label={m.mcps_tester_copy_raw_json()} offset="2.25rem">
 					<JsonPreview
 						value={result.value}
-						ariaLabel={m.mcp_tester_raw_mcp_response()}
+						ariaLabel={m.mcps_tester_raw_mcp_response()}
 						maximizable
 					/>
 				</CornerCopyButton>

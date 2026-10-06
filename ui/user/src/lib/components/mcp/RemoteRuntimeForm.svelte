@@ -113,12 +113,12 @@
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
-			<h4 class="text-sm font-semibold">{m.mcp_remote_headers()}</h4>
+			<h4 class="text-sm font-semibold">{m.mcps_catalog_remote_remote_headers()}</h4>
 			<p class="text-muted-content text-xs font-light">
 				{#if showUrlTemplateHelp}
-					{m.mcp_remote_headers_description_template()}
+					{m.mcps_catalog_remote_remote_headers_description_template()}
 				{:else}
-					{m.mcp_remote_headers_description()}
+					{m.mcps_catalog_remote_remote_headers_description()}
 				{/if}
 			</p>
 			{#if config.headers}
@@ -131,7 +131,7 @@
 							<div class="flex w-full flex-col gap-4">
 								<div class="flex w-full flex-col gap-1">
 									<Label
-										title={m.mcp_field_key()}
+										title={m.mcps_field_key()}
 										forInput={`header-key-${i}`}
 										required
 										showError={missingKey}
@@ -142,14 +142,14 @@
 										class:error={missingKey}
 										aria-invalid={missingKey}
 										bind:value={config.headers[i].key}
-										placeholder={m.mcp_example({ example: 'CUSTOM_HEADER_KEY' })}
+										placeholder={m.mcps_example({ example: 'CUSTOM_HEADER_KEY' })}
 										disabled={readonly}
 									/>
 								</div>
 								<div class="flex w-full flex-col gap-1">
 									{#if variant === 'catalog'}
 										<label for={`header-value-type-${i}`} class="text-sm font-light"
-											>{m.mcp_field_value()}</label
+											>{m.mcps_field_value()}</label
 										>
 										<Select
 											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
@@ -157,9 +157,9 @@
 												root: 'flex grow'
 											}}
 											options={[
-												{ label: m.mcp_fieldset_static(), id: 'static' },
-												{ label: m.mcp_fieldset_user_supplied(), id: 'user_supplied' },
-												{ label: m.mcp_options_title(), id: 'options' }
+												{ label: m.mcps_fieldset_static(), id: 'static' },
+												{ label: m.mcps_fieldset_user_supplied(), id: 'user_supplied' },
+												{ label: m.mcps_options_title(), id: 'options' }
 											]}
 											selected={config.headers[i].options
 												? 'options'
@@ -202,7 +202,7 @@
 								{#if config.headers[i].required}
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-name-${i}`} class="text-sm font-light"
-											>{m.mcp_field_name()}</label
+											>{m.mcps_field_name()}</label
 										>
 										<input
 											id={`header-name-${i}`}
@@ -213,7 +213,7 @@
 									</div>
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-description-${i}`} class="text-sm font-light"
-											>{m.mcp_field_description()}</label
+											>{m.mcps_field_description()}</label
 										>
 										<input
 											id={`header-description-${i}`}
@@ -227,8 +227,11 @@
 											for={`header-prefix-${i}`}
 											class="flex items-center gap-1 text-sm font-light"
 										>
-											{m.mcp_value_prefix()}
-											<InfoTooltip text={m.mcp_remote_value_prefix_tooltip()} popoverWidth="lg" />
+											{m.mcps_value_prefix()}
+											<InfoTooltip
+												text={m.mcps_catalog_remote_remote_value_prefix_tooltip()}
+												popoverWidth="lg"
+											/>
 										</label>
 										<input
 											id={`header-prefix-${i}`}
@@ -240,7 +243,7 @@
 									<Toggle
 										classes={{ label: 'text-sm text-inherit' }}
 										disabled={readonly}
-										label={m.mcp_field_sensitive()}
+										label={m.mcps_field_sensitive()}
 										labelInline
 										checked={!!header.sensitive}
 										onChange={(checked) => {
@@ -261,7 +264,7 @@
 										<div class="flex flex-col gap-2">
 											{#if variant === 'server'}
 												<label for={`header-description-${i}`} class="text-sm font-light"
-													>{m.mcp_field_value()}</label
+													>{m.mcps_field_value()}</label
 												>
 											{/if}
 											<input
@@ -281,7 +284,7 @@
 									onclick={() => {
 										config.headers?.splice(i, 1);
 									}}
-									tooltip={{ text: m.mcp_remote_delete_header() }}
+									tooltip={{ text: m.mcps_catalog_remote_remote_delete_header() }}
 								>
 									<Trash2 class="size-4" />
 								</IconButton>
@@ -311,7 +314,7 @@
 						}}
 					>
 						<Plus class="size-4" />
-						{m.mcp_config_usage_header()}
+						{m.mcps_config_usage_header()}
 					</button>
 				</div>
 			{/if}
@@ -326,7 +329,7 @@
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
-		<h4 class="text-sm font-semibold">{m.mcp_remote_runtime_title()}</h4>
+		<h4 class="text-sm font-semibold">{m.mcps_catalog_remote_remote_runtime_title()}</h4>
 		<div class="flex flex-col gap-2">
 			<label
 				for="multi-user-remote-url"
@@ -340,7 +343,7 @@
 				)}
 				bind:value={serverConfig.url}
 				disabled={readonly}
-				placeholder={m.mcp_example({ example: 'https://api.example.com/mcp' })}
+				placeholder={m.mcps_example({ example: 'https://api.example.com/mcp' })}
 				oninput={() => {
 					onFieldChange?.('url');
 				}}
@@ -388,7 +391,7 @@
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
 				<label for="remote-type" class="shrink-0 text-sm font-light"
-					>{m.mcp_remote_restrict_connections()}</label
+					>{m.mcps_catalog_remote_remote_restrict_connections()}</label
 				>
 				<Select
 					class="bg-base-100 dark:border-base-400 dark:bg-base-100 border border-transparent shadow-inner"
@@ -396,9 +399,11 @@
 						root: 'flex grow'
 					}}
 					options={[
-						{ label: m.mcp_remote_exact_url(), id: 'fixedURL' },
-						...(!disableHostnameOption ? [{ label: m.mcp_remote_hostname(), id: 'hostname' }] : []),
-						{ label: m.mcp_remote_url_template(), id: 'urlTemplate' }
+						{ label: m.mcps_catalog_remote_remote_exact_url(), id: 'fixedURL' },
+						...(!disableHostnameOption
+							? [{ label: m.mcps_catalog_remote_remote_hostname(), id: 'hostname' }]
+							: []),
+						{ label: m.mcps_catalog_remote_remote_url_template(), id: 'urlTemplate' }
 					]}
 					selected={selectedType}
 					onSelect={(option) => {
@@ -429,7 +434,7 @@
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
-						>{m.mcp_remote_exact_url()}</label
+						>{m.mcps_catalog_remote_remote_exact_url()}</label
 					>
 					<input
 						class={twMerge(
@@ -438,7 +443,7 @@
 						)}
 						bind:value={remoteConfig.fixedURL}
 						disabled={readonly}
-						placeholder={m.mcp_example({ example: 'https://custom.mcpserver.example.com/go/to' })}
+						placeholder={m.mcps_example({ example: 'https://custom.mcpserver.example.com/go/to' })}
 						oninput={() => {
 							onFieldChange?.('fixedURL');
 						}}
@@ -451,7 +456,7 @@
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
-						>{m.mcp_remote_hostname()}</label
+						>{m.mcps_catalog_remote_remote_hostname()}</label
 					>
 					<input
 						class={twMerge(
@@ -460,7 +465,7 @@
 						)}
 						bind:value={remoteConfig.hostname}
 						disabled={readonly}
-						placeholder={m.mcp_example({ example: 'mycustomdomain' })}
+						placeholder={m.mcps_example({ example: 'mycustomdomain' })}
 						oninput={() => {
 							onFieldChange?.('hostname');
 						}}
@@ -476,7 +481,7 @@
 							class={twMerge(
 								'shrink-0 min-w-18 text-sm font-light',
 								showRequired?.urlTemplate && 'error'
-							)}>{m.mcp_remote_url_template()}</label
+							)}>{m.mcps_catalog_remote_remote_url_template()}</label
 						>
 						<input
 							class={twMerge(
@@ -485,7 +490,7 @@
 							)}
 							bind:value={remoteConfig.urlTemplate}
 							disabled={readonly}
-							placeholder={m.mcp_example({
+							placeholder={m.mcps_example({
 								example: 'https://' + '$' + '{API_HOST}/api/' + '$' + '{VERSION}/endpoint'
 							})}
 							oninput={() => {
@@ -500,23 +505,23 @@
 						<div class="flex items-start gap-3">
 							<Info class="mt-0.5 size-5 shrink-0" />
 							<div class="flex flex-col gap-1">
-								<p class="font-semibold">{m.mcp_remote_variable_interpolation()}</p>
+								<p class="font-semibold">{m.mcps_catalog_remote_remote_variable_interpolation()}</p>
 								<p>
-									{m.mcp_remote_interpolation_prefix()}<code class="rounded bg-base-300 px-1 py-0.5"
-										>${'{VARIABLE_NAME}'}</code
-									>{m.mcp_remote_interpolation_suffix()}
+									{m.mcps_catalog_remote_remote_interpolation_prefix()}<code
+										class="rounded bg-base-300 px-1 py-0.5">${'{VARIABLE_NAME}'}</code
+									>{m.mcps_catalog_remote_remote_interpolation_suffix()}
 								</p>
 								<p class="text-xs">
-									{m.mcp_remote_example_label()}
+									{m.mcps_catalog_remote_remote_example_label()}
 									<code class="rounded bg-base-300 px-1 py-0.5 text-xs"
 										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
 									>
 								</p>
 								<br />
 								<p>
-									{m.mcp_remote_sensitive_warning_prefix()}<code
+									{m.mcps_catalog_remote_remote_sensitive_warning_prefix()}<code
 										>Authorization: Bearer &lt;token&gt;</code
-									>{m.mcp_remote_sensitive_warning_suffix()}
+									>{m.mcps_catalog_remote_remote_sensitive_warning_suffix()}
 								</p>
 							</div>
 						</div>
@@ -527,13 +532,17 @@
 			{#if tunnels !== undefined || tunnelsLoading}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex flex-col gap-2" aria-busy={tunnelsLoading}>
-					<label for="remote-tunnel" class="text-sm font-light">{m.mcp_remote_tunnel()}</label>
+					<label for="remote-tunnel" class="text-sm font-light"
+						>{m.mcps_catalog_remote_remote_tunnel()}</label
+					>
 					<Select
 						id="remote-tunnel"
 						class="bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 						options={tunnelOptions}
 						selected={remoteConfig.tunnelName}
-						placeholder={tunnelsLoading ? m.mcp_remote_loading_tunnels() : m.mcp_remote_no_tunnel()}
+						placeholder={tunnelsLoading
+							? m.mcps_catalog_remote_remote_loading_tunnels()
+							: m.mcps_catalog_remote_remote_no_tunnel()}
 						disabled={readonly || tunnelsLoading || selectedType === 'urlTemplate'}
 						searchInDropdown={tunnelOptions.length > 8}
 						onSelect={(option) => {
@@ -549,14 +558,14 @@
 						{#if tunnelsLoading}
 							<span class="flex items-center gap-1.5" role="status">
 								<Loading class="size-3.5" />
-								{m.mcp_remote_loading_mcp_tunnels()}
+								{m.mcps_catalog_remote_remote_loading_mcp_tunnels()}
 							</span>
 						{:else if selectedType === 'urlTemplate'}
-							{m.mcp_remote_tunnels_unsupported()}
+							{m.mcps_catalog_remote_remote_tunnels_unsupported()}
 						{:else if tunnelOptions.length === 0}
-							{m.mcp_remote_no_tunnels()}
+							{m.mcps_catalog_remote_remote_no_tunnels()}
 						{:else}
-							{m.mcp_remote_tunnel_hint()}
+							{m.mcps_catalog_remote_remote_tunnel_hint()}
 						{/if}
 					</p>
 				</div>
@@ -593,11 +602,11 @@
 								!remoteConfig.staticOAuthRequired && 'opacity-50'
 							)}
 						>
-							{m.mcp_remote_static_oauth()}
+							{m.mcps_catalog_remote_remote_static_oauth()}
 						</h4>
 					</div>
 					<p class="text-muted-content text-xs font-light">
-						{m.mcp_remote_static_oauth_description()}
+						{m.mcps_catalog_remote_remote_static_oauth_description()}
 					</p>
 				</button>
 				<div class="flex self-start">
@@ -605,8 +614,8 @@
 						classes={{ label: 'text-sm text-inherit' }}
 						disabled={readonly}
 						label={remoteConfig.staticOAuthRequired
-							? m.mcp_remote_disable_static_oauth()
-							: m.mcp_remote_enable_static_oauth()}
+							? m.mcps_catalog_remote_remote_disable_static_oauth()
+							: m.mcps_catalog_remote_remote_enable_static_oauth()}
 						checked={!!remoteConfig.staticOAuthRequired}
 						onChange={(checked) => {
 							remoteConfig.staticOAuthRequired = checked;
@@ -621,7 +630,7 @@
 						<div class="notification-info p-3 text-sm font-light">
 							<div class="flex items-start gap-3">
 								<Info class="mt-0.5 size-5 shrink-0" />
-								<p>{m.mcp_remote_oauth_after_saving()}</p>
+								<p>{m.mcps_catalog_remote_remote_oauth_after_saving()}</p>
 							</div>
 						</div>
 					{:else if onConfigureOAuth}
@@ -632,7 +641,7 @@
 							type="button"
 						>
 							<Settings class="size-4" />
-							{m.mcp_remote_configure_oauth_credentials()}
+							{m.mcps_catalog_remote_remote_configure_oauth_credentials()}
 						</button>
 					{/if}
 				</div>
@@ -658,6 +667,8 @@
 			}
 		}}
 	>
-		{showAdvanced ? m.mcp_remote_reset_default() : m.mcp_remote_advanced()}
+		{showAdvanced
+			? m.mcps_catalog_remote_remote_reset_default()
+			: m.mcps_catalog_remote_remote_advanced()}
 	</button>
 {/if}

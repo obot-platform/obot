@@ -182,10 +182,10 @@
 	oncancel={() => (confirmDeleteVMcp = undefined)}
 	msg=""
 	loading={deletingVMcp}
-	title={m.vmcps_confirm_delete()}
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
-		{m.vmcps_delete_confirm_prefix()}<b>{confirmDeleteVMcp?.displayName ?? m.vmcps_this_vmcp()}</b
+		{m.vmcps_delete_confirm_prefix()}<b>{confirmDeleteVMcp?.displayName ?? m.vmcps_deployments_this_vmcp()}</b
 		>{m.vmcps_delete_confirm_suffix()}
 	{/snippet}
 </Confirm>
@@ -207,7 +207,7 @@
 				for="vmcp-name"
 				class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
 			>
-				{m.vmcps_name()}
+				{m.vmcps_deployments_name()}
 				<span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
 			</label>
 			<input

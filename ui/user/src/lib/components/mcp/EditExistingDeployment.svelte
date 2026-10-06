@@ -145,7 +145,7 @@
 					dontLogErrors: true
 				});
 			} catch (err) {
-				errors.append(m.mcp_secret_targets_load_failed({ error: String(err) }));
+				errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
 				secretBindingTargets = [];
 			}
 		} else {
@@ -211,7 +211,7 @@
 					dontLogErrors: true
 				});
 			} catch (err) {
-				errors.append(m.mcp_secret_targets_load_failed({ error: String(err) }));
+				errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
 				secretBindingTargets = [];
 			}
 		} else {
@@ -397,7 +397,7 @@
 			await AdminService.triggerMcpCatalogServerUpdate(server.mcpCatalogID, server.id);
 			return AdminService.getMCPCatalogServer(server.mcpCatalogID, server.id);
 		}
-		throw new Error(m.mcp_edit_cannot_update());
+		throw new Error(m.mcps_deployments_edit_cannot_update());
 	}
 
 	async function configureSharedServer(server: MCPCatalogServer, envs: Record<string, string>) {
@@ -411,7 +411,7 @@
 		if (server.mcpCatalogID) {
 			return AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
 		}
-		throw new Error(m.mcp_edit_cannot_configure());
+		throw new Error(m.mcps_deployments_edit_cannot_configure());
 	}
 
 	async function configureUpdatedCatalogServer(lf: LaunchFormData) {
@@ -456,7 +456,7 @@
 			}, 1000);
 		} catch (_error) {
 			console.error('Error during configuration:', _error);
-			launchError = _error instanceof Error ? _error.message : m.mcp_unknown_error();
+			launchError = _error instanceof Error ? _error.message : m.mcps_unknown_error();
 		}
 	}
 </script>
@@ -468,12 +468,12 @@
 	icon={editingManifest?.icon}
 	name={getMCPDisplayName(server)}
 	onSave={handleConfigureForm}
-	submitText={m.mcp_update()}
+	submitText={m.mcps_deployments_update()}
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}
 	showAlias={mode === 'edit'}
-	configurationTitle={mode === 'catalog-update' ? m.mcp_info_required_configuration() : undefined}
+	configurationTitle={mode === 'catalog-update' ? m.mcps_info_required_configuration() : undefined}
 	secretBindingTargets={editableSecretBindingTargets}
 	disableEnvSecretBindings={editingManifest?.runtime === 'remote'}
 	{deprecated}
@@ -484,7 +484,7 @@
 				<div class="flex flex-col gap-1 mb-4 w-full h-full" in:fade>
 					<div class="notification-error flex items-center gap-2">
 						<CircleAlert class="size-6 text-error" />
-						<h4 class="text-md font-medium">{m.mcp_launch_failed_title()}</h4>
+						<h4 class="text-md font-medium">{m.mcps_deployments_launch_failed_title()}</h4>
 					</div>
 					{#if launchLogs.length > 0}
 						<div
@@ -497,7 +497,7 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-sm self-start">{m.mcp_launch_failed_description()}</p>
+						<p class="text-sm self-start">{m.mcps_deployments_launch_failed_description()}</p>
 					{/if}
 
 					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
@@ -511,7 +511,7 @@
 									editing = false;
 								}}
 							>
-								{m.mcp_launch_update_and_retry()}
+								{m.mcps_deployments_launch_update_and_retry()}
 							</button>
 						{/if}
 					</div>
@@ -530,7 +530,7 @@
 					</div>
 
 					<div class="flex w-md flex-col justify-center gap-2 text-center">
-						<p class="text-xs font-light">{m.mcp_launching_server()}</p>
+						<p class="text-xs font-light">{m.mcps_deployments_launching_server()}</p>
 					</div>
 				</div>
 			{/if}

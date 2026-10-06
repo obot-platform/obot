@@ -47,7 +47,7 @@
 	}: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const llmModelWarning = m.admin_misc_only_llm_models_allowed();
+	const llmModelWarning = m.models_access_policies_only_llm_models_allowed();
 	let modelAccessPolicy = $state(
 		untrack(
 			() =>
@@ -132,7 +132,7 @@
 				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
 				usage: model?.usage,
 				effectiveModelName:
-					model?.displayName || model?.targetModel || m.admin_misc_not_configured(),
+					model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				warning: isAllowed ? undefined : llmModelWarning
 			};
@@ -225,7 +225,7 @@
 			if (model.id === '*') {
 				return {
 					id: model.id,
-					name: m.admin_misc_all_models(),
+					name: m.models_all_models(),
 					usage: undefined,
 					provider: '-',
 					isPattern: false,
@@ -254,7 +254,7 @@
 			const found = modelsMap.get(model.id);
 			let warning: string | undefined;
 			if (!found) {
-				warning = m.admin_misc_model_no_longer_exists();
+				warning = m.models_access_policies_model_no_longer_exists();
 			} else if (found.usage !== ModelUsage.LLM && found.usage !== ModelAlias.LlmMini) {
 				warning = llmModelWarning;
 			}
@@ -301,7 +301,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.admin_misc_delete_policy() }}
+						tooltip={{ text: m.core_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -319,7 +319,7 @@
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
 						<label for="model-access-policy-name" class="flex-1 text-sm font-light capitalize">
-							{m.admin_misc_name()}
+							{m.core_name()}
 						</label>
 						<input
 							id="model-access-policy-name"
@@ -334,13 +334,13 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_misc_users_and_groups()}</h2>
+				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
 							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
 								<Plus class="size-4" />
-								{m.admin_misc_add_user_group()}
+								{m.core_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -350,7 +350,7 @@
 								}}
 							>
 								<Plus class="size-4" />
-								{m.admin_misc_add_user_group()}
+								{m.core_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -370,10 +370,10 @@
 					data={tableData}
 					fields={['displayName', 'type']}
 					headers={[
-						{ property: 'displayName', title: m.admin_misc_col_name() },
-						{ property: 'type', title: m.admin_misc_col_type() }
+						{ property: 'displayName', title: m.core_col_name() },
+						{ property: 'type', title: m.core_col_type() }
 					]}
-					noDataMessage={m.admin_misc_no_users_or_groups_added()}
+					noDataMessage={m.core_no_users_or_groups_added()}
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
@@ -384,7 +384,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: m.admin_misc_delete_user_group() }}
+								tooltip={{ text: m.core_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -396,7 +396,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.admin_misc_models()}</h2>
+				<h2 class="text-lg font-semibold">{m.models_access_policies_models()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -405,7 +405,7 @@
 						}}
 					>
 						<Plus class="size-4" />
-						{m.admin_misc_add_model()}
+						{m.models_access_policies_add_model()}
 					</button>
 				{/if}
 			</div>
@@ -418,7 +418,7 @@
 					<div class="notification-alert flex items-start gap-1" role="alert">
 						<TriangleAlert class="text-warning size-4 shrink-0" />
 						<p class="text-xs">
-							{m.admin_misc_invalid_models_notice()}
+							{m.models_access_policies_invalid_models_notice()}
 						</p>
 					</div>
 				{/if}
@@ -426,10 +426,10 @@
 					data={combinedModelsTableData}
 					fields={['name', 'provider']}
 					headers={[
-						{ property: 'name', title: m.admin_misc_col_model() },
-						{ property: 'provider', title: m.admin_misc_col_provider() }
+						{ property: 'name', title: m.models_access_policies_col_model() },
+						{ property: 'provider', title: m.models_access_policies_col_provider() }
 					]}
-					noDataMessage={m.admin_misc_no_models_added()}
+					noDataMessage={m.models_access_policies_no_models_added()}
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
@@ -450,16 +450,16 @@
 										<span
 											class="bg-base-300 dark:bg-base-400 rounded-full px-2 py-0.5 text-xs font-medium"
 										>
-											{m.admin_misc_pattern()}
+											{m.models_access_policies_pattern()}
 										</span>
 									</div>
 									<span class="text-muted-content text-xs">
 										{#if d.matchCount > 0}
 											{d.matchCount === 1
-												? m.admin_misc_pattern_matches_one({ count: d.matchCount })
-												: m.admin_misc_pattern_matches_other({ count: d.matchCount })}
+												? m.models_access_policies_pattern_matches_one({ count: d.matchCount })
+												: m.models_access_policies_pattern_matches_other({ count: d.matchCount })}
 										{:else}
-											{m.admin_misc_pattern_no_matches()}
+											{m.models_access_policies_pattern_no_matches()}
 										{/if}
 									</span>
 								</div>
@@ -491,7 +491,7 @@
 									modelAccessPolicy.models =
 										modelAccessPolicy.models?.filter((model) => model.id !== d.id) ?? [];
 								}}
-								tooltip={{ text: m.admin_misc_remove_model() }}
+								tooltip={{ text: m.models_access_policies_remove_model() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -534,7 +534,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_misc_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -559,7 +559,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_misc_update()}
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -605,8 +605,8 @@
 
 <Confirm
 	msg={modelAccessPolicy.displayName
-		? m.admin_misc_delete_named({ name: modelAccessPolicy.displayName })
-		: m.admin_misc_delete_this_policy()}
+		? m.core_delete_named_component({ name: modelAccessPolicy.displayName })
+		: m.core_delete_this_policy()}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!modelAccessPolicy.id) return;

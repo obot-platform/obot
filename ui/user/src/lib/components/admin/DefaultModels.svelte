@@ -170,14 +170,14 @@
 	disabled={availableModels.length === 0 || loading}
 	onclick={() => open()}
 >
-	{m.admin_forms_default_models_set()}
+	{m.models_providers_default_models_set()}
 </button>
 
 <ResponsiveDialog
 	{onClose}
 	class="overflow-visible"
 	bind:this={dialog}
-	title={m.admin_forms_default_models_title()}
+	title={m.models_providers_default_models_title()}
 	onClickOutside={() => {
 		if (!required) {
 			onClose();
@@ -186,7 +186,7 @@
 	hideClose={required}
 >
 	<p class="text-muted-content pb-4 font-light">
-		{m.admin_forms_default_models_description()}
+		{m.models_providers_default_models_description()}
 	</p>
 	<div class="flex flex-col gap-4 py-4">
 		{#each sortedModelAliases as modelAlias (modelAlias.alias)}
@@ -216,7 +216,7 @@
 						})
 						.map(({ model, suggested }) => ({
 							label: suggested
-								? m.admin_forms_default_models_suggested({
+								? m.models_providers_default_models_suggested({
 										name: model.displayName || model.name || ''
 									})
 								: model.displayName || model.name || '',
@@ -231,7 +231,7 @@
 					}}
 					disabled={readonly}
 					searchInDropdown
-					placeholder={m.admin_forms_default_models_search()}
+					placeholder={m.models_providers_default_models_search()}
 				/>
 			</div>
 		{/each}
@@ -246,12 +246,12 @@
 				{#if loading}
 					<Loading class="size-4 inline-block" />
 				{:else}
-					{m.admin_forms_save_changes()}
+					{m.core_save_changes()}
 				{/if}
 			</button>
 			{#if !required}
 				<button class="btn btn-secondary w-full" onclick={() => dialog?.close()}>
-					{m.admin_forms_skip()}
+					{m.models_providers_skip()}
 				</button>
 			{/if}
 		</div>

@@ -134,7 +134,7 @@
 
 <div class="flex h-full w-full flex-col gap-6" in:fade={{ duration }}>
 	<p class="text-muted-content max-w-3xl text-sm">
-		{m.routes_models_gateway_intro()}
+		{m.models_gateway_intro()}
 	</p>
 
 	{#if ready}

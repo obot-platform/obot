@@ -131,7 +131,7 @@
 						configureError = errorMessage;
 					}
 				} else {
-					configureError = m.routes_models_configure_failed();
+					configureError = m.models_configure_failed();
 				}
 			} finally {
 				loading = false;
@@ -147,11 +147,11 @@
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">
-						{m.routes_models_no_providers_title()}
+						{m.models_no_providers_title()}
 					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					{m.routes_models_no_providers_desc()}
+					{m.models_no_providers_desc()}
 				</span>
 			</div>
 		{/if}
@@ -208,7 +208,7 @@
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
 			<p class="text-muted-content py-4 font-light">
-				{m.routes_models_anthropic_no_embeddings()}
+				{m.models_anthropic_no_embeddings()}
 			</p>
 		{/if}
 	{/snippet}

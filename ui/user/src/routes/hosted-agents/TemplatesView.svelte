@@ -52,23 +52,23 @@
 {:else}
 	<div class="flex flex-col gap-4" in:fade={{ duration }}>
 		<p class="text-muted-content text-sm font-light">
-			{m.chat_ha_templates_desc()}
+			{m.hosted_agents_templates_desc()}
 		</p>
 
 		{#if hostedAgents.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<Bot class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">{m.chat_ha_no_templates()}</h4>
+				<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_templates_no_templates()}</h4>
 				{#if !isReadonly}
 					<p class="text-muted-content text-sm font-light">
-						{m.chat_ha_no_templates_desc()}
+						{m.hosted_agents_templates_no_templates_desc()}
 					</p>
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
 						onclick={() => goto(`${page.url.pathname}?view=templates&new=true`)}
 					>
 						<Plus class="size-4" />
-						{m.chat_ha_add_template()}
+						{m.hosted_agents_templates_add_template()}
 					</button>
 				{/if}
 			</div>
@@ -78,7 +78,7 @@
 				fields={['name', 'harness']}
 				headers={[
 					{ property: 'name', title: m.chat_col_name() },
-					{ property: 'harness', title: m.chat_col_harness() }
+					{ property: 'harness', title: m.chat_templates_col_harness() }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(`/hosted-agents/${d.id}`, isCtrlClick);
@@ -103,7 +103,7 @@
 								e.stopPropagation();
 								agentToDelete = hostedAgents.find((a) => a.id === d.id);
 							}}
-							tooltip={{ text: m.chat_ha_delete_agent() }}
+							tooltip={{ text: m.hosted_agents_templates_delete_agent() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -115,7 +115,7 @@
 {/if}
 
 <Confirm
-	msg={m.chat_delete_named({ name: agentToDelete?.name || m.chat_this_agent() })}
+	msg={m.chat_delete_named({ name: agentToDelete?.name || m.chat_templates_this_agent() })}
 	show={Boolean(agentToDelete)}
 	onsuccess={async () => {
 		if (!agentToDelete) return;

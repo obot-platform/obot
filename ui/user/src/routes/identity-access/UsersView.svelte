@@ -97,12 +97,12 @@
 	let roleUpdateError = $state('');
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER)
-			? [{ label: m.admin_routes_role_owner(), id: Role.OWNER }]
+			? [{ label: m.identity_access_roles_owner(), id: Role.OWNER }]
 			: []),
-		{ label: m.admin_routes_role_admin(), id: Role.ADMIN },
-		{ label: m.admin_routes_role_power_user_plus_short(), id: Role.POWERUSER_PLUS },
-		{ label: m.admin_routes_role_power_user(), id: Role.POWERUSER },
-		{ label: m.admin_routes_role_standard_user(), id: Role.BASIC }
+		{ label: m.identity_access_roles_admin(), id: Role.ADMIN },
+		{ label: m.identity_access_roles_power_user_plus_short(), id: Role.POWERUSER_PLUS },
+		{ label: m.identity_access_roles_power_user(), id: Role.POWERUSER },
+		{ label: m.identity_access_roles_standard_user(), id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
@@ -117,7 +117,7 @@
 		if (error instanceof Error && error.message) {
 			return error.message;
 		}
-		return m.admin_routes_users_update_role_failed();
+		return m.identity_access_users_update_role_failed();
 	}
 
 	async function updateUserRole(
@@ -165,10 +165,10 @@
 			user?.originalEmail ??
 			user?.username ??
 			user?.email ??
-			m.admin_routes_unknown_user();
+			m.identity_access_unknown_user();
 
 		if (user?.deletedAt) {
-			display = m.admin_routes_name_deleted({ name: display });
+			display = m.identity_access_name_deleted({ name: display });
 		}
 
 		return display;
@@ -225,7 +225,7 @@
 
 			{#if version.current.userLimit}
 				<section class="flex items-center justify-end gap-2 text-muted-content">
-					<p class="text-sm">{m.admin_routes_users_user_limits()}</p>
+					<p class="text-sm">{m.identity_access_users_user_limits()}</p>
 					{#if !hasValidLicense || isCommunityEdition}
 						<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
 					{:else}
@@ -237,7 +237,7 @@
 				value={query}
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateQuery}
-				placeholder={m.admin_routes_users_search_placeholder()}
+				placeholder={m.identity_access_users_search_placeholder()}
 			/>
 			<Table
 				data={tableData}
@@ -254,16 +254,16 @@
 						tooltip:
 							'Disabled users keep their account, roles, and data, but cannot sign in or use their credentials.'
 					},
-					{ title: m.admin_routes_col_name(), property: 'name' },
-					{ title: m.admin_routes_col_email(), property: 'email' },
-					{ title: m.admin_routes_users_col_assigned_role(), property: 'role' },
+					{ title: m.core_col_name(), property: 'name' },
+					{ title: m.identity_access_col_email(), property: 'email' },
+					{ title: m.identity_access_users_col_assigned_role(), property: 'role' },
 					{
-						title: m.admin_routes_users_col_actual_role(),
+						title: m.identity_access_users_col_actual_role(),
 						property: 'effectiveRole',
-						tooltip: m.admin_routes_users_col_actual_role_tooltip()
+						tooltip: m.identity_access_users_col_actual_role_tooltip()
 					},
-					{ title: m.admin_routes_users_col_last_active(), property: 'lastActiveDay' },
-					{ title: m.admin_routes_col_created(), property: 'created' }
+					{ title: m.identity_access_users_col_last_active(), property: 'lastActiveDay' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				{initSort}
 				onSort={setSortUrlParams}
@@ -299,7 +299,7 @@
 						<div class="flex items-center gap-1">
 							{d.role}
 							{#if d.explicitRole}
-								<div use:tooltip={m.admin_routes_users_explicit_role()}>
+								<div use:tooltip={m.identity_access_users_explicit_role()}>
 									<ShieldAlert class="size-5" />
 								</div>
 							{/if}
@@ -328,7 +328,7 @@
 								});
 							}}
 						>
-							{m.admin_routes_view_access_policies()}
+							{m.identity_access_view_access_policies()}
 						</button>
 						{#if !isAdminReadonly}
 							<button
@@ -340,7 +340,7 @@
 									updateRoleDialog?.open();
 								}}
 							>
-								{m.admin_routes_update_role()}
+								{m.identity_access_update_role()}
 							</button>
 							{#if d.lifecycleStatus === 'disabled'}
 								<button
@@ -365,7 +365,7 @@
 								}}
 								onclick={() => (deletingUser = d)}
 							>
-								{m.admin_routes_users_delete_user()}
+								{m.identity_access_users_delete_user()}
 							</button>
 						{/if}
 					</DotDotDot>
@@ -378,7 +378,7 @@
 <CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
-	msg={m.admin_routes_users_delete_user_confirm({ email: `${deletingUser?.email}` })}
+	msg={m.identity_access_users_delete_user_confirm({ email: `${deletingUser?.email}` })}
 	show={Boolean(deletingUser)}
 	{loading}
 	onsuccess={async () => {
@@ -424,7 +424,7 @@
 <ResponsiveDialog
 	bind:this={updateRoleDialog}
 	class="w-full overflow-visible p-4 md:max-w-xl"
-	title={m.admin_routes_users_update_role_title({ name: `${updatingRole?.name}` })}
+	title={m.identity_access_users_update_role_title({ name: `${updatingRole?.name}` })}
 >
 	{#if updatingRole}
 		{@const roleDescriptionMap = userRoleOptions.reduce(
@@ -442,7 +442,7 @@
 				<div class="notification-info mb-2 p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<Info class="size-6" />
-						<div>{m.admin_routes_users_explicit_role()}</div>
+						<div>{m.identity_access_users_explicit_role()}</div>
 					</div>
 				</div>
 			{/if}
@@ -458,9 +458,9 @@
 						<p class="w-28 shrink-0 font-semibold">{role.label}</p>
 						<p class="text-muted-content">
 							{#if role.id === Role.OWNER}
-								{m.admin_routes_users_owner_description()}
+								{m.identity_access_users_owner_description()}
 							{:else if role.id === Role.ADMIN}
-								{m.admin_routes_users_admin_description()}
+								{m.identity_access_users_admin_description()}
 							{:else}
 								{roleDescriptionMap[role.id]}
 							{/if}
@@ -473,14 +473,14 @@
 				<label class="mt-4 flex gap-4">
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
-						<p class="w-28 shrink-0 font-semibold">{m.admin_routes_role_auditor()}</p>
+						<p class="w-28 shrink-0 font-semibold">{m.identity_access_roles_auditor()}</p>
 						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
 							<p class="text-muted-content">
-								{m.admin_routes_users_auditor_readonly_description()}
+								{m.identity_access_users_auditor_readonly_description()}
 							</p>
 						{:else}
 							<p class="text-muted-content">
-								{m.admin_routes_users_auditor_description()}
+								{m.identity_access_users_auditor_description()}
 							</p>
 						{/if}
 					</span>
@@ -496,9 +496,9 @@
 						class:opacity-50={updatingRole.roleId !== Role.ADMIN &&
 							updatingRole.roleId !== Role.OWNER}
 					>
-						<p class="shrink-0 font-semibold">{m.admin_routes_role_impersonator()}</p>
+						<p class="shrink-0 font-semibold">{m.identity_access_roles_impersonator()}</p>
 						<p class="text-muted-content">
-							{m.admin_routes_users_impersonator_description()}
+							{m.identity_access_users_impersonator_description()}
 						</p>
 					</span>
 				</label>
@@ -547,7 +547,7 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					{m.admin_routes_update()}
+					{m.core_update()}
 				{/if}
 			</button>
 		</div>
@@ -579,20 +579,20 @@
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}
 	type="info"
-	title={m.admin_routes_users_confirm_handoff()}
+	title={m.identity_access_users_confirm_handoff()}
 >
 	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
 			<Handshake class="size-6" />
-			<h3 class="text-xl font-semibold">{m.admin_routes_users_confirm_handoff()}</h3>
+			<h3 class="text-xl font-semibold">{m.identity_access_users_confirm_handoff()}</h3>
 		</div>
 	{/snippet}
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4">
 			<p>
-				{m.admin_routes_users_handoff_note()}
+				{m.identity_access_users_handoff_note()}
 			</p>
-			<p>{m.admin_routes_are_you_sure_continue()}</p>
+			<p>{m.identity_access_are_you_sure_continue()}</p>
 		</div>
 	{/snippet}
 </Confirm>
@@ -600,13 +600,13 @@
 <Confirm
 	type="info"
 	title={isAddingAuditorWithUserImpersonation
-		? m.admin_routes_users_confirm_impersonator_auditor_title()
-		: m.admin_routes_users_confirm_impersonator_title()}
+		? m.identity_access_users_confirm_impersonator_auditor_title()
+		: m.identity_access_users_confirm_impersonator_title()}
 	msg={isAddingAuditorWithUserImpersonation
-		? m.admin_routes_users_grant_impersonator_auditor_msg({
+		? m.identity_access_users_grant_impersonator_auditor_msg({
 				user: `${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name}`
 			})
-		: m.admin_routes_users_grant_impersonator_msg({
+		: m.identity_access_users_grant_impersonator_msg({
 				user: `${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name}`
 			})}
 	{loading}
@@ -631,26 +631,26 @@
 	{#snippet note()}
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
-				{m.admin_routes_users_impersonator_note()}
+				{m.identity_access_users_impersonator_note()}
 			</p>
 			{#if isAddingAuditorWithUserImpersonation}
 				<p class="text-left">
-					{m.admin_routes_users_impersonator_note_adds_auditor()}
+					{m.identity_access_users_impersonator_note_adds_auditor()}
 				</p>
 			{:else if isRemovingAuditorWithUserImpersonation}
-				<p class="text-left">{m.admin_routes_users_impersonator_note_removes_auditor()}</p>
+				<p class="text-left">{m.identity_access_users_impersonator_note_removes_auditor()}</p>
 			{:else}
-				<p class="text-left">{m.admin_routes_users_impersonator_note_keeps_auditor()}</p>
+				<p class="text-left">{m.identity_access_users_impersonator_note_keeps_auditor()}</p>
 			{/if}
 			<p>
-				{m.admin_routes_users_grant_confirm_prefix()}
+				{m.identity_access_users_grant_confirm_prefix()}
 				<b
 					>{confirmUserImpersonationAdditionToUser?.email ||
 						confirmUserImpersonationAdditionToUser?.name}</b
 				>
 				{isAddingAuditorWithUserImpersonation
-					? m.admin_routes_users_grant_confirm_these_roles()
-					: m.admin_routes_users_grant_confirm_this_role()}
+					? m.identity_access_users_grant_confirm_these_roles()
+					: m.identity_access_users_grant_confirm_this_role()}
 			</p>
 		</div>
 	{/snippet}
@@ -658,8 +658,8 @@
 
 <Confirm
 	type="info"
-	title={m.admin_routes_users_confirm_auditor_title()}
-	msg={m.admin_routes_users_grant_auditor_msg({
+	title={m.identity_access_users_confirm_auditor_title()}
+	msg={m.identity_access_users_grant_auditor_msg({
 		user: `${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}`
 	})}
 	{loading}
@@ -685,15 +685,15 @@
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
 				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
-					{m.admin_routes_users_auditor_note_standard()}
+					{m.identity_access_users_auditor_note_standard()}
 				{:else}
-					{m.admin_routes_users_auditor_note()}
+					{m.identity_access_users_auditor_note()}
 				{/if}
 			</p>
 			<p>
-				{m.admin_routes_users_grant_confirm_prefix()}
+				{m.identity_access_users_grant_confirm_prefix()}
 				<b>{confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}</b>
-				{m.admin_routes_users_grant_confirm_this_role()}
+				{m.identity_access_users_grant_confirm_this_role()}
 			</p>
 		</div>
 	{/snippet}

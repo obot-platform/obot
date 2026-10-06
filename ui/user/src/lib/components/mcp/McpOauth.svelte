@@ -107,13 +107,13 @@
 			{#if text}
 				<p>{text}</p>
 			{:else}
-				<p>{m.mcp_oauth_auth_required()}</p>
+				<p>{m.mcps_oauth_auth_required()}</p>
 			{/if}
 		</div>
 		{#if showRefresh && loading}
 			<div class="flex items-center gap-2 text-sm font-light">
 				<Loading class="size-4" />
-				{m.mcp_oauth_authenticating()}
+				{m.mcps_oauth_authenticating()}
 			</div>
 		{:else}
 			<a
@@ -127,7 +127,7 @@
 					}, 500);
 				}}
 			>
-				{m.mcp_oauth_authenticate()}
+				{m.mcps_oauth_authenticate()}
 			</a>
 		{/if}
 	</div>

@@ -132,24 +132,24 @@
 				if (form.provider === 's3') {
 					if (!form.s3Config?.region) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_region(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_region(),
 								provider: 'S3'
 							})
 						);
 					}
 					if (!form.s3Config?.accessKeyID) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_access_key_id(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_access_key_id(),
 								provider: 'S3'
 							})
 						);
 					}
 					if (!form.s3Config?.secretAccessKey && !existingCredentials?.s3Config) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_secret_access_key(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_secret_access_key(),
 								provider: 'S3'
 							})
 						);
@@ -157,8 +157,8 @@
 				} else if (form.provider === 'gcs') {
 					if (!form.gcsConfig?.serviceAccountJSON && !existingCredentials?.gcsConfig) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_service_account_json(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_service_account_json(),
 								provider: 'GCS'
 							})
 						);
@@ -166,32 +166,32 @@
 				} else if (form.provider === 'azure') {
 					if (!form.azureConfig?.storageAccount) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_storage_account(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_storage_account(),
 								provider: 'Azure'
 							})
 						);
 					}
 					if (!form.azureConfig?.clientID) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_client_id(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_client_id(),
 								provider: 'Azure'
 							})
 						);
 					}
 					if (!form.azureConfig?.tenantID) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_tenant_id(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_tenant_id(),
 								provider: 'Azure'
 							})
 						);
 					}
 					if (!form.azureConfig?.clientSecret && !existingCredentials?.azureConfig) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_client_secret(),
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_client_secret(),
 								provider: 'Azure'
 							})
 						);
@@ -199,33 +199,33 @@
 				} else if (form.provider === 'custom') {
 					if (!form.customS3Config?.endpoint) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_endpoint(),
-								provider: m.admin_sub_storage_custom_s3_short()
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_endpoint(),
+								provider: m.audit_usage_exports_custom_s3_short()
 							})
 						);
 					}
 					if (!form.customS3Config?.region) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_region(),
-								provider: m.admin_sub_storage_custom_s3_short()
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_region(),
+								provider: m.audit_usage_exports_custom_s3_short()
 							})
 						);
 					}
 					if (!form.customS3Config?.accessKeyID) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_access_key_id(),
-								provider: m.admin_sub_storage_custom_s3_short()
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_access_key_id(),
+								provider: m.audit_usage_exports_custom_s3_short()
 							})
 						);
 					}
 					if (!form.customS3Config?.secretAccessKey && !existingCredentials?.customS3Config) {
 						throw new Error(
-							m.admin_sub_storage_field_required({
-								field: m.admin_sub_storage_secret_access_key(),
-								provider: m.admin_sub_storage_custom_s3_short()
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_secret_access_key(),
+								provider: m.audit_usage_exports_custom_s3_short()
 							})
 						);
 					}
@@ -240,7 +240,7 @@
 			await AdminService.configureStorageCredentials(request);
 			onSubmit();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.admin_sub_storage_configure_failed();
+			error = err instanceof Error ? err.message : m.audit_usage_exports_configure_failed();
 		} finally {
 			saving = false;
 		}
@@ -308,7 +308,7 @@
 		} catch (err) {
 			testResult = {
 				success: false,
-				message: err instanceof Error ? err.message : m.admin_sub_storage_test_failed()
+				message: err instanceof Error ? err.message : m.audit_usage_exports_test_failed()
 			};
 		} finally {
 			testing = false;
@@ -330,7 +330,7 @@
 			existingCredentials = null;
 			testResult = {
 				success: true,
-				message: m.admin_sub_storage_deleted()
+				message: m.audit_usage_exports_deleted()
 			};
 
 			// Reset form to default state
@@ -361,7 +361,7 @@
 			};
 			useWorkloadIdentity = false;
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.admin_sub_storage_delete_failed();
+			error = err instanceof Error ? err.message : m.audit_usage_exports_delete_failed();
 		} finally {
 			deleting = false;
 		}
@@ -372,7 +372,7 @@
 	<div class="dark:bg-base-300 bg-base-100 rounded-md p-6 shadow-sm">
 		<div class="flex items-center justify-center py-8">
 			<Loading class="size-6" />
-			<span class="ml-2 text-sm text-gray-600">{m.admin_sub_storage_loading()}</span>
+			<span class="ml-2 text-sm text-gray-600">{m.audit_usage_exports_loading()}</span>
 		</div>
 	</div>
 {:else}
@@ -388,11 +388,11 @@
 				<div class="mb-6 flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 					<TriangleAlert class="size-5 shrink-0 text-warning" />
 					<div class="flex-1 text-sm">
-						<p class="font-medium">{m.admin_sub_storage_already_configured()}</p>
+						<p class="font-medium">{m.audit_usage_exports_already_configured()}</p>
 						<p class="mt-1 opacity-80">
-							{m.admin_sub_storage_already_configured_prefix()}<span class="uppercase"
+							{m.audit_usage_exports_already_configured_prefix()}<span class="uppercase"
 								>{existingCredentials.provider}</span
-							>{m.admin_sub_storage_already_configured_suffix()}
+							>{m.audit_usage_exports_already_configured_suffix()}
 						</p>
 					</div>
 				</div>
@@ -401,10 +401,10 @@
 			<div class={twMerge('flex flex-col gap-8')}>
 				<!-- Provider Selection -->
 				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">{m.admin_sub_storage_provider_heading()}</h3>
+					<h3 class="text-lg font-semibold">{m.audit_usage_exports_provider_heading()}</h3>
 					<div class="flex flex-col gap-1">
 						<label class="text-sm font-medium" for="storage-provider"
-							>{m.admin_sub_storage_provider_label()}</label
+							>{m.audit_usage_exports_provider_label()}</label
 						>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Select
@@ -414,7 +414,7 @@
 									{ id: 's3', label: 'Amazon S3' },
 									{ id: 'gcs', label: 'Google Cloud Storage' },
 									{ id: 'azure', label: 'Azure Blob Storage' },
-									{ id: 'custom', label: m.admin_sub_storage_custom_s3() }
+									{ id: 'custom', label: m.audit_usage_exports_custom_s3() }
 								]}
 								selected={form.provider}
 								disabled={!!existingCredentials}
@@ -471,12 +471,12 @@
 
 				{#if form.provider === 's3' && form.s3Config}
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="region">{m.admin_sub_storage_region()}</label>
+						<label class="text-sm font-medium" for="region">{m.audit_usage_exports_region()}</label>
 						<input
 							class="text-input-filled"
 							id="region"
 							bind:value={form.s3Config.region}
-							placeholder={m.admin_sub_storage_region_placeholder()}
+							placeholder={m.audit_usage_exports_region_placeholder()}
 						/>
 					</div>
 				{/if}
@@ -487,7 +487,7 @@
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="storage-account"
-									>{m.admin_sub_storage_storage_account()}</label
+									>{m.audit_usage_exports_storage_account()}</label
 								>
 								<input
 									class="text-input-filled"
@@ -503,26 +503,26 @@
 				<!-- Authentication Method -->
 				{#if form.provider !== 'custom'}
 					<div class="space-y-4">
-						<h3 class="text-lg font-semibold">{m.admin_sub_storage_auth_method()}</h3>
+						<h3 class="text-lg font-semibold">{m.audit_usage_exports_auth_method()}</h3>
 						<div class="flex flex-col gap-4">
 							<div class="flex items-center justify-between">
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="auth-method"
-										>{m.admin_sub_storage_use_obot_credential()}</label
+										>{m.audit_usage_exports_use_obot_credential()}</label
 									>
 								</div>
 								<Toggle
 									checked={useWorkloadIdentity}
 									onChange={(checked) => (useWorkloadIdentity = checked)}
 									label={useWorkloadIdentity
-										? m.admin_sub_storage_use_workload_identity()
-										: m.admin_sub_storage_configure_keys_manually()}
+										? m.audit_usage_exports_use_workload_identity()
+										: m.audit_usage_exports_configure_keys_manually()}
 								/>
 							</div>
 							{#if useWorkloadIdentity}
 								<div class="rounded-md bg-blue-50 p-4 dark:bg-blue-950/50">
 									<p class="text-sm text-blue-700 dark:text-blue-300">
-										{m.admin_sub_storage_using_workload_identity()}
+										{m.audit_usage_exports_using_workload_identity()}
 									</p>
 								</div>
 							{/if}
@@ -533,13 +533,13 @@
 				<!-- Credentials -->
 				{#if !useWorkloadIdentity}
 					<div class="space-y-4">
-						<h3 class="text-lg font-semibold">{m.admin_sub_storage_credentials()}</h3>
+						<h3 class="text-lg font-semibold">{m.audit_usage_exports_credentials()}</h3>
 
 						{#if form.provider === 's3' && form.s3Config}
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="access-key"
-										>{m.admin_sub_storage_access_key_id()}</label
+										>{m.audit_usage_exports_access_key_id()}</label
 									>
 									<input
 										name="access-key"
@@ -549,7 +549,7 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="secret-key"
-										>{m.admin_sub_storage_secret_access_key()}</label
+										>{m.audit_usage_exports_secret_access_key()}</label
 									>
 									<SensitiveInput
 										name="secret-key"
@@ -564,7 +564,7 @@
 						{:else if form.provider === 'gcs' && form.gcsConfig}
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="service-account"
-									>{m.admin_sub_storage_service_account_json()}</label
+									>{m.audit_usage_exports_service_account_json()}</label
 								>
 								<SensitiveInput
 									name="service-account-json"
@@ -577,14 +577,14 @@
 									hideReveal
 								/>
 								<p class="text-muted-content text-xs">
-									{m.admin_sub_storage_service_account_help()}
+									{m.audit_usage_exports_service_account_help()}
 								</p>
 							</div>
 						{:else if form.provider === 'azure' && form.azureConfig}
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="azure-client-id"
-										>{m.admin_sub_storage_client_id()}</label
+										>{m.audit_usage_exports_client_id()}</label
 									>
 									<input
 										name="azure-client-id"
@@ -594,7 +594,7 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="azure-tenant-id"
-										>{m.admin_sub_storage_tenant_id()}</label
+										>{m.audit_usage_exports_tenant_id()}</label
 									>
 									<input
 										name="azure-tenant-id"
@@ -604,7 +604,7 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="azure-client-secret"
-										>{m.admin_sub_storage_client_secret()}</label
+										>{m.audit_usage_exports_client_secret()}</label
 									>
 									<SensitiveInput
 										name="azure-client-secret"
@@ -620,7 +620,7 @@
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="custom-endpoint"
-										>{m.admin_sub_storage_endpoint()}</label
+										>{m.audit_usage_exports_endpoint()}</label
 									>
 									<input
 										class="text-input-filled"
@@ -631,18 +631,18 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="custom-region"
-										>{m.admin_sub_storage_region()}</label
+										>{m.audit_usage_exports_region()}</label
 									>
 									<input
 										class="text-input-filled"
 										id="custom-region"
 										bind:value={form.customS3Config.region}
-										placeholder={m.admin_sub_storage_region_placeholder()}
+										placeholder={m.audit_usage_exports_region_placeholder()}
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="custom-access-key"
-										>{m.admin_sub_storage_access_key_id()}</label
+										>{m.audit_usage_exports_access_key_id()}</label
 									>
 									<input
 										name="custom-access-key"
@@ -652,7 +652,7 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="custom-secret-key"
-										>{m.admin_sub_storage_secret_access_key()}</label
+										>{m.audit_usage_exports_secret_access_key()}</label
 									>
 									<SensitiveInput
 										name="custom-secret-key"
@@ -706,9 +706,9 @@
 					>
 						{#if testing}
 							<Loading class="size-4" />
-							{m.admin_sub_storage_testing()}
+							{m.audit_usage_exports_testing()}
 						{:else}
-							{m.admin_sub_storage_test_connection()}
+							{m.audit_usage_exports_test_connection()}
 						{/if}
 					</button>
 				{/if}
@@ -722,10 +722,10 @@
 					>
 						{#if deleting}
 							<Loading class="size-4" />
-							{m.admin_sub_storage_deleting()}
+							{m.audit_usage_exports_deleting()}
 						{:else}
 							<Trash class="size-4" />
-							{m.admin_sub_storage_delete_credentials()}
+							{m.audit_usage_exports_delete_credentials()}
 						{/if}
 					</button>
 				{/if}
@@ -742,9 +742,9 @@
 					<button type="submit" class="btn btn-primary" disabled={saving || testing}>
 						{#if saving}
 							<Loading class="size-4" />
-							{m.admin_sub_storage_saving()}
+							{m.audit_usage_exports_saving()}
 						{:else}
-							{m.admin_sub_storage_save_credentials()}
+							{m.audit_usage_exports_save_credentials()}
 						{/if}
 					</button>
 				</div>
@@ -756,8 +756,8 @@
 <Confirm
 	show={showDeleteConfirm}
 	msg={existingCredentials?.provider
-		? m.admin_sub_storage_delete_provider_msg({ provider: existingCredentials.provider })
-		: m.admin_sub_storage_delete_these_msg()}
+		? m.audit_usage_exports_delete_provider_msg({ provider: existingCredentials.provider })
+		: m.audit_usage_exports_delete_these_msg()}
 	onsuccess={handleDeleteCredentials}
 	oncancel={() => (showDeleteConfirm = false)}
 	loading={deleting}

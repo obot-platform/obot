@@ -29,7 +29,7 @@
 	<ResponsiveDialog
 		bind:this={dialog}
 		onClose={handleClose}
-		title={m.routes_inv_key_created_title()}
+		title={m.inventory_enforcement_configuration_key_created_title()}
 		class="w-full max-w-lg"
 		disableClickOutside
 	>
@@ -38,16 +38,16 @@
 				<div class="flex items-start gap-3">
 					<TriangleAlert class="size-5 shrink-0" />
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">{m.routes_inv_save_key_now()}</p>
+						<p class="text-sm font-medium">{m.inventory_enforcement_configuration_save_key_now()}</p>
 						<p class="text-xs">
-							{m.routes_inv_key_shown_once()}
+							{m.inventory_enforcement_configuration_key_shown_once()}
 						</p>
 					</div>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">{m.routes_inv_enrollment_key()}</p>
+				<p class="text-sm font-medium">{m.inventory_enforcement_configuration_enrollment_key()}</p>
 				<CopyField value={credential} id="enrollment-key">
 					{#snippet preContent()}
 						<KeyRound class="text-muted-content size-4 shrink-0" />
@@ -57,7 +57,7 @@
 		</div>
 
 		<div class="mt-6 flex justify-end">
-			<button class="btn btn-primary" onclick={handleClose}> {m.routes_inv_saved_my_key()} </button>
+			<button class="btn btn-primary" onclick={handleClose}> {m.inventory_enforcement_configuration_saved_my_key()} </button>
 		</div>
 	</ResponsiveDialog>
 {/if}

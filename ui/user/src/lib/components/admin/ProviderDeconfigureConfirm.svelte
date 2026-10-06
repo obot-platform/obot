@@ -18,8 +18,8 @@
 		onConfirm,
 		onCancel,
 		providers,
-		title = m.admin_misc_confirm_deconfiguration(),
-		confirmButtonText = m.admin_misc_deconfigure()
+		title = m.models_providers_confirm_deconfiguration(),
+		confirmButtonText = m.models_providers_deconfigure()
 	}: Props = $props();
 
 	let providerDeconfigureConfirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -60,30 +60,30 @@
 			<div class="px-4 py-4 md:py-0 flex flex-col gap-4 h-full">
 				<p>
 					{#if providers.length === 1}
-						{m.admin_misc_deconfigure_single_prefix()}
-						<b>{providers[0].name}</b>{m.admin_misc_sentence_end()}
+						{m.models_providers_deconfigure_single_prefix()}
+						<b>{providers[0].name}</b>{m.models_providers_sentence_end()}
 					{:else}
-						{m.admin_misc_deconfigure_multi_prefix()}
-						<b>{listOfProviders}</b>{m.admin_misc_sentence_end()}
+						{m.models_providers_deconfigure_multi_prefix()}
+						<b>{listOfProviders}</b>{m.models_providers_sentence_end()}
 					{/if}
-					{m.admin_misc_cannot_be_undone()}
+					{m.models_providers_cannot_be_undone()}
 				</p>
 				{#if authProvider}
 					<div class="p-4 bg-error/10 text-error rounded-md text-sm">
 						<p class="mb-2">
-							{m.admin_misc_deconfiguring_prefix()}
-							<b>{authProvider.name || m.admin_misc_this_provider()}</b>
-							{m.admin_misc_deconfiguring_suffix()}
+							{m.models_providers_deconfiguring_prefix()}
+							<b>{authProvider.name || m.models_providers_this_provider()}</b>
+							{m.models_providers_deconfiguring_suffix()}
 						</p>
 						<ul class="px-4 list-disc space-y-2">
 							<li>
-								{m.admin_misc_deconfigure_effect_users()}
+								{m.models_providers_deconfigure_effect_users()}
 							</li>
 							<li>
-								{m.admin_misc_deconfigure_effect_powerusers()}
+								{m.models_providers_deconfigure_effect_powerusers()}
 							</li>
 							<li>
-								{m.admin_misc_deconfigure_effect_accounts()}
+								{m.models_providers_deconfigure_effect_accounts()}
 							</li>
 							{#if scimManaged}
 								<li>
@@ -101,9 +101,9 @@
 				{#if authProvider}
 					<div class="flex flex-col gap-1">
 						<p>
-							{m.admin_misc_type_provider_id_prefix()}
+							{m.models_providers_type_provider_id_prefix()}
 							<code class="text-xs p-1 bg-base-200">{authProvider.id}</code>
-							{m.admin_misc_type_provider_id_suffix()}
+							{m.models_providers_type_provider_id_suffix()}
 						</p>
 
 						<input type="text" class="input-text-filled w-full" bind:value={confirmationInput} />
@@ -112,7 +112,7 @@
 				<div class="md:hidden flex grow"></div>
 				<div class="flex gap-4 w-full pt-4 md:py-4">
 					<button class="btn btn-secondary flex-1" disabled={loading} onclick={onCancel}
-						>{m.admin_misc_nevermind()}</button
+						>{m.models_providers_nevermind()}</button
 					>
 					<button
 						class="btn btn-error btn-soft flex-1"

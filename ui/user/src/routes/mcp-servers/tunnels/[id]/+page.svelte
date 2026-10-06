@@ -32,7 +32,7 @@
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let title = $derived(
-		mcpTunnel?.manifest.displayName?.trim() || mcpTunnel?.id || m.routes_mcp_mcp_tunnel()
+		mcpTunnel?.manifest.displayName?.trim() || mcpTunnel?.id || m.mcps_tunnels_mcp_tunnel()
 	);
 	let tunnelConnection = $derived(
 		tunnelConnections?.find((connection) => connection.name === mcpTunnel?.id)
@@ -98,7 +98,7 @@
 		deleting = true;
 		try {
 			await AdminService.deleteMCPTunnel(mcpTunnel.id);
-			success.add(m.routes_mcp_tunnel_deleted());
+			success.add(m.mcps_tunnels_tunnel_deleted());
 			goto('/mcp-servers?view=tunnels');
 		} finally {
 			deleting = false;
@@ -120,7 +120,7 @@
 					readonly={isReadonly}
 					onUpdate={(updated) => {
 						mcpTunnel = updated;
-						success.add(m.routes_mcp_tunnel_updated());
+						success.add(m.mcps_tunnels_tunnel_updated());
 					}}
 					onDelete={() => {
 						showDeleteConfirm = true;
@@ -135,8 +135,8 @@
 </Layout>
 
 <Confirm
-	msg={m.routes_mcp_delete_named({ name: title })}
-	note={m.routes_mcp_delete_tunnel_note()}
+	msg={m.mcps_delete_named({ name: title })}
+	note={m.mcps_tunnels_delete_tunnel_note()}
 	show={showDeleteConfirm}
 	loading={deleting}
 	onsuccess={deleteTunnel}
@@ -144,13 +144,13 @@
 />
 
 <Confirm
-	title={m.routes_mcp_rotate_tunnel_secret_title()}
+	title={m.mcps_tunnels_rotate_tunnel_secret_title()}
 	type="info"
-	msg={m.routes_mcp_rotate_secret_for({ name: title })}
-	note={m.routes_mcp_rotate_secret_note()}
+	msg={m.mcps_tunnels_rotate_secret_for({ name: title })}
+	note={m.mcps_tunnels_rotate_secret_note()}
 	show={showRotateConfirm}
 	loading={rotating}
-	submitText={m.routes_mcp_rotate_secret()}
+	submitText={m.mcps_tunnels_rotate_secret()}
 	onsuccess={rotateSecret}
 	oncancel={() => (showRotateConfirm = false)}
 />

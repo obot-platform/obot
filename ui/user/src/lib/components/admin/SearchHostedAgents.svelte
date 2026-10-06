@@ -18,7 +18,7 @@
 		hostedAgents,
 		onAdd,
 		exclude = [],
-		title = m.admin_misc_add_templates(),
+		title = m.hosted_agents_add_templates(),
 		wildcardAvailable = true
 	}: Props = $props();
 
@@ -75,7 +75,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (query = val)}
 					value={query}
-					placeholder={m.admin_misc_search_templates()}
+					placeholder={m.hosted_agents_search_templates()}
 				/>
 			</div>
 
@@ -90,9 +90,9 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="flex flex-col">
-								<p class="font-medium">{m.admin_misc_all_templates()}</p>
+								<p class="font-medium">{m.hosted_agents_all_templates()}</p>
 								<span class="text-muted-content text-xs">
-									{m.admin_misc_all_templates_description()}
+									{m.hosted_agents_all_templates_description()}
 								</span>
 							</div>
 						</div>
@@ -134,7 +134,7 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<Bot class="size-4" />
-				{m.admin_misc_n_selected({ count: selected.length })}
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
@@ -142,7 +142,7 @@
 				{m.common_cancel()}
 			</button>
 			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
-				{m.admin_misc_confirm()}
+				{m.core_confirm()}
 			</button>
 		</div>
 	</div>

@@ -45,7 +45,7 @@
 	const success = $derived(allAuthenticated && !loading && !error && checking.size === 0);
 	const parentIcon = $derived(compositeServer ? compositeServer.icon : undefined);
 	const parentDisplayName = $derived(
-		compositeServer ? compositeServer.displayName : m.mcp_composite_oauth_title()
+		compositeServer ? compositeServer.displayName : m.mcps_oauth_composite_oauth_title()
 	);
 
 	// Complete only after every pending or in-flight authentication check succeeds.
@@ -187,14 +187,14 @@
 
 		{#if !allAuthenticated}
 			<p class="mb-6 text-sm">
-				{m.mcp_composite_oauth_description()}
+				{m.mcps_oauth_composite_oauth_description()}
 			</p>
 		{/if}
 
 		{#if loading && pending.length === 0}
 			<div class="flex items-center justify-center gap-2 py-8">
 				<Loading class="size-6" />
-				<span>{m.mcp_loading_servers()}</span>
+				<span>{m.mcps_oauth_loading_servers()}</span>
 			</div>
 		{:else if error}
 			<div class="notification-error">
@@ -210,7 +210,7 @@
 							{#if item.icon || componentInfos[item.catalogEntryID || '']?.icon}
 								<img
 									src={item.icon || componentInfos[item.catalogEntryID || '']?.icon}
-									alt={m.mcp_icon_alt()}
+									alt={m.mcps_oauth_icon_alt()}
 									class="size-6"
 								/>
 							{:else}
@@ -230,7 +230,7 @@
 							{#if checking.has(item.mcpServerID)}
 								<span class="flex items-center gap-2 text-sm" role="status">
 									<Loading class="size-4" />
-									{m.mcp_composite_oauth_checking()}
+									{m.mcps_oauth_composite_oauth_checking()}
 								</span>
 							{:else}
 								<a
@@ -238,13 +238,13 @@
 									rel="external noopener noreferrer"
 									target="_blank"
 									class="btn btn-primary"
-									onclick={() => recordAttempt(item)}>{m.mcp_oauth_authenticate()}</a
+									onclick={() => recordAttempt(item)}>{m.mcps_oauth_authenticate()}</a
 								>
 								{#if rowErrors[item.mcpServerID]}
 									<button
 										class="btn btn-secondary"
 										type="button"
-										onclick={() => void checkComponent(item)}>{m.mcp_retry()}</button
+										onclick={() => void checkComponent(item)}>{m.mcps_retry()}</button
 									>
 								{/if}
 							{/if}
@@ -260,9 +260,9 @@
 		{#if success}
 			<div class="notification-info mt-6 flex justify-center">
 				<div class="flex flex-col items-center gap-2">
-					<p class="text-center font-semibold">{m.mcp_composite_oauth_success()}</p>
+					<p class="text-center font-semibold">{m.mcps_oauth_composite_oauth_success()}</p>
 					<p class="text-center text-sm font-light">
-						{m.mcp_composite_oauth_close_window()}
+						{m.mcps_oauth_composite_oauth_close_window()}
 					</p>
 				</div>
 			</div>

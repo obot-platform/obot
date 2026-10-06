@@ -72,7 +72,7 @@
 		}}
 	>
 		<span class="status status-warning"></span>
-		{m.vmcps_not_configured()}
+		{m.vmcps_deployments_not_configured()}
 	</button>
 {:else if ctx.connected}
 	<div class={twMerge(badgeClass, 'badge-primary')} role="status">

@@ -113,7 +113,7 @@
 				options={PII_FILTER_OPTIONAL_OPTIONS}
 				selected={option}
 				id={`pii-filter-type-${option}-selector`}
-				placeholder={m.admin_forms_fft_select_type()}
+				placeholder={m.mcps_filters_select_type()}
 				searchInDropdown
 			/>
 			<Select
@@ -152,7 +152,7 @@
 				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTIONAL_OPTIONS}
 				id={`pii-filter-type-${option.id}-selector`}
-				placeholder={m.admin_forms_fft_select_type()}
+				placeholder={m.mcps_filters_select_type()}
 				searchInDropdown
 				onSelect={(selected) => {
 					unassignedCustomOptions[i] = { ...unassignedCustomOptions[i], key: selected.id };
@@ -191,6 +191,6 @@
 		}}
 	>
 		<Plus class="size-4" />
-		{m.admin_forms_fft_filter_type()}
+		{m.mcps_filters_filter_type()}
 	</button>
 </div>

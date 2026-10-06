@@ -56,7 +56,7 @@
 			formValue = JSON.parse(next) as unknown;
 			rawParseError = undefined;
 		} catch (error) {
-			rawParseError = error instanceof Error ? error.message : m.mcp_tester_invalid_json();
+			rawParseError = error instanceof Error ? error.message : m.mcps_tester_invalid_json();
 		}
 	}
 
@@ -66,14 +66,14 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex flex-wrap items-center gap-2" aria-label={m.mcp_tester_argument_input_mode()}>
+	<div class="flex flex-wrap items-center gap-2" aria-label={m.mcps_tester_argument_input_mode()}>
 		{#if generatedSupported}
 			<button
 				type="button"
 				class="btn btn-sm"
 				class:btn-primary={mode === 'form'}
 				class:btn-ghost={mode !== 'form'}
-				onclick={() => setMode('form')}>{m.mcp_tester_generated_form()}</button
+				onclick={() => setMode('form')}>{m.mcps_tester_generated_form()}</button
 			>
 		{/if}
 		<button
@@ -81,7 +81,7 @@
 			class="btn btn-sm"
 			class:btn-primary={mode === 'raw'}
 			class:btn-ghost={mode !== 'raw'}
-			onclick={() => setMode('raw')}>{m.mcp_tester_raw_json()}</button
+			onclick={() => setMode('raw')}>{m.mcps_tester_raw_json()}</button
 		>
 	</div>
 
@@ -89,7 +89,7 @@
 		<JsonSchemaField
 			{schema}
 			value={formValue}
-			label={m.mcp_tester_arguments()}
+			label={m.mcps_tester_arguments()}
 			path="arguments"
 			required
 			{disabled}
@@ -97,7 +97,7 @@
 		/>
 	{:else}
 		<label for="mcp-tester-raw-arguments" class="block text-sm font-medium"
-			>{m.mcp_tester_arguments_json()}</label
+			>{m.mcps_tester_arguments_json()}</label
 		>
 		<textarea
 			id="mcp-tester-raw-arguments"
@@ -110,12 +110,12 @@
 
 	{#if rawParseError}
 		<p class="text-sm text-error" role="alert">
-			{m.mcp_tester_invalid_json_error({ error: rawParseError })}
+			{m.mcps_tester_invalid_json_error({ error: rawParseError })}
 		</p>
 	{:else if validationErrors.length}
 		<ul
 			class="list-disc space-y-1 pl-5 text-sm text-error"
-			aria-label={m.mcp_tester_argument_validation_errors()}
+			aria-label={m.mcps_tester_argument_validation_errors()}
 		>
 			{#each validationErrors as error (error)}
 				<li>{error}</li>
@@ -124,7 +124,7 @@
 	{/if}
 
 	<details>
-		<summary class="cursor-pointer text-sm font-medium">{m.mcp_tester_input_schema()}</summary>
-		<JsonPreview value={schema} class="mt-2" ariaLabel={m.mcp_tester_tool_input_schema()} />
+		<summary class="cursor-pointer text-sm font-medium">{m.mcps_tester_input_schema()}</summary>
+		<JsonPreview value={schema} class="mt-2" ariaLabel={m.mcps_tester_tool_input_schema()} />
 	</details>
 </div>

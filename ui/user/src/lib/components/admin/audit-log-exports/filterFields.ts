@@ -7,7 +7,7 @@ export const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
 
 export const sourceTypeLabels: Record<string, string> = {
 	mcp: 'MCP',
-	local_agent_tool_call: m.admin_sub_export_source_local_agent_tool_calls()
+	local_agent_tool_call: m.audit_usage_exports_source_local_agent_tool_calls()
 };
 
 const SOURCE_TYPE_BY_EVENT_TYPE: Record<string, string> = {

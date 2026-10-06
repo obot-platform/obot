@@ -5,6 +5,6 @@
 </script>
 
 <RedirectLayout
-	title={m.admin_routes_message_policies()}
+	title={m.ai_judge_message_policies()}
 	destinations={MESSAGE_POLICIES_REDIRECT_DESTINATIONS}
 />

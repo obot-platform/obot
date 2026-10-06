@@ -118,7 +118,7 @@
 		}}
 	>
 		<ServerCog class="size-4" />
-		{m.vmcps_edit_configuration()}
+		{m.vmcps_deployments_edit_configuration()}
 	</button>
 {/if}
 {#if openDiff && ctx.needsUpdate}
@@ -146,7 +146,7 @@
 			toggle(false);
 		}}
 	>
-		{m.vmcps_view_audit_logs()}
+		{m.vmcps_deployments_view_audit_logs()}
 		<ExternalLink class="size-4" />
 	</a>
 	<a
@@ -173,6 +173,6 @@
 		}}
 	>
 		<Trash2 class="size-4" />
-		{m.vmcps_delete()}
+		{m.vmcps_deployments_delete()}
 	</button>
 {/if}

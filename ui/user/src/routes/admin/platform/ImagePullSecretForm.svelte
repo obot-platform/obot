@@ -77,7 +77,7 @@
 {#if selectedId && !currentSecret}
 	<div class="notification-info flex items-center gap-3">
 		<Info class="size-5" />
-		<div>{m.admin_routes_ipsf_not_found()}</div>
+		<div>{m.platform_settings_image_pull_secrets_not_found()}</div>
 	</div>
 {:else}
 	<form
@@ -91,16 +91,16 @@
 		<div class="flex flex-col gap-4">
 			<label class="flex flex-col gap-1">
 				<FieldLabel
-					label={m.admin_routes_ipsf_display_name()}
-					help={m.admin_routes_ipsf_display_name_help()}
+					label={m.platform_settings_image_pull_secrets_display_name()}
+					help={m.platform_settings_image_pull_secrets_display_name_help()}
 				/>
 				<input
 					class="input-text-filled"
 					bind:value={form.displayName}
 					disabled={mutationsDisabled}
 					placeholder={form.type === 'ecr'
-						? m.admin_routes_ipsf_display_name_ecr_placeholder()
-						: m.admin_routes_ipsf_display_name_basic_placeholder()}
+						? m.platform_settings_image_pull_secrets_display_name_ecr_placeholder()
+						: m.platform_settings_image_pull_secrets_display_name_basic_placeholder()}
 				/>
 			</label>
 		</div>
@@ -137,7 +137,7 @@
 						onclick={() => onRefresh(currentSecret)}
 					>
 						<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-						{m.admin_routes_refresh_now()}
+						{m.platform_refresh_now()}
 					</button>
 				{/if}
 				{#if !hideSubmit}
@@ -149,7 +149,7 @@
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 						{/if}
-						{currentSecret ? m.admin_routes_save() : m.admin_routes_create()}
+						{currentSecret ? m.core_save() : m.platform_create()}
 					</button>
 				{/if}
 			</div>
@@ -162,7 +162,7 @@
 			<div class="notification-info mt-5 flex items-center gap-3 text-sm">
 				<Info class="size-5" />
 				<div>
-					<p class="font-semibold">{m.admin_routes_ipsf_issuer_required()}</p>
+					<p class="font-semibold">{m.platform_settings_image_pull_secrets_issuer_required()}</p>
 					<p>{issuerDiscoveryReason}</p>
 				</div>
 			</div>
@@ -179,7 +179,7 @@
 {#snippet enabledToggle()}
 	<div class="border-base-300 dark:border-base-400 flex items-center gap-1 border-t pt-4 text-sm">
 		<Toggle
-			label={m.admin_routes_enabled()}
+			label={m.platform_enabled()}
 			labelInline
 			checked={form.enabled}
 			disabled={mutationsDisabled}
@@ -188,7 +188,7 @@
 			}}
 		/>
 		<InfoTooltip
-			text={m.admin_routes_ipsf_enabled_help()}
+			text={m.platform_settings_image_pull_secrets_enabled_help()}
 			placement="right"
 			class="ml-0.5 size-3.5"
 			classes={{ icon: 'size-3.5' }}
@@ -200,8 +200,8 @@
 	<div class="flex flex-col gap-4">
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_registry_server()}
-				help={m.admin_routes_ipsf_registry_server_help()}
+				label={m.platform_settings_image_pull_secrets_registry_server()}
+				help={m.platform_settings_image_pull_secrets_registry_server_help()}
 			/>
 			<input
 				class={inputClass('server')}
@@ -216,8 +216,8 @@
 		</label>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_username()}
-				help={m.admin_routes_ipsf_username_help()}
+				label={m.platform_settings_image_pull_secrets_username()}
+				help={m.platform_settings_image_pull_secrets_username_help()}
 			/>
 			<input
 				class={inputClass('username')}
@@ -234,8 +234,8 @@
 			<FieldLabel
 				label={m.common_password()}
 				help={currentSecret?.status?.passwordConfigured
-					? m.admin_routes_ipsf_password_keep_help()
-					: m.admin_routes_ipsf_password_help()}
+					? m.platform_settings_image_pull_secrets_password_keep_help()
+					: m.platform_settings_image_pull_secrets_password_help()}
 			/>
 			<input
 				class={inputClass('password')}
@@ -244,14 +244,14 @@
 				disabled={mutationsDisabled}
 				required={!currentSecret?.status?.passwordConfigured}
 				placeholder={currentSecret?.status?.passwordConfigured
-					? m.admin_routes_ipsf_password_keep_placeholder()
-					: m.admin_routes_ipsf_password_placeholder()}
+					? m.platform_settings_image_pull_secrets_password_keep_placeholder()
+					: m.platform_settings_image_pull_secrets_password_placeholder()}
 			/>
 			{#if requiredErrors.password}
 				<span class="text-sm font-medium text-red-500">{requiredErrors.password}</span>
 			{/if}
 			{#if currentSecret?.status?.passwordConfigured}
-				<span class="input-description">{m.admin_routes_ipsf_password_configured()}</span>
+				<span class="input-description">{m.platform_settings_image_pull_secrets_password_configured()}</span>
 			{/if}
 		</label>
 	</div>
@@ -261,8 +261,8 @@
 	<div class="flex flex-col gap-4">
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_role_arn()}
-				help={m.admin_routes_ipsf_role_arn_help()}
+				label={m.platform_settings_image_pull_secrets_role_arn()}
+				help={m.platform_settings_image_pull_secrets_role_arn_help()}
 			/>
 			<input
 				class={inputClass('roleARN')}
@@ -277,8 +277,8 @@
 		</label>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ips_col_region()}
-				help={m.admin_routes_ipsf_region_help()}
+				label={m.platform_settings_image_pull_secrets_col_region()}
+				help={m.platform_settings_image_pull_secrets_region_help()}
 			/>
 			<input
 				class={inputClass('region')}
@@ -304,7 +304,7 @@
 				<ChevronDown
 					class={twMerge('size-4 transition-transform', !showECRAdvanced && '-rotate-90')}
 				/>
-				{m.admin_routes_advanced()}
+				{m.platform_advanced()}
 			</button>
 
 			{#if showECRAdvanced}
@@ -318,8 +318,8 @@
 	<div class="flex flex-col gap-4">
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_refresh_schedule()}
-				help={m.admin_routes_ipsf_refresh_schedule_help()}
+				label={m.platform_settings_image_pull_secrets_refresh_schedule()}
+				help={m.platform_settings_image_pull_secrets_refresh_schedule_help()}
 			/>
 			<input
 				class="input-text-filled"
@@ -330,10 +330,10 @@
 		</label>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_issuer_override()}
+				label={m.platform_settings_image_pull_secrets_issuer_override()}
 				help={capability.issuerURL
-					? m.admin_routes_ipsf_issuer_override_optional_help()
-					: m.admin_routes_ipsf_issuer_override_help()}
+					? m.platform_settings_image_pull_secrets_issuer_override_optional_help()
+					: m.platform_settings_image_pull_secrets_issuer_override_help()}
 			/>
 			<input
 				class="input-text-filled"
@@ -344,8 +344,8 @@
 		</label>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ipsf_audience()}
-				help={m.admin_routes_ipsf_audience_help()}
+				label={m.platform_settings_image_pull_secrets_audience()}
+				help={m.platform_settings_image_pull_secrets_audience_help()}
 			/>
 			<input
 				class="input-text-filled"

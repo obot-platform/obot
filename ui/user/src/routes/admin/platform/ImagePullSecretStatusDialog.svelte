@@ -37,8 +37,8 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	title={secret
-		? m.admin_routes_ips_status_title_named({ name: displayName(secret) })
-		: m.admin_routes_ips_status_title()}
+		? m.platform_settings_image_pull_secrets_status_title_named({ name: displayName(secret) })
+		: m.platform_settings_image_pull_secrets_status_title()}
 	class="w-full md:max-w-4xl"
 	{onClose}
 >
@@ -46,7 +46,7 @@
 		{#if loading}
 			<div class="notification-info flex items-center gap-3 text-sm">
 				<LoaderCircle class="size-5 animate-spin" />
-				<span>{m.admin_routes_ips_loading_status()}</span>
+				<span>{m.platform_settings_image_pull_secrets_loading_status()}</span>
 			</div>
 		{:else if error}
 			<div class="notification-error flex items-center gap-3 text-sm">
@@ -57,18 +57,18 @@
 			<section class="flex flex-col gap-3">
 				<div class="grid gap-3 md:grid-cols-3">
 					{@render statusValue(
-						m.admin_routes_col_status(),
+						m.platform_col_status(),
 						statusLabel(details),
 						Server,
 						statusClass(details)
 					)}
 					{@render statusValue(
-						m.admin_routes_ips_col_last_success(),
+						m.platform_settings_image_pull_secrets_col_last_success(),
 						formatDate(details.status?.lastSuccessTime),
 						History
 					)}
 					{@render statusValue(
-						m.admin_routes_ips_token_expires(),
+						m.platform_settings_image_pull_secrets_token_expires(),
 						formatDate(details.status?.tokenExpiresAt),
 						Clock
 					)}
@@ -82,7 +82,7 @@
 					<div class="mb-3 flex items-center justify-between gap-2">
 						<div class="flex items-center gap-2 text-sm font-semibold">
 							<CircleAlert class="size-4" />
-							{m.admin_routes_ips_last_error()}
+							{m.platform_settings_image_pull_secrets_last_error()}
 						</div>
 						<CopyButton showTextLeft text={statusMessage(details)} />
 					</div>
@@ -92,7 +92,7 @@
 
 			{#if details.status?.registryEndpoints?.length}
 				<section class="flex flex-col gap-3">
-					{@render sectionHeader(m.admin_routes_ips_registry_endpoints())}
+					{@render sectionHeader(m.platform_settings_image_pull_secrets_registry_endpoints())}
 					<div
 						class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex flex-col gap-2 rounded-lg border border-transparent p-3 shadow-sm"
 					>

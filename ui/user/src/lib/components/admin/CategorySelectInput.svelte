@@ -41,7 +41,7 @@
 		}}
 		options={localOptions}
 		disabled={readonly}
-		placeholder={m.admin_forms_category_placeholder()}
+		placeholder={m.core_category_placeholder()}
 		bind:query
 		bind:selected={
 			() => categories,

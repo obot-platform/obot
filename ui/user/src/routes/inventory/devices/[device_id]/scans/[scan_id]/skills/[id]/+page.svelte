@@ -27,11 +27,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_invd_page_title_skill_named({ name: skill?.name ?? '' })}</title>
+	<title>{m.inventory_enforcement_devices_page_title_skill_named({ name: skill?.name ?? '' })}</title>
 </svelte:head>
 
 <Layout
-	title={skill?.name || m.routes_invd_skill()}
+	title={skill?.name || m.inventory_enforcement_skill()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -47,7 +47,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan || !skill}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_skill_not_found_in_scan()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_skill_not_found_in_scan()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
@@ -59,29 +59,29 @@
 						{scope}
 					</span>
 					{#if skill.hasScripts}
-						<span class="pill-primary bg-primary">{m.routes_invd_scripts()}</span>
+						<span class="pill-primary bg-primary">{m.inventory_enforcement_devices_scripts()}</span>
 					{/if}
 				</div>
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if skill.description}
-						<dt class="text-muted-content">{m.routes_invd_label_description()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_label_description()}</dt>
 						<dd>{skill.description}</dd>
 					{/if}
 					{#if skill.gitRemoteURL}
-						<dt class="text-muted-content">{m.routes_invd_label_git_remote()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_label_git_remote()}</dt>
 						<dd class="break-all">{skill.gitRemoteURL}</dd>
 					{/if}
 					{#if skill.file}
-						<dt class="text-muted-content">{m.routes_invd_label_file()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_file()}</dt>
 						<dd class="break-all">{skill.file}</dd>
 					{/if}
 					{#if skill.projectPath}
-						<dt class="text-muted-content">{m.routes_invd_label_project_path()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_project_path()}</dt>
 						<dd class="break-all">{skill.projectPath}</dd>
 					{/if}
 					{#if parentPlugin}
-						<dt class="text-muted-content">{m.routes_invd_label_part_of_plugin()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_part_of_plugin()}</dt>
 						<dd>
 							<a
 								class="text-link text-sm"
@@ -98,10 +98,10 @@
 
 			<div class="flex flex-col gap-2">
 				<h3 class="text-base font-semibold">
-					{m.routes_invd_supporting_files({ count: files.length })}
+					{m.inventory_enforcement_devices_supporting_files({ count: files.length })}
 				</h3>
 				{#if files.length === 0}
-					<p class="text-muted-content text-sm font-light">{m.routes_invd_no_supporting_files()}</p>
+					<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_no_supporting_files()}</p>
 				{:else}
 					<div class="flex flex-col gap-3">
 						{#each files as { path, file } (path)}
@@ -113,10 +113,10 @@
 									{#if file}
 										<span class="text-muted-content">{formatBytes(file.sizeBytes)}</span>
 										{#if file.oversized}
-											<span class="pill bg-warning">{m.routes_invd_oversized()}</span>
+											<span class="pill bg-warning">{m.inventory_enforcement_devices_oversized()}</span>
 										{/if}
 									{:else}
-										<span class="text-muted-content">{m.routes_invd_not_collected()}</span>
+										<span class="text-muted-content">{m.inventory_enforcement_devices_not_collected()}</span>
 									{/if}
 								</div>
 								{#if file?.content}

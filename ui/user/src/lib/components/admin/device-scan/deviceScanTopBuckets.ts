@@ -53,7 +53,7 @@ export function buildDeviceScanTopBuckets<T>(
 	if (otherSum > 0) {
 		top.push({
 			key: '__other__',
-			label: m.admin_sub_device_scan_other(),
+			label: m.inventory_enforcement_devices_scan_other(),
 			value: otherSum,
 			color: DEVICE_SCAN_OTHER_COLOR,
 			isOther: true,

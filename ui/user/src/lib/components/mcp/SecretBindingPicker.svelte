@@ -28,8 +28,8 @@
 	);
 
 	const sourceOptions = $derived([
-		{ id: 'value', label: m.mcp_secret_source_manual() },
-		{ id: 'secret', label: m.mcp_secret_source_kubernetes() }
+		{ id: 'value', label: m.mcps_catalog_secret_source_manual() },
+		{ id: 'secret', label: m.mcps_catalog_secret_source_kubernetes() }
 	]);
 	const secretOptions = $derived.by(() => {
 		const options: SecretBindingOption[] = targets.map((target) => ({
@@ -41,7 +41,7 @@
 		if (boundSecret && !targets.some((target) => target.name === boundSecret)) {
 			options.push({
 				id: boundSecret,
-				label: m.mcp_secret_not_available({ name: boundSecret }),
+				label: m.mcps_catalog_secret_not_available({ name: boundSecret }),
 				disabled: true
 			});
 		}
@@ -67,7 +67,7 @@
 		if (boundKey && !options.some((option) => option.id === boundKey)) {
 			options.push({
 				id: boundKey,
-				label: m.mcp_secret_not_available({ name: boundKey }),
+				label: m.mcps_catalog_secret_not_available({ name: boundKey }),
 				disabled: true
 			});
 		}
@@ -120,7 +120,7 @@
 <div class="flex w-full flex-col gap-3">
 	<div class="flex w-full flex-col gap-1">
 		<label for={`secret-binding-source-${field.key}`} class="text-sm font-light"
-			>{m.mcp_secret_value_source()}</label
+			>{m.mcps_catalog_secret_value_source()}</label
 		>
 		<Select
 			id={`secret-binding-source-${field.key}`}
@@ -146,7 +146,7 @@
 					class:error={missingSecret}
 					class="text-sm font-light"
 				>
-					{m.mcp_secret_label()}
+					{m.mcps_catalog_secret_label()}
 				</label>
 				<Select
 					id={`secret-binding-secret-${field.key}`}
@@ -154,7 +154,7 @@
 					options={secretOptions}
 					selected={field.secretBinding?.name}
 					disabled={isReadonly || targets.length === 0}
-					placeholder={m.mcp_secret_none_found()}
+					placeholder={m.mcps_catalog_secret_none_found()}
 					searchInDropdown
 					onSelect={(option) => selectSecret(option.id)}
 				/>
@@ -165,7 +165,7 @@
 					class:error={missingKey}
 					class="text-sm font-light"
 				>
-					{m.mcp_field_key()}
+					{m.mcps_field_key()}
 				</label>
 				<Select
 					id={`secret-binding-key-${field.key}`}
@@ -173,7 +173,7 @@
 					options={keyOptions}
 					selected={field.secretBinding?.key}
 					disabled={isReadonly || keyOptions.length === 0}
-					placeholder={m.mcp_not_applicable()}
+					placeholder={m.mcps_catalog_not_applicable()}
 					searchInDropdown
 					onSelect={(option) => selectKey(option.id)}
 				/>

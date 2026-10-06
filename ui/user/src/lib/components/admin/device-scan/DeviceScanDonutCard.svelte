@@ -42,13 +42,13 @@
 		<h4 class="min-w-0 truncate font-semibold">{title}</h4>
 		{#if totalGroups > topN}
 			<span class="text-muted-content shrink-0 text-xs">
-				{m.admin_sub_device_scan_top_n_of({ topN, total: totalGroups })}
+				{m.inventory_enforcement_devices_scan_top_n_of({ topN, total: totalGroups })}
 			</span>
 		{:else if totalGroups > 0}
 			<span class="text-muted-content shrink-0 text-xs">
 				{totalGroups === 1
-					? m.admin_sub_device_scan_entries_one({ count: totalGroups })
-					: m.admin_sub_device_scan_entries_other({ count: totalGroups })}
+					? m.inventory_enforcement_devices_scan_entries_one({ count: totalGroups })
+					: m.inventory_enforcement_devices_scan_entries_other({ count: totalGroups })}
 			</span>
 		{/if}
 	</div>
@@ -123,7 +123,7 @@
 								{bucket.label}
 								{#if bucket.isOther && bucket.otherCount !== undefined}
 									<span class="text-muted-content ml-1 not-italic"
-										>{m.admin_sub_device_scan_n_more({ count: bucket.otherCount })}</span
+										>{m.inventory_enforcement_devices_scan_n_more({ count: bucket.otherCount })}</span
 									>
 								{/if}
 							</span>

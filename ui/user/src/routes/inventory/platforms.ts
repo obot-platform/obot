@@ -33,19 +33,19 @@ export function mdmFieldProblem(
 	required: Set<string>
 ): string | undefined {
 	if (value === undefined || value === null || value === '') {
-		return required.has(name) ? m.routes_inv_field_required() : undefined;
+		return required.has(name) ? m.inventory_enforcement_field_required() : undefined;
 	}
 	if (field.type !== 'integer' && field.type !== 'number') return;
 
 	const numeric = Number(value);
-	if (Number.isNaN(numeric)) return m.routes_inv_field_must_be_number();
+	if (Number.isNaN(numeric)) return m.inventory_enforcement_field_must_be_number();
 	if (field.type === 'integer' && !Number.isInteger(numeric))
-		return m.routes_inv_field_must_be_whole_number();
+		return m.inventory_enforcement_field_must_be_whole_number();
 	if (field.minimum !== undefined && numeric < field.minimum) {
-		return m.routes_inv_field_min({ min: field.minimum });
+		return m.inventory_enforcement_field_min({ min: field.minimum });
 	}
 	if (field.maximum !== undefined && numeric > field.maximum) {
-		return m.routes_inv_field_max({ max: field.maximum });
+		return m.inventory_enforcement_field_max({ max: field.maximum });
 	}
 }
 

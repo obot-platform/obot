@@ -9,7 +9,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, version } = await parent();
 
 	if (version?.agentsEnabled === false) {
-		throw error(403, m.admin_routes_agents_disabled());
+		throw error(403, m.identity_access_agents_disabled());
 	}
 
 	let agents: ProjectV2Agent[] = [];

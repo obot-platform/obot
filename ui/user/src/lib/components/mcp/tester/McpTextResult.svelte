@@ -97,14 +97,14 @@
 
 {#snippet viewer()}
 	<section
-		aria-label={m.mcp_tester_text_result()}
+		aria-label={m.mcps_tester_text_result()}
 		class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border"
 		class:h-full={fullscreen}
 	>
 		<div
 			class="border-base-300 dark:border-base-400 flex shrink-0 flex-wrap items-center gap-2 border-b p-3"
 		>
-			<span class="text-sm font-medium">{m.mcp_tester_text_result()}</span>
+			<span class="text-sm font-medium">{m.mcps_tester_text_result()}</span>
 			<span class="text-xs text-muted-content"
 				>{size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`}</span
 			>
@@ -115,13 +115,13 @@
 						class="btn btn-ghost btn-sm"
 						aria-pressed={formatJSON}
 						class:btn-active={formatJSON}
-						onclick={() => (formatJSON = !formatJSON)}>{m.mcp_tester_format_json()}</button
+						onclick={() => (formatJSON = !formatJSON)}>{m.mcps_tester_format_json()}</button
 					>
 				{/if}
 				<CopyButton
 					{text}
-					buttonText={m.mcp_tester_copy_full_text()}
-					tooltipText={m.mcp_tester_copy_full_text()}
+					buttonText={m.mcps_tester_copy_full_text()}
+					tooltipText={m.mcps_tester_copy_full_text()}
 					classes={{ button: 'btn btn-ghost btn-sm' }}
 				/>
 				<button
@@ -134,8 +134,8 @@
 					{#if fullscreen}<Minimize2
 							class="size-4"
 							aria-hidden="true"
-						/>{m.mcp_tester_close_fullscreen()}
-					{:else}<Maximize2 class="size-4" aria-hidden="true" />{m.mcp_tester_fullscreen()}{/if}
+						/>{m.mcps_tester_close_fullscreen()}
+					{:else}<Maximize2 class="size-4" aria-hidden="true" />{m.mcps_tester_fullscreen()}{/if}
 				</button>
 			</div>
 		</div>
@@ -145,7 +145,7 @@
 			bind:this={pre}
 			{id}
 			tabindex={showingPreview ? undefined : 0}
-			aria-label={showingPreview ? m.mcp_tester_text_preview() : m.mcp_tester_full_text()}
+			aria-label={showingPreview ? m.mcps_tester_text_preview() : m.mcps_tester_full_text()}
 			class="m-0 min-h-0 p-3 text-sm whitespace-pre-wrap wrap-break-word {fullscreen
 				? 'flex-1 overflow-auto overscroll-contain'
 				: showingPreview
@@ -158,7 +158,7 @@
 				class="border-base-300 dark:border-base-400 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t p-3"
 			>
 				<span class="text-xs text-muted-content" role="status"
-					>{showingPreview ? m.mcp_tester_preview_more_below() : m.mcp_tester_full_text()}</span
+					>{showingPreview ? m.mcps_tester_preview_more_below() : m.mcps_tester_full_text()}</span
 				>
 				{#if !fullscreen}
 					<button
@@ -168,11 +168,11 @@
 						aria-controls={id}
 						onclick={toggleExpanded}
 					>
-						{#if expanded}<ChevronUp class="size-4" aria-hidden="true" />{m.mcp_tester_show_less()}
+						{#if expanded}<ChevronUp class="size-4" aria-hidden="true" />{m.mcps_tester_show_less()}
 						{:else}<ChevronDown
 								class="size-4"
 								aria-hidden="true"
-							/>{m.mcp_tester_show_full_text()}{/if}
+							/>{m.mcps_tester_show_full_text()}{/if}
 					</button>
 				{/if}
 			</div>
@@ -189,7 +189,7 @@
 </div>
 <dialog
 	bind:this={dialog}
-	aria-label={m.mcp_tester_fullscreen_response()}
+	aria-label={m.mcps_tester_fullscreen_response()}
 	class="bg-base-100 dark:bg-base-300 text-base-content fixed inset-0 m-0 h-dvh max-h-none w-dvw max-w-none overflow-hidden border-0 p-0"
 	onclose={closeFullscreen}
 >

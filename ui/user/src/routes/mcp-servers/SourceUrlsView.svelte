@@ -42,7 +42,7 @@
 		<div class="notification-info p-3 text-sm font-light" transition:slide={{ axis: 'y' }}>
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
-				<div>{m.routes_mcp_syncing_git_repos()}</div>
+				<div>{m.mcps_syncing_git_repos()}</div>
 			</div>
 		</div>
 	{/if}
@@ -53,10 +53,10 @@
 			headers={[
 				{
 					property: 'url',
-					title: m.routes_mcp_col_url()
+					title: m.mcps_sources_col_url()
 				}
 			]}
-			noDataMessage={m.routes_mcp_no_git_source_urls_added()}
+			noDataMessage={m.mcps_sources_no_git_source_urls_added()}
 			setRowClasses={(d) => {
 				if (catalog?.syncErrors?.[d.url]) {
 					return 'bg-warning/10';
@@ -109,7 +109,7 @@
 									syncErrorDialog?.open();
 								}}
 								use:tooltip={{
-									text: m.routes_mcp_issue_click_details(),
+									text: m.mcps_sources_issue_click_details(),
 									classes: ['wrap-break-word']
 								}}
 							>
@@ -130,7 +130,7 @@
 						disabled={readonly}
 					>
 						<Trash2 class="size-4" />
-						{m.routes_mcp_delete()}
+						{m.mcps_sources_delete()}
 					</button>
 				</div>
 			{/snippet}
@@ -138,10 +138,10 @@
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Link2 class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.routes_mcp_no_git_source_urls()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.mcps_sources_no_git_source_urls()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.routes_mcp_no_git_source_urls_line1()} <br />
-				{m.routes_mcp_no_git_source_urls_line2()}
+				{m.mcps_sources_no_git_source_urls_line1()} <br />
+				{m.mcps_sources_no_git_source_urls_line2()}
 			</p>
 		</div>
 	{/if}
@@ -149,11 +149,11 @@
 
 <Confirm
 	msg={deletingSource?.type === 'single'
-		? m.routes_mcp_delete_source_url()
-		: m.routes_mcp_delete_selected_source_urls()}
+		? m.mcps_sources_delete_source_url()
+		: m.mcps_sources_delete_selected_source_urls()}
 	note={deletingSource?.type === 'single'
-		? m.routes_mcp_delete_source_url_note()
-		: m.routes_mcp_delete_selected_source_urls_note()}
+		? m.mcps_sources_delete_source_url_note()
+		: m.mcps_sources_delete_selected_source_urls_note()}
 	show={Boolean(deletingSource)}
 	onsuccess={async () => {
 		if (!deletingSource || !catalog) {
@@ -193,7 +193,7 @@
 />
 
 <ResponsiveDialog
-	title={m.routes_mcp_git_source_url_sync()}
+	title={m.mcps_sources_git_source_url_sync()}
 	bind:this={syncErrorDialog}
 	class="md:w-2xl"
 >
@@ -202,7 +202,7 @@
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					{m.routes_mcp_issue_fetching_source_url()}
+					{m.mcps_sources_issue_fetching_source_url()}
 				</p>
 			</div>
 			<span class="text-sm font-light break-all">{syncError?.error}</span>

@@ -41,7 +41,7 @@
 			return;
 		}
 		if (!setupToken) {
-			error = m.admin_routes_activate_link_incomplete();
+			error = m.auth_activate_link_incomplete();
 			return;
 		}
 
@@ -54,7 +54,7 @@
 			error =
 				err instanceof Error
 					? parseErrorContent(err).message
-					: m.admin_routes_activate_link_invalid();
+					: m.auth_activate_link_invalid();
 		}
 	}
 
@@ -67,7 +67,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_activate_page_title()}</title>
+	<title>Obot | {m.auth_activate_page_title()}</title>
 </svelte:head>
 
 <div
@@ -77,14 +77,14 @@
 		class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col items-center gap-4 rounded-xl border border-transparent p-6 shadow-sm"
 	>
 		<Logo class="h-12" />
-		<h1 class="text-center text-xl font-semibold">{m.admin_routes_activate_heading()}</h1>
+		<h1 class="text-center text-xl font-semibold">{m.auth_activate_heading()}</h1>
 		{#if error}
 			<div class="notification-error flex w-full items-center gap-2" role="alert">
 				<CircleAlert class="text-error size-5 shrink-0" />
 				<p class="text-sm font-light">{error}</p>
 			</div>
 			<p class="text-muted-content text-center text-sm font-light">
-				{m.admin_routes_activate_reissue()}
+				{m.auth_activate_reissue()}
 			</p>
 		{:else if requiresActivation}
 			<p class="text-muted-content text-center text-sm font-light">
@@ -93,7 +93,7 @@
 		{:else}
 			<Loading class="size-6" />
 			<p class="text-muted-content text-center text-sm font-light">
-				{m.admin_routes_activate_verifying()}
+				{m.auth_activate_verifying()}
 			</p>
 		{/if}
 	</div>

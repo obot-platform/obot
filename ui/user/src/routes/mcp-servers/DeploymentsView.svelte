@@ -66,7 +66,7 @@
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			value={query}
 			onChange={updateSearchQuery}
-			placeholder={m.routes_mcp_search_deployments()}
+			placeholder={m.mcps_deployments_search_deployments()}
 		/>
 	</div>
 	<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
@@ -90,10 +90,10 @@
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_mcp_no_deployments_found()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_deployments_no_deployments_found()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_mcp_no_deployments_line1()} <br />
-			{m.routes_mcp_no_deployments_line2()}
+			{m.mcps_deployments_no_deployments_line1()} <br />
+			{m.mcps_deployments_no_deployments_line2()}
 		</p>
 	</div>
 {/snippet}

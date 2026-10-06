@@ -15,6 +15,6 @@
 	{title}
 	{#if required}
 		<span class={showError ? 'text-error' : ''} aria-hidden="true">*</span>
-		<span class="sr-only">{m.mcp_form_required_sr()}</span>
+		<span class="sr-only">{m.mcps_form_required_sr()}</span>
 	{/if}
 </label>

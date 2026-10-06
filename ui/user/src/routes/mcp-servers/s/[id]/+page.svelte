@@ -21,7 +21,7 @@
 	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
-	let title = $derived(getMCPDisplayName(mcpServer) || m.routes_mcp_mcp_server());
+	let title = $derived(getMCPDisplayName(mcpServer) || m.mcps_mcp_server());
 	let deprecated = $derived(
 		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
 	);

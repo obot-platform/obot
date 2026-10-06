@@ -47,9 +47,9 @@
 	const SWITCH_STEPS = ['configure', 'signin', 'switch'] as const;
 	type SwitchStep = (typeof SWITCH_STEPS)[number];
 	const SWITCH_STEP_LABELS: Record<SwitchStep, string> = {
-		configure: m.admin_routes_authp_step_configure(),
-		signin: m.admin_routes_authp_step_signin(),
-		switch: m.admin_routes_authp_step_switch()
+		configure: m.identity_access_auth_providers_step_configure(),
+		signin: m.identity_access_auth_providers_step_signin(),
+		switch: m.identity_access_auth_providers_step_switch()
 	};
 
 	function sortAuthProviders(authProviders: AuthProvider[]) {
@@ -556,7 +556,7 @@
 		if (updatedMatch) {
 			handleClickConfigure(updatedMatch);
 		} else {
-			errors.append(m.admin_routes_authp_fetch_config_failed());
+			errors.append(m.identity_access_auth_providers_fetch_config_failed());
 		}
 
 		licenseRequiredProvider = undefined;
@@ -665,11 +665,11 @@
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">
-							{m.admin_routes_authp_none_configured()}
+							{m.identity_access_auth_providers_none_configured()}
 						</p>
 					</div>
 					<span class="text-sm font-light break-all">
-						{m.admin_routes_authp_none_configured_description()}
+						{m.identity_access_auth_providers_none_configured_description()}
 					</span>
 				</div>
 			{/if}
@@ -683,7 +683,7 @@
 							!!stagedProvider &&
 							!authProvider.staged)}
 					disableConfigureReason={switchNeedsOwner(authProvider)
-						? m.admin_routes_authp_only_owner_can_replace()
+						? m.identity_access_auth_providers_only_owner_can_replace()
 						: undefined}
 					provider={authProvider}
 					staged={authProvider.staged}
@@ -701,7 +701,9 @@
 			{/each}
 		</div>
 	{:else}
-		<p class="text-muted-content text-sm font-light">{m.admin_routes_authp_auth_not_enabled()}</p>
+		<p class="text-muted-content text-sm font-light">
+			{m.identity_access_auth_providers_auth_not_enabled()}
+		</p>
 	{/if}
 </div>
 
@@ -747,13 +749,15 @@
 	{/if}
 	{#if switchStep === 'signin'}
 		<p class="text-sm font-light">
-			{m.admin_routes_authp_signin_prefix()}<b>{configuringAuthProvider?.name}</b
-			>{m.admin_routes_authp_signin_mid()}<b>{m.admin_routes_authp_signin_bold()}</b
-			>{m.admin_routes_authp_signin_suffix()}
+			{m.identity_access_auth_providers_signin_prefix()}<b>{configuringAuthProvider?.name}</b
+			>{m.identity_access_auth_providers_signin_mid()}<b
+				>{m.identity_access_auth_providers_signin_bold()}</b
+			>{m.identity_access_auth_providers_signin_suffix()}
 		</p>
 		<div class="notification-info p-3 text-sm font-light">
-			{m.admin_routes_authp_keeps_serving({
-				provider: activeProvider?.name ?? m.admin_routes_authp_current_provider_capitalized()
+			{m.identity_access_auth_providers_keeps_serving({
+				provider:
+					activeProvider?.name ?? m.identity_access_auth_providers_current_provider_capitalized()
 			})}
 		</div>
 	{:else}
@@ -761,23 +765,25 @@
 			<div class="flex min-w-0 flex-col">
 				<span class="truncate text-sm font-medium">{switchVerifiedEmail}</span>
 				<span class="text-muted-content text-xs font-light">
-					{m.admin_routes_authp_will_own()}
+					{m.identity_access_auth_providers_will_own()}
 				</span>
 			</div>
-			<span class="text-success ml-auto flex-none text-xs">{m.admin_routes_authp_verified()}</span>
+			<span class="text-success ml-auto flex-none text-xs"
+				>{m.identity_access_auth_providers_verified()}</span
+			>
 		</div>
 		<p class="text-muted-content text-xs font-light">
-			{m.admin_routes_authp_not_right_account()}
+			{m.identity_access_auth_providers_not_right_account()}
 			<button class="text-link underline" disabled={switching} onclick={handleVerifyStagedProvider}>
-				{m.admin_routes_authp_sign_in_again()}
+				{m.identity_access_auth_providers_sign_in_again()}
 			</button>
 		</p>
 		<div class="notification-alert flex items-start gap-2 text-sm font-light">
 			<TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
 			<span>
-				{m.admin_routes_authp_switch_warning({
+				{m.identity_access_auth_providers_switch_warning({
 					name: `${configuringAuthProvider?.name}`,
-					current: activeProvider?.name ?? m.admin_routes_authp_current_provider()
+					current: activeProvider?.name ?? m.identity_access_auth_providers_current_provider()
 				})}
 			</span>
 		</div>
@@ -789,7 +795,10 @@
 		<IconButton
 			variant="danger"
 			disabled={switching}
-			tooltip={{ text: m.admin_routes_authp_discard_staged_switch(), disablePortal: true }}
+			tooltip={{
+				text: m.identity_access_auth_providers_discard_staged_switch(),
+				disablePortal: true
+			}}
 			onclick={() => (confirmDiscardSwitch = true)}
 		>
 			<Trash2 class="size-5" />
@@ -800,26 +809,24 @@
 		<button class="btn" disabled={loading} onclick={() => providerConfigure?.close()}>
 			{m.common_cancel()}
 		</button>
-		<button class="btn btn-primary" disabled={loading} onclick={submit}
-			>{m.admin_routes_continue()}</button
-		>
+		<button class="btn btn-primary" disabled={loading} onclick={submit}>{m.core_continue()}</button>
 	{:else if switchStep === 'signin'}
 		{#if !configurationLocked}
 			<button class="btn" disabled={switching} onclick={() => goToSwitchStep('configure')}>
 				<ArrowLeft class="size-4" />
-				{m.admin_routes_authp_configuration()}
+				{m.identity_access_auth_providers_configuration()}
 			</button>
 		{/if}
 		<button class="btn btn-primary" disabled={switching} onclick={handleVerifyStagedProvider}>
-			{m.admin_routes_authp_sign_in_with({ name: `${configuringAuthProvider?.name}` })}
+			{m.identity_access_auth_providers_sign_in_with({ name: `${configuringAuthProvider?.name}` })}
 		</button>
 	{:else}
 		<button class="btn" disabled={switching} onclick={() => goToSwitchStep('signin')}>
 			<ArrowLeft class="size-4" />
-			{m.admin_routes_authp_step_signin()}
+			{m.identity_access_auth_providers_step_signin()}
 		</button>
 		<button class="btn btn-primary" disabled={switching} onclick={() => (confirmSwitch = true)}>
-			{m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })}
+			{m.identity_access_auth_providers_switch_to({ name: `${configuringAuthProvider?.name}` })}
 		</button>
 	{/if}
 {/snippet}
@@ -834,7 +841,7 @@
 	readonly={profile.current.isAdminReadonly?.()}
 	parameterNotice={scimParameterNotice}
 	title={isSwitching
-		? m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })
+		? m.identity_access_auth_providers_switch_to({ name: `${configuringAuthProvider?.name}` })
 		: undefined}
 	steps={isSwitching ? switchSteps : undefined}
 	body={isSwitching && switchStep !== 'configure' ? switchBody : undefined}
@@ -882,7 +889,7 @@
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
 				<p class="flex flex-wrap items-center gap-2">
-					{m.admin_routes_authp_callback_note()}
+					{m.identity_access_auth_providers_callback_note()}
 					<CopyButton
 						showTextLeft
 						buttonText={callbackUrl}
@@ -897,12 +904,12 @@
 		</div>
 		{#if documentationUrl}
 			<div class="notification-info p-3 text-xs font-light">
-				{m.admin_routes_authp_docs_prefix()}<a
+				{m.identity_access_auth_providers_docs_prefix()}<a
 					class="text-link"
 					href={documentationUrl}
 					rel="external noopener noreferrer"
-					target="_blank">{m.admin_routes_authp_docs_link()}</a
-				>{m.admin_routes_authp_docs_suffix()}
+					target="_blank">{m.identity_access_auth_providers_docs_link()}</a
+				>{m.identity_access_auth_providers_docs_suffix()}
 			</div>
 		{/if}
 	{/snippet}
@@ -923,10 +930,14 @@
 
 <Confirm
 	show={confirmSwitch}
-	title={m.admin_routes_authp_complete_switch()}
-	msg={m.admin_routes_authp_switch_to_question({ name: `${configuringAuthProvider?.name}` })}
+	title={m.identity_access_auth_providers_complete_switch()}
+	msg={m.identity_access_auth_providers_switch_to_question({
+		name: `${configuringAuthProvider?.name}`
+	})}
+	submitText={m.identity_access_auth_providers_switch_to({
+		name: `${configuringAuthProvider?.name}`
+	})}
 	note={switchNote}
-	submitText={m.admin_routes_authp_switch_to({ name: `${configuringAuthProvider?.name}` })}
 	cancelText={m.common_cancel()}
 	loading={switching}
 	onsuccess={handleActivateStagedProvider}
@@ -935,20 +946,23 @@
 
 <Confirm
 	show={confirmDiscardSwitch}
-	title={m.admin_routes_authp_discard_switch()}
-	msg={m.admin_routes_authp_discard_switch_question({ name: `${configuringAuthProvider?.name}` })}
+	title={m.identity_access_auth_providers_discard_switch()}
+	msg={m.identity_access_auth_providers_discard_switch_question({
+		name: `${configuringAuthProvider?.name}`
+	})}
 	note={signedInAsVerifiedAccount
-		? m.admin_routes_authp_discard_note_signed_in({
+		? m.identity_access_auth_providers_discard_note_signed_in({
 				name: `${configuringAuthProvider?.name}`,
 				email: `${switchVerifiedEmail}`,
-				current: activeProvider?.name ?? m.admin_routes_authp_current_provider()
+				current: activeProvider?.name ?? m.identity_access_auth_providers_current_provider()
 			})
-		: m.admin_routes_authp_discard_note({
+		: m.identity_access_auth_providers_discard_note({
 				name: `${configuringAuthProvider?.name}`,
-				current: activeProvider?.name ?? m.admin_routes_authp_current_provider_capitalized()
+				current:
+					activeProvider?.name ?? m.identity_access_auth_providers_current_provider_capitalized()
 			})}
-	submitText={m.admin_routes_authp_discard_switch()}
-	cancelText={m.admin_routes_authp_keep_editing()}
+	submitText={m.identity_access_auth_providers_discard_switch()}
+	cancelText={m.identity_access_auth_providers_keep_editing()}
 	loading={switching}
 	onsuccess={handleUnstageProvider}
 	oncancel={() => (confirmDiscardSwitch = false)}
@@ -1000,7 +1014,9 @@
 
 <ResponsiveDialog bind:this={setupSignInDialog} class="w-md">
 	{#snippet titleContent()}
-		<h3 class="text-lg font-semibold">{m.admin_routes_authp_next_step_owner_setup()}</h3>
+		<h3 class="text-lg font-semibold">
+			{m.identity_access_auth_providers_next_step_owner_setup()}
+		</h3>
 	{/snippet}
 
 	<OwnerSetupPrompt
@@ -1020,5 +1036,5 @@
 	licenseKey={license.current.licenseKey}
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={handleCommunitySubmit}
-	signUpMessage={m.admin_routes_authp_signup_message()}
+	signUpMessage={m.identity_access_auth_providers_signup_message()}
 />

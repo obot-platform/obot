@@ -25,41 +25,41 @@
 </script>
 
 {#if showTitle}
-	<h3 class="mb-4 text-lg font-semibold">{m.admin_misc_next_step_owner_setup()}</h3>
+	<h3 class="mb-4 text-lg font-semibold">{m.auth_setup_next_step_owner_setup()}</h3>
 {/if}
 
 <div class="flex flex-col gap-2">
 	{#if isLocalSetup}
 		<p>
 			{#if localUserEmail}
-				{m.admin_misc_finish_setup_signing_in_as_prefix()}
-				<b>{localUserEmail}</b>{m.admin_misc_finish_setup_signing_in_as_suffix()}
+				{m.auth_setup_finish_setup_signing_in_as_prefix()}
+				<b>{localUserEmail}</b>{m.auth_setup_finish_setup_signing_in_as_suffix()}
 			{:else}
-				{m.admin_misc_finish_setup_local_accounts()}
+				{m.auth_setup_finish_setup_local_accounts()}
 			{/if}
 		</p>
 		<p>
-			{m.admin_misc_account_becomes_owner_prefix()}
-			<b>{m.admin_misc_account_becomes_owner_word()}</b>
-			{m.admin_misc_account_becomes_owner_suffix()}
+			{m.auth_setup_account_becomes_owner_prefix()}
+			<b>{m.auth_setup_account_becomes_owner_word()}</b>
+			{m.auth_setup_account_becomes_owner_suffix()}
 		</p>
 	{:else if explicitOwners.length > 0}
-		<p>{m.admin_misc_continue_with_owner_account()}</p>
-		<p>{m.admin_misc_explicit_owners_listed()}</p>
+		<p>{m.auth_setup_continue_with_owner_account()}</p>
+		<p>{m.auth_setup_explicit_owners_listed()}</p>
 		<ul class="list-disc px-8">
 			{#each explicitOwners as owner (owner)}
 				<li>{owner}</li>
 			{/each}
 		</ul>
 		<p>
-			{m.admin_misc_login_as_explicit_owner()}
+			{m.auth_setup_login_as_explicit_owner()}
 		</p>
 		<p>
-			{m.admin_misc_login_different_account()}
+			{m.auth_setup_login_different_account()}
 		</p>
 	{:else}
 		<p>
-			{m.admin_misc_setup_initial_owner()}
+			{m.auth_setup_initial_owner()}
 		</p>
 	{/if}
 
@@ -75,7 +75,7 @@
 				{/if}
 				<span class="text-center text-sm font-light">
 					{#if isLocalSetup && localUserEmail}
-						{m.admin_misc_sign_in_as({ email: localUserEmail })}
+						{m.auth_setup_sign_in_as({ email: localUserEmail })}
 					{:else}
 						{m.login_continue_with({ provider: provider?.name ?? '' })}
 					{/if}
@@ -88,9 +88,9 @@
 		{/if}
 		{#if isLocalSetup && onManageLocalUsers}
 			<p class="text-muted-content text-center text-xs font-light">
-				{m.admin_misc_change_owner_account()}
+				{m.auth_setup_change_owner_account()}
 				<button type="button" class="text-link underline" onclick={onManageLocalUsers}>
-					{m.admin_misc_click_here()}
+					{m.auth_setup_click_here()}
 				</button>
 			</p>
 		{/if}

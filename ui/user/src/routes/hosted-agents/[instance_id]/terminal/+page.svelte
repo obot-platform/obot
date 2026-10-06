@@ -18,7 +18,7 @@
 
 <Layout
 	title={data.instance.name}
-	subtitle={m.chat_ha_terminal()}
+	subtitle={m.hosted_agents_terminal()}
 	showBackButton
 	onBackButtonClick={() => goto(resolve('/hosted-agents'))}
 	alwaysShowHeaderTitle
@@ -37,11 +37,11 @@
 	>
 		{#if !data.agent.terminal}
 			<p class="notification-error text-sm" role="alert">
-				{m.chat_ha_no_terminal({ name: data.agent.name })}
+				{m.hosted_agents_no_terminal({ name: data.agent.name })}
 			</p>
 		{:else if !ready}
 			<p class="notification-info text-sm">
-				{m.chat_ha_instance_not_running()}
+				{m.hosted_agents_instance_not_running()}
 				{data.instance.status?.message ?? data.instance.status?.error ?? ''}
 			</p>
 		{:else}

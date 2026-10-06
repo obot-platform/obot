@@ -60,7 +60,7 @@
 	function identifierParts(decision: EnforcementDecisionEvent) {
 		const server = serverDisplay(decision);
 		if (!server)
-			return { primary: decision.tool || m.admin_sub_log_unknown(), secondary: undefined };
+			return { primary: decision.tool || m.audit_usage_audit_logs_unknown(), secondary: undefined };
 		return { primary: server, secondary: decision.tool || undefined };
 	}
 </script>
@@ -161,15 +161,15 @@
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 items-center gap-2 py-4">
 				{#if decision.decision === 'allow'}
-					<span class="badge badge-success badge-sm shrink-0">{m.admin_sub_enf_allowed()}</span>
+					<span class="badge badge-success badge-sm shrink-0">{m.inventory_enforcement_enforcement_events_allowed()}</span>
 				{:else}
-					<span class="badge badge-error badge-sm shrink-0">{m.admin_sub_enf_blocked()}</span>
+					<span class="badge badge-error badge-sm shrink-0">{m.inventory_enforcement_enforcement_events_blocked()}</span>
 				{/if}
 				{#if decision.unresolved}
 					<span
 						class="text-warning inline-flex shrink-0"
-						aria-label={m.admin_sub_enf_target_unidentified()}
-						use:tooltip={{ text: m.admin_sub_enf_target_unidentified_tooltip() }}
+						aria-label={m.inventory_enforcement_enforcement_events_target_unidentified()}
+						use:tooltip={{ text: m.inventory_enforcement_enforcement_events_target_unidentified_tooltip() }}
 					>
 						<ShieldQuestionMark class="size-4" />
 					</span>
@@ -204,7 +204,7 @@
 					{#if decision.obotHosted}
 						<span
 							class="badge badge-ghost badge-sm shrink-0"
-							use:tooltip={{ text: m.admin_sub_enf_hosted_by_obot() }}
+							use:tooltip={{ text: m.inventory_enforcement_enforcement_events_hosted_by_obot() }}
 						>
 							Obot
 						</span>
@@ -228,17 +228,17 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.admin_sub_llm_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th(m.admin_sub_enf_result(), { class: 'w-[22ch]', minWidth: '22ch' })}
-						{@render th(m.admin_sub_log_agent(), { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_enf_tool_type(), { class: 'w-[14ch]', minWidth: '14ch' })}
-						{@render th(m.admin_sub_audit_col_identifier(), {
+						{@render th(m.audit_usage_audit_logs_model_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.inventory_enforcement_enforcement_events_result(), { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th(m.audit_usage_audit_logs_agent(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.inventory_enforcement_enforcement_events_tool_type(), { class: 'w-[14ch]', minWidth: '14ch' })}
+						{@render th(m.audit_usage_audit_logs_col_identifier(), {
 							class: 'w-[36ch]',
 							minWidth: '26ch'
 						})}
-						{@render th(m.admin_sub_log_device(), { class: 'w-[28ch]', minWidth: '20ch' })}
-						{@render th(m.admin_sub_log_reason(), { class: 'w-[40ch]', minWidth: '24ch' })}
-						{@render th(m.admin_sub_llm_col_ip_address(), { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th(m.audit_usage_audit_logs_device(), { class: 'w-[28ch]', minWidth: '20ch' })}
+						{@render th(m.audit_usage_audit_logs_reason(), { class: 'w-[40ch]', minWidth: '24ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_ip_address(), { class: 'w-[22ch]', minWidth: '22ch' })}
 					</tr>
 				</thead>
 			{/snippet}

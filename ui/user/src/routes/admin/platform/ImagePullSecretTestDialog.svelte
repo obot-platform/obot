@@ -39,8 +39,8 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={m.admin_routes_ips_test_named({
-		name: secret ? displayName(secret) : m.admin_routes_ips_image_pull_secret()
+	title={m.platform_settings_image_pull_secrets_test_named({
+		name: secret ? displayName(secret) : m.platform_settings_image_pull_secrets_image_pull_secret()
 	})}
 	class="w-full md:max-w-xl"
 	{onClose}
@@ -54,8 +54,8 @@
 	>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label={m.admin_routes_ips_test_image_ref()}
-				help={m.admin_routes_ips_test_image_ref_help()}
+				label={m.platform_settings_image_pull_secrets_test_image_ref()}
+				help={m.platform_settings_image_pull_secrets_test_image_ref_help()}
 			/>
 			<input
 				class="input-text-filled"
@@ -82,7 +82,7 @@
 					<span>{testError}</span>
 				{:else}
 					<CircleCheck class="size-5 shrink-0" />
-					<span>{testResult?.message || m.admin_routes_success()}</span>
+					<span>{testResult?.message || m.platform_success()}</span>
 				{/if}
 			</div>
 		{/if}
@@ -101,7 +101,7 @@
 				{:else}
 					<ShieldCheck class="size-4" />
 				{/if}
-				{m.admin_routes_test()}
+				{m.platform_test()}
 			</button>
 		</div>
 	</form>

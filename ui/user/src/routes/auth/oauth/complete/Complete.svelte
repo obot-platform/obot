@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.admin_routes_oauth_complete_title()}</title>
+	<title>{m.auth_oauth_complete_title()}</title>
 </svelte:head>
 
 <main
@@ -48,22 +48,22 @@
 	<section class="text-center">
 		<Logo class="mx-auto mb-4 size-56" />
 		<h1 class="text-base-content mb-4 text-5xl font-bold">
-			{m.admin_routes_oauth_complete_title()}
+			{m.auth_oauth_complete_title()}
 		</h1>
 
 		<p class="text-muted-content text-base">
 			{#if !redirectURL}
-				{m.admin_routes_oauth_complete_close()}
+				{m.auth_oauth_complete_close()}
 			{:else if redirecting}
-				{m.admin_routes_oauth_complete_redirecting()}
+				{m.auth_oauth_complete_redirecting()}
 			{:else}
 				{secondsRemaining === 1
-					? m.admin_routes_oauth_complete_redirect_in_one({ seconds: secondsRemaining })
-					: m.admin_routes_oauth_complete_redirect_in_other({ seconds: secondsRemaining })}
+					? m.auth_oauth_complete_redirect_in_one({ seconds: secondsRemaining })
+					: m.auth_oauth_complete_redirect_in_other({ seconds: secondsRemaining })}
 				<button class="link" type="button" onclick={redirectNow}
-					>{m.admin_routes_oauth_complete_click_here()}</button
+					>{m.auth_oauth_complete_click_here()}</button
 				>
-				{m.admin_routes_oauth_complete_redirect_now()}
+				{m.auth_oauth_complete_redirect_now()}
 			{/if}
 		</p>
 	</section>

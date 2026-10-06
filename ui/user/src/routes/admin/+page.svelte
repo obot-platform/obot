@@ -65,7 +65,7 @@
 			await AdminService.bootstrapLogin(bootstrapToken);
 			reloadPage();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.admin_routes_admin_unknown_error();
+			error = err instanceof Error ? err.message : m.auth_bootstrap_unknown_error();
 		}
 	}
 </script>
@@ -108,7 +108,7 @@
 				{#if showSuccessOwnerConfirmation}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6">
 						<p class="text-md px-4 text-left font-light">
-							{m.admin_routes_admin_handoff_done()}
+							{m.auth_bootstrap_handoff_done()}
 						</p>
 						{#if scimProvider}
 							<p class="text-md px-4 text-left font-light">
@@ -136,32 +136,32 @@
 						<div class="flex items-center justify-center gap-2">
 							{#if isExplicitAdmin}
 								<ShieldAlert class="size-6" />
-								<h3 class="text-xl font-semibold">{m.admin_routes_admin_explicit_admin_set()}</h3>
+								<h3 class="text-xl font-semibold">{m.auth_bootstrap_explicit_admin_set()}</h3>
 							{:else}
 								<Handshake class="size-6" />
-								<h3 class="text-xl font-semibold">{m.admin_routes_admin_confirm_new_owner()}</h3>
+								<h3 class="text-xl font-semibold">{m.auth_bootstrap_confirm_new_owner()}</h3>
 							{/if}
 						</div>
 
 						<p class="text-md text-center font-light">
-							{m.admin_routes_admin_logged_in_as_prefix()}
+							{m.auth_bootstrap_logged_in_as_prefix()}
 							<span class="font-semibold">{tempUser.email || tempUser.username}</span
-							>{m.admin_routes_admin_logged_in_as_suffix()}
+							>{m.auth_bootstrap_logged_in_as_suffix()}
 						</p>
 
 						<p class="text-md text-center font-light" class:text-left={isExplicitAdmin}>
 							{#if isExplicitAdmin}
-								{m.admin_routes_admin_explicit_admin_note_prefix()}
+								{m.auth_bootstrap_explicit_admin_note_prefix()}
 								<a
 									class="text-link"
 									target="_blank"
 									rel="external noopener noreferrer"
 									href="https://docs.obot.ai/configuration/auth-providers#preconfiguring-owner--admin-users"
-									>{m.admin_routes_admin_explicit_admin_note_link()}</a
+									>{m.auth_bootstrap_explicit_admin_note_link()}</a
 								>
-								{m.admin_routes_admin_explicit_admin_note_suffix()}
+								{m.auth_bootstrap_explicit_admin_note_suffix()}
 							{:else}
-								{m.admin_routes_admin_make_owner_confirm()}
+								{m.auth_bootstrap_make_owner_confirm()}
 							{/if}
 						</p>
 					</div>
@@ -180,7 +180,7 @@
 								{#if loadingConfirmTempUser}
 									<Loading class="size-4" />
 								{:else}
-									{m.admin_routes_admin_make_owner_yes()}
+									{m.auth_bootstrap_make_owner_yes()}
 								{/if}
 							</button>
 						{/if}
@@ -197,8 +197,8 @@
 								<Loading class="size-4" />
 							{:else}
 								{isExplicitAdmin
-									? m.admin_routes_admin_go_back()
-									: m.admin_routes_admin_cancel_go_back()}
+									? m.auth_bootstrap_go_back()
+									: m.auth_bootstrap_cancel_go_back()}
 							{/if}
 						</button>
 					</div>
@@ -219,7 +219,7 @@
 			<div class="notification-error mt-4 flex items-center gap-2">
 				<CircleAlert class="size-6 text-error" />
 				<p class="flex flex-col text-sm font-light">
-					<span class="font-semibold">{m.admin_routes_admin_error_occurred()}</span>
+					<span class="font-semibold">{m.auth_bootstrap_error_occurred()}</span>
 					<span>
 						{error}
 					</span>
@@ -230,7 +230,7 @@
 		{#if loggedIn && !hasAccess}
 			<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
 				<p class="text-muted-content px-8 text-center text-sm font-light md:px-8">
-					{m.admin_routes_admin_not_authorized()}
+					{m.auth_bootstrap_not_authorized()}
 				</p>
 			</div>
 
@@ -239,15 +239,15 @@
 				onclick={clearProductAnalyticsConsentDeferral}
 				class="bg-base-200 hover:bg-base-300 dark:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 			>
-				<p class="text-center text-sm font-medium">{m.admin_routes_admin_sign_out()}</p>
+				<p class="text-center text-sm font-medium">{m.auth_bootstrap_sign_out()}</p>
 			</a>
 		{:else if authProviders.length > 0}
 			<div class="relative z-10 mt-6 flex w-full flex-col items-center justify-center gap-6">
 				<p class="text-md text-muted-content px-8 text-center font-light md:px-8">
-					{m.admin_routes_admin_sign_in_prompt()}
+					{m.auth_bootstrap_sign_in_prompt()}
 				</p>
 				<h3 class="dark:bg-base-300 bg-base-100 px-2 text-lg font-semibold">
-					{m.admin_routes_admin_sign_in_heading()}
+					{m.auth_bootstrap_sign_in_heading()}
 				</h3>
 			</div>
 
@@ -283,7 +283,7 @@
 						class="bg-base-200 hover:bg-base-300 dark:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 					>
 						<p class="text-center text-sm font-medium">
-							{m.admin_routes_admin_sign_in_bootstrap()}
+							{m.auth_bootstrap_sign_in_bootstrap()}
 						</p>
 					</button>
 				{/if}
@@ -292,22 +292,22 @@
 
 		{#if showBootstrapLogin && bootstrapStatus?.enabled && !loggedIn}
 			<div class="flex flex-col gap-4" in:slide class:mt-4={authProviders.length === 0}>
-				<h4 class="text-center text-lg font-semibold">{m.admin_routes_admin_auth_bootstrap()}</h4>
-				<p class="text-md font-light">{m.admin_routes_admin_enter_bootstrap()}</p>
+				<h4 class="text-center text-lg font-semibold">{m.auth_bootstrap()}</h4>
+				<p class="text-md font-light">{m.auth_bootstrap_enter_bootstrap()}</p>
 
 				<div class="text-md flex flex-col gap-1">
 					<label for="bootstrap-token" class="font-semibold"
-						>{m.admin_routes_admin_bootstrap_token()}</label
+						>{m.auth_bootstrap_token()}</label
 					>
 					<SensitiveInput name="bootstrap-token" bind:value={bootstrapToken} />
 				</div>
 
 				<i class="text-xs font-light">
-					{m.admin_routes_admin_bootstrap_hint()}
+					{m.auth_bootstrap_hint()}
 				</i>
 
 				<button class="btn btn-primary mt-4 text-sm" onclick={handleBootstrapLogin}>
-					{m.admin_routes_admin_login_bootstrap()}
+					{m.auth_bootstrap_login_bootstrap()}
 				</button>
 			</div>
 		{/if}
@@ -315,5 +315,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_admin_page_title()}</title>
+	<title>Obot | {m.auth_bootstrap_page_title()}</title>
 </svelte:head>

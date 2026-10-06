@@ -340,7 +340,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 
 						const badge = document.createElement('span');
 						badge.className = 'badge badge-warning badge-xs font-normal';
-						badge.textContent = m.core_experimental();
+						badge.textContent = m.core_guides_experimental();
 						popover.title.appendChild(badge);
 					}
 

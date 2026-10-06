@@ -31,8 +31,8 @@
 	let deletingFilter = $state(false);
 
 	const tabs = [
-		{ label: m.routes_mcp_tab_configuration(), view: 'configuration' },
-		{ label: m.routes_mcp_tab_server_details(), view: 'server-details' },
+		{ label: m.mcps_filters_tab_configuration(), view: 'configuration' },
+		{ label: m.mcps_filters_tab_server_details(), view: 'server-details' },
 		{ label: m.nav_audit_logs(), view: 'audit-logs' },
 		{ label: m.nav_usage(), view: 'usage' }
 	];
@@ -59,12 +59,12 @@
 		{#if filter?.id}
 			<div class="flex w-full items-center justify-between gap-4">
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{title || filter.name || m.routes_mcp_filter()}
+					{title || filter.name || m.mcps_filters_filter()}
 				</h1>
 				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.routes_mcp_delete_filter(), placement: 'left' }}
+						tooltip={{ text: m.mcps_filters_delete_filter(), placement: 'left' }}
 						onclick={() => (deletingFilter = true)}
 					>
 						<Trash2 class="size-4" />
@@ -106,7 +106,7 @@
 					readonly={profile.current.isAdminReadonly?.()}
 					connectedUsers={[]}
 					k8sOverrides={{
-						title: m.routes_mcp_details(),
+						title: m.mcps_filters_details(),
 						classes: {
 							title: 'text-lg font-semibold'
 						}
@@ -119,10 +119,10 @@
 							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 								<BookOpenText class="text-muted-content size-24 opacity-50" />
 								<h4 class="text-muted-content text-lg font-semibold">
-									{m.routes_mcp_no_recent_audit_logs()}
+									{m.mcps_filters_no_recent_audit_logs()}
 								</h4>
 								<p class="text-muted-content text-sm font-light">
-									{m.routes_mcp_filter_no_recent_usage()}
+									{m.mcps_filters_filter_no_recent_usage()}
 								</p>
 							</div>
 						{/snippet}
@@ -148,8 +148,8 @@
 
 <Confirm
 	msg={filter?.name
-		? m.routes_mcp_delete_named({ name: filter.name })
-		: m.routes_mcp_delete_this_filter()}
+		? m.mcps_delete_named({ name: filter.name })
+		: m.mcps_filters_delete_this_filter()}
 	show={deletingFilter}
 	onsuccess={async () => {
 		if (!filter?.id) return;

@@ -244,7 +244,7 @@
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
 		if (key === 'event_type') {
 			if (value === 'mcp_call') return 'Obot Gateway';
-			if (value === 'local_agent_tool_call') return m.admin_sub_audit_source_local_agent_hook();
+			if (value === 'local_agent_tool_call') return m.audit_usage_audit_logs_source_local_agent_hook();
 		}
 		return value;
 	}
@@ -458,19 +458,19 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof AuditLogURLFilters;
 
-		if (_key === 'event_type') return m.admin_sub_audit_filter_source();
-		if (_key === 'api_key_id') return m.admin_sub_audit_filter_api_key();
-		if (_key === 'actor') return m.admin_sub_log_actor();
-		if (_key === 'operation') return m.admin_sub_log_operation();
-		if (_key === 'mcp_server') return m.admin_sub_audit_filter_identifier_mcp_server();
-		if (_key === 'mcp_id') return m.admin_sub_audit_filter_server_id();
-		if (_key === 'mcp_server_display_name') return m.admin_sub_audit_filter_server();
-		if (_key === 'tool') return m.admin_sub_audit_filter_identifier_tool();
-		if (_key === 'outcome') return m.admin_sub_col_status();
-		if (_key === 'client') return m.admin_sub_log_client();
-		if (_key === 'duration') return m.admin_sub_audit_filter_duration();
-		if (_key === 'start_time') return m.admin_sub_audit_filter_start_time();
-		if (_key === 'end_time') return m.admin_sub_audit_filter_end_time();
+		if (_key === 'event_type') return m.audit_usage_audit_logs_filter_source();
+		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
+		if (_key === 'actor') return m.audit_usage_audit_logs_actor();
+		if (_key === 'operation') return m.audit_usage_audit_logs_operation();
+		if (_key === 'mcp_server') return m.audit_usage_audit_logs_filter_identifier_mcp_server();
+		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
+		if (_key === 'mcp_server_display_name') return m.audit_usage_audit_logs_filter_server();
+		if (_key === 'tool') return m.audit_usage_audit_logs_filter_identifier_tool();
+		if (_key === 'outcome') return m.audit_usage_exports_col_status();
+		if (_key === 'client') return m.audit_usage_audit_logs_client();
+		if (_key === 'duration') return m.audit_usage_audit_logs_filter_duration();
+		if (_key === 'start_time') return m.audit_usage_audit_logs_filter_start_time();
+		if (_key === 'end_time') return m.audit_usage_audit_logs_filter_end_time();
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
@@ -611,7 +611,7 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={handleQueryChange}
-			placeholder={m.admin_sub_search_placeholder()}
+			placeholder={m.core_search_placeholder()}
 			value={query}
 		/>
 
@@ -634,7 +634,7 @@
 					}}
 				>
 					<Funnel class="size-4" />
-					{m.admin_sub_filters_title()}
+					{m.core_filters_title()}
 				</button>
 			</div>
 		</div>
@@ -651,7 +651,7 @@
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"
 	>
-		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">{m.admin_sub_audit_timeline()}</h3>
+		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">{m.audit_usage_audit_logs_timeline()}</h3>
 		<div class="px-4">
 			{#if displayTimelineData.length > 0}
 				<div
@@ -673,7 +673,7 @@
 					class="text-muted-content flex h-40 items-center justify-center gap-2 rounded-md text-sm"
 				>
 					<Loading class="size-5 animate-spin" />
-					<span>{m.admin_sub_audit_preparing_timeline()}</span>
+					<span>{m.audit_usage_audit_logs_preparing_timeline()}</span>
 				</div>
 			{/if}
 		</div>
@@ -681,16 +681,16 @@
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
 			<div class="flex gap-4">
 				<div>
-					{m.admin_sub_audit_results({ count: Intl.NumberFormat().format(remoteAuditLogs.length) })}
+					{m.audit_usage_audit_logs_results({ count: Intl.NumberFormat().format(remoteAuditLogs.length) })}
 				</div>
 
 				<div class="flex items-center">
 					{#if numberOfPages > 1}
 						<span>{Intl.NumberFormat().format(pageIndex + 1)}</span>/
 						<span>{Intl.NumberFormat().format(numberOfPages)}</span>
-						<span class="ml-1">{m.admin_sub_audit_pages()}</span>
+						<span class="ml-1">{m.audit_usage_audit_logs_pages()}</span>
 					{:else}
-						<span>{m.admin_sub_audit_one_page()}</span>
+						<span>{m.audit_usage_audit_logs_one_page()}</span>
 					{/if}
 				</div>
 			</div>
@@ -702,7 +702,7 @@
 					onclick={prevPage}
 				>
 					<ChevronLeft class="size-[1.4em]" />
-					<div>{m.admin_sub_audit_previous_page()}</div>
+					<div>{m.audit_usage_audit_logs_previous_page()}</div>
 				</button>
 
 				<button
@@ -710,7 +710,7 @@
 					disabled={isReachedMax}
 					onclick={nextPage}
 				>
-					<div>{m.admin_sub_audit_next_page()}</div>
+					<div>{m.audit_usage_audit_logs_next_page()}</div>
 					<ChevronRight class="size-[1.4em]" />
 				</button>
 			</div>
@@ -741,7 +741,7 @@
 	{:else if remoteAuditLogs.length > 0}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light">
 			<Loading class="size-5 animate-spin" />
-			<span>{m.admin_sub_audit_preparing_results()}</span>
+			<span>{m.audit_usage_audit_logs_preparing_results()}</span>
 		</div>
 	{/if}
 {:else if !showLoadingSpinner}
@@ -750,9 +750,9 @@
 	{:else}
 		<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 			<Captions class="text-muted-content size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_audit_no_logs()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_audit_logs_no_logs()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.admin_sub_audit_no_logs_hint()}
+				{m.audit_usage_audit_logs_no_logs_hint()}
 			</p>
 		</div>
 	{/if}
@@ -833,9 +833,9 @@
 {#if showFilterConfirmDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 		<div class="dark:bg-base-300 bg-base-100 w-full max-w-2xl rounded-lg p-6 shadow-xl">
-			<h3 class="mb-4 text-lg font-semibold">{m.admin_sub_audit_apply_filters_title()}</h3>
+			<h3 class="mb-4 text-lg font-semibold">{m.audit_usage_audit_logs_apply_filters_title()}</h3>
 			<p class="text-muted-content mb-4 text-sm">
-				{m.admin_sub_audit_apply_filters_msg()}
+				{m.audit_usage_audit_logs_apply_filters_msg()}
 			</p>
 
 			<!-- Show current filters. `event_type` (Source) is excluded since it is not carried over to
@@ -846,12 +846,12 @@
 				).filter(([key]) => key !== 'event_type')}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
 					<h4 class="mb-2 text-xs font-medium text-muted-content">
-						{m.admin_sub_audit_active_filters()}
+						{m.audit_usage_audit_logs_active_filters()}
 					</h4>
 					<div class="text-muted-content space-y-1 text-xs">
 						{#if query}
 							<div class="wrap-break-word">
-								<strong>{m.admin_sub_audit_search_label()}</strong>
+								<strong>{m.audit_usage_audit_logs_search_label()}</strong>
 								{query}
 							</div>
 						{/if}
@@ -867,10 +867,10 @@
 
 			<div class="flex justify-end gap-3">
 				<button class="btn btn-secondary" onclick={() => handleFilterConfirmation(false)}>
-					{m.admin_sub_no()}
+					{m.audit_usage_exports_no()}
 				</button>
 				<button class="btn btn-primary" onclick={() => handleFilterConfirmation(true)}>
-					{m.admin_sub_audit_yes_include_filters()}
+					{m.audit_usage_audit_logs_yes_include_filters()}
 				</button>
 			</div>
 		</div>

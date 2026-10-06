@@ -71,13 +71,13 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 		if (sourceResult.status === 'fulfilled') {
 			assetSource = sourceResult.value;
 		} else {
-			assetLoadError = m.routes_inv_asset_source_load_error();
+			assetLoadError = m.inventory_enforcement_asset_source_load_error();
 		}
 
 		if (assetsResult.status === 'fulfilled') {
 			assets = assetsResult.value;
 		} else {
-			assetLoadError ??= m.routes_inv_assets_load_error();
+			assetLoadError ??= m.inventory_enforcement_assets_load_error();
 		}
 
 		if (configuration) {

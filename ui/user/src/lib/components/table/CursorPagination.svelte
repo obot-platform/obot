@@ -38,7 +38,7 @@
 		disabled={!hasNext || loading}
 		onclick={onNext}
 	>
-		{m.core_next()}
+		{m.core_guides_next()}
 		<ChevronsRight class="size-4" />
 	</button>
 </div>

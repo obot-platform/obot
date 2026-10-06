@@ -203,11 +203,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_invd_page_title_scan()}</title>
+	<title>{m.inventory_enforcement_devices_page_title_scan()}</title>
 </svelte:head>
 
 <Layout
-	title={m.routes_invd_scan_title()}
+	title={m.inventory_enforcement_devices_scan_title()}
 	showBackButton
 	onBackButtonClick={() => goto(`/inventory/devices/${deviceIdParam}`)}
 >
@@ -217,7 +217,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_scan_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_scan_not_found()}</p>
 		{:else}
 			<!-- Header card -->
 			<div
@@ -225,7 +225,7 @@
 			>
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.routes_invd_label_device_id()}
+						{m.inventory_enforcement_devices_label_device_id()}
 					</dt>
 					<dd class="flex items-center gap-2">
 						<span class="text-base font-semibold">{scan.deviceID}</span>
@@ -234,13 +234,13 @@
 							<span
 								class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide"
 							>
-								{m.routes_invd_latest()}
+								{m.inventory_enforcement_devices_latest()}
 							</span>
 						{/if}
 					</dd>
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.routes_invd_label_os_arch()}
+						{m.inventory_enforcement_devices_label_os_arch()}
 					</dt>
 					<dd>
 						<span class="pill-primary bg-primary">{scan.os}/{scan.arch}</span>
@@ -248,7 +248,7 @@
 
 					{#if hasAdminAccess}
 						<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-							{m.routes_invd_label_submitted_by()}
+							{m.inventory_enforcement_devices_label_submitted_by()}
 						</dt>
 						<dd>
 							{#if submittedByUser}
@@ -276,12 +276,12 @@
 					{/if}
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.routes_invd_label_scanner()}
+						{m.inventory_enforcement_devices_label_scanner()}
 					</dt>
 					<dd>{scan.scannerVersion || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
-						{m.routes_invd_label_scanned()}
+						{m.inventory_enforcement_devices_label_scanned()}
 					</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
@@ -294,7 +294,7 @@
 						onclick={() => (deleteOpen = true)}
 					>
 						<Trash2 class="size-4" />
-						{m.routes_invd_delete()}
+						{m.inventory_enforcement_devices_delete()}
 					</button>
 				{/if}
 			</div>
@@ -308,7 +308,7 @@
 						onclick={() => (activeTab = 'clients')}
 					>
 						<MonitorCheck class="size-4" />
-						{m.routes_invd_tab_clients()}
+						{m.inventory_enforcement_devices_tab_clients()}
 						<span class="text-muted-content">({clients.length})</span>
 					</button>
 					<button
@@ -317,7 +317,7 @@
 						onclick={() => (activeTab = 'mcp')}
 					>
 						<Server class="size-4" />
-						{m.routes_invd_tab_mcp_servers()}
+						{m.inventory_enforcement_tab_mcp_servers()}
 						<span class="text-muted-content">({mcpServers.length})</span>
 					</button>
 					<button
@@ -326,7 +326,7 @@
 						onclick={() => (activeTab = 'skills')}
 					>
 						<PencilRuler class="size-4" />
-						{m.routes_invd_tab_skills()}
+						{m.inventory_enforcement_skills_tab()}
 						<span class="text-muted-content">({skills.length})</span>
 					</button>
 					<button
@@ -335,25 +335,25 @@
 						onclick={() => (activeTab = 'plugins')}
 					>
 						<Boxes class="size-4" />
-						{m.routes_invd_tab_plugins()}
+						{m.inventory_enforcement_devices_tab_plugins()}
 						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 				</div>
 
 				{#if activeTab === 'mcp'}
 					{#if mcpRows.length === 0}
-						{@render emptyTab(m.routes_invd_no_mcp_this_scan())}
+						{@render emptyTab(m.inventory_enforcement_devices_no_mcp_this_scan())}
 					{:else}
 						<Table
 							data={mcpRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_client(), property: 'client' },
-								{ title: m.routes_invd_col_scope(), property: 'scope' },
-								{ title: m.routes_invd_col_transport(), property: 'transport' },
-								{ title: m.routes_invd_col_endpoint(), property: 'endpoint' }
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
+								{ title: m.inventory_enforcement_col_endpoint(), property: 'endpoint' }
 							]}
 							sortable={['client', 'name', 'transport', 'scope']}
 							filterable={['client', 'transport', 'scope']}
@@ -375,19 +375,19 @@
 					{/if}
 				{:else if activeTab === 'skills'}
 					{#if skillRows.length === 0}
-						{@render emptyTab(m.routes_invd_no_skills_this_scan())}
+						{@render emptyTab(m.inventory_enforcement_devices_no_skills_this_scan())}
 					{:else}
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
 							headers={[
-								{ title: m.routes_invd_col_client(), property: 'client' },
-								{ title: m.routes_invd_col_scope(), property: 'scope' },
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_description(), property: 'description' },
-								{ title: m.routes_invd_col_has_scripts(), property: 'hasScripts' },
-								{ title: m.routes_invd_col_files(), property: 'files_count' }
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_col_description(), property: 'description' },
+								{ title: m.inventory_enforcement_col_has_scripts(), property: 'hasScripts' },
+								{ title: m.inventory_enforcement_col_files(), property: 'files_count' }
 							]}
 							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							filterable={['client', 'scope']}
@@ -402,7 +402,7 @@
 								{#if property === 'description'}
 									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
-									{d.hasScripts ? m.routes_invd_yes() : m.routes_invd_no()}
+									{d.hasScripts ? m.inventory_enforcement_devices_yes() : m.inventory_enforcement_devices_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -413,7 +413,7 @@
 					{/if}
 				{:else if activeTab === 'plugins'}
 					{#if pluginRows.length === 0}
-						{@render emptyTab(m.routes_invd_no_plugins_this_scan())}
+						{@render emptyTab(m.inventory_enforcement_devices_no_plugins_this_scan())}
 					{:else}
 						<Table
 							data={pluginRows}
@@ -428,13 +428,13 @@
 								'capabilities'
 							]}
 							headers={[
-								{ title: m.routes_invd_col_client(), property: 'client' },
-								{ title: m.routes_invd_col_scope(), property: 'scope' },
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_type(), property: 'pluginType' },
-								{ title: m.routes_invd_col_version(), property: 'version' },
-								{ title: m.routes_invd_col_enabled(), property: 'enabled' },
-								{ title: m.routes_invd_col_capabilities(), property: 'capabilities' }
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_devices_col_type(), property: 'pluginType' },
+								{ title: m.inventory_enforcement_devices_col_version(), property: 'version' },
+								{ title: m.inventory_enforcement_devices_col_enabled(), property: 'enabled' },
+								{ title: m.inventory_enforcement_devices_col_capabilities(), property: 'capabilities' }
 							]}
 							sortable={['client', 'name', 'pluginType', 'version']}
 							filterable={['client', 'pluginType', 'scope']}
@@ -447,7 +447,7 @@
 						>
 							{#snippet onRenderColumn(property, d: PluginRow)}
 								{#if property === 'enabled'}
-									{d.enabled ? m.routes_invd_yes() : m.routes_invd_no()}
+									{d.enabled ? m.inventory_enforcement_devices_yes() : m.inventory_enforcement_devices_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -458,17 +458,17 @@
 					{/if}
 				{:else if activeTab === 'clients'}
 					{#if clientRows.length === 0}
-						{@render emptyTab(m.routes_invd_no_clients_on_device())}
+						{@render emptyTab(m.inventory_enforcement_devices_no_clients_on_device())}
 					{:else}
 						<Table
 							data={clientRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'version', 'paths_display', 'has_display']}
 							headers={[
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_version(), property: 'version' },
-								{ title: m.routes_invd_col_paths(), property: 'paths_display' },
-								{ title: m.routes_invd_col_has(), property: 'has_display' }
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_devices_col_version(), property: 'version' },
+								{ title: m.inventory_enforcement_devices_col_paths(), property: 'paths_display' },
+								{ title: m.inventory_enforcement_devices_col_has(), property: 'has_display' }
 							]}
 							onClickRow={hasAdminAccess
 								? (d, isCtrlClick) => {
@@ -496,11 +496,11 @@
 <Confirm
 	show={deleteOpen}
 	loading={deleting}
-	title={m.routes_invd_delete_scan_title()}
+	title={m.inventory_enforcement_devices_delete_scan_title()}
 	msg={scan
-		? m.routes_invd_delete_scan_msg({ deviceId: scan.deviceID })
-		: m.routes_invd_delete_scan_msg_generic()}
-	note={deleteError ?? m.routes_invd_delete_scan_note()}
+		? m.inventory_enforcement_devices_delete_scan_msg({ deviceId: scan.deviceID })
+		: m.inventory_enforcement_devices_delete_scan_msg_generic()}
+	note={deleteError ?? m.inventory_enforcement_devices_delete_scan_note()}
 	onsuccess={confirmDelete}
 	oncancel={() => {
 		deleteOpen = false;

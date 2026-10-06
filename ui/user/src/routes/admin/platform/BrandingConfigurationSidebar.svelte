@@ -272,7 +272,7 @@
 			await invalidateAll();
 			prevAppPreferences = saveForm;
 			customSurfaces = surfacesSnapshotFromTheme(saveForm.theme);
-			success.add(m.admin_routes_changes_saved());
+			success.add(m.core_changes_saved());
 		} catch (err) {
 			console.error(err);
 			// default behavior will show snackbar error
@@ -286,7 +286,7 @@
 	<div class="fixed top-20 right-4 z-40">
 		<IconButton
 			onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}
-			tooltip={{ text: m.admin_routes_bs_open_sidebar() }}
+			tooltip={{ text: m.platform_branding_open_sidebar() }}
 		>
 			<PanelRightOpen class="size-6 text-muted-content" />
 		</IconButton>
@@ -307,7 +307,7 @@
 			<div
 				class="flex justify-between items-center p-4 sticky bg-base-100 dark:bg-base-200 top-0 left-0"
 			>
-				<h3 class="text-base font-semibold">{m.admin_routes_bs_configuration()}</h3>
+				<h3 class="text-base font-semibold">{m.platform_branding_configuration()}</h3>
 				<IconButton onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}>
 					<PanelRightClose class="size-6 text-muted-content" />
 				</IconButton>
@@ -315,7 +315,7 @@
 		{/if}
 		<div class="flex items-center justify-between px-4 py-2">
 			{#if !responsive.isMobile}
-				<h3 class="text-base font-semibold">{m.admin_routes_bs_configuration()}</h3>
+				<h3 class="text-base font-semibold">{m.platform_branding_configuration()}</h3>
 			{/if}
 			<div
 				class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner w-full md:w-auto"
@@ -327,7 +327,7 @@
 					)}
 					onclick={() => {
 						selectedConfigurationMode = 'theme';
-					}}>{m.admin_routes_bs_theme()}</button
+					}}>{m.platform_branding_theme()}</button
 				>
 				<button
 					class={twMerge(
@@ -336,12 +336,12 @@
 					)}
 					onclick={() => {
 						selectedConfigurationMode = 'logos';
-					}}>{m.admin_routes_bs_logos()}</button
+					}}>{m.platform_branding_logos()}</button
 				>
 			</div>
 		</div>
 		<div class="flex items-center justify-between px-4 py-2">
-			<p class="text-sm font-medium">{m.admin_routes_bs_mode()}</p>
+			<p class="text-sm font-medium">{m.platform_branding_mode()}</p>
 			<div class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner">
 				<button
 					class={twMerge(
@@ -352,7 +352,7 @@
 						selectedColorScheme = 'light';
 						darkMode.setDark(false);
 						appPreferences.setThemeColors(form.theme);
-					}}>{m.admin_routes_bs_light()}</button
+					}}>{m.platform_branding_light()}</button
 				>
 				<button
 					class={twMerge(
@@ -363,7 +363,7 @@
 						selectedColorScheme = 'dark';
 						darkMode.setDark(true);
 						appPreferences.setThemeColors(form.theme);
-					}}>{m.admin_routes_bs_dark()}</button
+					}}>{m.platform_branding_dark()}</button
 				>
 			</div>
 		</div>
@@ -395,14 +395,14 @@
 						editUrlDialog?.close();
 					}}
 				>
-					{m.admin_routes_bs_restore_default()}
+					{m.platform_branding_restore_default()}
 				</button>
 				<div class="flex items-center gap-2">
 					<button class="btn btn-primary" onclick={handleSave}>
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_routes_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 					<button
@@ -427,7 +427,7 @@
 {#snippet themeConfiguration()}
 	<div class="flex flex-col gap-2 px-4 pt-2 pb-4">
 		<div class="flex items-center justify-between">
-			<p class="text-sm font-medium">{m.admin_routes_bs_surfaces()}</p>
+			<p class="text-sm font-medium">{m.platform_branding_surfaces()}</p>
 
 			<div class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner">
 				<button
@@ -439,7 +439,7 @@
 						selectedSurfaceMode = 'solid';
 						form = applyCustomSurfacesToForm();
 						appPreferences.setThemeColors(form.theme);
-					}}>{m.admin_routes_bs_custom()}</button
+					}}>{m.platform_branding_custom()}</button
 				>
 				<button
 					class={twMerge(
@@ -449,7 +449,7 @@
 					onclick={() => {
 						selectedSurfaceMode = 'tinted';
 						captureTintedSurfaceSnapshot();
-					}}>{m.admin_routes_bs_tinted()}</button
+					}}>{m.platform_branding_tinted()}</button
 				>
 			</div>
 		</div>
@@ -464,58 +464,58 @@
 			{/each}
 		{:else}
 			<p class="text-xs font-light text-muted-content">
-				{m.admin_routes_bs_tinted_description()}
+				{m.platform_branding_tinted_description()}
 			</p>
 			{#if selectedColorScheme === 'light'}
 				<TintedSurfaceHueTintShadeControls
 					bind:hue={tintedHueLight}
 					bind:tint={tintedTintLight}
 					bind:shade={tintedShadeLight}
-					hueAriaLabel={m.admin_routes_bs_light_hue()}
+					hueAriaLabel={m.platform_branding_light_hue()}
 				/>
 			{:else}
 				<TintedSurfaceHueTintShadeControls
 					bind:hue={tintedHueDark}
 					bind:tint={tintedTintDark}
 					bind:shade={tintedShadeDark}
-					hueAriaLabel={m.admin_routes_bs_dark_hue()}
+					hueAriaLabel={m.platform_branding_dark_hue()}
 				/>
 			{/if}
 			<p class="text-xs font-light text-muted-content pl-22 mt-1">
-				{m.admin_routes_bs_shade_neutral({ value: SHADE_TICK_NEUTRAL })}
+				{m.platform_branding_shade_neutral({ value: SHADE_TICK_NEUTRAL })}
 			</p>
 		{/if}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
 		<div class="flex justify-between items-center gap-4 pb-1">
-			<p class="text-sm font-medium">{m.admin_routes_bs_per_theme_colors()}</p>
+			<p class="text-sm font-medium">{m.platform_branding_per_theme_colors()}</p>
 			<input type="checkbox" class="toggle toggle-sm" bind:checked={isPerThemeColorsEnabled} />
 		</div>
 
 		<p class="text-xs font-light text-muted-content">
-			{m.admin_routes_bs_per_theme_prefix()}
+			{m.platform_branding_per_theme_prefix()}
 			<span class="font-semibold text-base-content"
-				>{isPerThemeColorsEnabled ? m.admin_routes_bs_enabled() : m.admin_routes_bs_disabled()}
-			</span>{m.admin_routes_bs_per_theme_suffix()}
+				>{isPerThemeColorsEnabled ? m.platform_branding_enabled() : m.platform_branding_disabled()}
+			</span>{m.platform_branding_per_theme_suffix()}
 			{#if isPerThemeColorsEnabled}
-				{m.admin_routes_bs_per_theme_on()}
+				{m.platform_branding_per_theme_on()}
 			{:else}
-				{m.admin_routes_bs_per_theme_off()}
+				{m.platform_branding_per_theme_off()}
 			{/if}
 		</p>
 	</div>
 
 	<div class="flex justify-between items-center gap-4 px-4 py-2">
-		<p class="text-sm font-medium">{m.admin_routes_bs_accent_color()}</p>
+		<p class="text-sm font-medium">{m.platform_branding_accent_color()}</p>
 		{@render colorSelector({
 			id: selectedColorScheme === 'light' ? 'primaryColor' : 'darkPrimaryColor',
-			label: m.admin_routes_bs_primary()
+			label: m.platform_branding_primary()
 		})}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
-		<p class="text-sm font-medium">{m.admin_routes_bs_buttons_indicators()}</p>
+		<p class="text-sm font-medium">{m.platform_branding_buttons_indicators()}</p>
 		{#each selectedColorScheme === 'light' ? themeLightIndicatorFields : themeDarkIndicatorFields as field (field.id)}
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-light">{field.label}</p>
@@ -525,7 +525,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
-		<p class="text-sm font-medium">{m.admin_routes_bs_text()}</p>
+		<p class="text-sm font-medium">{m.platform_branding_text()}</p>
 		{#each selectedColorScheme === 'light' ? textLightFields : textDarkFields as field (field.id)}
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-light">{field.label}</p>
@@ -533,7 +533,7 @@
 			</div>
 		{/each}
 		<div class="flex items-center justify-between gap-2">
-			<p class="text-sm font-light shrink-0">{m.admin_routes_bs_font_family()}</p>
+			<p class="text-sm font-light shrink-0">{m.platform_branding_font_family()}</p>
 			<select
 				class="select select-sm max-w-46 min-w-0"
 				value={form.theme.fontFamily}
@@ -659,7 +659,7 @@
 
 <ResponsiveDialog
 	bind:this={editUrlDialog}
-	title={editImageUrl ? m.admin_routes_bs_edit_image_url() : m.admin_routes_bs_add_image_url()}
+	title={editImageUrl ? m.platform_branding_edit_image_url() : m.platform_branding_add_image_url()}
 	onClose={() => {
 		editImageUrl = '';
 		selectedImageField = undefined;
@@ -667,7 +667,7 @@
 	}}
 >
 	<UploadImage
-		label={m.admin_routes_bs_upload_image()}
+		label={m.platform_branding_upload_image()}
 		onUpload={(imageUrl: string) => {
 			editImageUrl = imageUrl;
 		}}

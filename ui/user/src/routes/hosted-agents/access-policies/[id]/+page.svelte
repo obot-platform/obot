@@ -11,7 +11,7 @@
 	const { hostedAgentAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(hostedAgentAccessPolicy?.displayName ?? m.chat_ha_access_policy_title());
+	let title = $derived(hostedAgentAccessPolicy?.displayName ?? m.hosted_agents_access_policy_title());
 </script>
 
 <Layout {title} showBackButton>

@@ -70,15 +70,15 @@
 	let activeSection = $derived(normalizeTesterSection(page.url.searchParams.get('tab')));
 	let statusLabel = $derived(
 		server?.deploymentStatus ||
-			(server?.configured ? m.mcp_tester_status_configured() : m.mcp_tester_status_setup_required())
+			(server?.configured ? m.mcps_tester_status_configured() : m.mcps_tester_status_setup_required())
 	);
 
 	const sections: Array<{ id: TesterSection; label: string }> = [
-		{ id: 'tools', label: m.mcp_tester_tools() },
-		{ id: 'prompts', label: m.mcp_tester_prompts() },
-		{ id: 'resources', label: m.mcp_tester_resources() },
-		{ id: 'chat', label: m.mcp_tester_chat() },
-		{ id: 'logs', label: m.mcp_tester_mcp_log() }
+		{ id: 'tools', label: m.mcps_tester_tools() },
+		{ id: 'prompts', label: m.mcps_tester_prompts() },
+		{ id: 'resources', label: m.mcps_tester_resources() },
+		{ id: 'chat', label: m.mcps_tester_chat() },
+		{ id: 'logs', label: m.mcps_tester_mcp_log() }
 	];
 
 	const CARD_CLASS =
@@ -193,14 +193,14 @@
 				{/if}
 				<h1 class="min-w-0 truncate text-lg font-semibold">{serverName}</h1>
 				<p class="shrink-0 text-xs text-muted-content">
-					{m.mcp_tester_status({ status: statusLabel })}
+					{m.mcps_tester_status({ status: statusLabel })}
 				</p>
 			</div>
 			<div class="flex shrink-0 items-center gap-2">
 				{#if activeSection === 'chat' && chatAvailable && chat}
 					<button type="button" class="btn btn-secondary btn-sm" onclick={requestNewChat}>
 						<MessageSquarePlus class="size-4" aria-hidden="true" />
-						{m.mcp_tester_new_chat()}
+						{m.mcps_tester_new_chat()}
 					</button>
 				{/if}
 				{#if headerActions}
@@ -211,7 +211,7 @@
 
 		<nav
 			class="border-base-300 dark:border-base-400 flex shrink-0 overflow-x-auto border-b"
-			aria-label={m.mcp_tester_sections()}
+			aria-label={m.mcps_tester_sections()}
 		>
 			{#each sections as section (section.id)}
 				<button
@@ -226,7 +226,7 @@
 				>
 					{section.label}
 					{#if section.id === 'chat' && chat?.approvalNeeded}
-						<span class="badge badge-warning badge-sm ml-2">{m.mcp_tester_approval_needed()}</span>
+						<span class="badge badge-warning badge-sm ml-2">{m.mcps_tester_approval_needed()}</span>
 					{/if}
 				</button>
 			{/each}
@@ -241,15 +241,15 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-6 shadow-sm"
 				aria-live="polite"
 			>
-				<h2 class="font-semibold">{m.mcp_tester_connecting_to({ name: serverName })}</h2>
-				<p class="mt-1 text-sm text-muted-content">{m.mcp_tester_opening_session()}</p>
+				<h2 class="font-semibold">{m.mcps_tester_connecting_to({ name: serverName })}</h2>
+				<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_opening_session()}</p>
 			</section>
 		{:else if session.status === 'access-denied'}
 			<section class="notification-error p-6" role="alert">
 				<TriangleAlert class="mb-2 size-5 text-error" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcp_tester_access_denied()}</h2>
+				<h2 class="font-semibold">{m.mcps_tester_access_denied()}</h2>
 				<p class="mt-1 text-sm">
-					{m.mcp_tester_access_denied_description()}
+					{m.mcps_tester_access_denied_description()}
 				</p>
 				{#if accessDeniedAction}
 					<div class="mt-4">
@@ -260,8 +260,8 @@
 		{:else if session.status === 'reauthentication-required'}
 			<section class="notification-alert p-6" role="status">
 				<KeyRound class="mb-2 size-5 text-warning" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcp_tester_reauth_required()}</h2>
-				<p class="mt-1 text-sm">{m.mcp_tester_reauth_required_description()}</p>
+				<h2 class="font-semibold">{m.mcps_tester_reauth_required()}</h2>
+				<p class="mt-1 text-sm">{m.mcps_tester_reauth_required_description()}</p>
 				{#if reauthenticationAction}
 					<div class="mt-4">
 						{@render reauthenticationAction()}
@@ -271,8 +271,8 @@
 		{:else if session.status === 'setup-required'}
 			<section class="notification-alert p-6" role="status">
 				<TriangleAlert class="mb-2 size-5 text-warning" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcp_tester_setup_required()}</h2>
-				<p class="mt-1 text-sm">{m.mcp_tester_setup_required_description()}</p>
+				<h2 class="font-semibold">{m.mcps_tester_setup_required()}</h2>
+				<p class="mt-1 text-sm">{m.mcps_tester_setup_required_description()}</p>
 				{#if setupRequiredAction}
 					<div class="mt-4">
 						{@render setupRequiredAction()}
@@ -282,8 +282,8 @@
 		{:else if session.status === 'unhealthy' || session.status === 'error'}
 			<section class="notification-error p-6" role="alert">
 				<TriangleAlert class="mb-2 size-5 text-error" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcp_tester_server_unavailable()}</h2>
-				<p class="mt-1 text-sm">{session.error || m.mcp_tester_server_unhealthy()}</p>
+				<h2 class="font-semibold">{m.mcps_tester_server_unavailable()}</h2>
+				<p class="mt-1 text-sm">{session.error || m.mcps_tester_server_unhealthy()}</p>
 				<div class="mt-4 flex flex-wrap gap-2">
 					<button
 						type="button"
@@ -291,7 +291,7 @@
 						onclick={() => session?.initialize(true)}
 					>
 						<RotateCw class="size-4" aria-hidden="true" />
-						{m.mcp_retry()}
+						{m.mcps_retry()}
 					</button>
 					{#if unhealthySecondaryAction}
 						{@render unhealthySecondaryAction()}
@@ -318,19 +318,19 @@
 										id="mcp-tester-community-signup-heading"
 										class="shrink-0 text-lg font-semibold"
 									>
-										{m.mcp_tester_unlock_chat()}
+										{m.mcps_tester_unlock_chat()}
 									</h2>
 									<p class="max-w-md text-sm font-light">
-										{m.mcp_tester_register_prefix()}<b class="font-medium"
-											>{m.mcp_tester_register_bold()}</b
-										>{m.mcp_tester_register_suffix()}
+										{m.mcps_tester_register_prefix()}<b class="font-medium"
+											>{m.mcps_tester_register_bold()}</b
+										>{m.mcps_tester_register_suffix()}
 									</p>
 									<p class="max-w-md text-sm font-light">
-										{m.mcp_tester_own_provider_prefix()}<a
+										{m.mcps_tester_own_provider_prefix()}<a
 											class="text-link"
 											href={resolve('/models?view=model-providers')}
-											>{m.mcp_tester_own_provider_link()}</a
-										>{m.mcp_tester_own_provider_suffix()}
+											>{m.mcps_tester_own_provider_link()}</a
+										>{m.mcps_tester_own_provider_suffix()}
 									</p>
 								</div>
 								<div
@@ -347,9 +347,9 @@
 							</div>
 						</CommunitySignupPanel>
 					{:else}
-						<h2 class="shrink-0 text-lg font-semibold">{m.mcp_tester_chat()}</h2>
+						<h2 class="shrink-0 text-lg font-semibold">{m.mcps_tester_chat()}</h2>
 						<div class="bg-base-200 dark:bg-base-300 mt-4 rounded-lg p-4" role="status">
-							<h3 class="font-medium">{m.mcp_tester_chat_unavailable()}</h3>
+							<h3 class="font-medium">{m.mcps_tester_chat_unavailable()}</h3>
 							<p class="mt-1 text-sm text-muted-content">{chatUnavailableMessage}</p>
 						</div>
 					{/if}
@@ -367,11 +367,11 @@
 
 <Confirm
 	show={confirmNewChat}
-	title={m.mcp_tester_new_chat_title()}
-	msg={m.mcp_tester_new_chat_msg()}
-	note={m.mcp_tester_new_chat_note()}
+	title={m.mcps_tester_new_chat_title()}
+	msg={m.mcps_tester_new_chat_msg()}
+	note={m.mcps_tester_new_chat_note()}
 	type="info"
-	submitText={m.mcp_tester_new_chat_submit()}
+	submitText={m.mcps_tester_new_chat_submit()}
 	onsuccess={startNewChat}
 	oncancel={() => (confirmNewChat = false)}
 />

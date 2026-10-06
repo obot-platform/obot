@@ -54,10 +54,10 @@
 			<McpTextResult text={item.text} />
 		{/key}
 	{:else}
-		<CornerCopyButton text={item.text} label={m.mcp_tester_copy_text()} class={BOX}>
+		<CornerCopyButton text={item.text} label={m.mcps_tester_copy_text()} class={BOX}>
 			<pre
 				class="overflow-auto pr-10 text-sm whitespace-pre-wrap wrap-break-word"
-				aria-label={m.mcp_tester_text_content()}>{item.text}</pre>
+				aria-label={m.mcps_tester_text_content()}>{item.text}</pre>
 		</CornerCopyButton>
 	{/if}
 {:else if type === 'image' && typeof item?.data === 'string' && mimeType}
@@ -65,12 +65,12 @@
 		{#if isSafeImageMimeType(mimeType)}
 			<img
 				src={`data:${mimeType};base64,${item.data}`}
-				alt={m.mcp_tester_server_result_alt()}
+				alt={m.mcps_tester_server_result_alt()}
 				class="max-h-96 max-w-full rounded object-contain"
 			/>
 		{:else}
 			<p class="text-sm text-muted-content">
-				{m.mcp_tester_unsupported_image_type({ type: mimeType })}
+				{m.mcps_tester_unsupported_image_type({ type: mimeType })}
 			</p>
 		{/if}
 	</div>
@@ -82,7 +82,7 @@
 			</audio>
 		{:else}
 			<p class="text-sm text-muted-content">
-				{m.mcp_tester_unsupported_audio_type({ type: mimeType })}
+				{m.mcps_tester_unsupported_audio_type({ type: mimeType })}
 			</p>
 		{/if}
 	</div>
@@ -90,29 +90,29 @@
 	{#if typeof resource.text === 'string'}
 		<CornerCopyButton
 			text={resource.text}
-			label={m.mcp_tester_copy_text()}
+			label={m.mcps_tester_copy_text()}
 			class={`${BOX} space-y-2`}
 		>
 			<p class="pr-10 text-xs font-medium break-all">
-				{String(resource.uri ?? m.mcp_tester_embedded_resource())}
+				{String(resource.uri ?? m.mcps_tester_embedded_resource())}
 			</p>
 			<pre class="overflow-auto text-sm whitespace-pre-wrap wrap-break-word">{resource.text}</pre>
 		</CornerCopyButton>
 	{:else}
 		<div class={`${BOX} space-y-2`}>
 			<p class="text-xs font-medium break-all">
-				{String(resource.uri ?? m.mcp_tester_embedded_resource())}
+				{String(resource.uri ?? m.mcps_tester_embedded_resource())}
 			</p>
 			{#if typeof resource.blob === 'string' && resourceMimeType && isSafeImageMimeType(resourceMimeType)}
 				<img
 					src={`data:${resourceMimeType};base64,${resource.blob}`}
-					alt={m.mcp_tester_embedded_resource_alt()}
+					alt={m.mcps_tester_embedded_resource_alt()}
 					class="max-h-96 max-w-full rounded object-contain"
 				/>
 			{:else}
 				<p class="text-sm text-muted-content">
-					{m.mcp_tester_unsupported_embedded({
-						type: resourceMimeType || m.mcp_tester_unknown_type()
+					{m.mcps_tester_unsupported_embedded({
+						type: resourceMimeType || m.mcps_tester_unknown_type()
 					})}
 				</p>
 			{/if}
@@ -138,8 +138,8 @@
 {:else}
 	<div class={BOX}>
 		<p class="mb-2 text-sm text-muted-content">
-			{m.mcp_tester_unsupported_content()}
+			{m.mcps_tester_unsupported_content()}
 		</p>
-		<JsonPreview value={content} ariaLabel={m.mcp_tester_unsupported_mcp_content()} />
+		<JsonPreview value={content} ariaLabel={m.mcps_tester_unsupported_mcp_content()} />
 	</div>
 {/if}

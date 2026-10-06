@@ -70,14 +70,14 @@
 	>
 		<h4 class="text-sm font-semibold">
 			{urlTemplateVariables
-				? m.mcp_custom_config_url_template_variables()
+				? m.mcps_catalog_custom_config_url_template_variables()
 				: serverUserType === 'singleUser'
-					? m.mcp_custom_config_user_supplied()
-					: m.mcp_config_heading()}
+					? m.mcps_catalog_custom_config_user_supplied()
+					: m.mcps_catalog_config_heading()}
 		</h4>
 		{#if urlTemplateVariables}
 			<p class="text-muted-content text-xs font-light">
-				{m.mcp_custom_config_url_template_description({ placeholder: '${VARIABLE}' })}
+				{m.mcps_catalog_custom_config_url_template_description({ placeholder: '${VARIABLE}' })}
 			</p>
 		{/if}
 
@@ -92,7 +92,7 @@
 						{#if !urlTemplateVariables}
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light"
-									>{m.mcp_runtime_type()}</label
+									>{m.mcps_catalog_runtime_type()}</label
 								>
 								<Select
 									class="dark:border-base-400 bg-base-100 border border-transparent"
@@ -100,8 +100,8 @@
 										root: 'flex grow'
 									}}
 									options={[
-										{ label: m.mcp_config_usage_env(), id: 'environment_variable_type' },
-										{ label: m.mcp_config_usage_file(), id: 'file_type' }
+										{ label: m.mcps_catalog_config_usage_env(), id: 'environment_variable_type' },
+										{ label: m.mcps_catalog_config_usage_file(), id: 'file_type' }
 									]}
 									disabled={readonly || isPrebuiltEntry}
 									selected={config![i].file ? 'file_type' : 'environment_variable_type'}
@@ -119,12 +119,12 @@
 							<p class="text-muted-content text-xs font-light">
 								{#if config![i].file}
 									{serverUserType === 'singleUser'
-										? m.mcp_custom_config_file_help_user({ syntax: '${KEY_NAME}' })
-										: m.mcp_custom_config_file_help_admin({ syntax: '${KEY_NAME}' })}
+										? m.mcps_catalog_custom_config_file_help_user({ syntax: '${KEY_NAME}' })
+										: m.mcps_catalog_custom_config_file_help_admin({ syntax: '${KEY_NAME}' })}
 								{:else}
 									{serverUserType === 'singleUser'
-										? m.mcp_custom_config_env_help_user({ syntax: '${KEY_NAME}' })
-										: m.mcp_custom_config_env_help_admin({ syntax: '${KEY_NAME}' })}
+										? m.mcps_catalog_custom_config_env_help_user({ syntax: '${KEY_NAME}' })
+										: m.mcps_catalog_custom_config_env_help_admin({ syntax: '${KEY_NAME}' })}
 								{/if}
 							</p>
 						{/if}
@@ -183,10 +183,10 @@
 				>
 					<Plus class="size-4" />
 					{urlTemplateVariables
-						? m.mcp_custom_config_url_variable()
+						? m.mcps_catalog_custom_config_url_variable()
 						: serverUserType === 'singleUser'
-							? m.mcp_custom_config_user_configuration()
-							: m.mcp_config_heading()}
+							? m.mcps_catalog_custom_config_user_configuration()
+							: m.mcps_catalog_config_heading()}
 				</button>
 			</div>
 		{/if}
@@ -198,7 +198,7 @@
 	<div
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
-		<h4 class="text-sm font-semibold">{m.mcp_custom_config_secret_bound()}</h4>
+		<h4 class="text-sm font-semibold">{m.mcps_catalog_custom_config_secret_bound()}</h4>
 
 		{#each allSecretBound as { item, source }, sbIdx (`${source}:${item.key}`)}
 			<div
@@ -206,22 +206,22 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.mcp_runtime_type()}</label
+						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.mcps_catalog_runtime_type()}</label
 						>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-type`}
 							value={source === 'header'
-								? m.mcp_config_usage_header()
+								? m.mcps_config_usage_header()
 								: item.file
-									? m.mcp_config_usage_file()
-									: m.mcp_config_usage_env()}
+									? m.mcps_catalog_config_usage_file()
+									: m.mcps_catalog_config_usage_env()}
 							disabled
 						/>
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">{m.mcp_field_name()}</label>
+						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">{m.mcps_field_name()}</label>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-name`}
@@ -233,7 +233,7 @@
 					{#if item.description}
 						<div class="flex w-full flex-col gap-1">
 							<label for={`sb-${sbIdx}-description`} class="text-sm font-light"
-								>{m.mcp_field_description()}</label
+								>{m.mcps_field_description()}</label
 							>
 							<input
 								class={inputClass}
@@ -245,14 +245,14 @@
 					{/if}
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-key`} class="text-sm font-light">{m.mcp_field_key()}</label>
+						<label for={`sb-${sbIdx}-key`} class="text-sm font-light">{m.mcps_field_key()}</label>
 						<input class={inputClass} id={`sb-${sbIdx}-key`} value={item.key} disabled />
 					</div>
 
 					{#if item.secretBinding?.name && item.secretBinding?.key}
 						<div class="flex w-full flex-col gap-1">
 							<label for={`sb-${sbIdx}-secret`} class="text-sm font-light"
-								>{m.mcp_secret_label()}</label
+								>{m.mcps_catalog_secret_label()}</label
 							>
 							<input
 								class={twMerge(inputClass, 'font-mono')}
@@ -265,16 +265,16 @@
 
 					<div class="flex flex-wrap gap-2">
 						{#if item.sensitive}
-							<span class="badge badge-secondary badge-xs">{m.mcp_badge_sensitive()}</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_sensitive()}</span>
 						{/if}
 						{#if item.required}
-							<span class="badge badge-secondary badge-xs">{m.mcp_badge_required()}</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_required()}</span>
 						{/if}
 						{#if source === 'env' && item.file}
-							<span class="badge badge-secondary badge-xs">{m.mcp_badge_file()}</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_file()}</span>
 						{/if}
 						{#if source === 'env' && item.dynamicFile}
-							<span class="badge badge-secondary badge-xs">{m.mcp_badge_dynamic()}</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_dynamic()}</span>
 						{/if}
 					</div>
 				</div>

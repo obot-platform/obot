@@ -84,17 +84,17 @@
 		prefixInvalid
 			? ({
 					severity: 'error',
-					message: m.mcp_composite_prefix_invalid()
+					message: m.mcps_composite_prefix_invalid()
 				} as const)
 			: prefixTooLong
 				? ({
 						severity: 'error',
-						message: m.mcp_composite_prefix_too_long({ count: MAX_TOOL_PREFIX_LENGTH })
+						message: m.mcps_composite_prefix_too_long({ count: MAX_TOOL_PREFIX_LENGTH })
 					} as const)
 				: duplicatePrefix
 					? ({
 							severity: 'error',
-							message: m.mcp_composite_prefix_duplicate({ prefix: (toolPrefix ?? '').trim() })
+							message: m.mcps_composite_prefix_duplicate({ prefix: (toolPrefix ?? '').trim() })
 						} as const)
 					: prefixSpecialChar
 						? ({
@@ -180,7 +180,7 @@
 			const matched = disabling.filter((tool) => allowed.includes(tool.name));
 			if (matched.length === 0) continue;
 			impacts.push({
-				name: profile.name || m.mcp_composite_unnamed_profile(),
+				name: profile.name || m.mcps_composite_unnamed_profile(),
 				tools: matched.map(toolLabel)
 			});
 		}
@@ -243,11 +243,11 @@
 	bind:this={dialog}
 	animate="slide"
 	title={readonly
-		? m.mcp_composite_view_tools_title({
-				name: configuringEntry?.manifest?.name ?? m.mcp_server_fallback_name()
+		? m.mcps_composite_view_tools_title({
+				name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 			})
-		: m.mcp_composite_configure_tools_title({
-				name: configuringEntry?.manifest?.name ?? m.mcp_server_fallback_name()
+		: m.mcps_composite_configure_tools_title({
+				name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 			})}
 	class="bg-base-200 md:max-w-(--breakpoint-xl)"
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
@@ -261,15 +261,15 @@
 	/>
 	<p class="text-muted-content px-4 text-xs font-light">
 		{#if readonly}
-			{m.mcp_composite_tools_readonly_description()}
+			{m.mcps_composite_tools_readonly_description()}
 		{:else}
-			{m.mcp_composite_tools_description()}
+			{m.mcps_composite_tools_description()}
 		{/if}
 	</p>
 	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
 		<div class="flex flex-col gap-1">
 			<p class="flex items-center gap-1.5 text-xs text-muted-content">
-				<span>{m.mcp_composite_tool_name_prefix()}</span>
+				<span>{m.mcps_composite_tool_name_prefix()}</span>
 				{#if prefixIssue}
 					<ToolNameIssueIcon issue={prefixIssue} disablePortal />
 				{/if}
@@ -277,7 +277,7 @@
 			<div class="flex items-center gap-2">
 				<input
 					class="text-input-filled shadow-none bg-base-100 flex-1 text-sm"
-					placeholder={m.mcp_composite_no_prefix()}
+					placeholder={m.mcps_composite_no_prefix()}
 					bind:value={toolPrefix}
 					{readonly}
 				/>
@@ -289,7 +289,7 @@
 							toolPrefix = '';
 						}}
 					>
-						{m.mcp_log_clear()}
+						{m.mcps_log_clear()}
 					</button>
 				{/if}
 			</div>
@@ -300,9 +300,9 @@
 			{:else}
 				<p class="text-muted-content text-[11px]">
 					{#if readonly}
-						{m.mcp_composite_prefix_hint_readonly()}
+						{m.mcps_composite_prefix_hint_readonly()}
 					{:else}
-						{m.mcp_composite_prefix_hint()}
+						{m.mcps_composite_prefix_hint()}
 					{/if}
 				</p>
 			{/if}
@@ -310,7 +310,7 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={(val) => (search = val)}
-			placeholder={m.mcp_tools_search_placeholder()}
+			placeholder={m.mcps_tools_search_placeholder()}
 		/>
 
 		<div class="flex w-full justify-end items-center pr-2.5 gap-1">
@@ -328,7 +328,7 @@
 						if (readonly) return;
 						for (const tool of actionableTools) tool.enabled = checked;
 					}}
-					label={m.mcp_composite_enable_all_tools()}
+					label={m.mcps_composite_enable_all_tools()}
 					labelInline
 					classes={{
 						label: 'text-sm gap-2'
@@ -385,8 +385,8 @@
 									}}
 								>
 									{expandedTools[tool.id]
-										? m.mcp_composite_hide_details()
-										: m.mcp_composite_customize()}
+										? m.mcps_composite_hide_details()
+										: m.mcps_composite_customize()}
 								</button>
 								<div class="divider divider-horizontal mx-0"></div>
 							{/if}
@@ -398,15 +398,15 @@
 									tool.enabled = checked;
 								}}
 								label={tool.enabled
-									? m.mcp_composite_disable_tool()
-									: m.mcp_composite_enable_tool()}
+									? m.mcps_composite_disable_tool()
+									: m.mcps_composite_enable_tool()}
 								disablePortal
 							/>
 						</div>
 					</div>
 					{#if tool.removed}
 						<p class="text-muted-content text-[11px] italic">
-							{m.mcp_composite_tool_removed()}
+							{m.mcps_composite_tool_removed()}
 						</p>
 					{/if}
 
@@ -414,7 +414,7 @@
 						<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
 							<TriangleAlert class="size-3 shrink-0" />
 							<p>
-								{m.mcp_composite_tool_modified()}
+								{m.mcps_composite_tool_modified()}
 							</p>
 						</div>
 					{/if}
@@ -422,7 +422,7 @@
 					{#if expandedTools[tool.id]}
 						<div class="mt-2 flex flex-col gap-2">
 							<div class="flex flex-col gap-1">
-								<p class="text-xs text-muted-content">{m.mcp_composite_tool_name()}</p>
+								<p class="text-xs text-muted-content">{m.mcps_composite_tool_name()}</p>
 								<input
 									class="text-input-filled flex-1 text-sm"
 									bind:value={tool.overrideName}
@@ -431,11 +431,11 @@
 							</div>
 
 							<div class="flex flex-col gap-1">
-								<p class="text-xs text-muted-content">{m.mcp_field_description()}</p>
+								<p class="text-xs text-muted-content">{m.mcps_field_description()}</p>
 								<textarea
 									class="text-input-filled h-24 resize-none text-xs"
 									bind:value={tool.overrideDescription}
-									placeholder={m.mcp_composite_tool_description_placeholder()}
+									placeholder={m.mcps_composite_tool_description_placeholder()}
 									{readonly}></textarea>
 							</div>
 
@@ -449,7 +449,7 @@
 											tool.overrideDescription = tool.description;
 										}}
 									>
-										{m.mcp_composite_reset_to_default()}
+										{m.mcps_composite_reset_to_default()}
 									</button>
 								</div>
 							{/if}
@@ -462,14 +462,14 @@
 	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
 		<div class="flex gap-2 items-center">
 			<button class="btn btn-secondary" onclick={handleCancel}
-				>{readonly ? m.mcp_close() : m.common_cancel()}</button
+				>{readonly ? m.mcps_composite_close() : m.common_cancel()}</button
 			>
 			{#if !readonly}
 				<button
 					id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
 					class="btn btn-primary"
 					disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
-					onclick={handleSave}>{m.mcp_confirm()}</button
+					onclick={handleSave}>{m.mcps_composite_confirm()}</button
 				>
 			{/if}
 		</div>
@@ -477,17 +477,17 @@
 </ResponsiveDialog>
 
 <!-- Confirmation Dialog for Unsaved Changes -->
-<ResponsiveDialog bind:this={confirmDialog} title={m.mcp_discard_changes_title()} class="max-w-xl">
+<ResponsiveDialog bind:this={confirmDialog} title={m.mcps_composite_discard_changes_title()} class="max-w-xl">
 	<p class="text-muted-content mb-4 text-sm">
-		{m.mcp_composite_unsaved_changes({
-			name: configuringEntry?.manifest?.name ?? m.mcp_server_fallback_name()
+		{m.mcps_composite_unsaved_changes({
+			name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 		})}
 	</p>
 
 	<div class="flex justify-end gap-3">
-		<button class="btn btn-secondary" onclick={cancelDiscard}>{m.mcp_keep_editing()}</button>
+		<button class="btn btn-secondary" onclick={cancelDiscard}>{m.mcps_composite_keep_editing()}</button>
 		<button class="btn btn-error" onclick={confirmDiscard}>
-			{m.mcp_discard_changes()}
+			{m.mcps_composite_discard_changes()}
 		</button>
 	</div>
 </ResponsiveDialog>
@@ -496,19 +496,19 @@
 	show={profileToolImpact.length > 0}
 	onsuccess={confirmSave}
 	oncancel={cancelSave}
-	title={m.mcp_confirm_save()}
-	submitText={m.mcp_save()}
+	title={m.mcps_composite_confirm_save()}
+	submitText={m.mcps_save()}
 	type="info"
-	msg={m.mcp_confirm_save_msg()}
+	msg={m.mcps_composite_confirm_save_msg()}
 >
 	{#snippet note()}
-		<p>{m.mcp_composite_profiles_impacted()}</p>
+		<p>{m.mcps_composite_profiles_impacted()}</p>
 
 		<table class="table table-xs my-4">
 			<thead class="text-xs">
 				<tr>
-					<th>{m.mcp_column_name()}</th>
-					<th>{m.mcp_composite_affected_tools()}</th>
+					<th>{m.mcps_column_name()}</th>
+					<th>{m.mcps_composite_affected_tools()}</th>
 				</tr>
 			</thead>
 			<tbody>

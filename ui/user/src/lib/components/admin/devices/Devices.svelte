@@ -150,7 +150,7 @@
 	value={query}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateQuery}
-	placeholder={m.admin_sub_devices_search_placeholder()}
+	placeholder={m.inventory_enforcement_devices_search_placeholder()}
 />
 
 {#if loading || parentLoading}
@@ -158,10 +158,10 @@
 {:else if total === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Laptop class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_devices_none_scanned()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_devices_none_scanned()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.admin_sub_devices_run_scan_prefix()}<code class="font-mono">obot scan</code
-			>{m.admin_sub_devices_run_scan_suffix()}
+			{m.inventory_enforcement_devices_run_scan_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_devices_run_scan_suffix()}
 		</p>
 	</div>
 {:else}
@@ -178,14 +178,14 @@
 			'scannedAt'
 		]}
 		headers={[
-			{ title: m.admin_sub_log_device(), property: 'short_device_id' },
-			{ title: m.admin_sub_devices_col_os_arch(), property: 'os_arch' },
-			{ title: m.admin_sub_llm_filter_user(), property: 'username' },
+			{ title: m.audit_usage_audit_logs_device(), property: 'short_device_id' },
+			{ title: m.inventory_enforcement_devices_col_os_arch(), property: 'os_arch' },
+			{ title: m.audit_usage_audit_logs_model_filter_user(), property: 'username' },
 			{ title: 'MCP', property: 'mcp_count' },
-			{ title: m.admin_sub_devices_col_skills(), property: 'skill_count' },
-			{ title: m.admin_sub_devices_col_plugins(), property: 'plugin_count' },
-			{ title: m.admin_sub_export_filter_title_clients(), property: 'client_count' },
-			{ title: m.admin_sub_devices_col_last_scanned(), property: 'scannedAt' }
+			{ title: m.inventory_enforcement_devices_col_skills(), property: 'skill_count' },
+			{ title: m.inventory_enforcement_devices_col_plugins(), property: 'plugin_count' },
+			{ title: m.audit_usage_exports_filter_title_clients(), property: 'client_count' },
+			{ title: m.inventory_enforcement_devices_col_last_scanned(), property: 'scannedAt' }
 		]}
 		sortable={[
 			'short_device_id',
@@ -247,8 +247,8 @@
 			{loading}
 			itemCountLabel={(count) =>
 				count === 1
-					? m.admin_sub_device_count_one({ count })
-					: m.admin_sub_device_count_other({ count })}
+					? m.inventory_enforcement_devices_count_one({ count })
+					: m.inventory_enforcement_devices_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

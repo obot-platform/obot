@@ -312,7 +312,7 @@
 				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
-				const apiKeyLabel = labels.get(apiKeyID) ?? m.routes_usage_api_key_number({ id: apiKeyID });
+				const apiKeyLabel = labels.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID });
 				return {
 					apiKeyID,
 					apiKeyLabel,
@@ -659,17 +659,17 @@
 	}
 
 	const usersOptions = $derived([
-		{ label: m.routes_usage_all_users(), id: ALL_USERS },
+		{ label: m.audit_usage_usage_all_users(), id: ALL_USERS },
 		...usersData.map((user) => ({ label: getUserDisplayName(usersMap, user.id), id: user.id }))
 	]);
 
 	const modelsOptions = $derived([
-		{ label: m.routes_usage_all_models(), id: ALL_MODELS },
+		{ label: m.audit_usage_usage_all_models(), id: ALL_MODELS },
 		...modelsData.map((model) => ({ label: model.name, id: model.id }))
 	]);
 
 	const apiKeyOptions = $derived([
-		{ label: m.routes_usage_all_api_keys(), id: ALL_API_KEYS },
+		{ label: m.audit_usage_usage_all_api_keys(), id: ALL_API_KEYS },
 		...getAPIKeyFilterOptions(data, usersMap)
 	]);
 	const apiKeyOptionsMap = $derived(
@@ -694,7 +694,7 @@
 				class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 			>
 				<Loading class="size-32 stroke-1" />
-				<div class="text-2xl font-semibold">{m.routes_usage_loading_data()}</div>
+				<div class="text-2xl font-semibold">{m.audit_usage_usage_loading_data()}</div>
 			</div>
 		</div>
 	{/if}
@@ -702,20 +702,20 @@
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
 		<div class="bg-base-300 dark:bg-base-200 w-full">
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
-				<h4 class="font-semibold">{m.routes_usage_overall_stats()}</h4>
+				<h4 class="font-semibold">{m.audit_usage_usage_overall_stats()}</h4>
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					{@render summary(m.routes_usage_total(), totalTokensData?.totalTokens ?? 0)}
+					{@render summary(m.audit_usage_usage_total(), totalTokensData?.totalTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.routes_usage_input(), totalTokensData?.inputTokens ?? 0)}
+					{@render summary(m.audit_usage_usage_input(), totalTokensData?.inputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.routes_usage_output(), totalTokensData?.outputTokens ?? 0)}
+					{@render summary(m.audit_usage_usage_output(), totalTokensData?.outputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
 					{@render summary(
-						m.routes_usage_cached_input(),
+						m.audit_usage_usage_cached_input(),
 						(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
 					)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render spendSummary(m.routes_usage_spend(), totalTokensData?.totalSpend)}
+					{@render spendSummary(m.audit_usage_usage_spend(), totalTokensData?.totalSpend)}
 				</div>
 			</div>
 		</div>
@@ -723,7 +723,7 @@
 			class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
 		>
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
-				<p class="text-muted-content w-full text-sm md:w-fit">{m.routes_usage_filter_by()}</p>
+				<p class="text-muted-content w-full text-sm md:w-fit">{m.audit_usage_usage_filter_by()}</p>
 				<Select
 					class="dark:border-base-400 border border-transparent"
 					classes={{
@@ -739,9 +739,9 @@
 					id="api-key-select"
 					multiple
 					searchInDropdown
-					placeholder={m.routes_usage_filter_by_api_key()}
+					placeholder={m.audit_usage_usage_filter_by_api_key()}
 					buttonReadOnly
-					buttonTitle={m.routes_usage_api_keys()}
+					buttonTitle={m.audit_usage_usage_api_keys()}
 					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
@@ -759,9 +759,9 @@
 					id="user-select"
 					multiple
 					searchInDropdown
-					placeholder={m.routes_usage_filter_by_user()}
+					placeholder={m.audit_usage_usage_filter_by_user()}
 					buttonReadOnly
-					buttonTitle={m.routes_usage_users()}
+					buttonTitle={m.audit_usage_usage_users()}
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
 				/>
 				<Select
@@ -779,9 +779,9 @@
 					id="model-select"
 					multiple
 					searchInDropdown
-					placeholder={m.routes_usage_filter_by_model()}
+					placeholder={m.audit_usage_usage_filter_by_model()}
 					buttonReadOnly
-					buttonTitle={m.routes_usage_models()}
+					buttonTitle={m.audit_usage_usage_models()}
 					displayCount={!!filteredByModel && filteredByModel !== ALL_MODELS}
 				/>
 				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
@@ -796,7 +796,7 @@
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.routes_usage_pill_user()}</span>{userPill.label}
+								<span class="font-semibold">{m.audit_usage_usage_pill_user()}</span>{userPill.label}
 								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -806,8 +806,8 @@
 					{#if selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.routes_usage_pill_api_key()}</span
-								>{apiKeyOptionsMap.get(apiKeyID) ?? m.routes_usage_api_key_number({ id: apiKeyID })}
+								<span class="font-semibold">{m.audit_usage_usage_pill_api_key()}</span
+								>{apiKeyOptionsMap.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID })}
 								<button class="ml-1" onclick={() => handleRemoveAPIKeyFilter(apiKeyID)}>
 									<X class="size-3" />
 								</button>
@@ -821,7 +821,7 @@
 						}))}
 						{#each modelPills as modelPill (modelPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">{m.routes_usage_pill_model()}</span>{modelPill.label}
+								<span class="font-semibold">{m.audit_usage_usage_pill_model()}</span>{modelPill.label}
 								<button class="ml-1" onclick={() => handleRemoveModelFilter(modelPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -855,7 +855,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
 						>
-							{m.routes_usage_api_keys()}
+							{m.audit_usage_usage_api_keys()}
 						</button>
 						<button
 							class={twMerge(
@@ -866,7 +866,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.MODELS)}
 						>
-							{m.routes_usage_models()}
+							{m.audit_usage_usage_models()}
 						</button>
 						<button
 							class={twMerge(
@@ -877,7 +877,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.USERS)}
 						>
-							{m.routes_usage_users()}
+							{m.audit_usage_usage_users()}
 						</button>
 						<button
 							class={twMerge(
@@ -888,7 +888,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.SPEND)}
 						>
-							{m.routes_usage_spend()}
+							{m.audit_usage_usage_spend()}
 						</button>
 					</div>
 					{#if !responsive.isMobile}
@@ -907,10 +907,10 @@
 						value={subViewSearchQuery}
 						onChange={(value) => (subViewSearchQuery = value)}
 						placeholder={selectedSubview === USAGE_SUBVIEW.USERS
-							? m.routes_usage_search_users()
+							? m.audit_usage_usage_search_users()
 							: selectedSubview === USAGE_SUBVIEW.API_KEYS
-								? m.routes_usage_search_api_keys()
-								: m.routes_usage_search_models()}
+								? m.audit_usage_usage_search_api_keys()
+								: m.audit_usage_usage_search_models()}
 					/>
 				</div>
 
@@ -922,7 +922,7 @@
 								aria-live="polite"
 							>
 								<Loading class="size-4 animate-spin" />
-								<span>{m.routes_usage_preparing_charts()}</span>
+								<span>{m.audit_usage_usage_preparing_charts()}</span>
 							</div>
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -966,12 +966,12 @@
 																	<div class="text-xl font-bold">{formatUSD(value)}</div>
 																	{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 																		<div class="text-muted-content mt-1 text-xs">
-																			{m.routes_usage_cache_read_spend({
+																			{m.audit_usage_usage_cache_read_spend({
 																				spend: formatUSD(item.details?.cacheReadSpend ?? 0)
 																			})}
 																		</div>
 																		<div class="text-muted-content text-xs">
-																			{m.routes_usage_cache_write_spend({
+																			{m.audit_usage_usage_cache_write_spend({
 																				spend: formatUSD(item.details?.cacheWriteSpend ?? 0)
 																			})}
 																		</div>
@@ -982,7 +982,7 @@
 																	<div class="text-muted-content text-xs">{formatUSD(spend)}</div>
 																	{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 																		<div class="text-muted-content mt-1 text-xs">
-																			{m.routes_usage_cache_read_tokens({
+																			{m.audit_usage_usage_cache_read_tokens({
 																				tokens: (
 																					item.details?.cacheReadTokens ?? 0
 																				).toLocaleString(),
@@ -990,7 +990,7 @@
 																			})}
 																		</div>
 																		<div class="text-muted-content text-xs">
-																			{m.routes_usage_cache_write_tokens({
+																			{m.audit_usage_usage_cache_write_tokens({
 																				tokens: (
 																					item.details?.cacheWriteTokens ?? 0
 																				).toLocaleString(),
@@ -999,7 +999,7 @@
 																		</div>
 																	{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
 																		<div class="text-muted-content mt-1 text-xs">
-																			{m.routes_usage_thinking_tokens({
+																			{m.audit_usage_usage_thinking_tokens({
 																				tokens: (item.details?.thinkingTokens ?? 0).toLocaleString()
 																			})}
 																		</div>
@@ -1037,8 +1037,8 @@
 														<div class="flex flex-col gap-0 text-xs">
 															<div class="text-sm font-light">
 																{item.hoveredPart === 'primary'
-																	? m.routes_usage_input_tokens()
-																	: m.routes_usage_output_tokens()}
+																	? m.audit_usage_usage_input_tokens()
+																	: m.audit_usage_usage_output_tokens()}
 															</div>
 															<div class="text-muted-content">{item.date}</div>
 															<div class="tooltip-divider"></div>
@@ -1062,7 +1062,7 @@
 								>
 									<Loading class="size-4 animate-spin" />
 									<span
-										>{m.routes_usage_loading_charts({
+										>{m.audit_usage_usage_loading_charts({
 											visible: visibleChartCount,
 											total: displayGraphItems.length
 										})}</span
@@ -1071,13 +1071,13 @@
 							{/if}
 						{:else}
 							<div class="text-muted-content mx-auto py-12 text-center text-sm font-light">
-								{m.routes_usage_no_matches()}
+								{m.audit_usage_usage_no_matches()}
 							</div>
 						{/if}
 					</div>
 				{:else}
 					<div class="text-muted-content mx-auto py-12 text-sm font-light">
-						{m.routes_usage_no_data()}
+						{m.audit_usage_usage_no_data_page()}
 					</div>
 				{/if}
 			</div>

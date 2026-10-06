@@ -89,9 +89,9 @@
 	// resolve a label rather than assuming a lookup hit.
 	function modelLabel(id: string) {
 		if (id.startsWith('obot://'))
-			return m.admin_forms_ha_default_alias({ alias: id.slice('obot://'.length) });
-		if (id === '*') return m.admin_forms_ha_all_models();
-		if (id.endsWith('*')) return m.admin_forms_ha_prefix_match({ id });
+			return m.hosted_agents_templates_default_alias({ alias: id.slice('obot://'.length) });
+		if (id === '*') return m.hosted_agents_templates_all_models();
+		if (id.endsWith('*')) return m.hosted_agents_templates_prefix_match({ id });
 		const match = modelsMap.get(id);
 		return match ? match.displayName || match.name || id : id;
 	}
@@ -107,12 +107,12 @@
 		...mcpEntries.map((entry) => ({
 			id: entry.id,
 			name: entry.manifest?.name || entry.id,
-			detail: m.admin_forms_ha_catalog_entry()
+			detail: m.hosted_agents_templates_catalog_entry()
 		})),
 		...mcpCatalogServers.map((server) => ({
 			id: server.id,
 			name: server.manifest?.name || server.alias || server.id,
-			detail: m.admin_forms_ha_server()
+			detail: m.hosted_agents_templates_server()
 		}))
 	]);
 
@@ -144,7 +144,7 @@
 			skills = skillList;
 			skillRepositories = repos;
 		} catch (error) {
-			errors.append(m.admin_forms_ha_load_services_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_templates_load_services_failed({ error: String(error) }));
 		} finally {
 			loadingServices = false;
 		}
@@ -218,7 +218,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: m.admin_forms_ha_delete_agent() }}
+						tooltip={{ text: m.hosted_agents_templates_delete_agent() }}
 						onclick={() => (deleting = true)}
 					>
 						<Trash2 class="size-4" />
@@ -231,7 +231,7 @@
 			class="dark:bg-base-400 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-2">
-				<label for="hosted-agent-name" class="text-sm font-light">{m.admin_forms_name()}</label>
+				<label for="hosted-agent-name" class="text-sm font-light">{m.core_name()}</label>
 				<input
 					id="hosted-agent-name"
 					bind:value={agent.name}
@@ -242,7 +242,7 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-description" class="text-sm font-light"
-					>{m.admin_forms_description()}</label
+					>{m.core_description()}</label
 				>
 				<textarea
 					id="hosted-agent-description"
@@ -254,7 +254,7 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-harness" class="text-sm font-light"
-					>{m.admin_forms_ha_harness()}</label
+					>{m.hosted_agents_templates_harness()}</label
 				>
 				<select
 					id="hosted-agent-harness"
@@ -262,27 +262,27 @@
 					class="text-input-filled"
 					disabled={readonly || loadingServices}
 				>
-					<option value="" disabled>{m.admin_forms_ha_select_harness()}</option>
+					<option value="" disabled>{m.hosted_agents_templates_select_harness()}</option>
 					{#each harnesses as harness (harness.id)}
 						<option value={harness.id}>{harness.name}</option>
 					{/each}
 				</select>
 				{#if !loadingServices && harnesses.length === 0}
 					<span class="text-muted-content text-xs">
-						{m.admin_forms_ha_no_harnesses()}
+						{m.hosted_agents_templates_no_harnesses()}
 					</span>
 				{/if}
 			</div>
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-git-repo" class="text-sm font-light"
-					>{m.admin_forms_ha_git_repo()}</label
+					>{m.hosted_agents_templates_git_repo()}</label
 				>
 				<input
 					id="hosted-agent-git-repo"
 					bind:value={agent.gitRepo}
 					class="text-input-filled"
-					placeholder={m.admin_forms_ha_git_repo_placeholder()}
+					placeholder={m.hosted_agents_templates_git_repo_placeholder()}
 					disabled={readonly}
 					inputmode="url"
 					autocomplete="off"
@@ -291,24 +291,24 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-git-ref" class="text-sm font-light"
-					>{m.admin_forms_ha_git_ref()}</label
+					>{m.hosted_agents_templates_git_ref()}</label
 				>
 				<input
 					id="hosted-agent-git-ref"
 					bind:value={agent.gitRef}
 					class="text-input-filled"
-					placeholder={m.admin_forms_ha_git_ref_placeholder()}
+					placeholder={m.hosted_agents_templates_git_ref_placeholder()}
 					disabled={readonly || !agent.gitRepo}
 					autocomplete="off"
 				/>
 				<span class="text-muted-content text-xs">
-					{m.admin_forms_ha_git_ref_hint()}
+					{m.hosted_agents_templates_git_ref_hint()}
 				</span>
 			</div>
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-icon" class="text-sm font-light"
-					>{m.admin_forms_csf_icon_url()}</label
+					>{m.mcps_catalog_form_icon_url()}</label
 				>
 				<div class="flex items-center gap-3">
 					{#if agent.icon}
@@ -329,7 +329,7 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="hosted-agent-icon-dark" class="text-sm font-light"
-					>{m.admin_forms_ha_icon_url_dark()}</label
+					>{m.hosted_agents_templates_icon_url_dark()}</label
 				>
 				<div class="flex items-center gap-3">
 					{#if agent.iconDark}
@@ -355,9 +355,9 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex flex-col">
-				<h2 class="text-lg font-semibold">{m.admin_forms_ha_services()}</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_templates_services()}</h2>
 				<span class="text-muted-content text-xs">
-					{m.admin_forms_ha_services_hint()}
+					{m.hosted_agents_templates_services_hint()}
 				</span>
 			</div>
 			{#if loadingServices}
@@ -369,9 +369,9 @@
 					class="dark:bg-base-400 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4"
 				>
 					<div class="flex flex-col gap-2">
-						<span class="text-sm font-light">{m.admin_forms_ha_model_providers()}</span>
+						<span class="text-sm font-light">{m.hosted_agents_templates_model_providers()}</span>
 						{#if modelProviders.length === 0}
-							<p class="text-muted-content text-sm">{m.admin_forms_ha_no_model_providers()}</p>
+							<p class="text-muted-content text-sm">{m.hosted_agents_templates_no_model_providers()}</p>
 						{:else}
 							<div class="flex flex-col gap-1">
 								{#each modelProviders as provider (provider.id)}
@@ -392,19 +392,19 @@
 
 					<div class="flex flex-col gap-2">
 						<div class="flex items-center justify-between">
-							<span class="text-sm font-light">{m.admin_forms_ha_models()}</span>
+							<span class="text-sm font-light">{m.hosted_agents_templates_models()}</span>
 							{#if !readonly}
 								<button
 									class="btn btn-secondary flex items-center gap-1 text-xs"
 									onclick={() => addModelDialog?.open()}
 								>
 									<Plus class="size-3" />
-									{m.admin_forms_ha_add_models()}
+									{m.hosted_agents_templates_add_models()}
 								</button>
 							{/if}
 						</div>
 						{#if (agent.models ?? []).length === 0}
-							<p class="text-muted-content text-sm">{m.admin_forms_ha_no_models()}</p>
+							<p class="text-muted-content text-sm">{m.hosted_agents_templates_no_models()}</p>
 						{:else}
 							<div class="flex flex-col gap-1">
 								{#each agent.models ?? [] as id (id)}
@@ -416,7 +416,7 @@
 												onclick={() => {
 													agent.models = (agent.models ?? []).filter((modelId) => modelId !== id);
 												}}
-												tooltip={{ text: m.admin_forms_ha_remove_model() }}
+												tooltip={{ text: m.hosted_agents_templates_remove_model() }}
 											>
 												<Trash2 class="size-4" />
 											</IconButton>
@@ -429,19 +429,19 @@
 
 					<div class="flex flex-col gap-2">
 						<div class="flex items-center justify-between">
-							<span class="text-sm font-light">{m.admin_forms_ha_skills()}</span>
+							<span class="text-sm font-light">{m.hosted_agents_templates_skills()}</span>
 							{#if !readonly}
 								<button
 									class="btn btn-secondary flex items-center gap-1 text-xs"
 									onclick={() => addSkillDialog?.open()}
 								>
 									<Plus class="size-3" />
-									{m.admin_forms_ha_add_skills()}
+									{m.hosted_agents_templates_add_skills()}
 								</button>
 							{/if}
 						</div>
 						{#if (agent.skills ?? []).length === 0}
-							<p class="text-muted-content text-sm">{m.admin_forms_ha_no_skills()}</p>
+							<p class="text-muted-content text-sm">{m.hosted_agents_templates_no_skills()}</p>
 						{:else}
 							<div class="flex flex-col gap-1">
 								{#each agent.skills ?? [] as id (id)}
@@ -453,7 +453,7 @@
 												onclick={() => {
 													agent.skills = (agent.skills ?? []).filter((s) => s !== id);
 												}}
-												tooltip={{ text: m.admin_forms_ha_remove_skill() }}
+												tooltip={{ text: m.hosted_agents_templates_remove_skill() }}
 											>
 												<Trash2 class="size-4" />
 											</IconButton>
@@ -466,22 +466,22 @@
 
 					<div class="flex flex-col gap-2">
 						<div class="flex items-center justify-between">
-							<span class="text-sm font-light">{m.admin_forms_ha_mcp_servers()}</span>
+							<span class="text-sm font-light">{m.hosted_agents_templates_mcp_servers()}</span>
 							{#if selectedMcpServers.length > 0}
 								<span class="text-muted-content text-xs"
-									>{m.admin_forms_ha_selected_count({ count: selectedMcpServers.length })}</span
+									>{m.hosted_agents_templates_selected_count({ count: selectedMcpServers.length })}</span
 								>
 							{/if}
 						</div>
 
 						{#if mcpServerOptions.length === 0}
-							<p class="text-muted-content text-sm">{m.admin_forms_ha_no_mcp_servers()}</p>
+							<p class="text-muted-content text-sm">{m.hosted_agents_templates_no_mcp_servers()}</p>
 						{:else}
 							<Search
 								class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 								onChange={(val) => (mcpQuery = val)}
 								value={mcpQuery}
-								placeholder={m.admin_forms_ha_search_mcp_servers()}
+								placeholder={m.hosted_agents_templates_search_mcp_servers()}
 							/>
 							<div class="default-scrollbar-thin flex max-h-64 flex-col gap-1 overflow-y-auto">
 								{#each filteredMcpServerOptions as option (option.id)}
@@ -499,7 +499,7 @@
 								{/each}
 								{#if filteredMcpServerOptions.length === 0}
 									<p class="text-muted-content py-2 text-sm">
-										{m.admin_forms_ha_no_servers_match({ query: mcpQuery })}
+										{m.hosted_agents_templates_no_servers_match({ query: mcpQuery })}
 									</p>
 								{/if}
 							</div>
@@ -517,9 +517,9 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex flex-col">
-				<h2 class="text-lg font-semibold">{m.admin_forms_ha_instances()}</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_templates_instances()}</h2>
 				<span class="text-muted-content text-xs">
-					{m.admin_forms_ha_instances_hint()}
+					{m.hosted_agents_templates_instances_hint()}
 				</span>
 			</div>
 			<div
@@ -527,7 +527,7 @@
 			>
 				<div class="flex flex-col gap-2">
 					<label for="hosted-agent-max-instances" class="text-sm font-light">
-						{m.admin_forms_ha_max_instances()}
+						{m.hosted_agents_templates_max_instances()}
 					</label>
 					<input
 						id="hosted-agent-max-instances"
@@ -537,19 +537,19 @@
 						class="text-input-filled w-40"
 						disabled={readonly}
 					/>
-					<span class="text-muted-content text-xs">{m.admin_forms_ha_unlimited()}</span>
+					<span class="text-muted-content text-xs">{m.hosted_agents_templates_unlimited()}</span>
 				</div>
 
 				<div class="flex flex-col gap-2 pt-2">
 					<label for="hosted-agent-port" class="text-sm font-light"
-						>{m.admin_forms_ha_http_port()}</label
+						>{m.hosted_agents_templates_http_port()}</label
 					>
 					<input
 						id="hosted-agent-port"
 						type="number"
 						min="0"
 						max="65535"
-						placeholder={m.admin_forms_ha_none()}
+						placeholder={m.hosted_agents_templates_none()}
 						value={agent.port ?? ''}
 						oninput={(e) =>
 							(agent.port =
@@ -558,24 +558,24 @@
 						disabled={readonly}
 					/>
 					<span class="text-muted-content text-xs">
-						{m.admin_forms_ha_http_port_hint()}
+						{m.hosted_agents_templates_http_port_hint()}
 					</span>
 				</div>
 
 				<div class="flex flex-col gap-2 pt-2">
 					<label class="flex items-center gap-2 text-sm font-light">
 						<input type="checkbox" bind:checked={agent.terminal} disabled={readonly} />
-						{m.admin_forms_ha_offer_terminal()}
+						{m.hosted_agents_templates_offer_terminal()}
 					</label>
 					<span class="text-muted-content text-xs">
-						{m.admin_forms_ha_terminal_hint()}
+						{m.hosted_agents_templates_terminal_hint()}
 					</span>
 				</div>
 
 				<div class="flex flex-col gap-2 pt-2">
-					<span class="text-sm font-light">{m.admin_forms_ha_user_resources()}</span>
+					<span class="text-sm font-light">{m.hosted_agents_templates_user_resources()}</span>
 					<span class="text-muted-content text-xs">
-						{m.admin_forms_ha_user_resources_hint()}
+						{m.hosted_agents_templates_user_resources_hint()}
 					</span>
 					<label class="flex items-center gap-2 pt-1 text-sm font-light">
 						<input
@@ -584,7 +584,7 @@
 							bind:checked={agent.allowUserMCPServers}
 							disabled={readonly}
 						/>
-						{m.admin_forms_ha_allow_user_mcp()}
+						{m.hosted_agents_templates_allow_user_mcp()}
 					</label>
 					<label class="flex items-center gap-2 text-sm font-light">
 						<input
@@ -593,7 +593,7 @@
 							bind:checked={agent.allowUserSkills}
 							disabled={readonly}
 						/>
-						{m.admin_forms_ha_allow_user_skills()}
+						{m.hosted_agents_templates_allow_user_skills()}
 					</label>
 					<label class="flex items-center gap-2 text-sm font-light">
 						<input
@@ -602,7 +602,7 @@
 							bind:checked={agent.allowUserModels}
 							disabled={readonly}
 						/>
-						{m.admin_forms_ha_allow_user_models()}
+						{m.hosted_agents_templates_allow_user_models()}
 					</label>
 					<label class="flex items-center gap-2 text-sm font-light">
 						<input
@@ -611,7 +611,7 @@
 							bind:checked={agent.allowUserGitRepo}
 							disabled={readonly}
 						/>
-						{m.admin_forms_ha_allow_user_git()}
+						{m.hosted_agents_templates_allow_user_git()}
 					</label>
 				</div>
 			</div>
@@ -649,7 +649,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_save()}
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -671,7 +671,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							{m.admin_forms_update()}
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -709,7 +709,7 @@
 />
 
 <Confirm
-	msg={m.admin_forms_delete_named({ name: agent.name || m.admin_forms_ha_this_agent() })}
+	msg={m.core_delete_named_form({ name: agent.name || m.hosted_agents_templates_this_agent() })}
 	show={deleting}
 	onsuccess={async () => {
 		if (!agent.id) return;

@@ -115,14 +115,14 @@
 			serverDisplay: allowlistServerLabel(server),
 			typeDisplay: (() => {
 				const kind = allowlistServerKind(server);
-				return kind ? ALLOWLIST_SERVER_KIND_LABELS[kind] : m.routes_inv_type_invalid();
+				return kind ? ALLOWLIST_SERVER_KIND_LABELS[kind] : m.inventory_enforcement_configuration_type_invalid();
 			})(),
 			toolsDisplay:
 				(server.tools?.length ?? 0) === 0
-					? m.routes_inv_all_tools()
+					? m.inventory_enforcement_configuration_all_tools()
 					: server.tools!.length === 1
-						? m.routes_inv_tool_count_one({ count: server.tools!.length })
-						: m.routes_inv_tool_count_other({ count: server.tools!.length })
+						? m.inventory_enforcement_configuration_tool_count_one({ count: server.tools!.length })
+						: m.inventory_enforcement_configuration_tool_count_other({ count: server.tools!.length })
 		}))
 	);
 
@@ -213,11 +213,11 @@
 <section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection}>
 	<div class="flex flex-col gap-1">
 		<div class="flex flex-wrap items-center gap-2">
-			<h3 class="text-lg font-semibold">{m.routes_inv_tool_call_enforcement()}</h3>
-			<span class="badge badge-warning badge-sm">{m.routes_inv_experimental()}</span>
+			<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_tool_call_enforcement()}</h3>
+			<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_experimental()}</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_inv_enforcement_description()}
+			{m.inventory_enforcement_configuration_enforcement_description()}
 		</p>
 	</div>
 
@@ -228,14 +228,14 @@
 			disabled={readOnly || saving}
 			onclick={() => handleToggle(!enabled)}
 		>
-			<span class="font-medium">{m.routes_inv_enforce_tool_calls()}</span>
+			<span class="font-medium">{m.inventory_enforcement_configuration_enforce_tool_calls()}</span>
 			<span class="input-description">
-				{m.routes_inv_enforcement_toggle_description()}
+				{m.inventory_enforcement_configuration_enforcement_toggle_description()}
 			</span>
 		</button>
 		<div class="flex shrink-0 self-start pt-0.5">
 			<Toggle
-				label={enabled ? m.routes_inv_disable_enforcement() : m.routes_inv_enable_enforcement()}
+				label={enabled ? m.inventory_enforcement_configuration_disable_enforcement() : m.inventory_enforcement_configuration_enable_enforcement()}
 				checked={enabled}
 				disabled={readOnly || saving}
 				onChange={handleToggle}
@@ -247,14 +247,14 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				{m.routes_inv_reinstall_note()}
+				{m.inventory_enforcement_configuration_reinstall_note()}
 			</span>
 		</div>
 	{/if}
 
 	{#if seededNote}
 		<p class="text-muted-content text-xs">
-			{m.routes_inv_seeded_note()}
+			{m.inventory_enforcement_configuration_seeded_note()}
 		</p>
 	{/if}
 
@@ -266,12 +266,12 @@
 			onclick={() => (rulesOpen = !rulesOpen)}
 		>
 			<ChevronDown class="size-4 transition-transform {rulesOpen ? '' : '-rotate-90'}" />
-			<span class="input-label">{m.routes_inv_allow()}</span>
+			<span class="input-label">{m.inventory_enforcement_configuration_allow()}</span>
 		</button>
 
 		{#if !enabled}
 			<p class="text-muted-content text-xs">
-				{m.routes_inv_not_enforced()}
+				{m.inventory_enforcement_configuration_not_enforced()}
 			</p>
 		{/if}
 
@@ -290,8 +290,8 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>{m.routes_inv_all_obot_hosted()}</span>
-						<span class="input-description">{m.routes_inv_all_obot_hosted_description()}</span>
+						<span>{m.inventory_enforcement_configuration_all_obot_hosted()}</span>
+						<span class="input-description">{m.inventory_enforcement_configuration_all_obot_hosted_description()}</span>
 					</span>
 				</label>
 
@@ -308,9 +308,9 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>{m.routes_inv_all_builtin_tools()}</span>
+						<span>{m.inventory_enforcement_configuration_all_builtin_tools()}</span>
 						<span class="input-description">
-							{m.routes_inv_all_builtin_tools_description()}
+							{m.inventory_enforcement_configuration_all_builtin_tools_description()}
 						</span>
 					</span>
 				</label>
@@ -328,9 +328,9 @@
 							})}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span>{m.routes_inv_all_builtin_mcp()}</span>
+						<span>{m.inventory_enforcement_configuration_all_builtin_mcp()}</span>
 						<span class="input-description">
-							{m.routes_inv_all_builtin_mcp_description()}
+							{m.inventory_enforcement_configuration_all_builtin_mcp_description()}
 						</span>
 					</span>
 				</label>
@@ -345,9 +345,9 @@
 							(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
 					/>
 					<span class="flex flex-col gap-0.5">
-						<span class="flex items-center gap-1.5"> {m.routes_inv_everything()} </span>
+						<span class="flex items-center gap-1.5"> {m.inventory_enforcement_configuration_everything()} </span>
 						<span class="input-description">
-							{m.routes_inv_everything_description()}
+							{m.inventory_enforcement_configuration_everything_description()}
 						</span>
 					</span>
 				</label>
@@ -364,7 +364,7 @@
 							aria-expanded={serversOpen}
 							onclick={() => (serversOpen = !serversOpen)}
 						>
-							{m.routes_inv_allowed_mcp_servers()}
+							{m.inventory_enforcement_configuration_allowed_mcp_servers()}
 							<span class="badge badge-ghost badge-sm">{servers.length}</span>
 						</button>
 						{#if !readOnly}
@@ -374,21 +374,21 @@
 								onclick={() => serverDialog?.open()}
 							>
 								<Plus class="size-4" />
-								{m.routes_inv_add()}
+								{m.inventory_enforcement_configuration_add()}
 							</button>
 						{/if}
 					</div>
 
 					{#if allowlist.allowEverything === true}
 						<p class="text-muted-content text-xs">
-							{m.routes_inv_everything_on_note()}
+							{m.inventory_enforcement_configuration_everything_on_note()}
 						</p>
 					{:else if serversOpen}
 						{#if servers.length === 0}
 							<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
 								<ShieldCheck class="text-muted-content size-12 opacity-50" />
 								<p class="text-muted-content max-w-md text-sm font-light">
-									{m.routes_inv_no_allowed_servers()}
+									{m.inventory_enforcement_configuration_no_allowed_servers()}
 								</p>
 							</div>
 						{:else}
@@ -396,9 +396,9 @@
 								data={tableData}
 								fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
 								headers={[
-									{ title: m.routes_inv_col_server(), property: 'serverDisplay' },
-									{ title: m.routes_inv_col_type(), property: 'typeDisplay' },
-									{ title: m.routes_inv_col_tools(), property: 'toolsDisplay' }
+									{ title: m.inventory_enforcement_configuration_col_server(), property: 'serverDisplay' },
+									{ title: m.inventory_enforcement_configuration_col_type(), property: 'typeDisplay' },
+									{ title: m.inventory_enforcement_configuration_col_tools(), property: 'toolsDisplay' }
 								]}
 							>
 								{#snippet onRenderColumn(property, row)}
@@ -407,9 +407,9 @@
 											{row.serverDisplay}
 											{#if errorIndex === row.index}
 												<span
-													use:tooltip={m.routes_inv_entry_rejected()}
+													use:tooltip={m.inventory_enforcement_configuration_entry_rejected()}
 													role="img"
-													aria-label={m.routes_inv_rejected()}
+													aria-label={m.inventory_enforcement_configuration_rejected()}
 												>
 													<TriangleAlert class="text-error size-4 shrink-0" />
 												</span>
@@ -435,14 +435,14 @@
 												onclick={() => serverDialog?.open(row.server, row.index)}
 											>
 												<Pencil class="size-4" />
-												{m.routes_inv_edit()}
+												{m.inventory_enforcement_configuration_edit()}
 											</button>
 											<button
 												class="menu-button text-error"
 												onclick={() => (removingIndex = row.index)}
 											>
 												<Trash2 class="size-4" />
-												{m.routes_inv_remove()}
+												{m.inventory_enforcement_configuration_remove()}
 											</button>
 										</DotDotDot>
 									{/if}
@@ -459,7 +459,7 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				{m.routes_inv_blocks_everything()}
+				{m.inventory_enforcement_configuration_blocks_everything()}
 			</span>
 		</div>
 	{/if}
@@ -471,7 +471,7 @@
 	{#if !readOnly}
 		<div class="flex justify-end gap-2">
 			<button class="btn btn-secondary text-sm" disabled={!dirty || saving} onclick={reset}>
-				{m.routes_inv_reset()}
+				{m.inventory_enforcement_configuration_reset()}
 			</button>
 			<button
 				class="btn btn-primary flex items-center gap-2 text-sm"
@@ -479,7 +479,7 @@
 				onclick={requestSave}
 			>
 				{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-				{m.routes_inv_save()}
+				{m.inventory_enforcement_configuration_save()}
 			</button>
 		</div>
 	{/if}
@@ -492,11 +492,11 @@
 
 <Confirm
 	show={confirmEmpty}
-	title={m.routes_inv_block_every_title()}
+	title={m.inventory_enforcement_configuration_block_every_title()}
 	type="info"
-	msg={m.routes_inv_blocks_everything()}
-	note={m.routes_inv_add_rules_anytime()}
-	submitText={m.routes_inv_save_anyway()}
+	msg={m.inventory_enforcement_configuration_blocks_everything()}
+	note={m.inventory_enforcement_configuration_add_rules_anytime()}
+	submitText={m.inventory_enforcement_configuration_save_anyway()}
 	loading={saving}
 	onsuccess={save}
 	oncancel={() => (confirmEmpty = false)}
@@ -504,12 +504,12 @@
 
 <Confirm
 	show={removingIndex !== undefined}
-	title={m.routes_inv_remove_allowed_title()}
-	msg={m.routes_inv_remove_allowed_msg({
+	title={m.inventory_enforcement_configuration_remove_allowed_title()}
+	msg={m.inventory_enforcement_configuration_remove_allowed_msg({
 		server: removingIndex !== undefined ? allowlistServerLabel(servers[removingIndex]) : ''
 	})}
-	note={m.routes_inv_takes_effect_on_save()}
-	submitText={m.routes_inv_remove()}
+	note={m.inventory_enforcement_configuration_takes_effect_on_save()}
+	submitText={m.inventory_enforcement_configuration_remove()}
 	onsuccess={() => removingIndex !== undefined && removeServer(removingIndex)}
 	oncancel={() => (removingIndex = undefined)}
 />

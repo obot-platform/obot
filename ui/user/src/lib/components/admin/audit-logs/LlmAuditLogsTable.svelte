@@ -166,9 +166,9 @@
 				{#if messagePolicyTriggered}
 					<span
 						class="text-warning inline-flex shrink-0"
-						aria-label={m.admin_sub_llm_message_policy_triggered()}
+						aria-label={m.audit_usage_audit_logs_model_message_policy_triggered()}
 						use:tooltip={{
-							text: m.admin_sub_llm_message_policy_modified_tooltip()
+							text: m.audit_usage_audit_logs_model_message_policy_modified_tooltip()
 						}}
 					>
 						<ShieldAlert class="size-4" />
@@ -189,20 +189,20 @@
 			{#snippet header()}
 				<thead>
 					<tr bind:this={headerRowElement}>
-						{@render th(m.admin_sub_llm_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th(m.admin_sub_log_actor(), { class: 'w-[28ch]', minWidth: '24ch' })}
-						{@render th(m.admin_sub_storage_provider_label(), {
+						{@render th(m.audit_usage_audit_logs_model_col_timestamp(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.audit_usage_audit_logs_actor(), { class: 'w-[28ch]', minWidth: '24ch' })}
+						{@render th(m.audit_usage_exports_provider_label(), {
 							class: 'w-[18ch]',
 							minWidth: '18ch'
 						})}
-						{@render th(m.admin_sub_log_model(), { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th(m.admin_sub_col_status(), { class: 'w-[16ch]', minWidth: '16ch' })}
-						{@render th(m.admin_sub_llm_col_input(), { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_llm_col_output(), { class: 'w-[18ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_log_user_agent(), { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th(m.admin_sub_llm_col_session(), { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th(m.admin_sub_log_duration_ms(), { class: 'w-[22ch]', minWidth: '18ch' })}
-						{@render th(m.admin_sub_llm_col_ip_address(), { class: 'w-[22ch]', minWidth: '22ch' })}
+						{@render th(m.audit_usage_audit_logs_model(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.audit_usage_exports_col_status(), { class: 'w-[16ch]', minWidth: '16ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_input(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_output(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_user_agent(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_session(), { class: 'w-[28ch]', minWidth: '28ch' })}
+						{@render th(m.audit_usage_audit_logs_duration_ms(), { class: 'w-[22ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_ip_address(), { class: 'w-[22ch]', minWidth: '22ch' })}
 					</tr>
 				</thead>
 			{/snippet}

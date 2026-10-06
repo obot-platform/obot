@@ -15,7 +15,7 @@
 
 	const actions = [
 		{
-			label: m.admin_sub_calendar_last_hour(),
+			label: m.audit_usage_exports_calendar_last_hour(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 
@@ -26,7 +26,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_6_hours(),
+			label: m.audit_usage_exports_calendar_last_6_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = subHours(end, 6);
@@ -36,7 +36,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_24_hours(),
+			label: m.audit_usage_exports_calendar_last_24_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = subHours(end, 24);
@@ -46,7 +46,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_n_days({ days: 7 }),
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 7 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 7));
@@ -56,7 +56,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_n_days({ days: 30 }),
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 30 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 30));
@@ -66,7 +66,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_n_days({ days: 60 }),
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 60 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 60));
@@ -76,7 +76,7 @@
 			}
 		},
 		{
-			label: m.admin_sub_calendar_last_n_days({ days: 90 }),
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 90 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 90));
@@ -123,7 +123,7 @@
 		}}
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
-				text: m.admin_sub_calendar_quick_actions(),
+				text: m.audit_usage_exports_calendar_quick_actions(),
 				placement: 'top-end',
 				classes: ['z-60']
 			});
@@ -163,7 +163,7 @@
 		{#key isSmallScreen}
 			<div class="popover flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
 				<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
-					<div>{m.admin_sub_calendar_select_export_range()}</div>
+					<div>{m.audit_usage_exports_calendar_select_export_range()}</div>
 				</div>
 
 				<div class="flex w-full min-w-36 flex-col">

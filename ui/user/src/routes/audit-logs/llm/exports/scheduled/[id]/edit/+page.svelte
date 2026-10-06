@@ -19,7 +19,7 @@
 
 	onMount(async () => {
 		if (!scheduleId) {
-			error = m.routes_audit_scheduled_export_id_required();
+			error = m.audit_usage_audit_logs_scheduled_export_id_required();
 			loading = false;
 			return;
 		}
@@ -27,7 +27,7 @@
 		try {
 			scheduleData = await AdminService.getScheduledAuditLogExport(scheduleId);
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.routes_audit_failed_load_scheduled_export();
+			error = err instanceof Error ? err.message : m.audit_usage_audit_logs_failed_load_scheduled_export();
 		} finally {
 			loading = false;
 		}
@@ -38,7 +38,7 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
-	let title = $derived(scheduleData?.name ?? m.routes_audit_edit_scheduled_export());
+	let title = $derived(scheduleData?.name ?? m.audit_usage_audit_logs_edit_scheduled_export());
 </script>
 
 <Layout classes={{ navbar: 'bg-base-200' }} {title} showBackButton>
@@ -46,7 +46,7 @@
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
 				<Loading class="size-8" />
-				<span class="ml-2 text-lg">{m.routes_audit_loading_scheduled_export_details()}</span>
+				<span class="ml-2 text-lg">{m.audit_usage_audit_logs_loading_scheduled_export_details()}</span>
 			</div>
 		{:else if error}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
@@ -54,7 +54,7 @@
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-5 text-error" />
 						<span class="text-sm font-medium text-error"
-							>{m.routes_audit_error_loading_scheduled_export()}</span
+							>{m.audit_usage_audit_logs_error_loading_scheduled_export()}</span
 						>
 					</div>
 					<p class="mt-2 text-sm text-error">{error}</p>
@@ -75,5 +75,5 @@
 </Layout>
 
 <svelte:head>
-	<title>{m.routes_audit_obot_title({ title })}</title>
+	<title>{m.audit_usage_audit_logs_obot_title({ title })}</title>
 </svelte:head>

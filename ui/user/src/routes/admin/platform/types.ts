@@ -69,13 +69,13 @@ function statusKey(secret: ImagePullSecret): ImagePullSecretStatus {
 export function statusLabel(secret: ImagePullSecret) {
 	switch (statusKey(secret)) {
 		case 'disabled':
-			return m.admin_routes_ips_status_disabled();
+			return m.platform_settings_image_pull_secrets_status_disabled();
 		case 'error':
-			return m.admin_routes_ips_status_error();
+			return m.platform_settings_image_pull_secrets_status_error();
 		case 'ready':
-			return m.admin_routes_ips_status_ready();
+			return m.platform_settings_image_pull_secrets_status_ready();
 		default:
-			return m.admin_routes_ips_status_pending();
+			return m.platform_settings_image_pull_secrets_status_pending();
 	}
 }
 

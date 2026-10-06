@@ -59,7 +59,7 @@
 				<div class="grid h-full grid-cols-2">
 					<div class="h-full">
 						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">
-							{m.admin_forms_diff_current_version()}
+							{m.mcps_deployments_diff_current_version()}
 						</h3>
 						<div
 							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
@@ -71,7 +71,7 @@
 					</div>
 					<div class="h-full">
 						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">
-							{m.admin_forms_diff_new_version()}
+							{m.mcps_deployments_diff_new_version()}
 						</h3>
 						<div
 							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto bg-gray-50 p-4"
@@ -85,7 +85,7 @@
 			{:else}
 				<div class="h-full w-full pl-2">
 					<h3 class="text-on-surfa ce1 mb-2 text-sm font-semibold">
-						{m.admin_forms_diff_source_diff()}
+						{m.mcps_deployments_diff_source_diff()}
 					</h3>
 					<div
 						class="default-scrollbar-thin dark:bg-base-200 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
@@ -116,12 +116,12 @@
 			{/if}
 		{:else}
 			<div class="flex items-center justify-center py-8">
-				<p class="text-muted-content">{m.admin_forms_diff_unable_to_compare()}</p>
+				<p class="text-muted-content">{m.mcps_deployments_diff_unable_to_compare()}</p>
 			</div>
 		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-8">
-			<p class="text-muted-content">{m.admin_forms_diff_unable_to_compare()}</p>
+			<p class="text-muted-content">{m.mcps_deployments_diff_unable_to_compare()}</p>
 		</div>
 	{/if}
 </ResponsiveDialog>

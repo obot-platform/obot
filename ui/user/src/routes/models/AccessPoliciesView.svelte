@@ -26,7 +26,7 @@
 
 	function convertToTableData(policy: ModelAccessPolicy) {
 		const hasEverything = policy.models?.find((model) => model.id === '*');
-		const count = hasEverything ? m.routes_models_all() : (policy.models?.length ?? 0);
+		const count = hasEverything ? m.models_all() : (policy.models?.length ?? 0);
 
 		return {
 			...policy,
@@ -55,12 +55,12 @@
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<LockKeyhole class="text-base-content/80 size-24 opacity-25" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.routes_models_no_access_policies()}
+					{m.models_no_access_policies()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{m.routes_models_no_access_policies_desc()} <br />
+					{m.models_no_access_policies_desc()} <br />
 					{#if !isReadonly}
-						{m.routes_models_click_to_get_started()}
+						{m.models_click_to_get_started()}
 					{/if}
 				</p>
 
@@ -84,11 +84,11 @@
 		}}
 		headers={[
 			{
-				title: m.routes_models_col_name(),
+				title: m.models_col_name(),
 				property: 'displayName'
 			},
 			{
-				title: m.routes_models_col_models(),
+				title: m.models_col_models(),
 				property: 'modelsCount'
 			}
 		]}
@@ -103,7 +103,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.routes_models_delete_policy() }}
+					tooltip={{ text: m.models_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -128,7 +128,7 @@
 			}}
 		>
 			<Plus class="size-4" />
-			{m.routes_models_add_access_policy()}
+			{m.models_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -140,8 +140,8 @@
 {/snippet}
 
 <Confirm
-	msg={m.routes_models_delete_named({
-		name: policyToDelete?.displayName || m.routes_models_this_policy()
+	msg={m.models_delete_named({
+		name: policyToDelete?.displayName || m.models_this_policy()
 	})}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {

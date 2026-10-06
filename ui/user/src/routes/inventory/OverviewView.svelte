@@ -66,7 +66,7 @@
 		buildDeviceScanTopBuckets<DeviceMCPServerStat>(
 			stats?.mcpServers,
 			(s) => s.configHash,
-			(s) => s.name?.trim() || m.routes_inv_unnamed(),
+			(s) => s.name?.trim() || m.inventory_enforcement_unnamed(),
 			(s) => s.deviceCount,
 			'mcp'
 		)
@@ -141,28 +141,28 @@
 	let tiles = $derived<StatTile[]>([
 		{
 			key: 'devices',
-			label: m.routes_inv_unique_devices(),
+			label: m.inventory_enforcement_overview_unique_devices(),
 			value: stats?.deviceCount ?? 0,
 			icon: Laptop,
 			seeMore: '/inventory?view=devices'
 		},
 		{
 			key: 'clients',
-			label: m.routes_inv_unique_clients(),
+			label: m.inventory_enforcement_overview_unique_clients(),
 			value: totalClientGroups,
 			icon: MonitorCheck,
 			seeMore: '/inventory?view=device-clients'
 		},
 		{
 			key: 'mcps',
-			label: m.routes_inv_unique_mcps(),
+			label: m.inventory_enforcement_overview_unique_mcps(),
 			value: totalMcpGroups,
 			icon: Server,
 			seeMore: '/inventory?view=device-mcp-servers'
 		},
 		{
 			key: 'skills',
-			label: m.routes_inv_unique_skills(),
+			label: m.inventory_enforcement_overview_unique_skills(),
 			value: totalSkillGroups,
 			icon: PencilRuler,
 			seeMore: '/inventory?view=device-skills'
@@ -182,10 +182,10 @@
 {#if !stats || stats.deviceCount === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<ScanLine class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_inv_no_scans_title()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_overview_no_scans_title()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_inv_no_scans_prefix()}<code class="font-mono">obot scan</code
-			>{m.routes_inv_no_scans_suffix()}
+			{m.inventory_enforcement_overview_no_scans_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_overview_no_scans_suffix()}
 		</p>
 	</div>
 {:else}
@@ -197,22 +197,22 @@
 
 	<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 		<DeviceScanDonutCard
-			title={m.routes_inv_clients()}
+			title={m.inventory_enforcement_overview_clients()}
 			buckets={clientBuckets}
 			totalGroups={totalClientGroups}
-			emptyMsg={m.routes_inv_no_clients_observed()}
+			emptyMsg={m.inventory_enforcement_overview_no_clients_observed()}
 		/>
 		<DeviceScanDonutCard
-			title={m.routes_inv_top_mcps()}
+			title={m.inventory_enforcement_overview_top_mcps()}
 			buckets={mcpBuckets}
 			totalGroups={totalMcpGroups}
-			emptyMsg={m.routes_inv_no_mcp_servers_observed()}
+			emptyMsg={m.inventory_enforcement_overview_no_mcp_servers_observed()}
 		/>
 		<DeviceScanDonutCard
-			title={m.routes_inv_top_skills()}
+			title={m.inventory_enforcement_overview_top_skills()}
 			buckets={skillBuckets}
 			totalGroups={totalSkillGroups}
-			emptyMsg={m.routes_inv_no_skills_observed()}
+			emptyMsg={m.inventory_enforcement_overview_no_skills_observed()}
 		/>
 		<DeviceScanTimelineCard
 			rangeStart={range.start}

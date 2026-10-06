@@ -40,7 +40,7 @@
 			dialog?.close();
 			onUpdateConfigure?.();
 		} catch (err) {
-			errors.append(m.mcp_alias_update_failed({ error: String(err) }));
+			errors.append(m.mcps_alias_update_failed({ error: String(err) }));
 		} finally {
 			saving = false;
 		}
@@ -68,7 +68,7 @@
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{newName || getMCPDisplayName(server, m.mcp_server_fallback_short())}
+			{newName || getMCPDisplayName(server, m.mcps_server_fallback_short())}
 		</div>
 	{/snippet}
 
@@ -80,13 +80,13 @@
 	>
 		<div class="my-4 flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label for="serverName" class="text-sm font-medium">{m.mcp_alias_label()}</label>
+				<label for="serverName" class="text-sm font-medium">{m.mcps_alias_label()}</label>
 				<input
 					type="text"
 					id="serverName"
 					bind:value={newName}
 					class="text-input-filled"
-					placeholder={m.mcp_alias_placeholder()}
+					placeholder={m.mcps_alias_placeholder()}
 				/>
 			</div>
 		</div>
@@ -101,7 +101,7 @@
 			{#if saving}
 				<Loading class="size-4" />
 			{:else}
-				{m.mcp_update()}
+				{m.mcps_deployments_update()}
 			{/if}
 		</button>
 	</div>

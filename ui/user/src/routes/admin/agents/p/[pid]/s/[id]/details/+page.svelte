@@ -32,8 +32,8 @@
 	let userDisplayName = $derived(getUserDisplayName(usersMap, mcpServer?.userID ?? ''));
 	let title = $derived(
 		userDisplayName
-			? m.admin_routes_agents_owner_agent({ name: userDisplayName })
-			: m.admin_routes_agents_details()
+			? m.identity_access_agents_owner_agent({ name: userDisplayName })
+			: m.identity_access_agents_details()
 	);
 
 	async function impersonate() {
@@ -59,15 +59,15 @@
 			use:tooltip={profile.current.canImpersonate?.() && agent?.userID !== profile.current.id
 				? undefined
 				: agent?.userID === profile.current.id
-					? { text: m.admin_routes_agents_cannot_impersonate_self(), disablePortal: true }
+					? { text: m.identity_access_agents_cannot_impersonate_self(), disablePortal: true }
 					: {
-							text: m.admin_routes_agents_no_impersonate_permission(),
+							text: m.identity_access_agents_no_impersonate_permission(),
 							disablePortal: true
 						}}
 			disabled={!profile.current.canImpersonate?.() || agent?.userID === profile.current.id}
 		>
 			<HatGlasses class="size-4" />
-			{m.admin_routes_agents_connect_as_user()}
+			{m.identity_access_agents_connect_as_user()}
 		</button>
 	{/snippet}
 
@@ -86,7 +86,7 @@
 						connectedUsers={user ? [user] : []}
 						readonly={profile.current.isAdminReadonly?.()}
 						k8sOverrides={{
-							title: m.admin_routes_details(),
+							title: m.chat_details(),
 							classes: {
 								title: 'text-lg font-semibold'
 							}
@@ -103,18 +103,18 @@
 	oncancel={() => (confirmImpersonate = false)}
 	onsuccess={impersonate}
 	type="info"
-	title={m.admin_routes_agents_confirm_connection()}
-	msg={m.admin_routes_agents_connect_as({ name: userDisplayName })}
+	title={m.identity_access_agents_confirm_connection()}
+	msg={m.identity_access_agents_connect_as({ name: userDisplayName })}
 	loading={Boolean(launchingAgentId)}
 >
 	{#snippet note()}
 		<p>
-			{m.admin_routes_agents_impersonate_note_prefix()}
+			{m.identity_access_agents_impersonate_note_prefix()}
 			<b class="font-semibold">{userDisplayName}</b
-			>{m.admin_routes_agents_impersonate_note_suffix()}
+			>{m.identity_access_agents_impersonate_note_suffix()}
 		</p>
 
-		<p class="text-muted-content mt-4 text-sm">{m.admin_routes_agents_new_window_note()}</p>
+		<p class="text-muted-content mt-4 text-sm">{m.identity_access_agents_new_window_note()}</p>
 	{/snippet}
 </Confirm>
 

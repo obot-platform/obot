@@ -26,12 +26,12 @@ const AGENT_LABELS: Record<string, string> = {
 // Tool kinds the device-side classifier reports. Everything except "mcp" is a
 // tool built into the agent itself.
 const KIND_LABELS: Record<string, string> = {
-	generic: m.core_enf_kind_generic(),
+	generic: m.inventory_enforcement_allowlist_validation_kind_generic(),
 	mcp: 'MCP',
-	read: m.core_enf_kind_read(),
-	shell: m.core_enf_kind_shell(),
-	task: m.core_enf_kind_task(),
-	write: m.core_enf_kind_write()
+	read: m.inventory_enforcement_allowlist_validation_kind_read(),
+	shell: m.inventory_enforcement_allowlist_validation_kind_shell(),
+	task: m.inventory_enforcement_allowlist_validation_kind_task(),
+	write: m.inventory_enforcement_allowlist_validation_kind_write()
 };
 
 // titleCase turns an unrecognized snake_case identifier into something readable.
@@ -44,12 +44,12 @@ function titleCase(value: string): string {
 }
 
 export function agentLabel(agent?: string): string {
-	if (!agent) return m.core_enf_unknown();
+	if (!agent) return m.inventory_enforcement_allowlist_validation_unknown();
 	return AGENT_LABELS[agent] ?? titleCase(agent);
 }
 
 export function kindLabel(kind?: string): string {
-	if (!kind) return m.core_enf_unknown();
+	if (!kind) return m.inventory_enforcement_allowlist_validation_unknown();
 	return KIND_LABELS[kind] ?? titleCase(kind);
 }
 
@@ -61,9 +61,9 @@ export const PACKAGE_SOURCE_LABELS: Record<AllowlistServerPackageSource, string>
 export type AllowlistServerKind = 'url' | 'package' | 'hostname' | 'connector';
 
 export const ALLOWLIST_SERVER_KIND_LABELS: Record<AllowlistServerKind, string> = {
-	connector: m.core_enf_server_kind_connector(),
-	hostname: m.core_enf_server_kind_hostname(),
-	package: m.core_enf_server_kind_package(),
+	connector: m.inventory_enforcement_allowlist_validation_server_kind_connector(),
+	hostname: m.inventory_enforcement_allowlist_validation_server_kind_hostname(),
+	package: m.inventory_enforcement_allowlist_validation_server_kind_package(),
 	url: 'URL'
 };
 
@@ -106,7 +106,7 @@ export function allowlistServerLabel(entry: AllowlistServer): string {
 		case 'connector':
 			return entry.connector!.trim();
 		default:
-			return m.core_enf_invalid_entry();
+			return m.inventory_enforcement_allowlist_validation_invalid_entry();
 	}
 }
 
@@ -209,7 +209,7 @@ export function canonicalAllowlist(allowlist: EnforcementAllowlist): string {
 export function allowlistServerProblem(entry: AllowlistServer): string | undefined {
 	const kind = allowlistServerKind(entry);
 	if (!kind) {
-		return m.core_enf_choose_one_kind();
+		return m.inventory_enforcement_allowlist_validation_choose_one_kind();
 	}
 
 	if (kind === 'url') {
@@ -218,31 +218,31 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 		try {
 			url = new URL(raw);
 		} catch {
-			return m.core_enf_invalid_url();
+			return m.inventory_enforcement_allowlist_validation_invalid_url();
 		}
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			return m.core_enf_url_scheme();
+			return m.inventory_enforcement_allowlist_validation_url_scheme();
 		}
 		if (!url.hostname) {
-			return m.core_enf_url_hostname();
+			return m.inventory_enforcement_allowlist_validation_url_hostname();
 		}
 		if (url.username || url.password) {
-			return m.core_enf_url_credentials();
+			return m.inventory_enforcement_allowlist_validation_url_credentials();
 		}
 		// A bare trailing "?" parses to an empty search here but is still a forced
 		// query the server rejects, so it is matched on the raw string.
 		if (url.search || url.hash || raw.includes('?') || raw.includes('#')) {
-			return m.core_enf_url_query();
+			return m.inventory_enforcement_allowlist_validation_url_query();
 		}
 	}
 
 	if (kind === 'package') {
 		const pkg = entry.package!;
 		if (pkg.source !== 'npm' && pkg.source !== 'pypi') {
-			return m.core_enf_package_source();
+			return m.inventory_enforcement_allowlist_validation_package_source();
 		}
 		if (!pkg.name.trim()) {
-			return m.core_enf_package_name();
+			return m.inventory_enforcement_allowlist_validation_package_name();
 		}
 	}
 
@@ -250,7 +250,7 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 		// The same character set the server rejects, so a bad hostname is reported
 		// inline rather than coming back as a request error.
 		if (/[:/?#@\s]/.test(entry.hostname!.trim())) {
-			return m.core_enf_bare_hostname();
+			return m.inventory_enforcement_allowlist_validation_bare_hostname();
 		}
 	}
 
@@ -258,7 +258,7 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 	// blank, which the server rejects outright.
 	if (entry.tools && entry.tools.length > 0) {
 		if (entry.tools.every((tool) => !tool.trim())) {
-			return m.core_enf_blank_tool_names();
+			return m.inventory_enforcement_allowlist_validation_blank_tool_names();
 		}
 	}
 
@@ -268,9 +268,9 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 export type QuickAllowAction = 'hostname' | 'server' | 'tool';
 
 export const QUICK_ALLOW_LABELS: Record<QuickAllowAction, string> = {
-	hostname: m.core_enf_quick_allow_hostname(),
-	server: m.core_enf_quick_allow_server(),
-	tool: m.core_enf_quick_allow_tool()
+	hostname: m.inventory_enforcement_allowlist_validation_quick_allow_hostname(),
+	server: m.inventory_enforcement_allowlist_validation_quick_allow_server(),
+	tool: m.inventory_enforcement_allowlist_validation_quick_allow_tool()
 };
 
 // decisionHostname is the hostname a decision can be allowlisted by, derived from
@@ -343,31 +343,31 @@ export function quickAllowBlockedReason(
 	if (quickAllowEntry(event, action)) return undefined;
 
 	if (event.unresolved) {
-		return m.core_enf_blocked_unresolved();
+		return m.inventory_enforcement_allowlist_validation_blocked_unresolved();
 	}
 	if (event.kind !== 'mcp') {
-		return m.core_enf_blocked_not_mcp({ kind: kindLabel(event.kind).toLowerCase() });
+		return m.inventory_enforcement_allowlist_validation_blocked_not_mcp({ kind: kindLabel(event.kind).toLowerCase() });
 	}
 	if (action === 'tool' && !event.tool?.trim()) {
-		return m.core_enf_blocked_no_tool_name();
+		return m.inventory_enforcement_allowlist_validation_blocked_no_tool_name();
 	}
 
 	const identity = decisionServerIdentity(event);
 	if (action === 'hostname' && identity) {
 		const kind = allowlistServerKind(identity);
 		return kind === 'connector'
-			? m.core_enf_blocked_no_hostname_connector()
-			: m.core_enf_blocked_no_hostname_package();
+			? m.inventory_enforcement_allowlist_validation_blocked_no_hostname_connector()
+			: m.inventory_enforcement_allowlist_validation_blocked_no_hostname_package();
 	}
 
 	const command = event.server?.command?.trim();
 	if (command) {
-		return m.core_enf_blocked_local_command({ command });
+		return m.inventory_enforcement_allowlist_validation_blocked_local_command({ command });
 	}
 	if (action === 'hostname') {
-		return m.core_enf_blocked_no_hostname();
+		return m.inventory_enforcement_allowlist_validation_blocked_no_hostname();
 	}
-	return m.core_enf_blocked_no_identity();
+	return m.inventory_enforcement_allowlist_validation_blocked_no_identity();
 }
 
 // mergeAllowlistEntry adds an entry to an allowlist, folding it into an existing

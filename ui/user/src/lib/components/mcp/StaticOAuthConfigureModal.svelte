@@ -68,7 +68,7 @@
 
 		// Credentials cannot be updated once configured - must delete and recreate
 		if (oauthStatus?.configured) {
-			error = m.mcp_static_oauth_already_configured();
+			error = m.mcps_oauth_static_oauth_already_configured();
 			return;
 		}
 
@@ -86,7 +86,7 @@
 			});
 			dialog?.close();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.mcp_static_oauth_save_failed();
+			error = err instanceof Error ? err.message : m.mcps_oauth_static_oauth_save_failed();
 		} finally {
 			loading = false;
 		}
@@ -100,7 +100,7 @@
 			showDeleteConfirm = false;
 			dialog?.close();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.mcp_static_oauth_delete_failed();
+			error = err instanceof Error ? err.message : m.mcps_oauth_static_oauth_delete_failed();
 		} finally {
 			loading = false;
 		}
@@ -121,7 +121,7 @@
 	bind:this={dialog}
 	{onOpen}
 	{onClose}
-	title={m.mcp_static_oauth_title()}
+	title={m.mcps_oauth_static_oauth_title()}
 	classes={{ header: 'p-4 pb-0', content: 'p-0' }}
 >
 	<form
@@ -142,18 +142,18 @@
 
 		{#if oauthStatus?.configured}
 			<p class="text-muted-content text-sm font-light">
-				{m.mcp_static_oauth_configured_description()}
+				{m.mcps_oauth_static_oauth_configured_description()}
 			</p>
 		{:else}
 			<p class="text-muted-content text-sm font-light">
-				{m.mcp_static_oauth_required_description()}
+				{m.mcps_oauth_static_oauth_required_description()}
 			</p>
 		{/if}
 
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<label for="clientID" class:text-error={showRequired && !form.clientID}>
-					{m.mcp_static_oauth_client_id()}
+					{m.mcps_oauth_static_oauth_client_id()}
 				</label>
 				<input
 					type="text"
@@ -169,7 +169,7 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for="clientSecret">{m.mcp_static_oauth_client_secret_optional()}</label>
+				<label for="clientSecret">{m.mcps_oauth_static_oauth_client_secret_optional()}</label>
 				<SensitiveInput
 					name="clientSecret"
 					bind:value={form.clientSecret}
@@ -193,7 +193,7 @@
 				disabled={loading}
 			>
 				<Trash2 class="size-4" />
-				{m.mcp_static_oauth_clear_credentials()}
+				{m.mcps_oauth_static_oauth_clear_credentials()}
 			</button>
 		{:else}
 			<div></div>
@@ -203,7 +203,7 @@
 			<div class="flex gap-2">
 				{#if showSkip}
 					<button type="button" class="btn btn-secondary" onclick={handleSkip} disabled={loading}>
-						{m.mcp_skip()}
+						{m.mcps_skip()}
 					</button>
 				{/if}
 				<button type="button" class="btn btn-secondary" onclick={handleCancel} disabled={loading}>
@@ -213,7 +213,7 @@
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						{m.mcp_save()}
+						{m.mcps_save()}
 					{/if}
 				</button>
 			</div>
@@ -223,7 +223,7 @@
 
 <Confirm
 	show={showDeleteConfirm}
-	msg={m.mcp_static_oauth_clear_confirm()}
+	msg={m.mcps_oauth_static_oauth_clear_confirm()}
 	onsuccess={handleDelete}
 	oncancel={() => {
 		showDeleteConfirm = false;

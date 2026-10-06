@@ -97,10 +97,10 @@
 {:else if localFilters.length === 0}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Funnel class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_mcp_no_created_filters()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_filters_no_created_filters()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_mcp_no_filters_line1()} <br />
-			{m.routes_mcp_no_filters_line2()}
+			{m.mcps_filters_no_filters_line1()} <br />
+			{m.mcps_filters_no_filters_line2()}
 		</p>
 	</div>
 {:else}
@@ -110,7 +110,7 @@
 				value={query}
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateQuery}
-				placeholder={m.routes_mcp_search_filters()}
+				placeholder={m.mcps_filters_search_filters()}
 			/>
 		</div>
 
@@ -126,15 +126,15 @@
 			onClearAllFilters={clearUrlParams}
 			headers={[
 				{
-					title: m.routes_mcp_col_name(),
+					title: m.mcps_col_name(),
 					property: 'name'
 				},
 				{
-					title: m.routes_mcp_col_selectors(),
+					title: m.mcps_filters_col_selectors(),
 					property: 'selectors'
 				},
 				{
-					title: m.routes_mcp_col_status(),
+					title: m.mcps_col_status(),
 					property: 'status'
 				}
 			]}
@@ -150,7 +150,7 @@
 							e.stopPropagation();
 							filterToDelete = d;
 						}}
-						tooltip={{ text: m.routes_mcp_delete_filter() }}
+						tooltip={{ text: m.mcps_filters_delete_filter() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -165,8 +165,8 @@
 					{@const count = d.selectors?.length || 0}
 					{count > 0
 						? count > 1
-							? m.routes_mcp_selector_count_other({ count })
-							: m.routes_mcp_selector_count_one({ count })
+							? m.mcps_filters_selector_count_other({ count })
+							: m.mcps_filters_selector_count_one({ count })
 						: '-'}
 				{:else if property === 'status'}
 					<span
@@ -174,8 +174,8 @@
 							? 'text-muted-content font-light italic text-xs'
 							: 'pill-primary bg-primary'}
 						>{d.status === 'Disabled'
-							? m.routes_mcp_status_disabled()
-							: m.routes_mcp_status_enabled()}</span
+							? m.mcps_filters_status_disabled()
+							: m.mcps_filters_status_enabled()}</span
 					>
 				{:else}
 					-
@@ -187,8 +187,8 @@
 
 <Confirm
 	msg={filterToDelete?.name
-		? m.routes_mcp_delete_named({ name: filterToDelete.name })
-		: m.routes_mcp_delete_this_filter()}
+		? m.mcps_delete_named({ name: filterToDelete.name })
+		: m.mcps_filters_delete_this_filter()}
 	show={!!filterToDelete}
 	onsuccess={async () => {
 		if (!filterToDelete) return;
@@ -201,7 +201,7 @@
 
 <ResponsiveDialog
 	class="bg-base-200 dark:bg-base-100 md:max-w-dvw md:w-6xl"
-	title={m.routes_mcp_select_built_in_filter()}
+	title={m.mcps_filters_select_built_in_filter()}
 	bind:this={builtInFiltersDialog}
 >
 	<BuiltInFilters

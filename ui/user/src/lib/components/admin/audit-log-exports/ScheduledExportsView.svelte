@@ -84,20 +84,20 @@
 
 		switch (interval) {
 			case 'hourly':
-				return m.admin_sub_schedule_display_hourly({
+				return m.audit_usage_export_schedules_display_hourly({
 					minute: minute?.toString().padStart(2, '0') || '00'
 				});
 			case 'daily':
-				return m.admin_sub_schedule_display_daily({
+				return m.audit_usage_export_schedules_display_daily({
 					time: `${hour}:${minute?.toString().padStart(2, '0')}`
 				});
 			case 'weekly':
-				return m.admin_sub_schedule_display_weekly({
+				return m.audit_usage_export_schedules_display_weekly({
 					weekday: `${weekday}`,
 					time: `${hour}:${minute?.toString().padStart(2, '0')}`
 				});
 			case 'monthly':
-				return m.admin_sub_schedule_display_monthly({
+				return m.audit_usage_export_schedules_display_monthly({
 					day: `${day}`,
 					time: `${hour}:${minute?.toString().padStart(2, '0')}`
 				});
@@ -197,9 +197,9 @@
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Calendar class="text-base-content/80 size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_schedules_none_found()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_export_schedules_none_found()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.admin_sub_schedules_empty_hint()}
+				{m.audit_usage_export_schedules_empty_hint()}
 			</p>
 		</div>
 	{:else}
@@ -209,13 +209,13 @@
 			fields={['name', 'scheduleDisplay', 'lastRunAt', 'enabled']}
 			filterable={['displayName', 'scheduleDisplay']}
 			headers={[
-				{ title: m.admin_sub_col_name(), property: 'displayName' },
-				{ title: m.admin_sub_col_schedule(), property: 'scheduleDisplay' },
-				{ title: m.admin_sub_col_last_run(), property: 'lastRunAt' },
-				{ title: m.admin_sub_col_enabled(), property: 'enabled' }
+				{ title: m.audit_usage_exports_col_name(), property: 'displayName' },
+				{ title: m.audit_usage_exports_col_schedule(), property: 'scheduleDisplay' },
+				{ title: m.audit_usage_exports_col_last_run(), property: 'lastRunAt' },
+				{ title: m.audit_usage_exports_col_enabled(), property: 'enabled' }
 			]}
 			sortable={['displayName', 'scheduleDisplay', 'lastRun']}
-			noDataMessage={m.admin_sub_schedules_none_found()}
+			noDataMessage={m.audit_usage_export_schedules_none_found()}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
@@ -264,7 +264,7 @@
 									{:else}
 										<CirclePause class="size-4" />
 									{/if}
-									{m.admin_sub_schedule_pause()}
+									{m.audit_usage_export_schedules_pause()}
 								</button>
 							{:else}
 								<button
@@ -281,7 +281,7 @@
 									{:else}
 										<CirclePlay class="size-4" />
 									{/if}
-									{m.admin_sub_schedule_resume()}
+									{m.audit_usage_export_schedules_resume()}
 								</button>
 							{/if}
 							<button
@@ -298,7 +298,7 @@
 								}}
 							>
 								<Trash2 class="size-4" />
-								{m.admin_sub_action_delete()}
+								{m.audit_usage_exports_action_delete()}
 							</button>
 						{/if}
 					{/snippet}
@@ -317,7 +317,7 @@
 							disabled={readonly}
 						>
 							<CirclePause class="size-4" />
-							{m.admin_sub_action_pause()}
+							{m.audit_usage_exports_action_pause()}
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -334,7 +334,7 @@
 							disabled={readonly}
 						>
 							<CirclePause class="size-4" />
-							{m.admin_sub_action_resume()}
+							{m.audit_usage_exports_action_resume()}
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -353,7 +353,7 @@
 						disabled={readonly}
 					>
 						<Trash2 class="size-4" />
-						{m.admin_sub_action_delete()}
+						{m.audit_usage_exports_action_delete()}
 						{#if !readonly}
 							<span class="pill-primary">
 								{Object.keys(currentSelected).length}
@@ -368,8 +368,8 @@
 
 <Confirm
 	msg={showDeleteConfirm?.type === 'single'
-		? m.admin_sub_schedules_delete_single_msg()
-		: m.admin_sub_schedules_delete_multi_msg()}
+		? m.audit_usage_export_schedules_delete_single_msg()
+		: m.audit_usage_export_schedules_delete_multi_msg()}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -393,16 +393,16 @@
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{showDeleteConfirm?.type === 'single'
-				? m.admin_sub_schedules_delete_single_title()
-				: m.admin_sub_schedules_delete_multi_title()}
+				? m.audit_usage_export_schedules_delete_single_title()
+				: m.audit_usage_export_schedules_delete_multi_title()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<div class="text-sm font-light">
 			{#if showDeleteConfirm?.type === 'single'}
-				{m.admin_sub_schedules_delete_single_note()}
+				{m.audit_usage_export_schedules_delete_single_note()}
 			{:else}
-				{m.admin_sub_schedules_delete_multi_note()}
+				{m.audit_usage_export_schedules_delete_multi_note()}
 			{/if}
 		</div>
 	{/snippet}

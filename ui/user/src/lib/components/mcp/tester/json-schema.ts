@@ -161,7 +161,7 @@ export function pruneClearedProperties(schema: JSONSchema, value: unknown): unkn
 }
 
 function labelPath(path: string): string {
-	return path || m.mcp_schema_value_label();
+	return path || m.mcps_tester_schema_value_label();
 }
 
 export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''): string[] {
@@ -171,7 +171,7 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		const { anyOf, ...base } = schema;
 		const errors = validateJSONSchema(base, value, path);
 		if (!anyOf.some((member) => validateJSONSchema(member, value, path).length === 0)) {
-			errors.push(m.mcp_schema_must_match_any({ label }));
+			errors.push(m.mcps_tester_schema_must_match_any({ label }));
 		}
 		return errors;
 	}
@@ -182,15 +182,15 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		if (value === null) {
 			return schema.type.includes('null')
 				? validateJSONSchema({ ...schema, type: 'null' }, value, path)
-				: [m.mcp_schema_must_not_be_null({ label })];
+				: [m.mcps_tester_schema_must_not_be_null({ label })];
 		}
 		const members = schema.type.filter((type) => type !== 'null');
-		if (!members.length) return [m.mcp_schema_must_be_null({ label })];
+		if (!members.length) return [m.mcps_tester_schema_must_be_null({ label })];
 		const attempts = members.map((type) => validateJSONSchema({ ...schema, type }, value, path));
 		if (attempts.some((memberErrors) => memberErrors.length === 0)) return [];
 		return attempts.length === 1
 			? attempts[0]
-			: [m.mcp_schema_must_be_one_of_types({ label, types: members.join(', ') })];
+			: [m.mcps_tester_schema_must_be_one_of_types({ label, types: members.join(', ') })];
 	}
 	const errors: string[] = [];
 	// Type-specific keywords also apply without an explicit type, including beside
@@ -200,23 +200,23 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		schema.type ?? (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
 
 	if (schema.const !== undefined && !jsonValuesEqual(value, schema.const)) {
-		errors.push(m.mcp_schema_must_equal({ label, value: JSON.stringify(schema.const) }));
+		errors.push(m.mcps_tester_schema_must_equal({ label, value: JSON.stringify(schema.const) }));
 	}
 	if (schema.enum && !schema.enum.some((entry) => jsonValuesEqual(entry, value))) {
-		errors.push(m.mcp_schema_must_be_allowed_value({ label }));
+		errors.push(m.mcps_tester_schema_must_be_allowed_value({ label }));
 	}
 	if (type === 'null') {
-		return value === null ? errors : [...errors, m.mcp_schema_must_be_null({ label })];
+		return value === null ? errors : [...errors, m.mcps_tester_schema_must_be_null({ label })];
 	}
 
 	if (type === 'object') {
 		if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-			return [...errors, m.mcp_schema_must_be_object({ label })];
+			return [...errors, m.mcps_tester_schema_must_be_object({ label })];
 		}
 		const object = value as Record<string, unknown>;
 		for (const required of schema.required ?? []) {
 			if (!(required in object) || object[required] === undefined || object[required] === '') {
-				errors.push(m.mcp_schema_is_required({ name: `${path ? `${path}.` : ''}${required}` }));
+				errors.push(m.mcps_tester_schema_is_required({ name: `${path ? `${path}.` : ''}${required}` }));
 			}
 		}
 		for (const [name, property] of Object.entries(schema.properties ?? {})) {
@@ -227,21 +227,21 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		}
 		const count = Object.keys(object).length;
 		if (schema.minProperties !== undefined && count < schema.minProperties) {
-			errors.push(m.mcp_schema_min_properties({ label, count: schema.minProperties }));
+			errors.push(m.mcps_tester_schema_min_properties({ label, count: schema.minProperties }));
 		}
 		if (schema.maxProperties !== undefined && count > schema.maxProperties) {
-			errors.push(m.mcp_schema_max_properties({ label, count: schema.maxProperties }));
+			errors.push(m.mcps_tester_schema_max_properties({ label, count: schema.maxProperties }));
 		}
 		return errors;
 	}
 
 	if (type === 'array') {
-		if (!Array.isArray(value)) return [...errors, m.mcp_schema_must_be_array({ label })];
+		if (!Array.isArray(value)) return [...errors, m.mcps_tester_schema_must_be_array({ label })];
 		if (schema.minItems !== undefined && value.length < schema.minItems) {
-			errors.push(m.mcp_schema_min_items({ label, count: schema.minItems }));
+			errors.push(m.mcps_tester_schema_min_items({ label, count: schema.minItems }));
 		}
 		if (schema.maxItems !== undefined && value.length > schema.maxItems) {
-			errors.push(m.mcp_schema_max_items({ label, count: schema.maxItems }));
+			errors.push(m.mcps_tester_schema_max_items({ label, count: schema.maxItems }));
 		}
 		if (schema.items) {
 			value.forEach((item, index) => {
@@ -252,12 +252,12 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 	}
 
 	if (type === 'string') {
-		if (typeof value !== 'string') return [...errors, m.mcp_schema_must_be_string({ label })];
+		if (typeof value !== 'string') return [...errors, m.mcps_tester_schema_must_be_string({ label })];
 		if (schema.minLength !== undefined && value.length < schema.minLength) {
-			errors.push(m.mcp_schema_min_length({ label, count: schema.minLength }));
+			errors.push(m.mcps_tester_schema_min_length({ label, count: schema.minLength }));
 		}
 		if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-			errors.push(m.mcp_schema_max_length({ label, count: schema.maxLength }));
+			errors.push(m.mcps_tester_schema_max_length({ label, count: schema.maxLength }));
 		}
 		// schema.pattern is deliberately not evaluated, in case it could freeze the tab.
 		return errors;
@@ -265,30 +265,30 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 
 	if (type === 'number' || type === 'integer') {
 		if (typeof value !== 'number' || !Number.isFinite(value)) {
-			return [...errors, m.mcp_schema_must_be_number({ label })];
+			return [...errors, m.mcps_tester_schema_must_be_number({ label })];
 		}
 		if (type === 'integer' && !Number.isInteger(value))
-			errors.push(m.mcp_schema_must_be_integer({ label }));
+			errors.push(m.mcps_tester_schema_must_be_integer({ label }));
 		if (schema.minimum !== undefined && value < schema.minimum) {
-			errors.push(m.mcp_schema_minimum({ label, value: schema.minimum }));
+			errors.push(m.mcps_tester_schema_minimum({ label, value: schema.minimum }));
 		}
 		if (schema.maximum !== undefined && value > schema.maximum) {
-			errors.push(m.mcp_schema_maximum({ label, value: schema.maximum }));
+			errors.push(m.mcps_tester_schema_maximum({ label, value: schema.maximum }));
 		}
 		if (schema.exclusiveMinimum !== undefined && value <= schema.exclusiveMinimum) {
-			errors.push(m.mcp_schema_exclusive_minimum({ label, value: schema.exclusiveMinimum }));
+			errors.push(m.mcps_tester_schema_exclusive_minimum({ label, value: schema.exclusiveMinimum }));
 		}
 		if (schema.exclusiveMaximum !== undefined && value >= schema.exclusiveMaximum) {
-			errors.push(m.mcp_schema_exclusive_maximum({ label, value: schema.exclusiveMaximum }));
+			errors.push(m.mcps_tester_schema_exclusive_maximum({ label, value: schema.exclusiveMaximum }));
 		}
 		if (schema.multipleOf !== undefined && !isMultipleOf(value, schema.multipleOf)) {
-			errors.push(m.mcp_schema_multiple_of({ label, value: schema.multipleOf }));
+			errors.push(m.mcps_tester_schema_multiple_of({ label, value: schema.multipleOf }));
 		}
 		return errors;
 	}
 
 	if (type === 'boolean' && typeof value !== 'boolean') {
-		errors.push(m.mcp_schema_must_be_boolean({ label }));
+		errors.push(m.mcps_tester_schema_must_be_boolean({ label }));
 	}
 	return errors;
 }

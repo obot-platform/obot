@@ -30,7 +30,7 @@
 				})
 				.catch((err) => {
 					console.error(err);
-					skillPreviewContent = m.admin_misc_error_loading_skill_preview();
+					skillPreviewContent = m.skills_error_loading_skill_preview();
 				})
 				.finally(() => {
 					skillPreviewLoading = false;
@@ -47,7 +47,7 @@
 	<div class="flex grow flex-col gap-4 pb-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
 		<div class="flex w-full items-center justify-between gap-4">
 			<h1 class="flex items-center gap-4 text-2xl font-semibold">
-				{skill.displayName || m.admin_misc_col_skill()}
+				{skill.displayName || m.skills_access_policies_col_skill()}
 			</h1>
 			{#if skill.id}
 				<a
@@ -56,7 +56,7 @@
 					rel="external noopener noreferrer"
 					target="_blank"
 				>
-					{m.admin_misc_view_source_on_git()}<ExternalLink class="size-4" />
+					{m.skills_view_source_on_git()}<ExternalLink class="size-4" />
 				</a>
 			{/if}
 		</div>
@@ -66,7 +66,7 @@
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
 					<div>
-						<p>{m.admin_misc_skill_external_git()}</p>
+						<p>{m.skills_skill_external_git()}</p>
 					</div>
 				</div>
 			</div>
@@ -76,7 +76,7 @@
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
 					<label for="skill-name" class="flex-1 text-sm font-light capitalize">
-						{m.admin_misc_name()}
+						{m.core_name()}
 					</label>
 					<input
 						id="skill-name"
@@ -88,7 +88,7 @@
 
 				<div class="flex flex-col gap-2">
 					<label for="skill-description" class="flex-1 text-sm font-light capitalize">
-						{m.admin_misc_description()}
+						{m.skills_description()}
 					</label>
 					<textarea
 						id="skill-description"
@@ -110,7 +110,7 @@
 				<button
 					class="tab-button w-24 justify-center"
 					class:tab-active={activeTab === 'details'}
-					onclick={() => (activeTab = 'details')}>{m.admin_misc_details()}</button
+					onclick={() => (activeTab = 'details')}>{m.core_details()}</button
 				>
 			</div>
 
@@ -119,7 +119,7 @@
 					<div class="flex flex-col gap-6">
 						<div class="flex flex-col gap-2">
 							<label for="skill-repo-url" class="flex-1 text-sm font-light capitalize">
-								{m.admin_misc_repository_url()}
+								{m.skills_repository_url()}
 							</label>
 							<input
 								id="skill-repo-url"
@@ -131,7 +131,7 @@
 
 						<div class="flex flex-col gap-2">
 							<label for="skill-repo-ref" class="flex-1 text-sm font-light capitalize">
-								{m.admin_misc_repository_reference()}
+								{m.skills_repository_reference()}
 							</label>
 							<input
 								id="skill-repo-ref"
@@ -143,7 +143,7 @@
 
 						<div class="flex flex-col gap-2">
 							<label for="skill-commit-sha" class="flex-1 text-sm font-light capitalize">
-								{m.admin_misc_commit_sha()}
+								{m.skills_commit_sha()}
 							</label>
 							<input
 								id="skill-commit-sha"
@@ -159,7 +159,7 @@
 							{#if skill.allowedTools}
 								<div class="flex flex-col gap-2">
 									<label for="skill-allowed-tools" class="flex-1 text-sm font-light capitalize">
-										{m.admin_misc_allowed_tools()}
+										{m.skills_allowed_tools()}
 									</label>
 									<input
 										id="skill-allowed-tools"
@@ -173,7 +173,7 @@
 							{#if skill.compatibility}
 								<div class="flex flex-col gap-2">
 									<label for="skill-compatibility" class="flex-1 text-sm font-light capitalize">
-										{m.admin_misc_compatibility()}
+										{m.skills_compatibility()}
 									</label>
 									<input
 										id="skill-compatibility"
@@ -187,7 +187,7 @@
 							{#if skill.license}
 								<div class="flex flex-col gap-2">
 									<label for="skill-license" class="flex-1 text-sm font-light capitalize">
-										{m.admin_misc_license()}
+										{m.skills_license()}
 									</label>
 									<input
 										id="skill-license"

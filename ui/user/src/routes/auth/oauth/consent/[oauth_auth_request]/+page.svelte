@@ -67,7 +67,7 @@
 	const details = $derived.by((): DetailRow[] => {
 		const rows: DetailRow[] = [
 			{
-				label: m.admin_routes_consent_application(),
+				label: m.auth_consent_application(),
 				type: 'text',
 				value: consent.clientName,
 				valueClass: 'wrap-break-word font-medium'
@@ -76,49 +76,49 @@
 
 		if (consent.clientURI) {
 			rows.push({
-				label: m.admin_routes_consent_application_url(),
+				label: m.auth_consent_application_url(),
 				type: 'link',
 				value: consent.clientURI
 			});
 		}
 
 		rows.push({
-			label: m.admin_routes_consent_oauth_client(),
+			label: m.auth_consent_oauth_client(),
 			type: 'text',
 			value: clientCredentialSourceLabel,
 			valueClass: 'wrap-break-word'
 		});
 
 		rows.push({
-			label: m.admin_routes_consent_redirect_url(),
+			label: m.auth_consent_redirect_url(),
 			type: 'text',
 			value: consent.redirectURI,
 			valueClass: 'break-all'
 		});
 
 		if (scopes.length) {
-			rows.push({ label: m.admin_routes_consent_scopes(), type: 'scopes', values: scopes });
+			rows.push({ label: m.auth_consent_scopes(), type: 'scopes', values: scopes });
 		}
 
 		if (consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed) {
 			rows.push({
-				label: m.admin_routes_consent_mcp_server(),
+				label: m.auth_consent_mcp_server(),
 				type: 'text',
 				value: consent.mcpServerName ?? '',
 				valueClass: 'wrap-break-word'
 			});
 			rows.push({
-				label: m.admin_routes_consent_third_party_oauth(),
+				label: m.auth_consent_third_party_oauth(),
 				type: 'text',
 				value: consent.userHasSecondLevelOAuthed
-					? m.admin_routes_consent_already_authorized()
-					: m.admin_routes_consent_authorization_required(),
+					? m.auth_consent_already_authorized()
+					: m.auth_consent_authorization_required(),
 				valueClass: 'wrap-break-word'
 			});
 
 			if (consent.mcpServerURL) {
 				rows.push({
-					label: m.admin_routes_consent_mcp_url(),
+					label: m.auth_consent_mcp_url(),
 					type: 'text',
 					value: consent.mcpServerURL,
 					valueClass: 'break-all'
@@ -127,7 +127,7 @@
 
 			if (consent.thirdPartyAuthURL) {
 				rows.push({
-					label: m.admin_routes_consent_oauth_url(),
+					label: m.auth_consent_oauth_url(),
 					type: 'text',
 					value: consent.thirdPartyAuthURL,
 					valueClass: 'break-all'
@@ -137,14 +137,14 @@
 
 		if (consent.policyURI) {
 			rows.push({
-				label: m.admin_routes_consent_privacy_policy(),
+				label: m.auth_consent_privacy_policy(),
 				type: 'link',
 				value: consent.policyURI
 			});
 		}
 
 		if (consent.tosURI) {
-			rows.push({ label: m.admin_routes_consent_terms(), type: 'link', value: consent.tosURI });
+			rows.push({ label: m.auth_consent_terms(), type: 'link', value: consent.tosURI });
 		}
 
 		return rows;
@@ -253,7 +253,7 @@
 			}
 		} catch (_err) {
 			configureForm = undefined;
-			configError = m.admin_routes_consent_load_config_failed();
+			configError = m.auth_consent_load_config_failed();
 		} finally {
 			loadingConfig = false;
 		}
@@ -330,14 +330,14 @@
 			currentConsent = nextConsent;
 			if (nextConsent.mcpConfigRequired) {
 				await loadMCPConfiguration(nextConsent);
-				configError = m.admin_routes_consent_config_still_missing();
+				configError = m.auth_consent_config_still_missing();
 			} else {
 				configureForm = undefined;
 				configDialog?.close();
 			}
 		} catch (err) {
 			configError =
-				err instanceof Error ? err.message : m.admin_routes_consent_save_config_failed();
+				err instanceof Error ? err.message : m.auth_consent_save_config_failed();
 		} finally {
 			savingConfig = false;
 		}
@@ -346,19 +346,19 @@
 	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
 		switch (source) {
 			case 'client_id_metadata_document':
-				return m.admin_routes_consent_source_cimd();
+				return m.auth_consent_source_cimd();
 			case 'static_client_credentials':
-				return m.admin_routes_consent_source_static();
+				return m.auth_consent_source_static();
 			case 'dynamic_client':
-				return m.admin_routes_consent_source_dynamic();
+				return m.auth_consent_source_dynamic();
 			default:
-				return m.admin_routes_consent_unknown();
+				return m.auth_consent_unknown();
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>{m.admin_routes_consent_page_title()}</title>
+	<title>{m.auth_consent_page_title()}</title>
 </svelte:head>
 
 <div class="bg-base-200 dark:bg-base-100 flex min-h-screen items-center justify-center p-4">
@@ -366,10 +366,10 @@
 		<BetaLogo class="self-center mt-6" />
 		<h1 class="text-xl font-semibold text-center px-4">
 			{requiresMCPConfiguration
-				? m.admin_routes_consent_configure_named({
-						name: consent.mcpServerName || m.admin_routes_consent_mcp_server()
+				? m.auth_consent_configure_named({
+						name: consent.mcpServerName || m.auth_consent_mcp_server()
 					})
-				: m.admin_routes_consent_authorize_named({ name: consent.clientName })}
+				: m.auth_consent_authorize_named({ name: consent.clientName })}
 		</h1>
 
 		{#if requiresMCPConfiguration}
@@ -380,8 +380,8 @@
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
 						<b class="font-semibold"
-							>{consent.mcpServerName || m.admin_routes_consent_this_mcp_server_capitalized()}</b
-						>{m.admin_routes_consent_needs_config_suffix()}
+							>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
+						>{m.auth_consent_needs_config_suffix()}
 					</p>
 				</div>
 
@@ -400,13 +400,13 @@
 							{#if consent.mcpAuthRequired}
 								<b class="font-semibold"
 									>{consent.mcpServerName ||
-										m.admin_routes_consent_this_mcp_server_capitalized()}</b
-								>{m.admin_routes_consent_requires_oauth_redirect_suffix()}
+										m.auth_consent_this_mcp_server_capitalized()}</b
+								>{m.auth_consent_requires_oauth_redirect_suffix()}
 							{:else if consent.userHasSecondLevelOAuthed}
 								<b class="font-semibold"
 									>{consent.mcpServerName ||
-										m.admin_routes_consent_this_mcp_server_capitalized()}</b
-								>{m.admin_routes_consent_requires_oauth_authorized_suffix()}
+										m.auth_consent_this_mcp_server_capitalized()}</b
+								>{m.auth_consent_requires_oauth_authorized_suffix()}
 							{/if}
 						</p>
 					</div>
@@ -421,9 +421,9 @@
 							class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
 						>
 							<p class="text-muted-content min-w-0 text-xs">
-								{m.admin_routes_consent_update_config_prefix()}<b class="font-semibold"
-									>{consent.mcpServerName || m.admin_routes_consent_this_mcp_server()}</b
-								>{m.admin_routes_consent_update_config_suffix()}
+								{m.auth_consent_update_config_prefix()}<b class="font-semibold"
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server()}</b
+								>{m.auth_consent_update_config_suffix()}
 							</p>
 							<button
 								class="btn btn-text btn-sm flex shrink-0 items-center gap-2"
@@ -432,7 +432,7 @@
 								disabled={loadingConfig || savingConfig}
 							>
 								<SettingsIcon class="size-3.5" />
-								{loadingConfig ? m.admin_routes_loading() : m.admin_routes_configure()}
+								{loadingConfig ? m.auth_loading() : m.auth_configure()}
 							</button>
 						</div>
 					</div>
@@ -443,7 +443,7 @@
 				{/if}
 
 				<p class="text-sm">
-					{m.admin_routes_consent_wants_to_authenticate({ client: consent.clientName })}
+					{m.auth_consent_wants_to_authenticate({ client: consent.clientName })}
 				</p>
 
 				<div>
@@ -452,7 +452,7 @@
 						name="more-details-content"
 					>
 						<summary class="collapse-title text-muted-content text-xs font-medium"
-							>{m.admin_routes_consent_see_details()}</summary
+							>{m.auth_consent_see_details()}</summary
 						>
 
 						<div class="collapse-content space-y-3 overflow-y-auto default-scrollbar-thin max-h-64">
@@ -505,7 +505,7 @@
 					disabled={loadingConfig || savingConfig}
 				>
 					<SettingsIcon class="size-4" />
-					{loadingConfig ? m.admin_routes_loading() : m.admin_routes_configure()}
+					{loadingConfig ? m.auth_loading() : m.auth_configure()}
 				</button>
 			{:else}
 				<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
@@ -514,7 +514,7 @@
 						type="submit"
 						disabled={loadingConfig || savingConfig}
 					>
-						{m.admin_routes_continue()}
+						{m.core_continue()}
 					</button>
 				</form>
 			{/if}
@@ -525,15 +525,15 @@
 <CatalogConfigureForm
 	bind:this={configDialog}
 	bind:form={configureForm}
-	name={consent.mcpServerName || m.admin_routes_consent_mcp_server()}
+	name={consent.mcpServerName || m.auth_consent_mcp_server()}
 	onSave={saveMCPConfiguration}
 	onCancel={() => configDialog?.close()}
 	loading={savingConfig}
 	error={configError}
 	{deprecated}
 	showComponentToggle={false}
-	cancelText={m.admin_routes_close()}
-	submitText={m.admin_routes_save()}
-	configurationTitle={m.admin_routes_consent_mcp_server_configuration()}
+	cancelText={m.core_close()}
+	submitText={m.core_save()}
+	configurationTitle={m.auth_consent_mcp_server_configuration()}
 	disableOutsideClick
 />

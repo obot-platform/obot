@@ -39,7 +39,7 @@
 			persistedConsent = savedConsent;
 			selectedConsent = savedConsent;
 			productTelemetryConsent.setConsent(savedConsent);
-			success.add(m.admin_routes_pa_updated());
+			success.add(m.platform_settings_product_analytics_updated());
 			return true;
 		} catch (_err) {
 			// Keep both the persisted status and unsaved selection so the administrator can retry.
@@ -51,20 +51,20 @@
 <div class="relative flex w-full flex-col gap-2 @container">
 	<div class="paper gap-5">
 		<fieldset class="flex flex-col gap-3" disabled={saving}>
-			<legend class="mb-2 text-sm font-medium">{m.admin_routes_pa_share_legend()}</legend>
+			<legend class="mb-2 text-sm font-medium">{m.platform_settings_product_analytics_share_legend()}</legend>
 			<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-base-300 p-3">
 				<input
 					type="radio"
 					class="radio radio-primary radio-sm mt-0.5"
 					name="product-analytics-consent"
-					aria-label={m.admin_routes_pa_enable_aria()}
+					aria-label={m.platform_settings_product_analytics_enable_aria()}
 					checked={selectedConsent === true}
 					onchange={() => (selectedConsent = true)}
 				/>
 				<span>
-					<span class="block text-sm font-medium">{m.admin_routes_enabled()}</span>
+					<span class="block text-sm font-medium">{m.platform_enabled()}</span>
 					<span class="block text-xs font-light text-muted-content">
-						{m.admin_routes_pa_enabled_description()}
+						{m.platform_settings_product_analytics_enabled_description()}
 					</span>
 				</span>
 			</label>
@@ -73,26 +73,26 @@
 					type="radio"
 					class="radio radio-primary radio-sm mt-0.5"
 					name="product-analytics-consent"
-					aria-label={m.admin_routes_pa_disable_aria()}
+					aria-label={m.platform_settings_product_analytics_disable_aria()}
 					checked={selectedConsent === false}
 					onchange={() => (selectedConsent = false)}
 				/>
 				<span>
-					<span class="block text-sm font-medium">{m.admin_routes_disabled()}</span>
+					<span class="block text-sm font-medium">{m.platform_disabled()}</span>
 					<span class="block text-xs font-light text-muted-content">
-						{m.admin_routes_pa_disabled_description()}
+						{m.platform_settings_product_analytics_disabled_description()}
 					</span>
 				</span>
 			</label>
 		</fieldset>
 		<p class="text-xs font-light text-muted-content">
-			{m.admin_routes_pa_update_checks()}
+			{m.platform_settings_product_analytics_update_checks()}
 			<a
 				class="text-link"
 				href="https://docs.obot.ai/configuration/product-analytics#upgrade-checks-are-separate"
 				target="_blank"
-				rel="external noopener noreferrer">{m.admin_routes_pa_update_checks_link()}</a
-			>{m.admin_routes_pa_update_checks_suffix()}
+				rel="external noopener noreferrer">{m.platform_settings_product_analytics_update_checks_link()}</a
+			>{m.platform_settings_product_analytics_update_checks_suffix()}
 		</p>
 	</div>
 </div>

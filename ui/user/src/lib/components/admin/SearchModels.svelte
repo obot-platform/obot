@@ -29,7 +29,7 @@
 		models,
 		defaultAliases,
 		exclude = [],
-		title = m.admin_misc_add_models()
+		title = m.models_providers_add_models()
 	}: Props = $props();
 	let addModelDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
@@ -141,7 +141,7 @@
 				aliasName,
 				label: ModelAliasLabels[aliasName as keyof typeof ModelAliasLabels] || aliasName,
 				effectiveModelName:
-					model?.displayName || model?.targetModel || m.admin_misc_not_configured(),
+					model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				isExcluded: exclude?.includes(aliasId) ?? false
 			};
@@ -204,7 +204,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (search = val)}
 					value={search}
-					placeholder={m.admin_misc_search_models()}
+					placeholder={m.models_providers_search_models()}
 				/>
 			</div>
 
@@ -220,9 +220,9 @@
 						<div class="flex items-center gap-2">
 							<Cpu class="size-8 shrink-0" />
 							<div class="flex flex-col">
-								<p class="font-medium">{m.admin_misc_all_models()}</p>
+								<p class="font-medium">{m.models_all_models()}</p>
 								<span class="text-muted-content text-xs">
-									{m.admin_misc_all_models_description()}
+									{m.models_providers_all_models_description()}
 								</span>
 							</div>
 						</div>
@@ -249,11 +249,11 @@
 								<p class="font-mono font-medium">{pattern.id}</p>
 								<span class="text-muted-content text-xs">
 									{patternMatchCount === 1
-										? m.admin_misc_pattern_grants_one({
+										? m.models_providers_pattern_grants_one({
 												prefix: pattern.prefix,
 												count: patternMatchCount
 											})
-										: m.admin_misc_pattern_grants_other({
+										: m.models_providers_pattern_grants_other({
 												prefix: pattern.prefix,
 												count: patternMatchCount
 											})}
@@ -272,7 +272,7 @@
 					<div class="flex flex-col gap-1 px-2 py-1">
 						<h4 class="text-md mx-2 flex items-center gap-2 font-semibold">
 							<Logo class="size-4" />
-							{m.admin_misc_default_models()}
+							{m.models_providers_default_models()}
 						</h4>
 					</div>
 					<div class="flex flex-col gap-1 px-8">
@@ -344,7 +344,7 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<Cpu class="size-4" />
-				{m.admin_misc_n_selected({ count: selected.length })}
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
@@ -352,7 +352,7 @@
 				{m.common_cancel()}
 			</button>
 			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
-				{m.admin_misc_confirm()}
+				{m.core_confirm()}
 			</button>
 		</div>
 	</div>

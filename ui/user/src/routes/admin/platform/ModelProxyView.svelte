@@ -51,7 +51,7 @@
 			enabled = response.enabled;
 			persistedEnabled = response.enabled;
 			await invalidate('model-proxy:usage');
-			success.add(m.admin_routes_mp_updated());
+			success.add(m.platform_settings_model_proxy_updated());
 			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling
@@ -66,23 +66,23 @@
 			<div class="flex grow flex-col gap-1">
 				<div class="flex items-center gap-2">
 					<TriangleAlert class="size-5 shrink-0 text-warning" />
-					<p class="font-semibold">{m.admin_routes_mp_missing_url()}</p>
+					<p class="font-semibold">{m.platform_settings_model_proxy_missing_url()}</p>
 				</div>
-				<span class="font-light break-all"> {m.admin_routes_mp_missing_url_description()}</span>
+				<span class="font-light break-all"> {m.platform_settings_model_proxy_missing_url_description()}</span>
 			</div>
 		</div>
 	{/if}
 	<div class="flex flex-col gap-2 @container">
 		<div class="paper gap-5">
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">{m.admin_routes_mp_usage()}</p>
+				<p class="text-sm font-medium">{m.platform_settings_model_proxy_usage()}</p>
 				<div class="grid grid-cols-1 gap-5 @xl:grid-cols-2">
-					{@render usageCard(m.admin_routes_mp_input_tokens(), usage?.input)}
-					{@render usageCard(m.admin_routes_mp_output_tokens(), usage?.output)}
+					{@render usageCard(m.platform_settings_model_proxy_input_tokens(), usage?.input)}
+					{@render usageCard(m.platform_settings_model_proxy_output_tokens(), usage?.output)}
 				</div>
 				{#if usage}
 					<p class="font-light text-muted-content text-xs">
-						{m.admin_routes_mp_resets({
+						{m.platform_settings_model_proxy_resets({
 							relative: formatTimeUntil(usage?.resetAt).relativeTime,
 							date: formatTimeUntil(usage?.resetAt).fullDate
 						})}
@@ -92,9 +92,9 @@
 			<div class="divider my-0"></div>
 			<label for="enable-model-proxy" class="flex items-start justify-between gap-4">
 				<div class="text-sm">
-					<div class="font-medium">{m.admin_routes_mp_enable()}</div>
+					<div class="font-medium">{m.platform_settings_model_proxy_enable()}</div>
 					<p class="mt-0.5 text-xs font-light text-muted-content">
-						{m.admin_routes_mp_enable_description()}
+						{m.platform_settings_model_proxy_enable_description()}
 					</p>
 				</div>
 				<input
@@ -118,7 +118,7 @@
 			{@const percentageRemaining = (remaining / usage.max) * 100}
 			<div in:fade={{ duration }} class="w-full">
 				<p class="font-semibold">
-					{m.admin_routes_mp_remaining({
+					{m.platform_settings_model_proxy_remaining({
 						percent: percentageRemaining < 0 ? 0 : percentageRemaining.toFixed(1)
 					})}
 				</p>
@@ -129,7 +129,7 @@
 				></progress>
 			</div>
 		{:else}
-			<p in:fade={{ duration }} class="text-sm text-muted-content">{m.admin_routes_na()}</p>
+			<p in:fade={{ duration }} class="text-sm text-muted-content">{m.platform_na()}</p>
 		{/if}
 	</div>
 {/snippet}

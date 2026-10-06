@@ -193,7 +193,7 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch enforcement events:', err);
-				fetchError = err instanceof Error ? err.message : m.admin_sub_enf_load_events_failed();
+				fetchError = err instanceof Error ? err.message : m.inventory_enforcement_enforcement_events_load_events_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -304,19 +304,19 @@
 
 	function getFilterDisplayLabel(key: string) {
 		const labels: Record<string, string> = {
-			actor: m.admin_sub_log_device(),
-			agent: m.admin_sub_log_agent(),
-			decision: m.admin_sub_enf_result(),
-			kind: m.admin_sub_enf_tool_type(),
-			server: m.admin_sub_enf_mcp_server(),
-			tool: m.admin_sub_enf_tool()
+			actor: m.audit_usage_audit_logs_device(),
+			agent: m.audit_usage_audit_logs_agent(),
+			decision: m.inventory_enforcement_enforcement_events_result(),
+			kind: m.inventory_enforcement_enforcement_events_tool_type(),
+			server: m.inventory_enforcement_enforcement_events_mcp_server(),
+			tool: m.inventory_enforcement_enforcement_events_tool()
 		};
 		return labels[key] ?? key.replace(/_(\w)/g, ' $1');
 	}
 
 	function getFilterOptionLabel(key: string, value: string) {
 		if (key === 'decision')
-			return value === 'allow' ? m.admin_sub_enf_allowed() : m.admin_sub_enf_blocked();
+			return value === 'allow' ? m.inventory_enforcement_enforcement_events_allowed() : m.inventory_enforcement_enforcement_events_blocked();
 		if (key === 'agent') return agentLabel(value);
 		if (key === 'kind') return kindLabel(value);
 		if (key === 'actor') return getDeviceDisplayName(value);
@@ -335,7 +335,7 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={handleQueryChange}
-			placeholder={m.admin_sub_search_placeholder()}
+			placeholder={m.core_search_placeholder()}
 			value={query}
 		/>
 		<div class="flex gap-4 self-start @min-[768px]:self-end">
@@ -353,13 +353,13 @@
 				}}
 			>
 				<Funnel class="size-4" />
-				{m.admin_sub_filters_title()}
+				{m.core_filters_title()}
 			</button>
 		</div>
 	</div>
 
 	<div class="flex flex-wrap gap-4">
-		{#each [{ verdict: 'allow', label: m.admin_sub_enf_allowed(), value: allowedTotal }, { verdict: 'deny', label: m.admin_sub_enf_blocked(), value: blockedTotal }] as const as tile (tile.verdict)}
+		{#each [{ verdict: 'allow', label: m.inventory_enforcement_enforcement_events_allowed(), value: allowedTotal }, { verdict: 'deny', label: m.inventory_enforcement_enforcement_events_blocked(), value: blockedTotal }] as const as tile (tile.verdict)}
 			<button
 				type="button"
 				aria-pressed={pillsSearchParamFilters.decision === tile.verdict}
@@ -394,9 +394,9 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				{m.admin_sub_enf_disabled_notice()}
+				{m.inventory_enforcement_enforcement_events_disabled_notice()}
 				<a class="text-link" href={resolve('/inventory?view=configuration')}
-					>{m.admin_sub_enf_enable_on_devices_page()}</a
+					>{m.inventory_enforcement_enforcement_events_enable_on_devices_page()}</a
 				>
 			</span>
 		</div>
@@ -417,7 +417,7 @@
 	<div class="notification-error flex w-full items-center gap-3 p-4">
 		<CircleAlert class="size-5 shrink-0" />
 		<div class="flex flex-col gap-1">
-			<p class="text-sm font-semibold">{m.admin_sub_enf_unable_to_load_events()}</p>
+			<p class="text-sm font-semibold">{m.inventory_enforcement_enforcement_events_unable_to_load_events()}</p>
 			<p class="text-sm font-light">{fetchError}</p>
 		</div>
 	</div>
@@ -433,9 +433,9 @@
 {:else}
 	<div class="flex w-full flex-col items-center justify-center gap-4 px-6 py-16 text-center">
 		<ShieldCheck class="text-muted-content size-20 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_enf_no_events()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_enforcement_events_no_events()}</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
-			{m.admin_sub_enf_no_events_hint()}
+			{m.inventory_enforcement_enforcement_events_no_events_hint()}
 		</p>
 	</div>
 {/if}
@@ -451,11 +451,11 @@
 				onclick={prevPage}
 			>
 				<ChevronLeft class="size-4" />
-				{m.admin_sub_audit_previous_page()}
+				{m.audit_usage_audit_logs_previous_page()}
 			</button>
 			<div class="flex gap-4">
 				<div>
-					{m.admin_sub_llm_page_of({
+					{m.audit_usage_audit_logs_model_page_of({
 						page: Intl.NumberFormat().format(pageIndex + 1),
 						total: Intl.NumberFormat().format(numberOfPages || 1)
 					})}
@@ -466,7 +466,7 @@
 				disabled={isReachedMax}
 				onclick={nextPage}
 			>
-				{m.admin_sub_audit_next_page()}
+				{m.audit_usage_audit_logs_next_page()}
 				<ChevronRight class="size-4" />
 			</button>
 		</div>

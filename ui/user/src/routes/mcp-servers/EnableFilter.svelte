@@ -137,7 +137,7 @@
 			filterId = response.id;
 		} catch (err) {
 			console.error('error: ', err);
-			launchError = err instanceof Error ? err.message : m.routes_mcp_unknown_error();
+			launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
 		}
 
 		if (response) {
@@ -160,7 +160,7 @@
 					onSuccess?.();
 				}
 			} catch (err) {
-				launchError = err instanceof Error ? err.message : m.routes_mcp_unknown_error();
+				launchError = err instanceof Error ? err.message : m.mcps_filters_unknown_error();
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -247,7 +247,7 @@
 	icon={manifest?.icon}
 	name={manifest?.name || ''}
 	onSave={handleConfigureForm}
-	submitText={m.routes_mcp_next()}
+	submitText={m.mcps_filters_next()}
 	loading={saving}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
@@ -257,7 +257,7 @@
 <PageLoading
 	isProgressBar
 	show={typeof launchState !== 'undefined'}
-	text={m.routes_mcp_configuring_initializing_server()}
+	text={m.mcps_filters_configuring_initializing_server()}
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{
@@ -266,7 +266,7 @@
 	onClose={handleCancel}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">{m.routes_mcp_launch_failed()}</h4>
+		<h4 class="text-xl font-semibold">{m.mcps_filters_launch_failed_page_mcp()}</h4>
 	{/snippet}
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
@@ -280,7 +280,7 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-md self-start">{m.routes_mcp_launch_issue()}</p>
+			<p class="text-md self-start">{m.mcps_filters_launch_issue_page_mcp()}</p>
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
@@ -297,7 +297,7 @@
 						}
 					}}
 				>
-					{m.routes_mcp_update_config_try_again()}
+					{m.mcps_filters_update_config_try_again()}
 				</button>
 			{/if}
 			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCancel}>
@@ -309,7 +309,7 @@
 
 <ResponsiveDialog
 	bind:this={selectorsAndMcpServersDialog}
-	title={m.routes_mcp_modify_selectors_servers()}
+	title={m.mcps_filters_modify_selectors_servers()}
 	class="max-w-3xl"
 	animate="slide"
 >
@@ -324,10 +324,10 @@
 					onclick={() => {
 						selectorsAndMcpServersDialog?.close();
 						configDialog?.open();
-					}}>{m.routes_mcp_go_back()}</button
+					}}>{m.mcps_filters_go_back()}</button
 				>
 			{/if}
-			<button class="btn btn-primary text-sm" onclick={handleFinish}>{m.routes_mcp_save()}</button>
+			<button class="btn btn-primary text-sm" onclick={handleFinish}>{m.mcps_filters_save()}</button>
 		</div>
 	</div>
 </ResponsiveDialog>

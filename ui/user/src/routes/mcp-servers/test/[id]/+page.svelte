@@ -68,13 +68,13 @@
 			{#snippet headerActions()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}>
 					<ArrowLeft class="size-4" aria-hidden="true" />
-					{m.routes_mcp_back_to_named({ name: serverName })}
+					{m.mcps_back_to_named({ name: serverName })}
 				</a>
 			{/snippet}
 
 			{#snippet accessDeniedAction()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>{m.routes_mcp_back_to_server_management()}</a
+					>{m.mcps_back_to_server_management()}</a
 				>
 			{/snippet}
 
@@ -85,24 +85,24 @@
 						class="btn btn-primary btn-sm"
 						onclick={() => (managingAuthentication = true)}
 					>
-						{m.routes_mcp_manage_authentication()}
+						{m.mcps_manage_authentication()}
 					</button>
 				{:else}
 					<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-						>{m.routes_mcp_manage_authentication()}</a
+						>{m.mcps_manage_authentication()}</a
 					>
 				{/if}
 			{/snippet}
 
 			{#snippet setupRequiredAction()}
 				<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>{m.routes_mcp_manage_server()}</a
+					>{m.mcps_manage_server()}</a
 				>
 			{/snippet}
 
 			{#snippet unhealthySecondaryAction()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>{m.routes_mcp_manage_server()}</a
+					>{m.mcps_manage_server()}</a
 				>
 			{/snippet}
 		</Tester>
@@ -116,7 +116,7 @@
 				onclick={() => (managingAuthentication = false)}
 			>
 				<ArrowLeft class="size-4" aria-hidden="true" />
-				{m.routes_mcp_back_to_tester()}
+				{m.mcps_back_to_tester()}
 			</button>
 			<McpCompositeOauth
 				class="min-h-0"
@@ -130,7 +130,7 @@
 
 <svelte:head>
 	<title
-		>Obot | {m.routes_mcp_tester_page_title({
+		>Obot | {m.mcps_tester_page_title({
 			kind: data.server.id.startsWith('vmcp') ? 'vMCP' : 'MCP',
 			name: serverName
 		})}</title

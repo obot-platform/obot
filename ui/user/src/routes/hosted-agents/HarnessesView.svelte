@@ -81,7 +81,7 @@
 			harnesses = await AdminService.listHarnesses();
 			harnessDialog?.close();
 		} catch (err) {
-			errors.append(m.chat_ha_save_harness_failed({ error: String(err) }));
+			errors.append(m.hosted_agents_harnesses_save_harness_failed({ error: String(err) }));
 		} finally {
 			savingHarness = false;
 		}
@@ -90,20 +90,20 @@
 
 <div class="flex flex-col gap-4" in:fade={{ duration }}>
 	<p class="text-muted-content text-sm font-light">
-		{m.chat_ha_harnesses_desc()}
+		{m.hosted_agents_harnesses_desc()}
 	</p>
 
 	{#if harnesses.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Cpu class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.chat_ha_no_harnesses()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.hosted_agents_harnesses_no_harnesses()}</h4>
 			{#if !isReadonly}
 				<p class="text-muted-content text-sm font-light">
-					{m.chat_ha_no_harnesses_desc()}
+					{m.hosted_agents_harnesses_no_harnesses_desc()}
 				</p>
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreateHarness}>
 					<Plus class="size-4" />
-					{m.chat_ha_add_harness()}
+					{m.hosted_agents_harnesses_add_harness()}
 				</button>
 			{/if}
 		</div>
@@ -113,11 +113,11 @@
 			fields={['name', 'description', 'image']}
 			headers={[
 				{ property: 'name', title: m.chat_col_name() },
-				{ property: 'description', title: m.chat_col_description() },
-				{ property: 'image', title: m.chat_col_image() }
+				{ property: 'description', title: m.chat_harnesses_col_description() },
+				{ property: 'image', title: m.chat_harnesses_col_image() }
 			]}
 			sortable={['name', 'image']}
-			noDataMessage={m.chat_ha_no_harnesses_added()}
+			noDataMessage={m.hosted_agents_harnesses_no_harnesses_added()}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
@@ -137,7 +137,7 @@
 							const harness = harnesses.find((h) => h.id === d.id);
 							if (harness) openEditHarness(harness);
 						}}
-						tooltip={{ text: m.chat_ha_edit_harness() }}
+						tooltip={{ text: m.hosted_agents_harnesses_edit_harness() }}
 					>
 						<Pencil class="size-4" />
 					</IconButton>
@@ -147,7 +147,7 @@
 							e.stopPropagation();
 							harnessToDelete = harnesses.find((h) => h.id === d.id);
 						}}
-						tooltip={{ text: m.chat_ha_delete_harness() }}
+						tooltip={{ text: m.hosted_agents_harnesses_delete_harness() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -159,7 +159,7 @@
 
 <ResponsiveDialog
 	bind:this={harnessDialog}
-	title={editingHarness ? m.chat_ha_edit_harness() : m.chat_ha_add_harness()}
+	title={editingHarness ? m.hosted_agents_harnesses_edit_harness() : m.hosted_agents_harnesses_add_harness()}
 	class="md:max-w-md"
 >
 	<div class="flex flex-col gap-4">
@@ -173,7 +173,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-description" class="text-sm font-light">{m.chat_description()}</label>
+			<label for="harness-description" class="text-sm font-light">{m.chat_harnesses_description()}</label>
 			<textarea
 				id="harness-description"
 				bind:value={harnessForm.description}
@@ -181,7 +181,7 @@
 				rows="2"></textarea>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-image" class="text-sm font-light">{m.chat_ha_docker_image()}</label>
+			<label for="harness-image" class="text-sm font-light">{m.hosted_agents_harnesses_docker_image()}</label>
 			<input
 				id="harness-image"
 				bind:value={harnessForm.image}
@@ -191,7 +191,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-icon" class="text-sm font-light">{m.chat_icon_url()}</label>
+			<label for="harness-icon" class="text-sm font-light">{m.chat_harnesses_icon_url()}</label>
 			<div class="flex items-center gap-3">
 				{#if harnessForm.icon}
 					<img src={harnessForm.icon} alt="" class="size-10 shrink-0 rounded-md object-contain" />
@@ -207,7 +207,7 @@
 			</div>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-icon-dark" class="text-sm font-light">{m.chat_icon_url_dark()}</label>
+			<label for="harness-icon-dark" class="text-sm font-light">{m.chat_harnesses_icon_url_dark()}</label>
 			<div class="flex items-center gap-3">
 				{#if harnessForm.iconDark}
 					<img
@@ -246,8 +246,8 @@
 </ResponsiveDialog>
 
 <Confirm
-	msg={m.chat_delete_named({ name: harnessToDelete?.name || m.chat_this_harness() })}
-	note={m.chat_ha_delete_harness_note()}
+	msg={m.chat_delete_named({ name: harnessToDelete?.name || m.chat_harnesses_this_harness() })}
+	note={m.hosted_agents_harnesses_delete_harness_note()}
 	show={Boolean(harnessToDelete)}
 	onsuccess={async () => {
 		if (!harnessToDelete) return;
@@ -255,7 +255,7 @@
 			await AdminService.deleteHarness(harnessToDelete.id);
 			harnesses = await AdminService.listHarnesses();
 		} catch (err) {
-			errors.append(m.chat_ha_delete_harness_failed({ error: String(err) }));
+			errors.append(m.hosted_agents_harnesses_delete_harness_failed({ error: String(err) }));
 		}
 		harnessToDelete = undefined;
 	}}

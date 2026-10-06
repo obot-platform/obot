@@ -141,8 +141,8 @@
 		<div class="flex w-full flex-col gap-3">
 			<span class="block text-center text-lg font-semibold md:text-start md:text-xl">
 				{groupAssignment?.assignment.role
-					? m.admin_routes_groups_update_group_role()
-					: m.admin_routes_groups_assign_group_role()}
+					? m.identity_access_groups_update_group_role()
+					: m.identity_access_groups_assign_group_role()}
 			</span>
 		</div>
 	{/snippet}
@@ -163,7 +163,7 @@
 					<span class="font-semibold">{groupAssignment.group.name}</span>
 				</div>
 				<div class="text-muted-content text-xs">
-					{m.admin_routes_groups_current_role({
+					{m.identity_access_groups_current_role({
 						role: getUserRoleLabel(groupAssignment.assignment.role)
 					})}
 				</div>
@@ -188,7 +188,7 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					{groupAssignment.assignment.role ? m.admin_routes_update() : m.admin_routes_assign()}
+					{groupAssignment.assignment.role ? m.core_update() : m.identity_access_assign()}
 				{/if}
 			</button>
 		</div>

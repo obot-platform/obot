@@ -33,8 +33,8 @@
 					class="size-6"
 				/>
 			</div>
-			{m.mcp_debug_oauth_dialog_title({
-				name: getMCPDisplayName(serverToDebug, m.mcp_server_fallback_name())
+			{m.mcps_oauth_debug_oauth_dialog_title({
+				name: getMCPDisplayName(serverToDebug, m.mcps_server_fallback_name())
 			})}
 		</div>
 	{/snippet}

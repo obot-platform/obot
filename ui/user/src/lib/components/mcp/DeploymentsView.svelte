@@ -451,7 +451,7 @@
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
-				error: err instanceof Error ? err.message : m.mcp_unknown_error()
+				error: err instanceof Error ? err.message : m.mcps_unknown_error()
 			};
 		}
 
@@ -502,7 +502,7 @@
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
-				error: err instanceof Error ? err.message : m.mcp_unknown_error()
+				error: err instanceof Error ? err.message : m.mcps_unknown_error()
 			};
 
 			return undefined;
@@ -646,13 +646,13 @@
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
-					{ title: m.mcp_column_name(), property: 'displayName' },
-					{ title: m.mcp_deployments_column_type(), property: 'type' },
-					{ title: m.mcp_deployments_column_user(), property: 'userName' },
-					{ title: m.mcp_deployments_column_health(), property: 'deploymentStatus' },
-					{ title: m.mcp_deployments_column_update_status(), property: 'updatesAvailable' },
-					{ title: m.mcp_deployments_column_registry(), property: 'registry' },
-					{ title: m.mcp_column_created(), property: 'created' }
+					{ title: m.mcps_column_name(), property: 'displayName' },
+					{ title: m.mcps_deployments_column_type(), property: 'type' },
+					{ title: m.mcps_deployments_column_user(), property: 'userName' },
+					{ title: m.mcps_deployments_column_health(), property: 'deploymentStatus' },
+					{ title: m.mcps_deployments_column_update_status(), property: 'updatesAvailable' },
+					{ title: m.mcps_deployments_column_registry(), property: 'registry' },
+					{ title: m.mcps_deployments_column_created(), property: 'created' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
@@ -666,7 +666,7 @@
 				{initSort}
 				displayValue={mcpTableDisplayValue}
 				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-				noDataMessage={m.mcp_deployments_no_data()}
+				noDataMessage={m.mcps_deployments_no_data()}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
@@ -711,7 +711,7 @@
 								<div
 									class="text-warning"
 									use:tooltip={{
-										text: m.mcp_deployments_missing_secret(),
+										text: m.mcps_deployments_missing_secret(),
 										classes: ['break-words', 'w-58']
 									}}
 								>
@@ -721,8 +721,8 @@
 								<div
 									use:tooltip={{
 										text: isVMcpServer(d)
-											? m.mcp_deployments_update_vmcp()
-											: m.mcp_deployments_needs_update(),
+											? m.mcps_deployments_update_vmcp()
+											: m.mcps_deployments_needs_update(),
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>
@@ -743,7 +743,7 @@
 					{:else if property === 'type'}
 						{getMcpValueLabel(d.type)}
 						{#if d.serverUserType === 'multiUser'}
-							<div class="p-2" use:tooltip={{ text: m.mcp_deployments_multi_tenant() }}>
+							<div class="p-2" use:tooltip={{ text: m.mcps_deployments_multi_tenant() }}>
 								<UsersIcon class="size-3 text-muted-content" />
 							</div>
 						{/if}
@@ -775,9 +775,9 @@
 									<ExternalLink class="size-4" />
 									<span>
 										{#if d.catalogEntryID}
-											{m.mcp_deployments_view_catalog_entry()}
+											{m.mcps_deployments_view_catalog_entry()}
 										{:else}
-											{m.mcp_deployments_view_server()}
+											{m.mcps_deployments_view_server()}
 										{/if}
 									</span>
 								</a>
@@ -796,7 +796,7 @@
 											}}
 										>
 											<ServerCog class="size-4" />
-											{m.mcp_actions_edit_configuration()}
+											{m.mcps_actions_edit_configuration()}
 										</button>
 									{/if}
 									{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
@@ -818,7 +818,7 @@
 											{:else}
 												<CircleFadingArrowUp class="size-4" />
 											{/if}
-											{m.mcp_deployments_update_server()}
+											{m.mcps_deployments_update_server()}
 										</button>
 									{/if}
 
@@ -837,7 +837,7 @@
 											}}
 										>
 											<GitCompare class="size-4" />
-											{m.mcp_deployments_view_diff()}
+											{m.mcps_deployments_view_diff()}
 										</button>
 									{/if}
 								{/if}
@@ -861,18 +861,18 @@
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
-										{m.mcp_deployments_update_scheduling()}
+										{m.mcps_deployments_update_scheduling()}
 									</button>
 								{/if}
 
 								{#if d.vmcpID}
 									<a href={resolve(`/vmcps/${d.vmcpID}`)} class="menu-button">
 										<Layers class="size-4" />
-										{m.mcp_deployments_view_vmcp()}
+										{m.mcps_deployments_view_vmcp()}
 									</a>
 									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
 										<Layers2 class="size-4" />
-										{m.mcp_deployments_view_vmcp_deployments()}
+										{m.mcps_deployments_view_vmcp_deployments()}
 									</a>
 								{:else if d.vmcpInstanceID}
 									<button
@@ -886,12 +886,12 @@
 												});
 												await goto(resolve(`/vmcps/${instance.vmcpID}`));
 											} catch {
-												errors.append(m.mcp_deployments_open_vmcp_failed());
+												errors.append(m.mcps_deployments_open_vmcp_failed());
 											}
 										}}
 									>
 										<Layers class="size-4" />
-										{m.mcp_deployments_view_vmcp()}
+										{m.mcps_deployments_view_vmcp()}
 									</button>
 									<button
 										class="menu-button"
@@ -906,12 +906,12 @@
 													resolve(vmcpInstancePath(instance.vmcpID, instance.id) as `/${string}`)
 												);
 											} catch {
-												errors.append(m.mcp_deployments_open_vmcp_deployment_failed());
+												errors.append(m.mcps_deployments_open_vmcp_deployment_failed());
 											}
 										}}
 									>
 										<Layers class="size-4" />
-										{m.mcp_deployments_view_vmcp_deployment()}
+										{m.mcps_deployments_view_vmcp_deployment()}
 									</button>
 								{/if}
 
@@ -937,10 +937,10 @@
 										}}
 									>
 										{#if restarting}
-											<Loading class="size-4" /> {m.mcp_deployments_restarting()}
+											<Loading class="size-4" /> {m.mcps_deployments_restarting()}
 										{:else}
 											<Power class="size-4" />
-											{m.mcp_deployments_restart_server()}
+											{m.mcps_deployments_restart_server()}
 										{/if}
 									</button>
 								{/if}
@@ -958,7 +958,7 @@
 										}}
 									>
 										<Trash2 class="size-4" />
-										{m.mcp_deployments_delete_server()}
+										{m.mcps_deployments_delete_server()}
 									</button>
 								{/if}
 							</div>
@@ -990,9 +990,9 @@
 							disabled={restarting || readonly || restartableCount === 0}
 						>
 							{#if restarting}
-								<Loading class="size-4 self-center" /> {m.mcp_deployments_restarting()}
+								<Loading class="size-4 self-center" /> {m.mcps_deployments_restarting()}
 							{:else}
-								<Power class="size-4" /> {m.mcp_actions_restart()}
+								<Power class="size-4" /> {m.mcps_actions_restart()}
 							{/if}
 							{#if restartableCount > 0 && !readonly}
 								<span class="pill-primary">
@@ -1011,7 +1011,7 @@
 							disabled={readonly || upgradeableCount === 0}
 						>
 							<CircleFadingArrowUp class="size-4" />
-							{m.mcp_deployments_upgrade()}
+							{m.mcps_deployments_upgrade()}
 							{#if upgradeableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{upgradeableCount}
@@ -1039,7 +1039,7 @@
 							disabled={readonly || k8sUpgradeableCount === 0}
 						>
 							<CircleFadingArrowUp class="size-4" />
-							{m.mcp_deployments_kubernetes_upgrade()}
+							{m.mcps_deployments_kubernetes_upgrade()}
 							{#if k8sUpgradeableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{k8sUpgradeableCount}
@@ -1059,7 +1059,7 @@
 							disabled={readonly || deletableCount === 0}
 						>
 							<Trash2 class="size-4" />
-							{m.mcp_delete()}
+							{m.mcps_deployments_delete()}
 							{#if deletableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{deletableCount}
@@ -1092,19 +1092,19 @@
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
-	title={m.mcp_deployments_confirm_update()}
+	title={m.mcps_deployments_confirm_update()}
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{showUpgradeConfirm?.type === 'single'
-				? m.mcp_deployments_update_one({ name: showUpgradeConfirm.server.id })
-				: m.mcp_deployments_update_selected()}
+				? m.mcps_deployments_update_one({ name: showUpgradeConfirm.server.id })
+				: m.mcps_deployments_update_selected()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			{m.mcp_deployments_update_note()}
+			{m.mcps_deployments_update_note()}
 		</p>
 		{#each upgradeNotesForConfirmation() as upgradeNote (upgradeNote.id)}
 			<div
@@ -1115,7 +1115,7 @@
 					<p class="font-medium">
 						{showUpgradeConfirm?.type === 'multi'
 							? upgradeNote.name
-							: m.mcp_deployments_upgrade_notes()}
+							: m.mcps_deployments_upgrade_notes()}
 					</p>
 					<div
 						class="prose prose-sm text-muted-content mt-1 max-w-none space-y-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
@@ -1150,24 +1150,24 @@
 	oncancel={() => (showK8sUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
-	title={m.mcp_deployments_confirm_update()}
+	title={m.mcps_deployments_confirm_update()}
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{m.mcp_deployments_update_k8s_settings()}
+			{m.mcps_deployments_update_k8s_settings()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
 			{#if showK8sUpgradeConfirm?.type === 'multi'}
-				{m.mcp_deployments_k8s_redeploy_multi({
+				{m.mcps_deployments_k8s_redeploy_multi({
 					count: Object.values(selected).filter((s) => s.needsK8sUpdate).length
 				})}
 			{:else}
-				{m.mcp_deployments_k8s_redeploy_single_prefix()}<span class="font-medium"
+				{m.mcps_deployments_k8s_redeploy_single_prefix()}<span class="font-medium"
 					>{showK8sUpgradeConfirm?.server.manifest.name}</span
-				>{m.mcp_deployments_k8s_redeploy_single_suffix()}
+				>{m.mcps_deployments_k8s_redeploy_single_suffix()}
 			{/if}
 		</p>
 	{/snippet}

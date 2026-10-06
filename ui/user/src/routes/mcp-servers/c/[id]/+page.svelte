@@ -40,7 +40,7 @@
 		);
 	}
 
-	let title = $derived(catalogEntry?.manifest?.name ?? m.routes_mcp_mcp_server());
+	let title = $derived(catalogEntry?.manifest?.name ?? m.mcps_mcp_server());
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
@@ -69,7 +69,7 @@
 			onConnect={({ entry, server }) => {
 				if (isMultiUserCatalogEntry(entry) && server) {
 					success.add(
-						m.routes_mcp_server_created({ name: String(server.alias || server.manifest.name) })
+						m.mcps_server_created({ name: String(server.alias || server.manifest.name) })
 					);
 				}
 			}}
@@ -99,5 +99,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? m.routes_mcp_mcp_server()}</title>
+	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_mcp_server()}</title>
 </svelte:head>

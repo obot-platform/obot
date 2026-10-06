@@ -188,7 +188,7 @@
 	<div class="mb-1 flex flex-wrap justify-between gap-2">
 		<div class="flex flex-wrap items-center gap-4">
 			<h4 class="flex items-center gap-2 font-semibold">
-				{m.admin_sub_tokens_title()}
+				{m.audit_usage_usage_tokens_title()}
 				{#if loading}
 					<Loading class="size-4 animate-spin" />
 				{/if}
@@ -204,7 +204,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.INPUT)}
 					>
-						{m.admin_sub_tokens_input_tokens()}
+						{m.audit_usage_usage_tokens_input_tokens()}
 					</button>
 					<button
 						class={twMerge(
@@ -214,7 +214,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.OUTPUT)}
 					>
-						{m.admin_sub_tokens_output_tokens()}
+						{m.audit_usage_usage_tokens_output_tokens()}
 					</button>
 					<button
 						class={twMerge(
@@ -224,7 +224,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.SPEND)}
 					>
-						{m.admin_sub_tokens_spend()}
+						{m.audit_usage_usage_tokens_spend()}
 					</button>
 				</div>
 			{/if}
@@ -281,40 +281,40 @@
 								{#if usesSpendBuckets}
 									{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 										<div class="text-muted-content mt-1 text-xs">
-											{m.admin_sub_tokens_tooltip_cache_read({
+											{m.audit_usage_usage_tokens_tooltip_cache_read({
 												value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
 											})}
 										</div>
 										<div class="text-muted-content text-xs">
-											{m.admin_sub_tokens_tooltip_cache_write({
+											{m.audit_usage_usage_tokens_tooltip_cache_write({
 												value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
 											})}
 										</div>
 									{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
 										<div class="text-muted-content mt-1 text-xs">
-											{m.admin_sub_tokens_tooltip_thinking({
+											{m.audit_usage_usage_tokens_tooltip_thinking({
 												count: (item.details?.thinkingTokens ?? 0).toLocaleString()
 											})}
 										</div>
 									{/if}
 								{:else}
 									<div class="text-muted-content mt-1 text-xs">
-										{m.admin_sub_tokens_tooltip_input({
+										{m.audit_usage_usage_tokens_tooltip_input({
 											value: formatTokenUsageUSD(item.details?.inputSpend ?? 0)
 										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										{m.admin_sub_tokens_tooltip_output({
+										{m.audit_usage_usage_tokens_tooltip_output({
 											value: formatTokenUsageUSD(item.details?.outputSpend ?? 0)
 										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										{m.admin_sub_tokens_tooltip_cache_read({
+										{m.audit_usage_usage_tokens_tooltip_cache_read({
 											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
 										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										{m.admin_sub_tokens_tooltip_cache_write({
+										{m.audit_usage_usage_tokens_tooltip_cache_write({
 											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
 										})}
 									</div>
@@ -328,20 +328,20 @@
 								<div class="text-muted-content text-xs">{formatTokenUsageUSD(spend)}</div>
 								{#if selectedTokenType === TOKEN_TYPE.INPUT}
 									<div class="text-muted-content mt-1 text-xs">
-										{m.admin_sub_tokens_tooltip_cache_read_tokens({
+										{m.audit_usage_usage_tokens_tooltip_cache_read_tokens({
 											count: (item.details?.cacheReadTokens ?? 0).toLocaleString(),
 											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
 										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										{m.admin_sub_tokens_tooltip_cache_write_tokens({
+										{m.audit_usage_usage_tokens_tooltip_cache_write_tokens({
 											count: (item.details?.cacheWriteTokens ?? 0).toLocaleString(),
 											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
 										})}
 									</div>
 								{:else if (item.details?.thinkingTokens ?? 0) > 0}
 									<div class="text-muted-content mt-1 text-xs">
-										{m.admin_sub_tokens_tooltip_thinking({
+										{m.audit_usage_usage_tokens_tooltip_thinking({
 											count: (item.details?.thinkingTokens ?? 0).toLocaleString()
 										})}
 									</div>

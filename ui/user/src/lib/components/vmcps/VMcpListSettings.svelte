@@ -130,7 +130,7 @@
 	</div>
 </div>
 
-<ResponsiveDialog bind:this={dialog} title={m.vmcps_vmcps_settings()} class="md:w-md">
+<ResponsiveDialog bind:this={dialog} title={m.vmcps_settings()} class="md:w-md">
 	<div class="flex flex-col gap-2">
 		<label class="flex items-center gap-1.5 w-fit text-sm">
 			<input

@@ -33,7 +33,7 @@
 		profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: m.vmcps_vmcps(),
+						label: m.vmcps(),
 						value: 'vmcps',
 						content: vmcpsView,
 						tooltip: m.vmcps_tab_vmcps_tooltip()
@@ -42,10 +42,10 @@
 						label: m.vmcps_deployments(),
 						value: 'deployments',
 						content: deploymentsView,
-						tooltip: m.vmcps_tab_deployments_tooltip()
+						tooltip: m.vmcps_deployments_tab_tooltip()
 					}
 				]
-			: [{ label: m.vmcps_vmcps(), value: 'vmcps', content: vmcpsView }]
+			: [{ label: m.vmcps(), value: 'vmcps', content: vmcpsView }]
 	);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
@@ -192,7 +192,7 @@
 	/>
 {:else}
 	<TabLayout
-		title={m.vmcps_vmcps()}
+		title={m.vmcps()}
 		defaultView="vmcps"
 		rightNavActions={navActions}
 		{views}
@@ -311,5 +311,5 @@
 />
 
 <svelte:head>
-	<title>Obot | {creating ? m.vmcps_create_vmcp() : m.vmcps_vmcps()}</title>
+	<title>Obot | {creating ? m.vmcps_create_vmcp() : m.vmcps()}</title>
 </svelte:head>

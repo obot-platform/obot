@@ -48,10 +48,10 @@
 				createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 				lastUsedAtDisplay: key.lastUsedAt
 					? formatTimeAgo(key.lastUsedAt).relativeTime
-					: m.admin_routes_never_used(),
+					: m.identity_access_never_used(),
 				expiresAtDisplay: key.expiresAt
 					? formatTimeUntil(key.expiresAt).relativeTime
-					: m.admin_routes_never_expires(),
+					: m.identity_access_never_expires(),
 				mcpServerIds: key.mcpServerIds ?? []
 			}))
 			.filter((key) => (isAdmin ? true : key.userId.toString() === profile.current.id.toString()))
@@ -113,12 +113,12 @@
 			<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 				<KeyRound class="text-base-content/80 size-24 opacity-50" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.admin_routes_agents_no_identities()}
+					{m.identity_access_agents_no_identities()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{isAdmin ? m.admin_routes_agents_none_in_system() : m.admin_routes_agents_none_for_you()}
+					{isAdmin ? m.identity_access_agents_none_in_system() : m.identity_access_agents_none_for_you()}
 					<br />
-					{m.admin_routes_agents_click_create()}
+					{m.identity_access_agents_click_create()}
 				</p>
 
 				{#if !isAdmin}
@@ -126,12 +126,12 @@
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center gap-2">
 								<Info class="size-4 shrink-0" />
-								<p class="text-sm font-semibold">{m.admin_routes_agents_what_are_these()}</p>
+								<p class="text-sm font-semibold">{m.identity_access_agents_what_are_these()}</p>
 							</div>
 							<p class="whitespace-pre-line text-left text-sm font-light">
 								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
-									>{m.admin_routes_agents_create_first()}</button
+									>{m.identity_access_agents_create_first()}</button
 								>
 							</p>
 						</div>
@@ -146,12 +146,12 @@
 					: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 				headers={[
 					...(isAdmin
-						? [{ title: m.admin_routes_agents_col_created_by(), property: 'userDisplay' }]
+						? [{ title: m.identity_access_agents_col_created_by(), property: 'userDisplay' }]
 						: []),
-					{ title: m.admin_routes_col_name(), property: 'name' },
-					{ title: m.admin_routes_agents_col_capabilities(), property: 'capabilitiesDisplay' },
-					{ title: m.admin_routes_agents_col_last_used(), property: 'lastUsedAt' },
-					{ title: m.admin_routes_agents_col_expires(), property: 'expiresAt' }
+					{ title: m.core_col_name(), property: 'name' },
+					{ title: m.identity_access_agents_col_capabilities(), property: 'capabilitiesDisplay' },
+					{ title: m.identity_access_agents_col_last_used(), property: 'lastUsedAt' },
+					{ title: m.identity_access_agents_col_expires(), property: 'expiresAt' }
 				]}
 				filterable={isAdmin ? ['userDisplay', 'name'] : undefined}
 				sortable={isAdmin
@@ -177,7 +177,7 @@
 								{/each}
 								{#if d.mcpServerIds.length}
 									<span class="badge badge-ghost badge-xs whitespace-nowrap"
-										>{m.admin_routes_agents_servers_badge()}</span
+										>{m.identity_access_agents_servers_badge()}</span
 									>
 								{/if}
 							</div>
@@ -211,7 +211,7 @@
 			<div
 				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 			>
-				{m.admin_routes_agents_view_related_logs()}
+				{m.identity_access_agents_view_related_logs()}
 			</div>
 			<div class="flex flex-col gap-1 p-2 bg-base-200">
 				<a class="menu-button" href={resolve(url)}>
@@ -223,7 +223,7 @@
 			<div class="flex flex-col gap-1 p-2 pt-1">
 				<button class="menu-button text-error" onclick={() => (deletingKey = d)}>
 					<Trash2 class="size-4" />
-					{m.admin_routes_delete()}
+					{m.core_delete()}
 				</button>
 			</div>
 		{/if}
@@ -231,7 +231,7 @@
 {/snippet}
 
 <Confirm
-	msg={m.admin_routes_delete_named_quoted({ name: `${deletingKey?.name}` })}
+	msg={m.identity_access_delete_named_quoted({ name: `${deletingKey?.name}` })}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDelete}

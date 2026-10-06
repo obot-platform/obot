@@ -136,7 +136,7 @@
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
-						? m.admin_sub_filter_showing_up_to({ limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT })
+						? m.audit_usage_exports_filter_showing_up_to({ limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT })
 						: undefined;
 				},
 				get selected() {
@@ -233,7 +233,7 @@
 	class="dark:border-base-400 text-base-content h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl"
 >
 	<div class="relative w-full text-center">
-		<h4 class="p-4 text-xl font-semibold">{m.admin_sub_filters_title()}</h4>
+		<h4 class="p-4 text-xl font-semibold">{m.core_filters_title()}</h4>
 		<IconButton class="absolute top-1/2 right-4 -translate-y-1/2" onclick={onClose}>
 			<X class="size-5" />
 		</IconButton>
@@ -261,11 +261,11 @@
 		<div class="mt-auto flex flex-col gap-2">
 			<button
 				class="btn btn-secondary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleClearAllFilters}>{m.admin_sub_filter_clear_all()}</button
+				onclick={handleClearAllFilters}>{m.audit_usage_exports_filter_clear_all()}</button
 			>
 			<button
 				class="btn btn-primary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleApplyFilters}>{m.admin_sub_filter_apply_filters()}</button
+				onclick={handleApplyFilters}>{m.audit_usage_exports_filter_apply_filters()}</button
 			>
 		</div>
 	</div>

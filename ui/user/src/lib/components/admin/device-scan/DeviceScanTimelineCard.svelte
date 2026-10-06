@@ -15,18 +15,18 @@
 		rangeEnd,
 		timelineRows,
 		totalSubmissions,
-		emptyMsg = m.admin_sub_device_scan_no_submissions()
+		emptyMsg = m.inventory_enforcement_devices_scan_no_submissions()
 	}: Props = $props();
 </script>
 
 <div class="paper flex h-full flex-col gap-2 pt-4">
 	<div class="flex items-baseline justify-between gap-2">
-		<h4 class="font-semibold">{m.admin_sub_device_scan_timeline()}</h4>
+		<h4 class="font-semibold">{m.inventory_enforcement_devices_scan_timeline()}</h4>
 		{#if totalSubmissions > 0}
 			<span class="text-muted-content text-xs">
 				{totalSubmissions === 1
-					? m.admin_sub_device_scan_submissions_one({ count: totalSubmissions })
-					: m.admin_sub_device_scan_submissions_other({ count: totalSubmissions })}
+					? m.inventory_enforcement_devices_scan_submissions_one({ count: totalSubmissions })
+					: m.inventory_enforcement_devices_scan_submissions_other({ count: totalSubmissions })}
 			</span>
 		{/if}
 	</div>

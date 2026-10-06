@@ -75,7 +75,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder={m.routes_inv_search_servers()}
+	placeholder={m.inventory_enforcement_device_mcp_servers_search_servers()}
 />
 
 {#if loading}
@@ -83,10 +83,10 @@
 {:else if allRows.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Server class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">{m.routes_inv_no_servers_title()}</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.inventory_enforcement_device_mcp_servers_no_servers_title()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_inv_no_servers_prefix()}<code class="font-mono">obot scan</code
-			>{m.routes_inv_no_servers_suffix()}
+			{m.inventory_enforcement_device_mcp_servers_no_servers_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_device_mcp_servers_no_servers_suffix()}
 		</p>
 	</div>
 {:else}
@@ -95,11 +95,11 @@
 		pageSize={PAGE_SIZE}
 		fields={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
 		headers={[
-			{ title: m.routes_inv_col_name(), property: 'name' },
-			{ title: m.routes_inv_col_transport(), property: 'transport' },
-			{ title: m.routes_inv_col_devices(), property: 'deviceCount' },
-			{ title: m.routes_inv_col_users(), property: 'userCount' },
-			{ title: m.routes_inv_col_observations(), property: 'observationCount' }
+			{ title: m.inventory_enforcement_col_name(), property: 'name' },
+			{ title: m.inventory_enforcement_device_mcp_servers_col_transport(), property: 'transport' },
+			{ title: m.inventory_enforcement_col_devices(), property: 'deviceCount' },
+			{ title: m.inventory_enforcement_col_users(), property: 'userCount' },
+			{ title: m.inventory_enforcement_col_observations(), property: 'observationCount' }
 		]}
 		sortable={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
 		filterable={['name', 'transport']}
@@ -117,7 +117,7 @@
 				{#if d.name?.trim()}
 					{d.name.trim()}
 				{:else}
-					<span class="text-muted-content italic">{m.routes_inv_unnamed()}</span>
+					<span class="text-muted-content italic">{m.inventory_enforcement_unnamed()}</span>
 				{/if}
 			{:else if property === 'transport'}
 				<span class="pill-primary bg-primary text-xs">{d.transport}</span>

@@ -47,8 +47,8 @@
 				<h3 class="text-lg font-semibold">{ctx.provider.displayName}</h3>
 				<span class="text-muted-content text-xs">
 					{models.length === 1
-						? m.core_models_available_one({ count: models.length })
-						: m.core_models_available_other({ count: models.length })}
+						? m.models_gateway_models_available_one({ count: models.length })
+						: m.models_gateway_models_available_other({ count: models.length })}
 				</span>
 			</div>
 		</div>
@@ -62,22 +62,22 @@
 	{#if expanded}
 		<div class="border-base-300 dark:border-base-400 flex flex-col gap-6 border-t p-4">
 			<div class="flex flex-col gap-2">
-				<h4 class="text-sm font-semibold">{m.core_base_url()}</h4>
+				<h4 class="text-sm font-semibold">{m.models_gateway_base_url()}</h4>
 				<div
 					class="bg-base-200 dark:bg-base-300 flex items-center justify-between gap-3 rounded-md px-3 py-2"
 				>
 					<code class="truncate font-mono text-xs">{ctx.baseURL}</code>
-					<CopyButton showTextLeft text={ctx.baseURL} tooltipText={m.core_copy_base_url()} />
+					<CopyButton showTextLeft text={ctx.baseURL} tooltipText={m.models_gateway_copy_base_url()} />
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h4 class="text-sm font-semibold">{m.core_example_request()}</h4>
+				<h4 class="text-sm font-semibold">{m.models_gateway_example_request()}</h4>
 				<LLMGatewayCodeBlock block={curlBlock} />
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h4 class="text-sm font-semibold">{m.core_available_models()}</h4>
+				<h4 class="text-sm font-semibold">{m.models_gateway_available_models()}</h4>
 				<LLMGatewayModelList {models} />
 			</div>
 		</div>

@@ -43,10 +43,10 @@
 				<Info class="size-6" />
 				<div>
 					{maximumsLocked && !locked
-						? m.admin_misc_helm_managed_max_prefix()
-						: m.admin_misc_helm_managed_settings_prefix()}
-					<b class="font-semibold">{m.admin_misc_read_only()}</b>
-					{m.admin_misc_helm_managed_suffix()}
+						? m.platform_mcp_config_scheduling_helm_managed_max_prefix()
+						: m.platform_mcp_config_scheduling_helm_managed_settings_prefix()}
+					<b class="font-semibold">{m.platform_mcp_config_scheduling_read_only()}</b>
+					{m.platform_mcp_config_scheduling_helm_managed_suffix()}
 				</div>
 			</div>
 		</div>
@@ -59,135 +59,135 @@
 
 <div class="paper mt-1">
 	<div>
-		{@render headerContent(m.admin_misc_affinity())}
+		{@render headerContent(m.platform_mcp_config_scheduling_affinity())}
 		<p class="text-sm">
-			{m.admin_misc_affinity_desc_1({
+			{m.platform_mcp_config_scheduling_affinity_desc_1({
 				target:
 					type === 'app'
-						? m.admin_misc_target_application_deployment()
-						: m.admin_misc_target_pods_every_mcp_deployment()
+						? m.platform_mcp_config_scheduling_target_application_deployment()
+						: m.platform_mcp_config_scheduling_target_pods_every_mcp_deployment()
 			})}
 			<code>spec.template.spec.affinity</code>
-			{m.admin_misc_affinity_desc_2()}
+			{m.platform_mcp_config_scheduling_affinity_desc_2()}
 			<a
 				class="text-link"
 				href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#affinity-v1-core"
 				rel="external noopener noreferrer"
-				target="_blank">{m.admin_misc_affinity_object()}</a
-			>{m.admin_misc_affinity_desc_3()}
+				target="_blank">{m.platform_mcp_config_scheduling_affinity_object()}</a
+			>{m.platform_mcp_config_scheduling_affinity_desc_3()}
 			<a
 				href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity"
 				target="_blank"
 				rel="external noopener noreferrer"
-				class="text-link">{m.admin_misc_affinity_documentation()}</a
+				class="text-link">{m.platform_mcp_config_scheduling_affinity_documentation()}</a
 			>
-			{m.admin_misc_see_for_more_details()}
+			{m.platform_mcp_config_scheduling_see_for_more_details()}
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<div class="text-sm font-light">{m.admin_misc_affinity_configuration()}</div>
+		<div class="text-sm font-light">{m.platform_mcp_config_scheduling_affinity_configuration()}</div>
 		<YamlEditor bind:value={affinity} disabled={readonly} placeholder="" rows={6} autoHeight />
 	</div>
 </div>
 <div class="paper mt-1">
 	<div>
-		{@render headerContent(m.admin_misc_tolerations())}
+		{@render headerContent(m.platform_mcp_config_scheduling_tolerations())}
 		<p class="text-sm">
-			{m.admin_misc_tolerations_desc_1({
+			{m.platform_mcp_config_scheduling_tolerations_desc_1({
 				target:
 					type === 'app'
-						? m.admin_misc_target_application_deployment()
-						: m.admin_misc_target_pods_every_mcp_deployment()
+						? m.platform_mcp_config_scheduling_target_application_deployment()
+						: m.platform_mcp_config_scheduling_target_pods_every_mcp_deployment()
 			})}
 			<code>spec.template.spec.tolerations</code>
-			{m.admin_misc_tolerations_desc_2()}
+			{m.platform_mcp_config_scheduling_tolerations_desc_2()}
 			<a
 				href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#toleration-v1-core"
 				class="text-link"
 				rel="external noopener noreferrer"
-				target="_blank">{m.admin_misc_toleration_objects()}</a
-			>{m.admin_misc_affinity_desc_3()}
+				target="_blank">{m.platform_mcp_config_scheduling_toleration_objects()}</a
+			>{m.platform_mcp_config_scheduling_affinity_desc_3()}
 			<a
 				href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/"
 				target="_blank"
 				rel="external noopener noreferrer"
-				class="text-link">{m.admin_misc_taints_tolerations_documentation()}</a
+				class="text-link">{m.platform_mcp_config_scheduling_taints_tolerations_documentation()}</a
 			>
-			{m.admin_misc_see_for_more_details()}
+			{m.platform_mcp_config_scheduling_see_for_more_details()}
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<div class="text-sm font-light">{m.admin_misc_tolerations_configuration()}</div>
+		<div class="text-sm font-light">{m.platform_mcp_config_scheduling_tolerations_configuration()}</div>
 		<YamlEditor bind:value={tolerations} disabled={readonly} placeholder="" rows={6} autoHeight />
 	</div>
 </div>
 <div class="paper mt-1">
 	<div>
-		{@render headerContent(m.admin_misc_resource_limits_requests())}
+		{@render headerContent(m.platform_mcp_config_scheduling_resource_limits_requests())}
 		<p class="text-sm">
-			{m.admin_misc_resources_desc_1({
+			{m.platform_mcp_config_scheduling_resources_desc_1({
 				target:
 					type === 'app'
-						? m.admin_misc_target_the_application_deployment()
-						: m.admin_misc_target_pods_every_hosted_deployment()
+						? m.platform_mcp_config_scheduling_target_the_application_deployment()
+						: m.platform_mcp_config_scheduling_target_pods_every_hosted_deployment()
 			})}
 			<a
 				href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 				class="text-link"
 				rel="external noopener noreferrer"
-				target="_blank">{m.admin_misc_resource_management_documentation()}</a
+				target="_blank">{m.platform_mcp_config_scheduling_resource_management_documentation()}</a
 			>
-			{m.admin_misc_see_for_more_information()}
+			{m.platform_mcp_config_scheduling_see_for_more_information()}
 		</p>
 	</div>
 
-	<h3 class="text-base font-semibold">{m.admin_misc_cpu_settings()}</h3>
+	<h3 class="text-base font-semibold">{m.platform_mcp_config_scheduling_cpu_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="cpu-request">{m.admin_misc_request()}</label>
+			<label class="input-label" for="cpu-request">{m.platform_mcp_config_scheduling_request()}</label>
 			<input
 				type="text"
 				id="cpu-request"
 				bind:value={resourceInfo.requests.cpu}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.admin_misc_example_value({ value: '500m' })}
+				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '500m' })}
 			/>
 		</div>
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="cpu-limit">{m.admin_misc_limit()}</label>
+			<label class="input-label" for="cpu-limit">{m.platform_mcp_config_scheduling_limit()}</label>
 			<input
 				type="text"
 				id="cpu-limit"
 				bind:value={resourceInfo.limits.cpu}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.admin_misc_example_value({ value: '1' })}
+				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '1' })}
 			/>
 		</div>
 	</div>
-	<h3 class="text-base font-semibold">{m.admin_misc_memory_settings()}</h3>
+	<h3 class="text-base font-semibold">{m.platform_mcp_config_scheduling_memory_settings()}</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="memory-request">{m.admin_misc_request()}</label>
+			<label class="input-label" for="memory-request">{m.platform_mcp_config_scheduling_request()}</label>
 			<input
 				type="text"
 				id="memory-request"
 				bind:value={resourceInfo.requests.memory}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.admin_misc_example_value({ value: '512Mi' })}
+				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '512Mi' })}
 			/>
 		</div>
 		<div class="flex flex-1 flex-col gap-1">
-			<label class="input-label" for="memory-limit">{m.admin_misc_limit()}</label>
+			<label class="input-label" for="memory-limit">{m.platform_mcp_config_scheduling_limit()}</label>
 			<input
 				type="text"
 				id="memory-limit"
 				bind:value={resourceInfo.limits.memory}
 				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
-				placeholder={m.admin_misc_example_value({ value: '1Gi' })}
+				placeholder={m.platform_mcp_config_scheduling_example_value({ value: '1Gi' })}
 			/>
 		</div>
 	</div>
@@ -199,20 +199,20 @@
 </div>
 <div class="paper mt-1">
 	<div>
-		{@render headerContent(m.admin_misc_runtime_class())}
+		{@render headerContent(m.platform_mcp_config_scheduling_runtime_class())}
 		<p class="text-sm">
-			{m.admin_misc_runtime_desc_1()}
+			{m.platform_mcp_config_scheduling_runtime_desc_1()}
 			<a
 				href="https://kubernetes.io/docs/concepts/containers/runtime-class/"
 				class="text-link"
 				rel="external noopener noreferrer"
 				target="_blank">RuntimeClass</a
 			>
-			{m.admin_misc_runtime_desc_2({
+			{m.platform_mcp_config_scheduling_runtime_desc_2({
 				target:
 					type === 'app'
-						? m.admin_misc_target_the_application_deployment()
-						: m.admin_misc_target_mcp_server_pods()
+						? m.platform_mcp_config_scheduling_target_the_application_deployment()
+						: m.platform_mcp_config_scheduling_target_mcp_server_pods()
 			})}
 			<a
 				href="https://gvisor.dev/"
@@ -220,28 +220,28 @@
 				rel="external noopener noreferrer"
 				target="_blank">gVisor</a
 			>
-			{m.admin_misc_or()}
+			{m.platform_mcp_config_scheduling_or()}
 			<a
 				href="https://katacontainers.io/"
 				class="text-link"
 				rel="external noopener noreferrer"
 				target="_blank">Kata Containers</a
 			>
-			{m.admin_misc_runtime_desc_3()}
+			{m.platform_mcp_config_scheduling_runtime_desc_3()}
 		</p>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label class="input-label" for="runtime-class-name">{m.admin_misc_runtime_class_name()}</label>
+		<label class="input-label" for="runtime-class-name">{m.platform_mcp_config_scheduling_runtime_class_name()}</label>
 		<input
 			type="text"
 			id="runtime-class-name"
 			bind:value={runtimeClassName}
 			class="text-input-filled dark:bg-base-100"
 			disabled={readonly}
-			placeholder={m.admin_misc_example_value({ value: 'gvisor' })}
+			placeholder={m.platform_mcp_config_scheduling_example_value({ value: 'gvisor' })}
 		/>
 		<p class="text-xs font-light text-muted-content">
-			{m.admin_misc_runtime_leave_empty()}
+			{m.platform_mcp_config_scheduling_runtime_leave_empty()}
 		</p>
 	</div>
 </div>
@@ -256,7 +256,7 @@
 		{#if locked}
 			<span class="pill-rounded nowrap font-light">
 				<Lock class="size-3" />
-				{m.admin_misc_helm_deployed()}
+				{m.platform_mcp_config_scheduling_helm_deployed()}
 			</span>
 		{/if}
 	</h2>

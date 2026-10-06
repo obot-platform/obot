@@ -279,14 +279,14 @@
 		const errors: Record<string, string> = {};
 
 		if (form.type === 'basic') {
-			if (!form.server.trim()) errors.server = m.admin_routes_reg_server_required();
-			if (!form.username.trim()) errors.username = m.admin_routes_reg_username_required();
+			if (!form.server.trim()) errors.server = m.platform_settings_registry_server_required();
+			if (!form.username.trim()) errors.username = m.platform_settings_registry_username_required();
 			if (!currentSecret?.status?.passwordConfigured && !form.password) {
-				errors.password = m.admin_routes_reg_password_required();
+				errors.password = m.platform_settings_registry_password_required();
 			}
 		} else {
-			if (!form.roleARN.trim()) errors.roleARN = m.admin_routes_reg_role_arn_required();
-			if (!form.region.trim()) errors.region = m.admin_routes_reg_region_required();
+			if (!form.roleARN.trim()) errors.roleARN = m.platform_settings_registry_role_arn_required();
+			if (!form.region.trim()) errors.region = m.platform_settings_registry_region_required();
 		}
 
 		return errors;
@@ -361,7 +361,7 @@
 					} catch (error) {
 						failedCreates.push(draft);
 						errors.append(
-							error instanceof Error ? error.message : m.admin_routes_reg_save_failed()
+							error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 						);
 					}
 				}),
@@ -378,7 +378,7 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : m.admin_routes_reg_save_failed()
+								error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 							);
 						}
 					}),
@@ -389,7 +389,7 @@
 					} catch (error) {
 						failedDeletes.push(id);
 						errors.append(
-							error instanceof Error ? error.message : m.admin_routes_reg_delete_failed()
+							error instanceof Error ? error.message : m.platform_settings_registry_delete_failed()
 						);
 					}
 				})
@@ -454,7 +454,7 @@
 				{ dontLogErrors: true }
 			);
 		} catch (err) {
-			testError = err instanceof Error ? err.message : m.admin_routes_reg_test_failed();
+			testError = err instanceof Error ? err.message : m.platform_settings_registry_test_failed();
 		} finally {
 			testing = false;
 		}
@@ -473,7 +473,7 @@
 			statusDetails = details;
 			upsertSecret(details);
 		} catch (err) {
-			statusError = err instanceof Error ? err.message : m.admin_routes_reg_status_failed();
+			statusError = err instanceof Error ? err.message : m.platform_settings_registry_status_failed();
 		} finally {
 			statusLoading = false;
 		}
@@ -492,7 +492,7 @@
 		refreshMessage = '';
 		try {
 			const response = await AdminService.refreshImagePullSecret(secret.id);
-			refreshMessage = response.message ?? m.admin_routes_reg_refresh_started();
+			refreshMessage = response.message ?? m.platform_settings_registry_refresh_started();
 			await refreshList();
 		} finally {
 			refreshing = false;
@@ -529,16 +529,16 @@
 <ResponsiveDialog
 	bind:this={editorDialog}
 	title={mode === 'edit'
-		? m.admin_routes_reg_edit_named({
+		? m.platform_settings_registry_edit_named({
 				name: currentSecret
 					? displayName(currentSecret)
 					: form.type === 'basic'
-						? m.admin_routes_reg_basic_secret()
-						: m.admin_routes_reg_ecr_secret()
+						? m.platform_settings_registry_basic_secret()
+						: m.platform_settings_registry_ecr_secret()
 			})
 		: form.type === 'basic'
-			? m.admin_routes_ips_add_basic()
-			: m.admin_routes_ips_add_ecr()}
+			? m.platform_settings_image_pull_secrets_add_basic()
+			: m.platform_settings_image_pull_secrets_add_ecr()}
 	class="w-full md:max-w-4xl"
 	onClose={closeEditor}
 >
@@ -575,7 +575,7 @@
 					disabled={formLocked || !canStage}
 					onclick={stageSecret}
 				>
-					{mode === 'edit' ? m.admin_routes_update() : m.admin_routes_add()}
+					{mode === 'edit' ? m.core_update() : m.platform_add()}
 				</button>
 			</div>
 		</div>
@@ -583,15 +583,15 @@
 </ResponsiveDialog>
 
 <Confirm
-	title={m.admin_routes_reg_refresh_title()}
+	title={m.platform_settings_registry_refresh_title()}
 	type="info"
-	msg={m.admin_routes_reg_refresh_msg({
-		name: refreshingSecret ? displayName(refreshingSecret) : m.admin_routes_reg_this_secret()
+	msg={m.platform_settings_registry_refresh_msg({
+		name: refreshingSecret ? displayName(refreshingSecret) : m.platform_settings_registry_this_secret()
 	})}
-	note={m.admin_routes_reg_refresh_note()}
+	note={m.platform_settings_registry_refresh_note()}
 	show={Boolean(refreshingSecret)}
 	loading={refreshing}
-	submitText={m.admin_routes_refresh()}
+	submitText={m.platform_refresh()}
 	onsuccess={async () => {
 		if (!refreshingSecret) return;
 		await refreshECR(refreshingSecret);

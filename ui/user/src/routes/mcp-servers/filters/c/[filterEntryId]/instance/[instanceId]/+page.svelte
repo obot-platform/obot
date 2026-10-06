@@ -6,7 +6,7 @@
 
 	let { data } = $props();
 	let { filter, entry } = $derived(data);
-	let title = $derived(entry?.manifest.name ?? filter?.name ?? m.routes_mcp_filter());
+	let title = $derived(entry?.manifest.name ?? filter?.name ?? m.mcps_filters_filter());
 	let selected = $derived<string>((page.url.searchParams.get('view') as string) || 'configuration');
 
 	function handleSelectionChange(newSelection: string) {

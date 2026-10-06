@@ -93,24 +93,24 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={m.admin_sub_enf_add_to_allowlist()}
+	title={m.inventory_enforcement_enforcement_events_add_to_allowlist()}
 	class="w-full max-w-md"
 >
 	{#if loading}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-8 text-sm">
 			<Loading class="size-5" />
-			<span>{m.admin_sub_enf_loading_policy()}</span>
+			<span>{m.inventory_enforcement_enforcement_events_loading_policy()}</span>
 		</div>
 	{:else if loadError}
 		<div class="notification-error flex items-start gap-3 p-3">
 			<CircleAlert class="size-4 shrink-0" />
 			<div class="flex flex-col gap-1">
-				<p class="text-sm font-semibold">{m.admin_sub_enf_unable_to_load_policy()}</p>
+				<p class="text-sm font-semibold">{m.inventory_enforcement_enforcement_events_unable_to_load_policy()}</p>
 				<p class="text-sm font-light break-all">{loadError}</p>
 			</div>
 		</div>
 	{:else if applied}
-		<p class="text-sm">{m.admin_sub_enf_allowlist_updated()}</p>
+		<p class="text-sm">{m.inventory_enforcement_enforcement_events_allowlist_updated()}</p>
 	{:else if entry}
 		<div class="flex flex-col gap-4">
 			<p class="text-sm font-medium">{QUICK_ALLOW_LABELS[action]}</p>
@@ -123,58 +123,58 @@
 					</div>
 				{:else if kind === 'hostname'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.admin_sub_log_hostname()}</span>
+						<span class="font-medium">{m.audit_usage_audit_logs_hostname()}</span>
 						<span class="break-all">{entry.hostname}</span>
 					</div>
 				{:else if kind === 'connector'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.admin_sub_enf_connector()}</span>
+						<span class="font-medium">{m.inventory_enforcement_enforcement_events_connector()}</span>
 						<span class="break-all">{entry.connector}</span>
 					</div>
 				{:else if kind === 'package'}
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.admin_sub_enf_registry()}</span>
+						<span class="font-medium">{m.inventory_enforcement_enforcement_events_registry()}</span>
 						<span>{PACKAGE_SOURCE_LABELS[entry.package!.source]}</span>
 					</div>
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.admin_sub_enf_package()}</span>
+						<span class="font-medium">{m.inventory_enforcement_enforcement_events_package()}</span>
 						<span class="break-all">{entry.package!.name}</span>
 					</div>
 					<div class="grid grid-cols-[7rem_1fr] gap-2">
-						<span class="font-medium">{m.admin_sub_enf_version()}</span>
-						<span>{m.admin_sub_enf_any()}</span>
+						<span class="font-medium">{m.inventory_enforcement_enforcement_events_version()}</span>
+						<span>{m.inventory_enforcement_enforcement_events_any()}</span>
 					</div>
 				{/if}
 				<div class="grid grid-cols-[7rem_1fr] gap-2">
-					<span class="font-medium">{m.admin_sub_export_filter_title_tools()}</span>
+					<span class="font-medium">{m.audit_usage_exports_filter_title_tools()}</span>
 					<span class="break-all"
-						>{entry.tools?.length ? entry.tools.join(', ') : m.admin_sub_enf_all()}</span
+						>{entry.tools?.length ? entry.tools.join(', ') : m.inventory_enforcement_enforcement_events_all()}</span
 					>
 				</div>
 			</div>
 
 			{#if effect === 'no-op'}
 				<p class="text-muted-content text-sm">
-					{m.admin_sub_enf_allowlist_covers_note()}
+					{m.inventory_enforcement_enforcement_events_allowlist_covers_note()}
 				</p>
 			{:else}
 				<p class="text-muted-content text-sm">
 					{#if action === 'hostname'}
-						{m.admin_sub_enf_future_hostname()}
+						{m.inventory_enforcement_enforcement_events_future_hostname()}
 					{:else if action === 'server'}
-						{m.admin_sub_enf_future_server()}
+						{m.inventory_enforcement_enforcement_events_future_server()}
 					{:else}
-						{m.admin_sub_enf_future_tool()}
+						{m.inventory_enforcement_enforcement_events_future_tool()}
 					{/if}
 				</p>
 
 				{#if effect === 'widened'}
 					<p class="text-muted-content text-xs">
-						{m.admin_sub_enf_widened_note()}
+						{m.inventory_enforcement_enforcement_events_widened_note()}
 					</p>
 				{:else if effect === 'tool-added'}
 					<p class="text-muted-content text-xs">
-						{m.admin_sub_enf_tool_added_note()}
+						{m.inventory_enforcement_enforcement_events_tool_added_note()}
 					</p>
 				{/if}
 
@@ -182,7 +182,7 @@
 					<div class="notification-alert flex items-start gap-2.5 p-2.5">
 						<TriangleAlert class="size-4 shrink-0" />
 						<span class="text-xs">
-							{m.admin_sub_enf_disabled_rule_note()}
+							{m.inventory_enforcement_enforcement_events_disabled_rule_note()}
 						</span>
 					</div>
 				{/if}
@@ -196,7 +196,7 @@
 
 	<div class="mt-6 flex justify-end gap-2">
 		{#if applied || loadError || effect === 'no-op'}
-			<button class="btn btn-primary" onclick={() => dialog?.close()}>{m.admin_sub_close()}</button>
+			<button class="btn btn-primary" onclick={() => dialog?.close()}>{m.core_close()}</button>
 		{:else}
 			<button class="btn btn-secondary" disabled={saving} onclick={() => dialog?.close()}>
 				{m.common_cancel()}
@@ -207,7 +207,7 @@
 				onclick={apply}
 			>
 				{#if saving}<Loading class="size-4" />{/if}
-				{m.admin_sub_enf_add_to_allowlist()}
+				{m.inventory_enforcement_enforcement_events_add_to_allowlist()}
 			</button>
 		{/if}
 	</div>

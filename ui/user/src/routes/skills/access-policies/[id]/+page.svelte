@@ -12,7 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let title = $derived(
-		skillAccessPolicy?.displayName ?? m.routes_skills_access_policy_fallback_title()
+		skillAccessPolicy?.displayName ?? m.skills_access_policy_fallback_title()
 	);
 </script>
 

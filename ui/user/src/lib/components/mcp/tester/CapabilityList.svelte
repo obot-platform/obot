@@ -44,7 +44,7 @@
 
 <section
 	class="flex flex-col gap-3 p-1 md:min-h-0"
-	aria-label={m.mcp_tester_capability_list({ label })}
+	aria-label={m.mcps_tester_capability_list({ label })}
 >
 	<div class="flex shrink-0 flex-wrap gap-2">
 		<label class="relative min-w-48 flex-1">
@@ -53,13 +53,13 @@
 				aria-hidden="true"
 			/>
 			<span class="sr-only"
-				>{m.mcp_tester_capability_search({ label: label.toLocaleLowerCase() })}</span
+				>{m.mcps_tester_capability_search({ label: label.toLocaleLowerCase() })}</span
 			>
 			<input
 				class="text-input-filled pl-9"
 				bind:value={search}
 				type="search"
-				placeholder={m.mcp_tester_capability_search({ label: label.toLocaleLowerCase() })}
+				placeholder={m.mcps_tester_capability_search({ label: label.toLocaleLowerCase() })}
 			/>
 		</label>
 		{#if loading}
@@ -70,20 +70,20 @@
 		{:else}
 			<button type="button" class="btn btn-secondary" disabled={busy} onclick={onrefresh}>
 				<RefreshCw class="size-4" aria-hidden="true" />
-				{m.mcp_refresh()}
+				{m.mcps_tester_refresh()}
 			</button>
 		{/if}
 	</div>
 
 	{#if loading && items.length === 0}
 		<p class="py-8 text-center text-sm text-muted-content" aria-live="polite">
-			{m.mcp_tester_capability_loading({ label: label.toLocaleLowerCase() })}
+			{m.mcps_tester_capability_loading({ label: label.toLocaleLowerCase() })}
 		</p>
 	{:else if filtered.length === 0}
 		<p class="py-8 text-center text-sm text-muted-content">
 			{search
-				? m.mcp_tester_capability_no_match({ label: label.toLocaleLowerCase() })
-				: m.mcp_tester_capability_none_found({ label: label.toLocaleLowerCase() })}
+				? m.mcps_tester_capability_no_match({ label: label.toLocaleLowerCase() })
+				: m.mcps_tester_capability_none_found({ label: label.toLocaleLowerCase() })}
 		</p>
 	{:else}
 		<!-- Capped on narrow screens; from md up it fills the height its column is given. -->

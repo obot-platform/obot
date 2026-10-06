@@ -49,8 +49,8 @@
 	{#if showTitle}
 		<div class="flex justify-between items-center gap-4">
 			<p class="text-sm font-light flex items-center gap-1">
-				{m.mcp_options_title()}
-				<InfoTooltip text={m.mcp_options_tooltip()} />
+				{m.mcps_options_title()}
+				<InfoTooltip text={m.mcps_catalog_options_tooltip()} />
 			</p>
 			{#if (data.options ?? []).length === 0}
 				{@render addOptionButton()}
@@ -68,7 +68,7 @@
 				<div class="flex flex-col gap-4 grow">
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-name-container-${i}`}>
 						<Label
-							title={m.mcp_field_name()}
+							title={m.mcps_field_name()}
 							forInput={`env-option-name-${id}-${i}`}
 							required
 							showError={missingOptionName}
@@ -88,7 +88,7 @@
 					</div>
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-value-container-${i}`}>
 						<Label
-							title={m.mcp_field_value()}
+							title={m.mcps_field_value()}
 							forInput={`env-option-value-${id}-${i}`}
 							required
 							showError={missingOptionValue || duplicateOptionValue}
@@ -110,13 +110,13 @@
 						/>
 						{#if duplicateOptionValue}
 							<p id={`env-option-value-${id}-${i}-error`} class="text-xs text-error" role="alert">
-								{m.mcp_options_unique()}
+								{m.mcps_catalog_options_unique()}
 							</p>
 						{/if}
 					</div>
 					<div class="flex w-full flex-col gap-1" id={`${id}-option-description-container-${i}`}>
 						<Label
-							title={m.mcp_field_description()}
+							title={m.mcps_field_description()}
 							forInput={`env-option-description-${id}-${i}`}
 						/>
 						<input
@@ -133,7 +133,7 @@
 				{#if !readonly && !isPrebuiltEntry}
 					<div
 						use:tooltip={{
-							text: data.options?.length === 1 ? m.mcp_options_at_least_one() : undefined
+							text: data.options?.length === 1 ? m.mcps_catalog_options_at_least_one() : undefined
 						}}
 					>
 						<IconButton
@@ -151,7 +151,7 @@
 			</div>
 		{/each}
 	{:else if readonly || isPrebuiltEntry}
-		<p class="text-muted-content text-sm font-light">{m.mcp_options_none()}</p>
+		<p class="text-muted-content text-sm font-light">{m.mcps_catalog_options_none()}</p>
 	{/if}
 	{#if (data.options ?? []).length > 0}
 		<div class="flex justify-end w-full">
@@ -168,7 +168,7 @@
 			onclick={handleAddOption}
 		>
 			<Plus class="size-4" />
-			{m.mcp_option()}
+			{m.mcps_catalog_option()}
 		</button>
 	{/if}
 {/snippet}

@@ -961,7 +961,7 @@
 	oncancel={() => (confirmDeleteProfile = undefined)}
 	msg=""
 	loading={saving}
-	title={m.vmcps_confirm_delete()}
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
 		{m.vmcps_delete_confirm_prefix()}<b>{confirmDeleteProfile?.name ?? m.vmcps_this_profile()}</b
@@ -1034,7 +1034,7 @@
 			<section>
 				<label class="flex flex-col gap-0.5" for="profile-name">
 					<span class={twMerge('font-light text-sm', nameError && 'text-error')}
-						>{m.vmcps_name()}</span
+						>{m.vmcps_deployments_name()}</span
 					>
 					<input
 						id="profile-name"
@@ -1278,7 +1278,7 @@
 												? m.vmcps_group()
 												: display.role
 													? getUserRoleLabel(display.role)
-													: m.vmcps_user()}
+													: m.vmcps_deployments_user()}
 										</span>
 									</div>
 								</div>

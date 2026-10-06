@@ -79,7 +79,7 @@
 	{#if needsUpdate}
 		<div
 			class="absolute -top-1 right-7 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
-			use:tooltip={m.mcp_card_requires_update()}
+			use:tooltip={m.mcps_servers_card_requires_update()}
 		>
 			<TriangleAlert class="size-4 text-warning" />
 		</div>

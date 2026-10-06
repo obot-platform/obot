@@ -25,33 +25,33 @@
 
 	function defaultPlaceholder(value: string | undefined, example: string) {
 		if (defaultResources) {
-			return value || m.mcp_resources_none();
+			return value || m.mcps_catalog_resources_none();
 		}
 		return example;
 	}
 </script>
 
 <div class="paper">
-	<h4 class="text-sm font-semibold">{m.mcp_resources_title()}</h4>
+	<h4 class="text-sm font-semibold">{m.mcps_catalog_resources_title()}</h4>
 	<p class="text-xs text-muted-content">
-		{m.mcp_resources_description_prefix()}<a
+		{m.mcps_catalog_resources_description_prefix()}<a
 			href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 			class="text-link"
 			rel="external noopener noreferrer"
-			target="_blank">{m.mcp_resources_description_link()}</a
-		>{m.mcp_resources_description_suffix()}
+			target="_blank">{m.mcps_catalog_resources_description_link()}</a
+		>{m.mcps_catalog_resources_description_suffix()}
 	</p>
 
 	<div class="flex flex-col gap-3">
 		<div class="flex items-center gap-1">
 			<h5 class="text-xs font-semibold uppercase tracking-wide">
-				{m.mcp_resources_cpu_settings()}
+				{m.mcps_catalog_resources_cpu_settings()}
 			</h5>
 		</div>
 		<div class="flex items-center gap-4 w-full">
 			<div class="flex flex-col gap-1 flex-1">
 				<label for="resource-requests-cpu" class="w-20 text-sm font-light">
-					{m.mcp_resources_request()}
+					{m.mcps_catalog_resources_request()}
 				</label>
 				<input
 					id="resource-requests-cpu"
@@ -60,7 +60,7 @@
 					disabled={readonly}
 					placeholder={defaultPlaceholder(
 						defaultResources?.requests?.cpu,
-						m.mcp_example({ example: '10m' })
+						m.mcps_example({ example: '10m' })
 					)}
 					onblur={() => {
 						if (config.requests?.cpu) {
@@ -71,7 +71,7 @@
 			</div>
 			<div class="flex flex-col gap-1 flex-1">
 				<label for="resource-limits-cpu" class="w-20 text-sm font-light">
-					{m.mcp_resources_limit()}
+					{m.mcps_catalog_resources_limit()}
 				</label>
 				<input
 					id="resource-limits-cpu"
@@ -80,7 +80,7 @@
 					disabled={readonly}
 					placeholder={defaultPlaceholder(
 						defaultResources?.limits?.cpu,
-						m.mcp_example({ example: '10m' })
+						m.mcps_example({ example: '10m' })
 					)}
 					onblur={() => {
 						if (config.limits?.cpu) {
@@ -95,12 +95,12 @@
 
 		<div class="flex flex-col gap-3">
 			<h5 class="text-xs font-semibold uppercase tracking-wide">
-				{m.mcp_resources_memory_settings()}
+				{m.mcps_catalog_resources_memory_settings()}
 			</h5>
 			<div class="flex items-center gap-4 w-full">
 				<div class="flex flex-col gap-1 flex-1">
 					<label for="resource-requests-memory" class="w-20 text-sm font-light">
-						{m.mcp_resources_request()}
+						{m.mcps_catalog_resources_request()}
 					</label>
 					<input
 						id="resource-requests-memory"
@@ -109,7 +109,7 @@
 						disabled={readonly}
 						placeholder={defaultPlaceholder(
 							defaultResources?.requests?.memory,
-							m.mcp_example({ example: '200Mi' })
+							m.mcps_example({ example: '200Mi' })
 						)}
 						onblur={() => {
 							if (config.requests?.memory) {
@@ -120,7 +120,7 @@
 				</div>
 				<div class="flex flex-col gap-1 flex-1">
 					<label for="resource-limits-memory" class="w-20 text-sm font-light">
-						{m.mcp_resources_limit()}
+						{m.mcps_catalog_resources_limit()}
 					</label>
 					<input
 						id="resource-limits-memory"
@@ -129,7 +129,7 @@
 						disabled={readonly}
 						placeholder={defaultPlaceholder(
 							defaultResources?.limits?.memory,
-							m.mcp_example({ example: '200Mi' })
+							m.mcps_example({ example: '200Mi' })
 						)}
 						onblur={() => {
 							if (config.limits?.memory) {

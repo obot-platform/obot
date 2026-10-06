@@ -51,11 +51,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_invd_page_title_mcp_server_named({ name: server?.name ?? '' })}</title>
+	<title>{m.inventory_enforcement_devices_page_title_mcp_server_named({ name: server?.name ?? '' })}</title>
 </svelte:head>
 
 <Layout
-	title={server?.name || m.routes_invd_mcp_server()}
+	title={server?.name || m.inventory_enforcement_mcp_server()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -71,7 +71,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan || !server}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_mcp_not_found_in_scan()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_devices_mcp_not_found_in_scan()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
@@ -87,15 +87,15 @@
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if endpoint}
-						<dt class="text-muted-content">{m.routes_invd_label_endpoint()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_endpoint()}</dt>
 						<dd class="break-all">{endpoint}</dd>
 					{/if}
 					{#if server.command}
-						<dt class="text-muted-content">{m.routes_invd_label_command()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_label_command()}</dt>
 						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
-						<dt class="text-muted-content">{m.routes_invd_label_args()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_args()}</dt>
 						<dd class="text-xs break-all">
 							{#each server.args as arg, i (i)}
 								<span class="dark:bg-base-400 bg-base-300 mr-1 inline-block rounded px-1.5 py-0.5">
@@ -105,10 +105,10 @@
 						</dd>
 					{/if}
 					{#if server.url}
-						<dt class="text-muted-content">{m.routes_invd_label_url()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_label_url()}</dt>
 						<dd class="break-all">{server.url}</dd>
 					{/if}
-					<dt class="text-muted-content">{m.routes_invd_label_env_keys()}</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_label_env_keys()}</dt>
 					<dd>
 						{#if server.envKeys && server.envKeys.length > 0}
 							<div class="flex flex-wrap gap-2">
@@ -119,10 +119,10 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-muted-content">{m.routes_invd_none()}</span>
+							<span class="text-muted-content">{m.inventory_enforcement_devices_none()}</span>
 						{/if}
 					</dd>
-					<dt class="text-muted-content">{m.routes_invd_label_header_keys()}</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_label_header_keys()}</dt>
 					<dd>
 						{#if server.headerKeys && server.headerKeys.length > 0}
 							<div class="flex flex-wrap gap-2">
@@ -133,15 +133,15 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-muted-content">{m.routes_invd_none()}</span>
+							<span class="text-muted-content">{m.inventory_enforcement_devices_none()}</span>
 						{/if}
 					</dd>
 					{#if server.file}
-						<dt class="text-muted-content">{m.routes_invd_label_file()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_file()}</dt>
 						<dd class="text-sm break-all">{server.file}</dd>
 					{/if}
 					{#if parentPlugin}
-						<dt class="text-muted-content">{m.routes_invd_label_part_of_plugin()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_part_of_plugin()}</dt>
 						<dd>
 							<a
 								class="text-sm text-link"
@@ -154,11 +154,11 @@
 						</dd>
 					{/if}
 					{#if server.projectPath}
-						<dt class="text-muted-content">{m.routes_invd_label_project_path()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_project_path()}</dt>
 						<dd class="break-all">{server.projectPath}</dd>
 					{/if}
 					{#if server.configHash}
-						<dt class="text-muted-content">{m.routes_invd_label_config_hash()}</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_config_hash()}</dt>
 						<dd class="flex items-center gap-1">
 							<span class="text-sm" use:tooltip={server.configHash}>
 								{shortHash(server.configHash)}
@@ -171,7 +171,7 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
-					<h3 class="text-base font-semibold">{m.routes_invd_configuration()}</h3>
+					<h3 class="text-base font-semibold">{m.inventory_enforcement_devices_configuration()}</h3>
 					<CopyButton showTextLeft text={renderConfig(server)} />
 				</div>
 				<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-2 rounded-md p-3 shadow-sm">
@@ -180,8 +180,8 @@
 							server
 						)}</pre>
 					<p class="text-muted-content text-xs">
-						{m.routes_invd_reconstructed_prefix()} <code>&lt;set&gt;</code>
-						{m.routes_invd_reconstructed_suffix()}
+						{m.inventory_enforcement_devices_reconstructed_prefix()} <code>&lt;set&gt;</code>
+						{m.inventory_enforcement_devices_reconstructed_suffix()}
 					</p>
 				</div>
 			</div>

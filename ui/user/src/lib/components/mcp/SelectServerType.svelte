@@ -23,7 +23,7 @@
 </script>
 
 <ResponsiveDialog
-	title={m.mcp_select_server_type_title()}
+	title={m.mcps_catalog_select_server_type_title()}
 	class="md:w-lg"
 	bind:this={selectServerTypeDialog}
 >
@@ -37,9 +37,9 @@
 				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
-				<p class="mb-1 text-sm font-semibold">{m.mcp_select_server_type_hosted()}</p>
+				<p class="mb-1 text-sm font-semibold">{m.mcps_catalog_select_server_type_hosted()}</p>
 				<span class="text-muted-content block text-xs leading-4">
-					{m.mcp_select_server_type_hosted_description()}
+					{m.mcps_catalog_select_server_type_hosted_description()}
 				</span>
 			</div>
 		</button>
@@ -52,9 +52,9 @@
 				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
-				<p class="mb-1 text-sm font-semibold">{m.mcp_select_server_type_remote()}</p>
+				<p class="mb-1 text-sm font-semibold">{m.mcps_catalog_select_server_type_remote()}</p>
 				<span class="text-muted-content block text-xs leading-4">
-					{m.mcp_select_server_type_remote_description()}
+					{m.mcps_catalog_select_server_type_remote_description()}
 				</span>
 			</div>
 		</button>

@@ -35,7 +35,7 @@
 		provider = undefined;
 		clearUrlParams(['provider']);
 	}}
-	cancelText={m.admin_sub_close()}
+	cancelText={m.core_close()}
 >
 	{#snippet titleContent()}
 		{#if provider}
@@ -60,11 +60,11 @@
 				{#if provider?.configured}
 					<TriangleAlert class="size-4 text-warning" />
 					<h4 class="font-semibold text-base">
-						{licenseKey ? m.admin_sub_license_invalid() : m.admin_sub_license_missing()}
+						{licenseKey ? m.platform_license_notice_invalid() : m.platform_license_notice_missing()}
 					</h4>
 				{:else}
 					<CircleAlert class="size-4 text-muted-content" />
-					<h4 class="font-semibold text-base">{m.admin_sub_license_required()}</h4>
+					<h4 class="font-semibold text-base">{m.platform_license_notice_required()}</h4>
 				{/if}
 			</div>
 		{/if}
@@ -75,15 +75,15 @@
 				<CommunitySignUpForm {endpoint} {onSubmit} {signUpMessage} />
 			{:else if provider?.configured}
 				<p>
-					{m.admin_sub_license_invalid_access_prefix({ name: provider.name })}
+					{m.platform_license_notice_invalid_access_prefix({ name: provider.name })}
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
-					>{m.admin_sub_license_invalid_access_suffix()}
+					>{m.platform_license_notice_invalid_access_suffix()}
 				</p>
 			{:else}
 				<p>
-					{m.admin_sub_license_required_prefix({ name: provider.name })}
+					{m.platform_license_notice_required_prefix({ name: provider.name })}
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
-					>{m.admin_sub_license_required_suffix()}
+					>{m.platform_license_notice_required_suffix()}
 				</p>
 			{/if}
 		{/if}

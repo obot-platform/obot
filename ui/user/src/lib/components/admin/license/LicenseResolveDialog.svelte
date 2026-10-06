@@ -89,7 +89,7 @@
 
 			reloadPage();
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.admin_sub_license_unknown_error();
+			error = err instanceof Error ? err.message : m.platform_license_notice_unknown_error();
 		} finally {
 			confirmDowngradeDialog?.close();
 			downgrading = false;
@@ -101,24 +101,24 @@
 	bind:this={licenseViolationDialog}
 	title={warnUserLimit || violations.userLimit
 		? warnUserLimit
-			? m.admin_sub_license_nearing_user_limit()
-			: m.admin_sub_license_user_limit_reached()
-		: m.admin_sub_license_missing_or_invalid()}
+			? m.platform_license_notice_nearing_user_limit()
+			: m.platform_license_notice_user_limit_reached()
+		: m.platform_license_notice_missing_or_invalid()}
 	class="md:max-w-md"
 >
 	<div class="md:p-0 p-4">
 		<div class="flex flex-col gap-4">
 			<p class="font-light text-center">
 				{#if warnUserLimit || violations.userLimit}
-					{m.admin_sub_license_unlock_prefix()}
+					{m.platform_license_notice_unlock_prefix()}
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
-					>{m.admin_sub_license_unlock_suffix()}
+					>{m.platform_license_notice_unlock_suffix()}
 				{:else}
 					{violations.authProvider
-						? m.admin_sub_license_reenable_register_prefix()
-						: m.admin_sub_license_reenable_prefix()}
+						? m.platform_license_notice_reenable_register_prefix()
+						: m.platform_license_notice_reenable_prefix()}
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
-					>{m.admin_sub_license_reenable_suffix()}
+					>{m.platform_license_notice_reenable_suffix()}
 				{/if}
 			</p>
 			{#if violations.authProvider}
@@ -134,16 +134,16 @@
 					}}
 				>
 					<KeyRound class="size-4" />
-					{m.admin_sub_license_register_your_email()}
+					{m.platform_license_notice_register_your_email()}
 				</button>
 			{/if}
 			<a href="mailto:info@obot.ai" class="btn btn-secondary">
 				<Mail class="size-4" />
-				{m.admin_sub_license_contact_support()}
+				{m.platform_license_notice_contact_support()}
 			</a>
 		</div>
 		{#if !warnUserLimit && (violations.authProvider || violations.modelProvider)}
-			<div class="divider">{m.admin_sub_license_or()}</div>
+			<div class="divider">{m.platform_license_notice_or()}</div>
 			<div class="flex flex-col gap-4">
 				{#each version.current.licenseEntitlementViolations as violation (violation.name)}
 					{@const provider =
@@ -166,13 +166,13 @@
 							</div>
 							<div class="flex grow flex-col gap-0.5">
 								<p class="font-semibold">
-									{m.admin_sub_license_deconfigure_named({ name: provider.name })}
+									{m.platform_license_notice_deconfigure_named({ name: provider.name })}
 								</p>
 								<p class="text-xs text-muted-content">
 									{#if violation.type === 'authProvider'}
-										{m.admin_sub_license_deconfigure_auth_note({ name: provider.name })}
+										{m.platform_license_notice_deconfigure_auth_note({ name: provider.name })}
 									{:else}
-										{m.admin_sub_license_deconfigure_model_note({ name: provider.name })}
+										{m.platform_license_notice_deconfigure_model_note({ name: provider.name })}
 									{/if}
 								</p>
 							</div>
@@ -204,7 +204,7 @@
 						confirmDowngradeDialog?.open();
 					}}
 				>
-					{m.admin_sub_license_downgrade()}
+					{m.platform_license_notice_downgrade()}
 				</button>
 			</div>
 		{/if}
@@ -220,8 +220,8 @@
 	}}
 	loading={downgrading}
 	providers={providersToDeconfigure}
-	title={m.admin_sub_license_confirm_downgrade()}
-	confirmButtonText={m.admin_sub_license_downgrade()}
+	title={m.platform_license_notice_confirm_downgrade()}
+	confirmButtonText={m.platform_license_notice_downgrade()}
 />
 
 <LicenseProviderDialog
@@ -230,5 +230,5 @@
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={() => reloadPage()}
 	allowSignup
-	signUpMessage={m.admin_sub_license_signup_message()}
+	signUpMessage={m.platform_license_notice_signup_message()}
 />

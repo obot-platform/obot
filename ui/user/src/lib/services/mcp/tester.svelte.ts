@@ -120,7 +120,7 @@ export function testerChatAvailability(
 	if (version.hasModelProvider === null) {
 		return {
 			available: false,
-			unavailableMessage: m.mcp_chat_model_config_unavailable()
+			unavailableMessage: m.mcps_tester_chat_model_config_unavailable()
 		};
 	}
 
@@ -133,8 +133,8 @@ export function testerChatAvailability(
 			available: false,
 			unavailableMessage:
 				version.hasValidLicense !== true
-					? m.mcp_chat_managed_by_admin()
-					: m.mcp_chat_model_service_unavailable()
+					? m.mcps_tester_chat_managed_by_admin()
+					: m.mcps_tester_chat_model_service_unavailable()
 		};
 	}
 
@@ -151,8 +151,8 @@ export function testerChatAvailability(
 	return {
 		available: Boolean(configuredDefault?.model && defaultModel),
 		unavailableMessage: !configuredDefault?.model
-			? m.mcp_chat_no_default_model()
-			: m.mcp_chat_default_model_inactive()
+			? m.mcps_tester_chat_no_default_model()
+			: m.mcps_tester_chat_default_model_inactive()
 	};
 }
 
@@ -241,13 +241,13 @@ function classifyOperationError(
 		(error instanceof DOMException && error.name === 'AbortError') ||
 		(error instanceof Error && error.name === 'AbortError')
 	) {
-		return { status: 'cancelled', message: m.mcp_op_cancelled_by_user() };
+		return { status: 'cancelled', message: m.mcps_tester_op_cancelled_by_user() };
 	}
 	if (error instanceof McpError && error.code === ErrorCode.RequestTimeout) {
-		return { status: 'timeout', message: m.mcp_op_timed_out() };
+		return { status: 'timeout', message: m.mcps_tester_op_timed_out() };
 	}
 	if (error instanceof StreamableHTTPError && error.code === 403) {
-		return { status: 'denied', message: m.mcp_op_denied() };
+		return { status: 'denied', message: m.mcps_tester_op_denied() };
 	}
 	return { status: 'transport-error', message: errorMessage(error) };
 }
@@ -300,11 +300,11 @@ async function collectPages<T, TPage extends { nextCursor?: string }>(
 			// The tester talks to arbitrary servers, so a cursor that repeats (or cycles) would
 			// otherwise page forever and grow these arrays without bound.
 			if (seen.has(cursor)) {
-				throw new Error(m.mcp_op_repeated_cursor({ cursor: JSON.stringify(cursor) }));
+				throw new Error(m.mcps_tester_op_repeated_cursor({ cursor: JSON.stringify(cursor) }));
 			}
 			seen.add(cursor);
 			if (seen.size > maxPages) {
-				throw new Error(m.mcp_op_too_many_pages({ count: maxPages }));
+				throw new Error(m.mcps_tester_op_too_many_pages({ count: maxPages }));
 			}
 		}
 	} while (cursor);
@@ -644,12 +644,12 @@ export class MCPTesterSession {
 
 	stagePrompt(name: string, result: GetPromptResult): StageResult {
 		if (result.messages.length === 0) {
-			return { ok: false, message: m.mcp_stage_prompt_empty() };
+			return { ok: false, message: m.mcps_tester_stage_prompt_empty() };
 		}
 		if (result.messages.some((message) => message.content.type !== 'text')) {
 			return {
 				ok: false,
-				message: m.mcp_stage_prompt_unsupported()
+				message: m.mcps_tester_stage_prompt_unsupported()
 			};
 		}
 		const size = result.messages.reduce(
@@ -658,7 +658,7 @@ export class MCPTesterSession {
 			0
 		);
 		if (size > MAX_STAGED_CONTEXT_BYTES) {
-			return { ok: false, message: m.mcp_stage_prompt_too_large() };
+			return { ok: false, message: m.mcps_tester_stage_prompt_too_large() };
 		}
 		this.stagedContext.push({
 			id: crypto.randomUUID(),
@@ -671,7 +671,7 @@ export class MCPTesterSession {
 
 	stageResource(name: string, result: ReadResourceResult): StageResult {
 		if (result.contents.length === 0) {
-			return { ok: false, message: m.mcp_stage_resource_empty() };
+			return { ok: false, message: m.mcps_tester_stage_resource_empty() };
 		}
 		const textContents = result.contents.filter(
 			(content): content is ResourceContents & { text: string } =>
@@ -680,7 +680,7 @@ export class MCPTesterSession {
 		if (textContents.length !== result.contents.length) {
 			return {
 				ok: false,
-				message: m.mcp_stage_resource_unsupported()
+				message: m.mcps_tester_stage_resource_unsupported()
 			};
 		}
 		const size = textContents.reduce(
@@ -688,7 +688,7 @@ export class MCPTesterSession {
 			0
 		);
 		if (size > MAX_STAGED_CONTEXT_BYTES) {
-			return { ok: false, message: m.mcp_stage_resource_too_large() };
+			return { ok: false, message: m.mcps_tester_stage_resource_too_large() };
 		}
 		this.stagedContext.push({
 			id: crypto.randomUUID(),
@@ -713,10 +713,10 @@ export class MCPTesterSession {
 
 	beginWorkflow(kind: TesterWorkflowKind, label: string): TesterWorkflow {
 		if (this.status !== 'ready') {
-			throw new Error(m.mcp_tester_not_ready());
+			throw new Error(m.mcps_tester_not_ready());
 		}
 		if (this.activeWorkflow) {
-			throw new Error(m.mcp_tester_workflow_busy({ label, active: this.activeWorkflow.label }));
+			throw new Error(m.mcps_tester_workflow_busy({ label, active: this.activeWorkflow.label }));
 		}
 		const workflow: TesterWorkflow = {
 			id: Symbol(label),

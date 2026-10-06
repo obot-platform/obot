@@ -53,7 +53,7 @@
 			});
 			await onSubmit?.(response);
 		} catch (err) {
-			error = parseErrorContent(err).message || m.admin_sub_license_registration_error();
+			error = parseErrorContent(err).message || m.platform_license_notice_registration_error();
 		} finally {
 			saving = false;
 			if (new URL(window.location.href).searchParams.has('provider')) {
@@ -74,9 +74,9 @@
 >
 	{#if showHeader}
 		<div class="flex flex-col gap-1">
-			<h4 class="text-center text-lg font-semibold">{m.admin_sub_license_get_access()}</h4>
+			<h4 class="text-center text-lg font-semibold">{m.platform_license_notice_get_access()}</h4>
 			<p class="text-center text-sm font-light">
-				{signUpMessage || m.admin_sub_license_register_email()}
+				{signUpMessage || m.platform_license_notice_register_email()}
 			</p>
 		</div>
 	{/if}
@@ -94,7 +94,7 @@
 			)}
 			for={idPrefix + '-name'}
 		>
-			{m.admin_sub_license_name()}
+			{m.platform_license_notice_name()}
 			<input
 				id={idPrefix + '-name'}
 				class="text-input-filled"
@@ -121,7 +121,7 @@
 				name="email"
 				type="email"
 				pattern="[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+"
-				title={m.admin_sub_license_email_title()}
+				title={m.platform_license_notice_email_title()}
 				autocomplete="email"
 				bind:value={formData.email}
 				required
@@ -136,8 +136,8 @@
 			)}
 			for={idPrefix + '-company'}
 		>
-			{m.admin_sub_license_company()}
-			<span class="text-xs text-muted-content">{m.admin_sub_license_optional()}</span>
+			{m.platform_license_notice_company()}
+			<span class="text-xs text-muted-content">{m.platform_license_notice_optional()}</span>
 			<input
 				id="{idPrefix}-company"
 				class="text-input-filled"
@@ -171,6 +171,6 @@
 		{#if saving}
 			<LoaderCircle class="size-4 animate-spin" />
 		{/if}
-		{saving ? m.admin_sub_license_registering() : m.admin_sub_license_register()}
+		{saving ? m.platform_license_notice_registering() : m.platform_license_notice_register()}
 	</button>
 </form>

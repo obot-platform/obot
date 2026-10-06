@@ -2,32 +2,32 @@ import { m } from '$lib/i18n';
 import type { AppPreferences } from '$lib/services';
 
 const LOGO_LABELS = {
-	default: m.admin_routes_branding_full_logo(),
-	enterprise: m.admin_routes_branding_full_enterprise_logo(),
-	community: m.admin_routes_branding_full_community_logo(),
-	chat: m.admin_routes_branding_full_chat_logo()
+	default: m.platform_branding_full_logo(),
+	enterprise: m.platform_branding_full_enterprise_logo(),
+	community: m.platform_branding_full_community_logo(),
+	chat: m.platform_branding_full_chat_logo()
 };
 
 const INDICATOR_LABELS = {
-	secondary: m.admin_routes_branding_secondary(),
-	success: m.admin_routes_branding_success(),
-	warning: m.admin_routes_branding_warning(),
-	error: m.admin_routes_branding_error()
+	secondary: m.platform_branding_secondary(),
+	success: m.platform_branding_success(),
+	warning: m.platform_branding_warning(),
+	error: m.platform_branding_error()
 };
 
 const TEXT_LABELS = {
-	base: m.admin_routes_branding_base_font_color(),
-	onAccent: m.admin_routes_branding_on_accent_text(),
-	success: m.admin_routes_branding_success_text(),
-	warning: m.admin_routes_branding_warning_text(),
-	error: m.admin_routes_branding_error_text()
+	base: m.platform_branding_base_font_color(),
+	onAccent: m.platform_branding_on_accent_text(),
+	success: m.platform_branding_success_text(),
+	warning: m.platform_branding_warning_text(),
+	error: m.platform_branding_error_text()
 };
 
 const SURFACE_LABELS = {
-	background: m.admin_routes_branding_background(),
-	surface1: m.admin_routes_branding_surface_n({ n: 1 }),
-	surface2: m.admin_routes_branding_surface_n({ n: 2 }),
-	surface3: m.admin_routes_branding_surface_n({ n: 3 })
+	background: m.platform_branding_background(),
+	surface1: m.platform_branding_surface_n({ n: 1 }),
+	surface2: m.platform_branding_surface_n({ n: 2 }),
+	surface3: m.platform_branding_surface_n({ n: 3 })
 };
 
 export type BrandingMockConnectorRow = {
@@ -107,15 +107,15 @@ export const MOCK_CONNECTOR_TABLE_DATA: BrandingMockConnectorRow[] = [
 export const standardIconFields: { id: keyof AppPreferences['logos']; label: string }[] = [
 	{
 		id: 'logoIcon',
-		label: m.admin_routes_branding_default_icon()
+		label: m.platform_branding_default_icon()
 	},
 	{
 		id: 'logoIconError',
-		label: m.admin_routes_branding_error_icon()
+		label: m.platform_branding_error_icon()
 	},
 	{
 		id: 'logoIconWarning',
-		label: m.admin_routes_branding_warning_icon()
+		label: m.platform_branding_warning_icon()
 	}
 ];
 

@@ -106,12 +106,12 @@
 	function useGroups(credential?: GitCredential) {
 		return [
 			{
-				label: m.admin_routes_git_skill_repositories(),
+				label: m.platform_settings_git_credentials_skill_repositories(),
 				uses: credential?.uses.skillRepositories ?? []
 			},
-			{ label: m.admin_routes_git_mcp_catalogs(), uses: credential?.uses.mcpCatalogs ?? [] },
+			{ label: m.platform_settings_git_credentials_mcp_catalogs(), uses: credential?.uses.mcpCatalogs ?? [] },
 			{
-				label: m.admin_routes_git_system_mcp_catalogs(),
+				label: m.platform_settings_git_credentials_system_mcp_catalogs(),
 				uses: credential?.uses.systemMcpCatalogs ?? []
 			}
 		].filter((group) => group.uses.length > 0);
@@ -282,7 +282,7 @@
 					} catch (error) {
 						failedCreates.push(draft);
 						errors.append(
-							error instanceof Error ? error.message : m.admin_routes_git_save_failed()
+							error instanceof Error ? error.message : m.platform_settings_git_credentials_save_failed()
 						);
 					}
 				}),
@@ -302,7 +302,7 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : m.admin_routes_git_save_failed()
+								error instanceof Error ? error.message : m.platform_settings_git_credentials_save_failed()
 							);
 						}
 					}),
@@ -311,7 +311,7 @@
 						await AdminService.deleteGitCredential(id, { dontLogErrors: true });
 						deletedIds.push(id);
 					} catch (error) {
-						errors.append(m.admin_routes_git_delete_failed({ error: `${error}` }));
+						errors.append(m.platform_settings_git_credentials_delete_failed({ error: `${error}` }));
 						if (conflictStatus(error)) {
 							const current = baseline.find((credential) => credential.id === id);
 							if (current) {
@@ -319,7 +319,7 @@
 									...current,
 									uses: {
 										skillRepositories: [
-											{ id: 'resource', displayName: m.admin_routes_git_unknown_resource() }
+											{ id: 'resource', displayName: m.platform_settings_git_credentials_unknown_resource() }
 										],
 										mcpCatalogs: [],
 										systemMcpCatalogs: []
@@ -362,14 +362,14 @@
 	data={tableData}
 	fields={['displayName', 'host', 'usedBy']}
 	headers={[
-		{ title: m.admin_routes_col_name(), property: 'displayName' },
-		{ title: m.admin_routes_git_col_host(), property: 'host' },
-		{ title: m.admin_routes_git_col_used_by(), property: 'usedBy' }
+		{ title: m.core_col_name(), property: 'displayName' },
+		{ title: m.platform_settings_git_credentials_col_host(), property: 'host' },
+		{ title: m.platform_settings_git_credentials_col_used_by(), property: 'usedBy' }
 	]}
 	sortable={['displayName', 'host']}
 	filterable={['displayName', 'host']}
 	onClickRow={(row) => openEdit(row)}
-	noDataMessage={m.admin_routes_git_no_data()}
+	noDataMessage={m.platform_settings_git_credentials_no_data()}
 >
 	{#snippet onRenderColumn(field, credential)}
 		{#if field === 'displayName'}
@@ -377,7 +377,7 @@
 				{credential.displayName}
 				{#if hasUses(credential)}
 					<button
-						aria-label={m.admin_routes_git_view_sources()}
+						aria-label={m.platform_settings_git_credentials_view_sources()}
 						type="button"
 						class="pill-warning border-warning/30 hover:border-warning/60 hover:bg-warning/20 focus-visible:ring-warning/40 cursor-pointer border transition-colors focus-visible:ring-2 focus-visible:outline-none"
 						onclick={(event) => {
@@ -385,7 +385,7 @@
 							openUses(credential);
 						}}
 					>
-						{m.admin_routes_git_in_use()}
+						{m.platform_settings_git_credentials_in_use()}
 					</button>
 				{/if}
 			</span>
@@ -395,7 +395,7 @@
 			{#if credential.usedBy}
 				<button
 					type="button"
-					aria-label={m.admin_routes_git_view_sources()}
+					aria-label={m.platform_settings_git_credentials_view_sources()}
 					class="text-left hover:underline"
 					onclick={(event) => {
 						event.stopPropagation();
@@ -403,8 +403,8 @@
 					}}
 				>
 					{credential.usedBy > 1
-						? m.admin_routes_git_sources_other({ count: credential.usedBy })
-						: m.admin_routes_git_sources_one({ count: credential.usedBy })}
+						? m.platform_settings_git_credentials_sources_other({ count: credential.usedBy })
+						: m.platform_settings_git_credentials_sources_one({ count: credential.usedBy })}
 				</button>
 			{:else}
 				<span class="text-muted-content">—</span>
@@ -414,7 +414,7 @@
 	{#snippet actions(credential)}
 		{#if !isReadonly}
 			<IconButton
-				aria-label={m.admin_routes_git_edit_aria()}
+				aria-label={m.platform_settings_git_credentials_edit_aria()}
 				onclick={(event) => {
 					event.stopPropagation();
 					openEdit(credential);
@@ -426,13 +426,13 @@
 				class="shrink-0"
 				use:tooltip={hasUses(credential)
 					? {
-							text: m.admin_routes_git_in_use_cannot_delete(),
+							text: m.platform_settings_git_credentials_in_use_cannot_delete(),
 							placement: 'left'
 						}
 					: undefined}
 			>
 				<IconButton
-					aria-label={m.admin_routes_git_delete_aria()}
+					aria-label={m.platform_settings_git_credentials_delete_aria()}
 					variant="danger"
 					disabled={hasUses(credential)}
 					onclick={(event) => {
@@ -451,8 +451,8 @@
 	<div class="dialog-container w-full max-w-md p-4">
 		<h3 class="dialog-title">
 			{editingCredential
-				? m.admin_routes_git_edit_title()
-				: m.admin_routes_settings_add_git_credential()}
+				? m.platform_settings_git_credentials_edit_title()
+				: m.platform_settings_add_git_credential()}
 			<IconButton onclick={closeDialog} class="btn-sm dialog-close-btn">
 				<X class="size-5" />
 			</IconButton>
@@ -481,7 +481,7 @@
 					(tokenRequired && !token.trim())}
 				onclick={stageCredential}
 			>
-				{editingPersisted ? m.admin_routes_update() : m.admin_routes_add()}
+				{editingPersisted ? m.core_update() : m.platform_add()}
 			</button>
 		</div>
 	</div>
@@ -492,7 +492,7 @@
 
 {#snippet credentialForm()}
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-name" class="text-sm font-light">{m.admin_routes_col_name()}</label>
+		<label for="git-credential-name" class="text-sm font-light">{m.core_col_name()}</label>
 		<input
 			id="git-credential-name"
 			bind:value={displayName}
@@ -501,7 +501,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-host" class="text-sm font-light">{m.admin_routes_git_host()}</label>
+		<label for="git-credential-host" class="text-sm font-light">{m.platform_settings_git_credentials_host()}</label>
 		<input
 			id="git-credential-host"
 			bind:value={host}
@@ -509,11 +509,11 @@
 			placeholder="github.com"
 			class="text-input-filled"
 		/>
-		<span class="text-muted-content text-xs">{m.admin_routes_git_host_hint()}</span>
+		<span class="text-muted-content text-xs">{m.platform_settings_git_credentials_host_hint()}</span>
 	</div>
 	<div class="flex flex-col gap-1">
 		<div class="flex items-center justify-between gap-4">
-			<label for="git-credential-token" class="text-sm font-light">{m.admin_routes_git_pat()}</label
+			<label for="git-credential-token" class="text-sm font-light">{m.platform_settings_git_credentials_pat()}</label
 			>
 			{#if showExistingToken && !inputsDisabled}
 				<button
@@ -524,7 +524,7 @@
 						token = '';
 					}}
 				>
-					{m.admin_routes_git_clear_token()}
+					{m.platform_settings_git_credentials_clear_token()}
 				</button>
 			{/if}
 		</div>
@@ -566,14 +566,14 @@
 {/snippet}
 
 <Confirm
-	title={m.admin_routes_git_credential_uses()}
-	msg={m.admin_routes_git_used_by_msg({
-		name: viewingCredential?.displayName ?? m.admin_routes_git_this_credential()
+	title={m.platform_settings_git_credentials_credential_uses()}
+	msg={m.platform_settings_git_credentials_used_by_msg({
+		name: viewingCredential?.displayName ?? m.platform_settings_git_credentials_this_credential()
 	})}
 	note={usesNote}
 	type="info"
 	show={Boolean(viewingCredential)}
-	cancelText={m.admin_routes_close()}
+	cancelText={m.core_close()}
 	oncancel={() => (viewingCredential = undefined)}
 	classes={{ note: 'w-full' }}
 />

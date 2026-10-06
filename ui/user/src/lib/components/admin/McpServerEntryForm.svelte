@@ -233,34 +233,34 @@
 		const availableTabs =
 			entry && !server
 				? [
-						{ label: m.admin_misc_tab_overview(), view: 'overview' },
+						{ label: m.mcps_catalog_tab_overview(), view: 'overview' },
 						// Basic users who just connected don't see Configuration.
 						// Catalog entry-deployed multi-user servers also hide it: the configuration is
 						// owned by the upstream catalog entry, not the deployment.
 						...(trueOwner &&
 						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
-							? [{ label: m.admin_misc_tab_configuration(), view: 'configuration' }]
+							? [{ label: m.mcps_catalog_tab_configuration(), view: 'configuration' }]
 							: []),
 						...(belongsToUser
-							? [{ label: m.admin_misc_tab_server_details(), view: 'server-instances' }]
+							? [{ label: m.mcps_catalog_tab_server_details(), view: 'server-instances' }]
 							: []),
-						{ label: m.admin_misc_tab_tools(), view: 'tools' },
+						{ label: m.mcps_catalog_tab_tools(), view: 'tools' },
 						...(isAtLeastPowerUserPlus && trueOwner
-							? [{ label: m.admin_misc_tab_access_policies(), view: 'access-control' }]
+							? [{ label: m.mcps_catalog_tab_access_policies(), view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.() ? [{ label: m.admin_misc_tab_filters(), view: 'filters' }] : []),
+						...(profile.current?.hasAdminAccess?.() ? [{ label: m.mcps_catalog_tab_filters(), view: 'filters' }] : []),
 						...(profile.current?.hasAdminAccess?.() && entry.manifest?.runtime === 'remote'
-							? [{ label: m.admin_misc_tab_troubleshooting(), view: 'troubleshooting' }]
+							? [{ label: m.mcps_catalog_tab_troubleshooting(), view: 'troubleshooting' }]
 							: [])
 					]
 				: [
-						{ label: m.admin_misc_tab_overview(), view: 'overview' },
+						{ label: m.mcps_catalog_tab_overview(), view: 'overview' },
 						...(belongsToUser
-							? [{ label: m.admin_misc_tab_server_details(), view: 'server-instances' }]
+							? [{ label: m.mcps_catalog_tab_server_details(), view: 'server-instances' }]
 							: []),
-						{ label: m.admin_misc_tab_tools(), view: 'tools' },
+						{ label: m.mcps_catalog_tab_tools(), view: 'tools' },
 						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
-							? [{ label: m.admin_misc_tab_troubleshooting(), view: 'troubleshooting' }]
+							? [{ label: m.mcps_catalog_tab_troubleshooting(), view: 'troubleshooting' }]
 							: [])
 					];
 		return limitViews
@@ -496,7 +496,7 @@
 				configDialog?.close();
 			}
 		} catch (err) {
-			const errMessage = err instanceof Error ? err.message : m.admin_misc_unknown_error();
+			const errMessage = err instanceof Error ? err.message : m.mcps_catalog_unknown_error();
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
 				const oauthResponse =
 					entity === 'workspace'
@@ -515,7 +515,7 @@
 					handleTemporaryInstanceOauth(oauthResponse);
 				}
 			} else {
-				error = err instanceof Error ? err.message : m.admin_misc_unknown_error();
+				error = err instanceof Error ? err.message : m.mcps_catalog_unknown_error();
 				showButtonInlineError = showInlineError;
 			}
 		} finally {
@@ -702,7 +702,7 @@
 			{#if belongsToUser && !readonly && !connectOnly}
 				<IconButton
 					variant="danger2"
-					tooltip={{ text: m.admin_misc_delete_server() }}
+					tooltip={{ text: m.mcps_catalog_delete_server() }}
 					onclick={() => {
 						deleteServer = true;
 					}}
@@ -723,13 +723,13 @@
 			<div class="flex-1">
 				<p class="text-sm font-medium">
 					{requiresStaticOauth
-						? m.admin_misc_requires_oauth_config()
-						: m.admin_misc_oauth_credentials_configured()}
+						? m.mcps_catalog_requires_oauth_config()
+						: m.mcps_catalog_oauth_credentials_configured()}
 				</p>
 				<p class="text-muted-foreground mt-1 text-xs">
 					{requiresStaticOauth
-						? m.admin_misc_oauth_missing_static_description()
-						: m.admin_misc_oauth_manage_static_description()}
+						? m.mcps_catalog_oauth_missing_static_description()
+						: m.mcps_catalog_oauth_manage_static_description()}
 				</p>
 			</div>
 			<button
@@ -739,8 +739,8 @@
 			>
 				<Settings class="size-4" />
 				{requiresStaticOauth
-					? m.admin_misc_configure_oauth_credentials()
-					: m.admin_misc_manage_oauth_credentials()}
+					? m.mcps_catalog_configure_oauth_credentials()
+					: m.mcps_catalog_manage_oauth_credentials()}
 			</button>
 		</div>
 	{/if}
@@ -815,7 +815,7 @@
 						<div class="flex items-center gap-3">
 							<CircleFadingArrowUp class="size-6" />
 							<p>
-								{m.admin_misc_catalog_entry_changed()}
+								{m.mcps_catalog_entry_changed()}
 							</p>
 						</div>
 					</div>
@@ -825,12 +825,12 @@
 						<div class="flex items-center gap-3">
 							<Info class="size-6" />
 							<p>
-								{m.admin_misc_existing_instance_notice()}
+								{m.mcps_catalog_existing_instance_notice()}
 							</p>
 						</div>
 					</div>
 				{/if}
-				<McpServerInfo {entry} descriptionPlaceholder={m.admin_misc_description_placeholder()} />
+				<McpServerInfo {entry} descriptionPlaceholder={m.mcps_catalog_description_placeholder()} />
 			</div>
 		{:else if selected === 'configuration'}
 			{@render configurationView()}
@@ -880,12 +880,12 @@
 			{#snippet readonlyMessage()}
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL && !entry.detached}
 					<p>
-						{m.admin_misc_git_source_readonly_prefix()}
+						{m.mcps_catalog_git_source_readonly_prefix()}
 						<span class="text-muted-content text-xs">({entry.sourceURL.split('/').pop()})</span>
-						{m.admin_misc_git_source_readonly_suffix()}
+						{m.mcps_catalog_git_source_readonly_suffix()}
 					</p>
 				{:else}
-					<p>{m.admin_misc_catalog_entry_non_editable()}</p>
+					<p>{m.mcps_catalog_entry_non_editable()}</p>
 				{/if}
 			{/snippet}
 		</CatalogServerForm>
@@ -904,8 +904,8 @@
 				data={serverRules}
 				fields={['displayName', 'resources']}
 				headers={[
-					{ title: m.admin_misc_col_rule(), property: 'displayName' },
-					{ title: m.admin_misc_col_accessible_to(), property: 'resources' }
+					{ title: m.mcps_col_rule(), property: 'displayName' },
+					{ title: m.mcps_catalog_col_accessible_to(), property: 'resources' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					if (!entry) return;
@@ -937,16 +937,16 @@
 							{ totalUsers: 0, totalGroups: 0 }
 						) ?? { totalUsers: 0, totalGroups: 0 }}
 						{#if hasEveryone}
-							{m.admin_misc_everyone()}
+							{m.mcps_catalog_everyone()}
 						{:else}
 							{@const userCount =
 								totalUsers === 1
-									? m.admin_misc_users_count_one({ count: totalUsers })
-									: m.admin_misc_users_count_other({ count: totalUsers })}
+									? m.mcps_catalog_users_count_one({ count: totalUsers })
+									: m.mcps_catalog_users_count_other({ count: totalUsers })}
 							{@const groupCount =
 								totalGroups === 1
-									? m.admin_misc_groups_count_one({ count: totalGroups })
-									: m.admin_misc_groups_count_other({ count: totalGroups })}
+									? m.mcps_catalog_groups_count_one({ count: totalGroups })
+									: m.mcps_catalog_groups_count_other({ count: totalGroups })}
 							{#if totalUsers > 0 && totalGroups > 0}
 								{userCount}, {groupCount}
 							{:else if totalUsers > 0}
@@ -964,10 +964,10 @@
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<GlobeLock class="text-muted-content size-24 opacity-50" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.admin_misc_no_mcp_access_policies()}
+					{m.mcps_catalog_no_mcp_access_policies()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{m.admin_misc_server_no_access_policies()}
+					{m.mcps_catalog_server_no_access_policies()}
 				</p>
 			</div>
 		{/if}
@@ -987,9 +987,9 @@
 					data={serverFilters}
 					fields={['name', 'url', 'selectors']}
 					headers={[
-						{ title: m.admin_misc_col_name(), property: 'name' },
-						{ title: m.admin_misc_col_webhook_url(), property: 'url' },
-						{ title: m.admin_misc_col_selectors(), property: 'selectors' }
+						{ title: m.core_col_name(), property: 'name' },
+						{ title: m.mcps_catalog_col_webhook_url(), property: 'url' },
+						{ title: m.mcps_catalog_col_selectors(), property: 'selectors' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
@@ -1006,8 +1006,8 @@
 							{@const count = d.selectors?.length || 0}
 							{count > 0
 								? count > 1
-									? m.admin_misc_selectors_count_other({ count })
-									: m.admin_misc_selectors_count_one({ count })
+									? m.mcps_catalog_selectors_count_other({ count })
+									: m.mcps_catalog_selectors_count_one({ count })
 								: '-'}
 						{:else}
 							{d[property as keyof typeof d]}
@@ -1018,10 +1018,10 @@
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<ListFilter class="text-muted-content size-24 opacity-50" />
 					<h4 class="text-muted-content text-lg font-semibold">
-						{m.admin_misc_no_filters_configured()}
+						{m.mcps_catalog_no_filters_configured()}
 					</h4>
 					<p class="text-muted-content text-sm font-light">
-						{m.admin_misc_server_no_filters()}
+						{m.mcps_catalog_server_no_filters()}
 					</p>
 				</div>
 			{/if}
@@ -1030,10 +1030,10 @@
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ListFilter class="text-muted-content size-24 opacity-50" />
 			<h4 class="text-muted-content text-lg font-semibold">
-				{m.admin_misc_no_filters_available()}
+				{m.mcps_catalog_no_filters_available()}
 			</h4>
 			<p class="text-muted-content text-sm font-light">
-				{m.admin_misc_no_filters_in_system()}
+				{m.mcps_catalog_no_filters_in_system()}
 			</p>
 		</div>
 	{/if}
@@ -1062,7 +1062,7 @@
 								deploymentToDisplayTools === undefined && 'tab-active'
 							)}
 							onclick={() => (deploymentToDisplayTools = undefined)}
-							>{m.admin_misc_preview()}</button
+							>{m.mcps_catalog_preview()}</button
 						>
 					{/if}
 
@@ -1086,7 +1086,7 @@
 							</button>
 							<button
 								type="button"
-								aria-label={m.admin_misc_close_tab_named({ name: deploymentLabel })}
+								aria-label={m.mcps_catalog_close_tab_named({ name: deploymentLabel })}
 								onclick={() => {
 									selectedDeploymentsToView = selectedDeploymentsToView.filter(
 										(d) => d.id !== deployment.id
@@ -1128,14 +1128,14 @@
 					}}
 					searchInDropdown
 					buttonReadOnly
-					buttonTitle={m.admin_misc_include_deployments()}
+					buttonTitle={m.mcps_catalog_include_deployments()}
 					displayCount={selectedDeploymentsToView.length > 0}
 				/>
 			</div>
 		{/if}
 		{#if showRegenerateToolsButton}
 			<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
-				{m.admin_misc_regenerate_tools()}
+				{m.mcps_catalog_regenerate_tools()}
 			</button>
 		{/if}
 		{#if entry}
@@ -1151,9 +1151,9 @@
 							<div class="rounded-full bg-primary/10 p-2 w-fit">
 								<Wrench class="text-primary size-6" />
 							</div>
-							<h4 class="text-lg font-semibold">{m.admin_misc_tool_info_unavailable()}</h4>
+							<h4 class="text-lg font-semibold">{m.mcps_catalog_tool_info_unavailable()}</h4>
 							<p class="text-sm font-light text-center">
-								{m.admin_misc_connect_for_tools()}
+								{m.mcps_catalog_connect_for_tools()}
 							</p>
 							<button
 								class="btn btn-primary w-full flex items-center gap-1 text-sm"
@@ -1161,8 +1161,8 @@
 								disabled={disableAddFromTools}
 							>
 								{disableAddFromTools
-									? m.admin_misc_already_added_to_vmcp()
-									: m.admin_misc_add_to_vmcp()}
+									? m.mcps_catalog_already_added_to_vmcp()
+									: m.mcps_catalog_add_to_vmcp()}
 							</button>
 						</div>
 					{:else}
@@ -1171,12 +1171,12 @@
 						>
 							<Wrench class="text-muted-content size-24 opacity-50" />
 							{#if !entry || (entry && (readonly || server || deploymentToDisplayTools || connectOnly))}
-								<h4 class="text-muted-content text-lg font-semibold">{m.admin_misc_no_tools()}</h4>
+								<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
 								<p class="text-muted-content text-sm font-light">
-									{m.admin_misc_no_tools_available()}
+									{m.mcps_catalog_no_tools_available()}
 								</p>
 							{:else if !readonly && !connectOnly}
-								<h4 class="text-muted-content text-lg font-semibold">{m.admin_misc_no_tools()}</h4>
+								<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
 								{#if !isMultiTenant}
 									<button
 										class="btn btn-primary flex items-center gap-1 text-sm"
@@ -1186,18 +1186,18 @@
 										{#if saving}
 											<Loading class="size-4" />
 										{:else}
-											{m.admin_misc_populate_tool_preview()}
+											{m.mcps_catalog_populate_tool_preview()}
 										{/if}
 									</button>
 								{/if}
 								{#if !error}
 									<p class="text-muted-content text-sm font-light">
 										{#if isMultiTenant}
-											{m.admin_misc_tools_populate_multi()}
+											{m.mcps_catalog_tools_populate_multi()}
 										{:else if type === 'remote'}
-											{m.admin_misc_tools_populate_remote()}
+											{m.mcps_catalog_tools_populate_remote()}
 										{:else}
-											{m.admin_misc_tools_populate_temporary()}
+											{m.mcps_catalog_tools_populate_temporary()}
 										{/if}
 									</p>
 								{/if}
@@ -1214,9 +1214,9 @@
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<Wrench class="text-muted-content size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">{m.admin_misc_no_tools()}</h4>
+				<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
 				<p class="text-muted-content text-sm font-light">
-					{m.admin_misc_no_tools_available()}
+					{m.mcps_catalog_no_tools_available()}
 				</p>
 			</div>
 		{/if}
@@ -1229,8 +1229,8 @@
 
 <Confirm
 	msg={entry?.manifest?.name
-		? m.admin_misc_delete_named({ name: entry.manifest.name })
-		: m.admin_misc_delete_this_server()}
+		? m.core_delete_named_component({ name: entry.manifest.name })
+		: m.mcps_catalog_delete_this_server()}
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
@@ -1257,8 +1257,8 @@
 
 <Confirm
 	msg={deleteResourceFromRule?.resourceId === '*'
-		? m.admin_misc_remove_everything_from_rule()
-		: m.admin_misc_remove_server_from_rule()}
+		? m.mcps_catalog_remove_everything_from_rule()
+		: m.mcps_catalog_remove_server_from_rule()}
 	show={Boolean(deleteResourceFromRule)}
 	onsuccess={async () => {
 		if (!deleteResourceFromRule) {
@@ -1294,7 +1294,7 @@
 	icon={entry?.manifest?.icon}
 	name={entry?.manifest?.name}
 	onSave={handleLaunchTemporaryInstance}
-	submitText={m.admin_misc_launch()}
+	submitText={m.mcps_catalog_launch()}
 	loading={saving}
 	isNew={false}
 	deprecated={isDeprecatedMCPServer(entry)}
@@ -1302,7 +1302,7 @@
 
 <ResponsiveDialog
 	bind:this={oauthDialog}
-	title={m.admin_misc_authentication_required()}
+	title={m.mcps_catalog_authentication_required()}
 	class="w-md"
 	onClose={() => {
 		// Clean up when dialog closes
@@ -1322,7 +1322,7 @@
 			href={oauthURL}
 			rel="external noopener noreferrer"
 			target="_blank"
-			class="btn btn-primary text-center">{m.admin_misc_authenticate()}</a
+			class="btn btn-primary text-center">{m.mcps_catalog_authenticate()}</a
 		>
 	{/if}
 </ResponsiveDialog>
@@ -1360,7 +1360,7 @@
 	<div class="notification-error flex items-center gap-2">
 		<CircleAlert class="size-6 shrink-0 text-error" />
 		<p class="flex flex-col text-left text-sm font-light">
-			<span class="font-semibold">{m.admin_misc_error_launching_temp_instance()}</span>
+			<span class="font-semibold">{m.mcps_catalog_error_launching_temp_instance()}</span>
 			<span>
 				{error}
 			</span>
@@ -1370,15 +1370,15 @@
 
 <Confirm
 	title={hasBothUpdateActions
-		? m.admin_misc_updates_required()
+		? m.mcps_catalog_updates_required()
 		: showUpdateExistingDeploymentsConfirm
-			? m.admin_misc_update_deployments()
-			: m.admin_misc_update_vmcps()}
+			? m.mcps_catalog_update_deployments()
+			: m.mcps_catalog_update_vmcps()}
 	msg={hasBothUpdateActions
-		? m.admin_misc_existing_deployments_and_vmcps_need_update()
+		? m.mcps_catalog_existing_deployments_and_vmcps_need_update()
 		: showUpdateExistingDeploymentsConfirm
-			? m.admin_misc_update_existing_deployments_now()
-			: m.admin_misc_update_existing_vmcps_now()}
+			? m.mcps_catalog_update_existing_deployments_now()
+			: m.mcps_catalog_update_existing_vmcps_now()}
 	show={showUpdateExistingConfirm}
 	onsuccess={hasBothUpdateActions
 		? undefined
@@ -1386,22 +1386,22 @@
 			? goToUpdateDeployments
 			: goToUpdateVmcps}
 	oncancel={closeUpdateExistingConfirm}
-	cancelText={m.admin_misc_skip()}
+	cancelText={m.mcps_skip()}
 	submitText={showUpdateExistingDeploymentsConfirm
-		? m.admin_misc_go_to_server_details()
-		: m.admin_misc_go_to_vmcps()}
+		? m.mcps_catalog_go_to_server_details()
+		: m.mcps_catalog_go_to_vmcps()}
 	hideCancelButton={hasBothUpdateActions}
 	type="info"
 >
 	{#snippet note()}
 		{#if hasBothUpdateActions}
 			<p class="text-sm font-light">
-				{m.admin_misc_update_both_note()}
+				{m.mcps_catalog_update_both_note()}
 			</p>
 
 			{#if profile.current.hasAdminAccess?.()}
 				<p class="text-xs font-light mt-2 text-muted-content">
-					{m.admin_misc_update_later_note()}
+					{m.mcps_catalog_update_later_note()}
 				</p>
 			{/if}
 
@@ -1413,29 +1413,29 @@
 					onclick={goToUpdateDeployments}
 					class="btn btn-primary flex flex-1 justify-center p-2 w-full"
 				>
-					{m.admin_misc_go_to_server_details()}
+					{m.mcps_catalog_go_to_server_details()}
 				</button>
 				<button
 					type="button"
 					onclick={goToUpdateVmcps}
 					class="btn btn-primary flex flex-1 justify-center p-2 w-full"
 				>
-					{m.admin_misc_go_to_vmcps()}
+					{m.mcps_catalog_go_to_vmcps()}
 				</button>
 			</div>
 		{:else if showUpdateExistingDeploymentsConfirm}
 			<p class="text-sm font-light">
-				{m.admin_misc_update_deployments_note()}
+				{m.mcps_catalog_update_deployments_note()}
 			</p>
 
 			{#if profile.current.hasAdminAccess?.()}
 				<p class="text-xs font-light mt-2 text-muted-content">
-					{m.admin_misc_update_later_note()}
+					{m.mcps_catalog_update_later_note()}
 				</p>
 			{/if}
 		{:else}
 			<p class="text-sm font-light">
-				{m.admin_misc_update_vmcps_note()}
+				{m.mcps_catalog_update_vmcps_note()}
 			</p>
 		{/if}
 	{/snippet}

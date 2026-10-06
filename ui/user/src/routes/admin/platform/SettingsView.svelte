@@ -66,11 +66,11 @@
 	let canCreateGitCredential = $derived(!isAdminReadonly);
 
 	const descriptions: Record<string, string | Snippet> = {
-		notifications: m.admin_routes_settings_notifications_description(),
+		notifications: m.platform_settings_notifications_description(),
 		productAnalytics: productAnalyticsSnippet,
-		modelProxy: m.admin_routes_settings_model_proxy_description(),
-		registryConnections: m.admin_routes_settings_registry_description(),
-		gitCredentials: m.admin_routes_settings_git_description()
+		modelProxy: m.platform_settings_model_proxy_description(),
+		registryConnections: m.platform_settings_registry_description(),
+		gitCredentials: m.platform_settings_git_description()
 	};
 
 	async function handleSave(event: SubmitEvent) {
@@ -114,14 +114,14 @@
 <div class="flex w-full flex-col gap-4">
 	<form id="platform-settings" class="flex flex-col gap-4" novalidate onsubmit={handleSave}>
 		{@render section(
-			m.admin_routes_settings_notifications(),
+			m.platform_settings_notifications(),
 			'notifications',
 			descriptions.notifications,
 			notifications
 		)}
 		{#if showProductAnalytics}
 			{@render section(
-				m.admin_routes_settings_product_analytics(),
+				m.platform_settings_product_analytics(),
 				'product-analytics',
 				descriptions.productAnalytics,
 				productAnalytics
@@ -129,7 +129,7 @@
 		{/if}
 		{#if modelProxySettings}
 			{@render section(
-				m.admin_routes_settings_model_proxy(),
+				m.platform_settings_model_proxy(),
 				'model-proxy',
 				descriptions.modelProxy,
 				modelProxy
@@ -139,7 +139,7 @@
 
 	{#if showRegistryConnections}
 		{@render section(
-			m.admin_routes_settings_registry_connections(),
+			m.platform_settings_registry_connections(),
 			'registry-connections',
 			descriptions.registryConnections,
 			registryConnections
@@ -147,7 +147,7 @@
 	{/if}
 
 	{@render section(
-		m.admin_routes_settings_git_credentials(),
+		m.platform_settings_git_credentials(),
 		'git-credentials',
 		descriptions.gitCredentials,
 		gitCredentialsSection,
@@ -173,7 +173,7 @@
 				data-settings-save="true"
 				disabled={saving || !isDirty}
 			>
-				{m.admin_routes_save()}
+				{m.core_save()}
 			</button>
 		</div>
 	{/if}
@@ -240,12 +240,12 @@
 
 {#snippet productAnalyticsSnippet()}
 	<p class="text-muted-content text-sm font-light">
-		{m.admin_routes_settings_share_usage()}
+		{m.platform_settings_share_usage()}
 		<a
 			class="text-link"
 			href="https://docs.obot.ai/configuration/product-analytics"
 			target="_blank"
-			rel="external noopener noreferrer">{m.admin_routes_learn_more()}</a
+			rel="external noopener noreferrer">{m.platform_learn_more()}</a
 		>
 	</p>
 {/snippet}
@@ -268,7 +268,7 @@
 			onclick={() => gitCredentialsView?.openCreate()}
 		>
 			<Plus class="size-4" />
-			{m.admin_routes_settings_add_git_credential()}
+			{m.platform_settings_add_git_credential()}
 		</button>
 	{/if}
 {/snippet}

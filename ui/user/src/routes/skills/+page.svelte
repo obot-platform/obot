@@ -32,9 +32,9 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: m.routes_skills_cred_none() },
-		{ id: 'shared', label: m.routes_skills_cred_shared() },
-		{ id: 'token', label: m.routes_skills_cred_token() }
+		{ id: 'none', label: m.skills_cred_none() },
+		{ id: 'shared', label: m.skills_cred_shared() },
+		{ id: 'token', label: m.skills_cred_token() }
 	];
 
 	let { data } = $props();
@@ -55,17 +55,17 @@
 	);
 	const duration = PAGE_TRANSITION_DURATION;
 	let layoutTitle = $derived(
-		creating ? m.routes_skills_create_access_policy() : m.routes_skills_title()
+		creating ? m.skills_create_access_policy() : m.skills_title()
 	);
 	let views = $derived.by(() => {
 		const items: TabView[] = [
-			{ label: m.routes_skills_title(), value: 'skills', content: skillsView }
+			{ label: m.skills_title(), value: 'skills', content: skillsView }
 		];
 		if (hasAdminAccess) {
 			items.push(
-				{ label: m.routes_skills_tab_sources(), value: 'sources', content: sourcesView },
+				{ label: m.skills_sources_tab(), value: 'sources', content: sourcesView },
 				{
-					label: m.routes_skills_tab_access_policies(),
+					label: m.skills_access_policies_tab(),
 					value: 'access-policies',
 					content: accessPolicy
 				}
@@ -231,7 +231,7 @@
 					if (err instanceof HttpError && err.statusCode === 402) {
 						showLicenseError = true;
 					} else {
-						errors.append(m.routes_skills_sync_failed({ error: String(err) }));
+						errors.append(m.skills_sync_failed({ error: String(err) }));
 					}
 					clearSyncInterval(id);
 					syncing.delete(id);
@@ -246,7 +246,7 @@
 			await AdminService.refreshSkillRepository(id);
 			pollTillSyncComplete(id);
 		} catch (err) {
-			errors.append(m.routes_skills_refresh_failed({ error: String(err) }));
+			errors.append(m.skills_refresh_failed({ error: String(err) }));
 			syncing.delete(id);
 		}
 	}
@@ -338,12 +338,12 @@
 				onclick={() => goto(`${page.url.pathname}?view=access-policies&new=true`)}
 			>
 				<Plus class="size-4" />
-				{m.routes_skills_add_access_policy()}
+				{m.skills_add_access_policy()}
 			</button>
 		{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
 				<Plus class="size-4" />
-				{m.routes_skills_add_source_url()}
+				{m.skills_add_source_url()}
 			</button>
 		{/if}
 	{/if}
@@ -355,7 +355,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<div>{m.routes_skills_syncing_notice()}</div>
+					<div>{m.skills_syncing_notice()}</div>
 				</div>
 			</div>
 		</div>
@@ -376,7 +376,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<div>{m.routes_skills_syncing_notice()}</div>
+					<div>{m.skills_syncing_notice()}</div>
 				</div>
 			</div>
 		</div>
@@ -403,8 +403,8 @@
 <Confirm
 	msg={deletingSources
 		? deletingSources.length === 1
-			? m.routes_skills_delete_named({ name: deletingSources[0].displayName })
-			: m.routes_skills_delete_sources_msg()
+			? m.skills_delete_named({ name: deletingSources[0].displayName })
+			: m.skills_delete_sources_msg()
 		: m.confirm_default_title()}
 	show={Boolean(deletingSources && deletingSources.length > 0)}
 	onsuccess={async () => {
@@ -422,7 +422,7 @@
 			if (error instanceof HttpError && error.statusCode === 402) {
 				showLicenseError = true;
 			} else {
-				errors.append(m.routes_skills_delete_sources_failed({ error: String(error) }));
+				errors.append(m.skills_delete_sources_failed({ error: String(error) }));
 			}
 		} finally {
 			deletingSources = undefined;
@@ -442,14 +442,14 @@
 		{/if}
 		<p>
 			{deletingSources && deletingSources.length > 1
-				? m.routes_skills_delete_sources_note_other()
-				: m.routes_skills_delete_sources_note_one()}
+				? m.skills_delete_sources_note_other()
+				: m.skills_delete_sources_note_one()}
 		</p>
 	{/snippet}
 </Confirm>
 
 <ResponsiveDialog
-	title={m.routes_skills_sync_dialog_title()}
+	title={m.skills_sync_dialog_title()}
 	bind:this={syncErrorDialog}
 	class="md:w-2xl"
 >
@@ -458,7 +458,7 @@
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					{m.routes_skills_sync_issue()}
+					{m.skills_sync_issue()}
 				</p>
 			</div>
 			<span class="text-sm font-light break-all">{syncError?.error}</span>
@@ -471,8 +471,8 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1
-					? m.routes_skills_add_source_url()
-					: m.routes_skills_edit_source_url()}
+					? m.skills_add_source_url()
+					: m.skills_edit_source_url()}
 				<IconButton onclick={() => closeSourceDialog()} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
 				</IconButton>
@@ -481,7 +481,7 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-						>{m.routes_skills_field_name()}
+						>{m.skills_field_name()}
 					</label>
 					<input
 						id="catalog-source-name"
@@ -491,7 +491,7 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-url" class="flex-1 text-sm font-light capitalize"
-						>{m.routes_skills_field_source_url()}
+						>{m.skills_field_source_url()}
 					</label>
 					<input
 						id="catalog-source-url"
@@ -502,16 +502,16 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="catalog-source-ref" class="flex-1 text-sm font-light capitalize"
-						>{m.routes_skills_field_reference()}
+						>{m.skills_field_reference()}
 					</label>
 					<input id="catalog-source-ref" bind:value={editingSource.ref} class="text-input-filled" />
-					<span class="text-muted-content text-xs">{m.routes_skills_reference_help()}</span>
+					<span class="text-muted-content text-xs">{m.skills_reference_help()}</span>
 				</div>
 				<div class="flex flex-col gap-2">
 					<div class="flex flex-col gap-1">
 						<div class="flex items-center justify-between gap-4">
 							<span id="skill-source-credential-label" class="flex-1 text-sm font-light capitalize">
-								{m.routes_skills_field_credential()}
+								{m.skills_field_credential()}
 							</span>
 							{#if credentialLocked}
 								<div class="flex justify-end">
@@ -525,7 +525,7 @@
 											editingSource.clearToken = true;
 										}}
 									>
-										{m.routes_skills_clear_token()}
+										{m.skills_clear_token()}
 									</button>
 								</div>
 							{/if}
@@ -554,12 +554,12 @@
 							}}
 						/>
 						<p class="text-xs text-muted-content">
-							{m.routes_skills_manage_credentials_prompt()}
+							{m.skills_manage_credentials_prompt()}
 							<a
 								class="text-blue-500 hover:underline"
 								href={resolve('/admin/platform?view=settings#git-credentials')}
 							>
-								{m.routes_skills_manage_credentials()}
+								{m.skills_manage_credentials()}
 							</a>
 						</p>
 					</div>
@@ -585,14 +585,14 @@
 									: undefined}
 							/>
 							<span class="text-muted-content text-xs">
-								{m.routes_skills_credential_host_help()}
+								{m.skills_credential_host_help()}
 							</span>
 						</div>
 					{/if}
 					{#if editingSource.credentialType === 'token'}
 						<div class="flex flex-col gap-1">
 							<label for="skill-source-token" class="sr-only"
-								>{m.routes_skills_personal_access_token()}</label
+								>{m.skills_personal_access_token()}</label
 							>
 							{#if credentialLocked && existingSkillRepositoryToken}
 								<input
@@ -607,7 +607,7 @@
 							{:else}
 								<SensitiveInput
 									name="skill-source-token"
-									placeholder={m.routes_skills_personal_access_token()}
+									placeholder={m.skills_personal_access_token()}
 									bind:value={editingSource.token}
 								/>
 							{/if}
@@ -621,7 +621,7 @@
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">
-							{m.routes_skills_error_saving_source()}
+							{m.skills_error_saving_source()}
 						</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
@@ -682,7 +682,7 @@
 						}
 					}}
 				>
-					{editingSource.repositoryID ? m.routes_skills_save() : m.routes_skills_add()}
+					{editingSource.repositoryID ? m.skills_save() : m.skills_add()}
 				</button>
 			</div>
 		{/if}

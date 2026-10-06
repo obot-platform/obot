@@ -240,32 +240,32 @@
 	const graphConfigs: GraphConfig[] = [
 		{
 			id: graphConfigIds.mostFrequentToolCalls,
-			label: m.admin_sub_usage_most_frequent_tool_calls(),
+			label: m.audit_usage_usage_most_frequent_tool_calls(),
 			xKey: 'toolName',
 			yKey: 'count',
-			tooltip: m.admin_sub_usage_unit_calls(),
+			tooltip: m.audit_usage_usage_unit_calls(),
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) =>
-				m.admin_sub_usage_tooltip_calls({ count: data.count, name: data.serverDisplayName }),
+				m.audit_usage_usage_tooltip_calls({ count: data.count, name: data.serverDisplayName }),
 			transform: transformTopToolCalls
 		},
 		{
 			id: graphConfigIds.mostFrequentlyUsedServers,
-			label: m.admin_sub_usage_most_used_servers(),
+			label: m.audit_usage_usage_most_used_servers(),
 			xKey: 'serverName',
 			yKey: 'count',
-			tooltip: m.admin_sub_usage_unit_calls(),
+			tooltip: m.audit_usage_usage_unit_calls(),
 			transform: transformTopServerUsage
 		},
 		{
 			id: graphConfigIds.toolCallAverageResponseTime,
-			label: m.admin_sub_usage_avg_response_time(),
+			label: m.audit_usage_usage_avg_response_time(),
 			xKey: 'toolName',
 			yKey: 'averageResponseTimeMs',
 			tooltip: 'ms',
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) =>
-				m.admin_sub_usage_tooltip_avg_ms({
+				m.audit_usage_usage_tooltip_avg_ms({
 					value: (data.averageResponseTimeMs as number).toFixed(2),
 					name: data.serverDisplayName
 				}),
@@ -273,7 +273,7 @@
 		},
 		{
 			id: graphConfigIds.toolCallIndividualResponseTime,
-			label: m.admin_sub_usage_individual_response_time(),
+			label: m.audit_usage_usage_individual_response_time(),
 			xKey: 'toolName',
 			yKey: 'processingTimeMs',
 			tooltip: 'ms',
@@ -301,17 +301,17 @@
 		},
 		{
 			id: graphConfigIds.toolCallErrors,
-			label: m.admin_sub_usage_tool_call_errors(),
+			label: m.audit_usage_usage_tool_call_errors(),
 			xKey: 'toolName',
 			yKey: 'errorCount',
-			tooltip: m.admin_sub_usage_unit_errors(),
+			tooltip: m.audit_usage_usage_unit_errors(),
 			formatXLabel: (d) => {
 				// Just grab the tool name
 				const parts = String(d).split('.');
 				return parts[parts.length - 1];
 			},
 			formatTooltipText: (data) =>
-				m.admin_sub_usage_tooltip_errors({ count: data.errorCount, name: data.serverDisplayName }),
+				m.audit_usage_usage_tooltip_errors({ count: data.errorCount, name: data.serverDisplayName }),
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
@@ -344,10 +344,10 @@
 		},
 		{
 			id: graphConfigIds.toolCallErrorsByServer,
-			label: m.admin_sub_usage_errors_by_server(),
+			label: m.audit_usage_usage_errors_by_server(),
 			xKey: 'serverName',
 			yKey: 'errorCount',
-			tooltip: m.admin_sub_usage_unit_errors(),
+			tooltip: m.audit_usage_usage_unit_errors(),
 			formatXLabel: (d) => String(d),
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -373,13 +373,13 @@
 		},
 		{
 			id: graphConfigIds.mostActiveUsers,
-			label: m.admin_sub_usage_most_active_users(),
+			label: m.audit_usage_usage_most_active_users(),
 			xKey: 'userId',
 			yKey: 'callCount',
-			tooltip: m.admin_sub_usage_unit_calls(),
+			tooltip: m.audit_usage_usage_unit_calls(),
 			formatTooltipText: (data) => {
 				const user = usersAsArray.find((u) => u.id === data.userId);
-				return m.admin_sub_usage_tooltip_calls({
+				return m.audit_usage_usage_tooltip_calls({
 					count: data.callCount,
 					name: userDisplayName(user)
 				});
@@ -457,12 +457,12 @@
 
 	function userDisplayName(user?: OrgUser): string {
 		if (!user) {
-			return m.admin_sub_log_unknown();
+			return m.audit_usage_audit_logs_unknown();
 		}
 
-		let display = user.originalEmail || user.email || user.id || m.admin_sub_log_unknown();
+		let display = user.originalEmail || user.email || user.id || m.audit_usage_audit_logs_unknown();
 		if (user.deletedAt) {
-			display = m.admin_sub_usage_deleted_user({ name: display });
+			display = m.audit_usage_usage_deleted_user({ name: display });
 		}
 		return display;
 	}
@@ -498,13 +498,13 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as SupportedStateFilter;
 
-		if (_key === 'mcp_server_display_names') return m.admin_sub_audit_filter_server();
+		if (_key === 'mcp_server_display_names') return m.audit_usage_audit_logs_filter_server();
 		if (_key === 'mcp_server_catalog_entry_names')
-			return m.admin_sub_usage_filter_catalog_entry_name();
-		if (_key === 'mcp_id') return m.admin_sub_audit_filter_server_id();
-		if (_key === 'start_time') return m.admin_sub_audit_filter_start_time();
-		if (_key === 'end_time') return m.admin_sub_audit_filter_end_time();
-		if (_key === 'user_ids') return m.admin_sub_llm_filter_user();
+			return m.audit_usage_usage_filter_catalog_entry_name();
+		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
+		if (_key === 'start_time') return m.audit_usage_audit_logs_filter_start_time();
+		if (_key === 'end_time') return m.audit_usage_audit_logs_filter_end_time();
+		if (_key === 'user_ids') return m.audit_usage_audit_logs_model_filter_user();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -571,7 +571,7 @@
 			class="bg-base-400/50 border-base-400 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
-			<div class="text-2xl font-semibold">{m.admin_sub_usage_loading_stats()}</div>
+			<div class="text-2xl font-semibold">{m.audit_usage_usage_loading_stats()}</div>
 		</div>
 	</div>
 {/if}
@@ -601,7 +601,7 @@
 					}}
 				>
 					<Funnel class="size-4" />
-					{m.admin_sub_filters_title()}
+					{m.core_filters_title()}
 				</button>
 			{/if}
 		</div>
@@ -612,9 +612,9 @@
 	{#if !showLoadingSpinner && !hasData(filteredGraphConfigs)}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ChartBarDecreasing class="text-muted-content size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">{m.admin_sub_usage_no_stats()}</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_usage_no_stats()}</h4>
 			<p class="text-muted-content w-sm text-sm font-light">
-				{m.admin_sub_usage_no_stats_hint()}
+				{m.audit_usage_usage_no_stats_hint()}
 			</p>
 		</div>
 	{:else if !showLoadingSpinner}
@@ -658,7 +658,7 @@
 								<div
 									class="text-muted-content flex h-72 items-center justify-center text-sm font-light"
 								>
-									{m.admin_sub_usage_no_data()}
+									{m.audit_usage_usage_no_data_panel()}
 								</div>
 							{/if}
 						</div>
@@ -670,12 +670,12 @@
 								<IconButton
 									onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
 									disabled={page === 0}
-									tooltip={{ text: m.admin_sub_audit_previous_page() }}
+									tooltip={{ text: m.audit_usage_audit_logs_previous_page() }}
 								>
 									<ChevronsLeft class="size-5" />
 								</IconButton>
 								<span class="text-sm">
-									{m.admin_sub_usage_page_info({
+									{m.audit_usage_usage_page_info({
 										page: page + 1,
 										pages: maxPage + 1,
 										shown: Math.min(graphPageSize, total - page * graphPageSize),
@@ -685,7 +685,7 @@
 								<IconButton
 									onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
 									disabled={page >= maxPage}
-									tooltip={{ text: m.admin_sub_audit_next_page() }}
+									tooltip={{ text: m.audit_usage_audit_logs_next_page() }}
 								>
 									<ChevronsRight class="size-5" />
 								</IconButton>
@@ -749,7 +749,7 @@
 									<span>{getFilterValue(filterKey, value)}</span>
 								</span>
 
-								<span class="mx-1 font-bold last:hidden">{m.admin_sub_filter_or()}</span>
+								<span class="mx-1 font-bold last:hidden">{m.audit_usage_usage_filter_or()}</span>
 							{:else}
 								<span class="font-light">{getFilterValue(filterKey, value)}</span>
 							{/if}

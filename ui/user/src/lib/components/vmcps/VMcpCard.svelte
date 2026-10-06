@@ -118,7 +118,7 @@
 				placement="bottom-start"
 				class="pointer-events-auto relative z-10 size-9 shrink-0"
 				classes={{ menu: 'min-w-48' }}
-				ariaLabel={m.vmcps_actions_for_named({ name })}
+				ariaLabel={m.vmcps_deployments_actions_for_named({ name })}
 			>
 				{#snippet children({ toggle })}
 					{#if onEditDetails}

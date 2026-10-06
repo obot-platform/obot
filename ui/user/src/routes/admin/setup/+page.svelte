@@ -51,7 +51,7 @@
 	async function handleLocalAuthConfigure(
 		form: Record<string, string>
 	): Promise<string | undefined> {
-		if (!localProvider) return m.admin_routes_setup_local_unavailable();
+		if (!localProvider) return m.auth_setup_local_unavailable();
 		try {
 			await AdminService.configureAuthProvider(localProvider.id, form);
 			const authProviders = await AdminService.listAuthProviders();
@@ -136,7 +136,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_setup_page_title()}</title>
+	<title>Obot | {m.auth_setup_page_title()}</title>
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col items-center">

@@ -120,7 +120,7 @@
 
 	function fetchTokenRequest(authorizationCode: string) {
 		if (!results.clientRegistration) {
-			errors.tokenRequest = m.mcp_debug_oauth_client_registration_required();
+			errors.tokenRequest = m.mcps_oauth_debug_oauth_client_registration_required();
 			expanded.tokenRequest = true;
 			return;
 		}
@@ -143,7 +143,7 @@
 				errors.tokenRequest = error instanceof Error ? error.message : String(error);
 			})
 			.finally(() => {
-				results.authorizationCode = m.mcp_debug_oauth_code_exchanged();
+				results.authorizationCode = m.mcps_oauth_debug_oauth_code_exchanged();
 				loading.tokenRequest = false;
 				expanded.tokenRequest = true;
 			});
@@ -191,7 +191,7 @@
 		if (mcpServer.oauthMetadata) {
 			results.metadataDiscovery = mcpServer.oauthMetadata;
 		} else {
-			errors.metadataDiscovery = m.mcp_oauth_metadata_none_returned();
+			errors.metadataDiscovery = m.mcps_oauth_metadata_none_returned();
 		}
 		expanded.metadataDiscovery = true;
 		loading.metadataDiscovery = false;
@@ -204,21 +204,21 @@
 	const stepLoading = $derived(Object.values(loading).some(Boolean));
 	const clientRegistrationTitle = $derived(
 		mcpServer.oauthMetadata?.clientIdMetadataDocumentSupported
-			? m.mcp_debug_oauth_client_id_metadata_document()
-			: m.mcp_oauth_client_registration()
+			? m.mcps_oauth_debug_oauth_client_id_metadata_document()
+			: m.mcps_oauth_client_registration()
 	);
 </script>
 
 <div class="flex flex-col gap-2 p-4 md:pt-0">
 	<p class="text-muted-content text-sm font-light pb-2">
-		{m.mcp_debug_oauth_intro()}
+		{m.mcps_oauth_debug_oauth_intro()}
 	</p>
 
 	<DebugOauthSection
 		classes={{ content: 'p-0 pt-0' }}
 		bind:open={expanded.metadataDiscovery}
 		loading={loading.metadataDiscovery}
-		title={m.mcp_debug_oauth_metadata_discovery()}
+		title={m.mcps_oauth_debug_oauth_metadata_discovery()}
 		errors={errors.metadataDiscovery}
 		hasResults={Boolean(results.metadataDiscovery)}
 	>
@@ -242,7 +242,7 @@
 	<DebugOauthSection
 		bind:open={expanded.preparingAuthorization}
 		loading={loading.preparingAuthorization}
-		title={m.mcp_debug_oauth_preparing_authorization()}
+		title={m.mcps_oauth_debug_oauth_preparing_authorization()}
 		errors={errors.preparingAuthorization}
 		hasResults={Boolean(results.preparingAuthorization)}
 	>
@@ -257,10 +257,10 @@
 					)}</pre>
 
 				<p class="text-xs text-muted-content">
-					{m.mcp_debug_oauth_click_button()}
+					{m.mcps_oauth_debug_oauth_click_button()}
 				</p>
 				<p class="text-xs text-muted-content">
-					{m.mcp_debug_oauth_paste_code()}
+					{m.mcps_oauth_debug_oauth_paste_code()}
 				</p>
 				<a
 					href={authorizationURL}
@@ -271,7 +271,7 @@
 						expanded.authorizationCode = true;
 					}}
 				>
-					{m.mcp_debug_oauth_get_code()}
+					{m.mcps_oauth_debug_oauth_get_code()}
 				</a>
 			</div>
 		{/if}
@@ -280,7 +280,7 @@
 	<DebugOauthSection
 		bind:open={expanded.authorizationCode}
 		loading={loading.authorizationCode}
-		title={m.mcp_debug_oauth_request_code()}
+		title={m.mcps_oauth_debug_oauth_request_code()}
 		errors={errors.authorizationCode}
 		hasResults={Boolean(results.authorizationCode)}
 		showContent={currentStep === DEBUG_FLOW_STEPS.preparingAuthorization}
@@ -293,7 +293,7 @@
 				)}</pre>
 		{:else}
 			<label for="authorization-code" class="text-sm text-muted-content w-full">
-				{m.mcp_debug_oauth_enter_code()}
+				{m.mcps_oauth_debug_oauth_enter_code()}
 				<input
 					bind:value={authorizationCodeInput}
 					type="text"
@@ -307,7 +307,7 @@
 					}}
 				/>
 				{#if showRequired}
-					<p class="text-xs text-error my-1">{m.mcp_debug_oauth_code_required()}</p>
+					<p class="text-xs text-error my-1">{m.mcps_oauth_debug_oauth_code_required()}</p>
 				{/if}
 			</label>
 		{/if}
@@ -316,7 +316,7 @@
 	<DebugOauthSection
 		bind:open={expanded.tokenRequest}
 		loading={loading.tokenRequest}
-		title={m.mcp_debug_oauth_token_request()}
+		title={m.mcps_oauth_debug_oauth_token_request()}
 		errors={errors.tokenRequest}
 		hasResults={Boolean(results.tokenRequest)}
 	>
@@ -330,12 +330,12 @@
 	<DebugOauthSection
 		bind:open={expanded.tokenRequest}
 		loading={loading.tokenRequest}
-		title={m.mcp_debug_oauth_complete()}
+		title={m.mcps_oauth_debug_oauth_complete()}
 		errors={errors.tokenRequest}
 		hasResults={Boolean(results.tokenRequest)}
 	>
 		<p class="text-sm">
-			{m.mcp_debug_oauth_complete_description()}
+			{m.mcps_oauth_debug_oauth_complete_description()}
 		</p>
 	</DebugOauthSection>
 </div>
@@ -354,11 +354,11 @@
 				isAdminReadonly}
 			onclick={handleNextStep}
 		>
-			{m.mcp_debug_oauth_continue()}
+			{m.mcps_oauth_debug_oauth_continue()}
 		</button>
 
 		<button class="btn btn-secondary text-sm" onclick={handleRestart} disabled={isAdminReadonly}>
-			{m.mcp_debug_oauth_restart()}
+			{m.mcps_oauth_debug_oauth_restart()}
 		</button>
 	</div>
 </div>

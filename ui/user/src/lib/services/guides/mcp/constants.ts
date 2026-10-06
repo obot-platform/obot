@@ -15,8 +15,8 @@ export const highlightMcpServersLink: GuideHighlight = {
 	selector: {
 		id: SIDEBAR_MCP_SERVERS_LINK
 	},
-	title: m.core_guide_mcp_servers(),
-	description: m.core_guide_this_is_where_you_can_manage()
+	title: m.mcps_guide_mcp_servers(),
+	description: m.mcps_guides_this_is_where_you_can_manage()
 };
 
 export const listenMcpServersLink: GuideListener = {
@@ -51,26 +51,26 @@ export function getMcpServersTabListener(
 
 export const highlightMcpAccessPoliciesTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_ACCESS_POLICIES,
-	m.core_guide_access_policies(),
-	m.core_guide_click_here_to_manage_mcp_access()
+	m.mcps_guide_access_policies(),
+	m.mcps_guide_click_here_to_manage_mcp_access()
 );
 
 export const listenMcpAccessPoliciesTab = getMcpServersTabListener(MCP_SERVERS_TAB_ACCESS_POLICIES);
 
 export const highlightMcpFiltersTab = getMcpServersTabHighlight(
 	MCP_SERVERS_TAB_FILTERS,
-	m.core_guide_filters(),
-	m.core_guide_click_here_to_view_mcp_filters()
+	m.mcps_guide_filters(),
+	m.mcps_guide_click_here_to_view_mcp_filters()
 );
 
 export const listenMcpFiltersTab = getMcpServersTabListener(MCP_SERVERS_TAB_FILTERS);
 
 export const addCatalogEntryDescriptions = {
-	hosted: m.core_guide_a_hosted_mcp_server_allows_you(),
-	remote: m.core_guide_a_remote_mcp_server_allows_you()
+	hosted: m.mcps_guides_a_hosted_mcp_server_allows_you(),
+	remote: m.mcps_guides_a_remote_mcp_server_allows_you()
 };
 
 export const obotCatalogEntryDescriptions = {
-	hosted: m.core_guide_a_hosted_mcp_server_provides_a(),
-	remote: m.core_guide_a_remote_mcp_server_lets_you()
+	hosted: m.mcps_guides_a_hosted_mcp_server_provides_a(),
+	remote: m.mcps_guides_a_remote_mcp_server_lets_you()
 };

@@ -85,7 +85,7 @@
 
 <div class="w-full @container md:px-0 px-4">
 	{#if magicLinks.length > 0}
-		<div class="divider">{m.mcp_connect_quick_install()}</div>
+		<div class="divider">{m.mcps_connect_quick_install()}</div>
 		<div
 			id="magic-links-container"
 			class={twMerge('flex gap-2 flex-col', commands.length > 0 ? 'mb-8' : '')}
@@ -102,12 +102,12 @@
 						>
 							<img
 								src={client?.iconDark ?? client?.icon}
-								alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+								alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 								class="size-4 dark:block hidden"
 							/>
 							<img
 								src={client?.icon}
-								alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+								alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 								class="size-4 block dark:hidden"
 							/>
 							{client?.alt}
@@ -121,15 +121,15 @@
 							>
 								<img
 									src={client?.iconDark ?? client?.icon}
-									alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+									alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 									class="size-4 dark:block hidden"
 								/>
 								<img
 									src={client?.icon}
-									alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+									alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 									class="size-4 block dark:hidden"
 								/>
-								{m.mcp_connect_add_to({ name: client?.alt ?? '' })}
+								{m.mcps_connect_add_to({ name: client?.alt ?? '' })}
 							</a>
 						</div>
 					</div>
@@ -139,7 +139,7 @@
 	{/if}
 
 	{#if commands.length > 0}
-		<div class="divider">{m.mcp_connect_install_via_cli()}</div>
+		<div class="divider">{m.mcps_connect_install_via_cli()}</div>
 		<div id="cli-commands-container" class="flex gap-2 flex-col">
 			{#each commands as aiClientCommand, index (aiClientCommand.client)}
 				{@const client = aiClientsMap.get(aiClientCommand.client as AiClient)}
@@ -158,12 +158,12 @@
 								<span class="label shrink-0 w-38 mr-0 text-base-content">
 									<img
 										src={client?.iconDark ?? client?.icon}
-										alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+										alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 										class="size-4 dark:block hidden"
 									/>
 									<img
 										src={client?.icon}
-										alt={m.mcp_branding_icon_alt({ name: client?.alt ?? '' })}
+										alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 										class="size-4 block dark:hidden"
 									/>
 									{client?.alt}
@@ -179,36 +179,36 @@
 	{#if onLaunch || onEdit || onReauthenticate}
 		{#if onLaunch}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
-				{m.mcp_connect_preconfigure()}
+				{m.mcps_connect_preconfigure()}
 			</div>
 			<p class="text-xs text-center">
-				{m.mcp_connect_preconfigure_prefix()}<button
+				{m.mcps_connect_preconfigure_prefix()}<button
 					class="text-blue-500 underline hover:text-blue-400"
-					aria-label={m.mcp_connect_preconfigure_server()}
-					onclick={onLaunch}>{m.mcp_connect_click_here()}</button
-				>{m.mcp_connect_preconfigure_suffix()}
+					aria-label={m.mcps_connect_preconfigure_server()}
+					onclick={onLaunch}>{m.mcps_connect_click_here()}</button
+				>{m.mcps_connect_preconfigure_suffix()}
 			</p>
 		{:else if onEdit || onReauthenticate}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
 				<span>
-					{m.mcp_connect_preconfigure()}
+					{m.mcps_connect_preconfigure()}
 					<CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
 				</span>
 			</div>
 			<div role="status" class="notification-info text-xs text-center">
-				{m.mcp_connect_already_configured()}
+				{m.mcps_connect_already_configured()}
 				{#if onEdit}
-					{m.mcp_connect_update_prefix()}<button
+					{m.mcps_connect_update_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"
-						aria-label={m.mcp_connect_edit_configuration()}
-						onclick={onEdit}>{m.mcp_connect_click_here()}</button
-					>{m.mcp_connect_update_suffix()}
+						aria-label={m.mcps_connect_edit_configuration()}
+						onclick={onEdit}>{m.mcps_connect_click_here()}</button
+					>{m.mcps_connect_update_suffix()}
 				{:else if onReauthenticate}
-					{m.mcp_connect_reauth_prefix()}<button
+					{m.mcps_connect_reauth_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"
-						aria-label={m.mcp_connect_reauthenticate()}
-						onclick={onReauthenticate}>{m.mcp_connect_click_here()}</button
-					>{m.mcp_connect_reauth_suffix()}
+						aria-label={m.mcps_connect_reauthenticate()}
+						onclick={onReauthenticate}>{m.mcps_connect_click_here()}</button
+					>{m.mcps_connect_reauth_suffix()}
 				{/if}
 			</div>
 		{/if}
@@ -218,7 +218,7 @@
 <div class="w-full px-4 md:px-0">
 	<div class="flex flex-col md:flex-row w-full gap-2 md:justify-end justify-center items-center">
 		<p class="text-xs font-light text-muted-content">
-			{m.mcp_connect_more_docs()}
+			{m.mcps_connect_more_docs()}
 		</p>
 		<div class="flex gap-2 items-center justify-end">
 			{#each options as option (option.id)}
@@ -228,11 +228,11 @@
 					rel="noopener noreferrer external"
 					class="tooltip tooltip-left shrink-0"
 					data-tip={option.label}
-					aria-label={m.mcp_connect_open_docs({ name: option.label })}
+					aria-label={m.mcps_connect_open_docs({ name: option.label })}
 				>
 					<img
 						src={option.icon}
-						alt={m.mcp_branding_icon_alt({ name: option.label })}
+						alt={m.mcps_connect_branding_icon_alt({ name: option.label })}
 						class="size-4"
 					/>
 				</a>

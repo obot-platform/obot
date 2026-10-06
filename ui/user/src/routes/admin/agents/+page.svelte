@@ -64,11 +64,11 @@
 	}
 </script>
 
-<Layout title={m.admin_routes_agents_title()}>
+<Layout title={m.identity_access_agents_title()}>
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between">
 			<p class="text-sm text-muted-content">
-				{m.admin_routes_agents_browse_description()}
+				{m.identity_access_agents_browse_description()}
 			</p>
 		</div>
 
@@ -84,7 +84,7 @@
 				}
 				goto(currentUrl, { replaceState: true, keepFocus: true });
 			}}
-			placeholder={m.admin_routes_agents_search_owner()}
+			placeholder={m.identity_access_agents_search_owner()}
 		/>
 
 		<Table
@@ -97,14 +97,14 @@
 			]}
 			filterable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable']}
 			headers={[
-				{ title: m.admin_routes_agents_col_owner(), property: 'ownerDisplay' },
-				{ title: m.admin_routes_agents_col_health(), property: 'deploymentStatus' },
-				{ title: m.admin_routes_agents_col_update_status(), property: 'updatesAvailable' },
-				{ title: m.admin_routes_col_created(), property: 'created' }
+				{ title: m.identity_access_agents_col_owner(), property: 'ownerDisplay' },
+				{ title: m.identity_access_agents_col_health(), property: 'deploymentStatus' },
+				{ title: m.identity_access_agents_col_update_status(), property: 'updatesAvailable' },
+				{ title: m.core_col_created(), property: 'created' }
 			]}
 			sortable={['ownerDisplay', 'deploymentStatus', 'updatesAvailable', 'created']}
 			displayValue={mcpTableDisplayValue}
-			noDataMessage={m.admin_routes_agents_none_found()}
+			noDataMessage={m.identity_access_agents_none_found()}
 			onClickRow={(agent, isCtrlClick) => {
 				openUrl(`/admin/agents/p/${agent.projectID}/s/${agent.id}/details`, isCtrlClick);
 			}}
@@ -137,10 +137,10 @@
 					tooltip={{
 						text:
 							profile.current.canImpersonate?.() && agent.userID !== profile.current.id
-								? m.admin_routes_agents_impersonate_named({ name: agent.ownerDisplay })
+								? m.identity_access_agents_impersonate_named({ name: agent.ownerDisplay })
 								: agent.userID === profile.current.id
-									? m.admin_routes_agents_cannot_impersonate_self()
-									: m.admin_routes_agents_no_impersonate_permission()
+									? m.identity_access_agents_cannot_impersonate_self()
+									: m.identity_access_agents_no_impersonate_permission()
 					}}
 				>
 					<HatGlasses class="size-4" />
@@ -155,23 +155,23 @@
 	oncancel={() => (confirmImpersonate = null)}
 	onsuccess={() => impersonate(confirmImpersonate?.agent)}
 	type="info"
-	title={m.admin_routes_agents_confirm_connection()}
-	msg={m.admin_routes_agents_connect_as({
-		name: confirmImpersonate?.userDisplayName || m.admin_routes_agents_user_fallback()
+	title={m.identity_access_agents_confirm_connection()}
+	msg={m.identity_access_agents_connect_as({
+		name: confirmImpersonate?.userDisplayName || m.identity_access_agents_user_fallback()
 	})}
 	loading={Boolean(launchingAgentId)}
 >
 	{#snippet note()}
 		<p>
-			{m.admin_routes_agents_impersonate_note_prefix()}
+			{m.identity_access_agents_impersonate_note_prefix()}
 			<b class="font-semibold"
-				>{confirmImpersonate?.userDisplayName || m.admin_routes_agents_user_fallback()}</b
-			>{m.admin_routes_agents_impersonate_note_suffix()}
+				>{confirmImpersonate?.userDisplayName || m.identity_access_agents_user_fallback()}</b
+			>{m.identity_access_agents_impersonate_note_suffix()}
 		</p>
-		<p class="text-muted-content mt-4 text-sm">{m.admin_routes_agents_new_window_note()}</p>
+		<p class="text-muted-content mt-4 text-sm">{m.identity_access_agents_new_window_note()}</p>
 	{/snippet}
 </Confirm>
 
 <svelte:head>
-	<title>Obot | {m.admin_routes_agents_title()}</title>
+	<title>Obot | {m.identity_access_agents_title()}</title>
 </svelte:head>

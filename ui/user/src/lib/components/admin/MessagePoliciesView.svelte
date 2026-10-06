@@ -120,7 +120,7 @@
 					setUrlParamAndUpdateUrl(page.url, 'contents', 'policies');
 				}}
 			>
-				{m.admin_misc_policies()}
+				{m.ai_judge_policies()}
 			</button>
 			<button
 				class={twMerge(
@@ -131,7 +131,7 @@
 					setUrlParamAndUpdateUrl(page.url, 'contents', 'policy-violations');
 				}}
 			>
-				{m.admin_misc_policy_violations()}
+				{m.ai_judge_policy_violations()}
 			</button>
 		</div>
 		{#if contentType === 'policies'}
@@ -142,19 +142,19 @@
 					onChange={(value) => {
 						setUrlParamAndUpdateUrl(page.url, 'query', value);
 					}}
-					placeholder={m.admin_misc_search_policies()}
+					placeholder={m.core_search_policies()}
 				/>
 			</div>
 			{#if visiblePolicies.length === 0}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<ShieldAlert class="text-base-content/80 size-24 opacity-25" />
 					<h4 class="text-muted-content text-lg font-semibold">
-						{m.admin_misc_no_ai_judge_policies()}
+						{m.core_no_ai_judge_policies()}
 					</h4>
 					<p class="text-muted-content text-sm font-light">
-						{m.admin_misc_no_ai_judge_policies_yet()} <br />
+						{m.core_no_ai_judge_policies_yet()} <br />
 						{#if !isReadonly}
-							{m.admin_misc_click_below_to_start()}
+							{m.core_click_below_to_start()}
 						{/if}
 					</p>
 
@@ -178,7 +178,7 @@
 		}}
 		headers={[
 			{
-				title: m.admin_misc_col_name(),
+				title: m.core_col_name(),
 				property: 'displayName'
 			}
 		]}
@@ -193,7 +193,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: m.admin_misc_delete() }}
+					tooltip={{ text: m.core_delete() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -206,15 +206,15 @@
 	{#if !isReadonly}
 		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreate}>
 			<Plus class="size-4" />
-			{m.admin_misc_add_ai_judge_policy()}
+			{m.core_add_ai_judge_policy()}
 		</button>
 	{/if}
 {/snippet}
 
 <Confirm
 	msg={policyToDelete?.displayName
-		? m.admin_misc_delete_named({ name: policyToDelete.displayName })
-		: m.admin_misc_delete_this_policy()}
+		? m.core_delete_named_component({ name: policyToDelete.displayName })
+		: m.core_delete_this_policy()}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;

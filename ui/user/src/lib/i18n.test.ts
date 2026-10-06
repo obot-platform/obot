@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 type Catalog = Record<string, string>;
 
 // Each feature area keeps its own catalog under messages/<area>/{locale}.json; the shell lives at the root.
+// Areas follow product routes (mcps, skills, identity_access, platform, ...) and keys are prefixed with that area plus the tab or feature.
 const catalogs = import.meta.glob<Catalog>('../../messages/**/*.json', {
 	eager: true,
 	import: 'default'

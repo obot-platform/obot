@@ -50,22 +50,22 @@
 	function allowedURLValidation(value: string): string {
 		const candidate = value.trim();
 		if (!candidate) {
-			return m.admin_forms_tf_allowed_url_required();
+			return m.mcps_tunnels_allowed_url_required();
 		}
 
 		const wildcardCount = candidate.split('*').length - 1;
 		if (wildcardCount > 1) {
-			return m.admin_forms_tf_one_wildcard();
+			return m.mcps_tunnels_one_wildcard();
 		}
 		if (wildcardCount === 1 && !candidate.startsWith('*') && !candidate.endsWith('*')) {
-			return m.admin_forms_tf_wildcard_position();
+			return m.mcps_tunnels_wildcard_position();
 		}
 
 		return '';
 	}
 
 	let displayNameError = $derived(
-		showErrors && !manifest.displayName.trim() ? m.admin_forms_tf_display_name_required() : ''
+		showErrors && !manifest.displayName.trim() ? m.mcps_tunnels_display_name_required() : ''
 	);
 	let allowedURLErrors = $derived(
 		manifest.allowedURLs.map((value) => (showErrors ? allowedURLValidation(value) : ''))
@@ -126,7 +126,7 @@
 	>
 		<div class="flex flex-col gap-2">
 			<label for="mcp-tunnel-display-name" class="text-sm font-light">
-				{m.admin_forms_tf_display_name()}
+				{m.mcps_tunnels_display_name()}
 				{#if !readonly}
 					<span class="text-error" aria-hidden="true">*</span>
 				{/if}
@@ -151,25 +151,25 @@
 
 		<div class="flex flex-col gap-2">
 			<label for="mcp-tunnel-description" class="text-sm font-light"
-				>{m.admin_forms_description()}</label
+				>{m.core_description()}</label
 			>
 			<textarea
 				id="mcp-tunnel-description"
 				class="text-input-filled dark:bg-base-100 min-h-28 resize-y"
 				bind:value={manifest.description}
 				disabled={readonly}
-				placeholder={m.admin_forms_tf_description_placeholder()}></textarea>
+				placeholder={m.mcps_tunnels_description_placeholder()}></textarea>
 		</div>
 
 		<div class="flex flex-col gap-3">
 			<div class="flex flex-col gap-1">
-				<span class="text-sm font-light">{m.admin_forms_tf_allowed_urls()}</span>
+				<span class="text-sm font-light">{m.mcps_tunnels_allowed_urls()}</span>
 				<p class="text-muted-content text-xs font-light">
-					{m.admin_forms_tf_allowed_urls_hint_prefix()}
+					{m.mcps_tunnels_allowed_urls_hint_prefix()}
 					<code>*</code>
-					{m.admin_forms_tf_allowed_urls_hint_middle()}
+					{m.mcps_tunnels_allowed_urls_hint_middle()}
 					<code>*</code>
-					{m.admin_forms_tf_allowed_urls_hint_suffix()}
+					{m.mcps_tunnels_allowed_urls_hint_suffix()}
 				</p>
 			</div>
 
@@ -184,7 +184,7 @@
 							)}
 							bind:value={manifest.allowedURLs[index]}
 							disabled={readonly}
-							placeholder={m.admin_forms_tf_allowed_url_placeholder()}
+							placeholder={m.mcps_tunnels_allowed_url_placeholder()}
 							aria-invalid={allowedURLErrors[index] ? 'true' : undefined}
 							oninput={() => {
 								showErrors = false;
@@ -198,7 +198,7 @@
 						<button
 							type="button"
 							class="btn btn-square btn-secondary"
-							aria-label={m.admin_forms_tf_delete_allowed_url({ n: index + 1 })}
+							aria-label={m.mcps_tunnels_delete_allowed_url({ n: index + 1 })}
 							onclick={() => {
 								manifest.allowedURLs.splice(index, 1);
 							}}
@@ -218,7 +218,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{m.admin_forms_tf_allowed_url()}
+					{m.mcps_tunnels_allowed_url()}
 				</button>
 			{/if}
 		</div>
@@ -228,19 +228,19 @@
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
-			<h2 class="text-sm font-semibold">{m.admin_forms_tf_credentials()}</h2>
+			<h2 class="text-sm font-semibold">{m.mcps_tunnels_credentials()}</h2>
 			<div class="grid gap-4 md:grid-cols-2">
 				<div class="flex min-w-0 flex-col gap-1">
-					<span class="text-muted-content text-xs">{m.admin_forms_tf_tunnel_id()}</span>
+					<span class="text-muted-content text-xs">{m.mcps_tunnels_tunnel_id()}</span>
 					<code class="truncate text-sm" title={tunnel.id}>{tunnel.id}</code>
 				</div>
 				<div class="flex min-w-0 flex-col gap-1">
-					<span class="text-muted-content text-xs">{m.admin_forms_tf_secret_preview()}</span>
+					<span class="text-muted-content text-xs">{m.mcps_tunnels_secret_preview()}</span>
 					<code class="truncate text-sm" title={tunnel.token}>{tunnel.token}</code>
 				</div>
 			</div>
 			<p class="text-muted-content text-xs font-light">
-				{m.admin_forms_tf_secret_shown_once()}
+				{m.mcps_tunnels_secret_shown_once()}
 			</p>
 		</div>
 	{/if}
@@ -255,11 +255,11 @@
 						onclick={onRotateSecret}
 					>
 						<RefreshCw class="size-4" />
-						{m.admin_forms_tf_rotate_secret()}
+						{m.mcps_tunnels_rotate_secret()}
 					</button>
 					<button type="button" class="btn btn-error flex items-center gap-1" onclick={onDelete}>
 						<Trash2 class="size-4" />
-						{m.admin_forms_delete()}
+						{m.mcps_tunnels_delete()}
 					</button>
 				{/if}
 			</div>
@@ -272,7 +272,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{/if}
-				{tunnel ? m.admin_forms_save_changes() : m.admin_forms_tf_create_tunnel()}
+				{tunnel ? m.core_save_changes() : m.mcps_tunnels_create_tunnel()}
 			</button>
 		</div>
 	{/if}

@@ -12,8 +12,8 @@ function getSubmitAction(): GuideAction {
 		highlight: {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.submitBtn },
 			side: 'left',
-			title: m.core_guide_save_the_entry_2(),
-			description: m.core_guide_once_you_have_finished_configuring_the()
+			title: m.mcps_servers_guide_save_the_entry_2(),
+			description: m.mcps_servers_guide_once_you_have_finished_configuring_the()
 		},
 		listener: {
 			id: CATALOG_SERVER_FIELD_IDS.submitBtn,
@@ -29,8 +29,8 @@ function getStaticOAuthAction(): GuideAction {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth },
 			side: 'top',
 			align: 'center',
-			title: m.core_guide_static_oauth(),
-			description: m.core_guide_enable_this_only_when_the_remote(),
+			title: m.mcps_servers_guide_static_oauth(),
+			description: m.mcps_servers_guide_enable_this_only_when_the_remote(),
 			noDescendantInteraction: true
 		},
 		listener: {
@@ -49,8 +49,8 @@ function getAdvancedFieldsAction(): GuideAction[] {
 				selector: { id: CATALOG_SERVER_FIELD_IDS.remoteConnection },
 				side: 'top',
 				align: 'center',
-				title: m.core_guide_connection_restriction(),
-				description: m.core_guide_choose_an_exact_url_allow_a(),
+				title: m.mcps_servers_guide_connection_restriction(),
+				description: m.mcps_servers_guide_choose_an_exact_url_allow_a(),
 				noDescendantInteraction: true
 			},
 			listener: {
@@ -78,22 +78,22 @@ function getAdvancedFieldsAction(): GuideAction[] {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			m.core_guide_what_is_a_remote_mcp_server(),
-			m.core_guide_a_remote_mcp_server_is_great()
+			m.mcps_servers_guide_what_is_a_remote_mcp_server(),
+			m.mcps_servers_guide_a_remote_mcp_server_is_great()
 		]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('remote'),
 	getNavigateBasicCatalogEntryFieldsStep(),
 	{
-		content: [m.core_guide_now_let_s_go_over_the_2()],
+		content: [m.mcps_servers_guide_now_let_s_go_over_the_2()],
 		action: {
 			highlight: {
 				selector: { id: CATALOG_SERVER_FIELD_IDS.remoteURL },
 				side: 'top',
 				align: 'center',
-				title: m.core_guide_remote_server_url(),
-				description: m.core_guide_enter_the_full_url_of_the()
+				title: m.mcps_servers_guide_remote_server_url(),
+				description: m.mcps_servers_guide_enter_the_full_url_of_the()
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.remoteURL,
@@ -101,8 +101,8 @@ export const steps: GuideStep[] = [
 					highlight: {
 						selector: { id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn },
 						side: 'top',
-						title: m.core_guide_advanced_configuration(),
-						description: m.core_guide_open_this_to_restrict_connections_by()
+						title: m.mcps_servers_guide_advanced_configuration(),
+						description: m.mcps_servers_guide_open_this_to_restrict_connections_by()
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn,
@@ -117,7 +117,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: m.core_guide_reroute_a_remote_mcp_through_obot(),
-	description: m.core_guide_add_auditing_governance_to_an_existing(),
+	title: m.mcps_servers_guide_reroute_a_remote_mcp_through_obot(),
+	description: m.mcps_servers_guide_add_auditing_governance_to_an_existing(),
 	id: 'mcp-create-remote-guide'
 };

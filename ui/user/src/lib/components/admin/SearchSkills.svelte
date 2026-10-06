@@ -21,7 +21,7 @@
 		skillRepositories,
 		onAdd,
 		exclude = [],
-		title = m.admin_misc_add_skills(),
+		title = m.skills_add_skills(),
 		wildcardAvailable = true
 	}: Props = $props();
 	let addSkillDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -111,7 +111,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (query = val)}
 					value={query}
-					placeholder={m.admin_misc_search_repos_skills()}
+					placeholder={m.skills_search_repos_skills()}
 				/>
 			</div>
 
@@ -126,9 +126,9 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="flex flex-col">
-								<p class="font-medium">{m.admin_misc_all_skills()}</p>
+								<p class="font-medium">{m.skills_access_policies_all_skills()}</p>
 								<span class="text-muted-content text-xs">
-									{m.admin_misc_all_skills_description()}
+									{m.skills_all_skills_description()}
 								</span>
 							</div>
 						</div>
@@ -162,7 +162,7 @@
 								<p class="font-medium">{item.name}</p>
 								<span class="text-muted-content line-clamp-1 text-xs">
 									{#if item.type === 'skillRepository'}
-										{m.admin_misc_repo_skills_description()}
+										{m.skills_repo_skills_description()}
 									{:else}
 										{item.description}
 									{/if}
@@ -183,7 +183,7 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<PencilRuler class="size-4" />
-				{m.admin_misc_n_selected({ count: selected.length })}
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
@@ -191,7 +191,7 @@
 				{m.common_cancel()}
 			</button>
 			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
-				{m.admin_misc_confirm()}
+				{m.core_confirm()}
 			</button>
 		</div>
 	</div>

@@ -20,9 +20,9 @@
 			<div class="flex items-center gap-3">
 				<Info class="size-6 shrink-0" />
 				<div class="flex flex-col gap-1">
-					<p class="font-semibold">{m.admin_routes_branding_example_components()}</p>
+					<p class="font-semibold">{m.platform_branding_example_components()}</p>
 					<p>
-						{m.admin_routes_branding_example_components_description()}
+						{m.platform_branding_example_components_description()}
 					</p>
 				</div>
 			</div>
@@ -58,7 +58,7 @@
 		<div class="flex justify-center items-center col-span-12 @min-[768px]:col-span-6">
 			<div class="dialog-container max-w-md">
 				<div class="dialog-title p-4 pb-0">
-					{m.admin_routes_branding_confirm_action()}
+					{m.platform_branding_confirm_action()}
 					<button type="button">
 						<X class="size-5" />
 					</button>
@@ -68,12 +68,12 @@
 						<CircleAlert class="size-8 text-primary" />
 					</div>
 					<p class="text-center text-base font-medium">
-						{m.admin_routes_branding_confirm_action_question()}
+						{m.platform_branding_confirm_action_question()}
 					</p>
 
 					<div class="mb-4 self-center text-center font-light">
 						<p>
-							{m.admin_routes_branding_confirm_example()}
+							{m.platform_branding_confirm_example()}
 						</p>
 					</div>
 
@@ -81,7 +81,7 @@
 						class="flex w-full flex-col items-center justify-center gap-2 @min-[768px]:flex-col @min-[768px]:justify-end"
 					>
 						<button type="button" class="flex w-full justify-center p-3 btn btn-primary">
-							{m.admin_routes_confirm()}
+							{m.platform_confirm()}
 						</button>
 						<button type="button" class="btn btn-secondary w-full justify-center"
 							>{m.common_cancel()}</button
@@ -95,23 +95,23 @@
 		<div class="flex gap-4 grow flex-wrap">
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-primary"><HouseIcon /></button>
-				<button class="btn btn-primary">{m.admin_routes_confirm()}</button>
+				<button class="btn btn-primary">{m.platform_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-secondary"><HouseIcon /></button>
-				<button class="btn btn-secondary">{m.admin_routes_confirm()}</button>
+				<button class="btn btn-secondary">{m.platform_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-success"><HouseIcon /></button>
-				<button class="btn btn-success">{m.admin_routes_confirm()}</button>
+				<button class="btn btn-success">{m.platform_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-warning"><HouseIcon /></button>
-				<button class="btn btn-warning">{m.admin_routes_confirm()}</button>
+				<button class="btn btn-warning">{m.platform_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-error"><HouseIcon /></button>
-				<button class="btn btn-error">{m.admin_routes_confirm()}</button>
+				<button class="btn btn-error">{m.platform_confirm()}</button>
 			</div>
 		</div>
 	</div>
@@ -119,9 +119,9 @@
 		<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 			<div class="flex">
 				<button class="page-tab w-1/2 max-w-1/2 page-tab-active">
-					{m.admin_routes_branding_servers()}
+					{m.platform_branding_servers()}
 				</button>
-				<button class="page-tab w-1/2 max-w-1/2"> {m.admin_routes_branding_users()} </button>
+				<button class="page-tab w-1/2 max-w-1/2"> {m.platform_branding_users()} </button>
 			</div>
 			<Table
 				data={MOCK_CONNECTOR_TABLE_DATA}
@@ -129,9 +129,9 @@
 				filterable={['name', 'status']}
 				sortable={['name', 'created', 'status']}
 				headers={[
-					{ title: m.admin_routes_col_name(), property: 'name' },
-					{ title: m.admin_routes_col_status(), property: 'status' },
-					{ title: m.admin_routes_col_created(), property: 'created' }
+					{ title: m.core_col_name(), property: 'name' },
+					{ title: m.platform_col_status(), property: 'status' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 			>
 				{#snippet onRenderColumn(field: string, row: BrandingMockConnectorRow)}
@@ -157,16 +157,16 @@
 	</div>
 
 	<div class="w-full paper my-8">
-		<h4 class="text-lg font-semibold">{m.admin_routes_branding_custom_form()}</h4>
+		<h4 class="text-lg font-semibold">{m.platform_branding_custom_form()}</h4>
 		<div class="flex flex-col gap-1">
-			<label for="description" class="text-sm font-light">{m.admin_routes_description()}</label>
+			<label for="description" class="text-sm font-light">{m.platform_description()}</label>
 			<input
 				class="text-input-filled"
-				placeholder={m.admin_routes_branding_description_placeholder()}
+				placeholder={m.platform_branding_description_placeholder()}
 			/>
 		</div>
 		<div class="flex gap-4 items-center justify-between">
-			<p class="text-sm font-light">{m.admin_routes_branding_example_selector()}</p>
+			<p class="text-sm font-light">{m.platform_branding_example_selector()}</p>
 			<div class="flex grow">
 				<Select
 					class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
@@ -175,17 +175,17 @@
 					}}
 					selected="a"
 					options={[
-						{ label: m.admin_routes_branding_option_n({ n: 1 }), id: 'a' },
-						{ label: m.admin_routes_branding_option_n({ n: 2 }), id: 'b' },
-						{ label: m.admin_routes_branding_option_n({ n: 3 }), id: 'c' },
-						{ label: m.admin_routes_branding_option_n({ n: 4 }), id: 'd' }
+						{ label: m.platform_branding_option_n({ n: 1 }), id: 'a' },
+						{ label: m.platform_branding_option_n({ n: 2 }), id: 'b' },
+						{ label: m.platform_branding_option_n({ n: 3 }), id: 'c' },
+						{ label: m.platform_branding_option_n({ n: 4 }), id: 'd' }
 					]}
 				/>
 			</div>
 		</div>
 		<div class="flex justify-end">
 			<label for="toggle" class="label text-sm">
-				{m.admin_routes_branding_toggle()}
+				{m.platform_branding_toggle()}
 				<input id="toggle" type="checkbox" checked={true} class="toggle" />
 			</label>
 		</div>

@@ -20,15 +20,15 @@
 	<ShieldAlert class="size-6" />
 	<div>
 		{hasUserLimitViolation
-			? m.admin_sub_license_notice_at_limit({ limit: userLimitText })
-			: m.admin_sub_license_notice_almost_at_limit({ limit: userLimitText })}
+			? m.platform_license_notice_notice_at_limit({ limit: userLimitText })
+			: m.platform_license_notice_notice_almost_at_limit({ limit: userLimitText })}
 		<a
 			href="https://obot.ai/contact-us/"
 			class="text-link"
 			target="_blank"
 			rel="noopener noreferrer"
 		>
-			{m.admin_sub_license_contact_us_upgrade()}</a
+			{m.platform_license_notice_contact_us_upgrade()}</a
 		>
 	</div>
 </div>

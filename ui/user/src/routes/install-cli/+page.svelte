@@ -52,14 +52,14 @@
 			<div class="flex flex-col @2xl/cli:flex-row items-center justify-center gap-8">
 				<div class="max-w-md">
 					<Logo class="@2xl/cli:size-16 size-12 mb-1 mx-auto @2xl:mx-0" />
-					<h2 class="text-2xl font-bold mb-2">{m.routes_cli_hero_heading()}</h2>
+					<h2 class="text-2xl font-bold mb-2">{m.install_cli_hero_heading()}</h2>
 					{#if isAdmin}
 						<p class="font-light">
-							{m.routes_cli_hero_admin()}
+							{m.install_cli_hero_admin()}
 						</p>
 					{:else}
 						<p class="font-light">
-							{m.routes_cli_hero_user()}
+							{m.install_cli_hero_user()}
 						</p>
 					{/if}
 				</div>
@@ -81,18 +81,18 @@
 				{/each}
 			</div>
 			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1" id="obot-cli-installation">
-				<h3 class="text-2xl font-bold">{m.routes_cli_how_to_install()}</h3>
+				<h3 class="text-2xl font-bold">{m.install_cli_how_to_install()}</h3>
 
 				{@render codesnippet(
-					m.routes_cli_step_homebrew(),
+					m.install_cli_step_homebrew(),
 					installCommand,
 					'obot-cli-homebrew-install'
 				)}
 
-				{@render codesnippet(m.routes_cli_step_setup(), setupCommand, 'obot-cli-setup-command')}
+				{@render codesnippet(m.install_cli_step_setup(), setupCommand, 'obot-cli-setup-command')}
 
 				<div class="flex flex-col">
-					<p class="text-sm">{m.routes_cli_more_options()}</p>
+					<p class="text-sm">{m.install_cli_more_options()}</p>
 					<a
 						id="obot-cli-windows-installer"
 						href="https://github.com/obot-platform/obot/releases/latest"
@@ -100,14 +100,14 @@
 						target="_blank"
 						rel="noopener noreferrer external"
 					>
-						{m.routes_cli_get_latest_release()}
+						{m.install_cli_get_latest_release()}
 						<ExternalLinkIcon class="size-4" />
 					</a>
 					<div class="flex items-center gap-1 badge badge-outline border-base-400 opacity-50">
 						<div class="devicon devicon-windows11-original text-[#0078D7]"></div>
 						<p class="text-xs font-light">
-							<b class="font-medium">{m.routes_cli_windows_installer()}</b>
-							{m.routes_cli_coming_soon()}
+							<b class="font-medium">{m.install_cli_windows_installer()}</b>
+							{m.install_cli_coming_soon()}
 						</p>
 					</div>
 				</div>
@@ -122,14 +122,14 @@
 					<AntennaIcon class="@2xl/cli:size-10 size-6 text-primary translate-y-0.5" />
 				</div>
 				<h4 class="text-xl font-semibold text-center my-2">
-					{m.routes_cli_what_does_prefix()}<code class="font-mono font-normal mx-2">obot setup</code
-					>{m.routes_cli_what_does_suffix()}
+					{m.install_cli_what_does_prefix()}<code class="font-mono font-normal mx-2">obot setup</code
+					>{m.install_cli_what_does_suffix()}
 				</h4>
 				<ul class="list-disc font-light flex flex-col gap-2 px-4">
-					<li>{m.routes_cli_setup_detects()}</li>
-					<li>{m.routes_cli_setup_authenticates()}</li>
+					<li>{m.install_cli_setup_detects()}</li>
+					<li>{m.install_cli_setup_authenticates()}</li>
 					<li>
-						{m.routes_cli_setup_installs_skills()}
+						{m.install_cli_setup_installs_skills()}
 					</li>
 				</ul>
 			</div>
@@ -138,29 +138,29 @@
 		<div class="divider"></div>
 
 		<section class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
-			<h3 class="text-2xl font-bold">{m.routes_cli_commands_heading()}</h3>
+			<h3 class="text-2xl font-bold">{m.install_cli_commands_heading()}</h3>
 
 			<div class="paper" id="obot-cli-command-setup">
 				{@render commandPreview('obot setup')}
 				<p>
-					{m.routes_cli_use_prefix()}<code class="inline-code">obot setup</code
-					>{m.routes_cli_setup_desc_suffix()}
+					{m.install_cli_use_prefix()}<code class="inline-code">obot setup</code
+					>{m.install_cli_setup_desc_suffix()}
 				</p>
 			</div>
 
 			<div class="paper" id="obot-cli-command-mcp">
 				{@render commandPreview('obot mcp')}
 				<p class="mb-2">
-					{m.routes_cli_use_prefix()}<code class="inline-code">obot mcp</code
-					>{m.routes_cli_mcp_desc_middle()}<code class="inline-code">~/.agents</code
-					>{m.routes_cli_including_suffix()}
+					{m.install_cli_use_prefix()}<code class="inline-code">obot mcp</code
+					>{m.install_cli_mcp_desc_middle()}<code class="inline-code">~/.agents</code
+					>{m.install_cli_including_suffix()}
 				</p>
 				{@render supportedClients('size-6')}
 
 				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
 					<li>
 						<p class="mb-2">
-							{m.routes_cli_mcp_search_skill()}
+							{m.install_cli_mcp_search_skill()}
 						</p>
 						<div class="mb-2">
 							{@render slashCommandPreview(
@@ -175,16 +175,16 @@
 			<div class="paper" id="obot-cli-command-skills">
 				{@render commandPreview('obot skills')}
 				<p>
-					{m.routes_cli_use_prefix()}<code class="inline-code">obot skills</code
-					>{m.routes_cli_skills_desc_middle()}<code class="inline-code">~/.agents</code
-					>{m.routes_cli_including_suffix()}
+					{m.install_cli_use_prefix()}<code class="inline-code">obot skills</code
+					>{m.install_cli_skills_desc_middle()}<code class="inline-code">~/.agents</code
+					>{m.install_cli_including_suffix()}
 				</p>
 				{@render supportedClients()}
 
 				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
 					<li>
 						<p class="mb-2">
-							{m.routes_cli_skills_install_skills()}
+							{m.install_cli_skills_install_skills()}
 						</p>
 						<div class="mb-2">
 							{@render slashCommandPreview(
@@ -272,7 +272,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>{m.routes_cli_page_title()}</title>
+	<title>{m.install_cli_page_title()}</title>
 </svelte:head>
 
 <style lang="postcss">

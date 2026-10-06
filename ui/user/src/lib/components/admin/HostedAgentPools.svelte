@@ -44,9 +44,9 @@
 	// resolve them to people and let the pool be recognised by who is in it.
 	function userLabel(id: string) {
 		const user = usersByID.get(id);
-		if (!user) return m.admin_forms_pool_user_id_label({ id });
+		if (!user) return m.hosted_agents_pools_user_id_label({ id });
 		return (
-			user.displayName || user.email || user.username || m.admin_forms_pool_user_id_label({ id })
+			user.displayName || user.email || user.username || m.hosted_agents_pools_user_id_label({ id })
 		);
 	}
 
@@ -81,7 +81,7 @@
 	});
 	const formatQuantity = (q?: { cpuVcpus: number; memoryBytes: number; storageBytes: number }) =>
 		q
-			? m.admin_forms_pool_quantity({
+			? m.hosted_agents_pools_quantity({
 					cpu: q.cpuVcpus,
 					memory: toGiB(q.memoryBytes),
 					storage: toGiB(q.storageBytes)
@@ -162,7 +162,7 @@
 			scheduleRefresh();
 			poolDialog?.close();
 		} catch (error) {
-			errors.append(m.admin_forms_pool_save_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_pools_save_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -179,7 +179,7 @@
 				? await AdminService.updateHostedAgentPoolDefaults(manifest)
 				: await AdminService.createHostedAgentPoolDefaults(manifest);
 		} catch (error) {
-			errors.append(m.admin_forms_pool_save_defaults_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_pools_save_defaults_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -193,7 +193,7 @@
 			scheduleRefresh();
 			assignmentDialog?.close();
 		} catch (error) {
-			errors.append(m.admin_forms_pool_assign_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_pools_assign_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -206,7 +206,7 @@
 		try {
 			usage = await AdminService.getHostedAgentPoolUtilization(pool.id);
 		} catch (error) {
-			errors.append(m.admin_forms_pool_load_utilization_failed({ error: String(error) }));
+			errors.append(m.hosted_agents_pools_load_utilization_failed({ error: String(error) }));
 		}
 	}
 
@@ -231,8 +231,8 @@
 		     each is a couple of characters wide, so stacking them wasted the row. -->
 		<div class="flex flex-wrap items-end gap-x-4 gap-y-3">
 			<div class="mr-auto">
-				<h2 class="font-semibold">{m.admin_forms_pool_deployment_defaults()}</h2>
-				<p class="text-muted-content text-xs">{m.admin_forms_pool_deployment_defaults_hint()}</p>
+				<h2 class="font-semibold">{m.hosted_agents_pools_deployment_defaults()}</h2>
+				<p class="text-muted-content text-xs">{m.hosted_agents_pools_deployment_defaults_hint()}</p>
 			</div>
 			<label class="text-muted-content flex flex-col text-xs"
 				>vCPU<input
@@ -245,7 +245,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>{m.admin_forms_pool_memory_gib()}<input
+				>{m.hosted_agents_pools_memory_gib()}<input
 					type="number"
 					min="0.1"
 					step="0.1"
@@ -255,7 +255,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>{m.admin_forms_pool_storage_gib()}<input
+				>{m.hosted_agents_pools_storage_gib()}<input
 					type="number"
 					min="0.1"
 					step="0.1"
@@ -265,7 +265,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>{m.admin_forms_pool_max_sandboxes()}<input
+				>{m.hosted_agents_pools_max_sandboxes()}<input
 					type="number"
 					min="1"
 					step="1"
@@ -278,7 +278,7 @@
 				<button
 					class="btn btn-primary text-sm"
 					disabled={saving || !defaultsForm.cpu || !defaultsForm.memory || !defaultsForm.storage}
-					onclick={saveDefaults}>{m.admin_forms_save()}</button
+					onclick={saveDefaults}>{m.core_save()}</button
 				>
 			{/if}
 		</div>
@@ -287,18 +287,18 @@
 	<section>
 		<div class="mb-3 flex items-center justify-between">
 			<div>
-				<h2 class="font-semibold">{m.admin_forms_pool_pools()}</h2>
+				<h2 class="font-semibold">{m.hosted_agents_pools()}</h2>
 				<p class="text-muted-content text-sm">
-					{m.admin_forms_pool_pools_hint()}
+					{m.hosted_agents_pools_hint()}
 				</p>
 			</div>
 			<div class="flex gap-2">
 				{#if !readonly}
 					<button class="btn btn-secondary text-sm" onclick={() => assignmentDialog?.open()}
-						><Plus class="size-4" /> {m.admin_forms_pool_assign_user()}</button
+						><Plus class="size-4" /> {m.hosted_agents_pools_assign_user()}</button
 					>
 					<button class="btn btn-primary text-sm" onclick={() => openPool()}
-						><Plus class="size-4" /> {m.admin_forms_pool_add_pool()}</button
+						><Plus class="size-4" /> {m.hosted_agents_pools_add_pool()}</button
 					>
 				{/if}
 			</div>
@@ -317,7 +317,7 @@
 									{:else if members.length > 1}
 										{userLabel(members[0].userID)} +{members.length - 1}
 									{:else}
-										{m.admin_forms_pool_unassigned()}
+										{m.hosted_agents_pools_unassigned()}
 									{/if}
 								</span>
 								<span
@@ -327,14 +327,14 @@
 											? 'badge-success'
 											: 'badge-secondary'}"
 									>{pool.suspended
-										? m.admin_forms_pool_suspended()
+										? m.hosted_agents_pools_suspended()
 										: pool.status?.ready
-											? m.admin_forms_pool_ready()
-											: m.admin_forms_pool_pending()}</span
+											? m.hosted_agents_pools_ready()
+											: m.hosted_agents_pools_pending()}</span
 								>
 							</div>
 							<p class="text-muted-content mt-1 text-sm">
-								{m.admin_forms_pool_capacity_summary({
+								{m.hosted_agents_pools_capacity_summary({
 									quantity: formatQuantity(pool.capacity),
 									count: pool.maxSandboxes ?? 10
 								})}
@@ -346,17 +346,17 @@
 						</div>
 						<div class="flex shrink-0">
 							<button class="btn btn-ghost btn-sm" onclick={() => showUsage(pool)}
-								><Activity class="size-4" /> {m.admin_forms_pool_usage()}</button
+								><Activity class="size-4" /> {m.hosted_agents_pools_usage()}</button
 							>
 							{#if !readonly}
 								<button
 									class="btn btn-ghost btn-sm"
-									aria-label={m.admin_forms_pool_edit_pool()}
+									aria-label={m.hosted_agents_pools_edit_pool()}
 									onclick={() => openPool(pool)}><Pencil class="size-4" /></button
 								>
 								<button
 									class="btn btn-ghost btn-sm text-error"
-									aria-label={m.admin_forms_pool_delete_pool()}
+									aria-label={m.hosted_agents_pools_delete_pool()}
 									onclick={() => (deleting = pool)}><Trash2 class="size-4" /></button
 								>
 							{/if}
@@ -372,12 +372,12 @@
 							>
 								{userLabel(member.userID)}
 								{#if member.default}<span class="text-muted-content"
-										>{m.admin_forms_pool_member_default()}</span
+										>{m.hosted_agents_pools_member_default()}</span
 									>{/if}
 								{#if !readonly}
 									<button
 										class="text-muted-content hover:text-error"
-										aria-label={m.admin_forms_pool_remove_member({
+										aria-label={m.hosted_agents_pools_remove_member({
 											name: userLabel(member.userID)
 										})}
 										onclick={() => (deletingAssignment = member)}><Trash2 class="size-3" /></button
@@ -385,12 +385,12 @@
 								{/if}
 							</span>
 						{:else}
-							<span class="text-muted-content text-xs">{m.admin_forms_pool_no_users()}</span>
+							<span class="text-muted-content text-xs">{m.hosted_agents_pools_no_users()}</span>
 						{/each}
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted-content py-6 text-center text-sm">{m.admin_forms_pool_no_pools()}</p>
+				<p class="text-muted-content py-6 text-center text-sm">{m.hosted_agents_pools_no_pools()}</p>
 			{/each}
 		</div>
 	</section>
@@ -398,7 +398,7 @@
 
 <ResponsiveDialog
 	bind:this={poolDialog}
-	title={editing ? m.admin_forms_pool_edit_pool() : m.admin_forms_pool_add_pool()}
+	title={editing ? m.hosted_agents_pools_edit_pool() : m.hosted_agents_pools_add_pool()}
 	class="md:max-w-md"
 >
 	<div class="grid gap-3">
@@ -412,7 +412,7 @@
 			/></label
 		>
 		<label class="text-sm"
-			>{m.admin_forms_pool_memory_gib()}<input
+			>{m.hosted_agents_pools_memory_gib()}<input
 				type="number"
 				min="0.1"
 				step="0.1"
@@ -421,7 +421,7 @@
 			/></label
 		>
 		<label class="text-sm"
-			>{m.admin_forms_pool_storage_gib()}<input
+			>{m.hosted_agents_pools_storage_gib()}<input
 				type="number"
 				min="0.1"
 				step="0.1"
@@ -430,64 +430,64 @@
 			/></label
 		>
 		<label class="text-sm"
-			>{m.admin_forms_pool_max_sandboxes()}<input
+			>{m.hosted_agents_pools_max_sandboxes()}<input
 				type="number"
 				min="1"
 				step="1"
 				class="text-input-filled mt-1"
 				bind:value={form.maxSandboxes}
 			/><span class="text-muted-content mt-1 block text-xs">
-				{m.admin_forms_pool_sandboxes_hint()}
+				{m.hosted_agents_pools_sandboxes_hint()}
 			</span></label
 		>
 		<label class="flex items-center gap-2 text-sm"
 			><input type="checkbox" bind:checked={form.suspended} />
-			{m.admin_forms_pool_suspend_new_starts()}</label
+			{m.hosted_agents_pools_suspend_new_starts()}</label
 		>
 		<button
 			class="btn btn-primary mt-2"
 			disabled={saving || !form.cpu || !form.memory || !form.storage}
 			onclick={savePool}
-			>{#if saving}<Loading class="size-4" />{:else}{m.admin_forms_save()}{/if}</button
+			>{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}</button
 		>
 	</div>
 </ResponsiveDialog>
 
 <ResponsiveDialog
 	bind:this={assignmentDialog}
-	title={m.admin_forms_pool_assign_pool()}
+	title={m.hosted_agents_pools_assign_pool()}
 	class="md:max-w-md"
 >
 	<div class="grid gap-3">
 		<label class="text-sm"
-			>{m.admin_forms_pool_user_id()}<input
+			>{m.hosted_agents_pools_user_id()}<input
 				class="text-input-filled mt-1"
 				bind:value={assignmentForm.userID}
 			/></label
 		>
 		<label class="text-sm"
-			>{m.admin_forms_pool_pool()}<select
+			>{m.hosted_agents_pools_pool()}<select
 				class="text-input-filled mt-1"
 				bind:value={assignmentForm.poolID}
-				><option value="">{m.admin_forms_pool_select_pool()}</option
+				><option value="">{m.hosted_agents_pools_select_pool()}</option
 				>{#each pools as pool (pool.id)}<option value={pool.id}>{pool.id}</option>{/each}</select
 			></label
 		>
 		<label class="flex items-center gap-2 text-sm"
 			><input type="checkbox" bind:checked={assignmentForm.default} />
-			{m.admin_forms_pool_default_pool()}</label
+			{m.hosted_agents_pools_default_pool()}</label
 		>
 		<button
 			class="btn btn-primary"
 			disabled={saving || !assignmentForm.userID || !assignmentForm.poolID}
-			onclick={saveAssignment}>{m.admin_forms_pool_assign()}</button
+			onclick={saveAssignment}>{m.hosted_agents_pools_assign()}</button
 		>
 	</div>
 </ResponsiveDialog>
 
 <ResponsiveDialog
 	bind:this={usageDialog}
-	title={m.admin_forms_pool_live_utilization()}
+	title={m.hosted_agents_pools_live_utilization()}
 	class="md:max-w-lg"
 >
 	{#if !usage}<div class="flex justify-center p-8"><Loading class="size-6" /></div>
@@ -495,23 +495,23 @@
 		<div class="grid gap-3">
 			<p class="text-sm">
 				<strong>{usagePool?.id}</strong>
-				{m.admin_forms_pool_snapshot({ time: new Date(usage.timestamp).toLocaleString() })}
+				{m.hosted_agents_pools_snapshot({ time: new Date(usage.timestamp).toLocaleString() })}
 			</p>
-			<p class="text-sm">{m.admin_forms_pool_used({ quantity: formatQuantity(usage.pool) })}</p>
+			<p class="text-sm">{m.hosted_agents_pools_used({ quantity: formatQuantity(usage.pool) })}</p>
 			<p class="text-muted-content text-xs">
-				{m.admin_forms_pool_pressure({
-					cpu: usage.pressure.cpu ?? m.admin_forms_unknown(),
-					memory: usage.pressure.memory ?? m.admin_forms_unknown(),
-					storage: usage.pressure.storage ?? m.admin_forms_unknown()
+				{m.hosted_agents_pools_pressure({
+					cpu: usage.pressure.cpu ?? m.hosted_agents_pools_unknown(),
+					memory: usage.pressure.memory ?? m.hosted_agents_pools_unknown(),
+					storage: usage.pressure.storage ?? m.hosted_agents_pools_unknown()
 				})}
 			</p>
 			<p class="text-muted-content text-xs">
-				{m.admin_forms_pool_totals_hint()}
+				{m.hosted_agents_pools_totals_hint()}
 			</p>
 			{#each usage.instances as instance (instance.instanceID)}<div
 					class="border-base-400 rounded border p-2 text-xs"
 				>
-					{instance.instanceID} · {instance.state ?? m.admin_forms_unknown()} · {formatQuantity(
+					{instance.instanceID} · {instance.state ?? m.hosted_agents_pools_unknown()} · {formatQuantity(
 						instance.usage
 					)}
 				</div>{/each}
@@ -521,7 +521,7 @@
 
 {#if deleting}
 	<Confirm
-		msg={m.admin_forms_pool_delete_confirm()}
+		msg={m.hosted_agents_pools_delete_confirm()}
 		show
 		onsuccess={async () => {
 			await AdminService.deleteHostedAgentPool(deleting!.id);
@@ -534,7 +534,7 @@
 {/if}
 {#if deletingAssignment}
 	<Confirm
-		msg={m.admin_forms_pool_remove_assignment_confirm()}
+		msg={m.hosted_agents_pools_remove_assignment_confirm()}
 		show
 		onsuccess={async () => {
 			await AdminService.deleteHostedAgentPoolAssignment(deletingAssignment!.id);

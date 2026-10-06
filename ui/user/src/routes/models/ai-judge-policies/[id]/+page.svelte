@@ -13,7 +13,7 @@
 	const listHref = '/models?view=ai-judge-policies';
 
 	let title = $derived(
-		messagePolicy?.displayName ?? m.routes_models_message_policy_fallback_title()
+		messagePolicy?.displayName ?? m.models_message_policy_fallback_title()
 	);
 </script>
 

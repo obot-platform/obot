@@ -22,7 +22,7 @@
 </script>
 
 <Confirm
-	title={m.admin_routes_users_confirm_auditor_title()}
+	title={m.identity_access_users_confirm_auditor_title()}
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -31,21 +31,21 @@
 	}}
 	{oncancel}
 	type="info"
-	msg={m.admin_routes_groups_grant_auditor_msg({ name: `${groupAssignment?.group.name}` })}
+	msg={m.identity_access_groups_grant_auditor_msg({ name: `${groupAssignment?.group.name}` })}
 >
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
 				{#if auditorReadonlyAdminRoles.includes(roleId)}
-					{m.admin_routes_groups_auditor_note_readonly()}
+					{m.identity_access_groups_auditor_note_readonly()}
 				{:else}
-					{m.admin_routes_groups_auditor_note()}
+					{m.identity_access_groups_auditor_note()}
 				{/if}
 			</p>
 			<p>
-				{m.admin_routes_groups_grant_confirm_prefix()}
+				{m.identity_access_groups_grant_confirm_prefix()}
 				<b>{groupAssignment?.group.name}</b>
-				{m.admin_routes_groups_grant_confirm_suffix()}
+				{m.identity_access_groups_grant_confirm_suffix()}
 			</p>
 		</div>
 	{/snippet}

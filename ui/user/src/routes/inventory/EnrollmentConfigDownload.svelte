@@ -173,8 +173,8 @@
 	});
 	let downloadNote = $derived.by(() => {
 		if (!selectedTarget) return;
-		if (selectedArtifact && dirty) return m.routes_inv_save_before_download();
-		if (!selectedArtifact) return m.routes_inv_save_to_generate();
+		if (selectedArtifact && dirty) return m.inventory_enforcement_configuration_save_before_download();
+		if (!selectedArtifact) return m.inventory_enforcement_configuration_save_to_generate();
 	});
 
 	onMount(() => {
@@ -282,7 +282,7 @@
 			const digestChanged =
 				!source.isSyncing && Boolean(source.latestDigest) && source.latestDigest !== previousDigest;
 			if (source.isSyncing) {
-				checkNote = m.routes_inv_still_refreshing();
+				checkNote = m.inventory_enforcement_configuration_still_refreshing();
 			} else if (digestChanged) {
 				configuration = await AdminService.getMDMConfiguration(configuration.id);
 				settingsOpen = configuration.assetDigest !== source.latestDigest;
@@ -335,7 +335,7 @@
 			operationError = problem.message;
 			if (problem.status === 409) {
 				await loadAssets();
-				operationError = m.routes_inv_fields_reloaded({ message: problem.message });
+				operationError = m.inventory_enforcement_configuration_fields_reloaded({ message: problem.message });
 			}
 		} finally {
 			saving = false;
@@ -365,22 +365,22 @@
 	<div class="flex flex-col gap-1.5">
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-2.5">
-				<h3 class="text-lg font-semibold">{m.routes_inv_install_sentry()}</h3>
+				<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_install_sentry()}</h3>
 				{#if versionChip}
 					<span class="badge badge-ghost badge-sm">{versionChip}</span>
 				{/if}
 				{#if configState === 'update'}
-					<span class="badge badge-warning badge-sm">{m.routes_inv_update_available()}</span>
+					<span class="badge badge-warning badge-sm">{m.inventory_enforcement_configuration_update_available()}</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				{#if checkingForUpdates}
-					<span class="text-muted-content text-xs">{m.routes_inv_checking()}</span>
+					<span class="text-muted-content text-xs">{m.inventory_enforcement_configuration_checking()}</span>
 				{:else if checkNote}
 					<span class="text-muted-content text-xs">{checkNote}</span>
 				{:else if assetSource?.lastSyncTime}
 					<span class="text-muted-content text-xs">
-						{m.routes_inv_checked_ago({
+						{m.inventory_enforcement_configuration_checked_ago({
 							time: formatTimeAgo(assetSource.lastSyncTime).relativeTime
 						})}
 					</span>
@@ -389,7 +389,7 @@
 					<IconButton
 						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.agentSettingsButton}
 						class="btn-sm {settingsOpen ? 'text-primary' : ''}"
-						tooltip={{ text: m.routes_inv_agent_settings() }}
+						tooltip={{ text: m.inventory_enforcement_configuration_agent_settings() }}
 						aria-expanded={settingsOpen}
 						onclick={() => (settingsOpen = !settingsOpen)}
 					>
@@ -400,7 +400,7 @@
 					<IconButton
 						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.checkForUpdatesButton}
 						class="btn-sm"
-						tooltip={{ text: m.routes_inv_check_for_updates() }}
+						tooltip={{ text: m.inventory_enforcement_configuration_check_for_updates() }}
 						disabled={checkingForUpdates || saving}
 						onclick={checkForUpdates}
 					>
@@ -411,16 +411,16 @@
 		</div>
 
 		<p class="text-muted-content text-sm font-light">
-			{m.routes_inv_sentry_description()}
+			{m.inventory_enforcement_configuration_sentry_description()}
 		</p>
 
 		{#if updateAvailable}
 			<p class="text-warning text-xs">
-				{m.routes_inv_update_notice({
+				{m.inventory_enforcement_configuration_update_notice({
 					release: latestVersion
-						? m.routes_inv_version_is_out({ version: latestVersion })
-						: m.routes_inv_new_release_is_out(),
-					built: versionChip ?? m.routes_inv_an_older_release()
+						? m.inventory_enforcement_configuration_version_is_out({ version: latestVersion })
+						: m.inventory_enforcement_configuration_new_release_is_out(),
+					built: versionChip ?? m.inventory_enforcement_configuration_an_older_release()
 				})}
 			</p>
 		{/if}
@@ -431,14 +431,14 @@
 				<div class="flex flex-1 flex-col gap-0.5">
 					<span class="text-xs font-medium">
 						{assetsLoadError
-							? m.routes_inv_couldnt_load_release()
-							: m.routes_inv_last_check_failed()}
+							? m.inventory_enforcement_configuration_couldnt_load_release()
+							: m.inventory_enforcement_configuration_last_check_failed()}
 					</span>
 					<span class="text-muted-content text-xs break-all">{catalogError}</span>
 				</div>
 				{#if assetsLoadError}
 					<button class="btn btn-secondary text-sm" onclick={loadAssets}
-						>{m.routes_inv_retry()}</button
+						>{m.inventory_enforcement_configuration_retry()}</button
 					>
 				{/if}
 			</div>
@@ -453,7 +453,7 @@
 		<Loading class="size-5 self-center" />
 	{:else if !latestAsset && !catalogError}
 		<div class="text-muted-content rounded-lg border border-dashed p-6 text-center text-sm">
-			{m.routes_inv_no_release()}
+			{m.inventory_enforcement_configuration_no_release()}
 		</div>
 	{:else}
 		{#if latestAsset && settingsOpen}
@@ -467,7 +467,7 @@
 							onclick={handleSave}
 						>
 							{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-							{m.routes_inv_save()}
+							{m.inventory_enforcement_configuration_save()}
 						</button>
 					</div>
 				{/if}
@@ -482,18 +482,18 @@
 				class="flex flex-wrap items-center justify-between gap-3 py-3"
 				id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-1`}
 			>
-				{@render setupStep('1', m.routes_inv_step_key_title(), m.routes_inv_step_key_description())}
+				{@render setupStep('1', m.inventory_enforcement_configuration_step_key_title(), m.inventory_enforcement_configuration_step_key_description())}
 				{#if enrollmentKeyCount > 0}
 					<span
-						use:tooltip={m.routes_inv_key_exists()}
+						use:tooltip={m.inventory_enforcement_configuration_key_exists()}
 						role="img"
-						aria-label={m.routes_inv_key_exists()}
+						aria-label={m.inventory_enforcement_configuration_key_exists()}
 					>
 						<CircleCheck class="text-success size-5" />
 					</span>
 				{:else if !readOnly}
 					<button class="btn btn-secondary btn-sm" onclick={() => onCreateEnrollmentKey?.()}>
-						{m.routes_inv_new_key()}
+						{m.inventory_enforcement_configuration_new_key()}
 					</button>
 				{/if}
 			</div>
@@ -505,8 +505,8 @@
 				>
 					{@render setupStep(
 						'2',
-						m.routes_inv_step_method_title(),
-						m.routes_inv_step_method_description()
+						m.inventory_enforcement_configuration_step_method_title(),
+						m.inventory_enforcement_configuration_step_method_description()
 					)}
 					<div class="flex shrink-0 flex-wrap justify-end">
 						{#each platformGroups as group (group.platform)}
@@ -529,7 +529,7 @@
 					class="flex flex-wrap items-center justify-between gap-3 py-3"
 					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`}
 				>
-					{@render setupStep('3', m.routes_inv_step_os_title(), m.routes_inv_step_os_description())}
+					{@render setupStep('3', m.inventory_enforcement_configuration_step_os_title(), m.inventory_enforcement_configuration_step_os_description())}
 					{#if selectedGroup}
 						<div class="flex shrink-0 flex-wrap justify-end">
 							{#each selectedGroup.targets as { option, index } (targetKey(option))}
@@ -553,7 +553,7 @@
 					class="flex flex-wrap items-center justify-between gap-3 py-3"
 					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-4`}
 				>
-					{@render setupStep('4', m.routes_inv_step_download_title(), selectedTarget?.description)}
+					{@render setupStep('4', m.inventory_enforcement_configuration_step_download_title(), selectedTarget?.description)}
 					{#if selectedArtifact && !dirty}
 						<button
 							type="button"
@@ -577,8 +577,8 @@
 						>
 							{@render setupStep(
 								'5',
-								m.routes_inv_step_install_title(),
-								m.routes_inv_step_install_description()
+								m.inventory_enforcement_configuration_step_install_title(),
+								m.inventory_enforcement_configuration_step_install_description()
 							)}
 						</div>
 					</summary>
@@ -591,7 +591,7 @@
 								</div>
 							{:else}
 								<p class="text-muted-content text-sm">
-									{m.routes_inv_instructions_pending()}
+									{m.inventory_enforcement_configuration_instructions_pending()}
 								</p>
 							{/if}
 						</div>
@@ -623,7 +623,7 @@
 {#snippet fieldsForm()}
 	<div class="flex flex-col gap-4">
 		{#if formFields.length === 0}
-			<p class="text-muted-content text-sm">{m.routes_inv_no_editable_values()}</p>
+			<p class="text-muted-content text-sm">{m.inventory_enforcement_configuration_no_editable_values()}</p>
 		{/if}
 		{#each formFields as [fieldName, field] (fieldName)}
 			{@const problem = mdmFieldProblem(fieldName, field, values[fieldName], requiredFields)}
@@ -636,7 +636,7 @@
 						disabled={readOnly}
 						class="text-input-filled w-fit"
 					>
-						<option value={undefined}>{m.routes_inv_select()}</option>
+						<option value={undefined}>{m.inventory_enforcement_configuration_select()}</option>
 						{#each field.enum as option (option)}<option value={option}>{option}</option>{/each}
 					</select>
 				{:else if field.type === 'boolean'}

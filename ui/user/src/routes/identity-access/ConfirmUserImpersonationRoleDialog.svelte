@@ -37,7 +37,7 @@
 </script>
 
 <Confirm
-	title={m.admin_routes_users_confirm_impersonator_title()}
+	title={m.identity_access_users_confirm_impersonator_title()}
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -46,24 +46,24 @@
 	}}
 	{oncancel}
 	type="info"
-	msg={m.admin_routes_groups_grant_impersonator_msg({ name: `${groupAssignment?.group.name}` })}
+	msg={m.identity_access_groups_grant_impersonator_msg({ name: `${groupAssignment?.group.name}` })}
 >
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
-				{m.admin_routes_groups_impersonator_note()}
+				{m.identity_access_groups_impersonator_note()}
 			</p>
 			{#if addingAuditor}
 				<p>
-					{m.admin_routes_users_impersonator_note_adds_auditor()}
+					{m.identity_access_users_impersonator_note_adds_auditor()}
 				</p>
 			{:else if removingAuditor}
-				<p>{m.admin_routes_users_impersonator_note_removes_auditor()}</p>
+				<p>{m.identity_access_users_impersonator_note_removes_auditor()}</p>
 			{/if}
 			<p>
-				{m.admin_routes_groups_grant_confirm_prefix()}
+				{m.identity_access_groups_grant_confirm_prefix()}
 				<b>{groupAssignment?.group.name}</b>
-				{m.admin_routes_groups_grant_confirm_suffix()}
+				{m.identity_access_groups_grant_confirm_suffix()}
 			</p>
 		</div>
 	{/snippet}

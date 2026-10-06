@@ -44,11 +44,11 @@
 	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
 	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
 	const toggleLabel = $derived(
-		defaultDenyAllEgress ? m.mcp_egress_allow_all() : m.mcp_egress_deny_all()
+		defaultDenyAllEgress ? m.mcps_egress_allow_all() : m.mcps_egress_deny_all()
 	);
 	const inputReadonly = $derived(readonly || toggleChecked);
 	const egressHelpText = $derived(
-		defaultDenyAllEgress ? m.mcp_egress_help_default_deny() : m.mcp_egress_help_default_allow()
+		defaultDenyAllEgress ? m.mcps_egress_help_default_deny() : m.mcps_egress_help_default_allow()
 	);
 
 	function handleEgressToggle(checked: boolean) {
@@ -114,22 +114,22 @@
 <div
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
-	<h4 class="text-sm font-semibold">{m.mcp_runtime_npx_title()}</h4>
-	<p class="text-muted-content text-xs">{m.mcp_runtime_stdio_entries_only()}</p>
+	<h4 class="text-sm font-semibold">{m.mcps_catalog_npx_runtime_npx_title()}</h4>
+	<p class="text-muted-content text-xs">{m.mcps_catalog_npx_runtime_stdio_entries_only()}</p>
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4" id="npx-package-field">
 		<label
 			for="npx-package"
 			class={twMerge('text-sm font-light min-w-[76px]', showRequired?.package && 'error')}
-			>{m.mcp_runtime_package()}</label
+			>{m.mcps_runtime_package()}</label
 		>
 		<input
 			id="npx-package"
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
-			placeholder={m.mcp_example({ example: '@modelcontextprotocol/server-everything' })}
+			placeholder={m.mcps_example({ example: '@modelcontextprotocol/server-everything' })}
 			onblur={() => {
 				if (config.package) {
 					config.package = config.package.trim();
@@ -145,7 +145,7 @@
 	<!-- Arguments field (optional) -->
 	{#if config.args}
 		<div class="flex gap-4">
-			<span class="pt-2.5 text-sm font-light">{m.mcp_runtime_arguments()}</span>
+			<span class="pt-2.5 text-sm font-light">{m.mcps_runtime_arguments()}</span>
 			<div class="flex min-h-10 grow flex-col gap-4">
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
@@ -158,14 +158,14 @@
 									config.args[i] = config.args[i].trim();
 								}
 							}}
-							placeholder={m.mcp_example({ example: '/path/to/directory' })}
+							placeholder={m.mcps_example({ example: '/path/to/directory' })}
 							onpaste={(e) => handlePaste(e, i)}
 						/>
 						{#if !readonly}
 							<IconButton
 								variant="danger"
 								onclick={() => removeArgument(i)}
-								tooltip={{ text: m.mcp_runtime_remove_argument() }}
+								tooltip={{ text: m.mcps_runtime_remove_argument() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -181,7 +181,7 @@
 							onclick={addArgument}
 						>
 							<Plus class="size-4" />
-							{m.mcp_runtime_argument()}
+							{m.mcps_runtime_argument()}
 						</button>
 					</div>
 				{/if}
@@ -191,7 +191,7 @@
 
 	{#if showEgressDomains}
 		<div class="flex gap-4">
-			<span class="pt-2.5 text-sm font-light">{m.mcp_egress_domains()}</span>
+			<span class="pt-2.5 text-sm font-light">{m.mcps_egress_domains()}</span>
 			<div class="flex min-h-10 grow flex-col gap-2">
 				<Toggle
 					label={toggleLabel}
@@ -204,7 +204,7 @@
 					bind:value={config.egressDomains}
 					class="text-input-filled dark:bg-base-100"
 					readonly={inputReadonly}
-					placeholder={m.mcp_hit_enter_to_insert()}
+					placeholder={m.mcps_hit_enter_to_insert()}
 				/>
 				<p class="text-muted-content text-xs">{egressHelpText}</p>
 			</div>
@@ -216,7 +216,7 @@
 		<label
 			for="npx-startup-timeout"
 			class={twMerge('text-sm font-light', showRequired?.startupTimeoutSeconds && 'error')}
-			>{m.mcp_runtime_startup_timeout()}</label
+			>{m.mcps_runtime_startup_timeout()}</label
 		>
 		<input
 			type="number"

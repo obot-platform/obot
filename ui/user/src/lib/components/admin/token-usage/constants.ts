@@ -69,59 +69,59 @@ export const GRAPH_METRIC = {
 export type GraphMetric = (typeof GRAPH_METRIC)[keyof typeof GRAPH_METRIC];
 
 export const USAGE_BUCKET_LABEL = {
-	INPUT: m.admin_sub_llm_col_input(),
-	OUTPUT: m.admin_sub_llm_col_output()
+	INPUT: m.audit_usage_audit_logs_model_col_input(),
+	OUTPUT: m.audit_usage_audit_logs_model_col_output()
 } as const;
 
 export const TOKEN_USAGE_CATEGORY = {
-	DEFAULT: m.admin_sub_tokens_category_default(),
-	UNKNOWN: m.admin_sub_log_unknown()
+	DEFAULT: m.audit_usage_usage_tokens_category_default(),
+	UNKNOWN: m.audit_usage_audit_logs_unknown()
 } as const;
 
 export const CHART_LABEL = {
-	INPUT_TOKENS: m.admin_sub_tokens_chart_input_tokens(),
-	OUTPUT_TOKENS: m.admin_sub_tokens_chart_output_tokens(),
-	SPEND: m.admin_sub_tokens_chart_spend(),
-	TOKENS: m.admin_sub_tokens_chart_tokens()
+	INPUT_TOKENS: m.audit_usage_usage_tokens_chart_input_tokens(),
+	OUTPUT_TOKENS: m.audit_usage_usage_tokens_chart_output_tokens(),
+	SPEND: m.audit_usage_usage_tokens_chart_spend(),
+	TOKENS: m.audit_usage_usage_tokens_chart_tokens()
 } as const;
 
 export const TOKEN_TYPE_OPTIONS: { label: string; id: TokenType }[] = [
-	{ label: m.admin_sub_tokens_input_tokens(), id: TOKEN_TYPE.INPUT },
-	{ label: m.admin_sub_tokens_output_tokens(), id: TOKEN_TYPE.OUTPUT },
-	{ label: m.admin_sub_tokens_spend(), id: TOKEN_TYPE.SPEND }
+	{ label: m.audit_usage_usage_tokens_input_tokens(), id: TOKEN_TYPE.INPUT },
+	{ label: m.audit_usage_usage_tokens_output_tokens(), id: TOKEN_TYPE.OUTPUT },
+	{ label: m.audit_usage_usage_tokens_spend(), id: TOKEN_TYPE.SPEND }
 ];
 
 export const TOKEN_GROUP_BY_OPTIONS: {
 	label: string;
 	id: (typeof TOKEN_GROUP_BY)[keyof typeof TOKEN_GROUP_BY];
 }[] = [
-	{ label: m.admin_sub_tokens_group_by_token_type(), id: TOKEN_GROUP_BY.DEFAULT },
-	{ label: m.admin_sub_tokens_group_by_users(), id: TOKEN_GROUP_BY.USERS },
-	{ label: m.admin_sub_tokens_group_by_models(), id: TOKEN_GROUP_BY.MODELS }
+	{ label: m.audit_usage_usage_tokens_group_by_token_type(), id: TOKEN_GROUP_BY.DEFAULT },
+	{ label: m.audit_usage_usage_tokens_group_by_users(), id: TOKEN_GROUP_BY.USERS },
+	{ label: m.audit_usage_usage_tokens_group_by_models(), id: TOKEN_GROUP_BY.MODELS }
 ];
 
 export const USAGE_SUBVIEW_SORT_BY_TOKEN_OPTIONS: { label: string; id: UsageSubViewSortBy }[] = [
-	{ label: m.admin_sub_tokens_sort_name_az(), id: USAGE_SUBVIEW_SORT_BY.NAME },
-	{ label: m.admin_sub_tokens_sort_name_za(), id: USAGE_SUBVIEW_SORT_BY.NAME_REVERSE },
+	{ label: m.audit_usage_usage_tokens_sort_name_az(), id: USAGE_SUBVIEW_SORT_BY.NAME },
+	{ label: m.audit_usage_usage_tokens_sort_name_za(), id: USAGE_SUBVIEW_SORT_BY.NAME_REVERSE },
 	{
-		label: m.admin_sub_tokens_sort_tokens_desc(),
+		label: m.audit_usage_usage_tokens_sort_tokens_desc(),
 		id: USAGE_SUBVIEW_SORT_BY.TOTAL_TOKENS
 	},
 	{
-		label: m.admin_sub_tokens_sort_tokens_asc(),
+		label: m.audit_usage_usage_tokens_sort_tokens_asc(),
 		id: USAGE_SUBVIEW_SORT_BY.TOTAL_TOKENS_REVERSE
 	}
 ];
 
 export const USAGE_SUBVIEW_SORT_BY_SPEND_OPTIONS: { label: string; id: UsageSubViewSortBy }[] = [
-	{ label: m.admin_sub_tokens_sort_name_az(), id: USAGE_SUBVIEW_SORT_BY.NAME },
-	{ label: m.admin_sub_tokens_sort_name_za(), id: USAGE_SUBVIEW_SORT_BY.NAME_REVERSE },
+	{ label: m.audit_usage_usage_tokens_sort_name_az(), id: USAGE_SUBVIEW_SORT_BY.NAME },
+	{ label: m.audit_usage_usage_tokens_sort_name_za(), id: USAGE_SUBVIEW_SORT_BY.NAME_REVERSE },
 	{
-		label: m.admin_sub_tokens_sort_spend_desc(),
+		label: m.audit_usage_usage_tokens_sort_spend_desc(),
 		id: USAGE_SUBVIEW_SORT_BY.TOTAL_SPEND
 	},
 	{
-		label: m.admin_sub_tokens_sort_spend_asc(),
+		label: m.audit_usage_usage_tokens_sort_spend_asc(),
 		id: USAGE_SUBVIEW_SORT_BY.TOTAL_SPEND_REVERSE
 	}
 ];

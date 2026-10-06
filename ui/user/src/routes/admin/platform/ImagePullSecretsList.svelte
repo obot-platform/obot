@@ -59,23 +59,23 @@
 
 <div class="flex flex-col gap-8">
 	<section class="flex flex-col gap-3">
-		{@render sectionHeader(m.admin_routes_ips_basic_secrets(), 'basic')}
+		{@render sectionHeader(m.platform_settings_image_pull_secrets_basic_secrets(), 'basic')}
 		<Table
 			data={basicSecrets}
 			fields={['displayName', 'detail', 'id']}
 			headers={[
-				{ title: m.admin_routes_col_name(), property: 'displayName' },
-				{ title: m.admin_routes_ips_col_registry(), property: 'detail' },
-				{ title: m.admin_routes_ips_col_secret(), property: 'id' }
+				{ title: m.core_col_name(), property: 'displayName' },
+				{ title: m.platform_settings_image_pull_secrets_col_registry(), property: 'detail' },
+				{ title: m.platform_settings_image_pull_secrets_col_secret(), property: 'id' }
 			]}
 			sortable={['displayName', 'detail', 'id']}
 			filterable={['displayName', 'detail']}
 			onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
-			noDataMessage={m.admin_routes_ips_no_basic()}
+			noDataMessage={m.platform_settings_image_pull_secrets_no_basic()}
 		>
 			{#snippet actions(secret)}
 				<DotDotDot
-					ariaLabel={m.admin_routes_actions_for({ name: displayName(secret) })}
+					ariaLabel={m.platform_actions_for({ name: displayName(secret) })}
 					class="shrink-0 hover:dark:bg-base-100/50"
 				>
 					{#snippet children({ toggle })}
@@ -90,7 +90,7 @@
 								}}
 							>
 								<ShieldCheck class="size-4" />
-								{m.admin_routes_test()}
+								{m.platform_test()}
 							</button>
 						{/if}
 						<button
@@ -103,7 +103,7 @@
 							}}
 						>
 							<Trash2 class="size-4" />
-							{m.admin_routes_delete()}
+							{m.core_delete()}
 						</button>
 					{/snippet}
 				</DotDotDot>
@@ -119,7 +119,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		{@render sectionHeader(m.admin_routes_ips_ecr_secrets(), 'ecr')}
+		{@render sectionHeader(m.platform_settings_image_pull_secrets_ecr_secrets(), 'ecr')}
 		{@render ecrTable()}
 	</section>
 </div>
@@ -130,8 +130,8 @@
 			<h3 class="font-semibold">{title}</h3>
 			<p class="text-muted-content text-sm font-light">
 				{type === 'basic'
-					? m.admin_routes_ips_basic_description()
-					: m.admin_routes_ips_ecr_description()}
+					? m.platform_settings_image_pull_secrets_basic_description()
+					: m.platform_settings_image_pull_secrets_ecr_description()}
 			</p>
 		</div>
 		{#if onCreate && !mutationsDisabled}
@@ -141,7 +141,7 @@
 				onclick={() => onCreate?.(type)}
 			>
 				<Plus class="size-4" />
-				{type === 'basic' ? m.admin_routes_ips_add_basic() : m.admin_routes_ips_add_ecr()}
+				{type === 'basic' ? m.platform_settings_image_pull_secrets_add_basic() : m.platform_settings_image_pull_secrets_add_ecr()}
 			</button>
 		{/if}
 	</div>
@@ -152,21 +152,21 @@
 		data={ecrSecrets}
 		fields={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess', 'statusMessage']}
 		headers={[
-			{ title: m.admin_routes_col_name(), property: 'displayName' },
-			{ title: m.admin_routes_ips_col_region(), property: 'detail' },
-			{ title: m.admin_routes_ips_col_secret(), property: 'id' },
-			{ title: m.admin_routes_col_status(), property: 'statusLabel' },
-			{ title: m.admin_routes_ips_col_last_success(), property: 'lastSuccess' },
-			{ title: m.admin_routes_ips_col_message(), property: 'statusMessage' }
+			{ title: m.core_col_name(), property: 'displayName' },
+			{ title: m.platform_settings_image_pull_secrets_col_region(), property: 'detail' },
+			{ title: m.platform_settings_image_pull_secrets_col_secret(), property: 'id' },
+			{ title: m.platform_col_status(), property: 'statusLabel' },
+			{ title: m.platform_settings_image_pull_secrets_col_last_success(), property: 'lastSuccess' },
+			{ title: m.platform_settings_image_pull_secrets_col_message(), property: 'statusMessage' }
 		]}
 		sortable={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess']}
 		filterable={['statusLabel']}
 		onClickRow={onEdit ? (row, isCtrlClick) => onEdit?.(row, isCtrlClick) : undefined}
-		noDataMessage={m.admin_routes_ips_no_ecr()}
+		noDataMessage={m.platform_settings_image_pull_secrets_no_ecr()}
 	>
 		{#snippet actions(secret)}
 			<DotDotDot
-				ariaLabel={m.admin_routes_actions_for({ name: displayName(secret) })}
+				ariaLabel={m.platform_actions_for({ name: displayName(secret) })}
 				class="shrink-0 hover:dark:bg-base-100/50"
 			>
 				{#snippet children({ toggle })}
@@ -180,7 +180,7 @@
 							}}
 						>
 							<Info class="size-4" />
-							{m.admin_routes_col_status()}
+							{m.platform_col_status()}
 						</button>
 						<button
 							class="menu-button"
@@ -192,7 +192,7 @@
 							}}
 						>
 							<ShieldCheck class="size-4" />
-							{m.admin_routes_test()}
+							{m.platform_test()}
 						</button>
 						<button
 							class="menu-button"
@@ -204,7 +204,7 @@
 							}}
 						>
 							<RefreshCw class={twMerge('size-4', refreshing && 'animate-spin')} />
-							{m.admin_routes_refresh_now()}
+							{m.platform_refresh_now()}
 						</button>
 					{/if}
 					<button
@@ -217,7 +217,7 @@
 						}}
 					>
 						<Trash2 class="size-4" />
-						{m.admin_routes_delete()}
+						{m.core_delete()}
 					</button>
 				{/snippet}
 			</DotDotDot>

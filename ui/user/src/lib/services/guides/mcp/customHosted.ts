@@ -15,7 +15,7 @@ function getCustomConfigurationAction(): GuideAction[] {
 		},
 		side: 'top' as const,
 		align: 'center' as const,
-		title: m.core_guide_custom_configuration(),
+		title: m.mcps_servers_guide_custom_configuration(),
 		noDescendantInteraction: true
 	};
 
@@ -30,7 +30,7 @@ function getCustomConfigurationAction(): GuideAction[] {
 		{
 			highlight: {
 				...configurationHighlight,
-				description: m.core_guide_if_the_mcp_server_requires_any()
+				description: m.mcps_servers_guide_if_the_mcp_server_requires_any()
 			},
 			listener: configurationListener
 		}
@@ -47,8 +47,8 @@ function getHostedFieldsListener(): GuideListener {
 				},
 				side: 'top',
 				align: 'center',
-				title: m.core_guide_runtime_configuration(),
-				description: m.core_guide_depending_on_which_runtime_you_choose(),
+				title: m.mcps_servers_guide_runtime_configuration(),
+				description: m.mcps_servers_guide_depending_on_which_runtime_you_choose(),
 				noDescendantInteraction: true
 			},
 			listener: {
@@ -67,8 +67,8 @@ function getHostedFieldsAction(): GuideAction {
 			},
 			side: 'top',
 			align: 'center',
-			title: m.core_guide_runtime(),
-			description: m.core_guide_this_is_where_you_choose_the(),
+			title: m.mcps_servers_guide_runtime(),
+			description: m.mcps_servers_guide_this_is_where_you_choose_the(),
 			noDescendantInteraction: true
 		},
 		listener: getHostedFieldsListener()
@@ -82,8 +82,8 @@ function getSubmitAction(): GuideAction {
 				id: CATALOG_SERVER_FIELD_IDS.submitBtn
 			},
 			side: 'left',
-			title: m.core_guide_save_the_entry(),
-			description: m.core_guide_once_you_ve_filled_out_all()
+			title: m.mcps_servers_guide_save_the_entry(),
+			description: m.mcps_servers_guide_once_you_ve_filled_out_all()
 		},
 		listener: {
 			skipClickTargetOnNext: true,
@@ -97,24 +97,24 @@ function getSubmitAction(): GuideAction {
 
 export const steps: GuideStep[] = [
 	{
-		content: [m.core_guide_what_is_a_hosted_catalog_entry(), addCatalogEntryDescriptions.hosted]
+		content: [m.mcps_servers_guide_what_is_a_hosted_catalog_entry(), addCatalogEntryDescriptions.hosted]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('hosted'),
 	getNavigateBasicCatalogEntryFieldsStep(),
 	{
-		content: [m.core_guide_now_let_s_go_over_the()],
+		content: [m.mcps_servers_guide_now_let_s_go_over_the()],
 		action: getHostedFieldsAction()
 	},
 	{
 		content: [
-			m.core_guide_once_you_ve_properly_filled_out(),
-			m.core_guide_server_details_this_is_where_you(),
-			m.core_guide_tools_this_is_where_you_can(),
-			m.core_guide_audit_logs_this_is_where_you(),
-			m.core_guide_usage_this_is_where_you_can(),
-			m.core_guide_access_policies_this_is_where_you(),
-			m.core_guide_filters_this_is_where_you_can()
+			m.mcps_servers_guide_once_you_ve_properly_filled_out(),
+			m.mcps_servers_guide_server_details_this_is_where_you(),
+			m.mcps_servers_guide_tools_this_is_where_you_can(),
+			m.mcps_servers_guide_audit_logs_this_is_where_you(),
+			m.mcps_servers_guide_usage_this_is_where_you_can(),
+			m.mcps_servers_guide_access_policies_this_is_where_you(),
+			m.mcps_servers_guide_filters_this_is_where_you_can()
 		],
 		action: [
 			{
@@ -125,8 +125,8 @@ export const steps: GuideStep[] = [
 					},
 					side: 'top',
 					align: 'center',
-					title: m.core_guide_user_defined_headers(),
-					description: m.core_guide_these_allow_you_to_collect_configuration(),
+					title: m.mcps_servers_guide_user_defined_headers(),
+					description: m.mcps_servers_guide_these_allow_you_to_collect_configuration(),
 					noDescendantInteraction: true
 				},
 				listener: {
@@ -144,7 +144,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: m.core_guide_host_mcp_server_w_obot(),
-	description: m.core_guide_add_a_hosted_mcp_server_to(),
+	title: m.mcps_servers_guide_host_mcp_server_w_obot(),
+	description: m.mcps_servers_guide_add_a_hosted_mcp_server_to(),
 	id: 'mcp-create-hosted-guide'
 };

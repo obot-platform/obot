@@ -167,7 +167,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout showBackButton title={m.routes_audit_mcp_exports_title()}>
+<Layout showBackButton title={m.audit_usage_audit_logs_mcp_exports_title()}>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -184,7 +184,7 @@
 					onclick={() => openForm('storage')}
 				>
 					<Settings class="size-4" />
-					{m.routes_audit_configure_storage()}
+					{m.audit_usage_audit_logs_configure_storage()}
 				</button>
 			{/if}
 			{@render addButton()}
@@ -204,8 +204,8 @@
 					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={(val) => (query = val)}
 					placeholder={view === 'exports'
-						? m.routes_audit_search_exports()
-						: m.routes_audit_search_schedules()}
+						? m.audit_usage_audit_logs_search_exports()
+						: m.audit_usage_audit_logs_search_schedules()}
 				/>
 			</div>
 		</div>
@@ -216,13 +216,13 @@
 					class={twMerge('page-tab', view === 'exports' && 'page-tab-active')}
 					onclick={() => switchView('exports')}
 				>
-					{m.routes_audit_tab_exports()}
+					{m.audit_usage_audit_logs_tab_exports()}
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'scheduled' && 'page-tab-active')}
 					onclick={() => switchView('scheduled')}
 				>
-					{m.routes_audit_tab_export_schedules()}
+					{m.audit_usage_audit_logs_tab_export_schedules()}
 				</button>
 			</div>
 
@@ -256,18 +256,18 @@
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
 				<Plus class="size-4" />
-				{m.routes_audit_add_export()}
+				{m.audit_usage_audit_logs_add_export()}
 			</span>
 		{/snippet}
 		<button class="menu-button" onclick={() => openForm('export')}>
-			{m.routes_audit_create_one_time_export()}
+			{m.audit_usage_audit_logs_create_one_time_export()}
 		</button>
 		<button class="menu-button" onclick={() => openForm('scheduled')}>
-			{m.routes_audit_create_export_schedule()}
+			{m.audit_usage_audit_logs_create_export_schedule()}
 		</button>
 	</DotDotDot>
 {/snippet}
 
 <svelte:head>
-	<title>{m.routes_audit_mcp_exports_page_title()}</title>
+	<title>{m.audit_usage_audit_logs_mcp_exports_page_title()}</title>
 </svelte:head>

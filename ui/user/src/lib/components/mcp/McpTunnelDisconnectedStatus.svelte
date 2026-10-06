@@ -17,7 +17,7 @@
 		aria-atomic="true"
 	>
 		<CircleMinus class="size-3" />
-		{m.mcp_tunnel_disconnected()}
+		{m.mcps_tunnels_tunnel_disconnected()}
 	</span>
 {/snippet}
 
@@ -27,15 +27,15 @@
 	>
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div class="flex flex-col gap-1">
-				<h2 class="text-sm font-semibold">{m.mcp_tunnel_status_title()}</h2>
+				<h2 class="text-sm font-semibold">{m.mcps_tunnels_tunnel_status_title()}</h2>
 				<p class="text-muted-content text-xs font-light">
-					{m.mcp_tunnel_status_description()}
+					{m.mcps_tunnels_tunnel_status_description()}
 				</p>
 			</div>
 			{@render badge()}
 		</div>
 		<p class="text-muted-content text-sm font-light">
-			{m.mcp_tunnel_not_connected()}
+			{m.mcps_tunnels_tunnel_not_connected()}
 		</p>
 	</section>
 {:else}

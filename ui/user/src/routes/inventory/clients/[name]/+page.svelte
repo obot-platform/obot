@@ -57,7 +57,7 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !client}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_client_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_clients_client_not_found()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
@@ -67,15 +67,15 @@
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span
 							>{detail.users.length === 1
-								? m.routes_invd_users_count_one({ count: detail.users.length })
-								: m.routes_invd_users_count_other({ count: detail.users.length })}</span
+								? m.inventory_enforcement_users_count_one({ count: detail.users.length })
+								: m.inventory_enforcement_users_count_other({ count: detail.users.length })}</span
 						>
 						<span>·</span>
 						{#if detail.mcpServers}
 							<span
 								>{detail.mcpServers.length === 1
-									? m.routes_invd_mcp_servers_count_one({ count: detail.mcpServers.length })
-									: m.routes_invd_mcp_servers_count_other({
+									? m.inventory_enforcement_device_clients_mcp_servers_count_one({ count: detail.mcpServers.length })
+									: m.inventory_enforcement_device_clients_mcp_servers_count_other({
 											count: detail.mcpServers.length
 										})}</span
 							>
@@ -84,8 +84,8 @@
 							<span>·</span>
 							<span
 								>{detail.skills.length === 1
-									? m.routes_invd_skills_count_one({ count: detail.skills.length })
-									: m.routes_invd_skills_count_other({ count: detail.skills.length })}</span
+									? m.inventory_enforcement_device_clients_skills_count_one({ count: detail.skills.length })
+									: m.inventory_enforcement_device_clients_skills_count_other({ count: detail.skills.length })}</span
 							>
 						{/if}
 					</div>
@@ -94,17 +94,17 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="border-base-300 dark:border-base-400 flex gap-2 border-b">
-					{@render tabButton('users', Users, m.routes_invd_tab_users(), detail.users.length)}
+					{@render tabButton('users', Users, m.inventory_enforcement_device_clients_tab_users(), detail.users.length)}
 					{@render tabButton(
 						'mcp',
 						Server,
-						m.routes_invd_tab_mcp_servers(),
+						m.inventory_enforcement_tab_mcp_servers(),
 						detail.mcpServers?.length ?? 0
 					)}
 					{@render tabButton(
 						'skills',
 						PencilRuler,
-						m.routes_invd_tab_skills(),
+						m.inventory_enforcement_skills_tab(),
 						detail.skills?.length ?? 0
 					)}
 				</div>
@@ -113,7 +113,7 @@
 					<Table
 						data={detail.users}
 						fields={['email']}
-						headers={[{ title: m.routes_invd_col_user(), property: 'email' }]}
+						headers={[{ title: m.inventory_enforcement_device_clients_col_user(), property: 'email' }]}
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
@@ -125,7 +125,7 @@
 					</Table>
 				{:else if activeTab === 'mcp'}
 					{#if !hasMcpServers}
-						{@render emptyTab(m.routes_invd_no_mcp_for_client())}
+						{@render emptyTab(m.inventory_enforcement_device_clients_no_mcp_for_client())}
 					{:else}
 						{@const rows = detail.mcpServers!.map((s, i) => ({
 							...s,
@@ -137,9 +137,9 @@
 							data={rows}
 							fields={['name', 'transport', 'endpoint']}
 							headers={[
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_transport(), property: 'transport' },
-								{ title: m.routes_invd_col_endpoint(), property: 'endpoint' }
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
+								{ title: m.inventory_enforcement_col_endpoint(), property: 'endpoint' }
 							]}
 							onClickRow={(d, isCtrlClick) => {
 								if (!d.configHash) {
@@ -159,7 +159,7 @@
 					{/if}
 				{:else if activeTab === 'skills'}
 					{#if !hasSkills}
-						{@render emptyTab(m.routes_invd_no_skills_for_client())}
+						{@render emptyTab(m.inventory_enforcement_device_clients_no_skills_for_client())}
 					{:else}
 						{@const rows = detail.skills!.map((s, i) => ({
 							...s,
@@ -170,10 +170,10 @@
 							data={rows}
 							fields={['name', 'description', 'hasScripts', 'files']}
 							headers={[
-								{ title: m.routes_invd_col_name(), property: 'name' },
-								{ title: m.routes_invd_col_description(), property: 'description' },
-								{ title: m.routes_invd_col_has_scripts(), property: 'hasScripts' },
-								{ title: m.routes_invd_col_files(), property: 'files' }
+								{ title: m.inventory_enforcement_col_name(), property: 'name' },
+								{ title: m.inventory_enforcement_col_description(), property: 'description' },
+								{ title: m.inventory_enforcement_col_has_scripts(), property: 'hasScripts' },
+								{ title: m.inventory_enforcement_col_files(), property: 'files' }
 							]}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(resolve(`/inventory/skills/${encodeURIComponent(d.name)}`), isCtrlClick);

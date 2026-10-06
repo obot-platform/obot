@@ -11,7 +11,7 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(skill?.displayName ?? m.routes_skills_skill_fallback_title());
+	let title = $derived(skill?.displayName ?? m.skills_skill_fallback_title());
 </script>
 
 <Layout {title} showBackButton>
@@ -20,12 +20,12 @@
 			<div class="my-12 flex w-md flex-col items-center gap-4 m-auto text-center">
 				<TriangleAlert class="size-12 text-warning" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.routes_skills_limited_functionality()}
+					{m.skills_limited_functionality()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
-					{m.routes_skills_skill_license_error_prefix()}
+					{m.skills_skill_license_error_prefix()}
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
-					>{m.routes_skills_license_error_suffix()}
+					>{m.skills_license_error_suffix()}
 				</p>
 			</div>
 		{:else if skill}

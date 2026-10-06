@@ -28,7 +28,7 @@
 			};
 		})
 	);
-	let title = m.routes_mcp_create_filter();
+	let title = m.mcps_filters_create_filter();
 </script>
 
 <FilterView {title} {filter} entry={data.entry} />

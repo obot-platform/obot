@@ -105,12 +105,12 @@
 		const banner = appNotification.banner;
 		const text = banner.text?.trim() ?? '';
 		if ((!text || !banner.type) && banner.enabled) {
-			bannerTextValidationError = m.admin_routes_field_required();
+			bannerTextValidationError = m.platform_field_required();
 			return false;
 		}
 
 		if (!hasOnlyAllowedMarkdown(text)) {
-			bannerTextValidationError = m.admin_routes_notif_markdown_invalid();
+			bannerTextValidationError = m.platform_settings_notifications_markdown_invalid();
 			return false;
 		}
 
@@ -132,7 +132,7 @@
 			persisted = next;
 			appNotification = withBanner(response);
 			appNotificationStore.initialize(response);
-			success.add(m.admin_routes_notif_updated());
+			success.add(m.platform_settings_notifications_updated());
 			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
@@ -144,12 +144,12 @@
 <div class="relative h-full w-full @container flex flex-col gap-2" in:fade={{ duration }}>
 	<div class="paper gap-0.5">
 		<div>
-			<p class="text-sm font-medium mb-2">{m.admin_routes_notif_banner_preview()}</p>
+			<p class="text-sm font-medium mb-2">{m.platform_settings_notifications_banner_preview()}</p>
 
 			<div class="w-full mb-4">
 				<AppNotificationBanner
 					data={appNotification.banner}
-					placeholder={m.admin_routes_notif_banner_placeholder()}
+					placeholder={m.platform_settings_notifications_banner_placeholder()}
 				/>
 			</div>
 
@@ -158,7 +158,7 @@
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-4">
 					<label for="banner-type-selector" class="text-sm font-light"
-						>{m.admin_routes_notif_type()}</label
+						>{m.platform_settings_notifications_type()}</label
 					>
 					<div class="w-full">
 						<Select
@@ -170,8 +170,8 @@
 							}}
 							disabled={isAdminReadonly || saving}
 							options={[
-								{ id: 'info', label: m.admin_routes_notif_info() },
-								{ id: 'warning', label: m.admin_routes_notif_warning() }
+								{ id: 'info', label: m.platform_settings_notifications_info() },
+								{ id: 'warning', label: m.platform_settings_notifications_warning() }
 							]}
 						/>
 					</div>
@@ -184,8 +184,8 @@
 							bannerTextValidationError && 'text-error'
 						)}
 					>
-						{m.admin_routes_notif_text()}
-						<InfoTooltip text={m.admin_routes_notif_text_help()} />
+						{m.platform_settings_notifications_text()}
+						<InfoTooltip text={m.platform_settings_notifications_text_help()} />
 					</p>
 					<MarkdownInput
 						bind:value={appNotification.banner.text}
@@ -194,7 +194,7 @@
 							bannerTextValidationError && 'ring-2 ring-error border-error'
 						)}
 						classes={{ input: 'min-h-[120px]' }}
-						placeholder={m.admin_routes_notif_text_placeholder()}
+						placeholder={m.platform_settings_notifications_text_placeholder()}
 						disabled={isAdminReadonly || saving}
 						disablePreview
 					/>
@@ -205,11 +205,11 @@
 				<div class="divider my-0"></div>
 				<label for="dismiss-banner-toggle" class="flex items-center justify-between">
 					<div>
-						<p class="text-sm font-light">{m.admin_routes_notif_dismissible()}</p>
+						<p class="text-sm font-light">{m.platform_settings_notifications_dismissible()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
 							{appNotification.banner.dismissible
-								? m.admin_routes_notif_dismissible_on()
-								: m.admin_routes_notif_dismissible_off()}
+								? m.platform_settings_notifications_dismissible_on()
+								: m.platform_settings_notifications_dismissible_off()}
 						</p>
 					</div>
 					<input
@@ -222,9 +222,9 @@
 				</label>
 				<label for="reset-dismissed-toggle" class="flex items-center justify-between">
 					<div>
-						<p class="text-sm font-light">{m.admin_routes_notif_reset_dismissed()}</p>
+						<p class="text-sm font-light">{m.platform_settings_notifications_reset_dismissed()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
-							{m.admin_routes_notif_reset_dismissed_description()}
+							{m.platform_settings_notifications_reset_dismissed_description()}
 						</p>
 					</div>
 					<input
@@ -238,9 +238,9 @@
 
 				<label for="enable-banner" class="w-full flex items-start justify-between gap-4">
 					<div class="text-sm">
-						<p>{m.admin_routes_notif_enable_banner()}</p>
+						<p>{m.platform_settings_notifications_enable_banner()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
-							{m.admin_routes_notif_enable_banner_description()}
+							{m.platform_settings_notifications_enable_banner_description()}
 						</p>
 					</div>
 					<input

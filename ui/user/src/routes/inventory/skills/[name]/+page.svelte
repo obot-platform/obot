@@ -70,11 +70,11 @@
 </script>
 
 <svelte:head>
-	<title>{m.routes_invd_page_title_skill()}</title>
+	<title>{m.inventory_enforcement_device_skills_page_title_skill()}</title>
 </svelte:head>
 
 <Layout
-	title={m.routes_invd_skill()}
+	title={m.inventory_enforcement_skill()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -90,33 +90,33 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-muted-content text-sm font-light">{m.routes_invd_skill_not_found()}</p>
+			<p class="text-muted-content text-sm font-light">{m.inventory_enforcement_device_skills_skill_not_found()}</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{detail.name}
 						{#if detail.hasScripts}
-							<span class="pill-primary bg-primary text-xs">{m.routes_invd_has_scripts()}</span>
+							<span class="pill-primary bg-primary text-xs">{m.inventory_enforcement_device_skills_has_scripts()}</span>
 						{/if}
 					</h2>
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span
 							>{detail.deviceCount === 1
-								? m.routes_invd_devices_count_one({ count: detail.deviceCount })
-								: m.routes_invd_devices_count_other({ count: detail.deviceCount })}</span
+								? m.inventory_enforcement_devices_count_one({ count: detail.deviceCount })
+								: m.inventory_enforcement_devices_count_other({ count: detail.deviceCount })}</span
 						>
 						<span>·</span>
 						<span
 							>{detail.userCount === 1
-								? m.routes_invd_users_count_one({ count: detail.userCount })
-								: m.routes_invd_users_count_other({ count: detail.userCount })}</span
+								? m.inventory_enforcement_users_count_one({ count: detail.userCount })
+								: m.inventory_enforcement_users_count_other({ count: detail.userCount })}</span
 						>
 						<span>·</span>
 						<span>
 							{detail.observationCount === 1
-								? m.routes_invd_observations_count_one({ count: detail.observationCount })
-								: m.routes_invd_observations_count_other({ count: detail.observationCount })}
+								? m.inventory_enforcement_device_skills_observations_count_one({ count: detail.observationCount })
+								: m.inventory_enforcement_device_skills_observations_count_other({ count: detail.observationCount })}
 						</span>
 					</div>
 				</div>
@@ -124,7 +124,7 @@
 				{#if detail.description}
 					<div class="flex flex-col gap-1">
 						<span class="text-muted-content text-xs uppercase"
-							>{m.routes_invd_label_description()}</span
+							>{m.inventory_enforcement_label_description()}</span
 						>
 						<p class="text-sm">{detail.description}</p>
 					</div>
@@ -134,7 +134,7 @@
 					{#if detail.gitRemoteURL}
 						<div class="flex flex-col gap-1">
 							<span class="text-muted-content text-xs uppercase"
-								>{m.routes_invd_label_git_remote()}</span
+								>{m.inventory_enforcement_label_git_remote()}</span
 							>
 							<code class="text-sm break-all">{detail.gitRemoteURL}</code>
 						</div>
@@ -142,7 +142,7 @@
 					{#if detail.files?.length}
 						<div class="flex flex-col gap-1 md:col-span-2">
 							<span class="text-muted-content text-xs uppercase">
-								{m.routes_invd_files_count({ count: detail.files.length })}
+								{m.inventory_enforcement_device_skills_files_count({ count: detail.files.length })}
 							</span>
 							<ul class="flex flex-col gap-1.5">
 								{#each detail.files as f (f)}
@@ -159,7 +159,7 @@
 
 			<div class="flex flex-col gap-2">
 				<h3 class="text-muted-content text-sm font-semibold">
-					{m.routes_invd_occurrences({ count: total })}
+					{m.inventory_enforcement_occurrences({ count: total })}
 				</h3>
 				<Table
 					data={rows}
@@ -173,11 +173,11 @@
 					]}
 					headers={[
 						{ title: '#', property: 'rowIndex' },
-						{ title: m.routes_invd_col_device(), property: 'shortDeviceID' },
-						{ title: m.routes_invd_col_scanned(), property: 'scannedRelative' },
-						{ title: m.routes_invd_col_client(), property: 'client' },
-						{ title: m.routes_invd_col_scope(), property: 'scope' },
-						{ title: m.routes_invd_col_project(), property: 'projectPath' }
+						{ title: m.inventory_enforcement_col_device(), property: 'shortDeviceID' },
+						{ title: m.inventory_enforcement_col_scanned(), property: 'scannedRelative' },
+						{ title: m.inventory_enforcement_col_client(), property: 'client' },
+						{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+						{ title: m.inventory_enforcement_device_skills_col_project(), property: 'projectPath' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(

@@ -91,13 +91,13 @@
 	const views = $derived([
 		{
 			value: 'mcp' as const,
-			label: m.admin_routes_apikey_mcp_server_logs()
+			label: m.identity_access_agents_api_key_mcp_server_logs()
 		},
 		...(canViewLlmLogs
 			? [
 					{
 						value: 'llm' as const,
-						label: m.admin_routes_apikey_llm_gateway_logs()
+						label: m.identity_access_agents_api_key_llm_gateway_logs()
 					}
 				]
 			: [])
@@ -194,7 +194,7 @@
 </script>
 
 <Layout
-	title={`${apiKey?.name || m.admin_routes_agents_agent_identity()} | ${apiKeyId}`}
+	title={`${apiKey?.name || m.identity_access_agents_agent_identity()} | ${apiKeyId}`}
 	showBackButton
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
@@ -212,18 +212,18 @@
 	>
 		<section class="flex flex-col gap-4">
 			<div class="paper flex flex-col flex-wrap items-stretch gap-4 p-4 md:flex-row">
-				{@render summary(m.admin_routes_tokens_total(), totalTokensData.totalTokens ?? 0)}
+				{@render summary(m.identity_access_tokens_total(), totalTokensData.totalTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary(m.admin_routes_tokens_input(), totalTokensData.inputTokens ?? 0)}
+				{@render summary(m.identity_access_tokens_input(), totalTokensData.inputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary(m.admin_routes_tokens_output(), totalTokensData.outputTokens ?? 0)}
+				{@render summary(m.identity_access_tokens_output(), totalTokensData.outputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
 				{@render summary(
-					m.admin_routes_tokens_cached_input(),
+					m.identity_access_tokens_cached_input(),
 					(totalTokensData.cacheReadTokens ?? 0) + (totalTokensData.cacheWriteTokens ?? 0)
 				)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render spendSummary(m.admin_routes_tokens_spend(), totalTokensData.totalSpend)}
+				{@render spendSummary(m.identity_access_tokens_spend(), totalTokensData.totalSpend)}
 			</div>
 			<TokenUsageTimelineCard
 				{startDate}
@@ -268,10 +268,10 @@
 						>
 							<Captions class="text-muted-content size-20 opacity-50" />
 							<h4 class="text-muted-content text-lg font-semibold">
-								{m.admin_routes_apikey_no_mcp_logs()}
+								{m.identity_access_agents_api_key_no_mcp_logs()}
 							</h4>
 							<p class="text-muted-content max-w-md text-sm font-light">
-								{m.admin_routes_apikey_no_mcp_logs_description()}
+								{m.identity_access_agents_api_key_no_mcp_logs_description()}
 							</p>
 						</div>
 					{/snippet}
@@ -318,7 +318,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | {apiKey?.name || m.admin_routes_agents_agent_identity()} | {apiKeyId}</title>
+	<title>Obot | {apiKey?.name || m.identity_access_agents_agent_identity()} | {apiKeyId}</title>
 </svelte:head>
 
 <style lang="postcss">

@@ -34,15 +34,15 @@
 		data={filteredBuiltInFiltersData}
 		fields={['name', 'created']}
 		headers={[
-			{ title: m.routes_mcp_col_name(), property: 'name' },
-			{ title: m.routes_mcp_col_created(), property: 'created' }
+			{ title: m.mcps_col_name(), property: 'name' },
+			{ title: m.mcps_col_created(), property: 'created' }
 		]}
 		filterable={['name']}
 		onClickRow={(d) => {
 			onSelect?.(d);
 		}}
 		sortable={['name', 'status', 'type', 'created']}
-		noDataMessage={m.routes_mcp_no_built_in_servers()}
+		noDataMessage={m.mcps_filters_no_built_in_servers()}
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
@@ -80,6 +80,6 @@
 	</div>
 
 	<div class="text-muted-content text-sm font-light mt-4 text-center italic">
-		{m.routes_mcp_more_coming_soon()}
+		{m.mcps_filters_more_coming_soon()}
 	</div>
 {/if}

@@ -51,8 +51,8 @@
 	}
 
 	let filteredData = $derived.by(() => {
-		const everyoneGroup: OrgGroup = { id: '*', name: m.admin_misc_all_obot_users() };
-		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: m.admin_misc_obot_admin() };
+		const everyoneGroup: OrgGroup = { id: '*', name: m.core_all_obot_users() };
+		const adminGroup: OrgGroup = { id: OBOT_ADMIN_PICKER_ID, name: m.identity_access_users_obot_admin() };
 		const query = searchNames.toLowerCase();
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
@@ -173,7 +173,7 @@
 	bind:this={addUserGroupDialog}
 	{onClose}
 	{onOpen}
-	title={m.admin_misc_add_user_group()}
+	title={m.core_add_user_group()}
 	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
@@ -186,7 +186,7 @@
 					searchNames = val;
 					handleSearch();
 				}}
-				placeholder={m.admin_misc_search_users_groups()}
+				placeholder={m.identity_access_users_search_users_groups()}
 			/>
 		</div>
 		{#if groupsDegraded}
@@ -196,12 +196,12 @@
 			>
 				<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 				<span>
-					{m.admin_misc_groups_degraded_notice()}
+					{m.identity_access_users_groups_degraded_notice()}
 				</span>
 			</div>
 		{:else if groupsHasMore}
 			<p class="text-muted-content px-4 text-xs">
-				{m.admin_misc_groups_has_more({ count: filteredGroups.length })}
+				{m.identity_access_users_groups_has_more({ count: filteredGroups.length })}
 			</p>
 		{/if}
 		{#if loading}
@@ -235,11 +235,11 @@
 								<p class="text-muted-content font-light">
 									{item.effectiveRole
 										? getUserRoleLabel(item.effectiveRole)
-										: m.admin_misc_role_user()}
+										: m.identity_access_users_role_user()}
 								</p>
 							{:else}
 								<p>{item.name}</p>
-								<p class="text-muted-content font-light">{m.admin_misc_role_group()}</p>
+								<p class="text-muted-content font-light">{m.identity_access_users_role_group()}</p>
 							{/if}
 						</div>
 						<div class="flex items-center justify-center">
@@ -260,7 +260,7 @@
 				{:else}
 					<Users class="size-4" />
 				{/if}
-				{m.admin_misc_n_selected({ count: selectedUsers.length })}
+				{m.core_n_selected({ count: selectedUsers.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
@@ -277,7 +277,7 @@
 					addUserGroupDialog?.close();
 				}}
 			>
-				{m.admin_misc_confirm()}
+				{m.core_confirm()}
 			</button>
 		</div>
 	</div>

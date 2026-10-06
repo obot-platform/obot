@@ -60,15 +60,15 @@
 	const keyTableData = $derived(
 		enrollmentKeys.map((key) => ({
 			...key,
-			nameDisplay: key.name || m.routes_inv_key_name_fallback({ id: key.id }),
+			nameDisplay: key.name || m.inventory_enforcement_configuration_key_name_fallback({ id: key.id }),
 			prefix: `ode1-${configuration.id}-${key.id}-*****`,
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt
 				? formatTimeAgo(key.lastUsedAt).relativeTime
-				: m.routes_inv_never(),
+				: m.inventory_enforcement_configuration_never(),
 			expiresAtDisplay: key.expiresAt
 				? formatTimeUntil(key.expiresAt).relativeTime
-				: m.routes_inv_never()
+				: m.inventory_enforcement_configuration_never()
 		}))
 	);
 
@@ -121,9 +121,9 @@
 			<section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection}>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="flex flex-col gap-1">
-						<h3 class="text-lg font-semibold">{m.routes_inv_enrollment_keys()}</h3>
+						<h3 class="text-lg font-semibold">{m.inventory_enforcement_configuration_enrollment_keys()}</h3>
 						<p class="text-muted-content text-sm font-light">
-							{m.routes_inv_enrollment_keys_description()}
+							{m.inventory_enforcement_configuration_enrollment_keys_description()}
 						</p>
 					</div>
 					{#if !readOnly}
@@ -133,7 +133,7 @@
 							id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeyButton}
 						>
 							<Plus class="size-4" />
-							{m.routes_inv_new_key()}
+							{m.inventory_enforcement_configuration_new_key()}
 						</button>
 					{/if}
 				</div>
@@ -142,7 +142,7 @@
 					<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
 						<KeyRound class="text-muted-content size-12 opacity-50" />
 						<p class="text-muted-content text-sm font-light">
-							{m.routes_inv_no_enrollment_keys()}
+							{m.inventory_enforcement_configuration_no_enrollment_keys()}
 						</p>
 					</div>
 				{:else}
@@ -150,11 +150,11 @@
 						data={keyTableData}
 						fields={['nameDisplay', 'prefix', 'createdAt', 'lastUsedAt', 'expiresAt']}
 						headers={[
-							{ title: m.routes_inv_col_name(), property: 'nameDisplay' },
-							{ title: m.routes_inv_col_key(), property: 'prefix' },
-							{ title: m.routes_inv_col_created(), property: 'createdAt' },
-							{ title: m.routes_inv_col_last_used(), property: 'lastUsedAt' },
-							{ title: m.routes_inv_col_expires(), property: 'expiresAt' }
+							{ title: m.inventory_enforcement_col_name(), property: 'nameDisplay' },
+							{ title: m.inventory_enforcement_configuration_col_key(), property: 'prefix' },
+							{ title: m.inventory_enforcement_configuration_col_created(), property: 'createdAt' },
+							{ title: m.inventory_enforcement_configuration_col_last_used(), property: 'lastUsedAt' },
+							{ title: m.inventory_enforcement_configuration_col_expires(), property: 'expiresAt' }
 						]}
 					>
 						{#snippet onRenderColumn(property, key)}
@@ -175,7 +175,7 @@
 								<DotDotDot>
 									<button class="menu-button text-error" onclick={() => (revokingKey = key)}>
 										<Trash2 class="size-4" />
-										{m.routes_inv_revoke()}
+										{m.inventory_enforcement_configuration_revoke()}
 									</button>
 								</DotDotDot>
 							{/if}
@@ -195,30 +195,30 @@
 
 <ResponsiveDialog
 	bind:this={createKeyDialog}
-	title={m.routes_inv_new_enrollment_key_title()}
+	title={m.inventory_enforcement_configuration_new_enrollment_key_title()}
 	class="w-full max-w-md"
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-name" class="input-label">{m.routes_inv_name_optional()}</label>
+			<label for="mdm-key-name" class="input-label">{m.inventory_enforcement_configuration_name_optional()}</label>
 			<input
 				id="mdm-key-name"
 				type="text"
 				bind:value={newKeyName}
-				placeholder={m.routes_inv_key_name_placeholder()}
+				placeholder={m.inventory_enforcement_configuration_key_name_placeholder()}
 				class="text-input-filled"
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-expires" class="input-label">{m.routes_inv_expiration_date()}</label>
+			<label for="mdm-key-expires" class="input-label">{m.inventory_enforcement_configuration_expiration_date()}</label>
 			<DatePicker
 				id="mdm-key-expires"
 				bind:value={newKeyExpiresAt}
 				onChange={(date) => (newKeyExpiresAt = date)}
-				placeholder={m.routes_inv_no_expiration()}
+				placeholder={m.inventory_enforcement_configuration_no_expiration()}
 				minDate={new Date()}
 			/>
-			<p class="input-description">{m.routes_inv_expiration_default()}</p>
+			<p class="input-description">{m.inventory_enforcement_configuration_expiration_default()}</p>
 		</div>
 	</div>
 	<div class="mt-6 flex justify-end gap-2">
@@ -231,7 +231,7 @@
 			onclick={handleCreateKey}
 		>
 			{#if createKeyLoading}<Loading class="size-4" />{/if}
-			{m.routes_inv_create_key()}
+			{m.inventory_enforcement_configuration_create_key()}
 		</button>
 	</div>
 </ResponsiveDialog>
@@ -242,7 +242,7 @@
 />
 
 <Confirm
-	msg={m.routes_inv_revoke_key_msg({ name: revokingKey?.name || `#${revokingKey?.id}` })}
+	msg={m.inventory_enforcement_configuration_revoke_key_msg({ name: revokingKey?.name || `#${revokingKey?.id}` })}
 	show={Boolean(revokingKey)}
 	loading={revokeLoading}
 	onsuccess={handleRevokeKey}

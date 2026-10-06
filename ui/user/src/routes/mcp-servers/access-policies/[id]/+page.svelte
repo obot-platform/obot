@@ -28,7 +28,7 @@
 		}
 	});
 
-	let title = $derived(accessControlRule?.displayName ?? m.routes_mcp_mcp_registry());
+	let title = $derived(accessControlRule?.displayName ?? m.mcps_access_policies_mcp_registry());
 </script>
 
 <Layout {title} showBackButton>

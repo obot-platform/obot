@@ -341,10 +341,10 @@
 			text: hasLicenseEntitlementViolations
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 				: isMultiUserCatalogEntryRow && !catalogID && !workspaceID
-					? m.mcp_actions_multi_user_entry_tooltip()
+					? m.mcps_servers_actions_multi_user_entry_tooltip()
 					: canConnect
 						? ''
-						: m.mcp_actions_no_access_tooltip()
+						: m.mcps_servers_actions_no_access_tooltip()
 		}}
 		onclick={async () => {
 			if (isMultiUserCatalogEntryRow) {
@@ -384,9 +384,9 @@
 		{#if loading}
 			<Loading class="size-4" />
 		{:else if isMultiUserCatalogEntryRow && configuredServers.length === 0}
-			{m.mcp_actions_create_server()}
+			{m.mcps_servers_actions_create_server()}
 		{:else}
-			{m.mcp_actions_connect()}
+			{m.mcps_servers_actions_connect()}
 		{/if}
 	</button>
 
@@ -474,13 +474,13 @@
 >
 	{#snippet titleContent()}
 		{#if entry || server}
-			{@const name = entry?.manifest.name ?? server?.manifest.name ?? m.mcp_server_fallback_name()}
+			{@const name = entry?.manifest.name ?? server?.manifest.name ?? m.mcps_server_fallback_name()}
 			{@const imageUrl = entry?.manifest.icon || server?.manifest.icon}
 			<div class="icon">
 				{#if imageUrl}
 					<img
 						src={imageUrl}
-						alt={entry?.manifest.name ?? server?.manifest.name ?? m.mcp_server_fallback_name()}
+						alt={entry?.manifest.name ?? server?.manifest.name ?? m.mcps_server_fallback_name()}
 						class="size-6"
 					/>
 				{:else}
@@ -494,26 +494,26 @@
 		{#if isMultiUserCatalogEntry(entry) || isMultiUserServer(server)}
 			<p class="text-center">
 				{#if entry}
-					{m.mcp_actions_mcp_server_configured()}
+					{m.mcps_servers_actions_mcp_server_configured()}
 				{:else}
-					{m.mcp_actions_server_configured()}
+					{m.mcps_servers_actions_server_configured()}
 				{/if}
 			</p>
 		{/if}
 		{#if hasLicenseEntitlementViolations}
 			<p class="mb-2 text-center text-muted-content">
-				{m.mcp_actions_license_disabled()}
+				{m.mcps_servers_actions_license_disabled()}
 			</p>
 		{:else if isMultiUserCatalogEntry(entry)}
-			<p class="mb-2 text-center">{m.mcp_actions_launch_now()}</p>
+			<p class="mb-2 text-center">{m.mcps_servers_actions_launch_now()}</p>
 		{:else if !entry && isMultiUserServer(server)}
-			<p class="mb-2 text-center">{m.mcp_actions_connect_now()}</p>
+			<p class="mb-2 text-center">{m.mcps_servers_actions_connect_now()}</p>
 		{:else}
 			<div class="mt-4 flex flex-col gap-3">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					id="server-action-connection-url"
-					label={m.mcp_connection_url()}
+					label={m.mcps_servers_connection_url()}
 					value={entry?.connectURL ?? server?.connectURL ?? ''}
 				/>
 			</div>
@@ -522,7 +522,7 @@
 		{#if isMultiUserCatalogEntry(entry) || (!entry && isMultiUserServer(server))}
 			<div class="flex flex-col gap-2">
 				<button class="btn btn-secondary" onclick={() => launchDialog?.close()}
-					>{m.mcp_skip()}</button
+					>{m.mcps_skip()}</button
 				>
 				<button
 					class="btn btn-primary"
@@ -536,9 +536,9 @@
 					disabled={hasLicenseEntitlementViolations}
 				>
 					{#if isMultiUserCatalogEntry(entry)}
-						{m.mcp_actions_launch_server()}
+						{m.mcps_servers_actions_launch_server()}
 					{:else}
-						{m.mcp_actions_connect()}
+						{m.mcps_servers_actions_connect()}
 					{/if}
 				</button>
 			</div>
@@ -551,7 +551,7 @@
 		<div
 			class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 		>
-			{m.mcp_actions_my_connection()}
+			{m.mcps_servers_actions_my_connection()}
 		</div>
 		<div class="flex flex-col gap-1 p-2 bg-base-200">
 			{#if canEditMultiUserServerConfiguration}
@@ -567,7 +567,7 @@
 					}}
 				>
 					<ServerCog class="size-4" />
-					{m.mcp_actions_edit_my_connection()}
+					{m.mcps_servers_actions_edit_my_connection()}
 				</button>
 			{/if}
 			{#if entry && isServerOwner}
@@ -581,7 +581,7 @@
 					}}
 				>
 					<PencilLine class="size-4" />
-					{m.mcp_actions_rename()}
+					{m.mcps_servers_actions_rename()}
 				</button>
 				{#if server && canDebugOauth}
 					<button
@@ -594,7 +594,7 @@
 						disabled={profile.current?.isAdminReadonly?.()}
 					>
 						<Bug class="size-4" />
-						{m.mcp_actions_debug_oauth()}
+						{m.mcps_servers_actions_debug_oauth()}
 					</button>
 				{/if}
 				{#if canConfigure}
@@ -611,7 +611,7 @@
 						}}
 					>
 						<ServerCog class="size-4" />
-						{m.mcp_actions_edit_configuration()}
+						{m.mcps_actions_edit_configuration()}
 					</button>
 				{/if}
 			{/if}
@@ -636,7 +636,7 @@
 					{:else}
 						<RefreshCw class="size-4" />
 					{/if}
-					{m.mcp_actions_restart()}
+					{m.mcps_actions_restart()}
 				</button>
 			{/if}
 			{#if server && instance}
@@ -657,7 +657,7 @@
 					{:else}
 						<Unplug class="size-4" />
 					{/if}
-					{m.mcp_actions_disconnect()}
+					{m.mcps_servers_actions_disconnect()}
 				</button>
 			{:else if entry && server && isServerOwner && !canDeleteMultiUserServer && !isMultiUserCatalogEntry(entry)}
 				<button
@@ -678,7 +678,7 @@
 					{:else}
 						<Trash2 class="size-4" />
 					{/if}
-					{m.mcp_actions_disconnect()}
+					{m.mcps_servers_actions_disconnect()}
 				</button>
 			{/if}
 		</div>
@@ -687,7 +687,7 @@
 			<div
 				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 			>
-				{m.mcp_actions_my_connections()}
+				{m.mcps_servers_actions_my_connections()}
 			</div>
 			<div class="bg-base-200 flex flex-col gap-1 p-2">
 				{#if entry && !hasMultiUserServerNotOwned}
@@ -705,7 +705,7 @@
 						}}
 					>
 						<PencilLine class="size-4" />
-						{m.mcp_actions_rename()}
+						{m.mcps_servers_actions_rename()}
 					</button>
 					{#if canConfigure}
 						<button
@@ -725,7 +725,7 @@
 							}}
 						>
 							<ServerCog class="size-4" />
-							{m.mcp_actions_edit_configuration()}
+							{m.mcps_actions_edit_configuration()}
 						</button>
 					{/if}
 				{/if}
@@ -754,7 +754,7 @@
 						{:else}
 							<RefreshCw class="size-4" />
 						{/if}
-						{m.mcp_actions_restart()}
+						{m.mcps_actions_restart()}
 					</button>
 				{/if}
 				{#if !isMultiUserCatalogEntry(entry)}
@@ -772,7 +772,7 @@
 						}}
 					>
 						<Unplug class="size-4" />
-						{m.mcp_actions_disconnect()}
+						{m.mcps_servers_actions_disconnect()}
 					</button>
 				{/if}
 			</div>
@@ -788,7 +788,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{m.mcp_actions_create_server()}
+					{m.mcps_servers_actions_create_server()}
 				</button>
 			</div>
 		{/if}
@@ -806,7 +806,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{m.mcp_actions_create_new_connection()}
+					{m.mcps_servers_actions_create_new_connection()}
 				</button>
 			{/if}
 			{#if showDisconnectUser && server}
@@ -820,7 +820,7 @@
 					}}
 				>
 					<Trash2 class="size-4" />
-					{m.mcp_actions_disconnect_user()}
+					{m.mcps_servers_actions_disconnect_user()}
 				</button>
 			{/if}
 		</div>

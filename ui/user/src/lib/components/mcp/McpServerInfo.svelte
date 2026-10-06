@@ -40,57 +40,57 @@
 		if (!('isCatalogEntry' in entry) && ('manifest' in entry || 'mcpID' in entry)) {
 			items = {
 				requiredConfig: {
-					label: m.mcp_info_required_configuration(),
+					label: m.mcps_info_required_configuration(),
 					value: requiredConfiguration
 				},
 				users: {
-					label: m.mcp_info_users(),
+					label: m.mcps_servers_info_users(),
 					value: ''
 				},
 				published: {
-					label: m.mcp_info_published(),
+					label: m.mcps_servers_info_published(),
 					value: formatTimeAgo(entry.created).relativeTime
 				},
 				moreInfo: {
-					label: m.mcp_info_more_information(),
+					label: m.mcps_servers_info_more_information(),
 					value: ''
 				},
 				monthlyToolCalls: {
-					label: m.mcp_info_monthly_tool_calls(),
+					label: m.mcps_servers_info_monthly_tool_calls(),
 					value: ''
 				},
 				lastUpdated: {
-					label: m.mcp_info_last_updated(),
+					label: m.mcps_servers_info_last_updated(),
 					value: 'updated' in entry ? formatTimeAgo(entry.updated).relativeTime : ''
 				}
 			};
 		} else if ('isCatalogEntry' in entry) {
 			items = {
 				requiredConfig: {
-					label: m.mcp_info_required_configuration(),
+					label: m.mcps_info_required_configuration(),
 					value: requiredConfiguration
 				},
 				users: {
-					label: m.mcp_info_users(),
+					label: m.mcps_servers_info_users(),
 					value: ''
 				},
 				published: {
-					label: m.mcp_info_published(),
+					label: m.mcps_servers_info_published(),
 					value: formatTimeAgo(entry.created).relativeTime
 				},
 				moreInfo: {
-					label: m.mcp_info_more_information(),
+					label: m.mcps_servers_info_more_information(),
 					value: entry.manifest?.repoURL ?? '',
 					link: entry.manifest?.repoURL ?? '',
 					class: 'line-clamp-1',
 					showTooltip: true
 				},
 				monthlyToolCalls: {
-					label: m.mcp_info_monthly_tool_calls(),
+					label: m.mcps_servers_info_monthly_tool_calls(),
 					value: ''
 				},
 				lastUpdated: {
-					label: m.mcp_info_last_updated(),
+					label: m.mcps_servers_info_last_updated(),
 					value: ''
 				}
 			};
@@ -119,7 +119,7 @@
 	let {
 		entry,
 		parent,
-		descriptionPlaceholder = m.mcp_info_no_description(),
+		descriptionPlaceholder = m.mcps_servers_info_no_description(),
 		preContent
 	}: Props = $props();
 	let details = $derived(convertEntryDetails(entry));
@@ -164,7 +164,7 @@
 
 {#snippet detailsSection()}
 	<div class="flex flex-col gap-2">
-		<h4 class="text-md font-semibold">{m.mcp_info_details()}</h4>
+		<h4 class="text-md font-semibold">{m.mcps_servers_info_details()}</h4>
 		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail, i (i)}
 				<div

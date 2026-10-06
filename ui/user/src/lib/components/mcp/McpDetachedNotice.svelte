@@ -21,7 +21,7 @@
 		class: className
 	}: Props = $props();
 	let acceptingOwnership = $state(false);
-	const explanation = m.mcp_detached_explanation();
+	const explanation = m.mcps_servers_detached_explanation();
 
 	async function acceptOwnership() {
 		if (!onAcceptOwnership || acceptingOwnership) return;
@@ -44,7 +44,7 @@
 		>
 			<Unplug class="text-warning mt-0.5 size-4 shrink-0" />
 			<div class="min-w-0 flex-1 text-sm">
-				<p class="font-medium">{m.mcp_detached_from_git()}</p>
+				<p class="font-medium">{m.mcps_servers_detached_from_git()}</p>
 				<p class="text-muted-content">{explanation}</p>
 				{#if sourceURL}
 					{#if isWebURL(sourceURL)}
@@ -54,11 +54,11 @@
 							rel="external noopener noreferrer"
 							class="text-link mt-1 inline-block"
 						>
-							{m.mcp_detached_view_source()}
+							{m.mcps_servers_detached_view_source()}
 						</a>
 					{:else}
 						<p class="text-muted-content mt-1 text-xs break-all">
-							{m.mcp_detached_original_source({ url: sourceURL })}
+							{m.mcps_servers_detached_original_source({ url: sourceURL })}
 						</p>
 					{/if}
 				{/if}
@@ -69,7 +69,7 @@
 					onclick={acceptOwnership}
 					disabled={acceptingOwnership}
 				>
-					{acceptingOwnership ? m.mcp_detached_accepting() : m.mcp_detached_accept_ownership()}
+					{acceptingOwnership ? m.mcps_servers_detached_accepting() : m.mcps_servers_detached_accept_ownership()}
 				</button>
 			{/if}
 		</div>
@@ -79,7 +79,7 @@
 			use:tooltip={{ text: explanation, classes: ['w-sm'] }}
 		>
 			<Unplug class="size-3" />
-			{m.mcp_detached_badge()}
+			{m.mcps_servers_detached_badge()}
 		</span>
 	{/if}
 {/if}

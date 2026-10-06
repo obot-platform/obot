@@ -175,13 +175,13 @@
 	});
 
 	const deploymentStatusLabels: Record<string, () => string> = {
-		Available: m.routes_dashboard_status_available,
-		Progressing: m.routes_dashboard_status_progressing,
-		Unavailable: m.routes_dashboard_status_unavailable,
-		'Needs Attention': m.routes_dashboard_status_needs_attention,
-		Shutdown: m.routes_dashboard_status_shutdown,
-		Unknown: m.routes_dashboard_status_unknown,
-		Pending: m.routes_dashboard_status_pending
+		Available: m.dashboard_status_available,
+		Progressing: m.dashboard_status_progressing,
+		Unavailable: m.dashboard_status_unavailable,
+		'Needs Attention': m.dashboard_status_needs_attention,
+		Shutdown: m.dashboard_status_shutdown,
+		Unknown: m.dashboard_status_unknown,
+		Pending: m.dashboard_status_pending
 	};
 
 	function deploymentStatusLabel(status: string) {
@@ -199,7 +199,7 @@
 	const platformStatTiles = $derived([
 		{
 			id: 'total-users',
-			label: m.routes_dashboard_total_users(),
+			label: m.dashboard_total_users(),
 			loading,
 			value: usersData.length,
 			icon: Users,
@@ -207,7 +207,7 @@
 		},
 		{
 			id: 'monthly-active-users',
-			label: m.routes_dashboard_monthly_active_users(),
+			label: m.dashboard_monthly_active_users(),
 			loading,
 			value: monthlyActiveUsers,
 			icon: Activity,
@@ -215,7 +215,7 @@
 		},
 		{
 			id: 'total-tokens',
-			label: m.routes_dashboard_total_tokens(),
+			label: m.dashboard_total_tokens(),
 			loading,
 			value: totalTokensData?.totalTokens ?? 0,
 			icon: Coins,
@@ -223,7 +223,7 @@
 		},
 		{
 			id: 'total-spend',
-			label: m.routes_dashboard_total_spend(),
+			label: m.dashboard_total_spend(),
 			loading,
 			value: totalTokensData?.totalSpend ?? 0,
 			icon: CircleDollarSign,
@@ -243,7 +243,7 @@
 		buildDeviceScanTopBuckets<DeviceMCPServerStat>(
 			deviceScanStats?.mcpServers,
 			(s) => s.configHash,
-			(s) => s.name?.trim() || m.routes_dashboard_unnamed(),
+			(s) => s.name?.trim() || m.dashboard_unnamed(),
 			(s) => s.deviceCount,
 			'mcp'
 		)
@@ -273,7 +273,7 @@
 	let deviceScanTiles = $derived([
 		{
 			id: 'device-overview',
-			label: m.routes_dashboard_unique_devices(),
+			label: m.dashboard_unique_devices(),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.deviceCount ?? 0,
 			icon: Laptop,
@@ -281,7 +281,7 @@
 		},
 		{
 			id: 'device-clients',
-			label: m.routes_dashboard_unique_clients(),
+			label: m.dashboard_unique_clients(),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.clients?.length ?? 0,
 			icon: MonitorCheck,
@@ -289,7 +289,7 @@
 		},
 		{
 			id: 'device-mcps',
-			label: m.routes_dashboard_unique_mcps(),
+			label: m.dashboard_unique_mcps(),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.mcpServers?.length ?? 0,
 			icon: Server,
@@ -297,7 +297,7 @@
 		},
 		{
 			id: 'device-skills',
-			label: m.routes_dashboard_unique_skills(),
+			label: m.dashboard_unique_skills(),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.skills?.length ?? 0,
 			icon: PencilRuler,
@@ -319,7 +319,7 @@
 					{#if hasDeviceScans}
 						<div class="shrink-0 border-b border-base-300 px-4 py-2">
 							<h4 class="flex items-center font-light text-xs uppercase">
-								{m.routes_dashboard_on_platform()}
+								{m.dashboard_on_platform()}
 							</h4>
 						</div>
 					{/if}
@@ -338,7 +338,7 @@
 					>
 						<div class="col-span-12 border-b border-base-300 px-4 py-2">
 							<h4 class="flex items-center font-light text-xs uppercase">
-								{m.routes_dashboard_device_scans()}
+								{m.dashboard_device_scans()}
 							</h4>
 						</div>
 						<div class="@container min-w-0 w-full max-w-full">
@@ -362,10 +362,10 @@
 					{:else}
 						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 							<DeviceScanDonutCard
-								title={m.routes_dashboard_top_device_skills()}
+								title={m.dashboard_top_device_skills()}
 								buckets={deviceScanSkillBuckets}
 								totalGroups={totalDeviceScanSkillGroups}
-								emptyMsg={m.routes_dashboard_no_skills_observed()}
+								emptyMsg={m.dashboard_no_skills_observed()}
 								class="h-full"
 								classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
 							/>
@@ -382,20 +382,20 @@
 						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 							<DeviceScanDonutCard
 								legendOnBottom
-								title={m.routes_dashboard_device_clients()}
+								title={m.dashboard_device_clients()}
 								buckets={deviceScanClientBuckets}
 								totalGroups={totalDeviceScanClientGroups}
-								emptyMsg={m.routes_dashboard_no_clients_observed()}
+								emptyMsg={m.dashboard_no_clients_observed()}
 								class="h-full"
 							/>
 						</div>
 						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 							<DeviceScanDonutCard
 								legendOnBottom
-								title={m.routes_dashboard_top_device_mcp_servers()}
+								title={m.dashboard_top_device_mcp_servers()}
 								buckets={deviceScanMcpBuckets}
 								totalGroups={totalDeviceScanMcpGroups}
-								emptyMsg={m.routes_dashboard_no_mcp_servers_observed()}
+								emptyMsg={m.dashboard_no_mcp_servers_observed()}
 								class="h-full"
 							/>
 						</div>
@@ -459,9 +459,9 @@
 		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-1 w-full pt-4">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<h4 class="flex items-center gap-1 font-semibold">
-					{m.routes_dashboard_top_servers_used()}
+					{m.dashboard_top_servers_used()}
 					<span class="text-muted-content text-xs font-light"
-						>{m.routes_dashboard_last_30_days()}</span
+						>{m.dashboard_last_30_days()}</span
 					>
 				</h4>
 			</div>
@@ -477,7 +477,7 @@
 						<div class="text-muted-content text-xs">{item.label}</div>
 					</div>
 					<div class="text-base-content font-semibold">
-						{m.routes_dashboard_calls_count({ count: item.value })}
+						{m.dashboard_calls_count({ count: item.value })}
 					</div>
 				{/snippet}
 			</HorizontalBarGraph>
@@ -493,7 +493,7 @@
 			in:fade={{ duration: 150 }}
 			class={twMerge('paper h-full pt-4', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
 		>
-			<h4 class="font-semibold">{m.routes_dashboard_server_activity()}</h4>
+			<h4 class="font-semibold">{m.dashboard_server_activity()}</h4>
 			{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
 				<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
 					{#each deploymentStatusBreakdown as row, i (row.status)}
@@ -529,7 +529,7 @@
 						</div>
 						<Server class="size-6 text-primary" />
 					</div>
-					<div class="text-xs">{m.routes_dashboard_total_currently_active()}</div>
+					<div class="text-xs">{m.dashboard_total_currently_active()}</div>
 				</div>
 			{/if}
 
@@ -548,7 +548,7 @@
 					/>
 				{:else}
 					<p class="font-light text-xs text-muted-content pt-2 text-center">
-						{m.routes_dashboard_no_servers_deployed()}
+						{m.dashboard_no_servers_deployed()}
 					</p>
 				{/if}
 			</div>
@@ -559,7 +559,7 @@
 						href={resolve('/mcp-servers?view=deployments')}
 						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 					>
-						{m.routes_dashboard_see_more()}
+						{m.dashboard_see_more()}
 						<ChevronRight class="size-3" />
 					</a>
 				</div>
@@ -571,7 +571,7 @@
 {#snippet topServerDeploymentList()}
 	<div in:fade={{ duration: 150 }} class="paper h-full gap-1 pt-4">
 		<h4 class="flex items-center gap-2 font-semibold">
-			{m.routes_dashboard_most_deployed_servers()}
+			{m.dashboard_most_deployed_servers()}
 		</h4>
 		{#if mcpServersAndEntries.current.loading || loading}
 			<Skeleton type="list" />
@@ -609,7 +609,7 @@
 								</p>
 							{/if}
 							<p class="text-xs text-muted-content italic">
-								{m.routes_dashboard_deployed_times({ count: info.count })}
+								{m.dashboard_deployed_times({ count: info.count })}
 							</p>
 						</div>
 						<ChevronRight class="size-5 shrink-0" />
@@ -620,7 +620,7 @@
 			<p
 				class="text-xs text-muted-content pt-2 font-light text-center h-full flex items-center justify-center grow"
 			>
-				{m.routes_dashboard_no_servers_deployed()}
+				{m.dashboard_no_servers_deployed()}
 			</p>
 		{/if}
 		<div class="flex grow"></div>
@@ -629,7 +629,7 @@
 				href={resolve('/mcp-servers')}
 				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 			>
-				{m.routes_dashboard_see_more()}
+				{m.dashboard_see_more()}
 				<ChevronRight class="size-3" />
 			</a>
 		{/if}
@@ -717,8 +717,8 @@
 {#snippet popularTools()}
 	<div class="paper h-full min-h-72 gap-1 flex flex-col pt-4">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
-			{m.routes_dashboard_recently_popular_tools()}
-			<span class="text-muted-content text-xs font-light">{m.routes_dashboard_last_30_days()}</span>
+			{m.dashboard_recently_popular_tools()}
+			<span class="text-muted-content text-xs font-light">{m.dashboard_last_30_days()}</span>
 		</h4>
 		{#if loadingToolUsage}
 			<Skeleton type="list" class="w-full" count={maxToolsToShow} />
@@ -726,7 +726,7 @@
 			<p
 				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
 			>
-				{m.routes_dashboard_no_recent_tool_calls()}
+				{m.dashboard_no_recent_tool_calls()}
 			</p>
 		{:else}
 			<ul class="pt-2 flex flex-col gap-2">
@@ -742,7 +742,7 @@
 								{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
 							</p>
 							<p class="text-xs text-muted-content">
-								{m.routes_dashboard_calls_with_server({
+								{m.dashboard_calls_with_server({
 									count: formatNumber(row.count),
 									server: row.serverDisplayName
 								})}
@@ -758,7 +758,7 @@
 				href={resolve('/usage')}
 				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
-				{m.routes_dashboard_see_more()}
+				{m.dashboard_see_more()}
 				<ChevronRight class="size-3" />
 			</a>
 		{/if}
@@ -768,8 +768,8 @@
 {#snippet toolAverageResponseTime()}
 	<div class="paper h-full min-h-72 gap-1 flex flex-col pt-4">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
-			{m.routes_dashboard_tool_call_avg_response_time()}
-			<span class="text-muted-content text-xs font-light">{m.routes_dashboard_last_30_days()}</span>
+			{m.dashboard_tool_call_avg_response_time()}
+			<span class="text-muted-content text-xs font-light">{m.dashboard_last_30_days()}</span>
 		</h4>
 		{#if loadingToolUsage}
 			<Skeleton type="list" class="w-full" count={maxToolsToShow} />
@@ -777,7 +777,7 @@
 			<p
 				class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
 			>
-				{m.routes_dashboard_no_recent_tool_calls()}
+				{m.dashboard_no_recent_tool_calls()}
 			</p>
 		{:else}
 			<div class="pt-2 flex flex-col gap-4 w-full">
@@ -806,7 +806,7 @@
 				href={resolve('/usage')}
 				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
-				{m.routes_dashboard_see_more()}
+				{m.dashboard_see_more()}
 				<ChevronRight class="size-3" />
 			</a>
 		{/if}
@@ -814,5 +814,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>{m.routes_dashboard_page_title()}</title>
+	<title>{m.dashboard_page_title()}</title>
 </svelte:head>
