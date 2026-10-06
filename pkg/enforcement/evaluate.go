@@ -12,6 +12,14 @@ const (
 	defaultUnresolvedReason = "the device could not determine what this tool call targets"
 )
 
+var (
+	// percentEncodedDot decodes every encoded ".". WHATWG URL parsers treat "%2e" as "." in
+	// dot-segments, and elsewhere it is an encoded unreserved character, which RFC 3986
+	// section 6.2.2.2 makes equivalent to ".". It never adds or removes a "/", so it cannot
+	// move a path outside an allowed prefix.
+	percentEncodedDot = strings.NewReplacer("%2e", ".", "%2E", ".")
+)
+
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
 // anything that does not positively match an allow rule is denied.
 func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decision {
@@ -90,11 +98,11 @@ func urlMatches(entryURL, callURL string) bool {
 		return false
 	}
 
-	entry, err := url.Parse(entryURL)
+	entry, err := parseHTTPURL(entryURL)
 	if err != nil {
 		return false
 	}
-	actual, err := url.Parse(callURL)
+	actual, err := parseHTTPURL(callURL)
 	if err != nil {
 		return false
 	}
@@ -109,7 +117,33 @@ func urlMatches(entryURL, callURL string) bool {
 		return false
 	}
 
-	return pathPrefixMatches(entry.Path, actual.Path)
+	return pathPrefixMatches(resolvedPath(entry), resolvedPath(actual))
+}
+
+// parseHTTPURL parses rawURL, first treating a literal backslash before the query or fragment
+// of an http(s) URL as "/", which is how browsers and Node parse it. An encoded backslash
+// ("%5C") is left alone, because those clients do not treat it as a separator.
+func parseHTTPURL(rawURL string) (*url.URL, error) {
+	scheme, _, _ := strings.Cut(rawURL, ":")
+	if !strings.EqualFold(scheme, "http") && !strings.EqualFold(scheme, "https") {
+		return url.Parse(rawURL)
+	}
+	end := strings.IndexAny(rawURL, "?#")
+	if end < 0 {
+		end = len(rawURL)
+	}
+	return url.Parse(strings.ReplaceAll(rawURL[:end], `\`, "/") + rawURL[end:])
+}
+
+// resolvedPath returns u's escaped path with dot-segments removed the way browsers and Node
+// resolve them, which is the path an MCP client actually requests. Empty segments are kept
+// and encoded slashes stay encoded, so "/a//../b" becomes "/a/b", not "/b".
+func resolvedPath(u *url.URL) string {
+	escaped, err := url.Parse("http://host" + percentEncodedDot.Replace(u.EscapedPath()))
+	if err != nil {
+		return u.EscapedPath()
+	}
+	return escaped.ResolveReference(&url.URL{}).EscapedPath()
 }
 
 // NormalizedPort returns the explicit port or the scheme's default port.
@@ -129,6 +163,7 @@ func NormalizedPort(u *url.URL) string {
 
 // pathPrefixMatches reports whether callPath is equal to, or a path-boundary
 // descendant of, entryPath. An empty (or "/") entry path imposes no constraint.
+// Both paths must already be escaped and resolved with resolvedPath.
 func pathPrefixMatches(entryPath, callPath string) bool {
 	entryPath = strings.TrimSuffix(entryPath, "/")
 	if entryPath == "" {

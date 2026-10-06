@@ -1,8 +1,11 @@
 package mcp
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +15,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -30,6 +34,11 @@ import (
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/sync/singleflight"
+)
+
+const (
+	// initFilesDir is where runInitContainer places files before the init container starts.
+	initFilesDir = "/init-files"
 )
 
 var (
@@ -1371,8 +1380,10 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 }
 
 // runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
-// with the given script and mounts, waits for it to exit, and returns any error.
-func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount) error {
+// with the given script and mounts, waits for it to exit, and returns any error. When files is
+// not nil, initFilesDir is created in the container with those files before it starts, so their
+// contents never pass through the script or the container's arguments.
+func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, files map[string]string, mounts []mount.Mount) error {
 	initImage := "alpine:latest"
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
@@ -1399,6 +1410,16 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 		fmt.Sprintf("%s-%s", namePrefix, strings.ToLower(rand.Text())))
 	if err != nil {
 		return fmt.Errorf("failed to create init container: %w", err)
+	}
+
+	if files != nil {
+		archive, err := initFilesArchive(files)
+		if err != nil {
+			return errors.Join(err, d.removeInitContainer(ctx, resp.ID))
+		}
+		if err := d.client.CopyToContainer(ctx, resp.ID, "/", archive, container.CopyToContainerOptions{}); err != nil {
+			return errors.Join(fmt.Errorf("failed to copy files to init container: %w", err), d.removeInitContainer(ctx, resp.ID))
+		}
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -1470,26 +1491,64 @@ func fileEnvKeysHash(files []File) string {
 }
 
 func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {
-	var script strings.Builder
-	script.WriteString("#!/bin/sh\nset -e\n")
-	script.WriteString("rm -f /files/*\n")
-
-	fileNames := make([]string, 0, len(fileContents))
-	for filename := range fileContents {
-		fileNames = append(fileNames, filename)
+	if fileContents == nil {
+		// A non-nil map makes runInitContainer create initFilesDir, which the script copies from.
+		fileContents = map[string]string{}
 	}
-	sort.Strings(fileNames)
-
-	for _, filename := range fileNames {
-		containerPath := path.Join("/files", filename)
-		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
-	}
-
-	return d.runInitContainer(ctx, containerName+"-init", script.String(), []mount.Mount{{
+	script := "set -e\nrm -f /files/*\ncp -a " + initFilesDir + "/. /files/\n"
+	return d.runInitContainer(ctx, containerName+"-init", script, fileContents, []mount.Mount{{
 		Type:   mount.TypeVolume,
 		Source: volumeName,
 		Target: "/files",
 	}})
+}
+
+// initFilesArchive returns a tar archive that places each file, followed by a newline, under
+// initFilesDir when extracted at the container root.
+func initFilesArchive(files map[string]string) (io.Reader, error) {
+	names := slices.Sorted(maps.Keys(files))
+	now := time.Now()
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeDir,
+		Name:     strings.TrimPrefix(initFilesDir, "/") + "/",
+		Mode:     0o755,
+		ModTime:  now,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to write init files archive: %w", err)
+	}
+	for _, name := range names {
+		if name == "" || strings.Contains(name, "/") || name == "." || name == ".." {
+			return nil, fmt.Errorf("invalid init file name %q", name)
+		}
+		// Files have always ended with a newline, so keep that for anything that depends on it.
+		content := files[name] + "\n"
+		if err := tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     path.Join(strings.TrimPrefix(initFilesDir, "/"), name),
+			Mode:     0o644,
+			Size:     int64(len(content)),
+			ModTime:  now,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to write init files archive: %w", err)
+		}
+		if _, err := tw.Write([]byte(content)); err != nil {
+			return nil, fmt.Errorf("failed to write init files archive: %w", err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, fmt.Errorf("failed to write init files archive: %w", err)
+	}
+	return &buf, nil
+}
+
+func (d *dockerBackend) removeInitContainer(ctx context.Context, id string) error {
+	if err := d.client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to remove init container: %w", err)
+	}
+	return nil
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
@@ -1557,8 +1616,8 @@ func (d *dockerBackend) prepareMCPServerMMMCPConfig(ctx context.Context, server 
 		return "", fmt.Errorf("failed to create MCP server mmmcp config volume: %w", err)
 	}
 
-	script := fmt.Sprintf("cat > /config/mmmcp.yaml << 'EOF'\n%s\nEOF\n", mmmcpYAML)
-	if err = d.runInitContainer(ctx, server.MCPServerName+"-mmmcp-init", script, []mount.Mount{
+	script := "set -e\ncp " + initFilesDir + "/mmmcp.yaml /config/mmmcp.yaml\n"
+	if err = d.runInitContainer(ctx, server.MCPServerName+"-mmmcp-init", script, map[string]string{"mmmcp.yaml": string(mmmcpYAML)}, []mount.Mount{
 		{
 			Type:   mount.TypeVolume,
 			Source: volumeName,
