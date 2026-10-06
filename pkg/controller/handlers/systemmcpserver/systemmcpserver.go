@@ -2,6 +2,7 @@ package systemmcpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -97,12 +98,26 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	// System servers don't use webhooks, so pass nil
 	_, err = h.mcpSessionManager.LaunchServer(req.Ctx, serverConfig)
 	if err != nil {
-		return fmt.Errorf("failed to deploy system MCP server: %w", err)
+		return launchError(systemServer.Name, err)
 	}
 
 	slog.Info("System MCP server launched successfully", "server", systemServer.Name)
 
 	return nil
+}
+
+// launchError decides whether a failed launch is retried. A runtime backend that
+// cannot run this kind of server (e.g. a containerized system server, such as the
+// built-in obot server when agents are enabled, with the none backend) will not
+// support it on the next attempt either: log a warning and stop instead of
+// retrying forever.
+func launchError(serverName string, err error) error {
+	if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
+		slog.Warn("System MCP server cannot run on this runtime backend, not retrying",
+			"server", serverName, "backend", nse.Backend, "feature", nse.Feature)
+		return nil
+	}
+	return fmt.Errorf("failed to deploy system MCP server: %w", err)
 }
 
 // CleanupDeployment handles cleanup when SystemMCPServer is deleted
