@@ -34,7 +34,11 @@ async function renderEntriesView(readonly = false) {
 }
 
 async function clickRow(name: string) {
-	await page.getByRole('row').filter({ hasText: name }).getByRole('cell').first().click();
+	await page
+		.getByRole('row')
+		.filter({ hasText: name })
+		.getByText(name, { exact: true })
+		.click({ noWaitAfter: true });
 }
 
 describe('MCP Servers EntriesView', () => {
