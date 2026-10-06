@@ -30,6 +30,8 @@
 	const id = `mcp-tester-field-${uid}`;
 	let objectJSON = $state(untrack(() => JSON.stringify(value ?? {}, null, 2)));
 	let objectJSONError = $state<string>();
+	let lastEmittedObjectValue: string | undefined;
+	let hasPendingObjectValue = false;
 	let nonNullable = $derived(nonNullableJSONSchema(schema));
 	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
@@ -56,15 +58,30 @@
 
 	function updateObjectJSON(next: string) {
 		objectJSON = next;
+		hasPendingObjectValue = true;
 		try {
-			onchange(JSON.parse(next) as unknown);
+			const parsed = JSON.parse(next) as unknown;
+			lastEmittedObjectValue = JSON.stringify(parsed);
+			onchange(parsed);
 			objectJSONError = undefined;
 		} catch (error) {
 			// Keep the parent form invalid until the JSON can be parsed again.
+			lastEmittedObjectValue = JSON.stringify(next);
 			onchange(next);
 			objectJSONError = error instanceof Error ? error.message : 'Invalid JSON';
 		}
 	}
+
+	$effect(() => {
+		const serialized = JSON.stringify(value);
+		if (hasPendingObjectValue && serialized === lastEmittedObjectValue) {
+			hasPendingObjectValue = false;
+			return;
+		}
+		hasPendingObjectValue = false;
+		objectJSON = JSON.stringify(value ?? {}, null, 2);
+		objectJSONError = undefined;
+	});
 
 	function arrayValue(): unknown[] {
 		return Array.isArray(value) ? value : [];

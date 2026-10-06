@@ -145,11 +145,16 @@ export function pruneClearedProperties(schema: JSONSchema, value: unknown): unkn
 	const type = schemaType(schema);
 	if (type === 'object') {
 		if (typeof value !== 'object' || value === null || Array.isArray(value)) return value;
+		// Values in an object without named fields come from a JSON editor, not
+		// generated controls. Every property is intentional, including empty strings.
+		if (Object.keys(schema.properties ?? {}).length === 0) return value;
 		const pruned: Record<string, unknown> = {};
 		for (const [name, propertyValue] of Object.entries(value as Record<string, unknown>)) {
-			const cleared = propertyValue === undefined || propertyValue === '';
-			if (cleared && !schema.required?.includes(name)) continue;
 			const property = schema.properties?.[name];
+			const propertyType = property && schemaType(nonNullableJSONSchema(property) ?? property);
+			const cleared =
+				propertyValue === undefined || (propertyValue === '' && propertyType === 'string');
+			if (cleared && !schema.required?.includes(name)) continue;
 			pruned[name] = property ? pruneClearedProperties(property, propertyValue) : propertyValue;
 		}
 		return pruned;
