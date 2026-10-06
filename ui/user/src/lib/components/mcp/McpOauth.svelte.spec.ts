@@ -1,11 +1,11 @@
-import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
-import { page } from 'vitest/browser';
 import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
+import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import McpOauth from './McpOauth.svelte';
 import { HttpResponse, http } from 'msw';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { page } from 'vitest/browser';
 
 it.each([
 	{

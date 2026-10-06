@@ -113,7 +113,7 @@ func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 		},
 	}
 
-	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, nil, newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestLocalhostCallbackServerHasNoDirectRemote(t *testing.T) {
 		URL:                      "https://example.com/mcp",
 		LocalhostCallbackEnabled: true,
 	}
-	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), nil, server, nil, "https://obot.example.com", server.Name, "com.example.obot", &kuser.DefaultInfo{UID: "user-1"}, nil, newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}

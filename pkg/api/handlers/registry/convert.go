@@ -18,16 +18,17 @@ import (
 // Uses the existing ConvertMCPServer function to ensure consistency with the rest of the codebase
 func ConvertMCPServerToRegistry(
 	ctx context.Context,
-	storage kclient.Reader,
+	storage kclient.Client,
 	server v1.MCPServer,
 	credEnv map[string]string,
 	serverURL string,
 	slug string,
 	reverseDNS string,
 	user kuser.Info,
+	instances map[string]*v1.VMCPInstance,
 	mimeFetcher *mimeFetcher,
 ) (obottypes.RegistryServerResponse, error) {
-	localhostCallback, err := serverRequiresLocalhostCallback(ctx, storage, server, user)
+	localhostCallback, err := serverRequiresLocalhostCallback(ctx, storage, server, user, instances)
 	if err != nil {
 		return obottypes.RegistryServerResponse{}, err
 	}
@@ -261,7 +262,7 @@ func guessRepoSource(repoURL string) string {
 
 // serverRequiresLocalhostCallback uses the same component snapshots as runtime
 // resolution, including snapshots retained by migrated vMCP connections.
-func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader, server v1.MCPServer, user kuser.Info) (bool, error) {
+func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Client, server v1.MCPServer, user kuser.Info, instances map[string]*v1.VMCPInstance) (bool, error) {
 	if remote := server.Spec.Manifest.RemoteConfig; remote != nil && remote.LocalhostCallbackEnabled {
 		return true, nil
 	}
@@ -275,6 +276,19 @@ func serverRequiresLocalhostCallback(ctx context.Context, storage kclient.Reader
 			return false, fmt.Errorf("resolve registry vMCP instance: %w", err)
 		}
 		vmcpID = instance.Spec.Manifest.VMCPID
+	} else if registryUserAuthenticated(user) {
+		// Lists supply the user's instances once; direct lookups resolve just this vMCP.
+		selected := instances[vmcpID]
+		if instances == nil {
+			var err error
+			selected, err = vmcpconfig.FindInstance(ctx, storage, server.Namespace, vmcpID, user.GetUID())
+			if err != nil {
+				return false, fmt.Errorf("resolve registry vMCP user instance: %w", err)
+			}
+		}
+		if selected != nil {
+			instance = *selected
+		}
 	}
 	var vmcp v1.VMCP
 	if err := storage.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: vmcpID}, &vmcp); err != nil {
