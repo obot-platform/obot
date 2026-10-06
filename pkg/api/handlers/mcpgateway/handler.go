@@ -264,8 +264,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 
 		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), hookProcessorOptions{
-			toolSearch: serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch,
-			resolved:   resolvedCall,
+			resolved: resolvedCall,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request hooks: %w", err)

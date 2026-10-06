@@ -23999,6 +23999,12 @@ func schema_storage_apis_obotobotai_v1_MCPHookCorrelationSpec(ref common.Referen
 							Format: "",
 						},
 					},
+					"genericCall": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"requestMutation": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref(v1.MCPHookMutation{}.OpenAPIModelName()),

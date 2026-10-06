@@ -26,33 +26,32 @@ const (
 // pendingRequest is the request context needed when its JSON-RPC response
 // arrives, potentially through another HTTP request or Obot replica.
 type pendingRequest struct {
-	message   mcp.Message
-	name      string
-	mutations map[string]mcp.HookMutation
+	message     mcp.Message
+	name        string
+	genericCall bool
+	mutations   map[string]mcp.HookMutation
 }
 
 // hookProcessor filters MCP messages for one proxied HTTP exchange.
 type hookProcessor struct {
-	ctx        context.Context
-	runner     mcp.HookRunner
-	hooks      mcp.Hooks
-	servers    mcp.HookServerConfigs
-	audit      *proxyAudit
-	store      *hookCorrelationStore
-	sessionID  string
-	request    *pendingRequest
-	requestID  string
-	disabled   bool
-	toolSearch bool
-	resolved   *resolvedToolCall
+	ctx       context.Context
+	runner    mcp.HookRunner
+	hooks     mcp.Hooks
+	servers   mcp.HookServerConfigs
+	audit     *proxyAudit
+	store     *hookCorrelationStore
+	sessionID string
+	request   *pendingRequest
+	requestID string
+	disabled  bool
+	resolved  *resolvedToolCall
 
 	requestError    error
 	requestResponse []byte
 }
 
 type hookProcessorOptions struct {
-	toolSearch bool
-	resolved   *resolvedToolCall
+	resolved *resolvedToolCall
 }
 
 type gzipHookBody struct {
@@ -116,7 +115,6 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 		disabled:  runner == nil || len(hooks) == 0,
 	}
 	if len(options) > 0 {
-		processor.toolSearch = options[0].toolSearch
 		processor.resolved = options[0].resolved
 	}
 	if req.Method != http.MethodPost || req.Body == nil || (processor.disabled && processor.audit == nil) {
@@ -337,7 +335,7 @@ func (h *hookProcessor) filterResponseMessage(body []byte, origin hookOrigin) []
 	hookMessage := wireMessage
 	hookMessage.Method = request.message.Method
 	hookMessage.HookMutations = cloneMCPHookMutations(request.mutations)
-	result := h.run(hookMessage, request.message.Method, request.name, "response", request.mutations)
+	result := h.run(hookMessage, request.message.Method, request.name, "response", request.mutations, request.genericCall)
 	result.captureBody(body)
 
 	if result.err != nil {
@@ -409,7 +407,8 @@ func (h *hookProcessor) filterRequestMessage(body []byte, wireMessage mcp.Messag
 func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, origin hookOrigin) (filteredRequest, error) {
 	hookMessage := wireMessage
 	name := mcpHookMessageName(wireMessage)
-	if origin == hookOriginClient && h.resolved != nil && wireMessage.Method == "tools/call" {
+	genericCall := origin == hookOriginClient && h.resolved != nil && wireMessage.Method == "tools/call"
+	if genericCall {
 		var err error
 		hookMessage, err = h.resolved.hookMessage(wireMessage)
 		if err != nil {
@@ -417,13 +416,13 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 		}
 		name = h.resolved.name
 	}
-	result := h.run(hookMessage, wireMessage.Method, name, "request", nil)
+	result := h.run(hookMessage, wireMessage.Method, name, "request", nil, genericCall)
 	if result.err != nil {
 		return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", result.err), hooks: result}, nil
 	}
 
 	message := result.message
-	if h.resolved != nil && origin == hookOriginClient && wireMessage.Method == "tools/call" {
+	if genericCall {
 		if result.mutated {
 			var err error
 			message, err = h.resolved.restoreHookMutation(wireMessage, message)
@@ -453,13 +452,13 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 
 	requestID, _ := mcpHookMessageID(message.ID)
 	requestName := mcpHookMessageName(message)
-	if h.resolved != nil && origin == hookOriginClient && wireMessage.Method == "tools/call" {
+	if genericCall {
 		requestName = name
 	}
 	return filteredRequest{
 		body: body,
 		request: pendingRequest{
-			message: message, name: requestName, mutations: cloneMCPHookMutations(result.mutations),
+			message: message, name: requestName, genericCall: genericCall, mutations: cloneMCPHookMutations(result.mutations),
 		},
 		requestID: requestID,
 		hooks:     result,
@@ -488,7 +487,7 @@ func (e *hookBlockedError) Error() string {
 	return fmt.Sprintf("MCP %s blocked by hook: %s", e.direction, strings.Join(e.reasons, "; "))
 }
 
-func (h *hookProcessor) run(message mcp.Message, method, name, direction string, priorMutations map[string]mcp.HookMutation) hookResult {
+func (h *hookProcessor) run(message mcp.Message, method, name, direction string, priorMutations map[string]mcp.HookMutation, genericCall bool) hookResult {
 	if len(h.hooks) == 0 {
 		return hookResult{message: message, mutations: cloneMCPHookMutations(priorMutations)}
 	}
@@ -507,7 +506,7 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 		"name": name, "direction": direction, "callOnError": strconv.FormatBool(message.Error != nil), "method": method,
 	}
 	for _, hook := range h.hooks {
-		if !hook.Matches(method, params) && !h.matchesGenericCallHook(hook, method, params) {
+		if !hook.Matches(method, params) && !matchesGenericCallHook(hook, method, params, genericCall) {
 			continue
 		}
 		for _, target := range hook.Targets {

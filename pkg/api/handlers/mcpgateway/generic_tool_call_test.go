@@ -97,7 +97,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		return obotmcp.SessionMessageHook{Accept: false, Message: input.Message, Reason: "blocked by policy"}, true, nil
 	}}
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file", "direction": "request"}, Targets: []obotmcp.HookTarget{{Target: "policy/delete"}}}}
-	processor, err := newHookProcessor(req, runner, hooks, nil, audit, nil, hookProcessorOptions{toolSearch: true, resolved: resolved})
+	processor, err := newHookProcessor(req, runner, hooks, nil, audit, nil, hookProcessorOptions{resolved: resolved})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +109,11 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	audit.recordBlockedRequest(body, hookErr)
 	if len(collector.entries) != 2 || collector.entries[0].CallIdentifier != "delete_file" || collector.entries[0].Subject != "user-1" {
 		t.Fatalf("audit did not identify underlying operation and user: %#v", collector.entries)
+	}
+
+	stale := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"stale","arguments":{"path":"secret.txt"}}}}`)
+	if resolved, err := handler.resolveGenericToolCall(stale, cfg, ""); err == nil || resolved != nil {
+		t.Fatalf("stale generic call was allowed to forward: resolved=%#v error=%v", resolved, err)
 	}
 }
 
@@ -137,7 +142,7 @@ func TestGenericToolCallHookMutationPreservesWrapper(t *testing.T) {
 	}}
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file"}, Targets: []obotmcp.HookTarget{{Target: "policy/redact"}}}}
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{"path":"one"}}}}`)
-	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, hookProcessorOptions{toolSearch: true, resolved: resolved})
+	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, hookProcessorOptions{resolved: resolved})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +177,7 @@ func TestGenericToolCallResponseHookUsesUnderlyingName(t *testing.T) {
 	runner := new(scriptedMCPHookRunner)
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file", "direction": "response"}, Targets: []obotmcp.HookTarget{{Target: "policy/response"}}}}
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
-	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, hookProcessorOptions{toolSearch: true, resolved: resolved})
+	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, hookProcessorOptions{resolved: resolved})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,5 +187,48 @@ func TestGenericToolCallResponseHookUsesUnderlyingName(t *testing.T) {
 	}
 	if runner.callCount() != 1 || runner.calls[0].target != "policy/response" {
 		t.Fatalf("response policy saw wrong operation: %#v", runner.calls)
+	}
+}
+
+func TestGenericToolCallNamedSearchToolsMatchesCallToolHooksAcrossRequests(t *testing.T) {
+	resolved := &resolvedToolCall{name: toolsearch.SearchToolName, revision: "revision", arguments: json.RawMessage(`{}`)}
+	runner := new(scriptedMCPHookRunner)
+	hooks := obotmcp.Hooks{
+		{Name: "tools/call", Params: map[string]string{"name": toolsearch.CallToolName, "direction": "request"}, Targets: []obotmcp.HookTarget{{Target: "policy/generic-request"}}},
+		{Name: "tools/call", Params: map[string]string{"name": toolsearch.CallToolName, "direction": "response"}, Targets: []obotmcp.HookTarget{{Target: "policy/generic-response"}}},
+		{Name: "tools/call", Params: map[string]string{"name": toolsearch.SearchToolName, "direction": "request"}, Targets: []obotmcp.HookTarget{{Target: "policy/underlying-request"}}},
+	}
+	storage := newMCPProxyTestStorage()
+	metadata := map[string]string{"mcpID": "vmcp", "userID": "user-1"}
+	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"search_tools","revision":"revision","arguments":{}}}}`)
+	req.Header.Set(mcpSessionHeader, "session-1")
+	_, err := newHookProcessor(req, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata), hookProcessorOptions{resolved: resolved})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runner.callCount() != 2 || runner.calls[0].target != "policy/generic-request" || runner.calls[1].target != "policy/underlying-request" {
+		t.Fatalf("generic request hooks did not match both identities: %#v", runner.calls)
+	}
+
+	responseReq := httptest.NewRequest(http.MethodGet, "http://obot.example/mcp", nil)
+	responseReq.Header.Set(mcpSessionHeader, "session-1")
+	responseProcessor, err := newHookProcessor(responseReq, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := responseProcessor.filterResponse(mcpHookResponse(`{"jsonrpc":"2.0","id":1,"result":{"content":[]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if runner.callCount() != 3 || runner.calls[2].target != "policy/generic-response" {
+		t.Fatalf("correlated response lost generic call identity: %#v", runner.calls)
+	}
+
+	searchRunner := new(scriptedMCPHookRunner)
+	searchReq := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_tools","arguments":{"query":"test"}}}`)
+	if _, err := newHookProcessor(searchReq, searchRunner, hooks, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if searchRunner.callCount() != 1 || searchRunner.calls[0].target != "policy/underlying-request" {
+		t.Fatalf("search request matched a generic-call hook: %#v", searchRunner.calls)
 	}
 }

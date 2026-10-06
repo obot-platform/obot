@@ -68,8 +68,9 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, fmt.Errorf("resolve generic tool call: %w", err)
 	}
 	if !ok || call.Route == nil {
-		// Let MMMCP return its normal invalid or stale reference result.
-		return nil, nil
+		// The composite owner may have a newer catalog. Forwarding an unresolved
+		// call could let it invoke a tool without its tool-specific hooks.
+		return nil, fmt.Errorf("generic tool call cannot be resolved against the current catalog")
 	}
 	args, err := toolsearch.ParseCallArguments(params.Arguments)
 	if err != nil {
@@ -161,9 +162,9 @@ func (r *resolvedToolCall) restoreHookMutation(wire, mutated mcp.Message) (mcp.M
 	return result, nil
 }
 
-func (h *hookProcessor) matchesGenericCallHook(hook mcp.HookMapping, method string, params map[string]string) bool {
-	if !h.toolSearch || method != "tools/call" || hook.Params["name"] != toolsearch.CallToolName ||
-		params["name"] == toolsearch.CallToolName || params["name"] == toolsearch.SearchToolName {
+func matchesGenericCallHook(hook mcp.HookMapping, method string, params map[string]string, genericCall bool) bool {
+	if !genericCall || method != "tools/call" || hook.Params["name"] != toolsearch.CallToolName ||
+		params["name"] == toolsearch.CallToolName {
 		return false
 	}
 	aliased := make(map[string]string, len(params))
