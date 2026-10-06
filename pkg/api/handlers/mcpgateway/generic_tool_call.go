@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 
 	"github.com/obot-platform/mmmcp/component"
@@ -168,9 +169,7 @@ func matchesGenericCallHook(hook mcp.HookMapping, method string, params map[stri
 		return false
 	}
 	aliased := make(map[string]string, len(params))
-	for key, value := range params {
-		aliased[key] = value
-	}
+	maps.Copy(aliased, params)
 	aliased["name"] = toolsearch.CallToolName
 	return hook.Matches(method, aliased)
 }
