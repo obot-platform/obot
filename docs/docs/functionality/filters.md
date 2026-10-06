@@ -61,6 +61,33 @@ When you write an MCP server that acts as a filter, implement the tool called by
 
 See the [obot-platform/pii-filter](https://github.com/obot-platform/pii-filter) repository for an example MCP filter server.
 
+### Example: selected fetch request and result checks
+
+The external [IsMalicious gateway filter](https://github.com/hexablob/ismalicious-gateway-filters)
+implements this MCP filter contract. It checks the URL argument before a selected
+fetch tool executes, then checks the complete text/structured result before the
+gateway returns it. Configure it as an MCP filter, with the tool name
+`ismalicious_filter`, rather than as an HTTP webhook.
+
+Use its [Obot configuration example](https://github.com/hexablob/ismalicious-gateway-filters/blob/v0.1.0/examples/obot-filter.json)
+and select the actual fetch tool identifier. The example uses the `uvx` runtime
+with a versioned Git source. Supply the API key and secret through sensitive
+configuration fields. Set `ISMALICIOUS_FETCH_TOOLS` to a JSON map of selected tool
+names to their URL argument, such as `{"fetch":"url"}`. Select the same tools in
+Obot so unselected traffic is outside the filter's declared scope.
+
+The filter returns the original message without mutation when the policy admits
+it. It rejects `warn`, `block`, API failures, malformed decisions, truncated link
+analysis, oversized messages, and unsupported non-text content. A reputation
+check does not fetch the URL. An `allow` decision may still contain unknown link
+reputation; it is not proof that the destination is benign.
+
+This example covers selected `tools/call` requests and correlated text/structured
+results. It does not claim inspection of all MCP methods, binary media,
+notifications, malformed JSON-RPC, or responses the gateway cannot correlate.
+Obot's native hook tests in the external repository exercise request refusal and
+removal of refused content from JSON and SSE responses.
+
 ## Built-in Filters
 
 Obot ships with a default set of built-in filters. These are MCP filter servers that are already configured for deployment in Obot through the system MCP catalog.
