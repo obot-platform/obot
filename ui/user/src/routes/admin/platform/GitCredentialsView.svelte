@@ -6,6 +6,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
 	import { errors, profile } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { Pencil, Trash2, TriangleAlert, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -332,11 +333,14 @@
 			pendingCreates = failedCreates;
 			pendingEdits = failedEdits;
 			pendingDeletes = failedDeletes;
-			return (
+			const succeeded =
 				failedCreates.length === 0 &&
 				Object.keys(failedEdits).length === 0 &&
-				failedDeletes.length === 0
-			);
+				failedDeletes.length === 0;
+			if (succeeded && Object.keys(conflicted).length === 0) {
+				success.add('Git credentials updated successfully.');
+			}
+			return succeeded;
 		} finally {
 			requestPending = false;
 		}

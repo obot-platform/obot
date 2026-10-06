@@ -704,70 +704,79 @@ describe('VMcpDesigner.svelte', () => {
 			expect(update).not.toHaveBeenCalled();
 		});
 
-		it('keeps discovered tools read-only after OAuth', async () => {
+		it('shows catalog tool previews without discovery or authentication', async () => {
 			const entry = createMCPCatalogEntry({
-				id: 'entry-remote',
-				name: 'Remote',
-				runtime: 'remote',
+				id: 'entry-github',
+				name: 'GitHub',
 				manifest: {
-					remoteConfig: { fixedURL: 'https://remote.example.com/mcp' }
+					toolPreview: componentEntry.manifest.toolPreview,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
 				}
 			});
 			const vmcp = createVMCP(
 				{
-					id: 'vmcp-remote',
-					displayName: 'Remote vMCP',
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
 					sourceURL,
-					components: [createVMCPComponent(entry)]
+					components: [
+						createVMCPComponent(entry, {
+							toolPrefix: 'github_',
+							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+						})
+					]
 				},
 				[entry]
 			);
 			const componentId = vmcp.components[0].id;
-			let previews = 0;
+			const preview = vi.fn();
+			const oauth = vi.fn();
 			worker.use(
 				http.post(`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews`, () => {
-					previews += 1;
-					if (previews === 1) {
-						return HttpResponse.json(
-							{ message: 'MCP server requires OAuth authentication' },
-							{ status: 400 }
-						);
-					}
-					return HttpResponse.json({
-						...entry,
-						manifest: {
-							...entry.manifest,
-							toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
-						}
-					});
+					preview();
+					return HttpResponse.json({ message: 'forbidden' }, { status: 403 });
 				}),
 				http.post(
 					`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews/oauth-url`,
-					() => HttpResponse.json({ oauthURL: 'https://oauth.example/authorize' })
+					() => {
+						oauth();
+						return HttpResponse.json({ oauthURL: 'https://oauth.example/authorize' });
+					}
 				)
 			);
 
 			await renderDesigner([entry], vmcp);
-			await page.getByRole('button', { name: 'Remote', exact: true }).click();
+			await page.getByRole('button', { name: 'GitHub', exact: true }).click();
 			await page.getByRole('button', { name: 'View Tools' }).click();
-			await expect
-				.element(page.getByText('you may need to temporarily authenticate', { exact: false }))
-				.toBeVisible();
-			await page.getByRole('button', { name: 'View Tools', exact: true }).click();
-			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
-
-			document.dispatchEvent(new Event('visibilitychange'));
 
 			const editor = page.getByRole('dialog').filter({ hasText: 'They cannot be changed here.' });
 			await expect
-				.element(editor.getByRole('heading', { name: 'View Remote Tools' }))
+				.element(editor.getByRole('heading', { name: 'View GitHub Tools' }))
 				.toBeVisible();
-			await expect.element(editor.getByText('search', { exact: true }).first()).toBeVisible();
-			await expect.element(editor.getByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
-			await expect.element(editor.getByRole('switch', { name: 'Disable Tool' })).toBeDisabled();
+			await expect.element(editor.getByText('github_create_issue')).toBeVisible();
+			await expect.element(editor.getByText('github_list_issues')).toBeVisible();
+			await expect.element(page.getByLabelText('API token', { exact: false })).not.toBeVisible();
 			await expect
-				.element(editor.getByRole('button', { name: 'Refresh tools' }))
+				.element(page.getByRole('link', { name: 'Authenticate' }))
 				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Configure Tools' }))
+				.not.toBeInTheDocument();
+			await expect.element(editor.getByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+			await expect
+				.element(editor.getByRole('switch', { name: 'Disable Tool' }).first())
+				.toBeDisabled();
+			expect(preview).not.toHaveBeenCalled();
+			expect(oauth).not.toHaveBeenCalled();
 		});
 	});
 
@@ -1167,11 +1176,21 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Delete', exact: true }))
 				.not.toBeInTheDocument();
+			await page.getByCSS('#click-catch').click();
 
-			await expect.element(componentBlock()).not.toBeInTheDocument();
-			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'View Configuration' }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Remove GitHub' }))
 				.not.toBeInTheDocument();
 		});
 
@@ -1369,7 +1388,98 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(connect).toBeDisabled();
 		});
 
-		it('does not open edit or component actions, and omits delete from the card menu', async () => {
+		it('does not open a component that has no stored tool overrides', async () => {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-github',
+				name: 'GitHub',
+				manifest: {
+					toolPreview: componentEntry.manifest.toolPreview,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					userID: 'someone-else',
+					components: [
+						createVMCPComponent(entry, {
+							toolPrefix: 'github_',
+							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+						})
+					]
+				},
+				[entry]
+			);
+			const componentId = vmcp.components[0].id;
+			const preview = vi.fn();
+			worker.use(
+				http.post(`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews`, () => {
+					preview();
+					return HttpResponse.json({ message: 'forbidden' }, { status: 403 });
+				})
+			);
+
+			await renderDesigner([entry], vmcp, { groups: [Group.USER] });
+
+			await expect.element(page.getByText('GitHub', { exact: true }).first()).toBeVisible();
+			await expect.element(page.getByText('All tools enabled by default')).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'GitHub', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'View Tools' }))
+				.not.toBeInTheDocument();
+			expect(preview).not.toHaveBeenCalled();
+		});
+
+		it('opens stored tool overrides without requesting discovery', async () => {
+			const vmcp = sharedVMcp(toolOverrides);
+			const componentId = vmcp.components[0].id;
+			const preview = vi.fn();
+			const oauth = vi.fn();
+			worker.use(
+				http.post(`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews`, () => {
+					preview();
+					return HttpResponse.json({ message: 'forbidden' }, { status: 403 });
+				}),
+				http.post(
+					`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews/oauth-url`,
+					() => {
+						oauth();
+						return HttpResponse.json({ oauthURL: 'https://oauth.example/authorize' });
+					}
+				)
+			);
+
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'View Tools' }).click();
+
+			const editor = page.getByRole('dialog').filter({ hasText: 'They cannot be changed here.' });
+			await expect
+				.element(editor.getByRole('heading', { name: 'View GitHub Tools' }))
+				.toBeVisible();
+			await expect.element(editor.getByText('github_create_issue')).toBeVisible();
+			await expect.element(editor.getByText('github_list_issues')).toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'Authenticate' }))
+				.not.toBeInTheDocument();
+			expect(preview).not.toHaveBeenCalled();
+			expect(oauth).not.toHaveBeenCalled();
+		});
+
+		it('leaves a component without stored overrides closed and omits the card menu', async () => {
 			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
 
 			// Viewers cannot edit details, so clicking the title does not open the dialog.
@@ -1381,10 +1491,10 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('heading', { name: 'Edit Details' }))
 				.not.toBeInTheDocument();
 
+			await expect.element(page.getByText('GitHub', { exact: true }).first()).toBeVisible();
 			await expect.element(componentBlock()).not.toBeInTheDocument();
-			await expect.element(page.getByText('GitHub').first()).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.element(page.getByRole('button', { name: 'View Tools' }))
 				.not.toBeInTheDocument();
 
 			await expect
