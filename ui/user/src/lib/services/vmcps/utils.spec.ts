@@ -10,6 +10,7 @@ import {
 	buildVMcpComponentFilterOptions,
 	buildWirePath,
 	catalogConfigurationFields,
+	hasVMcpComponentConfiguration,
 	configurationForSnapshotUpdate,
 	configurationWithRevealedValues,
 	distanceToRect,
@@ -68,6 +69,55 @@ function pointsOf(path: string) {
 		return { x, y };
 	});
 }
+
+describe('hasVMcpComponentConfiguration', () => {
+	it('is false for a remote server with no editable fields', () => {
+		expect(
+			hasVMcpComponentConfiguration(
+				createMCPCatalogEntry({
+					id: 'entry-remote',
+					name: 'Remote',
+					runtime: 'remote',
+					manifest: { remoteConfig: { fixedURL: 'https://example.com/mcp' } }
+				})
+			)
+		).toBe(false);
+	});
+
+	it('is true when a remote server still has an editable field', () => {
+		expect(
+			hasVMcpComponentConfiguration(
+				createMCPCatalogEntry({
+					id: 'entry-remote',
+					name: 'Remote',
+					runtime: 'remote',
+					manifest: {
+						remoteConfig: { fixedURL: 'https://example.com/mcp' },
+						config: [
+							{
+								key: 'API_TOKEN',
+								name: 'API token',
+								description: 'Token',
+								required: true,
+								sensitive: true,
+								value: '',
+								usage: 'env'
+							}
+						]
+					}
+				})
+			)
+		).toBe(true);
+	});
+
+	it('is true for a hosted server even without configuration fields', () => {
+		expect(
+			hasVMcpComponentConfiguration(
+				createMCPCatalogEntry({ id: 'entry-npx', name: 'Package', runtime: 'npx' })
+			)
+		).toBe(true);
+	});
+});
 
 describe('catalogConfigurationFields', () => {
 	it('returns the catalog config list', () => {
