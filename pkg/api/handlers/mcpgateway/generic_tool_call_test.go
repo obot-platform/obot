@@ -114,6 +114,11 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	}
 
 	stale := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"stale","arguments":{"path":"secret.txt"}}}}`)
+	staleCollector := new(recordingProxyAuditCollector)
+	staleAudit, err := newProxyAudit(stale, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, staleCollector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
 	resolved, err = handler.resolveGenericToolCall(stale, cfg, "", true)
 	if resolved != nil {
 		t.Fatalf("stale generic call was allowed to forward: %#v", resolved)
@@ -122,7 +127,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		t.Fatalf("stale generic call did not return a completed tool result: %v", err)
 	}
 	w := httptest.NewRecorder()
-	if !writeGenericToolCallError(api.Context{Request: stale, ResponseWriter: w}, err) {
+	if !writeAndAuditGenericToolCallError(api.Context{Request: stale, ResponseWriter: w}, staleAudit, err) {
 		t.Fatal("stale tool result was not written")
 	}
 	var response struct {
@@ -141,6 +146,13 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	if w.Code != http.StatusOK || response.ID != 2 || !response.Result.IsError || len(response.Result.Content) == 0 ||
 		!strings.Contains(response.Result.Content[0].Text, "STALE_TOOL_REFERENCE") || len(response.Error) != 0 {
 		t.Fatalf("stale tool response = %s", w.Body.Bytes())
+	}
+	if len(staleCollector.entries) != 2 || staleCollector.received[0] || !staleCollector.received[1] ||
+		staleCollector.entries[0].CallIdentifier != toolsearch.CallToolName ||
+		staleCollector.entries[1].ResponseStatus != http.StatusOK ||
+		string(staleCollector.entries[1].ResponseBody) != w.Body.String() ||
+		staleCollector.proxyExchangeIDs[0] != staleCollector.proxyExchangeIDs[1] {
+		t.Fatalf("stale call audit = %#v", staleCollector.entries)
 	}
 }
 
@@ -161,6 +173,53 @@ func TestGenericToolCallSkipsInspectionWithoutHooksOrAudit(t *testing.T) {
 				t.Fatalf("request was not preserved: error=%v", err)
 			}
 		})
+	}
+}
+
+func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handler.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
+	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file"}}}`)
+	collector := new(recordingProxyAuditCollector)
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := handler.resolveGenericToolCall(req, cfg, "", true)
+	if resolved != nil {
+		t.Fatalf("invalid generic call was allowed to forward: %#v", resolved)
+	}
+	w := httptest.NewRecorder()
+	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
+		t.Fatalf("invalid generic call was not handled: %v", err)
+	}
+	if !strings.Contains(w.Body.String(), "INVALID_ARGUMENTS") || len(collector.entries) != 2 ||
+		collector.entries[1].ResponseStatus != http.StatusOK ||
+		string(collector.entries[1].ResponseBody) != w.Body.String() {
+		t.Fatalf("invalid call response=%s audit=%#v", w.Body.String(), collector.entries)
+	}
+}
+
+func TestGenericToolCallDiscoveryFailureIsAudited(t *testing.T) {
+	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
+	collector := new(recordingProxyAuditCollector)
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errors.New("discovery failed")) {
+		t.Fatal("discovery failure was not handled")
+	}
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "discovery failed") ||
+		len(collector.entries) != 2 || collector.entries[1].ResponseStatus != http.StatusOK ||
+		string(collector.entries[1].ResponseBody) != w.Body.String() ||
+		collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
+		t.Fatalf("discovery failure response=%s audit count=%d", w.Body.String(), len(collector.entries))
 	}
 }
 
@@ -303,6 +362,11 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
 	req.URL.Path = "/mcp-connect/vmcpi1test"
 	req.SetPathValue("mcp_id", "vmcpi1test")
+	collector := new(recordingProxyAuditCollector)
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = handler.resolveGenericToolCall(req, cfg, "", true)
 	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](err); !ok || authErr.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("discovery error = %v, want authorization error", err)
@@ -310,7 +374,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 
 	w := httptest.NewRecorder()
 	ctx := api.Context{Request: req, ResponseWriter: w, APIBaseURL: "https://obot.example/api"}
-	if !writeGenericToolCallError(ctx, err) {
+	if !writeAndAuditGenericToolCallError(ctx, audit, err) {
 		t.Fatal("authorization error was not handled")
 	}
 	resp := w.Result()
@@ -328,5 +392,17 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	}
 	if string(body) != "MCP server requires authentication\n" || strings.Contains(string(body), "upstream") {
 		t.Fatalf("component authentication details leaked: %q", body)
+	}
+	var auditedBody string
+	if len(collector.entries) == 2 {
+		if err := json.Unmarshal(collector.entries[1].ResponseBody, &auditedBody); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(collector.entries) != 2 || collector.entries[1].ResponseStatus != http.StatusUnauthorized ||
+		auditedBody != string(body) ||
+		collector.entries[0].RequestID != collector.entries[1].RequestID ||
+		collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
+		t.Fatalf("discovery error audit count=%d body=%q", len(collector.entries), auditedBody)
 	}
 }
