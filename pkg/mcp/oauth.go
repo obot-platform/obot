@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1058,8 +1059,10 @@ func ParseOAuthResourceURL(metadata json.RawMessage) (string, error) {
 // does not belong to the MCP server Obot connected to. RFC 9728 says a client must not use
 // metadata whose resource does not match the resource it requested. Without this check, a
 // server could name another service as the resource, and Obot would obtain a token for that
-// service and send it to the server. Only the origin is compared, because MCP servers
-// commonly identify themselves by their origin or by a different path on the same origin.
+// service and send it to the server. This follows the MCP TypeScript SDK's
+// checkResourceAllowed: the resource must have the same origin as the connect URL, and its
+// path must be the connect URL's path or a parent of it, so a server can identify itself by
+// its origin but not by another service's path on the same host.
 func validateProtectedResource(resource, connectURL string) error {
 	r, err := url.Parse(resource)
 	if err != nil {
@@ -1070,17 +1073,23 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
+	resourcePath := strings.TrimSuffix(r.EscapedPath(), "/") + "/"
+	connectPath := strings.TrimSuffix(c.EscapedPath(), "/") + "/"
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
 		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
-		urlPort(r) != urlPort(c) {
+		urlPort(r) != urlPort(c) ||
+		!strings.HasPrefix(connectPath, resourcePath) {
 		return fmt.Errorf("protected resource metadata resource %q does not match MCP server URL %q", resource, connectURL)
 	}
 	return nil
 }
 
-// urlPort returns u's explicit port or the default port for its scheme.
+// urlPort returns u's port as a canonical number, or the default port for its scheme.
 func urlPort(u *url.URL) string {
 	if port := u.Port(); port != "" {
+		if n, err := strconv.Atoi(port); err == nil {
+			return strconv.Itoa(n)
+		}
 		return port
 	}
 	switch strings.ToLower(u.Scheme) {

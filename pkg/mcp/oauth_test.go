@@ -757,7 +757,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		switch req.URL.Path {
 		case "/.well-known/oauth-protected-resource":
 			_ = json.NewEncoder(rw).Encode(map[string]any{
-				"resource":              serverURL + "/protected-resource",
+				"resource":              serverURL,
 				"authorization_servers": []string{serverURL},
 				"scopes_supported":      []string{"read"},
 			})
@@ -784,7 +784,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 			require.Equal(t, hVerifier(callback), req.Form.Get("code_verifier"))
 			require.Equal(t, "dynamic-client", req.Form.Get("client_id"))
 			require.Equal(t, redirectURL, req.Form.Get("redirect_uri"))
-			require.Equal(t, serverURL+"/protected-resource", req.Form.Get("resource"))
+			require.Equal(t, serverURL, req.Form.Get("resource"))
 			require.Empty(t, req.Form.Get("client_secret"))
 			rw.Header().Set("Content-Type", "application/json")
 			_, _ = rw.Write([]byte(`{"access_token":"access-token","refresh_token":"refresh-token","token_type":"Bearer","expires_in":3600}`))
@@ -811,7 +811,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 	require.Contains(t, callback.authURL, "code_challenge=")
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
 	require.NoError(t, err)
-	require.Equal(t, serverURL+"/protected-resource", authorizationRequest.URL.Query().Get("resource"))
+	require.Equal(t, serverURL, authorizationRequest.URL.Query().Get("resource"))
 	require.Equal(t, "access-token", o.currentToken.AccessToken)
 	require.Equal(t, 1, storage.setCalls)
 	require.Equal(t, "access-token", storage.lastToken.AccessToken)
@@ -887,9 +887,43 @@ func TestValidateProtectedResource(t *testing.T) {
 			connectURL: "https://mcp.example.com/mcp",
 		},
 		{
-			name:       "different path on the same origin",
+			name:       "parent path as resource",
+			resource:   "https://mcp.example.com/tenant/",
+			connectURL: "https://mcp.example.com/tenant/mcp",
+		},
+		{
+			name:       "trailing slash difference",
+			resource:   "https://mcp.example.com/mcp/",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "zero-padded default port",
+			resource:   "https://mcp.example.com/",
+			connectURL: "https://mcp.example.com:0443/mcp",
+		},
+		{
+			name:       "another service on the same origin",
+			resource:   "https://example.com/victim/api",
+			connectURL: "https://example.com/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "sibling path on the same origin",
 			resource:   "https://mcp.example.com/protected-resource",
 			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "path prefix without a segment boundary",
+			resource:   "https://mcp.example.com/api",
+			connectURL: "https://mcp.example.com/api123/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "child path of the connect URL",
+			resource:   "https://mcp.example.com/mcp/other",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
 		},
 		{
 			name:       "case-insensitive scheme and host with default port",
