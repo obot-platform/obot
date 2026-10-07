@@ -542,7 +542,12 @@
 		// Add runtime-specific config based on the runtime type
 		switch (baseData.runtime) {
 			case 'openapi':
-				manifest.openAPIConfig = baseData.openAPIConfig;
+				if (baseData.openAPIConfig) {
+					manifest.openAPIConfig = {
+						...baseData.openAPIConfig,
+						egressDomains: sanitizeEgressDomains(baseData.openAPIConfig.egressDomains)
+					};
+				}
 				break;
 			case 'npx':
 				if (baseData.npxConfig) {
@@ -956,6 +961,8 @@
 		{:else if formData.runtime === 'openapi' && formData.openAPIConfig && id}
 			<OpenAPIConfiguration
 				bind:config={formData.openAPIConfig}
+				{showEgressDomains}
+				{defaultDenyAllEgress}
 				{importedBaseURL}
 				{entity}
 				{id}

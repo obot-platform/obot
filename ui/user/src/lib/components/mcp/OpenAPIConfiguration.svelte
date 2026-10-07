@@ -10,6 +10,8 @@
 		entity: 'catalog' | 'workspace';
 		config: OpenAPIRuntimeConfig;
 		readonly?: boolean;
+		showEgressDomains?: boolean;
+		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
 		showBaseURLError?: boolean;
 		onBaseURLChange?: () => void;
@@ -27,6 +29,8 @@
 		current,
 		onComplete,
 		readonly = false,
+		showEgressDomains = false,
+		defaultDenyAllEgress = false,
 		importedBaseURL = '',
 		showBaseURLError = false,
 		onBaseURLChange
@@ -94,6 +98,8 @@
 		{id}
 		{entity}
 		{readonly}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
 		{importedBaseURL}
 		{showBaseURLError}
 		{onBaseURLChange}

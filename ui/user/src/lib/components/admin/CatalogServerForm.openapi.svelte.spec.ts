@@ -1,12 +1,13 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 import type { MCPCatalogEntry } from '$lib/services';
-import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
+import { version } from '$lib/stores';
+import { createMCPCatalogEntryResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 const schema = {
 	openapi: '3.1.0',
@@ -29,6 +30,8 @@ beforeEach(() => {
 		http.get('/api/mcp-catalogs/default/access-control-rules', () => HttpResponse.json([]))
 	);
 });
+
+afterEach(() => version.initialize(getVersionResponse));
 
 it('does not offer OpenAPI as a hosted runtime', async () => {
 	await render(CatalogServerForm, { id: 'test', type: 'hosted' });
@@ -96,6 +99,58 @@ it('imports before saving and keeps the snapshot and header prefix', async () =>
 			baseURL: 'https://override.example.com'
 		},
 		config: [suggestedHeader]
+	});
+});
+
+it('saves OpenAPI egress domains when network policy is enabled', async () => {
+	version.initialize({ ...getVersionResponse, mcpNetworkPolicyEnabled: true });
+	mockImport();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await expect.element(page.getByText('Egress Domains')).toBeVisible();
+	const domains = page.getByPlaceholder('hit "Enter" to insert');
+	await domains.fill(' api.example.com ');
+	await userEvent.keyboard('{Enter}');
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].openAPIConfig).toMatchObject({
+		egressDomains: ['api.example.com']
+	});
+});
+
+it('allows all egress explicitly when deny all is the default', async () => {
+	version.initialize({
+		...getVersionResponse,
+		mcpNetworkPolicyEnabled: true,
+		mcpDefaultDenyAllEgress: true
+	});
+	mockImport();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await page.getByRole('switch', { name: 'Allow all egress' }).click();
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].openAPIConfig).toMatchObject({
+		egressDomains: [],
+		denyAllEgress: false
 	});
 });
 

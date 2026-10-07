@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import { importOpenAPI, openAPIBaseURL, type OpenAPIImportResult } from '$lib/services/openapi';
+	import Toggle from '../Toggle.svelte';
+	import { MultiValueInput } from '../ui/multi-value-input';
 	import { FileUp } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 
@@ -10,6 +12,8 @@
 		id: string;
 		readonly?: boolean;
 		importOnly?: boolean;
+		showEgressDomains?: boolean;
+		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
 		showBaseURLError?: boolean;
 		onImported?: (result: OpenAPIImportResult) => void;
@@ -22,6 +26,8 @@
 		id,
 		readonly = false,
 		importOnly = false,
+		showEgressDomains = false,
+		defaultDenyAllEgress = false,
 		importedBaseURL = '',
 		showBaseURLError = false,
 		onImported,
@@ -35,6 +41,19 @@
 	let fileName = $state('');
 	let fileInput = $state<HTMLInputElement>();
 	let disposed = false;
+	config.egressDomains ??= [];
+	const hasEgressDomains = $derived(config.egressDomains?.some((domain) => domain.trim()) ?? false);
+	const explicitAllowAll = $derived(
+		defaultDenyAllEgress && config.denyAllEgress === false && !hasEgressDomains
+	);
+	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
+	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
+	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
+	const egressHelpText = $derived(
+		defaultDenyAllEgress
+			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress. Examples: example.com, *.example.com.'
+			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress. Examples: example.com, *.example.com.'
+	);
 	let baseURLRequired = $derived(Boolean(config.schema) && !openAPIBaseURL(config.schema));
 	let baseURLMissing = $derived(baseURLRequired && !config.baseURL?.trim());
 	let baseURLInvalid = $derived(baseURLMissing && showBaseURLError);
@@ -46,6 +65,11 @@
 		config.schema = undefined;
 		resolvedBaseURL = '';
 		error = '';
+	}
+
+	function handleEgressToggle(checked: boolean) {
+		config.denyAllEgress = checked ? !defaultDenyAllEgress : undefined;
+		if (checked) config.egressDomains = [];
 	}
 
 	async function upload(event: Event) {
@@ -244,6 +268,28 @@
 				</p>{/if}
 		{:else}
 			<p class="text-muted-content text-xs">Import the schema before saving this entry.</p>
+		{/if}
+		{#if showEgressDomains}
+			<div class="flex gap-4">
+				<span class="pt-2.5 text-sm font-light">Egress Domains</span>
+				<div class="flex min-h-10 grow flex-col gap-2">
+					<Toggle
+						label={toggleLabel}
+						labelInline
+						checked={toggleChecked}
+						disabled={readonly}
+						onChange={handleEgressToggle}
+					/>
+					<MultiValueInput
+						bind:value={config.egressDomains}
+						class="text-input-filled dark:bg-base-100"
+						disabled={readonly || toggleChecked}
+						readonly={readonly || toggleChecked}
+						placeholder="hit &quot;Enter&quot; to insert"
+					/>
+					<p class="text-muted-content text-xs">{egressHelpText}</p>
+				</div>
+			</div>
 		{/if}
 	{/if}
 </section>
