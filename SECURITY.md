@@ -33,7 +33,7 @@ We follow coordinated disclosure:
 Issues that impact the confidentiality, integrity, or availability of this project or its official packages/services are in scope, as described in our [threat model](THREAT_MODEL.md).
 
 **Out of scope (non-exhaustive):**
-- Issues that require a role the threat model treats as trusted, without a clear escalation path
+- Issues where the attacker must already hold a trusted role and the impact stays within that role’s trust boundary, as defined in the threat model
 - Deprecated or end-of-life versions
 - Vulnerabilities in third-party dependencies not owned by us (please report upstream)
 
