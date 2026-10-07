@@ -1346,6 +1346,56 @@ func TestValidateEgressDomains(t *testing.T) {
 	}
 }
 
+func TestValidateOpenAPIEgress(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		config  types.OpenAPIRuntimeConfig
+		wantErr string
+	}{
+		{
+			name: "allowed domain",
+			config: types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+			},
+		},
+		{
+			name: "invalid domain",
+			config: types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"https://api.example.com"},
+			},
+			wantErr: "must not include a protocol",
+		},
+		{
+			name: "deny all conflicts with domains",
+			config: types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+				DenyAllEgress: new(true),
+			},
+			wantErr: "denyAllEgress cannot be true",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.config.Source = types.OpenAPISource{Content: storedOpenAPISchema}
+			tt.config.Schema = testOpenAPISchema(storedOpenAPISchema)
+			serverErr := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+				Runtime:       types.RuntimeOpenAPI,
+				OpenAPIConfig: &tt.config,
+			}, false, ValidationOptions{})
+			catalogErr := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+				Runtime:       types.RuntimeOpenAPI,
+				OpenAPIConfig: &tt.config,
+			}, false, ValidationOptions{})
+			for _, err := range []error{serverErr, catalogErr} {
+				if tt.wantErr == "" {
+					require.NoError(t, err)
+				} else {
+					require.ErrorContains(t, err, tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
 		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{

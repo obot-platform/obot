@@ -66,6 +66,7 @@ type kubernetesBackend struct {
 	cachedClient      kclient.WithWatch
 	httpListenPort    int
 	baseImage         string
+	openAPIImage      string
 	mcpNamespace      string
 	mcpClusterDomain  string
 	serviceFQDN       string
@@ -106,6 +107,7 @@ func newKubernetesBackend(
 		cachedClient:     cachedClient,
 		httpListenPort:   httpListenPort,
 		baseImage:        opts.MCPBaseImage,
+		openAPIImage:     opts.MCPOpenAPIImage,
 		mcpNamespace:     opts.MCPNamespace,
 		mcpClusterDomain: opts.MCPClusterDomain,
 		serviceFQDN:      serviceFQDN,
@@ -163,6 +165,11 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeVMCP {
 		// Remove any existing deployment for remote and vMCP servers
 		return server, k.deployServerObjects(ctx, server, nil)
+	}
+	// k8sObjects also resolves this image for direct deployServer calls.
+	// Resolve it here so the deployment cache hashes the same image.
+	if server.Runtime == types.RuntimeOpenAPI {
+		server.ContainerImage = k.openAPIImage
 	}
 
 	// Also has the files so we update the dynamic files if we need to.
@@ -224,6 +231,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		ContainerPort:           server.ContainerPort,
 		ContainerPath:           server.ContainerPath,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
+		Headers:                 server.hostedConnectionHeaders(),
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
 		StartupTimeout:          server.StartupTimeout,
 		Webhooks:                server.Webhooks,
@@ -386,6 +394,12 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string, hardS
 }
 
 func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig) ([]kclient.Object, error) {
+	if server.Runtime == types.RuntimeOpenAPI {
+		server.ContainerImage = k.openAPIImage
+		if strings.TrimSpace(server.ContainerImage) == "" {
+			return nil, fmt.Errorf("configure the MCP OpenAPI image before deploying an OpenAPI server")
+		}
+	}
 	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeVMCP {
 		return nil, nil
 	}
@@ -417,8 +431,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		err                error
 	)
 
-	switch server.Runtime {
-	case types.RuntimeContainerized:
+	if isContainerizedRuntime(server.Runtime) {
 		port = server.ContainerPort
 	}
 
@@ -431,6 +444,14 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		metaEnv = append(metaEnv, file.EnvKey)
 		secretEnvData[file.EnvKey] = []byte("/files/" + filename)
 		fileMapping[file.EnvKey] = "/files/" + filename
+	}
+	// Kubernetes limits the combined data of a Secret, not each individual file.
+	var mountedFileBytes int
+	for _, data := range secretVolumeData {
+		mountedFileBytes += len(data)
+	}
+	if mountedFileBytes > corev1.MaxSecretSize {
+		return nil, fmt.Errorf("combined mounted files exceed Kubernetes' 1 MiB Secret limit")
 	}
 
 	objs = append(objs, &corev1.Secret{
@@ -505,7 +526,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 
 	containers := make([]corev1.Container, 0, 1)
 
-	if server.Runtime == types.RuntimeContainerized {
+	if isContainerizedRuntime(server.Runtime) {
 		if server.Command != "" {
 			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
 		}
@@ -587,7 +608,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 							},
 						}
 
-						if server.Runtime != types.RuntimeContainerized {
+						if !isContainerizedRuntime(server.Runtime) {
 							volumes = append(volumes, corev1.Volume{
 								Name: "run-file",
 								Secret: &corev1.SecretVolumeSource{
@@ -606,7 +627,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 
 	objs = append(objs, dep)
 
-	if server.Runtime != types.RuntimeContainerized {
+	if !isContainerizedRuntime(server.Runtime) {
 		// Configure mmmcp to expose the command-based MCP server over HTTP.
 		mmmcpFileString, err := constructMCPServerMMMCPYAML(server, secretEnvData)
 		if err != nil {
@@ -646,7 +667,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 			TargetPort: intstr.FromString(portName),
 		},
 	}
-	if server.Runtime == types.RuntimeContainerized {
+	if isContainerizedRuntime(server.Runtime) {
 		// For containerized runtimes, expose the port of the real MCP server for health checks.
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       "mcp",

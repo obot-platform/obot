@@ -60,8 +60,8 @@ With the default set to deny all, admins can still allow unrestricted egress for
 
 ## Configure allowed domains
 
-Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, and `containerized` MCP servers.
-This can be configured in the UI when creating or editing an MCP server.
+Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, `containerized`, and `openapi` MCP servers.
+For `npx`, `uvx`, and `containerized` servers, this can be configured in the UI when creating or editing an MCP server. OpenAPI egress settings can be configured through the API or Git-managed YAML.
 See the YAML configuration examples if you manage MCP servers through Git.
 
 ### YAML configuration examples
@@ -99,6 +99,20 @@ containerizedConfig:
     - api.example.com
     - "*.example-cdn.com"
 ```
+
+Example OpenAPI configuration:
+
+```yaml
+runtime: openapi
+openAPIConfig:
+  source:
+    url: "https://schemas.example.com/openapi.json"
+  baseURL: "https://api.example.com"
+  egressDomains:
+    - api.example.com
+```
+
+The OpenAPI pod calls the API destination selected from `baseURL` or the schema's `servers` list. Obot fetches `source.url` separately; add the API destination's hostname to `egressDomains`, even when the schema comes from another host. When the default is deny all, an OpenAPI server needs an allowed API domain or an explicit `denyAllEgress: false` to make requests.
 
 To block all external egress for a server, set `denyAllEgress: true` and leave `egressDomains` empty:
 
