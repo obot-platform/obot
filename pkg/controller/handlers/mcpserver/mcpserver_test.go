@@ -121,10 +121,20 @@ func TestOpenAPIConfigurationDrift(t *testing.T) {
 			drifted: true,
 		},
 		{
-			name:    "source changed",
+			name:    "source URL changed with same snapshot",
 			server:  config(`{}`, "https://example.com/schema", ""),
 			catalog: config(`{}`, "https://example.com/other", ""),
-			drifted: true,
+		},
+		{
+			name: "inline source formatting changed with same snapshot",
+			server: &types.OpenAPIRuntimeConfig{
+				Source: types.OpenAPISource{Content: `{"openapi":"3.0.0"}`},
+				Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.0.0"}`)},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				Source: types.OpenAPISource{Content: "{\n  \"openapi\": \"3.0.0\"\n}"},
+				Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.0.0"}`)},
+			},
 		},
 		{
 			name:    "override changed",
