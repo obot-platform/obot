@@ -57,8 +57,8 @@ func NewImporter(options safehttp.Options, devMode bool) *Importer {
 // It returns no replacement snapshot on failure; callers retain the last good one.
 func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	source := config.Source
-	if (source.URL == "") == (source.Content == "") {
-		return nil, fmt.Errorf("exactly one OpenAPI source URL or content is required")
+	if err := ValidateSource(source); err != nil {
+		return nil, err
 	}
 
 	if source.URL == "" {
@@ -94,6 +94,14 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	}
 
 	return i.parse(ctx, data, config)
+}
+
+// ValidateSource enforces the source shape without fetching or parsing it.
+func ValidateSource(source types.OpenAPISource) error {
+	if (source.URL == "") == (source.Content == "") {
+		return fmt.Errorf("exactly one OpenAPI source URL or content is required")
+	}
+	return nil
 }
 
 // parse checks the resolved destination against the importer's transport and

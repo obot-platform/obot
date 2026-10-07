@@ -184,6 +184,59 @@ func TestOpenAPIManifestValidation(t *testing.T) {
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest.ConvertToCatalogEntry(), false, ValidationOptions{}))
 }
 
+func TestOpenAPISourceShapeValidation(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		source  types.OpenAPISource
+		wantErr bool
+	}{
+		{
+			name:    "missing source",
+			wantErr: true,
+		},
+		{
+			name: "both fields",
+			source: types.OpenAPISource{
+				URL:     "https://must-not-fetch.invalid/schema",
+				Content: "must not parse source content",
+			},
+			wantErr: true,
+		},
+		{
+			name: "URL only",
+			source: types.OpenAPISource{
+				URL: "https://must-not-fetch.invalid/schema",
+			},
+		},
+		{
+			name: "content only",
+			source: types.OpenAPISource{
+				Content: "must not parse source content",
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := openAPITestServer().Spec.Manifest
+			manifest.OpenAPIConfig.BaseURL = "https://93.184.216.34"
+			manifest.OpenAPIConfig.Source = test.source
+			for _, err := range []error{
+				ValidateServerManifest(t.Context(), manifest, false, ValidationOptions{}),
+				ValidateCatalogEntryManifest(t.Context(), manifest.ConvertToCatalogEntry(), false, ValidationOptions{}),
+			} {
+				if test.wantErr {
+					var validationErr types.RuntimeValidationError
+					require.ErrorAs(t, err, &validationErr)
+					require.Equal(t, types.RuntimeOpenAPI, validationErr.Runtime)
+					require.Equal(t, "openAPIConfig.source", validationErr.Field)
+					require.Equal(t, "exactly one OpenAPI source URL or content is required", validationErr.Message)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+		})
+	}
+}
+
 func TestOpenAPIInvalidConfig(t *testing.T) {
 	for _, test := range []struct {
 		name   string
