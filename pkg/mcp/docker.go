@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -1317,7 +1319,8 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 
 // runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
 // with the given script and mounts, waits for it to exit, and returns any error.
-func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount) error {
+// An optional tar archive is copied into /tmp before the container starts.
+func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount, archive io.Reader) error {
 	initImage := "alpine:latest"
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
@@ -1337,13 +1340,29 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 			Cmd:        []string{script},
 		},
 		&container.HostConfig{
-			Mounts:     mounts,
-			AutoRemove: true,
+			// Keep the container until its exit status has been read.
+			Mounts: mounts,
 		},
 		networkingConfig, nil,
 		fmt.Sprintf("%s-%s", namePrefix, strings.ToLower(rand.Text())))
 	if err != nil {
 		return fmt.Errorf("failed to create init container: %w", err)
+	}
+
+	// Cleanup must also work after the request is canceled or copying fails.
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+
+		if err := d.client.ContainerRemove(cleanupCtx, resp.ID, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+			slog.WarnContext(cleanupCtx, "Failed to remove init container", "container", resp.ID, "error", err)
+		}
+	}()
+
+	if archive != nil {
+		if err := d.client.CopyToContainer(ctx, resp.ID, "/tmp", archive, container.CopyToContainerOptions{}); err != nil {
+			return fmt.Errorf("failed to copy init files: %w", err)
+		}
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -1352,11 +1371,16 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 
 	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case err := <-errCh:
-		if err != nil && !cerrdefs.IsNotFound(err) {
+		if err != nil {
 			return fmt.Errorf("error waiting for init container: %w", err)
 		}
 	case status := <-statusCh:
+		if status.Error != nil {
+			return fmt.Errorf("init container %s failed: %s", namePrefix, status.Error.Message)
+		}
 		if status.StatusCode != 0 {
 			return fmt.Errorf("init container %s failed with exit code %d", namePrefix, status.StatusCode)
 		}
@@ -1415,9 +1439,11 @@ func fileEnvKeysHash(files []File) string {
 }
 
 func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {
-	var script strings.Builder
-	script.WriteString("#!/bin/sh\nset -e\n")
-	script.WriteString("rm -f /files/*\n")
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{Name: "obot-files/", Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
+		return err
+	}
 
 	fileNames := make([]string, 0, len(fileContents))
 	for filename := range fileContents {
@@ -1426,15 +1452,32 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 	sort.Strings(fileNames)
 
 	for _, filename := range fileNames {
-		containerPath := path.Join("/files", filename)
-		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
+		if filename == "." || filename == ".." || path.Base(filename) != filename {
+			return fmt.Errorf("invalid container filename %q", filename)
+		}
+
+		data := fileContents[filename]
+		if err := writer.WriteHeader(&tar.Header{
+			Name: path.Join("obot-files", filename),
+			Mode: 0644,
+			Size: int64(len(data)),
+		}); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(writer, data); err != nil {
+			return err
+		}
 	}
 
-	return d.runInitContainer(ctx, containerName+"-init", script.String(), []mount.Mount{{
+	if err := writer.Close(); err != nil {
+		return err
+	}
+
+	return d.runInitContainer(ctx, containerName+"-init", "set -e; rm -f /files/*; cp -a /tmp/obot-files/. /files/", []mount.Mount{{
 		Type:   mount.TypeVolume,
 		Source: volumeName,
 		Target: "/files",
-	}})
+	}}, &archive)
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
@@ -1509,7 +1552,7 @@ func (d *dockerBackend) prepareMCPServerMMMCPConfig(ctx context.Context, server 
 			Source: volumeName,
 			Target: "/config",
 		},
-	}); err != nil {
+	}, nil); err != nil {
 		return "", err
 	}
 

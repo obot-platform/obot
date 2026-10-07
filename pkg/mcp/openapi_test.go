@@ -715,3 +715,52 @@ func TestOpenAPIDestinationPolicyAtDeployment(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		supplied    bool
+		value       string
+		userAllowed bool
+	}{
+		{
+			name: "missing value",
+		},
+		{
+			name:     "supplied value",
+			supplied: true,
+		},
+		{
+			name:  "static value",
+			value: "Bearer static-key",
+		},
+		{
+			name:        "per-user",
+			userAllowed: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := openAPITestServer()
+			server.Spec.Manifest.OpenAPIConfig.BaseURL = "https://93.184.216.34"
+
+			header := &server.Spec.Manifest.Config[0]
+			header.Required = false
+			header.Value = test.value
+			header.UserAllowed = test.userAllowed
+
+			credentials := map[string]string{}
+			if test.supplied {
+				credentials["Authorization"] = "supplied-key"
+			}
+
+			_, _, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials)
+			for _, err := range []error{
+				ValidateServerManifest(t.Context(), server.Spec.Manifest, test.userAllowed, ValidationOptions{}),
+				ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), test.userAllowed, ValidationOptions{}),
+				deploymentErr,
+			} {
+				require.ErrorContains(t, err, "credential header Authorization must be marked required")
+			}
+		})
+	}
+}

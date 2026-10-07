@@ -16,3 +16,7 @@ Use these references when authoring MCP server and vMCP definitions in Git. A ca
 Validate changes with `obot mcp validate-catalog` before synchronizing a source. The validator for the installed Obot version is authoritative for supported fields. `runtime: composite` is not accepted; build endpoints from catalog entries using [Create vMCP](../mcp-gateway/server-types.md).
 
 For existing Git-synced composites, use the [migration command](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) to generate matching vMCP definitions while retaining component IDs and connections. See [Git Catalogs](../configuration/mcp-server-gitops.md) for source setup and validation commands.
+
+## OpenAPI credential headers
+
+Every configured OpenAPI credential header must have `required: true`, including static and per-user credential definitions. The wrapper requires these credentials for every tool call, regardless of an operation's OpenAPI security requirements. Credential values can be supplied later when configuring the server or user connection. Ordinary API header parameters are separate from these credential definitions.
