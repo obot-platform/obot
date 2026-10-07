@@ -20,8 +20,8 @@ func TestEnvironment(t *testing.T) {
 	}, env)
 
 	headers := []types.MCPConfig{
-		{Key: "X-Key", Usage: types.Header, Value: "secret"},
-		{Key: "Authorization", Usage: types.Header, Prefix: "Bearer "},
+		{Key: "X-Key", Required: true, Usage: types.Header, Value: "secret"},
+		{Key: "Authorization", Required: true, Usage: types.Header, Prefix: "Bearer "},
 	}
 	env, err = Environment(result, headers)
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestEnvironment(t *testing.T) {
 
 func TestEnvironmentValidation(t *testing.T) {
 	result := &Result{BaseURL: "https://api.example.com"}
-	header := types.MCPConfig{Key: "X-Key", Usage: types.Header}
+	header := types.MCPConfig{Key: "X-Key", Required: true, Usage: types.Header}
 
 	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "invalid header", "x\r\nInjected: value"} {
 		bad := header
@@ -59,7 +59,7 @@ func TestEnvironmentValidation(t *testing.T) {
 
 	_, err = Environment(&Result{
 		BaseURL:          "https://api.example.com",
-		SuggestedHeaders: []types.MCPConfig{{Key: "X-Required", Usage: types.Header}},
+		SuggestedHeaders: []types.MCPConfig{{Key: "X-Required", Required: true, Usage: types.Header}},
 	}, []types.MCPConfig{header})
 	require.ErrorContains(t, err, "X-Required")
 
@@ -91,7 +91,7 @@ func TestSnapshotDestinationPolicy(t *testing.T) {
 			name:    "development credentials still require HTTPS",
 			url:     "http://127.0.0.1:9999",
 			devMode: true,
-			headers: []types.MCPConfig{{Key: "X-Key", Usage: types.Header}},
+			headers: []types.MCPConfig{{Key: "X-Key", Required: true, Usage: types.Header}},
 			wantErr: "credential forwarding requires an HTTPS",
 		},
 		{

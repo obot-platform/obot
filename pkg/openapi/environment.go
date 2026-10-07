@@ -73,6 +73,10 @@ func Environment(result *Result, headers []types.MCPConfig) ([]string, error) {
 		if err := validateHeader(header.Key); err != nil {
 			return nil, err
 		}
+		if !header.Required {
+			return nil, fmt.Errorf("credential header %s must be marked required for the OpenAPI runtime", header.Key)
+		}
+
 		key := strings.ToLower(header.Key)
 		if seen[key] {
 			return nil, fmt.Errorf("duplicate credential header names")
