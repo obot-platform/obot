@@ -16,6 +16,7 @@
 	} from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { obotGroupDisplayName } from '$lib/subjectResolver';
+	import { withDisabledMarker } from '$lib/utils';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import AccessControlRuleForm from './AccessControlRuleForm.svelte';
@@ -157,7 +158,7 @@
 		if (subject.type === 'user') {
 			const user = userMap.get(subject.id);
 			if (!user) return subject.id;
-			return user.displayName ?? user.email ?? user.username ?? id;
+			return withDisabledMarker(user.displayName ?? user.email ?? user.username ?? id, user);
 		} else if (subject.type === 'group') {
 			const group = groupMap.get(subject.id);
 			if (!group) return subject.id;

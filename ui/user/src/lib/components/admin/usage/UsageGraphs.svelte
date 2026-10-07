@@ -14,7 +14,7 @@
 	} from '$lib/services';
 	import profile from '$lib/stores/profile.svelte';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName, isBasicUser } from '$lib/utils';
+	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
 	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
 	import StatBar from '../StatBar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
@@ -389,7 +389,7 @@
 			},
 			formatXLabel: (userId) => {
 				const user = usersAsArray.find((u) => u.id === userId);
-				return userDisplayName(user);
+				return withDisabledMarker(userDisplayName(user), user);
 			},
 			transform: (stats) => {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -707,7 +707,8 @@
 			onClose={handleRightSidebarClose}
 			filters={auditLogsSlideoverFilters}
 			{getFilterDisplayLabel}
-			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
+			getUserDisplayName={(id, hasConflict) =>
+				withDisabledMarker(getUserDisplayName(usersMap, id, hasConflict), usersMap.get(id))}
 			isFilterDisabled={(filterId) =>
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) =>

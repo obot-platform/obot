@@ -23,6 +23,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchHostedAgents from './SearchHostedAgents.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import SubjectName from './SubjectName.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -254,6 +255,13 @@
 					]}
 					noDataMessage={m.core_no_users_or_groups_added()}
 				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'displayName'}
+							<SubjectName subject={d} />
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
 					{#snippet actions(d)}
 						{#if !readonly}
 							<IconButton

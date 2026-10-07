@@ -42,6 +42,7 @@
 	"hosted_agents_agents_pool_suspended": "このプールは一時停止中です",
 	"hosted_agents_agents_ready_count": "{ready}/{total} 準備完了",
 	"hosted_agents_agents_sandbox_not_running": "サンドボックスは実行されていません",
+	"hosted_agents_pools_member_disabled": "· 無効",
 	"hosted_agents_suspended": "一時停止",
 	"hosted_agents_agents_tab": "エージェント",
 	"hosted_agents_agents_unavailable_reason": "利用不可 — {reason}",

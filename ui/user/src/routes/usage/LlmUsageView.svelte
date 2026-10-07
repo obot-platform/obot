@@ -55,7 +55,7 @@
 	} from '$lib/services';
 	import { errors, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { X } from '@lucide/svelte';
 	import { subDays } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -661,7 +661,10 @@
 
 	const usersOptions = $derived([
 		{ label: m.audit_usage_usage_all_users(), id: ALL_USERS },
-		...usersData.map((user) => ({ label: getUserDisplayName(usersMap, user.id), id: user.id }))
+		...usersData.map((user) => ({
+			label: withDisabledMarker(getUserDisplayName(usersMap, user.id), user),
+			id: user.id
+		}))
 	]);
 
 	const modelsOptions = $derived([

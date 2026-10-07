@@ -27,7 +27,7 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -366,7 +366,9 @@
 
 	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
 		const resolveUserDisplayName = (id: string) =>
-			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
+			usersMap.has(id)
+				? withDisabledMarker(getUserDisplayName(usersMap, id), usersMap.get(id))
+				: id;
 		const sameLabel = (d: AuditLogFilterOption) =>
 			toAuditLogFilterSelectOption(d, resolveUserDisplayName);
 		if (logType === 'llm') {

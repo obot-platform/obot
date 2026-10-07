@@ -244,6 +244,7 @@
 	"core_unknown_user": "未知用户",
 	"core_update": "更新",
 	"core_upload_icon": "上传图标",
+	"core_user_disabled_label": "{name}（已禁用）",
 	"core_users_and_groups": "用户和用户组",
 	"core_workspace_not_found": "未找到工作区。",
 	"core_write": "编写"

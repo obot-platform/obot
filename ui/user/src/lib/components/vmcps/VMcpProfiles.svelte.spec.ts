@@ -779,6 +779,39 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
 	});
 
+	it('does not offer disabled users, and marks an assigned one', async () => {
+		worker.use(
+			http.get('*/api/users', () =>
+				HttpResponse.json({
+					items: [
+						{ id: 'u1', displayName: 'Active Alice', status: 'active' },
+						{ id: 'u2', displayName: 'Disabled Dan', status: 'disabled' },
+						{ id: 'u3', displayName: 'Disabled Dora', status: 'disabled' }
+					]
+				})
+			)
+		);
+		const vmcp = createVMcp('vmcp-disabled-user');
+		vmcp.profiles = [
+			{
+				name: 'default',
+				subjects: [{ type: 'user', id: 'u2' }],
+				vmcpPermissions: { allowAllComponents: true }
+			}
+		];
+		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+		await expect.element(page.getByText('Disabled Dan (disabled)')).toBeVisible();
+		await page.getByRole('button', { name: 'Edit default' }).click();
+		await expect.element(page.getByText('Disabled', { exact: true })).toBeVisible();
+
+		await page.getByRole('combobox', { name: 'Add identities...' }).click();
+		await expect.element(page.getByRole('button', { name: 'Active Alice' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Disabled Dora' }))
+			.not.toBeInTheDocument();
+	});
+
 	it('labels Obot groups on the profile card and in the editor', async () => {
 		const vmcp = createVMcp('vmcp-obot-group');
 		vmcp.profiles = [

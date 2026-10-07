@@ -46,7 +46,7 @@
 		resolveSubjectPickerById
 	} from '$lib/subjectResolver';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
-	import { getUserRoleLabel } from '$lib/utils';
+	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import {
@@ -121,14 +121,16 @@
 		const query = subjectQuery.trim().toLowerCase();
 		const everyoneMatches = !query || EVERYONE_GROUP.name.toLowerCase().includes(query);
 		const adminMatches = !query || ADMIN_GROUP.name.toLowerCase().includes(query);
+		// Disabled users cannot sign in, so they are not offered.
+		const selectable = directoryUsers.filter((user) => !isDisabledUser(user));
 		const users = query
-			? directoryUsers.filter(
+			? selectable.filter(
 					(user) =>
 						(user.displayName ?? '').toLowerCase().includes(query) ||
 						(user.email ?? '').toLowerCase().includes(query) ||
 						(user.username ?? '').toLowerCase().includes(query)
 				)
-			: directoryUsers;
+			: selectable;
 		const groups = [
 			...(everyoneMatches ? [EVERYONE_GROUP] : []),
 			...(adminMatches ? [ADMIN_GROUP] : []),
@@ -631,23 +633,31 @@
 				name: `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`,
 				group: true,
 				iconURL: undefined,
-				role: undefined
+				role: undefined,
+				disabled: false
 			};
 		}
 		if (subject.type === 'selector') {
 			const name = subject.id === EVERYONE_GROUP.id ? EVERYONE_GROUP.name : subject.id;
-			return { name, group: true, iconURL: undefined, role: undefined };
+			return { name, group: true, iconURL: undefined, role: undefined, disabled: false };
 		}
 		if (subject.type === 'group') {
 			const group = groupsById.get(subject.id);
-			return { name: group?.name || subject.id, group: true, iconURL: undefined, role: undefined };
+			return {
+				name: group?.name || subject.id,
+				group: true,
+				iconURL: undefined,
+				role: undefined,
+				disabled: false
+			};
 		}
 		const user = directoryUsers.find((candidate) => candidate.id === subject.id);
 		return {
 			name: user ? directoryName(user) : subject.id,
 			group: false,
 			iconURL: user?.iconURL,
-			role: user?.effectiveRole
+			role: user?.effectiveRole,
+			disabled: isDisabledUser(user)
 		};
 	}
 
@@ -806,7 +816,12 @@
 	}
 
 	function profileUsersDisplayText(profile: Profile) {
-		return getDisplayListText(profile.users.map((subject) => subjectDisplay(subject).name));
+		return getDisplayListText(
+			profile.users.map((subject) => {
+				const display = subjectDisplay(subject);
+				return display.disabled ? m.core_user_disabled_label({ name: display.name }) : display.name;
+			})
+		);
 	}
 
 	function enabledToolNames(tools: ToolOverride[]) {
@@ -1275,7 +1290,12 @@
 										</div>
 									{/if}
 									<div class="flex flex-col">
-										<span class="text-sm font-light">{display.name}</span>
+										<span class="flex items-center gap-2 text-sm font-light">
+											{display.name}
+											{#if display.disabled}
+												<span class="pill-warning">{m.core_status_disabled()}</span>
+											{/if}
+										</span>
 										<span class="text-muted-content text-xs">
 											{display.group
 												? m.core_col_group()

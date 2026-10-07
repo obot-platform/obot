@@ -8,7 +8,7 @@
 	import { m } from '$lib/i18n';
 	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
-	import { openUrl } from '$lib/utils.js';
+	import { isDisabledUser, openUrl } from '$lib/utils.js';
 	import { CheckIcon, PencilRuler, Server, Users, XIcon } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
@@ -130,7 +130,12 @@
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
-								{d.displayName || d.email || '-'}
+								<span class="flex items-center gap-2">
+									{d.displayName || d.email || '-'}
+									{#if isDisabledUser(userMap.get(d.id))}
+										<span class="pill-warning">{m.core_status_disabled()}</span>
+									{/if}
+								</span>
 							{:else}
 								{d[property as keyof (typeof detail.users)[number]]}
 							{/if}

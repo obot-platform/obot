@@ -1226,7 +1226,8 @@
 				{#each items as warning (warning.type + warning.groupID)}
 					<li>
 						{warning.message}
-						{#if warning.references?.length}
+						<!-- A missing group's message already lists its references. -->
+						{#if warning.type !== 'missingGroup' && warning.references?.length}
 							<span class="text-muted-content text-xs">
 								{m.identity_access_scim_referenced_by({
 									references: warning.references.map(describeGroupReference).join('; ')
@@ -1246,12 +1247,13 @@
 			<p class="text-muted-content text-sm font-light">{empty}</p>
 		{/if}
 	{:else}
-		{@render groupItems(pages[list].items)}
+		<!-- Pushed groups are listed without their references, which are too much detail there. -->
+		{@render groupItems(pages[list].items, list !== 'boundGroups')}
 		{@render pager(list)}
 	{/if}
 {/snippet}
 
-{#snippet groupItems(groups: SCIMSetupGroup[])}
+{#snippet groupItems(groups: SCIMSetupGroup[], showReferences = true)}
 	<ul class="divide-base-300 flex flex-col divide-y">
 		{#each groups as group (group.id)}
 			<li class="flex flex-col gap-1 py-2">
@@ -1269,7 +1271,7 @@
 						</a>
 					{/if}
 				</div>
-				{#if group.references?.length}
+				{#if showReferences && group.references?.length}
 					<p class="text-muted-content text-xs font-light">
 						{m.identity_access_scim_referenced_by_inline({
 							references: group.references.map(describeGroupReference).join('; ')

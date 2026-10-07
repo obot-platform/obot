@@ -77,14 +77,12 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		}
 	}
 
-	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
+	// Basic and Power users are only allowed to access IDs, display names, and statuses, so we have all the information
+	// needed for that.
 	if userIsBasicOrPower(apiContext.User) {
 		trimmedUsers := make([]types2.User, 0, len(validUsers))
 		for _, u := range validUsers {
-			trimmedUsers = append(trimmedUsers, types2.User{
-				ID:          fmt.Sprint(u.ID),
-				DisplayName: u.DisplayName,
-			})
+			trimmedUsers = append(trimmedUsers, trimUser(u))
 		}
 		return apiContext.Write(types2.UserList{Items: trimmedUsers})
 	}
@@ -152,12 +150,9 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
+	// Basic and Power users are only allowed to access IDs, display names, and statuses.
 	if userIsBasicOrPower(apiContext.User) {
-		return apiContext.Write(types2.User{
-			ID:          fmt.Sprint(user.ID),
-			DisplayName: user.DisplayName,
-		})
+		return apiContext.Write(trimUser(*user))
 	}
 
 	// Get user's groups and compute effective role
@@ -563,6 +558,16 @@ func trimGroupsForUser(u user.Info, groups []types.Group) []types.Group {
 	}
 
 	return trimmed
+}
+
+// trimUser returns the only fields of a user that Basic and Power users may see: its ID, display name, and status.
+// The status lets them tell which users are disabled, such as when choosing whom to share with.
+func trimUser(u types.User) types2.User {
+	return types2.User{
+		ID:          fmt.Sprint(u.ID),
+		DisplayName: u.DisplayName,
+		Status:      u.Status(),
+	}
 }
 
 func userIsBasicOrPower(u user.Info) bool {

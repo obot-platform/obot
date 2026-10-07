@@ -723,6 +723,47 @@ describe('ScimView', () => {
 			.not.toBeInTheDocument();
 	});
 
+	it('lists the pushed groups without their references once SCIM is enforced', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: enforcedReview({
+				boundGroups: {
+					items: [
+						group('okta/00g000000000support', 'Support', {
+							references: [{ kind: 'modelAccessPolicy', id: 'map1', displayName: 'Models' }]
+						})
+					],
+					total: 1
+				}
+			})
+		});
+
+		await expect.element(page.getByText('Support', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('okta/00g000000000support')).toBeVisible();
+		await expect.element(page.getByText(/^Referenced by/)).not.toBeInTheDocument();
+	});
+
+	it('lists the references of a removed group only in its warning', async () => {
+		const message =
+			'The group with ID okta/00g0000000000missing was removed but is still referenced by the following vMCP profiles: sales (Gmail)';
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: enforcedReview({
+				warnings: [
+					{
+						type: 'missingGroup',
+						message,
+						groupID: 'okta/00g0000000000missing',
+						references: [
+							{ kind: 'vmcpProfile', id: 'vmcp1', displayName: 'Gmail', detail: 'profile sales' }
+						]
+					}
+				]
+			})
+		});
+
+		await expect.element(page.getByText(message)).toBeVisible();
+		await expect.element(page.getByText(/^Referenced by/)).not.toBeInTheDocument();
+	});
+
 	it('pages through long lists', async () => {
 		const requested = vi.fn();
 		worker.use(

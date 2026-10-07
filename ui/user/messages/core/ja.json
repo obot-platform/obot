@@ -244,6 +244,7 @@
 	"core_unknown_user": "不明なユーザー",
 	"core_update": "更新",
 	"core_upload_icon": "アイコンをアップロード",
+	"core_user_disabled_label": "{name}（無効）",
 	"core_users_and_groups": "ユーザーとグループ",
 	"core_workspace_not_found": "ワークスペースが見つかりません。",
 	"core_write": "編集"

@@ -42,6 +42,7 @@
 	"hosted_agents_agents_pool_suspended": "此资源池已暂停",
 	"hosted_agents_agents_ready_count": "{ready}/{total} 已就绪",
 	"hosted_agents_agents_sandbox_not_running": "沙箱未运行",
+	"hosted_agents_pools_member_disabled": "· 已禁用",
 	"hosted_agents_suspended": "已暂停",
 	"hosted_agents_agents_tab": "智能体",
 	"hosted_agents_agents_unavailable_reason": "不可用 — {reason}",

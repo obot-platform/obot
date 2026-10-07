@@ -676,11 +676,12 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 		if _, ok := ids[groupID]; ok {
 			continue
 		}
+		groupRefs := references(refs[groupID])
 		plan.warnings = append(plan.warnings, types2.SCIMSetupWarning{
 			Type:       warningMissingGroup,
-			Message:    fmt.Sprintf("%s is referenced, but no %s group has this ID, so no pushed group can bind to it. Its references grant nothing.", groupID, p.displayName),
+			Message:    missingGroupMessage(groupID, groupRefs),
 			GroupID:    groupID,
-			References: references(refs[groupID]),
+			References: groupRefs,
 		})
 	}
 
@@ -842,6 +843,28 @@ func describeGroup(group types2.SCIMSetupGroup) string {
 		fmt.Fprintf(&b, ", referenced by %s", strings.Join(descriptions, "; "))
 	}
 	return b.String()
+}
+
+// missingGroupMessage warns that a group that no longer exists is still referenced. Deleting a group removes it from
+// access policies and group role assignments, but not from the profiles of virtual MCP servers, which must keep at
+// least one subject, so those are usually what is left.
+func missingGroupMessage(groupID string, refs []types2.GroupReference) string {
+	if !slices.ContainsFunc(refs, func(ref types2.GroupReference) bool {
+		return groupref.Kind(ref.Kind) != groupref.KindVMCPProfile
+	}) {
+		profiles := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			// The detail of a profile reference is "profile <name>".
+			profiles = append(profiles, fmt.Sprintf("%s (%s)", strings.TrimPrefix(ref.Detail, "profile "), cmp.Or(ref.DisplayName, ref.ID)))
+		}
+		return fmt.Sprintf("The group with ID %s was removed but is still referenced by the following vMCP profiles: %s", groupID, strings.Join(profiles, ", "))
+	}
+
+	descriptions := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		descriptions = append(descriptions, describeReference(ref))
+	}
+	return fmt.Sprintf("The group with ID %s was removed but is still referenced by the following: %s", groupID, strings.Join(descriptions, "; "))
 }
 
 func describeReference(ref types2.GroupReference) string {

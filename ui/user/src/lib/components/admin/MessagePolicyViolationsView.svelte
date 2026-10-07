@@ -19,7 +19,7 @@
 	} from '$lib/services';
 	import { responsive, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { ShieldAlert, X } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -170,7 +170,10 @@
 	];
 	let userSelectOptions = $derived([
 		{ id: 'all_users', label: m.ai_judge_all_users() },
-		...userFilterOptions.map((uid) => ({ id: uid, label: displayName(uid) }))
+		...userFilterOptions.map((uid) => ({
+			id: uid,
+			label: withDisabledMarker(displayName(uid), users.get(uid))
+		}))
 	]);
 	let policySelectOptions = $derived([
 		{ id: 'all_policies', label: m.ai_judge_all_policies() },

@@ -11,6 +11,7 @@
 		HostedAgentPoolUtilization
 	} from '$lib/services/admin/types';
 	import { errors } from '$lib/stores';
+	import { isDisabledUser } from '$lib/utils';
 	import { Activity, Pencil, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -371,6 +372,9 @@
 								class="border-base-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
 							>
 								{userLabel(member.userID)}
+								{#if isDisabledUser(usersByID.get(member.userID))}<span class="text-warning"
+										>{m.hosted_agents_pools_member_disabled()}</span
+									>{/if}
 								{#if member.default}<span class="text-muted-content"
 										>{m.hosted_agents_pools_member_default()}</span
 									>{/if}

@@ -6,7 +6,7 @@
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { vmcpComponentId, vmcpInstanceAuditLogsPath } from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { getUserDisplayName, isDisabledUser, openUrl } from '$lib/utils';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import { ChevronRight, CircleAlert, Server } from '@lucide/svelte';
 
@@ -157,7 +157,12 @@
 		>
 			{#snippet onRenderColumn(property: string, d: OrgUser)}
 				{#if property === 'name'}
-					{getUserDisplayName(usersMap, d.id)}
+					<span class="flex items-center gap-2">
+						{getUserDisplayName(usersMap, d.id)}
+						{#if isDisabledUser(d)}
+							<span class="pill-warning">{m.core_status_disabled()}</span>
+						{/if}
+					</span>
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

@@ -29,7 +29,7 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -675,7 +675,9 @@
 		const opts = filtersOptions[field.filterKey];
 		if (!opts?.map) return [];
 		const resolveUserDisplayName = (id: string) =>
-			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
+			usersMap.has(id)
+				? withDisabledMarker(getUserDisplayName(usersMap, id), usersMap.get(id))
+				: id;
 		if (field.useUserDisplayNames) {
 			return toStringFilterSelectOptions(opts, resolveUserDisplayName);
 		}

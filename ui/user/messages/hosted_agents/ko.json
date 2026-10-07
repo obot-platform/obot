@@ -42,6 +42,7 @@
 	"hosted_agents_agents_pool_suspended": "이 풀은 일시 중지되었습니다",
 	"hosted_agents_agents_ready_count": "{ready}/{total} 준비됨",
 	"hosted_agents_agents_sandbox_not_running": "샌드박스가 실행 중이 아닙니다",
+	"hosted_agents_pools_member_disabled": "· 비활성화됨",
 	"hosted_agents_suspended": "일시 중지됨",
 	"hosted_agents_agents_tab": "에이전트",
 	"hosted_agents_agents_unavailable_reason": "사용할 수 없음 — {reason}",

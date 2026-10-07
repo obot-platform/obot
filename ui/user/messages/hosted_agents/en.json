@@ -42,6 +42,7 @@
 	"hosted_agents_agents_pool_suspended": "This pool is suspended",
 	"hosted_agents_agents_ready_count": "{ready}/{total} ready",
 	"hosted_agents_agents_sandbox_not_running": "The sandbox is not running",
+	"hosted_agents_pools_member_disabled": "· disabled",
 	"hosted_agents_suspended": "Suspended",
 	"hosted_agents_agents_tab": "Agents",
 	"hosted_agents_agents_unavailable_reason": "Unavailable — {reason}",

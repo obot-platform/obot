@@ -244,6 +244,7 @@
 	"core_unknown_user": "Unknown User",
 	"core_update": "Update",
 	"core_upload_icon": "Upload Icon",
+	"core_user_disabled_label": "{name} (disabled)",
 	"core_users_and_groups": "Users & Groups",
 	"core_workspace_not_found": "Workspace not found.",
 	"core_write": "Write"

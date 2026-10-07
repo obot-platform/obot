@@ -8,6 +8,7 @@
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpTunnelConnections, profile } from '$lib/stores';
+	import { isDisabledUser } from '$lib/utils';
 	import Table from '../table/Table.svelte';
 	import { Info } from '@lucide/svelte';
 
@@ -95,7 +96,12 @@
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							{d.email || d.username || m.core_unknown()}
+							<span class="flex items-center gap-2">
+								{d.email || d.username || m.core_unknown()}
+								{#if isDisabledUser(d)}
+									<span class="pill-warning">{m.core_status_disabled()}</span>
+								{/if}
+							</span>
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
 								? m.core_mcp_value_not_configured()

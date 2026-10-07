@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -292,5 +293,52 @@ func TestEnableUser(t *testing.T) {
 
 	if _, err := enable("4242", types2.RoleAdmin); status(err) != http.StatusNotFound {
 		t.Fatalf("enableUser() of an unknown user = %v, want not found", err)
+	}
+}
+
+func TestTrimUser(t *testing.T) {
+	disabledAt := time.Now()
+	tests := []struct {
+		name string
+		user types.User
+		want types2.User
+	}{
+		{
+			name: "active user",
+			user: types.User{
+				ID:          7,
+				DisplayName: "Ada",
+				Email:       "ada@example.com",
+				Username:    "ada",
+			},
+			want: types2.User{
+				ID:          "7",
+				DisplayName: "Ada",
+				Status:      types2.UserStatusActive,
+			},
+		},
+		{
+			name: "disabled user",
+			user: types.User{
+				ID:          8,
+				DisplayName: "Grace",
+				Email:       "grace@example.com",
+				DisabledAt:  &disabledAt,
+			},
+			want: types2.User{
+				ID:          "8",
+				DisplayName: "Grace",
+				Status:      types2.UserStatusDisabled,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Nothing else of the user is exposed, such as the email, the disable time, or the reason.
+			if got := trimUser(tt.user); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("trimUser() = %+v, want %+v", got, tt.want)
+			}
+		})
 	}
 }

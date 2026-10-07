@@ -26,7 +26,7 @@
 	import type { PaginatedResponse } from '$lib/services/http';
 	import { responsive } from '$lib/stores';
 	import { goto, replaceState } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
 	import LlmAuditLogDetails, { type LlmAuditLogDetail } from './LlmAuditLogDetails.svelte';
@@ -494,7 +494,8 @@
 			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
 			isFilterMultiSelect={(filterId) => filterId !== 'hide_models_requests'}
 			getDefaultValue={(filterId) => (filterId === 'hide_models_requests' ? 'true' : undefined)}
-			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
+			getUserDisplayName={(id, hasConflict) =>
+				withDisabledMarker(getUserDisplayName(usersMap, id, hasConflict), usersMap.get(id))}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) =>
 				key === 'hide_models_requests'

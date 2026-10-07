@@ -1,5 +1,5 @@
 import type { OrgUser, TokenUsage } from '$lib/services';
-import { getUserDisplayName } from '$lib/utils';
+import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 import {
 	differenceInCalendarDays,
 	differenceInHours,
@@ -207,7 +207,7 @@ export function getUserLabels(
 			const simple = simpleLabels.get(k)!;
 			const label =
 				(displayCounts.get(simple) ?? 0) > 1 ? getUserDisplayName(users, k, () => true) : simple;
-			return [k, label];
+			return [k, withDisabledMarker(label, users.get(k))];
 		})
 	);
 }

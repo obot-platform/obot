@@ -7,7 +7,7 @@ import {
 	type OrgUser,
 	type Profile
 } from '$lib/services';
-import { getUserDisplayName } from '$lib/utils';
+import { getUserDisplayName, isDisabledUser } from '$lib/utils';
 
 const EVERYONE_SUBJECT_ID = '*';
 export const OBOT_ADMIN_PICKER_ID = 'obot-admin';
@@ -39,6 +39,8 @@ export interface SubjectTableRow {
 	id: string;
 	displayName: string;
 	type: string;
+	/** Set for a user who is disabled. */
+	disabled?: boolean;
 }
 
 export interface ResolvedSubjects {
@@ -116,7 +118,8 @@ export function convertSubjectsToTableData(
 					return {
 						id: subject.id,
 						displayName: getUserDisplayName(userMap, subject.id),
-						type: m.core_col_user()
+						type: m.core_col_user(),
+						disabled: isDisabledUser(userMap.get(subject.id))
 					};
 				}
 

@@ -5,7 +5,7 @@
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { OBOT_ADMIN_PICKER_ID } from '$lib/subjectResolver';
-	import { getUserRoleLabel } from '$lib/utils';
+	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { Check, TriangleAlert, User, Users } from '@lucide/svelte';
@@ -85,15 +85,17 @@
 
 		loading = true;
 
+		// Disabled users cannot sign in, so they are not offered.
+		const selectable = users.filter((user) => !isDisabledUser(user));
 		filteredUsers =
 			searchNames.length > 0
-				? users.filter(
+				? selectable.filter(
 						(user) =>
 							(user.displayName ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
 							(user.email ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
 							(user.username ?? '').toLowerCase().includes(searchNames.toLowerCase())
 					)
-				: users;
+				: selectable;
 
 		try {
 			// Groups are searched and paged server-side: a directory can hold far more than can be

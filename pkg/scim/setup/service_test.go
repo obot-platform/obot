@@ -670,3 +670,54 @@ func TestReviewWarnsAboutEveryone(t *testing.T) {
 		t.Fatalf("warnings = %+v, want one about the Everyone group", review.Warnings)
 	}
 }
+
+func TestMissingGroupMessage(t *testing.T) {
+	tests := []struct {
+		name string
+		refs []clienttypes.GroupReference
+		want string
+	}{
+		{
+			name: "only virtual MCP server profiles",
+			refs: []clienttypes.GroupReference{
+				{
+					Kind:        "vmcpProfile",
+					ID:          "vmcp1",
+					DisplayName: "Gmail",
+					Detail:      "profile sales",
+				},
+				{
+					Kind:   "vmcpProfile",
+					ID:     "vmcp2",
+					Detail: "profile support",
+				},
+			},
+			want: "The group with ID okta/00g0000000000missing was removed but is still referenced by the following vMCP profiles: sales (Gmail), support (vmcp2)",
+		},
+		{
+			name: "other references",
+			refs: []clienttypes.GroupReference{
+				{
+					Kind:        "modelAccessPolicy",
+					ID:          "map1",
+					DisplayName: "Models",
+				},
+				{
+					Kind:        "vmcpProfile",
+					ID:          "vmcp1",
+					DisplayName: "Gmail",
+					Detail:      "profile sales",
+				},
+			},
+			want: `The group with ID okta/00g0000000000missing was removed but is still referenced by the following: model access policy "Models" (map1); virtual MCP server "Gmail" (vmcp1), profile sales`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := missingGroupMessage("okta/00g0000000000missing", tt.refs); got != tt.want {
+				t.Fatalf("missingGroupMessage() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

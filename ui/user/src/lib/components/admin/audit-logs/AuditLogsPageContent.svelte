@@ -30,7 +30,7 @@
 	import { responsive } from '$lib/stores';
 	import profile from '$lib/stores/profile.svelte';
 	import { goto, replaceState } from '$lib/url';
-	import { getUserDisplayName, isBasicUser } from '$lib/utils';
+	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
@@ -794,7 +794,8 @@
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) =>
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
-			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
+			getUserDisplayName={(id, hasConflict) =>
+				withDisabledMarker(getUserDisplayName(users, id, hasConflict), users.get(id))}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) => formatSingleFilterValue(key, value)}
 			endpoint={async (filterId: string, opts = {}) => {
