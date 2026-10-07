@@ -868,3 +868,97 @@ func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *
 func hVerifier(callback *oauthAuthorizeCallbackHandler) string {
 	return callback.verifier
 }
+
+func TestValidateProtectedResource(t *testing.T) {
+	tests := []struct {
+		name       string
+		resource   string
+		connectURL string
+		wantErr    bool
+	}{
+		{
+			name:       "exact match",
+			resource:   "https://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "origin as resource",
+			resource:   "https://mcp.example.com",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "different path on the same origin",
+			resource:   "https://mcp.example.com/protected-resource",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "case-insensitive scheme and host with default port",
+			resource:   "HTTPS://MCP.Example.com:443/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "different host",
+			resource:   "https://api.other-service.example/",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "subdomain of the server host",
+			resource:   "https://api.mcp.example.com/",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "different scheme",
+			resource:   "http://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "different port",
+			resource:   "https://mcp.example.com:8443/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProtectedResource(tt.resource, tt.connectURL)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetOAuthMetadataRejectsResourceForAnotherService(t *testing.T) {
+	var serverURL string
+	var authServerMetadataRequested atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/mcp":
+			rw.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+		case "/.well-known/oauth-protected-resource":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"resource":              "https://api.other-service.example/",
+				"authorization_servers": []string{serverURL + "/issuer"},
+			})
+		case "/.well-known/oauth-authorization-server/issuer":
+			authServerMetadataRequested.Store(true)
+			http.NotFound(rw, req)
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+
+	_, err := GetOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "Test Client", "http://localhost/callback")
+	require.ErrorContains(t, err, "does not match MCP server URL")
+	require.False(t, authServerMetadataRequested.Load(), "expected discovery to stop before contacting the authorization server")
+}

@@ -554,6 +554,9 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, au
 			if err != nil {
 				return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to parse protected resource metadata: %w", err)
 			}
+			if err := validateProtectedResource(string(protectedResourceMetadata.Resource), baseURL); err != nil {
+				return oauthMetadataDiscovery{}, false, err
+			}
 
 			break
 		}
@@ -1049,6 +1052,44 @@ func ParseOAuthResourceURL(metadata json.RawMessage) (string, error) {
 		return "", err
 	}
 	return string(parsed.Resource), nil
+}
+
+// validateProtectedResource rejects protected resource metadata whose resource identifier
+// does not belong to the MCP server Obot connected to. RFC 9728 says a client must not use
+// metadata whose resource does not match the resource it requested. Without this check, a
+// server could name another service as the resource, and Obot would obtain a token for that
+// service and send it to the server. Only the origin is compared, because MCP servers
+// commonly identify themselves by their origin or by a different path on the same origin.
+func validateProtectedResource(resource, connectURL string) error {
+	r, err := url.Parse(resource)
+	if err != nil {
+		return fmt.Errorf("invalid resource %q in protected resource metadata: %w", resource, err)
+	}
+	c, err := url.Parse(connectURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse MCP URL: %w", err)
+	}
+
+	if !strings.EqualFold(r.Scheme, c.Scheme) ||
+		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
+		urlPort(r) != urlPort(c) {
+		return fmt.Errorf("protected resource metadata resource %q does not match MCP server URL %q", resource, connectURL)
+	}
+	return nil
+}
+
+// urlPort returns u's explicit port or the default port for its scheme.
+func urlPort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
 
 // parseResourceMetadata extracts the resource_metadata URL from a Bearer authenticate header
