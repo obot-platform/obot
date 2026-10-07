@@ -62,7 +62,7 @@ func openAPITestServer() v1.MCPServer {
 
 func openAPITestConfig(t *testing.T, server v1.MCPServer, credentials map[string]string) ServerConfig {
 	t.Helper()
-	config, missing, err := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials)
+	config, missing, err := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials, false)
 	require.NoError(t, err)
 	require.Empty(t, missing)
 	return config
@@ -171,7 +171,7 @@ func TestOpenAPICredentialPrefixesAndMissing(t *testing.T) {
 	config := openAPITestConfig(t, server, map[string]string{"Authorization": "ignored-key"})
 	require.Equal(t, []string{"Authorization=Bearer static-key"}, config.Headers)
 	server.Spec.Manifest.Config[0].Value = ""
-	config, missing, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil)
+	config, missing, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, []string{"Authorization"}, missing)
 	require.Empty(t, config.Headers)
@@ -182,6 +182,36 @@ func TestOpenAPIManifestValidation(t *testing.T) {
 	manifest.OpenAPIConfig.BaseURL = "https://93.184.216.34"
 	require.NoError(t, ValidateServerManifest(t.Context(), manifest, false, ValidationOptions{}))
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest.ConvertToCatalogEntry(), false, ValidationOptions{}))
+}
+
+func TestOpenAPIHTTPCredentials(t *testing.T) {
+	for _, devMode := range []bool{false, true} {
+		t.Run(map[bool]string{false: "production", true: "development"}[devMode], func(t *testing.T) {
+			server := openAPITestServer()
+			server.Spec.Manifest.OpenAPIConfig.BaseURL = "http://127.0.0.1:9999"
+			options := ValidationOptions{
+				DevMode:                      devMode,
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
+			}
+			config, missing, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", map[string]string{"Authorization": "secret-key"}, devMode)
+			for _, err := range []error{
+				ValidateServerManifest(t.Context(), server.Spec.Manifest, false, options),
+				ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), false, options),
+				deploymentErr,
+			} {
+				if devMode {
+					require.NoError(t, err)
+				} else {
+					require.ErrorContains(t, err, "HTTPS")
+				}
+			}
+			if devMode {
+				require.Empty(t, missing)
+				require.Equal(t, "OPENAPI_BASE_URL=http://127.0.0.1:9999/", config.Env[0])
+				require.Equal(t, []string{"Authorization=Bearer secret-key"}, config.Headers)
+			}
+		})
+	}
 }
 
 func TestOpenAPISourceShapeValidation(t *testing.T) {
@@ -320,7 +350,7 @@ func TestOpenAPIInvalidConfig(t *testing.T) {
 			server := openAPITestServer()
 			test.mutate(&server.Spec.Manifest)
 			t.Run("deployment", func(t *testing.T) {
-				_, _, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil)
+				_, _, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil, false)
 				require.Error(t, err)
 			})
 			t.Run("server manifest", func(t *testing.T) {
@@ -753,7 +783,7 @@ func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
 				credentials["Authorization"] = "supplied-key"
 			}
 
-			_, _, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials)
+			_, _, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials, false)
 			for _, err := range []error{
 				ValidateServerManifest(t.Context(), server.Spec.Manifest, test.userAllowed, ValidationOptions{}),
 				ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), test.userAllowed, ValidationOptions{}),

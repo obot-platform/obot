@@ -717,7 +717,7 @@ func TestDedicatedComponentHeadersUseCredentials(t *testing.T) {
 			require.True(t, component.CatalogEntry.Manifest.Config[0].UserAllowed, "must not mutate the snapshot")
 			check := func(server v1.MCPServer) {
 				t.Helper()
-				config, missing, err := mcp.ServerToServerConfig(server, nil, "1", "", "", map[string]string{"Authorization": tc.value})
+				config, missing, err := mcp.ServerToServerConfig(server, nil, "1", "", "", map[string]string{"Authorization": tc.value}, false)
 				require.NoError(t, err)
 				require.Empty(t, missing)
 				require.Empty(t, config.PassthroughHeaderNames)

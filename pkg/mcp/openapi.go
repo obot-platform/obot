@@ -54,12 +54,12 @@ func validateOpenAPIConfig(ctx context.Context, config *types.OpenAPIRuntimeConf
 	return nil
 }
 
-func configureOpenAPIRuntime(server *ServerConfig, config *types.OpenAPIRuntimeConfig, headers []types.MCPConfig, credentials map[string]string) ([]string, error) {
+func configureOpenAPIRuntime(server *ServerConfig, config *types.OpenAPIRuntimeConfig, headers []types.MCPConfig, credentials map[string]string, devMode bool) ([]string, error) {
 	if config == nil {
 		return nil, fmt.Errorf("openapi runtime requires OpenAPI config")
 	}
 
-	env, err := openapi.SnapshotEnvironment(*config, headers)
+	env, err := openapi.SnapshotEnvironment(*config, headers, devMode)
 	if err != nil {
 		return nil, err
 	}

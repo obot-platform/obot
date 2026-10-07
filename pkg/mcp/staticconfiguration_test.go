@@ -204,7 +204,7 @@ func TestServerToServerConfigUsesResolvedStaticHeader(t *testing.T) {
 	resolved, err := ResolveServerStaticConfiguration(t.Context(), store, server)
 	require.NoError(t, err)
 
-	serverConfig, missing, err := ServerToServerConfig(resolved, nil, "user", "scope", "catalog", nil)
+	serverConfig, missing, err := ServerToServerConfig(resolved, nil, "user", "scope", "catalog", nil, false)
 	require.NoError(t, err)
 	assert.Empty(t, missing)
 	// Static values are used as configured, without the user-supplied prefix.

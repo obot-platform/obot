@@ -18,12 +18,12 @@ const (
 // never Source. Revalidate the snapshot before launching the wrapper because
 // callers can supply a snapshot directly instead of using Importer. Destination
 // policy is checked during manifest validation and immediately before deployment.
-func SnapshotEnvironment(config types.OpenAPIRuntimeConfig, headers []types.MCPConfig) ([]string, error) {
+func SnapshotEnvironment(config types.OpenAPIRuntimeConfig, headers []types.MCPConfig, devMode bool) ([]string, error) {
 	result, err := parseSnapshot(config)
 	if err != nil {
 		return nil, err
 	}
-	return Environment(result, headers)
+	return Environment(result, headers, devMode)
 }
 
 // ValidateSnapshotEnvironment applies destination policy before producing the
@@ -36,7 +36,7 @@ func ValidateSnapshotEnvironment(ctx context.Context, config types.OpenAPIRuntim
 	if err := ValidateDestination(ctx, result.BaseURL, options, devMode); err != nil {
 		return nil, err
 	}
-	return Environment(result, headers)
+	return Environment(result, headers, devMode)
 }
 
 func parseSnapshot(config types.OpenAPIRuntimeConfig) (*Result, error) {
@@ -59,7 +59,7 @@ func parseSnapshot(config types.OpenAPIRuntimeConfig) (*Result, error) {
 // Environment validates credential definitions and returns the wrapper's
 // environment variables. Credential values and prefixes stay in Obot's
 // per-request header handling. Definitions can change after schema import.
-func Environment(result *Result, headers []types.MCPConfig) ([]string, error) {
+func Environment(result *Result, headers []types.MCPConfig, devMode bool) ([]string, error) {
 	if result == nil {
 		return nil, fmt.Errorf("a validated schema import is required")
 	}
@@ -95,7 +95,7 @@ func Environment(result *Result, headers []types.MCPConfig) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(names) > 0 && !strings.HasPrefix(base, "https://") {
+	if !devMode && len(names) > 0 && !strings.HasPrefix(base, "https://") {
 		return nil, fmt.Errorf("credential forwarding requires an HTTPS API destination")
 	}
 
