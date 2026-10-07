@@ -89,6 +89,7 @@ type Options struct {
 }
 
 type SessionManager struct {
+	devMode                   bool
 	backend                   backend
 	runtimeBackend            string
 	contextLock               sync.Mutex
@@ -119,7 +120,7 @@ type RemoteMCPURLValidationConfig struct {
 	AllowLinkLocalMCP bool
 }
 
-func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -179,6 +180,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 	}
 
 	return &SessionManager{
+		devMode:                   devMode,
 		webhookHelper:             webhookHelper,
 		tokenService:              tokenService,
 		globalTokenStore:          globalTokenStore,
@@ -207,6 +209,14 @@ func (sm *SessionManager) MCPRuntimeBackend() string {
 
 func (sm *SessionManager) RemoteMCPURLValidationConfig() RemoteMCPURLValidationConfig {
 	return sm.remoteURLValidationConfig
+}
+
+// ValidationOptions returns the startup destination validation settings.
+func (sm *SessionManager) ValidationOptions() ValidationOptions {
+	return ValidationOptions{
+		RemoteMCPURLValidationConfig: sm.remoteURLValidationConfig,
+		DevMode:                      sm.devMode,
+	}
 }
 
 func (sm *SessionManager) ResourceMaximums() ResourceMaximums {
@@ -383,10 +393,16 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
+	if err := sm.validateOpenAPIDestination(ctx, server); err != nil {
+		return err
+	}
 	return sm.backend.restartServer(ctx, server)
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
+	if err := sm.validateOpenAPIDestination(ctx, server); err != nil {
+		return ServerConfig{}, err
+	}
 	if server.Runtime == types.RuntimeRemote {
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)

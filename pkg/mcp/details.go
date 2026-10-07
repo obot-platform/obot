@@ -29,6 +29,9 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 	}
 
 	// Server not running - deploy it
+	if err := sm.validateOpenAPIDestination(ctx, serverConfig); err != nil {
+		return types.MCPServerDetails{}, err
+	}
 	if err := sm.backend.deployServer(ctx, serverConfig); err != nil {
 		return types.MCPServerDetails{}, err
 	}
@@ -52,6 +55,9 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig Ser
 	}
 
 	// Server not running - deploy it
+	if err := sm.validateOpenAPIDestination(ctx, serverConfig); err != nil {
+		return nil, err
+	}
 	if err := sm.backend.deployServer(ctx, serverConfig); err != nil {
 		return nil, err
 	}

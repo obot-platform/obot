@@ -1375,6 +1375,7 @@ func TestValidateOpenAPIEgress(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			tt.config.BaseURL = "https://93.184.216.34"
 			tt.config.Source = types.OpenAPISource{Content: storedOpenAPISchema}
 			tt.config.Schema = testOpenAPISchema(storedOpenAPISchema)
 			serverErr := ValidateServerManifest(t.Context(), types.MCPServerManifest{

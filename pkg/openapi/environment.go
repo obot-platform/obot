@@ -1,11 +1,13 @@
 package openapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/safehttp"
 )
 
 const (
@@ -14,8 +16,30 @@ const (
 
 // SnapshotEnvironment constructs deployment settings from the saved snapshot,
 // never Source. Revalidate the snapshot before launching the wrapper because
-// callers can supply a snapshot directly instead of using Importer.
+// callers can supply a snapshot directly instead of using Importer. Destination
+// policy is checked during manifest validation and immediately before deployment.
 func SnapshotEnvironment(config types.OpenAPIRuntimeConfig, headers []types.MCPConfig) ([]string, error) {
+	result, err := parseSnapshot(config)
+	if err != nil {
+		return nil, err
+	}
+	return Environment(result, headers)
+}
+
+// ValidateSnapshotEnvironment applies destination policy before producing the
+// environment. It never fetches Source or requests the destination.
+func ValidateSnapshotEnvironment(ctx context.Context, config types.OpenAPIRuntimeConfig, headers []types.MCPConfig, options safehttp.Options, devMode bool) ([]string, error) {
+	result, err := parseSnapshot(config)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateDestination(ctx, result.BaseURL, options, devMode); err != nil {
+		return nil, err
+	}
+	return Environment(result, headers)
+}
+
+func parseSnapshot(config types.OpenAPIRuntimeConfig) (*Result, error) {
 	if config.Schema == nil || len(config.Schema.Raw) == 0 || len(config.Schema.Raw) > MaxSchemaBytes {
 		return nil, fmt.Errorf("a stored OpenAPI schema of at most 1 MiB is required")
 	}
@@ -29,7 +53,7 @@ func SnapshotEnvironment(config types.OpenAPIRuntimeConfig, headers []types.MCPC
 		return nil, fmt.Errorf("invalid stored OpenAPI schema: %w", err)
 	}
 
-	return Environment(result, headers)
+	return result, nil
 }
 
 // Environment validates credential definitions and returns the wrapper's
