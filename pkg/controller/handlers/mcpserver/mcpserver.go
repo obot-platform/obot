@@ -369,8 +369,8 @@ func openAPIConfigHasDrifted(serverConfig, entryConfig *types.OpenAPIRuntimeConf
 		return true
 	}
 
-	return serverConfig.Source != entryConfig.Source ||
-		!reflect.DeepEqual(serverConfig.Schema, entryConfig.Schema) ||
+	// Source location and text do not affect deployments built from the saved schema.
+	return !reflect.DeepEqual(serverConfig.Schema, entryConfig.Schema) ||
 		serverConfig.BaseURL != entryConfig.BaseURL ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
 		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
