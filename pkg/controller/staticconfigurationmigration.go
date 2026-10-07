@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	catalogEntryStaticConfigurationMigrationName = "catalog_entry_static_configuration_credentials"
+	// Run again to repair fixed fields left in legacy connection snapshots by the first version.
+	catalogEntryStaticConfigurationMigrationName = "catalog_entry_static_configuration_credentials_v2"
 )
 
 // staticConfigurationMigration moves literal configuration values of catalog entries, and the
@@ -434,8 +435,26 @@ func (m *staticConfigurationMigration) migrateInstance(ctx context.Context, inst
 		return fmt.Errorf("failed to read configuration of vMCP instance %q: %w", instance.Name, err)
 	}
 
+	var vmcp v1.VMCP
+	if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.Manifest.VMCPID}, &vmcp); kclient.IgnoreNotFound(err) != nil {
+		return err
+	}
+
 	var changed bool
 	for i := range instance.Spec.LegacyComponents {
+		legacy := &instance.Spec.LegacyComponents[i]
+		for _, component := range vmcp.Spec.Manifest.Components {
+			if component.ID != legacy.ID || component.MCPServerCatalogEntryID != legacy.MCPServerCatalogEntryID || legacy.SourceDigest != utils.Digest([]any{component, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]}) {
+				continue
+			}
+
+			fixedChanged, err := m.migrateLegacyFixedConfiguration(ctx, legacy, component)
+			if err != nil {
+				return fmt.Errorf("failed to migrate fixed configuration of vMCP instance %q: %w", instance.Name, err)
+			}
+			changed = changed || fixedChanged
+		}
+
 		// Legacy connections keep their values as user configuration.
 		componentChanged, err := m.migrateComponent(ctx, &instance.Spec.LegacyComponents[i], configuration, types.VMCPConfigurationPolicyUserAllowed)
 		if err != nil {
@@ -457,6 +476,44 @@ func (m *staticConfigurationMigration) migrateInstance(ctx context.Context, inst
 		return fmt.Errorf("failed to remove moved configuration from vMCP instance %q: %w", instance.Name, err)
 	}
 	return nil
+}
+
+// migrateLegacyFixedConfiguration restores values moved out of the vMCP credential to its
+// catalog snapshot. User overrides keep their own configuration and revision.
+func (m *staticConfigurationMigration) migrateLegacyFixedConfiguration(ctx context.Context, legacy *types.VMCPComponent, component types.VMCPComponent) (bool, error) {
+	held := make(map[string]string)
+	for _, field := range component.CatalogEntry.Manifest.Config {
+		if field.Static && slices.ContainsFunc(legacy.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
+			return policy.Key == field.Key && policy.Policy == types.VMCPConfigurationPolicyFixed && policy.SecretBinding == nil
+		}) {
+			held[field.Key] = ""
+		}
+	}
+	if len(held) == 0 {
+		return false, nil
+	}
+
+	config, err := mcp.ResolveStaticConfiguration(ctx, m.store, component.MCPServerCatalogEntryID, component.CatalogEntry.Manifest.StaticConfigurationRevision, component.CatalogEntry.Manifest.Config)
+	if err != nil {
+		return false, err
+	}
+	for _, field := range config {
+		if _, ok := held[field.Key]; ok {
+			held[field.Key] = field.Value
+		}
+	}
+
+	manifest := &legacy.CatalogEntry.Manifest
+	changed, err := m.migrateManifestConfig(ctx, legacy.MCPServerCatalogEntryID, manifest.Config, held, &manifest.StaticConfigurationRevision)
+	if err != nil {
+		return false, err
+	}
+	previous := len(legacy.Configuration)
+	legacy.Configuration = slices.DeleteFunc(legacy.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
+		_, moved := held[policy.Key]
+		return moved && policy.Policy == types.VMCPConfigurationPolicyFixed && policy.SecretBinding == nil
+	})
+	return changed || len(legacy.Configuration) != previous, nil
 }
 
 // scrubConfiguration removes keys from a credential, if it has any of them.
