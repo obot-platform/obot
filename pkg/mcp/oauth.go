@@ -1119,18 +1119,10 @@ func hasAmbiguousPath(u *url.URL) bool {
 }
 
 // isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a
-// segment boundary. Like the MCP TypeScript SDK, a resource of "/mcp" allows "/mcp/", but a
-// resource of "/mcp/" does not allow "/mcp".
+// segment boundary. A trailing slash is ignored on both paths, so "/mcp" and "/mcp/" match each
+// other. This is looser than the MCP TypeScript SDK, which rejects a resource of "/mcp/" for an
+// endpoint at "/mcp", but both paths belong to the same server.
 func isParentOrSamePath(resourcePath, connectPath string) bool {
-	if resourcePath == "" {
-		resourcePath = "/"
-	}
-	if connectPath == "" {
-		connectPath = "/"
-	}
-	if len(connectPath) < len(resourcePath) {
-		return false
-	}
 	if !strings.HasSuffix(resourcePath, "/") {
 		resourcePath += "/"
 	}

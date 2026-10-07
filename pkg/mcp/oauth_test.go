@@ -900,7 +900,6 @@ func TestValidateProtectedResource(t *testing.T) {
 			name:       "resource with a trailing slash the endpoint lacks",
 			resource:   "https://mcp.example.com/mcp/",
 			connectURL: "https://mcp.example.com/mcp",
-			wantErr:    true,
 		},
 		{
 			name:       "dots inside a path segment",
