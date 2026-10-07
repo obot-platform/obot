@@ -1082,7 +1082,7 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
-	if hasDotSegment(r.EscapedPath()) || hasDotSegment(c.EscapedPath()) {
+	if hasDotSegment(r) || hasDotSegment(c) {
 		return fmt.Errorf("protected resource metadata resource %q or MCP server URL %q contains a dot segment", resource, connectURL)
 	}
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
@@ -1094,18 +1094,14 @@ func validateProtectedResource(resource, connectURL string) error {
 	return nil
 }
 
-// hasDotSegment reports whether escapedPath has a "." or ".." segment, including encoded forms
-// such as "%2e%2e" and segments split by a backslash, which URL parsers such as the MCP
-// TypeScript SDK's resolve before comparing paths. The prefix check compares paths literally,
-// so a path like "/victim/../attacker/mcp" would otherwise match a "/victim" resource.
-func hasDotSegment(escapedPath string) bool {
-	path := strings.NewReplacer("%2e", ".", "%2E", ".", "%5c", "/", "%5C", "/").Replace(escapedPath)
-	for segment := range strings.SplitSeq(path, "/") {
-		if segment == "." || segment == ".." {
-			return true
-		}
-	}
-	return false
+// hasDotSegment reports whether u's path has a "." or ".." segment once percent-encoding is
+// decoded, treating a backslash as a separator. Servers, proxies and URL parsers such as the
+// MCP TypeScript SDK's resolve these segments, and some proxies decode "%2f" and "%2e" first,
+// but the prefix check compares paths literally. So a path like "/victim/../attacker/mcp" or
+// "/victim/%2e%2e%2fattacker/mcp" would otherwise match a "/victim" resource.
+func hasDotSegment(u *url.URL) bool {
+	segments := strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' || r == '\\' })
+	return slices.Contains(segments, ".") || slices.Contains(segments, "..")
 }
 
 // isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a

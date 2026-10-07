@@ -903,6 +903,11 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "dots inside a path segment",
+			resource:   "https://mcp.example.com/v1.2",
+			connectURL: "https://mcp.example.com/v1.2/mcp..json",
+		},
+		{
 			name:       "root resource for an endpoint with no path",
 			resource:   "https://mcp.example.com/",
 			connectURL: "https://mcp.example.com",
@@ -958,6 +963,24 @@ func TestValidateProtectedResource(t *testing.T) {
 			name:       "backslash dot segments in the MCP server URL",
 			resource:   "https://example.com/victim",
 			connectURL: "https://example.com/victim/%5C..%5Cattacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segment and slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2e%2e%2fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "uppercase encoded dot segment and slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2E%2E%2Fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "literal backslash dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim\..\attacker/mcp`,
 			wantErr:    true,
 		},
 		{
