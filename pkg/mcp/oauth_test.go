@@ -68,6 +68,43 @@ func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {
 	require.NotContains(t, headers, "AUTHORIZATION")
 }
 
+func TestGetOAuthMetadataSkipsDiscoveryAfterInitializeWithRequiredHeaders(t *testing.T) {
+	var initializeRequests, metadataRequests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch {
+		case req.Method == http.MethodPost && req.URL.Path == "/mcp":
+			initializeRequests.Add(1)
+			if req.Header.Get("Content-Type") != "application/json" {
+				http.Error(rw, "Invalid Content-Type. Expected application/json.", http.StatusUnsupportedMediaType)
+				return
+			}
+			accept := strings.Split(req.Header.Get("Accept"), ",")
+			for i := range accept {
+				accept[i] = strings.TrimSpace(accept[i])
+			}
+			if !slices.Contains(accept, "application/json") || !slices.Contains(accept, "text/event-stream") {
+				http.Error(rw, "Expected JSON and SSE response support.", http.StatusNotAcceptable)
+				return
+			}
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"test","version":"1"}}}`))
+		case strings.Contains(req.URL.Path, "oauth-protected-resource"):
+			metadataRequests.Add(1)
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"meta":{"title":"AWS Knowledge MCP Server"},"payload":{}}`))
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	metadata, err := getOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "test", "https://obot.example/oauth/mcp/callback", false)
+	require.NoError(t, err)
+	require.Empty(t, metadata)
+	require.Equal(t, int32(1), initializeRequests.Load())
+	require.Zero(t, metadataRequests.Load(), "metadata should not be fetched after successful initialize")
+}
+
 func TestGetOAuthMetadataAssumesOAuthAfterSuccessfulInitialize(t *testing.T) {
 	var initializeRequests atomic.Int32
 	var serverURL string

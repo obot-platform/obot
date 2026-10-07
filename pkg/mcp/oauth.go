@@ -849,6 +849,8 @@ func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client,
 	if err != nil {
 		return "", false, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
