@@ -323,3 +323,139 @@ func testMigrateCatalogEntryStaticConfigurationHeldInCredentials(t *testing.T, f
 		reveal(vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name), vmcpconfig.StaticConfigurationCredentialName(vmcp)))
 	assert.Empty(t, reveal(vmcpconfig.InstanceConfigurationCredentialContext(instance.Name), vmcpconfig.ConfigurationCredentialName()))
 }
+
+func TestMigrateCatalogEntryStaticConfigurationSharedConnection(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		alreadyMigrated bool
+	}{
+		{
+			name: "upgrade from legacy server",
+		},
+		{
+			name:            "repair previously migrated connection",
+			alreadyMigrated: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := &v1.MCPServerCatalogEntry{
+				Name:      "entry1shared",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+					Name:         "Shared",
+					Runtime:      types.RuntimeRemote,
+					RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+					Config: []types.MCPConfig{
+						{
+							Key:      "TOKEN",
+							Value:    "secret",
+							Required: true,
+							Usage:    types.Header,
+						},
+						{
+							Key:   "USER_TOKEN",
+							Value: "catalog-default",
+							Usage: types.Header,
+						},
+					},
+				}},
+			}
+			snapshot := entrySnapshot(*entry.DeepCopy())
+			for i := range snapshot.Manifest.Config {
+				snapshot.Manifest.Config[i].Value = ""
+			}
+
+			component := types.VMCPComponent{
+				ID:                      "shared",
+				MCPServerCatalogEntryID: entry.Name,
+				CatalogEntry:            snapshot,
+				SourceDigest:            vmcpconfig.SourceDigest(entrySnapshot(*entry)),
+				Configuration: []types.VMCPConfigurationPolicy{
+					{
+						Key:    "TOKEN",
+						Policy: types.VMCPConfigurationPolicyFixed,
+					},
+					{
+						Key:    "USER_TOKEN",
+						Policy: types.VMCPConfigurationPolicyFixed,
+					},
+				},
+			}
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1shared",
+				Namespace: system.DefaultNamespace,
+				Spec:      v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}},
+			}
+			values := map[string]string{
+				vmcpconfig.ConfigurationKey(component.ID, "TOKEN"):      "secret",
+				vmcpconfig.ConfigurationKey(component.ID, "USER_TOKEN"): "catalog-default",
+			}
+			vmcpconfig.SetStaticConfigurationHashes(vmcp, values)
+			legacy := *component.DeepCopy()
+			legacy.Configuration[1].Policy = types.VMCPConfigurationPolicyUserAllowed
+			legacy.SourceDigest = utils.Digest([]any{component, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]})
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1shared",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.VMCPInstanceSpec{
+					Manifest:         types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+					LegacyComponents: []types.VMCPComponent{legacy},
+				},
+			}
+			gatewayClient := newTestGatewayClient(t)
+			if tc.alreadyMigrated {
+				// Reproduce the old migration: the parent is Static, but its legacy snapshot is
+				// rebound without migrating the Fixed fields. The vMCP credential is scrubbed.
+				err := mcp.StoreStaticConfiguration(t.Context(), gatewayClient, entry.Name, &entry.Spec.Manifest, "")
+				require.NoError(t, err)
+				migrated := &vmcp.Spec.Manifest.Components[0]
+				migrated.CatalogEntry = entrySnapshot(*entry.DeepCopy())
+				migrated.SourceDigest = vmcpconfig.SourceDigest(migrated.CatalogEntry)
+				migrated.Configuration = nil
+				instance.Spec.LegacyComponents[0].SourceDigest = utils.Digest([]any{*migrated, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]})
+				values = map[string]string{}
+			}
+
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+				Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
+				Secrets: values,
+			}))
+			userValues := map[string]string{vmcpconfig.ConfigurationKey(component.ID, "USER_TOKEN"): "user-override"}
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+				Name:    vmcpconfig.ConfigurationCredentialName(),
+				Secrets: userValues,
+			}))
+			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(entry, vmcp, instance).Build()
+			for range 2 {
+				require.NoError(t, migrateCatalogEntryStaticConfiguration(t.Context(), client, gatewayClient))
+			}
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), vmcp))
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance))
+
+			effective := vmcpconfig.ComponentsForInstance(*vmcp, *instance)[0]
+			require.True(t, effective.CatalogEntry.Manifest.Config[0].Static)
+			require.False(t, effective.CatalogEntry.Manifest.Config[1].Static)
+			require.Equal(t, []types.VMCPConfigurationPolicy{{Key: "USER_TOKEN", Policy: types.VMCPConfigurationPolicyUserAllowed}}, effective.Configuration)
+			credential, err := gatewayClient.RevealCredential(t.Context(), []string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)}, vmcpconfig.ConfigurationCredentialName())
+			require.NoError(t, err)
+			require.Equal(t, userValues, credential.Secrets)
+
+			// Connecting replaces the shared server's configuration with the effective snapshot.
+			manifest, err := types.MapCatalogEntryToServer(effective.CatalogEntry.Manifest, "", true)
+			require.NoError(t, err)
+			manifest.Config = vmcpconfig.ComponentConfig(effective)
+			server := v1.MCPServer{Spec: v1.MCPServerSpec{
+				MCPServerCatalogEntryName: entry.Name,
+				Manifest:                  manifest,
+			}}
+			resolved, err := mcp.ResolveServerStaticConfiguration(t.Context(), gatewayClient, server)
+			require.NoError(t, err)
+			config, missing, err := mcp.ServerToServerConfig(resolved, nil, "user", vmcp.Name, "default", nil)
+			require.NoError(t, err)
+			require.Empty(t, missing)
+			require.Contains(t, config.Headers, "TOKEN=secret")
+		})
+	}
+}
