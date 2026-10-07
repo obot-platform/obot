@@ -122,6 +122,10 @@ func TestServeHTTPRestartsCallbackWithoutProviderCookie(t *testing.T) {
 			if restartCookie.Value != tt.wantRestartValue {
 				t.Fatalf("%s cookie = %q, want %q", loginRestartedCookie, restartCookie.Value, tt.wantRestartValue)
 			}
+			// The guard only works if the browser sends the cookie back on the callback.
+			if restartCookie.Path != "/oauth2/callback" {
+				t.Fatalf("%s cookie path = %q, want %q", loginRestartedCookie, restartCookie.Path, "/oauth2/callback")
+			}
 		})
 	}
 }

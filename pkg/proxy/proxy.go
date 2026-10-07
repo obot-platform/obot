@@ -223,7 +223,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		} else {
 			// The login was already restarted once and still came back without the cookie.
 			clearLoginRestartedCookie(w)
-			http.Error(w, "Login timed out. Please try again.", http.StatusUnauthorized)
+			http.Error(w, "Login could not be completed. Please start again from the Obot login page.", http.StatusUnauthorized)
 			return
 		}
 	} else if param := r.URL.Query().Get(ObotAuthProviderQueryParam); param != "" {
