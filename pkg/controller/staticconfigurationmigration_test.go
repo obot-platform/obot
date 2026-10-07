@@ -452,7 +452,7 @@ func TestMigrateCatalogEntryStaticConfigurationSharedConnection(t *testing.T) {
 			}}
 			resolved, err := mcp.ResolveServerStaticConfiguration(t.Context(), gatewayClient, server)
 			require.NoError(t, err)
-			config, missing, err := mcp.ServerToServerConfig(resolved, nil, "user", vmcp.Name, "default", nil)
+			config, missing, err := mcp.ServerToServerConfig(resolved, nil, "user", vmcp.Name, "default", nil, false)
 			require.NoError(t, err)
 			require.Empty(t, missing)
 			require.Contains(t, config.Headers, "TOKEN=secret")
