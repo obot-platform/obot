@@ -114,7 +114,7 @@ openAPIConfig:
 
 The OpenAPI pod calls the API destination selected from `baseURL` or the schema's `servers` list. Obot fetches `source.url` separately; add the API destination's hostname to `egressDomains`, even when the schema comes from another host. When the default is deny all, an OpenAPI server needs an allowed API domain or an explicit `denyAllEgress: false` to make requests.
 
-Obot validates OpenAPI API destinations using its configured network policy. The wrapper image also enforces its own network restrictions, which may reject a destination that Obot accepts; these errors surface during wrapper startup or tool execution. API destinations require HTTPS unless development mode is enabled, and credential forwarding always requires HTTPS.
+Obot validates OpenAPI API destinations using its configured network policy. The wrapper image also enforces its own network restrictions, which may reject a destination that Obot accepts; these errors surface during wrapper startup or tool execution. API destinations and credential forwarding require HTTPS unless development mode is enabled.
 
 To block all external egress for a server, set `denyAllEgress: true` and leave `egressDomains` empty:
 
