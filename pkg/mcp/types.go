@@ -99,9 +99,9 @@ func (c ComponentServer) ConnectID() string {
 	return c.Name
 }
 
-// isContainerizedRuntime reports whether the runtime serves MCP directly from
-// its own container image instead of using the mmmcp command wrapper.
-func isContainerizedRuntime(runtime types.Runtime) bool {
+// isHTTPContainerRuntime reports whether the runtime serves MCP over HTTP
+// from its own image. NPX and UVX use the shared MMMCP command wrapper instead.
+func isHTTPContainerRuntime(runtime types.Runtime) bool {
 	return runtime == types.RuntimeContainerized || runtime == types.RuntimeOpenAPI
 }
 
