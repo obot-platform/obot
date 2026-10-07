@@ -57,7 +57,9 @@ func configureOpenAPIRuntime(server *ServerConfig, config *types.OpenAPIRuntimeC
 
 	server.ContainerPort = 8080
 	server.ContainerPath = "/mcp"
-	server.HealthzPath = "/healthz"
+	// The wrapper keeps /healthz healthy after conversion failures; /readyz
+	// only succeeds when the OpenAPI tools are ready to serve requests.
+	server.HealthzPath = "/readyz"
 	server.Env = env
 	server.Files = []File{{
 		EnvKey:  "OPENAPI_SPEC_FILE",

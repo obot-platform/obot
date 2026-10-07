@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -68,7 +69,7 @@ func TestOpenAPISnapshotDeployment(t *testing.T) {
 	require.Equal(t, types.RuntimeOpenAPI, server.Spec.Manifest.Runtime)
 	require.Equal(t, 8080, config.ContainerPort)
 	require.Equal(t, "/mcp", config.ContainerPath)
-	require.Equal(t, "/healthz", config.HealthzPath)
+	require.Equal(t, "/readyz", config.HealthzPath)
 	require.Equal(t, []string{"Authorization=Bearer secret-key"}, config.Headers)
 	require.Equal(t, []File{{
 		EnvKey:  "OPENAPI_SPEC_FILE",
@@ -108,6 +109,49 @@ func TestOpenAPISnapshotDeployment(t *testing.T) {
 	server.Spec.Manifest.OpenAPIConfig.BaseURL = ""
 	rollback := openAPITestConfig(t, server, map[string]string{"Authorization": "secret-key"})
 	require.Equal(t, originalID, serverID(rollback))
+}
+
+func TestOpenAPIDeploymentReadiness(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		status int
+	}{
+		{
+			name:   "conversion succeeded",
+			status: http.StatusOK,
+		},
+		{
+			name:   "conversion failed",
+			status: http.StatusServiceUnavailable,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			wrapper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/healthz":
+					w.WriteHeader(http.StatusOK)
+				case "/readyz":
+					if test.status != http.StatusOK {
+						http.Error(w, "OpenAPI conversion failed", test.status)
+					}
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			t.Cleanup(wrapper.Close)
+			config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "key"})
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+
+			err := ensureServerReady(ctx, wrapper.URL, config)
+			if test.status == http.StatusOK {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, ErrHealthCheckFailed)
+				require.ErrorContains(t, err, "OpenAPI conversion failed")
+			}
+		})
+	}
 }
 
 func TestOpenAPICredentialPrefixesAndMissing(t *testing.T) {
