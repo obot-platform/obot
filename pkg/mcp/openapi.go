@@ -9,11 +9,11 @@ import (
 )
 
 func (OpenAPIValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
-	return validateOpenAPIEgress(manifest.OpenAPIConfig)
+	return validateOpenAPIConfig(manifest.OpenAPIConfig, manifest.Config)
 }
 
 func (OpenAPIValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
-	return validateOpenAPIEgress(manifest.OpenAPIConfig)
+	return validateOpenAPIConfig(manifest.OpenAPIConfig, manifest.Config)
 }
 
 func (OpenAPIValidator) ValidateSystemConfig(_ context.Context, _ types.SystemMCPServerManifest) error {
@@ -24,7 +24,7 @@ func (OpenAPIValidator) ValidateSystemConfig(_ context.Context, _ types.SystemMC
 	}
 }
 
-func validateOpenAPIEgress(config *types.OpenAPIRuntimeConfig) error {
+func validateOpenAPIConfig(config *types.OpenAPIRuntimeConfig, headers []types.MCPConfig) error {
 	if config == nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeOpenAPI,
@@ -32,7 +32,17 @@ func validateOpenAPIEgress(config *types.OpenAPIRuntimeConfig) error {
 			Message: "OpenAPI configuration is required",
 		}
 	}
-	return validateEgressDomains(types.RuntimeOpenAPI, config.EgressDomains, config.DenyAllEgress)
+	if err := validateEgressDomains(types.RuntimeOpenAPI, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
+	}
+	if _, err := openapi.SnapshotEnvironment(*config, headers); err != nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeOpenAPI,
+			Field:   "openAPIConfig",
+			Message: err.Error(),
+		}
+	}
+	return nil
 }
 
 func configureOpenAPIRuntime(server *ServerConfig, config *types.OpenAPIRuntimeConfig, headers []types.MCPConfig, credentials map[string]string) ([]string, error) {

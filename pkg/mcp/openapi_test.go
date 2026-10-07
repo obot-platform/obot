@@ -126,7 +126,13 @@ func TestOpenAPICredentialPrefixesAndMissing(t *testing.T) {
 	require.Empty(t, config.Headers)
 }
 
-func TestOpenAPIInvalidDeployment(t *testing.T) {
+func TestOpenAPIManifestValidation(t *testing.T) {
+	manifest := openAPITestServer().Spec.Manifest
+	require.NoError(t, ValidateServerManifest(t.Context(), manifest, false, ValidationOptions{}))
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest.ConvertToCatalogEntry(), false, ValidationOptions{}))
+}
+
+func TestOpenAPIInvalidConfig(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		mutate func(*types.MCPServerManifest)
@@ -146,6 +152,10 @@ func TestOpenAPIInvalidDeployment(t *testing.T) {
 		{
 			name:   "null snapshot",
 			mutate: func(m *types.MCPServerManifest) { m.OpenAPIConfig.Schema = testOpenAPISchema("null") },
+		},
+		{
+			name:   "empty object snapshot",
+			mutate: func(m *types.MCPServerManifest) { m.OpenAPIConfig.Schema = testOpenAPISchema("{}") },
 		},
 		{
 			name: "unsupported OpenAPI version",
@@ -182,6 +192,21 @@ func TestOpenAPIInvalidDeployment(t *testing.T) {
 			mutate: func(m *types.MCPServerManifest) { m.Config[0].Key = "Host" },
 		},
 		{
+			name: "duplicate credential headers",
+			mutate: func(m *types.MCPServerManifest) {
+				m.Config = append(m.Config, types.MCPConfig{
+					Key:   "authorization",
+					Usage: types.Header,
+				})
+			},
+		},
+		{
+			name: "missing schema credential header",
+			mutate: func(m *types.MCPServerManifest) {
+				m.OpenAPIConfig.Schema = testOpenAPISchema(strings.Replace(storedOpenAPISchema, `"paths":{}`, `"paths":{},"components":{"securitySchemes":{"key":{"type":"apiKey","in":"header","name":"X-API-Key"}}}`, 1))
+			},
+		},
+		{
 			name:   "credentials require HTTPS",
 			mutate: func(m *types.MCPServerManifest) { m.OpenAPIConfig.BaseURL = "http://api.example.com" },
 		},
@@ -189,8 +214,22 @@ func TestOpenAPIInvalidDeployment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server := openAPITestServer()
 			test.mutate(&server.Spec.Manifest)
-			_, _, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil)
-			require.Error(t, err)
+			t.Run("deployment", func(t *testing.T) {
+				_, _, err := ServerToServerConfig(server, nil, "user-1", "test", "default", nil)
+				require.Error(t, err)
+			})
+			t.Run("server manifest", func(t *testing.T) {
+				err := (OpenAPIValidator{}).ValidateConfig(t.Context(), server.Spec.Manifest)
+				var validationErr types.RuntimeValidationError
+				require.ErrorAs(t, err, &validationErr)
+				require.Equal(t, types.RuntimeOpenAPI, validationErr.Runtime)
+			})
+			t.Run("catalog manifest", func(t *testing.T) {
+				err := (OpenAPIValidator{}).ValidateCatalogConfig(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry())
+				var validationErr types.RuntimeValidationError
+				require.ErrorAs(t, err, &validationErr)
+				require.Equal(t, types.RuntimeOpenAPI, validationErr.Runtime)
+			})
 		})
 	}
 
