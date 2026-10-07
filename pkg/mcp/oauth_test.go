@@ -1026,6 +1026,18 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "encoded semicolon in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..%3bx/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "unnecessarily encoded letter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%41/mcp`,
+			wantErr:    true,
+		},
+		{
 			name:       "dot segments in the resource",
 			resource:   "https://example.com/attacker/../victim",
 			connectURL: "https://example.com/attacker/../victim/mcp",

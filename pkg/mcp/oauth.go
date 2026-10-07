@@ -1082,8 +1082,11 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
-	if hasAmbiguousPath(r) || hasAmbiguousPath(c) {
-		return fmt.Errorf("protected resource metadata resource %q or MCP server URL %q has a path with a dot segment, percent-encoding, a backslash, or a semicolon", resource, connectURL)
+	if hasAmbiguousPath(c) {
+		return fmt.Errorf("MCP server URL %q has a path that cannot be safely compared for OAuth: remove any percent-encoding, \";\", \"\\\", or \".\" or \"..\" segments", connectURL)
+	}
+	if hasAmbiguousPath(r) {
+		return fmt.Errorf("protected resource metadata resource %q has a path that cannot be safely compared for OAuth: it contains percent-encoding, \";\", \"\\\", or a \".\" or \"..\" segment", resource)
 	}
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
 		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
