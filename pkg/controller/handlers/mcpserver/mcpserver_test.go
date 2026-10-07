@@ -30,11 +30,85 @@ func TestOpenAPIConfigurationDrift(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		name    string
-		server  *types.OpenAPIRuntimeConfig
-		catalog *types.OpenAPIRuntimeConfig
-		drifted bool
+		name                 string
+		server               *types.OpenAPIRuntimeConfig
+		catalog              *types.OpenAPIRuntimeConfig
+		defaultDenyAllEgress bool
+		drifted              bool
 	}{
+		{
+			name: "both configs nil",
+		},
+		{
+			name:    "server config nil",
+			catalog: config(`{}`, "https://example.com/schema", ""),
+			drifted: true,
+		},
+		{
+			name:    "catalog config nil",
+			server:  config(`{}`, "https://example.com/schema", ""),
+			drifted: true,
+		},
+		{
+			name:   "nil and empty egress domains",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{},
+			},
+		},
+		{
+			name:   "explicit allow matches default",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(false),
+			},
+		},
+		{
+			name:   "explicit deny matches default",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(true),
+			},
+			defaultDenyAllEgress: true,
+		},
+		{
+			name: "domains override default deny",
+			server: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+				DenyAllEgress: new(false),
+			},
+			defaultDenyAllEgress: true,
+		},
+		{
+			name: "egress domains changed",
+			server: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"other.example.com"},
+			},
+			drifted: true,
+		},
+		{
+			name:   "explicit deny differs from default allow",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(true),
+			},
+			drifted: true,
+		},
+		{
+			name:   "explicit allow differs from default deny",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(false),
+			},
+			defaultDenyAllEgress: true,
+			drifted:              true,
+		},
 		{
 			name:    "same snapshot",
 			server:  config(`{"servers":[{"url":"https://api.example.com"}]}`, "https://example.com/schema", ""),
@@ -63,7 +137,7 @@ func TestOpenAPIConfigurationDrift(t *testing.T) {
 			server := types.MCPServerManifest{Runtime: types.RuntimeOpenAPI, OpenAPIConfig: test.server}
 			catalog := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeOpenAPI, OpenAPIConfig: test.catalog}
 
-			drifted, err := configurationHasDrifted(server, catalog, false)
+			drifted, err := configurationHasDrifted(server, catalog, test.defaultDenyAllEgress)
 			require.NoError(t, err)
 			require.Equal(t, test.drifted, drifted)
 		})
