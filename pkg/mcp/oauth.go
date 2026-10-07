@@ -1095,13 +1095,25 @@ func validateProtectedResource(resource, connectURL string) error {
 }
 
 // hasDotSegment reports whether u's path has a "." or ".." segment once percent-encoding is
-// decoded, treating a backslash as a separator. Servers, proxies and URL parsers such as the
-// MCP TypeScript SDK's resolve these segments, and some proxies decode "%2f" and "%2e" first,
-// but the prefix check compares paths literally. So a path like "/victim/../attacker/mcp" or
-// "/victim/%2e%2e%2fattacker/mcp" would otherwise match a "/victim" resource.
+// decoded, treating a backslash as a separator and ignoring ";" path parameters, which servers
+// such as Tomcat strip before resolving dot segments. Servers, proxies and URL parsers such as
+// the MCP TypeScript SDK's resolve these segments, and some proxies decode "%2f" and "%2e"
+// first, but the prefix check compares paths literally. So a path like
+// "/victim/../attacker/mcp" or "/victim/%2e%2e%2fattacker/mcp" would otherwise match a
+// "/victim" resource. A path that still encodes ".", "/" or "\\" after decoding is rejected too,
+// because a proxy that decodes twice would resolve it.
 func hasDotSegment(u *url.URL) bool {
-	segments := strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' || r == '\\' })
-	return slices.Contains(segments, ".") || slices.Contains(segments, "..")
+	lower := strings.ToLower(u.Path)
+	if strings.Contains(lower, "%2e") || strings.Contains(lower, "%2f") || strings.Contains(lower, "%5c") {
+		return true
+	}
+	for _, segment := range strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' || r == '\\' }) {
+		segment, _, _ = strings.Cut(segment, ";")
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a

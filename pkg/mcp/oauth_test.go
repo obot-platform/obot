@@ -984,6 +984,30 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "dot segment and encoded slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..%2fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "dot segment with a path parameter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..;/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segment with a path parameter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2e%2e;x/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "double-encoded dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%252e%252e%252fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
 			name:       "dot segments in the resource",
 			resource:   "https://example.com/attacker/../victim",
 			connectURL: "https://example.com/attacker/../victim/mcp",
