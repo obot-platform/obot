@@ -62,6 +62,7 @@ type oauth struct {
 	redirectURL              string
 	clientName               string
 	serverName               string
+	serverURL                string
 	clientIDMetadataDocument string
 	currentToken             oauth2.Token
 	metadataClient           *http.Client
@@ -413,9 +414,10 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	return t.base.RoundTrip(req)
 }
 
-func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
+func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, serverURL, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
 	return &oauth{
 		serverName:               serverName,
+		serverURL:                serverURL,
 		clientName:               clientName,
 		redirectURL:              redirectURL,
 		clientIDMetadataDocument: clientIDMetadataDocument,
@@ -441,7 +443,11 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	connectURL := req.URL.String()
 	slog.Info("starting oauth flow", "server", o.serverName, "connect_url", connectURL)
 
-	discovery, ok, err := discoverOAuthMetadata(ctx, o.metadataClient, connectURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
+	resourceCheckURL := o.serverURL
+	if resourceCheckURL == "" {
+		resourceCheckURL = connectURL
+	}
+	discovery, ok, err := discoverOAuthMetadata(ctx, o.metadataClient, connectURL, resourceCheckURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
 	if err != nil {
 		slog.Warn("oauth metadata discovery failed", "server", o.serverName, "connect_url", connectURL, "error", err)
 		return err
@@ -529,7 +535,10 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	return nil
 }
 
-func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, authenticateHeader, clientName, redirectURL string) (oauthMetadataDiscovery, bool, error) {
+// discoverOAuthMetadata discovers OAuth metadata for the MCP server at baseURL. The protected
+// resource metadata must name a resource that belongs to resourceCheckURL, the server's own URL,
+// which differs from baseURL when the server is reached through a tunnel.
+func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, resourceCheckURL, authenticateHeader, clientName, redirectURL string) (oauthMetadataDiscovery, bool, error) {
 	resourceMetadataURLs, scope, err := oauthResourceMetadataURLs(baseURL, authenticateHeader)
 	if err != nil {
 		return oauthMetadataDiscovery{}, false, err
@@ -555,7 +564,7 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, au
 			if err != nil {
 				return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to parse protected resource metadata: %w", err)
 			}
-			if err := validateProtectedResource(string(protectedResourceMetadata.Resource), baseURL); err != nil {
+			if err := validateProtectedResource(string(protectedResourceMetadata.Resource), resourceCheckURL); err != nil {
 				return oauthMetadataDiscovery{}, false, err
 			}
 
@@ -731,7 +740,7 @@ func GetOAuthMetadataWithClient(ctx context.Context, httpClient *http.Client, se
 		return OAuthMetadata{}, nil
 	}
 
-	discovery, ok, err := discoverOAuthMetadata(ctx, httpClient, server.URL, authenticateHeader, clientName, redirectURL)
+	discovery, ok, err := discoverOAuthMetadata(ctx, httpClient, server.URL, server.URL, authenticateHeader, clientName, redirectURL)
 	if err != nil {
 		return OAuthMetadata{}, err
 	}

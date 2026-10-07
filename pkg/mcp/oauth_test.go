@@ -803,7 +803,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "", "test-client", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 	require.True(t, registrationCalled.Load())
 	require.True(t, tokenCalled.Load())
@@ -855,7 +855,7 @@ func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "", "test-client", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
@@ -1006,4 +1006,56 @@ func TestGetOAuthMetadataRejectsResourceForAnotherService(t *testing.T) {
 	_, err := GetOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "Test Client", "http://localhost/callback")
 	require.ErrorContains(t, err, "does not match MCP server URL")
 	require.False(t, authServerMetadataRequested.Load(), "expected discovery to stop before contacting the authorization server")
+}
+
+func TestOAuthAuthorizeValidatesResourceAgainstServerURLForTunnels(t *testing.T) {
+	const (
+		redirectURL = "https://obot.example.com/callback"
+		// The tunneled server's own URL. Obot reaches it through a bridge URL on its own host,
+		// but the server's metadata names this URL as its resource.
+		upstreamURL = "https://mcp.internal.example/mcp"
+	)
+	var bridgeURL string
+	callback := &oauthAuthorizeCallbackHandler{}
+	tokenRequest := make(chan url.Values, 1)
+
+	bridge := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/.well-known/oauth-protected-resource":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"resource":              upstreamURL,
+				"authorization_servers": []string{bridgeURL},
+			})
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"issuer":                                bridgeURL,
+				"authorization_endpoint":                bridgeURL + "/authorize",
+				"token_endpoint":                        bridgeURL + "/token",
+				"response_types_supported":              []string{"code"},
+				"grant_types_supported":                 []string{"authorization_code"},
+				"token_endpoint_auth_methods_supported": []string{"none"},
+			})
+		case "/token":
+			require.NoError(t, req.ParseForm())
+			tokenRequest <- req.Form
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600}`))
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	defer bridge.Close()
+	bridgeURL = bridge.URL
+
+	request := httptest.NewRequest(http.MethodGet, bridge.URL+"/tunnel/bridge/encoded-target", nil)
+	response := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header: http.Header{
+			"WWW-Authenticate": []string{fmt.Sprintf(`Bearer resource_metadata="%s/.well-known/oauth-protected-resource"`, bridge.URL)},
+		},
+		Body: io.NopCloser(strings.NewReader("")),
+	}
+	o := newOAuth(bridge.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client"}, nil, "test-server", upstreamURL, "test-client", redirectURL, "")
+	require.NoError(t, o.Authorize(t.Context(), request, response))
+	require.Equal(t, upstreamURL, (<-tokenRequest).Get("resource"))
 }

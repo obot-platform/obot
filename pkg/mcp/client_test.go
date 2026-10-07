@@ -59,7 +59,7 @@ func TestOAuthHandlerForClientUsesConfiguredClientIDMetadataDocument(t *testing.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := &SessionManager{baseURL: "https://obot.example.com"}
-			handler := sm.oauthHandlerForClient(http.DefaultClient, "test-server", ClientOption{
+			handler := sm.oauthHandlerForClient(http.DefaultClient, "test-server", "", ClientOption{
 				ClientName:                    "test-client",
 				TokenStorage:                  &recordingTokenStorage{},
 				OAuthClientIDMetadataDocument: tt.document,
