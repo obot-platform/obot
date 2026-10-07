@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"errors"
+	"math"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -11,6 +13,44 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 )
+
+// fakeRetentionLimits returns a limit of days, or an error while failing, and counts lookups so tests can tell
+// when a pass has finished. Each pass looks the limit up once, so the second lookup means the first pass is done.
+type fakeRetentionLimits struct {
+	days    atomic.Int64
+	failing atomic.Bool
+	lookups atomic.Int64
+}
+
+func (l *fakeRetentionLimits) AuditLogRetentionLimit(context.Context) (SystemLimit, error) {
+	l.lookups.Add(1)
+	if l.failing.Load() {
+		return SystemLimit{}, errors.New("license unavailable")
+	}
+	return SystemLimit{Maximum: l.days.Load()}, nil
+}
+
+func (l *fakeRetentionLimits) waitForLookups(t *testing.T, want int64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for l.lookups.Load() < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d retention lookups, got %d", want, l.lookups.Load())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func waitForAuditLogCounts(t *testing.T, c *Client, wantMCP, wantLLM int64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for countAuditLogs(t, c) != wantMCP || countLLMAuditLogs(t, c) != wantLLM {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d audit logs and %d LLM audit logs, got %d and %d", wantMCP, wantLLM, countAuditLogs(t, c), countLLMAuditLogs(t, c))
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 func newTestClient(t *testing.T) *Client {
 	t.Helper()
@@ -300,6 +340,8 @@ func TestDeleteOldAuditLogsBatching(t *testing.T) {
 
 func TestRunRetentionCleanup(t *testing.T) {
 	c := newTestClient(t)
+	c.mcpAuditLogRetentionDays = 90
+	c.llmAuditLogRetentionDays = 30
 
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old
@@ -312,7 +354,7 @@ func TestRunRetentionCleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	go c.runRetentionCleanup(ctx, 90, 30)
+	go c.runAuditCleanup(ctx, &fakeRetentionLimits{})
 
 	// Wait until the cleanup has deleted old logs, or time out.
 	deadline := time.Now().Add(2 * time.Second)
@@ -335,45 +377,140 @@ func TestRunRetentionCleanup(t *testing.T) {
 	}
 }
 
-func TestRunRetentionCleanupDisabled(t *testing.T) {
+func TestRunRetentionCleanupLimitReplacesConfiguredRetention(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		limit int64
+	}{
+		{
+			name:  "longer limit",
+			limit: 90,
+		},
+		{
+			name:  "saturated limit",
+			limit: math.MaxInt64,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestClient(t)
+			c.mcpAuditLogRetentionDays = 7
+			c.llmAuditLogRetentionDays = 7
+
+			now := time.Now().UTC()
+			insertAuditLog(t, c, now.AddDate(0, 0, -30))
+			insertLLMAuditLog(t, c, now.AddDate(0, 0, -30))
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			limits := &fakeRetentionLimits{}
+			limits.days.Store(tt.limit)
+			go c.runAuditCleanup(ctx, limits)
+
+			// The configured 7 days would delete these logs, but the longer limit keeps them.
+			limits.waitForLookups(t, 2)
+			if got := countAuditLogs(t, c); got != 1 {
+				t.Fatalf("audit logs = %d, want 1", got)
+			}
+			if got := countLLMAuditLogs(t, c); got != 1 {
+				t.Fatalf("LLM audit logs = %d, want 1", got)
+			}
+		})
+	}
+}
+
+func TestRunRetentionCleanupAppliesLimitChanges(t *testing.T) {
 	c := newTestClient(t)
 
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -100))
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -1))
 
-	// Both retention periods disabled means the function returns immediately.
-	// Call synchronously — if it ever blocks, the test timeout will catch it.
-	c.runRetentionCleanup(t.Context(), 0, 0)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	limits := &fakeRetentionLimits{}
+	go c.runAuditCleanup(ctx, limits)
 
+	// Retention is disabled and there's no limit yet, so the first pass deletes nothing.
+	limits.waitForLookups(t, 2)
 	if got := countAuditLogs(t, c); got != 2 {
-		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+		t.Fatalf("audit logs before the limit = %d, want 2", got)
 	}
+	if got := countLLMAuditLogs(t, c); got != 2 {
+		t.Fatalf("LLM audit logs before the limit = %d, want 2", got)
+	}
+
+	// A new limit applies on a later pass without restarting the loop.
+	limits.days.Store(90)
+	waitForAuditLogCounts(t, c, 1, 1)
+}
+
+func TestRunRetentionCleanupKeepsRetentionWhenLimitLookupFails(t *testing.T) {
+	c := newTestClient(t)
+	old := time.Now().UTC().AddDate(0, 0, -100)
+	insertAuditLog(t, c, old)
+	insertLLMAuditLog(t, c, old)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	limits := &fakeRetentionLimits{}
+	limits.days.Store(90)
+	go c.runAuditCleanup(ctx, limits)
+	waitForAuditLogCounts(t, c, 0, 0)
+
+	// The lookup now fails. Cleanup is disabled in the settings, so only the limit kept from the last pass can delete these.
+	limits.failing.Store(true)
+	insertAuditLog(t, c, old)
+	insertLLMAuditLog(t, c, old)
+	waitForAuditLogCounts(t, c, 0, 0)
+}
+
+func TestRunRetentionCleanupKeepsLogsUntilLimitLookupSucceeds(t *testing.T) {
+	c := newTestClient(t)
+	c.mcpAuditLogRetentionDays = 7
+	c.llmAuditLogRetentionDays = 7
+
+	now := time.Now().UTC()
+	insertAuditLog(t, c, now.AddDate(0, 0, -30))
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -30))
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -1))
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	limits := &fakeRetentionLimits{}
+	limits.failing.Store(true)
+	go c.runAuditCleanup(ctx, limits)
+
+	// No lookup has succeeded yet, so the configured retention isn't applied either.
+	limits.waitForLookups(t, 2)
+	if got := countAuditLogs(t, c); got != 2 {
+		t.Fatalf("audit logs before a lookup succeeds = %d, want 2", got)
+	}
+	if got := countLLMAuditLogs(t, c); got != 2 {
+		t.Fatalf("LLM audit logs before a lookup succeeds = %d, want 2", got)
+	}
+
+	// Once a lookup finds no licensed limit, the configured retention applies.
+	limits.failing.Store(false)
+	waitForAuditLogCounts(t, c, 1, 1)
 }
 
 func TestRunRetentionCleanupRepeats(t *testing.T) {
 	c := newTestClient(t)
+	c.mcpAuditLogRetentionDays = 90
+	c.llmAuditLogRetentionDays = 30
 	old := time.Now().UTC().AddDate(0, 0, -100)
 	insertAuditLog(t, c, old)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go c.runRetentionCleanup(ctx, 90, 30)
-
-	waitUntilEmpty := func(stage string) {
-		t.Helper()
-		deadline := time.Now().Add(2 * time.Second)
-		for countAuditLogs(t, c) != 0 {
-			if time.Now().After(deadline) {
-				t.Fatalf("timed out waiting for %s cleanup", stage)
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-	waitUntilEmpty("initial")
+	go c.runAuditCleanup(ctx, &fakeRetentionLimits{})
+	waitForAuditLogCounts(t, c, 0, 0)
 
 	insertAuditLog(t, c, old)
-	waitUntilEmpty("periodic")
+	waitForAuditLogCounts(t, c, 0, 0)
 }
 
 func TestCleanupRetainedDataSkipsAPIKeysWhenAuditCleanupFails(t *testing.T) {
