@@ -201,6 +201,9 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+	if err := mcp.ValidateObotVersionRange(manifest.MinObotVersion, manifest.MaxObotVersion, false); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
 	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -232,6 +235,9 @@ func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 	var manifest types.SystemMCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+	if err := mcp.ValidateObotVersionRange(manifest.MinObotVersion, manifest.MaxObotVersion, false); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)

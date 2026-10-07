@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/version"
 	"github.com/stretchr/testify/require"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -107,7 +108,7 @@ func TestReadMCPCatalogMixedJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	objects, err := (&Handler{httpClient: server.Client()}).readMCPCatalog(t.Context(), "default", server.URL, "")
+	objects, _, err := (&Handler{httpClient: server.Client()}).readMCPCatalog(t.Context(), "default", server.URL, "")
 	require.NoError(t, err)
 	require.Len(t, objects, 2)
 	require.IsType(t, &v1.MCPServerCatalogEntry{}, objects[0])
@@ -147,7 +148,7 @@ func TestReadMCPCatalogCoercesNumericArgs(t *testing.T) {
 	defer server.Close()
 
 	for _, source := range []string{file, server.URL} {
-		objects, err := (&Handler{httpClient: server.Client()}).readMCPCatalog(t.Context(), "default", source, "")
+		objects, _, err := (&Handler{httpClient: server.Client()}).readMCPCatalog(t.Context(), "default", source, "")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 		entry := objects[0].(*v1.MCPServerCatalogEntry)
@@ -159,7 +160,7 @@ func TestReadMCPCatalogRejectsUnknownType(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("- type: unknown\n  name: Test\n"), 0o600))
 
-	objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
 	require.ErrorContains(t, err, `unsupported catalog item type "unknown"`)
 	require.Empty(t, objects)
 }
@@ -181,7 +182,7 @@ func TestCatalogSyncRejectsLegacyConfiguration(t *testing.T) {
 
 			handler := &Handler{httpClient: server.Client()}
 			for _, source := range []string{path, server.URL} {
-				objects, err := handler.readMCPCatalog(t.Context(), "default", source, "")
+				objects, _, err := handler.readMCPCatalog(t.Context(), "default", source, "")
 				require.ErrorContains(t, err, "top-level config")
 				require.Empty(t, objects)
 
@@ -203,7 +204,7 @@ func TestReadMCPCatalogRequiresVMCPEntryKeyReference(t *testing.T) {
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
-	objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
 	require.ErrorContains(t, err, `vMCP "Email" component "gmail" mcpServerCatalogEntryKey is required`)
 	require.Empty(t, objects)
 
@@ -214,7 +215,7 @@ func TestReadMCPCatalogRequiresVMCPEntryKeyReference(t *testing.T) {
       mcpServerCatalogEntryID: obot-gmail
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
-	objects, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	objects, _, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
 	require.ErrorContains(t, err, `vMCP "email" component "gmail" mcpServerCatalogEntryKey is required`)
 	require.Empty(t, objects)
 
@@ -224,7 +225,7 @@ func TestReadMCPCatalogRequiresVMCPEntryKeyReference(t *testing.T) {
       mcpServerCatalogEntryID: obot-gmail
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
-	objects, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+	objects, _, err = (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
 	require.ErrorContains(t, err, `vMCP "<unnamed>" component "gmail" mcpServerCatalogEntryKey is required`)
 	require.Empty(t, objects)
 }
@@ -242,7 +243,7 @@ func TestReadMCPCatalogRequiresVMCPComponentID(t *testing.T) {
 `, id)
 			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
-			objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
+			objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), "default", path, "")
 			require.ErrorContains(t, err, `vMCP "Email" components[0] id is required`)
 			require.Empty(t, objects)
 		})
@@ -278,7 +279,7 @@ func TestReadMCPCatalogRetainsPartialResultsAndReportsIncompleteSource(t *testin
 			require.Contains(t, logs.String(), "level=WARN")
 			require.Contains(t, logs.String(), "Broken.yaml")
 
-			objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", dir, "")
+			objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), "default", dir, "")
 			require.ErrorContains(t, err, "Broken.yaml")
 			require.ErrorContains(t, err, `legacy configuration field "env"`)
 			require.Len(t, objects, 1)
@@ -303,7 +304,101 @@ npxConfig:
 	require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "ci.yml"), []byte("name: Validate catalog\non: push\njobs: {}\n"), 0o600))
 
 	h := &Handler{}
-	objects, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objects, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	require.NoError(t, err)
+	require.Len(t, objects, 1)
+}
+
+func TestCatalogSyncSkipsEntriesOutsideObotVersionRange(t *testing.T) {
+	originalTag := version.Tag
+	version.Tag = "v0.20.0"
+	t.Cleanup(func() { version.Tag = originalTag })
+
+	content := `- name: Unrestricted
+  runtime: npx
+  npxConfig: {package: unrestricted}
+- name: Supported
+  minObotVersion: v0.20.0
+  maxObotVersion: v0.21.0
+  runtime: npx
+  npxConfig: {package: supported}
+- name: Too New
+  minObotVersion: v0.21.0
+  runtime: npx
+  npxConfig: {package: too-new}
+- name: Too Old
+  maxObotVersion: v0.19.9
+  runtime: npx
+  npxConfig: {package: too-old}
+`
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	handler := &Handler{}
+	objects, _, err := handler.readMCPCatalog(t.Context(), "default", path, "")
+	require.NoError(t, err)
+	var names []string
+	for _, obj := range objects {
+		names = append(names, obj.(*v1.MCPServerCatalogEntry).Spec.Manifest.Name)
+	}
+	require.Equal(t, []string{"Unrestricted", "Supported"}, names)
+
+	objects, err = handler.readSystemMCPCatalog(t.Context(), "default", path, "")
+	require.NoError(t, err)
+	names = nil
+	for _, obj := range objects {
+		names = append(names, obj.(*v1.SystemMCPServerCatalogEntry).Spec.Manifest.Name)
+	}
+	require.Equal(t, []string{"Unrestricted", "Supported"}, names)
+
+	version.Tag = "v0.0.0-dev"
+	objects, _, err = handler.readMCPCatalog(t.Context(), "default", path, "")
+	require.NoError(t, err)
+	require.Len(t, objects, 4)
+}
+
+func TestCatalogSyncRejectsInvalidObotVersionRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("- name: Bad\n  minObotVersion: latest\n  runtime: npx\n  npxConfig: {package: bad}\n"), 0o600))
+
+	handler := &Handler{}
+	objects, _, err := handler.readMCPCatalog(t.Context(), "default", path, "")
+	require.ErrorContains(t, err, "invalid minObotVersion")
+	require.Empty(t, objects)
+
+	objects, err = handler.readSystemMCPCatalog(t.Context(), "default", path, "")
+	require.ErrorContains(t, err, "invalid minObotVersion")
+	require.Empty(t, objects)
+}
+
+func TestCatalogSyncSkipsOutOfRangeEntriesBeforeValidation(t *testing.T) {
+	originalTag := version.Tag
+	version.Tag = "v0.20.0"
+	t.Cleanup(func() { version.Tag = originalTag })
+
+	// Entries for other Obot versions may use runtimes or fields this version does not support.
+	content := `- name: Future Runtime
+  minObotVersion: v0.21.0
+  runtime: future-runtime
+- name: Removed Field
+  maxObotVersion: v0.19.0
+  env: []
+  runtime: npx
+  npxConfig: {package: removed-field}
+- name: Current
+  runtime: npx
+  npxConfig: {package: current}
+`
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	handler := &Handler{}
+	objects, skippedRefs, err := handler.readMCPCatalog(t.Context(), "default", path, "")
+	require.NoError(t, err)
+	require.Len(t, objects, 1)
+	require.Empty(t, skippedRefs)
+
+	objects, err = handler.readSystemMCPCatalog(t.Context(), "default", path, "")
 	require.NoError(t, err)
 	require.Len(t, objects, 1)
 }

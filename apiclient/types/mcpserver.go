@@ -149,6 +149,11 @@ type MCPServerCatalogEntryManifest struct {
 	// UpgradeNote is source-provided Markdown shown before applying catalog updates.
 	UpgradeNote string `json:"upgradeNote,omitempty"`
 
+	// MinObotVersion and MaxObotVersion bound, inclusively, the Obot versions on which a
+	// catalog-synced entry is available. Empty values are unrestricted.
+	MinObotVersion string `json:"minObotVersion,omitempty"`
+	MaxObotVersion string `json:"maxObotVersion,omitempty"`
+
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
 

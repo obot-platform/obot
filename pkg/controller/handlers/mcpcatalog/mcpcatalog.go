@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"slices"
@@ -26,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/version"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -46,8 +48,13 @@ const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
-	// Bump this any time this functionality is needed.
-	startupSyncGeneration = "1"
+)
+
+var (
+	// startupSyncGeneration forces a catalog sync on startup when it changes. It includes the Obot
+	// version so that entries gated by minObotVersion and maxObotVersion are re-evaluated on upgrade.
+	// Bump the leading generation any time a sync is needed for other reasons.
+	startupSyncGeneration = "1/" + version.Tag
 )
 
 type Handler struct {
@@ -137,6 +144,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}()
 
 	toAdd := make([]kclient.Object, 0)
+	versionSkippedRefs := make(map[string]struct{})
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
@@ -150,7 +158,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
-		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
+		objs, skippedRefs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
+		maps.Copy(versionSkippedRefs, skippedRefs)
 		if err != nil {
 			slog.Warn("Catalog source is incomplete; skipping invalid entries and retaining missing entries", "source", sourceURL, "error", err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -176,7 +185,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for sourceURL, errMsg := range staticConfigurationErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
-	toAdd, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd)
+	toAdd, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd, versionSkippedRefs)
 	if err != nil {
 		return err
 	}
@@ -528,6 +537,13 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	systemObjs := make([]kclient.Object, 0, len(entries))
 	errs := []error{err}
 	for _, item := range entries {
+		if inRange, err := inObotVersionRange(item, "system catalog entry"); err != nil {
+			errs = append(errs, err)
+			continue
+		} else if !inRange {
+			continue
+		}
+
 		if err := catalogvalidation.ValidateConfigurationFields(item); err != nil {
 			errs = append(errs, err)
 			continue
@@ -571,7 +587,9 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	return systemObjs, errors.Join(errs...)
 }
 
-func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, error) {
+// readMCPCatalog returns the catalog entries and vMCPs read from a source, and the source references
+// of entries skipped because the running Obot version is outside their supported range.
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]struct{}, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
@@ -582,6 +600,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	errs := []error{err}
 	uniqueEntryKeys := make(map[string]struct{})
 	uniqueVMCPKeys := make(map[string]struct{})
+	versionSkippedRefs := make(map[string]struct{})
 	for _, item := range items {
 		var header struct {
 			Type     string `json:"type"`
@@ -631,6 +650,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 		if header.Type != "" && header.Type != "entry" {
 			errs = append(errs, fmt.Errorf("unsupported catalog item type %q", header.Type))
+			continue
+		}
+
+		if inRange, err := inObotVersionRange(item, "catalog entry"); err != nil {
+			errs = append(errs, err)
+			continue
+		} else if !inRange {
+			if header.EntryKey != "" {
+				versionSkippedRefs[sourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
+			}
 			continue
 		}
 
@@ -693,7 +722,29 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		objs = append(objs, &catalogEntry)
 	}
 
-	return objs, errors.Join(errs...)
+	return objs, versionSkippedRefs, errors.Join(errs...)
+}
+
+// inObotVersionRange reports whether a catalog item applies to the running Obot version. Only the
+// version bounds are decoded, so items for other Obot versions are excluded before validation that
+// depends on this version's runtimes and configuration fields.
+func inObotVersionRange(item json.RawMessage, kind string) (bool, error) {
+	var bounds struct {
+		Name           string `json:"name"`
+		MinObotVersion string `json:"minObotVersion"`
+		MaxObotVersion string `json:"maxObotVersion"`
+	}
+	if err := yaml.Unmarshal(item, &bounds); err != nil {
+		return false, fmt.Errorf("invalid %s: %w", kind, err)
+	}
+	if err := version.ValidateRange(bounds.MinObotVersion, bounds.MaxObotVersion); err != nil {
+		return false, fmt.Errorf("invalid %s %s: %w", kind, bounds.Name, err)
+	}
+	if !version.CurrentInRange(bounds.MinObotVersion, bounds.MaxObotVersion) {
+		slog.Info("Skipping "+kind+" outside supported Obot version range", "entry", bounds.Name, "minObotVersion", bounds.MinObotVersion, "maxObotVersion", bounds.MaxObotVersion, "obotVersion", version.Tag)
+		return false, nil
+	}
+	return true, nil
 }
 
 func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string, maxRepoSizeMB int) ([]T, error) {
