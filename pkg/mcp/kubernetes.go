@@ -396,9 +396,6 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string, hardS
 func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig) ([]kclient.Object, error) {
 	if server.Runtime == types.RuntimeOpenAPI {
 		server.ContainerImage = k.openAPIImage
-		if strings.TrimSpace(server.ContainerImage) == "" {
-			return nil, fmt.Errorf("configure the MCP OpenAPI image before deploying an OpenAPI server")
-		}
 	}
 	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeVMCP {
 		return nil, nil

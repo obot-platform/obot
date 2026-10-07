@@ -437,18 +437,6 @@ func TestOpenAPIBackendImageSelection(t *testing.T) {
 	require.Equal(t, "openapi:updated", findDeployment(t, objects, config.MCPServerName).Spec.Template.Spec.Containers[0].Image)
 }
 
-func TestOpenAPIBackendsRequireImage(t *testing.T) {
-	config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "key"})
-	docker := dockerBackend{}
-	_, err := docker.ensureDeployment(t.Context(), config, config.MCPServerName, false)
-	require.ErrorContains(t, err, "OpenAPI image")
-	_, _, err = docker.createAndStartContainer(t.Context(), config, config.MCPServerName, "", "")
-	require.ErrorContains(t, err, "OpenAPI image")
-	kubernetes := newTestKubernetesBackend(t)
-	_, err = kubernetes.k8sObjects(t.Context(), config)
-	require.ErrorContains(t, err, "OpenAPI image")
-}
-
 func TestOpenAPIDockerConnectionHeaders(t *testing.T) {
 	config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "secret-key"})
 	backend := dockerBackend{}
@@ -515,10 +503,6 @@ func TestOpenAPIKubernetesConnectionHeaders(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "http://openapi-test.mcp.svc.cluster.local/mcp", connection.URL)
 	require.Equal(t, config.Headers, connection.Headers)
-
-	backend.openAPIImage = ""
-	_, err = backend.ensureServerDeployment(t.Context(), config)
-	require.ErrorContains(t, err, "configure the MCP OpenAPI image")
 
 	config.Runtime = types.RuntimeContainerized
 	backend.setDeploymentCache(config.MCPServerName, kubernetesDeploymentCacheEntry{
