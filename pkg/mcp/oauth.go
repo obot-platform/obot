@@ -1082,6 +1082,9 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
+	if hasDotSegment(r.EscapedPath()) || hasDotSegment(c.EscapedPath()) {
+		return fmt.Errorf("protected resource metadata resource %q or MCP server URL %q contains a dot segment", resource, connectURL)
+	}
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
 		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
 		urlPort(r) != urlPort(c) ||
@@ -1089,6 +1092,20 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("protected resource metadata resource %q does not match MCP server URL %q", resource, connectURL)
 	}
 	return nil
+}
+
+// hasDotSegment reports whether escapedPath has a "." or ".." segment, including encoded forms
+// such as "%2e%2e" and segments split by a backslash, which URL parsers such as the MCP
+// TypeScript SDK's resolve before comparing paths. The prefix check compares paths literally,
+// so a path like "/victim/../attacker/mcp" would otherwise match a "/victim" resource.
+func hasDotSegment(escapedPath string) bool {
+	path := strings.NewReplacer("%2e", ".", "%2E", ".", "%5c", "/", "%5C", "/").Replace(escapedPath)
+	for segment := range strings.SplitSeq(path, "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a

@@ -931,6 +931,42 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/../attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/%2e%2E/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "mixed encoded dot segment in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/.%2e/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "single dot segment in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/./mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "backslash dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/%5C..%5Cattacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "dot segments in the resource",
+			resource:   "https://example.com/attacker/../victim",
+			connectURL: "https://example.com/attacker/../victim/mcp",
+			wantErr:    true,
+		},
+		{
 			name:       "child path of the connect URL",
 			resource:   "https://mcp.example.com/mcp/other",
 			connectURL: "https://mcp.example.com/mcp",
