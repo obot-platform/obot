@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -13,6 +14,10 @@ import (
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/mmmcp/toolsearch"
 	"github.com/obot-platform/obot/pkg/mcp"
+)
+
+var (
+	errMCPBatchUnsupported = errors.New("MCP batch requests are not supported with tool search inspection")
 )
 
 // resolvedToolCall is the currently granted operation behind a generic call.
@@ -55,6 +60,11 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 	body, err = readMCPHookBody(decoded)
 	if err != nil {
 		return nil, fmt.Errorf("read decoded generic tool call: %w", err)
+	}
+	if bytes.HasPrefix(bytes.TrimSpace(body), []byte("[")) {
+		// A batch can contain call_tool alongside other requests, but hooks and
+		// audit only inspect single messages. Reject it before proxying.
+		return nil, errMCPBatchUnsupported
 	}
 
 	var message mcp.Message

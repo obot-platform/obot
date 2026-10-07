@@ -178,6 +178,26 @@ func TestGenericToolCallSkipsInspectionWithoutHooksOrAudit(t *testing.T) {
 	}
 }
 
+func TestGenericToolCallRejectsLegacyBatchBeforeHooks(t *testing.T) {
+	// The legacy protocol accepts batches, but a policy for delete_file must
+	// never be skipped because its generic call is inside one.
+	body := `[{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{"path":"secret.txt"}}}},{"jsonrpc":"2.0","id":2,"method":"ping"}]`
+	req := mustMCPHookRequest(t, body)
+	req.Header.Set("Mcp-Protocol-Version", "2025-03-26")
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
+	resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", true)
+	if resolved != nil || !errors.Is(err, errMCPBatchUnsupported) {
+		t.Fatalf("batch was allowed to bypass generic call inspection: resolved=%#v error=%v", resolved, err)
+	}
+	w := httptest.NewRecorder()
+	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
+		t.Fatal("batch rejection was not written")
+	}
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "batch requests are not supported") {
+		t.Fatalf("batch response: status=%d body=%q", w.Code, w.Body.String())
+	}
+}
+
 func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
 	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
 	if err != nil {

@@ -107,6 +107,10 @@ func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) ([]byte, bool) {
 }
 
 func writeGenericToolCallError(req api.Context, callErr error) (int, []byte, bool) {
+	if errors.Is(callErr, errMCPBatchUnsupported) {
+		http.Error(req.ResponseWriter, callErr.Error(), http.StatusBadRequest)
+		return http.StatusBadRequest, nil, true
+	}
 	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {
 		result, err := json.Marshal(completed.result)
 		if err != nil {
