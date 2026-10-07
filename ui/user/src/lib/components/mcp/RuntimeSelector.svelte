@@ -60,7 +60,7 @@
 	</h4>
 
 	<div class="flex items-center gap-4">
-		<span id="runtime-selector-label" class="text-sm font-light">{m.core_type()}</span>
+		<span id="runtime-selector-label" class="text-sm font-light shrink-0">{m.core_type()}</span>
 		<div class="w-full">
 			<Select
 				id="runtime-selector"

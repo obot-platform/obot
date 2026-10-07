@@ -243,11 +243,11 @@
 							}}
 						>
 							<div class="flex w-full items-center gap-2 overflow-hidden">
-								<div class="icon">
+								<div class="icon shrink-0">
 									{#if item.icon}
-										<img src={item.icon} alt={item.name} class="size-8 shrink-0" />
+										<img src={item.icon} alt={item.name} class="size-8" />
 									{:else}
-										<Server class="size-8 shrink-0" />
+										<Server class="size-8" />
 									{/if}
 								</div>
 								<div class="flex min-w-0 grow flex-col">
@@ -287,7 +287,7 @@
 					{m.core_n_selected({ count: selected.length })}
 				{/if}
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 md:flex-row flex-col">
 				<button
 					id="search-mcp-servers-cancel-btn"
 					class="btn btn-secondary w-full md:w-fit"

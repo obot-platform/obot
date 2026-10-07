@@ -723,7 +723,7 @@
 
 {#snippet switchSteps()}
 	{@const done = SWITCH_STEPS.indexOf(switchStep)}
-	<ol class="flex items-center gap-2 px-4 pb-4">
+	<ol class="flex items-center gap-2 px-4 pb-4 mt-4 md:mt-0">
 		{#each SWITCH_STEPS as step, index (step)}
 			{@const label = SWITCH_STEP_LABELS[step]}
 			{#if index > 0}

@@ -264,7 +264,7 @@
 				{m.core_n_selected({ count: selectedUsers.length })}
 			{/if}
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2 md:flex-row flex-col">
 			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
 				{m.common_cancel()}
 			</button>

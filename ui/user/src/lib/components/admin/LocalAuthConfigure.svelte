@@ -553,7 +553,7 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	class={twMerge('w-xl', step === 'users' && 'max-h-[calc(100dvh-1rem)]')}
+	class={twMerge('md:w-xl', step === 'users' && 'md:max-h-[calc(100dvh-1rem)]')}
 	onClose={() => onClose?.(users.length)}
 	{animate}
 	disableClickOutside={required}
@@ -564,7 +564,7 @@
 	{/snippet}
 
 	{#if step === 'config'}
-		<form class="flex flex-col gap-4" onsubmit={handleContinue}>
+		<form class="flex flex-col gap-4 md:p-0 p-4" onsubmit={handleContinue}>
 			{#if configError}
 				<div class="notification-error flex items-center gap-2">
 					<CircleAlert class="text-error size-5 shrink-0" />
@@ -605,7 +605,7 @@
 			</div>
 		</form>
 	{:else}
-		<div class="flex flex-col gap-2 grow">
+		<div class="flex flex-col gap-2 grow md:p-0 p-4">
 			{#if !readonly}
 				<button
 					class="text-link flex items-center gap-1 text-xs font-light"
