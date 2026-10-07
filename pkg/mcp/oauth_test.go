@@ -892,9 +892,20 @@ func TestValidateProtectedResource(t *testing.T) {
 			connectURL: "https://mcp.example.com/tenant/mcp",
 		},
 		{
-			name:       "trailing slash difference",
+			name:       "resource without the endpoint's trailing slash",
+			resource:   "https://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp/",
+		},
+		{
+			name:       "resource with a trailing slash the endpoint lacks",
 			resource:   "https://mcp.example.com/mcp/",
 			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "root resource for an endpoint with no path",
+			resource:   "https://mcp.example.com/",
+			connectURL: "https://mcp.example.com",
 		},
 		{
 			name:       "zero-padded default port",

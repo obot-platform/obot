@@ -1073,15 +1073,35 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
-	resourcePath := strings.TrimSuffix(r.EscapedPath(), "/") + "/"
-	connectPath := strings.TrimSuffix(c.EscapedPath(), "/") + "/"
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
 		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
 		urlPort(r) != urlPort(c) ||
-		!strings.HasPrefix(connectPath, resourcePath) {
+		!isParentOrSamePath(r.EscapedPath(), c.EscapedPath()) {
 		return fmt.Errorf("protected resource metadata resource %q does not match MCP server URL %q", resource, connectURL)
 	}
 	return nil
+}
+
+// isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a
+// segment boundary. Like the MCP TypeScript SDK, a resource of "/mcp" allows "/mcp/", but a
+// resource of "/mcp/" does not allow "/mcp".
+func isParentOrSamePath(resourcePath, connectPath string) bool {
+	if resourcePath == "" {
+		resourcePath = "/"
+	}
+	if connectPath == "" {
+		connectPath = "/"
+	}
+	if len(connectPath) < len(resourcePath) {
+		return false
+	}
+	if !strings.HasSuffix(resourcePath, "/") {
+		resourcePath += "/"
+	}
+	if !strings.HasSuffix(connectPath, "/") {
+		connectPath += "/"
+	}
+	return strings.HasPrefix(connectPath, resourcePath)
 }
 
 // urlPort returns u's port as a canonical number, or the default port for its scheme.
