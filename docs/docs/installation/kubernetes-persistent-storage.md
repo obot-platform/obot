@@ -4,9 +4,7 @@ displayed_sidebar: sidebar
 
 # Persistent Storage in Kubernetes
 
-When Obot deploys MCP servers (including Obot Agent workloads) in Kubernetes, those pods need persistent volumes if you want workspace data to survive pod restarts and rescheduling.
-
-Without persistence, agent state is stored in the pod filesystem and is lost when the pod is recreated.
+The Helm chart can mount a persistent volume at `/data` in the Obot server container. Enable it when your configured features need local files to survive pod replacement. Use an external PostgreSQL database for production; a server data volume does not replace database backups.
 
 ## Storage Options
 
@@ -18,28 +16,7 @@ Any Kubernetes `StorageClass` can be used, including cloud block storage and sha
 
 Choose a `StorageClass` that matches your durability, performance, and cost requirements.
 
-## Configure Obot Agent Persistence
-
-Set the default storage class and size in your Helm values:
-
-```yaml
-mcpServerDefaults:
-  storageClassName: <your storage class>
-  nanobotWorkspaceSize: 1Gi
-```
-
-- `mcpServerDefaults.storageClassName`: StorageClass used for MCP server workspaces
-- `mcpServerDefaults.nanobotWorkspaceSize`: PVC size requested for each workspace
-
-## Configure Published Workflow Storage on a PVC
-
-If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at:
-
-```text
-/data/.local/share/obot/published-artifacts
-```
-
-The Helm chart's `persistence` PVC mounts at `/data`, which includes that directory.
+## Configure the Obot data volume
 
 ### Single Replica with ReadWriteOnce
 
@@ -69,11 +46,11 @@ persistence:
   existingClaim: obot-data
 ```
 
-This is the common setup when using a single Obot pod with a block-storage-backed `StorageClass`. It persists both general `/data` contents and the local published-artifact directory under `/data/.local/share/obot/published-artifacts`.
+This is the common setup when using a single Obot pod with a block-storage-backed `StorageClass`. It persists files stored under `/data`.
 
 ### Multiple Replicas with ReadWriteMany
 
-For `replicaCount: 2` or higher, all Obot pods need concurrent access to the same `/data` volume. That requires a shared `ReadWriteMany` volume:
+If multiple Obot replicas need to share files under `/data`, configure a `ReadWriteMany` volume:
 
 ```yaml
 apiVersion: v1
@@ -111,7 +88,7 @@ persistence:
   existingClaim: obot-data
 ```
 
-When enabled, the chart mounts that claim into the Obot container at `/data`, which includes the local published-artifact directory.
+When enabled, the chart mounts that claim into the Obot container at `/data`, preserving files stored there.
 
 ### Let Helm Create the Claim
 
@@ -133,9 +110,12 @@ If you do not have a cloud-managed dynamic provisioner, you can use [nfs-subdir-
 After installing the provisioner and creating its `StorageClass`, set that class in your Obot values file:
 
 ```yaml
-mcpServerDefaults:
-  storageClassName: nfs-client
-  nanobotWorkspaceSize: 1Gi
+persistence:
+  enabled: true
+  storageClass: nfs-client
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
 ```
 
 Then install or upgrade Obot:
@@ -146,7 +126,7 @@ helm upgrade --install obot obot/obot -f values.yaml
 
 ## Validation
 
-After deployment, verify that PVCs are created and bound when MCP servers start:
+After deployment, verify that the Obot data PVC is created and bound:
 
 ```bash
 kubectl get pvc -A

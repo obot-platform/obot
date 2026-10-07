@@ -67,6 +67,46 @@ const config: Config = {
       {
         redirects: [
           {
+            from: "/next/agents/availability",
+            to: "/next/start-here/choose",
+          },
+          {
+            from: "/next/agents/first-agent",
+            to: "/next/start-here/govern",
+          },
+          {
+            from: "/next/agents/identity",
+            to: "/next/security/credentials",
+          },
+          {
+            from: "/next/agents/runtime",
+            to: "/next/installation/overview",
+          },
+          {
+            from: "/next/agents/workflows",
+            to: "/next/registries/publish-skills",
+          },
+          {
+            from: "/next/concepts/obot-agent",
+            to: "/next/start-here/choose",
+          },
+          {
+            from: "/next/functionality/obot-agent-management",
+            to: "/next/security/model",
+          },
+          {
+            from: "/next/functionality/workflow-sharing",
+            to: "/next/registries/publish-skills",
+          },
+          {
+            from: "/next/functionality/ai-judge-policies",
+            to: "/next/security/policy-coverage",
+          },
+          {
+            from: "/next/functionality/message-policies",
+            to: "/next/security/policy-coverage",
+          },
+          {
             from: "/functionality/mcp-registries",
             to: "/functionality/mcp-access-policies",
           },

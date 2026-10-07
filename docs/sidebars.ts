@@ -8,7 +8,7 @@ const sidebars = {
 			"label": "Start Here",
 			"link": {
 				"type": "doc",
-				"id": "start-here/choose"
+				"id": "start-here/connect"
 			},
 			"items": [
 				{
@@ -18,58 +18,23 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
-					"id": "start-here/choose",
-					"label": "Choose your starting point"
-				},
-				{
-					"type": "doc",
 					"id": "start-here/connect",
-					"label": "Connect to an existing Obot instance"
+					"label": "Connect to a vMCP"
 				},
 				{
 					"type": "doc",
 					"id": "start-here/govern",
-					"label": "Govern your first MCP server"
+					"label": "Create a vMCP"
+				},
+				{
+					"type": "doc",
+					"id": "start-here/choose",
+					"label": "Explore Obot"
 				},
 				{
 					"type": "doc",
 					"id": "enterprise/overview",
 					"label": "Editions and feature availability"
-				}
-			]
-		},
-		{
-			"type": "category",
-			"label": "Architecture",
-			"link": {
-				"type": "doc",
-				"id": "concepts/architecture"
-			},
-			"items": [
-				{
-					"type": "doc",
-					"id": "concepts/architecture",
-					"label": "Overview"
-				},
-				{
-					"type": "doc",
-					"id": "architecture/request-flows",
-					"label": "Request flows and trust boundaries"
-				},
-				{
-					"type": "doc",
-					"id": "architecture/identity-resources",
-					"label": "Resource ownership"
-				},
-				{
-					"type": "doc",
-					"id": "architecture/topologies",
-					"label": "Where Obot and MCP servers run"
-				},
-				{
-					"type": "doc",
-					"id": "architecture/data-lifecycle",
-					"label": "Data storage and lifecycle"
 				}
 			]
 		},
@@ -84,22 +49,7 @@ const sidebars = {
 				{
 					"type": "doc",
 					"id": "concepts/mcp-gateway",
-					"label": "Overview"
-				},
-				{
-					"type": "doc",
-					"id": "mcp-gateway/connect-clients",
-					"label": "Connect AI clients"
-				},
-				{
-					"type": "doc",
-					"id": "mcp-gateway/register-remote",
-					"label": "Add remote MCP servers"
-				},
-				{
-					"type": "doc",
-					"id": "concepts/mcp-hosting",
-					"label": "Add hosted MCP servers"
+					"label": "vMCP overview"
 				},
 				{
 					"type": "doc",
@@ -113,8 +63,23 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "mcp-gateway/connect-clients",
+					"label": "Connect AI clients"
+				},
+				{
+					"type": "doc",
 					"id": "mcp-gateway/access",
 					"label": "Control MCP access"
+				},
+				{
+					"type": "doc",
+					"id": "mcp-gateway/register-remote",
+					"label": "Add remote MCP servers"
+				},
+				{
+					"type": "doc",
+					"id": "concepts/mcp-hosting",
+					"label": "Add hosted MCP servers"
 				},
 				{
 					"type": "doc",
@@ -175,41 +140,6 @@ const sidebars = {
 					"type": "doc",
 					"id": "llm-gateway/troubleshooting",
 					"label": "Troubleshooting"
-				}
-			]
-		},
-		{
-			"type": "category",
-			"label": "Agents",
-			"link": {
-				"type": "doc",
-				"id": "agents/availability"
-			},
-			"items": [
-				{
-					"type": "doc",
-					"id": "agents/availability",
-					"label": "Overview"
-				},
-				{
-					"type": "doc",
-					"id": "agents/first-agent",
-					"label": "Run your first agent"
-				},
-				{
-					"type": "doc",
-					"id": "agents/identity",
-					"label": "Configure agent credentials"
-				},
-				{
-					"type": "doc",
-					"id": "agents/runtime",
-					"label": "Configure agent runtimes"
-				},
-				{
-					"type": "doc",
-					"id": "agents/workflows",
-					"label": "Workflows and scheduling"
 				}
 			]
 		},
@@ -398,6 +328,41 @@ const sidebars = {
 					"type": "doc",
 					"id": "operations/upgrades",
 					"label": "Upgrades and rollback"
+				}
+			]
+		},
+		{
+			"type": "category",
+			"label": "Architecture",
+			"link": {
+				"type": "doc",
+				"id": "concepts/architecture"
+			},
+			"items": [
+				{
+					"type": "doc",
+					"id": "concepts/architecture",
+					"label": "Overview"
+				},
+				{
+					"type": "doc",
+					"id": "architecture/request-flows",
+					"label": "Request flows and trust boundaries"
+				},
+				{
+					"type": "doc",
+					"id": "architecture/identity-resources",
+					"label": "Resource ownership"
+				},
+				{
+					"type": "doc",
+					"id": "architecture/topologies",
+					"label": "Where Obot and MCP servers run"
+				},
+				{
+					"type": "doc",
+					"id": "architecture/data-lifecycle",
+					"label": "Data storage and lifecycle"
 				}
 			]
 		},

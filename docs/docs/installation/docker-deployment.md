@@ -108,15 +108,6 @@ Open `http://localhost:8080/activate#token=<setup-token>` in your browser, subst
 
 The Local provider is configured automatically. Bootstrap-token login is disabled for this initial-owner setup. See [authentication configuration](../security/authentication.md) for setup-link expiration and [Local authentication](../configuration/auth-providers.md#local) for account management.
 
-## Workflow Sharing Storage
-
-For local Docker deployments:
-
-- The default local published-workflow store is usually sufficient
-- Keep the Obot data volume mounted if you want published workflows to survive container replacement
-
-If you want published workflows in Docker to use external object storage instead of local disk, configure the published workflow storage environment variables described in [Server Configuration](../configuration/server-configuration.md) and [Workflow Sharing](../agents/workflows.md).
-
 ## Next Steps
 
 1. **Configure Authentication**: Set up [auth providers](../security/authentication.md) for secure access

@@ -12,10 +12,8 @@ Roles determine platform capabilities. Resource policies and profiles determine 
 | [Model policies](../functionality/model-access-policies.md) | Accessible models | A configured provider alone does not grant model access |
 | [Skill policies](../registries/publish-skills.md) | Skill discovery and installation | Administrators bypass these grants; downloaded copies remain |
 | [Authorization scopes](../functionality/agent-auth-scopes.md) | Programmatic credential capabilities | Cannot exceed the owning user's access |
-| [AI Judge policies](../functionality/ai-judge-policies.md) | Supported user-message and tool-call content checks | Experimental; requires configured review models and compatible enforcement flow |
 | [Sentry allowlists](../device-management/enforcement.md) | Supported local client tool calls | Experimental; client coverage and fail-closed behavior apply |
 
-For content policies, consult the AI Judge Policies guide's exact enforcement flow. Do not assume that model-output signaling prevents every external client from executing a tool; device hooks and MCP tool authorization are separate controls.
 
 Use a regular test account with the intended group membership to verify grants. Review broadly matching profiles and policies before concluding a narrow rule is ineffective. [User management](./authentication.md) describes administrative account controls.
 
@@ -41,25 +39,23 @@ All Standard User permissions plus publishing custom MCP servers (personal use o
 
 ### Standard User {#user-roles-standard-user}
 
-Connect to MCP servers, use Obot Agent, and create conversations and workflows.
+Connect to approved MCP servers and use models granted through access policies.
 
 ### Auditor {#user-roles-auditor}
 
-Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies, conversations, and workflow runs) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
+Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
 
 ## Role Comparison {#user-roles-role-comparison}
 
 | Capability | Standard | Power | Power+ | Admin | Owner |
 |------------|-------|-------|--------|-------|-------|
 | Connect to MCP servers | Yes | Yes | Yes | Yes | Yes   |
-| Use Obot Agent | Yes | Yes | Yes | Yes | Yes   |
 | View Audit Logs | | Yes* | Yes* | Yes** | Yes** |
 | View Usage | | Yes* | Yes* | Yes | Yes   |
 | Publish personal MCP servers | | Yes | Yes | Yes | Yes   |
 | Share MCP servers through registries | | | Yes | Yes | Yes   |
 | Manage Filters | | | | Yes | Yes   |
 | Server Scheduling | | | | Yes | Yes   |
-| Obot Agent Management | | | | Yes | Yes   |
 | User Management | | | | Yes | Yes   |
 | App Preferences | | | | Yes | Yes   |
 | Assign Owner/Auditor roles | | | | | Yes   |

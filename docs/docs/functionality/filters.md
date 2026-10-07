@@ -17,7 +17,7 @@ Filters can be implemented in two ways:
 
 When you configure a filter, you can narrow when it runs using selectors that target particular tool calls or MCP (Model Context Protocol) tool functions.
 
-Filter implementations run outside the Obot process. Obot handles proxying, calls the filter, and enforces its response; the target MCP server does not host or enforce the filter. See the [gateway architecture](../concepts/mcp-gateway.md#gateway-architecture).
+Filter implementations run outside the Obot process. Obot handles proxying, calls the filter, and enforces its response; the target MCP server does not host or enforce the filter. See the [request flows and trust boundaries](../architecture/request-flows.md).
 
 
 ## How Filters Work {#how-filters-work}

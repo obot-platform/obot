@@ -17,13 +17,13 @@ test('current documentation navigation and direct loads', async ({ page }) => {
   }
   const categories = page.locator('.theme-doc-sidebar-menu > li');
   await expect(page.locator('.theme-doc-sidebar-menu > li > .menu__list-item-collapsible > a')).toHaveText([
-    'Start Here', 'Architecture', 'MCP Gateway', 'LLM Gateway', 'Agents',
-    'Registries & Skills', 'Device Management (Sentry)', 'Security & Governance', 'Deploy & Operate', 'Reference',
+    'Start Here', 'MCP Gateway', 'LLM Gateway',
+    'Registries & Skills', 'Device Management (Sentry)', 'Security & Governance', 'Deploy & Operate', 'Architecture', 'Reference',
   ]);
   for (let i = 0; i < await categories.count(); i++) await visit(categories.nth(i));
   // Cloud deployments is the only approved subgroup. Other references stay
   // in page content rather than additional catch-all navigation groups.
-  await expect(page.locator('.theme-doc-sidebar-menu .menu__list-item-collapsible')).toHaveCount(11);
+  await expect(page.locator('.theme-doc-sidebar-menu .menu__list-item-collapsible')).toHaveCount(10);
   const cloud = page.locator('.theme-doc-sidebar-menu > li > ul > li').filter({
     has: page.locator(':scope > .menu__list-item-collapsible > a', { hasText: 'Cloud deployments' }),
   });
@@ -87,11 +87,10 @@ test('released versions remain available', async ({ page }) => {
 
 test('category titles navigate and separate controls expand without navigating', async ({ page }) => {
   const destinations = [
-    ['Start Here', '/next/start-here/choose/'],
+    ['Start Here', '/next/start-here/connect/'],
     ['Architecture', '/next/concepts/architecture/'],
     ['MCP Gateway', '/next/concepts/mcp-gateway/'],
     ['LLM Gateway', '/next/llm-gateway/how-it-works/'],
-    ['Agents', '/next/agents/availability/'],
     ['Registries & Skills', '/next/registries/overview/'],
     ['Device Management (Sentry)', '/next/device-management/how-sentry-works/'],
     ['Security & Governance', '/next/security/model/'],

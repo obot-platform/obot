@@ -10,11 +10,11 @@ Administrators create shared vMCPs. A consumer of a shared vMCP does not need in
 
 To publish a shared endpoint:
 
-1. Register or select the catalog entries that provide its tools.
+1. Select existing servers from the catalog that provide the tools your users need.
 2. [Create a shared vMCP](./server-types.md#virtual-mcps-create-a-shared-vmcp-as-an-administrator) as an administrator and add those entries.
 3. Configure each component's values and select its exposed tools. Choose **Managed** when you need a fixed tool selection.
 4. Open **Profiles** and grant the intended users or groups access to the appropriate tools. Review broad and default grants.
-5. Test the connection, then send consumers its connection URL and the [connection quickstart](../start-here/connect.md).
+5. Test the connection, then send consumers its connection URL and the [Connect to a vMCP](../start-here/connect.md).
 
 For catalog publication and programmatic discovery, see [MCP catalogs](../concepts/mcp-registry.md), the [Registry API](../functionality/mcp-registry-api.md), and [Git-backed configuration](../configuration/mcp-server-gitops.md). Git catalogs can also publish vMCP definitions, including their configuration policies, tool selections, and profiles.
 

@@ -37,7 +37,7 @@ Once a provider is configured, you can view and manage the models it offers. You
 
 | Usage Type | Description | Application |
 |------------|-------------|-------------|
-| **Language Model** | Used to drive text generation and tool calls | Used in agents and tasks; can be set as an agent's primary model |
+| **Language Model** | Used to drive text generation and tool calls | Used by AI clients for text generation and tool calls |
 | **Text Embedding** | Converts text into numerical vectors | Used in the knowledge tool for RAG functionality |
 | **Image Generation** | Creates images from textual descriptions | Used by image generation tools |
 | **Vision** | Analyzes and processes visual data | Used by the image vision tool |

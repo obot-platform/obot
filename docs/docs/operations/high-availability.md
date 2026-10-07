@@ -6,7 +6,7 @@ High availability requires the Obot application, database, and storage to remain
 
 ## Application replicas and storage {#application-replicas-and-storage}
 
-The [Kubernetes deployment guide](../installation/kubernetes-deployment.md#high-availability) describes `replicaCount`, external PostgreSQL, and shared published-workflow storage. Use object storage or a ReadWriteMany Obot data volume when multiple replicas need the same artifacts. A shared ReadWriteOnce claim is not a multi-replica storage solution.
+The [Kubernetes deployment guide](../installation/kubernetes-deployment.md#high-availability) describes `replicaCount` and external PostgreSQL. If replicas need the same local files, use a ReadWriteMany Obot data volume. A shared ReadWriteOnce claim is not a multi-replica storage solution.
 
 ## Failure behavior {#failure-behavior}
 
@@ -20,12 +20,11 @@ Validate application restart, workload rescheduling, database availability, and 
 |---|---|
 | Obot replicas | Configure the Helm replica count, capacity, and ingress routing. Review pod placement so one node failure does not remove every replica. |
 | PostgreSQL | Use an external production database with its own availability and recovery plan. Additional Obot replicas do not replicate the database. |
-| Published workflow files | Use object storage or shared ReadWriteMany storage accessible to all Obot replicas. |
-| MCP and agent workloads | Assess their own restart behavior and persistent storage. More Obot replicas do not make each workload highly available. |
+| MCP workloads | Assess their own restart behavior and persistent storage. More Obot replicas do not make each workload highly available. |
 | Tunnel clients | Operate clients where they can reach the private service; test client and Obot replica loss. |
 
 ## Verify failover
 
-In a staging environment, establish a client connection and perform a read-only tool call. Replace an Obot pod, reconnect, and verify a new call and its audit record. Separately test database failover and access to a published workflow from each replica. Inspect failed in-flight requests; do not assume the gateway retries them.
+In a staging environment, establish a client connection and perform a read-only tool call. Replace an Obot pod, reconnect, and verify a new call and its audit record. Separately test database failover and access to any shared files from each replica. Inspect failed in-flight requests; do not assume the gateway retries them.
 
 For workload sizing, see [Capacity](./capacity.md). For recovery after data loss, see [Backup and recovery](./backup.md).

@@ -7,9 +7,9 @@ Use explicit image and chart versions for production upgrades. Review the target
 ## Prepare
 
 1. Record the current image digest/tag, chart version, values, and external dependencies.
-2. Read release notes and relevant [compatibility guidance](../reference/compatibility.md), including vMCP and agent feature transitions.
+2. Read release notes and relevant [compatibility guidance](../reference/compatibility.md), including vMCP transitions.
 3. Take and test an appropriate [backup](./backup.md).
-4. Rehearse the upgrade against a restored staging installation. Confirm authentication, representative gateway requests, audit records, artifacts, and agent persistence.
+4. Rehearse the upgrade against a restored staging installation. Confirm authentication, representative gateway requests, audit records, and any persistent files your deployment uses.
 
 ## Apply and verify
 

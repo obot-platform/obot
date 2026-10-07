@@ -31,7 +31,7 @@ For details on updating roles, see [User Roles](./policy-coverage.md#user-roles-
 
 Open **Identity & Access > Roles** to configure the default role assigned to new users. Choose from:
 
-- **Standard User**: Connect to MCP servers and use Obot Agent
+- **Standard User**: Connect to approved MCP servers
 - **Power User**: Standard User features plus publish personal MCP servers
 - **Power User Plus**: Power User features plus share MCP servers through registries
 - **Admin**: Full platform management

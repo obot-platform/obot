@@ -12,7 +12,7 @@ Use audit records to investigate individual requests and usage views to understa
 
 Estimated spend is not a provider invoice. In particular, Azure API-key deployments with custom names may report tokens without estimated spend because their deployment names cannot be matched to the pricing catalog. See [provider configuration](../configuration/model-providers.md#azure).
 
-MCP and LLM audit retention are configured independently. Export storage is also separate from published-workflow storage. Review [Audit data, privacy, and retention](../security/audit-data.md) before exporting sensitive fields.
+MCP and LLM audit retention are configured independently. Review [Audit data, privacy, and retention](../security/audit-data.md) before exporting sensitive fields.
 
 ## LLM Gateway Audit Logs {#audit-logs-and-usage-llm-gateway-audit-logs}
 

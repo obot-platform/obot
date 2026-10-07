@@ -17,6 +17,11 @@ export function escapeRegExp(value: string): string {
  */
 export const PATH_REDIRECTS: Record<string, string> = {
 	// Pages moved between versions
+	"agents/availability": "start-here/choose",
+	"agents/first-agent": "start-here/govern",
+	"agents/identity": "security/credentials",
+	"agents/runtime": "installation/overview",
+	"agents/workflows": "registries/publish-skills",
 	architecture: "concepts/architecture",
 
 	// concepts/admin/* — section removed; map to closest equivalents

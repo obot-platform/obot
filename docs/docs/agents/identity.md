@@ -1,4 +1,5 @@
 ---
+draft: true
 title: "Configure agent credentials"
 ---
 
@@ -8,7 +9,6 @@ Choose the credential setup for the agent experience you are using. Credentials 
 |---|---|
 | Obot Agent | The user signs in to Obot. An administrator configures model-provider credentials; the user completes required MCP connection configuration. |
 | External client or automation | Use the client's supported Obot OAuth flow or create an agent identity with a scoped API key. |
-| Hosted Agent | Obot issues an instance credential and supplies it to the sandbox for its configured gateway resources. Configure the template's additional secrets separately. |
 
 ## Obot Agent
 
@@ -31,14 +31,8 @@ For interactive MCP clients that support OAuth, follow [Connect AI clients](../m
 
 Deleting the identity's authorization scope invalidates its keys. See [Agent authorization scopes](../functionality/agent-auth-scopes.md) for key testing, expiration, and client examples.
 
-## Hosted Agents
-
-Before launching an instance, review its configured models, MCP resources, skills, repository access, and template inputs. Obot creates an instance credential and provides gateway credentials through the sandbox's configuration and secret files. An operator does not need to distribute a provider-wide API key merely to let the agent call configured gateway resources.
-
-Keep additional template secrets separate from ordinary instructions. The agent image must consume Obot's configuration and secret contract; a generic container image does not automatically use those credentials. See [Configure agent runtimes](./runtime.md) and the template's requirements.
-
 ## Shared and personal upstream credentials
 
-A hosted agent credential or client API key authenticates to Obot. The MCP component may still need a separate upstream credential. Use [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) to choose values shared by the vMCP or supplied by each connecting user.
+An Obot sign-in or client API key authenticates to Obot. The MCP component may still need a separate upstream credential. Use [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) to choose values shared by the vMCP or supplied by each connecting user.
 
 For credential storage protection and rotation, see [Encryption and secrets](../security/credentials.md).

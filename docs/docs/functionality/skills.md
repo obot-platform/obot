@@ -33,9 +33,9 @@ Continue to [Removing a Source](../registries/publish-skills.md#skills-removing-
 
 Continue to [Browsing Skills](../registries/publish-skills.md#skills-browsing-skills).
 
-## How Agents Use Skills {#how-agents-use-skills}
+## Use skills in an AI client {#how-agents-use-skills}
 
-Continue to [How Agents Use Skills](../registries/publish-skills.md#skills-how-agents-use-skills).
+Continue to [Use skills in an AI client](../registries/publish-skills.md#skills-how-agents-use-skills).
 
 ### Example Interaction {#example-interaction}
 

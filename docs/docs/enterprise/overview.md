@@ -31,12 +31,9 @@ Edition limits and runtime availability are separate. A license does not enable 
 | Capability | Additional requirement or status |
 |---|---|
 | MCP and LLM gateways, registries, and skills | Configure resources, credentials, and access policies for the intended users |
-| Obot Agent and workflows | Disabled on new installations unless `OBOT_ENABLE_AGENTS=true`; existing agent installations stay enabled when unset |
-| Hosted Agents | Requires `OBOT_SERVER_ENABLE_HOSTED_AGENTS=true` and a configured Kubernetes sandbox backend; no Docker backend exists |
 | Device Management | Beta; install and enroll Obot Sentry on supported devices |
 | Local tool-call enforcement | Experimental; only supported clients and identified tool calls are covered |
-| AI Judge Policies | Experimental; requires `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and configured review models |
 | Managed image pull secrets and Kubernetes secret bindings | Kubernetes MCP runtime required |
 | Domain-based MCP egress control | Kubernetes and a configured supported policy provider required |
 
-See [Agent availability](../agents/availability.md), [Device Management](../device-management/how-sentry-works.md), [AI Judge Policies](../functionality/ai-judge-policies.md), and [Server Configuration](../configuration/server-configuration.md) for the relevant constraints.
+See [Device Management](../device-management/how-sentry-works.md) and [Server Configuration](../configuration/server-configuration.md) for the relevant constraints.

@@ -6,11 +6,28 @@ title: "Platform overview"
 
 Obot connects AI clients and user devices with hosted services and external providers. It provides MCP and LLM gateways, hosting, identity and access control, audit logs, and MCP and Skills registries.
 
-![Obot Platform Architecture](/img/obot-platform-architecture.png)
+```mermaid
+flowchart LR
+    C[AI clients] --> M[MCP Gateway]
+    C --> L[LLM Gateway]
+    subgraph Obot Server
+        M --> V[vMCP endpoints]
+        R[MCP and Skills registries]
+        I[Identity and access control]
+        A[Audit logs]
+        L
+    end
+    V --> H[Hosted MCP servers]
+    V --> E[Remote MCP servers]
+    L --> P[Model providers]
+    S[Obot Sentry on user devices] --> A
+    M --> A
+    L --> A
+```
 
 ## Key Concepts
 
-- **MCP Clients**: Agents and applications that consume MCP tools, prompts, and resources, including desktop clients and Obot Agent.
+- **MCP Clients**: Agents and applications that consume MCP tools, prompts, and resources, including desktop clients and command-line tools.
 - **MCP Registry**: An index of MCP servers with metadata about how to run them and where to find them.
 - **MCP Gateway**: The proxy inside Obot that authenticates and authorizes requests, records audit data, invokes filters, enforces their responses, and forwards allowed traffic. See [MCP Gateway](./mcp-gateway.md).
 - **MCP Hosting**: Obot manages separate Docker containers or Kubernetes workloads for hosted servers. Remote servers remain on external infrastructure. See [MCP Hosting](./mcp-hosting.md).
@@ -83,8 +100,6 @@ Clients using an existing Obot token or MCP API key begin with authenticated req
 ## Data Persistence
 
 - **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment.
-- **Published Workflow Storage**: Optional S3, GCS, Azure Blob Storage, or S3-compatible storage for published workflows. If unset, Obot stores published workflows on local disk.
-- **Agent State**: Stores files and other data for Obot Agent. External volumes can provide persistence.
 
 ## Encryption
 

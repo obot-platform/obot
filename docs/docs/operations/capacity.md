@@ -12,7 +12,7 @@ See [High availability](./high-availability.md#application-replicas-and-storage)
 
 Use [scheduling configuration](./capacity.md#server-scheduling-configuration) and [MCP Kubernetes settings](../configuration/mcp-deployments-in-kubernetes.md) to configure affinity, tolerations, requests, limits, and maximums. Per-catalog resource requirements can override corresponding defaults. Each MCP deployment currently has one replica.
 
-Capacity depends on simultaneously active per-user deployments, shared servers, agents, request volume, and audit retention. Measure a representative workload; the installation guide's minimum CPU and memory are not a throughput guarantee. Review database connection-pool settings as replica count grows.
+Capacity depends on simultaneously active per-user deployments, shared servers, request volume, and audit retention. Measure a representative workload; the installation guide's minimum CPU and memory are not a throughput guarantee. Review database connection-pool settings as replica count grows.
 
 ## Failure behavior {#failure-behavior}
 

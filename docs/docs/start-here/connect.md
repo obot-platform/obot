@@ -1,24 +1,22 @@
 ---
-title: "Connect to an existing Obot instance"
+title: "Connect to a vMCP"
 ---
 
-Use this quickstart when your organization already has an Obot URL and has granted you access to a vMCP.
+Use a vMCP to connect your AI client to tools available through Obot. You can connect to one an administrator shared with you or one you created yourself. You do not need to create another endpoint or have access to a shared vMCP's source catalog entries.
 
-## Before you begin
+## Connect your client
 
-Ask your administrator for the Obot URL, a sign-in account, and the name or connection URL of an approved vMCP. Use an MCP client that supports streamable HTTP and OAuth, or one that can supply a Bearer token. You do not need model-provider credentials to connect to MCP tools.
+You need your organization's Obot URL, a sign-in account, and access to the vMCP. Use an MCP client that supports Streamable HTTP and OAuth, or follow the [API-key instructions](../mcp-gateway/connect-clients.md#clients-using-api-keys). MCP connections do not require model-provider credentials.
 
-## Connect and verify
+1. Sign in to Obot, open **vMCPs**, and select the vMCP you created or that your administrator shared.
+2. Select **Connect**. Use the provided client instructions or copy the **Connection URL**. It has the form `https://<obot-host>/mcp-connect/<vmcp-id>`.
+3. Add the URL to your AI client's MCP configuration and complete the Obot sign-in flow. Supply any requested connection values and authorize upstream services when prompted.
+4. Refresh the client's tool list and run a read-only tool. Confirm that it returns the expected result.
 
-1. Open Obot and sign in using its configured authentication provider.
-2. Open **vMCPs** and select the endpoint your administrator shared with you.
-3. Select **Connect**. Supply any requested connection configuration and authorize upstream services when prompted.
-4. Copy the connection URL or use the client instructions provided by Obot. The URL has the form `https://<obot-host>/mcp-connect/<vmcp-id>`.
-5. Add that URL to your AI client's MCP configuration and complete its Obot sign-in flow.
-6. Refresh the client's tool list and run a harmless read-only tool. Confirm that the expected tool is available and produces a result.
+If an endpoint or tool is missing, ask the administrator to check its selected tools and profile grants. For configuration changes, API keys, or connection errors, see [Connect AI clients](../mcp-gateway/connect-clients.md) and [Troubleshooting](../mcp-gateway/troubleshooting.md).
 
-A missing endpoint or tool can be an access-policy issue. Ask the administrator to check the vMCP's profiles and exposed tools; authenticating successfully does not grant additional access.
+## Next steps
 
-For clients that need an API key, follow [Connect AI clients](../mcp-gateway/connect-clients.md). For the Obot CLI and local bootstrap skills, follow [CLI setup](../reference/cli-api.md). CLI setup is optional for clients that connect directly through OAuth.
-
-For model access instead, follow [Connect clients and applications](../llm-gateway/connect-clients.md).
+- [Check the audit record](../mcp-gateway/connect-clients.md#check-the-audit-record) with an administrator or auditor.
+- [Create a vMCP](./govern.md) if you want to assemble your own endpoint from catalog servers.
+- Browse [Explore Obot](./choose.md) for model access, skills, and device management.

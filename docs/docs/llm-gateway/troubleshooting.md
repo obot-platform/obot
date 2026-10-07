@@ -35,7 +35,6 @@ For model discovery differences and client-specific settings, use [API compatibi
 
 An administrator should inspect the provider configuration, upstream credentials, requested model or deployment, and any upstream quota or rate-limit error. Check network access from Obot to the provider. Repeatedly changing the user's Obot key will not repair an invalid upstream credential.
 
-If a configured [AI Judge policy](../functionality/ai-judge-policies.md) blocks a request, inspect that policy's outcome before changing model grants. Policy enforcement and provider errors are different causes.
 
 ## Verify the repair
 

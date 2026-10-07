@@ -13,8 +13,6 @@ Release notes are maintained in [Obot's GitHub releases](https://github.com/obot
 | Local client inventory and enforcement coverage | [Device inventory](../device-management/inventory.md#supported-local-clients) and [enforcement](../device-management/enforcement.md) |
 | Legacy MCP endpoints and vMCP transition | [vMCP migration](../mcp-gateway/publish.md#virtual-mcps-gitops-and-migration) |
 | Git catalog formats and vMCP synchronization limits | [Git-backed configuration](../configuration/mcp-server-gitops.md) |
-| Agent flags and execution backends | [Agent availability](../agents/availability.md) |
-| Workflow installation/runtime requirements | [Workflow Sharing](../agents/workflows.md#workflow-sharing-installing-a-shared-workflow) |
 | Edition and feature availability | [Obot Editions](../enterprise/overview.md) |
 
 A documentation reorganization does not change release compatibility. Keep existing endpoints during the documented transition and test representative clients before deploying a new server version.

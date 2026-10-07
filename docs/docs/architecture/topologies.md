@@ -80,7 +80,7 @@ The tunnel client is not one of the MCP workloads Obot deploys. An admin chooses
 
 Kubernetes provides independently configurable pod security, network policy, and sandbox runtimes for hosted MCP workloads. Those controls do not configure the independently operated remote services or tunnel clients. See [MCP workload configuration](../configuration/mcp-deployments-in-kubernetes.md) and [Network and workload isolation](../security/isolation.md).
 
-For multiple Obot replicas, share the database and published-workflow storage. Agent workspaces and hosted-agent pool storage have separate requirements; a shared Obot data directory does not configure them automatically. See [Capacity and high availability](../operations/capacity.md), [Data storage and lifecycle](./data-lifecycle.md), and [Agent runtime](../agents/runtime.md).
+For multiple Obot replicas, use an external database and plan shared storage for any files the replicas must access. See [Capacity and high availability](../operations/capacity.md) and [Data storage and lifecycle](./data-lifecycle.md).
 
 ## Tunnel ownership and connection direction
 

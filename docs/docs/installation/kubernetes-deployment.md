@@ -14,8 +14,7 @@ For a complete list of all available Helm chart configuration values, see [chart
 
 - **Helm**
 - **PostgreSQL 17+**
-- **Object storage or a persistent volume for published workflows** (for production)
-- **StorageClass** (for production)
+- **StorageClass** (if using persistent volumes)
 - **Encryption provider** (AWS KMS, GCP KMS, or Azure Key Vault recommended)
 
 ### Minimum Cluster Requirements
@@ -50,14 +49,14 @@ ingress:
   hosts:
     - <your obot hostname>
 
-# This can be turned off because we are persisting data externally in PostgreSQL and S3
+# Disable local persistence only if no enabled feature needs files retained under /data
 persistence:
   enabled: false
 
-# In this example, we will be using S3 and AWS KMS for encryption.
+# In this example, we will be using AWS KMS for encryption.
 # Sensitive values must be configured under secret.
 secret:
-  # this should have IAM permissions for S3 and KMS
+  # this should have IAM permissions for KMS
   AWS_ACCESS_KEY_ID: <access key>
   AWS_SECRET_ACCESS_KEY: <secret key>
 
@@ -70,7 +69,7 @@ secret:
   # Point this to your postgres database
   OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
 
-  # Setting these is optional, but you'll need to setup a model provider from the Admin UI before using chat.
+  # Setting these is optional, but you'll need to setup a model provider from the Admin UI before using the LLM Gateway.
   # You can set either, neither or both.
   OPENAI_API_KEY: <openai api key>
   ANTHROPIC_API_KEY: <anthropic api key>
@@ -83,29 +82,16 @@ config:
   OBOT_SERVER_ENCRYPTION_PROVIDER: aws
   OBOT_AWS_KMS_KEY_ARN: <your kms arn>
 
-  # Store published workflows in external object storage
-  # Options are s3, azure, gcs, and custom
-  OBOT_ARTIFACT_STORAGE_PROVIDER: s3
-  OBOT_ARTIFACT_STORAGE_BUCKET: <artifact bucket name>
-  OBOT_ARTIFACT_S3_REGION: <aws region>
-
   OBOT_SERVER_HOSTNAME: <your obot hostname>
 ```
 
 ### High Availability
 
-To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and published workflow storage are required for HA.
+To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. Use an external PostgreSQL database with its own availability and recovery plan.
 
-For published workflow storage in HA, use one of these:
+If enabled features require shared files under `/data`, configure a `ReadWriteMany` volume accessible to every replica. A shared `ReadWriteOnce` claim is not a multi-replica storage solution. See [Persistent Storage](./kubernetes-persistent-storage.md) and [High availability](../operations/high-availability.md).
 
-- External object storage such as S3, GCS, Azure Blob Storage, or an S3-compatible service
-- The `persistence` PVC with `ReadWriteMany` access so all replicas can share `/data`
-
-For detailed configuration options, see:
-
-- **[Server Configuration](../configuration/server-configuration.md)** - All available environment variables, including published workflow storage configuration
-- **[Workflow Sharing](../agents/workflows.md)** - How shared workflows work and how to configure their storage
-- **[Encryption Providers](../configuration/encryption-providers/aws-kms.md)** - KMS encryption setup
+For configuration options, see [Server Configuration](../configuration/server-configuration.md) and [Encryption Providers](../configuration/encryption-providers/aws-kms.md).
 
 ## Cloud-Specific Guides
 
@@ -159,74 +145,6 @@ For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../con
 The [Network Policy for MCP Servers](./kubernetes-deployment.md#network-policy-for-mcp-servers) above restricts the **MCP server pods**. It does not restrict the **Obot server** itself, which makes its own outbound connections as part of normal operation. In multi-tenant deployments or deployments with untrusted users, you may want to constrain which destinations the Obot server can reach, as a defense-in-depth measure.
 
 If you want to constrain the Obot server's egress as a defense-in-depth measure, scope it tightly to your specific deployment — there is no safe blanket blocklist. Depending on your setup, the Obot server legitimately needs to reach private ranges (its database and in-cluster services such as a self-hosted model provider or the MCP namespace) and, with some cloud authentication methods, the cloud instance metadata endpoint (`169.254.169.254`), where it obtains credentials for integrations such as KMS.
-
-## Agent Persistence
-
-By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, configure a persistent `StorageClass`.
-
-For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](./kubernetes-persistent-storage.md).
-
-## Workflow Sharing in Kubernetes
-
-If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at `/data/.local/share/obot/published-artifacts`.
-
-The Helm chart's `persistence` PVC mounts at `/data`, so it covers that path.
-
-### Use the Existing Persistence Claim
-
-Use this when you do not want S3, GCS, Azure Blob Storage, or another object store for published workflows.
-
-If you disable `persistence`, published workflow artifacts remain on pod-local disk and will be lost when the pod is replaced.
-
-For a single Obot replica:
-
-- Enable `persistence`
-- Use `ReadWriteOnce` as the access mode
-- This is appropriate for `replicaCount: 1`
-- A block-storage-backed `StorageClass` such as EBS, PD, or Azure Disk is typically fine
-
-For multiple Obot replicas:
-
-- Enable `persistence`
-- Use `ReadWriteMany` as the access mode
-- All replicas must mount the same `/data` volume concurrently
-- This requires a shared filesystem-backed `StorageClass`, such as NFS
-- A single shared `ReadWriteOnce` claim is not a valid multi-replica setup
-
-Example using dynamic provisioning for a single replica:
-
-```yaml
-replicaCount: 1
-
-config:
-  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
-  OBOT_ARTIFACT_STORAGE_BUCKET: ""
-
-persistence:
-  enabled: true
-  storageClass: gp3
-  accessModes:
-    - ReadWriteOnce
-  size: 10Gi
-```
-
-Example using an existing RWX claim for multiple replicas:
-
-```yaml
-replicaCount: 2
-
-config:
-  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
-  OBOT_ARTIFACT_STORAGE_BUCKET: ""
-
-persistence:
-  enabled: true
-  existingClaim: obot-data-rwx
-```
-
-The `obot-data-rwx` claim itself must be provisioned with `ReadWriteMany`.
-
-For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](./kubernetes-persistent-storage.md).
 
 ## Next Steps
 

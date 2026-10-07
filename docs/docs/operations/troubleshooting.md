@@ -11,7 +11,7 @@ Start with the component that failed. Record the time, affected user, endpoint, 
 | Obot is unreachable | Container/pod state, ingress/TLS, and `/api/healthz` |
 | Sign-in fails | [Authentication troubleshooting](../configuration/auth-providers.md#enabling-authentication-troubleshooting) |
 | Hosted MCP pod does not start | Pod events, resource capacity, admission policy, and [image pull secrets](../configuration/image-pull-secrets.md#troubleshooting) |
-| Workspace PVC stays pending | [Persistent storage validation](../installation/kubernetes-persistent-storage.md#validation) |
+| Obot data PVC stays pending | [Persistent storage validation](../installation/kubernetes-persistent-storage.md#validation) |
 | Remote MCP call fails | [Gateway troubleshooting](../mcp-gateway/troubleshooting.md) |
 | Domain allowlist does not apply | [Egress provider verification](../configuration/mcp-server-egress-control.md#verify-the-setup) |
 | Model call fails | Model policy, provider credentials, exact model identifier, and [LLM troubleshooting](../llm-gateway/troubleshooting.md) |

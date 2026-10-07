@@ -12,6 +12,8 @@ The Obot documentation site is built with Docusaurus 3 and published at [docs.ob
 
 Make ordinary documentation changes in `docs/`. Treat files in `versioned_docs/` as release snapshots and only backport corrections that would otherwise mislead users of that release.
 
+Keep unfinished guides in their normal locations under `docs/` with `draft: true` in their YAML frontmatter. Docusaurus shows drafts during local development and excludes them from production builds. Leave drafts out of `sidebars.ts` until they are ready to publish.
+
 ## Local development
 
 Run all `make` commands from the root of the Obot repository, not from this `docs/` directory.

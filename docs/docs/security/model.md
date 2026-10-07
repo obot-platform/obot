@@ -8,7 +8,7 @@ Obot applies controls at the gateway, identity, workload, and device boundaries.
 |---|---|
 | Identity | Configure authentication and grant appropriate roles and resource access |
 | Gateway | Route clients through Obot to apply MCP/model access checks and record gateway activity |
-| Hosted code | Isolate packages, containers, filters, and agents on the execution backend |
+| Hosted code | Isolate packages, containers, and filters on the execution backend |
 | Remote services | Evaluate upstream authentication and service behavior; Obot does not host that code |
 | User devices | Install and maintain Sentry hooks for supported auditing/enforcement coverage |
 | Stored data | Configure field encryption, storage access, retention, exports, and backups |
@@ -29,7 +29,7 @@ The MCP Platform adapts its navigation and available features based on your assi
 
 ### Standard User {#overview-standard-user}
 
-Standard Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via Obot Agent or external MCP clients but cannot publish or manage servers.
+Standard Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via external MCP clients but cannot publish or manage servers.
 
 ### Power User {#overview-power-user}
 
@@ -41,7 +41,7 @@ Power Users+ include all Power User capabilities and can additionally publish MC
 
 ### Admin / Owner {#overview-admin--owner}
 
-Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and Obot Agent administration.
+Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and gateway administration.
 
 Owners can assign the **Owner** and **Auditor** roles; Admins cannot. For more information, see the [Auditor Role](./policy-coverage.md#user-roles-auditor).
 
@@ -57,10 +57,7 @@ Owners can assign the **Owner** and **Auditor** roles; Admins cannot. For more i
 - [Skills](../registries/publish-skills.md) - Manage skill sources and browse discoverable skills for agents
 - [Skill Access Policies](../registries/publish-skills.md) - Control which users and groups can access which skills
 - [Device Management](../device-management/how-sentry-works.md) - Inventory local AI clients, MCP servers, skills, and plugins, audit local tool calls, and enforce tool call allowlists
-- [Obot Agent Management](../agents/first-agent.md) - Configure default agent, conversation, and workflow settings, and monitor activity
-- [AI Judge Policies](../functionality/ai-judge-policies.md) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](./authentication.md) - Manage users, roles, and authentication
 - [Agent Authorization Scopes](../functionality/agent-auth-scopes.md) - Create and manage agent authorization scopes for programmatic Obot access
 - [Branding](../functionality/branding.md) - Customize theme colors and branding
-- [Workflow Sharing](../agents/workflows.md) - Publish, discover, install, and operate shared workflows
 - [User Roles](./policy-coverage.md) - Detailed permissions and role definitions

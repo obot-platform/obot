@@ -9,7 +9,7 @@ The Helm chart reference is published at [charts.obot.ai](https://charts.obot.ai
 |---|---|
 | Obot replicas, ingress, secrets, and environment | [Kubernetes Deployment](../installation/kubernetes-deployment.md) |
 | MCP namespace, pod security, resources, and RuntimeClass | [MCP Servers in Kubernetes](../configuration/mcp-deployments-in-kubernetes.md) |
-| Obot data volume and agent workspace StorageClasses | [Persistent Storage](../installation/kubernetes-persistent-storage.md) |
+| Obot data volume and StorageClass | [Persistent Storage](../installation/kubernetes-persistent-storage.md) |
 | Private image registries | [Image Pull Secrets](../configuration/image-pull-secrets.md) |
 | Domain egress provider | [MCP Server Egress Control](../configuration/mcp-server-egress-control.md) |
 | Encryption providers | [Encryption](../security/credentials.md) |

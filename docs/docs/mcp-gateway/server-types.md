@@ -2,11 +2,43 @@
 title: "Create vMCP"
 ---
 
-Define a server in the catalog, then add it to a vMCP and choose how its configuration values are supplied. The catalog entry describes how a hosted server runs or where a remote server is located. The vMCP is where you decide which values are shared and which each connecting user provides.
+Build a vMCP from the MCP servers already available in your catalog. Select one or more servers, choose the tools to expose, and connect your AI client through one URL. Administrators can share vMCPs with users and groups; other users can create personal vMCPs for themselves.
+
+For a first walkthrough, follow [Create a vMCP](../start-here/govern.md).
 
 ## Prerequisites {#define-the-catalog-entry}
 
-vMCPs are built from existing catalog entries. Before creating one, make sure the required servers are available in **MCP Servers**. See [Hosted MCP servers](../concepts/mcp-hosting.md) or [Register remote servers](./register-remote.md) to add missing entries. A personal vMCP's owner must have access to the entries they use.
+Choose servers available in **MCP Servers** and have any required service credentials ready. A personal vMCP's owner must have access to the entries they use. If a server is missing, an administrator can [add a remote server](./register-remote.md) or [add a hosted server](../concepts/mcp-hosting.md) first.
+
+## Create a shared vMCP as an administrator {#virtual-mcps-create-a-shared-vmcp-as-an-administrator}
+
+1. Open **vMCPs** and select **Create vMCP**.
+2. Drag an MCP server from the **MCP Servers** panel onto the vMCP. Repeat to add more components.
+3. Enter a name and description, then select **Create**.
+4. For each component, choose how every configuration field is supplied. See [Configuration policies](./server-types.md#virtual-mcps-configuration-policies).
+5. Choose **Managed** in the **Add Tools** dialog to discover and select the component's exposed tools. You can disable tools, rename them, change their descriptions, or add a prefix to avoid name collisions. **As-is** instead passes through the upstream tools and definitions, including future changes, without discovery during setup.
+6. Open **Profiles** and replace or refine the default access grant. Assign users, groups, or **All Obot Users**, then choose the tools that profile grants.
+7. Connect to or test the vMCP after its components are ready.
+
+:::note
+
+A new administrator-created shared vMCP includes a default profile that grants all administrators access to every component. Administrators can replace or refine this profile to grant access to other users or groups. A personal vMCP remains accessible only to its owner.
+
+:::
+
+Profiles are grant-only and additive. If a user matches several profiles, Obot combines their tool grants. A narrower profile cannot deny a tool granted by another matching profile, so review broad profiles when troubleshooting unexpected access.
+
+## Create a personal vMCP as a user {#virtual-mcps-create-a-personal-vmcp-as-a-user}
+
+1. Open **vMCPs** and select **Create vMCP**.
+2. Drag MCP servers available to you from the **MCP Servers** panel onto the vMCP.
+3. Enter a name and description, then select **Create**.
+4. Choose the configuration policy and exposed tools for each component.
+5. Select **Connect** to configure and launch your connection.
+
+The personal vMCP is accessible only by its owner, and the owner has no **Profiles** view. Selecting **Provided at connection** prompts the owner for that value when connecting.
+
+If the owner later loses access to a selected MCP server, Obot removes that component and its component-specific configuration from the personal vMCP. If no components remain, Obot removes the personal vMCP and its instance. Deleting a source catalog entry is different: its existing snapshot can continue to run as described in [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
 
 ## How vMCPs work {#virtual-mcps-how-vmcps-work}
 
@@ -42,36 +74,6 @@ The creator's role determines the scope of a new vMCP.
 | Typical use | Publish a governed tool endpoint for a team or organization | Assemble a private endpoint from servers available to the user |
 
 Only administrators can create a vMCP that other users can consume. Any user who can access catalog entries can use them in a personal vMCP, but non-administrators cannot publish that vMCP to other users or groups.
-
-### Create a shared vMCP as an administrator {#virtual-mcps-create-a-shared-vmcp-as-an-administrator}
-
-1. Open **vMCPs** and select **Create vMCP**.
-2. Drag an MCP server from the **MCP Servers** panel onto the vMCP. Repeat to add more components.
-3. Enter a name and description, then select **Create**.
-4. For each component, choose how every configuration field is supplied. See [Configuration policies](./server-types.md#virtual-mcps-configuration-policies).
-5. Choose **Managed** in the **Add Tools** dialog to discover and select the component's exposed tools. You can disable tools, rename them, change their descriptions, or add a prefix to avoid name collisions. **As-is** instead passes through the upstream tools and definitions, including future changes, without discovery during setup.
-6. Open **Profiles** and replace or refine the default access grant. Assign users, groups, or **All Obot Users**, then choose the tools that profile grants.
-7. Connect to or test the vMCP after its components are ready.
-
-:::note
-
-A new administrator-created shared vMCP includes a default profile that grants all administrators access to every component. Administrators can replace or refine this profile to grant access to other users or groups. A personal vMCP remains accessible only to its owner.
-
-:::
-
-Profiles are grant-only and additive. If a user matches several profiles, Obot combines their tool grants. A narrower profile cannot deny a tool granted by another matching profile, so review broad profiles when troubleshooting unexpected access.
-
-### Create a personal vMCP as a user {#virtual-mcps-create-a-personal-vmcp-as-a-user}
-
-1. Open **vMCPs** and select **Create vMCP**.
-2. Drag MCP servers available to you from the **MCP Servers** panel onto the vMCP.
-3. Enter a name and description, then select **Create**.
-4. Choose the configuration policy and exposed tools for each component.
-5. Select **Connect** to configure and launch your connection.
-
-The personal vMCP is accessible only by its owner, and the owner has no **Profiles** view. Selecting **Provided at connection** prompts the owner for that value when connecting.
-
-If the owner later loses access to a selected MCP server, Obot removes that component and its component-specific configuration from the personal vMCP. If no components remain, Obot removes the personal vMCP and its instance. Deleting a source catalog entry is different: its existing snapshot can continue to run as described in [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
 
 ## Choose how values are supplied
 

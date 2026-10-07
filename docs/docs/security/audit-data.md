@@ -2,7 +2,7 @@
 title: "Audit data and retention"
 ---
 
-Audit records, device inventories, product analytics, and workflow artifacts have different purposes and access rules.
+Audit records, device inventories, and product analytics have different purposes and access rules.
 
 | Data | Guidance |
 |---|---|
@@ -23,7 +23,7 @@ Product-analytics consent is separate from update checks. See the analytics guid
 The MCP Platform provides visibility into MCP and LLM gateway activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers and LLM gateway models are being used.
 
 :::info Auditor Role
-Sensitive data (MCP request/response bodies, conversations, and workflow runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](./policy-coverage.md#user-roles-auditor) for details.
+Sensitive data (MCP request/response bodies) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](./policy-coverage.md#user-roles-auditor) for details.
 :::
 
 ## MCP Audit Logs {#audit-logs-and-usage-mcp-audit-logs}

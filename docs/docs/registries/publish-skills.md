@@ -9,7 +9,7 @@ A skill is a directory containing `SKILL.md` and optional supporting files in a 
 3. Add the repository as a [skill source](./publish-skills.md#skills-skill-sources), choosing its branch, tag, or commit where needed.
 4. Check synchronization status and validation warnings. Sources sync hourly and can be refreshed manually.
 5. Create a [skill access policy](./publish-skills.md#skill-access-policies-managing-policies) granting the intended users or groups access to the skill or source.
-6. Have a permitted user discover and install it through an agent's skill tools. For local clients, complete [Obot CLI setup](../reference/cli-api.md) and use the installed Obot bootstrap skill.
+6. Have a permitted user complete [Obot CLI setup](../reference/cli-api.md), then discover and install the skill into their local AI client using the Obot CLI or bootstrap skill.
 
 Test discovery as a regular user: administrators can see all skills regardless of access policies. Removing a source or grant prevents future discovery through Obot but does not erase copies already downloaded to clients.
 
@@ -81,29 +81,17 @@ Skills in this view are read-only. Their content is managed in the source git re
 Skills that fail validation (for example, due to a malformed `SKILL.md`) still appear in the list but are marked with a warning icon and a description of the validation error.
 :::
 
-## How Agents Use Skills {#skills-how-agents-use-skills}
+## Use skills in an AI client {#skills-how-agents-use-skills}
 
-When agents are running in Obot, they have built-in tools for working with skills:
-
-- **Search skills** — Agents can search the skill catalog to find skills matching a query. Only skills the current user has access to (based on [skill access policies](./publish-skills.md#skill-access-policies-managing-policies)) are returned.
-- **Install a skill** — Agents can download and install a skill from the catalog. If a skill with the same name is already installed, the agent asks for confirmation before overwriting it.
-- **List installed skills** — Agents can see all skills currently available to them, including both built-in skills and user-installed ones.
-- **Use a skill** — Once installed, an agent can read and follow the skill's instructions during a conversation.
-
-Agents also come with a small set of built-in skills (such as workflow management and Python scripting) that are always available without installation.
+Complete [Obot CLI setup](../reference/cli-api.md) to install the Obot bootstrap skill for your client. It teaches the client how to discover and install approved skills through Obot. Available skills depend on the signed-in user's [skill access policies](./publish-skills.md#skill-access-policies-managing-policies).
 
 ### Example Interaction {#skills-example-interaction}
 
-A typical skill workflow in chat looks like:
+1. Ask your local AI client to find a code review skill using Obot.
+2. Review the matching skills and choose one to install.
+3. Ask the client to review code using the installed skill.
 
-1. A user asks the agent to find and install a code review skill
-2. The agent searches for a relevant skill (e.g., a "code-review" skill)
-3. The agent installs the skill
-4. The user asks the agent to review some code
-5. The agent loads the skill and follows its instructions during the code review
-
-Once installed, a skill remains available for future conversations without needing to be installed again.
-Skills are installed at the agent level, so they are available in all conversation threads.
+Installed files live in the selected client's skill directory. How and when the client loads them depends on that client's skill support. See [CLI setup](../reference/cli-api.md) for installation targets and commands.
 
 ## Access Control {#skills-access-control}
 
@@ -166,7 +154,7 @@ Click any policy in the list to view and modify its name, users and groups, or s
 
 Deleting a policy removes skill access for the affected users. If a user loses access to all skills as a result, agents acting on their behalf will no longer be able to search for or install skills until another policy grants them access.
 
-Skills that were already installed before losing access remain available in the agent session.
+Skills that were already installed before losing access remain on the client until removed locally.
 
 ## Example: Data Science Team {#skill-access-policies-example-data-science-team}
 

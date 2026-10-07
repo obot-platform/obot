@@ -1,8 +1,9 @@
 ---
+draft: true
 title: Run your first agent
 ---
 
-Choose the workload first. This walkthrough uses **Obot Agent**, the built-in chat and workflow experience. Hosted Agents use separate templates and Kubernetes sandboxes; see [Supported workloads](./availability.md).
+This walkthrough uses **Obot Agent**, the built-in chat and workflow experience. Check its [availability requirements](./availability.md#availability-and-prerequisites) before you begin.
 
 ## Prerequisites
 
