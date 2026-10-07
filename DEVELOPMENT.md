@@ -111,6 +111,12 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
 
+## Pull Requests and Issues
+
+When a pull request addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so the two are linked.
+
+Do **not** use GitHub's [auto-close keywords](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) in front of the issue reference. Only QA closes issues, after verifying the change, so merging a PR should not close the issue automatically.
+
 ## Running Obot Locally with Kubernetes (Nanobot Agents)
 
 Nanobot agent containers run in Kubernetes and need to reach your local Obot process. This requires [Telepresence](https://www.telepresence.io/) to bridge the network between your Mac and the cluster.
