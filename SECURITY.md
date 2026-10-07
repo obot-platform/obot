@@ -43,7 +43,7 @@ Avoid privacy violations, service degradation, or data destruction. Only test ag
 
 ## Receiving Fixes
 Security fixes are shipped in patch releases. Upgrade to the latest patch of supported versions.  
-We publish GitHub security advisories for vulnerabilities we rate medium severity or higher.
+We may issue public advisories (GHSA/CVE) when appropriate.
 
 ## Credits
 With permission, we credit reporters in release notes.
