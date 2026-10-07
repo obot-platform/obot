@@ -747,7 +747,7 @@ func TestSignInRecordsTheFirstSignInOnce(t *testing.T) {
 			ProviderUserID:        "quinn",
 			Email:                 "quinn@example.com",
 		}
-		if _, err := c.EnsureIdentity(ctx, identity, "", UserLimit{Unlimited: true}); err != nil {
+		if _, err := c.EnsureIdentity(ctx, identity, "", SystemLimit{Unlimited: true}); err != nil {
 			t.Fatalf("failed to sign in: %v", err)
 		}
 		return storedIdentity(t, c, provider, "quinn")
@@ -778,7 +778,7 @@ func TestSignInRecordsTheFirstSignInOfAnExistingIdentity(t *testing.T) {
 		ProviderUsername:      "rosa",
 		ProviderUserID:        "00u-rosa",
 		Email:                 "rosa@example.com",
-	}, "", UserLimit{Unlimited: true})
+	}, "", SystemLimit{Unlimited: true})
 	if err != nil {
 		t.Fatalf("failed to sign in: %v", err)
 	}
@@ -805,7 +805,7 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 		ProviderUsername:      "sam",
 		ProviderUserID:        "00u-sam",
 		Email:                 "sam@example.com",
-	}, "", UserLimit{Unlimited: true})
+	}, "", SystemLimit{Unlimited: true})
 	if err != nil {
 		t.Fatalf("failed to sign in: %v", err)
 	}
@@ -829,7 +829,7 @@ func TestSignInCreatesAUserWithTheExplicitRoleOfTheAssertedEmail(t *testing.T) {
 		ProviderUsername:      "owner",
 		ProviderUserID:        "00u-owner",
 		Email:                 "owner@example.com",
-	}, "", UserLimit{
+	}, "", SystemLimit{
 		Unlimited: true,
 	})
 	if err != nil {
@@ -856,7 +856,7 @@ func TestSignInThatRaisesARoleRecordsAReconcileEvent(t *testing.T) {
 			ProviderUsername:      "tara",
 			ProviderUserID:        "00u-tara",
 			Email:                 "tara@example.com",
-		}, "", UserLimit{Unlimited: true}); err != nil {
+		}, "", SystemLimit{Unlimited: true}); err != nil {
 			t.Fatalf("failed to sign in: %v", err)
 		}
 	}
@@ -1024,8 +1024,8 @@ func TestUserDecoratorRecordsTheUsersStatusOverAnyProviderValue(t *testing.T) {
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Unlimited: true}, nil
+		userLimitProviderFunc(func(context.Context) (SystemLimit, error) {
+			return SystemLimit{Unlimited: true}, nil
 		}),
 	)
 
@@ -1074,8 +1074,8 @@ func TestUserDecoratorFailsWhenItCannotReadTheUser(t *testing.T) {
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Unlimited: true}, nil
+		userLimitProviderFunc(func(context.Context) (SystemLimit, error) {
+			return SystemLimit{Unlimited: true}, nil
 		}),
 	)
 
@@ -1199,7 +1199,7 @@ func TestADeniedSignInIsNotRecordedAsASignIn(t *testing.T) {
 			ProviderUsername:      "yuri",
 			ProviderUserID:        "00u-yuri",
 			Email:                 "yuri@example.com",
-		}, "", UserLimit{Unlimited: true})
+		}, "", SystemLimit{Unlimited: true})
 		if err != nil {
 			t.Fatalf("failed to sign in: %v", err)
 		}

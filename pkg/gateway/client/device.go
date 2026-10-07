@@ -17,16 +17,9 @@ const (
 	deviceCreationAdvisoryLockID int64 = 0x6f626f7444657669 // "obotDevi"
 )
 
-// DeviceLimit describes the maximum number of devices an installation may have.
-// Maximum is ignored when Unlimited is true.
-type DeviceLimit struct {
-	Maximum   int64
-	Unlimited bool
-}
-
 // DeviceLimitProvider resolves the current license-derived device limit.
 type DeviceLimitProvider interface {
-	DeviceLimit(context.Context) (DeviceLimit, error)
+	DeviceLimit(context.Context) (SystemLimit, error)
 }
 
 // DeviceEnrollment is the input to enrolling (or re-enrolling) a device.
@@ -45,7 +38,7 @@ type DeviceEnrollment struct {
 //   - same device, same key      -> reactivate and rebind to the configuration
 //   - same device, different key  -> rejected (anti-takeover)
 //   - new device                  -> created
-func (c *Client) EnrollDevice(ctx context.Context, in DeviceEnrollment, deviceLimit DeviceLimit) (*types.Device, error) {
+func (c *Client) EnrollDevice(ctx context.Context, in DeviceEnrollment, deviceLimit SystemLimit) (*types.Device, error) {
 	if !deviceLimit.Unlimited {
 		var existing types.Device
 		err := c.db.WithContext(ctx).Where("device_id = ?", in.DeviceID).First(&existing).Error
@@ -66,7 +59,7 @@ func (c *Client) EnrollDevice(ctx context.Context, in DeviceEnrollment, deviceLi
 	return c.enrollDevice(ctx, in, deviceLimit)
 }
 
-func (c *Client) enrollDevice(ctx context.Context, in DeviceEnrollment, deviceLimit DeviceLimit) (*types.Device, error) {
+func (c *Client) enrollDevice(ctx context.Context, in DeviceEnrollment, deviceLimit SystemLimit) (*types.Device, error) {
 	var device types.Device
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing types.Device

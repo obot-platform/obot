@@ -11,7 +11,7 @@ import (
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 )
 
-func enrollDeviceLimitTestDevice(ctx context.Context, c *Client, deviceID string, deviceLimit DeviceLimit) error {
+func enrollDeviceLimitTestDevice(ctx context.Context, c *Client, deviceID string, deviceLimit SystemLimit) error {
 	_, err := c.EnrollDevice(ctx, DeviceEnrollment{
 		DeviceID:           deviceID,
 		MDMConfigurationID: 1,
@@ -36,7 +36,7 @@ func requireDeviceLimitForbiddenError(t *testing.T, err error) {
 func TestEnrollDeviceEnforcesDeviceLimit(t *testing.T) {
 	const maximum = 2
 	c := newTestClient(t)
-	deviceLimit := DeviceLimit{Maximum: maximum}
+	deviceLimit := SystemLimit{Maximum: maximum}
 
 	for i := 1; i <= maximum; i++ {
 		if err := enrollDeviceLimitTestDevice(t.Context(), c, fmt.Sprintf("device-%d", i), deviceLimit); err != nil {
@@ -58,7 +58,7 @@ func TestEnrollDeviceEnforcesDeviceLimit(t *testing.T) {
 
 func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 	c := newTestClient(t)
-	unlimited := DeviceLimit{Unlimited: true}
+	unlimited := SystemLimit{Unlimited: true}
 
 	for i := 1; i <= 2; i++ {
 		if err := enrollDeviceLimitTestDevice(t.Context(), c, fmt.Sprintf("device-%d", i), unlimited); err != nil {
@@ -73,7 +73,7 @@ func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 		Hostname:           "updated-host",
 		OS:                 "darwin",
 		OSVersion:          "42",
-	}, DeviceLimit{Maximum: 1})
+	}, SystemLimit{Maximum: 1})
 	if err != nil {
 		t.Fatalf("re-enrolling existing device while over limit: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 		DeviceID:           "device-1",
 		MDMConfigurationID: 2,
 		PublicKey:          []byte("different-key"),
-	}, DeviceLimit{Maximum: 1})
+	}, SystemLimit{Maximum: 1})
 	if err == nil {
 		t.Fatal("re-enrolling existing device with a different key succeeded")
 	}
@@ -93,7 +93,7 @@ func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 		t.Fatalf("different-key error = HTTP %d, want identity-key error", httpErr.Code)
 	}
 
-	err = enrollDeviceLimitTestDevice(t.Context(), c, "device-3", DeviceLimit{Maximum: 1})
+	err = enrollDeviceLimitTestDevice(t.Context(), c, "device-3", SystemLimit{Maximum: 1})
 	requireDeviceLimitForbiddenError(t, err)
 
 	count, err := c.DeviceCount(t.Context())
@@ -107,7 +107,7 @@ func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 
 func TestEnrollDeviceAllowsUnlimitedDevices(t *testing.T) {
 	c := newTestClient(t)
-	deviceLimit := DeviceLimit{Maximum: 1, Unlimited: true}
+	deviceLimit := SystemLimit{Maximum: 1, Unlimited: true}
 
 	for i := 1; i <= 3; i++ {
 		if err := enrollDeviceLimitTestDevice(t.Context(), c, fmt.Sprintf("device-%d", i), deviceLimit); err != nil {
@@ -126,7 +126,7 @@ func TestEnrollDeviceAllowsUnlimitedDevices(t *testing.T) {
 
 func TestDeviceCountIsGlobal(t *testing.T) {
 	c := newTestClient(t)
-	deviceLimit := DeviceLimit{Unlimited: true}
+	deviceLimit := SystemLimit{Unlimited: true}
 
 	for i, configurationID := range []uint{1, 2, 2} {
 		_, err := c.EnrollDevice(t.Context(), DeviceEnrollment{
@@ -154,7 +154,7 @@ func TestEnrollDeviceEnforcesDeviceLimitConcurrently(t *testing.T) {
 		attempts = 8
 	)
 	c := newTestClient(t)
-	deviceLimit := DeviceLimit{Maximum: maximum}
+	deviceLimit := SystemLimit{Maximum: maximum}
 
 	start := make(chan struct{})
 	errorsByAttempt := make(chan error, attempts)

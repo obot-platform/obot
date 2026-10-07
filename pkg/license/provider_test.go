@@ -482,6 +482,61 @@ func TestUpdateClearsEntitlementsWhenKeygenRejectsLicense(t *testing.T) {
 	}
 }
 
+func TestAuditLogRetentionLimitFailsWithoutValidLicense(t *testing.T) {
+	var unavailable, rejecting atomic.Bool
+	unavailable.Store(true)
+	server := newTestKeygenServer(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.URL.Path != "/v1/me" {
+			return false
+		}
+		switch {
+		case unavailable.Load():
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case rejecting.Load():
+			writeKeygenError(w, http.StatusForbidden, "LICENSE_INVALID")
+		default:
+			return false
+		}
+		return true
+	})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	provider, err := newProvider(ctx, nil, Config{
+		LicenseKey: "license-key",
+	}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err == nil {
+		t.Fatal("expected the limit lookup to fail while Keygen is unavailable")
+	}
+
+	unavailable.Store(false)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected refresh to succeed: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err != nil {
+		t.Fatalf("expected the limit lookup to succeed with a valid license: %v", err)
+	}
+
+	rejecting.Store(true)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected a rejection not to be reported as a failure: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err == nil {
+		t.Fatal("expected the limit lookup to fail after a rejection")
+	}
+
+	unlicensed, err := newProvider(ctx, nil, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if _, err := unlicensed.AuditLogRetentionLimit(ctx); err != nil {
+		t.Fatalf("expected the limit lookup to succeed without a license key: %v", err)
+	}
+}
+
 func respondWithStatus(path string, status int) keygenResponder {
 	return func(w http.ResponseWriter, r *http.Request) bool {
 		if r.URL.Path != path {

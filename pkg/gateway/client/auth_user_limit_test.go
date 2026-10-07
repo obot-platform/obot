@@ -11,34 +11,34 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-type userLimitProviderFunc func(context.Context) (UserLimit, error)
+type userLimitProviderFunc func(context.Context) (SystemLimit, error)
 
-func (f userLimitProviderFunc) UserLimit(ctx context.Context) (UserLimit, error) {
+func (f userLimitProviderFunc) UserLimit(ctx context.Context) (SystemLimit, error) {
 	return f(ctx)
 }
 
 func TestUserDecoratorResolveUserLimit(t *testing.T) {
 	tests := []struct {
 		name    string
-		limit   UserLimit
+		limit   SystemLimit
 		wantErr bool
 	}{
 		{
 			name:  "bounded",
-			limit: UserLimit{Maximum: 100},
+			limit: SystemLimit{Maximum: 100},
 		},
 		{
 			name:  "unlimited ignores maximum",
-			limit: UserLimit{Unlimited: true},
+			limit: SystemLimit{Unlimited: true},
 		},
 		{
 			name:    "zero maximum",
-			limit:   UserLimit{},
+			limit:   SystemLimit{},
 			wantErr: true,
 		},
 		{
 			name:    "negative maximum",
-			limit:   UserLimit{Maximum: -1},
+			limit:   SystemLimit{Maximum: -1},
 			wantErr: true,
 		},
 	}
@@ -46,7 +46,7 @@ func TestUserDecoratorResolveUserLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			decorator := UserDecorator{
-				userLimitProvider: userLimitProviderFunc(func(context.Context) (UserLimit, error) {
+				userLimitProvider: userLimitProviderFunc(func(context.Context) (SystemLimit, error) {
 					return tt.limit, nil
 				}),
 			}
@@ -88,8 +88,8 @@ func TestUserDecoratorDoesNotCreateUserWhenUserLimitProviderFails(t *testing.T) 
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Maximum: 1}, currentErr
+		userLimitProviderFunc(func(context.Context) (SystemLimit, error) {
+			return SystemLimit{Maximum: 1}, currentErr
 		}),
 	)
 

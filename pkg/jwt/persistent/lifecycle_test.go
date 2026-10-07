@@ -70,7 +70,7 @@ func createLifecycleTestUser(t *testing.T, gatewayClient *client.Client, usernam
 		ProviderUsername:      username,
 		ProviderUserID:        "00u-" + username,
 		Email:                 username + "@example.com",
-	}, "", role, client.UserLimit{Unlimited: true})
+	}, "", role, client.SystemLimit{Unlimited: true})
 	require.NoError(t, err)
 	return user
 }
@@ -108,7 +108,7 @@ func deactivateThroughSCIM(t *testing.T, c *client.Client, provider client.AuthP
 			},
 		},
 	}, client.SCIMUserCreateOptions{
-		UserLimit: client.UserLimit{
+		UserLimit: client.SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: types.RoleBasic,

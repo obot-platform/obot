@@ -115,13 +115,13 @@ func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) 
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 // The user gets the explicit role of their email, which ensureIdentityUser applies.
-func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit UserLimit) (*types.User, error) {
+func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit SystemLimit) (*types.User, error) {
 	return c.EnsureIdentityWithRole(ctx, id, timezone, types2.RoleUnknown, userLimit)
 }
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
 // If the user already exists with a superset of the given role, it will not be updated.
-func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, error) {
+func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role, userLimit SystemLimit) (*types.User, error) {
 	var ensured ensuredIdentity
 
 	// Transaction #1: ensure the identity + user rows exist / are corrected, and read what we need.
@@ -219,7 +219,7 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 // Once SCIM is enforced for the provider, sign-in requires a SCIM binding, and neither the identity nor the user is
 // ever created here. Before that, users are still created just in time. Either way, sign-in never overwrites the
 // profile of a user that SCIM has provisioned.
-func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (ensuredIdentity, error) {
+func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit SystemLimit) (ensuredIdentity, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
@@ -316,7 +316,7 @@ func scimUnprovisionedSignInError(userID uint) error {
 
 // ensureIdentityUser does the work of ensureIdentity. When SCIM is enforced for the identity's auth provider, sign-in
 // requires an identity whose live user the connection provisioned, and it never creates an identity or a user.
-func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
+func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit SystemLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
 	// See if the identity already exists.
 	if found, err := identityWithSCIMModeTx(tx, id, mode); err != nil {
 		return nil, false, false, fmt.Errorf("failed to look up identity: %w", err)
@@ -619,7 +619,7 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 	return user, created, roleRaised, nil
 }
 
-func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {
+func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit SystemLimit) error {
 	if userLimit.Unlimited {
 		return tx.Create(user).Error
 	}

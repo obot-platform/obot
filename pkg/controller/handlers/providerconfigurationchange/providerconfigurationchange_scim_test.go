@@ -317,7 +317,7 @@ func (s *scimChangeTest) signIn(providerURL, nativeID string) *gatewaytypes.User
 		ProviderUsername:      nativeID,
 		ProviderUserID:        nativeID,
 		Email:                 nativeID + "@example.com",
-	}, "", clienttypes.RoleOwner, gatewayclient.UserLimit{
+	}, "", clienttypes.RoleOwner, gatewayclient.SystemLimit{
 		Unlimited: true,
 	})
 	require.NoError(s.t, err)
@@ -613,7 +613,7 @@ func (s *scimChangeTest) provisionUser(conn *gatewaytypes.SCIMConnection, native
 		UserName:   nativeID + "@example.com",
 		ExternalID: nativeID,
 	}, gatewayclient.SCIMUserCreateOptions{
-		UserLimit: gatewayclient.UserLimit{
+		UserLimit: gatewayclient.SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: clienttypes.RoleBasic,
@@ -834,7 +834,7 @@ func TestSwitchingBackToAMigratedProviderSynchronizesItsDirectoryAgain(t *testin
 		ProviderUsername:      "00u-verifier",
 		ProviderUserID:        "00u-verifier",
 		Email:                 "00u-verifier@example.com",
-	}, "", clienttypes.RoleOwner, gatewayclient.UserLimit{
+	}, "", clienttypes.RoleOwner, gatewayclient.SystemLimit{
 		Unlimited: true,
 	})
 	assert.ErrorContains(t, err, "the directory is not available")
@@ -895,7 +895,7 @@ func TestReconfiguringAfterSCIMCanSynchronizeTheDirectory(t *testing.T) {
 				ProviderUsername:      "00u-alice",
 				ProviderUserID:        "00u-alice",
 				Email:                 "00u-alice@example.com",
-			}, "", clienttypes.RoleBasic, gatewayclient.UserLimit{
+			}, "", clienttypes.RoleBasic, gatewayclient.SystemLimit{
 				Unlimited: true,
 			})
 			assert.ErrorContains(t, err, "the directory is not available")

@@ -112,7 +112,7 @@ func newEnableTest(t *testing.T) *enableTest {
 			ProviderUserID:        nativeID,
 			HashedProviderUserID:  hash.String(nativeID),
 			Email:                 nativeID + "@example.com",
-		}, "", clienttypes.RoleOwner, gclient.UserLimit{
+		}, "", clienttypes.RoleOwner, gclient.SystemLimit{
 			Unlimited: true,
 		})
 		if err != nil {

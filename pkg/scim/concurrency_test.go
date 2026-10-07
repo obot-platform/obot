@@ -145,7 +145,7 @@ func testConcurrencyAndRetries(t *testing.T, s *scimTest) {
 					ProviderUsername:      nativeID,
 					ProviderUserID:        nativeID,
 					Email:                 email,
-				}, "", gclient.UserLimit{
+				}, "", gclient.SystemLimit{
 					Unlimited: true,
 				})
 			})
@@ -191,11 +191,11 @@ func testConcurrencyAndRetries(t *testing.T, s *scimTest) {
 
 	t.Run("seat-limit contention admits exactly the free seats", func(t *testing.T) {
 		users := s.count(new(types.User), "deleted_at IS NULL")
-		s.env.userLimit = gclient.UserLimit{
+		s.env.userLimit = gclient.SystemLimit{
 			Maximum: users + 2,
 		}
 		defer func() {
-			s.env.userLimit = gclient.UserLimit{
+			s.env.userLimit = gclient.SystemLimit{
 				Unlimited: true,
 			}
 		}()

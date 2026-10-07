@@ -17,21 +17,21 @@ func TestProviderDeviceLimit(t *testing.T) {
 	tests := []struct {
 		name         string
 		entitlements []string
-		want         gatewayclient.DeviceLimit
+		want         gatewayclient.SystemLimit
 	}{
 		{
 			name: "default",
-			want: gatewayclient.DeviceLimit{Maximum: gatewayclient.DefaultDeviceLimit},
+			want: gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultDeviceLimit},
 		},
 		{
 			name:         "unrelated entitlement",
 			entitlements: []string{EnterpriseModelProvidersEntitlement, "OBOT_ENTERPRISE_500_USERS"},
-			want:         gatewayclient.DeviceLimit{Maximum: gatewayclient.DefaultDeviceLimit},
+			want:         gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultDeviceLimit},
 		},
 		{
 			name:         "enterprise edition grants unlimited devices",
 			entitlements: []string{EnterpriseEntitlement},
-			want:         gatewayclient.DeviceLimit{Unlimited: true},
+			want:         gatewayclient.SystemLimit{Unlimited: true},
 		},
 		{
 			name: "malformed device limit entitlements",
@@ -48,12 +48,12 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_500_DEVICE_LIMIT_EXTRA",
 				"OBOT_ENTERPRISE_0_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Maximum: gatewayclient.DefaultDeviceLimit},
+			want: gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultDeviceLimit},
 		},
 		{
 			name:         "numeric devices entitlement",
 			entitlements: []string{"OBOT_ENTERPRISE_500_DEVICES"},
-			want:         gatewayclient.DeviceLimit{Maximum: 500},
+			want:         gatewayclient.SystemLimit{Maximum: 500},
 		},
 		{
 			name: "numeric device entitlements are additive",
@@ -61,7 +61,7 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_100_DEVICES",
 				"OBOT_ENTERPRISE_50_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Maximum: 150},
+			want: gatewayclient.SystemLimit{Maximum: 150},
 		},
 		{
 			name: "all numeric device entitlements are additive",
@@ -70,7 +70,7 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_1000_DEVICES",
 				"OBOT_ENTERPRISE_500_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Maximum: 1750},
+			want: gatewayclient.SystemLimit{Maximum: 1750},
 		},
 		{
 			name: "numeric device entitlements override enterprise edition unlimited devices",
@@ -79,7 +79,7 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_100_DEVICES",
 				"OBOT_ENTERPRISE_50_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Maximum: 150},
+			want: gatewayclient.SystemLimit{Maximum: 150},
 		},
 		{
 			name: "malformed numeric entitlements do not override enterprise edition unlimited devices",
@@ -88,17 +88,17 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_0_DEVICES",
 				"OBOT_ENTERPRISE_NOT_A_NUMBER_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Unlimited: true},
+			want: gatewayclient.SystemLimit{Unlimited: true},
 		},
 		{
 			name:         "removed custom device limit entitlement is ignored",
 			entitlements: []string{"OBOT_ENTERPRISE_CUSTOM_DEVICE_LIMIT"},
-			want:         gatewayclient.DeviceLimit{Maximum: gatewayclient.DefaultDeviceLimit},
+			want:         gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultDeviceLimit},
 		},
 		{
 			name:         "numeric entitlement replaces default",
 			entitlements: []string{"OBOT_ENTERPRISE_50_DEVICES"},
-			want:         gatewayclient.DeviceLimit{Maximum: 50},
+			want:         gatewayclient.SystemLimit{Maximum: 50},
 		},
 		{
 			name: "numeric entitlement sum saturates at maximum integer",
@@ -106,7 +106,7 @@ func TestProviderDeviceLimit(t *testing.T) {
 				"OBOT_ENTERPRISE_" + strconv.FormatInt(math.MaxInt64, 10) + "_DEVICES",
 				"OBOT_ENTERPRISE_1_DEVICES",
 			},
-			want: gatewayclient.DeviceLimit{Maximum: math.MaxInt64},
+			want: gatewayclient.SystemLimit{Maximum: math.MaxInt64},
 		},
 	}
 
@@ -169,7 +169,7 @@ func TestGetLicenseViolationsDeviceLimit(t *testing.T) {
 					DeviceID:           fmt.Sprintf("device-%d", i),
 					MDMConfigurationID: configuration.ID,
 					PublicKey:          []byte{byte(i)},
-				}, gatewayclient.DeviceLimit{Unlimited: true}); err != nil {
+				}, gatewayclient.SystemLimit{Unlimited: true}); err != nil {
 					t.Fatalf("enrolling device %d: %v", i, err)
 				}
 			}

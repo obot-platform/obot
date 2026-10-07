@@ -788,7 +788,7 @@ func TestSCIMWritesAfterTheirConnectionIsDeleted(t *testing.T) {
 		UserName:   "new@example.com",
 		ExternalID: "00u-new",
 	}, SCIMUserCreateOptions{
-		UserLimit: UserLimit{
+		UserLimit: SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: apitypes.RoleBasic,
@@ -1148,7 +1148,7 @@ func TestEnforceSCIMConnectionOnPostgres(t *testing.T) {
 			UserName:   "unprovisioned@example.com",
 			ExternalID: "00u-unprovisioned",
 		}, SCIMUserCreateOptions{
-			UserLimit: UserLimit{
+			UserLimit: SystemLimit{
 				Unlimited: true,
 			},
 			DefaultRole: apitypes.RoleBasic,

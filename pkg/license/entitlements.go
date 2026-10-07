@@ -2,6 +2,7 @@ package license
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -17,9 +18,11 @@ import (
 )
 
 const (
-	enterpriseLimitEntitlementPrefix    = "OBOT_ENTERPRISE_"
-	userLimitEntitlementUsersSuffix     = "_USERS"
-	deviceLimitEntitlementDevicesSuffix = "_DEVICES"
+	enterpriseLimitEntitlementPrefix        = "OBOT_ENTERPRISE_"
+	limitEntitlementPrefix                  = "OBOT_"
+	userLimitEntitlementUsersSuffix         = "_USERS"
+	deviceLimitEntitlementDevicesSuffix     = "_DEVICES"
+	auditLogRetentionLimitEntitlementSuffix = "_DAYS_AUDIT_LOG_RETENTION"
 )
 
 var (
@@ -131,13 +134,13 @@ func (p *Provider) missingEntitlements(requiredEntitlements []string) []string {
 
 // UserLimit returns the maximum number of users allowed by the current license.
 // OBOT_ENTERPRISE grants unlimited users unless one or more
-// OBOT_ENTERPRISE_<number>_USERS entitlements define an additive limit.
-func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, error) {
+// OBOT_ENTERPRISE_<number>_USERS or OBOT_<number>_USERS entitlements define an additive limit.
+func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.SystemLimit, error) {
 	maximum, unlimited, err := p.resourceLimit(ctx, userLimitEntitlementUsersSuffix, gatewayclient.DefaultUserLimit)
 	if err != nil {
-		return gatewayclient.UserLimit{}, err
+		return gatewayclient.SystemLimit{}, err
 	}
-	return gatewayclient.UserLimit{
+	return gatewayclient.SystemLimit{
 		Maximum:   maximum,
 		Unlimited: unlimited,
 	}, nil
@@ -145,18 +148,42 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 
 // DeviceLimit returns the maximum number of devices allowed by the current license.
 // OBOT_ENTERPRISE grants unlimited devices unless one or more
-// OBOT_ENTERPRISE_<number>_DEVICES entitlements define an additive limit.
-func (p *Provider) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
+// OBOT_ENTERPRISE_<number>_DEVICES or OBOT_<number>_DEVICES entitlements define an additive limit.
+func (p *Provider) DeviceLimit(ctx context.Context) (gatewayclient.SystemLimit, error) {
 	maximum, unlimited, err := p.resourceLimit(ctx, deviceLimitEntitlementDevicesSuffix, gatewayclient.DefaultDeviceLimit)
 	if err != nil {
-		return gatewayclient.DeviceLimit{}, err
+		return gatewayclient.SystemLimit{}, err
 	}
-	return gatewayclient.DeviceLimit{
+	return gatewayclient.SystemLimit{
 		Maximum:   maximum,
 		Unlimited: unlimited,
 	}, nil
 }
 
+// AuditLogRetentionLimit returns the number of days MCP and LLM audit logs are kept.
+// There's no limit unless one or more OBOT_ENTERPRISE_<number>_DAYS_AUDIT_LOG_RETENTION or
+// OBOT_<number>_DAYS_AUDIT_LOG_RETENTION entitlements define an additive limit.
+func (p *Provider) AuditLogRetentionLimit(ctx context.Context) (gatewayclient.SystemLimit, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return gatewayclient.SystemLimit{}, err
+	}
+
+	// Read the limit and whether the license validated under one lock, so a concurrent refresh can't mix the two.
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	// A license key that didn't validate leaves the limit unknown, not unset, so callers don't mistake it for no limit.
+	if p.licenseKeySnapshot.key != "" && p.entitlements == nil {
+		return gatewayclient.SystemLimit{}, errors.New("license key is set but not validated")
+	}
+	maximum, unlimited := p.entitlementLimit(auditLogRetentionLimitEntitlementSuffix, 0)
+	return gatewayclient.SystemLimit{
+		Maximum:   maximum,
+		Unlimited: unlimited,
+	}, nil
+}
+
+// resourceLimit refreshes the license, then sums the numeric entitlements for the given suffix into a limit.
 func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, defaultMaximum int64) (int64, bool, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return 0, false, err
@@ -165,6 +192,14 @@ func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, 
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
+	maximum, unlimited := p.entitlementLimit(entitlementSuffix, defaultMaximum)
+	return maximum, unlimited, nil
+}
+
+// entitlementLimit sums the numeric entitlements for the given suffix into a limit. The caller holds p.lock.
+// A numeric entitlement takes precedence over OBOT_ENTERPRISE, which otherwise means unlimited.
+// Without either the limit falls back to defaultMaximum.
+func (p *Provider) entitlementLimit(entitlementSuffix string, defaultMaximum int64) (int64, bool) {
 	var maximum int64
 	var isEnterpriseEdition bool
 	for entitlement := range p.entitlements {
@@ -176,7 +211,11 @@ func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, 
 
 		value, ok := strings.CutPrefix(code, enterpriseLimitEntitlementPrefix)
 		if !ok {
-			continue
+			// Didn't find the old enterprise prefix, try the non-enterprise prefix
+			value, ok = strings.CutPrefix(code, limitEntitlementPrefix)
+			if !ok {
+				continue
+			}
 		}
 		value, ok = strings.CutSuffix(value, entitlementSuffix)
 		if !ok {
@@ -195,9 +234,10 @@ func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, 
 
 		if entitlementMaximum > math.MaxInt64-maximum {
 			maximum = math.MaxInt64
-		} else {
-			maximum += entitlementMaximum
+			continue
 		}
+
+		maximum += entitlementMaximum
 	}
 
 	unlimited := isEnterpriseEdition && maximum == 0
@@ -205,7 +245,7 @@ func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, 
 		maximum = defaultMaximum
 	}
 
-	return maximum, unlimited, nil
+	return maximum, unlimited
 }
 
 // RequireEntitlements returns Payment Required if any required entitlements are unavailable.

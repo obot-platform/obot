@@ -55,7 +55,7 @@ func deactivateThroughSCIM(t *testing.T, c *gatewayclient.Client, provider gatew
 			},
 		},
 	}, gatewayclient.SCIMUserCreateOptions{
-		UserLimit: gatewayclient.UserLimit{
+		UserLimit: gatewayclient.SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: types.RoleBasic,
@@ -140,7 +140,7 @@ func TestImpersonatorCannotReachTheAgentOfAnInactiveOwner(t *testing.T) {
 		ProviderUsername:      "owner",
 		ProviderUserID:        "00u-owner",
 		Email:                 "owner@example.com",
-	}, "", types.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	}, "", types.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 	if err != nil {
 		t.Fatalf("failed to create agent owner: %v", err)
 	}

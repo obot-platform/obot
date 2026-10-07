@@ -40,7 +40,7 @@ func (e *environment) ConfiguredAuthProvider(ctx context.Context) (string, strin
 	return system.DefaultNamespace, name, nil
 }
 
-func (e *environment) UserLimit(ctx context.Context) (gclient.UserLimit, error) {
+func (e *environment) UserLimit(ctx context.Context) (gclient.SystemLimit, error) {
 	return e.userLimits.UserLimit(ctx)
 }
 

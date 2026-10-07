@@ -33,6 +33,13 @@ const (
 	DefaultDeviceLimit = 100
 )
 
+// SystemLimit describes the maximum number of a resource an installation may have.
+// Maximum is ignored when Unlimited is true.
+type SystemLimit struct {
+	Maximum   int64
+	Unlimited bool
+}
+
 type Client struct {
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration

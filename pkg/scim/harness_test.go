@@ -36,7 +36,7 @@ const (
 type testEnvironment struct {
 	namespace   string
 	name        string
-	userLimit   gclient.UserLimit
+	userLimit   gclient.SystemLimit
 	defaultRole types2.Role
 }
 
@@ -62,7 +62,7 @@ func (e *testEnvironment) ConfiguredAuthProvider(context.Context) (string, strin
 	return e.namespace, e.name, nil
 }
 
-func (e *testEnvironment) UserLimit(context.Context) (gclient.UserLimit, error) {
+func (e *testEnvironment) UserLimit(context.Context) (gclient.SystemLimit, error) {
 	return e.userLimit, nil
 }
 
@@ -166,7 +166,7 @@ func newSCIMTestWithDB(t *testing.T, database *gatewaydb.DB) *scimTest {
 	env := &testEnvironment{
 		namespace: system.DefaultNamespace,
 		name:      testOktaProviderName,
-		userLimit: gclient.UserLimit{
+		userLimit: gclient.SystemLimit{
 			Unlimited: true,
 		},
 		defaultRole: types2.RoleBasic,
@@ -330,7 +330,7 @@ func (s *scimTest) seedProviderUser(providerName, nativeID, email string, role t
 		ProviderUsername:      nativeID,
 		ProviderUserID:        nativeID,
 		Email:                 email,
-	}, "", role, gclient.UserLimit{
+	}, "", role, gclient.SystemLimit{
 		Unlimited: true,
 	})
 	if err != nil {

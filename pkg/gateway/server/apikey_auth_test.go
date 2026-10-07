@@ -26,7 +26,7 @@ func TestAPIKeyAuthenticatorCarriesAuditAttribution(t *testing.T) {
 		ProviderUsername: "alice",
 		ProviderUserID:   "alice",
 		Email:            "alice@example.com",
-	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	}, "", types2.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestAPIKeyAuthenticatorCarriesMaskedAttributionForUnnamedKey(t *testing.T) 
 		ProviderUsername: "alice-unnamed",
 		ProviderUserID:   "alice-unnamed",
 		Email:            "alice-unnamed@example.com",
-	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	}, "", types2.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}

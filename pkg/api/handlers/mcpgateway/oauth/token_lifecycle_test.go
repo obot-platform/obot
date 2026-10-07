@@ -94,7 +94,7 @@ func deactivateThroughSCIM(t *testing.T, c *gatewayclient.Client, provider gatew
 			},
 		},
 	}, gatewayclient.SCIMUserCreateOptions{
-		UserLimit: gatewayclient.UserLimit{
+		UserLimit: gatewayclient.SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: types.RoleBasic,
@@ -114,7 +114,7 @@ func createDisabledOAuthTestUser(t *testing.T, storage kclient.Client, gatewayCl
 		ProviderUsername:      "disabled",
 		ProviderUserID:        "00u-disabled",
 		Email:                 "disabled@example.com",
-	}, "", types.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	}, "", types.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 	require.NoError(t, err)
 
 	heldToken := &v1.OAuthToken{
@@ -234,7 +234,7 @@ func TestRefreshTokensIssuedWhileTheUserIsDisabledAreRevoked(t *testing.T) {
 				ProviderUsername:      "racing",
 				ProviderUserID:        "00u-racing",
 				Email:                 "racing@example.com",
-			}, "", types.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+			}, "", types.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 			require.NoError(t, err)
 
 			resource := "https://obot.example.com/mcp-connect/server"
