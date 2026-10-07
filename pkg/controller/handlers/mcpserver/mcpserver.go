@@ -277,7 +277,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	case types.RuntimeOpenAPI:
-		drifted = !reflect.DeepEqual(serverManifest.OpenAPIConfig, entryManifest.OpenAPIConfig)
+		drifted = openAPIConfigHasDrifted(serverManifest.OpenAPIConfig, entryManifest.OpenAPIConfig, defaultDenyAllEgress)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -355,6 +355,23 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Port != entryConfig.Port ||
 		serverConfig.Path != entryConfig.Path ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
+}
+
+// openAPIConfigHasDrifted checks if OpenAPI configuration has drifted.
+func openAPIConfigHasDrifted(serverConfig, entryConfig *types.OpenAPIRuntimeConfig, defaultDenyAllEgress bool) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	return serverConfig.Source != entryConfig.Source ||
+		!reflect.DeepEqual(serverConfig.Schema, entryConfig.Schema) ||
+		serverConfig.BaseURL != entryConfig.BaseURL ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
 		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
 			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
