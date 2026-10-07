@@ -81,7 +81,7 @@
 	function fetchClientRegistration() {
 		expanded.metadataDiscovery = false;
 		loading.clientRegistration = true;
-		AdminService.registerMcpServerOAuthDebuggerClient(mcpServer.id, { dontLogErrors: true })
+		AdminService.registerMcpServerOAuthDebuggerClient(mcpServer, { dontLogErrors: true })
 			.then((result) => {
 				results.clientRegistration = result;
 			})
@@ -98,7 +98,7 @@
 		expanded.clientRegistration = false;
 		loading.preparingAuthorization = true;
 		AdminService.getMCPServerOAuthDebuggerAuthorizationURL(
-			mcpServer.id,
+			mcpServer,
 			{
 				state: clientRegistration.state
 			},
@@ -127,7 +127,7 @@
 		expanded.authorizationCode = false;
 		loading.tokenRequest = true;
 		AdminService.exchangeMCPServerOAuthDebuggerToken(
-			mcpServer.id,
+			mcpServer,
 			{
 				code: authorizationCode,
 				state: (results.clientRegistration as OAuthDebuggerRegisterClientResponse).state as string

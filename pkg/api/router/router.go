@@ -118,7 +118,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
-	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
+	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
 
 	mcpTester := handlers.NewMCPTesterHandlerWithModelProxy(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.LocalServerURL, nil, handlers.MCPTesterModelProxyOptions{
 		URL:           services.ModelProxyURL,
@@ -204,6 +204,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 
 	// Legacy MCP server instances (read-only)
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
@@ -280,6 +284,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
@@ -338,6 +346,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)

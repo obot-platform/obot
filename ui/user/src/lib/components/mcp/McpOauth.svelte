@@ -15,12 +15,10 @@
 		onAuthenticate?: () => void;
 		error?: string;
 		text?: string;
-		entity?: 'workspace' | 'catalog';
-		id?: string;
 	}
 
 	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
-	let { onAuthenticate, error = $bindable(), entry, text, entity, id }: Props = $props();
+	let { onAuthenticate, error = $bindable(), entry, text }: Props = $props();
 
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
@@ -50,12 +48,18 @@
 		error = '';
 
 		try {
-			if ('mcpCatalogID' in entry) {
+			// Route by the server's own scope; the backend only serves a workspace or catalog
+			// server's OAuth URL from that server's scoped route.
+			if (entry.powerUserWorkspaceID) {
+				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(
+					entry.powerUserWorkspaceID,
+					entry.id,
+					{
+						signal: abortController.signal
+					}
+				);
+			} else if ('mcpCatalogID' in entry && entry.mcpCatalogID) {
 				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
-					signal: abortController.signal
-				});
-			} else if (entity === 'workspace' && id) {
-				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(id, entry.id, {
 					signal: abortController.signal
 				});
 			} else {

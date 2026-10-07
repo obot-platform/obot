@@ -59,13 +59,6 @@
 			entry?: MCPCatalogEntry;
 			instance?: MCPServerInstance;
 		}) => void;
-		onReauthenticate?: ({
-			server,
-			entry
-		}: {
-			server?: MCPCatalogServer;
-			entry?: MCPCatalogEntry;
-		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
 		renderIntroText?: ({
@@ -84,7 +77,6 @@
 		onConnect,
 		onClose,
 		onEdit,
-		onReauthenticate,
 		skipConnectDialog,
 		renderIntroText,
 		introTitle
@@ -121,11 +113,6 @@
 	let isEditable = $derived(
 		(entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry) && server) ||
 			(server && instance && hasMultiUserInstanceConfiguration(server))
-	);
-	let isReauthenticatable = $derived(
-		server?.manifest.runtime === 'remote' &&
-			Object.keys(server.oauthMetadata ?? {}).length > 0 &&
-			!hasEditableConfiguration(server)
 	);
 
 	let showIntroDialog = $state(false);
@@ -218,20 +205,6 @@
 		}
 
 		notifyConnected(skipOnConnect);
-	}
-
-	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
-		connectCompletion = undefined;
-		server = item;
-		entry = parentEntry;
-		instance = undefined;
-		oauthVerifying = false;
-		oauthURL = await getOauthURL();
-		if (oauthURL) {
-			oauthDialog?.showModal();
-		} else {
-			handleConnect();
-		}
 	}
 
 	function getUniqueAlias(serverName: string): string | undefined {
@@ -990,12 +963,6 @@
 					? () => {
 							connectDialog?.close();
 							onEdit({ entry, server, instance });
-						}
-					: undefined}
-				onReauthenticate={onReauthenticate && isReauthenticatable
-					? () => {
-							connectDialog?.close();
-							onReauthenticate({ server, entry });
 						}
 					: undefined}
 			/>

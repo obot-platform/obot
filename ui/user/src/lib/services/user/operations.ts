@@ -629,23 +629,6 @@ export async function getMcpServerOauthURL(
 	}
 }
 
-export async function isMcpServerOauthNeeded(
-	id: string,
-	opts?: { signal?: AbortSignal }
-): Promise<boolean> {
-	try {
-		await doPost(`${mcpActionPath(id)}/check-oauth`, {
-			dontLogErrors: true,
-			signal: opts?.signal
-		});
-	} catch (err) {
-		if (err instanceof HttpError && err.statusCode === 412) {
-			return true;
-		}
-	}
-	return false;
-}
-
 export async function restartMcpServer(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
 	await doPost(`/mcp-servers/${id}/restart`, {}, opts);
 }

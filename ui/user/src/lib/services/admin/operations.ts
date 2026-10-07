@@ -1436,24 +1436,6 @@ export async function getMCPCatalogServerOAuthURL(
 	}
 }
 
-export async function isMCPCatalogServerOauthNeeded(
-	catalogID: string,
-	serverID: string,
-	opts?: { signal?: AbortSignal }
-): Promise<boolean> {
-	try {
-		await doPost(`/mcp-catalogs/${catalogID}/servers/${serverID}/check-oauth`, {
-			dontLogErrors: true,
-			signal: opts?.signal
-		});
-	} catch (err) {
-		if (err instanceof HttpError && err.statusCode === 412) {
-			return true;
-		}
-	}
-	return false;
-}
-
 export async function triggerMcpCatalogServerUpdate(
 	catalogID: string,
 	mcpServerId: string,
@@ -1570,35 +1552,49 @@ export async function getMCPServerById(
 	return response;
 }
 
+type OAuthDebuggerServer = Pick<MCPCatalogServer, 'id' | 'mcpCatalogID' | 'powerUserWorkspaceID'>;
+
+// The OAuth debugger routes are scoped like the server they debug; the backend rejects a
+// catalog or workspace server requested through another scope.
+function oauthDebuggerPath(server: OAuthDebuggerServer, action: string): string {
+	if (server.powerUserWorkspaceID) {
+		return `/workspaces/${server.powerUserWorkspaceID}/servers/${server.id}/oauth-debugger/${action}`;
+	}
+	if (server.mcpCatalogID) {
+		return `/mcp-catalogs/${server.mcpCatalogID}/servers/${server.id}/oauth-debugger/${action}`;
+	}
+	return `/mcp-servers/${server.id}/oauth-debugger/${action}`;
+}
+
 export async function registerMcpServerOAuthDebuggerClient(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerRegisterClientResponse> {
 	return (await doPost(
-		`/mcp-servers/${serverID}/oauth-debugger/client`,
+		oauthDebuggerPath(server, 'client'),
 		{},
 		opts
 	)) as OAuthDebuggerRegisterClientResponse;
 }
 
 export async function getMCPServerOAuthDebuggerAuthorizationURL(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	body: OAuthDebuggerAuthorizationURLRequest,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerAuthorizationURL> {
 	return (await doPost(
-		`/mcp-servers/${serverID}/oauth-debugger/authorization-url`,
+		oauthDebuggerPath(server, 'authorization-url'),
 		body,
 		opts
 	)) as OAuthDebuggerAuthorizationURL;
 }
 
 export async function exchangeMCPServerOAuthDebuggerToken(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	body: OAuthDebuggerTokenRequest,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthToken> {
-	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
+	return (await doPost(oauthDebuggerPath(server, 'token'), body, opts)) as OAuthToken;
 }
 
 // MCP tunnels

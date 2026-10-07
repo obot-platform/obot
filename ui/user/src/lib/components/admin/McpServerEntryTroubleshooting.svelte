@@ -1,48 +1,19 @@
 <script lang="ts">
-	import Loading from '$lib/icons/Loading.svelte';
-	import {
-		AdminService,
-		UserService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer
-	} from '$lib/services';
-	import {
-		MCP_MULTI_TENANT_LAUNCH_TEXT,
-		MCP_SINGLE_TENANT_LAUNCH_TEXT
-	} from '$lib/services/admin/constants';
+	import { type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { profile } from '$lib/stores';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
-	import ConnectToServer from '../mcp/ConnectToServer.svelte';
 	import DebugOauthFlow from '../mcp/oauth/DebugOauthFlow.svelte';
-	import { CircleAlert } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
-		entity?: 'workspace' | 'catalog';
-		entityId?: string;
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		server?: MCPCatalogServer;
 		servers?: MCPCatalogServer[];
-		onRefresh?: () => void;
 	}
 
-	let {
-		entry,
-		server: restrictedSingleDeployment,
-		servers,
-		entity,
-		entityId,
-		onRefresh
-	}: Props = $props();
-
-	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
-	let launchError = $state('');
-	let launchedServer = $state<MCPCatalogServer | undefined>(undefined);
-	let launchSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let pending = $state<'deleting' | 'refreshing' | undefined>(undefined);
+	let { entry, server: restrictedSingleDeployment, servers }: Props = $props();
 
 	let selectedDebugOauthDeployment = $state<MCPCatalogServer | undefined>();
 
@@ -66,13 +37,6 @@
 			label: `${server.id}: ${server.alias || server.manifest.name}`
 		}))
 	);
-
-	function resetLaunchStates() {
-		launchSuccessDialog?.close();
-		launchedServer = undefined;
-		launchError = '';
-		pending = undefined;
-	}
 </script>
 
 {#if entry && 'isCatalogEntry' in entry && !restrictedSingleDeployment}
@@ -102,7 +66,7 @@
 
 			{#if deploymentOptions.length === 0}
 				<div class="notification-info flex items-center gap-2">
-					<p class="text-xs">Launch a server below to begin debugging the OAuth flow.</p>
+					<p class="text-xs">Deploy this MCP server to begin debugging the OAuth flow.</p>
 				</div>
 			{/if}
 
@@ -118,21 +82,6 @@
 			{/if}
 		</div>
 	{/if}
-
-	<div class="paper gap-2">
-		<h1 class="text-lg font-semibold">Launch Server</h1>
-		<p class="text-sm text-muted-content">
-			Each launch will create a new server deployment for this catalog entry.
-		</p>
-		<button
-			class="btn btn-primary w-full"
-			onclick={() => {
-				connectToServerDialog?.setupNewInstance(entry!);
-			}}
-		>
-			Launch Server
-		</button>
-	</div>
 {:else if (entry && !('isCatalogEntry' in entry)) || restrictedSingleDeployment}
 	{@const mcpServer = restrictedSingleDeployment ?? (entry as MCPCatalogServer)}
 	{#if mcpServer?.manifest.runtime === 'remote'}
@@ -142,94 +91,3 @@
 		</div>
 	{/if}
 {/if}
-
-<ConnectToServer
-	bind:this={connectToServerDialog}
-	catalogID={entity === 'catalog' ? entityId : undefined}
-	workspaceID={entity === 'workspace' ? entityId : undefined}
-	onConnect={({ server }) => {
-		if (!server) {
-			launchError = 'No server was launched';
-			return;
-		}
-
-		launchError = '';
-		launchedServer = server;
-		launchSuccessDialog?.open();
-	}}
-	skipConnectDialog
-	renderIntroText={({ entry }) =>
-		isMultiUserCatalogEntry(entry) ? MCP_MULTI_TENANT_LAUNCH_TEXT : MCP_SINGLE_TENANT_LAUNCH_TEXT}
-	introTitle="Launch Server"
-/>
-
-<ResponsiveDialog
-	title={launchError ? 'Launch Failed' : 'Launch Successful'}
-	bind:this={launchSuccessDialog}
-	class="max-w-sm"
-	hideClose
-	disableClickOutside
->
-	<div class="flex flex-col gap-2">
-		{#if launchError}
-			<div class="alert alert-error alert-soft">
-				<CircleAlert class="size-4 text-error" />
-				<span>{launchError}</span>
-			</div>
-		{:else}
-			<p>The server was launched successfully.</p>
-		{/if}
-
-		<p class="mb-4">
-			Feel free to delete the created deployment below. {entry?.manifest.runtime === 'remote' &&
-				'Or use the existing deployment to test & debug the OAuth flow.'}
-		</p>
-
-		<button
-			class="btn btn-error"
-			disabled={!!pending}
-			onclick={async () => {
-				if (launchedServer) {
-					pending = 'deleting';
-					try {
-						if (isMultiUserCatalogEntry(entry) && entity && entityId) {
-							if (entity === 'workspace') {
-								await UserService.deleteWorkspaceMCPCatalogServer(entityId, launchedServer.id);
-							} else {
-								await AdminService.deleteMCPCatalogServer(entityId, launchedServer.id);
-							}
-						} else {
-							await UserService.deleteSingleOrRemoteMcpServer(launchedServer.id);
-						}
-					} finally {
-						resetLaunchStates();
-					}
-				}
-			}}
-		>
-			{#if pending === 'deleting'}
-				<Loading class="size-4" />
-			{:else}
-				Delete Deployment
-			{/if}
-		</button>
-		<button
-			class="btn btn-secondary"
-			disabled={!!pending}
-			onclick={async () => {
-				launchSuccessDialog?.close();
-				pending = 'refreshing';
-				if (launchedServer) {
-					onRefresh?.();
-				}
-				resetLaunchStates();
-			}}
-		>
-			{#if pending === 'refreshing'}
-				<Loading class="size-4" />
-			{:else}
-				Skip
-			{/if}
-		</button>
-	</div>
-</ResponsiveDialog>
