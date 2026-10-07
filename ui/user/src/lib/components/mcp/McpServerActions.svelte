@@ -35,7 +35,6 @@
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
 	import {
-		KeyRound,
 		PencilLine,
 		Plus,
 		RefreshCw,
@@ -125,12 +124,12 @@
 	// Connecting from a multi-user catalog entry row always starts a new shared server deployment.
 	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
-	let canReauthenticate = $derived(
+	let canDebugOauth = $derived(
 		server?.manifest.runtime === 'remote' &&
 			Object.keys(server.oauthMetadata ?? {}).length > 0 &&
-			!hasEditableConfiguration(server)
+			!hasEditableConfiguration(server) &&
+			profile.current?.hasAdminAccess?.()
 	);
-	let canDebugOauth = $derived(canReauthenticate && profile.current?.hasAdminAccess?.());
 	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let configurableItem = $derived(server ?? entry);
 	// True when the user can manage the server deployment (restart, rename, edit config).
@@ -330,12 +329,6 @@
 		selectServerMode = mode;
 		selectServerDialog?.open(servers);
 	}
-
-	async function reauthenticateServer(item: MCPCatalogServer) {
-		await UserService.clearMcpServerOAuth(item.id);
-		await connectToServerDialog?.authenticate(item, entry);
-		refresh();
-	}
 </script>
 
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
@@ -422,11 +415,6 @@
 				server,
 				entry
 			});
-		}
-	}}
-	onReauthenticate={({ server }) => {
-		if (server) {
-			reauthenticateServer(server);
 		}
 	}}
 />
@@ -592,18 +580,6 @@
 				>
 					<PencilLine class="size-4" /> Rename
 				</button>
-				{#if server && canReauthenticate}
-					<button
-						class="menu-button"
-						onclick={async (e) => {
-							e.stopPropagation();
-							toggle(false);
-							await reauthenticateServer(server);
-						}}
-					>
-						<KeyRound class="size-4" /> Reauthenticate
-					</button>
-				{/if}
 				{#if server && canDebugOauth}
 					<button
 						class="menu-button"

@@ -244,11 +244,9 @@
 						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Access Policies', view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.()
-							? [
-									{ label: 'Filters', view: 'filters' },
-									{ label: 'Troubleshooting', view: 'troubleshooting' }
-								]
+						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : []),
+						...(profile.current?.hasAdminAccess?.() && entry.manifest?.runtime === 'remote'
+							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
 							: [])
 					]
 				: [
@@ -1206,14 +1204,7 @@
 {/snippet}
 
 {#snippet troubleshootingView()}
-	<McpServerEntryTroubleshooting
-		entityId={id}
-		{entity}
-		{entry}
-		{server}
-		servers={ownedDeployments}
-		onRefresh={reloadConfiguredServers}
-	/>
+	<McpServerEntryTroubleshooting {entry} {server} servers={ownedDeployments} />
 {/snippet}
 
 <Confirm
