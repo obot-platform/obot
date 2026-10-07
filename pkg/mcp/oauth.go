@@ -1082,6 +1082,14 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
+	// RFC 8707 forbids a fragment in a resource identifier. A query can identify a different
+	// tenant on the same path, so a resource that has one must match the server URL's query.
+	if strings.Contains(resource, "#") {
+		return fmt.Errorf("protected resource metadata resource %q must not include a fragment", resource)
+	}
+	if r.RawQuery != "" && r.RawQuery != c.RawQuery {
+		return fmt.Errorf("protected resource metadata resource %q has a query that does not match MCP server URL %q", resource, connectURL)
+	}
 	if hasAmbiguousPath(c) {
 		return fmt.Errorf("MCP server URL %q has a path that cannot be safely compared for OAuth: remove any percent-encoding, \";\", \"\\\", or \".\" or \"..\" segments", connectURL)
 	}

@@ -1038,6 +1038,40 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "query for another tenant",
+			resource:   "https://example.com/mcp?tenant=victim",
+			connectURL: "https://example.com/mcp?tenant=attacker",
+			wantErr:    true,
+		},
+		{
+			name:       "matching query",
+			resource:   "https://example.com/mcp?tenant=a",
+			connectURL: "https://example.com/mcp?tenant=a",
+		},
+		{
+			name:       "resource without a query for an endpoint with one",
+			resource:   "https://example.com/mcp",
+			connectURL: "https://example.com/mcp?tenant=a",
+		},
+		{
+			name:       "query on a resource for an endpoint without one",
+			resource:   "https://example.com/mcp?tenant=a",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "fragment in the resource",
+			resource:   "https://example.com/mcp#x",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "empty fragment in the resource",
+			resource:   "https://example.com/mcp#",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
 			name:       "dot segments in the resource",
 			resource:   "https://example.com/attacker/../victim",
 			connectURL: "https://example.com/attacker/../victim/mcp",
