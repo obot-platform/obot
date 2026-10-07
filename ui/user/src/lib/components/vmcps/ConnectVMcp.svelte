@@ -15,14 +15,17 @@
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
+		configureOAuthPath,
+		handleConfigureOAuth,
 		resolveVMcpComponents,
 		vmcpComponentId,
 		vmcpConnectURL,
 		vmcpMissingStaticOAuthComponent,
-		vmcpInstanceNeedsUserConfiguration
+		vmcpInstanceNeedsUserConfiguration,
+		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
-	import { goto, replaceState } from '$lib/url';
+	import { goto } from '$lib/url';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, MessageCircle, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -179,27 +182,11 @@
 		connectDialog?.close();
 	}
 
-	function configureOAuthPath(entryID: string) {
-		return `/mcp-servers/c/${encodeURIComponent(entryID)}?configure-oauth=true` as const;
-	}
-
-	function getConnectReturnParams(connectReturn: VMcpConnectOptions['connectReturn'], vmcp: VMCP) {
-		if (connectReturn === 'inspector') return { param: 'inspector', value: vmcp.id };
-		if (connectReturn === 'list') return { param: 'connect', value: vmcp.id };
-		return { param: 'connect', value: true };
-	}
-
-	function handleConfigureOAuth(event: MouseEvent, entryID: string) {
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-			return;
-		}
-		event.preventDefault();
-		if (vmcp && connectReturn) {
-			const { param, value } = getConnectReturnParams(connectReturn, vmcp);
-			page.url.searchParams.set(param, value.toString());
-			replaceState(page.url, {});
-		}
-		goto(configureOAuthPath(entryID));
+	function connectOAuthReturnParam(): OAuthReturnParam | undefined {
+		if (!vmcp || !connectReturn) return;
+		if (connectReturn === 'inspector') return { key: 'inspector', value: vmcp.id };
+		if (connectReturn === 'list') return { key: 'connect', value: vmcp.id };
+		return { key: 'connect', value: 'true' };
 	}
 
 	function goToTester() {
@@ -493,11 +480,23 @@
 		{#if profile.current.isAdmin?.()}
 			<a
 				class="btn btn-primary w-full"
-				href={resolve(configureOAuthPath(missingOAuthComponent.mcpServerCatalogEntryID))}
+				href={resolve(
+					configureOAuthPath(
+						missingOAuthComponent.mcpServerCatalogEntryID,
+						page.url,
+						connectOAuthReturnParam()
+					)
+				)}
 				onclick={(event) =>
-					handleConfigureOAuth(event, missingOAuthComponent.mcpServerCatalogEntryID)}
-				>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
+					handleConfigureOAuth(
+						event,
+						missingOAuthComponent.mcpServerCatalogEntryID,
+						page.url,
+						connectOAuthReturnParam()
+					)}
 			>
+				{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}
+			</a>
 		{:else}
 			<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 		{/if}

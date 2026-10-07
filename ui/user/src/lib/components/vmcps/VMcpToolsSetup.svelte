@@ -17,10 +17,12 @@
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
 	import {
 		catalogConfigurationFields,
-		vmcpMissingStaticOAuthComponent
+		configureOAuthPath,
+		handleConfigureOAuth,
+		vmcpMissingStaticOAuthComponent,
+		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
-	import { goto, replaceState } from '$lib/url';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -113,23 +115,10 @@
 		return value?.id || value?.mcpServerCatalogEntryID || '';
 	}
 
-	function configureOAuthPath(entryID: string) {
-		return `/mcp-servers/c/${encodeURIComponent(entryID)}?configure-oauth=true` as const;
-	}
-
-	function handleConfigureOAuth(event: MouseEvent) {
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-			return;
-		}
-		const entryID = component?.mcpServerCatalogEntryID;
-		if (!entryID) return;
-		event.preventDefault();
+	function toolsOAuthReturnParam(): OAuthReturnParam | undefined {
 		const returnComponentID = componentID(component);
-		if (oauthSetupRequired && returnComponentID) {
-			page.url.searchParams.set('modify-tools', returnComponentID);
-			replaceState(page.url, {});
-		}
-		goto(configureOAuthPath(entryID));
+		if (!oauthSetupRequired || !returnComponentID) return;
+		return { key: 'modify-tools', value: returnComponentID };
 	}
 
 	function cancelToolPreviewRequest(preserveOauthState = false) {
@@ -479,8 +468,20 @@
 					{#if profile.current.isAdmin?.() && component?.mcpServerCatalogEntryID}
 						<a
 							class="btn btn-primary"
-							href={resolve(configureOAuthPath(component.mcpServerCatalogEntryID))}
-							onclick={handleConfigureOAuth}
+							href={resolve(
+								configureOAuthPath(
+									component.mcpServerCatalogEntryID,
+									page.url,
+									toolsOAuthReturnParam()
+								)
+							)}
+							onclick={(event) =>
+								handleConfigureOAuth(
+									event,
+									component?.mcpServerCatalogEntryID,
+									page.url,
+									toolsOAuthReturnParam()
+								)}
 						>
 							{m.vmcps_configure_named_oauth({ name: component.name })}
 						</a>

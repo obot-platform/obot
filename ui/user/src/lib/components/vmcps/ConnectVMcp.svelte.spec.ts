@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
@@ -18,6 +19,16 @@ vi.mock('$lib/url', async (importOriginal) => ({
 	goto: vi.fn().mockResolvedValue(undefined),
 	replaceState: vi.fn()
 }));
+
+function expectedOAuthPath(entryID: string, returnParam?: { key: string; value: string }) {
+	const params = new URLSearchParams({ 'configure-oauth': 'true' });
+	if (returnParam) {
+		const returnURL = new URL(appPage.url);
+		returnURL.searchParams.set(returnParam.key, returnParam.value);
+		params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
+	}
+	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
+}
 
 function configurableVMcp(): VMCP {
 	const vmcp = createVMCP({ id: 'vmcp1configurable', displayName: 'Configured vMCP' });
@@ -161,11 +172,17 @@ describe('ConnectVMcp.svelte', () => {
 		await renderDialog(vmcp, undefined, { connectReturn: 'list' });
 		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
 
-		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+		const link = connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' });
+		await expect
+			.element(link)
+			.toHaveAttribute('href', expectedOAuthPath('salesforce', { key: 'connect', value: vmcp.id }));
+		await link.click();
 
 		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
 		expect(url.searchParams.get('connect')).toBe(vmcp.id);
-		expect(vi.mocked(goto)).toHaveBeenCalledWith('/mcp-servers/c/salesforce?configure-oauth=true');
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(
+			expectedOAuthPath('salesforce', { key: 'connect', value: vmcp.id })
+		);
 	});
 
 	it('stores connect=true before opening OAuth setup from the designer', async () => {
@@ -177,7 +194,23 @@ describe('ConnectVMcp.svelte', () => {
 
 		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
 		expect(url.searchParams.get('connect')).toBe('true');
-		expect(vi.mocked(goto)).toHaveBeenCalledWith('/mcp-servers/c/salesforce?configure-oauth=true');
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(
+			expectedOAuthPath('salesforce', { key: 'connect', value: 'true' })
+		);
+	});
+
+	it('stores inspector=<vmcp id> and a return path before opening OAuth setup', async () => {
+		const vmcp = salesforceOAuthVMcp();
+		await renderDialog(vmcp, undefined, { connectReturn: 'inspector' });
+		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
+
+		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+
+		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+		expect(url.searchParams.get('inspector')).toBe(vmcp.id);
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(
+			expectedOAuthPath('salesforce', { key: 'inspector', value: vmcp.id })
+		);
 	});
 
 	function mockConfigureAndLaunch(

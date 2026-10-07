@@ -2,6 +2,7 @@ import { page as appPage } from '$app/state';
 import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { type VMCP, type VMCPInstance } from '$lib/services';
 import { vmcpInstances } from '$lib/stores';
+import { goto, replaceState } from '$lib/url';
 import { createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse, getLicenseResponse } from '../../../tests/mocks/data';
@@ -11,6 +12,20 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	goto: vi.fn().mockResolvedValue(undefined),
+	replaceState: vi.fn()
+}));
+
+function expectedOAuthPath(entryID: string, vmcpID: string) {
+	const params = new URLSearchParams({ 'configure-oauth': 'true' });
+	const returnURL = new URL(appPage.url);
+	returnURL.searchParams.set('inspector', vmcpID);
+	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
+	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
+}
 
 const vmcp = createVMCP({ id: 'vmcp-1', displayName: 'Issue Tracker vMCP' });
 
@@ -155,9 +170,16 @@ describe('VMcpTester', () => {
 				page.getByText('Salesforce requires administrator OAuth setup before this vMCP can start.')
 			)
 			.toBeVisible();
+		const configureOAuth = page.getByRole('link', { name: 'Configure Salesforce OAuth' });
 		await expect
-			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
-			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+			.element(configureOAuth)
+			.toHaveAttribute('href', expectedOAuthPath('salesforce', target.id));
+
+		await configureOAuth.click();
+
+		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+		expect(url.searchParams.get('inspector')).toBe(target.id);
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(expectedOAuthPath('salesforce', target.id));
 		await expect
 			.element(page.getByRole('button', { name: 'Start Session' }))
 			.not.toBeInTheDocument();

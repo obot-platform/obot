@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import { m } from '$lib/i18n';
@@ -12,9 +13,12 @@
 	} from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
 	import {
+		configureOAuthPath,
+		handleConfigureOAuth,
 		resolveVMcpComponents,
 		vmcpMissingStaticOAuthComponent,
-		vmcpHasUserAllowedConfiguration
+		vmcpHasUserAllowedConfiguration,
+		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import {
 		accessibleModels,
@@ -71,6 +75,12 @@
 	function openInstanceConfiguration() {
 		if (!instance) return;
 		openEditInstanceConfiguration?.(vmcp, instance);
+	}
+
+	function testerOAuthReturnParam(): OAuthReturnParam | undefined {
+		const entryID = missingOAuthComponent?.mcpServerCatalogEntryID;
+		if (!entryID || !vmcp.id) return;
+		return { key: 'inspector', value: vmcp.id };
 	}
 
 	let launching = $derived(loading || (vmcpInstances.current.loading && !launched));
@@ -145,9 +155,22 @@
 								<a
 									class="btn btn-primary"
 									href={resolve(
-										`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-									)}>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
+										configureOAuthPath(
+											missingOAuthComponent.mcpServerCatalogEntryID,
+											page.url,
+											testerOAuthReturnParam()
+										)
+									)}
+									onclick={(event) =>
+										handleConfigureOAuth(
+											event,
+											missingOAuthComponent.mcpServerCatalogEntryID,
+											page.url,
+											testerOAuthReturnParam()
+										)}
 								>
+									{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}
+								</a>
 							{:else}
 								<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 							{/if}

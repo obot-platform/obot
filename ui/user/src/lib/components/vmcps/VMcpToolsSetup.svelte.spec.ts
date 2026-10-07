@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -14,6 +15,14 @@ vi.mock('$lib/url', async (importOriginal) => ({
 	goto: vi.fn().mockResolvedValue(undefined),
 	replaceState: vi.fn()
 }));
+
+function expectedOAuthPath(entryID: string, modifyToolsID: string) {
+	const params = new URLSearchParams({ 'configure-oauth': 'true' });
+	const returnURL = new URL(appPage.url);
+	returnURL.searchParams.set('modify-tools', modifyToolsID);
+	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
+	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
+}
 
 const entry = createMCPCatalogEntry({
 	id: 'preview-entry',
@@ -118,7 +127,13 @@ describe('VMcpToolsSetup preview credentials', () => {
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
-			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+			.toHaveAttribute(
+				'href',
+				expectedOAuthPath(
+					'salesforce',
+					salesforceComponent.id || salesforceComponent.mcpServerCatalogEntryID
+				)
+			);
 		expect(preview).not.toHaveBeenCalled();
 	});
 
@@ -161,7 +176,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 			const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
 			expect(url.searchParams.get('modify-tools')).toBe(expectedReturnID);
 			expect(vi.mocked(goto)).toHaveBeenCalledWith(
-				'/mcp-servers/c/salesforce?configure-oauth=true'
+				expectedOAuthPath('salesforce', expectedReturnID)
 			);
 		}
 	);

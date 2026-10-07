@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
+	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
@@ -33,6 +35,8 @@
 	let error = $state<string>();
 	let showDeleteConfirm = $state(false);
 	let showRequired = $state(false);
+	let showReturnConfirm = $state(false);
+	let returnPath = $state<string>();
 
 	let form = $state({
 		clientID: '',
@@ -85,11 +89,53 @@
 				clientSecret: form.clientSecret.trim()
 			});
 			dialog?.close();
+			offerReturnToPreviousPage();
 		} catch (err) {
 			error = err instanceof Error ? err.message : m.mcps_oauth_static_oauth_save_failed();
 		} finally {
 			loading = false;
 		}
+	}
+
+	function safeReturnPath(value: string | null) {
+		if (!value) return;
+		let url: URL;
+		try {
+			url = new URL(value, page.url.origin);
+		} catch {
+			return;
+		}
+		if (url.origin !== page.url.origin) {
+			return;
+		}
+		return `${url.pathname}${url.search}${url.hash}`;
+	}
+
+	function offerReturnToPreviousPage() {
+		const destination = safeReturnPath(page.url.searchParams.get('oauth-redirect'));
+		if (!destination) return;
+		returnPath = destination;
+		showReturnConfirm = true;
+	}
+
+	function returnPrompt(path: string) {
+		const url = new URL(path, page.url.origin);
+		if (url.searchParams.has('modify-tools')) {
+			return 'Would you like to return to the VMCP tool setup you were working on?';
+		}
+		if (url.searchParams.has('inspector')) {
+			return 'Would you like to return to set up the vMCP inspector?';
+		}
+		if (url.searchParams.has('connect')) {
+			return 'Would you like to return to connecting to the vMCP?';
+		}
+		return 'Would you like to return to where you left off?';
+	}
+
+	function confirmReturn() {
+		const destination = returnPath;
+		showReturnConfirm = false;
+		if (destination) goto(destination);
 	}
 
 	async function handleDelete() {
@@ -230,4 +276,16 @@
 		dialog?.open();
 	}}
 	{loading}
+/>
+
+<Confirm
+	title="Go Back?"
+	msg={returnPath ? returnPrompt(returnPath) : 'Return to where you left off?'}
+	note="You can stay on this server if you are not finished here."
+	show={showReturnConfirm}
+	onsuccess={confirmReturn}
+	oncancel={() => (showReturnConfirm = false)}
+	submitText="Go Back"
+	cancelText="Skip"
+	type="info"
 />
