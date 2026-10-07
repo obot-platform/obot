@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
+	import type { LocalizedString } from '$lib/paraglide/messages';
 	import {
 		UserService,
 		type MCPCatalogEntry,
@@ -28,9 +29,10 @@
 			configuration: VMCPConfigurationPolicy[],
 			forceSingleUser: boolean
 		) => void | Promise<void>;
+		onConfigurationDismiss?: () => void;
 	}
 
-	let { onConfigurationNext }: Props = $props();
+	let { onConfigurationNext, onConfigurationDismiss }: Props = $props();
 
 	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
 	let diffDialog = $state<ReturnType<typeof VMcpDiffDialog>>();
@@ -96,8 +98,8 @@
 		options?: {
 			configuration?: VMCPConfigurationPolicy[];
 			forceSingleUser?: boolean;
-			submitLabel?: string;
-			errorMessage?: string;
+			submitLabel?: LocalizedString;
+			errorMessage?: LocalizedString;
 		}
 	) {
 		pendingConfigUpdate = undefined;
@@ -197,6 +199,7 @@
 			return;
 		}
 		pendingConfigUpdate = undefined;
+		onConfigurationDismiss?.();
 	}
 
 	async function confirmUpdate() {

@@ -11,7 +11,6 @@ import {
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
 import {
-	catalogConfigurationFields,
 	hasVMcpComponentConfiguration,
 	vmcpComponentId,
 	vmcpManifest
@@ -280,15 +279,6 @@ export function createVMcpToolFlow() {
 		const firstComponent = vmcp.components?.[0];
 		if (!firstComponent) return;
 		const entry = catalogEntryForComponent(firstComponent);
-		if (
-			entry &&
-			catalogConfigurationFields(entry).length > 0 &&
-			configure(vmcp, firstComponent, false)
-		) {
-			postCreateConfiguration = true;
-			dialog = 'configure';
-			return;
-		}
 		offerToolsAfterCreate(vmcp, firstComponent, entry);
 	}
 

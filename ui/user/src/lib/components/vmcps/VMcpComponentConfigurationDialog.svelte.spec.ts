@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { MCPCatalogEntry, MCPConfig } from '$lib/services';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -263,7 +264,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 				{ key: 'REGION', policy: 'fixed', value: 'us-west-2' },
 				{ key: 'X-Org', policy: 'prohibited' }
 			],
-			submitLabel: 'Save'
+			submitLabel: m.core_save()
 		});
 
 		await expect
@@ -279,6 +280,19 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible();
 	});
 
+	it('hides cancel when the configuration cannot be dismissed', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const onClose = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext, onClose });
+		result.component.open(configurableEntry(), { hideCancel: true });
+
+		await expect.element(page.getByRole('button', { name: 'Next' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it('shows configuration without letting it be changed', async () => {
 		await preparePageData();
 		const onNext = vi.fn();
@@ -292,7 +306,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			{
 				configuration: [{ key: 'REGION', policy: 'fixed', value: 'us-west-2' }],
 				forceSingleUser: true,
-				submitLabel: 'Save'
+				submitLabel: m.core_save()
 			}
 		);
 

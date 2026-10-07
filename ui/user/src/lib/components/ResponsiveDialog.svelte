@@ -32,6 +32,7 @@
 		animate?: ResponsiveDialogAnimate;
 		hideClose?: boolean;
 		disableClickOutside?: boolean;
+		disableEscape?: boolean;
 		disableMobileStyles?: boolean;
 		/**
 		 * Width in px of a panel on the right edge of the viewport that should stay visible and
@@ -54,6 +55,7 @@
 		animate,
 		hideClose,
 		disableClickOutside,
+		disableEscape,
 		disableMobileStyles,
 		rightPanelWidth
 	}: Props = $props();
@@ -89,6 +91,9 @@
 	style={inset}
 	data-non-modal={rightPanelWidth ? 'true' : undefined}
 	use:dialogAnimation={{ type: animate }}
+	oncancel={(event) => {
+		if (disableEscape) event.preventDefault();
+	}}
 	onclose={() => {
 		// Handle native dialog close (e.g., Escape key)
 		onClose?.();

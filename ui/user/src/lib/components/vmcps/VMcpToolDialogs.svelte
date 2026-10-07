@@ -57,7 +57,8 @@
 			configuration,
 			forceSingleUser: flow.configuringComponent?.forceSingleUser,
 			submitLabel: flow.postCreateConfiguration ? m.core_next() : m.core_save(),
-			errorMessage: m.vmcps_failed_to_update_configuration()
+			errorMessage: m.vmcps_failed_to_update_configuration(),
+			hideCancel: flow.postCreateConfiguration
 		});
 	}
 
