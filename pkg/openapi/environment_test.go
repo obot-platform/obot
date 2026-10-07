@@ -12,7 +12,7 @@ import (
 
 func TestEnvironment(t *testing.T) {
 	result := &Result{BaseURL: "https://api.example.com/v1"}
-	env, err := Environment(result, nil)
+	env, err := Environment(result, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, []string{
 		"OPENAPI_BASE_URL=https://api.example.com/v1/",
@@ -23,7 +23,7 @@ func TestEnvironment(t *testing.T) {
 		{Key: "X-Key", Required: true, Usage: types.Header, Value: "secret"},
 		{Key: "Authorization", Required: true, Usage: types.Header, Prefix: "Bearer "},
 	}
-	env, err = Environment(result, headers)
+	env, err = Environment(result, headers, false)
 	require.NoError(t, err)
 	require.Equal(t, []string{
 		"OPENAPI_BASE_URL=https://api.example.com/v1/",
@@ -40,31 +40,37 @@ func TestEnvironmentValidation(t *testing.T) {
 	for _, key := range []string{"Host", "Cookie", "Mcp-Session-Id", "invalid header", "x\r\nInjected: value"} {
 		bad := header
 		bad.Key = key
-		_, err := Environment(result, []types.MCPConfig{bad})
+		_, err := Environment(result, []types.MCPConfig{bad}, false)
 		require.Error(t, err)
 	}
 
 	duplicate := header
 	duplicate.Key = "x-key"
-	_, err := Environment(result, []types.MCPConfig{header, duplicate})
+	_, err := Environment(result, []types.MCPConfig{header, duplicate}, false)
 	require.ErrorContains(t, err, "duplicate")
 
 	bad := header
 	bad.Usage = types.Env
-	_, err = Environment(result, []types.MCPConfig{bad})
+	_, err = Environment(result, []types.MCPConfig{bad}, false)
 	require.ErrorContains(t, err, "header inputs")
 
-	_, err = Environment(&Result{BaseURL: "http://api.example.com"}, []types.MCPConfig{header})
+	_, err = Environment(&Result{BaseURL: "http://api.example.com"}, []types.MCPConfig{header}, false)
 	require.ErrorContains(t, err, "HTTPS")
+	env, err := Environment(&Result{BaseURL: "http://api.example.com"}, []types.MCPConfig{header}, true)
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"OPENAPI_BASE_URL=http://api.example.com/",
+		"OPENAPI_CREDENTIAL_HEADERS=X-Key",
+	}, env)
 
 	_, err = Environment(&Result{
 		BaseURL:          "https://api.example.com",
 		SuggestedHeaders: []types.MCPConfig{{Key: "X-Required", Required: true, Usage: types.Header}},
-	}, []types.MCPConfig{header})
+	}, []types.MCPConfig{header}, false)
 	require.ErrorContains(t, err, "X-Required")
 
 	header.Key = strings.Repeat("a", maxCredentialHeadersBytes+1)
-	_, err = Environment(result, []types.MCPConfig{header})
+	_, err = Environment(result, []types.MCPConfig{header}, false)
 	require.ErrorContains(t, err, "96 KiB")
 }
 
@@ -88,11 +94,18 @@ func TestSnapshotDestinationPolicy(t *testing.T) {
 			devMode: true,
 		},
 		{
-			name:    "development credentials still require HTTPS",
+			name:    "development HTTP with credentials",
 			url:     "http://127.0.0.1:9999",
 			devMode: true,
 			headers: []types.MCPConfig{{Key: "X-Key", Required: true, Usage: types.Header}},
-			wantErr: "credential forwarding requires an HTTPS",
+		},
+		{
+			name:    "development HTTP with credentials honors network restrictions",
+			url:     "http://127.0.0.1:9999",
+			devMode: true,
+			options: safehttp.Options{BlockLoopback: true},
+			headers: []types.MCPConfig{{Key: "X-Key", Required: true, Usage: types.Header}},
+			wantErr: "blocked loopback",
 		},
 		{
 			name:    "loopback blocked",

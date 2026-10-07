@@ -654,7 +654,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return err
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(resolvedServer, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(resolvedServer, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, h.mcpSessionManager.ValidationOptions().DevMode)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {

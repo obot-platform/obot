@@ -21,16 +21,16 @@ func TestVMCPRemoteUserURL(t *testing.T) {
 		VMCPInstanceID:  "vmcpi1test",
 		VMCPComponentID: "github",
 	}}
-	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "", nil)
+	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "", nil, false)
 	require.NoError(t, err)
 	require.Contains(t, missing, "__url")
 	require.Empty(t, config.URL)
 
-	config, missing, err = ServerToServerConfig(server, nil, "user", "scope", "", map[string]string{"__url": "https://github.example.com/mcp"})
+	config, missing, err = ServerToServerConfig(server, nil, "user", "scope", "", map[string]string{"__url": "https://github.example.com/mcp"}, false)
 	require.NoError(t, err)
 	require.Empty(t, missing)
 	require.Equal(t, "https://github.example.com/mcp", config.URL)
 
-	_, _, err = ServerToServerConfig(server, nil, "user", "scope", "", map[string]string{"__url": "https://other.example.com/mcp"})
+	_, _, err = ServerToServerConfig(server, nil, "user", "scope", "", map[string]string{"__url": "https://other.example.com/mcp"}, false)
 	require.ErrorContains(t, err, "does not match required hostname")
 }

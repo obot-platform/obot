@@ -374,7 +374,7 @@ func configureHeaders(serverConfig *ServerConfig, config []types.MCPConfig, cred
 
 // ServerToServerConfig resolves a manifest into runtime configuration.
 // Hosted runtime images are selected by the deployment backend.
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv map[string]string, devMode bool) (ServerConfig, []string, error) {
 	fixedConfig := slices.DeleteFunc(slices.Clone(mcpServer.Spec.Manifest.Config), func(config types.MCPConfig) bool {
 		return config.UserAllowed
 	})
@@ -471,7 +471,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	// Handle runtime-specific configuration
 	switch mcpServer.Spec.Manifest.Runtime {
 	case types.RuntimeOpenAPI:
-		missingRequiredNames, err = configureOpenAPIRuntime(&serverConfig, mcpServer.Spec.Manifest.OpenAPIConfig, mcpServer.Spec.Manifest.Config, runtimeCredEnv)
+		missingRequiredNames, err = configureOpenAPIRuntime(&serverConfig, mcpServer.Spec.Manifest.OpenAPIConfig, mcpServer.Spec.Manifest.Config, runtimeCredEnv, devMode)
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
