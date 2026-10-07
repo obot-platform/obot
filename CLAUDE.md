@@ -26,6 +26,12 @@ make dev              # Run full dev environment (Go server + SvelteKit UI) with
 make dev-open         # Same as above, but opens browser automatically
 ```
 
+**Model providers and `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`:** Model and auth providers come from [obot-platform/providers](https://github.com/obot-platform/providers), loaded from the local directories listed in `OBOT_SERVER_PROVIDER_REGISTRIES`. The Docker image sets this for you; `make dev` and a bare `bin/obot server` do not. If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set but no registry is configured, server startup hangs. `PostStart` in `pkg/controller/controller.go` waits forever for the `openai-model-provider` / `anthropic-model-provider` resource, so the default MCP catalog and everything after it is never set up. When running outside Docker, do one of these:
+- Unset both keys (`env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY make dev`).
+- Clone the providers repo, run `make build` in it to build the provider binaries, and start Obot with `OBOT_SERVER_PROVIDER_REGISTRIES=<path-to-providers-clone>` (e.g. `OBOT_SERVER_PROVIDER_REGISTRIES=../providers make dev`).
+
+See "Developing Obot Providers" in `DEVELOPMENT.md`.
+
 ### Building
 ```bash
 make build            # Build Go binary to bin/obot
