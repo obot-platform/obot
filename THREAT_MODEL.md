@@ -6,9 +6,9 @@ For how Obot's security controls work, see the [security overview](docs/docs/sec
 
 ## Who we trust
 
-**Admins and Owners** are fully trusted. Issues that require one of these roles are out of scope.
+**Admins and Owners** are fully trusted. Issues where the attacker must already have one of these roles are out of scope. Issues where an Admin or Owner is the victim, such as a malicious server abusing an admin's connection, are not excluded by this rule.
 
-**Power Users and Power User+** are privileged roles. They can deploy MCP servers that run their own code, through npx, uvx, or container images, and they can configure the URLs Obot connects to. Issues that require one of these roles are out of scope, unless they let that user:
+**Power Users and Power User+** are privileged roles. They can deploy MCP servers that run their own code, through npx, uvx, or container images, and they can configure the URLs Obot connects to. Issues where the attacker must already have one of these roles are out of scope, unless they let that user:
 
 - read or change another user's data,
 - gain Admin or Owner access, or
@@ -30,9 +30,10 @@ Obot's egress guard blocks connections to loopback, private, and link-local addr
 An SSRF issue is **in scope** if it meets any of these conditions, even if it also needs a Power User role:
 - an unauthenticated user can trigger it,
 - it returns the response body to the attacker, or
-- it sends Obot's own credentials or tokens to an attacker.
+- it sends Obot's own credentials or tokens to an attacker, or
+- it changes data or state on an internal service, or otherwise gives the attacker access they did not have.
 
-If it meets none of them, it is **out of scope as an advisory**. That covers ways around the egress guard, and blind requests that only show whether a host or port is reachable, when they need an Admin or Power User role. Report these as regular bugs or send a pull request.
+If it meets none of them, it is **out of scope as an advisory**. That covers blind requests that only show whether a host or port is reachable, and ways around the egress guard with no further impact, when they need an Admin or Power User role. Report these as regular bugs or send a pull request.
 
 Bypasses that only work with non-default network setups, such as NAT64 or DNS64 gateways, are hardening, not vulnerabilities.
 

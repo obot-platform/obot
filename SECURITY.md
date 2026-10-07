@@ -19,7 +19,7 @@ Please keep reports short and send one issue per report. If you used AI tools to
 We’ll acknowledge your report within **2 business days**, provide a status update in **7 days**, and aim to issue a fix or mitigation within **30 days** (complex issues may take longer).
 
 ## How We Handle Reports
-- **We set the severity.** We score each issue ourselves. A report without a reproduction against a running deployment is treated as low severity until its impact is shown.
+- **We set the severity.** We score each issue ourselves. A report without a reproduction against a running deployment is treated as unverified until its impact is shown. We don't assign it a severity or publish an advisory for it until then.
 - **Duplicates.** If more than one person reports the same issue, the first report gets the credit.
 - **Low-severity issues and hardening.** We fix these in public pull requests, without a security advisory or CVE. We'll tell you when we do.
 - **CVE IDs.** We request CVE IDs through GitHub when we publish an advisory. Please do **not** reserve a CVE ID for an Obot issue with another CVE Numbering Authority.
