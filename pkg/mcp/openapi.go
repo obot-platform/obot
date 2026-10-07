@@ -34,6 +34,13 @@ func validateOpenAPIConfig(ctx context.Context, config *types.OpenAPIRuntimeConf
 			Message: "OpenAPI configuration is required",
 		}
 	}
+	if err := openapi.ValidateSource(config.Source); err != nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeOpenAPI,
+			Field:   "openAPIConfig.source",
+			Message: err.Error(),
+		}
+	}
 	if err := validateEgressDomains(types.RuntimeOpenAPI, config.EgressDomains, config.DenyAllEgress); err != nil {
 		return err
 	}
