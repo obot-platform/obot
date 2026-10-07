@@ -1,6 +1,6 @@
 # Threat Model
 
-This document explains what we treat as a security vulnerability in Obot and what we don't. Read it before you report an issue. Reports about behavior this document describes as expected will be closed.
+This document explains what we treat as a security vulnerability in Obot and what we don't. Read it before you report an issue. Reports about behavior this document describes as expected will be closed. If you aren't sure whether an issue is in scope, report it privately.
 
 For how Obot's security controls work, see the [security overview](docs/docs/security/model.md) in the documentation.
 
@@ -12,7 +12,8 @@ For how Obot's security controls work, see the [security overview](docs/docs/sec
 
 - read or change another user's data,
 - gain Admin or Owner access, or
-- reach the host or Obot's own internal services in a way their deployed code cannot.
+- reach the host or Obot's own internal services in a way their deployed code cannot, or
+- meet one of the in-scope SSRF conditions below.
 
 **Standard users** are not trusted with each other's data. Issues that let a standard user read or change another user's data, use a server or resource they were not granted, or gain a higher role are in scope.
 
@@ -24,10 +25,14 @@ For how Obot's security controls work, see the [security overview](docs/docs/sec
 
 Obot connects to URLs as part of its normal work: remote MCP servers, OAuth endpoints, registry icons, and more. Admins and Power Users choose many of these URLs on purpose.
 
-Obot's egress guard, which blocks connections to loopback, private, and link-local addresses, is defense in depth. It is not a security boundary against users who can already configure URLs or run code. Restricting the Obot server's outbound network access is the operator's job. See [Restricting Obot Server Egress](docs/docs/installation/kubernetes-deployment.md#restricting-obot-server-egress).
+Obot's egress guard blocks connections to loopback, private, and link-local addresses for some of these requests, such as connections to remote MCP servers and OAuth discovery. It does not cover every outbound request Obot makes. The guard is defense in depth. It is not a security boundary against users who can already configure URLs or run code. Restricting the Obot server's outbound network access is the operator's job. See [Restricting Obot Server Egress](docs/docs/installation/kubernetes-deployment.md#restricting-obot-server-egress).
 
-- **Out of scope as an advisory:** ways around the egress guard that need an Admin or Power User role, and blind requests that only show whether a host or port is reachable. Report these as regular bugs or send a pull request.
-- **In scope:** SSRF that an unauthenticated user can trigger, SSRF that returns the response body to the attacker, and SSRF that sends Obot's own credentials or tokens to an attacker.
+An SSRF issue is **in scope** if it meets any of these conditions, even if it also needs a Power User role:
+- an unauthenticated user can trigger it,
+- it returns the response body to the attacker, or
+- it sends Obot's own credentials or tokens to an attacker.
+
+If it meets none of them, it is **out of scope as an advisory**. That covers ways around the egress guard, and blind requests that only show whether a host or port is reachable, when they need an Admin or Power User role. Report these as regular bugs or send a pull request.
 
 Bypasses that only work with non-default network setups, such as NAT64 or DNS64 gateways, are hardening, not vulnerabilities.
 
@@ -45,7 +50,7 @@ Device enforcement is experimental, and it depends on the device cooperating. It
 
 ## Identity provider groups
 
-Obot caches each user's group memberships from the identity provider and refreshes them about every 10 minutes. A change made in the identity provider can take that long to apply in Obot. That delay is expected. To remove access immediately, change the user's access in Obot directly.
+For most identity providers, Obot caches each user's group memberships and refreshes them from the provider about every 10 minutes, so a change made in the provider can take that long to apply in Obot. For providers that sync through SCIM, Obot doesn't refresh memberships itself. They change when the provider sends a SCIM update, so the timing depends on the provider. Both delays are expected. To remove access immediately, change the user's access in Obot directly.
 
 ## URL templates
 
