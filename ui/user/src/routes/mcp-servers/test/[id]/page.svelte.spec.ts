@@ -1,6 +1,10 @@
 import { page as appPage } from '$app/state';
 import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
+import {
+	createMcpConnectPostResolver,
+	type MCPRequest
+} from '../../../../tests/helpers/mcpConnect';
 import { preparePageData } from '../../../../tests/helpers/pageData';
 import { createMcpServerDetailsFixtures, getLicenseResponse } from '../../../../tests/mocks/data';
 import { worker } from '../../../../tests/mocks/worker';
@@ -13,43 +17,14 @@ import { page } from 'vitest/browser';
 
 const fixtures = createMcpServerDetailsFixtures();
 
-interface MCPRequest {
-	id?: string | number;
-	method: string;
-	params?: Record<string, unknown>;
-}
-
 function mockMCPInitialization(
 	capabilities: Record<string, unknown> = {},
 	handleRequest?: (request: MCPRequest) => unknown,
-	serverID = fixtures.serverSingle.id
+	_serverID = fixtures.serverSingle.id
 ) {
 	worker.use(
-		http.post(`/mcp-connect/${serverID}`, async ({ request }) => {
-			const body = (await request.json()) as MCPRequest;
-			if (body.method === 'initialize') {
-				return HttpResponse.json(
-					{
-						jsonrpc: '2.0',
-						id: body.id,
-						result: {
-							protocolVersion: body.params?.protocolVersion,
-							capabilities,
-							serverInfo: { name: 'tester-server', version: '1.0.0' }
-						}
-					},
-					{ headers: { 'Mcp-Session-Id': 'tester-session' } }
-				);
-			}
-			const result = handleRequest?.(body);
-			if (result !== undefined) {
-				return HttpResponse.json({ jsonrpc: '2.0', id: body.id, result });
-			}
-			return new HttpResponse(null, { status: 202 });
-		}),
-		http.get(`/mcp-connect/${serverID}`, () => {
-			return new HttpResponse(null, { status: 405 });
-		})
+		http.post('/mcp-connect/:connectId', createMcpConnectPostResolver(capabilities, handleRequest)),
+		http.get('/mcp-connect/:connectId', () => new HttpResponse(null, { status: 405 }))
 	);
 }
 

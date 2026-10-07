@@ -599,9 +599,7 @@ describe('VMcpCard.svelte', () => {
 					...stale,
 					status: { configured: true }
 				})
-			),
-			http.post('/api/vmcps/vmcp-1/launch', () => HttpResponse.json({})),
-			http.get('/api/vmcps/vmcp-1/oauth-url', () => HttpResponse.json({ oauthURL: '' }))
+			)
 		);
 
 		await renderCard({
