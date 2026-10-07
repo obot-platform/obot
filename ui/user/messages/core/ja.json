@@ -92,8 +92,6 @@
 	"core_json_preview": "JSON プレビュー",
 	"core_loading": "読み込み中",
 	"core_maximize_json_preview": "JSON プレビューを最大化",
-	"core_mcp_multi_tenant_launch_text": "マルチテナントのカタログエントリ用に新しいサーバーを起動しようとしています。",
-	"core_mcp_single_tenant_launch_text": "シングルテナントのカタログエントリ用に個人サーバーを起動しようとしています。このサーバーにはあなただけがアクセスできます。",
 	"core_mcp_update_tooltip_both": "このサーバーのレジストリエントリの設定が変更されました。このサーバーに適用できます\nデフォルトのサーバースケジュールルールが変更されました。このサーバーに適用できます。",
 	"core_mcp_update_tooltip_k8s": "デフォルトのサーバースケジュールルールが変更されました。このサーバーに適用できます",
 	"core_mcp_update_tooltip_server": "このサーバーのレジストリエントリの設定が変更されました。このサーバーに適用できます",

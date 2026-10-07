@@ -92,8 +92,6 @@
 	"core_json_preview": "JSON preview",
 	"core_loading": "Loading",
 	"core_maximize_json_preview": "Maximize JSON preview",
-	"core_mcp_multi_tenant_launch_text": "You are about to launch a new server for a multi-tenant catalog entry.",
-	"core_mcp_single_tenant_launch_text": "You are about to launch a personal server for a single-tenant catalog entry. This will only be accessible to you.",
 	"core_mcp_update_tooltip_both": "The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.",
 	"core_mcp_update_tooltip_k8s": "The default server scheduling rules have changed and can be applied to this server",
 	"core_mcp_update_tooltip_server": "The configuration for this server’s registry entry has changed and can be applied to this server",

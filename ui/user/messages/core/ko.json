@@ -92,8 +92,6 @@
 	"core_json_preview": "JSON 미리 보기",
 	"core_loading": "불러오는 중",
 	"core_maximize_json_preview": "JSON 미리 보기 최대화",
-	"core_mcp_multi_tenant_launch_text": "다중 테넌트 카탈로그 항목에 대한 새 서버를 시작하려고 합니다.",
-	"core_mcp_single_tenant_launch_text": "단일 테넌트 카탈로그 항목에 대한 개인 서버를 시작하려고 합니다. 이 서버는 본인만 액세스할 수 있습니다.",
 	"core_mcp_update_tooltip_both": "이 서버의 레지스트리 항목 구성이 변경되었으며 이 서버에 적용할 수 있습니다\n기본 서버 스케줄링 규칙이 변경되었으며 이 서버에 적용할 수 있습니다.",
 	"core_mcp_update_tooltip_k8s": "기본 서버 스케줄링 규칙이 변경되었으며 이 서버에 적용할 수 있습니다",
 	"core_mcp_update_tooltip_server": "이 서버의 레지스트리 항목 구성이 변경되었으며 이 서버에 적용할 수 있습니다",

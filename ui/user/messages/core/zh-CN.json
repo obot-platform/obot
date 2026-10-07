@@ -92,8 +92,6 @@
 	"core_json_preview": "JSON 预览",
 	"core_loading": "正在加载",
 	"core_maximize_json_preview": "最大化 JSON 预览",
-	"core_mcp_multi_tenant_launch_text": "您即将为多租户目录条目启动新服务器。",
-	"core_mcp_single_tenant_launch_text": "您即将为单租户目录条目启动个人服务器。只有您可以访问该服务器。",
 	"core_mcp_update_tooltip_both": "此服务器的注册表条目配置已更改，可应用到此服务器\n默认服务器调度规则已更改，可应用到此服务器。",
 	"core_mcp_update_tooltip_k8s": "默认服务器调度规则已更改，可应用到此服务器",
 	"core_mcp_update_tooltip_server": "此服务器的注册表条目配置已更改，可应用到此服务器",

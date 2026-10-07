@@ -69,7 +69,7 @@
 
 			{#if deploymentOptions.length === 0}
 				<div class="notification-info flex items-center gap-2">
-					<p class="text-xs">{m.mcps_servers_launch_server_to_debug()}</p>
+					<p class="text-xs">{m.mcps_servers_deploy_server_to_debug()}</p>
 				</div>
 			{/if}
 

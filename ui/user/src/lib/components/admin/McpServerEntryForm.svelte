@@ -248,7 +248,9 @@
 						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: m.mcps_access_policies_tab(), view: 'access-control' }]
 							: []),
-						...(profile.current?.hasAdminAccess?.() ? [{ label: m.core_filters_title(), view: 'filters' }] : []),
+						...(profile.current?.hasAdminAccess?.()
+							? [{ label: m.core_filters_title(), view: 'filters' }]
+							: []),
 						...(profile.current?.hasAdminAccess?.() && entry.manifest?.runtime === 'remote'
 							? [{ label: m.mcps_catalog_tab_troubleshooting(), view: 'troubleshooting' }]
 							: [])
