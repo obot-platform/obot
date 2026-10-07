@@ -288,9 +288,6 @@ func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server S
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool) (ServerConfig, error) {
-	if server.Runtime == otypes.RuntimeOpenAPI && strings.TrimSpace(d.openAPIImage) == "" {
-		return ServerConfig{}, fmt.Errorf("configure the MCP OpenAPI image before deploying an OpenAPI server")
-	}
 	if !d.authEnabled {
 		server.Audiences = nil
 	}
@@ -893,9 +890,6 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 }
 
 func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string) (string, int, error) {
-	if server.Runtime == otypes.RuntimeOpenAPI && strings.TrimSpace(d.openAPIImage) == "" {
-		return "", 0, fmt.Errorf("configure the MCP OpenAPI image before deploying an OpenAPI server")
-	}
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
