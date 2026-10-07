@@ -342,7 +342,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			}
 
 			containerPort := defaultContainerPort
-			if isContainerizedRuntime(server.Runtime) && server.ContainerPort != 0 {
+			if isHTTPContainerRuntime(server.Runtime) && server.ContainerPort != 0 {
 				containerPort = server.ContainerPort
 			}
 
