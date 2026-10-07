@@ -1082,8 +1082,8 @@ func validateProtectedResource(resource, connectURL string) error {
 		return fmt.Errorf("failed to parse MCP URL: %w", err)
 	}
 
-	if hasDotSegment(r) || hasDotSegment(c) {
-		return fmt.Errorf("protected resource metadata resource %q or MCP server URL %q contains a dot segment", resource, connectURL)
+	if hasAmbiguousPath(r) || hasAmbiguousPath(c) {
+		return fmt.Errorf("protected resource metadata resource %q or MCP server URL %q has a path with a dot segment, percent-encoding, a backslash, or a semicolon", resource, connectURL)
 	}
 	if !strings.EqualFold(r.Scheme, c.Scheme) ||
 		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
@@ -1094,26 +1094,17 @@ func validateProtectedResource(resource, connectURL string) error {
 	return nil
 }
 
-// hasDotSegment reports whether u's path has a "." or ".." segment once percent-encoding is
-// decoded, treating a backslash as a separator and ignoring ";" path parameters, which servers
-// such as Tomcat strip before resolving dot segments. Servers, proxies and URL parsers such as
-// the MCP TypeScript SDK's resolve these segments, and some proxies decode "%2f" and "%2e"
-// first, but the prefix check compares paths literally. So a path like
-// "/victim/../attacker/mcp" or "/victim/%2e%2e%2fattacker/mcp" would otherwise match a
-// "/victim" resource. A path that still encodes ".", "/" or "\\" after decoding is rejected too,
-// because a proxy that decodes twice would resolve it.
-func hasDotSegment(u *url.URL) bool {
-	lower := strings.ToLower(u.Path)
-	if strings.Contains(lower, "%2e") || strings.Contains(lower, "%2f") || strings.Contains(lower, "%5c") {
+// hasAmbiguousPath reports whether u's path could be read as a different path by the servers
+// and proxies between Obot and the MCP server. The prefix check compares paths literally, but
+// those servers resolve "." and ".." segments, and some first decode percent-encoding, treat a
+// backslash as "/", or strip ";" parameters. Rather than try to predict every normalization,
+// reject any path with a dot segment, a percent-encoded character, a backslash, or a ";".
+func hasAmbiguousPath(u *url.URL) bool {
+	if strings.ContainsAny(u.EscapedPath(), `%;\`) {
 		return true
 	}
-	for _, segment := range strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' || r == '\\' }) {
-		segment, _, _ = strings.Cut(segment, ";")
-		if segment == "." || segment == ".." {
-			return true
-		}
-	}
-	return false
+	segments := strings.Split(u.Path, "/")
+	return slices.Contains(segments, ".") || slices.Contains(segments, "..")
 }
 
 // isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a

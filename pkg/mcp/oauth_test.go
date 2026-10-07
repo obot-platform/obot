@@ -1008,6 +1008,24 @@ func TestValidateProtectedResource(t *testing.T) {
 			wantErr:    true,
 		},
 		{
+			name:       "percent-encoded character in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/my%20server/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "semicolon in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim;x/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "percent-encoded character in the resource",
+			resource:   "https://example.com/my%20server",
+			connectURL: `https://example.com/my%20server/mcp`,
+			wantErr:    true,
+		},
+		{
 			name:       "dot segments in the resource",
 			resource:   "https://example.com/attacker/../victim",
 			connectURL: "https://example.com/attacker/../victim/mcp",
