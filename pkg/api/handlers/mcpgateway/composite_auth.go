@@ -73,6 +73,25 @@ func (a compositeComponentAuth) OAuthHandler(ctx context.Context, _ mmmcpconfig.
 	}, nil
 }
 
+// RefreshContext retains renewable handlers rather than request headers, whose
+// loopback bearer token may expire before a component list-change notification.
+func (a compositeComponentAuth) RefreshContext(parent, request context.Context, servers []mmmcpconfig.Server) (context.Context, error) {
+	handlers := make(map[string]auth.OAuthHandler, len(servers))
+	for _, server := range servers {
+		handler, err := a.OAuthHandler(request, server)
+		if err != nil {
+			return nil, err
+		}
+		if handler != nil {
+			handlers[server.Name] = handler
+		}
+	}
+	if len(handlers) == 0 {
+		return nil, nil
+	}
+	return component.ContextWithRefreshOAuthHandlers(parent, handlers), nil
+}
+
 func (h compositeComponentOAuthHandler) TokenSource(context.Context) (oauth2.TokenSource, error) {
 	return h.tokenSource, nil
 }

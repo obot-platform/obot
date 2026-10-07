@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/mmmcp/component"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
+	"github.com/obot-platform/mmmcp/toolsearch"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
@@ -275,5 +277,94 @@ func TestCompositeComponentSessionSurvivesLoopbackTokenExpiry(t *testing.T) {
 	}
 	if _, err := session.CallTool(t.Context(), &gomcp.CallToolParams{Name: "echo"}); err != nil {
 		t.Fatalf("tool call after loopback token expiry: %v", err)
+	}
+}
+
+func TestCompositeListChangeRefreshUsesRenewableAuthentication(t *testing.T) {
+	tokens := fakeCompositeTokens{}
+	server := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
+	server.AddTool(&gomcp.Tool{Name: "echo", InputSchema: map[string]any{"type": "object"}}, func(context.Context, *gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		return &gomcp.CallToolResult{}, nil
+	})
+	var unauthorized atomic.Int32
+	mcpHandler := gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bearer, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if _, err := tokens.DecodeToken(r.Context(), bearer); err != nil {
+			unauthorized.Add(1)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		mcpHandler.ServeHTTP(w, r)
+	}))
+	defer upstream.Close()
+
+	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
+		OAuth: compositeComponentAuth{ctx: t.Context(), tokens: tokens},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer composite.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{
+		Runtime:       types.RuntimeVMCP,
+		MCPServerName: "vmcpi1test",
+		ToolSearch:    true,
+		Components: []obotmcp.ComponentServer{{
+			DisplayName: "component",
+			URL:         upstream.URL,
+		}},
+	}, nil)
+	frontend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		shortLived := compositeTestToken(t, compositeTestTokenContext(), time.Now().Add(2*time.Second))
+		r.Header.Set("Authorization", "Bearer "+shortLived)
+		composite.HTTPHandler().ServeHTTP(w, r.WithContext(mmmcp.ContextWithConfig(r.Context(), cfg)))
+	}))
+	defer frontend.Close()
+
+	changed := make(chan struct{}, 1)
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "client", Version: "test"}, &gomcp.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *gomcp.ToolListChangedRequest) { changed <- struct{}{} },
+	})
+	session, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{Endpoint: frontend.URL}, &gomcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	search, err := session.CallTool(t.Context(), &gomcp.CallToolParams{Name: toolsearch.SearchToolName, Arguments: map[string]any{"query": "echo"}})
+	if err != nil || search.IsError {
+		t.Fatalf("initial search = %#v, error = %v", search, err)
+	}
+	var found toolsearch.Results
+	if err := json.Unmarshal([]byte(search.Content[0].(*gomcp.TextContent).Text), &found); err != nil || len(found.Tools) != 1 {
+		t.Fatalf("initial search results = %#v, error = %v", found, err)
+	}
+	call, err := session.CallTool(t.Context(), &gomcp.CallToolParams{Name: toolsearch.CallToolName, Arguments: map[string]any{
+		"name": found.Tools[0].Reference.Name, "revision": found.Tools[0].Revision, "arguments": map[string]any{},
+	}})
+	if err != nil || call.IsError {
+		t.Fatalf("initial component call = %#v, error = %v", call, err)
+	}
+
+	// The bearer from the request that opened the downstream session has now
+	// expired. The list-change refresh must use its renewable OAuth handler.
+	time.Sleep(2200 * time.Millisecond)
+	server.AddTool(&gomcp.Tool{Name: "new_tool", InputSchema: map[string]any{"type": "object"}}, func(context.Context, *gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		return &gomcp.CallToolResult{}, nil
+	})
+	select {
+	case <-changed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("authenticated list-change refresh did not notify the frontend")
+	}
+	search, err = session.CallTool(t.Context(), &gomcp.CallToolParams{Name: toolsearch.SearchToolName, Arguments: map[string]any{"query": "new_tool"}})
+	if err != nil || search.IsError {
+		t.Fatalf("search after list change = %#v, error = %v", search, err)
+	}
+	if err := json.Unmarshal([]byte(search.Content[0].(*gomcp.TextContent).Text), &found); err != nil || len(found.Tools) != 1 || found.Tools[0].Reference.Name != "new_tool" {
+		t.Fatalf("search after list change results = %#v, error = %v", found, err)
+	}
+	if got := unauthorized.Load(); got != 0 {
+		t.Fatalf("component received %d unauthenticated requests", got)
 	}
 }
