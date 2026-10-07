@@ -115,6 +115,11 @@ func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) 
 			egressDomains = server.Spec.Manifest.ContainerizedConfig.EgressDomains
 			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
 		}
+	case types.RuntimeOpenAPI:
+		if server.Spec.Manifest.OpenAPIConfig != nil {
+			egressDomains = server.Spec.Manifest.OpenAPIConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.OpenAPIConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
 	default:
 		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
 	}
@@ -271,6 +276,8 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig, defaultDenyAllEgress)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+	case types.RuntimeOpenAPI:
+		drifted = !reflect.DeepEqual(serverManifest.OpenAPIConfig, entryManifest.OpenAPIConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}

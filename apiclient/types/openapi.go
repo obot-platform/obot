@@ -35,4 +35,8 @@ type OpenAPIRuntimeConfig struct {
 	// Source. Callers accepting supplied snapshots must validate them before storage.
 	Schema  *OpenAPISchema `json:"schema,omitempty"`
 	BaseURL string         `json:"baseURL,omitempty"`
+	// EgressDomains restricts the hosted pod to these domains when network policy enforcement is enabled.
+	EgressDomains []string `json:"egressDomains,omitempty"`
+	// DenyAllEgress blocks outbound traffic when network policy enforcement is enabled.
+	DenyAllEgress *bool `json:"denyAllEgress,omitempty"`
 }

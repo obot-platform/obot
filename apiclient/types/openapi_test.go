@@ -11,8 +11,10 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 	entry := MCPServerCatalogEntryManifest{
 		Runtime: RuntimeOpenAPI,
 		OpenAPIConfig: &OpenAPIRuntimeConfig{
-			Source: OpenAPISource{URL: "https://example.com/openapi.json"},
-			Schema: &OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`)},
+			Source:        OpenAPISource{URL: "https://example.com/openapi.json"},
+			Schema:        &OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.1.0","paths":{}}`)},
+			EgressDomains: []string{"api.example.com"},
+			DenyAllEgress: new(false),
 		},
 	}
 	server, err := MapCatalogEntryToServer(entry, "", false)
@@ -20,6 +22,10 @@ func TestOpenAPISnapshotConversion(t *testing.T) {
 	require.Equal(t, entry.OpenAPIConfig, server.OpenAPIConfig)
 	entry.OpenAPIConfig.Schema.Raw[0] = ' '
 	require.NotEqual(t, entry.OpenAPIConfig.Schema, server.OpenAPIConfig.Schema)
+	entry.OpenAPIConfig.EgressDomains[0] = "other.example.com"
+	*entry.OpenAPIConfig.DenyAllEgress = true
+	require.Equal(t, []string{"api.example.com"}, server.OpenAPIConfig.EgressDomains)
+	require.False(t, *server.OpenAPIConfig.DenyAllEgress)
 
 	roundTrip := server.ConvertToCatalogEntry()
 	require.Equal(t, server.OpenAPIConfig, roundTrip.OpenAPIConfig)
