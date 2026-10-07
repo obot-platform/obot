@@ -8,7 +8,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const maxCredentialHeadersBytes = 96 * 1024
+const (
+	maxCredentialHeadersBytes = 96 * 1024
+)
 
 // SnapshotEnvironment constructs deployment settings from the saved snapshot,
 // never Source. Revalidate the snapshot before launching the wrapper because

@@ -25,7 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const storedOpenAPISchema = `{"openapi":"3.1.0","info":{"title":"Test API","version":"1"},"servers":[{"url":"https://api.example.com/v1"}],"paths":{}}`
+const (
+	storedOpenAPISchema = `{"openapi":"3.1.0","info":{"title":"Test API","version":"1"},"servers":[{"url":"https://api.example.com/v1"}],"paths":{}}`
+)
+
+type openAPILifecycleBackend struct {
+	backend
+	configured ServerConfig
+}
 
 func testOpenAPISchema(raw string) *types.OpenAPISchema {
 	return &types.OpenAPISchema{Raw: json.RawMessage(raw)}
@@ -276,7 +283,6 @@ func TestOpenAPIInvalidConfig(t *testing.T) {
 			})
 		})
 	}
-
 }
 
 func TestOpenAPISharedHeadersAreRequestScoped(t *testing.T) {
@@ -522,11 +528,6 @@ func TestOpenAPIKubernetesConnectionHeaders(t *testing.T) {
 	connection, err = backend.ensureServerDeployment(t.Context(), config)
 	require.NoError(t, err)
 	require.Empty(t, connection.Headers)
-}
-
-type openAPILifecycleBackend struct {
-	backend
-	configured ServerConfig
 }
 
 func (b *openAPILifecycleBackend) ensureServerDeployment(_ context.Context, config ServerConfig) (ServerConfig, error) {
