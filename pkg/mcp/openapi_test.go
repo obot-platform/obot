@@ -179,6 +179,7 @@ func TestOpenAPICredentialPrefixesAndMissing(t *testing.T) {
 
 func TestOpenAPIManifestValidation(t *testing.T) {
 	manifest := openAPITestServer().Spec.Manifest
+	manifest.OpenAPIConfig.BaseURL = "https://93.184.216.34"
 	require.NoError(t, ValidateServerManifest(t.Context(), manifest, false, ValidationOptions{}))
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest.ConvertToCatalogEntry(), false, ValidationOptions{}))
 }
@@ -545,7 +546,8 @@ func TestOpenAPILifecyclePreservesRuntime(t *testing.T) {
 		t.Run(action, func(t *testing.T) {
 			backend := &openAPILifecycleBackend{}
 			manager := SessionManager{
-				backend: backend,
+				backend:                   backend,
+				remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true, AllowPrivateIPMCP: true, AllowLinkLocalMCP: true},
 			}
 			config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "key"})
 			var err error
@@ -567,6 +569,96 @@ func TestOpenAPILifecyclePreservesRuntime(t *testing.T) {
 			require.Equal(t, types.RuntimeOpenAPI, backend.configured.Runtime)
 			require.Empty(t, backend.configured.ContainerImage)
 			require.Equal(t, config.Files, backend.configured.Files)
+		})
+	}
+}
+
+func TestOpenAPIDestinationPolicyAtDeployment(t *testing.T) {
+	for _, action := range []string{"launch", "restart", "details", "logs"} {
+		t.Run(action, func(t *testing.T) {
+			for _, test := range []struct {
+				name    string
+				url     string
+				devMode bool
+				allow   RemoteMCPURLValidationConfig
+				wantErr string
+			}{
+				{
+					name:    "private destination blocked",
+					url:     "https://10.0.0.1",
+					wantErr: "blocked private",
+				},
+				{
+					name:    "HTTP blocked in production without credentials",
+					url:     "http://93.184.216.34",
+					wantErr: "API destination must use HTTPS",
+				},
+				{
+					name:    "development honors network restrictions",
+					url:     "http://127.0.0.1:9999",
+					devMode: true,
+					wantErr: "blocked loopback",
+				},
+				{
+					name:    "development with localhost allowed",
+					url:     "http://127.0.0.1:9999",
+					devMode: true,
+					allow:   RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
+				},
+				{
+					name:  "private destination explicitly allowed",
+					url:   "https://10.0.0.1",
+					allow: RemoteMCPURLValidationConfig{AllowPrivateIPMCP: true},
+				},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					backend := &openAPILifecycleBackend{}
+					manager := SessionManager{
+						backend:                   backend,
+						devMode:                   test.devMode,
+						remoteURLValidationConfig: test.allow,
+					}
+					server := openAPITestServer()
+					server.Spec.Manifest.Config = nil
+					server.Spec.Manifest.OpenAPIConfig.BaseURL = test.url
+					config := openAPITestConfig(t, server, nil)
+					var err error
+					switch action {
+					case "launch":
+						_, err = manager.LaunchServer(t.Context(), config)
+					case "restart":
+						err = manager.RestartServerDeployment(t.Context(), config)
+					case "details":
+						_, err = manager.GetServerDetails(t.Context(), config)
+					case "logs":
+						var logs io.ReadCloser
+						logs, err = manager.StreamServerLogs(t.Context(), config)
+						if logs != nil {
+							require.NoError(t, logs.Close())
+						}
+					}
+					if test.wantErr != "" {
+						require.ErrorContains(t, err, test.wantErr)
+						require.Empty(t, backend.configured.Runtime, "backend must not deploy a rejected destination")
+					} else {
+						require.NoError(t, err)
+						require.Equal(t, types.RuntimeOpenAPI, backend.configured.Runtime)
+					}
+
+					// Both manifest entry points receive the same startup settings.
+					options := manager.ValidationOptions()
+					for _, validationErr := range []error{
+						ValidateServerManifest(t.Context(), server.Spec.Manifest, false, options),
+						ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), false, options),
+					} {
+						if test.wantErr != "" {
+							require.ErrorContains(t, validationErr, test.wantErr)
+						} else {
+							require.NoError(t, validationErr)
+						}
+					}
+				})
+			}
 		})
 	}
 }

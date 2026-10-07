@@ -59,7 +59,7 @@ func TestCheckVMCPComponentAuthProbesOnlySelectedRemote(t *testing.T) {
 	gateway := vmcpConsentGateway(t)
 	tokens := mcp.NewGlobalTokenStore(gateway)
 	// The fake Kubernetes client lets remote OAuth run without a runtime daemon.
-	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "http://obot.example", 8080,
+	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 	// Leave a legacy token under the shared server ID: no connection may reuse it.
 	require.NoError(t, tokens.ForUserAndMCP("42", component.Name, remote.URL).SetTokenConfig(t.Context(),
 		&oauth2.Config{ClientID: "legacy"}, &oauth2.Token{AccessToken: "legacy-token", TokenType: "Bearer"}))
-	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "http://obot.example", 8080,
+	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 	storage := &vmcpOAuthInitialEventsClient{WithWatch: vmcpConsentStorage(objects...)}
 	gateway := vmcpConsentGateway(t)
 	tokens := mcp.NewGlobalTokenStore(gateway)
-	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "http://obot.example", 8080,
+	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)

@@ -104,13 +104,26 @@ func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIR
 	if err != nil {
 		return nil, err
 	}
-	if !i.devMode && strings.HasPrefix(result.BaseURL, "http://") {
-		return nil, fmt.Errorf("API destination must use HTTPS unless Obot development mode is enabled")
-	}
-	if err := safehttp.ValidateURL(ctx, result.BaseURL, i.options); err != nil {
-		return nil, fmt.Errorf("API destination is blocked: %w", err)
+	if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
+		return nil, err
 	}
 	return result, nil
+}
+
+// ValidateDestination checks HTTPS and the configured address policy without
+// requesting the API. The runtime must still enforce policy on API requests.
+func ValidateDestination(ctx context.Context, baseURL string, options safehttp.Options, devMode bool) error {
+	base, err := destination(baseURL)
+	if err != nil {
+		return err
+	}
+	if !devMode && strings.HasPrefix(base, "http://") {
+		return fmt.Errorf("API destination must use HTTPS unless Obot development mode is enabled")
+	}
+	if err := safehttp.ValidateURL(ctx, base, options); err != nil {
+		return fmt.Errorf("API destination is blocked: %w", err)
+	}
+	return nil
 }
 
 // Parse normalizes JSON/YAML and checks the wrapper's supported subset. It does
