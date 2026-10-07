@@ -20,7 +20,6 @@ export const LOCALE_SHORTHAND: Record<Locale, string> = {
 
 /** Persists the locale and reloads the page so every message re-renders in the new language. */
 export function changeLocale(locale: Locale) {
-	if (locale === getLocale()) return;
 	setLocale(locale);
 }
 
