@@ -393,14 +393,14 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
-	if err := sm.validateOpenAPIDestination(ctx, server); err != nil {
+	if err := sm.validateDeployment(ctx, server); err != nil {
 		return err
 	}
 	return sm.backend.restartServer(ctx, server)
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
-	if err := sm.validateOpenAPIDestination(ctx, server); err != nil {
+	if err := sm.validateDeployment(ctx, server); err != nil {
 		return ServerConfig{}, err
 	}
 	if server.Runtime == types.RuntimeRemote {
@@ -419,6 +419,22 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	defer cancel()
 
 	return sm.backend.ensureServerDeployment(ctx, server)
+}
+
+func (sm *SessionManager) deployServer(ctx context.Context, server ServerConfig) error {
+	if err := sm.validateDeployment(ctx, server); err != nil {
+		return err
+	}
+	return sm.backend.deployServer(ctx, server)
+}
+
+func (sm *SessionManager) validateDeployment(ctx context.Context, server ServerConfig) error {
+	switch server.Runtime {
+	case types.RuntimeOpenAPI:
+		return sm.validateOpenAPIDestination(ctx, server)
+	default:
+		return nil
+	}
 }
 
 // ValidateRemoteMCPURL rejects remote MCP URLs that resolve to blocked local address ranges.

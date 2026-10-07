@@ -88,9 +88,6 @@ func openAPINetworkOptions(config RemoteMCPURLValidationConfig) safehttp.Options
 }
 
 func (sm *SessionManager) validateOpenAPIDestination(ctx context.Context, server ServerConfig) error {
-	if server.Runtime != types.RuntimeOpenAPI {
-		return nil
-	}
 	for _, env := range server.Env {
 		if baseURL, ok := strings.CutPrefix(env, "OPENAPI_BASE_URL="); ok {
 			return openapi.ValidateDestination(ctx, baseURL, openAPINetworkOptions(sm.remoteURLValidationConfig), sm.devMode)
