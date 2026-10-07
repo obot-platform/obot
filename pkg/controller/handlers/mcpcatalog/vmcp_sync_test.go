@@ -10,8 +10,10 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/version"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -285,7 +287,7 @@ components:
 
 	catalog := testCatalog()
 	catalog.Spec.SourceURLs = []string{dir}
-	objects, err := (&Handler{}).readMCPCatalog(t.Context(), catalog.Name, dir, "")
+	objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), catalog.Name, dir, "")
 	require.NoError(t, err)
 	var desired *v1.VMCP
 	for _, object := range objects {
@@ -377,7 +379,7 @@ profiles:
 
 	catalog := testCatalog()
 	catalog.Spec.SourceURLs = []string{dir}
-	objects, err := (&Handler{}).readMCPCatalog(t.Context(), catalog.Name, dir, "")
+	objects, _, err := (&Handler{}).readMCPCatalog(t.Context(), catalog.Name, dir, "")
 	require.NoError(t, err)
 
 	migrated := &v1.VMCP{
@@ -435,7 +437,7 @@ func TestCatalogSyncDoesNotOverwriteUnmanagedVMCP(t *testing.T) {
 		},
 	}
 
-	objects, syncErrors, err := (&Handler{}).prepareCatalogVMCPs(t.Context(), newCatalogFakeClient(existing), catalog, []kclient.Object{desired})
+	objects, syncErrors, err := (&Handler{}).prepareCatalogVMCPs(t.Context(), newCatalogFakeClient(existing), catalog, []kclient.Object{desired}, nil)
 	require.NoError(t, err)
 	require.Empty(t, objects)
 	require.Contains(t, syncErrors["source"], "conflicts")
@@ -551,7 +553,7 @@ func TestCatalogVMCPComponentReferenceMatching(t *testing.T) {
 				MCPServerCatalogEntryID: "search",
 			}}}}}
 			entry := &v1.MCPServerCatalogEntry{Name: "renamed-entry"}
-			require.NoError(t, resolveCatalogVMCPComponents(desired, existing, "source", map[string]*v1.MCPServerCatalogEntry{"source::search": entry}))
+			require.NoError(t, resolveCatalogVMCPComponents(desired, existing, "source", map[string]*v1.MCPServerCatalogEntry{"source::search": entry}, nil))
 			component := desired.Spec.Manifest.Components[0]
 			if source == "source" {
 				require.Equal(t, "stable-id", component.ID)
@@ -608,7 +610,7 @@ func TestCatalogVMCPComponentMatching(t *testing.T) {
 				Name:                    "Renamed",
 				MCPServerCatalogEntryID: "search",
 			}}}}}
-			err := resolveCatalogVMCPComponents(desired, existing, "source", map[string]*v1.MCPServerCatalogEntry{"source::search": entry})
+			err := resolveCatalogVMCPComponents(desired, existing, "source", map[string]*v1.MCPServerCatalogEntry{"source::search": entry}, nil)
 			if tc.wantErr != "" {
 				require.ErrorContains(t, err, tc.wantErr)
 				return
@@ -618,4 +620,73 @@ func TestCatalogVMCPComponentMatching(t *testing.T) {
 			require.True(t, desired.Spec.Manifest.Components[0].ForceSingleUser)
 		})
 	}
+}
+
+func TestCatalogSyncSkipsVMCPsWithVersionSkippedComponentsAcrossSources(t *testing.T) {
+	originalTag := version.Tag
+	t.Cleanup(func() { version.Tag = originalTag })
+
+	entriesDir, vmcpsDir := t.TempDir(), t.TempDir()
+	writeEntries := func(content string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(filepath.Join(entriesDir, "entries.yaml"), []byte(content), 0o600))
+	}
+	future := `- entryKey: future
+  name: Future
+  minObotVersion: v0.21.0
+  runtime: npx
+  npxConfig: {package: future}
+`
+	writeEntries(future + `- entryKey: other
+  name: Other
+  runtime: npx
+  npxConfig: {package: other}
+`)
+	vmcp := fmt.Sprintf(`type: vmcp
+entryKey: bundle
+displayName: Bundle
+components:
+  - name: Future
+    id: future
+    mcpServerCatalogEntryKey: %s
+`, sourceRef(mcp.SourceIDForURL(entriesDir), "future"))
+	require.NoError(t, os.WriteFile(filepath.Join(vmcpsDir, "vmcp.yaml"), []byte(vmcp), 0o600))
+
+	catalog := testCatalog()
+	catalog.Spec.SourceURLs = []string{entriesDir, vmcpsDir}
+	client := newCatalogFakeClient(catalog)
+	handler := newParseTestHandler(t)
+	sync := func() *v1.MCPCatalog {
+		t.Helper()
+		current := &v1.MCPCatalog{}
+		require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(catalog), current))
+		if current.Annotations == nil {
+			current.Annotations = map[string]string{}
+		}
+		current.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
+		require.NoError(t, client.Update(t.Context(), current))
+		require.NoError(t, handler.Sync(router.Request{Ctx: t.Context(), Client: client, Object: current}, &parseTestResponse{}))
+		require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(catalog), current))
+		return current
+	}
+
+	version.Tag = "v0.21.0"
+	require.Empty(t, sync().Status.SyncErrors)
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, client.List(t.Context(), &entries))
+	require.Len(t, entries.Items, 2)
+	var vmcps v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Len(t, vmcps.Items, 1)
+
+	// On an older version, the out-of-range entry and the vMCP that depends on it are removed
+	// without a sync error, so unrelated removals from the catalog are still reconciled.
+	version.Tag = "v0.20.0"
+	writeEntries(future)
+	require.Empty(t, sync().Status.SyncErrors)
+	require.NoError(t, client.List(t.Context(), &entries))
+	require.Empty(t, entries.Items)
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Len(t, vmcps.Items, 1)
+	require.NotNil(t, vmcps.Items[0].DeletionTimestamp)
 }

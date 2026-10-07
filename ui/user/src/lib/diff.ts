@@ -21,6 +21,8 @@ export function stripManifestMetadata<T>(manifest: T): T {
 	delete clone.entryKey;
 	delete clone.repoURL;
 	delete clone.upgradeNote;
+	delete clone.minObotVersion;
+	delete clone.maxObotVersion;
 	if (clone.remoteConfig) {
 		delete clone.remoteConfig.fixedURL;
 		delete clone.remoteConfig.url;

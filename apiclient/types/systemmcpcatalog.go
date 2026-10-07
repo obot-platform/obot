@@ -44,6 +44,11 @@ type SystemMCPServerCatalogEntryManifest struct {
 	RepoURL          string            `json:"repoURL,omitempty"`
 	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
 
+	// MinObotVersion and MaxObotVersion bound, inclusively, the Obot versions on which a
+	// catalog-synced entry is available. Empty values are unrestricted.
+	MinObotVersion string `json:"minObotVersion,omitempty"`
+	MaxObotVersion string `json:"maxObotVersion,omitempty"`
+
 	SystemMCPServerType SystemMCPServerType `json:"systemMCPServerType,omitempty"`
 
 	FilterConfig *FilterConfig `json:"filterConfig,omitempty"`

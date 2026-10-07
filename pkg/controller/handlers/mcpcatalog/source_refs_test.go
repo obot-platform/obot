@@ -30,7 +30,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicate source entry key "shared"`)
@@ -50,7 +50,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry key "Bad_Key" must be DNS-friendly`)
@@ -69,7 +69,7 @@ remoteConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "remoteConfig.tunnelName: cannot be set on catalog-synced entries")

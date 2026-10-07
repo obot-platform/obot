@@ -27,7 +27,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 	assert.Len(t, objs, 1)
 

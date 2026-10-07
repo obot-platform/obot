@@ -280,7 +280,9 @@ function stripInformationalManifestFields<T extends object>(manifest: T): T {
 		'shortDescription',
 		'description',
 		'icon',
-		'upgradeNote'
+		'upgradeNote',
+		'minObotVersion',
+		'maxObotVersion'
 	]) {
 		delete stripped[field];
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -16,7 +17,16 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, objs []kclient.Object) ([]kclient.Object, map[string]string, error) {
+var (
+	// errComponentVersionSkipped indicates that a vMCP component references a catalog entry skipped
+	// because the running Obot version is outside its supported range.
+	errComponentVersionSkipped = errors.New("component catalog entry is outside the supported Obot version range")
+)
+
+// prepareCatalogVMCPs resolves catalog vMCP components. vMCPs that reference an entry in
+// versionSkippedRefs are unavailable on this Obot version, like the entry, and are left out
+// without reporting a sync error.
+func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, objs []kclient.Object, versionSkippedRefs map[string]struct{}) ([]kclient.Object, map[string]string, error) {
 	entries := make([]kclient.Object, 0, len(objs))
 	vmcps := make([]*v1.VMCP, 0)
 	entriesByRef := make(map[string]*v1.MCPServerCatalogEntry)
@@ -90,7 +100,10 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 			continue
 		}
 
-		if err := resolveCatalogVMCPComponents(vmcp, existing, sourceURL, entriesByRef); err != nil {
+		if err := resolveCatalogVMCPComponents(vmcp, existing, sourceURL, entriesByRef, versionSkippedRefs); errors.Is(err, errComponentVersionSkipped) {
+			slog.Info("Skipping vMCP that references a catalog entry outside supported Obot version range", "vmcp", vmcp.Spec.Manifest.DisplayName, "error", err)
+			continue
+		} else if err != nil {
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
 			continue
 		}
@@ -155,7 +168,7 @@ func validateCatalogVMCPStaticConfiguration(manifest types.VMCPManifest, staticC
 	return errors.Join(errs...)
 }
 
-func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL string, entriesByRef map[string]*v1.MCPServerCatalogEntry) error {
+func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL string, entriesByRef map[string]*v1.MCPServerCatalogEntry, versionSkippedRefs map[string]struct{}) error {
 	sourceID := mcp.SourceIDForURL(sourceURL)
 	vmcp.Spec.ComponentCatalogReferences = make(map[string]string)
 	for index := range vmcp.Spec.Manifest.Components {
@@ -166,6 +179,9 @@ func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL st
 		}
 		reference := sourceRef(refSourceID, entryKey)
 		entry := entriesByRef[reference]
+		if _, skipped := versionSkippedRefs[reference]; entry == nil && skipped {
+			return fmt.Errorf("component %q: %w", component.MCPServerCatalogEntryID, errComponentVersionSkipped)
+		}
 		if entry == nil {
 			return fmt.Errorf("component catalog entry %q was not found", component.MCPServerCatalogEntryID)
 		}

@@ -9,9 +9,11 @@ import (
 
 // SourceDigest identifies the parts of a catalog entry that require a vMCP
 // component update. Informational fields are excluded so that catalog copy,
-// icon, repository, entry key, tool preview, metadata, and upgrade-note
-// changes alone do not report drift.
+// icon, repository, entry key, tool preview, metadata, upgrade-note, and Obot
+// version range changes alone do not report drift.
 func SourceDigest(snapshot types.MCPServerCatalogEntrySnapshot) string {
+	snapshot.Manifest.MinObotVersion = ""
+	snapshot.Manifest.MaxObotVersion = ""
 	snapshot.Manifest.RepoURL = ""
 	snapshot.Manifest.EntryKey = ""
 	snapshot.Manifest.ToolPreview = nil
