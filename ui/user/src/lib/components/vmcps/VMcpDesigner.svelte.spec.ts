@@ -229,6 +229,8 @@ async function pressCard(locator: ReturnType<typeof page.getByRole>, pointerId: 
 describe('VMcpDesigner.svelte', () => {
 	afterEach(() => {
 		appPage.url.searchParams.delete('view');
+		appPage.url.searchParams.delete('inspector');
+		appPage.url.searchParams.delete('connect');
 		appPage.url.searchParams.delete('profile');
 		appPage.url.searchParams.delete('tab');
 		appPage.url.searchParams.delete('modify-tools');
@@ -1580,6 +1582,15 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('tester view', () => {
+		it('resumes the Test connection after returning from administrator OAuth', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			appPage.url.searchParams.set('inspector', vmcp.id);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+			await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+		});
+
 		it('connects through the exact vMCP instance', async () => {
 			const connect = vi.fn();
 			const instance: VMCPInstance = {

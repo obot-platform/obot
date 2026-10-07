@@ -36,15 +36,10 @@ function configurableVMcp(): VMCP {
 	return vmcp;
 }
 
-async function renderDialog(
-	vmcp: VMCP,
-	instance?: VMCPInstance,
-	options?: VMcpConnectOptions,
-	connectReturn?: 'list' | 'designer'
-) {
+async function renderDialog(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
 	await preparePageData();
 	await vmcpInstances.refresh();
-	const result = await render(ConnectVMcp, { connectReturn });
+	const result = await render(ConnectVMcp);
 	result.component.open(vmcp, instance, options);
 	return result;
 }
@@ -163,7 +158,7 @@ describe('ConnectVMcp.svelte', () => {
 
 	it('stores connect=<vmcp id> before opening OAuth setup from the list', async () => {
 		const vmcp = salesforceOAuthVMcp();
-		await renderDialog(vmcp, undefined, undefined, 'list');
+		await renderDialog(vmcp, undefined, { connectReturn: 'list' });
 		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
 
 		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
@@ -175,7 +170,7 @@ describe('ConnectVMcp.svelte', () => {
 
 	it('stores connect=true before opening OAuth setup from the designer', async () => {
 		const vmcp = salesforceOAuthVMcp();
-		await renderDialog(vmcp, undefined, undefined, 'designer');
+		await renderDialog(vmcp, undefined, { connectReturn: 'designer' });
 		const connectDialog = page.getByCSS('#connect-to-vmcp-dialog');
 
 		await connectDialog.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();

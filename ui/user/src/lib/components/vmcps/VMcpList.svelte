@@ -7,7 +7,7 @@
 	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
-	import { UserService, type OrgUser, type VMCP } from '$lib/services';
+	import { UserService, type OrgUser, type VMCP, type VMCPInstance } from '$lib/services';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { getDisplayListText, getVMcpCreator } from '$lib/services/vmcps/utils';
@@ -71,10 +71,22 @@
 			const match = items.find((item) => item.id === page.url.searchParams.get('connect'));
 			if (match) {
 				vmcpActions?.openConnect(match.vmcp, undefined, {
+					connectReturn: 'list',
 					onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
 				});
 			} else {
 				setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (page.url.searchParams.has('inspector')) {
+			setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
+			const id = page.url.searchParams.get('inspector');
+			const match = items.find((item) => item.id === id);
+			if (match) {
+				handleTest(match.vmcp);
 			}
 		}
 	});
@@ -100,11 +112,16 @@
 	}
 
 	function connectHandler(vmcp: VMCP, options?: VMcpConnectOptions) {
+		const connectOptions: VMcpConnectOptions = { connectReturn: 'list', ...options };
 		if (onConnect) {
-			onConnect(vmcp, options);
+			onConnect(vmcp, connectOptions);
 			return;
 		}
-		vmcpActions?.openConnect(vmcp, undefined, options);
+		vmcpActions?.openConnect(vmcp, undefined, connectOptions);
+	}
+
+	function editInstanceConfiguration(vmcp: VMCP, instance: VMCPInstance) {
+		vmcpActions?.openEditInstanceConfiguration(vmcp, instance, { connectReturn: 'list' });
 	}
 
 	function connectDisabled(canConnect: boolean) {
@@ -129,7 +146,14 @@
 			toggle?.(false);
 			return;
 		}
-		connectHandler(vmcp, { onConnected: () => goto(`/vmcps/${vmcp.id}?view=inspector`) });
+		connectHandler(vmcp, {
+			onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'inspector', undefined),
+			onConnected: () => {
+				setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
+				goto(`/vmcps/${vmcp.id}?view=inspector`);
+			},
+			connectReturn: 'inspector'
+		});
 		toggle?.(false);
 	}
 
@@ -347,7 +371,7 @@
 	</div>
 {/if}
 
-<VMcpActions bind:this={vmcpActions} connectReturn="list" />
+<VMcpActions bind:this={vmcpActions} />
 
 <Confirm
 	show={Boolean(pendingBulkDelete?.length)}
@@ -430,7 +454,7 @@
 						onUpdated={onUpdate}
 						openSelectInstance={vmcpActions?.openSelectInstance}
 						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-						openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+						openEditInstanceConfiguration={editInstanceConfiguration}
 					/>
 				{:else}
 					{row[property as keyof typeof row]}
@@ -513,7 +537,7 @@
 										openSelectInstance={vmcpActions?.openSelectInstance}
 										openDiff={vmcpActions?.openDiff}
 										openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-										openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+										openEditInstanceConfiguration={editInstanceConfiguration}
 									/>
 								{/if}
 							{/snippet}
@@ -560,16 +584,13 @@
 			if (!canSelectRow(card)) return;
 			toggleSelected(card);
 		}}
-		onConnect={(options) =>
-			onConnect
-				? onConnect(card.vmcp, options)
-				: vmcpActions?.openConnect(card.vmcp, undefined, options)}
+		onConnect={(options) => connectHandler(card.vmcp, options)}
 		onDelete={() => onDelete?.(card.vmcp)}
 		{onUpdate}
 		openSelectInstance={vmcpActions?.openSelectInstance}
 		openDiff={vmcpActions?.openDiff}
 		openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-		openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+		openEditInstanceConfiguration={editInstanceConfiguration}
 		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
 		owner={getVMcpCreator(card.vmcp, usersMap)}
 	>

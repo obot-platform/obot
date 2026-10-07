@@ -167,9 +167,25 @@
 	$effect(() => {
 		if (page.url.searchParams.get('connect') === 'true' && selectedVMcp?.id) {
 			vmcpActions?.openConnect(selectedVMcp, undefined, {
+				connectReturn: 'designer',
 				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
 			});
 		}
+	});
+
+	$effect(() => {
+		const inspectorID = page.url.searchParams.get('inspector');
+		const vmcp = selectedVMcp;
+		if (!inspectorID || vmcp?.id !== inspectorID) return;
+
+		vmcpActions?.openConnect(vmcp, undefined, {
+			connectReturn: 'inspector',
+			onConnected: () => {
+				setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
+				goto(`/vmcps/${vmcp.id}?view=inspector`);
+			},
+			onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'inspector', undefined)
+		});
 	});
 
 	$effect(() => {
@@ -181,10 +197,11 @@
 		const vmcp = selectedVMcp;
 		if (!vmcp?.id || openedModifyToolsFor === componentID) return;
 		const match = vmcp.components?.find((component) => vmcpComponentId(component) === componentID);
-		if (!match) {
+		if (!canEdit || isCatalogSyncedVMcp(vmcp) || !match) {
 			setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined);
 			return;
 		}
+
 		openedModifyToolsFor = componentID;
 		untrack(() => {
 			toolFlow.editComponent(match, vmcp, {
@@ -383,7 +400,7 @@
 	}
 
 	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
-		vmcpActions?.openConnect(vmcp, undefined, options);
+		vmcpActions?.openConnect(vmcp, undefined, { connectReturn: 'designer', ...options });
 	}
 
 	async function refreshTester(vmcpID: string) {
@@ -498,6 +515,7 @@
 							if (!selectedVMcp) return;
 							const vmcpID = selectedVMcp.id;
 							vmcpActions?.openEditInstanceConfiguration(target, instance, {
+								connectReturn: 'designer',
 								onConnected: () => {
 									void refreshTester(vmcpID);
 								}
@@ -525,7 +543,10 @@
 						openSelectInstance={vmcpActions?.openSelectInstance}
 						openDiff={vmcpActions?.openDiff}
 						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-						openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+						openEditInstanceConfiguration={(vmcp, instance) =>
+							vmcpActions?.openEditInstanceConfiguration(vmcp, instance, {
+								connectReturn: 'designer'
+							})}
 						onUpdate={(updated) => {
 							selectedVMcp = updated;
 						}}
@@ -638,11 +659,7 @@
 
 <VMcpToolDialogs flow={toolFlow} readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)} />
 
-<VMcpActions
-	bind:this={vmcpActions}
-	connectReturn="designer"
-	onConfigurationNext={handleConfigurationNext}
-/>
+<VMcpActions bind:this={vmcpActions} onConfigurationNext={handleConfigurationNext} />
 
 <CreateEditVMcp
 	bind:this={createEditVMcp}

@@ -122,41 +122,49 @@ describe('VMcpToolsSetup preview credentials', () => {
 		expect(preview).not.toHaveBeenCalled();
 	});
 
-	it('stores modify-tools before opening OAuth setup', async () => {
-		const salesforceEntry = createMCPCatalogEntry({
-			id: 'salesforce',
-			name: 'Salesforce',
-			runtime: 'remote',
-			manifest: {
-				remoteConfig: {
-					fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
-					staticOAuthRequired: true
+	it.each([
+		{ componentID: 'component-salesforce', expectedReturnID: 'component-salesforce' },
+		{ componentID: '', expectedReturnID: 'salesforce' }
+	])(
+		'stores modify-tools for component ID "$componentID" before OAuth setup',
+		async ({ componentID, expectedReturnID }) => {
+			const salesforceEntry = createMCPCatalogEntry({
+				id: 'salesforce',
+				name: 'Salesforce',
+				runtime: 'remote',
+				manifest: {
+					remoteConfig: {
+						fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+						staticOAuthRequired: true
+					}
 				}
-			}
-		});
-		const salesforceComponent = createVMCPComponent(salesforceEntry);
-		const vmcp = createVMCP({ id: 'vmcp-preview', components: [salesforceComponent] });
-		vmcp.status = {
-			ready: false,
-			components: [
-				{ name: salesforceComponent.name, error: 'static OAuth credentials are not configured' }
-			]
-		};
-		worker.use(http.get('/api/vmcps/vmcp-preview', () => HttpResponse.json(vmcp)));
+			});
+			const salesforceComponent = createVMCPComponent(salesforceEntry, { id: componentID });
+			const vmcp = createVMCP({ id: 'vmcp-preview', components: [salesforceComponent] });
+			vmcp.status = {
+				ready: false,
+				components: [
+					{ name: salesforceComponent.name, error: 'static OAuth credentials are not configured' }
+				]
+			};
+			worker.use(http.get('/api/vmcps/vmcp-preview', () => HttpResponse.json(vmcp)));
 
-		await preparePageData();
-		const result = await render(VMcpToolsSetup, {
-			component: salesforceComponent,
-			vmcpID: vmcp.id,
-			refresh: true
-		});
-		untrack(() => result.component.open());
-		await page.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+			await preparePageData();
+			const result = await render(VMcpToolsSetup, {
+				component: salesforceComponent,
+				vmcpID: vmcp.id,
+				refresh: true
+			});
+			untrack(() => result.component.open());
+			await page.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
 
-		const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
-		expect(url.searchParams.get('modify-tools')).toBe(salesforceComponent.id);
-		expect(vi.mocked(goto)).toHaveBeenCalledWith('/mcp-servers/c/salesforce?configure-oauth=true');
-	});
+			const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+			expect(url.searchParams.get('modify-tools')).toBe(expectedReturnID);
+			expect(vi.mocked(goto)).toHaveBeenCalledWith(
+				'/mcp-servers/c/salesforce?configure-oauth=true'
+			);
+		}
+	);
 
 	it('requests a hostname-constrained server URL for discovery and OAuth', async () => {
 		const remoteEntry = createMCPCatalogEntry({

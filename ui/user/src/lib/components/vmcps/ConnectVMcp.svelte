@@ -29,12 +29,6 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	interface Props {
-		connectReturn?: 'list' | 'designer';
-	}
-
-	let { connectReturn }: Props = $props();
-
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -53,6 +47,7 @@
 	let oauthVerifying = $state(false);
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
+	let connectReturn = $state<VMcpConnectOptions['connectReturn']>();
 	let ignoreNextConfigureClose = false;
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
@@ -105,6 +100,7 @@
 		instance = targetInstance;
 		onConnected = options?.onConnected;
 		onDismissed = options?.onDismissed;
+		connectReturn = options?.connectReturn;
 		configureForm = undefined;
 		error = undefined;
 		launchError = undefined;
@@ -187,13 +183,20 @@
 		return `/mcp-servers/c/${encodeURIComponent(entryID)}?configure-oauth=true` as const;
 	}
 
+	function getConnectReturnParams(connectReturn: VMcpConnectOptions['connectReturn'], vmcp: VMCP) {
+		if (connectReturn === 'inspector') return { param: 'inspector', value: vmcp.id };
+		if (connectReturn === 'list') return { param: 'connect', value: vmcp.id };
+		return { param: 'connect', value: true };
+	}
+
 	function handleConfigureOAuth(event: MouseEvent, entryID: string) {
 		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
 			return;
 		}
 		event.preventDefault();
 		if (vmcp && connectReturn) {
-			page.url.searchParams.set('connect', connectReturn === 'designer' ? 'true' : vmcp.id);
+			const { param, value } = getConnectReturnParams(connectReturn, vmcp);
+			page.url.searchParams.set(param, value.toString());
 			replaceState(page.url, {});
 		}
 		goto(configureOAuthPath(entryID));
@@ -484,7 +487,7 @@
 
 {#snippet oauthSetupGuidance()}
 	{#if missingOAuthComponent}
-		<p>
+		<p class="mb-4">
 			{m.vmcps_connect_requires_oauth_setup({ name: missingOAuthComponent.name })}
 		</p>
 		{#if profile.current.isAdmin?.()}
@@ -669,7 +672,7 @@
 
 <Confirm
 	show={showIntroDialog}
-	onsuccess={handleConfigure}
+	onsuccess={missingOAuthComponent ? undefined : handleConfigure}
 	submitText={m.core_continue()}
 	disabled={Boolean(missingOAuthComponent)}
 	type="info"

@@ -124,8 +124,9 @@
 		const entryID = component?.mcpServerCatalogEntryID;
 		if (!entryID) return;
 		event.preventDefault();
-		if (oauthSetupRequired && component?.id) {
-			page.url.searchParams.set('modify-tools', component.id);
+		const returnComponentID = componentID(component);
+		if (oauthSetupRequired && returnComponentID) {
+			page.url.searchParams.set('modify-tools', returnComponentID);
 			replaceState(page.url, {});
 		}
 		goto(configureOAuthPath(entryID));
