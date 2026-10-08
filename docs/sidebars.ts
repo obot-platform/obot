@@ -272,6 +272,11 @@ const sidebars = {
 					"label": "Configure authentication providers"
 				},
 				{
+					"type": "doc",
+					"id": "configuration/okta-scim",
+					"label": "Okta SCIM provisioning"
+				},
+				{
 					"type": "category",
 					"label": "Cloud deployments",
 					"collapsible": false,

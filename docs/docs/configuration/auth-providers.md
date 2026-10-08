@@ -284,6 +284,11 @@ Make sure to add the redirect URL displayed in Obot to the list of Sign-in redir
 
 Take note of the Client ID and Client Secret. You will need to provide these to Obot.
 
+Obot can get users and groups from Okta in one of two ways:
+
+- **SCIM:** Okta sends Obot only the users and groups you choose. Skip the API Services app below, and follow [Provision users and groups from Okta with SCIM](./okta-scim.md).
+- **API Services app:** Obot reads each user's groups from Okta when they sign in. Continue with the steps below.
+
 Next, create another OAuth app, this time of type `API Services`. Grant it the API scopes `okta.users.read` and `okta.groups.read`.
 Assign an administrator role to this app that has, at a minimum, `okta.users.read` and `okta.groups.read` permissions.
 You can use an existing administrator role (such as Read-Only Administrator), or create a custom one.
