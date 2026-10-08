@@ -30,7 +30,7 @@ const returnPrompts = [
 		name: 'vMCP inspector setup',
 		redirect: '/vmcps/vmcp-1?inspector=vmcp-1',
 		destination: '/vmcps/vmcp-1?inspector=vmcp-1',
-		prompt: 'Would you like to return to set up the vMCP inspector?'
+		prompt: 'Would you like to return to the vMCP inspector?'
 	},
 	{
 		name: 'vMCP connect',

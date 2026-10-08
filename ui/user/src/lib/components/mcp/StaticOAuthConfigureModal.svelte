@@ -121,15 +121,15 @@
 	function returnPrompt(path: string) {
 		const url = new URL(path, page.url.origin);
 		if (url.searchParams.has('modify-tools')) {
-			return 'Would you like to return to the vMCP tool setup you were working on?';
+			return m.mcps_oauth_static_oauth_return_tools();
 		}
 		if (url.searchParams.has('inspector')) {
-			return 'Would you like to return to set up the vMCP inspector?';
+			return m.mcps_oauth_static_oauth_return_inspector();
 		}
 		if (url.searchParams.has('connect')) {
-			return 'Would you like to return to connecting to the vMCP?';
+			return m.mcps_oauth_static_oauth_return_connect();
 		}
-		return 'Would you like to return to where you left off?';
+		return m.mcps_oauth_static_oauth_return_default();
 	}
 
 	function confirmReturn() {
@@ -279,13 +279,13 @@
 />
 
 <Confirm
-	title="Go Back?"
-	msg={returnPath ? returnPrompt(returnPath) : 'Return to where you left off?'}
-	note="You can stay on this server if you are not finished here."
+	title={m.mcps_oauth_static_oauth_return_title()}
+	msg={returnPath ? returnPrompt(returnPath) : m.mcps_oauth_static_oauth_return_fallback()}
+	note={m.mcps_oauth_static_oauth_return_note()}
 	show={showReturnConfirm}
 	onsuccess={confirmReturn}
 	oncancel={() => (showReturnConfirm = false)}
-	submitText="Go Back"
-	cancelText="Skip"
+	submitText={m.mcps_oauth_static_oauth_return_go_back()}
+	cancelText={m.mcps_skip()}
 	type="info"
 />
