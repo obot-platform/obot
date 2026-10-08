@@ -23,7 +23,7 @@
 	import VMcpMenuActions from './VMcpMenuActions.svelte';
 	import VMcpStatusBadge from './VMcpStatusBadge.svelte';
 	import { Ellipsis, MessageCircle, Plug, Trash2 } from '@lucide/svelte';
-	import { type Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 
 	interface Props {
 		items: VMCP[];
@@ -66,24 +66,38 @@
 		(version.current.licenseEntitlementViolations || []).length > 0
 	);
 
+	let openedConnectID: string | undefined;
+
 	$effect(() => {
-		if (page.url.searchParams.has('connect')) {
-			const match = items.find((item) => item.id === page.url.searchParams.get('connect'));
-			if (match) {
-				vmcpActions?.openConnect(match.vmcp, undefined, {
-					connectReturn: 'list',
-					onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
-				});
-			} else {
-				setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
-			}
+		const connectID = page.url.searchParams.get('connect');
+		if (!connectID) {
+			openedConnectID = undefined;
+			return;
 		}
+
+		const match = items.find((item) => item.id === connectID);
+		if (!match) {
+			openedConnectID = undefined;
+			setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
+			return;
+		}
+
+		const actions = vmcpActions;
+		if (!actions || openedConnectID === connectID) return;
+
+		openedConnectID = connectID;
+		setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
+		untrack(() =>
+			actions.openConnect(match.vmcp, undefined, {
+				connectReturn: 'list'
+			})
+		);
 	});
 
 	$effect(() => {
 		if (page.url.searchParams.has('inspector')) {
-			setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
 			const id = page.url.searchParams.get('inspector');
+			setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
 			const match = items.find((item) => item.id === id);
 			if (match) {
 				handleTest(match.vmcp);

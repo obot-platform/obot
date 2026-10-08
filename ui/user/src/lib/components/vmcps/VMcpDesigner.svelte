@@ -165,12 +165,16 @@
 	});
 
 	$effect(() => {
-		if (page.url.searchParams.get('connect') === 'true' && selectedVMcp?.id) {
-			vmcpActions?.openConnect(selectedVMcp, undefined, {
+		const target = selectedVMcp;
+		const actions = vmcpActions;
+		if (page.url.searchParams.get('connect') !== 'true' || !target?.id || !actions) return;
+
+		untrack(() =>
+			actions.openConnect(target, undefined, {
 				connectReturn: 'designer',
 				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
-			});
-		}
+			})
+		);
 	});
 
 	$effect(() => {

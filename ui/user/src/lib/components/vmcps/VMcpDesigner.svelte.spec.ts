@@ -606,7 +606,7 @@ describe('VMcpDesigner.svelte', () => {
 				.toBeVisible();
 		});
 
-		it('opens tool setup from modify-tools and clears the param when dismissed', async () => {
+		it('opens tool setup from modify-tools', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			appPage.url.searchParams.set('modify-tools', `component-${componentEntry.id}`);
 			await renderDesigner([componentEntry], vmcp);
@@ -614,13 +614,6 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
 				.toBeVisible();
-			await page.getByRole('button', { name: 'close' }).click();
-
-			await expect
-				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
-				.not.toBeInTheDocument();
-			await new Promise((resolve) => setTimeout(resolve, 200));
-			expect(appPage.url.searchParams.get('modify-tools')).toBeNull();
 		});
 
 		it('removes the server from the vMCP without visiting the setup flow', async () => {

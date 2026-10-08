@@ -121,7 +121,7 @@
 	function returnPrompt(path: string) {
 		const url = new URL(path, page.url.origin);
 		if (url.searchParams.has('modify-tools')) {
-			return 'Would you like to return to the VMCP tool setup you were working on?';
+			return 'Would you like to return to the vMCP tool setup you were working on?';
 		}
 		if (url.searchParams.has('inspector')) {
 			return 'Would you like to return to set up the vMCP inspector?';

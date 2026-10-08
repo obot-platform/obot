@@ -143,6 +143,9 @@ describe('VMcpToolsSetup preview credentials', () => {
 	])(
 		'stores modify-tools for component ID "$componentID" before OAuth setup',
 		async ({ componentID, expectedReturnID }) => {
+			vi.mocked(goto).mockClear();
+			vi.mocked(replaceState).mockClear();
+
 			const salesforceEntry = createMCPCatalogEntry({
 				id: 'salesforce',
 				name: 'Salesforce',
