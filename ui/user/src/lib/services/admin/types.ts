@@ -746,6 +746,8 @@ export type MCPConfig = Omit<
 export interface MCPCatalogEntryServerManifest {
 	entryKey?: string;
 	upgradeNote?: string;
+	minObotVersion?: string;
+	maxObotVersion?: string;
 	icon?: string;
 	config?: MCPConfig[];
 	repoURL?: string;

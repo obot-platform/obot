@@ -666,7 +666,9 @@ describe('vmcpOutdatedComponents', () => {
 			shortDescription: 'Short description',
 			description: 'Description',
 			icon: 'https://example.com/icon.png',
-			upgradeNote: 'Read before upgrading.'
+			upgradeNote: 'Read before upgrading.',
+			minObotVersion: 'v0.27.0',
+			maxObotVersion: 'v0.30.0'
 		};
 		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub', manifest: informational });
 		const vmcp = createVMCP({}, [entry]);
@@ -679,6 +681,8 @@ describe('vmcpOutdatedComponents', () => {
 				description: 'Updated description',
 				icon: 'https://example.com/updated.png',
 				upgradeNote: 'Updated upgrade note.',
+				minObotVersion: 'v0.28.0',
+				maxObotVersion: 'v0.31.0',
 				repoURL: 'https://github.com/example/updated',
 				toolPreview: [{ id: 'echo', name: 'echo', description: 'Echo input' }]
 			}

@@ -10845,6 +10845,19 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Format:      "",
 						},
 					},
+					"minObotVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MinObotVersion and MaxObotVersion bound, inclusively, the Obot versions on which a catalog-synced entry is available. Empty values are unrestricted.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxObotVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Runtime configuration",
@@ -18947,6 +18960,19 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManife
 									},
 								},
 							},
+						},
+					},
+					"minObotVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MinObotVersion and MaxObotVersion bound, inclusively, the Obot versions on which a catalog-synced entry is available. Empty values are unrestricted.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxObotVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"systemMCPServerType": {

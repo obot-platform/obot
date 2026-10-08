@@ -62,8 +62,10 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 			Detached:  true,
 			SourceURL: "https://github.com/obot-platform/mcp-catalog",
 			Manifest: types.MCPServerCatalogEntryManifest{
-				EntryKey:    "context7",
-				UpgradeNote: "Review configuration changes before upgrading.",
+				EntryKey:       "context7",
+				UpgradeNote:    "Review configuration changes before upgrading.",
+				MinObotVersion: "v0.20.0",
+				MaxObotVersion: "v0.21.0",
 			},
 		},
 	}
@@ -74,6 +76,8 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	assert.Empty(t, entry.Spec.SourceURL)
 	assert.Empty(t, entry.Spec.Manifest.EntryKey)
 	assert.Empty(t, entry.Spec.Manifest.UpgradeNote)
+	assert.Empty(t, entry.Spec.Manifest.MinObotVersion)
+	assert.Empty(t, entry.Spec.Manifest.MaxObotVersion)
 	assert.False(t, entry.Spec.Detached)
 	assert.Equal(t, "true", entry.Annotations["example.com/keep"])
 }

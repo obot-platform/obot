@@ -269,6 +269,26 @@ repoURL: https://github.com/owner/repo
 
 To restrict which tools clients can discover and call, create a [virtual MCP (vMCP)](../concepts/mcp-hosting.md#virtual-mcps-vmcps) and configure its exposed tools and access profiles.
 
+### Obot Version Range
+
+```yaml
+minObotVersion: v0.27.0 # optional
+maxObotVersion: v0.30.0 # optional
+```
+
+Use `minObotVersion` and `maxObotVersion` to offer an entry only on the Obot versions that support it, for example when the entry relies on functionality added in a specific release. Both fields are optional and inclusive, and an omitted field leaves that side of the range unrestricted. Values must be full release versions with a leading `v`, such as `v0.27.0`.
+
+When the running Obot version is outside the range, Obot skips the entry during catalog sync, as if the entry were not in the source:
+
+- The entry does not appear in Obot and cannot be used to create servers.
+- A [vMCP definition](#vmcp-definitions) that references the entry is skipped too.
+- Skipped entries do not cause sync errors, even if they use fields or runtimes that the running Obot version does not support.
+- If an entry that was previously synced falls outside the range, Obot handles it the same way as an entry removed from the source.
+
+Obot re-syncs its catalogs when it starts on a new version, so entries become available or unavailable as soon as you upgrade. Development builds ignore the version range. Obot versions released before support for these fields ignore them and show the entry.
+
+These fields also apply to entries in the system MCP catalog, such as [built-in filters](../functionality/filters.md#built-in-filters). They are only supported on entries synced from a catalog source.
+
 ### Environment Variables
 
 ```yaml

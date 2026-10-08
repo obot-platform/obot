@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/version"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -811,7 +812,19 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 	}
 }
 
+// ValidateObotVersionRange validates minObotVersion and maxObotVersion. They are only enforced
+// during catalog sync, so they are rejected on entries that are not synced from a catalog source.
+func ValidateObotVersionRange(minVersion, maxVersion string, catalogSynced bool) error {
+	if !catalogSynced && (minVersion != "" || maxVersion != "") {
+		return fmt.Errorf("minObotVersion and maxObotVersion are only supported for catalog-synced entries")
+	}
+	return version.ValidateRange(minVersion, maxVersion)
+}
+
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
+	if err := ValidateObotVersionRange(manifest.MinObotVersion, manifest.MaxObotVersion, gitManaged); err != nil {
+		return err
+	}
 	if err := manifest.ValidateConfig(); err != nil {
 		return err
 	}
@@ -871,6 +884,10 @@ func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifes
 }
 
 func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options ValidationOptions) error {
+	if err := ValidateObotVersionRange(manifest.MinObotVersion, manifest.MaxObotVersion, true); err != nil {
+		return err
+	}
+
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,

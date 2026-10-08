@@ -1967,3 +1967,47 @@ func TestValidateCatalogEntryManifestCatalogSyncedRejectsTunnelName(t *testing.T
 		Message: "cannot be set on catalog-synced entries",
 	}, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}))
 }
+
+func TestValidateObotVersionRange(t *testing.T) {
+	tests := []struct {
+		name          string
+		minVersion    string
+		maxVersion    string
+		catalogSynced bool
+		wantErr       string
+	}{
+		{
+			name:          "unset on admin-created entry",
+			catalogSynced: false,
+		},
+		{
+			name:          "set on catalog-synced entry",
+			minVersion:    "v0.20.0",
+			maxVersion:    "v0.21.0",
+			catalogSynced: true,
+		},
+		{
+			name:          "set on admin-created entry",
+			minVersion:    "v0.20.0",
+			catalogSynced: false,
+			wantErr:       "only supported for catalog-synced entries",
+		},
+		{
+			name:          "invalid on catalog-synced entry",
+			maxVersion:    "v0.21",
+			catalogSynced: true,
+			wantErr:       "invalid maxObotVersion",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateObotVersionRange(tt.minVersion, tt.maxVersion, tt.catalogSynced)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+			}
+		})
+	}
+}

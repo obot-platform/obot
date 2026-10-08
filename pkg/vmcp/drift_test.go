@@ -20,6 +20,8 @@ func TestNeedsUpdate(t *testing.T) {
 		snapshot.Manifest.Description = "new description"
 		snapshot.Manifest.Icon = "https://example.com/icon.png"
 		snapshot.Manifest.UpgradeNote = "Read before upgrading."
+		snapshot.Manifest.MinObotVersion = "v0.27.0"
+		snapshot.Manifest.MaxObotVersion = "v0.30.0"
 		return snapshot
 	}
 	changed := func(snapshot types.MCPServerCatalogEntrySnapshot) types.MCPServerCatalogEntrySnapshot {

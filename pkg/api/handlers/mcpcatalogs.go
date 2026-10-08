@@ -558,6 +558,8 @@ func acceptCatalogEntryOwnership(entry *v1.MCPServerCatalogEntry) {
 	entry.Spec.SourceURL = ""
 	entry.Spec.Manifest.EntryKey = ""
 	entry.Spec.Manifest.UpgradeNote = ""
+	entry.Spec.Manifest.MinObotVersion = ""
+	entry.Spec.Manifest.MaxObotVersion = ""
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
