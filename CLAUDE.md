@@ -72,6 +72,16 @@ make serve-docs       # Start local docs server
 - When an implementation introduces a meaningful architectural decision, include an ADR in the implementation pull request and follow the [`adr/README.md`](adr/README.md) guidance. The ADR records the decision that shipped and links to its related issues and ODP when applicable.
 - If implementation differs materially from the accepted ODP, resolve the change through a follow-up ODP rather than documenting the surprise only in the ADR.
 
+## Documentation Is Part of the Change
+
+A change that alters what a user or admin sees or configures isn't done until the docs in `docs/docs/` say so. Update the docs in the same PR:
+
+- **A new or changed server option** (a field in the `Config` struct in `pkg/services/config.go`): add or update its row in `docs/docs/configuration/server-configuration.md`.
+- **A new feature, UI flow, or API behavior:** update the matching page under `functionality/` or `configuration/`, or add a page.
+- **Changed or removed behavior:** fix every page that describes the old behavior. Search the docs for it.
+
+In the PR description, list the docs you updated, or say in one line why the change needs none. Before editing, read `docs/CLAUDE.md` for linking, versioning, and build rules.
+
 ## Pull Requests and Issues
 
 - When a PR addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so they are linked.
