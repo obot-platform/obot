@@ -13,6 +13,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -242,6 +243,24 @@ func TestEnablePreview(t *testing.T) {
 	}
 	if preview.AuthProviderName != s.okta.Name || preview.AuthProviderNamespace != s.okta.Namespace || preview.AuthProviderDisplayName != "Okta" {
 		t.Fatalf("auth provider = %q/%q (%q)", preview.AuthProviderNamespace, preview.AuthProviderName, preview.AuthProviderDisplayName)
+	}
+}
+
+func TestEnablePreviewLocalizesUnsupportedProvider(t *testing.T) {
+	s := newEnableTest(t)
+	s.providers.configured = "github-auth-provider"
+
+	for _, locale := range []string{"ja", "ko", "zh-CN"} {
+		t.Run(locale, func(t *testing.T) {
+			preview, err := s.service.EnablePreview(i18n.WithLocale(t.Context(), locale))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := i18n.Message(locale, "scim_unsupported", map[string]string{"provider": "GitHub"})
+			if len(preview.Blockers) != 1 || preview.Blockers[0] != want {
+				t.Fatalf("blockers = %q, want %q", preview.Blockers, want)
+			}
+		})
 	}
 }
 

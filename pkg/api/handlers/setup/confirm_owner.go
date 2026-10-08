@@ -35,17 +35,17 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 
 	var body ConfirmOwnerRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
+		return types.NewErrBadRequest("%s", localized(req, "local_invalid_body", "detail", err.Error()))
 	}
 
 	if body.Email == "" {
-		return types.NewErrBadRequest("email is required")
+		return types.NewErrBadRequest("%s", localized(req, "setup_email_required"))
 	}
 
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		slog.Info("Rejecting owner confirmation because no temporary user is cached")
-		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to confirm")
+		return types.NewErrHTTP(http.StatusNotFound, localized(req, "setup_no_temp_to_confirm"))
 	}
 
 	// Verify that the email matches the cached user's email
@@ -53,7 +53,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	if cached.Email != body.Email {
 		slog.Info("Rejecting owner confirmation due to cached email mismatch", "cachedUserID", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
-			fmt.Sprintf("email mismatch: expected %s but got %s in request", cached.Email, body.Email))
+			localized(req, "setup_email_mismatch", "expected", cached.Email, "actual", body.Email))
 	}
 
 	// Get the user from the database
@@ -76,6 +76,6 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		Success: true,
 		UserID:  user.ID,
 		Email:   user.Email,
-		Message: fmt.Sprintf("User %s confirmed as Owner", user.Email),
+		Message: localized(req, "setup_confirmed_owner", "email", user.Email),
 	})
 }

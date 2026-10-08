@@ -1,0 +1,5 @@
+{
+  "model_validation_failed": "failed to validate model provider {provider}: {detail}",
+  "model_not_configured": "model provider {provider} is not configured, missing configuration parameters: {parameters}",
+  "model_credential_not_found": "no credential found for {provider}"
+}

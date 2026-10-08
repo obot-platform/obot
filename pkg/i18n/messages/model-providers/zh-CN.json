@@ -1,0 +1,5 @@
+{
+  "model_validation_failed": "验证模型提供商 {provider} 失败：{detail}",
+  "model_not_configured": "模型提供商 {provider} 尚未配置；缺少配置参数：{parameters}",
+  "model_credential_not_found": "找不到 {provider} 的凭据"
+}

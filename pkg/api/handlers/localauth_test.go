@@ -161,6 +161,24 @@ func TestLocalAuthBootstrapCreation(t *testing.T) {
 	require.Len(t, users, 2)
 }
 
+func TestLocalAuthValidationUsesRequestLocale(t *testing.T) {
+	f := newLocalSetupFixture(t, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/local-auth/users", strings.NewReader(`{"email":"invalid","password":"long-enough-password"}`))
+	req.Header.Set("Accept-Language", "ko")
+	recorder := httptest.NewRecorder()
+	err := f.handler.Create(api.Context{
+		Request:        req,
+		ResponseWriter: recorder,
+		GatewayClient:  f.gateway,
+		User:           &kuser.DefaultInfo{Name: "owner"},
+	})
+	var httpErr *apitypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+	require.Contains(t, httpErr.Message, "유효한 이메일 주소")
+	require.Equal(t, "Accept-Language", recorder.Header().Get("Vary"))
+}
+
 func TestLocalAuthBootstrapLoginCompletesInOneSession(t *testing.T) {
 	for _, passwordChange := range []bool{false, true} {
 		t.Run(strconv.FormatBool(passwordChange), func(t *testing.T) {

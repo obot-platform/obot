@@ -2,6 +2,7 @@ package localauth
 
 import (
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -24,24 +25,24 @@ func AuthProvider() *v1.AuthProvider {
 		Spec: v1.AuthProviderSpec{
 			AuthProviderManifest: types.AuthProviderManifest{
 				CommonProviderMetadata: types.CommonProviderMetadata{
-					Name:        "Local",
+					Name:        i18n.Text("en", "local_provider_name"),
 					Icon:        icon,
 					IconDark:    iconDark,
-					Description: "Authenticate users with an email address and password stored in Obot. No external identity provider required.",
+					Description: i18n.Text("en", "local_provider_description"),
 					Locales: map[string]types.ProviderTranslation{
-						"ja":    {Name: "ローカル", Description: "Obot に保存されたメールアドレスとパスワードでユーザーを認証します。外部の ID プロバイダーは不要です。"},
-						"ko":    {Name: "로컬", Description: "Obot에 저장된 이메일 주소와 비밀번호로 사용자를 인증합니다. 외부 ID 공급자가 필요하지 않습니다."},
-						"zh-CN": {Name: "本地", Description: "使用存储在 Obot 中的电子邮件地址和密码验证用户身份。无需外部身份提供方。"},
+						"ja":    {Name: i18n.Text("ja", "local_provider_name"), Description: i18n.Text("ja", "local_provider_description")},
+						"ko":    {Name: i18n.Text("ko", "local_provider_name"), Description: i18n.Text("ko", "local_provider_description")},
+						"zh-CN": {Name: i18n.Text("zh-CN", "local_provider_name"), Description: i18n.Text("zh-CN", "local_provider_description")},
 					},
 					RequiredConfigurationParameters: []types.ProviderConfigurationParameter{
 						{
 							Name:         EmailDomainsEnvVar,
-							FriendlyName: "Allowed Email Domains",
-							Description:  "Comma-separated list of email domains that local users may have. Use * to allow any domain.",
+							FriendlyName: i18n.Text("en", "local_provider_domains_name"),
+							Description:  i18n.Text("en", "local_provider_domains_description"),
 							Locales: map[string]types.ProviderParameterTranslation{
-								"ja":    {FriendlyName: "許可するメールドメイン", Description: "ローカルユーザーが使用できるメールドメインをカンマ区切りで指定します。* を指定するとすべてのドメインを許可します。"},
-								"ko":    {FriendlyName: "허용할 이메일 도메인", Description: "로컬 사용자가 사용할 수 있는 이메일 도메인을 쉼표로 구분하여 입력합니다. *를 사용하면 모든 도메인을 허용합니다."},
-								"zh-CN": {FriendlyName: "允许的电子邮件域名", Description: "以逗号分隔本地用户可使用的电子邮件域名。使用 * 可允许任何域名。"},
+								"ja":    {FriendlyName: i18n.Text("ja", "local_provider_domains_name"), Description: i18n.Text("ja", "local_provider_domains_description")},
+								"ko":    {FriendlyName: i18n.Text("ko", "local_provider_domains_name"), Description: i18n.Text("ko", "local_provider_domains_description")},
+								"zh-CN": {FriendlyName: i18n.Text("zh-CN", "local_provider_domains_name"), Description: i18n.Text("zh-CN", "local_provider_domains_description")},
 							},
 						},
 					},

@@ -49,7 +49,7 @@ func NewLocalAuthHandler(provider *localauth.Provider) *LocalAuthHandler {
 }
 
 func (h *LocalAuthHandler) List(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 
@@ -72,23 +72,23 @@ func (h *LocalAuthHandler) List(req api.Context) error {
 }
 
 func (h *LocalAuthHandler) Create(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 
 	var body localAuthUserRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body", "detail", err.Error()))
 	}
 
 	bootstrap := req.User.GetName() == system.BootstrapName
 	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
 	if errors.Is(err, gateway.ErrBootstrapLocalAuthUserLimit) {
-		return types.NewErrHTTP(http.StatusConflict, err.Error())
+		return types.NewErrHTTP(http.StatusConflict, apiMessage(req, "local_bootstrap_limit"))
 	} else if errors.Is(err, gateway.ErrLocalAuthUserExists) {
-		return types.NewErrBadRequest("a local user with that email already exists")
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_user_exists"))
 	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-		return types.NewErrBadRequest("%s", invalid.Error())
+		return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
 	} else if err != nil {
 		return fmt.Errorf("failed to create local auth user: %w", err)
 	}
@@ -103,7 +103,7 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 
 // SetPassword resets a local user's password, which also signs them out of all their sessions.
 func (h *LocalAuthHandler) SetPassword(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 
@@ -114,14 +114,14 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 
 	var body localAuthUserRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body", "detail", err.Error()))
 	}
 
 	err = h.provider.SetPassword(req.Context(), id, body.Password, defaultTrue(body.RequirePasswordChange))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrNotFound("local auth user not found")
+		return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
 	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-		return types.NewErrBadRequest("%s", invalid.Error())
+		return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
 	} else if err != nil {
 		return fmt.Errorf("failed to set password for local auth user: %w", err)
 	}
@@ -132,13 +132,13 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 // Activate validates the initial owner's setup token and establishes a restricted local auth
 // session. Invalid, expired, and completed links intentionally get the same response.
 func (h *LocalAuthHandler) Activate(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 
 	var body localAuthActivationRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body")
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body_simple"))
 	}
 
 	token, expiresAt, err := h.provider.ActivateInitialOwner(req.Context(), body.SetupToken)
@@ -150,7 +150,7 @@ func (h *LocalAuthHandler) Activate(req api.Context) error {
 		} else {
 			slog.Warn("Failed to activate initial local auth owner", "error", err)
 		}
-		return types.NewErrHTTP(http.StatusForbidden, "invalid or expired setup link")
+		return types.NewErrHTTP(http.StatusForbidden, apiMessage(req, "local_invalid_setup_link"))
 	}
 
 	h.provider.SetSessionCookie(req.ResponseWriter, token, expiresAt)
@@ -160,39 +160,39 @@ func (h *LocalAuthHandler) Activate(req api.Context) error {
 // ChangePassword changes the caller's own local-auth password. It cannot target an email or user
 // ID supplied by the caller.
 func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 	name, namespace := req.AuthProviderNameAndNamespace()
 	if name != system.LocalAuthProvider || namespace != system.DefaultNamespace {
-		return types.NewErrBadRequest("the current user is not authenticated with the local provider")
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_not_authenticated"))
 	}
 	if cmp.Or(req.User.GetExtra()["password_change_required"]...) != "true" {
-		return types.NewErrBadRequest("the current local user does not require a password change")
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_no_password_change"))
 	}
 
 	var body localAuthUserRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body", "detail", err.Error()))
 	}
 
 	email := cmp.Or(req.User.GetExtra()["email"]...)
 	localUser, err := req.GatewayClient.LocalAuthUserByEmail(req.Context(), email)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrNotFound("local auth user not found")
+		return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
 	} else if err != nil {
 		return fmt.Errorf("failed to find current local auth user: %w", err)
 	}
 
 	cookie, err := req.Cookie(auth.ObotAccessTokenCookie)
 	if err != nil || cookie.Value == "" {
-		return types.NewErrHTTP(http.StatusUnauthorized, "local auth session is required")
+		return types.NewErrHTTP(http.StatusUnauthorized, apiMessage(req, "local_session_required"))
 	}
 	if err := h.provider.ChangePassword(req.Context(), localUser.ID, body.Password, hash.String(cookie.Value)); err != nil {
 		if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-			return types.NewErrBadRequest("%s", invalid.Error())
+			return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrHTTP(http.StatusConflict, "password setup has already been completed or the session is no longer valid")
+			return types.NewErrHTTP(http.StatusConflict, apiMessage(req, "local_password_completed"))
 		}
 		return fmt.Errorf("failed to change password: %w", err)
 	}
@@ -201,7 +201,7 @@ func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
 }
 
 func (h *LocalAuthHandler) Delete(req api.Context) error {
-	if err := h.enabled(); err != nil {
+	if err := h.enabled(req); err != nil {
 		return err
 	}
 
@@ -213,7 +213,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	localUser, err := h.provider.GetUser(req.Context(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("local auth user not found")
+			return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
 		}
 		return fmt.Errorf("failed to get local auth user: %w", err)
 	}
@@ -233,7 +233,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 			}
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				// If the error is a record not found error, then someone else already deleted the user while we were processing.
-				return types.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
+				return types.NewErrHTTP(status, apiMessage(req, "local_delete_failed", "detail", err.Error()))
 			}
 		}
 
@@ -253,7 +253,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	}
 
 	if err = h.provider.DeleteUser(req.Context(), id); errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrNotFound("local auth user not found")
+		return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
 	} else if err != nil {
 		return fmt.Errorf("failed to delete local auth user: %w", err)
 	}
@@ -261,9 +261,9 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	return nil
 }
 
-func (h *LocalAuthHandler) enabled() error {
+func (h *LocalAuthHandler) enabled(req api.Context) error {
 	if h.provider == nil {
-		return types.NewErrBadRequest("the local auth provider is not available because authentication is disabled")
+		return types.NewErrBadRequest("%s", apiMessage(req, "local_unavailable"))
 	}
 	return nil
 }
@@ -271,7 +271,7 @@ func (h *LocalAuthHandler) enabled() error {
 func localAuthUserID(req api.Context) (uint, error) {
 	id, err := strconv.ParseUint(req.PathValue("id"), 10, 64)
 	if err != nil {
-		return 0, types.NewErrBadRequest("invalid local auth user ID")
+		return 0, types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_user_id"))
 	}
 	return uint(id), nil
 }

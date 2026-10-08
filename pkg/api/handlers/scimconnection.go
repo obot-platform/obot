@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/i18n"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -28,7 +30,7 @@ func NewSCIMConnectionHandler(service *scimsetup.Service) *SCIMConnectionHandler
 // GET /api/scim-connections
 // Lists the SCIM connections. There is at most one.
 func (h *SCIMConnectionHandler) List(req api.Context) error {
-	conns, err := h.setup.Connections(req.Context())
+	conns, err := h.setup.Connections(scimLocaleContext(req))
 	if err != nil {
 		return err
 	}
@@ -39,7 +41,7 @@ func (h *SCIMConnectionHandler) List(req api.Context) error {
 // Reports the configured auth provider that SCIM can be enabled for, and what blocks enabling it, such as duplicate
 // names of referenced groups.
 func (h *SCIMConnectionHandler) EnablePreview(req api.Context) error {
-	preview, err := h.setup.EnablePreview(req.Context())
+	preview, err := h.setup.EnablePreview(scimLocaleContext(req))
 	if err != nil {
 		return err
 	}
@@ -53,11 +55,11 @@ func (h *SCIMConnectionHandler) EnablePreview(req api.Context) error {
 // enable SCIM.
 func (h *SCIMConnectionHandler) Enable(req api.Context) error {
 	if !req.UserIsOwner() {
-		return types.NewErrForbidden("only an owner can enable SCIM")
+		return types.NewErrForbidden("%s", apiMessage(req, "scim_enable_owner_only"))
 	}
 
 	// Checking first reports every blocker at once.
-	namespace, name, err := h.setup.CheckEnable(req.Context())
+	namespace, name, err := h.setup.CheckEnable(scimLocaleContext(req))
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (h *SCIMConnectionHandler) Enable(req api.Context) error {
 		return err
 	}
 
-	result, err := h.setup.CompleteEnable(req.Context(), namespace, name)
+	result, err := h.setup.CompleteEnable(scimLocaleContext(req), namespace, name)
 	if err != nil {
 		return err
 	}
@@ -88,7 +90,7 @@ func (h *SCIMConnectionHandler) Enable(req api.Context) error {
 // pushed yet, the groups enforcing would delete, warnings, what blocks the requesting user from enforcing, and
 // recent activity. Each list holds its first page of "limit" items; the list routes below serve the others.
 func (h *SCIMConnectionHandler) Review(req api.Context) error {
-	review, err := h.setup.Review(req.Context(), req.PathValue("id"), scimActor(req), queryInt(req, "limit"))
+	review, err := h.setup.Review(scimLocaleContext(req), req.PathValue("id"), scimActor(req), queryInt(req, "limit"))
 	if err != nil {
 		return err
 	}
@@ -100,10 +102,10 @@ func (h *SCIMConnectionHandler) Review(req api.Context) error {
 func (h *SCIMConnectionHandler) Users(req api.Context) error {
 	provisioned, err := strconv.ParseBool(req.URL.Query().Get("provisioned"))
 	if err != nil {
-		return types.NewErrBadRequest("provisioned must be true or false")
+		return types.NewErrBadRequest("%s", apiMessage(req, "scim_provisioned_boolean"))
 	}
 
-	page, err := h.setup.Users(req.Context(), req.PathValue("id"), provisioned, queryPage(req))
+	page, err := h.setup.Users(scimLocaleContext(req), req.PathValue("id"), provisioned, queryPage(req))
 	if err != nil {
 		return err
 	}
@@ -114,7 +116,7 @@ func (h *SCIMConnectionHandler) Users(req api.Context) error {
 // Returns a page of the groups SCIM manages, the referenced groups the identity provider has not pushed, or the
 // unbound groups that nothing references.
 func (h *SCIMConnectionHandler) Groups(req api.Context) error {
-	page, err := h.setup.Groups(req.Context(), req.PathValue("id"), scimsetup.GroupList(req.URL.Query().Get("list")), queryPage(req))
+	page, err := h.setup.Groups(scimLocaleContext(req), req.PathValue("id"), scimsetup.GroupList(req.URL.Query().Get("list")), queryPage(req))
 	if err != nil {
 		return err
 	}
@@ -124,7 +126,7 @@ func (h *SCIMConnectionHandler) Groups(req api.Context) error {
 // GET /api/scim-connections/{id}/failures?offset=&limit=
 // Returns a page of the connection's recent failed requests, newest first.
 func (h *SCIMConnectionHandler) Failures(req api.Context) error {
-	page, err := h.setup.Failures(req.Context(), req.PathValue("id"), queryPage(req))
+	page, err := h.setup.Failures(scimLocaleContext(req), req.PathValue("id"), queryPage(req))
 	if err != nil {
 		return err
 	}
@@ -139,10 +141,10 @@ func (h *SCIMConnectionHandler) Failures(req api.Context) error {
 func (h *SCIMConnectionHandler) Enforce(req api.Context) error {
 	actor := scimActor(req)
 	if !actor.Owner || actor.Bootstrap {
-		return types.NewErrForbidden("only an owner who signed in through the auth provider can enforce SCIM")
+		return types.NewErrForbidden("%s", apiMessage(req, "scim_enforce_owner_provider"))
 	}
 
-	result, err := h.setup.Enforce(req.Context(), req.PathValue("id"), actor)
+	result, err := h.setup.Enforce(scimLocaleContext(req), req.PathValue("id"), actor)
 	if err != nil {
 		return err
 	}
@@ -154,10 +156,10 @@ func (h *SCIMConnectionHandler) Enforce(req api.Context) error {
 // SCIM failed to delete. They grant nothing, so no resources are cleaned up. Only Owners can delete them.
 func (h *SCIMConnectionHandler) DeleteUnreferencedGroups(req api.Context) error {
 	if !req.UserIsOwner() {
-		return types.NewErrForbidden("only an owner can delete unreferenced groups")
+		return types.NewErrForbidden("%s", apiMessage(req, "scim_delete_owner_only"))
 	}
 
-	result, err := h.setup.DeleteUnreferencedGroups(req.Context(), req.PathValue("id"))
+	result, err := h.setup.DeleteUnreferencedGroups(scimLocaleContext(req), req.PathValue("id"))
 	if err != nil {
 		return err
 	}
@@ -174,7 +176,7 @@ func (h *SCIMConnectionHandler) RotateToken(req api.Context) error {
 		return err
 	}
 
-	conn, err := h.setup.RotateToken(req.Context(), req.PathValue("id"))
+	conn, err := h.setup.RotateToken(scimLocaleContext(req), req.PathValue("id"))
 	if err != nil {
 		return err
 	}
@@ -190,7 +192,7 @@ func (h *SCIMConnectionHandler) RevokeCurrentToken(req api.Context) error {
 		return err
 	}
 
-	conn, err := h.setup.RevokeCurrentToken(req.Context(), req.PathValue("id"))
+	conn, err := h.setup.RevokeCurrentToken(scimLocaleContext(req), req.PathValue("id"))
 	if err != nil {
 		return err
 	}
@@ -204,7 +206,7 @@ func (h *SCIMConnectionHandler) RevokePreviousToken(req api.Context) error {
 		return err
 	}
 
-	conn, err := h.setup.RevokePreviousToken(req.Context(), req.PathValue("id"))
+	conn, err := h.setup.RevokePreviousToken(scimLocaleContext(req), req.PathValue("id"))
 	if err != nil {
 		return err
 	}
@@ -215,7 +217,7 @@ func (h *SCIMConnectionHandler) RevokePreviousToken(req api.Context) error {
 // Authorization already limits these routes to Owners, so this is a second line of defense.
 func requireSCIMTokenManager(req api.Context) error {
 	if !req.UserIsOwner() {
-		return types.NewErrForbidden("only an owner can manage the SCIM token")
+		return types.NewErrForbidden("%s", apiMessage(req, "scim_token_owner_only"))
 	}
 	return nil
 }
@@ -244,4 +246,8 @@ func queryInt(req api.Context, name string) int {
 		return 0
 	}
 	return value
+}
+
+func scimLocaleContext(req api.Context) context.Context {
+	return i18n.WithLocale(req.Context(), providerResponseLocale(req))
 }

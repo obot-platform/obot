@@ -12,6 +12,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -23,6 +24,7 @@ import (
 type EnableBlockedError struct {
 	Blockers   []string
 	Duplicates []types2.SCIMDuplicateGroupName
+	Locale     string
 }
 
 // enablePlan is what blocks enabling SCIM for an auth provider.
@@ -37,12 +39,12 @@ type enablePlan struct {
 
 func (e *EnableBlockedError) Error() string {
 	var b strings.Builder
-	b.WriteString(blockedMessage("enabled", e.Blockers))
+	b.WriteString(blockedMessageLocale(e.Locale, "enabled", e.Blockers))
 	for _, duplicate := range e.Duplicates {
-		fmt.Fprintf(&b, "\n\nGroups named %q:", duplicate.Name)
+		fmt.Fprintf(&b, "\n\n%s", i18n.Message(e.Locale, "scim_groups_named", map[string]string{"name": fmt.Sprintf("%q", duplicate.Name)}))
 		for _, group := range duplicate.Groups {
 			b.WriteString("\n- ")
-			b.WriteString(describeGroup(group))
+			b.WriteString(describeGroupLocale(e.Locale, group))
 		}
 	}
 	return b.String()
@@ -60,7 +62,7 @@ func (s *Service) EnablePreview(ctx context.Context) (*types2.SCIMEnablePreview,
 		return nil, err
 	}
 	if plan == nil {
-		preview.Blockers = append(preview.Blockers, "No auth provider is configured.")
+		preview.Blockers = append(preview.Blockers, message(ctx, "scim_no_provider"))
 		return preview, nil
 	}
 	if plan.provider == nil {
@@ -78,10 +80,11 @@ func (s *Service) EnablePreview(ctx context.Context) (*types2.SCIMEnablePreview,
 		return nil, fmt.Errorf("failed to get staged auth provider: %w", err)
 	}
 	if staged != "" {
-		preview.Blockers = append(preview.Blockers, fmt.Sprintf("A switch to %s is staged. Complete or discard it first.", authProviderDisplayName(ctx, s.storage, system.DefaultNamespace, staged)))
+		preview.Blockers = append(preview.Blockers, message(ctx, "scim_switch_staged",
+			"provider", authProviderDisplayName(ctx, s.storage, system.DefaultNamespace, staged)))
 	}
 	if err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderChangeAuthName}, new(v1.ProviderConfigurationChange)); err == nil {
-		preview.Blockers = append(preview.Blockers, "A change to the auth provider configuration is in progress. Wait for it to finish.")
+		preview.Blockers = append(preview.Blockers, message(ctx, "scim_change_in_progress"))
 	} else if !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to check for auth provider configuration changes: %w", err)
 	}
@@ -105,6 +108,7 @@ func (s *Service) CheckEnable(ctx context.Context) (string, string, error) {
 		return "", "", types2.NewErrBadRequest("%s", (&EnableBlockedError{
 			Blockers:   preview.Blockers,
 			Duplicates: preview.DuplicateGroupNames,
+			Locale:     i18n.FromContext(ctx),
 		}).Error())
 	}
 	return preview.AuthProviderNamespace, preview.AuthProviderName, nil
@@ -134,7 +138,7 @@ func (s *Service) CompleteEnable(ctx context.Context, namespace, name string) (*
 		return nil, err
 	}
 	if conn.Origin != types.SCIMConnectionOriginMigrated {
-		return nil, types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("%s was configured to provision users and groups through SCIM, so SCIM cannot be enabled for it.", p.displayName))
+		return nil, types2.NewErrHTTP(http.StatusConflict, message(ctx, "scim_wrong_origin", "provider", p.displayName))
 	}
 
 	// Login-time synchronization stopped when the connection was created, so no sign-in can recreate a deleted
@@ -144,17 +148,16 @@ func (s *Service) CompleteEnable(ctx context.Context, namespace, name string) (*
 	deleted, err := s.deleteUnreferencedGroups(ctx, conn, p)
 	if err != nil {
 		slog.Error("Failed to delete unreferenced groups after enabling SCIM", "connection", conn.ID, "authProvider", p.name, "error", err)
-		result.DeletionError = fmt.Sprintf("SCIM is enabled, but the groups that nothing references could not be deleted. Retry the deletion on Identity & Access → Auth Providers → SCIM before pushing groups from %s: "+
-			"a pushed group cannot bind to a referenced group while an unreferenced group has the same name.", p.displayName)
+		result.DeletionError = message(ctx, "scim_deletion_error", "provider", p.displayName)
 	}
 	result.DeletedGroupCount = len(deleted)
 
 	id := conn.ID
 	conn, token, err := s.gateway.IssueFirstSCIMConnectionToken(ctx, id)
 	if errors.Is(err, gclient.ErrSCIMConnectionHasToken) {
-		return nil, types2.NewErrHTTP(http.StatusConflict, fmt.Sprintf("SCIM is already enabled for %s. Manage its token on Identity & Access → Auth Providers → SCIM.", p.displayName))
+		return nil, types2.NewErrHTTP(http.StatusConflict, message(ctx, "scim_already_enabled", "provider", p.displayName))
 	} else if err != nil {
-		return nil, connectionError(id, err)
+		return nil, connectionError(ctx, id, err)
 	}
 	// The connection was created for the configured auth provider, under the serialization of provider
 	// configuration changes, so it is not looked up again before the token is returned.
@@ -175,7 +178,7 @@ func (s *Service) DeleteUnreferencedGroups(ctx context.Context, id string) (*typ
 
 	deleted, err := s.deleteUnreferencedGroups(ctx, conn, p)
 	if err != nil {
-		return nil, connectionError(conn.ID, err)
+		return nil, connectionError(ctx, conn.ID, err)
 	}
 	slog.Info("Deleted unreferenced groups of a SCIM connection", "connection", conn.ID, "authProvider", p.name, "deletedGroupIDs", deleted)
 	return &types2.SCIMGroupDeletionResult{
@@ -256,6 +259,7 @@ func EnableConnection(ctx context.Context, storage kclient.Reader, gateway *gcli
 		return nil, &EnableBlockedError{
 			Blockers:   plan.blockers,
 			Duplicates: plan.duplicates,
+			Locale:     i18n.FromContext(ctx),
 		}
 	}
 
@@ -308,7 +312,7 @@ func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Cl
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return &enablePlan{
 			blockers: []string{
-				fmt.Sprintf("%s does not support SCIM provisioning.", name),
+				message(ctx, "scim_unsupported", "provider", name),
 			},
 		}, nil
 	}
@@ -335,7 +339,7 @@ func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Cl
 	for i := range conns {
 		conn := &conns[i]
 		if conn.AuthProviderNamespace == authProvider.Namespace && conn.AuthProviderName == authProvider.Name {
-			plan.blockers = append(plan.blockers, fmt.Sprintf("%s already provisions users and groups through SCIM.", name))
+			plan.blockers = append(plan.blockers, message(ctx, "scim_already_provisions", "provider", name))
 		} else {
 			plan.blockers = append(plan.blockers, otherConnectionBlocker(ctx, storage, conn))
 		}
@@ -346,7 +350,7 @@ func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Cl
 
 	if err := refusePendingCleanup(ctx, storage, authProvider); err != nil {
 		if pending, ok := errors.AsType[*CleanupPendingError](err); ok {
-			plan.blockers = append(plan.blockers, fmt.Sprintf("The groups of a deconfigured auth provider that shares %s's group ID prefix are still being cleaned up (%s). Wait for the cleanup to finish.", name, pending.CleanupName))
+			plan.blockers = append(plan.blockers, message(ctx, "scim_cleanup_pending", "provider", name, "cleanup", pending.CleanupName))
 		} else {
 			return nil, err
 		}
@@ -358,19 +362,19 @@ func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Cl
 	}
 	plan.duplicates = groups.duplicates
 	for _, duplicate := range plan.duplicates {
-		plan.blockers = append(plan.blockers, fmt.Sprintf("%d referenced groups are named %q, so a group pushed under that name binds to neither. "+
-			"Remove the references to all but one of them, and enabling SCIM deletes the others as unreferenced, "+
-			"or rename the group in %s so that the next sign-in of one of its members updates its name in Obot. "+
-			"References synced from Git must be changed at their source.",
-			len(duplicate.Groups), duplicate.Name, name))
+		plan.blockers = append(plan.blockers, message(ctx, "scim_duplicate_enable",
+			"count", fmt.Sprint(len(duplicate.Groups)),
+			"name", fmt.Sprintf("%q", duplicate.Name),
+			"provider", name))
 	}
 	return plan, nil
 }
 
 // otherConnectionBlocker reports that another auth provider has the installation's only SCIM connection.
 func otherConnectionBlocker(ctx context.Context, storage kclient.Reader, conn *types.SCIMConnection) string {
-	return fmt.Sprintf("Another auth provider, %s, has the installation's only SCIM connection (%s).",
-		authProviderDisplayName(ctx, storage, conn.AuthProviderNamespace, conn.AuthProviderName), conn.ID)
+	return message(ctx, "scim_other_connection",
+		"provider", authProviderDisplayName(ctx, storage, conn.AuthProviderNamespace, conn.AuthProviderName),
+		"connection", conn.ID)
 }
 
 // authProviderDisplayName returns the name to show for an auth provider, or its name when it cannot be read.

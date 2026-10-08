@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -19,10 +20,14 @@ import (
 type CleanupPendingError struct {
 	AuthProviderName string
 	CleanupName      string
+	Locale           string
 }
 
 func (e *CleanupPendingError) Error() string {
-	return fmt.Sprintf("auth provider cleanup %q is pending, so auth provider %q cannot have a SCIM connection until it finishes", e.CleanupName, e.AuthProviderName)
+	return i18n.Message(e.Locale, "scim_cleanup_blocks_connection", map[string]string{
+		"cleanup":  fmt.Sprintf("%q", e.CleanupName),
+		"provider": fmt.Sprintf("%q", e.AuthProviderName),
+	})
 }
 
 // refusePendingCleanup returns a CleanupPendingError when an auth-provider cleanup is pending for the auth provider's
@@ -37,6 +42,7 @@ func refusePendingCleanup(ctx context.Context, storage kclient.Reader, authProvi
 			return &CleanupPendingError{
 				AuthProviderName: authProvider.Name,
 				CleanupName:      cleanup.Name,
+				Locale:           i18n.FromContext(ctx),
 			}
 		}
 	}

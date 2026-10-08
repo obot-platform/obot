@@ -37,7 +37,7 @@ func (h *Handler) requireBootstrap(req api.Context) error {
 	if req.User.GetName() != system.BootstrapName {
 		slog.Info("Denied setup endpoint for non-bootstrap user")
 		return types.NewErrHTTP(http.StatusForbidden,
-			"this endpoint requires bootstrap authentication")
+			localized(req, "setup_bootstrap_required"))
 	}
 	return nil
 }
@@ -55,7 +55,7 @@ func (h *Handler) requireBootstrapEnabled(req api.Context) error {
 	}
 	if !enabled {
 		slog.Info("Rejected setup endpoint because bootstrap mode is disabled")
-		return types.NewErrHTTP(http.StatusNotFound, "not found")
+		return types.NewErrHTTP(http.StatusNotFound, localized(req, "setup_not_found"))
 	}
 
 	return nil

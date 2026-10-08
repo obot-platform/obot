@@ -38,14 +38,14 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	if authProviderUserID == "" {
 		slog.Info("Rejecting setup OAuth completion due to missing auth provider user ID in context")
 		return types.NewErrHTTP(http.StatusBadRequest,
-			"no auth provider user ID in context")
+			localized(req, "setup_no_provider_user_id"))
 	}
 
 	// Get user by ID
 	userID := req.UserID()
 	if userID == 0 {
 		slog.Info("Rejecting setup OAuth completion due to missing user ID in context")
-		return types.NewErrHTTP(http.StatusBadRequest, "no user ID in context")
+		return types.NewErrHTTP(http.StatusBadRequest, localized(req, "setup_no_user_id"))
 	}
 
 	user, err := req.GatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", userID))
@@ -63,7 +63,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 		}
 
 		if configured != system.LocalAuthProvider {
-			return types.NewErrHTTP(http.StatusForbidden, "local authentication is not the configured provider")
+			return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_local_not_configured"))
 		}
 
 		localUsers, err := req.GatewayClient.LocalAuthUsers(req.Context())
@@ -72,7 +72,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 		}
 
 		if len(localUsers) == 0 {
-			return types.NewErrHTTP(http.StatusForbidden, "no local account exists for setup")
+			return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_no_local_account"))
 		}
 
 		// Older installations may already have several candidates. Keep their explicit
@@ -80,11 +80,11 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 		if len(localUsers) == 1 {
 			localUser := localUsers[0]
 			if localUser.Email != gateway.NormalizeEmail(authProviderUserID) || localUser.Email != gateway.NormalizeEmail(user.Email) {
-				return types.NewErrHTTP(http.StatusForbidden, "sign in with the initial local account to continue setup")
+				return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_sign_in_initial"))
 			}
 
 			if localUser.RequirePasswordChange {
-				return types.NewErrHTTP(http.StatusForbidden, "change your password before completing setup")
+				return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_change_password"))
 			}
 
 			if err := PromoteToOwner(req, user); err != nil {
@@ -99,7 +99,10 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// This will fail if another user is already cached
 	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNamespace); err != nil {
 		slog.Info("Rejecting setup OAuth completion because temporary user cache is already occupied", "userID", user.ID)
-		return types.NewErrHTTP(http.StatusConflict, err.Error())
+		if cached := req.GatewayClient.GetTempUserCache(req.Context()); cached != nil && cached.Email != "" {
+			return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_temp_cached", "email", cached.Email))
+		}
+		return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_temp_cached_no_email"))
 	}
 	slog.Info("Cached temporary setup user after OAuth completion", "userID", user.ID, "providerNamespace", authProviderNamespace, "providerName", authProviderName)
 

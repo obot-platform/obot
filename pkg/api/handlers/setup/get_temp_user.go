@@ -35,7 +35,7 @@ func (h *Handler) GetTempUser(req api.Context) error {
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		slog.Info("No temporary setup user is currently cached")
-		return types.NewErrHTTP(http.StatusNotFound, "no temporary user cached")
+		return types.NewErrHTTP(http.StatusNotFound, localized(req, "setup_no_temp_cached"))
 	}
 	slog.Info("Retrieved temporary setup user details", "userID", cached.UserID)
 

@@ -54,7 +54,7 @@ func submitProviderConfigurationChange(req api.Context, change *v1.ProviderConfi
 			}
 		}
 		if apierrors.IsAlreadyExists(err) {
-			return errors.Join(types.NewErrHTTP(http.StatusConflict, "another provider configuration change is already in progress"), cleanupErr)
+			return errors.Join(types.NewErrHTTP(http.StatusConflict, apiMessage(req, "provider_change_in_progress")), cleanupErr)
 		}
 		return errors.Join(fmt.Errorf("create provider configuration change: %w", err), cleanupErr)
 	}
@@ -75,7 +75,10 @@ func waitForProviderConfigurationChange(req api.Context, change *v1.ProviderConf
 	}
 
 	if settled.Status.Error != "" {
-		return types.NewErrHTTP(cmp.Or(settled.Status.ErrorCode, http.StatusBadRequest), settled.Status.Error)
+		return types.NewErrHTTP(
+			cmp.Or(settled.Status.ErrorCode, http.StatusBadRequest),
+			apiMessage(req, "provider_change_failed", "detail", settled.Status.Error),
+		)
 	}
 	return nil
 }

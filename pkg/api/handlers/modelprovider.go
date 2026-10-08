@@ -84,7 +84,9 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 	}
 
 	if err := mp.dispatcher.ValidateModelProvider(req.Context(), modelProvider.Namespace, modelProvider.Name, envVars); err != nil {
-		return types.NewErrBadRequest("failed to validate model provider %q: %v", modelProvider.Name, err)
+		return types.NewErrBadRequest("%s", apiMessage(req, "model_validation_failed",
+			"provider", fmt.Sprintf("%q", modelProvider.Name),
+			"detail", err.Error()))
 	}
 
 	return nil
@@ -160,7 +162,7 @@ func (mp *ModelProviderHandler) Reveal(req api.Context) error {
 		return req.Write(cred.Secrets)
 	}
 
-	return types.NewErrNotFound("no credential found for %q", modelProvider.Name)
+	return types.NewErrNotFound("%s", apiMessage(req, "model_credential_not_found", "provider", fmt.Sprintf("%q", modelProvider.Name)))
 }
 
 func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
@@ -175,7 +177,9 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	}
 
 	if !mps.Configured {
-		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.Spec.Name, strings.Join(mps.MissingConfigurationParameters, ", "))
+		return types.NewErrBadRequest("%s", apiMessage(req, "model_not_configured",
+			"provider", modelProvider.Spec.Name,
+			"parameters", strings.Join(mps.MissingConfigurationParameters, ", ")))
 	}
 
 	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {

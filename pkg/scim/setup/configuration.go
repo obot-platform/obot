@@ -76,7 +76,9 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 	}
 	if missing := params.IncompleteGroup(secrets); len(missing) > 0 {
 		return params, SetupKept, &ConfigurationError{
-			Message: fmt.Sprintf("provide all of %s, or none of them; missing: %s", strings.Join(params.Together, " and "), strings.Join(missing, ", ")),
+			Message: message(ctx, "scim_config_all_or_none",
+				"parameters", strings.Join(params.Together, message(ctx, "scim_and")),
+				"missing", strings.Join(missing, ", ")),
 		}
 	}
 	if !hasRules || conn != nil {
@@ -92,8 +94,9 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 		}
 		if len(missing) > 0 {
 			return params, SetupKept, &ConfigurationError{
-				Message: fmt.Sprintf("%s synchronizes its directory at sign-in, so it requires %s. Moving it to SCIM provisioning is a separate, reviewed step",
-					cmp.Or(authProvider.Spec.Name, authProvider.Name), strings.Join(missing, ", ")),
+				Message: message(ctx, "scim_config_directory_required",
+					"provider", cmp.Or(authProvider.Spec.Name, authProvider.Name),
+					"parameters", strings.Join(missing, ", ")),
 			}
 		}
 		return params, SetupKept, nil
