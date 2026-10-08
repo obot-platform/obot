@@ -438,6 +438,20 @@ func TestOpenAPISharedHeadersAreRequestScoped(t *testing.T) {
 	wg.Wait()
 }
 
+func TestOpenAPIKubernetesReadinessProbe(t *testing.T) {
+	config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "secret-key"})
+	backend := newTestKubernetesBackend(t)
+
+	objects, err := backend.k8sObjects(t.Context(), config)
+	require.NoError(t, err)
+	container := findContainer(t, findDeployment(t, objects, config.MCPServerName), "mcp")
+	require.NotNil(t, container.ReadinessProbe)
+	require.NotNil(t, container.ReadinessProbe.HTTPGet)
+	require.Equal(t, "/readyz", container.ReadinessProbe.HTTPGet.Path)
+	require.Equal(t, int32(8080), container.ReadinessProbe.HTTPGet.Port.IntVal)
+	require.Nil(t, container.ReadinessProbe.TCPSocket)
+}
+
 func TestOpenAPIKubernetesFiles(t *testing.T) {
 	config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "secret-key"})
 	backend := newTestKubernetesBackend(t)
