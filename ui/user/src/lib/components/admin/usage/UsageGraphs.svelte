@@ -536,7 +536,10 @@
 				return isConflicted;
 			};
 
-			return getUserDisplayName(usersMap, value + '', hasConflict);
+			return withDisabledMarker(
+				getUserDisplayName(usersMap, value + '', hasConflict),
+				usersMap.get(value + '')
+			);
 		}
 
 		return value + '';

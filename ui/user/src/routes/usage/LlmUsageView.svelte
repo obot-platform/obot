@@ -796,7 +796,10 @@
 					{#if selectedUserIdsForSelect !== ALL_USERS}
 						{@const userPills = selectedUserIds.map((selectedUser) => ({
 							id: selectedUser,
-							label: getUserDisplayName(usersMap, selectedUser)
+							label: withDisabledMarker(
+								getUserDisplayName(usersMap, selectedUser),
+								usersMap.get(selectedUser)
+							)
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">

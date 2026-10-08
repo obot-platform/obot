@@ -239,7 +239,7 @@
 				? getAuditLogAPIKeyFilterOptionLabel(option, (id) => getUserDisplayName(users, id))
 				: value;
 		}
-		if (key === 'actor') return actorDisplay(value);
+		if (key === 'actor') return withDisabledMarker(actorDisplay(value), users.get(value));
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
 		if (key === 'event_type') {

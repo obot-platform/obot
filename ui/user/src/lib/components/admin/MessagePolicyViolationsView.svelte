@@ -384,7 +384,10 @@
 				{#if filterUserID !== 'all_users'}
 					{#each filterUserID.split(',') as userID (userID)}
 						<div class="filter-primary">
-							<span class="font-semibold">{m.ai_judge_user_label()}</span>{displayName(userID)}
+							<span class="font-semibold">{m.ai_judge_user_label()}</span>{withDisabledMarker(
+								displayName(userID),
+								users.get(userID)
+							)}
 							<button onclick={() => handleFilterClear('user', { id: userID })}>
 								<X class="size-3" />
 							</button>

@@ -299,7 +299,7 @@
 				: value.toString();
 		}
 		if (label === 'user_id') {
-			return getUserDisplayName(usersMap, value + '');
+			return withDisabledMarker(getUserDisplayName(usersMap, value + ''), usersMap.get(value + ''));
 		}
 		if (label === 'message_policy_triggered') {
 			return value === 'true'
