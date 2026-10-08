@@ -107,8 +107,7 @@ runtime: openapi
 openAPIConfig:
   source:
     url: "https://schemas.example.com/openapi.json"
-  # Snapshot of the document at source.url (1 MiB maximum). Running servers
-  # use this snapshot; Obot rejects OpenAPI entries without one.
+  # Required schema snapshot (1 MiB maximum); used by running servers.
   schema:
     openapi: "3.0.3"
     info:
@@ -122,13 +121,11 @@ openAPIConfig:
     - api.example.com
 ```
 
-The OpenAPI pod calls one API destination selected from `baseURL` or the schema's `servers` list. Without a `baseURL` override, Obot selects the first absolute HTTP(S) URL in that list. In this example, it uses `api.example.com`; `staging-api.example.com` is not used and does not need an egress allowance.
+OpenAPI uses `baseURL` when set, otherwise the first absolute HTTP(S) URL in `schema.servers`. This example uses only `api.example.com`, so staging needs no egress allowance.
 
-Obot fetches `source.url` separately; add the selected API destination's hostname to `egressDomains`, even when the schema comes from another host. When the default is deny all, an OpenAPI server needs an allowed API domain or an explicit `denyAllEgress: false` to make requests.
+For restricted egress, include the selected destination's hostname in `egressDomains`. Setting `baseURL` does not grant access. Obot fetches `source.url` separately, so the schema host needs no allowance in the pod's egress policy.
 
-Setting `baseURL` overrides the schema's API destination; it does not grant an egress allowance. When egress is restricted to configured domains, the overridden destination must also be included in `egressDomains`.
-
-Obot validates OpenAPI API destinations using its configured network policy. The wrapper image also enforces its own network restrictions, which may reject a destination that Obot accepts; these errors surface during wrapper startup or tool execution. API destinations and credential forwarding require HTTPS unless development mode is enabled.
+Obot and the wrapper independently validate destinations; wrapper restrictions can cause startup or tool errors even if Obot accepts a destination. Obot requires HTTPS for API destinations and credential forwarding unless development mode is enabled.
 
 To block all external egress for a server, set `denyAllEgress: true` and leave `egressDomains` empty:
 
