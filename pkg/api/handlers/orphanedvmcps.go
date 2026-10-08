@@ -37,7 +37,6 @@ type catalogVMCPComponent struct {
 	Name                     string                          `json:"name"`
 	MCPServerCatalogEntryKey string                          `json:"mcpServerCatalogEntryKey"`
 	Configuration            []types.VMCPConfigurationPolicy `json:"configuration,omitempty"`
-	AllowedTools             []string                        `json:"allowedTools,omitempty"`
 	ToolPrefix               string                          `json:"toolPrefix,omitempty"`
 	ToolOverrides            []types.ToolOverride            `json:"toolOverrides,omitempty"`
 }
@@ -146,7 +145,6 @@ func orphanedVMCPCatalogYAML(req api.Context, catalog *v1.MCPCatalog, vmcp *v1.V
 			Name:                     component.Name,
 			MCPServerCatalogEntryKey: reference,
 			Configuration:            configuration,
-			AllowedTools:             component.AllowedTools,
 			ToolPrefix:               component.ToolPrefix,
 			ToolOverrides:            component.ToolOverrides,
 		})

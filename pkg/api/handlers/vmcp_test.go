@@ -995,7 +995,7 @@ func TestVMCPInstanceSelectionValidation(t *testing.T) {
 		for _, selection := range []map[string]types.VMCPComponentSet{nil, {}, {"everything": {AllowedTools: []string{"echo"}}}, {"everything": {AllowedTools: []string{"forbidden"}}}} {
 			t.Run(fmt.Sprintf("%s/%v", method, selection), func(t *testing.T) {
 				vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-					Components: []types.VMCPComponent{{ID: "everything", Name: "everything", AllowedTools: []string{"echo"}}},
+					Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
 					Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
 				}}}
 				instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{

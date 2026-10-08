@@ -8018,11 +8018,6 @@ func (in *VMCPComponent) DeepCopyInto(out *VMCPComponent) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.AllowedTools != nil {
-		in, out := &in.AllowedTools, &out.AllowedTools
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.ToolOverrides != nil {
 		in, out := &in.ToolOverrides, &out.ToolOverrides
 		*out = make([]ToolOverride, len(*in))

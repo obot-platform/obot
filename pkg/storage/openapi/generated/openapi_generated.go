@@ -20180,19 +20180,6 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 							Format: "",
 						},
 					},
-					"allowedTools": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 					"toolPrefix": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

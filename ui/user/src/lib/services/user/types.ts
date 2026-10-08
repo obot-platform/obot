@@ -580,7 +580,6 @@ export interface VMCPComponentCatalogEntrySnapshot {
 }
 
 export interface VMCPComponent {
-	allowedTools?: string[];
 	catalogEntry: VMCPComponentCatalogEntrySnapshot;
 	configuration?: VMCPConfigurationPolicy[];
 	forceSingleUser?: boolean;
