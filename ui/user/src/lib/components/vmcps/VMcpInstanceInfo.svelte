@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import type { MCPCatalogEntry, OrgUser, VMCP, VMCPInstance } from '$lib/services';
@@ -157,12 +158,7 @@
 		>
 			{#snippet onRenderColumn(property: string, d: OrgUser)}
 				{#if property === 'name'}
-					<span class="flex items-center gap-2">
-						{getUserDisplayName(usersMap, d.id)}
-						{#if isDisabledUser(d)}
-							<span class="pill-warning">{m.core_status_disabled()}</span>
-						{/if}
-					</span>
+					<SubjectName name={getUserDisplayName(usersMap, d.id)} disabled={isDisabledUser(d)} />
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

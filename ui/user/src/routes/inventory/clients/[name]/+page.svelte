@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { formatDeviceCommand } from '$lib/format.js';
@@ -130,12 +131,10 @@
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
-								<span class="flex items-center gap-2">
-									{d.displayName || d.email || '-'}
-									{#if isDisabledUser(userMap.get(d.id))}
-										<span class="pill-warning">{m.core_status_disabled()}</span>
-									{/if}
-								</span>
+								<SubjectName
+									name={d.displayName || d.email || '-'}
+									disabled={isDisabledUser(userMap.get(d.id))}
+								/>
 							{:else}
 								{d[property as keyof (typeof detail.users)[number]]}
 							{/if}

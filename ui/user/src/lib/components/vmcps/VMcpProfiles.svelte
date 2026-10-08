@@ -1,4 +1,5 @@
 <script module lang="ts">
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import { m } from '$lib/i18n';
 	import type {
 		AccessControlRuleSubject,
@@ -1290,12 +1291,11 @@
 										</div>
 									{/if}
 									<div class="flex flex-col">
-										<span class="flex items-center gap-2 text-sm font-light">
-											{display.name}
-											{#if display.disabled}
-												<span class="pill-warning">{m.core_status_disabled()}</span>
-											{/if}
-										</span>
+										<SubjectName
+											class="text-sm font-light"
+											name={display.name}
+											disabled={display.disabled}
+										/>
 										<span class="text-muted-content text-xs">
 											{display.group
 												? m.core_col_group()

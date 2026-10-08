@@ -1,5 +1,6 @@
 <script lang="ts">
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
@@ -96,12 +97,10 @@
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							<span class="flex items-center gap-2">
-								{d.email || d.username || m.core_unknown()}
-								{#if isDisabledUser(d)}
-									<span class="pill-warning">{m.core_status_disabled()}</span>
-								{/if}
-							</span>
+							<SubjectName
+								name={d.email || d.username || m.core_unknown()}
+								disabled={isDisabledUser(d)}
+							/>
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
 								? m.core_mcp_value_not_configured()

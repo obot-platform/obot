@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SearchUsers from '$lib/components/admin/SearchUsers.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import { m } from '$lib/i18n';
 	import {
 		NanobotService,
@@ -269,12 +270,11 @@
 					class="border-base-300 flex items-center justify-between border-b px-3 py-2 last:border-b-0"
 				>
 					<div class="min-w-0">
-						<p class="flex items-center gap-2 text-sm font-medium">
-							<span class="truncate">{getSubjectDisplayName(subject)}</span>
-							{#if subject.type === 'user' && isDisabledUser(userMap.get(subject.id))}
-								<span class="pill-warning">{m.core_status_disabled()}</span>
-							{/if}
-						</p>
+						<SubjectName
+							class="text-sm font-medium"
+							name={getSubjectDisplayName(subject)}
+							disabled={subject.type === 'user' && isDisabledUser(userMap.get(subject.id))}
+						/>
 						<p class="text-base-content/60 text-xs">{getSubjectType(subject)}</p>
 					</div>
 					<button

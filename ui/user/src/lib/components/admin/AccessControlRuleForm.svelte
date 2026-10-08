@@ -302,7 +302,7 @@
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'displayName'}
-							<SubjectName subject={d} />
+							<SubjectName name={d.displayName} disabled={d.disabled} />
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}

@@ -368,11 +368,15 @@
 					     two lists cross-referenced by ID. -->
 					<div class="border-base-400 mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
 						{#each members as member (member.id)}
+							{@const disabled = isDisabledUser(usersByID.get(member.userID))}
 							<span
-								class="border-base-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+								class={[
+									'border-base-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
+									disabled && 'opacity-50'
+								]}
 							>
 								{userLabel(member.userID)}
-								{#if isDisabledUser(usersByID.get(member.userID))}<span class="text-warning"
+								{#if disabled}<span class="text-muted-content"
 										>{m.hosted_agents_pools_member_disabled()}</span
 									>{/if}
 								{#if member.default}<span class="text-muted-content"
