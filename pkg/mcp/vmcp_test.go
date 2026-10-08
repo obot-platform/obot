@@ -910,6 +910,8 @@ func newVMCPTestStorage(objects ...kclient.Object) storage.Client {
 		WithScheme(storagescheme.Scheme).
 		WithIndex(&v1.VMCPInstance{}, "metadata.name", func(obj kclient.Object) []string { return []string{obj.GetName()} }).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
+		WithIndex(&v1.MCPServerInstance{}, "spec.mcpServerName", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.MCPServerName} }).
+		WithIndex(&v1.MCPServerInstance{}, "spec.userID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.UserID} }).
 		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string {

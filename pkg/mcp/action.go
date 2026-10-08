@@ -115,8 +115,38 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user k
 		return server, ServerConfig{}, err
 	}
 
+	if server.Spec.VMCPID != "" {
+		// The gateway only reaches shared vMCP components through the caller's connection to them.
+		connectionID, err := sm.sharedVMCPComponentConnection(ctx, server, userID)
+		if err != nil {
+			return server, ServerConfig{}, err
+		}
+		_, componentServer, serverConfig, _, err := sm.serverForActionWithConnectID(ctx, connectionID, user, false)
+		return componentServer, serverConfig, err
+	}
+
 	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
 	return server, serverConfig, err
+}
+
+// sharedVMCPComponentConnection returns the name of the user's connection to a shared vMCP component server.
+func (sm *SessionManager) sharedVMCPComponentConnection(ctx context.Context, server v1.MCPServer, userID string) (string, error) {
+	var connections v1.MCPServerInstanceList
+	if err := sm.storageClient.List(ctx, &connections,
+		kclient.InNamespace(server.Namespace),
+		kclient.MatchingFields{
+			"spec.mcpServerName": server.Name,
+			"spec.userID":        userID,
+		},
+	); err != nil {
+		return "", err
+	}
+	for _, connection := range connections.Items {
+		if connection.Spec.VMCPInstanceID != "" && connection.Spec.VMCPComponentID == server.Spec.VMCPComponentID && connection.DeletionTimestamp.IsZero() {
+			return connection.Name, nil
+		}
+	}
+	return "", types.NewErrBadRequest("connect to vMCP %s to use its shared component %s", server.Spec.VMCPID, server.Name)
 }
 
 func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id string, user kuser.Info, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {

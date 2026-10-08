@@ -109,6 +109,18 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	require.Len(t, tools, 1)
 	require.Equal(t, "hello", tools[0].Name)
 
+	// Actions on the shared server itself use the caller's connection, because the gateway rejects the server's ID.
+	server, config, err = sm.ServerForAction(t.Context(), backing.Name, &user.DefaultInfo{UID: "7"})
+	require.NoError(t, err)
+	require.Equal(t, backing.Name, server.Name)
+	require.Equal(t, connection.Name, config.MCPServerInstanceID)
+	tools, err = sm.ListTools(t.Context(), config)
+	require.NoError(t, err)
+	require.Len(t, tools, 1)
+
+	_, _, err = sm.ServerForAction(t.Context(), backing.Name, &user.DefaultInfo{UID: "8"})
+	require.ErrorContains(t, err, "connect to vMCP")
+
 	admin := &user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": types.RoleAdmin.Groups()}}
 	// The caller supplies the full identity; building the config needs no user lookup.
 	sm.gatewayClient = nil
