@@ -53,6 +53,8 @@ const returnPrompts = [
 ];
 
 const workflowPath = '/vmcps/vmcp-1?modify-tools=component-1';
+const serverPath = '/mcp-servers/c/salesforce';
+const dropRedirectOptions = { replaceState: true, noScroll: true, keepFocus: true };
 
 const crossOriginRedirects = [
 	{
@@ -87,7 +89,7 @@ const testOrigin = 'http://localhost';
 const originalUrl = Object.getOwnPropertyDescriptor(appPage, 'url');
 
 function setOAuthRedirect(value?: string) {
-	const url = new URL('/mcp-servers/c/salesforce', testOrigin);
+	const url = new URL(serverPath, testOrigin);
 	if (value !== undefined) {
 		url.searchParams.set('oauth-redirect', value);
 	}
@@ -128,12 +130,20 @@ async function fillAndSave() {
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 }
 
+function expectOAuthRedirectDropped() {
+	const [url, options] = vi.mocked(goto).mock.calls[0] ?? [];
+	expect(url).toBeInstanceOf(URL);
+	expect((url as URL).href).toBe(new URL(serverPath, testOrigin).href);
+	expect(options).toEqual(dropRedirectOptions);
+}
+
 async function expectReturnPrompt(prompt: string) {
 	await expect.element(page.getByText('Go Back?', { exact: true })).toBeVisible();
 	await expect.element(page.getByText(prompt, { exact: true })).toBeVisible();
 	await expect.element(page.getByText(returnNote, { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Configure Static OAuth', { exact: true })).not.toBeVisible();
-	expect(vi.mocked(goto)).not.toHaveBeenCalled();
+	expect(vi.mocked(goto)).toHaveBeenCalledTimes(1);
+	expectOAuthRedirectDropped();
 }
 
 describe('StaticOAuthConfigureModal', () => {
@@ -166,8 +176,9 @@ describe('StaticOAuthConfigureModal', () => {
 			await expectReturnPrompt(prompt);
 			await page.getByRole('button', { name: 'Go Back', exact: true }).click();
 
-			expect(vi.mocked(goto)).toHaveBeenCalledTimes(1);
-			expect(vi.mocked(goto)).toHaveBeenCalledWith(destination);
+			expect(vi.mocked(goto)).toHaveBeenCalledTimes(2);
+			expectOAuthRedirectDropped();
+			expect(vi.mocked(goto)).toHaveBeenNthCalledWith(2, destination);
 		}
 	);
 
@@ -182,7 +193,8 @@ describe('StaticOAuthConfigureModal', () => {
 		await page.getByRole('button', { name: 'Skip', exact: true }).click();
 
 		await expect.element(page.getByText(toolSetupPrompt, { exact: true })).not.toBeVisible();
-		expect(vi.mocked(goto)).not.toHaveBeenCalled();
+		expect(vi.mocked(goto)).toHaveBeenCalledTimes(1);
+		expectOAuthRedirectDropped();
 	});
 
 	it.each(crossOriginRedirects)(

@@ -510,7 +510,9 @@
 	onClose={() => {
 		howToConnect?.resetCopied();
 		connectionUrlField?.clear();
-		onDismissed?.();
+		const dismissed = onDismissed;
+		onDismissed = undefined;
+		dismissed?.();
 	}}
 	class={missingOAuthComponent ? 'md:w-sm' : undefined}
 >
