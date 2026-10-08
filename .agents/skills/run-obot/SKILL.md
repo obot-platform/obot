@@ -33,15 +33,21 @@ Pick one:
 
 ## Launch (isolated)
 
+Shell variables don't survive between separate tool calls, so every block below recomputes `REPO` and `RUN` from
+fixed locations instead of relying on an earlier one. Processes started with `&` keep running after the call that
+started them returns.
+
 ```bash
 REPO=$(git rev-parse --show-toplevel)
-RUN=$(mktemp -d)
+RUN=/tmp/run-obot
+rm -rf "$RUN" && mkdir -p "$RUN"
 go build -o "$RUN/obot" "$REPO"
 (cd "$REPO/ui/user" && pnpm install)   # needs the Node version in ui/user/package.json "engines"
 
 # Run from $RUN: the default DSN is obot.db in the working directory (a fresh install every time), and the
-# server also writes apiserver.local.config/ there. --dev-mode puts storage on HTTP port + 1 (18081) and
-# exposes the kubeconfig at tools/devmode-kubeconfig. `exec` makes the saved PID the server's own.
+# server also writes apiserver.local.config/ there. --dev-mode puts storage on HTTP port + 1 (18081); the
+# checked-in tools/devmode-kubeconfig points at `make dev`'s 8443, not this instance, so don't use it here.
+# `exec` makes the saved PID the server's own.
 (cd "$RUN" && exec env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY \
   OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off \
   OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
@@ -63,7 +69,7 @@ Startup is done when the default catalog exists. Wait for it before seeding or d
 until curl -sf localhost:18080/api/mcp-catalogs/default | grep -q '"id"'; do sleep 2; done
 ```
 
-If that never succeeds, check `$RUN/server.log` and the API key section above.
+If that never succeeds, check `/tmp/run-obot/server.log` and the API key section above.
 
 Not everything is isolated: some data (e.g. published artifacts) still goes under `~/.local/share/obot`.
 
@@ -94,12 +100,22 @@ An entry's page is `/mcp-servers/c/<id>` (tabs via `?view=...`, e.g. `?view=trou
 
 ## Driving the UI with Playwright
 
-`ui/user` already depends on Playwright. Use it from a script outside the repo so nothing is left in the tree:
+`ui/user` already depends on Playwright. Use it from a script outside the repo (e.g. `/tmp/run-obot/drive.mjs`) so
+nothing is left in the tree, and pass the repo path in:
 
 ```js
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(`${process.env.REPO}/ui/user/package.json`)('playwright');
+// Use Playwright's own browser, or point at an installed one: chromium.launch({ executablePath: '/usr/bin/chromium' })
+const browser = await chromium.launch();
 ```
+
+```bash
+REPO=$(git rev-parse --show-toplevel) node /tmp/run-obot/drive.mjs
+```
+
+If launch fails because no browser is installed, run `(cd "$(git rev-parse --show-toplevel)/ui/user" && pnpm exec playwright install chromium)`
+or pass `executablePath` for a system Chromium.
 
 - Collect `pageerror` and console `error` events, and treat any as a failure to investigate.
 - Screenshot the pages you changed and look at them.
@@ -112,6 +128,7 @@ const { chromium } = createRequire(`${process.env.REPO}/ui/user/package.json`)('
 Stop both processes when done, or the next run fails on `--strictPort`:
 
 ```bash
+RUN=/tmp/run-obot
 kill "$(cat "$RUN/server.pid")" "$(cat "$RUN/ui.pid")"
 rm -rf "$RUN"
 ```
