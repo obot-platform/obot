@@ -288,15 +288,6 @@ export const getUserRoleLabel = (role: number) => {
 	return m.core_unknown() + withAuditor + withUserImpersonation;
 };
 
-/**
- * Generates a display name for a user with fallbacks and contextual information.
- *
- * @param users - Map of user IDs to user objects
- * @param id - The ID of the user to get the display name for
- * @param hasConflict - Optional callback function that returns true if there's a naming conflict
- * @returns A formatted display name string
- *
- */
 // isDisabledUser reports whether a user is disabled: they keep their account, but cannot sign in or use
 // their credentials.
 export function isDisabledUser(user?: Pick<OrgUser, 'status'>): boolean {
@@ -308,6 +299,15 @@ export function withDisabledMarker(label: string, user?: Pick<OrgUser, 'status'>
 	return isDisabledUser(user) ? m.core_user_disabled_label({ name: label }) : label;
 }
 
+/**
+ * Generates a display name for a user with fallbacks and contextual information.
+ *
+ * @param users - Map of user IDs to user objects
+ * @param id - The ID of the user to get the display name for
+ * @param hasConflict - Optional callback function that returns true if there's a naming conflict
+ * @returns A formatted display name string
+ *
+ */
 export function getUserDisplayName(
 	users: Map<string, OrgUser>,
 	id: string,
