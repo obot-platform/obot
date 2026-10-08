@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +41,7 @@ type MissingSecretBinding struct {
 // credEnv reflects only user-supplied credential-store values and is safe to
 // return to API reveal endpoints. The returned merged map carries bound
 // secret VALUES and MUST NOT be returned to API callers — pass it to
-// ServerToServerConfig / ConvertMCPServer only.
+// ServerToServerConfig only.
 //
 // If there are no secretBindings, MergeBoundCreds returns credEnv unchanged
 // (no pool). If c is nil (docker backend), bindings cannot be resolved
@@ -49,8 +52,8 @@ type MissingSecretBinding struct {
 // that label is treated as unavailable, the same as a missing Secret/key.
 //
 // Lookups are cached per-call by Secret name so a manifest with N bindings
-// against the same Secret performs one Get. Reads hit nah's watch cache, so
-// calling this from API request paths is cheap.
+// against the same Secret performs one Get. Pass the local router's cached
+// client so reads hit its watch cache instead of the Kubernetes API server.
 func MergeBoundCreds(
 	ctx context.Context,
 	c kclient.Client,
@@ -164,6 +167,77 @@ func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace 
 		}
 	}
 	return missing, nil
+}
+
+// UnresolvedSecretBindingKeys returns the keys of every config entry whose
+// secretBinding does not resolve to a value, sorted. It never returns secret values.
+func UnresolvedSecretBindingKeys(ctx context.Context, c kclient.Client, obotNamespace string, config []types.MCPConfig, allowedLabel string) ([]string, error) {
+	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, config, nil, allowedLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	var unresolved []string
+	for _, env := range config {
+		if env.SecretBinding == nil {
+			continue
+		}
+		if _, ok := resolved[env.Key]; !ok {
+			unresolved = append(unresolved, env.Key)
+		}
+	}
+	sort.Strings(unresolved)
+	return slices.Compact(unresolved), nil
+}
+
+// SecretBindingsCheckHash identifies the secret bindings in config and the allow
+// label they are resolved with. It is empty when config has no bindings, so a
+// server without bindings always matches its zero-value status.
+func SecretBindingsCheckHash(config []types.MCPConfig, allowedLabel string) string {
+	if !hasAnyBinding(config) {
+		return ""
+	}
+
+	type boundKey struct {
+		Key     string                  `json:"key"`
+		Binding *types.MCPSecretBinding `json:"binding"`
+	}
+	bindings := make([]boundKey, 0, len(config))
+	for _, e := range config {
+		if e.SecretBinding != nil {
+			bindings = append(bindings, boundKey{Key: e.Key, Binding: e.SecretBinding})
+		}
+	}
+	return utils.Digest([]any{allowedLabel, bindings})
+}
+
+// RefreshSecretBindingStatus makes server's secret binding status describe its
+// current bindings. When the controller has already checked them, the recorded
+// status is kept and no Secret is read. Otherwise the bindings are resolved with
+// c, which should be the local router's cached client. The change is not persisted.
+func RefreshSecretBindingStatus(ctx context.Context, c kclient.Client, obotNamespace string, server *v1.MCPServer, allowedLabel string) error {
+	hash := SecretBindingsCheckHash(server.Spec.Manifest.Config, allowedLabel)
+	if server.Status.SecretBindingsCheckHash == hash {
+		return nil
+	}
+
+	unresolved, err := UnresolvedSecretBindingKeys(ctx, c, obotNamespace, server.Spec.Manifest.Config, allowedLabel)
+	if err != nil {
+		return err
+	}
+	server.Status.UnresolvedSecretBindings = unresolved
+	server.Status.SecretBindingsCheckHash = hash
+	return nil
+}
+
+// ReferencesSecret reports whether any config entry binds to the named Secret.
+func ReferencesSecret(config []types.MCPConfig, name string) bool {
+	for _, e := range config {
+		if e.SecretBinding != nil && e.SecretBinding.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func hasAnyBinding(config []types.MCPConfig) bool {

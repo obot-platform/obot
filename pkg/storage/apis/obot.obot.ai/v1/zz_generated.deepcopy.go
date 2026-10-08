@@ -2609,6 +2609,11 @@ func (in *MCPServerStatus) DeepCopyInto(out *MCPServerStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.UnresolvedSecretBindings != nil {
+		in, out := &in.UnresolvedSecretBindings, &out.UnresolvedSecretBindings
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.OAuthMetadata != nil {
 		in, out := &in.OAuthMetadata, &out.OAuthMetadata
 		*out = new(OAuthMetadata)

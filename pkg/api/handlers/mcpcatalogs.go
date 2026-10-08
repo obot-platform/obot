@@ -635,17 +635,15 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, h.secretBindingAllowedLabel)
-		if err != nil {
-			return fmt.Errorf("failed to resolve secret bindings: %w", err)
-		}
-
 		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
+		items = append(items, ConvertMCPServer(server, cred.Secrets, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -753,17 +751,15 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, h.secretBindingAllowedLabel)
-		if err != nil {
-			return fmt.Errorf("failed to resolve secret bindings: %w", err)
-		}
-
 		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
+		items = append(items, ConvertMCPServer(server, cred.Secrets, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -816,17 +812,15 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, h.secretBindingAllowedLabel)
-		if err != nil {
-			return fmt.Errorf("failed to resolve secret bindings: %w", err)
-		}
-
 		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
+		items = append(items, ConvertMCPServer(server, cred.Secrets, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -870,17 +864,15 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, h.secretBindingAllowedLabel)
-	if err != nil {
-		return fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+	return req.Write(ConvertMCPServer(server, cred.Secrets, h.serverURL, slug))
 }
 
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry

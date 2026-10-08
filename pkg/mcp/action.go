@@ -351,7 +351,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, err
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -419,7 +419,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -592,7 +592,7 @@ func (sm *SessionManager) entryMissingAdminConfig(ctx context.Context, entry v1.
 	}
 
 	manifest := entry.Spec.Manifest
-	resolved, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, manifest.Config, nil, sm.secretBindingAllowedLabel)
+	resolved, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, manifest.Config, nil, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return missing, err
 	}

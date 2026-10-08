@@ -25481,6 +25481,27 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"unresolvedSecretBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnresolvedSecretBindings contains the config keys bound to a Kubernetes Secret that could not be resolved because the Secret or key is missing, empty, or not allowed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"secretBindingsCheckHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBindingsCheckHash identifies the secret bindings and allow label that UnresolvedSecretBindings was computed from. It is empty when the server has no bindings.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"oauthMetadata": {
 						SchemaProps: spec.SchemaProps{
 							Description: "OAuthMetadata contains discovered OAuth metadata for remote MCP servers.",

@@ -68,6 +68,54 @@ func TestConvertMCPServer_StaticEnvIsConfigured(t *testing.T) {
 	assert.Empty(t, converted.MissingRequiredEnvVars)
 }
 
+func TestConvertMCPServer_SecretBindingsUseStatus(t *testing.T) {
+	tests := []struct {
+		name        string
+		unresolved  []string
+		credEnv     map[string]string
+		wantMissing []string
+	}{
+		{
+			name: "resolved binding is configured without its value",
+		},
+		{
+			name:        "unresolved binding is missing",
+			unresolved:  []string{"BOUND_TOKEN"},
+			wantMissing: []string{"BOUND_TOKEN"},
+		},
+		{
+			name:        "credential value does not satisfy an unresolved binding",
+			unresolved:  []string{"BOUND_TOKEN"},
+			credEnv:     map[string]string{"BOUND_TOKEN": "stale"},
+			wantMissing: []string{"BOUND_TOKEN"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					Manifest: types.MCPServerManifest{
+						Runtime: types.RuntimeNPX,
+						Config: []types.MCPConfig{{
+							Key:           "BOUND_TOKEN",
+							Required:      true,
+							Usage:         types.Env,
+							SecretBinding: &types.MCPSecretBinding{Name: "tokens", Key: "token"},
+						}},
+					},
+				},
+				Status: v1.MCPServerStatus{UnresolvedSecretBindings: tt.unresolved},
+			}
+
+			converted := ConvertMCPServer(server, tt.credEnv, "", "")
+
+			assert.Equal(t, tt.wantMissing, converted.MissingRequiredEnvVars)
+			assert.Equal(t, len(tt.wantMissing) == 0, converted.Configured)
+		})
+	}
+}
+
 func TestConvertMCPResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},

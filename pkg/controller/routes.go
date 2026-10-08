@@ -180,6 +180,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthMetadata)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncThirdPartyAuthStatus)
+	root.Type(&v1.MCPServer{}).HandlerFunc(c.secretBindingHandler().SyncMCPServerStatus)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SetNonDeployServerStatus)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)

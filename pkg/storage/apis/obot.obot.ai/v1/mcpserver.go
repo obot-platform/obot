@@ -103,6 +103,12 @@ type MCPServerStatus struct {
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
 	OAuthCredentialConfigured bool   `json:"oauthCredentialConfigured,omitempty"`
 	OAuthCredentialCheckHash  string `json:"oauthCredentialCheckHash,omitempty"`
+	// UnresolvedSecretBindings contains the config keys bound to a Kubernetes Secret
+	// that could not be resolved because the Secret or key is missing, empty, or not allowed.
+	UnresolvedSecretBindings []string `json:"unresolvedSecretBindings,omitempty"`
+	// SecretBindingsCheckHash identifies the secret bindings and allow label that
+	// UnresolvedSecretBindings was computed from. It is empty when the server has no bindings.
+	SecretBindingsCheckHash string `json:"secretBindingsCheckHash,omitempty"`
 	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
 	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
 	// UserHasAuthenticated indicates whether the user has authenticated with the third-party OAuth provider.

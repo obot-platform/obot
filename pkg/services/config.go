@@ -1395,7 +1395,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
-			apiLocalK8sClient,
+			// Request handlers only read bound Secrets, so serve them from the cache.
+			localCacheClient,
 			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
 			authorizer,

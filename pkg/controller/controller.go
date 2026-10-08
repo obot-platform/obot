@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
+	"github.com/obot-platform/obot/pkg/controller/handlers/secretbinding"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -756,11 +757,24 @@ func (c *Controller) setupLocalK8sRoutes() {
 		// Reconcile delete/update events for the provider token secret immediately,
 		// instead of waiting for the periodic service-account key rotation loop.
 		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
+		// Secrets bound to MCP server config live in the obot namespace. Recheck the
+		// servers bound to one when it changes, so their status stays current.
+		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ObotNamespace).IncludeRemoved().HandlerFunc(c.secretBindingHandler().SyncMCPServersForSecret)
 	}
 	if c.services.K8SEveryReplicaRouter != nil {
 		peerHandler := tunnelpeer.New(c.services.TunnelManager.ID, c.services.TunnelManager)
 		c.services.K8SEveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
 	}
+}
+
+// secretBindingHandler returns the handler that records which MCP server secret
+// bindings cannot be resolved. It reads Secrets from the local router's cache.
+func (c *Controller) secretBindingHandler() *secretbinding.Handler {
+	var secretClient kclient.Client
+	if c.services.LocalRouter != nil && mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) {
+		secretClient = c.services.LocalRouter.Backend()
+	}
+	return secretbinding.New(c.services.Router.Backend(), secretClient, c.services.ObotNamespace, c.services.MCPSecretBindingAllowedLabel)
 }
 
 // ensureLocalAuthProvider creates or updates the AuthProvider resource for the built-in local

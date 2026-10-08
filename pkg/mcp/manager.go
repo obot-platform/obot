@@ -106,7 +106,9 @@ type SessionManager struct {
 	resourceMaximums          ResourceMaximums
 	storageClient             kclient.WithWatch
 	gatewayClient             *gateway.Client
-	localK8sClient            kclient.Client
+	// localCachedClient reads from the local router's cache, so lookups made on
+	// every request, such as resolving secret bindings, never reach the API server.
+	localCachedClient         kclient.Client
 	obotNamespace             string
 	secretBindingAllowedLabel string
 	tunnelManager             *tunnel.Manager
@@ -190,7 +192,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		resourceMaximums:          resourceMaximums,
 		storageClient:             obotStorageClient,
 		gatewayClient:             gatewayClient,
-		localK8sClient:            client,
+		localCachedClient:         cachedClient,
 		obotNamespace:             obotNamespace,
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
 		tunnelManager:             tunnelManager,
