@@ -17,6 +17,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -50,13 +51,13 @@ const (
 
 var (
 	referenceKindLabels = map[groupref.Kind]string{
-		groupref.KindAccessControlRule:     "access control rule",
-		groupref.KindModelAccessPolicy:     "model access policy",
-		groupref.KindSkillAccessRule:       "skill access rule",
-		groupref.KindMessagePolicy:         "message policy",
-		groupref.KindHostedAgentAccessRule: "hosted agent access rule",
-		groupref.KindGroupRoleAssignment:   "group role assignment",
-		groupref.KindVMCPProfile:           "virtual MCP server",
+		groupref.KindAccessControlRule:     "scim_ref_access_control_rule",
+		groupref.KindModelAccessPolicy:     "scim_ref_model_access_policy",
+		groupref.KindSkillAccessRule:       "scim_ref_skill_access_rule",
+		groupref.KindMessagePolicy:         "scim_ref_message_policy",
+		groupref.KindHostedAgentAccessRule: "scim_ref_hosted_agent_access_rule",
+		groupref.KindGroupRoleAssignment:   "scim_ref_group_role_assignment",
+		groupref.KindVMCPProfile:           "scim_ref_vmcp_profile",
 	}
 )
 
@@ -219,7 +220,7 @@ func (s *Service) Review(ctx context.Context, id string, actor Actor, pageSize i
 		BoundGroups:             groupPage(plan.bound, page),
 		UnboundReferencedGroups: groupPage(plan.unboundReferenced, page),
 		UnreferencedGroups:      groupPage(plan.unreferencedUnbound, page),
-		Warnings:                append(plan.warnings, nameWarnings(p, plan)...),
+		Warnings:                append(plan.warnings, nameWarnings(ctx, p, plan)...),
 		EnforceBlockers:         []string{},
 		Activity: types2.SCIMConnectionActivity{
 			LastRequestAt:  optionalTime(conn.LastRequestAt),
@@ -265,7 +266,11 @@ func (s *Service) Groups(ctx context.Context, id string, list GroupList, page Pa
 	case GroupListUnreferenced:
 		groups = plan.unreferencedUnbound
 	default:
-		return nil, types2.NewErrBadRequest("unknown group list %q; use %q, %q, or %q", list, GroupListBound, GroupListUnboundReferenced, GroupListUnreferenced)
+		return nil, types2.NewErrBadRequest("%s", message(ctx, "scim_unknown_group_list",
+			"list", fmt.Sprintf("%q", list),
+			"bound", fmt.Sprintf("%q", GroupListBound),
+			"unboundReferenced", fmt.Sprintf("%q", GroupListUnboundReferenced),
+			"unreferenced", fmt.Sprintf("%q", GroupListUnreferenced)))
 	}
 	result := groupPage(groups, page)
 	return &result, nil
@@ -294,7 +299,7 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		return nil, err
 	}
 	if conn.State == types.SCIMConnectionStateEnforced {
-		return nil, types2.NewErrHTTP(http.StatusConflict, "SCIM is already enforced, and enforcement cannot be reversed")
+		return nil, types2.NewErrHTTP(http.StatusConflict, message(ctx, "scim_already_enforced"))
 	}
 	configured, err := s.providers.GetConfiguredAuthProvider(ctx)
 	if err != nil {
@@ -310,10 +315,10 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		return nil, err
 	}
 	for _, group := range plan.unboundReferenced {
-		blockers = append(blockers, unboundGroupMessage(p, group))
+		blockers = append(blockers, unboundGroupMessage(ctx, p, group))
 	}
 	if len(blockers) > 0 {
-		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
+		return nil, types2.NewErrBadRequest("%s", blockedMessageLocale(i18n.FromContext(ctx), "enforced", blockers))
 	}
 
 	// Enforcing finishes no other deletion of unreferenced groups, so it waits for one under way. The gateway checks
@@ -321,7 +326,7 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 	if inProgress, err := s.gateway.SCIMGroupDeletionInProgress(ctx, conn.ID); err != nil {
 		return nil, err
 	} else if inProgress {
-		return nil, groupDeletionInProgressError()
+		return nil, groupDeletionInProgressError(ctx)
 	}
 
 	var result *gclient.EnforceSCIMResult
@@ -330,7 +335,7 @@ func (s *Service) Enforce(ctx context.Context, id string, actor Actor) (*types2.
 		result, err = s.enforceMarked(ctx, conn, p, run.ID, actor)
 		return err
 	}); errors.Is(err, gclient.ErrSCIMGroupDeletionInProgress) {
-		return nil, groupDeletionInProgressError()
+		return nil, groupDeletionInProgressError(ctx)
 	} else if err != nil {
 		return nil, err
 	}
@@ -371,12 +376,12 @@ func (s *Service) replaceToken(ctx context.Context, id string, replace func(cont
 	// Only the connection of the configured auth provider can serve the identity provider, so only it gets a token. A
 	// connection that staging created stays tokenless until the provider is activated.
 	if !providerConfigured(current, configured) {
-		return nil, types2.NewErrBadRequest("%s is not the configured auth provider; SCIM tokens are issued only for the configured auth provider", p.displayName)
+		return nil, types2.NewErrBadRequest("%s", message(ctx, "scim_token_wrong_provider", "provider", p.displayName))
 	}
 
 	conn, token, err := replace(ctx, id)
 	if err != nil {
-		return nil, connectionError(id, err)
+		return nil, connectionError(ctx, id, err)
 	}
 	view := s.connectionView(conn, p, configured, token)
 	return &view, nil
@@ -385,7 +390,7 @@ func (s *Service) replaceToken(ctx context.Context, id string, replace func(cont
 // RevokePreviousToken stops accepting the token that the last rotation replaced.
 func (s *Service) RevokePreviousToken(ctx context.Context, id string) (*types2.SCIMConnection, error) {
 	if err := s.gateway.RevokePreviousSCIMConnectionToken(ctx, id); err != nil {
-		return nil, connectionError(id, err)
+		return nil, connectionError(ctx, id, err)
 	}
 	return s.viewConnection(ctx, id)
 }
@@ -405,8 +410,8 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 		return nil, fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
 	if !providerConfigured(conn, configured) {
-		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", []string{
-			fmt.Sprintf("%s is not the configured auth provider.", p.displayName),
+		return nil, types2.NewErrBadRequest("%s", blockedMessageLocale(i18n.FromContext(ctx), "enforced", []string{
+			message(ctx, "scim_not_configured", "provider", p.displayName),
 		}))
 	}
 
@@ -418,16 +423,16 @@ func (s *Service) enforceMarked(ctx context.Context, conn *types.SCIMConnection,
 	if blocked, ok := errors.AsType[*gclient.SCIMEnforceBlockedError](err); ok {
 		var blockers []string
 		for _, group := range blocked.UnboundGroups {
-			blockers = append(blockers, unboundGroupMessage(p, p.group(group, plan.references[group.ID])))
+			blockers = append(blockers, unboundGroupMessage(ctx, p, p.group(group, plan.references[group.ID])))
 		}
 		if blocked.ActorProblem != "" {
 			blockers = append(blockers, s.actorProblemMessage(ctx, p, actor, blocked.ActorProblem))
 		}
-		return nil, types2.NewErrBadRequest("%s", blockedMessage("enforced", blockers))
+		return nil, types2.NewErrBadRequest("%s", blockedMessageLocale(i18n.FromContext(ctx), "enforced", blockers))
 	} else if state, ok := errors.AsType[*gclient.SCIMConnectionStateError](err); ok {
-		return nil, types2.NewErrHTTP(http.StatusConflict, state.Error())
+		return nil, types2.NewErrHTTP(http.StatusConflict, message(ctx, "scim_enforce_failed", "detail", state.Error()))
 	} else if err != nil {
-		return nil, connectionError(conn.ID, err)
+		return nil, connectionError(ctx, conn.ID, err)
 	}
 	return result, nil
 }
@@ -438,12 +443,12 @@ func (s *Service) enforceBlockers(ctx context.Context, conn *types.SCIMConnectio
 	blockers := []string{}
 	switch {
 	case actor.Bootstrap:
-		blockers = append(blockers, "Only an Owner who signed in through "+p.displayName+" can enforce SCIM. The bootstrap user cannot.")
+		blockers = append(blockers, message(ctx, "scim_owner_not_bootstrap", "provider", p.displayName))
 	case !actor.Owner:
-		blockers = append(blockers, "Only an Owner who signed in through "+p.displayName+" can enforce SCIM.")
+		blockers = append(blockers, message(ctx, "scim_owner_required", "provider", p.displayName))
 	}
 	if !providerConfigured(conn, configured) {
-		blockers = append(blockers, fmt.Sprintf("%s is not the configured auth provider.", p.displayName))
+		blockers = append(blockers, message(ctx, "scim_not_configured", "provider", p.displayName))
 	}
 	// Whether the acting user could sign in afterwards matters only to an Owner, who could enforce.
 	if actor.Owner && !actor.Bootstrap {
@@ -524,7 +529,7 @@ func (s *Service) failures(ctx context.Context, connectionID string, page Page) 
 func (s *Service) connection(ctx context.Context, id string) (*types.SCIMConnection, *provider, error) {
 	conn, err := s.gateway.SCIMConnection(ctx, id)
 	if err != nil {
-		return nil, nil, connectionError(id, err)
+		return nil, nil, connectionError(ctx, id, err)
 	}
 	p, err := s.connectionProvider(ctx, conn)
 	if err != nil {
@@ -646,7 +651,7 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 			if normalized == everyoneGroupName {
 				plan.warnings = append(plan.warnings, types2.SCIMSetupWarning{
 					Type:       warningEveryoneGroup,
-					Message:    fmt.Sprintf("The group %q cannot be pushed from %s. Replace its references with the all-users selector.", group.Name, p.displayName),
+					Message:    message(ctx, "scim_everyone_warning", "group", fmt.Sprintf("%q", group.Name), "provider", p.displayName),
 					GroupID:    group.ID,
 					GroupName:  group.Name,
 					References: setupGroup.References,
@@ -678,7 +683,7 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 		groupRefs := references(refs[groupID])
 		plan.warnings = append(plan.warnings, types2.SCIMSetupWarning{
 			Type:       warningMissingGroup,
-			Message:    missingGroupMessage(groupID, groupRefs),
+			Message:    missingGroupMessageLocale(i18n.FromContext(ctx), groupID, groupRefs),
 			GroupID:    groupID,
 			References: groupRefs,
 		})
@@ -690,23 +695,23 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 // nameWarnings warns about the names under which a pushed group can bind to none of the provider's unbound
 // referenced groups. Enabling SCIM refuses the first kind, and deletes the groups of the second, so only a review of a
 // connection has them.
-func nameWarnings(p *provider, plan *groupPlan) []types2.SCIMSetupWarning {
+func nameWarnings(ctx context.Context, p *provider, plan *groupPlan) []types2.SCIMSetupWarning {
 	warnings := make([]types2.SCIMSetupWarning, 0, len(plan.duplicates)+len(plan.namesakes))
 	for _, duplicate := range plan.duplicates {
 		warnings = append(warnings, types2.SCIMSetupWarning{
 			Type: warningDuplicateName,
-			Message: fmt.Sprintf("%d referenced groups are named %q, so a group pushed from %s under that name binds to neither. "+
-				"Remove the references to all but one of them, and then delete the unreferenced groups.",
-				len(duplicate.Groups), duplicate.Name, p.displayName),
+			Message: message(ctx, "scim_duplicate_warning",
+				"count", fmt.Sprint(len(duplicate.Groups)),
+				"name", fmt.Sprintf("%q", duplicate.Name),
+				"provider", p.displayName),
 			GroupID:   duplicate.Groups[0].ID,
 			GroupName: duplicate.Name,
 		})
 	}
 	for _, group := range plan.namesakes {
 		warnings = append(warnings, types2.SCIMSetupWarning{
-			Type: warningNamesake,
-			Message: fmt.Sprintf("The unreferenced group %q has the name of a referenced group, so a group pushed from %s under that name binds to neither. Delete the unreferenced groups.",
-				group.Name, p.displayName),
+			Type:      warningNamesake,
+			Message:   message(ctx, "scim_namesake_warning", "group", fmt.Sprintf("%q", group.Name), "provider", p.displayName),
 			GroupID:   group.ID,
 			GroupName: group.Name,
 		})
@@ -769,27 +774,27 @@ func references(refs []groupref.Reference) []types2.GroupReference {
 // so that the administrator can find it in the identity provider.
 func (s *Service) actorProblemMessage(ctx context.Context, p *provider, actor Actor, problem gclient.SCIMEnforceActorProblem) string {
 	if problem == gclient.SCIMEnforceActorOtherAuthProvider {
-		return fmt.Sprintf("Sign in through %s to enforce SCIM, so that you are known to be able to sign in once it is enforced.", p.displayName)
+		return message(ctx, "scim_sign_in_to_enforce", "provider", p.displayName)
 	}
 
-	account := "Your account"
+	account := message(ctx, "scim_your_account")
 	// The user may have been deleted since the check of their account, which still names them. The name only helps
 	// the administrator find the account, so a user that cannot be read leaves it out rather than failing.
 	if user, err := s.gateway.UserByIDIncludeDeleted(ctx, strconv.FormatUint(uint64(actor.UserID), 10)); err != nil {
 		slog.Warn("Failed to get the user that cannot enforce SCIM", "userID", actor.UserID, "error", err)
 	} else if name := accountName(user); name != "" {
-		account += ", " + name + ","
+		account = message(ctx, "scim_your_account_named", "name", name)
 	}
 
 	switch problem {
 	case gclient.SCIMEnforceActorNotSignedIn:
-		return fmt.Sprintf("%s has not signed in through %s, so it is not known to be able to sign in once SCIM is enforced.", account, p.displayName)
+		return message(ctx, "scim_account_not_signed_in", "account", account, "provider", p.displayName)
 	case gclient.SCIMEnforceActorUnprovisioned:
-		return fmt.Sprintf("%s has not been provisioned through SCIM. Assign yourself to the SCIM application in %s.", account, p.displayName)
+		return message(ctx, "scim_account_unprovisioned", "account", account, "provider", p.displayName)
 	case gclient.SCIMEnforceActorDeactivated:
-		return fmt.Sprintf("%s is deactivated in %s, so you could not sign in once SCIM is enforced.", account, p.displayName)
+		return message(ctx, "scim_account_deactivated", "account", account, "provider", p.displayName)
 	default:
-		return account + " is not active in Obot."
+		return message(ctx, "scim_account_inactive", "account", account)
 	}
 }
 
@@ -806,15 +811,22 @@ func accountName(user *types.User) string {
 	}
 }
 
-func unboundGroupMessage(p *provider, group types2.SCIMSetupGroup) string {
-	return fmt.Sprintf("The referenced group %s has not been pushed from %s. Push it, renaming it there first if its name differs, or remove its references.",
-		describeGroup(group), p.displayName)
+func unboundGroupMessage(ctx context.Context, p *provider, group types2.SCIMSetupGroup) string {
+	return message(ctx, "scim_unbound_group", "group", describeGroupLocale(i18n.FromContext(ctx), group), "provider", p.displayName)
 }
 
 // blockedMessage lists everything that blocks the SCIM transition named by its past participle, such as "enforced".
 func blockedMessage(transition string, blockers []string) string {
+	return blockedMessageLocale("en", transition, blockers)
+}
+
+func blockedMessageLocale(locale, transition string, blockers []string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "SCIM cannot be %s:", transition)
+	key := "scim_cannot_enable"
+	if transition == "enforced" {
+		key = "scim_cannot_enforce"
+	}
+	b.WriteString(i18n.Text(locale, key))
 	for _, blocker := range blockers {
 		b.WriteString("\n- ")
 		b.WriteString(blocker)
@@ -824,6 +836,10 @@ func blockedMessage(transition string, blockers []string) string {
 
 // describeGroup names a group, where to find it in the identity provider, and what references it.
 func describeGroup(group types2.SCIMSetupGroup) string {
+	return describeGroupLocale("en", group)
+}
+
+func describeGroupLocale(locale string, group types2.SCIMSetupGroup) string {
 	var b strings.Builder
 	if group.Name != "" {
 		fmt.Fprintf(&b, "%q (%s", group.Name, group.ID)
@@ -837,9 +853,9 @@ func describeGroup(group types2.SCIMSetupGroup) string {
 	if len(group.References) > 0 {
 		descriptions := make([]string, 0, len(group.References))
 		for _, ref := range group.References {
-			descriptions = append(descriptions, describeReference(ref))
+			descriptions = append(descriptions, describeReferenceLocale(locale, ref))
 		}
-		fmt.Fprintf(&b, ", referenced by %s", strings.Join(descriptions, "; "))
+		fmt.Fprintf(&b, ", %s", i18n.Message(locale, "scim_referenced_by", map[string]string{"references": strings.Join(descriptions, "; ")}))
 	}
 	return b.String()
 }
@@ -848,6 +864,10 @@ func describeGroup(group types2.SCIMSetupGroup) string {
 // access policies and group role assignments, but not from the profiles of virtual MCP servers, which must keep at
 // least one subject, so those are usually what is left.
 func missingGroupMessage(groupID string, refs []types2.GroupReference) string {
+	return missingGroupMessageLocale("en", groupID, refs)
+}
+
+func missingGroupMessageLocale(locale, groupID string, refs []types2.GroupReference) string {
 	if !slices.ContainsFunc(refs, func(ref types2.GroupReference) bool {
 		return groupref.Kind(ref.Kind) != groupref.KindVMCPProfile
 	}) {
@@ -856,18 +876,25 @@ func missingGroupMessage(groupID string, refs []types2.GroupReference) string {
 			// The detail of a profile reference is "profile <name>".
 			profiles = append(profiles, fmt.Sprintf("%s (%s)", strings.TrimPrefix(ref.Detail, "profile "), cmp.Or(ref.DisplayName, ref.ID)))
 		}
-		return fmt.Sprintf("The group with ID %s was removed but is still referenced by the following vMCP profiles: %s", groupID, strings.Join(profiles, ", "))
+		return i18n.Message(locale, "scim_missing_group_profiles_warning", map[string]string{"group": groupID, "profiles": strings.Join(profiles, ", ")})
 	}
 
 	descriptions := make([]string, 0, len(refs))
 	for _, ref := range refs {
-		descriptions = append(descriptions, describeReference(ref))
+		descriptions = append(descriptions, describeReferenceLocale(locale, ref))
 	}
-	return fmt.Sprintf("The group with ID %s was removed but is still referenced by the following: %s", groupID, strings.Join(descriptions, "; "))
+	return i18n.Message(locale, "scim_missing_group_references_warning", map[string]string{"group": groupID, "references": strings.Join(descriptions, "; ")})
 }
 
 func describeReference(ref types2.GroupReference) string {
-	label := cmp.Or(referenceKindLabels[groupref.Kind(ref.Kind)], ref.Kind)
+	return describeReferenceLocale("en", ref)
+}
+
+func describeReferenceLocale(locale string, ref types2.GroupReference) string {
+	label := ref.Kind
+	if key := referenceKindLabels[groupref.Kind(ref.Kind)]; key != "" {
+		label = i18n.Text(locale, key)
+	}
 	if groupref.Kind(ref.Kind) == groupref.KindGroupRoleAssignment {
 		if ref.Detail != "" {
 			return fmt.Sprintf("%s (%s)", label, ref.Detail)
@@ -888,13 +915,13 @@ func describeReference(ref types2.GroupReference) string {
 }
 
 // groupDeletionInProgressError refuses to enforce SCIM while another deletion of unreferenced groups is under way.
-func groupDeletionInProgressError() error {
-	return types2.NewErrHTTP(http.StatusConflict, "unreferenced groups are being deleted; try again once that finishes")
+func groupDeletionInProgressError(ctx context.Context) error {
+	return types2.NewErrHTTP(http.StatusConflict, message(ctx, "scim_deletion_in_progress"))
 }
 
-func connectionError(id string, err error) error {
+func connectionError(ctx context.Context, id string, err error) error {
 	if errors.Is(err, gclient.ErrSCIMConnectionNotFound) {
-		return types2.NewErrNotFound("SCIM connection %q not found", id)
+		return types2.NewErrNotFound("%s", message(ctx, "scim_connection_not_found", "connection", fmt.Sprintf("%q", id)))
 	}
 	return err
 }

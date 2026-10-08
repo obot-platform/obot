@@ -72,7 +72,7 @@ func TestPendingComponentDisplayName(t *testing.T) {
 		{
 			name: "server ID when manifest name is empty",
 			server: v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{Name: "component-server-id"},
+				ObjectMeta: {Name: "component-server-id"},
 			},
 			expected: "component-server-id",
 		},

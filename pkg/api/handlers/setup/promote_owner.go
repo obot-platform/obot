@@ -23,8 +23,8 @@ func PromoteToOwner(req api.Context, user *gatewaytypes.User) error {
 	if req.GatewayClient.HasExplicitRole(user.Email).HasRole(types.RoleAdmin) {
 		slog.Info("Rejecting owner promotion for explicitly configured admin", "userID", user.ID)
 		return types.NewErrBadRequest(
-			"cannot promote %s to Owner: the address is configured as an Admin through the environment",
-			user.Email,
+			"%s",
+			localized(req, "setup_cannot_promote_admin", "email", user.Email),
 		)
 	}
 

@@ -1,0 +1,5 @@
+{
+  "model_validation_failed": "모델 공급자 {provider}의 유효성을 검사하지 못했습니다: {detail}",
+  "model_not_configured": "모델 공급자 {provider}이(가) 구성되지 않았습니다. 누락된 구성 매개변수: {parameters}",
+  "model_credential_not_found": "{provider}의 자격 증명을 찾을 수 없습니다"
+}

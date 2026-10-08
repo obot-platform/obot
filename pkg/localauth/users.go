@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
@@ -23,10 +24,20 @@ import (
 // It is a user error, not a server error: the message is safe to return to the caller.
 type InvalidUserError struct {
 	message string
+	key     string
+	args    map[string]string
 }
 
 func (e InvalidUserError) Error() string {
 	return e.message
+}
+
+// Localized returns a user-facing validation message in the request locale.
+func (e InvalidUserError) Localized(locale string) string {
+	if e.key == "" {
+		return e.message
+	}
+	return i18n.Message(locale, e.key, e.args)
 }
 
 func (p *Provider) Users(ctx context.Context) ([]types.LocalAuthUser, error) {
@@ -41,7 +52,7 @@ func (p *Provider) GetUser(ctx context.Context, id uint) (*types.LocalAuthUser, 
 func normalizeUserEmail(email string) (string, error) {
 	parsed, err := mail.ParseAddress(client.NormalizeEmail(email))
 	if err != nil {
-		return "", InvalidUserError{message: "a valid email address is required"}
+		return "", InvalidUserError{message: "a valid email address is required", key: "local_valid_email_required"}
 	}
 	// Use the bare address from the parse, not the raw input: mail.ParseAddress accepts
 	// display-name forms like "Name <a@b>", and storing that whole string as the login email
@@ -60,12 +71,12 @@ func (p *Provider) CreateUser(ctx context.Context, email, password string, requi
 	if err != nil {
 		return nil, err
 	} else if !allowed {
-		return nil, InvalidUserError{message: fmt.Sprintf("email %q is not in the provider's allowed email domains", email)}
+		return nil, InvalidUserError{message: fmt.Sprintf("email %q is not in the provider's allowed email domains", email), key: "local_email_domain_disallowed", args: map[string]string{"email": fmt.Sprintf("%q", email)}}
 	}
 
 	explicitRole := p.gatewayClient.HasExplicitRole(email)
 	if bootstrap && explicitRole.HasRole(apitypes.RoleAdmin) && !explicitRole.HasRole(apitypes.RoleOwner) {
-		return nil, InvalidUserError{message: "the initial local account must become Owner; choose an email that is not configured as an Admin through the environment"}
+		return nil, InvalidUserError{message: "the initial local account must become Owner; choose an email that is not configured as an Admin through the environment", key: "local_initial_owner_role"}
 	}
 
 	passwordHash, err := hashUserPassword(password)
@@ -113,7 +124,7 @@ func (p *Provider) ChangePassword(ctx context.Context, id uint, password, curren
 		return err
 	}
 	if err := VerifyPassword(user.PasswordHash, password); err == nil {
-		return InvalidUserError{message: "the new password must be different from your current password"}
+		return InvalidUserError{message: "the new password must be different from your current password", key: "local_password_must_differ"}
 	} else if !errors.Is(err, ErrInvalidPassword) {
 		return fmt.Errorf("failed to verify current password: %w", err)
 	}
@@ -138,7 +149,7 @@ func (p *Provider) EnsureInitialOwner(ctx context.Context, email, setupToken str
 		return err
 	}
 	if len(setupToken) < 32 {
-		return InvalidUserError{message: "the initial owner setup token must be at least 32 characters"}
+		return InvalidUserError{message: "the initial owner setup token must be at least 32 characters", key: "local_setup_token_length"}
 	}
 
 	cred, credErr := p.gatewayClient.RevealCredential(ctx, []string{ProviderName, system.GenericAuthProviderCredentialContext}, ProviderName)
@@ -172,7 +183,7 @@ func (p *Provider) EnsureInitialOwner(ctx context.Context, email, setupToken str
 	// Only the accounts this call may still create or re-arm are rejected, so narrowing the allowed
 	// domains later cannot fail startup for an owner already in use.
 	if credErr == nil && !emailDomainAllowed(cred.Secrets[EmailDomainsEnvVar], email) {
-		return InvalidUserError{message: fmt.Sprintf("initial owner email %q is not in the local provider's allowed email domains", email)}
+		return InvalidUserError{message: fmt.Sprintf("initial owner email %q is not in the local provider's allowed email domains", email), key: "local_initial_owner_domain", args: map[string]string{"email": fmt.Sprintf("%q", email)}}
 	}
 
 	if lookupErr == nil {
@@ -241,7 +252,7 @@ func (p *Provider) DeleteUser(ctx context.Context, id uint) error {
 
 func hashUserPassword(password string) (string, error) {
 	if len(password) < minPasswordLength {
-		return "", InvalidUserError{message: fmt.Sprintf("password must be at least %d characters", minPasswordLength)}
+		return "", InvalidUserError{message: fmt.Sprintf("password must be at least %d characters", minPasswordLength), key: "local_password_min_length", args: map[string]string{"count": fmt.Sprint(minPasswordLength)}}
 	}
 
 	return HashPassword(password)

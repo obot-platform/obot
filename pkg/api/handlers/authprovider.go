@@ -254,8 +254,8 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 	if configuredProvider != "" && configuredProvider != authProvider.Name {
 		return types.NewErrBadRequest(
-			"only one authentication provider can be configured at a time. Please deconfigure %q first",
-			configuredProvider,
+			"%s",
+			apiMessage(req, "provider_only_one", "provider", fmt.Sprintf("%q", configuredProvider)),
 		)
 	}
 	var envVars map[string]string
@@ -305,7 +305,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 // For a provider that the configuration would set up for SCIM, it also refuses residual group data here, so that the
 // administrator sees what remains. The provider configuration change checks it again under its serialization.
 func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, configured bool, envVars map[string]string) error {
-	params, setup, err := scimsetup.CheckConfiguration(req.Context(), req.GatewayClient, authProvider, func() (bool, error) {
+	params, setup, err := scimsetup.CheckConfiguration(scimLocaleContext(req), req.GatewayClient, authProvider, func() (bool, error) {
 		return configured, nil
 	}, func() (map[string]string, error) {
 		return scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider)
@@ -322,7 +322,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 	}
 	if len(missingEntitlements) > 0 {
 		return types.NewErrHTTP(http.StatusPaymentRequired,
-			fmt.Sprintf("missing required license entitlements: %v", missingEntitlements))
+			apiMessage(req, "provider_missing_entitlements", "entitlements", fmt.Sprint(missingEntitlements)))
 	}
 
 	var missing []string
@@ -332,11 +332,11 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		}
 	}
 	if len(missing) > 0 {
-		return types.NewErrBadRequest("missing required configuration parameters: %s", strings.Join(missing, ", "))
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_missing_configuration", "parameters", strings.Join(missing, ", ")))
 	}
 
 	if setup == scimsetup.SetupSCIMFirst {
-		residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
+		residual, err := scimsetup.ResidualGroupData(scimLocaleContext(req), req.Storage, req.GatewayClient, authProvider)
 		if err != nil {
 			return err
 		}
@@ -345,6 +345,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 				AuthProviderName:        authProvider.Name,
 				AuthProviderDisplayName: cmp.Or(authProvider.Spec.Name, authProvider.Name),
 				Data:                    *residual,
+				Locale:                  providerResponseLocale(req),
 			}).Error())
 		}
 	}
@@ -360,7 +361,7 @@ func (ap *AuthProviderHandler) ResidualGroupData(req api.Context) error {
 		return err
 	}
 
-	residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
+	residual, err := scimsetup.ResidualGroupData(scimLocaleContext(req), req.Storage, req.GatewayClient, authProvider)
 	if ineligible, ok := errors.AsType[*scimsetup.IneligibleError](err); ok {
 		return types.NewErrBadRequest("%s", ineligible.Error())
 	} else if err != nil {
@@ -378,7 +379,7 @@ func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthPro
 		sameProvider := cleanup.Spec.AuthProviderName == authProvider.Name
 		samePrefix := authProvider.Spec.GroupIDPrefix != "" && cleanup.Spec.GroupIDPrefix == authProvider.Spec.GroupIDPrefix
 		if sameProvider || samePrefix {
-			return types.NewErrBadRequest("authentication provider %q is still being deconfigured; wait for cleanup to finish before configuring it again", authProvider.Name)
+			return types.NewErrBadRequest("%s", apiMessage(req, "provider_cleanup_pending", "provider", fmt.Sprintf("%q", authProvider.Name)))
 		}
 	}
 	return nil
@@ -402,8 +403,8 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	}
 	if configured == authProvider.Name {
 		return types.NewErrBadRequest(
-			"deconfiguring %q would leave no way to sign in. Configure a replacement and complete the switch instead",
-			authProvider.Name,
+			"%s",
+			apiMessage(req, "provider_deconfigure_active", "provider", fmt.Sprintf("%q", authProvider.Name)),
 		)
 	}
 	// Deconfiguring would leave the staging in place without what it set up, such as its SCIM connection.
@@ -412,7 +413,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to get staged auth provider: %w", err)
 	}
 	if staged == authProvider.Name {
-		return types.NewErrBadRequest("%q is staged as a replacement. Discard the staged switch instead", authProvider.Name)
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_staged_replacement", "provider", fmt.Sprintf("%q", authProvider.Name)))
 	}
 
 	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
@@ -442,7 +443,7 @@ func (ap *AuthProviderHandler) Stage(req api.Context) error {
 		return fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
 	if configuredProvider == authProvider.Name {
-		return types.NewErrBadRequest("%q is already the active authentication provider", authProvider.Name)
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_already_active", "provider", fmt.Sprintf("%q", authProvider.Name)))
 	}
 
 	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
@@ -542,7 +543,7 @@ func (ap *AuthProviderHandler) Verify(req api.Context) error {
 		return err
 	}
 	if staged != authProvider.Name {
-		return types.NewErrBadRequest("auth provider %q is not staged", authProvider.Name)
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_not_staged", "provider", fmt.Sprintf("%q", authProvider.Name)))
 	}
 
 	// A previous result describes settings that may since have been re-staged, and would make
@@ -583,12 +584,12 @@ func (ap *AuthProviderHandler) Activate(req api.Context) error {
 		return err
 	}
 	if staged != authProvider.Name {
-		return types.NewErrBadRequest("auth provider %q is not staged", authProvider.Name)
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_not_staged", "provider", fmt.Sprintf("%q", authProvider.Name)))
 	}
 
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil || cached.AuthProviderName != authProvider.Name {
-		return types.NewErrBadRequest("sign in through %q to verify it before completing the switch", authProvider.Name)
+		return types.NewErrBadRequest("%s", apiMessage(req, "provider_verify_first", "provider", fmt.Sprintf("%q", authProvider.Name)))
 	}
 
 	outgoing, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
@@ -640,7 +641,7 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 		return req.Write(cred.Secrets)
 	}
 
-	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
+	return types.NewErrNotFound("%s", apiMessage(req, "provider_credential_not_found", "provider", fmt.Sprintf("%q", authProvider.Name)))
 }
 
 // convertAuthProvider returns the API representation of an auth provider, which lists its effective configuration

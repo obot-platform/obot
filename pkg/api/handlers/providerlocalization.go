@@ -1,43 +1,36 @@
 package handlers
 
 import (
-	"strings"
-
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
-	"golang.org/x/text/language"
 )
 
 // providerLocale selects the first supported, positively weighted language range.
 func providerLocale(header string) string {
-	tags, weights, err := language.ParseAcceptLanguage(header)
-	if err != nil {
-		return "en"
-	}
-	for i, tag := range tags {
-		if weights[i] <= 0 {
-			continue
-		}
-		value := strings.ToLower(tag.String())
-		switch {
-		case value == "en" || strings.HasPrefix(value, "en-"):
-			return "en"
-		case value == "ja" || strings.HasPrefix(value, "ja-"):
-			return "ja"
-		case value == "ko" || strings.HasPrefix(value, "ko-"):
-			return "ko"
-		case value == "zh-cn" || value == "zh-sg" || value == "zh-hans" ||
-			strings.HasPrefix(value, "zh-hans-"):
-			return "zh-CN"
-		}
-	}
-	return "en"
+	return i18n.Locale(header)
 }
 
 func providerResponseLocale(req api.Context) string {
-	req.ResponseWriter.Header().Add("Vary", "Accept-Language")
+	if req.ResponseWriter != nil {
+		req.ResponseWriter.Header().Add("Vary", "Accept-Language")
+	}
+	if req.Request == nil {
+		return "en"
+	}
 	return providerLocale(req.Request.Header.Get("Accept-Language"))
+}
+
+func apiMessage(req api.Context, key string, values ...string) string {
+	if len(values)%2 != 0 {
+		panic("API message arguments must be key/value pairs")
+	}
+	args := make(map[string]string, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		args[values[i]] = values[i+1]
+	}
+	return i18n.Message(providerResponseLocale(req), key, args)
 }
 
 func localizeProviderMetadata(metadata *types.CommonProviderMetadata, locale string) {
