@@ -114,13 +114,19 @@ openAPIConfig:
     info:
       title: Example API
       version: "1.0.0"
+    servers:
+      - url: "https://api.example.com"
+      - url: "https://staging-api.example.com"
     paths: {}
-  baseURL: "https://api.example.com"
   egressDomains:
     - api.example.com
 ```
 
-The OpenAPI pod calls the API destination selected from `baseURL` or the schema's `servers` list. Obot fetches `source.url` separately; add the API destination's hostname to `egressDomains`, even when the schema comes from another host. When the default is deny all, an OpenAPI server needs an allowed API domain or an explicit `denyAllEgress: false` to make requests.
+The OpenAPI pod calls one API destination selected from `baseURL` or the schema's `servers` list. Without a `baseURL` override, Obot selects the first absolute HTTP(S) URL in that list. In this example, it uses `api.example.com`; `staging-api.example.com` is not used and does not need an egress allowance.
+
+Obot fetches `source.url` separately; add the selected API destination's hostname to `egressDomains`, even when the schema comes from another host. When the default is deny all, an OpenAPI server needs an allowed API domain or an explicit `denyAllEgress: false` to make requests.
+
+Setting `baseURL` overrides the schema's API destination; it does not grant an egress allowance. When egress is restricted to configured domains, the overridden destination must also be included in `egressDomains`.
 
 Obot validates OpenAPI API destinations using its configured network policy. The wrapper image also enforces its own network restrictions, which may reject a destination that Obot accepts; these errors surface during wrapper startup or tool execution. API destinations and credential forwarding require HTTPS unless development mode is enabled.
 
