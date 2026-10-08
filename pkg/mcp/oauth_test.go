@@ -683,6 +683,104 @@ func TestOAuthResourceHandlingByAuthorizationServer(t *testing.T) {
 	}
 }
 
+func TestOAuthAuthorizationURLConsent(t *testing.T) {
+	const resourceURL = "https://resource.example.com/mcp"
+	tests := []struct {
+		name               string
+		authorizationURL   string
+		expectedPrompt     string
+		expectedAccessType string
+		expectedResource   string
+	}{
+		{
+			name:               "Google",
+			authorizationURL:   "https://accounts.google.com/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google legacy endpoint",
+			authorizationURL:   "https://accounts.google.com/o/oauth2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google uppercase hostname",
+			authorizationURL:   "https://ACCOUNTS.GOOGLE.COM/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google explicit port",
+			authorizationURL:   "https://accounts.google.com:443/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "other provider",
+			authorizationURL:   "https://auth.example.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google lookalike",
+			authorizationURL:   "https://accounts.google.com.example.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google subdomain",
+			authorizationURL:   "https://other.accounts.google.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:             "Zoho",
+			authorizationURL: "https://mcp.zoho.com/authorize",
+			expectedResource: resourceURL,
+		},
+		{
+			name:               "Entra",
+			authorizationURL:   "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+			expectedAccessType: "offline",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			callback := &oauthAuthorizeCallbackHandler{}
+			conf := &oauth2.Config{
+				ClientID:    "client-id",
+				RedirectURL: "https://obot.example.com/callback",
+				Scopes:      []string{"read", "write"},
+				Endpoint: oauth2.Endpoint{
+					AuthURL: tt.authorizationURL,
+				},
+			}
+
+			authURL, _, verifier, err := GetOAuthAuthorizationURL(t.Context(), callback, conf, conf.Endpoint.AuthURL, resourceURL)
+			require.NoError(t, err)
+			parsedAuthURL, err := url.Parse(authURL)
+			require.NoError(t, err)
+			query := parsedAuthURL.Query()
+			require.Equal(t, tt.expectedPrompt, query.Get("prompt"))
+			require.Equal(t, tt.expectedAccessType, query.Get("access_type"))
+			require.Equal(t, tt.expectedResource, query.Get("resource"))
+			require.Equal(t, "state", query.Get("state"))
+			require.Equal(t, "client-id", query.Get("client_id"))
+			require.Equal(t, conf.RedirectURL, query.Get("redirect_uri"))
+			require.Equal(t, "read write", query.Get("scope"))
+			require.Equal(t, "code", query.Get("response_type"))
+			require.Equal(t, "S256", query.Get("code_challenge_method"))
+			require.Equal(t, oauth2.S256ChallengeFromVerifier(verifier), query.Get("code_challenge"))
+		})
+	}
+}
+
 func TestResolveOAuthResourceURL(t *testing.T) {
 	require.Equal(t,
 		"https://connection.example.com/mcp",
