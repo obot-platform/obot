@@ -34,15 +34,35 @@ var (
 			SetupDescription: "Client ID of an Okta API Services app, which Obot uses to fetch each user's groups from the " +
 				"Okta Management API when they sign in. Leave this and the private key empty to provision users and groups " +
 				"through SCIM instead.",
+			SetupTranslations: map[string]string{
+				"ja":    "Okta API Services アプリのクライアント ID。Obot がサインイン時に Okta Management API からユーザーのグループを取得するために使用します。SCIM でユーザーとグループをプロビジョニングする場合は、これと秘密鍵を空にしてください。",
+				"ko":    "Okta API Services 앱의 클라이언트 ID입니다. Obot이 로그인 시 Okta Management API에서 사용자 그룹을 가져오는 데 사용합니다. SCIM으로 사용자와 그룹을 프로비저닝하려면 이 값과 개인 키를 비워 두세요.",
+				"zh-CN": "Okta API Services 应用的客户端 ID。Obot 在用户登录时用它从 Okta Management API 获取用户组。如需改用 SCIM 预配用户和用户组，请将此项和私钥留空。",
+			},
 			UnusedDescription: "Not used: Okta provisions users and groups through SCIM, so Obot no longer calls the " +
 				"Okta Management API. You can remove it, then delete the API Services app in Okta.",
+			UnusedTranslations: map[string]string{
+				"ja":    "未使用: Okta は SCIM でユーザーとグループをプロビジョニングするため、Obot は Okta Management API を呼び出しません。この値を削除し、Okta の API Services アプリも削除できます。",
+				"ko":    "사용되지 않음: Okta가 SCIM으로 사용자와 그룹을 프로비저닝하므로 Obot은 더 이상 Okta Management API를 호출하지 않습니다. 이 값을 제거한 다음 Okta의 API Services 앱을 삭제할 수 있습니다.",
+				"zh-CN": "未使用：Okta 通过 SCIM 预配用户和用户组，因此 Obot 不再调用 Okta Management API。可以移除此值，然后删除 Okta 中的 API Services 应用。",
+			},
 		},
 		{
 			Name: "OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
 			SetupDescription: "PEM-encoded RSA private key of the Okta API Services app. Leave this and the client ID " +
 				"empty to provision users and groups through SCIM instead.",
+			SetupTranslations: map[string]string{
+				"ja":    "Okta API Services アプリの PEM 形式の RSA 秘密鍵。SCIM でユーザーとグループをプロビジョニングする場合は、これとクライアント ID を空にしてください。",
+				"ko":    "Okta API Services 앱의 PEM 인코딩 RSA 개인 키입니다. SCIM으로 사용자와 그룹을 프로비저닝하려면 이 값과 클라이언트 ID를 비워 두세요.",
+				"zh-CN": "Okta API Services 应用的 PEM 编码 RSA 私钥。如需改用 SCIM 预配用户和用户组，请将此项和客户端 ID 留空。",
+			},
 			UnusedDescription: "Not used: Okta provisions users and groups through SCIM, so Obot no longer calls the " +
 				"Okta Management API. You can remove it, then delete the API Services app in Okta.",
+			UnusedTranslations: map[string]string{
+				"ja":    "未使用: Okta は SCIM でユーザーとグループをプロビジョニングするため、Obot は Okta Management API を呼び出しません。この値を削除し、Okta の API Services アプリも削除できます。",
+				"ko":    "사용되지 않음: Okta가 SCIM으로 사용자와 그룹을 프로비저닝하므로 Obot은 더 이상 Okta Management API를 호출하지 않습니다. 이 값을 제거한 다음 Okta의 API Services 앱을 삭제할 수 있습니다.",
+				"zh-CN": "未使用：Okta 通过 SCIM 预配用户和用户组，因此 Obot 不再调用 Okta Management API。可以移除此值，然后删除 Okta 中的 API Services 应用。",
+			},
 		},
 	}
 )
