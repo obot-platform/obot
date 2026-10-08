@@ -658,6 +658,13 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 				Port: intstr.FromInt(port),
 			},
 		}
+	} else if server.Runtime == types.RuntimeOpenAPI {
+		dep.Spec.Template.Spec.Containers[len(containers)-1].ReadinessProbe = &corev1.Probe{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: server.HealthzPath,
+				Port: intstr.FromInt(port),
+			},
+		}
 	}
 
 	for _, secret := range effectiveImagePullSecrets {
