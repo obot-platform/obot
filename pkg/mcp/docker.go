@@ -274,10 +274,6 @@ func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server S
 		return serverConfig, nil
 	}
 
-	if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
-		return ServerConfig{}, err
-	}
-
 	expectedContainers := make(map[string]string, 1)
 	mcpServerName := server.MCPServerName
 
@@ -361,6 +357,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			return d.buildServerConfig(server, existing, containerPort, containerEnv)
 		default:
 			// Container exists but not running, remove it and recreate
+			if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+				return ServerConfig{}, err
+			}
 			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); cerrdefs.IsConflict(err) {
 				// The container is already being removed, wait for it to finish
 				statusCh, errCh := d.client.ContainerWait(ctx, existing.ID, container.WaitConditionRemoved)
@@ -376,6 +375,8 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 				return ServerConfig{}, fmt.Errorf("failed to remove stopped container: %w", err)
 			}
 		}
+	} else if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+		return ServerConfig{}, err
 	}
 
 	// Create new container
