@@ -40,7 +40,8 @@ var (
 )
 
 type backend interface {
-	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
+	// ensureServerDeployment validates before deployment, skips validation on cache hits,
+	// and returns the updated ServerConfig.
 	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error)
 	// deployServer will deploy a server if it is not already deployed, and will not wait or do any readiness checks
 	deployServer(ctx context.Context, server ServerConfig) error

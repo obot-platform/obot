@@ -127,9 +127,18 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 		return nil, err
 	}
 
+	validationOptions := ValidationOptions{
+		DevMode: devMode,
+		RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
+			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
+			AllowLinkLocalMCP: !opts.DisallowLinkLocalMCP,
+		},
+	}
+
 	switch opts.MCPRuntimeBackend {
 	case runtimeBackendDocker:
-		dockerBackend, err := newDockerBackend(ctx, authEnabled, httpListenPort, opts)
+		dockerBackend, err := newDockerBackend(ctx, authEnabled, httpListenPort, opts, validationOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -174,6 +183,7 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 			cachedClient,
 			obotStorageClient,
 			opts,
+			validationOptions,
 		)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
@@ -195,11 +205,7 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 		obotNamespace:             obotNamespace,
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
 		tunnelManager:             tunnelManager,
-		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
-			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
-			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
-			AllowLinkLocalMCP: !opts.DisallowLinkLocalMCP,
-		},
+		remoteURLValidationConfig: validationOptions.RemoteMCPURLValidationConfig,
 	}, nil
 }
 
@@ -393,16 +399,13 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
-	if err := sm.validateDeployment(ctx, server); err != nil {
+	if err := validateDeployment(ctx, server, sm.ValidationOptions()); err != nil {
 		return err
 	}
 	return sm.backend.restartServer(ctx, server)
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
-	if err := sm.validateDeployment(ctx, server); err != nil {
-		return ServerConfig{}, err
-	}
 	if server.Runtime == types.RuntimeRemote {
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
@@ -422,19 +425,10 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 }
 
 func (sm *SessionManager) deployServer(ctx context.Context, server ServerConfig) error {
-	if err := sm.validateDeployment(ctx, server); err != nil {
+	if err := validateDeployment(ctx, server, sm.ValidationOptions()); err != nil {
 		return err
 	}
 	return sm.backend.deployServer(ctx, server)
-}
-
-func (sm *SessionManager) validateDeployment(ctx context.Context, server ServerConfig) error {
-	switch server.Runtime {
-	case types.RuntimeOpenAPI:
-		return sm.validateOpenAPIDestination(ctx, server)
-	default:
-		return nil
-	}
 }
 
 // ValidateRemoteMCPURL rejects remote MCP URLs that resolve to blocked local address ranges.

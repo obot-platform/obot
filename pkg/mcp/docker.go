@@ -53,6 +53,7 @@ type dockerBackend struct {
 	hostBaseURLWithPort    string
 	containerizedBaseImage string
 	openAPIImage           string
+	validationOptions      ValidationOptions
 	authEnabled            bool
 	deploymentCacheMu      sync.RWMutex
 	deploymentCache        map[string]*dockerDeploymentCacheEntry
@@ -67,7 +68,7 @@ type dockerDeploymentCacheEntry struct {
 	containerIDs map[string]string
 }
 
-func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, opts Options, validationOptions ValidationOptions) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -86,6 +87,7 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage: opts.MCPBaseImage,
 		openAPIImage:           opts.MCPOpenAPIImage,
+		validationOptions:      validationOptions,
 		authEnabled:            authEnabled,
 		deploymentCache:        map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:        map[string]string{},
@@ -277,6 +279,10 @@ func (d *dockerBackend) ensureServerDeploymentSlow(ctx context.Context, server S
 		return ServerConfig{}, err
 	} else if ok {
 		return serverConfig, nil
+	}
+
+	if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+		return ServerConfig{}, err
 	}
 
 	expectedContainers := make(map[string]string, 1)

@@ -67,6 +67,7 @@ type kubernetesBackend struct {
 	httpListenPort    int
 	baseImage         string
 	openAPIImage      string
+	validationOptions ValidationOptions
 	mcpNamespace      string
 	mcpClusterDomain  string
 	serviceFQDN       string
@@ -95,6 +96,7 @@ func newKubernetesBackend(
 	cachedClient kclient.WithWatch,
 	obotClient kclient.WithWatch,
 	opts Options,
+	validationOptions ValidationOptions,
 ) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
@@ -102,19 +104,20 @@ func newKubernetesBackend(
 	}
 
 	return &kubernetesBackend{
-		clientset:        clientset,
-		client:           client,
-		cachedClient:     cachedClient,
-		httpListenPort:   httpListenPort,
-		baseImage:        opts.MCPBaseImage,
-		openAPIImage:     opts.MCPOpenAPIImage,
-		mcpNamespace:     opts.MCPNamespace,
-		mcpClusterDomain: opts.MCPClusterDomain,
-		serviceFQDN:      serviceFQDN,
-		authEnabled:      authEnabled,
-		imagePullSecrets: opts.MCPImagePullSecrets,
-		obotClient:       obotClient,
-		deploymentCache:  map[string]*kubernetesDeploymentCacheEntry{},
+		clientset:         clientset,
+		client:            client,
+		cachedClient:      cachedClient,
+		httpListenPort:    httpListenPort,
+		baseImage:         opts.MCPBaseImage,
+		openAPIImage:      opts.MCPOpenAPIImage,
+		validationOptions: validationOptions,
+		mcpNamespace:      opts.MCPNamespace,
+		mcpClusterDomain:  opts.MCPClusterDomain,
+		serviceFQDN:       serviceFQDN,
+		authEnabled:       authEnabled,
+		imagePullSecrets:  opts.MCPImagePullSecrets,
+		obotClient:        obotClient,
+		deploymentCache:   map[string]*kubernetesDeploymentCacheEntry{},
 	}
 }
 
@@ -187,6 +190,10 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	if shouldDeploy {
+		if err := validateDeployment(ctx, server, k.validationOptions); err != nil {
+			return ServerConfig{}, err
+		}
+
 		slog.Info("Triggering redeploy for MCP server", "mcpServerName", server.MCPServerName)
 		objs, err := k.k8sObjects(ctx, server)
 		if err != nil {

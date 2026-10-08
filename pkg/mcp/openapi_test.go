@@ -31,7 +31,8 @@ const (
 
 type openAPILifecycleBackend struct {
 	backend
-	configured ServerConfig
+	configured        ServerConfig
+	validationOptions ValidationOptions
 }
 
 func testOpenAPISchema(raw string) *types.OpenAPISchema {
@@ -598,7 +599,10 @@ func TestOpenAPIKubernetesConnectionHeaders(t *testing.T) {
 	require.Empty(t, connection.Headers)
 }
 
-func (b *openAPILifecycleBackend) ensureServerDeployment(_ context.Context, config ServerConfig) (ServerConfig, error) {
+func (b *openAPILifecycleBackend) ensureServerDeployment(ctx context.Context, config ServerConfig) (ServerConfig, error) {
+	if err := validateDeployment(ctx, config, b.validationOptions); err != nil {
+		return ServerConfig{}, err
+	}
 	b.configured = config
 	return config, nil
 }
@@ -632,6 +636,7 @@ func TestOpenAPILifecyclePreservesRuntime(t *testing.T) {
 				backend:                   backend,
 				remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true, AllowPrivateIPMCP: true, AllowLinkLocalMCP: true},
 			}
+			backend.validationOptions = manager.ValidationOptions()
 			config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "key"})
 			var err error
 			switch action {
@@ -701,6 +706,7 @@ func TestOpenAPIDestinationPolicyAtDeployment(t *testing.T) {
 						devMode:                   test.devMode,
 						remoteURLValidationConfig: test.allow,
 					}
+					backend.validationOptions = manager.ValidationOptions()
 					server := openAPITestServer()
 					server.Spec.Manifest.Config = nil
 					server.Spec.Manifest.OpenAPIConfig.BaseURL = test.url
