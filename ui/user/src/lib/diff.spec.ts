@@ -21,6 +21,27 @@ describe('normalizeManifestsForDiff', () => {
 		expect(catalogManifest.upgradeNote).toBe('Review settings before upgrading.');
 	});
 
+	it('ignores Obot version bounds', () => {
+		const catalogManifest = {
+			name: 'Server',
+			minObotVersion: 'v0.27.0',
+			maxObotVersion: 'v0.30.0'
+		};
+		const deployedManifest = {
+			name: 'Server',
+			minObotVersion: 'v0.26.0'
+		};
+
+		const [normalizedCatalog, normalizedDeployed] = normalizeManifestsForDiff(
+			catalogManifest,
+			deployedManifest
+		);
+
+		expect(normalizedCatalog).toEqual(normalizedDeployed);
+		expect(normalizedCatalog).not.toHaveProperty('minObotVersion');
+		expect(normalizedCatalog).not.toHaveProperty('maxObotVersion');
+	});
+
 	it('treats flattened catalog configuration as equivalent to deployed configuration', () => {
 		const catalogManifest = {
 			name: 'Server',

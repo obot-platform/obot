@@ -385,6 +385,9 @@ func TestCatalogSyncSkipsOutOfRangeEntriesBeforeValidation(t *testing.T) {
   env: []
   runtime: npx
   npxConfig: {package: removed-field}
+- type: future-type
+  name: Future Type
+  minObotVersion: v0.21.0
 - name: Current
   runtime: npx
   npxConfig: {package: current}

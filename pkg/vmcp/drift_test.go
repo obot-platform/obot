@@ -22,6 +22,8 @@ func TestNeedsUpdate(t *testing.T) {
 	informational.Manifest.RepoURL = "https://github.com/example/server"
 	informational.Manifest.EntryKey = "new-entry-key"
 	informational.Manifest.ToolPreview = []types.MCPServerTool{{Name: "tool"}}
+	informational.Manifest.MinObotVersion = "v0.27.0"
+	informational.Manifest.MaxObotVersion = "v0.30.0"
 	changed := source
 	changed.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Value: "changed"}}
 
