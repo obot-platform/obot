@@ -8,6 +8,7 @@ Use these references when authoring MCP server and vMCP definitions in Git. A ca
 | Format | Reference |
 |---|---|
 | Catalog metadata, runtime, configuration values, and resource requirements | [Catalog YAML structure](../configuration/mcp-server-gitops.md#yaml-configuration-structure) |
+| Supported Obot versions for an entry | [Obot version range](../configuration/mcp-server-gitops.md#obot-version-range) |
 | Catalog file selection and validation | [Selecting files](../configuration/mcp-server-gitops.md#selecting-catalog-files) and [CLI validation](../configuration/mcp-server-gitops.md#validating-catalog-entries) |
 | vMCP components, profiles, and fixed configuration | [vMCP definitions](../configuration/mcp-server-gitops.md#vmcp-definitions) |
 | Registry contribution example | [MCP Registry API](../functionality/mcp-registry-api.md#server-entry-format) |

@@ -81,6 +81,8 @@ Obot ships with a default set of built-in filters. These are MCP filter servers 
 
 The default built-in filter catalog is maintained in the [obot-platform/system-mcp-catalog](https://github.com/obot-platform/system-mcp-catalog) repository.
 
+A built-in filter can require a minimum or maximum Obot version. Filters that the running Obot version does not support are not listed. If a built-in filter you expect is missing, check whether it requires a newer Obot version. See [Obot version range](../configuration/mcp-server-gitops.md#obot-version-range).
+
 ## HTTP-based Filters {#http-based-filters}
 
 
