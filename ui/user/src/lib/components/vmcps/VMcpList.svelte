@@ -75,7 +75,7 @@
 			return;
 		}
 
-		const match = items.find((item) => item.id === connectID);
+		const match = initialItems.find((item) => item.id === connectID);
 		if (!match) {
 			openedConnectID = undefined;
 			setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
@@ -88,7 +88,7 @@
 		openedConnectID = connectID;
 		setUrlParamAndUpdateUrl(page.url, 'connect', undefined);
 		untrack(() =>
-			actions.openConnect(match.vmcp, undefined, {
+			actions.openConnect(match, undefined, {
 				connectReturn: 'list'
 			})
 		);
@@ -98,9 +98,9 @@
 		if (page.url.searchParams.has('inspector')) {
 			const id = page.url.searchParams.get('inspector');
 			setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
-			const match = items.find((item) => item.id === id);
+			const match = initialItems.find((item) => item.id === id);
 			if (match) {
-				handleTest(match.vmcp);
+				handleTest(match);
 			}
 		}
 	});
