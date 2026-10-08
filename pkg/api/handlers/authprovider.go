@@ -82,7 +82,8 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params))
+	locale := providerResponseLocale(req)
+	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params, locale))
 }
 
 // effectiveAuthProviderParameters returns the auth provider's effective configuration parameters. configured is set
@@ -200,6 +201,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
+	locale := providerResponseLocale(req)
 	for _, a := range authProviders.Items {
 		var conn *gatewaytypes.SCIMConnection
 		if i := slices.IndexFunc(conns, func(c gatewaytypes.SCIMConnection) bool {
@@ -226,7 +228,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus, params))
+		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus, params, locale))
 	}
 
 	return req.Write(types.AuthProviderList{Items: resp})
@@ -643,10 +645,19 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 
 // convertAuthProvider returns the API representation of an auth provider, which lists its effective configuration
 // parameters, so that the configuration form needs no SCIM logic.
-func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus, params adapter.Parameters) types.AuthProvider {
+func (ap *AuthProviderHandler) convertAuthProvider(
+	authProvider v1.AuthProvider,
+	authProviderStatus types.AuthProviderStatus,
+	params adapter.Parameters,
+	locale string,
+) types.AuthProvider {
 	manifest := *authProvider.Spec.AuthProviderManifest.DeepCopy()
 	manifest.RequiredConfigurationParameters = params.Required
 	manifest.OptionalConfigurationParameters = params.Optional
+	// The effective parameters may refer to stored slices, so copy them before localization.
+	manifest.RequiredConfigurationParameters = copyProviderParameters(manifest.RequiredConfigurationParameters)
+	manifest.OptionalConfigurationParameters = copyProviderParameters(manifest.OptionalConfigurationParameters)
+	localizeAuthProviderManifest(&manifest, authProvider.Name, locale)
 
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),

@@ -405,7 +405,7 @@
 	"identity_access_scim_rotate_token_action": "轮换 SCIM 令牌",
 	"identity_access_scim_rotate_token_msg": "签发新的 SCIM 持有者令牌？",
 	"identity_access_scim_rotate_token_note": "当前令牌会继续有效一天，或直到过期或被吊销，因此您可以更新身份提供商而不会导致请求失败。",
-	"identity_access_scim_setup_banner": "{provider} 通过 SCIM 预配用户和用户组，但尚未强制执行 SCIM。请在 Identity & Access → 身份验证提供商 → SCIM 中继续设置：在 {provider} 中使用基址 URL 和令牌创建 SCIM 应用，分配用户，推送用户组，并强制执行 SCIM。",
+	"identity_access_scim_setup_banner": "{provider} 通过 SCIM 预配用户和用户组，但尚未强制执行 SCIM。请在身份与访问 → 身份验证提供商 → SCIM 中继续设置：在 {provider} 中使用基址 URL 和令牌创建 SCIM 应用，分配用户，推送用户组，并强制执行 SCIM。",
 	"identity_access_scim_setup_provisioning": "设置预配",
 	"identity_access_scim_setup_steps": "设置步骤",
 	"identity_access_scim_step_app": "SCIM 应用",

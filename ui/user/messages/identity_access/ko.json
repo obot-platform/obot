@@ -405,7 +405,7 @@
 	"identity_access_scim_rotate_token_action": "SCIM 토큰 교체",
 	"identity_access_scim_rotate_token_msg": "새 SCIM 전달자 토큰을 발급할까요?",
 	"identity_access_scim_rotate_token_note": "현재 토큰은 하루 동안, 또는 만료되거나 취소할 때까지 동작하므로 요청 실패 없이 ID 공급자를 업데이트할 수 있습니다.",
-	"identity_access_scim_setup_banner": "{provider}이(가) SCIM으로 사용자와 그룹을 프로비저닝하지만 SCIM은 아직 적용되지 않았습니다. Identity & Access → 인증 공급자 → SCIM에서 설정을 계속하세요. 기본 URL과 토큰으로 {provider}에 SCIM 앱을 만들고, 사용자를 할당하고, 그룹을 푸시한 다음 SCIM을 적용합니다.",
+	"identity_access_scim_setup_banner": "{provider}이(가) SCIM으로 사용자와 그룹을 프로비저닝하지만 SCIM은 아직 적용되지 않았습니다. ID 및 액세스 → 인증 공급자 → SCIM에서 설정을 계속하세요. 기본 URL과 토큰으로 {provider}에 SCIM 앱을 만들고, 사용자를 할당하고, 그룹을 푸시한 다음 SCIM을 적용합니다.",
 	"identity_access_scim_setup_provisioning": "프로비저닝 설정",
 	"identity_access_scim_setup_steps": "설정 단계",
 	"identity_access_scim_step_app": "SCIM 앱",

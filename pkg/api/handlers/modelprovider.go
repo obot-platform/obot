@@ -40,7 +40,8 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	return req.Write(mp.convertModelProvider(modelProvider, *mps))
+	locale := providerResponseLocale(req)
+	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 
 func (mp *ModelProviderHandler) List(req api.Context) error {
@@ -52,13 +53,14 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.ModelProvider, 0, len(modelProviders.Items))
+	locale := providerResponseLocale(req)
 	for _, modelProvider := range modelProviders.Items {
 		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
 		if err != nil {
 			return err
 		}
 
-		resp = append(resp, mp.convertModelProvider(modelProvider, *mps))
+		resp = append(resp, mp.convertModelProvider(modelProvider, *mps, locale))
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -172,9 +174,8 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 
-	resp := mp.convertModelProvider(modelProvider, *mps)
-	if !resp.Configured {
-		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", resp.Name, strings.Join(resp.MissingConfigurationParameters, ", "))
+	if !mps.Configured {
+		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", modelProvider.Spec.Name, strings.Join(mps.MissingConfigurationParameters, ", "))
 	}
 
 	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {
@@ -190,13 +191,20 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return fmt.Errorf("failed to sync models for model provider %q: %w", modelProvider.Name, err)
 	}
 
-	return req.Write(resp)
+	locale := providerResponseLocale(req)
+	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 
-func (mp *ModelProviderHandler) convertModelProvider(modelProvider v1.ModelProvider, modelProviderStatus types.ModelProviderStatus) types.ModelProvider {
+func (mp *ModelProviderHandler) convertModelProvider(
+	modelProvider v1.ModelProvider,
+	modelProviderStatus types.ModelProviderStatus,
+	locale string,
+) types.ModelProvider {
+	manifest := *modelProvider.Spec.ModelProviderManifest.DeepCopy()
+	localizeProviderMetadata(&manifest.CommonProviderMetadata, locale)
 	return types.ModelProvider{
 		Metadata:              MetadataFrom(&modelProvider),
-		ModelProviderManifest: modelProvider.Spec.ModelProviderManifest,
+		ModelProviderManifest: manifest,
 		ModelProviderStatus:   modelProviderStatus,
 	}
 }
