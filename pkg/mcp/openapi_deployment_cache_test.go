@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/moby/moby/client"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,15 +40,33 @@ func TestOpenAPIDestinationValidationDeploymentCache(t *testing.T) {
 	for _, backendName := range []string{"docker", "kubernetes"} {
 		t.Run(backendName, func(t *testing.T) {
 			for _, test := range []struct {
-				name    string
-				cached  bool
-				live    bool
-				changed bool
+				name           string
+				cached         bool
+				live           bool
+				changed        bool
+				requestChanged bool
+				dynamicChanged bool
 			}{
 				{
 					name:   "cache hit survives DNS outage",
 					cached: true,
 					live:   true,
+				},
+				{
+					name:           "another user reuses deployment during DNS outage",
+					cached:         true,
+					live:           true,
+					requestChanged: true,
+				},
+				{
+					name: "running deployment survives empty cache and DNS outage",
+					live: true,
+				},
+				{
+					name:           "dynamic file updates still synchronize during DNS outage",
+					cached:         true,
+					live:           true,
+					dynamicChanged: true,
 				},
 				{
 					name: "first deployment validates destination",
@@ -63,16 +83,57 @@ func TestOpenAPIDestinationValidationDeploymentCache(t *testing.T) {
 				},
 			} {
 				t.Run(test.name, func(t *testing.T) {
+					if backendName == "kubernetes" && (!test.cached && test.live || test.dynamicChanged) {
+						t.Skip("Docker-specific deployment reuse and file synchronization")
+					}
 					config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "secret"})
 					config.Env[0] = "OPENAPI_BASE_URL=https://destination.invalid/"
 					config.StartupTimeout = time.Second
+					if test.dynamicChanged {
+						config.Files = append(config.Files, File{
+							EnvKey:  "DYNAMIC_CONFIG",
+							Data:    "original",
+							Dynamic: true,
+						})
+					}
+					var syncAttempted atomic.Bool
 					var runtimeBackend backend
 					if backendName == "docker" {
+						ready := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							require.Equal(t, "/readyz", r.URL.Path)
+							w.WriteHeader(http.StatusOK)
+						}))
+						t.Cleanup(ready.Close)
+						config.ContainerPort = ready.Listener.Addr().(*net.TCPAddr).Port
+						containerSummary := map[string]any{
+							"Id":    "existing-container",
+							"Names": []string{"/" + config.MCPServerName},
+							"State": "running",
+							"Labels": map[string]string{
+								"mcp.config.hash":        serverID(config),
+								"mcp.file.env.keys.hash": fileEnvKeysHash(config.Files),
+							},
+							"NetworkSettings": map[string]any{"Networks": map[string]any{"mcp": map[string]string{"IPAddress": "127.0.0.1"}}},
+						}
 						api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							require.True(t, strings.HasSuffix(r.URL.Path, "/json"), "unexpected Docker API request: %s", r.URL)
 							w.Header().Set("Content-Type", "application/json")
+							if strings.HasSuffix(r.URL.Path, "/volumes/create") {
+								syncAttempted.Store(true)
+								w.WriteHeader(http.StatusInternalServerError)
+								_, _ = io.WriteString(w, `{"message":"file sync unavailable"}`)
+								return
+							}
+							require.True(t, strings.HasSuffix(r.URL.Path, "/json"), "unexpected Docker API request: %s", r.URL)
+							if strings.HasSuffix(r.URL.Path, "/containers/json") {
+								if test.live {
+									require.NoError(t, json.NewEncoder(w).Encode([]any{containerSummary}))
+								} else {
+									_, _ = io.WriteString(w, `[]`)
+								}
+								return
+							}
 							if test.live {
-								_, _ = io.WriteString(w, `{"Id":"existing-container","State":{"Running":true}}`)
+								_, _ = io.WriteString(w, `{"Id":"existing-container","State":{"Running":true,"Status":"running"}}`)
 							} else {
 								w.WriteHeader(http.StatusNotFound)
 								_, _ = io.WriteString(w, `{"message":"container missing"}`)
@@ -82,11 +143,22 @@ func TestOpenAPIDestinationValidationDeploymentCache(t *testing.T) {
 						cli, err := client.NewClientWithOpts(client.WithHost(api.URL), client.WithVersion("1.44"))
 						require.NoError(t, err)
 						t.Cleanup(func() { require.NoError(t, cli.Close()) })
-						d := &dockerBackend{client: cli, deploymentCache: map[string]*dockerDeploymentCacheEntry{}}
+						d := &dockerBackend{
+							client:          cli,
+							containerEnv:    true,
+							network:         "mcp",
+							deploymentCache: map[string]*dockerDeploymentCacheEntry{},
+							syncedFilesHash: map[string]string{"existing-container": utils.Digest(config.Files)},
+						}
 						if test.cached {
+							connection := config
+							connection.Runtime = types.RuntimeRemote
+							connection.URL = ready.URL + "/mcp"
+							connection.Scope = "existing-container"
+							connection.Headers = config.hostedConnectionHeaders()
 							d.setDeploymentCache(config.MCPServerName, dockerDeploymentCacheEntry{
 								hash:         utils.Digest(config),
-								serverConfig: config,
+								serverConfig: connection,
 								containerIDs: map[string]string{config.MCPServerName: "existing-container"},
 							})
 						}
@@ -135,12 +207,31 @@ func TestOpenAPIDestinationValidationDeploymentCache(t *testing.T) {
 					if test.changed {
 						config.Env[0] = "OPENAPI_BASE_URL=https://changed.invalid/"
 					}
+					if test.requestChanged {
+						config.UserID = "another-user"
+						config.AuditLogMetadata = map[string]string{"userID": "another-user"}
+						config.PassthroughHeaderValues = []string{"Authorization=Bearer another-secret"}
+						config.Webhooks = []Webhook{{URL: "https://hooks.example.com"}}
+					}
+					if test.dynamicChanged {
+						config.Files[1].Data = "updated"
+					}
 					manager := SessionManager{backend: runtimeBackend}
 					before := lookups.Load()
-					_, err := manager.LaunchServer(t.Context(), config)
-					if test.cached && test.live && !test.changed {
+					connection, err := manager.LaunchServer(t.Context(), config)
+					if test.dynamicChanged {
+						require.ErrorContains(t, err, "file sync unavailable")
+						require.True(t, syncAttempted.Load(), "file updates must not be hidden by the deployment cache")
+						require.Equal(t, before, lookups.Load(), "dynamic file updates do not recreate the container")
+					} else if test.live && !test.changed {
 						require.NoError(t, err)
-						require.Equal(t, before, lookups.Load(), "cache hits must not resolve the API destination")
+						require.Equal(t, before, lookups.Load(), "reusing a deployment must not resolve the API destination")
+						require.Equal(t, types.RuntimeRemote, connection.Runtime)
+						require.Equal(t, config.UserID, connection.UserID)
+						require.Equal(t, config.AuditLogMetadata, connection.AuditLogMetadata)
+						require.Equal(t, config.PassthroughHeaderValues, connection.PassthroughHeaderValues)
+						require.Equal(t, config.Webhooks, connection.Webhooks)
+						require.Equal(t, config.hostedConnectionHeaders(), connection.Headers)
 					} else {
 						require.ErrorContains(t, err, "DNS unavailable")
 						require.Greater(t, lookups.Load(), before, "deployments must validate the API destination")
