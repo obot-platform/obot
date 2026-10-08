@@ -107,6 +107,14 @@ runtime: openapi
 openAPIConfig:
   source:
     url: "https://schemas.example.com/openapi.json"
+  # Snapshot of the document at source.url (1 MiB maximum). Running servers
+  # use this snapshot; Obot rejects OpenAPI entries without one.
+  schema:
+    openapi: "3.0.3"
+    info:
+      title: Example API
+      version: "1.0.0"
+    paths: {}
   baseURL: "https://api.example.com"
   egressDomains:
     - api.example.com
