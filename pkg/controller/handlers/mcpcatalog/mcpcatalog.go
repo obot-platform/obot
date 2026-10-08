@@ -648,11 +648,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		}
 
-		if header.Type != "" && header.Type != "entry" {
-			errs = append(errs, fmt.Errorf("unsupported catalog item type %q", header.Type))
-			continue
-		}
-
+		// Check the range before the item type so that items of types introduced by newer Obot
+		// versions are skipped rather than reported as unsupported. vMCPs do not support bounds.
 		if inRange, err := inObotVersionRange(item, "catalog entry"); err != nil {
 			errs = append(errs, err)
 			continue
@@ -660,6 +657,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			if header.EntryKey != "" {
 				versionSkippedRefs[sourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
 			}
+			continue
+		}
+
+		if header.Type != "" && header.Type != "entry" {
+			errs = append(errs, fmt.Errorf("unsupported catalog item type %q", header.Type))
 			continue
 		}
 
