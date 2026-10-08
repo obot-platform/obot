@@ -182,14 +182,16 @@
 		const vmcp = selectedVMcp;
 		if (!inspectorID || vmcp?.id !== inspectorID) return;
 
-		vmcpActions?.openConnect(vmcp, undefined, {
-			connectReturn: 'inspector',
-			onConnected: () => {
-				setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
-				goto(`/vmcps/${vmcp.id}?view=inspector`);
-			},
-			onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'inspector', undefined)
-		});
+		untrack(() =>
+			vmcpActions?.openConnect(vmcp, undefined, {
+				connectReturn: 'inspector',
+				onConnected: () => {
+					setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
+					goto(`/vmcps/${vmcp.id}?view=inspector`);
+				},
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'inspector', undefined)
+			})
+		);
 	});
 
 	$effect(() => {
