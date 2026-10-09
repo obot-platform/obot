@@ -107,6 +107,7 @@ Device scans detect and inventory these local AI clients:
 | Cursor | Client presence, MCP servers, skills, plugins |
 | Goose | Client presence, MCP servers |
 | Hermes | Client presence, MCP servers, skills |
+| Kiro | Client presence, MCP servers, skills, plugins |
 | OpenClaw | Client presence |
 | OpenCode | Client presence, MCP servers, skills, plugins |
 | VS Code | Client presence, MCP servers |

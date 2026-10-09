@@ -20,6 +20,7 @@ const AGENT_LABELS: Record<string, string> = {
 	claude_code: 'Claude Code',
 	codex: 'Codex',
 	cursor: 'Cursor',
+	kiro: 'Kiro',
 	vscode: 'VS Code'
 };
 
