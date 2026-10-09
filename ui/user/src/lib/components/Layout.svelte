@@ -261,7 +261,17 @@
 					id: 'models',
 					label: m.nav_models(),
 					href: '/models'
-				}
+				},
+				...(version.current.engine === 'docker' ||
+				(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled)
+					? [
+							{
+								id: 'claude-environments',
+								label: m.nav_claude_environments(),
+								href: '/claude-environments'
+							}
+						]
+					: [])
 			]
 		},
 		{

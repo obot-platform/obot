@@ -533,3 +533,17 @@ describe('Layout.svelte', () => {
 		});
 	});
 });
+
+it.each([
+	{ engine: 'docker' as const, enabled: false, visible: true },
+	{ engine: 'kubernetes' as const, enabled: false, visible: false },
+	{ engine: 'kubernetes' as const, enabled: true, visible: true }
+])(
+	'shows Claude environments for $engine with enabled=$enabled',
+	async ({ engine, enabled, visible }) => {
+		await renderLayout([], { engine, claudeEnvironmentsEnabled: enabled });
+		const link = page.getByRole('link', { name: 'Claude Environments', exact: true });
+		if (visible) await expect.element(link).toBeVisible();
+		else await expect.element(link).not.toBeInTheDocument();
+	}
+);
