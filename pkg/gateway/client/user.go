@@ -670,12 +670,12 @@ func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessTo
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch profile icon URL: %w", err)
+		return nil, fmt.Errorf("failed to fetch user profile: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch user profile: %s", resp.Status)
 	}
 
 	var body map[string]any
