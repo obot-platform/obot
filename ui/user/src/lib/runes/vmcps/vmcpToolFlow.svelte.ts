@@ -42,13 +42,6 @@ interface PendingRemoval {
 	vmcp: VMCP;
 }
 
-interface PendingToolOverrideCopy {
-	vmcpID: string;
-	componentIds: string[];
-	componentNames: string[];
-	toolOverrides: ToolOverride[];
-}
-
 /**
  * Handover from the page that creates a vMCP to the page that shows it. Creating navigates to the
  * new vMCP, which unmounts the flow that would have opened the tool dialogs, so the id is parked
@@ -148,8 +141,6 @@ export function createVMcpToolFlow() {
 	let addedServer = $state<PendingAddedServer>();
 	let pendingRemoval = $state<PendingRemoval>();
 	let removing = $state(false);
-	let pendingToolOverrideCopy = $state<PendingToolOverrideCopy>();
-	let applyingToolOverrides = $state(false);
 	let modifyingVMcp = $state<VMCP>();
 	let configuringEntry = $state<MCPCatalogEntry>();
 	let configuringComponentId = $state<string>();
@@ -542,20 +533,6 @@ export function createVMcpToolFlow() {
 				components: nextComponents
 			});
 			modifyingVMcp = updated;
-			const siblings = (updated.components ?? []).filter(
-				(component, componentIndex) =>
-					componentIndex !== index &&
-					component.mcpServerCatalogEntryID === componentConfig.mcpServerCatalogEntryID &&
-					!component.toolOverrides?.length
-			);
-			if (toolOverrides?.length && siblings.length > 0) {
-				pendingToolOverrideCopy = {
-					vmcpID: updated.id,
-					componentIds: siblings.map((component) => vmcpComponentId(component)),
-					componentNames: siblings.map((component) => component.name),
-					toolOverrides
-				};
-			}
 			success.add(
 				m.vmcps_tools_updated_for({
 					server:
@@ -572,37 +549,6 @@ export function createVMcpToolFlow() {
 			return false;
 		} finally {
 			close();
-		}
-	}
-
-	function dismissToolOverrideCopy() {
-		if (applyingToolOverrides) return;
-		pendingToolOverrideCopy = undefined;
-	}
-
-	async function applyToolOverridesToSiblings() {
-		const pending = pendingToolOverrideCopy;
-		if (!pending || applyingToolOverrides) return;
-		applyingToolOverrides = true;
-		try {
-			const latest = await UserService.getVMCP(pending.vmcpID);
-			const ids = pending.componentIds;
-			const components = (latest.components ?? []).map((component) =>
-				ids.includes(vmcpComponentId(component)) && !component.toolOverrides?.length
-					? { ...component, toolOverrides: pending.toolOverrides }
-					: component
-			);
-			const updated = await UserService.updateVMCP(latest.id, {
-				...vmcpManifest(latest),
-				components
-			});
-			success.add(m.vmcps_tool_overrides_applied());
-			onVMcpChanged?.(updated);
-			pendingToolOverrideCopy = undefined;
-		} catch {
-			errors.append(m.vmcps_failed_to_apply_tool_overrides());
-		} finally {
-			applyingToolOverrides = false;
 		}
 	}
 
@@ -678,12 +624,6 @@ export function createVMcpToolFlow() {
 		get removing() {
 			return removing;
 		},
-		get pendingToolOverrideCopy() {
-			return pendingToolOverrideCopy;
-		},
-		get applyingToolOverrides() {
-			return applyingToolOverrides;
-		},
 		get modifyingVMcp() {
 			return modifyingVMcp;
 		},
@@ -754,8 +694,6 @@ export function createVMcpToolFlow() {
 		refreshTools,
 		saveEditedTools,
 		saveTools,
-		dismissToolOverrideCopy,
-		applyToolOverridesToSiblings,
 		promptRemove,
 		cancelRemove,
 		removeComponent

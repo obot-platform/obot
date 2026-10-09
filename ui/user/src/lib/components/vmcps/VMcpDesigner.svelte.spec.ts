@@ -360,95 +360,7 @@ describe('VMcpDesigner.svelte', () => {
 			});
 		});
 
-		function vmcpWithCatalogSibling(
-			sibling: ReturnType<typeof createVMCPComponent>,
-			sourceOverrides: ToolOverride[] = toolOverrides
-		) {
-			return createVMCP(
-				{
-					id: 'vmcp-1',
-					displayName: 'Issue Tracker vMCP',
-					components: [
-						createVMCPComponent(componentEntry, {
-							toolPrefix: 'github_',
-							toolOverrides: sourceOverrides
-						}),
-						sibling
-					]
-				},
-				[componentEntry]
-			);
-		}
-
-		function persistVMcpUpdates(vmcp: VMCP, onUpdate: (manifest: unknown) => void) {
-			let current = vmcp;
-			worker.use(
-				http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(current)),
-				http.put(`/api/vmcps/${vmcp.id}`, async ({ request }) => {
-					const manifest = (await request.json()) as VMCPManifest;
-					onUpdate(manifest);
-					current = { ...current, ...manifest };
-					return HttpResponse.json(current);
-				})
-			);
-		}
-
-		it('offers to copy tool overrides onto matching components that have none', async () => {
-			const vmcp = vmcpWithCatalogSibling(
-				createVMCPComponent(componentEntry, {
-					id: 'component-github-eu',
-					name: 'GitHub EU',
-					toolPrefix: 'github_eu_'
-				})
-			);
-			const update = vi.fn();
-			persistVMcpUpdates(vmcp, update);
-			await renderDesigner([componentEntry], vmcp);
-
-			await componentBlock().click();
-			await chooseModifyTools();
-			await page.getByRole('switch', { name: 'Enable Tool' }).click();
-			await page.getByRole('button', { name: 'Confirm' }).click();
-
-			const offer = page.getByRole('dialog').filter({ hasText: 'Copy these tools?' });
-			await expect.element(offer.getByText('GitHub EU')).toBeVisible();
-			await offer.getByRole('button', { name: 'Apply' }).click();
-
-			await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
-			const saved = componentsFrom(update.mock.calls[1][0]);
-			const source = saved.find((component) => component.name === 'GitHub');
-			const copy = saved.find((component) => component.name === 'GitHub EU');
-			expect(copy?.toolOverrides).toEqual(source?.toolOverrides);
-			expect(copy?.toolPrefix).toBe('github_eu_');
-		});
-
-		it('leaves matching components unchanged when the tool override copy is skipped', async () => {
-			const vmcp = vmcpWithCatalogSibling(
-				createVMCPComponent(componentEntry, {
-					id: 'component-github-eu',
-					name: 'GitHub EU',
-					toolPrefix: 'github_eu_'
-				})
-			);
-			const update = vi.fn();
-			mockUpdateVMcp(vmcp, update);
-			await renderDesigner([componentEntry], vmcp);
-
-			await componentBlock().click();
-			await chooseModifyTools();
-			await page.getByRole('switch', { name: 'Enable Tool' }).click();
-			await page.getByRole('button', { name: 'Confirm' }).click();
-
-			const offer = page.getByRole('dialog').filter({ hasText: 'Copy these tools?' });
-			await expect.element(offer.getByRole('button', { name: 'Skip' })).toBeVisible();
-			await offer.getByRole('button', { name: 'Skip' }).click();
-
-			await expect.element(offer).not.toBeInTheDocument();
-			expect(update).toHaveBeenCalledOnce();
-		});
-
-		it('does not offer to copy tool overrides when every matching component already has them', async () => {
-			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+		it('saves tool overrides only on the edited component', async () => {
 			const vmcp = createVMCP(
 				{
 					id: 'vmcp-1',
@@ -461,17 +373,15 @@ describe('VMcpDesigner.svelte', () => {
 						createVMCPComponent(componentEntry, {
 							id: 'component-github-eu',
 							name: 'GitHub EU',
-							toolPrefix: 'github_eu_',
-							toolOverrides
-						}),
-						createVMCPComponent(slack)
+							toolPrefix: 'github_eu_'
+						})
 					]
 				},
-				[componentEntry, slack]
+				[componentEntry]
 			);
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
-			await renderDesigner([componentEntry, slack], vmcp);
+			await renderDesigner([componentEntry], vmcp);
 
 			await componentBlock().click();
 			await chooseModifyTools();
@@ -479,11 +389,17 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Confirm' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
+			const saved = componentsFrom(update.mock.calls[0][0]);
+			const source = saved.find((component) => component.name === 'GitHub');
+			const sibling = saved.find((component) => component.name === 'GitHub EU');
+			expect(source?.toolOverrides).toEqual([
+				expect.objectContaining({ name: 'create_issue', enabled: true }),
+				expect.objectContaining({ name: 'list_issues', enabled: true })
+			]);
+			expect(sibling?.toolOverrides).toBeUndefined();
+			expect(sibling?.toolPrefix).toBe('github_eu_');
 			await expect
 				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
-				.not.toBeInTheDocument();
-			await expect
-				.element(page.getByRole('heading', { name: 'Copy these tools?' }))
 				.not.toBeInTheDocument();
 		});
 

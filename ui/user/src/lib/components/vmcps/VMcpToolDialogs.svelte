@@ -28,7 +28,6 @@
 	let editDialog = $state<ReturnType<typeof CompositeEditTools>>();
 	let componentActionsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
-	let copyOverridesDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let detailsDialog = $state<ReturnType<typeof VMcpComponentDetailsDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
@@ -184,11 +183,6 @@
 	}
 
 	$effect(() => {
-		if (flow.pendingToolOverrideCopy) copyOverridesDialog?.open();
-		else copyOverridesDialog?.close();
-	});
-
-	$effect(() => {
 		const next = flow.dialog;
 		if (next === renderedDialog) return;
 		if (!dialogReady(next)) return;
@@ -202,7 +196,7 @@
 </script>
 
 <Confirm
-	show={pendingAffectedProfiles.length > 0 && !flow.pendingToolOverrideCopy}
+	show={pendingAffectedProfiles.length > 0}
 	onsuccess={openAffectedProfiles}
 	oncancel={() => (pendingAffectedProfiles = [])}
 	type="info"
@@ -238,41 +232,6 @@
 		>{m.vmcps_remove_confirm_suffix()}
 	{/snippet}
 </Confirm>
-
-<ResponsiveDialog
-	class="md:w-xs"
-	bind:this={copyOverridesDialog}
-	title={m.vmcps_apply_tool_overrides_title()}
-	onClose={flow.dismissToolOverrideCopy}
->
-	<div class="flex flex-col gap-4 px-4 md:px-0 pt-4 md:pt-0">
-		<p class="text-sm font-light">{m.vmcps_apply_tool_overrides_msg()}</p>
-		<ul class="list-disc flex flex-col gap-1 self-center">
-			{#each flow.pendingToolOverrideCopy?.componentNames ?? [] as name (name)}
-				<li class="text-sm font-semibold">{name}</li>
-			{/each}
-		</ul>
-		<p class="text-sm font-light">{m.vmcps_apply_tool_overrides_msg_confirm()}</p>
-		<div class="flex justify-end gap-2">
-			<button
-				type="button"
-				class="btn btn-secondary btn-sm"
-				disabled={flow.applyingToolOverrides}
-				onclick={flow.dismissToolOverrideCopy}
-			>
-				{m.vmcps_skip()}
-			</button>
-			<button
-				type="button"
-				class="btn btn-primary btn-sm"
-				disabled={flow.applyingToolOverrides}
-				onclick={() => void flow.applyToolOverridesToSiblings()}
-			>
-				{m.vmcps_apply()}
-			</button>
-		</div>
-	</div>
-</ResponsiveDialog>
 
 <ResponsiveDialog
 	animate="slide"
