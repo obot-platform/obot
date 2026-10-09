@@ -34,6 +34,17 @@ const (
 )
 
 type Client struct {
+	egressAuditLock           sync.Mutex
+	egressAuditPersistLock    sync.Mutex
+	egressAuditBuffer         []types.EgressAuditLog
+	egressAuditPending        int
+	egressAuditBytes          int
+	egressAuditDropped        uint64
+	egressAuditOverflowLogged time.Time
+	kickEgressAuditPersist    chan struct{}
+	egressAuditCancel         context.CancelFunc
+	egressAuditDone           chan struct{}
+
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
 	emailsWithExplicitRoles   map[string]types2.Role
@@ -73,7 +84,12 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	for _, email := range ownerEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
 	}
+	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
+		egressAuditBuffer:         make([]types.EgressAuditLog, 0, min(2*auditLogBatchSize, egressAuditMaxEntries)),
+		kickEgressAuditPersist:    make(chan struct{}, 1),
+		egressAuditCancel:         egressCancel,
+		egressAuditDone:           make(chan struct{}),
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
 		emailsWithExplicitRoles:   explicitRoleEmailsSet,
@@ -97,6 +113,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		kickLifecycleDelivery:     make(chan struct{}, 1),
 	}
 
+	go c.runEgressAuditPersistenceLoop(egressCtx, auditLogPersistenceInterval)
 	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runEnforcementDecisionPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runLLMAuditPersistenceLoop(ctx, c.llmAuditBatchSize, auditLogPersistenceInterval)
@@ -112,6 +129,13 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 
 func (c *Client) Close() error {
 	var errs []error
+	if c.egressAuditCancel != nil {
+		c.egressAuditCancel()
+		<-c.egressAuditDone
+	}
+	if err := c.FlushEgressAuditLogs(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to persist egress audit logs: %w", err))
+	}
 	if err := c.persistMCPAuditLogs(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to persist audit logs: %w", err))
 	}

@@ -11,7 +11,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	als "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v3"
+	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -131,18 +135,22 @@ func StartCredentialProvider(ctx context.Context, address, bundleFile, caFile st
 		return nil, err
 	}
 	server := grpc.NewServer(
+		grpc.WaitForHandlers(true),
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
-		// Rotate connections for fresh certificates without interrupting active requests.
+		// Rotate connections for fresh certificates without terminating active audit streams.
 		grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionAge: 5 * time.Minute}),
 	)
 	pb.RegisterCredentialProviderServer(server, provider)
-	stop := context.AfterFunc(ctx, server.Stop)
+	ext.RegisterExternalProcessorServer(server, &AuditProcessor{Provider: provider})
+	als.RegisterAccessLogServiceServer(server, &AccessLogger{Provider: provider})
+	closeServer := sync.OnceFunc(server.Stop)
+	stop := context.AfterFunc(ctx, closeServer)
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			slog.ErrorContext(ctx, "Claude credential provider stopped", "error", err)
 		}
 	}()
-	return func() { stop(); server.Stop() }, nil
+	return func() { stop(); closeServer() }, nil
 }
 
 func providerTLSConfig(bundleFile, caFile string) (*tls.Config, error) {
