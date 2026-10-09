@@ -108,6 +108,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
 	llmAuditLogs := handlers.NewLLMAuditLogHandler()
+	egressAuditLogs := &handlers.EgressAuditLogHandler{}
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
 	serverInstances := handlers.NewServerInstancesHandler()
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
@@ -392,6 +393,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
 
 	// LLM Audit Logs
+	mux.HandleFunc("GET /api/egress-audit-logs", egressAuditLogs.List)
+	mux.HandleFunc("GET /api/egress-audit-logs/environments", egressAuditLogs.Environments)
+	mux.HandleFunc("GET /api/egress-audit-logs/{audit_log_id}", egressAuditLogs.Get)
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
 	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)
 	mux.HandleFunc("GET /api/llm-audit-logs/detail/{audit_log_id}", llmAuditLogs.Get)

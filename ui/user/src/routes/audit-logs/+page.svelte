@@ -2,11 +2,12 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
+	import EgressAuditLogsContent from '$lib/components/admin/audit-logs/EgressAuditLogsContent.svelte';
 	import LlmAuditLogsContent from '$lib/components/admin/audit-logs/LlmAuditLogsContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import { m } from '$lib/i18n';
 	import { Group } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Plus, Settings } from '@lucide/svelte';
 	import type { Component } from 'svelte';
@@ -35,7 +36,10 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm }
+				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm },
+				...(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled
+					? [{ label: m.nav_claude_environments(), value: 'egress', content: egress }]
+					: [])
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />
@@ -92,4 +96,8 @@
 	<div class="flex min-h-full flex-col gap-6">
 		<LlmAuditLogsContent bind:this={llmLogs} />
 	</div>
+{/snippet}
+
+{#snippet egress()}
+	<EgressAuditLogsContent />
 {/snippet}
