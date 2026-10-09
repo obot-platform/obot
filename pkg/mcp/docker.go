@@ -321,6 +321,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 		switch existing.State {
 		case container.StateCreated:
 			// Container exists and is created, start it and wait for it to be ready.
+			if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+				return ServerConfig{}, err
+			}
 			if err := d.client.ContainerStart(ctx, existing.ID, container.StartOptions{}); err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to start container: %w", err)
 			}
