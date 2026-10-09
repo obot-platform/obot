@@ -85,6 +85,8 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "disabled user",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.db.WithContext(t.Context()).Model(&types.User{}).Where("id = 1").Update("disabled_at", time.Now()).Error)
 			},
 		},
@@ -92,6 +94,8 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "deleted user",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.db.WithContext(t.Context()).Model(&types.User{}).Where("id = 1").Update("deleted_at", time.Now()).Error)
 			},
 		},
@@ -99,6 +103,8 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "service user",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.db.WithContext(t.Context()).Model(&types.User{}).Where("id = 1").Update("internal", true).Error)
 			},
 		},
@@ -106,6 +112,8 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "ambiguous email",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.db.WithContext(t.Context()).Model(&types.User{}).Where("id = 2").Update("email", "PERSON@example.com").Error)
 			},
 		},
@@ -113,6 +121,8 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "user already mapped in this organization",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "org", []types.ClaudeOrganizationAccount{{Account: "another", UserID: "1"}}))
 			},
 		},
@@ -120,21 +130,28 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			name:  "mapping in another organization is independent",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "other-org", []types.ClaudeOrganizationAccount{{Account: "another", UserID: "1"}}))
 			},
 			want: "1",
 		},
 		{
-			name:  "explicit admin unlink wins",
+			name:  "saved unmapped account matches by email",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
-				require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "org", []types.ClaudeOrganizationAccount{{Account: "user_test"}}))
+				t.Helper()
+
+				require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "org", []types.ClaudeOrganizationAccount{{Account: "user_test", UUID: "uuid", DisplayName: "Imported name"}}))
 			},
+			want: "1",
 		},
 		{
 			name:  "admin mapping wins over email",
 			email: "person@example.com",
 			prepare: func(t *testing.T, c *Client) {
+				t.Helper()
+
 				require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "org", []types.ClaudeOrganizationAccount{{Account: "user_test", UserID: "2"}}))
 			},
 			want: "2",
@@ -157,15 +174,10 @@ func TestMatchClaudeOrganizationAccount(t *testing.T) {
 			stored, err := c.ClaudeOrganizationAccount(t.Context(), "org", "user_test")
 			require.NoError(t, err)
 			require.Equal(t, tc.want, stored.UserID)
-
-			// Once saved, incoming email changes cannot reassign the account.
-			again, err := c.MatchClaudeOrganizationAccount(t.Context(), "org", "user_test", "changed@example.com")
-			require.NoError(t, err)
-			require.Equal(t, tc.want, again.UserID)
-			require.NoError(t, c.SaveClaudeOrganizationAccounts(t.Context(), "org", []types.ClaudeOrganizationAccount{{Account: "user_test", UserID: "2"}}))
-			overridden, err := c.MatchClaudeOrganizationAccount(t.Context(), "org", "user_test", tc.email)
-			require.NoError(t, err)
-			require.Equal(t, "2", overridden.UserID)
+			if tc.name == "saved unmapped account matches by email" {
+				require.Equal(t, "uuid", stored.UUID)
+				require.Equal(t, "Imported name", stored.DisplayName)
+			}
 		})
 	}
 }

@@ -7,6 +7,7 @@
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import ActorResources from './ActorResources.svelte';
+	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EnvironmentProfiles from './EnvironmentProfiles.svelte';
 	import type { ClaudeConfig, ClaudeEnvironment } from './types';
@@ -379,6 +380,17 @@
 					>
 				</div>
 			</form>
+		{/if}
+		{#if admin}
+			{#each [...new Set((config.environments ?? []).map((environment) => environment.organizationID))] as organization (organization)}
+				<ClaudeAccountMappings
+					{organization}
+					environments={(config.environments ?? []).filter(
+						(environment) => environment.organizationID === organization
+					)}
+					onsaved={load}
+				/>
+			{/each}
 		{/if}
 		{#each config.environments ?? [] as environment (environment.id)}
 			{@const mapping = config.mappings?.find(

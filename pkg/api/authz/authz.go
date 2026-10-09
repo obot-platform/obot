@@ -36,6 +36,7 @@ var (
 	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
+		"/api/claude-organizations/",
 		"/api/claude-environments",
 		"/api/claude-environments/",
 		"/api/model-proxy",

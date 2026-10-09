@@ -89,14 +89,10 @@ func (c *Client) ClaudeOrganizationAccount(ctx context.Context, organization, ac
 func (c *Client) MatchClaudeOrganizationAccount(ctx context.Context, organization, account, email string) (*types.ClaudeOrganizationAccount, error) {
 	var mapping types.ClaudeOrganizationAccount
 	err := c.db.WithContext(ctx).Where("organization_id = ? AND account = ?", organization, account).First(&mapping).Error
-	if err == nil {
-		// An explicit admin unlink must not be undone on the next request.
-		if mapping.UserID == "" {
-			return nil, gorm.ErrRecordNotFound
-		}
+	if err == nil && mapping.UserID != "" {
 		return &mapping, nil
 	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
@@ -130,7 +126,10 @@ func (c *Client) MatchClaudeOrganizationAccount(ctx context.Context, organizatio
 		return nil, err
 	}
 
-	mapping = types.ClaudeOrganizationAccount{OrganizationID: organization, Account: account, Email: email, UserID: owner}
+	mapping.OrganizationID = organization
+	mapping.Account = account
+	mapping.Email = email
+	mapping.UserID = owner
 	if err := c.SaveClaudeOrganizationAccounts(ctx, organization, []types.ClaudeOrganizationAccount{mapping}); err != nil {
 		return nil, err
 	}
