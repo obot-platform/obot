@@ -139,6 +139,12 @@
 						placeholder="https://api.example.com/openapi.json"
 						bind:value={config.source.url}
 						oninput={invalidate}
+						onkeydown={(event) => {
+							// Enter would otherwise submit the surrounding catalog form.
+							if (event.key !== 'Enter') return;
+							event.preventDefault();
+							if (!busy && config.source.url?.trim()) importSchema();
+						}}
 					/>
 				</div>
 			{:else if !readonly}

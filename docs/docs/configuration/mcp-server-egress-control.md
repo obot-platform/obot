@@ -61,7 +61,7 @@ With the default set to deny all, admins can still allow unrestricted egress for
 ## Configure allowed domains
 
 Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, `containerized`, and `openapi` MCP servers.
-For `npx`, `uvx`, and `containerized` servers, this can be configured in the UI when creating or editing an MCP server. OpenAPI egress settings can be configured through the API or Git-managed YAML.
+This can be configured in the UI when creating or editing an MCP server, or through the API.
 See the YAML configuration examples if you manage MCP servers through Git.
 
 ### YAML configuration examples

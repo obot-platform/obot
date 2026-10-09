@@ -13,6 +13,7 @@
 		importedBaseURL?: string;
 		showBaseURLError?: boolean;
 		onBaseURLChange?: () => void;
+		onEditingChange?: (editing: boolean) => void;
 		current: OpenAPIMetadata;
 		onComplete: (
 			config: OpenAPIRuntimeConfig,
@@ -29,9 +30,14 @@
 		defaultDenyAllEgress = false,
 		importedBaseURL = '',
 		showBaseURLError = false,
-		onBaseURLChange
+		onBaseURLChange,
+		onEditingChange
 	}: Props = $props();
 	let editing = $state(untrack(() => !config.schema));
+	// Lets the parent block saving while a replacement schema import is in progress.
+	$effect(() => {
+		onEditingChange?.(editing);
+	});
 	let draft = $state<OpenAPIRuntimeConfig>(untrack(() => structuredClone($state.snapshot(config))));
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let result = $state<OpenAPIImportResult>();
