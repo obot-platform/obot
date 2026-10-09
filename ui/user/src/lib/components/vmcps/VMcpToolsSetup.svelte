@@ -34,7 +34,6 @@
 		existingTools?: CompositeServerToolRow[];
 		existingToolPrefix?: string;
 		otherEffectiveNames?: string[];
-		otherToolPrefixes?: string[];
 		onCancel?: () => void;
 		onSuccess?: (config: { toolOverrides: ToolOverride[]; toolPrefix: string }) => void;
 		additionalActions?: Snippet;
@@ -48,7 +47,6 @@
 		existingTools = [],
 		existingToolPrefix,
 		otherEffectiveNames,
-		otherToolPrefixes,
 		onCancel,
 		onSuccess,
 		additionalActions: additionalActionsSnippet,
@@ -536,9 +534,8 @@
 	bind:this={editDialog}
 	{configuringEntry}
 	{tools}
-	bind:toolPrefix
+	{toolPrefix}
 	{otherEffectiveNames}
-	{otherToolPrefixes}
 	onCancel={cancelEditor}
 	onClose={cancelEditor}
 	onSuccess={save}
