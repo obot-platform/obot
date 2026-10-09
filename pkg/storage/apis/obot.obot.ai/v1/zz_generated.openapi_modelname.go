@@ -21,6 +21,26 @@ func (in AccessControlRuleSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentInstance) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentInstance"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentInstanceList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentInstanceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentInstanceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentInstanceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentInstanceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Alias) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Alias"
 }
@@ -128,6 +148,11 @@ func (in AuthProviderSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuthProviderStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AuthProviderStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ClaudeSessionRepository) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ClaudeSessionRepository"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
