@@ -99,10 +99,13 @@ Go to **Identity & Access > Auth Providers > SCIM**. The **Move Okta to SCIM**
 panel lists anything you need to fix first, and what will change.
 
 - **Replace the `Everyone` group.** Okta can't push its built-in `Everyone`
-  group. Change any role or policy that uses it to **All Obot Users** instead.
-- **Resolve duplicate group names.** If two groups that roles or policies use
-  have the same name, remove the references to all but one, or rename one of
-  them in Okta. Obot matches pushed groups by name, so names must be unique.
+  group. Change any role, policy, or
+  [vMCP profile](../mcp-gateway/access.md#virtual-mcps-tools-and-profiles) that
+  uses it to **All Obot Users** instead.
+- **Resolve duplicate group names.** If two groups that roles, policies, or vMCP
+  profiles use have the same name, remove the references to all but one, or
+  rename one of them in Okta. Obot matches pushed groups by name, so names must
+  be unique.
 
 ### Step 2: Enable SCIM
 
@@ -115,8 +118,9 @@ When you enable SCIM:
 - Obot stops fetching groups from Okta at sign-in. Until you push a group, it
   keeps its current members, including anyone you remove from it in Okta. Push
   your groups soon after enabling.
-- Okta groups that no role or policy uses are removed from Obot. They grant
-  nothing, so no one loses access, and you can push them later if you need them.
+- Okta groups that no role, policy, or vMCP profile uses are removed from Obot.
+  They grant nothing, so no one loses access, and you can push them later if you
+  need them.
 
 Enabling SCIM can't be undone.
 
@@ -137,8 +141,8 @@ If a group was renamed in Okta since Obot last saw it, its name in Obot is out
 of date. Rename the group in Okta to the name Obot shows, push it, and then
 rename it back. Obot picks up the new name.
 
-If you no longer need a listed group, remove it from the roles and policies that
-use it instead.
+If you no longer need a listed group, remove it from the roles, policies, and
+vMCP profiles that use it instead.
 
 ### Step 5: Enforce SCIM
 
@@ -225,7 +229,9 @@ expire.
 2. In the SCIM app in Okta, update the token under **Provisioning >
    Integration**.
 3. Optionally, select **Revoke previous token** in Obot. Otherwise, the previous
-   token stops working after one day.
+   token stops working after one day, or on its original expiration date if
+   that comes first. If you rotate a token that is about to expire, update it in
+   Okta right away.
 
 If the token has leaked, select **Revoke current token** instead. Both the
 current and previous tokens stop working immediately, so provisioning fails

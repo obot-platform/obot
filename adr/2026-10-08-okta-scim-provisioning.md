@@ -32,8 +32,8 @@ Okta provisions users, account status, groups, and group memberships to Obot
 through SCIM 2.0.
 
 **SCIM is a facade over the existing directory model.** Obot serves SCIM at
-`/scim/v2/<connection-id>`. SCIM requests write the existing user, identity,
-group, and membership tables. New binding tables map SCIM resource IDs to
+`/scim/v2`. SCIM requests write the existing user, identity, group, and
+membership tables. New binding tables map SCIM resource IDs to
 existing rows, and existing user and group IDs never change:
 
 - A user binds by the native Okta user ID, which Okta sends as `externalId`,
@@ -44,11 +44,13 @@ existing rows, and existing user and group IDs never change:
 **One connection, owned by the auth provider.** An installation has at most one
 SCIM connection, tied to the configured auth provider. It authenticates with its
 own bearer token (`obot_scim_…`), of which Obot stores only a SHA-256 verifier.
-Tokens expire after a year. Rotation keeps the previous token valid for 24 hours
-unless an Owner revokes it. SCIM requests pass through the normal
-authentication, authorization, rate limiting, and audit logging. The
-connection's principal can reach only its own SCIM routes, and no other
-principal, Owners included, can reach them.
+Tokens expire after a year. Rotation keeps the previous token valid for up to 24
+hours, but never past its own expiration, unless an Owner revokes it sooner. The
+URL does not name the connection: authentication resolves it from the bearer
+token, and the resulting connection principal serves only that connection. SCIM
+requests pass through the normal authentication, authorization, rate limiting,
+and audit logging. Only the connection principal can reach the SCIM routes, and
+no other principal, Owners included, can reach them.
 
 **Provider rules live in an in-server adapter registry.** `pkg/scim/adapter`
 maps an auth provider name to an adapter, which holds every provider-specific
