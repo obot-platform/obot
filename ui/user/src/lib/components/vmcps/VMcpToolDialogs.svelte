@@ -11,6 +11,7 @@
 	import { goto, setUrlParam } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
+	import VMcpComponentDetailsDialog from './VMcpComponentDetailsDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 	import { ArrowRightLeft, RefreshCcw, Server, Settings2 } from '@lucide/svelte';
 	import { tick } from 'svelte';
@@ -27,11 +28,18 @@
 	let editDialog = $state<ReturnType<typeof CompositeEditTools>>();
 	let componentActionsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
+	let copyOverridesDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let detailsDialog = $state<ReturnType<typeof VMcpComponentDetailsDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
 	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
 	const lastComponentTooltip = m.vmcps_requires_one_component();
+	const otherComponentNames = $derived(
+		(flow.modifyingVMcp?.components ?? [])
+			.filter((component) => vmcpComponentId(component) !== flow.configuringComponentId)
+			.map((component) => component.name)
+	);
 
 	async function openConfigureDialog() {
 		if (!flow.configuringEntry) return;
@@ -72,6 +80,12 @@
 		if (dialog === 'configure' && flow.configuringEntry) {
 			void openConfigureDialog();
 		}
+		if (dialog === 'details') {
+			detailsDialog?.open({
+				name: flow.configuringComponent?.name ?? '',
+				toolPrefix: flow.configuringComponent?.toolPrefix ?? ''
+			});
+		}
 	}
 
 	function closeDialog(dialog: VMcpToolDialog | undefined) {
@@ -80,6 +94,7 @@
 		if (dialog === 'edit') editDialog?.close();
 		if (dialog === 'actions') componentActionsDialog?.close();
 		if (dialog === 'configure') configurationDialog?.close();
+		if (dialog === 'details') detailsDialog?.close();
 	}
 
 	function handleDialogClose(dialog: VMcpToolDialog) {
@@ -94,6 +109,7 @@
 		if (dialog === 'edit') return Boolean(editDialog);
 		if (dialog === 'actions') return Boolean(componentActionsDialog);
 		if (dialog === 'configure') return Boolean(configurationDialog);
+		if (dialog === 'details') return Boolean(detailsDialog);
 		return true;
 	}
 
@@ -168,6 +184,11 @@
 	}
 
 	$effect(() => {
+		if (flow.pendingToolOverrideCopy) copyOverridesDialog?.open();
+		else copyOverridesDialog?.close();
+	});
+
+	$effect(() => {
 		const next = flow.dialog;
 		if (next === renderedDialog) return;
 		if (!dialogReady(next)) return;
@@ -181,7 +202,7 @@
 </script>
 
 <Confirm
-	show={pendingAffectedProfiles.length > 0}
+	show={pendingAffectedProfiles.length > 0 && !flow.pendingToolOverrideCopy}
 	onsuccess={openAffectedProfiles}
 	oncancel={() => (pendingAffectedProfiles = [])}
 	type="info"
@@ -217,6 +238,41 @@
 		>{m.vmcps_remove_confirm_suffix()}
 	{/snippet}
 </Confirm>
+
+<ResponsiveDialog
+	class="md:w-xs"
+	bind:this={copyOverridesDialog}
+	title={m.vmcps_apply_tool_overrides_title()}
+	onClose={flow.dismissToolOverrideCopy}
+>
+	<div class="flex flex-col gap-4 px-4 md:px-0 pt-4 md:pt-0">
+		<p class="text-sm font-light">{m.vmcps_apply_tool_overrides_msg()}</p>
+		<ul class="list-disc flex flex-col gap-1 self-center">
+			{#each flow.pendingToolOverrideCopy?.componentNames ?? [] as name (name)}
+				<li class="text-sm font-semibold">{name}</li>
+			{/each}
+		</ul>
+		<p class="text-sm font-light">{m.vmcps_apply_tool_overrides_msg_confirm()}</p>
+		<div class="flex justify-end gap-2">
+			<button
+				type="button"
+				class="btn btn-secondary btn-sm"
+				disabled={flow.applyingToolOverrides}
+				onclick={flow.dismissToolOverrideCopy}
+			>
+				{m.vmcps_skip()}
+			</button>
+			<button
+				type="button"
+				class="btn btn-primary btn-sm"
+				disabled={flow.applyingToolOverrides}
+				onclick={() => void flow.applyToolOverridesToSiblings()}
+			>
+				{m.vmcps_apply()}
+			</button>
+		</div>
+	</div>
+</ResponsiveDialog>
 
 <ResponsiveDialog
 	animate="slide"
@@ -279,7 +335,6 @@
 	existingTools={flow.tools}
 	existingToolPrefix={flow.existingToolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
-	otherToolPrefixes={flow.otherToolPrefixes}
 	{readonly}
 	onCancel={flow.close}
 	onSuccess={(config) => {
@@ -306,6 +361,9 @@
 	{/snippet}
 	<div class="flex flex-col gap-2 md:px-0 px-4">
 		<p class="text-sm text-center mb-3 md:mt-0 mt-4">{m.vmcps_what_would_you_like_to_do()}</p>
+		<button class="btn btn-secondary w-full" onclick={() => flow.editDetails()}>
+			{readonly ? m.vmcps_view_details() : m.vmcps_edit_details()}
+		</button>
 		<button
 			class="btn btn-secondary w-full"
 			onclick={() => flow.modifyToolsFromActions(Boolean(readonly))}
@@ -338,6 +396,15 @@
 	</div>
 </ResponsiveDialog>
 
+<VMcpComponentDetailsDialog
+	bind:this={detailsDialog}
+	{readonly}
+	otherNames={otherComponentNames}
+	otherToolPrefixes={flow.otherToolPrefixes}
+	onSave={flow.saveDetails}
+	onClose={() => handleDialogClose('details')}
+/>
+
 <VMcpComponentConfigurationDialog
 	bind:this={configurationDialog}
 	{readonly}
@@ -351,9 +418,8 @@
 	tools={flow.tools}
 	profiles={flow.modifyingVMcp?.profiles}
 	componentId={flow.configuringComponentId}
-	bind:toolPrefix={flow.toolPrefix}
+	toolPrefix={flow.toolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
-	otherToolPrefixes={flow.otherToolPrefixes}
 	{readonly}
 	onCancel={flow.close}
 	onClose={() => handleDialogClose('edit')}
@@ -374,13 +440,13 @@
 
 {#snippet serverHeading()}
 	<span class="flex items-center gap-2 text-base font-semibold">
-		{#if flow.addedServer?.component.manifest.icon}
-			<img src={flow.addedServer.component.manifest.icon} alt="" class="size-6 icon" />
+		{#if flow.addedServer?.component.catalogEntry?.manifest?.icon}
+			<img src={flow.addedServer.component.catalogEntry.manifest.icon} alt="" class="size-6 icon" />
 		{:else}
 			<div class="icon">
 				<Server class="size-6" />
 			</div>
 		{/if}
-		{flow.addedServer?.component.manifest.name}
+		{flow.addedServer?.component.name}
 	</span>
 {/snippet}

@@ -19,10 +19,16 @@ import {
 import { errors, profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
-export type VMcpToolDialog = 'added-create' | 'setup' | 'edit' | 'actions' | 'configure';
+export type VMcpToolDialog =
+	| 'added-create'
+	| 'setup'
+	| 'edit'
+	| 'actions'
+	| 'configure'
+	| 'details';
 
 interface PendingAddedServer {
-	component: MCPCatalogEntry;
+	component: VMCPComponent;
 	vmcp: VMCP;
 }
 
@@ -34,6 +40,13 @@ interface PendingRemoval {
 		icon?: string;
 	};
 	vmcp: VMCP;
+}
+
+interface PendingToolOverrideCopy {
+	vmcpID: string;
+	componentIds: string[];
+	componentNames: string[];
+	toolOverrides: ToolOverride[];
 }
 
 /**
@@ -135,6 +148,8 @@ export function createVMcpToolFlow() {
 	let addedServer = $state<PendingAddedServer>();
 	let pendingRemoval = $state<PendingRemoval>();
 	let removing = $state(false);
+	let pendingToolOverrideCopy = $state<PendingToolOverrideCopy>();
+	let applyingToolOverrides = $state(false);
 	let modifyingVMcp = $state<VMCP>();
 	let configuringEntry = $state<MCPCatalogEntry>();
 	let configuringComponentId = $state<string>();
@@ -263,14 +278,23 @@ export function createVMcpToolFlow() {
 		dialog = undefined;
 	}
 
-	function offerToolSelection(component: MCPCatalogEntry, vmcp: VMCP) {
-		addedServer = { component, vmcp };
+	function persistedAddedComponent(component: VMCPComponent, vmcp: VMCP) {
+		const components = vmcp.components ?? [];
+		if (component.id) {
+			const byId = components.find((candidate) => candidate.id === component.id);
+			if (byId) return byId;
+		}
+		return components.find((candidate) => candidate.name === component.name) ?? component;
+	}
+
+	function offerToolSelection(component: VMCPComponent, vmcp: VMCP) {
+		addedServer = { component: persistedAddedComponent(component, vmcp), vmcp };
 		dialog = 'added-create';
 	}
 
 	function offerToolsAfterCreate(vmcp: VMCP, component: VMCPComponent, entry?: MCPCatalogEntry) {
 		if (entry) {
-			offerToolSelection(entry, vmcp);
+			offerToolSelection(component, vmcp);
 			return;
 		}
 		openSetup(vmcp, component);
@@ -298,21 +322,17 @@ export function createVMcpToolFlow() {
 		dialog = undefined;
 		if (!pending) return;
 
-		const component = (pending.vmcp.components ?? []).find(
-			(candidate) =>
-				candidate.mcpServerCatalogEntryID === pending.component.id ||
-				vmcpComponentId(candidate) === pending.component.id
-		);
-		if (!component) {
-			errors.append(m.vmcps_could_not_find_server());
-			return;
-		}
-		openSetup(pending.vmcp, component);
+		openSetup(pending.vmcp, persistedAddedComponent(pending.component, pending.vmcp));
 	}
 
 	function editConfiguration() {
 		if (!configuringEntry) return;
 		dialog = 'configure';
+	}
+
+	function editDetails() {
+		if (!configuringComponent || !modifyingVMcp) return;
+		dialog = 'details';
 	}
 
 	function returnToActions() {
@@ -392,6 +412,55 @@ export function createVMcpToolFlow() {
 		}
 	}
 
+	async function saveDetails(details: { name: string; toolPrefix: string }) {
+		const component = configuringComponent;
+		if (!component) {
+			close();
+			return;
+		}
+		const vmcpId = modifyingVMcp?.id;
+		if (!vmcpId) {
+			close();
+			return;
+		}
+
+		try {
+			const latest = await UserService.getVMCP(vmcpId);
+			const id = vmcpComponentId(component);
+			const index = (latest.components ?? []).findIndex(
+				(candidate) => vmcpComponentId(candidate) === id
+			);
+			if (index < 0) {
+				close();
+				return;
+			}
+			const trimmedName = details.name.trim();
+			const trimmedPrefix = details.toolPrefix.trim();
+			latest.components[index] = {
+				...latest.components[index],
+				name: trimmedName,
+				toolPrefix: trimmedPrefix,
+				id: latest.components[index].id ?? component.id
+			};
+			const updated = await UserService.updateVMCP(latest.id, {
+				...vmcpManifest(latest),
+				components: latest.components
+			});
+			modifyingVMcp = updated;
+			success.add(
+				m.vmcps_details_updated_for({
+					server: trimmedName || component.name,
+					vmcp: updated.displayName
+				})
+			);
+			onVMcpChanged?.(updated);
+			close();
+		} catch {
+			errors.append(m.vmcps_failed_to_update_details());
+			throw new Error(m.vmcps_failed_to_update_details());
+		}
+	}
+
 	function modifyToolsFromActions(readonly = false) {
 		const vmcp = modifyingVMcp;
 		const component = configuringComponent;
@@ -457,12 +526,13 @@ export function createVMcpToolFlow() {
 				close();
 				return false;
 			}
+			const toolOverrides = componentConfig.toolOverrides?.filter((tool) => !tool.removed);
 			const nextComponents = components.map((component, componentIndex) =>
 				componentIndex === index
 					? {
 							...component,
 							...componentConfig,
-							toolOverrides: componentConfig.toolOverrides?.filter((tool) => !tool.removed),
+							toolOverrides,
 							id: component.id ?? componentConfig.id
 						}
 					: component
@@ -472,6 +542,20 @@ export function createVMcpToolFlow() {
 				components: nextComponents
 			});
 			modifyingVMcp = updated;
+			const siblings = (updated.components ?? []).filter(
+				(component, componentIndex) =>
+					componentIndex !== index &&
+					component.mcpServerCatalogEntryID === componentConfig.mcpServerCatalogEntryID &&
+					!component.toolOverrides?.length
+			);
+			if (toolOverrides?.length && siblings.length > 0) {
+				pendingToolOverrideCopy = {
+					vmcpID: updated.id,
+					componentIds: siblings.map((component) => vmcpComponentId(component)),
+					componentNames: siblings.map((component) => component.name),
+					toolOverrides
+				};
+			}
 			success.add(
 				m.vmcps_tools_updated_for({
 					server:
@@ -488,6 +572,37 @@ export function createVMcpToolFlow() {
 			return false;
 		} finally {
 			close();
+		}
+	}
+
+	function dismissToolOverrideCopy() {
+		if (applyingToolOverrides) return;
+		pendingToolOverrideCopy = undefined;
+	}
+
+	async function applyToolOverridesToSiblings() {
+		const pending = pendingToolOverrideCopy;
+		if (!pending || applyingToolOverrides) return;
+		applyingToolOverrides = true;
+		try {
+			const latest = await UserService.getVMCP(pending.vmcpID);
+			const ids = pending.componentIds;
+			const components = (latest.components ?? []).map((component) =>
+				ids.includes(vmcpComponentId(component)) && !component.toolOverrides?.length
+					? { ...component, toolOverrides: pending.toolOverrides }
+					: component
+			);
+			const updated = await UserService.updateVMCP(latest.id, {
+				...vmcpManifest(latest),
+				components
+			});
+			success.add(m.vmcps_tool_overrides_applied());
+			onVMcpChanged?.(updated);
+			pendingToolOverrideCopy = undefined;
+		} catch {
+			errors.append(m.vmcps_failed_to_apply_tool_overrides());
+		} finally {
+			applyingToolOverrides = false;
 		}
 	}
 
@@ -563,6 +678,12 @@ export function createVMcpToolFlow() {
 		get removing() {
 			return removing;
 		},
+		get pendingToolOverrideCopy() {
+			return pendingToolOverrideCopy;
+		},
+		get applyingToolOverrides() {
+			return applyingToolOverrides;
+		},
 		get modifyingVMcp() {
 			return modifyingVMcp;
 		},
@@ -580,9 +701,6 @@ export function createVMcpToolFlow() {
 		},
 		get toolPrefix() {
 			return toolPrefix;
-		},
-		set toolPrefix(value: string | undefined) {
-			toolPrefix = value;
 		},
 		get modifyingExistingComponent() {
 			return modifyingExistingComponent;
@@ -628,12 +746,16 @@ export function createVMcpToolFlow() {
 		handleVMcpCreated,
 		selectToolsForAdded,
 		editConfiguration,
+		editDetails,
 		returnToActions,
 		saveConfiguration,
+		saveDetails,
 		modifyToolsFromActions,
 		refreshTools,
 		saveEditedTools,
 		saveTools,
+		dismissToolOverrideCopy,
+		applyToolOverridesToSiblings,
 		promptRemove,
 		cancelRemove,
 		removeComponent

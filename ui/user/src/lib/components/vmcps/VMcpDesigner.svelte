@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
@@ -41,6 +42,7 @@
 	} from '$lib/services';
 	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
+	import { MAX_TOOL_PREFIX_LENGTH } from '$lib/services/user/mcp';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
 		appendComponentLabel,
@@ -90,6 +92,15 @@
 		entry: MCPCatalogEntry;
 		component: VMCPComponent;
 	}>();
+	let duplicateComponentDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let pendingDuplicateComponent = $state<{
+		target: VMCP;
+		entry: MCPCatalogEntry;
+		component: VMCPComponent;
+		existingNames: string[];
+		existingPrefixes: string[];
+	}>();
+	let duplicateComponentName = $state('');
 	const toolFlow = createVMcpToolFlow();
 	let selectedVMcp = $state<VMCP | undefined>(untrack(() => vmcp));
 
@@ -247,13 +258,6 @@
 	) {
 		const latest = await UserService.getVMCP(target.id);
 		const components = latest.components ?? [];
-		if (
-			components.some(
-				(existing) => existing.mcpServerCatalogEntryID === component.mcpServerCatalogEntryID
-			)
-		) {
-			return latest;
-		}
 
 		const updated = await UserService.updateVMCP(latest.id, {
 			...vmcpManifest(latest),
@@ -261,7 +265,7 @@
 				appendComponentLabel(
 					latest.displayName,
 					components.map((existing) => componentManifestField(existing, 'name')),
-					entry.manifest.name
+					component.name || entry.manifest.name
 				) ?? latest.displayName,
 			description:
 				appendComponentLabel(
@@ -277,8 +281,128 @@
 		success.add(
 			m.vmcps_server_added_to({ server: entry.manifest.name ?? '', vmcp: updated.displayName })
 		);
-		toolFlow.offerToolSelection(entry, updated);
+		toolFlow.offerToolSelection(component, updated);
 		return updated;
+	}
+
+	function uniqueComponentName(base: string, existingNames: string[]) {
+		const taken = new Set(existingNames.map((name) => name.trim()).filter(Boolean));
+		const stem = base.trim();
+		if (!taken.has(stem)) return stem;
+
+		let suffix = 2;
+		let candidate = `${stem} ${suffix}`;
+		while (taken.has(candidate)) {
+			suffix += 1;
+			candidate = `${stem} ${suffix}`;
+		}
+		return candidate;
+	}
+
+	function duplicateComponentNameError(name: string, existingNames: string[]) {
+		if (!name) return m.vmcps_component_name_required();
+		if (existingNames.some((existing) => existing.trim() === name)) {
+			return m.vmcps_component_name_taken({ name });
+		}
+	}
+
+	function componentToolPrefix(name: string) {
+		return (
+			name
+				.trim()
+				.toLowerCase()
+				.replace(/[^a-z0-9_]/g, '-') + '_'
+		);
+	}
+
+	function duplicatePrefixError(name: string, existingPrefixes: string[]) {
+		if (!name.trim()) return;
+		const prefix = componentToolPrefix(name);
+		if (existingPrefixes.some((existing) => existing.trim() === prefix)) {
+			return m.mcps_composite_prefix_duplicate({ prefix });
+		}
+	}
+
+	let duplicateNameError = $derived(
+		pendingDuplicateComponent
+			? duplicateComponentNameError(
+					duplicateComponentName.trim(),
+					pendingDuplicateComponent.existingNames
+				)
+			: undefined
+	);
+	let duplicatePrefixErrorMessage = $derived(
+		pendingDuplicateComponent
+			? duplicatePrefixError(
+					duplicateComponentName.trim(),
+					pendingDuplicateComponent.existingPrefixes
+				)
+			: undefined
+	);
+	let duplicatePrefixTooLong = $derived(
+		componentToolPrefix(duplicateComponentName).length > MAX_TOOL_PREFIX_LENGTH
+	);
+
+	function openDuplicateComponentDialog(
+		target: VMCP,
+		entry: MCPCatalogEntry,
+		component: VMCPComponent,
+		components: VMCPComponent[]
+	) {
+		const existingNames = components.map((existing) => existing.name);
+		const existingPrefixes = components
+			.map((existing) => (existing.toolPrefix ?? '').trim())
+			.filter(Boolean);
+		pendingDuplicateComponent = { target, entry, component, existingNames, existingPrefixes };
+		duplicateComponentName = uniqueComponentName(component.name, existingNames);
+		duplicateComponentDialog?.open();
+	}
+
+	function dismissDuplicateComponentDialog() {
+		pendingDuplicateComponent = undefined;
+	}
+
+	async function continueAddComponent(
+		target: VMCP,
+		entry: MCPCatalogEntry,
+		component: VMCPComponent
+	) {
+		if (catalogConfigurationFields(entry).length === 0) {
+			componentDropPending = true;
+			await addComponentToVMcp(target, entry, component);
+			if (!toolFlow.dialog) componentDropPending = false;
+			return;
+		}
+
+		pendingComponentDrop = { target, entry, component };
+		componentDropPending = false;
+		vmcpActions?.openConfiguration(entry);
+	}
+
+	async function confirmDuplicateComponent() {
+		const pending = pendingDuplicateComponent;
+		if (
+			!pending ||
+			duplicateNameError ||
+			duplicatePrefixErrorMessage ||
+			duplicatePrefixTooLong
+		)
+			return;
+
+		const component = {
+			...pending.component,
+			name: duplicateComponentName.trim(),
+			toolPrefix: componentToolPrefix(duplicateComponentName)
+		};
+		pendingDuplicateComponent = undefined;
+		duplicateComponentDialog?.close();
+
+		try {
+			await continueAddComponent(pending.target, pending.entry, component);
+		} catch {
+			componentDropPending = false;
+			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
+		}
 	}
 
 	async function handleDropped(entry: MCPCatalogEntry, target: VMCP) {
@@ -296,18 +420,11 @@
 				)
 			) {
 				componentDropPending = false;
+				openDuplicateComponentDialog(latest, entry, component, components);
 				return;
 			}
 
-			if (catalogConfigurationFields(entry).length === 0) {
-				await addComponentToVMcp(latest, entry, component);
-				if (!toolFlow.dialog) componentDropPending = false;
-				return;
-			}
-
-			pendingComponentDrop = { target: latest, entry, component };
-			componentDropPending = false;
-			vmcpActions?.openConfiguration(entry);
+			await continueAddComponent(latest, entry, component);
 		} catch {
 			componentDropPending = false;
 			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
@@ -630,6 +747,66 @@
 />
 
 <VMcpIntroduction show={isFirstVMcp && !selectedVMcp && canEdit && viewType === 'graph'} />
+
+<ResponsiveDialog
+	bind:this={duplicateComponentDialog}
+	class="max-w-sm"
+	title={m.vmcps_component_already_added()}
+	onClose={dismissDuplicateComponentDialog}
+>
+	<form
+		class="flex flex-col gap-4 pt-2"
+		onsubmit={(event) => {
+			event.preventDefault();
+			void confirmDuplicateComponent();
+		}}
+	>
+		<p class="text-sm font-light">
+			{m.vmcps_component_already_added_description({
+				name:
+					pendingDuplicateComponent?.entry.manifest.name ??
+					pendingDuplicateComponent?.component.name ??
+					''
+			})}
+		</p>
+		<div class="flex flex-col gap-1">
+			<input
+				id="duplicate-component-name"
+				class="text-input-filled"
+				aria-label={m.vmcps_component_name()}
+				bind:value={duplicateComponentName}
+				maxlength={MAX_TOOL_PREFIX_LENGTH - 1}
+				autocomplete="off"
+				required
+			/>
+			<div class="min-h-8">
+				{#if duplicateNameError}
+					<p class="text-error text-xs" role="alert">{duplicateNameError}</p>
+				{:else if duplicatePrefixErrorMessage}
+					<p class="text-error text-xs" role="alert">{duplicatePrefixErrorMessage}</p>
+				{:else if duplicatePrefixTooLong}
+					<p class="text-error text-xs" role="alert">
+						Tool prefixes must be {MAX_TOOL_PREFIX_LENGTH} characters or fewer.
+					</p>
+				{:else}
+					<p class="text-xs text-gray-500">{m.vmcps_component_name_prefix_hint()}</p>
+				{/if}
+			</div>
+		</div>
+		<div class="flex justify-end gap-2">
+			<button type="button" class="btn btn-ghost" onclick={() => duplicateComponentDialog?.close()}>
+				{m.common_cancel()}
+			</button>
+			<button
+				type="submit"
+				class="btn btn-primary"
+				disabled={Boolean(duplicateNameError || duplicatePrefixErrorMessage || duplicatePrefixTooLong)}
+			>
+				{m.core_continue()}
+			</button>
+		</div>
+	</form>
+</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | {title}</title>

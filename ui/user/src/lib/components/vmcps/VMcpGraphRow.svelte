@@ -209,7 +209,7 @@
 		<div
 			use:drag.vmcpTarget={vmcp.id}
 			class={twMerge(
-				'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
+				'max-w-full w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
 				linked
 					? 'vmcp-drop-target border-primary text-primary'
 					: !readonly

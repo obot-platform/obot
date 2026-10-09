@@ -17,9 +17,6 @@
 		effectiveToolName,
 		isDeprecatedMCPServer,
 		isToolCustomized,
-		MAX_TOOL_PREFIX_LENGTH,
-		TOOL_NAME_CHARSET_REGEX,
-		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue
 	} from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from '../McpDeprecatedNotice.svelte';
@@ -38,9 +35,8 @@
 		componentId?: string;
 		// Effective names of enabled tools from OTHER components of the composite,
 		// so the modal can flag cross-component final-name conflicts live as the
-		// admin edits overrides or the prefix.
+		// admin edits overrides. The tool name prefix is edited from component details.
 		otherEffectiveNames?: string[];
-		otherToolPrefixes?: string[];
 		additionalActions?: Snippet;
 		readonly?: boolean;
 	}
@@ -53,11 +49,10 @@
 	let {
 		configuringEntry,
 		tools = [],
-		toolPrefix = $bindable(),
+		toolPrefix,
 		profiles,
 		componentId,
 		otherEffectiveNames,
-		otherToolPrefixes,
 		onClose,
 		onCancel,
 		onSuccess,
@@ -70,38 +65,6 @@
 	);
 	let conflictSet = $derived(
 		duplicateToolNames([...(otherEffectiveNames ?? []), ...ownEnabledEffectiveNames])
-	);
-
-	let prefixInvalid = $derived(!TOOL_NAME_CHARSET_REGEX.test(toolPrefix ?? ''));
-	let prefixTooLong = $derived((toolPrefix ?? '').length > MAX_TOOL_PREFIX_LENGTH);
-	let prefixSpecialChar = $derived(/[./]/.test(toolPrefix ?? ''));
-	let duplicatePrefix = $derived.by(() => {
-		const prefix = (toolPrefix ?? '').trim();
-		if (!prefix) return false;
-		return (otherToolPrefixes ?? []).some((p) => p === prefix);
-	});
-	let prefixIssue = $derived(
-		prefixInvalid
-			? ({
-					severity: 'error',
-					message: m.mcps_composite_prefix_invalid()
-				} as const)
-			: prefixTooLong
-				? ({
-						severity: 'error',
-						message: m.mcps_composite_prefix_too_long({ count: MAX_TOOL_PREFIX_LENGTH })
-					} as const)
-				: duplicatePrefix
-					? ({
-							severity: 'error',
-							message: m.mcps_composite_prefix_duplicate({ prefix: (toolPrefix ?? '').trim() })
-						} as const)
-					: prefixSpecialChar
-						? ({
-								severity: 'warning',
-								message: TOOL_NAME_SPECIAL_CHAR_WARNING
-							} as const)
-						: undefined
 	);
 
 	// Only enabled tools contribute to blocking errors; disabled tools aren't exposed.
@@ -259,7 +222,7 @@
 		child
 		class="mx-4 mb-3"
 	/>
-	<p class="text-muted-content px-4 text-xs font-light">
+	<p class="text-muted-content px-4 text-sm font-light">
 		{#if readonly}
 			{m.mcps_composite_tools_readonly_description()}
 		{:else}
@@ -267,52 +230,6 @@
 		{/if}
 	</p>
 	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
-		<div class="flex flex-col gap-1">
-			<p class="flex items-center gap-1.5 text-xs text-muted-content">
-				<span>{m.mcps_composite_tool_name_prefix()}</span>
-				{#if prefixIssue}
-					<ToolNameIssueIcon issue={prefixIssue} disablePortal />
-				{/if}
-			</p>
-			<div class="flex items-center gap-2">
-				<input
-					class="text-input-filled shadow-none bg-base-100 flex-1 text-sm"
-					placeholder={m.mcps_composite_no_prefix()}
-					bind:value={toolPrefix}
-					{readonly}
-				/>
-				{#if !readonly}
-					<button
-						type="button"
-						class="btn btn-secondary btn-sm px-3 py-1"
-						onclick={() => {
-							toolPrefix = '';
-						}}
-					>
-						{m.core_clear()}
-					</button>
-				{/if}
-			</div>
-			{#if prefixIssue}
-				<p class={`text-xs ${prefixIssue.severity === 'error' ? 'text-error' : 'text-warning'}`}>
-					{prefixIssue.message}
-				</p>
-			{:else}
-				<p class="text-muted-content text-[11px]">
-					{#if readonly}
-						{m.mcps_composite_prefix_hint_readonly()}
-					{:else}
-						{m.mcps_composite_prefix_hint()}
-					{/if}
-				</p>
-			{/if}
-		</div>
-		<Search
-			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-			onChange={(val) => (search = val)}
-			placeholder={m.mcps_tools_search_placeholder()}
-		/>
-
 		<div class="flex w-full justify-end items-center pr-2.5 gap-1">
 			{#if additionalActions && !readonly}
 				<div>
@@ -337,6 +254,11 @@
 				/>
 			</div>
 		</div>
+		<Search
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+			onChange={(val) => (search = val)}
+			placeholder={m.mcps_tools_search_placeholder()}
+		/>
 		{#each visibleTools as tool (tool.id)}
 			{@const currentName = (tool.overrideName || '').trim() || tool.name}
 			{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}
@@ -468,7 +390,7 @@
 				<button
 					id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
 					class="btn btn-primary"
-					disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
+					disabled={hasBlockingToolNameErrors}
 					onclick={handleSave}>{m.core_confirm()}</button
 				>
 			{/if}

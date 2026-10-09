@@ -250,6 +250,73 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
+		it('renames the component and its tool prefix from Edit Details', async () => {
+			const vmcp = createIssueTrackerVMcp(toolOverrides);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Edit Details' }).click();
+
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+			await expect.element(dialog.getByRole('heading', { name: 'Edit Details' })).toBeVisible();
+			await expect.element(dialog.getByRole('textbox', { name: 'Name *' })).toHaveValue('GitHub');
+			await expect
+				.element(dialog.getByRole('textbox', { name: 'Tool name prefix' }))
+				.toHaveValue('github_');
+
+			await dialog.getByRole('textbox', { name: 'Name *' }).fill('GitHub EU');
+			await dialog.getByRole('textbox', { name: 'Tool name prefix' }).fill('github_eu_');
+			await dialog.getByRole('button', { name: 'Save' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
+				name: 'GitHub EU',
+				toolPrefix: 'github_eu_'
+			});
+			await expect
+				.element(page.getByRole('button', { name: 'GitHub EU', exact: true }))
+				.toBeVisible();
+		});
+
+		it('rejects a blank name, a taken name, and a duplicate tool prefix', async () => {
+			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, { toolPrefix: 'github_' }),
+						createVMCPComponent(slack, { toolPrefix: 'slack_' })
+					]
+				},
+				[componentEntry, slack]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, slack], vmcp);
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Edit Details' }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+
+			await dialog.getByRole('textbox', { name: 'Name *' }).fill(' ');
+			await expect.element(dialog.getByRole('alert')).toHaveTextContent('Enter a name.');
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+			await dialog.getByRole('textbox', { name: 'Name *' }).fill('Slack');
+			await expect
+				.element(dialog.getByRole('alert'))
+				.toHaveTextContent('A component named Slack already exists.');
+
+			await dialog.getByRole('textbox', { name: 'Name *' }).fill('GitHub EU');
+			await dialog.getByRole('textbox', { name: 'Tool name prefix' }).fill('slack_');
+			await expect.element(dialog.getByText(/already uses the prefix/).last()).toBeVisible();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+		});
+
 		it('edits the stored overrides from Modify Tools instead of running setup', async () => {
 			const vmcp = createIssueTrackerVMcp(toolOverrides);
 			await renderDesigner([componentEntry], vmcp);
@@ -260,11 +327,10 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
 				.toBeVisible();
-			await expect.element(page.getByText('create_issue').first()).toBeVisible();
-			await expect.element(page.getByText('list_issues').first()).toBeVisible();
-			await expect
-				.element(page.getByCSS('dialog[open] input[placeholder="No prefix"]'))
-				.toHaveValue('github_');
+			const editor = page.getByRole('dialog').filter({ hasText: 'Configure GitHub Tools' });
+			await expect.element(editor.getByText('github_create_issue').first()).toBeVisible();
+			await expect.element(editor.getByText('github_list_issues').first()).toBeVisible();
+			await expect.element(editor.getByPlaceholder('No prefix')).not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: 'Refresh tools' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Get Started', exact: true }))
@@ -292,6 +358,133 @@ describe('VMcpDesigner.svelte', () => {
 					{ name: 'list_issues', enabled: true }
 				]
 			});
+		});
+
+		function vmcpWithCatalogSibling(
+			sibling: ReturnType<typeof createVMCPComponent>,
+			sourceOverrides: ToolOverride[] = toolOverrides
+		) {
+			return createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, {
+							toolPrefix: 'github_',
+							toolOverrides: sourceOverrides
+						}),
+						sibling
+					]
+				},
+				[componentEntry]
+			);
+		}
+
+		function persistVMcpUpdates(vmcp: VMCP, onUpdate: (manifest: unknown) => void) {
+			let current = vmcp;
+			worker.use(
+				http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(current)),
+				http.put(`/api/vmcps/${vmcp.id}`, async ({ request }) => {
+					const manifest = (await request.json()) as VMCPManifest;
+					onUpdate(manifest);
+					current = { ...current, ...manifest };
+					return HttpResponse.json(current);
+				})
+			);
+		}
+
+		it('offers to copy tool overrides onto matching components that have none', async () => {
+			const vmcp = vmcpWithCatalogSibling(
+				createVMCPComponent(componentEntry, {
+					id: 'component-github-eu',
+					name: 'GitHub EU',
+					toolPrefix: 'github_eu_'
+				})
+			);
+			const update = vi.fn();
+			persistVMcpUpdates(vmcp, update);
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await chooseModifyTools();
+			await page.getByRole('switch', { name: 'Enable Tool' }).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+
+			const offer = page.getByRole('dialog').filter({ hasText: 'Copy these tools?' });
+			await expect.element(offer.getByText('GitHub EU')).toBeVisible();
+			await offer.getByRole('button', { name: 'Apply' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+			const saved = componentsFrom(update.mock.calls[1][0]);
+			const source = saved.find((component) => component.name === 'GitHub');
+			const copy = saved.find((component) => component.name === 'GitHub EU');
+			expect(copy?.toolOverrides).toEqual(source?.toolOverrides);
+			expect(copy?.toolPrefix).toBe('github_eu_');
+		});
+
+		it('leaves matching components unchanged when the tool override copy is skipped', async () => {
+			const vmcp = vmcpWithCatalogSibling(
+				createVMCPComponent(componentEntry, {
+					id: 'component-github-eu',
+					name: 'GitHub EU',
+					toolPrefix: 'github_eu_'
+				})
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await chooseModifyTools();
+			await page.getByRole('switch', { name: 'Enable Tool' }).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+
+			const offer = page.getByRole('dialog').filter({ hasText: 'Copy these tools?' });
+			await expect.element(offer.getByRole('button', { name: 'Skip' })).toBeVisible();
+			await offer.getByRole('button', { name: 'Skip' }).click();
+
+			await expect.element(offer).not.toBeInTheDocument();
+			expect(update).toHaveBeenCalledOnce();
+		});
+
+		it('does not offer to copy tool overrides when every matching component already has them', async () => {
+			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, {
+							toolPrefix: 'github_',
+							toolOverrides
+						}),
+						createVMCPComponent(componentEntry, {
+							id: 'component-github-eu',
+							name: 'GitHub EU',
+							toolPrefix: 'github_eu_',
+							toolOverrides
+						}),
+						createVMCPComponent(slack)
+					]
+				},
+				[componentEntry, slack]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, slack], vmcp);
+
+			await componentBlock().click();
+			await chooseModifyTools();
+			await page.getByRole('switch', { name: 'Enable Tool' }).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
+			await expect
+				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('heading', { name: 'Copy these tools?' }))
+				.not.toBeInTheDocument();
 		});
 
 		it('refreshes tools from the server through the setup flow', async () => {
@@ -661,9 +854,7 @@ describe('VMcpDesigner.svelte', () => {
 				.toBeVisible();
 			await expect.element(editor.getByText('github_create_issue')).toBeVisible();
 			await expect.element(editor.getByText('github_list_issues')).toBeVisible();
-			const prefix = editor.getByPlaceholder('No prefix');
-			await expect.element(prefix).toHaveValue('github_');
-			await expect.element(prefix).toHaveAttribute('readonly', '');
+			await expect.element(editor.getByPlaceholder('No prefix')).not.toBeInTheDocument();
 			await expect
 				.element(editor.getByRole('button', { name: 'Refresh tools' }))
 				.not.toBeInTheDocument();
@@ -860,6 +1051,222 @@ describe('VMcpDesigner.svelte', () => {
 			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
 				mcpServerCatalogEntryID: slack.id,
 				name: slack.manifest.name
+			});
+		});
+
+		async function dropGitHubOnVMcp(pointerId: number) {
+			const { el } = await pressCard(panelCard('GitHub'), pointerId);
+			const to = centerOf(await vmcpCard().element());
+			pointer(el, 'pointermove', pointerId, to);
+			await tick();
+			pointer(el, 'pointerup', pointerId, to);
+		}
+
+		function duplicateComponentDialog() {
+			return page.getByRole('dialog').filter({ hasText: 'Rename MCP Server' });
+		}
+
+		it('asks for a different component name when the catalog entry is already on the vMCP', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await dropGitHubOnVMcp(31);
+
+			const dialog = duplicateComponentDialog();
+			await expect.element(dialog).toBeVisible();
+			await expect
+				.element(dialog.getByText('GitHub has already been added to this vMCP', { exact: false }))
+				.toBeVisible();
+			const name = dialog.getByRole('textbox', { name: 'Name' });
+			await expect.element(name).toHaveValue('GitHub 2');
+			expect(update).not.toHaveBeenCalled();
+
+			await name.fill('GitHub');
+			await expect
+				.element(dialog.getByRole('alert'))
+				.toHaveTextContent('A component named GitHub already exists.');
+			await expect.element(dialog.getByRole('button', { name: 'Continue' })).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+
+			await name.fill('GitHub EU');
+			await expect.element(dialog.getByRole('alert')).not.toBeInTheDocument();
+			await dialog.getByRole('button', { name: 'Continue' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				mcpServerCatalogEntryID: componentEntry.id,
+				name: 'GitHub EU'
+			});
+			await expect.element(dialog).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('dialog').filter({ hasText: 'Add Tools' }).getByText('GitHub EU'))
+				.toBeVisible();
+		});
+
+		it('saves tool overrides on the renamed copy of a catalog entry', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			let current = vmcp;
+			worker.use(
+				http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(current)),
+				http.put(`/api/vmcps/${vmcp.id}`, async ({ request }) => {
+					const manifest = (await request.json()) as VMCPManifest;
+					update(manifest);
+					current = {
+						...current,
+						...manifest,
+						components: (manifest.components ?? []).map((component, index) => ({
+							...component,
+							id: component.id || `component-added-${index}`
+						}))
+					};
+					return HttpResponse.json(current);
+				})
+			);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await dropGitHubOnVMcp(34);
+			await page.getByRole('button', { name: 'Continue' }).click();
+
+			const addTools = page.getByRole('dialog').filter({ hasText: 'Add Tools' });
+			await expect.element(addTools.getByText('GitHub 2')).toBeVisible();
+			await addTools.getByRole('button', { name: /Managed/ }).click();
+			await page.getByRole('button', { name: 'Configure Tools', exact: true }).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+			const saved = componentsFrom(update.mock.calls[1][0]);
+			expect(saved.find((component) => component.name === 'GitHub')?.toolOverrides).toBeUndefined();
+			expect(
+				saved.find((component) => component.name === 'GitHub 2')?.toolOverrides?.length
+			).toBeGreaterThan(0);
+		});
+
+		it('rejects a duplicate component name that derives an existing tool prefix', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.components[0].toolPrefix = 'github-eu_';
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await dropGitHubOnVMcp(36);
+			const dialog = duplicateComponentDialog();
+			const name = dialog.getByRole('textbox', { name: 'Name' });
+			await name.fill('GitHub EU');
+
+			await expect
+				.element(dialog.getByRole('alert'))
+				.toHaveTextContent(
+					'Another component already uses the prefix "github-eu_". Non-empty prefixes must be unique across components.'
+				);
+			await expect.element(dialog.getByRole('button', { name: 'Continue' })).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+
+			await name.fill('GitHub US');
+			await expect.element(dialog.getByRole('alert')).not.toBeInTheDocument();
+			await dialog.getByRole('button', { name: 'Continue' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				name: 'GitHub US',
+				toolPrefix: 'github-us_'
+			});
+		});
+
+		it('keeps underscores when deriving the duplicate component tool prefix', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await dropGitHubOnVMcp(35);
+			const dialog = duplicateComponentDialog();
+			await dialog.getByRole('textbox', { name: 'Name' }).fill('GitHub_2');
+			await dialog.getByRole('button', { name: 'Continue' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				name: 'GitHub_2',
+				toolPrefix: 'github_2_'
+			});
+		});
+
+		it('does nothing when the duplicate component dialog is cancelled', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await dropGitHubOnVMcp(32);
+
+			const dialog = duplicateComponentDialog();
+			await expect.element(dialog).toBeVisible();
+			await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+			await expect.element(dialog).not.toBeInTheDocument();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('keeps the renamed component when a duplicate catalog entry needs configuration', async () => {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-github',
+				name: 'GitHub',
+				manifest: {
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(entry),
+						createVMCPComponent(entry, { id: 'component-github-2', name: 'GitHub 2' })
+					]
+				},
+				[entry]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(entry);
+			await renderDesigner([entry], vmcp);
+
+			await dropGitHubOnVMcp(33);
+
+			const dialog = duplicateComponentDialog();
+			await expect.element(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('GitHub 3');
+			await dialog.getByRole('button', { name: 'Continue' }).click();
+
+			await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
+			expect(update).not.toHaveBeenCalled();
+
+			await page
+				.getByRole('combobox', { name: 'API token policy' })
+				.selectOptions('Provided at connection');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				mcpServerCatalogEntryID: entry.id,
+				name: 'GitHub 3',
+				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
 			});
 		});
 
@@ -1225,6 +1632,24 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Remove GitHub' }))
 				.not.toBeInTheDocument();
+		});
+
+		it('shows component name and tool prefix as read-only', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'View Details' }).click();
+
+			const details = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+			await expect.element(details.getByRole('heading', { name: 'View Details' })).toBeVisible();
+			await expect.element(details.getByRole('textbox', { name: 'Name *' })).toHaveValue('GitHub');
+			await expect
+				.element(details.getByRole('textbox', { name: 'Tool name prefix' }))
+				.toHaveValue('github_');
+			await expect
+				.element(details.getByRole('textbox', { name: 'Name *' }))
+				.toHaveAttribute('readonly', '');
+			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 		});
 
 		it('shows an admin a catalog-synced vMCP as read-only', async () => {
