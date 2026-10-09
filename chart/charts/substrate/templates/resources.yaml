@@ -1,0 +1,120 @@
+# Apply custom resources after their CRDs are established. Keeping custom kinds
+# out of Helm's main manifest allows the first upgrade of an existing Obot release.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: substrate-resources
+  namespace: ate-system
+data:
+  sandboxconfig.yaml: |
+    {{- .Files.Get "files/sandboxconfig-gvisor.yaml" | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: substrate-resources
+  namespace: ate-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: substrate-resources
+rules:
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    resourceNames: [workerpools.ate.dev, sandboxconfigs.ate.dev, csidriverconfigs.ate.dev]
+    verbs: [get, list, watch]
+  - apiGroups: [ate.dev]
+    resources: [sandboxconfigs]
+    verbs: [create]
+  - apiGroups: [ate.dev]
+    resources: [sandboxconfigs]
+    resourceNames: [gvisor-default]
+    verbs: [get, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: substrate-resources
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: substrate-resources
+subjects:
+  - kind: ServiceAccount
+    name: substrate-resources
+    namespace: ate-system
+{{- range $action := list "apply" "delete" }}
+{{- with $ }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: substrate-resources-{{ $action }}-{{ .Release.Revision }}
+  namespace: ate-system
+  {{- if eq $action "delete" }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  {{- end }}
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      serviceAccountName: substrate-resources
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if eq $action "apply" }}
+      initContainers:
+        - name: wait-for-crds
+          image: {{ .Values.resourceInstallerImage | quote }}
+          args: [wait, --for=condition=Established, --timeout=180s, crd/workerpools.ate.dev, crd/sandboxconfigs.ate.dev, crd/csidriverconfigs.ate.dev]
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: temp
+              mountPath: /tmp
+      {{- end }}
+      containers:
+        - name: {{ $action }}
+          image: {{ .Values.resourceInstallerImage | quote }}
+          {{- if eq $action "apply" }}
+          args: [apply, --server-side, --field-manager=obot-substrate-chart, --force-conflicts, --filename=/resources]
+          {{- else }}
+          args: [delete, --filename=/resources, --ignore-not-found=true, --wait=true, --timeout=300s]
+          {{- end }}
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: resources
+              mountPath: /resources
+              readOnly: true
+            - name: temp
+              mountPath: /tmp
+      volumes:
+        - name: resources
+          configMap:
+            name: substrate-resources
+        - name: temp
+          emptyDir: {}
+{{- end }}
+{{- end }}

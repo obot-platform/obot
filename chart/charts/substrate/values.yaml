@@ -1,0 +1,33 @@
+image:
+  repository: ghcr.io/obot-platform/substrate
+imagePullSecrets: []
+apiServer:
+  replicas: 2
+atelet:
+  # Optional node-local kubelet credential provider paths; set both or neither.
+  imageCredentialProviderConfig: ""
+  imageCredentialProviderBinDir: ""
+  nodeSelector:
+    kubernetes.io/os: linux
+postgres:
+  # A non-empty DSN disables bundled PostgreSQL and is stored in a Secret.
+  dsn: ""
+  # Database role assumed for schema management and runtime access. Required with an external DSN.
+  role: ""
+  storageSize: 8Gi
+  storageClass: ""
+storage:
+  backend: s3
+  existingSecret: ""
+  # Helm creates the credentials Secret when these values are supplied.
+  credentials: {}
+  env:
+    AWS_REGION: us-east-1
+# Discovered from the Kubernetes API when empty.
+authentication:
+  issuer: ""
+# Existing OTLP gRPC collector. Empty uses upstream's localhost:4317 default.
+# Upstream always exports traces/metrics and logs warnings without a collector.
+otel:
+  endpoint: ""
+resourceInstallerImage: registry.k8s.io/kubectl:v1.35.0@sha256:0bb95b2a450875fc8ceaea2f9987a99fe27c228846e2e00b93b65ebb0d59034e

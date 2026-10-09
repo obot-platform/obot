@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: substrate-bootstrap
+  namespace: ate-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: substrate-bootstrap
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [ate-system, podcertificate-controller-system]
+    verbs: [patch]
+  - nonResourceURLs: [/.well-known/openid-configuration]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: substrate-bootstrap
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: substrate-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: substrate-bootstrap
+    namespace: ate-system
+{{- range $namespace := list "ate-system" "podcertificate-controller-system" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: substrate-bootstrap
+  namespace: {{ $namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, create, patch]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [ate-api-authentication]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: substrate-bootstrap
+  namespace: {{ $namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: substrate-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: substrate-bootstrap
+    namespace: ate-system
+{{- end }}
+---
+# A normal Job can run while certificate-dependent pods are Pending, including
+# during helm --wait. A post-install hook would deadlock behind those pods.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: substrate-bootstrap-{{ .Release.Revision }}
+  namespace: ate-system
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      serviceAccountName: substrate-bootstrap
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      {{- range $command := list "podcertificate-controller-cas" "jwt-authority-pool" "actor-id-ca-pool" "actor-id-ca-certs" "egress-mitm-ca-pool" }}
+        - name: {{ $command }}
+          image: {{ $.Values.image.repository }}/ate-setup:{{ $.Chart.AppVersion }}
+          workingDir: /var/run/ko
+          args: [--no-dev-env, create, {{ $command }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      {{- end }}
+      containers:
+        - name: authentication
+          image: {{ .Values.image.repository }}/ate-setup:{{ .Chart.AppVersion }}
+          workingDir: /var/run/ko
+          args: [--no-dev-env, create, api-authentication-config]
+          env:
+            - name: EXPECTED_JWT_ISSUER
+              value: {{ .Values.authentication.issuer | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]

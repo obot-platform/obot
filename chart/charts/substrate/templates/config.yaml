@@ -1,0 +1,85 @@
+{{- $postgresRole := "postgres" -}}
+{{- if .Values.postgres.dsn -}}
+{{- $postgresRole = required "substrate.postgres.role is required with an external PostgreSQL DSN" .Values.postgres.role -}}
+{{- end -}}
+{{- $_ := required "substrate.image.repository is required; build upstream images with build.sh in the substrate-images repository" .Values.image.repository -}}
+{{- if not (has .Values.storage.backend (list "s3" "gcs")) -}}
+{{- fail "substrate.storage.backend must be s3 or gcs" -}}
+{{- end }}
+{{- if and .Values.storage.existingSecret .Values.storage.credentials }}
+{{- fail "use either substrate.storage.existingSecret or substrate.storage.credentials" }}
+{{- end }}
+{{- if .Values.storage.credentials }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: substrate-storage-credentials
+  namespace: ate-system
+type: Opaque
+stringData:
+  {{- range $key, $value := .Values.storage.credentials }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: substrate-storage
+  namespace: ate-system
+data:
+  {{- toYaml .Values.storage.env | nindent 2 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ate-api-server-envvars
+  namespace: ate-system
+data:
+  ATE_API_POSTGRES_SCHEMA: public
+  ATE_API_POSTGRES_READ_WRITE_ROLE: {{ $postgresRole | quote }}
+  ATE_API_POSTGRES_OWNER_ROLE: {{ $postgresRole | quote }}
+  {{- if not .Values.postgres.dsn }}
+  ATE_API_POSTGRES_READ_WRITE_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+  ATE_API_POSTGRES_OWNER_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+  {{- end }}
+{{- if .Values.postgres.dsn }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ate-api-server-secret-envvars
+  namespace: ate-system
+type: Opaque
+stringData:
+  ATE_API_POSTGRES_READ_WRITE_CONNECTION_STRING: {{ .Values.postgres.dsn | quote }}
+  ATE_API_POSTGRES_OWNER_CONNECTION_STRING: {{ .Values.postgres.dsn | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ate-otel-config
+  namespace: ate-system
+data:
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.otel.endpoint | default "http://localhost:4317" | quote }}
+  OTEL_LOGS_EXPORTER: none
+
+{{- if not .Values.postgres.dsn }}
+{{- $password := randAlphaNum 48 }}
+{{- $existing := lookup "v1" "Secret" "ate-system" "substrate-postgres-auth" }}
+{{- if $existing }}
+{{- $password = index $existing.data "password" | b64dec }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: substrate-postgres-auth
+  namespace: ate-system
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  password: {{ $password | b64enc | quote }}
+{{- end }}

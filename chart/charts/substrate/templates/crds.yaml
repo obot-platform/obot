@@ -1,0 +1,7 @@
+{{- /* Managed templates also install CRDs when adding Substrate to an existing release. */ -}}
+{{- range $path, $_ := .Files.Glob "files/crds/*.yaml" }}
+{{- $crd := $.Files.Get $path | fromYaml }}
+{{- $_ := set $crd.metadata.annotations "helm.sh/resource-policy" "keep" }}
+---
+{{ toYaml $crd }}
+{{- end }}

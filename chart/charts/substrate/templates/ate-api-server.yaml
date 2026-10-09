@@ -1,0 +1,315 @@
+# Adapted from agent-substrate/substrate v0.3.0; see ../README.md.
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Define Permissions (Read-Only for Pods)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ate-api-server
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["ate.dev"]
+  resources: ["workerpools", "sandboxconfigs", "csidriverconfigs"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["ate.dev"]
+  resources: ["workerpools"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get", "watch", "list"]
+---
+# Create Service Account for Workload Identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ate-api-server
+  namespace: ate-system
+---
+# 4. Bind Identity to Permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ate-api-server
+subjects:
+- kind: ServiceAccount
+  name: ate-api-server
+  namespace: ate-system
+roleRef:
+  kind: ClusterRole
+  name: ate-api-server
+  apiGroup: rbac.authorization.k8s.io
+---
+# 5. Deploy the API Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ate-api-server
+  namespace: ate-system
+spec:
+  replicas: {{ .Values.apiServer.replicas }}
+  strategy:
+    # Update replicas one at a time, create a new one first, then delete the old one.
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: ate-api-server
+  template:
+    metadata:
+      labels:
+        app: ate-api-server
+      annotations:
+        checksum/storage: {{ .Values.storage | toJson | sha256sum | quote }}
+        checksum/postgres-dsn: {{ .Values.postgres | toJson | sha256sum | quote }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      # TODO: Add topologySpreadConstraints to spread replicas across nodes and zones.
+      serviceAccountName: ate-api-server
+      # Budget for the full shutdown sequence: --drain-delay (sized to cover
+      # the readinessProbe below reaching NotReady, plus propagation) +
+      # --drain-timeout.
+      terminationGracePeriodSeconds: 40
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: ate-api-server
+        image: {{ .Values.image.repository }}/ateapi:{{ .Chart.AppVersion }}
+        args:
+          - "--grpc-server-cred-bundle=/run/servicedns.podcert.ate.dev/credential-bundle.pem"
+          - --authentication-config=/etc/ateapi/authentication/authentication.yaml
+          - --postgres-read-write-connection-string=@env
+          - --postgres-owner-connection-string=@env
+          - --postgres-read-write-role=@env
+          - --postgres-owner-role=@env
+          - --postgres-schema=@env
+          - --actor-id-jwt-pool=/run/actor-id-jwt-pool/pool.json
+          - --actor-id-ca-pool=/run/actor-id-ca-pool/pool.json
+          - --atelet-client-cred-bundle=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+          - --pod-identity-ca-certs=/run/podidentity.podcert.ate.dev/trust-bundle.pem
+          # TODO(lior):Remove when egress API pr is merged. This turns on pluggable actor
+          # egress cluster-wide. ateapi stamps this address onto every atelet
+          # Run/Restore, ateom hands it to atunnel, and actor TCP egress is
+          # transparently redirected (nftables) into atunnel, which wraps it in
+          # mTLS + HTTP CONNECT to the egress gateway.
+          - --default-egress-gateway-address=atenet-egress.ate-system.svc:443
+          # Graceful shutdown knobs. The sum must fit within terminationGracePeriodSeconds.
+          - --drain-delay=13s
+          - --drain-timeout=15s
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
+        # ate-api copies external snapshots for tags and deletes the ones
+        # nothing refers to any more, so it needs the same backend atelet reads
+        # and writes them through.
+        - name: ATE_STORAGE_BACKEND
+          value: {{ .Values.storage.backend | quote }}
+        # OTLP exporter settings are shared by every control plane component;
+        # see manifests/ate-install/ate-otel-config.yaml. Listed first so the
+        # per-developer ConfigMap below can still override a key.
+        {{- if not .Values.postgres.dsn }}
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: substrate-postgres-auth
+              key: password
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: substrate-storage
+        {{- if .Values.storage.existingSecret }}
+        - secretRef:
+            name: {{ .Values.storage.existingSecret }}
+        {{- else if .Values.storage.credentials }}
+        - secretRef:
+            name: substrate-storage-credentials
+        {{- end }}
+        - configMapRef:
+            name: ate-otel-config
+        # Inject env vars from a ConfigMap created by each developer.  This lets
+        # each developer customize their own PostgreSQL connection settings without having
+        # to edit this manifest, which can remain constant across all
+        # developers.
+        - configMapRef:
+            name: ate-api-server-envvars
+            optional: true
+        # Sensitive env vars (e.g. a Postgres DSN carrying a password) live in
+        # a Secret rather than the ConfigMap above. Listed last so a key
+        # present in both takes its value from the Secret.
+        - secretRef:
+            name: ate-api-server-secret-envvars
+            optional: true
+        volumeMounts:
+        # servicedns: the apiserver's own gRPC serving cert (DNS SAN api.ate-system.svc).
+        - name: "servicedns"
+          mountPath: "/run/servicedns.podcert.ate.dev"
+        # podidentity: the apiserver's client identity (SPIFFE) when it dials
+        # the selected store and atelet, plus the trust bundle for verifying
+        # atelet's serving certificate.
+        - name: "podidentity"
+          mountPath: "/run/podidentity.podcert.ate.dev"
+        - name: "actor-id-jwt-pool"
+          mountPath: "/run/actor-id-jwt-pool"
+        - name: "actor-id-ca-pool"
+          mountPath: "/run/actor-id-ca-pool"
+          readOnly: true
+        - name: "authentication-config"
+          mountPath: "/etc/ateapi/authentication"
+          readOnly: true
+        # postgres-server-ca: server CA for an external Postgres, referenced
+        # by the DSN via sslrootcert (sslmode=verify-ca). Empty unless the
+        # postgres-server-ca Secret exists. Cloud SQL does not need this: it
+        # uses the Auth Proxy sidecar (see
+        # manifests/ate-install/cloudsql/proxy-sidecar-patch.yaml), which handles TLS
+        # itself.
+        - name: "postgres-server-ca"
+          mountPath: "/run/postgres-server-ca"
+          readOnly: true
+        ports:
+        - containerPort: 443
+        - name: prometheus
+          containerPort: 9090
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          failureThreshold: 3
+        # :9090 is bound near the end of boot, after the store connect and
+        # the schema migrations, so nothing answers here until both finish.
+        # The store connect alone budgets 60s (30 attempts, 2s apart) and the
+        # migrations serialize across replicas on an advisory lock. Without a
+        # startup probe the liveness probe below SIGTERMs the container at
+        # ~30s, halfway through that budget: the retry loop is rooted in the
+        # signal context, so it reports "context canceled" and the process
+        # exits into CrashLoopBackOff instead of waiting out a store that is
+        # merely slow to return. A booting replica is not a dead one.
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          periodSeconds: 5
+          failureThreshold: 24
+        # /healthz stays 200 while a terminating pod drains; /readyz
+        # turns 503, so liveness and readiness diverge correctly during
+        # shutdown.
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: "servicedns"
+        projected:
+          sources:
+          - podCertificate:
+              signerName: servicedns.podcert.ate.dev/identity
+              keyType: ECDSAP256
+              credentialBundlePath: credential-bundle.pem
+          - clusterTrustBundle:
+              signerName: servicedns.podcert.ate.dev/identity
+              labelSelector:
+                matchLabels:
+                  podcert.ate.dev/canarying: live
+              path: trust-bundle.pem
+      - name: "podidentity"
+        projected:
+          sources:
+          - podCertificate:
+              signerName: podidentity.podcert.ate.dev/identity
+              keyType: ECDSAP256
+              credentialBundlePath: credential-bundle.pem
+          - clusterTrustBundle:
+              signerName: podidentity.podcert.ate.dev/identity
+              labelSelector:
+                matchLabels:
+                  podcert.ate.dev/canarying: live
+              path: trust-bundle.pem
+      - name: "actor-id-jwt-pool"
+        projected:
+          sources:
+          - secret:
+              name: "actor-id-jwt-pool"
+              items:
+              - key: "pool"
+                path: "pool.json"
+      - name: "actor-id-ca-pool"
+        projected:
+          sources:
+          - secret:
+              name: "actor-id-ca-pool"
+              items:
+              - key: "pool"
+                path: "pool.json"
+      - name: "authentication-config"
+        configMap:
+          name: "ate-api-authentication"
+      - name: "postgres-server-ca"
+        secret:
+          secretName: "postgres-server-ca"
+          optional: true
+---
+# Allow voluntary disruptions (node drains, cluster upgrades) to take
+# at most one API server pod at a time, at any replica count.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ate-api-server
+  namespace: ate-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ate-api-server
+---
+# 6. Expose the Actor Assigner
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: ate-system
+spec:
+  # Headless (i.e. `clusterIP: None`) services make DNS return one A record per
+  # ready pod so gRPC clients can load balance client-side.
+  clusterIP: None
+  # Prefer, not Require: Require fails Service creation on a single-stack cluster.
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: ate-api-server
+  ports:
+  - name: grpc
+    protocol: TCP
+    port: 443
+    targetPort: 443

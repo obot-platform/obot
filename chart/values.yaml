@@ -2,6 +2,31 @@
 # When greater than one, the chart configures replicas to peer tunnel connections through the Obot Service.
 replicaCount: 1
 
+# Deploy the upstream Agent Substrate runtime alongside Obot.
+# See charts/substrate/README.md for cluster prerequisites and building images.
+substrate:
+  apiServer:
+    replicas: 2
+  enabled: false
+  postgres:
+    # External Substrate database; leave empty to deploy bundled PostgreSQL.
+    dsn: ""
+    # Required with an external DSN; role used for schema management and runtime access.
+    role: ""
+  image:
+    # Registry path populated by build.sh in the separate substrate-images repository.
+    repository: ghcr.io/obot-platform/substrate
+  imagePullSecrets: []
+  storage:
+    backend: s3
+    # Secret in ate-system containing AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY,
+    # or leave empty when the nodes provide workload identity credentials.
+    existingSecret: ""
+    # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY; stored in a chart-managed Secret.
+    credentials: {}
+    env:
+      AWS_REGION: us-east-1
+
 tunnelPeer:
   # tunnelPeer.existingSecret -- An existing Secret containing OBOT_SERVER_TUNNEL_PEER_TOKEN. Use this or token for stable GitOps rendering. The chart creates and preserves a token when both are empty.
   existingSecret: ""

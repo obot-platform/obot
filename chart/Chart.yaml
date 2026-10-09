@@ -3,3 +3,7 @@ name: obot
 description: A Helm chart for Obot
 version: 0.1.0
 appVersion: 0.0.0-dev
+dependencies:
+  - name: substrate
+    version: 0.1.0
+    condition: substrate.enabled
