@@ -62,6 +62,13 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
+	let errorElement = $state<HTMLElement>();
+
+	// The error sits at the top of a form that scrolls, and the button that submits it sits below,
+	// so a refusal would otherwise appear out of sight of whoever just submitted.
+	$effect(() => {
+		if (error) errorElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	});
 
 	const isAzureOpenAIProvider = $derived(provider && provider.id === 'azure-openai-model-provider');
 
@@ -360,7 +367,11 @@
 				disabled={readonly}
 			/>
 			{#if error}
-				<div class="notification-error flex min-w-0 items-start gap-2 overflow-hidden">
+				<div
+					bind:this={errorElement}
+					class="notification-error flex min-w-0 shrink-0 items-start gap-2 overflow-hidden"
+					role="alert"
+				>
 					<CircleAlert class="mt-0.5 size-6 shrink-0 text-error" />
 					<p class="min-w-0 flex flex-col text-sm font-light">
 						<span class="font-semibold">{m.models_providers_an_error_occurred()}</span>
