@@ -250,7 +250,7 @@
 	"mcps_composite_keep_editing": "編集を続ける",
 	"mcps_composite_no_prefix": "プレフィックスなし",
 	"mcps_composite_prefix_duplicate": "別のコンポーネントが既にプレフィックス「{prefix}」を使用しています。空でないプレフィックスはコンポーネント間で一意である必要があります。",
-	"mcps_composite_prefix_hint": "このコンポーネントが公開するすべてのツール名の先頭に付加されます。削除するにはクリアしてください。",
+	"mcps_composite_prefix_hint": "このコンポーネントが公開するすべてのツール名の先頭に付加されます。",
 	"mcps_composite_prefix_invalid": "プレフィックスには英字、数字、'.'、'/'、'_'、'-' のみ使用できます。",
 	"mcps_composite_prefix_too_long": "プレフィックスは {count} 文字以内にしてください。",
 	"mcps_composite_profiles_impacted": "これらの変更により、次のプロファイルが影響を受けます：",
