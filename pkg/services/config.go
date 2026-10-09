@@ -120,6 +120,7 @@ type Config struct {
 	ProductAnalyticsMode           producttelemetry.Mode `usage:"Product analytics mode: consent, on, or off" default:"consent" env:"OBOT_SERVER_PRODUCT_ANALYTICS_MODE"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	EnableMockData       bool   `usage:"Enable the privileged mock-data generation endpoint" default:"false" name:"enable-mock-data" env:"OBOT_SERVER_ENABLE_MOCK_DATA"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
 	UserUIPort           int    `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	ElectionFile         string `usage:"Use this file for leader election instead of database leases"`
@@ -217,6 +218,7 @@ type Services struct {
 	ProviderRegistryPaths         []string
 	DevUIPort                     int
 	DevMode                       bool
+	EnableMockData                bool
 	UserUIPort                    int
 	GatewayServer                 *gserver.Server
 	Bootstrapper                  *bootstrap.Bootstrap
@@ -1426,6 +1428,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ObotNamespace:                config.ServiceNamespace,
 		DevUIPort:                    devPort,
 		DevMode:                      config.DevMode,
+		EnableMockData:               config.EnableMockData,
 		UserUIPort:                   config.UserUIPort,
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
