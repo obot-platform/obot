@@ -16,6 +16,22 @@ import (
 // A nil VMCP means the ID still belongs to the legacy resource model.
 // Instance aliases always identify one connection, never another user's connection.
 func ResolveConnectID(ctx context.Context, client kclient.Client, id, userID string) (*v1.VMCP, *v1.VMCPInstance, error) {
+	vmcp, instance, err := ResolveID(ctx, client, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if instance != nil && instance.Spec.UserID != userID {
+		return nil, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "vmcpinstance"}, id)
+	}
+	return vmcp, instance, nil
+}
+
+// ResolveID looks up a vMCP or instance by its ID or migrated alias without
+// checking ownership. OAuth uses it before the user has authenticated.
+func ResolveID(ctx context.Context, client kclient.Client, id string) (*v1.VMCP, *v1.VMCPInstance, error) {
+	if id == "" {
+		return nil, nil, nil
+	}
 	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}
 	var (
 		vmcp     v1.VMCP
@@ -73,9 +89,6 @@ func ResolveConnectID(ctx context.Context, client kclient.Client, id, userID str
 		}
 	}
 	if instance != nil {
-		if instance.Spec.UserID != userID {
-			return nil, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "vmcpinstance"}, id)
-		}
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.Manifest.VMCPID}, &vmcp); err != nil {
 			return nil, nil, err
 		}

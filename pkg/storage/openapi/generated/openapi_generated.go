@@ -10449,13 +10449,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"connectURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ConnectURL is the URL clients can use to connect to this MCP server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
@@ -10669,13 +10662,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
-						},
-					},
-					"connectURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ConnectURL is the default URL clients can use to connect before configuring a personal server.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -11096,13 +11082,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 					"powerUserWorkspaceID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PowerUserWorkspaceID is the ID of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"connectURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ConnectURL is the URL to connect to the MCP server.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -15665,7 +15644,7 @@ func schema_obot_platform_obot_apiclient_types_RegistryServerDetail(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "RegistryServerDetail matches the Registry API RegistryServerDetail schema For Obot, configured servers always use Remotes (never Packages)",
+				Description: "RegistryServerDetail matches the Registry API RegistryServerDetail schema",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -15878,19 +15857,20 @@ func schema_obot_platform_obot_apiclient_types_RegistryServerRemote(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "RegistryServerRemote represents a remote server configuration All Obot servers are exposed as streamable-http remotes via mcp-connect",
+				Description: "RegistryServerRemote represents a remote server configuration",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The remote transport type",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Always \"streamable-http\" for configured Obot servers",
+							Description: "The MCP endpoint URL",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

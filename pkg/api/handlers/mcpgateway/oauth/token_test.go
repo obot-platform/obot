@@ -47,9 +47,17 @@ func (s *consumeOAuthTokenAfterGetStorage) Get(ctx context.Context, key kclient.
 func newOAuthTokenTestServices(t *testing.T, objects ...kclient.Object) (storage.Client, *gatewayclient.Client, *persistent.TokenService) {
 	t.Helper()
 
-	objects = append(objects, &v1.SystemMCPServer{
+	objects = append(objects, &v1.VMCP{
 		Namespace: system.DefaultNamespace,
-		Name:      system.SystemMCPServerPrefix + "test",
+		Name:      system.VMCPPrefix + "test",
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+			Components: []types.VMCPComponent{{ID: "component"}},
+			Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
+		}},
+	}, &v1.VMCPInstance{
+		Name:      system.VMCPInstancePrefix + "test",
+		Namespace: system.DefaultNamespace,
+		Spec:      v1.VMCPInstanceSpec{UserID: "42", Manifest: types.VMCPInstanceManifest{VMCPID: system.VMCPPrefix + "test"}},
 	})
 	storage := clientfake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
@@ -93,7 +101,7 @@ func TestDoAuthorizationCodeScopesTokenToAudience(t *testing.T) {
 	const (
 		baseURL    = "https://obot.example.com"
 		clientName = "oauth-client"
-		mcpID      = system.SystemMCPServerPrefix + "test"
+		mcpID      = system.VMCPPrefix + "test"
 		code       = "authorization-code"
 	)
 
@@ -104,8 +112,8 @@ func TestDoAuthorizationCodeScopesTokenToAudience(t *testing.T) {
 	}{
 		{
 			name:           "distinct audience",
-			audience:       "multi-user-server",
-			wantAuthorized: persistent.StringSlice{"multi-user-server"},
+			audience:       system.VMCPInstancePrefix + "test",
+			wantAuthorized: persistent.StringSlice{system.VMCPInstancePrefix + "test"},
 		},
 		{
 			name: "empty audience",
@@ -119,7 +127,7 @@ func TestDoAuthorizationCodeScopesTokenToAudience(t *testing.T) {
 				Name:      "oauth-request",
 				Spec: v1.OAuthAuthRequestSpec{
 					ClientID:       clientName,
-					Resource:       baseURL + "/mcp-connect/" + tt.audience,
+					Resource:       baseURL + "/mcp-connect/" + mcpID,
 					Scope:          "profile email",
 					HashedAuthCode: fmt.Sprintf("%x", sha256.Sum256([]byte(code))),
 					UserID:         42,
@@ -159,8 +167,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	const (
 		baseURL      = "https://obot.example.com"
 		clientName   = "oauth-client"
-		mcpID        = system.SystemMCPServerPrefix + "test"
-		audience     = "multi-user-server"
+		mcpID        = system.VMCPPrefix + "test"
+		audience     = system.VMCPInstancePrefix + "test"
 		refreshToken = "old-refresh-token"
 	)
 
@@ -274,7 +282,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	require.ErrorAs(t, err, &errHTTP)
 	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
 	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
-	assert.Equal(t, "Obot: invalid MCP server", oauthErr.Description)
+	assert.Equal(t, "Obot: invalid vMCP connection", oauthErr.Description)
 	err = storage.Get(t.Context(), kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),

@@ -162,6 +162,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
 
 	// MCPServer
+	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.UnassociatedMCPResources)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
 	root.Type(&v1.MCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
@@ -185,6 +186,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPNetworkPolicy{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCPServerInstance
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.UnassociatedMCPResources)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)

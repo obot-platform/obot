@@ -1,257 +1,42 @@
 package mcp
 
 import (
-	"strconv"
 	"testing"
-	"time"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteConfig(t *testing.T) {
-	manifest := &types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeRemote,
-		RemoteConfig: &types.RemoteCatalogConfig{
-			URLTemplate: "https://${EXISTING}.example.com/${DETECTED}",
-		},
-		Config: []types.MCPConfig{{
-			Name: "Existing", Key: "EXISTING", Required: true,
-			Usage: types.Header,
-		}},
-	}
-
-	addExtractedEnvVarsToCatalogEntryManifest(manifest)
-
-	require.ElementsMatch(t, []types.MCPConfig{
-		{Name: "Existing", Key: "EXISTING", Required: true, Usage: types.Header},
-		{Name: "DETECTED", Key: "DETECTED", Description: "Automatically detected variable", Required: true, Usage: types.Header},
-	}, manifest.Config)
-}
-
-func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *testing.T) {
-	const (
-		entryID = "catalog-entry"
-		userID  = "user-1"
-	)
-
-	entry := &v1.MCPServerCatalogEntry{
-		Name:      entryID,
-		Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerCatalogEntrySpec{
-			Manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeRemote,
-				RemoteConfig: &types.RemoteCatalogConfig{
-					Hostname: "api.example.com",
-				},
-			},
-		},
-	}
-
-	storageClient := fake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
-		WithObjects(entry).
-		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.UserID}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
-			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
-		}).
-		Build()
-
-	manager := SessionManager{storageClient: storageClient}
-	server, instance, err := manager.serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
-	require.NoError(t, err)
-	require.Empty(t, instance.Name)
-	require.NotEmpty(t, server.Name)
-	require.Equal(t, entryID, server.Spec.MCPServerCatalogEntryName)
-	require.Equal(t, userID, server.Spec.UserID)
-	require.True(t, server.Spec.NeedsURL)
-	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
-	require.Equal(t, "api.example.com", server.Spec.Manifest.RemoteConfig.Hostname)
-	require.Empty(t, server.Spec.Manifest.RemoteConfig.URL)
-}
-
-func TestServerOrInstanceFromConnectURLIgnoresVMCPComponentServers(t *testing.T) {
-	const (
-		entryID = "catalog-entry"
-		userID  = "user-1"
-	)
-
-	entry := &v1.MCPServerCatalogEntry{
-		Name:      entryID,
-		Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
-			Runtime: types.RuntimeRemote,
-			RemoteConfig: &types.RemoteCatalogConfig{
-				Hostname: "api.example.com",
-			},
-		}},
-	}
-
-	for _, component := range []*v1.MCPServer{
-		{
-			Name:      "ms1-vmcp-component",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerSpec{
-				MCPServerCatalogEntryName: entryID,
-				UserID:                    userID,
-				VMCPID:                    "vmcp1-test",
-			},
-		},
-		{
-			Name:      "ms1-vmcp-instance-component",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerSpec{
-				MCPServerCatalogEntryName: entryID,
-				UserID:                    userID,
-				VMCPInstanceID:            "vmcpi1-test",
-			},
-		},
-	} {
-		t.Run(component.Name, func(t *testing.T) {
-			storageClient := fake.NewClientBuilder().
-				WithScheme(storagescheme.Scheme).
-				WithObjects(entry.DeepCopy(), component).
-				WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
-					return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
-				}).
-				WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
-					return []string{obj.(*v1.MCPServer).Spec.UserID}
-				}).
-				WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
-					return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
-				}).
-				WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
-					return []string{obj.(*v1.MCPServer).Spec.CompositeName}
-				}).
-				Build()
-
-			server, instance, err := (&SessionManager{storageClient: storageClient}).serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
-			require.NoError(t, err)
-			require.Empty(t, instance.Name)
-			require.NotEqual(t, component.Name, server.Name)
-			require.Empty(t, server.Spec.VMCPID)
-			require.Empty(t, server.Spec.VMCPInstanceID)
+func TestCatalogEntryConnectionDoesNotSelectOrCreateServer(t *testing.T) {
+	for _, existingServer := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unconnected", true: "previously connected"}[existingServer], func(t *testing.T) {
+			entry := &v1.MCPServerCatalogEntry{Name: "default-entry", Namespace: system.DefaultNamespace}
+			client := newVMCPTestStorage(entry)
+			if existingServer {
+				require.NoError(t, client.Create(t.Context(), &v1.MCPServer{
+					Name:      "ms1existing",
+					Namespace: system.DefaultNamespace,
+					Spec: v1.MCPServerSpec{
+						UserID:                    "7",
+						MCPServerCatalogEntryName: entry.Name,
+					},
+				}))
+			}
+			manager := &SessionManager{storageClient: client}
+			_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), entry.Name, &kuser.DefaultInfo{UID: "7"})
+			require.ErrorContains(t, err, "invalid MCP connection ID")
+			var servers v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &servers))
+			require.Len(t, servers.Items, map[bool]int{false: 0, true: 1}[existingServer])
+			var instances v1.MCPServerInstanceList
+			require.NoError(t, client.List(t.Context(), &instances))
+			require.Empty(t, instances.Items)
 		})
 	}
-}
-
-func TestServerOrInstanceFromConnectURLPrefersStandaloneServerOverVMCPComponent(t *testing.T) {
-	const (
-		entryID = "catalog-entry"
-		userID  = "user-1"
-	)
-
-	entry := &v1.MCPServerCatalogEntry{Name: entryID, Namespace: system.DefaultNamespace}
-	component := &v1.MCPServer{
-		Name:              "ms1-vmcp-component",
-		Namespace:         system.DefaultNamespace,
-		CreationTimestamp: metav1.NewTime(time.Unix(1, 0)),
-		Spec: v1.MCPServerSpec{
-			MCPServerCatalogEntryName: entryID,
-			UserID:                    userID,
-			VMCPID:                    "vmcp1-test",
-		},
-	}
-	standalone := &v1.MCPServer{
-		Name:              "ms1-standalone",
-		Namespace:         system.DefaultNamespace,
-		CreationTimestamp: metav1.NewTime(time.Unix(2, 0)),
-		Spec: v1.MCPServerSpec{
-			MCPServerCatalogEntryName: entryID,
-			UserID:                    userID,
-		},
-	}
-	storageClient := fake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
-		WithObjects(entry, component, standalone).
-		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.UserID}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
-			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
-		}).
-		Build()
-
-	server, instance, err := (&SessionManager{storageClient: storageClient}).serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
-	require.NoError(t, err)
-	require.Empty(t, instance.Name)
-	require.Equal(t, standalone.Name, server.Name)
-}
-
-func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *testing.T) {
-	const (
-		entryID = "catalog-entry"
-		userID  = "user-1"
-	)
-
-	maximum := resource.MustParse("500m")
-	entry := &v1.MCPServerCatalogEntry{
-		Name: entryID, Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerCatalogEntrySpec{
-			Manifest: types.MCPServerCatalogEntryManifest{
-				Runtime:   types.RuntimeNPX,
-				NPXConfig: &types.NPXRuntimeConfig{Package: "example"},
-				Resources: &types.MCPResourceRequirements{
-					Requests: types.MCPResourceRequests{CPU: "1"},
-				},
-			},
-		},
-	}
-	settings := &v1.K8sSettings{
-		Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
-		Spec: v1.K8sSettingsSpec{MaxCPURequest: &maximum},
-	}
-
-	storageClient := fake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
-		WithObjects(entry, settings).
-		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.UserID}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
-			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
-			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
-		}).
-		Build()
-
-	manager := SessionManager{
-		runtimeBackend: RuntimeBackendKubernetes,
-		storageClient:  storageClient,
-	}
-	server, instance, err := manager.serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
-	require.ErrorContains(t, err, "resources.requests.cpu 1 exceeds configured maximum 500m")
-	require.Empty(t, server.Name)
-	require.Empty(t, instance.Name)
-
-	var servers v1.MCPServerList
-	require.NoError(t, storageClient.List(t.Context(), &servers))
-	require.Empty(t, servers.Items)
 }
 
 func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {

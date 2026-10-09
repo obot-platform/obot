@@ -159,9 +159,9 @@ func TestDoAuthorizationCodeRefusesADisabledUser(t *testing.T) {
 		Name:      "oauth-request",
 		Spec: v1.OAuthAuthRequestSpec{
 			ClientID:       clientName,
-			Resource:       "https://obot.example.com/mcp-connect/server",
+			Resource:       "https://obot.example.com/mcp-connect/vmcp1test",
 			HashedAuthCode: fmt.Sprintf("%x", sha256.Sum256([]byte(code))),
-			MCPID:          system.SystemMCPServerPrefix + "test",
+			MCPID:          system.VMCPPrefix + "test",
 		},
 	}
 	storage, gatewayClient, tokenService := newOAuthTokenTestServices(t, oauthLifecycleTestDefaultRole.DeepCopy())
@@ -198,9 +198,9 @@ func TestDoRefreshTokenRefusesAndConsumesADisabledUsersToken(t *testing.T) {
 		Name:      tokenName,
 		Spec: v1.OAuthTokenSpec{
 			ClientID: clientName,
-			Resource: "https://obot.example.com/mcp-connect/server",
+			Resource: "https://obot.example.com/mcp-connect/vmcp1test",
 			UserID:   user.ID,
-			MCPID:    system.SystemMCPServerPrefix + "test",
+			MCPID:    system.VMCPPrefix + "test",
 		},
 	}))
 
@@ -237,8 +237,8 @@ func TestRefreshTokensIssuedWhileTheUserIsDisabledAreRevoked(t *testing.T) {
 			}, "", types.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
 			require.NoError(t, err)
 
-			resource := "https://obot.example.com/mcp-connect/server"
-			mcpID := system.SystemMCPServerPrefix + "test"
+			resource := "https://obot.example.com/mcp-connect/vmcp1test"
+			mcpID := system.VMCPPrefix + "test"
 			if flow == "authorization code" {
 				require.NoError(t, baseStorage.Create(t.Context(), &v1.OAuthAuthRequest{
 					Namespace: system.DefaultNamespace,

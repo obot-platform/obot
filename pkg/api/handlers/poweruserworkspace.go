@@ -15,14 +15,12 @@ import (
 )
 
 type PowerUserWorkspaceHandler struct {
-	serverURL                 string
 	acrHelper                 *accesscontrolrule.Helper
 	secretBindingAllowedLabel string
 }
 
-func NewPowerUserWorkspaceHandler(serverURL string, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *PowerUserWorkspaceHandler {
+func NewPowerUserWorkspaceHandler(acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *PowerUserWorkspaceHandler {
 	return &PowerUserWorkspaceHandler{
-		serverURL:                 serverURL,
 		acrHelper:                 acrHelper,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
@@ -83,7 +81,7 @@ func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 		}
 
 		for _, entry := range list2.Items {
-			catalogEntries = append(catalogEntries, ConvertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID, p.serverURL))
+			catalogEntries = append(catalogEntries, ConvertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
 		}
 	}
 
@@ -138,15 +136,10 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
-		if err != nil {
-			return fmt.Errorf("failed to determine slug: %w", err)
-		}
-
 		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, p.secretBindingAllowedLabel); err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}
-		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, ConvertMCPServer(server, credMap[server.Name]))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -241,15 +234,10 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
-		if err != nil {
-			return fmt.Errorf("failed to determine slug: %w", err)
-		}
-
 		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, p.secretBindingAllowedLabel); err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}
-		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, ConvertMCPServer(server, credMap[server.Name]))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -333,17 +321,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServerInstances(req api.Context) erro
 	// Convert instances to API types
 	convertedInstances := make([]types.MCPServerInstance, 0, len(filteredInstances))
 	for _, instance := range filteredInstances {
-		slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, instance)
-		if err != nil {
-			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
-		}
-
 		credEnv, err := mcpServerInstanceCredEnv(req, instance)
 		if err != nil {
 			return err
 		}
 
-		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, credEnv, p.serverURL, slug))
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, credEnv))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

@@ -28,13 +28,10 @@
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
-	import CopyField from '../CopyField.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SelectMcpAccessControlRules from '../admin/SelectMcpAccessControlRules.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
-	import HowToConnect from './HowToConnect.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server, X, CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -51,17 +48,7 @@
 		catalogID?: string;
 		workspaceID?: string;
 		onConnect?: (result: ConnectionResult) => void;
-		onEdit?: ({
-			server,
-			entry,
-			instance
-		}: {
-			server?: MCPCatalogServer;
-			entry?: MCPCatalogEntry;
-			instance?: MCPServerInstance;
-		}) => void;
 		onClose?: () => void;
-		skipConnectDialog?: boolean;
 		renderIntroText?: ({
 			entry,
 			server
@@ -72,16 +59,7 @@
 		introTitle?: string;
 	}
 
-	let {
-		catalogID,
-		workspaceID,
-		onConnect,
-		onClose,
-		onEdit,
-		skipConnectDialog,
-		renderIntroText,
-		introTitle
-	}: Props = $props();
+	let { catalogID, workspaceID, onConnect, onClose, renderIntroText, introTitle }: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
@@ -107,18 +85,8 @@
 			? undefined
 			: getSecretBindingEngineError(manifest)
 	);
-	let isLaunchable = $derived(
-		(entry && !isMultiUserCatalogEntry(entry) && !server) ||
-			(!instance && server && hasMultiUserInstanceConfiguration(server))
-	);
-	let isEditable = $derived(
-		(entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry) && server) ||
-			(server && instance && hasMultiUserInstanceConfiguration(server))
-	);
-
 	let showIntroDialog = $state(false);
 
-	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData>();
 	let configureFormTitle = $state<string>();
@@ -181,15 +149,6 @@
 			.map((name) => name.toLowerCase())
 	);
 
-	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
-	let connectionUrlField = $state<ReturnType<typeof CopyField>>();
-
-	function handleOnClose() {
-		howToConnect?.resetCopied();
-		connectionUrlField?.clear();
-		onClose?.();
-	}
-
 	function notifyConnected(skipOnConnect = false) {
 		const result = { server, entry, instance };
 		if (!skipOnConnect) onConnect?.(result);
@@ -201,11 +160,9 @@
 	function handleConnect(skipOnConnect?: boolean) {
 		launchState = undefined;
 		configDialog?.close();
-		if (!skipConnectDialog && !connectCompletion) {
-			connectDialog?.open();
-		}
 
 		notifyConnected(skipOnConnect);
+		onClose?.();
 	}
 
 	function getUniqueAlias(serverName: string): string | undefined {
@@ -863,13 +820,8 @@
 
 		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
 			initMultiUserInstanceForm(server, instance);
-		} else if (
-			entry?.connectURL ||
-			server?.connectURL ||
-			(entry && server) ||
-			(server && instance)
-		) {
-			connectDialog?.open();
+		} else if ((entry && server) || (server && instance)) {
+			handleConnect();
 		} else {
 			showIntroDialog = true;
 		}
@@ -879,13 +831,6 @@
 		oauthDialog?.close();
 		oauthURL = '';
 		handleConnect();
-	}
-
-	function generateIdFromName(name: string) {
-		return name
-			.toLowerCase()
-			.replace(/ /g, '-')
-			.replace(/[^a-z0-9-_]/g, '');
 	}
 
 	function isEditableCatalogEntry(entry?: MCPCatalogEntry) {
@@ -920,56 +865,6 @@
 		{name}
 	{/if}
 {/snippet}
-
-<ResponsiveDialog
-	bind:this={connectDialog}
-	animate="slide"
-	onClose={handleOnClose}
-	id="connect-to-server-dialog"
->
-	{#snippet titleContent()}
-		{@render dialogTitle(server || entry)}
-		<McpDeprecatedNotice {deprecated} />
-	{/snippet}
-
-	{#if entry?.connectURL || server?.connectURL || instance?.connectURL}
-		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
-		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
-		{#if url}
-			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
-				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					bind:this={connectionUrlField}
-					value={url}
-					id="connectURL"
-					label={m.mcps_servers_connection_url()}
-				/>
-			</div>
-			<HowToConnect
-				bind:this={howToConnect}
-				{url}
-				id={generateIdFromName(displayName)}
-				{displayName}
-				onLaunch={isLaunchable
-					? () => {
-							connectDialog?.close();
-							if (server && !instance && hasMultiUserInstanceConfiguration(server)) {
-								showIntroDialog = true;
-							} else if (entry) {
-								setupNewInstance(entry);
-							}
-						}
-					: undefined}
-				onEdit={onEdit && isEditable
-					? () => {
-							connectDialog?.close();
-							onEdit({ entry, server, instance });
-						}
-					: undefined}
-			/>
-		{/if}
-	{/if}
-</ResponsiveDialog>
 
 <Confirm
 	show={showIntroDialog}

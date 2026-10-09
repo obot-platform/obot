@@ -283,7 +283,6 @@
 			{promptOAuthConfig}
 			onOAuthConfigured={handleOAuthConfigured}
 			hideActions
-			skipConnectDialog
 		/>
 	{/if}
 {/key}

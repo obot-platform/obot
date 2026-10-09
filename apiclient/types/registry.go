@@ -22,7 +22,6 @@ type RegistryServerResponse struct {
 }
 
 // RegistryServerDetail matches the Registry API RegistryServerDetail schema
-// For Obot, configured servers always use Remotes (never Packages)
 type RegistryServerDetail struct {
 	Name        string                    `json:"name"`
 	Description string                    `json:"description"`
@@ -45,10 +44,11 @@ type RegistryServerIcon struct {
 }
 
 // RegistryServerRemote represents a remote server configuration
-// All Obot servers are exposed as streamable-http remotes via mcp-connect
 type RegistryServerRemote struct {
-	Type string `json:"type"` // Always "streamable-http" for configured Obot servers
-	URL  string `json:"url"`  // The mcp-connect URL
+	// The remote transport type
+	Type string `json:"type"`
+	// The MCP endpoint URL
+	URL  string `json:"url"`
 }
 
 // RegistryServerRepository represents repository metadata
