@@ -26,7 +26,7 @@
 
 	interface Props {
 		id?: string;
-		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
+		entity?: 'workspace' | 'catalog' | 'webhook-validation';
 		name: string;
 		mcpServerId?: string;
 		mcpServerInstanceId?: string;

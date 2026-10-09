@@ -30,14 +30,12 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 		oldSettingsSpec,
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	)
 	newHash := mcp.ComputeK8sSettingsHash(
 		newSettingsSpec,
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	)
 	require.NotEqual(t, oldHash, newHash)

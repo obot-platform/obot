@@ -983,7 +983,6 @@ export interface Profile {
 	isAdminReadonly?: () => boolean;
 	isOwner?: () => boolean;
 	isBootstrapUser?: () => boolean;
-	canImpersonate?: () => boolean;
 	unauthorized?: boolean;
 	/** The server refused the session because the account is not active. */
 	accountInactive?: boolean;
@@ -1069,7 +1068,6 @@ export interface Version {
 	mcpNetworkPolicyEnabled?: boolean;
 	mcpDefaultDenyAllEgress?: boolean;
 	messagePoliciesEnabled?: boolean;
-	agentsEnabled?: boolean;
 	hostedAgentsEnabled?: boolean;
 	hideK8sDetails?: boolean;
 	disableLegacyChat?: boolean;
@@ -1086,3 +1084,26 @@ export type Workspace = {
 };
 export type LaunchType = 'hosted' | 'remote';
 export type LaunchServerType = LaunchType | 'multi';
+
+export interface Skill {
+	id: string;
+	created?: string;
+	deleted?: string | null;
+	type: string;
+	name?: string;
+	description?: string;
+	displayName?: string;
+	license?: string;
+	compatibility?: string;
+	allowedTools?: string;
+	metadata?: Record<string, unknown>;
+	repoID?: string;
+	repoURL?: string;
+	repoRef?: string;
+	commitSHA?: string;
+	relativePath?: string;
+	installHash?: string;
+	valid?: boolean;
+	validationError?: string;
+	lastIndexedAt?: string;
+}

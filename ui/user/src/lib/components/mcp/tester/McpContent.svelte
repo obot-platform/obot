@@ -1,7 +1,7 @@
 <script lang="ts">
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import { m } from '$lib/i18n';
-	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { isSafeImageMimeType } from '$lib/image';
 	import CornerCopyButton from './CornerCopyButton.svelte';
 	import McpTextResult from './McpTextResult.svelte';
 

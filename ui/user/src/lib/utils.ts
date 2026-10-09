@@ -1,12 +1,5 @@
 import { m } from '$lib/i18n';
-import {
-	Role,
-	type OrgUser,
-	Group,
-	type DefaultModelAlias,
-	ModelAlias,
-	type Version
-} from './services';
+import { Role, type OrgUser, Group, type Version } from './services';
 import { goto } from './url';
 
 type TableSort = { property: string; order: 'asc' | 'desc' };
@@ -277,15 +270,12 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 
 export const getUserRoleLabel = (role: number) => {
 	const withAuditor = role & Role.AUDITOR ? `, ${m.core_role_auditor()}` : '';
-	const withUserImpersonation =
-		role & Role.USER_IMPERSONATION ? `, ${m.core_role_impersonator()}` : '';
-	if (role & Role.OWNER) return m.core_role_owner() + withAuditor + withUserImpersonation;
-	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER_PLUS)
-		return m.core_role_power_user_plus() + withAuditor + withUserImpersonation;
-	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor + withUserImpersonation;
-	return m.core_unknown() + withAuditor + withUserImpersonation;
+	if (role & Role.OWNER) return m.core_role_owner() + withAuditor;
+	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor;
+	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor;
+	if (role & Role.POWERUSER_PLUS) return m.core_role_power_user_plus() + withAuditor;
+	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor;
+	return m.core_unknown() + withAuditor;
 };
 
 // isDisabledUser reports whether a user is disabled: they keep their account, but cannot sign in or use
@@ -352,20 +342,6 @@ export function getUserDisplayName(
 
 	return display;
 }
-
-export function clampThreadContentReportedWidth(widthPx: number): number {
-	const rounded = Math.round(Math.max(0, widthPx));
-	if (typeof window === 'undefined') return rounded;
-	const viewportWidth =
-		window.visualViewport?.width ?? document.documentElement?.clientWidth ?? window.innerWidth;
-	return Math.min(rounded, viewportWidth);
-}
-
-export const isAgentEnabled = (defaultModelAliases?: DefaultModelAlias[]) =>
-	defaultModelAliases &&
-	defaultModelAliases.length > 0 &&
-	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.Llm)?.model &&
-	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.LlmMini)?.model;
 
 export function isSafe<T = unknown>(value: T): value is NonNullable<T> {
 	return value !== undefined && value !== null;

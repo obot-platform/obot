@@ -706,26 +706,6 @@ func (in ModelStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NanobotAgent) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.NanobotAgent"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NanobotAgentList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.NanobotAgentList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NanobotAgentSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.NanobotAgentSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NanobotAgentStatus) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.NanobotAgentStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in OAuthAuthRequest) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.OAuthAuthRequest"
 }
@@ -813,36 +793,6 @@ func (in PowerUserWorkspaceSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PowerUserWorkspaceStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PowerUserWorkspaceStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Project) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Project"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProjectList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProjectSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectStatus) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProjectStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectV2) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProjectV2"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectV2List) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProjectV2List"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

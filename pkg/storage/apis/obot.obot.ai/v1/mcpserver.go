@@ -55,7 +55,8 @@ type MCPServerSpec struct {
 	Template bool `json:"template,omitempty"`
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
-	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
+	// NanobotAgentID is the name of the Obot Agent that created this MCP server, if there is one.
+	// Obot Agents were removed; this is only read to delete the MCP servers they left behind.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
 	// VMCPInstanceID is the VMCPInstance that owns this component server, if there is one.
 	VMCPInstanceID string `json:"vmcpInstanceID,omitempty"`
@@ -225,7 +226,6 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
-		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
 		{ObjType: &VMCPInstance{}, Name: in.Spec.VMCPInstanceID},
 		{ObjType: &VMCP{}, Name: in.Spec.VMCPID},
 	}
@@ -243,7 +243,7 @@ func (in *MCPServer) ValidConnectURLs(base string) []string {
 
 // IsSingleUser returns true if this is a single-user MCP server.
 func (s MCPServerSpec) IsSingleUser() bool {
-	return s.VMCPInstanceID != "" || s.NanobotAgentID != ""
+	return s.VMCPInstanceID != ""
 }
 
 // IsMultiUser returns true if this is a multi-user MCP server.

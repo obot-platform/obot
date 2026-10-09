@@ -1633,8 +1633,7 @@
 	}
 }
 
-.nanobot .prose,
-.nanobot .milkdown .ProseMirror {
+.markdown-editor .milkdown .ProseMirror {
 	& h1 {
 		font-size: 1.5rem;
 		font-weight: 700;
@@ -1693,7 +1692,7 @@
 	}
 }
 
-.nanobot .milkdown .ProseMirror {
+.markdown-editor .milkdown .ProseMirror {
 	& h1 {
 		margin-top: 0;
 		margin-bottom: 0;
@@ -1803,8 +1802,7 @@
 	}
 }
 
-.milkdown-content,
-.nanobot .prose {
+.milkdown-content {
 	& h1,
 	& h2,
 	& h3,

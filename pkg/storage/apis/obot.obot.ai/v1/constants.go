@@ -9,7 +9,6 @@ const (
 	VMCPInstanceFinalizer          = "obot.obot.ai/vmcp-instance"
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
-	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 	ImagePullSecretFinalizer       = "obot.obot.ai/image-pull-secret"
 	GitCredentialFinalizer         = "obot.obot.ai/git-credential"
 	HostedAgentInstanceFinalizer   = "obot.obot.ai/hosted-agent-instance"

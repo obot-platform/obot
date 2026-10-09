@@ -15,11 +15,7 @@ export interface TooltipOptions {
 }
 
 function resolveDataTheme(trigger: HTMLElement): string {
-	return (
-		trigger.closest('[data-theme]')?.getAttribute('data-theme') ??
-		document.querySelector<HTMLElement>('.nanobot[data-theme]')?.getAttribute('data-theme') ??
-		'nanobotlight'
-	);
+	return trigger.closest('[data-theme]')?.getAttribute('data-theme') ?? 'nanobotlight';
 }
 
 const HOST_CLASS = 'tooltip-portal-daisy-host';

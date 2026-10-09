@@ -493,7 +493,6 @@ export function createMcpServerDetailsFixtures() {
 // Version
 
 export const getVersionResponse = {
-	agentsEnabled: true,
 	authEnabled: true,
 	engine: 'docker',
 	enterprise: false,

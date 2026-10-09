@@ -25,9 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
-	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
-	"github.com/obot-platform/obot/pkg/controller/handlers/project"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
@@ -51,7 +49,7 @@ func (c *Controller) setupRoutes() {
 	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
 	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
 	skillRepository := skillrepository.New(c.services.GatewayClient, c.services.GitMaxRepoSizeMB)
-	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
+	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
 	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper)
@@ -63,11 +61,9 @@ func (c *Controller) setupRoutes() {
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
-	nanobotAgentHandler := nanobotagent.New(c.services.GatewayClient, c.services.LocalRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
 	agentCatalogHandler := agentcatalog.New(c.services.GitMaxRepoSizeMB)
 	hostedAgentHandler := hostedagent.New(c.services.AgentBackend, hostedagentcreds.New(c.services.GatewayClient), c.services.ServerURL, c.services.AgentServerURL, c.services.GitMaxRepoSizeMB)
 	hostedAgentPoolHandler := hostedagentpool.New(c.services.AgentBackend)
-	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 	gitCredentialHandler := gitcredentialhandler.New(c.services.GatewayClient)
 	modelHandler := model.NewHandler(c.services.GatewayClient)
@@ -269,15 +265,6 @@ func (c *Controller) setupRoutes() {
 
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
-
-	// ProjectV2 Migration
-	//nolint:staticcheck
-	root.Type(&v1.ProjectV2{}).HandlerFunc(projectHandler.MigrateProjectV2)
-
-	// NanobotAgent
-	root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.EnsureMCPServer)
-	root.Type(&v1.NanobotAgent{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.NanobotAgent{}).FinalizeFunc(v1.NanobotAgentFinalizer, nanobotAgentHandler.Cleanup)
 
 	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog

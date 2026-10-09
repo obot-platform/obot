@@ -8,10 +8,8 @@
 	interface Props {
 		roleId: number;
 		hasAuditorPrivilege?: boolean;
-		hasUserImpersonationPrivilege?: boolean;
 		onRoleChange?: (roleId: number) => void;
 		onAuditorChange?: (hasAuditor: boolean) => void;
-		onUserImpersonationChange?: (hasUserImpersonation: boolean) => void;
 	}
 
 	interface RoleOption {
@@ -22,10 +20,8 @@
 	let {
 		roleId = $bindable(),
 		hasAuditorPrivilege = $bindable(false),
-		hasUserImpersonationPrivilege = $bindable(false),
 		onRoleChange,
-		onAuditorChange,
-		onUserImpersonationChange
+		onAuditorChange
 	}: Props = $props();
 
 	const canAssignOwner = $derived(profile.current.groups.includes(Group.OWNER));
@@ -57,17 +53,6 @@
 	function handleAuditorChange() {
 		onAuditorChange?.(hasAuditorPrivilege);
 	}
-
-	function handleUserImpersonationChange() {
-		onUserImpersonationChange?.(hasUserImpersonationPrivilege);
-	}
-
-	// Auto-clear user impersonation when base role is not Admin or Owner
-	$effect(() => {
-		if (roleId !== Role.ADMIN && roleId !== Role.OWNER) {
-			hasUserImpersonationPrivilege = false;
-		}
-	});
 </script>
 
 {#snippet roleUi(role: RoleOption)}
@@ -128,28 +113,6 @@
 					{:else}
 						{m.identity_access_groups_auditor_description()}
 					{/if}
-				</p>
-			</div>
-		</label>
-		{@const isUserImpersonationDisabled =
-			isDisabled || (roleId !== Role.ADMIN && roleId !== Role.OWNER)}
-		<label
-			class={twMerge(
-				'border-base-400 hover:bg-base-100/2 active:bg-base-100/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
-				isUserImpersonationDisabled ? 'pointer-events-none opacity-50' : ''
-			)}
-			aria-disabled={isUserImpersonationDisabled}
-		>
-			<input
-				type="checkbox"
-				bind:checked={hasUserImpersonationPrivilege}
-				onchange={handleUserImpersonationChange}
-				disabled={isUserImpersonationDisabled}
-			/>
-			<div class="flex flex-col">
-				<div class="w-28 shrink-0 font-semibold">{m.identity_access_roles_impersonator()}</div>
-				<p class="text-muted-content text-xs">
-					{m.identity_access_groups_impersonator_description()}
 				</p>
 			</div>
 		</label>

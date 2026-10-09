@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -223,20 +222,6 @@ func (h *Handler) Proxy(req api.Context) error {
 			if err != nil {
 				return err
 			}
-		} else if serverConfig.MCPServerName == system.ObotMCPServerName {
-			// If this is contacting the Obot system MCP server, then we need to mint a token that has access
-			// to the APIs the user has access to so the MCP server can list/connect to MCP servers.
-			_, token, err = h.tokenService.NewToken(req.Context(), persistent.TokenContext{
-				Audience:   h.serverURL,
-				IssuedAt:   persistent.NewTime(now),
-				ExpiresAt:  persistent.NewTime(now.Add(time.Hour)),
-				UserID:     serverConfig.UserID,
-				UserGroups: []string{types.GroupAPI, types.GroupAuthenticated},
-				Namespace:  system.DefaultNamespace,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to generate token: %w", err)
-			}
 		} else {
 			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(h.ctx)
 			if err != nil {
@@ -294,15 +279,11 @@ func (h *Handler) Proxy(req api.Context) error {
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				audit.recordTransportError(err, http.StatusBadGateway)
-				if serverConfig.IsAgentServer() {
-					http.Error(w, fmt.Sprintf("failed to proxy request to Nanobot agent %s: %v", serverConfig.AgentName, err), http.StatusBadGateway)
-				} else {
-					mcpServerName := serverConfig.MCPServerDisplayName
-					if mcpServerName == "" {
-						mcpServerName = serverConfig.MCPServerName
-					}
-					http.Error(w, fmt.Sprintf("failed to proxy request to MCP server %s: %v", mcpServerName, err), http.StatusBadGateway)
+				mcpServerName := serverConfig.MCPServerDisplayName
+				if mcpServerName == "" {
+					mcpServerName = serverConfig.MCPServerName
 				}
+				http.Error(w, fmt.Sprintf("failed to proxy request to MCP server %s: %v", mcpServerName, err), http.StatusBadGateway)
 			},
 		}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -393,24 +374,6 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
-	// Add-hoc authorization for nanobot agents
-	if mcpServerConfig.IsAgentServer() {
-		var agent v1.NanobotAgent
-		if err = req.Get(&agent, mcpServerConfig.AgentName); err != nil {
-			return mcp.ServerConfig{}, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.AgentName, err)
-		}
-		if agent.Spec.UserID != req.User.GetUID() {
-			if !req.UserCanImpersonate() || !req.UserIsAdmin() {
-				return mcp.ServerConfig{}, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.AgentName)
-			}
-			// The admission check covered the impersonator. The agent acts as its owner, so an impersonator cannot
-			// reach it while the owner is denied access.
-			if err := h.checkAgentOwnerAccess(req, agent.Spec.UserID); err != nil {
-				return mcp.ServerConfig{}, err
-			}
-		}
-	}
-
 	mcpServerConfig, err = h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to launch mcp server: %w", err)
@@ -480,22 +443,6 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 	return tokenContext
 }
 
-// checkAgentOwnerAccess returns an error unless the owner of a nanobot agent may access Obot.
-func (h *Handler) checkAgentOwnerAccess(req api.Context, ownerID string) error {
-	id, err := strconv.ParseUint(ownerID, 10, 0)
-	if err != nil {
-		return types.NewErrForbidden("nanobot agent has no valid owner")
-	}
-	status, err := req.GatewayClient.UserStatus(req.Context(), uint(id))
-	if err != nil {
-		return err
-	}
-	if status != types.UserStatusActive {
-		return types.NewErrForbidden("the owner of this nanobot agent is not active")
-	}
-	return nil
-}
-
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, error) {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, mcpID); err != nil {
@@ -507,8 +454,8 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 	}
 
 	// Only look up credentials if the manifest has env vars without static values.
-	// This avoids expensive credential lookups on the hot path for servers like
-	// obot-mcp-server where all env vars have static values.
+	// This avoids expensive credential lookups on the hot path for servers
+	// where all env vars have static values.
 	credEnv := make(map[string]string)
 	var needsCredentials bool
 	for _, env := range systemServer.Spec.Manifest.Config {

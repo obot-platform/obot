@@ -17,7 +17,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
-	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secretbinding"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/localauth"
@@ -115,8 +114,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure admin workspaces: %w", err)
 	}
 
-	if err := c.ensureObotMCPServer(ctx); err != nil {
-		return fmt.Errorf("failed to ensure obot MCP server: %w", err)
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, obotAgentRemovalMigrationName, func() error {
+		return deleteObotAgentResources(ctx, c.services.StorageClient, c.services.GatewayClient)
+	}); err != nil {
+		return fmt.Errorf("failed to delete Obot Agent resources: %w", err)
 	}
 
 	if err := c.reconcileServiceAccountKeys(ctx); err != nil {
@@ -178,134 +179,6 @@ func (c *Controller) syncCatalogForMigration(ctx context.Context, key kclient.Ob
 		}
 	}
 	return c.mcpCatalogHandler.SyncNow(ctx, c.services.StorageClient, key)
-}
-
-func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
-	agentsEnabled, err := c.services.AgentsEnabled(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to resolve agents feature: %w", err)
-	}
-
-	internalURL := c.services.MCPSessionManager.TransformObotHostname(c.services.ServerURL)
-	return reconcileObotMCPServer(ctx, c.services.StorageClient, agentsEnabled, internalURL, c.services.MCPServerSearchImage)
-}
-
-func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, agentsEnabled bool, internalURL, image string) error {
-	var existing v1.SystemMCPServer
-	err := storageClient.Get(ctx, kclient.ObjectKey{
-		Namespace: system.DefaultNamespace,
-		Name:      system.ObotMCPServerName,
-	}, &existing)
-	if err == nil {
-		// Reconcile all critical fields to ensure the server is correctly configured
-		var needsUpdate bool
-
-		if agentsEnabled && existing.Spec.Manifest.Enabled != nil {
-			existing.Spec.Manifest.Enabled = nil
-			needsUpdate = true
-		} else if !agentsEnabled && (existing.Spec.Manifest.Enabled == nil || *existing.Spec.Manifest.Enabled) {
-			existing.Spec.Manifest.Enabled = new(false)
-			needsUpdate = true
-		}
-
-		if existing.Spec.Manifest.Runtime != types.RuntimeContainerized {
-			existing.Spec.Manifest.Runtime = types.RuntimeContainerized
-			needsUpdate = true
-		}
-
-		expectedConfig := &types.ContainerizedRuntimeConfig{
-			Image:       image,
-			Port:        8080,
-			Path:        "/mcp",
-			HealthzPath: "/healthz",
-		}
-		if existing.Spec.Manifest.ContainerizedConfig == nil {
-			existing.Spec.Manifest.ContainerizedConfig = expectedConfig
-			needsUpdate = true
-		} else {
-			if existing.Spec.Manifest.ContainerizedConfig.Image != expectedConfig.Image {
-				existing.Spec.Manifest.ContainerizedConfig.Image = expectedConfig.Image
-				needsUpdate = true
-			}
-			if existing.Spec.Manifest.ContainerizedConfig.Port != expectedConfig.Port {
-				existing.Spec.Manifest.ContainerizedConfig.Port = expectedConfig.Port
-				needsUpdate = true
-			}
-			if existing.Spec.Manifest.ContainerizedConfig.Path != expectedConfig.Path {
-				existing.Spec.Manifest.ContainerizedConfig.Path = expectedConfig.Path
-				needsUpdate = true
-			}
-			if existing.Spec.Manifest.ContainerizedConfig.HealthzPath != expectedConfig.HealthzPath {
-				existing.Spec.Manifest.ContainerizedConfig.HealthzPath = expectedConfig.HealthzPath
-				needsUpdate = true
-			}
-		}
-
-		// Check OBOT_URL env var
-		var foundOBOTURLEntry bool
-		for i, env := range existing.Spec.Manifest.Config {
-			if env.Key == "OBOT_URL" {
-				foundOBOTURLEntry = true
-				if env.Value != internalURL {
-					existing.Spec.Manifest.Config[i].Value = internalURL
-					needsUpdate = true
-				}
-			}
-		}
-		if !foundOBOTURLEntry {
-			existing.Spec.Manifest.Config = append(existing.Spec.Manifest.Config, types.MCPConfig{
-				Name:     "OBOT_URL",
-				Key:      "OBOT_URL",
-				Required: true,
-				Value:    internalURL,
-				Usage:    types.Env,
-			})
-			needsUpdate = true
-		}
-
-		if needsUpdate {
-			slog.Info("Updating obot MCP server", "image", image)
-			return storageClient.Update(ctx, &existing)
-		}
-		return nil
-	}
-	if !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	// Create the SystemMCPServer
-	slog.Info("Creating obot MCP server", "image", image)
-	var enabled *bool
-	if !agentsEnabled {
-		enabled = new(false)
-	}
-	server := &v1.SystemMCPServer{
-		Name:       system.ObotMCPServerName,
-		Namespace:  system.DefaultNamespace,
-		Finalizers: []string{v1.SystemMCPServerFinalizer},
-		Spec: v1.SystemMCPServerSpec{
-			Manifest: types.SystemMCPServerManifest{
-				Name:             "Obot MCP Server",
-				ShortDescription: "MCP server for discovering and searching available MCP servers",
-				Enabled:          enabled,
-				Runtime:          types.RuntimeContainerized,
-				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-					Image: image,
-					Port:  8080,
-					Path:  "/mcp",
-				},
-				Config: []types.MCPConfig{{
-					Name:     "OBOT_URL",
-					Key:      "OBOT_URL",
-					Required: true,
-					Value:    internalURL,
-					Usage:    types.Env,
-				}},
-			},
-		},
-	}
-
-	return storageClient.Create(ctx, server)
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
@@ -541,8 +414,6 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
 			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
-			k8sSettings.Spec.StorageClassName = podSchedulingSettings.StorageClassName
-			k8sSettings.Spec.NanobotWorkspaceSize = podSchedulingSettings.NanobotWorkspaceSize
 		}
 		if maximumsSetViaHelm {
 			setK8sSettingsMaximums(&k8sSettings.Spec, podSchedulingSettings)
@@ -569,16 +440,12 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 			!affinityEqual(k8sSettings.Spec.Affinity, podSchedulingSettings.Affinity) ||
 			!tolerationsEqual(k8sSettings.Spec.Tolerations, podSchedulingSettings.Tolerations) ||
 			!resourcesEqual(k8sSettings.Spec.Resources, podSchedulingSettings.Resources) ||
-			!classNameEqual(k8sSettings.Spec.RuntimeClassName, podSchedulingSettings.RuntimeClassName) ||
-			!classNameEqual(k8sSettings.Spec.StorageClassName, podSchedulingSettings.StorageClassName) ||
-			!workspaceSizeEqual(k8sSettings.Spec.NanobotWorkspaceSize, podSchedulingSettings.NanobotWorkspaceSize) {
+			!classNameEqual(k8sSettings.Spec.RuntimeClassName, podSchedulingSettings.RuntimeClassName) {
 			k8sSettings.Spec.SetViaHelm = true
 			k8sSettings.Spec.Affinity = podSchedulingSettings.Affinity
 			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
 			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
-			k8sSettings.Spec.StorageClassName = podSchedulingSettings.StorageClassName
-			k8sSettings.Spec.NanobotWorkspaceSize = podSchedulingSettings.NanobotWorkspaceSize
 			needsUpdate = true
 		}
 	} else if k8sSettings.Spec.SetViaHelm {
@@ -589,8 +456,6 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 		k8sSettings.Spec.Tolerations = nil
 		k8sSettings.Spec.Resources = nil
 		k8sSettings.Spec.RuntimeClassName = nil
-		k8sSettings.Spec.StorageClassName = nil
-		k8sSettings.Spec.NanobotWorkspaceSize = ""
 		needsUpdate = true
 	}
 
@@ -670,9 +535,7 @@ func hasHelmPodSchedulingSettings(settings *v1.K8sSettingsSpec) bool {
 		return false
 	}
 	return settings.SetViaHelm || settings.Affinity != nil || len(settings.Tolerations) > 0 ||
-		settings.Resources != nil || settings.NanobotAgentResources != nil ||
-		settings.RuntimeClassName != nil || settings.StorageClassName != nil ||
-		settings.NanobotWorkspaceSize != ""
+		settings.Resources != nil || settings.RuntimeClassName != nil
 }
 
 func resourceMaximumsEqual(a, b v1.K8sSettingsSpec) bool {
@@ -704,10 +567,6 @@ func classNameEqual(a, b *string) bool {
 		return false
 	}
 	return *a == *b
-}
-
-func workspaceSizeEqual(a, b string) bool {
-	return a == b
 }
 
 func psaSettingsEqual(a, b *v1.PodSecurityAdmissionSettings) bool {
@@ -758,8 +617,6 @@ func (c *Controller) setupLocalK8sRoutes() {
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 
-		secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GatewayClient)
-		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
 		// Reconcile delete/update events for the provider token secret immediately,
 		// instead of waiting for the periodic service-account key rotation loop.
 		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)

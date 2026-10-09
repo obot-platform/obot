@@ -3,9 +3,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService } from '$lib/services';
-	import type { Skill } from '$lib/services/nanobot/types';
-	import MarkdownEditor from '../nanobot/MarkdownEditor.svelte';
+	import { AdminService, type Skill } from '$lib/services';
+	import MarkdownEditor from '../MarkdownEditor.svelte';
 	import { ExternalLink, Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -202,7 +201,7 @@
 				{:else if skillPreviewLoading}
 					<Loading />
 				{:else if skillPreviewContent}
-					<div class="nanobot skill-form-preview">
+					<div class="markdown-editor skill-form-preview">
 						<MarkdownEditor value={skillPreviewContent} readonly />
 					</div>
 				{/if}

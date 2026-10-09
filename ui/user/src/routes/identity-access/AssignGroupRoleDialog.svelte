@@ -14,14 +14,13 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
-		onUserImpersonationConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 		open?: boolean;
 	}
 
 	// Helper functions to work with roles
 	function getRoleId(role: number): number {
-		return role & ~(Role.AUDITOR | Role.USER_IMPERSONATION);
+		return role & ~Role.AUDITOR;
 	}
 
 	function hasAuditorFlag(role: number): boolean {
@@ -32,14 +31,6 @@
 		return role | Role.AUDITOR;
 	}
 
-	function hasUserImpersonationFlag(role: number): boolean {
-		return (role & Role.USER_IMPERSONATION) !== 0;
-	}
-
-	function addUserImpersonationFlag(role: number): number {
-		return role | Role.USER_IMPERSONATION;
-	}
-
 	let {
 		groupAssignment = $bindable(),
 		open,
@@ -47,7 +38,6 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
-		onUserImpersonationConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -55,7 +45,6 @@
 
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
-	let draftHaveUserImpersonationPrivilege = $state(false);
 
 	const hasRoleChanged = $derived(
 		draftRoleId !== getRoleId(groupAssignment ? groupAssignment.assignment.role : 0)
@@ -66,13 +55,8 @@
 			draftHaveAuditorPrivilege
 	);
 
-	const hasUserImpersonationChanged = $derived(
-		hasUserImpersonationFlag(groupAssignment ? groupAssignment.assignment.role : 0) !==
-			draftHaveUserImpersonationPrivilege
-	);
-
 	// Check if any changes were made
-	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged || hasUserImpersonationChanged);
+	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged);
 
 	$effect(() => {
 		if (groupAssignment) {
@@ -80,7 +64,6 @@
 			const role = groupAssignment.assignment.role || 0;
 			draftRoleId = getRoleId(role);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
-			draftHaveUserImpersonationPrivilege = hasUserImpersonationFlag(role);
 		}
 	});
 
@@ -103,9 +86,6 @@
 		if (draftHaveAuditorPrivilege) {
 			role = addAuditorFlag(role);
 		}
-		if (draftHaveUserImpersonationPrivilege) {
-			role = addUserImpersonationFlag(role);
-		}
 		const result: GroupAssignment = {
 			group: groupAssignment.group,
 			assignment: {
@@ -115,10 +95,7 @@
 		};
 
 		const currentRoleId = getRoleId(groupAssignment.assignment.role || 0);
-		if (hasUserImpersonationChanged && draftHaveUserImpersonationPrivilege && draftRoleId !== 0) {
-			// User Impersonation changed - show confirmation
-			onUserImpersonationConfirm(result);
-		} else if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
+		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
 			// Auditor changed - show auditor confirmation
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {
@@ -174,7 +151,6 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
-				bind:hasUserImpersonationPrivilege={draftHaveUserImpersonationPrivilege}
 			/>
 		</div>
 

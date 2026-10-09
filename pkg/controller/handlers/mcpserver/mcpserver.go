@@ -36,7 +36,6 @@ type Handler struct {
 	defaultDenyAllEgress         bool
 	singleUserIdleShutdownDelay  time.Duration
 	multiUserIdleShutdownDelay   time.Duration
-	agentIdleShutdownDelay       time.Duration
 	baseURL                      string
 	mcpRuntimeBackend            string
 	mcpImagePullSecrets          []string
@@ -49,7 +48,7 @@ func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bo
 	return defaultWhenEmpty && len(domains) == 0
 }
 
-func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, tokenStore mcp.GlobalTokenStore, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
+func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, tokenStore mcp.GlobalTokenStore, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
 		gatewayClient:                gatewayClient,
 		mcpSessionManager:            mcpSessionManager,
@@ -58,7 +57,6 @@ func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, t
 		defaultDenyAllEgress:         defaultDenyAllEgress,
 		singleUserIdleShutdownDelay:  singleUserIdleShutdownDelay,
 		multiUserIdleShutdownDelay:   multiUserIdleShutdownDelay,
-		agentIdleShutdownDelay:       agentIdleShutdownDelay,
 		baseURL:                      baseURL,
 		mcpRuntimeBackend:            mcpRuntimeBackend,
 		mcpImagePullSecrets:          mcpImagePullSecrets,
@@ -97,11 +95,6 @@ func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) 
 
 	if !h.networkPolicyProviderEnabled {
 		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
-	}
-
-	// Don't create an MCPNetworkPolicy if this is an agent pod
-	if server.Spec.NanobotAgentID != "" {
-		return nil
 	}
 
 	var egressDomains []string
@@ -241,7 +234,6 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 		k8sSettings.Spec,
 		resources,
 		server.Spec.Manifest.Runtime,
-		server.Spec.NanobotAgentID != "",
 		imagePullSecretNames,
 	)
 	shouldSetNeedsK8sUpdate := server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate
@@ -732,9 +724,7 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 	idleInterval := time.Duration(mcpServer.Spec.Manifest.IdleShutdownIntervalHours) * time.Hour
 	if idleInterval == 0 {
 		idleInterval = h.singleUserIdleShutdownDelay
-		if mcpServer.Spec.NanobotAgentID != "" {
-			idleInterval = h.agentIdleShutdownDelay
-		} else if !mcpServer.Spec.IsSingleUser() {
+		if !mcpServer.Spec.IsSingleUser() {
 			idleInterval = h.multiUserIdleShutdownDelay
 		}
 	}

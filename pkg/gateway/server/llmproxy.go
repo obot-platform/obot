@@ -38,9 +38,6 @@ import (
 
 const (
 	tokenUsageTimePeriod = 24 * time.Hour
-
-	internalRequestTypeHeader = "X-Nanobot-Internal-Request-Type"
-	threadTitleRequestType    = "nanobot.summary.thread_title"
 )
 
 var (
@@ -420,7 +417,7 @@ func (r *responseModifier) streamAndEvaluateToolCalls(ctx context.Context, pw *i
 // Text delta chunks are forwarded immediately; once the first tool_call chunk appears,
 // all remaining lines are buffered until the stream ends. After policy evaluation,
 // the buffered lines (including tool calls) are forwarded unmodified, and a violation
-// marker is injected if a policy was violated. The downstream client (nanobot) detects
+// marker is injected if a policy was violated. A downstream client that understands it detects
 // this marker and returns error tool_results instead of executing the tools.
 func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw *io.PipeWriter) {
 	var (
@@ -516,7 +513,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 	}
 
 	// Violation — forward tool calls (to keep conversation history valid)
-	// and inject a violation marker that nanobot can detect.
+	// and inject a violation marker that clients can detect.
 	var explanations []string
 	for _, v := range violations {
 		explanations = append(explanations, v.Explanation)
@@ -825,7 +822,6 @@ func llmRewriteRequest(u url.URL) func(*httputil.ProxyRequest) {
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
-		req.Header.Del(internalRequestTypeHeader)
 	}
 }
 
@@ -1031,19 +1027,15 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 
 	var (
-		messagePolicyHelper    = l.messagePolicyHelper
 		outputPolicies         []messagepolicy.ApplicablePolicy
 		conversationHistory    []messagepolicy.ConversationMessage
 		inputPolicyReplacement string
 	)
-	if shouldSkipMessagePolicyEnforcement(req.Request) {
-		messagePolicyHelper = nil
-	}
-	if messagePolicyHelper != nil && req.User.GetUID() != "" {
+	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
 		if err := json.Unmarshal(prepared.body, &bodyMap); err == nil {
 			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
+				req.Context(), l.messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
 			)
 			if err != nil {
 				return err
@@ -1093,7 +1085,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		tokenUsageTracker:      prepared.tokenUsageTracker,
 		mapHelper:              l.mapHelper,
 		inputPolicyReplacement: inputPolicyReplacement,
-		messagePolicyHelper:    messagePolicyHelper,
+		messagePolicyHelper:    l.messagePolicyHelper,
 		outputPolicies:         outputPolicies,
 		conversationHistory:    conversationHistory,
 		audit:                  audit,
@@ -1185,14 +1177,6 @@ func applyMessagePolicies(
 	}
 
 	return outputPolicies, conversationHistory, inputPolicyReplacement, nil
-}
-
-func shouldSkipMessagePolicyEnforcement(req *http.Request) bool {
-	if req == nil {
-		return false
-	}
-
-	return req.Header.Get(internalRequestTypeHeader) == threadTitleRequestType
 }
 
 // modelAllowedForAgent matches a model against an agent's configured list.

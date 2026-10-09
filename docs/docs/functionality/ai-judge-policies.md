@@ -6,10 +6,10 @@ title: AI Judge Policies
 
 ## Overview
 
-AI Judge Policies let administrators enforce content rules written in natural language on Obot Agent traffic at the LLM proxy layer. A policy can apply to:
+AI Judge Policies let administrators enforce content rules written in natural language on traffic through the LLM proxy. A policy can apply to:
 
 - **User messages** before they are sent to the model
-- **Tool calls** before the agent is allowed to execute them
+- **Tool calls** before the client is allowed to execute them
 
 AI Judge Policies are an **experimental feature** and are disabled by default.
 To enable them, set `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and restart Obot.
@@ -73,7 +73,7 @@ Behavior differs slightly by response type, but the effective result is the same
 
 - Assistant text can continue streaming normally
 - Tool call data is buffered and evaluated before execution
-- If the tool call violates a policy, Obot signals to the Obot Agent that the tool call cannot be executed
+- If the tool call violates a policy, Obot signals to the client that the tool call cannot be executed
 - The violation is logged with the blocked tool call payload
 
 Obot preserves the tool-call events in the response so conversation state remains valid, but execution is prevented.
@@ -143,12 +143,11 @@ Deleting a policy removes that enforcement rule immediately for the affected use
 Each additional policy added to the system will increase the overall token usage, due to tokens spent during policy evaluation.
 The tokens consumed do not count against the user's token usage.
 
-Adding policies also increases latency between request and response when chatting with the Obot Agent, but since they are executed in parallel,
+Adding policies also increases latency between request and response, but since they are executed in parallel,
 latency will not scale as much as token usage will when more than one policy is evaluated.
 
 ## Related Topics
 
-- [Obot Agent Management](../agents/first-agent.md) - Overview of the admin area where AI Judge Policies appear
 - [Model Providers](../configuration/model-providers.md) - Configure the default `llm` and `llm-mini` aliases used for policy evaluation
 - [Obot Configuration Reference](../configuration/server-configuration.md) - Enable the feature with server configuration
 - [User Roles](../security/policy-coverage.md) - Understand Admin, Owner, and Auditor permissions

@@ -36,8 +36,6 @@
 	"models_message_policy_fallback_title": "消息策略",
 	"models_no_access_policies": "暂无模型访问策略",
 	"models_no_access_policies_desc": "您尚未创建任何模型访问策略。",
-	"models_no_providers_desc": "要使用 Obot 聊天功能，您需要设置模型提供商。请在下方选择并配置一个以开始使用！",
-	"models_no_providers_title": "尚未配置模型提供商！",
 	"models_not_configured": "未配置",
 	"models_providers_add_models": "添加模型",
 	"models_providers_all_domains": "所有域",

@@ -22,6 +22,9 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	"agents/identity": "security/credentials",
 	"agents/runtime": "installation/overview",
 	"agents/workflows": "registries/publish-skills",
+	"concepts/obot-agent": "start-here/choose",
+	"functionality/obot-agent-management": "security/model",
+	"functionality/workflow-sharing": "registries/publish-skills",
 	architecture: "concepts/architecture",
 
 	// concepts/admin/* — section removed; map to closest equivalents

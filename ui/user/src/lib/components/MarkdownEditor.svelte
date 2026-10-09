@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
-	import { splitFrontmatter } from '$lib/services/nanobot/utils';
+	import { splitFrontmatter } from '$lib/markdown';
 	import { Crepe } from '@milkdown/crepe';
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame.css';
@@ -181,7 +181,7 @@
 <div use:editor class:readonly></div>
 
 <style>
-	:global(.nanobot .milkdown) {
+	:global(.markdown-editor .milkdown) {
 		--crepe-color-background: var(--color-base-200);
 		--crepe-color-on-background: var(--color-base-content);
 		--crepe-color-surface: var(--color-base-100);
@@ -207,29 +207,31 @@
 		--crepe-font-title: inherit;
 	}
 
-	:global(.nanobot .milkdown .ProseMirror) {
+	:global(.markdown-editor .milkdown .ProseMirror) {
 		padding-top: 0;
 		padding-bottom: 0;
 		padding-left: 0.25rem;
 		padding-right: 0.25rem;
 	}
 
-	:global(.nanobot .milkdown .ProseMirror.block-editor-enabled) {
+	:global(.markdown-editor .milkdown .ProseMirror.block-editor-enabled) {
 		padding-left: 5.5rem;
 		padding-right: 5.5rem;
 	}
 
-	:global(.nanobot .milkdown .milkdown-code-block) {
+	:global(.markdown-editor .milkdown .milkdown-code-block) {
 		border-radius: var(--radius-box);
 	}
 
-	.readonly :global(.nanobot .milkdown .ProseMirror p.crepe-paragraph:empty::before),
-	.readonly :global(.nanobot .milkdown .ProseMirror [data-placeholder]::before) {
+	.readonly :global(.markdown-editor .milkdown .ProseMirror p.crepe-paragraph:empty::before),
+	.readonly :global(.markdown-editor .milkdown .ProseMirror [data-placeholder]::before) {
 		display: none;
 	}
 
 	.readonly
-		:global(.nanobot .milkdown .ProseMirror p:has(> .ProseMirror-trailingBreak:only-child)) {
+		:global(
+			.markdown-editor .milkdown .ProseMirror p:has(> .ProseMirror-trailingBreak:only-child)
+		) {
 		display: none;
 	}
 </style>

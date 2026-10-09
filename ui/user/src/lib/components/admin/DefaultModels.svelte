@@ -8,7 +8,7 @@
 		type Model,
 		type DefaultModelAlias,
 		ModelAliasToUsageMap,
-		NanobotModelAlias,
+		ConfigurableModelAlias,
 		UserService,
 		AdminService
 	} from '$lib/services';
@@ -20,7 +20,7 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
 	let sortedModelAliases = $derived(
-		Object.values(NanobotModelAlias)
+		Object.values(ConfigurableModelAlias)
 			.map((alias) => defaultModelAliases.find((defaultAlias) => defaultAlias.alias === alias))
 			.filter((x) => !!x)
 	);

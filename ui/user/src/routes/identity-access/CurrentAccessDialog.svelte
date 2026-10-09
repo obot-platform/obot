@@ -13,9 +13,9 @@
 		type ModelAlias,
 		type OrgUser,
 		UserService,
-		type SkillRepository
+		type SkillRepository,
+		type Skill
 	} from '$lib/services';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, mcpServersAndEntries, version } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import {

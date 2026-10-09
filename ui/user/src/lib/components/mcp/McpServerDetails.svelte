@@ -15,7 +15,7 @@
 
 	interface Props {
 		catalogEntry?: MCPCatalogEntry;
-		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
+		entity?: 'workspace' | 'catalog' | 'webhook-validation';
 		entityId?: string;
 		server?: MCPCatalogServer;
 		serverId?: string;

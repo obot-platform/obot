@@ -1,7 +1,3 @@
-import { getLocale } from '$lib/i18n';
-import type { FileTimeResult } from './services/nanobot/types';
-import type { TimeDisplayFormat } from './time';
-
 function formatWithSuffix(value: number, suffix: string): string {
 	return value % 1 === 0 ? `${value}${suffix}` : `${value.toFixed(1)}${suffix}`;
 }
@@ -30,32 +26,6 @@ export function formatFileSize(bytes: number): string {
 	}
 
 	return `${size.toFixed(1)} ${units[unitIndex]}`;
-}
-
-export function formatFileTime(timestamp: unknown, format: TimeDisplayFormat): FileTimeResult {
-	if (typeof timestamp !== 'string') return { date: undefined, formatted: '' };
-
-	const value = timestamp.trim();
-	if (!value) return { date: undefined, formatted: '' };
-
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return { date: undefined, formatted: '' };
-
-	let formatted: string;
-	try {
-		formatted = new Intl.DateTimeFormat(getLocale(), {
-			year: 'numeric',
-			month: 'numeric',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			hour12: format === '12h'
-		}).format(date);
-	} catch {
-		return { date: undefined, formatted: '' };
-	}
-
-	return { date, formatted };
 }
 
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -92,25 +62,6 @@ function encodeBytesToBase64(bytes: Uint8Array): string {
 export function encodeUtf8ToBase64(value: string): string {
 	return encodeBytesToBase64(new TextEncoder().encode(value));
 }
-
-function convertBase64ToBytes(base64: string) {
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-	for (let i = 0; i < binary.length; i++) {
-		bytes[i] = binary.charCodeAt(i);
-	}
-	return bytes;
-}
-
-export const formatBase64ToBlobUrl = (base64: string, mime: string): string => {
-	const bytes = convertBase64ToBytes(base64);
-	return URL.createObjectURL(new Blob([bytes], { type: mime }));
-};
-
-export const formatBase64ToBlob = (base64: string, type: string): Blob => {
-	const bytes = convertBase64ToBytes(base64);
-	return new Blob([bytes], { type });
-};
 
 export const formatDeviceCommand = (cmd?: string, args?: string[]): string => {
 	if (!cmd) return '—';

@@ -169,7 +169,6 @@ func TestEnableUser(t *testing.T) {
 		"basic":         deactivate("00u-basic", types2.RoleBasic),
 		"owner":         deactivate("00u-owner", types2.RoleOwner),
 		"auditor":       deactivate("00u-auditor", types2.RoleBasic|types2.RoleAuditor),
-		"impersonator":  deactivate("00u-impersonator", types2.RoleAdmin|types2.RoleUserImpersonation),
 		"group owner":   deactivate("00u-group", types2.RoleBasic),
 		"explicit":      deactivate("00u-explicit", types2.RoleBasic),
 		"owner by role": deactivate("00u-owner2", types2.RoleOwner),
@@ -239,12 +238,6 @@ func TestEnableUser(t *testing.T) {
 		{
 			name:       "an Admin enabling an auditor",
 			user:       "auditor",
-			requester:  types2.RoleAdmin,
-			wantStatus: http.StatusForbidden,
-		},
-		{
-			name:       "an Admin enabling a user with the user impersonation role",
-			user:       "impersonator",
 			requester:  types2.RoleAdmin,
 			wantStatus: http.StatusForbidden,
 		},

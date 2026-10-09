@@ -1788,35 +1788,10 @@ func TestShutdownIdleServersSchedulesRetryUsingServerSpecificInterval(t *testing
 	err := (&Handler{
 		singleUserIdleShutdownDelay: 15 * time.Hour,
 		multiUserIdleShutdownDelay:  20 * time.Hour,
-		agentIdleShutdownDelay:      25 * time.Hour,
 	}).ShutdownIdleServers(req, resp)
 	require.NoError(t, err)
 
 	assert.InDelta(t, (3 * time.Hour).Seconds(), resp.Delay.Seconds(), 1)
-}
-
-func TestShutdownIdleServersUsesAgentDefaultIdleInterval(t *testing.T) {
-	server := newMCPServer("agent-server")
-	server.Spec.NanobotAgentID = "agent-1"
-	server.Status.LastRequestTime = metav1.NewTime(time.Now().Add(-2 * time.Hour))
-
-	req := router.Request{
-		Client:    newFakeClient(t, server),
-		Ctx:       t.Context(),
-		Object:    server,
-		Namespace: server.Namespace,
-		Name:      server.Name,
-	}
-	resp := &router.ResponseWrapper{}
-
-	err := (&Handler{
-		singleUserIdleShutdownDelay: 15 * time.Hour,
-		multiUserIdleShutdownDelay:  20 * time.Hour,
-		agentIdleShutdownDelay:      7 * time.Hour,
-	}).ShutdownIdleServers(req, resp)
-	require.NoError(t, err)
-
-	assert.InDelta(t, (5 * time.Hour).Seconds(), resp.Delay.Seconds(), 1)
 }
 
 func TestShutdownIdleServersUsesMultiUserDefaultIdleInterval(t *testing.T) {
@@ -1836,7 +1811,6 @@ func TestShutdownIdleServersUsesMultiUserDefaultIdleInterval(t *testing.T) {
 	err := (&Handler{
 		singleUserIdleShutdownDelay: 15 * time.Hour,
 		multiUserIdleShutdownDelay:  9 * time.Hour,
-		agentIdleShutdownDelay:      25 * time.Hour,
 	}).ShutdownIdleServers(req, resp)
 	require.NoError(t, err)
 
@@ -1946,34 +1920,6 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {
 	}
 
 	err := (&Handler{}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
-	require.NoError(t, err)
-
-	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
-		"spec.mcpServerName": server.Name,
-	}))
-	require.Empty(t, policies.Items)
-}
-
-func TestEnsureMCPNetworkPolicySkipsNanobotAgentServer(t *testing.T) {
-	server := newMCPServer("nanobot-agent-server")
-	server.Spec.NanobotAgentID = "agent-1"
-	server.Spec.Manifest.Runtime = types.RuntimeNPX
-	server.Spec.Manifest.NPXConfig = &types.NPXRuntimeConfig{
-		Package:       "@test/package",
-		EgressDomains: []string{"api.example.com"},
-	}
-
-	client := newFakeClient(t, server)
-	req := router.Request{
-		Client:    client,
-		Ctx:       t.Context(),
-		Object:    server,
-		Namespace: server.Namespace,
-		Name:      server.Name,
-	}
-
-	err := (&Handler{networkPolicyProviderEnabled: true}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList

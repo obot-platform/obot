@@ -185,11 +185,6 @@ describe('UsersView', () => {
 				effectiveRole: Role.BASIC | Role.AUDITOR
 			},
 			{
-				name: 'a user with the user impersonation role',
-				role: Role.ADMIN | Role.USER_IMPERSONATION,
-				effectiveRole: Role.ADMIN | Role.USER_IMPERSONATION
-			},
-			{
 				name: 'a user whose group grants the Owner role',
 				role: Role.BASIC,
 				effectiveRole: Role.OWNER

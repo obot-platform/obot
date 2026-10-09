@@ -278,9 +278,6 @@ func roleDetail(role types.Role) string {
 	if role.HasAuditorRole() {
 		names = append(names, "Auditor")
 	}
-	if role.HasUserImpersonationRole() {
-		names = append(names, "User Impersonation")
-	}
 	if len(names) == 0 {
 		return ""
 	}

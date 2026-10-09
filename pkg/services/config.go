@@ -73,7 +73,6 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
@@ -141,7 +140,6 @@ type Config struct {
 	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays              int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
 	EnableHostedAgents                   bool   `usage:"Enable Hosted Agents features" default:"false"`
 	HostedAgentsBackend                  string `usage:"Hosted agent runtime backend (disabled, fake, or kubernetes). Defaults to the MCP runtime backend: kubernetes when MCP servers run on Kubernetes, and otherwise fake, since there is no docker agent backend." name:"hosted-agents-backend" env:"OBOT_HOSTED_AGENTS_BACKEND"`
 	HostedAgentsStorageClassName         string `usage:"StorageClass for hosted agent pool volumes. It should use volumeBindingMode WaitForFirstConsumer, which is what keeps a pool on one node." name:"hosted-agents-storage-class-name"`
@@ -152,8 +150,6 @@ type Config struct {
 	HostedAgentsAffinity                 string `usage:"Affinity rules for hosted agent pods (JSON)" name:"hosted-agents-affinity"`
 	HostedAgentsTolerations              string `usage:"Tolerations for hosted agent pods (JSON)" name:"hosted-agents-tolerations"`
 	HostedAgentsNodeSelector             string `usage:"Node selector for hosted agent pods (JSON)" name:"hosted-agents-node-selector"`
-	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
-	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.92"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
@@ -282,7 +278,6 @@ type Services struct {
 	MCPImagePullSecrets     []string
 	MCPHTTPWebhookBaseImage string
 	MessagePoliciesEnabled  bool
-	EnableAgents            *bool
 	HostedAgentsEnabled     bool
 	AgentBackend            agentbackend.Backend
 	AgentBackendKind        string
@@ -292,8 +287,6 @@ type Services struct {
 	AgentDevRouter                       agentconnect.DevRouter
 	MCPNetworkPolicyEnabled              bool
 	MCPDefaultDenyAllEgress              bool
-	MCPServerSearchImage                 string
-	NanobotAgentImage                    string
 	MCPNetworkPolicyProviderChartRepo    string
 	MCPNetworkPolicyProviderChartName    string
 	MCPNetworkPolicyProviderChartVersion string
@@ -301,7 +294,6 @@ type Services struct {
 	MCPNetworkPolicyProviderValues       string
 	SingleUserIdleServerShutdownInterval time.Duration
 	MultiUserIdleServerShutdownInterval  time.Duration
-	AgentIdleServerShutdownInterval      time.Duration
 
 	// Published artifact blob storage
 	ArtifactBlobStore  blob.BlobStore
@@ -409,10 +401,7 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
 		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
 		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
-		(opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}") ||
-		opts.MCPK8sSettingsRuntimeClassName != "" ||
-		opts.MCPK8sSettingsStorageClassName != "" ||
-		opts.MCPK8sSettingsNanobotWorkspaceSize != ""
+		opts.MCPK8sSettingsRuntimeClassName != ""
 	hasMaximums := opts.MCPK8sMaxCPURequest != "" ||
 		opts.MCPK8sMaxCPULimit != "" ||
 		opts.MCPK8sMaxMemoryRequest != "" ||
@@ -448,26 +437,6 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	spec.MaxCPULimit = maximums.CPULimit
 	spec.MaxMemoryRequest = maximums.MemoryRequest
 	spec.MaxMemoryLimit = maximums.MemoryLimit
-
-	if opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}" {
-		var nanobotAgentResources corev1.ResourceRequirements
-		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsNanobotAgentResources), &nanobotAgentResources); err != nil {
-			return nil, fmt.Errorf("failed to parse nanobot agent resources from Helm: %w", err)
-		}
-		spec.NanobotAgentResources = &nanobotAgentResources
-	}
-
-	if opts.MCPK8sSettingsStorageClassName != "" {
-		storageClassName := opts.MCPK8sSettingsStorageClassName
-		spec.StorageClassName = &storageClassName
-	}
-
-	if opts.MCPK8sSettingsNanobotWorkspaceSize != "" {
-		if _, err := resource.ParseQuantity(opts.MCPK8sSettingsNanobotWorkspaceSize); err != nil {
-			return nil, fmt.Errorf("invalid nanobot workspace size from Helm: %w", err)
-		}
-		spec.NanobotWorkspaceSize = opts.MCPK8sSettingsNanobotWorkspaceSize
-	}
 
 	return spec, nil
 }
@@ -1472,9 +1441,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
 		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
-		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
-		EnableAgents:                         config.EnableAgents,
 		HostedAgentsEnabled:                  config.EnableHostedAgents,
 		AgentBackend:                         agentBackend,
 		AgentServerURL:                       agentServerURL,
@@ -1482,8 +1449,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AgentDevRouter:                       agentDevRouter,
 		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
 		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,
-		MCPServerSearchImage:                 config.MCPServerSearchImage,
-		NanobotAgentImage:                    config.NanobotAgentImage,
 		MCPNetworkPolicyProviderChartRepo:    config.MCPNetworkPolicyProviderChartRepo,
 		MCPNetworkPolicyProviderChartName:    config.MCPNetworkPolicyProviderChartName,
 		MCPNetworkPolicyProviderChartVersion: config.MCPNetworkPolicyProviderChartVersion,

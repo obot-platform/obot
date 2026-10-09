@@ -54,20 +54,16 @@ type Options struct {
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
 	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
-	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
 
 	// Kubernetes settings from Helm
-	MCPK8sSettingsAffinity              string `usage:"Affinity rules for MCP server pods (JSON)"`
-	MCPK8sSettingsTolerations           string `usage:"Tolerations for MCP server pods (JSON)"`
-	MCPK8sSettingsResources             string `usage:"Resource requests/limits for MCP server pods (JSON)"`
-	MCPK8sSettingsNanobotAgentResources string `usage:"Resource requests/limits for NanobotAgent pods (JSON)"`
-	MCPK8sSettingsRuntimeClassName      string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
-	MCPK8sSettingsStorageClassName      string `usage:"StorageClass name for nanobot workspace volumes"`
-	MCPK8sSettingsNanobotWorkspaceSize  string `usage:"Nanobot workspace size for MCP server pods (e.g., 1Gi)"`
-	MCPK8sMaxCPURequest                 string `usage:"Maximum CPU request allowed for normal MCP server pods"`
-	MCPK8sMaxCPULimit                   string `usage:"Maximum CPU limit allowed for normal MCP server pods"`
-	MCPK8sMaxMemoryRequest              string `usage:"Maximum memory request allowed for normal MCP server pods"`
-	MCPK8sMaxMemoryLimit                string `usage:"Maximum memory limit allowed for normal MCP server pods"`
+	MCPK8sSettingsAffinity         string `usage:"Affinity rules for MCP server pods (JSON)"`
+	MCPK8sSettingsTolerations      string `usage:"Tolerations for MCP server pods (JSON)"`
+	MCPK8sSettingsResources        string `usage:"Resource requests/limits for MCP server pods (JSON)"`
+	MCPK8sSettingsRuntimeClassName string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
+	MCPK8sMaxCPURequest            string `usage:"Maximum CPU request allowed for normal MCP server pods"`
+	MCPK8sMaxCPULimit              string `usage:"Maximum CPU limit allowed for normal MCP server pods"`
+	MCPK8sMaxMemoryRequest         string `usage:"Maximum memory request allowed for normal MCP server pods"`
+	MCPK8sMaxMemoryLimit           string `usage:"Maximum memory limit allowed for normal MCP server pods"`
 
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`

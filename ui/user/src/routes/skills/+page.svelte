@@ -12,13 +12,12 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { m } from '$lib/i18n';
-	import { AdminService } from '$lib/services';
+	import { AdminService, type Skill } from '$lib/services';
 	import type {
 		GitCredential,
 		SkillAccessPolicy,
 		SkillRepository
 	} from '$lib/services/admin/types';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
 	import { clearUrlParams, getTableUrlParamsFilters, goto, setFilterUrlParams } from '$lib/url';
 	import SkillsPoliciesView from './SkillsPoliciesView.svelte';

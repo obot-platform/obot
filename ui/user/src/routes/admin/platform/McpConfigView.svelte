@@ -27,8 +27,6 @@
 						affinity: initialK8sSettings.affinity ?? '',
 						tolerations: initialK8sSettings.tolerations ?? '',
 						runtimeClassName: initialK8sSettings.runtimeClassName ?? '',
-						storageClassName: initialK8sSettings.storageClassName ?? '',
-						nanobotWorkspaceSize: initialK8sSettings.nanobotWorkspaceSize ?? '',
 						maxCpuRequest: initialK8sSettings.maxCpuRequest ?? '',
 						maxMemoryRequest: initialK8sSettings.maxMemoryRequest ?? '',
 						maxCpuLimit: initialK8sSettings.maxCpuLimit ?? '',
@@ -202,55 +200,6 @@
 						</div>
 					{/if}
 				{/snippet}
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent(m.platform_mcp_config_nanobot_storage())}
-						<p class="text-sm">
-							{m.platform_mcp_config_storage_description_prefix()}
-							<a
-								href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
-								class="text-link"
-								rel="external noopener noreferrer"
-								target="_blank">{m.platform_mcp_config_storage_link()}</a
-							>
-							{m.platform_mcp_config_storage_suffix()}
-						</p>
-					</div>
-					<div class="flex flex-col gap-4">
-						<div class="flex flex-col gap-1">
-							<label class="input-label" for="storage-class-name"
-								>{m.platform_mcp_config_storage_class_name()}</label
-							>
-							<input
-								type="text"
-								id="storage-class-name"
-								bind:value={k8sSettings.storageClassName}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder={m.platform_example_value({ value: 'fast-ssd' })}
-							/>
-							<p class="text-xs font-light text-muted-content">
-								{m.platform_mcp_config_storage_class_hint()}
-							</p>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="input-label" for="nanobot-workspace-size"
-								>{m.platform_mcp_config_volume_size()}</label
-							>
-							<input
-								type="text"
-								id="nanobot-workspace-size"
-								bind:value={k8sSettings.nanobotWorkspaceSize}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder={m.platform_example_value({ value: '10Gi' })}
-							/>
-							<p class="text-xs font-light text-muted-content">
-								{m.platform_mcp_config_volume_size_hint()}
-							</p>
-						</div>
-					</div>
-				</div>
 			</SchedulingForm>
 
 			{#if !readonly}

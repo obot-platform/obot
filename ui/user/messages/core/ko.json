@@ -160,7 +160,6 @@
 	"core_role_admin": "관리자",
 	"core_role_admin_description": "모든 사용자가 전체 관리자가 됩니다. 이 옵션을 선택할 때 주의하세요.",
 	"core_role_auditor": "감사자",
-	"core_role_impersonator": "가장 사용자",
 	"core_role_owner": "소유자",
 	"core_role_power_user": "파워 유저",
 	"core_role_power_user_description": "일반 사용자 기능 외에도 개인용 사용자 지정 MCP 서버를 게시할 수 있습니다.",

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
+	import type { Skill } from '$lib/services';
 	import type { SkillRepository, SkillAccessPolicyResource } from '$lib/services/admin/types';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { Check, PencilRuler } from '@lucide/svelte';

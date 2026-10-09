@@ -18,7 +18,6 @@
 	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
 
 	const defaultNavCollapsed: Record<string, boolean> = {
-		'agent-management': true,
 		'mcp-server-management': true,
 		'skills-management': true,
 		'hosted-agent-management': true,
@@ -368,7 +367,6 @@
 		await restoreSidebarScroll();
 	});
 
-	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -523,8 +521,6 @@
 	}
 
 	let showAppNotificationBanner = $derived.by(() => {
-		if (isAgentRoute) return false;
-
 		const appNotification = appNotificationStore.current;
 		if (!appNotification?.banner?.enabled) return false;
 		if (!appNotification.banner.dismissible) return true; // enabled & not dismissible, always show

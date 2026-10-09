@@ -357,11 +357,6 @@ export function formatAuditLogTableTimestamp(time: Date | string) {
 	return `${value('year')}-${value('month')}-${value('day')} ${value('hour')}:${value('minute')}:${value('second')} ${value('timeZoneName')}`;
 }
 
-export function isRecent(created: string, withinMinutes = 1): boolean {
-	const diff = Date.now() - new Date(created).getTime();
-	return diff < withinMinutes * 60 * 1000;
-}
-
 /** Localized AM/PM labels for 12-hour time pickers (e.g. 午前/午後, 오전/오후, 上午/下午). */
 export function getDayPeriodLabels(): { am: string; pm: string } {
 	const format = new Intl.DateTimeFormat(getLocale(), {

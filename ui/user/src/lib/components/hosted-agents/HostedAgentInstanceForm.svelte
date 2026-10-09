@@ -4,15 +4,14 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		NanobotService,
 		UserService,
 		type HostedAgent,
 		type HostedAgentQuestion,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type Model
+		type Model,
+		type Skill
 	} from '$lib/services';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors } from '$lib/stores';
 	import { onMount } from 'svelte';
 
@@ -62,7 +61,7 @@
 				agent.allowUserMCPServers ? UserService.listMCPs() : Promise.resolve([]),
 				agent.allowUserMCPServers ? UserService.listMCPCatalogServers() : Promise.resolve([]),
 				agent.allowUserSkills
-					? NanobotService.listSkills({ dontLogErrors: true })
+					? UserService.listSkills({ dontLogErrors: true })
 					: Promise.resolve([]),
 				agent.allowUserModels ? UserService.listModels() : Promise.resolve([])
 			]);

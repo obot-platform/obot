@@ -22,7 +22,6 @@
 	import AssignGroupRoleDialog from './AssignGroupRoleDialog.svelte';
 	import ConfirmAuditorRoleDialog from './ConfirmAuditorRoleDialog.svelte';
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
-	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
 	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import type { GroupAssignment } from './types';
 	import { debounce } from 'es-toolkit';
@@ -39,7 +38,7 @@
 	let groupRoleAssignments = $state(untrack(() => initialAssignments));
 
 	function getRoleId(role: number): number {
-		return role & ~(Role.AUDITOR | Role.USER_IMPERSONATION);
+		return role & ~Role.AUDITOR;
 	}
 
 	// Create a map for quick role lookups
@@ -92,7 +91,6 @@
 	let showAddAssignment = $state(false);
 	let showAssignGroupRoleDialog = $state(false);
 	let confirmAuditorAdditionToGroup = $state<GroupAssignment>();
-	let confirmUserImpersonationAdditionToGroup = $state<GroupAssignment>();
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -117,7 +115,6 @@
 
 			showAddAssignment = false;
 			confirmAuditorAdditionToGroup = undefined;
-			confirmUserImpersonationAdditionToGroup = undefined;
 			confirmOwnerGroupAssignment = undefined;
 
 			// Refresh data, resolving names for any newly assigned group.
@@ -275,9 +272,6 @@
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
 	}}
-	onUserImpersonationConfirm={(groupAssignment) => {
-		confirmUserImpersonationAdditionToGroup = groupAssignment;
-	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
 	}}
@@ -299,41 +293,8 @@
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
 	}}
-	onUserImpersonationConfirm={(groupAssignment) => {
-		confirmUserImpersonationAdditionToGroup = groupAssignment;
-	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
-	}}
-/>
-
-<ConfirmUserImpersonationRoleDialog
-	bind:groupAssignment={confirmUserImpersonationAdditionToGroup}
-	currentRole={confirmUserImpersonationAdditionToGroup
-		? (groupRoleMap[confirmUserImpersonationAdditionToGroup.group.id]?.role ?? 0)
-		: 0}
-	{loading}
-	onsuccess={(groupAssignment) => {
-		const originalRoleId = getRoleId(updatingRole?.assignment?.role || 0);
-		const newRoleId = getRoleId(groupAssignment.assignment.role);
-
-		if (newRoleId === Role.OWNER && originalRoleId !== Role.OWNER) {
-			confirmOwnerGroupAssignment = groupAssignment;
-			confirmUserImpersonationAdditionToGroup = undefined;
-			return;
-		}
-
-		updateGroupRole(groupAssignment);
-		confirmUserImpersonationAdditionToGroup = undefined;
-		updatingRole = undefined;
-	}}
-	oncancel={() => {
-		confirmUserImpersonationAdditionToGroup = undefined;
-		if (updatingRole) {
-			showAssignGroupRoleDialog = true;
-		} else {
-			showAddAssignment = true;
-		}
 	}}
 />
 

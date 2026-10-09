@@ -33,11 +33,6 @@ func (r *Router) Close() error {
 func NewRouter(ctx context.Context, services *services.Services) (*Router, error) {
 	mux := services.APIServer
 
-	agentsEnabled, err := services.AgentsEnabled(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	version := handlers.NewVersionHandler(handlers.VersionHandlerOptions{
 		GatewayClient:           services.GatewayClient,
 		StorageClient:           services.StorageClient,
@@ -48,7 +43,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		MCPDefaultDenyAllEgress: services.MCPDefaultDenyAllEgress,
 		AuthEnabled:             services.AuthEnabled,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
-		AgentsEnabled:           agentsEnabled,
 		HostedAgentsEnabled:     services.HostedAgentsEnabled,
 		HideK8sDetails:          services.HideK8sDetails,
 		UpgradeStatusReader:     services.VersionChecker,
@@ -371,7 +365,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// System MCP Servers (admin only)
 	mux.HandleFunc("GET /api/system-mcp-servers", systemMCPServers.List)
-	mux.HandleFunc("POST /api/system-mcp-servers/restart-nanobot-agent-deployments", systemMCPServers.RestartNanobotAgentDeployments)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}", systemMCPServers.Get)
 	mux.HandleFunc("POST /api/system-mcp-servers", systemMCPServers.Create)
 	mux.HandleFunc("PUT /api/system-mcp-servers/{id}", systemMCPServers.Update)
@@ -744,24 +737,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Uploaded images
 	mux.HandleFunc("POST /api/image/upload", images.UploadImage)
 	mux.HandleFunc("GET /api/image/{id}", images.GetImage)
-
-	// Projects
-	projects := handlers.NewProjectHandler()
-	mux.HandleFunc("POST /api/projects", projects.Create)
-	mux.HandleFunc("GET /api/projects", projects.List)
-	mux.HandleFunc("GET /api/projects/{project_id}", projects.ByID)
-	mux.HandleFunc("PUT /api/projects/{project_id}", projects.Update)
-	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
-
-	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL, agentsEnabled, services.MCPSecretBindingAllowedLabel)
-	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
-	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
-	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)
-	mux.HandleFunc("GET /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.ByID)
-	mux.HandleFunc("PUT /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Update)
-	mux.HandleFunc("DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Delete)
-	mux.HandleFunc("POST /api/projects/{project_id}/agents/{nanobot_agent_id}/launch", nanobotAgents.Launch)
 
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())

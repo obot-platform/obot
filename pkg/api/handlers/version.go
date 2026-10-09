@@ -42,7 +42,6 @@ type VersionHandlerOptions struct {
 	MCPDefaultDenyAllEgress bool
 	AuthEnabled             bool
 	MessagePoliciesEnabled  bool
-	AgentsEnabled           bool
 	HostedAgentsEnabled     bool
 	HideK8sDetails          bool
 	UpgradeStatusReader     UpgradeStatusReader
@@ -183,7 +182,6 @@ func (v *VersionHandler) upgradeStatus() upgrade.Status {
 func (v *VersionHandler) featureValues() map[string]bool {
 	return map[string]bool{
 		"messagePoliciesEnabled": v.MessagePoliciesEnabled,
-		"agentsEnabled":          v.AgentsEnabled,
 		"hostedAgentsEnabled":    v.HostedAgentsEnabled,
 		"hideK8sDetails":         v.HideK8sDetails,
 	}

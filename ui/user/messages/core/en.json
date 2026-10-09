@@ -160,7 +160,6 @@
 	"core_role_admin": "Admin",
 	"core_role_admin_description": "Every user is a full admin. Use caution when selecting this option.",
 	"core_role_auditor": "Auditor",
-	"core_role_impersonator": "Impersonator",
 	"core_role_owner": "Owner",
 	"core_role_power_user": "Power User",
 	"core_role_power_user_description": "In addition to standard user features, users can publish custom MCP servers for their own personal use.",

@@ -25,7 +25,6 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
-import type { Skill } from '../nanobot/types';
 import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
@@ -65,7 +64,8 @@ import {
 	type VMCPComponent,
 	type VMCPInstance,
 	type VMCPManifest,
-	type VMCPConfiguration
+	type VMCPConfiguration,
+	type Skill
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -840,9 +840,6 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	obj.isBootstrapUser = () => {
 		return obj.username === BOOTSTRAP_USER_ID;
 	};
-	obj.canImpersonate = () => {
-		return obj.groups.includes(Group.USER_IMPERSONATION) && obj.groups.includes(Group.ADMIN);
-	};
 	obj.loaded = true;
 	return obj;
 }
@@ -1506,6 +1503,10 @@ export async function listSkills(opts?: {
 }): Promise<Skill[]> {
 	const response = (await doGet('/skills', opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
+}
+
+export async function getSkill(id: string, opts?: { fetch?: Fetcher }): Promise<Skill> {
+	return (await doGet(`/skills/${encodeURIComponent(id)}`, opts)) as Skill;
 }
 
 export async function downloadSkill(

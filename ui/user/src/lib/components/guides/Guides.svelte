@@ -45,10 +45,7 @@
 			const isAuthProviderConfigured = version.current.authEnabled
 				? $adminConfigStore.authProviderConfigured
 				: true;
-			const requiresModelProviderConfiguration =
-				version.current.agentsEnabled !== false && !$adminConfigStore.modelProviderConfigured;
-
-			if (!isAuthProviderConfigured || requiresModelProviderConfiguration) {
+			if (!isAuthProviderConfigured) {
 				return false;
 			}
 		}

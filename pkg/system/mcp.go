@@ -34,10 +34,6 @@ func LocalMCPConnectURL(id string, httpListenPort int) string {
 	return MCPConnectURL(LocalServerURL(httpListenPort), id)
 }
 
-func NanobotAgentConnectURL(serverURL, id string) string {
-	return MCPConnectURL(serverURL, MCPServerPrefix+id)
-}
-
 func MCPOAuthCallbackURL(serverURL string) string {
 	return fmt.Sprintf("%s/oauth/mcp/callback", serverURL)
 }

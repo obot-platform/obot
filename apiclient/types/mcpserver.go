@@ -430,8 +430,7 @@ type MCPServer struct {
 	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
 	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
 	// ConnectURL is the URL clients can use to connect to this MCP server.
-	ConnectURL     string `json:"connectURL,omitempty"`
-	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
+	ConnectURL string `json:"connectURL,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`

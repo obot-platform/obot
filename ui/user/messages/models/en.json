@@ -36,8 +36,6 @@
 	"models_message_policy_fallback_title": "Message Policy",
 	"models_no_access_policies": "No model access policies",
 	"models_no_access_policies_desc": "Looks like you don't have any model access policies created yet.",
-	"models_no_providers_desc": "To use Obot chat features, you'll need to set up a Model Provider. Select and configure one below to get started!",
-	"models_no_providers_title": "No Model Providers Configured!",
 	"models_not_configured": "Not configured",
 	"models_providers_add_models": "Add Models",
 	"models_providers_all_domains": "All domains",

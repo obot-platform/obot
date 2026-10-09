@@ -1,7 +1,6 @@
 import { handleRouteError, HttpError } from '$lib/errors';
-import { AdminService, UserService } from '$lib/services';
+import { AdminService, UserService, type Skill } from '$lib/services';
 import type { GitCredential, SkillAccessPolicy, SkillRepository } from '$lib/services/admin/types';
-import type { Skill } from '$lib/services/nanobot/types';
 import type { PageLoad } from './$types';
 
 const views = new Set(['skills', 'sources', 'access-policies']);

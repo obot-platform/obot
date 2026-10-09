@@ -53,7 +53,7 @@
 	};
 	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.
-	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR | Role.USER_IMPERSONATION;
+	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR;
 	const STILL_PROVISIONED_MESSAGE = m.identity_access_users_still_provisioned();
 
 	const tableData = $derived(
@@ -69,9 +69,8 @@
 				name: getUserDisplayName(user),
 				role: getUserRoleLabel(user.role).split(','),
 				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-				roleId: user.role & ~(Role.AUDITOR | Role.USER_IMPERSONATION),
+				roleId: user.role & ~Role.AUDITOR,
 				auditor: user.role & Role.AUDITOR ? true : false,
-				userImpersonation: user.role & Role.USER_IMPERSONATION ? true : false,
 				// Only an Owner can enable a user with any of these roles, from their own role or a group.
 				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0
 			}))
@@ -91,7 +90,6 @@
 	let enablingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let confirmAuditorAdditionToUser = $state<TableItem>();
-	let confirmUserImpersonationAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
 	let roleUpdateError = $state('');
 	let roleOptions = $derived([
@@ -146,15 +144,8 @@
 		}
 	}
 
-	function composeRole(roleId: number, auditor: boolean, userImpersonation: boolean): number {
-		let role = roleId;
-		if (auditor) {
-			role |= Role.AUDITOR;
-		}
-		if (userImpersonation) {
-			role |= Role.USER_IMPERSONATION;
-		}
-		return role;
+	function composeRole(roleId: number, auditor: boolean): number {
+		return auditor ? roleId | Role.AUDITOR : roleId;
 	}
 
 	function getUserDisplayName(user: OrgUser): string {
@@ -187,32 +178,11 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
-	const isAddingAuditorWithUserImpersonation = $derived(
-		Boolean(
-			confirmUserImpersonationAdditionToUser &&
-			confirmUserImpersonationAdditionToUser.auditor &&
-			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
-		)
-	);
-	const isRemovingAuditorWithUserImpersonation = $derived(
-		Boolean(
-			confirmUserImpersonationAdditionToUser &&
-			!confirmUserImpersonationAdditionToUser.auditor &&
-			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
-		)
-	);
 
 	const hasValidLicense = $derived(Boolean(version.current.enterprise));
 	const isCommunityEdition = $derived(
 		version.current.licenseEntitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
 	);
-
-	// Auto-clear user impersonation when base role is not Admin or Owner
-	$effect(() => {
-		if (updatingRole && updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER) {
-			updatingRole.userImpersonation = false;
-		}
-	});
 </script>
 
 <div class="mb-4" in:fade={{ duration }}>
@@ -483,23 +453,6 @@
 						{/if}
 					</span>
 				</label>
-				<label class="mt-2 flex gap-4">
-					<input
-						type="checkbox"
-						bind:checked={updatingRole.userImpersonation}
-						disabled={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
-					/>
-					<span
-						class="flex flex-col"
-						class:opacity-50={updatingRole.roleId !== Role.ADMIN &&
-							updatingRole.roleId !== Role.OWNER}
-					>
-						<p class="shrink-0 font-semibold">{m.identity_access_roles_impersonator()}</p>
-						<p class="text-muted-content">
-							{m.identity_access_users_impersonator_description()}
-						</p>
-					</span>
-				</label>
 			{/if}
 		</div>
 		<div class="flex grow"></div>
@@ -512,20 +465,11 @@
 				onclick={async () => {
 					if (!updatingRole) return;
 					roleUpdateError = '';
-					const addingUserImpersonation =
-						updatingRole.userImpersonation &&
-						(updatingRole.assignedRole & Role.USER_IMPERSONATION) === 0;
 					const addingAuditor =
 						updatingRole.auditor && (updatingRole.assignedRole & Role.AUDITOR) === 0;
 					if (profile.current.isBootstrapUser?.() && updatingRole.roleId === Role.OWNER) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
-						return;
-					}
-
-					if (addingUserImpersonation) {
-						updateRoleDialog?.close();
-						confirmUserImpersonationAdditionToUser = updatingRole;
 						return;
 					}
 
@@ -535,10 +479,7 @@
 						return;
 					}
 
-					updateUserRole(
-						updatingRole.id,
-						composeRole(updatingRole.roleId, updatingRole.auditor, updatingRole.userImpersonation)
-					);
+					updateUserRole(updatingRole.id, composeRole(updatingRole.roleId, updatingRole.auditor));
 				}}
 				disabled={loading}
 			>
@@ -559,11 +500,7 @@
 		if (!confirmHandoffToUser) return;
 		const ok = await updateUserRole(
 			confirmHandoffToUser.id,
-			composeRole(
-				confirmHandoffToUser.roleId,
-				confirmHandoffToUser.auditor,
-				confirmHandoffToUser.userImpersonation
-			),
+			composeRole(confirmHandoffToUser.roleId, confirmHandoffToUser.auditor),
 			false
 		);
 		if (!ok) {
@@ -597,65 +534,6 @@
 
 <Confirm
 	type="info"
-	title={isAddingAuditorWithUserImpersonation
-		? m.identity_access_users_confirm_impersonator_auditor_title()
-		: m.identity_access_users_confirm_impersonator_title()}
-	msg={isAddingAuditorWithUserImpersonation
-		? m.identity_access_users_grant_impersonator_auditor_msg({
-				user: `${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name}`
-			})
-		: m.identity_access_users_grant_impersonator_msg({
-				user: `${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name}`
-			})}
-	{loading}
-	show={Boolean(confirmUserImpersonationAdditionToUser)}
-	onsuccess={async () => {
-		if (!confirmUserImpersonationAdditionToUser) return;
-		await updateUserRole(
-			confirmUserImpersonationAdditionToUser.id,
-			composeRole(
-				confirmUserImpersonationAdditionToUser.roleId,
-				confirmUserImpersonationAdditionToUser.auditor,
-				true
-			)
-		);
-		confirmUserImpersonationAdditionToUser = undefined;
-	}}
-	oncancel={() => {
-		confirmUserImpersonationAdditionToUser = undefined;
-		updateRoleDialog?.open();
-	}}
->
-	{#snippet note()}
-		<div class="flex flex-col gap-4">
-			<p class="text-left">
-				{m.identity_access_users_impersonator_note()}
-			</p>
-			{#if isAddingAuditorWithUserImpersonation}
-				<p class="text-left">
-					{m.identity_access_users_impersonator_note_adds_auditor()}
-				</p>
-			{:else if isRemovingAuditorWithUserImpersonation}
-				<p class="text-left">{m.identity_access_users_impersonator_note_removes_auditor()}</p>
-			{:else}
-				<p class="text-left">{m.identity_access_users_impersonator_note_keeps_auditor()}</p>
-			{/if}
-			<p>
-				{m.identity_access_users_grant_confirm_prefix()}
-				<b
-					>{confirmUserImpersonationAdditionToUser?.email ||
-						confirmUserImpersonationAdditionToUser?.name}</b
-				>
-				{isAddingAuditorWithUserImpersonation
-					? m.identity_access_users_grant_confirm_these_roles()
-					: m.identity_access_users_grant_confirm_this_role()}
-			</p>
-		</div>
-	{/snippet}
-</Confirm>
-
-<Confirm
-	type="info"
 	title={m.identity_access_users_confirm_auditor_title()}
 	msg={m.identity_access_users_grant_auditor_msg({
 		user: `${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}`
@@ -666,11 +544,7 @@
 		if (!confirmAuditorAdditionToUser) return;
 		await updateUserRole(
 			confirmAuditorAdditionToUser.id,
-			composeRole(
-				confirmAuditorAdditionToUser.roleId,
-				true,
-				confirmAuditorAdditionToUser.userImpersonation
-			)
+			composeRole(confirmAuditorAdditionToUser.roleId, true)
 		);
 		confirmAuditorAdditionToUser = undefined;
 	}}

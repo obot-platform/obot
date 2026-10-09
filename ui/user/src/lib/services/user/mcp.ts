@@ -567,17 +567,13 @@ export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
 	return url;
 }
 
-const NANOBOT_AGENT_SERVER_PREFIX = 'nba1';
 export const compileAvailableMcpServers = (
 	servers: MCPCatalogServer[],
 	userConfiguredServers: MCPCatalogServer[]
 ) => {
 	const serverMap = new Map<string, MCPCatalogServer>();
 	for (const server of [...userConfiguredServers, ...servers]) {
-		const isNanobotAgentServer = server.manifest.name
-			? server.manifest.name.toLowerCase().startsWith(NANOBOT_AGENT_SERVER_PREFIX)
-			: false;
-		if (!server.deleted && !isNanobotAgentServer) {
+		if (!server.deleted) {
 			serverMap.set(server.id, server);
 		}
 	}

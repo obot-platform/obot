@@ -7,29 +7,17 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import { reloadPage } from '$lib/navigation';
-	import { AdminService, Group, NanobotService, UserService } from '$lib/services';
+	import { AdminService, Group } from '$lib/services';
 	import {
 		AiClient,
 		COMMAND_SUPPORTED_AI_CLIENTS,
 		COMMON_AI_CLIENTS,
 		MAGIC_LINK_SUPPORTED_AI_CLIENTS
 	} from '$lib/services/user/constants';
-	import {
-		profile,
-		responsive,
-		darkMode,
-		errors,
-		defaultModelAliases,
-		userDeviceSettings
-	} from '$lib/stores';
+	import { profile, responsive, darkMode, userDeviceSettings } from '$lib/stores';
 	import { version } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
-	import { goto } from '$lib/url';
-	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
-	import Confirm from '../Confirm.svelte';
-	import InfoTooltip from '../InfoTooltip.svelte';
-	import PageLoading from '../PageLoading.svelte';
+	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import MyAccount from '../profile/MyAccount.svelte';
@@ -42,44 +30,16 @@
 		X,
 		CircleFadingArrowUp,
 		LayoutDashboard,
-		BotMessageSquare,
-		Power,
-		LockOpen,
-		HatGlasses,
 		Terminal,
 		SquareTerminal
 	} from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	interface Props {
-		agentId?: string;
-		projectId?: string;
-		impersonating?: boolean;
-	}
-
-	let { agentId, projectId, impersonating }: Props = $props();
-
 	let versionDialog = $state<HTMLDialogElement>();
-	let loadingChat = $state(false);
 
-	let inAdminRoute = $derived(page.url.pathname.includes('/admin'));
-	let showChatLink = $derived(
-		(!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/agent')) || inAdminRoute
-	);
 	let showMcpManagement = $derived(
-		['/o', '/profile', '/agent'].some((path) => page.url.pathname.startsWith(path))
+		['/o', '/profile'].some((path) => page.url.pathname.startsWith(path))
 	);
-	let showRestartOption = $derived(
-		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
-	);
-
-	let agentsFeatureEnabled = $derived(version.current.agentsEnabled !== false);
-	let agentLinkEnabled = $derived(
-		isAgentEnabled(defaultModelAliases.current) && agentsFeatureEnabled
-	);
-
-	let showRestartAgentConfirm = $state(false);
-	let restartingAgent = $state(false);
 
 	let showUpgradeAvailable = $derived(
 		version.current.authEnabled
@@ -137,38 +97,6 @@
 			console.error(err);
 		}
 	}
-
-	async function handleRestartAgent() {
-		if (!agentId || !projectId) return;
-		restartingAgent = true;
-		try {
-			await UserService.restartK8sDeployment(`ms1${agentId}`);
-			await NanobotService.launchProjectAgent(projectId, agentId);
-			reloadPage();
-		} catch (error) {
-			console.error('Failed to restart agent:', error);
-			errors.append(error);
-		} finally {
-			restartingAgent = false;
-			showRestartAgentConfirm = false;
-		}
-	}
-
-	function navigateTo(path: string, asNewTab?: boolean) {
-		if (asNewTab) {
-			// Create a temporary link element and click it; avoids Safari's popup blocker
-			const link = document.createElement('a');
-			link.href = path;
-			link.target = '_blank';
-			link.rel = 'noopener noreferrer';
-			link.style.display = 'none';
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-		} else {
-			goto(path);
-		}
-	}
 </script>
 
 <Menu
@@ -188,7 +116,7 @@
 >
 	{#snippet icon()}
 		<div class="relative shrink-0">
-			<ProfileIcon {impersonating} />
+			<ProfileIcon />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
 					class="text-primary bg-base-100 absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
@@ -199,7 +127,7 @@
 	{#snippet header()}
 		<div class="flex w-full items-center justify-between gap-8 p-4 pb-2">
 			<div class="flex items-center gap-3">
-				<ProfileIcon class="size-12" {impersonating} />
+				<ProfileIcon class="size-12" />
 				<div class="flex grow flex-col">
 					<span>
 						{profile.current.displayName || m.common_anonymous()}
@@ -223,30 +151,9 @@
 				<Moon class="relative z-10 size-5" />
 			</button>
 		</div>
-		{#if impersonating}
-			<div class="px-4">
-				<div class="notification-info text-xs">
-					<p class="flex items-center gap-1">
-						<HatGlasses class="size-3" />
-						{m.profile_impersonation_mode()}
-					</p>
-				</div>
-			</div>
-		{/if}
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-1 px-2 pb-4">
-			{#if showRestartOption}
-				<button
-					class="dropdown-link"
-					onclick={() => {
-						showRestartAgentConfirm = true;
-					}}
-				>
-					<Power class="size-4" />
-					{m.profile_restart_agent()}
-				</button>
-			{/if}
 			{#if responsive.isMobile}
 				<a
 					href="https://docs.obot.ai"
@@ -255,78 +162,46 @@
 					class="dropdown-link"><Book class="size-4" />{m.common_docs()}</a
 				>
 			{/if}
-			{#if !impersonating}
-				{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
-					<MyAccount onClose={() => menu?.toggle(false)} />
-				{/if}
-				<button
-					class="dropdown-link"
-					onclick={() => {
-						selectedClients = userDeviceSettings.aiClientPreference ?? [];
-						setPreferredClientsDialog?.open();
-						menu?.toggle(false);
-					}}
-				>
-					<Terminal class="size-4" />
-					{m.profile_client_preference()}
+			{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
+				<MyAccount onClose={() => menu?.toggle(false)} />
+			{/if}
+			<button
+				class="dropdown-link"
+				onclick={() => {
+					selectedClients = userDeviceSettings.aiClientPreference ?? [];
+					setPreferredClientsDialog?.open();
+					menu?.toggle(false);
+				}}
+			>
+				<Terminal class="size-4" />
+				{m.profile_client_preference()}
+			</button>
+			<a
+				class="dropdown-link"
+				href={resolve('/install-cli')}
+				target="_blank"
+				rel="external noopener noreferrer"
+			>
+				<SquareTerminal class="size-4" />
+				{m.profile_install_cli()}
+			</a>
+
+			<LanguageSelect onOpen={() => menu?.toggle(false)} />
+
+			{#if profile.current.isBootstrapUser?.()}
+				<button class="dropdown-link" onclick={handleBootstrapLogout}>
+					<LogOut class="size-4" />
+					{m.profile_log_out()}
 				</button>
-				<a
-					class="dropdown-link"
-					href={resolve('/install-cli')}
-					target="_blank"
-					rel="external noopener noreferrer"
-				>
-					<SquareTerminal class="size-4" />
-					{m.profile_install_cli()}
-				</a>
-
-				<LanguageSelect onOpen={() => menu?.toggle(false)} />
-
-				{#if profile.current.isBootstrapUser?.()}
-					<button class="dropdown-link" onclick={handleBootstrapLogout}>
-						<LogOut class="size-4" />
-						{m.profile_log_out()}
-					</button>
-				{:else}
-					<button class="dropdown-link" onclick={handleLogout}>
-						<LogOut class="size-4" />
-						{m.profile_log_out()}
-					</button>
-				{/if}
+			{:else}
+				<button class="dropdown-link" onclick={handleLogout}>
+					<LogOut class="size-4" />
+					{m.profile_log_out()}
+				</button>
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && !impersonating && agentsFeatureEnabled}
-				{#if agentLinkEnabled}
-					<button
-						class="dropdown-link"
-						onclick={(event) => {
-							navigateTo('/agent', event?.ctrlKey || event?.metaKey);
-						}}
-					>
-						<span class="flex items-center gap-2">
-							<BotMessageSquare class="size-4" />
-							{m.profile_launch_chat()}
-							<span class="badge badge-warning badge-xs">{m.common_deprecated()}</span>
-						</span>
-					</button>
-				{:else}
-					<div class="dropdown-link cursor-default hover:bg-transparent dark:hover:bg-transparent">
-						<span class="flex items-center gap-2 opacity-50">
-							<BotMessageSquare class="size-4" />
-							{m.profile_launch_chat()}
-							<span class="badge badge-warning badge-xs">{m.common_deprecated()}</span>
-						</span>
-						<InfoTooltip
-							text={profile.current.isAdmin?.()
-								? m.profile_agent_disabled_admin()
-								: m.profile_agent_disabled_user()}
-							icon={LockOpen}
-						/>
-					</div>
-				{/if}
-			{/if}
-			{#if showMcpManagement && !impersonating}
+			{#if showMcpManagement}
 				<a
 					href={resolve(
 						profile.current.groups.includes(Group.POWERUSER) || profile.current.hasAdminAccess?.()
@@ -502,22 +377,6 @@
 		</button>
 	</div>
 </ResponsiveDialog>
-
-<Confirm
-	show={showRestartAgentConfirm}
-	onsuccess={handleRestartAgent}
-	oncancel={() => (showRestartAgentConfirm = false)}
-	loading={restartingAgent}
-	title={m.profile_restart_agent()}
-	msg={m.profile_restart_agent_confirm()}
-	type="info"
->
-	{#snippet note()}
-		{m.profile_restart_agent_note()}
-	{/snippet}
-</Confirm>
-
-<PageLoading show={loadingChat} text={m.profile_loading_chat()} />
 
 <style lang="postcss">
 	.dark-selected::after {

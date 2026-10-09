@@ -1,6 +1,5 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
-import type { Skill } from '$lib/services/nanobot/types';
 import { buildQueryString } from '$lib/url';
 import {
 	doDelete,
@@ -31,6 +30,7 @@ import type {
 	K8sServerDetail,
 	MCPAllowedSecretBindingTarget,
 	MCPSubField,
+	Skill,
 	VMCP,
 	VMCPInstance
 } from '../user/types';
@@ -113,7 +113,6 @@ import type {
 	MessagePolicyViolation,
 	MessagePolicyViolationFilters,
 	MessagePolicyViolationStats,
-	RestartNanobotAgentDeploymentsResult,
 	SystemMCPCatalog,
 	SystemMCPCatalogManifest,
 	SystemMCPServer,
@@ -1848,12 +1847,6 @@ export async function updateDefaultModelAlias(
 	await doPut(`/default-model-aliases/${alias}`, defaultModelAlias);
 }
 
-// Projects
-
-export async function deleteProject(assistantID: string, projectID: string): Promise<void> {
-	await doDelete(`/assistants/${assistantID}/projects/${projectID}`);
-}
-
 // Setup
 
 export async function initiateTempLogin(authProviderName: string, authProviderNamespace?: string) {
@@ -2532,21 +2525,6 @@ export async function getSystemMCPServerTools(
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPServerTool[]> {
 	return (await doGet(`/system-mcp-servers/${id}/tools`, opts)) as MCPServerTool[];
-}
-
-export async function restartNanobotAgentDeployments(opts?: {
-	fetch?: Fetcher;
-	dryRun?: boolean;
-}): Promise<RestartNanobotAgentDeploymentsResult> {
-	const params = new URLSearchParams();
-	if (opts?.dryRun != null) {
-		params.set('dryRun', String(opts.dryRun));
-	}
-	const qs = params.toString();
-	const path = qs
-		? `/system-mcp-servers/restart-nanobot-agent-deployments?${qs}`
-		: '/system-mcp-servers/restart-nanobot-agent-deployments';
-	return (await doPost(path, {}, opts)) as RestartNanobotAgentDeploymentsResult;
 }
 
 // Token usage

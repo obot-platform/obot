@@ -120,14 +120,6 @@ export function setUrlParamAndUpdateUrl(
 	goto(newUrl, { replaceState: true, noScroll: true, keepFocus: true });
 }
 
-export function tryDecodeURIComponent(value: string): string {
-	try {
-		return decodeURIComponent(value);
-	} catch {
-		return value;
-	}
-}
-
 export function camelToSnakeCase(str: string): string {
 	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }

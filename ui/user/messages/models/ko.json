@@ -36,8 +36,6 @@
 	"models_message_policy_fallback_title": "메시지 정책",
 	"models_no_access_policies": "모델 액세스 정책이 없습니다",
 	"models_no_access_policies_desc": "아직 생성된 모델 액세스 정책이 없습니다.",
-	"models_no_providers_desc": "Obot 채팅 기능을 사용하려면 모델 제공자를 설정해야 합니다. 아래에서 하나를 선택하고 구성하여 시작하세요!",
-	"models_no_providers_title": "구성된 모델 제공자가 없습니다!",
 	"models_not_configured": "구성되지 않음",
 	"models_providers_add_models": "모델 추가",
 	"models_providers_all_domains": "모든 도메인",

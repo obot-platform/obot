@@ -160,7 +160,6 @@
 	"core_role_admin": "管理员",
 	"core_role_admin_description": "每位用户都将成为完全管理员。选择此选项时请谨慎。",
 	"core_role_auditor": "审计员",
-	"core_role_impersonator": "模拟用户",
 	"core_role_owner": "所有者",
 	"core_role_power_user": "高级用户",
 	"core_role_power_user_description": "除标准用户功能外，用户还可以发布供个人使用的自定义 MCP 服务器。",

@@ -147,7 +147,6 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			k8sSettings.Spec,
 			resources,
 			mcpServer.Spec.Manifest.Runtime,
-			mcpServer.Spec.NanobotAgentID != "",
 			imagePullSecretNames,
 		)
 

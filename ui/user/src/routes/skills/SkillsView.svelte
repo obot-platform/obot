@@ -8,9 +8,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { sanitizeFilenameSegment, saveBlob } from '$lib/download';
 	import { m } from '$lib/i18n';
-	import { UserService } from '$lib/services';
+	import { UserService, type Skill } from '$lib/services';
 	import type { SkillRepository } from '$lib/services/admin/types';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { AiClient, COMMON_AI_CLIENTS_MAP } from '$lib/services/user/constants';
 	import { profile } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';

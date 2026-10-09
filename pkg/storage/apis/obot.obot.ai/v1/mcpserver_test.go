@@ -232,11 +232,6 @@ func TestMCPServerSpec_UserType(t *testing.T) {
 			spec: MCPServerSpec{PowerUserWorkspaceID: "workspace"},
 		},
 		{
-			name:       "agent",
-			spec:       MCPServerSpec{NanobotAgentID: "agent"},
-			singleUser: true,
-		},
-		{
 			name:      "vMCP",
 			spec:      MCPServerSpec{VMCPID: "vmcp"},
 			multiUser: true,

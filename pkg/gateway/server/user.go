@@ -214,14 +214,6 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			slog.Info("Denied user role update", "targetUserID", userID, "reason", "auditor_role_change_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove auditor role")
 		}
-		if originalUser.Role.HasRole(types2.RoleUserImpersonation) != user.Role.HasRole(types2.RoleUserImpersonation) {
-			slog.Info("Denied user role update", "targetUserID", userID, "reason", "user_impersonation_role_change_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove user impersonation role")
-		}
-	}
-
-	if user.Role.HasUserImpersonationRole() && !user.Role.HasRole(types2.RoleAdmin) && !user.Role.HasRole(types2.RoleOwner) {
-		return types2.NewErrHTTP(http.StatusBadRequest, "user impersonation role can only be combined with admin or owner")
 	}
 
 	status := http.StatusInternalServerError
@@ -326,9 +318,9 @@ func (s *Server) enableUser(apiContext api.Context) error {
 			return fmt.Errorf("failed to resolve the role of user: %v", err)
 		}
 		role |= apiContext.GatewayClient.HasExplicitRole(existingUser.Email)
-		if role.HasRole(types2.RoleOwner) || role.HasRole(types2.RoleAuditor) || role.HasRole(types2.RoleUserImpersonation) {
+		if role.HasRole(types2.RoleOwner) || role.HasRole(types2.RoleAuditor) {
 			slog.Info("Denied enabling user", "targetUserID", userID, "reason", "privileged_user_enable_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owner can enable an owner, an auditor, or a user with user impersonation role")
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can enable an owner or an auditor")
 		}
 	}
 
@@ -390,10 +382,6 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		if existingUser.Role.HasRole(types2.RoleAuditor) {
 			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "auditor_delete_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
-		}
-		if existingUser.Role.HasRole(types2.RoleUserImpersonation) {
-			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "user_impersonation_delete_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete a user with user impersonation role")
 		}
 	}
 
@@ -573,7 +561,7 @@ func trimUser(u types.User) types2.User {
 func userIsBasicOrPower(u user.Info) bool {
 	for _, group := range u.GetGroups() {
 		switch group {
-		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupUserImpersonation, types2.GroupAdmin, types2.GroupOwner:
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
 			return false
 		}
 	}

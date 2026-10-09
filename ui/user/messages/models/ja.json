@@ -36,8 +36,6 @@
 	"models_message_policy_fallback_title": "メッセージポリシー",
 	"models_no_access_policies": "モデルアクセスポリシーはありません",
 	"models_no_access_policies_desc": "モデルアクセスポリシーはまだ作成されていません。",
-	"models_no_providers_desc": "Obot のチャット機能を使用するには、モデルプロバイダーを設定する必要があります。下から 1 つ選択して設定し、開始してください！",
-	"models_no_providers_title": "モデルプロバイダーが設定されていません！",
 	"models_not_configured": "未設定",
 	"models_providers_add_models": "モデルを追加",
 	"models_providers_all_domains": "すべてのドメイン",

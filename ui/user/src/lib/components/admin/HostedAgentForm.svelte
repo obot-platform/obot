@@ -12,9 +12,9 @@
 		type Model,
 		type ModelProvider,
 		type SkillAccessPolicyResource,
-		type SkillRepository
+		type SkillRepository,
+		type Skill
 	} from '$lib/services';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { defaultModelAliases as defaultModelAliasesStore, errors } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';

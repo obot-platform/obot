@@ -34,7 +34,6 @@ export function createMockProfile(groups: string[] = [Group.ADMIN]): Profile {
 		groups,
 		iconURL: '',
 		loaded: true,
-		canImpersonate: () => groups.includes(Group.ADMIN) && groups.includes(Group.USER_IMPERSONATION),
 		hasAdminAccess: () => groups.includes(Group.ADMIN) || groups.includes(Group.AUDITOR),
 		isAdmin: () => groups.includes(Group.ADMIN),
 		isAdminReadonly: () => !groups.includes(Group.ADMIN) && groups.includes(Group.AUDITOR),

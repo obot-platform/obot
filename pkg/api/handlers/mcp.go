@@ -124,7 +124,6 @@ func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sS
 		settings,
 		resources,
 		mcpServer.Spec.Manifest.Runtime,
-		mcpServer.Spec.NanobotAgentID != "",
 		imagePullSecretNames,
 	), nil
 }
@@ -1416,7 +1415,6 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		VMCPID:                      server.Spec.VMCPID,
 		VMCPInstanceID:              server.Spec.VMCPInstanceID,
 		VMCPComponentID:             server.Spec.VMCPComponentID,
-		NanobotAgentID:              server.Spec.NanobotAgentID,
 	}
 
 	if server.Spec.IsSingleUser() {

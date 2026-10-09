@@ -160,7 +160,6 @@
 	"core_role_admin": "管理者",
 	"core_role_admin_description": "すべてのユーザーが完全な管理者になります。このオプションを選択する際は注意してください。",
 	"core_role_auditor": "監査担当者",
-	"core_role_impersonator": "なりすまし担当者",
 	"core_role_owner": "オーナー",
 	"core_role_power_user": "パワーユーザー",
 	"core_role_power_user_description": "標準ユーザーの機能に加えて、個人で使用するためのカスタム MCP サーバーを公開できます。",

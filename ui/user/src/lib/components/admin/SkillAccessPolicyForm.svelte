@@ -8,9 +8,9 @@
 		type OrgGroup,
 		type SkillAccessPolicy,
 		type SkillAccessPolicyResource,
-		type SkillRepository
+		type SkillRepository,
+		type Skill
 	} from '$lib/services';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import {

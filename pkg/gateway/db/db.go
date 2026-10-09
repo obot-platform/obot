@@ -185,6 +185,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop legacy local-agent audit log columns: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_user_impersonation_role", removeUserImpersonationRole); err != nil {
+		return fmt.Errorf("failed to remove the user impersonation role: %w", err)
+	}
+
 	// MIGRATION: replace mcp_server_instance with mcp_id as the new primary key.
 	// First, check to se if the mcp_server_instance column still exists.
 	if exists := tx.Migrator().HasColumn(&types.MCPOAuthToken{}, "mcp_server_instance"); exists {

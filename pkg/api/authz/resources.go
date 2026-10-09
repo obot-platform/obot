@@ -84,15 +84,6 @@ var (
 			"GET    /api/users/{user_id}/total-token-usage",
 			"GET    /api/users/{user_id}/remaining-token-usage",
 			"GET    /api/workspaces",
-			"GET    /api/projects/{project_id}",
-			"PUT    /api/projects/{project_id}",
-			"DELETE /api/projects/{project_id}",
-			"POST   /api/projects/{project_id}/agents",
-			"GET    /api/projects/{project_id}/agents",
-			"GET    /api/projects/{project_id}/agents/{nanobot_agent_id}",
-			"PUT    /api/projects/{project_id}/agents/{nanobot_agent_id}",
-			"DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}",
-			"POST   /api/projects/{project_id}/agents/{nanobot_agent_id}/launch",
 		},
 		types.GroupPowerUser: {
 			"GET    /api/workspaces/{workspace_id}",
@@ -181,8 +172,6 @@ type Resources struct {
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
 	MCPID                 string
 	WorkspaceID           string
-	NanobotAgentID        string
-	ProjectID             string
 	PublishedArtifactID   string
 	ArtifactVersion       string
 	SkillID               string
@@ -200,8 +189,6 @@ type ResourcesAuthorized struct {
 	VMCP                  *v1.VMCP
 	VMCPInstance          *v1.VMCPInstance
 	PowerUserWorkspace    *v1.PowerUserWorkspace
-	NanobotAgent          *v1.NanobotAgent
-	Project               *v1.Project
 	PublishedArtifact     *v1.PublishedArtifact
 	Skill                 *v1.Skill
 	HostedAgent           *v1.HostedAgent
@@ -218,8 +205,6 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		VMCPInstanceID:          vars("vmcp_instance_id"),
 		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, catalog entry ID, or vMCP ID
 		WorkspaceID:             vars("workspace_id"),
-		NanobotAgentID:          vars("nanobot_agent_id"),
-		ProjectID:               vars("project_id"),
 		PublishedArtifactID:     vars("artifact_id"),
 		ArtifactVersion:         vars("artifact_version"),
 		SkillID:                 vars("skill_id"),
@@ -262,14 +247,6 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkVMCPComponent(req, &resources, user); !ok || err != nil {
-		return false, err
-	}
-
-	if ok, err := a.checkProject(req, &resources, user); !ok || err != nil {
-		return false, err
-	}
-
-	if ok, err := a.checkNanobotAgent(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

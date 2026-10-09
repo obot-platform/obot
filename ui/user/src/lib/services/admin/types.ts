@@ -458,8 +458,7 @@ export const Group = {
 	POWERUSER_PLUS: 'power-user-plus',
 	POWERUSER: 'power-user',
 	USER: 'user',
-	AUDITOR: 'auditor',
-	USER_IMPERSONATION: 'user-impersonation'
+	AUDITOR: 'auditor'
 };
 export const Role = {
 	BASIC: 4,
@@ -467,8 +466,7 @@ export const Role = {
 	ADMIN: 16,
 	AUDITOR: 32,
 	POWERUSER_PLUS: 64,
-	POWERUSER: 128,
-	USER_IMPERSONATION: 256
+	POWERUSER: 128
 };
 
 // Image pull secrets
@@ -579,8 +577,6 @@ export interface K8sSettings {
 	tolerations?: string;
 	resources?: string;
 	runtimeClassName?: string;
-	storageClassName?: string;
-	nanobotWorkspaceSize?: string;
 	setViaHelm?: boolean;
 }
 
@@ -593,8 +589,6 @@ export interface K8sSettingsManifest {
 	tolerations?: string;
 	resources?: string;
 	runtimeClassName?: string;
-	storageClassName?: string;
-	nanobotWorkspaceSize?: string;
 }
 export interface ServerK8sSettings {
 	needsK8sUpdate: boolean;
@@ -1113,7 +1107,7 @@ export const ModelUsageLabels = {
 	[ModelUsage.Other]: m.core_model_usage_other(),
 	[ModelUsage.Unknown]: m.core_unknown()
 } as const;
-export const NanobotModelAlias = {
+export const ConfigurableModelAlias = {
 	Llm: 'llm',
 	LlmMini: 'llm-mini'
 } as const;
@@ -1563,19 +1557,6 @@ export interface SystemMCPServer {
 	deploymentReadyReplicas?: number;
 	deploymentReplicas?: number;
 	k8sSettingsHash?: string;
-}
-export interface RestartNanobotAgentDeploymentsFailure {
-	serverID: string;
-	error: string;
-}
-export interface RestartNanobotAgentDeploymentsResult {
-	dryRun: boolean;
-	totalNanobotAgentServers: number;
-	targetedServerIDs: string[];
-	restartedCount: number;
-	restartedServerIDs: string[];
-	failedCount: number;
-	failed: RestartNanobotAgentDeploymentsFailure[];
 }
 
 // Token usage
