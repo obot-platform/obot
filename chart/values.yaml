@@ -7,6 +7,7 @@ replicaCount: 1
 substrate:
   apiServer:
     replicas: 2
+  # Set true to enable both Claude Environments and the bundled infrastructure.
   enabled: false
   postgres:
     # External Substrate database; leave empty to deploy bundled PostgreSQL.
@@ -180,6 +181,14 @@ config:
 
 
 
+  # config.OBOT_SERVER_SUBSTRATE_NAMESPACE -- Namespace for environment worker pools.
+  OBOT_SERVER_SUBSTRATE_NAMESPACE: "obot-agents"
+  # config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION -- Required cluster-wide snapshot bucket URI (s3:// or gs://) when Claude Environments is enabled.
+  OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION: ""
+  # config.OBOT_SERVER_SUBSTRATE_WORKER_IMAGE -- Default worker image; empty derives it from substrate.image.repository and the bundled Substrate version.
+  OBOT_SERVER_SUBSTRATE_WORKER_IMAGE: ""
+  # config.OBOT_SERVER_SUBSTRATE_RUNNER_IMAGE -- Override the built-in digest-pinned Claude runner image for new environments (repository@sha256:...); empty uses the Obot default.
+  OBOT_SERVER_SUBSTRATE_RUNNER_IMAGE: ""
 
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
   OBOT_SERVER_ENABLE_AUTHENTICATION: false

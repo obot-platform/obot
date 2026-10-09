@@ -12,6 +12,7 @@ on:
       - .github/workflows/helm.yml
       - chart/**
       - tools/test-model-proxy-chart.sh
+      - tools/test-substrate-chart.sh
   pull_request:
     branches:
       - main
@@ -20,6 +21,7 @@ on:
       - .github/workflows/helm.yml
       - chart/**
       - tools/test-model-proxy-chart.sh
+      - tools/test-substrate-chart.sh
 
 jobs:
   lint:
@@ -40,6 +42,12 @@ jobs:
       - name: Verify model proxy URL configuration
         run: bash tools/test-model-proxy-chart.sh
 
+      - name: Install YAML parser
+        run: python3 -m pip install PyYAML==6.0.2
+
+      - name: Verify Substrate chart
+        run: bash tools/test-substrate-chart.sh
+
       - name: Render Helm chart
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
 
@@ -58,6 +66,7 @@ jobs:
       - name: Render chart
         run: |
           helm template test-release ./chart --set dev.useEmbeddedDb=true > rendered.yaml
+          helm template test-release ./chart --set dev.useEmbeddedDb=true --set substrate.enabled=true --set substrate.image.repository=registry.example.com/substrate --set config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION=s3://ci-snapshots --include-crds > rendered-substrate.yaml
 
       - name: Log in to GitHub Packages
         run: echo "${{ github.token }}" | docker login ghcr.io -u ${GITHUB_ACTOR} --password-stdin
@@ -65,6 +74,14 @@ jobs:
         with:
           entrypoint: "/kubeconform"
           args: "-summary -output json rendered.yaml"
+
+      - name: Validate Substrate Kubernetes resources
+        uses: docker://ghcr.io/yannh/kubeconform:v0.8.0
+        with:
+          entrypoint: "/kubeconform"
+          # Upstream CRDs are checked in verbatim; kubeconform has no schemas
+          # for CRDs or Substrate custom resources.
+          args: "-kubernetes-version 1.35.0 -skip CustomResourceDefinition,SandboxConfig -summary -output json rendered-substrate.yaml"
 
       - name: Build Helm chart package
         run: |

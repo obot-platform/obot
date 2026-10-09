@@ -1,0 +1,324 @@
+{{- if .Values.substrate.enabled }}
+{{- $enabled := .Values.substrate.enabled }}
+# Adapted from agent-substrate/substrate 531c935370b9; see ../charts/substrate/README.md.
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# contract expected by atunnel's egress client:
+#   * downstream mTLS on :443 (present servicedns identity, require + verify an
+#     actor-identity client cert),
+#   * terminate the actor's HTTP CONNECT and tunnel raw TCP to the CONNECT
+#     authority (the actor's original destination, always sent as IP:port).
+#
+# What goes through the tunnel is authorized against the actor's EgressPolicy
+# by the ext_proc sidecar. Cleartext HTTP is decided per request: the rules in
+# policy order, over the Host and the address the actor dialed, and the request
+# goes to what the matching rule checked, the Host resolved here or the dialed
+# address. TLS is forwarded only after the upstream egress-policy module
+# matches the ClientHello SNI against the actor's tls_passthrough rules.
+# Claude integration enables TLS interception and synchronous Obot audit capture.
+# Opaque TCP remains disabled.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: atenet-egress
+  namespace: ate-system
+#
+# No RBAC is bound to this ServiceAccount on purpose: the ext_proc sidecar runs
+# with --mode=egress, which serves the egress ext_proc handler and nothing else
+# — no xDS server, so no Kubernetes access. It reaches the control plane over
+# the ate API only.
+---
+{{ include "obot.substrate.egressConfig" . }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atenet-egress
+  namespace: ate-system
+  labels:
+    app: atenet-egress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atenet-egress
+  template:
+    metadata:
+      annotations:
+        obot.ai/egress-config: {{ (include "obot.substrate.egressConfig" . | fromYaml).data | toJson | sha256sum | quote }}
+      labels:
+        app: atenet-egress
+    spec:
+      serviceAccountName: atenet-egress
+      securityContext:
+        fsGroup: 65532
+        # Allow the non-root envoy user to bind :443.
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      terminationGracePeriodSeconds: 60
+      {{- with .Values.substrate.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if $enabled }}
+      initContainers:
+      - name: sdsmint
+        image: {{ .Values.substrate.image.repository }}/atenet:{{ .Subcharts.substrate.Chart.AppVersion }}
+        restartPolicy: Always
+        args: [sdsmint, --uds-path=/var/run/sdsmint/sdsmint.sock, --ca-pool-path=/run/ca-state/mitm-pool.json, --leaf-cert-ttl=15m]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - name: sdsmint-sock
+          mountPath: /var/run/sdsmint
+        - name: mitm-ca
+          mountPath: /run/ca-state
+          readOnly: true
+      {{- end }}
+      containers:
+      - name: envoy
+        # ENVOY_DATAPLANE_IMAGE is substituted for the image URI in renderAtenetEgressManifest
+        image: {{ .Values.substrate.image.repository }}/envoy-dataplane:{{ .Subcharts.substrate.Chart.AppVersion }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 65532
+        args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-node
+        - atenet-egress
+        - --service-cluster
+        - atenet-egress
+        # Prevents Envoy from fast-exiting on SIGTERM before the ext-proc
+        # sidecar finishes its drain sequence. Polls for the drain-complete
+        # marker the sidecar writes on the shared emptyDir, terminating Envoy
+        # as soon as the drain completes (or at terminationGracePeriodSeconds
+        # if the sidecar crashes).
+        #
+        # TODO(liorlieberman): decide the drain policy for long-lived CONNECT
+        # tunnels. envoyDrainer polls downstream_cx_active until it reaches
+        # zero, which suits ingress (short request/response connections) but
+        # not egress: atunnel holds a tunnel open for the life of the actor's
+        # connection, so an actor still streaming when the rollout starts keeps
+        # the count above zero until the ~15s window expires. Every rollout
+        # with active egress will therefore log "N downstream connections still
+        # active at the drain deadline". Either accept that as the honest
+        # outcome (we tried to drain, then cut), or give egress its own shorter
+        # window so we stop pretending a tunnel will close on its own.
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sh", "-c", "while [ ! -f /var/run/atenet/drain-complete ]; do sleep 0.5; done"]
+        ports:
+        - name: https
+          containerPort: 443
+        - name: readiness
+          containerPort: 15001
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: readiness
+          periodSeconds: 10
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /ready
+            port: readiness
+          periodSeconds: 1
+        volumeMounts:
+        {{- if $enabled }}
+        - name: sdsmint-sock
+          mountPath: /var/run/sdsmint
+        {{- end }}
+        - name: config
+          mountPath: /etc/envoy
+          readOnly: true
+        - name: servicedns
+          mountPath: /run/servicedns.podcert.ate.dev
+          readOnly: true
+        - name: podidentity
+          mountPath: /run/podidentity.podcert.ate.dev
+          readOnly: true
+        - name: actor-id-ca-certs
+          mountPath: /run/actor-id-ca-certs
+          readOnly: true
+        - name: drain-signal
+          mountPath: /var/run/atenet
+          readOnly: true
+      # Co-located ext_proc server: the same atenet router binary the ingress
+      # gateway runs, started with --mode=egress so it serves only the egress
+      # ext_proc handler (no xDS server, no Kubernetes access). The egress
+      # Envoy calls it over localhost to
+      # authenticate actor identity against the ate API on every CONNECT.
+      #
+      # Ingress and egress are separate Deployments because they scale
+      # independently, not because they need separate binaries: one instance can
+      # serve both directions with --mode=all.
+      - name: ext-proc
+        image: {{ .Values.substrate.image.repository }}/atenet:{{ .Subcharts.substrate.Chart.AppVersion }}
+        args:
+        - router
+        - --mode=egress
+        {{- if $enabled }}
+        - --credential-provider-name=obot
+        - --credential-provider-address={{ include "obot.fullname" . }}-egress-credentials.{{ .Release.Namespace }}.svc:8444
+        - --credential-provider-ca-file=/run/servicedns.podcert.ate.dev/trust-bundle.pem
+        - --credential-provider-client-cert=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+        {{- end }}
+        - --namespace=ate-system
+        - --port-extproc=50051
+        - --extproc-address=127.0.0.1
+        - --ateapi-address=dns:///api.ate-system.svc:443
+        - --ateapi-ca-file=/run/servicedns.podcert.ate.dev/trust-bundle.pem
+        - --ateapi-client-cert=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+        # Same bundle Envoy validates the handshake against. The handler
+        # re-verifies the chain in Go and reads the ActorIdentity extension out
+        # of it; without this flag the router has no actor-identity roots and
+        # denies every egress CONNECT with a 503.
+        - --actor-identity-ca-file=/run/actor-id-ca-certs/ca.crt
+        # Disables Envoy-side tracing only (a span per CONNECT tunnel is
+        # dataplane-volume noise). The ext-proc's own OTel SDK exports to
+        # $OTEL_EXPORTER_OTLP_ENDPOINT from ate-otel-config below.
+        - --otlp-collector-address=
+        # The egress Envoy's admin listener is on 15000, not the 9901 the flag
+        # defaults to (that is the ingress gateway's port). Without this the
+        # drain sequence dials a closed port, reads the connection refusal as
+        # "Envoy already exited", and reports a drain it never performed.
+        - --envoy-admin-address=127.0.0.1:15000
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
+        # OTLP exporter settings shared by every control plane component; see
+        # manifests/ate-install/ate-otel-config.yaml. Without this the SDK
+        # falls back to localhost:4317, where nothing listens, and every
+        # egress metric and span is lost.
+        envFrom:
+        - configMapRef:
+            name: ate-otel-config
+        ports:
+        - name: extproc
+          containerPort: 50051
+        - name: metrics
+          containerPort: 9090
+        # Probed on the metrics port, not the ext_proc port: the ext_proc server
+        # binds loopback (--extproc-address 127.0.0.1) so it is unreachable from
+        # other pods, which a pod-IP tcpSocket probe on 50051 could not reach. The
+        # metrics server binds all interfaces and /readyz reflects the process.
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          failureThreshold: 3
+        volumeMounts:
+        # Trust bundle used to verify ateapi's servicedns serving cert.
+        - name: servicedns
+          mountPath: /run/servicedns.podcert.ate.dev
+          readOnly: true
+        # ext-proc's own client identity presented to ateapi.
+        - name: podidentity
+          mountPath: /run/podidentity.podcert.ate.dev
+          readOnly: true
+        # Actor-identity CA roots, for --actor-identity-ca-file above.
+        - name: actor-id-ca-certs
+          mountPath: /run/actor-id-ca-certs
+          readOnly: true
+        - name: drain-signal
+          mountPath: /var/run/atenet
+      volumes:
+      {{- if $enabled }}
+      - name: sdsmint-sock
+        emptyDir: {}
+      - name: mitm-ca
+        secret:
+          secretName: egress-mitm-ca-pool
+          items:
+          - key: pool
+            path: mitm-pool.json
+      {{- end }}
+      - name: config
+        configMap:
+          name: atenet-egress
+      - name: drain-signal
+        emptyDir: {}
+      - name: servicedns
+        projected:
+          sources:
+          - podCertificate:
+              signerName: servicedns.podcert.ate.dev/identity
+              keyType: ECDSAP256
+              credentialBundlePath: credential-bundle.pem
+          - clusterTrustBundle:
+              signerName: servicedns.podcert.ate.dev/identity
+              labelSelector:
+                matchLabels:
+                  podcert.ate.dev/canarying: live
+              path: trust-bundle.pem
+      - name: podidentity
+        projected:
+          sources:
+          - podCertificate:
+              signerName: podidentity.podcert.ate.dev/identity
+              keyType: ECDSAP256
+              credentialBundlePath: credential-bundle.pem
+          - clusterTrustBundle:
+              signerName: podidentity.podcert.ate.dev/identity
+              labelSelector:
+                matchLabels:
+                  podcert.ate.dev/canarying: live
+              path: trust-bundle.pem
+      - name: actor-id-ca-certs
+        secret:
+          secretName: actor-id-ca-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atenet-egress
+  namespace: ate-system
+spec:
+  type: ClusterIP
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: atenet-egress
+  ports:
+  - name: https
+    port: 443
+    targetPort: https
+    protocol: TCP
+
+{{- end }}

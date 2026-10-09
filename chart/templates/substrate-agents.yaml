@@ -1,0 +1,36 @@
+{{- if .Values.substrate.enabled }}
+{{- $_ := required "config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION must be an s3:// or gs:// bucket URL" .Values.config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION }}
+{{- $_ := required "config.OBOT_SERVER_SUBSTRATE_NAMESPACE is required" .Values.config.OBOT_SERVER_SUBSTRATE_NAMESPACE }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.config.OBOT_SERVER_SUBSTRATE_NAMESPACE | quote }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "obot.fullname" . }}-claude-pools
+  namespace: {{ .Values.config.OBOT_SERVER_SUBSTRATE_NAMESPACE | quote }}
+rules:
+  - apiGroups: [ate.dev]
+    resources: [workerpools]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "obot.fullname" . }}-claude-pools
+  namespace: {{ .Values.config.OBOT_SERVER_SUBSTRATE_NAMESPACE | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "obot.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "obot.fullname" . }}-claude-pools
+{{- end }}

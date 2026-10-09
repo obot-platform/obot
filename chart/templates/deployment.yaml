@@ -97,8 +97,13 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+          {{- if or .Values.substrate.enabled .Values.persistence.enabled .Values.extraVolumeMounts (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
           volumeMounts:
+            {{- if .Values.substrate.enabled }}
+            - name: substrate-api
+              mountPath: /run/substrate
+              readOnly: true
+            {{- end }}
             {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
             - name: config
               mountPath: /config
@@ -166,8 +171,33 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
+      {{- if or .Values.substrate.enabled .Values.persistence.enabled .Values.extraVolumes (eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom") }}
       volumes:
+      {{- if .Values.substrate.enabled }}
+        - name: substrate-api
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: api.ate-system.svc
+                  expirationSeconds: 3600
+                  path: token
+              - clusterTrustBundle:
+                  signerName: servicedns.podcert.ate.dev/identity
+                  labelSelector:
+                    matchLabels:
+                      podcert.ate.dev/canarying: live
+                  path: ca.pem
+              - podCertificate:
+                  signerName: servicedns.podcert.ate.dev/identity
+                  keyType: ECDSAP256
+                  credentialBundlePath: credential.pem
+              - clusterTrustBundle:
+                  signerName: podidentity.podcert.ate.dev/identity
+                  labelSelector:
+                    matchLabels:
+                      podcert.ate.dev/canarying: live
+                  path: pod-identity-ca.pem
+      {{- end }}
       {{- if eq (lower (toString .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER)) "custom" }}
         - name: config
           emptyDir:
