@@ -15,13 +15,19 @@
 	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
 	import { twMerge } from 'tailwind-merge';
 
+	export type VMcpCreateDraft = VMcpFormData & {
+		components: VMCPComponent[];
+	};
+
 	interface Props {
 		onCreated?: (created: VMCP) => void | Promise<void>;
 		onDeleted?: (deleted: VMCP) => void | Promise<void>;
 		onUpdated?: (updated: VMCP) => void | Promise<void>;
+		onClose?: () => void;
+		onCreate?: (draft: VMcpCreateDraft) => boolean | Promise<boolean>;
 	}
 
-	let { onCreated, onDeleted, onUpdated }: Props = $props();
+	let { onCreated, onDeleted, onUpdated, onClose, onCreate }: Props = $props();
 
 	let form = $state<VMcpFormData>(initVMcp());
 	let creatingComponents = $state<VMCPComponent[]>([]);
@@ -61,6 +67,7 @@
 	function handleDialogClose() {
 		dialogOpen = false;
 		resetForm();
+		onClose?.();
 	}
 
 	function validateForm() {
@@ -74,22 +81,37 @@
 		return Object.keys(showRequired).length === 0;
 	}
 
+	function createDraft(): VMcpCreateDraft {
+		return {
+			displayName: form.displayName.trim(),
+			description: form.description.trim(),
+			components: creatingComponents
+		};
+	}
+
 	async function handleSubmit() {
 		if (!validateForm()) return;
 		if (selectedVMcp) {
 			await updateVMcp(selectedVMcp);
-		} else {
-			await createVMcp();
+			return;
 		}
+
+		const draft = createDraft();
+		if (await onCreate?.(draft)) {
+			closeDialog();
+			return;
+		}
+
+		await createVMcp(draft);
 	}
 
-	async function createVMcp() {
+	async function createVMcp(draft: VMcpCreateDraft) {
 		saving = true;
 		try {
 			const created = await UserService.createVMCP({
-				displayName: form.displayName.trim(),
-				description: form.description.trim(),
-				components: creatingComponents
+				displayName: draft.displayName,
+				description: draft.description,
+				components: draft.components
 			});
 
 			success.add(m.vmcps_vmcp_added({ name: created.displayName }));
@@ -100,6 +122,10 @@
 		} finally {
 			saving = false;
 		}
+	}
+
+	export async function saveCreate(draft: VMcpCreateDraft) {
+		await createVMcp(draft);
 	}
 
 	async function updateVMcp(vmcp: VMCP) {

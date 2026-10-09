@@ -10,6 +10,7 @@
 	} from '$lib/components/mcp/configurationOptions';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import type { LocalizedString } from '$lib/paraglide/messages';
 	import type {
 		MCPCatalogEntry,
 		MCPConfig,
@@ -70,8 +71,9 @@
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
 	let advancedExpanded = $state(false);
-	let submitLabel = $state<string>(m.core_next());
-	let failureMessage = $state<string>(m.vmcps_failed_to_add_server_to_vmcp());
+	let submitLabel = $state('Next');
+	let failureMessage = $state(m.vmcps_failed_to_add_server_to_vmcp());
+	let hideCancel = $state(false);
 
 	let hasUserAllowedNonHeaderConfiguration = $derived(
 		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
@@ -85,14 +87,16 @@
 	let hasConfiguration = $derived(
 		!entry || entry.manifest.runtime !== 'remote' || catalogConfigurationFields(entry).length > 0
 	);
+	let dismissHidden = $derived(hideCancel && !readonly && hasConfiguration);
 
 	export function open(
 		target: MCPCatalogEntry,
 		options?: {
 			configuration?: VMCPConfigurationPolicy[];
 			forceSingleUser?: boolean;
-			submitLabel?: string;
-			errorMessage?: string;
+			submitLabel?: LocalizedString;
+			errorMessage?: LocalizedString;
+			hideCancel?: boolean;
 		}
 	) {
 		entry = target;
@@ -111,6 +115,7 @@
 		forceSingleUser = !hasUserAllowedNonHeaderConfiguration && (options?.forceSingleUser ?? false);
 		submitLabel = options?.submitLabel ?? m.core_next();
 		failureMessage = options?.errorMessage ?? m.vmcps_failed_to_add_server_to_vmcp();
+		hideCancel = options?.hideCancel ?? false;
 		highlighted = [];
 		error = undefined;
 		saving = false;
@@ -188,6 +193,7 @@
 		entry = undefined;
 		drafts = [];
 		forceSingleUser = false;
+		hideCancel = false;
 		error = undefined;
 		highlighted = [];
 		onClose?.();
@@ -289,6 +295,8 @@
 	title={m.vmcps_supply_configuration()}
 	onClose={handleClose}
 	hideClose
+	disableClickOutside
+	disableEscape={dismissHidden}
 >
 	{#snippet titleContent()}
 		{#if entry?.manifest.icon}
@@ -324,7 +332,7 @@
 			</ul>
 		{/if}
 		{#if error}
-			<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
+			<p class="notification-error mb-4 text-xs" role="alert">{error}</p>
 		{/if}
 		<div class="flex flex-col gap-3">
 			{#each requiredDrafts as draft, index (draft.field.key)}
@@ -369,13 +377,15 @@
 	</div>
 	<div class="flex grow"></div>
 	<div class="mt-4 flex justify-end gap-2 p-4 md:p-0 pt-0">
-		<button
-			class="btn btn-secondary btn-sm text-xs"
-			onclick={() => dialog?.close()}
-			disabled={saving}
-		>
-			{readonly || !hasConfiguration ? m.core_close() : m.common_cancel()}
-		</button>
+		{#if !dismissHidden}
+			<button
+				class="btn btn-secondary btn-sm text-xs"
+				onclick={() => dialog?.close()}
+				disabled={saving}
+			>
+				{readonly || !hasConfiguration ? m.core_close() : m.common_cancel()}
+			</button>
+		{/if}
 		{#if !readonly && hasConfiguration}
 			<button class="btn btn-primary btn-sm text-xs" onclick={handleNext} disabled={saving}>
 				{#if saving}
