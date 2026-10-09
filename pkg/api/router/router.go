@@ -42,6 +42,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		GatewayClient:           services.GatewayClient,
 		StorageClient:           services.StorageClient,
 		LicenseProvider:         services.LicenseProvider,
+		LimitProvider:           services.LimitProvider,
 		PostgresDSN:             services.PostgresDSN,
 		Engine:                  services.MCPRuntimeBackend,
 		MCPNetworkPolicyEnabled: services.MCPNetworkPolicyEnabled,
@@ -113,7 +114,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
 	mdmAssets := handlers.NewMDMAssetHandler()
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
-	deviceEnroll := handlers.NewDeviceEnrollHandler(services.LicenseProvider)
+	deviceEnroll := handlers.NewDeviceEnrollHandler(services.LimitProvider)
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()

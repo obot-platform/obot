@@ -34,6 +34,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -97,6 +98,7 @@ type (
 	EncryptionConfig  encryption.Options
 	MCPConfig         mcp.Options
 	LicenseConfig     license.Config
+	BillingConfig     billing.Config
 )
 
 type Config struct {
@@ -160,6 +162,7 @@ type Config struct {
 	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
+	EnforceResourceLimits                bool   `usage:"Restrict an installation that is using more than its entitlements allow, until it fits again" default:"false" name:"enforce-resource-limits" env:"OBOT_SERVER_ENFORCE_RESOURCE_LIMITS"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
@@ -180,6 +183,7 @@ type Config struct {
 	RateLimiterConfig
 	MCPConfig
 	LicenseConfig
+	BillingConfig
 	storageservices.Config
 }
 
@@ -309,7 +313,18 @@ type Services struct {
 
 	// License provider
 	LicenseProvider *license.Provider
-	VersionChecker  *upgrade.VersionChecker
+
+	// LimitProvider resolves the resource limits the installation is entitled to.
+	LimitProvider license.LimitProvider
+
+	// Restrictor decides whether the installation is using more than it is
+	// entitled to. It is inert unless resource limit enforcement is enabled.
+	Restrictor *license.Restrictor
+
+	// BillingClient is nil unless both billing settings are supplied.
+	BillingClient *billing.Client
+
+	VersionChecker *upgrade.VersionChecker
 
 	ModelProxyConfiguredURL string
 	ModelProxyURL           *url.URL
@@ -1120,6 +1135,23 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
 
+	var (
+		limitProvider license.LimitProvider = licenseProvider
+		billingClient *billing.Client
+	)
+	if billingConfig := billing.Config(config.BillingConfig); billingConfig.Configured() {
+		billingClient, err = billing.New(ctx, billingConfig, gatewayClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create billing client: %w", err)
+		}
+		limitProvider = billing.NewLimits(billingClient, licenseProvider)
+	}
+
+	gatewayClient.SetAuditLogRetentionProvider(limitProvider)
+	gatewayClient.SetHostedMCPServerLimitProvider(limitProvider)
+
+	restrictor := license.NewRestrictor(config.EnforceResourceLimits, limitProvider, gatewayClient)
+
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
@@ -1184,7 +1216,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, limitProvider, restrictor)
 		// Tunnel credentials are non-user principals and must be handled after
 		// the user decorator. Authorization restricts them to tunnel setup only.
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1231,7 +1263,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, limitProvider, restrictor)
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1407,6 +1439,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
 			licenseProvider,
+			restrictor,
 		),
 		GatewayClient:                gatewayClient,
 		ProxyManager:                 proxyManager,
@@ -1491,6 +1524,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 		LicenseProvider:                      licenseProvider,
+		LimitProvider:                        limitProvider,
+		Restrictor:                           restrictor,
+		BillingClient:                        billingClient,
 		VersionChecker:                       versionChecker,
 	}
 

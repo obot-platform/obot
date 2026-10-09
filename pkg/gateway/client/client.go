@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -31,29 +32,43 @@ const (
 	// DefaultDeviceLimit is the maximum number of devices allowed when no
 	// license-derived device-limit provider is configured.
 	DefaultDeviceLimit = 100
+
+	// DefaultHostedMCPServerLimit leaves the number of hosted MCP servers
+	// unbounded. Hosted servers have never been capped, so only an entitlement
+	// that names a number introduces a limit.
+	DefaultHostedMCPServerLimit = 0
+
+	// DefaultAuditLogRetentionDays leaves audit log retention undefined, so the
+	// retention the server is configured with applies.
+	DefaultAuditLogRetentionDays = 0
 )
 
 type Client struct {
-	db                        *db.DB
-	encryptionConfig          *encryptionconfig.EncryptionConfiguration
-	emailsWithExplicitRoles   map[string]types2.Role
-	auditLock                 sync.Mutex
-	auditBuffer               []types.MCPAuditLog
-	kickAuditPersist          chan struct{}
-	enforcementLock           sync.Mutex
-	enforcementBuffer         []types.EnforcementDecisionLog
-	kickEnforcementPersist    chan struct{}
-	llmAuditEntries           chan llmAuditEntry
-	llmAuditBatchSize         int
-	llmAuditEnabled           bool
-	storageClient             kclient.Client
-	apiKeyCacheLock           sync.RWMutex
-	apiKeyCache               map[[32]byte]apiKeyValidationCacheEntry
-	apiKeyCacheTTL            time.Duration
-	serviceAccountCacheLock   sync.RWMutex
-	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
-	serviceAccountCacheTTL    time.Duration
-	deviceCreationLock        sync.Mutex
+	db                      *db.DB
+	encryptionConfig        *encryptionconfig.EncryptionConfiguration
+	emailsWithExplicitRoles map[string]types2.Role
+	auditLock               sync.Mutex
+	auditBuffer             []types.MCPAuditLog
+	kickAuditPersist        chan struct{}
+	enforcementLock         sync.Mutex
+	enforcementBuffer       []types.EnforcementDecisionLog
+	kickEnforcementPersist  chan struct{}
+	llmAuditEntries         chan llmAuditEntry
+	llmAuditBatchSize       int
+	llmAuditEnabled         bool
+	storageClient           kclient.Client
+	apiKeyCacheLock         sync.RWMutex
+	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
+	apiKeyCacheTTL          time.Duration
+	serviceAccountCacheLock sync.RWMutex
+	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
+	serviceAccountCacheTTL  time.Duration
+	deviceCreationLock      sync.Mutex
+
+	hostedMCPServerCreationLock  sync.Mutex
+	hostedMCPServerLimitProvider atomic.Pointer[HostedMCPServerLimitProvider]
+
+	auditLogRetentionProvider atomic.Pointer[AuditLogRetentionProvider]
 	auditLogCleanupInterval   time.Duration
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration

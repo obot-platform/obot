@@ -861,7 +861,17 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
-			if err := req.Create(&server); err != nil {
+			// Counted as it is created, not as it is deployed. A hosted server
+			// deploys lazily and shuts down when it goes idle, so what it costs
+			// us follows the object rather than the deployment.
+			if err := req.GatewayClient.CreateHostedMCPServer(req.Context(), manifest.Runtime, func(context.Context) error {
+				return req.Create(&server)
+			}); err != nil {
+				// A refusal already carries the status and message to show the
+				// user; anything else is ours to describe.
+				if errors.As(err, new(*types.ErrHTTP)) {
+					return v1.MCPServer{}, v1.MCPServerInstance{}, err
+				}
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
 			}
 

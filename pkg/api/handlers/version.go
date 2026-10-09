@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/pkg/version"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -29,13 +30,21 @@ type UpgradeStatusReader interface {
 	Status() upgrade.Status
 }
 
+// VersionLicenseProvider reports the license state the version response exposes.
+type VersionLicenseProvider interface {
+	GetLicenseViolations(context.Context, kclient.Client, license.LimitProvider) ([]license.Violation, error)
+	Entitlements(context.Context) ([]string, error)
+	HasValidLicense(context.Context) (bool, error)
+}
+
 type VersionHandlerOptions struct {
 	ProviderConfiguration   mcptester.ProviderConfigurationResolver
 	ModelProxyURL           *url.URL
 	ModelProxySettings      mcptester.ModelProxySettingsReader
 	GatewayClient           *client.Client
 	StorageClient           storage.Client
-	LicenseProvider         *license.Provider
+	LicenseProvider         VersionLicenseProvider
+	LimitProvider           license.LimitProvider
 	PostgresDSN             string
 	Engine                  string
 	MCPNetworkPolicyEnabled bool
@@ -82,7 +91,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
+	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient, v.LimitProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +134,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		values[key] = value
 	}
 
-	userLimit, err := v.LicenseProvider.UserLimit(ctx)
+	userLimit, err := v.LimitProvider.UserLimit(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +142,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		values["userLimit"] = userLimit.Maximum
 	}
 
-	deviceLimit, err := v.LicenseProvider.DeviceLimit(ctx)
+	deviceLimit, err := v.LimitProvider.DeviceLimit(ctx)
 	if err != nil {
 		return nil, err
 	}
