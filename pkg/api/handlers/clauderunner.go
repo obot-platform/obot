@@ -133,14 +133,22 @@ func (h *ClaudeRunnerHandler) Spawn(req api.Context) error {
 		if current.Revision != environment.Revision {
 			return types.NewErrHTTP(503, "Environment credential changed; retry provisioning")
 		}
-		mapping, err := req.GatewayClient.MatchClaudeOrganizationAccount(req.Context(), environment.OrganizationID, input.Account, input.Email)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrHTTP(403, "Claude user not found. Ask an Obot administrator to map your Claude account")
+		owner := current.ClaudeTagUserID
+		if input.Account == "" {
+			if !current.ClaudeTagEnabled || owner == "" {
+				return types.NewErrHTTP(403, "Claude Tag is not configured for this environment")
+			}
+			input.Account = clauderunner.ClaudeTagAccount
+		} else {
+			mapping, err := req.GatewayClient.MatchClaudeOrganizationAccount(req.Context(), environment.OrganizationID, input.Account, input.Email)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return types.NewErrHTTP(403, "Claude user not found. Ask an Obot administrator to map your Claude account")
+			}
+			if err != nil {
+				return err
+			}
+			owner = mapping.UserID
 		}
-		if err != nil {
-			return err
-		}
-		owner := mapping.UserID
 		effective, err := clauderunner.AuthorizedEnvironment(req.Context(), req.GatewayClient, environment.ID, input.Account, owner)
 		if clauderunner.AccessDenied(err) {
 			return types.NewErrHTTP(403, "The connected user does not have access to this environment")
@@ -191,6 +199,7 @@ func (h *ClaudeRunnerHandler) Spawn(req api.Context) error {
 		inst.Name, inst.Namespace, inst.Finalizers = name, req.Namespace(), []string{substrate.Finalizer}
 		inst.Spec = v1.AgentInstanceSpec{ClaudeRepositories: input.Repositories, UserID: owner, DisplayName: current.DisplayName, ClaudeEnvironment: environment.ID, ClaudeOrder: input.Order, ClaudeSession: input.Session, ClaudeAccount: input.Account}
 		if previous != nil {
+			mergeSlackMetadata(&inst.Spec, previous.Spec)
 			// A new attempt cannot race a previous runner or restore an incomplete checkpoint.
 			if !previous.Spec.ClaudeDone || previous.Status.State != "SUSPENDED" {
 				return types.NewErrHTTP(503, "Waiting for the previous execution to release and checkpoint")
@@ -320,10 +329,38 @@ func revokeClaudeKey(req api.Context, name string) error {
 
 // Status is polled with the per-runner credential; it exposes no session secrets.
 func (h *ClaudeRunnerHandler) Status(req api.Context) error {
+	var input v1.AgentInstanceSpec
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+	for _, value := range []string{input.SlackSenderName, input.SlackSenderHandle, input.SlackChannelName, input.SlackThreadTimestamp, input.SlackLink} {
+		if len(value) > 256 {
+			return types.NewErrBadRequest("Slack metadata must not exceed 256 bytes per field")
+		}
+	}
+	if input.SlackThreadTimestamp != "" && !regexp.MustCompile(`^[0-9]+\.[0-9]+$`).MatchString(input.SlackThreadTimestamp) {
+		return types.NewErrBadRequest("Invalid Slack thread timestamp")
+	}
+	if input.SlackLink != "" {
+		u, err := url.Parse(input.SlackLink)
+		if err != nil || u.Scheme != "https" || !strings.HasSuffix(u.Hostname(), ".slack.com") || u.User != nil || u.Port() != "" || !strings.HasPrefix(u.Path, "/archives/") {
+			return types.NewErrBadRequest("Invalid Slack message link")
+		}
+	}
+	return req.GatewayClient.WithClaudeProvisionLock(req.Context(), func() error { return h.status(req, input) })
+}
+
+func (h *ClaudeRunnerHandler) status(req api.Context, input v1.AgentInstanceSpec) error {
 	inst, err := h.runner(req)
 	if err != nil {
 		return err
 	}
+	if inst.Spec.ClaudeAccount == clauderunner.ClaudeTagAccount && mergeSlackMetadata(&inst.Spec, input) {
+		if err := req.Update(inst); err != nil {
+			return err
+		}
+	}
+
 	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
 	return req.Write(map[string]bool{"suspend": inst.Spec.Suspended})
 }
@@ -390,4 +427,27 @@ func sanitizeClaudeRepositories(repositories []v1.ClaudeSessionRepository) error
 		repository.URL = u.String()
 	}
 	return nil
+}
+
+// Fill each field once, including an explicit false mention flag.
+func mergeSlackMetadata(dst *v1.AgentInstanceSpec, src v1.AgentInstanceSpec) bool {
+	changed := false
+	for target, value := range map[*string]string{
+		&dst.SlackSenderName:      src.SlackSenderName,
+		&dst.SlackSenderHandle:    src.SlackSenderHandle,
+		&dst.SlackChannelName:     src.SlackChannelName,
+		&dst.SlackThreadTimestamp: src.SlackThreadTimestamp,
+		&dst.SlackLink:            src.SlackLink,
+	} {
+		if *target == "" && value != "" {
+			*target = value
+			changed = true
+		}
+	}
+	if dst.SlackMentioned == nil && src.SlackMentioned != nil {
+		value := *src.SlackMentioned
+		dst.SlackMentioned = &value
+		changed = true
+	}
+	return changed
 }

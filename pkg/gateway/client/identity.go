@@ -644,6 +644,8 @@ func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
 	err := tx.Model(new(types.User)).
 		Where("deleted_at IS NULL").
 		Where("hashed_username != ?", hash.String(system.BootstrapName)).
+		Where("CAST(users.id AS TEXT) NOT IN (?)", tx.Model(&types.ClaudeEnvironment{}).
+			Select("claude_tag_user_id").Where("claude_tag_user_id <> ''")).
 		Count(&userCount).Error
 	return userCount, err
 }

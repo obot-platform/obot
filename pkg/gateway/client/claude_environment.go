@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -51,6 +52,11 @@ func (c *Client) DeleteClaudeEnvironment(ctx context.Context, id string) error {
 		var environment types.ClaudeEnvironment
 		if err := tx.Where("id = ?", id).First(&environment).Error; err != nil {
 			return err
+		}
+		if environment.ClaudeTagUserID != "" {
+			if err := tx.Model(&types.User{}).Where("id = ? AND internal = ?", environment.ClaudeTagUserID, true).Update("deleted_at", time.Now()).Error; err != nil {
+				return err
+			}
 		}
 		return tx.Where("id = ?", id).Delete(&types.ClaudeEnvironment{}).Error
 	})

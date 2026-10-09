@@ -19,6 +19,14 @@ type ClaudeSessionRepository struct {
 }
 
 type AgentInstanceSpec struct {
+	// Runner-reported Slack metadata is for display only, never authorization.
+	SlackSenderName      string `json:"slackSenderName,omitempty"`
+	SlackSenderHandle    string `json:"slackSenderHandle,omitempty"`
+	SlackChannelName     string `json:"slackChannelName,omitempty"`
+	SlackThreadTimestamp string `json:"slackThreadTimestamp,omitempty"`
+	SlackLink            string `json:"slackLink,omitempty"`
+	SlackMentioned       *bool  `json:"slackMentioned,omitempty"`
+
 	// Nil means repository metadata was not provided; empty means no repositories.
 	// +optional
 	ClaudeRepositories []ClaudeSessionRepository `json:"claudeRepositories"`

@@ -1,6 +1,17 @@
 {
 	"hosted_agents_kubernetes_required": "Claude Environments는 Kubernetes 배포에서만 사용할 수 있습니다. 이 Obot 인스턴스는 Docker에서 실행 중입니다.",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"hosted_agents_tag_heading": "Claude Tag",
+	"hosted_agents_tag_help": "Claude Tag 채널 세션은 서비스 ID를 공유하며 Slack 메시지를 보낸 사람의 계정으로 실행되지 않습니다.",
+	"hosted_agents_tag_enable": "Claude Tag 활성화",
+	"hosted_agents_tag_disable_help": "Claude Tag를 비활성화하면 이 환경의 세션 작업 공간이 삭제됩니다.",
+	"hosted_agents_tag_saved": "Claude Tag 설정을 저장했습니다.",
+	"hosted_agents_tag_save": "Claude Tag 저장",
+	"hosted_agents_tag_create": "Claude Tag 서비스 사용자 생성",
+	"hosted_agents_tag_service_user": "Obot 서비스 사용자:",
+	"hosted_agents_tag_for": "{name}의 Claude Tag",
+	"hosted_agents_tag_grant": "이 환경과 vMCP 프로필에서 이 사용자에게 접근 권한을 부여하세요. 자격 증명에는 이 사용자의 권한이 적용됩니다.",
+	"hosted_agents_tag_vmcp_profiles": "vMCP 프로필",
 	"hosted_agents_map_unmapped": "매핑되지 않음",
 	"hosted_agents_map_saved": "저장된 매핑",
 	"hosted_agents_map_email": "이메일 일치",
@@ -366,5 +377,8 @@
 	"hosted_agents_cli_command": "Claude CLI로 시작",
 	"hosted_agents_cli_prompt": "작업을 설명하세요",
 	"hosted_agents_cli_help": "연결된 Claude 계정으로 Claude CLI에 로그인한 후 저장소 체크아웃에서 실행하세요. 프롬프트를 원하는 작업으로 바꾸세요. 이 환경에 클라우드 세션을 만들고 링크를 출력합니다.",
-	"hosted_agents_mapping_help": "매핑되지 않은 Claude 계정은 세션 요청의 이메일이 활성 상태의 매핑되지 않은 Obot 사용자와 유일하게 일치하면 자동 매핑됩니다. 저장된 사용자 할당이 우선하며 가져오기에 없는 구성원은 유지됩니다. “Not mapped”는 할당을 지우지만 향후 자동 매핑은 허용합니다. 변경 사항은 이 조직의 모든 환경에 적용되며 매핑을 변경하면 이전 소유자의 세션 작업 공간이 삭제됩니다. 환경 프로필은 계속 접근을 제어합니다."
+	"hosted_agents_mapping_help": "매핑되지 않은 Claude 계정은 세션 요청의 이메일이 활성 상태의 매핑되지 않은 Obot 사용자와 유일하게 일치하면 자동 매핑됩니다. 저장된 사용자 할당이 우선하며 가져오기에 없는 구성원은 유지됩니다. “Not mapped”는 할당을 지우지만 향후 자동 매핑은 허용합니다. 변경 사항은 이 조직의 모든 환경에 적용되며 매핑을 변경하면 이전 소유자의 세션 작업 공간이 삭제됩니다. 환경 프로필은 계속 접근을 제어합니다.",
+	"hosted_agents_slack_sender": "Slack 발신자",
+	"hosted_agents_slack_channel": "Slack 채널",
+	"hosted_agents_slack_thread": "Slack 스레드 열기"
 }

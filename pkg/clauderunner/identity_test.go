@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClaudeSessionIdentity(t *testing.T) {
+func TestClaudeTagSessionIdentity(t *testing.T) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 	verifier := Verifier{keys: map[string]*ecdsa.PublicKey{"test": &key.PublicKey}, fetched: time.Now()}
@@ -22,6 +22,7 @@ func TestClaudeSessionIdentity(t *testing.T) {
 		owner   string
 	}{
 		{name: "human", account: "user_abc", actor: "user:user_abc", owner: "user_abc"},
+		{name: "service", actor: "agent:tag-agent", owner: ClaudeTagAccount},
 		{name: "missing identity"},
 		{name: "human without account", actor: "user:user_abc"},
 		{name: "service with human account", account: "user_abc", actor: "agent:tag-agent"},

@@ -1,6 +1,17 @@
 {
 	"hosted_agents_kubernetes_required": "Claude Environments is only available in Kubernetes deployments. This Obot instance is running with Docker.",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"hosted_agents_tag_heading": "Claude Tag",
+	"hosted_agents_tag_help": "Claude Tag channel sessions share a service identity; they do not run as the person who sent the Slack message.",
+	"hosted_agents_tag_enable": "Enable Claude Tag",
+	"hosted_agents_tag_disable_help": "Disabling Claude Tag deletes its session workspaces in this environment.",
+	"hosted_agents_tag_saved": "Claude Tag settings saved.",
+	"hosted_agents_tag_save": "Save Claude Tag",
+	"hosted_agents_tag_create": "Create Claude Tag service user",
+	"hosted_agents_tag_service_user": "Obot service user:",
+	"hosted_agents_tag_for": "Claude Tag for {name}",
+	"hosted_agents_tag_grant": "Grant this user access in this environment’s profiles and vMCP profiles. Its credentials use its own permissions.",
+	"hosted_agents_tag_vmcp_profiles": "vMCP profiles",
 	"hosted_agents_map_unmapped": "Not mapped",
 	"hosted_agents_map_saved": "Saved mapping",
 	"hosted_agents_map_email": "Email match",
@@ -366,5 +377,8 @@
 	"hosted_agents_cli_command": "Start with Claude CLI",
 	"hosted_agents_cli_prompt": "Describe your task",
 	"hosted_agents_cli_help": "Sign in to Claude CLI with your connected Claude account, then run this from a checkout of your repository. Replace the prompt with your task. The command creates a cloud session in this environment and prints a link to it.",
-	"hosted_agents_mapping_help": "Unmapped Claude accounts are automatically matched when a session request supplies an email that uniquely matches an active, unmatched Obot user. Saved user assignments take priority. Members absent from the import are kept. Choosing “Not mapped” clears the assignment but allows future automatic matching. Changes apply to every environment in this organization; changing a mapping deletes the previous owner’s session workspaces. Environment profiles still control access."
+	"hosted_agents_mapping_help": "Unmapped Claude accounts are automatically matched when a session request supplies an email that uniquely matches an active, unmatched Obot user. Saved user assignments take priority. Members absent from the import are kept. Choosing “Not mapped” clears the assignment but allows future automatic matching. Changes apply to every environment in this organization; changing a mapping deletes the previous owner’s session workspaces. Environment profiles still control access.",
+	"hosted_agents_slack_sender": "Slack sender",
+	"hosted_agents_slack_channel": "Slack channel",
+	"hosted_agents_slack_thread": "Open Slack thread"
 }

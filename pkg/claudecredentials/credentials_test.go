@@ -15,14 +15,96 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gt "github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/substrate"
+	pb "github.com/obot-platform/obot/pkg/substrate/credproviderpb"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestClaudeEgressCredentials(t *testing.T) {
+	gateway, db := newCredentialTestGateway(t)
+
+	ctx := t.Context()
+	env := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, env))
+	env.MCPServerIDs = []string{"vmcp_one", "vmcp_two"}
+	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}, MCPServerIDs: []string{"vmcp_one"}}}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
+	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
+	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
+	ref := substrate.Ref(inst)
+	input := &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name}
+
+	_, err := provider.FetchSecret(ctx, input)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "an actor cannot use the provider directly")
+	uri, err := url.Parse("spiffe://cluster.local/ns/ate-system/sa/atenet-egress")
+	require.NoError(t, err)
+	cert := &x509.Certificate{URIs: []*url.URL{uri}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour)}
+	ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: [][]*x509.Certificate{{cert}}}}})
+	first, err := provider.fetchSecret(ctx, input)
+	require.NoError(t, err)
+	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
+	require.NoError(t, err)
+	require.Equal(t, []string{"vmcp_one"}, key.MCPServerIDs)
+	require.WithinDuration(t, time.Now().Add(5*time.Minute), *key.ExpiresAt, time.Second)
+	second, err := provider.fetchSecret(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, first.OpaqueBytes, second.OpaqueBytes)
+
+	require.NoError(t, db.Model(&gt.APIKey{}).Where("id = ?", key.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error)
+	refreshed, err := provider.fetchSecret(ctx, input)
+	require.NoError(t, err)
+	require.NotEqual(t, first.OpaqueBytes, refreshed.OpaqueBytes)
+
+	wrong := &pb.FetchSecretRequest{Uri: input.Uri, ActorSpiffeId: "spiffe://substrate-actor.local/actor/other/" + inst.Name}
+	_, err = provider.fetchSecret(ctx, wrong)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	wrong = &pb.FetchSecretRequest{Uri: input.Uri + "/../another", ActorSpiffeId: input.ActorSpiffeId}
+	_, err = provider.fetchSecret(ctx, wrong)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+
+	for _, field := range []string{"suspended", "done"} {
+		inst.Spec.Suspended = field == "suspended"
+		inst.Spec.ClaudeDone = field == "done"
+		require.NoError(t, storage.Update(ctx, inst))
+		_, err = provider.fetchSecret(ctx, input)
+		require.Equal(t, codes.PermissionDenied, status.Code(err))
+	}
+	inst.Spec.Suspended, inst.Spec.ClaudeDone = false, false
+	require.NoError(t, storage.Update(ctx, inst))
+	env.ClaudeTagEnabled = false
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	_, err = provider.fetchSecret(ctx, input)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	env.ClaudeTagEnabled = true
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	key, err = gateway.ValidateAPIKey(ctx, string(refreshed.OpaqueBytes))
+	require.NoError(t, err)
+	require.NoError(t, gateway.RevokeAPIKeyByID(ctx, key.ID))
+	_, err = provider.fetchSecret(ctx, input)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "refresh must not resurrect a revoked key")
+
+	cert.URIs[0], _ = url.Parse("spiffe://cluster.local/ns/ate-system/sa/other")
+	_, err = provider.FetchSecret(ctx, input)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+}
 
 func TestEgressPeerRequiresVerifiedCurrentCertificate(t *testing.T) {
 	uri, err := url.Parse(egressIdentity)

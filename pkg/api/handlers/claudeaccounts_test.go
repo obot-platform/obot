@@ -17,6 +17,7 @@ func TestClaudeMappingsRequireAdmin(t *testing.T) {
 		},
 	}
 	// Both reads and writes reject non-admins before accessing the database.
+	require.ErrorContains(t, handler.SaveClaudeTag(request), "Administrator access required")
 	require.ErrorContains(t, handler.OrganizationAccounts(request), "Administrator access required")
 	require.ErrorContains(t, handler.SaveOrganizationAccounts(request), "Administrator access required")
 }

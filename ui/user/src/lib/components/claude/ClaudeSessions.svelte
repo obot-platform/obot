@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
 	import { doDelete, doGet, doPost } from '$lib/services/http';
 	import { profile } from '$lib/stores';
@@ -20,6 +21,10 @@
 			suspended?: boolean;
 			claudeDone?: boolean;
 			claudeFinishedAt?: string;
+			slackSenderName?: string;
+			slackSenderHandle?: string;
+			slackChannelName?: string;
+			slackLink?: string;
 			claudeRepositories?: { url: string; revision?: string }[] | null;
 		};
 		status: { state?: string; error?: string };
@@ -190,8 +195,36 @@
 							{/if}
 						</dd>
 					</dl>
+					{#if session.spec.slackSenderName || session.spec.slackSenderHandle || session.spec.slackChannelName}
+						<dl class="text-sm break-words">
+							{#if session.spec.slackSenderName || session.spec.slackSenderHandle}
+								<dt class="text-muted-content">{m.hosted_agents_slack_sender()}</dt>
+								<dd>
+									{session.spec.slackSenderName ?? ''}
+									{#if session.spec.slackSenderHandle}<span class="text-muted-content"
+											>@{session.spec.slackSenderHandle}</span
+										>{/if}
+								</dd>
+							{/if}
+							{#if session.spec.slackChannelName}
+								<dt class="text-muted-content">{m.hosted_agents_slack_channel()}</dt>
+								<dd>#{session.spec.slackChannelName}</dd>
+							{/if}
+						</dl>
+					{/if}
 					{#if session.status.error}<p class="text-error">{session.status.error}</p>{/if}
 					<div class="flex flex-wrap items-center gap-4">
+						{#if session.spec.slackLink && /^https:\/\/[a-z0-9-]+\.slack\.com\/archives\//i.test(session.spec.slackLink)}
+							<a
+								class="btn btn-ghost btn-sm"
+								href={session.spec.slackLink}
+								target="_blank"
+								rel="external noopener noreferrer"
+							>
+								{m.hosted_agents_slack_thread()}
+								<ExternalLink class="size-4" />
+							</a>
+						{/if}
 						{#if !all}
 							<a
 								class="btn btn-ghost btn-sm self-start"

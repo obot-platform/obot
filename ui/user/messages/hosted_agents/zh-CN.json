@@ -1,6 +1,17 @@
 {
 	"hosted_agents_kubernetes_required": "Claude Environments仅适用于Kubernetes部署。此Obot实例正在Docker中运行。",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"hosted_agents_tag_heading": "Claude Tag",
+	"hosted_agents_tag_help": "Claude Tag 频道会话共用一个服务身份，不会以 Slack 消息发送者的身份运行。",
+	"hosted_agents_tag_enable": "启用 Claude Tag",
+	"hosted_agents_tag_disable_help": "禁用 Claude Tag 会删除此环境中对应的会话工作区。",
+	"hosted_agents_tag_saved": "Claude Tag 设置已保存。",
+	"hosted_agents_tag_save": "保存 Claude Tag",
+	"hosted_agents_tag_create": "创建 Claude Tag 服务用户",
+	"hosted_agents_tag_service_user": "Obot 服务用户：",
+	"hosted_agents_tag_for": "{name} 的 Claude Tag",
+	"hosted_agents_tag_grant": "请在此环境和 vMCP 的配置文件中授予此用户访问权限。其凭据使用该用户自身的权限。",
+	"hosted_agents_tag_vmcp_profiles": "vMCP 配置文件",
 	"hosted_agents_map_unmapped": "未映射",
 	"hosted_agents_map_saved": "已保存的映射",
 	"hosted_agents_map_email": "邮箱匹配",
@@ -366,5 +377,8 @@
 	"hosted_agents_cli_command": "使用Claude CLI启动",
 	"hosted_agents_cli_prompt": "描述您的任务",
 	"hosted_agents_cli_help": "使用已关联的Claude账户登录Claude CLI，然后在仓库检出目录中运行。将提示替换为您的任务。该命令会在此环境中创建云会话并输出链接。",
-	"hosted_agents_mapping_help": "当会话请求提供的邮箱与一个活跃且未映射的Obot用户唯一匹配时，未映射的Claude账户将自动匹配。已保存的用户分配优先，未包含在导入中的成员会保留。选择“Not mapped”会清除分配，但仍允许以后自动匹配。更改适用于此组织的所有环境；更改映射会删除原所有者的会话工作区。环境配置文件仍控制访问权限。"
+	"hosted_agents_mapping_help": "当会话请求提供的邮箱与一个活跃且未映射的Obot用户唯一匹配时，未映射的Claude账户将自动匹配。已保存的用户分配优先，未包含在导入中的成员会保留。选择“Not mapped”会清除分配，但仍允许以后自动匹配。更改适用于此组织的所有环境；更改映射会删除原所有者的会话工作区。环境配置文件仍控制访问权限。",
+	"hosted_agents_slack_sender": "Slack发送者",
+	"hosted_agents_slack_channel": "Slack频道",
+	"hosted_agents_slack_thread": "打开Slack讨论串"
 }

@@ -655,6 +655,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("DELETE /api/claude-environments/{environment}", claudeRunners.DeleteEnvironment)
 	mux.HandleFunc("GET /api/claude-organizations/{organization}/accounts", claudeRunners.OrganizationAccounts)
 	mux.HandleFunc("PUT /api/claude-organizations/{organization}/accounts", claudeRunners.SaveOrganizationAccounts)
+	mux.HandleFunc("PUT /api/claude-environments/{environment}/claude-tag", claudeRunners.SaveClaudeTag)
 	mux.HandleFunc("POST /api/claude-runners/spawn", claudeRunners.Spawn)
 	mux.HandleFunc("POST /api/claude-runners/{instance}/credentials", claudeRunners.Credentials)
 	mux.HandleFunc("POST /api/claude-runners/{instance}/finished", claudeRunners.Finished)

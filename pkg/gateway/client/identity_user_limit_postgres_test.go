@@ -56,7 +56,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitAcrossPostgresClients(t *testing
 	dbA := newPostgresUserLimitTestDB(t, scopedDSN)
 	dbB := newPostgresUserLimitTestDB(t, scopedDSN)
 	// Sign-in reads the SCIM mode of the provider and the user's SCIM bindings with the identity and the user.
-	if err := dbA.WithContext(t.Context()).AutoMigrate(&gatewaytypes.User{}, &gatewaytypes.Identity{}, &gatewaytypes.SCIMConnection{}, &gatewaytypes.SCIMUserBinding{}); err != nil {
+	if err := dbA.WithContext(t.Context()).AutoMigrate(&gatewaytypes.User{}, &gatewaytypes.Identity{}, &gatewaytypes.SCIMConnection{}, &gatewaytypes.SCIMUserBinding{}, &gatewaytypes.ClaudeEnvironment{}); err != nil {
 		t.Fatalf("migrating PostgreSQL user-limit tables: %v", err)
 	}
 

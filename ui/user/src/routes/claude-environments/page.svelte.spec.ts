@@ -25,6 +25,10 @@ it('shows session status and confirms workspace deletion', async () => {
 								spec: {
 									displayName: 'Mailbox agent',
 									claudeSession: 'claude-one',
+									slackSenderName: 'Donnie Adams',
+									slackSenderHandle: 'thedadams',
+									slackChannelName: 'craig-test',
+									slackLink: 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23',
 									claudeDone: true,
 									claudeFinishedAt: '2026-01-01T12:00:00Z',
 									claudeRepositories: [
@@ -48,7 +52,13 @@ it('shows session status and confirms workspace deletion', async () => {
 	await expect
 		.element(page.getByRole('button', { name: 'My Claude Sessions', exact: true }))
 		.toBeVisible();
-	await expect.element(page.getByText('SUSPENDED', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Suspended', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Donnie Adams', { exact: false })).toBeVisible();
+	await expect.element(page.getByText('@thedadams', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('#craig-test', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('link', { name: 'Open Slack thread' }))
+		.toHaveAttribute('href', 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23');
 	await expect.element(page.getByText('Last used', { exact: true })).toBeVisible();
 	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
 	await expect
@@ -112,7 +122,7 @@ it('shows all sessions with owner attribution', async () => {
 	await expect
 		.element(page.getByRole('button', { name: 'All Claude Sessions', exact: true }))
 		.toBeVisible();
-	await expect.element(page.getByText('SUSPENDED', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Suspended', { exact: true })).toBeVisible();
 	await expect
 		.element(page.getByText('Claude Tag · Slack service slack@example.com', { exact: true }))
 		.toBeVisible();

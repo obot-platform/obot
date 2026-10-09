@@ -8,6 +8,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import ActorResources from './ActorResources.svelte';
 	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
+	import ClaudeTagSettings from './ClaudeTagSettings.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EnvironmentProfiles from './EnvironmentProfiles.svelte';
 	import type { ClaudeConfig, ClaudeEnvironment } from './types';
@@ -505,6 +506,7 @@
 					</p>{:else}<p class="text-sm text-muted-content">
 						{m.hosted_agents_env_ask_admin()}
 					</p>{/if}
+				{#if admin}<ClaudeTagSettings {environment} onsaved={load} />{/if}
 			</article>
 		{:else}<p class="text-muted-content">{m.hosted_agents_env_empty()}</p>{/each}
 	</section>

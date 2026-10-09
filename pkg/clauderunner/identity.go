@@ -21,9 +21,15 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// ClaudeTagAccount identifies accountless service sessions within an environment.
+const (
+	ClaudeTagAccount = "claude-tag"
+)
+
 var (
-	claudeAccountID   = regexp.MustCompile(`^user_01[1-9A-HJ-NP-Za-km-z]{22}$`)
-	claudeAccountUUID = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	claudeServiceActor = regexp.MustCompile(`^agent:[a-zA-Z0-9_-]{1,128}$`)
+	claudeAccountID    = regexp.MustCompile(`^user_01[1-9A-HJ-NP-Za-km-z]{22}$`)
+	claudeAccountUUID  = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
 
 type Claims struct {
@@ -46,10 +52,14 @@ type Verifier struct {
 	fetched time.Time
 }
 
-// Owner verifies the account identity of a Claude session.
+// Owner distinguishes service identities explicitly; a missing account alone is
+// never sufficient to authorize a Claude Tag session.
 func (c *Claims) Owner() (string, error) {
 	if c.Account != "" && strings.HasPrefix(c.Account, "user_") && c.Actor.Subject == "user:"+c.Account {
 		return c.Account, nil
+	}
+	if c.Account == "" && claudeServiceActor.MatchString(c.Actor.Subject) {
+		return ClaudeTagAccount, nil
 	}
 	return "", fmt.Errorf("claude identity account mismatch")
 }

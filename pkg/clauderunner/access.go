@@ -104,12 +104,25 @@ func AuthorizedEnvironment(ctx context.Context, gateway *client.Client, environm
 	if err != nil {
 		return nil, err
 	}
-	mapping, err := gateway.ClaudeOrganizationAccountForUser(ctx, env.OrganizationID, owner)
-	if err != nil {
-		return nil, err
-	}
-	if mapping.Account != account {
-		return nil, gorm.ErrRecordNotFound
+	if account == ClaudeTagAccount {
+		if owner == "" || !env.ClaudeTagEnabled || env.ClaudeTagUserID != owner {
+			return nil, gorm.ErrRecordNotFound
+		}
+		serviceUser, err := gateway.UserByID(ctx, owner)
+		if err != nil {
+			return nil, err
+		}
+		if !serviceUser.Internal {
+			return nil, gorm.ErrRecordNotFound
+		}
+	} else {
+		mapping, err := gateway.ClaudeOrganizationAccountForUser(ctx, env.OrganizationID, owner)
+		if err != nil {
+			return nil, err
+		}
+		if mapping.Account != account {
+			return nil, gorm.ErrRecordNotFound
+		}
 	}
 	id, err := strconv.ParseUint(owner, 10, 64)
 	if err != nil {

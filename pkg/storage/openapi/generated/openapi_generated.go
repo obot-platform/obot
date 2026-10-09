@@ -18461,6 +18461,43 @@ func schema_storage_apis_obotobotai_v1_AgentInstanceSpec(ref common.ReferenceCal
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"slackSenderName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Runner-reported Slack metadata is for display only, never authorization.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"slackSenderHandle": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"slackChannelName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"slackThreadTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"slackLink": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"slackMentioned": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"claudeRepositories": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Nil means repository metadata was not provided; empty means no repositories.",

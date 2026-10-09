@@ -88,11 +88,7 @@ func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User
 }
 
 func (c *Client) UserCount(ctx context.Context) (int64, error) {
-	var count int64
-	if err := c.db.WithContext(ctx).Model(&types.User{}).Where("deleted_at IS NULL").Where("hashed_username != ?", hash.String(system.BootstrapName)).Count(&count).Error; err != nil {
-		return 0, err
-	}
-	return count, nil
+	return countUsersTowardLimit(c.db.WithContext(ctx))
 }
 
 func (c *Client) User(ctx context.Context, username string) (*types.User, error) {
@@ -230,6 +226,10 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 	existingUser := new(types.User)
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
+			return err
+		}
+
 		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
 		}
@@ -313,6 +313,10 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
+			return err
+		}
+
 		// Every column of the user is written back, so it is locked, and a concurrent SCIM write of its profile is
 		// never overwritten with a stale copy.
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(existingUser).Error; err != nil {
@@ -403,7 +407,13 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 }
 
 func (c *Client) UpdateUserInternalStatus(ctx context.Context, userID string, internal bool) error {
-	return c.db.WithContext(ctx).Model(new(types.User)).Where("id = ? AND deleted_at IS NULL", userID).Update("internal", internal).Error
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
+			return err
+		}
+
+		return tx.Model(new(types.User)).Where("id = ? AND deleted_at IS NULL", userID).Update("internal", internal).Error
+	})
 }
 
 func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {
