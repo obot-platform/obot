@@ -5,7 +5,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-function createVMCPResponse(id: string) {
+type VMCPResponseFixture = {
+	id: string;
+	displayName: string;
+	created: string;
+	components: Array<{
+		id?: string;
+		name?: string;
+		mcpServerCatalogEntryID: string;
+		catalogEntry: { manifest: { name: string; runtime: string } };
+	}>;
+};
+
+function createVMCPResponse(id: string): VMCPResponseFixture {
 	return {
 		id,
 		displayName: 'Virtual MCP',
@@ -24,7 +36,10 @@ function createVMCPResponse(id: string) {
 	};
 }
 
-function mockConsentApis(pending: Array<Record<string, string>> = []) {
+function mockConsentApis(
+	pending: Array<Record<string, string>> = [],
+	vmcp: ReturnType<typeof createVMCPResponse> = createVMCPResponse('')
+) {
 	const vmcpGet = vi.fn();
 	const oauthPendingGet = vi.fn();
 
@@ -32,7 +47,7 @@ function mockConsentApis(pending: Array<Record<string, string>> = []) {
 		http.get('/api/vmcps/:id', ({ params }) => {
 			const id = String(params.id);
 			vmcpGet(id);
-			return HttpResponse.json(createVMCPResponse(id));
+			return HttpResponse.json({ ...vmcp, id });
 		}),
 		http.get('/api/oauth/vmcp/:id', ({ params }) => {
 			oauthPendingGet(String(params.id));
@@ -73,6 +88,53 @@ describe('McpCompositeOauth', () => {
 			.toHaveAttribute('src', icon);
 		await vi.waitFor(() => expect(vmcpGet).toHaveBeenCalledWith(id));
 		expect(oauthPendingGet).toHaveBeenCalledWith(id);
+	});
+
+	it('labels copied servers with their vMCP component names', async () => {
+		const id = 'vmcp1-component-names';
+		mockConsentApis(
+			[
+				{
+					mcpServerID: 'server-b',
+					catalogEntryID: 'gmail-entry',
+					componentID: 'gmail-b',
+					name: 'Gmail',
+					authURL: 'https://example.com/b'
+				},
+				{
+					mcpServerID: 'server-c',
+					catalogEntryID: 'gmail-entry',
+					componentID: 'gmail-c',
+					name: 'Gmail',
+					authURL: 'https://example.com/c'
+				}
+			],
+			{
+				id,
+				displayName: 'Gmail, Gmail B, Gmail C',
+				created: '2026-09-04T00:00:00Z',
+				components: [
+					{
+						id: 'gmail-b',
+						name: 'Gmail B',
+						mcpServerCatalogEntryID: 'gmail-entry',
+						catalogEntry: { manifest: { name: 'Gmail', runtime: 'remote' } }
+					},
+					{
+						id: 'gmail-c',
+						name: 'Gmail C',
+						mcpServerCatalogEntryID: 'gmail-entry',
+						catalogEntry: { manifest: { name: 'Gmail', runtime: 'remote' } }
+					}
+				]
+			}
+		);
+
+		render(McpCompositeOauth, { compositeMcpId: id });
+
+		await expect.element(page.getByText('Gmail B', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Gmail C', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Gmail', { exact: true })).not.toBeInTheDocument();
 	});
 
 	it('falls back to the pending MCP server ID when its name is not set', async () => {

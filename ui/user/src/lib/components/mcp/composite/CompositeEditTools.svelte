@@ -25,6 +25,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		name?: string;
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
 		onClose?: () => void;
 		onCancel?: () => void;
@@ -47,6 +48,7 @@
 	};
 
 	let {
+		name,
 		configuringEntry,
 		tools = [],
 		toolPrefix,
@@ -207,10 +209,10 @@
 	animate="slide"
 	title={readonly
 		? m.mcps_composite_view_tools_title({
-				name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
+				name: name ?? configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 			})
 		: m.mcps_composite_configure_tools_title({
-				name: configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
+				name: name ?? configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 			})}
 	class="bg-base-200 md:max-w-(--breakpoint-xl)"
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}

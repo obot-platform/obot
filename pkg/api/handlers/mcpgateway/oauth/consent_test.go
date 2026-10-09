@@ -88,3 +88,40 @@ func TestPendingComponentDisplayName(t *testing.T) {
 		})
 	}
 }
+
+func TestPendingComponentName(t *testing.T) {
+	t.Parallel()
+
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "component-server-id"},
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{Name: "Gmail"},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		componentName string
+		expected      string
+	}{
+		{
+			name:          "vMCP component name",
+			componentName: "Gmail B",
+			expected:      "Gmail B",
+		},
+		{
+			name:     "catalog entry name when the component name is empty",
+			expected: "Gmail",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := pendingComponentName(tt.componentName, server); got != tt.expected {
+				t.Fatalf("expected component name %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}

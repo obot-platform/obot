@@ -13,6 +13,7 @@ import (
 
 type pendingComponentAuth struct {
 	CatalogEntryID string `json:"catalogEntryID"`
+	ComponentID    string `json:"componentID,omitempty"`
 	MCPServerID    string `json:"mcpServerID"`
 	Name           string `json:"name,omitempty"`
 	Icon           string `json:"icon,omitempty"`
@@ -28,6 +29,15 @@ func pendingComponentDisplayName(componentServer v1.MCPServer) string {
 		return componentServer.Spec.Manifest.Name
 	}
 	return componentServer.Name
+}
+
+// pendingComponentName prefers the vMCP component name. The component server's
+// manifest name is the catalog entry, which is shared by every copy of that server.
+func pendingComponentName(componentName string, componentServer v1.MCPServer) string {
+	if componentName != "" {
+		return componentName
+	}
+	return pendingComponentDisplayName(componentServer)
 }
 
 func (h *handler) checkVMCPComponentAuth(req api.Context) error {
@@ -151,8 +161,9 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 
 			pending = append(pending, pendingComponentAuth{
 				CatalogEntryID: componentServer.Spec.MCPServerCatalogEntryName,
+				ComponentID:    componentServer.Spec.VMCPComponentID,
 				MCPServerID:    componentServer.Name,
-				Name:           pendingComponentDisplayName(componentServer),
+				Name:           pendingComponentName(compositeConfig.Components[i].DisplayName, componentServer),
 				Icon:           componentServer.Spec.Manifest.Icon,
 				AuthURL:        authURL,
 			})

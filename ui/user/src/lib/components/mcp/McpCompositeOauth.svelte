@@ -144,6 +144,20 @@
 		attempted.add(item.mcpServerID);
 	}
 
+	function componentLabel(item: PendingCompositeAuth) {
+		const components = compositeServer?.components ?? [];
+		const byID = components.find((component) => component.id && component.id === item.componentID);
+		if (byID?.name) return byID.name;
+
+		const id = item.catalogEntryID || '';
+		const matches = components.filter(
+			(component) => (component.mcpServerCatalogEntryID || component.id) === id && component.name
+		);
+		// Several components can share one catalog entry. Their pending names distinguish them.
+		if (matches.length === 1) return matches[0].name;
+		return item.name || item.mcpServerID;
+	}
+
 	function handleVisibilityChange() {
 		if (document.visibilityState === 'visible') {
 			if (error) {
@@ -216,11 +230,7 @@
 							{:else}
 								<Server class="size-6" />
 							{/if}
-							<span class="text-base font-medium"
-								>{item.name ||
-									componentInfos[item.catalogEntryID || '']?.name ||
-									item.mcpServerID}</span
-							>
+							<span class="text-base font-medium">{componentLabel(item)}</span>
 							<McpDeprecatedNotice
 								deprecated={componentInfos[item.catalogEntryID || '']?.deprecated}
 								child

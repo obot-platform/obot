@@ -42,9 +42,9 @@
 		type VMCPComponent,
 		type VMCPConfigurationPolicy
 	} from '$lib/services';
+	import { MAX_TOOL_PREFIX_LENGTH } from '$lib/services/user/mcp';
 	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
-	import { MAX_TOOL_PREFIX_LENGTH } from '$lib/services/user/mcp';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
 		appendComponentLabel,
@@ -480,12 +480,7 @@
 
 	async function confirmDuplicateComponent() {
 		const pending = pendingDuplicateComponent;
-		if (
-			!pending ||
-			duplicateNameError ||
-			duplicatePrefixErrorMessage ||
-			duplicatePrefixTooLong
-		)
+		if (!pending || duplicateNameError || duplicatePrefixErrorMessage || duplicatePrefixTooLong)
 			return;
 
 		const component = {
@@ -932,7 +927,9 @@
 			<button
 				type="submit"
 				class="btn btn-primary"
-				disabled={Boolean(duplicateNameError || duplicatePrefixErrorMessage || duplicatePrefixTooLong)}
+				disabled={Boolean(
+					duplicateNameError || duplicatePrefixErrorMessage || duplicatePrefixTooLong
+				)}
 			>
 				{m.core_continue()}
 			</button>
