@@ -6,13 +6,9 @@
 	import { onMount } from 'svelte';
 
 	let {
-		id,
-		entity,
 		onComplete,
 		onCancel
 	}: {
-		id: string;
-		entity: 'catalog' | 'workspace';
 		onComplete: (draft: OpenAPIImportDraft) => void;
 		onCancel: () => void;
 	} = $props();
@@ -36,8 +32,6 @@
 	animate={null}
 >
 	<OpenAPIRuntimeForm
-		{id}
-		{entity}
 		bind:config
 		importOnly
 		onImported={(result) => {

@@ -50,10 +50,10 @@ async function openForm(entity: 'catalog' | 'workspace' = 'catalog') {
 	return await render(CatalogServerForm, { id: 'test', entity, type: 'openapi' });
 }
 
-function mockImport(collection = 'mcp-catalogs') {
+function mockImport() {
 	const request = vi.fn();
 	worker.use(
-		http.post(`/api/${collection}/test/openapi/import`, async ({ request: req }) => {
+		http.post('/api/openapi/import', async ({ request: req }) => {
 			request(await req.json());
 			return HttpResponse.json({
 				schema,
@@ -66,7 +66,7 @@ function mockImport(collection = 'mcp-catalogs') {
 	return request;
 }
 
-it('imports before saving and keeps the snapshot and header prefix', async () => {
+it('previews a URL schema, then saves only the source and header prefix', async () => {
 	const imported = mockImport();
 	const saved = vi.fn();
 	worker.use(
@@ -95,11 +95,11 @@ it('imports before saving and keeps the snapshot and header prefix', async () =>
 		runtime: 'openapi',
 		openAPIConfig: {
 			source: { url: sourceURL },
-			schema,
 			baseURL: 'https://override.example.com'
 		},
 		config: [suggestedHeader]
 	});
+	expect(saved.mock.calls[0][0].openAPIConfig.schema).toBeUndefined();
 });
 
 it('saves OpenAPI egress domains when network policy is enabled', async () => {
@@ -166,7 +166,7 @@ it('prefills new entry metadata and displays the schema base URL only as a place
 		}
 	};
 	worker.use(
-		http.post('/api/mcp-catalogs/test/openapi/import', () =>
+		http.post('/api/openapi/import', () =>
 			HttpResponse.json({
 				schema: importedSchema,
 				suggestedMetadata: {
@@ -217,8 +217,9 @@ it('prefills new entry metadata and displays the schema base URL only as a place
 	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 	expect(saved.mock.calls[0][0]).toMatchObject({
 		description: 'Full API description',
-		openAPIConfig: { schema: importedSchema }
+		openAPIConfig: { source: { url: sourceURL } }
 	});
+	expect(saved.mock.calls[0][0].openAPIConfig.schema).toBeUndefined();
 	expect(saved.mock.calls[0][0].openAPIConfig.baseURL).toBeUndefined();
 });
 
@@ -249,7 +250,7 @@ it('only replaces selected metadata fields after importing a replacement', async
 		}
 	};
 	worker.use(
-		http.post('/api/mcp-catalogs/test/openapi/import', () =>
+		http.post('/api/openapi/import', () =>
 			HttpResponse.json({
 				schema: nextSchema,
 				suggestedMetadata: {
@@ -296,7 +297,7 @@ it('only replaces selected metadata fields after importing a replacement', async
 it('requires a base URL inline after importing a schema with only a relative server', async () => {
 	const saved = vi.fn();
 	worker.use(
-		http.post('/api/mcp-catalogs/test/openapi/import', () =>
+		http.post('/api/openapi/import', () =>
 			HttpResponse.json({
 				schema: { ...schema, servers: [{ url: '/api/v3' }] },
 				baseURL: '',
@@ -348,7 +349,7 @@ it('shows an applied description in the already-mounted editor', async () => {
 		})
 	);
 	worker.use(
-		http.post('/api/mcp-catalogs/test/openapi/import', () =>
+		http.post('/api/openapi/import', () =>
 			HttpResponse.json({
 				schema,
 				baseURL: 'https://example.com/api',
@@ -380,8 +381,8 @@ it('shows an applied description in the already-mounted editor', async () => {
 	);
 });
 
-it('uses the workspace import endpoint and stages source changes without losing the current snapshot', async () => {
-	const imported = mockImport('workspaces');
+it('uses the shared import endpoint in a workspace and stages source changes', async () => {
+	const imported = mockImport();
 	await openForm('workspace');
 	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
@@ -401,7 +402,7 @@ it('uses the workspace import endpoint and stages source changes without losing 
 it('shows import errors and allows retry without creating an entry', async () => {
 	worker.use(
 		http.post(
-			'/api/mcp-catalogs/test/openapi/import',
+			'/api/openapi/import',
 			() => new HttpResponse('schema must be a JSON or YAML document', { status: 400 })
 		)
 	);
@@ -410,9 +411,7 @@ it('shows import errors and allows retry without creating an entry', async () =>
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent(
-			'400 /mcp-catalogs/test/openapi/import: schema must be a JSON or YAML document'
-		);
+		.toHaveTextContent('400 /openapi/import: schema must be a JSON or YAML document');
 	await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
 	mockImport();
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
@@ -421,7 +420,7 @@ it('shows import errors and allows retry without creating an entry', async () =>
 		.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
 });
 
-it('preserves an existing snapshot without importing', async () => {
+it('loads an existing snapshot but submits only its URL on update', async () => {
 	const imported = mockImport();
 	const entry = {
 		...createMCPCatalogEntryResponse,
@@ -434,12 +433,23 @@ it('preserves an existing snapshot without importing', async () => {
 			}
 		}
 	} as MCPCatalogEntry;
+	const saved = vi.fn();
+	worker.use(
+		http.put(`/api/mcp-catalogs/test/entries/${entry.id}`, async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json(entry);
+		})
+	);
 	await render(CatalogServerForm, { id: 'test', entity: 'catalog', entry });
 	await expect
 		.element(page.getByRole('status'))
 		.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
 	expect(imported).not.toHaveBeenCalled();
 	expect(entry.manifest.openAPIConfig?.schema).toEqual(schema);
+	await page.getByRole('button', { name: 'Update', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].openAPIConfig).toMatchObject({ source: { url: sourceURL } });
+	expect(saved.mock.calls[0][0].openAPIConfig.schema).toBeUndefined();
 });
 
 it.each([
@@ -452,8 +462,9 @@ it.each([
 	'uploads $name as source content and supports an API without credentials',
 	async ({ name, content }) => {
 		const imported = vi.fn();
+		const saved = vi.fn();
 		worker.use(
-			http.post('/api/mcp-catalogs/test/openapi/import', async ({ request }) => {
+			http.post('/api/openapi/import', async ({ request }) => {
 				imported(await request.json());
 				return HttpResponse.json({
 					schema,
@@ -461,6 +472,10 @@ it.each([
 					suggestedHeaders: [],
 					suggestedMetadata: { name: 'Example' }
 				});
+			}),
+			http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json(createMCPCatalogEntryResponse);
 			})
 		);
 		await openForm();
@@ -476,6 +491,11 @@ it.each([
 			.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
 		expect(imported).toHaveBeenCalledWith({ source: { content } });
 		await expect.element(page.getByLabelText('Value Prefix')).not.toBeInTheDocument();
+		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('Uploaded API');
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+		expect(saved.mock.calls[0][0].openAPIConfig.source).toEqual({ content });
+		expect(saved.mock.calls[0][0].openAPIConfig.schema).toBeUndefined();
 	}
 );
 
@@ -602,7 +622,7 @@ it('locks source edits during import and ignores the result after leaving the fo
 		finishImport = resolve;
 	});
 	worker.use(
-		http.post('/api/mcp-catalogs/test/openapi/import', async () => {
+		http.post('/api/openapi/import', async () => {
 			await responseReady;
 			return HttpResponse.json({
 				schema,

@@ -544,8 +544,10 @@
 			case 'openapi':
 				if (baseData.openAPIConfig) {
 					manifest.openAPIConfig = {
-						...baseData.openAPIConfig,
-						egressDomains: sanitizeEgressDomains(baseData.openAPIConfig.egressDomains)
+						source: baseData.openAPIConfig.source,
+						baseURL: baseData.openAPIConfig.baseURL,
+						egressDomains: sanitizeEgressDomains(baseData.openAPIConfig.egressDomains),
+						denyAllEgress: baseData.openAPIConfig.denyAllEgress
 					};
 				}
 				break;
@@ -964,8 +966,6 @@
 				{showEgressDomains}
 				{defaultDenyAllEgress}
 				{importedBaseURL}
-				{entity}
-				{id}
 				{readonly}
 				current={{
 					name: formData.name,

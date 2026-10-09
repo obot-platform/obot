@@ -45,14 +45,9 @@ export interface OpenAPIImportDraft {
 	result: OpenAPIImportResult;
 }
 
-export async function importOpenAPI(
-	entity: 'catalog' | 'workspace',
-	id: string,
-	config: OpenAPIRuntimeConfig
-): Promise<OpenAPIImportResult> {
-	const collection = entity === 'workspace' ? 'workspaces' : 'mcp-catalogs';
+export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenAPIImportResult> {
 	return (await doPost(
-		`/${collection}/${encodeURIComponent(id)}/openapi/import`,
+		'/openapi/import',
 		{ source: config.source, baseURL: config.baseURL },
 		{ dontLogErrors: true }
 	)) as OpenAPIImportResult;

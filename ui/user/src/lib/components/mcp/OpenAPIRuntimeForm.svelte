@@ -8,8 +8,6 @@
 
 	interface Props {
 		config: OpenAPIRuntimeConfig;
-		entity: 'catalog' | 'workspace';
-		id: string;
 		readonly?: boolean;
 		importOnly?: boolean;
 		showEgressDomains?: boolean;
@@ -22,8 +20,6 @@
 	}
 	let {
 		config = $bindable(),
-		entity,
-		id,
 		readonly = false,
 		importOnly = false,
 		showEgressDomains = false,
@@ -97,7 +93,7 @@
 		busy = true;
 		invalidate();
 		try {
-			const result = await importOpenAPI(entity, id, config);
+			const result = await importOpenAPI(config);
 			if (disposed) return;
 			config.schema = result.schema;
 			resolvedBaseURL = result.baseURL;

@@ -6,8 +6,6 @@
 	import { untrack } from 'svelte';
 
 	interface Props {
-		id: string;
-		entity: 'catalog' | 'workspace';
 		config: OpenAPIRuntimeConfig;
 		readonly?: boolean;
 		showEgressDomains?: boolean;
@@ -23,8 +21,6 @@
 		) => void;
 	}
 	let {
-		id,
-		entity,
 		config = $bindable(),
 		current,
 		onComplete,
@@ -76,8 +72,6 @@
 {#if editing && !readonly}
 	<OpenAPIRuntimeForm
 		bind:config={draft}
-		{id}
-		{entity}
 		importOnly
 		onImported={imported}
 		{onBaseURLChange}
@@ -95,8 +89,6 @@
 {:else}
 	<OpenAPIRuntimeForm
 		bind:config
-		{id}
-		{entity}
 		{readonly}
 		{showEgressDomains}
 		{defaultDenyAllEgress}
