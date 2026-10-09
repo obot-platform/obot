@@ -360,6 +360,8 @@
 	{readonly}
 	otherNames={otherComponentNames}
 	otherToolPrefixes={flow.otherToolPrefixes}
+	otherEffectiveNames={flow.otherEffectiveNames}
+	toolOverrides={flow.configuringComponent?.toolOverrides}
 	onSave={flow.saveDetails}
 	onClose={() => handleDialogClose('details')}
 />

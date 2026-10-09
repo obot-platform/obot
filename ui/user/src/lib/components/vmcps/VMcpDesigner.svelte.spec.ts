@@ -317,6 +317,99 @@ describe('VMcpDesigner.svelte', () => {
 			expect(update).not.toHaveBeenCalled();
 		});
 
+		it('rejects a prefix that makes two exposed tools share a name', async () => {
+			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, {
+							toolPrefix: 'gh_',
+							toolOverrides: [{ name: 'hub_create', enabled: true }]
+						}),
+						createVMCPComponent(slack, {
+							id: 'component-slack',
+							name: 'Slack',
+							toolPrefix: 'git_hub_',
+							toolOverrides: [{ name: 'create', enabled: true }]
+						})
+					]
+				},
+				[componentEntry, slack]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, slack], vmcp);
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Edit Details' }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+
+			await dialog.getByRole('textbox', { name: 'Tool name prefix' }).fill('git_');
+			await expect
+				.element(dialog.getByText('Existing tool(s) must maintain uniqueness.'))
+				.toBeVisible();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+			await dialog.getByRole('textbox', { name: 'Tool name prefix' }).fill('gh_');
+			await expect
+				.element(dialog.getByText('Existing tool(s) must maintain uniqueness.'))
+				.not.toBeInTheDocument();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeEnabled();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('rejects a prefix that pushes an exposed tool name past 128 characters', async () => {
+			const enabledName = 'e'.repeat(70);
+			const vmcp = createIssueTrackerVMcp([
+				{ name: enabledName, enabled: true },
+				{ name: 'd'.repeat(120), enabled: false },
+				{ name: 'r'.repeat(90), enabled: true, removed: true }
+			]);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Edit Details' }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+			const prefix = dialog.getByRole('textbox', { name: 'Tool name prefix' });
+
+			await prefix.fill('p'.repeat(50));
+			await expect
+				.element(dialog.getByText('Existing tool(s) cannot exceed 128 characters.'))
+				.not.toBeInTheDocument();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeEnabled();
+
+			await prefix.fill('p'.repeat(60));
+			await expect
+				.element(dialog.getByText('Existing tool(s) cannot exceed 128 characters.'))
+				.toBeVisible();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('rejects save when two exposed tools on the component already share a name', async () => {
+			const vmcp = createIssueTrackerVMcp([
+				{ name: 'create_issue', enabled: true },
+				{ name: 'list_issues', overrideName: 'create_issue', enabled: true }
+			]);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry], vmcp);
+
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Edit Details' }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Tool name prefix' });
+
+			await expect
+				.element(dialog.getByText('Existing tool(s) must maintain uniqueness.'))
+				.toBeVisible();
+			await expect.element(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+		});
+
 		it('edits the stored overrides from Modify Tools instead of running setup', async () => {
 			const vmcp = createIssueTrackerVMcp(toolOverrides);
 			await renderDesigner([componentEntry], vmcp);

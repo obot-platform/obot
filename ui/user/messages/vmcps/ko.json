@@ -144,6 +144,8 @@
 	"vmcps_entry_created_not_opened": "항목이 생성되었지만 열 수 없습니다.",
 	"vmcps_example_tools": "도구 예시",
 	"vmcps_expand": "펼치기",
+	"vmcps_exposed_tool_name_too_long": "기존 도구는 {max}자를 초과할 수 없습니다.",
+	"vmcps_exposed_tools_share_name": "기존 도구는 고유해야 합니다.",
 	"vmcps_failed_to_add_server_to_vmcp": "MCP 서버를 vMCP에 추가하지 못했습니다.",
 	"vmcps_failed_to_create": "vMCP를 만들지 못했습니다.",
 	"vmcps_failed_to_delete": "vMCP를 삭제하지 못했습니다.",

@@ -144,6 +144,8 @@
 	"vmcps_entry_created_not_opened": "エントリは作成されましたが、開くことができませんでした。",
 	"vmcps_example_tools": "ツールの例",
 	"vmcps_expand": "展開",
+	"vmcps_exposed_tool_name_too_long": "既存のツールは {max} 文字を超えることはできません。",
+	"vmcps_exposed_tools_share_name": "既存のツールは一意である必要があります。",
 	"vmcps_failed_to_add_server_to_vmcp": "MCP サーバーを vMCP に追加できませんでした。",
 	"vmcps_failed_to_create": "vMCP の作成に失敗しました。",
 	"vmcps_failed_to_delete": "vMCP の削除に失敗しました。",
