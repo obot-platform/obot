@@ -16,6 +16,13 @@ user and group changes to Obot. It is never used to sign in.
 
 SCIM is currently available for Okta only. Only an Owner can set it up.
 
+:::note Okta must be able to reach Obot
+Okta sends SCIM requests to Obot from Okta's own servers, so
+`https://<your-obot-url>/scim/v2` and all routes under it must be reachable from
+Okta. If Obot is on a private network or behind a firewall, allow Okta to reach
+those routes, or provisioning will fail.
+:::
+
 ## How SCIM changes user management
 
 - **Okta controls who has access.** Assigning a user to the SCIM app in Okta
