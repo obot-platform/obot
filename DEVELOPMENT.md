@@ -35,16 +35,19 @@ Then you're ready to run or debug this target.
 
 ## Developing Obot Providers
 
-Obot has a set of providers. These are in the repo `github.com/obot-platform/providers`. By default, Obot will pull the providers' configuration from this repo. However, when developing tools in this repo, you can follow these steps to use a local copy.
+Obot's model and auth providers live in the repo `github.com/obot-platform/providers`. Obot loads them from the local directories listed in the `OBOT_SERVER_PROVIDER_REGISTRIES` environment variable. The Docker image bundles the providers and sets this variable for you. When you run Obot outside of Docker (`make dev`, an IDE, or `bin/obot server`), no providers are loaded unless you set it yourself:
 
 1. Clone `github.com/obot-platform/providers` to your local machine.
-2. In the root directory of the tools repo on your local machine, run `make build-images`.
-3. Run the Obot server, either with `make dev` or in your IDE, with the `OBOT_SERVER_PROVIDER_REGISTRIES` environment variable set to `<local-tools-fork-root-directory>`; e.g. If you cloned the tools repo to the directory "above" the Obot repo, you'd use `OBOT_SERVER_PROVIDER_REGISTRIES='../providers' make dev`.
+2. In the root directory of the providers repo, run `make build` to build the provider binaries.
+3. Run the Obot server, either with `make dev` or in your IDE, with `OBOT_SERVER_PROVIDER_REGISTRIES` set to the root of your providers clone. For example, if you cloned the providers repo next to the Obot repo, use `OBOT_SERVER_PROVIDER_REGISTRIES='../providers' make dev`.
+
+> [!WARNING]
+> If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set in your environment and no provider registry is configured, server startup hangs. Obot waits for the matching model provider to appear so it can store the key as that provider's credential. Without a registry the provider never appears, so the rest of startup, including creating the default MCP catalog, never runs. Either configure the providers registry as above or unset both variables, e.g. `env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY make dev`.
 
 Now, any time one of these tools is run, your local copy will be used.
 
 > [!IMPORTANT]
-> Any time you change a Go based tool in your local repo, you must run `make build` in the tools repo for the changes to take effect with Obot.
+> Any time you change a Go based provider in your local repo, you must run `make build` in the providers repo for the changes to take effect with Obot.
 
 > [!NOTE]
 > Provider definitions and metadata are only synced to Obot every hour. Therefore, if you make a change to the provider on your local machine, it may not reflect immediately in Obot.
@@ -110,6 +113,12 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 ## Other Configuration
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
+
+## Pull Requests and Issues
+
+When a pull request addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so the two are linked.
+
+Do **not** use GitHub's [auto-close keywords](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword) (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) in front of the issue reference. Only QA closes issues, after verifying the change, so merging a PR should not close the issue automatically.
 
 ## Running Obot Locally with Kubernetes (Nanobot Agents)
 

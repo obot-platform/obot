@@ -156,7 +156,7 @@ version: <VERSION>
 
 ### 7. Write to disk and report
 
-Write the post to `$CLAUDE_PROJECT_DIR/release-blog-<VERSION>.md` (the repo root of the current project). This is an intentionally untracked file for easy IDE review; do not commit it and do not touch `.gitignore`. Print:
+Write the post to `release-blog-<VERSION>.md` in the repo root (`git rev-parse --show-toplevel`). This is an intentionally untracked file for easy IDE review; do not commit it and do not touch `.gitignore`. Print:
 - The file path
 - The word count (target ~1,800-2,100)
 - A list of any `[POV: ...]` placeholders that still need the user's personal voice
@@ -170,16 +170,17 @@ Skip this step unless the user explicitly asks for it. Phrases that mean yes: "p
 
 When the user does ask, post the blog as a Wordpress **draft** (never `publish` without explicit confirmation) via the `obot-wordpress` MCP server. The flow has four sub-steps.
 
-**8a. Authenticate (one time per session).** Call `mcp__obot-wordpress__authenticate` to start the OAuth flow. Share the authorization URL it returns with the user; tell them the redirect to `localhost` may show a connection error and that's fine. The server's full tool set (`create_post`, `list_categories`, `list_users`, `update_post`, etc.) becomes available once auth completes. If auto-completion doesn't fire after they authorize, ask for the full callback URL from their browser and pass it to `mcp__obot-wordpress__complete_authentication`.
+**8a. Connect (one time per session).** The tools below are the `obot-wordpress` MCP server's own tools; your harness may show them with a prefix (e.g. `mcp__obot-wordpress__create_post`). If the server needs authentication first, complete its OAuth flow the way your harness provides: share the authorization URL with the user, and tell them the redirect to `localhost` may show a connection error and that's fine. If the redirect doesn't complete the flow on its own, ask for the full callback URL from their browser. The server's full tool set (`create_post`, `list_categories`, `list_users`, `update_post`, etc.) becomes available once auth completes.
 
 **8b. Convert the markdown to HTML.** Wordpress's `create_post` expects the post body as HTML. A helper script lives next to this SKILL.md:
 
 Immediately before conversion, re-read the markdown from disk and confirm it contains the user's latest requested revisions. Record its SHA-256 hash so the exact source state being uploaded is explicit.
 
 ```bash
-shasum -a 256 "$CLAUDE_PROJECT_DIR/release-blog-<VERSION>.md"
-uv run "$CLAUDE_PROJECT_DIR/.claude/skills/draft-release-blog/md_to_html.py" \
-  "$CLAUDE_PROJECT_DIR/release-blog-<VERSION>.md" \
+REPO=$(git rev-parse --show-toplevel)
+shasum -a 256 "$REPO/release-blog-<VERSION>.md"
+uv run "$REPO/.agents/skills/draft-release-blog/md_to_html.py" \
+  "$REPO/release-blog-<VERSION>.md" \
   > /tmp/release-blog-<VERSION>.html
 ```
 
@@ -190,13 +191,13 @@ It strips the YAML frontmatter so it doesn't render in the post body and emits H
 **8c. Look up category and author IDs.** The `create_post` tool wants integer IDs, not names. Run these in parallel:
 
 ```
-mcp__obot-wordpress__list_categories(search_query="Blog")  # → expect id 6
-mcp__obot-wordpress__list_users(context="view")             # → find Craig Jellick, expect id 9
+list_categories(search_query="Blog")  # → expect id 6
+list_users(context="view")            # → find Craig Jellick, expect id 9
 ```
 
 IDs may differ if the Wordpress site is reconfigured. Always look them up; don't hardcode.
 
-**8d. Create the draft.** Call `mcp__obot-wordpress__create_post` with:
+**8d. Create the draft.** Call `create_post` with:
 
 - `title`: the full title from the markdown frontmatter (`title:` line), unquoted.
 - `content`: the HTML from step 8b, pasted in as a single string.
@@ -210,7 +211,7 @@ After creation, retrieve the post by ID and verify that its status is `draft`, i
 
 **Sanity checks before posting:**
 
-- Run `grep -nF $'\xe2\x80\x94' "$CLAUDE_PROJECT_DIR/release-blog-<VERSION>.md"` (or `grep -nF $'—'`) to confirm no em dashes slipped in. The hard constraints forbid them; the markdown editor sometimes auto-substitutes when copy-pasting.
+- Run `grep -nF $'\xe2\x80\x94' "$(git rev-parse --show-toplevel)/release-blog-<VERSION>.md"` (or `grep -nF $'—'`) to confirm no em dashes slipped in. The hard constraints forbid them; the markdown editor sometimes auto-substitutes when copy-pasting.
 - Confirm the HTML file does not start with a uv "Installed N packages" line.
 - Confirm the title in the frontmatter matches the title you're sending to `create_post`.
 - Re-run the SHA-256 command and confirm the markdown has not changed since conversion. If it changed, discard the generated HTML and convert again.

@@ -26,6 +26,10 @@ make dev              # Run full dev environment (Go server + SvelteKit UI) with
 make dev-open         # Same as above, but opens browser automatically
 ```
 
+To launch Obot and check a change at runtime (isolated ports, fresh database, Playwright), use the `run-obot` skill in `.agents/skills/run-obot/`. **If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set and no provider registry (`OBOT_SERVER_PROVIDER_REGISTRIES`) is configured, server startup hangs.** The skill explains why and how to fix it. Server environment variables are documented in `docs/docs/configuration/server-configuration.md`.
+
+Agent skills for this repo live in `.agents/skills/`; `.claude/skills` is a symlink to it.
+
 ### Building
 ```bash
 make build            # Build Go binary to bin/obot
@@ -70,6 +74,21 @@ make serve-docs       # Start local docs server
 - Design significant or architecturally important changes first in the [Obot Design Proposals repository](https://github.com/obot-platform/obot-design-proposals). A merged ODP is the signal that implementation may proceed.
 - When an implementation introduces a meaningful architectural decision, include an ADR in the implementation pull request and follow the [`adr/README.md`](adr/README.md) guidance. The ADR records the decision that shipped and links to its related issues and ODP when applicable.
 - If implementation differs materially from the accepted ODP, resolve the change through a follow-up ODP rather than documenting the surprise only in the ADR.
+
+## Documentation Is Part of the Change
+
+A change that alters what a user or admin sees or configures isn't done until the docs in `docs/docs/` say so. Update the docs in the same PR:
+
+- **A new or changed server option** (a field in the `Config` struct in `pkg/services/config.go`): add or update its row in `docs/docs/configuration/server-configuration.md`.
+- **A new feature, UI flow, or API behavior:** update the matching page under `functionality/` or `configuration/`, or add a page.
+- **Changed or removed behavior:** fix every page that describes the old behavior. Search the docs for it.
+
+In the PR description, list the docs you updated, or say in one line why the change needs none. Before editing, read `docs/CLAUDE.md` for linking, versioning, and build rules.
+
+## Pull Requests and Issues
+
+- When a PR addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so they are linked.
+- Do **not** use GitHub's auto-close keywords (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) with the issue reference. Only QA closes issues, after verifying the fix, so merging a PR must not close the issue automatically.
 
 ## Architecture
 
