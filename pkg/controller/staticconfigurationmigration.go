@@ -75,7 +75,7 @@ func migrateCatalogEntryStaticConfiguration(ctx context.Context, client kclient.
 	for _, vmcp := range vmcps.Items {
 		for _, component := range vmcp.Spec.Manifest.Components {
 			if snapshot, ok := unmigrated[kclient.ObjectKey{Namespace: vmcp.Namespace, Name: component.MCPServerCatalogEntryID}]; ok {
-				upToDate[[2]string{vmcp.Name, component.ID}] = !vmcpconfig.NeedsUpdate(component, snapshot)
+				upToDate[[2]string{vmcp.Name, component.ID}] = !legacyNeedsUpdate(component, snapshot)
 			}
 		}
 	}
@@ -383,7 +383,7 @@ func (m *staticConfigurationMigration) migrateVMCP(ctx context.Context, vmcp *v1
 			return err
 		}
 		for _, components := range changed {
-			if err := m.retainLegacyComponents(ctx, *vmcp, components[0], components[1], instances); err != nil {
+			if err := retainLegacyComponents(ctx, m.client, *vmcp, components[0], components[1], instances); err != nil {
 				return err
 			}
 		}
@@ -400,8 +400,8 @@ func (m *staticConfigurationMigration) migrateVMCP(ctx context.Context, vmcp *v1
 }
 
 // retainLegacyComponents keeps the legacy components of vMCP instances bound to a component that
-// the migration changed. They are bound by a digest of the component they were created for.
-func (m *staticConfigurationMigration) retainLegacyComponents(ctx context.Context, vmcp v1.VMCP, previous, component types.VMCPComponent, instances []v1.VMCPInstance) error {
+// a migration changed. They are bound by a digest of the component they were created for.
+func retainLegacyComponents(ctx context.Context, client kclient.Client, vmcp v1.VMCP, previous, component types.VMCPComponent, instances []v1.VMCPInstance) error {
 	staticHash := vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]
 	previousDigest := utils.Digest([]any{previous, staticHash})
 	for i := range instances {
@@ -418,7 +418,7 @@ func (m *staticConfigurationMigration) retainLegacyComponents(ctx context.Contex
 			}
 		}
 		if changed {
-			if err := m.client.Update(ctx, instance); err != nil {
+			if err := client.Update(ctx, instance); err != nil {
 				return fmt.Errorf("failed to update vMCP instance %q: %w", instance.Name, err)
 			}
 		}

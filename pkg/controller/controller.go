@@ -159,6 +159,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate catalog entry static configuration: %w", err)
 	}
 
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, vmcpSourceDigestMigrationName, func() error {
+		return migrateVMCPSourceDigests(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate vMCP component source digests: %w", err)
+	}
+
 	return nil
 }
 
