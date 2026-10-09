@@ -241,3 +241,84 @@ func TestOpenAPIDestinationValidationDeploymentCache(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPICreatedContainerDestinationValidation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		url       string
+		options   ValidationOptions
+		wantErr   string
+		wantStart bool
+	}{
+		{
+			name:    "HTTP rejected after development mode disabled",
+			url:     "http://93.184.216.34/",
+			wantErr: "API destination must use HTTPS",
+		},
+		{
+			name:    "private destination rejected after policy tightened",
+			url:     "https://10.0.0.1/",
+			wantErr: "blocked private",
+		},
+		{
+			name:      "development HTTP still starts",
+			url:       "http://93.184.216.34/",
+			options:   ValidationOptions{DevMode: true},
+			wantErr:   "failed to start container",
+			wantStart: true,
+		},
+		{
+			name: "explicitly allowed private destination still starts",
+			url:  "https://10.0.0.1/",
+			options: ValidationOptions{
+				RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{AllowPrivateIPMCP: true},
+			},
+			wantErr:   "failed to start container",
+			wantStart: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := openAPITestConfig(t, openAPITestServer(), map[string]string{"Authorization": "secret"})
+			config.Env[0] = "OPENAPI_BASE_URL=" + test.url
+			var startAttempted atomic.Bool
+			api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/containers/json"):
+					require.NoError(t, json.NewEncoder(w).Encode([]any{map[string]any{
+						"Id":    "existing-container",
+						"Names": []string{"/" + config.MCPServerName},
+						"State": "created",
+						"Image": "openapi:test",
+						"Labels": map[string]string{
+							"mcp.config.hash":        serverID(config),
+							"mcp.file.env.keys.hash": fileEnvKeysHash(config.Files),
+						},
+						"NetworkSettings": map[string]any{"Networks": map[string]any{"mcp": map[string]string{"IPAddress": "127.0.0.1"}}},
+					}}))
+				case strings.HasSuffix(r.URL.Path, "/containers/existing-container/start"):
+					startAttempted.Store(true)
+					// Stop at the start call: readiness is covered by other tests.
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = io.WriteString(w, `{"message":"start unavailable"}`)
+				default:
+					t.Errorf("unexpected Docker API request: %s", r.URL)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			t.Cleanup(api.Close)
+			cli, err := client.NewClientWithOpts(client.WithHost(api.URL), client.WithVersion("1.44"))
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, cli.Close()) })
+			d := &dockerBackend{
+				client:            cli,
+				network:           "mcp",
+				openAPIImage:      "openapi:test",
+				validationOptions: test.options,
+			}
+			_, err = d.ensureServerDeployment(t.Context(), config)
+			require.ErrorContains(t, err, test.wantErr)
+			require.Equal(t, test.wantStart, startAttempted.Load())
+		})
+	}
+}
