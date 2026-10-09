@@ -6,24 +6,7 @@ title: "Platform overview"
 
 Obot connects AI clients and user devices with hosted services and external providers. It provides MCP and LLM gateways, hosting, identity and access control, audit logs, and MCP and Skills registries.
 
-```mermaid
-flowchart LR
-    C[AI clients] --> M[MCP Gateway]
-    C --> L[LLM Gateway]
-    subgraph Obot Server
-        M --> V[vMCP endpoints]
-        R[MCP and Skills registries]
-        I[Identity and access control]
-        A[Audit logs]
-        L
-    end
-    V --> H[Hosted MCP servers]
-    V --> E[Remote MCP servers]
-    L --> P[Model providers]
-    S[Obot Sentry on user devices] --> A
-    M --> A
-    L --> A
-```
+![Obot Platform Architecture](/img/obot-platform-architecture.png)
 
 ## Key Concepts
 
