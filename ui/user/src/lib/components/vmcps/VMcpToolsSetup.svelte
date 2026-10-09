@@ -354,9 +354,9 @@
 	bind:this={setupDialog}
 	animate="slide"
 	title={readonly
-		? m.vmcps_view_named_tools({ name: configuringEntry?.manifest.name ?? m.vmcps_mcp_server() })
+		? m.vmcps_view_named_tools({ name: component?.name ?? m.vmcps_mcp_server() })
 		: m.vmcps_configure_named_tools({
-				name: configuringEntry?.manifest.name ?? m.vmcps_mcp_server()
+				name: component?.name ?? m.vmcps_mcp_server()
 			})}
 	class="md:w-md"
 	onClose={cancelSetup}
@@ -509,6 +509,7 @@
 
 <CompositeEditTools
 	bind:this={editDialog}
+	name={component?.name}
 	{configuringEntry}
 	{tools}
 	{toolPrefix}

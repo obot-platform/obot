@@ -1165,6 +1165,7 @@ export async function getWorkspaceCatalogEntryServerK8sDetails(
 // Composite MCP OAuth helpers
 export type PendingCompositeAuth = {
 	catalogEntryID?: string;
+	componentID?: string;
 	mcpServerID: string;
 	name?: string;
 	icon?: string;

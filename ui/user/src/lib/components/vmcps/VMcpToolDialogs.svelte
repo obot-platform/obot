@@ -356,7 +356,7 @@
 					<Server class="size-6" />
 				</div>
 			{/if}
-			{flow.configuringEntry?.manifest.name}
+			{flow.configuringComponent?.name}
 		</div>
 	{/snippet}
 	<div class="flex flex-col gap-2 md:px-0 px-4">
@@ -414,6 +414,7 @@
 
 <CompositeEditTools
 	bind:this={editDialog}
+	name={flow.configuringComponent?.name}
 	configuringEntry={flow.configuringEntry}
 	tools={flow.tools}
 	profiles={flow.modifyingVMcp?.profiles}

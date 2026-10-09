@@ -684,7 +684,7 @@
 				</div>
 				<div class="flex items-center gap-2">
 					<VMcpIcon components={componentViews} />
-					<h3 class="text-lg leading-5.5 font-semibold">
+					<h3 class="text-lg leading-5.5 font-semibold pr-8 truncate">
 						{displayName}
 					</h3>
 				</div>
