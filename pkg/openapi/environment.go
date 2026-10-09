@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxCredentialHeadersBytes = 96 * 1024
+	maxEnvironmentValueBytes = 96 * 1024
 )
 
 // SnapshotEnvironment constructs deployment settings from the saved snapshot,
@@ -95,12 +95,17 @@ func Environment(result *Result, headers []types.MCPConfig, devMode bool) ([]str
 	if err != nil {
 		return nil, err
 	}
+	// Bound the normalized value, including URL escaping and the trailing slash,
+	// to leave room below Linux's per-string exec limit for the environment key.
+	if len(base) > maxEnvironmentValueBytes {
+		return nil, fmt.Errorf("baseURL exceeds 96 KiB")
+	}
 	if !devMode && len(names) > 0 && !strings.HasPrefix(base, "https://") {
 		return nil, fmt.Errorf("credential forwarding requires an HTTPS API destination")
 	}
 
 	credentialHeaders := strings.Join(names, ",")
-	if len(credentialHeaders) > maxCredentialHeadersBytes {
+	if len(credentialHeaders) > maxEnvironmentValueBytes {
 		return nil, fmt.Errorf("credential headers exceed 96 KiB")
 	}
 

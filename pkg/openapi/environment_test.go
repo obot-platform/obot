@@ -69,7 +69,7 @@ func TestEnvironmentValidation(t *testing.T) {
 	}, []types.MCPConfig{header}, false)
 	require.ErrorContains(t, err, "X-Required")
 
-	header.Key = strings.Repeat("a", maxCredentialHeadersBytes+1)
+	header.Key = strings.Repeat("a", maxEnvironmentValueBytes+1)
 	_, err = Environment(result, []types.MCPConfig{header}, false)
 	require.ErrorContains(t, err, "96 KiB")
 }
@@ -173,6 +173,77 @@ func TestSnapshotDestinationPolicy(t *testing.T) {
 					} else {
 						require.NoError(t, err)
 						require.Equal(t, "OPENAPI_BASE_URL="+test.url+"/", env[0])
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestSnapshotBaseURLEnvironmentSize(t *testing.T) {
+	const limit = 96 * 1024
+	const prefix = "https://93.184.216.34/"
+	for _, test := range []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{
+			name: "at limit after adding trailing slash",
+			url:  prefix + strings.Repeat("a", limit-len(prefix)-1),
+		},
+		{
+			name: "at limit with existing trailing slash",
+			url:  prefix + strings.Repeat("a", limit-len(prefix)-1) + "/",
+		},
+		{
+			name:    "trailing slash exceeds limit",
+			url:     prefix + strings.Repeat("a", limit-len(prefix)),
+			wantErr: true,
+		},
+		{
+			name:    "URL escaping exceeds limit",
+			url:     prefix + strings.Repeat(" ", limit/3),
+			wantErr: true,
+		},
+		{
+			name:    "140 KiB URL",
+			url:     prefix + strings.Repeat("a", 140*1024),
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, override := range []bool{false, true} {
+				t.Run(fmt.Sprintf("override=%t", override), func(t *testing.T) {
+					data := documentWith(t, func(d map[string]any) {
+						delete(d, "components")
+						if !override {
+							d["servers"] = []any{map[string]any{"url": test.url}}
+						}
+					})
+					config := types.OpenAPIRuntimeConfig{
+						Schema: &types.OpenAPISchema{Raw: data},
+					}
+					if override {
+						config.BaseURL = test.url
+					}
+					for _, validate := range []bool{false, true} {
+						t.Run(fmt.Sprintf("validate=%t", validate), func(t *testing.T) {
+							var env []string
+							var err error
+							if validate {
+								env, err = ValidateSnapshotEnvironment(t.Context(), config, nil, safehttp.Options{}, false)
+							} else {
+								env, err = SnapshotEnvironment(config, nil, false)
+							}
+							if test.wantErr {
+								require.ErrorContains(t, err, "baseURL exceeds 96 KiB")
+								require.Nil(t, env)
+							} else {
+								require.NoError(t, err)
+								require.Len(t, strings.TrimPrefix(env[0], "OPENAPI_BASE_URL="), limit)
+							}
+						})
 					}
 				})
 			}
