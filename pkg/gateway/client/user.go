@@ -593,8 +593,12 @@ func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.U
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// SCIM may have provisioned the user, or another sign-in may have filled in the display name, while the
-		// profile was being fetched. The user lock keeps SCIM from provisioning the user between these checks and the
-		// write.
+		// profile was being fetched. The SCIM write lock keeps SCIM from provisioning the user between these checks
+		// and the write; the user lock alone does not, because SCIM binds a user without locking it when the profile
+		// carries neither an email nor a display name. The locks are taken in the order SCIM takes them.
+		if err := lockSCIMWrites(tx); err != nil {
+			return err
+		}
 		current := new(types.User)
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", user.ID).Take(current).Error; err != nil {
 			return err
