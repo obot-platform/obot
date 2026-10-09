@@ -5,6 +5,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/agentinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
@@ -30,11 +31,17 @@ import (
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/vmcpinstance"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Controller) setupRoutes() {
 	root := c.services.Router
+	agents := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
+	root.Type(&v1.AgentInstance{}).FinalizeFunc(substrate.Finalizer, agents.Cleanup)
+	if c.services.Substrate != nil {
+		root.Type(&v1.AgentInstance{}).HandlerFunc(agents.Reconcile)
+	}
 
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
 	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN, c.services.StorageClient)

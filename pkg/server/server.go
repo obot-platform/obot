@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/api/router"
+	"github.com/obot-platform/obot/pkg/claudecredentials"
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/controller"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/rs/cors"
@@ -68,11 +71,38 @@ func Run(ctx context.Context, c services.Config) error {
 		Handler: allowEverything.Handler(router),
 	}
 
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	go svcs.GatewayClient.RunEgressAuditCleanup(ctx, c.EgressAuditLogRetentionDays)
+	stopOrchestrator := func() {}
+	stopCredentials := func() {}
+	if svcs.Substrate != nil {
+		stopCredentials, err = claudecredentials.StartCredentialProvider(ctx, ":8444", "/run/substrate/credential.pem", "/run/substrate/pod-identity-ca.pem", &claudecredentials.CredentialProvider{Storage: svcs.StorageClient, Gateway: svcs.GatewayClient})
+		if err != nil {
+			return fmt.Errorf("start Claude egress credentials: %w", err)
+		}
+		defer func() {
+			stopCredentials()
+			if err := svcs.GatewayClient.FlushEgressAuditLogs(); err != nil {
+				slog.Error("Failed to flush egress audit logs", "error", err)
+			}
+		}()
+
+		stopOrchestrator = clauderunner.ManageOrchestrators(ctx, svcs.GatewayClient, fmt.Sprintf("http://127.0.0.1:%d", c.HTTPListenPort))
+		defer stopOrchestrator()
+	}
+
 	shutdown := make(chan struct{})
 	context.AfterFunc(ctx, func() {
 		defer close(shutdown)
 		// Shutdown services after controller and web server are done.
 		defer servicesCancel()
+
+		stopOrchestrator()
 
 		// Wait for controller to release the lease.
 		<-svcs.Router.Stopped()
@@ -95,6 +125,9 @@ func Run(ctx context.Context, c services.Config) error {
 			slog.Error("Failed to gracefully shutdown HTTP router", "error", err)
 		}
 
+		// Stop and drain egress handlers before closing the audit persister/database.
+		stopCredentials()
+
 		// Ensure that the audit logs are persisted.
 		svcs.AuditLogger.Close()
 
@@ -102,11 +135,13 @@ func Run(ctx context.Context, c services.Config) error {
 		// Shutdown all MCP servers
 		svcs.MCPSessionManager.Close()
 
-		svcs.GatewayClient.Close()
+		if err := svcs.GatewayClient.Close(); err != nil {
+			slog.Error("Failed to close gateway client", "error", err)
+		}
 		svcs.ProviderDispatcher.Close()
 	})
 
-	if err = s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	if err = s.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 

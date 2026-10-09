@@ -53,6 +53,16 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	slog.Info("Removed user identities during cleanup", "userID", userID, "identities", len(identities))
 
+	var agents v1.AgentInstanceList
+	if err := req.List(&agents, &kclient.ListOptions{Namespace: req.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.userID", userID)}); err != nil {
+		return err
+	}
+	for _, agent := range agents.Items {
+		if err := req.Delete(&agent); err != nil {
+			return err
+		}
+	}
+
 	// Revoke any API keys the user created.
 	apiKeys, err := u.gatewayClient.ListAPIKeys(req.Ctx, userDelete.Spec.UserID)
 	if err != nil {

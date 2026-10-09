@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/agentinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/compositemigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
@@ -184,6 +185,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	// notifications, and a peer that was not sending them leaves the cache up to a
 	// poll interval behind. Have every watch list again before acting on it.
 	c.services.StorageDB.Refresh()
+	if c.services.Substrate != nil {
+		handler := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
+		go handler.RunMaintenance(ctx, client)
+	}
 
 	if err := providerconfigurationchange.CleanupOrphanedStagedCredentials(
 		ctx,

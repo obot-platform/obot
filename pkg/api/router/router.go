@@ -32,20 +32,21 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux := services.APIServer
 
 	version := handlers.NewVersionHandler(handlers.VersionHandlerOptions{
-		GatewayClient:           services.GatewayClient,
-		StorageClient:           services.StorageClient,
-		LicenseProvider:         services.LicenseProvider,
-		PostgresDSN:             services.PostgresDSN,
-		Engine:                  services.MCPRuntimeBackend,
-		MCPNetworkPolicyEnabled: services.MCPNetworkPolicyEnabled,
-		MCPDefaultDenyAllEgress: services.MCPDefaultDenyAllEgress,
-		AuthEnabled:             services.AuthEnabled,
-		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
-		HideK8sDetails:          services.HideK8sDetails,
-		UpgradeStatusReader:     services.VersionChecker,
-		ProviderConfiguration:   services.ProviderDispatcher,
-		ModelProxyURL:           services.ModelProxyURL,
-		ModelProxySettings:      services.GatewayClient,
+		GatewayClient:             services.GatewayClient,
+		StorageClient:             services.StorageClient,
+		LicenseProvider:           services.LicenseProvider,
+		PostgresDSN:               services.PostgresDSN,
+		Engine:                    services.MCPRuntimeBackend,
+		MCPNetworkPolicyEnabled:   services.MCPNetworkPolicyEnabled,
+		MCPDefaultDenyAllEgress:   services.MCPDefaultDenyAllEgress,
+		AuthEnabled:               services.AuthEnabled,
+		MessagePoliciesEnabled:    services.MessagePoliciesEnabled,
+		ClaudeEnvironmentsEnabled: services.Substrate != nil,
+		HideK8sDetails:            services.HideK8sDetails,
+		UpgradeStatusReader:       services.VersionChecker,
+		ProviderConfiguration:     services.ProviderDispatcher,
+		ModelProxyURL:             services.ModelProxyURL,
+		ModelProxySettings:        services.GatewayClient,
 	})
 
 	mcpGateway, err := mcpgateway.NewHandler(
@@ -646,6 +647,22 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Uploaded images
 	mux.HandleFunc("POST /api/image/upload", images.UploadImage)
 	mux.HandleFunc("GET /api/image/{id}", images.GetImage)
+
+	claudeRunners := &handlers.ClaudeRunnerHandler{Substrate: services.Substrate}
+	mux.HandleFunc("GET /api/claude-environments", claudeRunners.Config)
+	mux.HandleFunc("POST /api/claude-environments", claudeRunners.SaveEnvironment)
+	mux.HandleFunc("PUT /api/claude-environments/{environment}", claudeRunners.SaveEnvironment)
+	mux.HandleFunc("DELETE /api/claude-environments/{environment}", claudeRunners.DeleteEnvironment)
+	mux.HandleFunc("POST /api/claude-runners/spawn", claudeRunners.Spawn)
+	mux.HandleFunc("POST /api/claude-runners/{instance}/credentials", claudeRunners.Credentials)
+	mux.HandleFunc("POST /api/claude-runners/{instance}/finished", claudeRunners.Finished)
+	mux.HandleFunc("POST /api/claude-runners/{instance}/status", claudeRunners.Status)
+
+	agentInstances := &handlers.ClaudeSessionHandler{}
+	mux.HandleFunc("GET /api/claude-sessions", agentInstances.List)
+	mux.HandleFunc("GET /api/claude-sessions/{session_id}", agentInstances.Get)
+	mux.HandleFunc("DELETE /api/claude-sessions/{session_id}", agentInstances.Delete)
+	mux.HandleFunc("POST /api/claude-sessions/{session_id}/suspend", agentInstances.Suspend)
 
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())

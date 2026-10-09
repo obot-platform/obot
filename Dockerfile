@@ -31,12 +31,31 @@ RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
+# Download and verify the pinned CLI without executing it during the build.
+# Update the version and both checksums together from the release manifest.
+FROM --platform=$BUILDPLATFORM cgr.dev/chainguard/wolfi-base:latest AS claude-cli
+ARG CLAUDE_CODE_VERSION=2.1.289
+ARG TARGETARCH
+RUN apk add --no-cache curl ca-certificates
+RUN case "$TARGETARCH" in \
+      amd64) arch=x64; sha256=a186b99e4a9c88366cd49df2f7dad56c61fc306ef0140b19ee64b7c42a8d1348 ;; \
+      arm64) arch=arm64; sha256=d100d5e41dcbee220c80d3a3099292e4b5a508b57cafd181856efedf29f84f28 ;; \
+      *) exit 1 ;; \
+    esac \
+    && curl -fsSL "https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}/linux-${arch}/claude" -o /claude \
+    && echo "$sha256  /claude" | sha256sum -c - \
+    && chmod 755 /claude
+
 FROM ${PROVIDERS_IMAGE} AS providers
 FROM ${ENTERPRISE_PROVIDERS_IMAGE} AS enterprise-providers
 FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
 
 FROM final-base AS final
-RUN apk add --no-cache bash tini
+RUN apk add --no-cache bash tini python3 libstdc++ libgcc ca-certificates
+
+COPY --from=claude-cli /claude /usr/local/bin/claude
+COPY runtime/claude-orchestrator/spawn.py /opt/obot/spawn.py
+COPY --chmod=0755 runtime/claude-orchestrator/spawn-runner /opt/obot/hooks/spawn-runner
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /

@@ -59,6 +59,7 @@ import (
 	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/upgrade"
@@ -128,9 +129,16 @@ type Config struct {
 	HideK8sDetails              bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
 	EnableRegistryAuth          bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies       bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	EgressAuditLogRetentionDays int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
+	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" env:"OBOT_SERVER_SUBSTRATE_RUNNER_IMAGE" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:d8869222186116d867e54c5c8b33ab0a4c9864e044d333bb190cd29fe0a98d58"`
+	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments" env:"OBOT_SERVER_SUBSTRATE_WORKER_IMAGE"`
+	SubstrateNamespace          string `usage:"Namespace for Claude environment worker pools" default:"obot-agents" env:"OBOT_SERVER_SUBSTRATE_NAMESPACE"`
+	SubstrateAddress            string `usage:"Substrate gRPC address; empty disables Claude environments" env:"OBOT_SERVER_SUBSTRATE_ADDRESS"`
+	SubstrateSnapshotLocation   string `usage:"Substrate snapshot bucket URI" env:"OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION"`
+	SubstrateObotURL            string `usage:"Obot URL reachable from actors; defaults to server URL" env:"OBOT_SERVER_SUBSTRATE_OBOT_URL"`
 
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
@@ -243,6 +251,7 @@ type Services struct {
 	MessagePoliciesEnabled               bool
 	MCPNetworkPolicyEnabled              bool
 	MCPDefaultDenyAllEgress              bool
+	Substrate                            *substrate.Client
 	MCPNetworkPolicyProviderChartRepo    string
 	MCPNetworkPolicyProviderChartName    string
 	MCPNetworkPolicyProviderChartVersion string
@@ -1214,6 +1223,28 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		LicenseProvider:                      licenseProvider,
 		VersionChecker:                       versionChecker,
+	}
+
+	obotURL := config.SubstrateObotURL
+	if obotURL == "" {
+		obotURL = svcs.ServerURL
+	}
+	svcs.Substrate, err = substrate.New(ctx, substrate.Config{
+		Address:          config.SubstrateAddress,
+		WorkerImage:      config.SubstrateWorkerImage,
+		RunnerImage:      config.SubstrateRunnerImage,
+		Namespace:        config.SubstrateNamespace,
+		CAFile:           "/run/substrate/ca.pem",
+		TokenFile:        "/run/substrate/token",
+		SnapshotLocation: config.SubstrateSnapshotLocation,
+		ObotURL:          obotURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if svcs.Substrate != nil {
+		svcs.Substrate.Kube = svcs.LocalK8sClient
 	}
 
 	return svcs, nil

@@ -23,7 +23,9 @@ func TestUserCleanupVMCPs(t *testing.T) {
 		Spec:      v1.UserDeleteSpec{UserID: 1},
 	}
 	builder := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(userDelete)
-	for _, obj := range []kclient.Object{} {
+	for _, obj := range []kclient.Object{
+		&v1.VMCP{}, &v1.VMCPInstance{}, &v1.MCPServer{}, &v1.MCPServerInstance{}, &v1.PowerUserWorkspace{}, &v1.AgentInstance{},
+	} {
 		builder.WithIndex(obj, "spec.userID", func(obj kclient.Object) []string {
 			return []string{obj.(fields.Fields).Get("spec.userID")}
 		})

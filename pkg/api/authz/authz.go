@@ -36,6 +36,8 @@ var (
 	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
+		"/api/claude-environments",
+		"/api/claude-environments/",
 		"/api/model-proxy",
 		"/api/model-proxy/",
 		"/api/mcp-tunnels",
@@ -159,6 +161,7 @@ var (
 		"GET /api/admin-api-keys",
 		"GET /api/admin-api-keys/{id}",
 		"DELETE /api/admin-api-keys/{id}",
+		"POST /api/claude-sessions/{session_id}/suspend",
 	}
 	ownerRules = []string{
 		"POST /api/auth-providers/{id}/stage",
@@ -251,6 +254,10 @@ var (
 			"GET /api/total-token-usage",
 		},
 		anyGroup: {
+			"POST /api/claude-runners/spawn",
+			"POST /api/claude-runners/{instance}/credentials",
+			"POST /api/claude-runners/{instance}/finished",
+			"POST /api/claude-runners/{instance}/status",
 			// Allow access to the oauth2 endpoints
 			"/oauth2/",
 
@@ -298,6 +305,12 @@ var (
 		},
 
 		types.GroupAPI: {
+			"GET /api/claude-sessions",
+			"GET /api/claude-sessions/{session_id}",
+			"DELETE /api/claude-sessions/{session_id}",
+			"GET /api/claude-environments",
+			"PUT /api/claude-environments/{environment}/agent",
+			"DELETE /api/claude-environments/{environment}/agent",
 			"POST /api/token-request/verify",
 			"POST /api/local-agent-audit-logs",
 			"GET /api/models",
