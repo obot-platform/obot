@@ -33,6 +33,8 @@ Cover this in your MDM:
 - Tell users to restart Kiro after they trust a new folder.
 
 A user who turns off an Obot Sentry hook in Kiro's Agent Hooks panel only does so until the next hourly hook installation, which turns it back on.
+
+The Kiro CLI runs these hooks only on its v3 agent engine (`kiro-cli chat --v3`, or the CLI setting `chat.agentEngine` set to `v3`). Its default v2 engine does not run them, so CLI sessions on v2 are neither checked nor audited. Obot Sentry does not change this setting. If you set it through your MDM, users can still choose v2 for a single session with `--v2`.
 :::
 
 ### Configure enforcement {#configure-enforcement}
