@@ -144,6 +144,8 @@
 	"vmcps_entry_created_not_opened": "条目已创建，但无法打开。",
 	"vmcps_example_tools": "示例工具",
 	"vmcps_expand": "展开",
+	"vmcps_exposed_tool_name_too_long": "现有工具不能超过 {max} 个字符。",
+	"vmcps_exposed_tools_share_name": "现有工具必须保持唯一。",
 	"vmcps_failed_to_add_server_to_vmcp": "无法将 MCP 服务器添加到 vMCP。",
 	"vmcps_failed_to_create": "创建 vMCP 失败。",
 	"vmcps_failed_to_delete": "删除 vMCP 失败。",

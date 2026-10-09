@@ -2,10 +2,14 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import type { ToolOverride } from '$lib/services';
 	import {
+		MAX_TOOL_NAME_LENGTH,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
+		duplicateToolNames,
+		effectiveToolName,
 		type ToolNameIssue
 	} from '$lib/services/user/mcp';
 
@@ -13,6 +17,8 @@
 		readonly?: boolean;
 		otherNames?: string[];
 		otherToolPrefixes?: string[];
+		otherEffectiveNames?: string[];
+		toolOverrides?: ToolOverride[];
 		onSave?: (details: { name: string; toolPrefix: string }) => void | Promise<void>;
 		onClose?: () => void;
 	}
@@ -21,6 +27,8 @@
 		readonly = false,
 		otherNames = [],
 		otherToolPrefixes = [],
+		otherEffectiveNames = [],
+		toolOverrides = [],
 		onSave,
 		onClose
 	}: Props = $props();
@@ -61,7 +69,38 @@
 		}
 	});
 
-	let saveDisabled = $derived(saving || Boolean(nameError) || prefixIssue?.severity === 'error');
+	let exposedToolNameErrors = $derived.by(() => {
+		if (toolOverrides.length === 0) return [];
+
+		const prefix = toolPrefix.trim();
+		const exposedNames = toolOverrides
+			.filter((tool) => tool.enabled !== false && !tool.removed)
+			.map((tool) => effectiveToolName(tool.name, tool.overrideName, prefix));
+		const conflicts = duplicateToolNames([...otherEffectiveNames, ...exposedNames]);
+		const shared = exposedNames.some((name) => conflicts.has(name));
+		const tooLong = exposedNames.some((name) => name.length > MAX_TOOL_NAME_LENGTH);
+		const errors: { key: string; message: string }[] = [];
+		if (shared) {
+			errors.push({
+				key: 'shared-name',
+				message: m.vmcps_exposed_tools_share_name()
+			});
+		}
+		if (tooLong) {
+			errors.push({
+				key: 'too-long',
+				message: m.vmcps_exposed_tool_name_too_long({ max: MAX_TOOL_NAME_LENGTH })
+			});
+		}
+		return errors;
+	});
+
+	let saveDisabled = $derived(
+		saving ||
+			Boolean(nameError) ||
+			prefixIssue?.severity === 'error' ||
+			exposedToolNameErrors.length > 0
+	);
 
 	export function open(details: { name: string; toolPrefix?: string }) {
 		name = details.name;
@@ -144,7 +183,11 @@
 				<p class={`text-xs ${prefixIssue.severity === 'error' ? 'text-error' : 'text-warning'}`}>
 					{prefixIssue.message}
 				</p>
-			{:else}
+			{/if}
+			{#each exposedToolNameErrors as error (error.key)}
+				<p class="text-error text-xs" role="alert">{error.message}</p>
+			{/each}
+			{#if !prefixIssue && exposedToolNameErrors.length === 0}
 				<p class="text-muted-content text-[11px]">
 					{m.mcps_composite_prefix_hint()}
 				</p>

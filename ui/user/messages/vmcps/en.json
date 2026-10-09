@@ -144,6 +144,8 @@
 	"vmcps_entry_created_not_opened": "The entry was created, but it could not be opened.",
 	"vmcps_example_tools": "Example Tools",
 	"vmcps_expand": "Expand",
+	"vmcps_exposed_tool_name_too_long": "Existing tool(s) cannot exceed {max} characters.",
+	"vmcps_exposed_tools_share_name": "Existing tool(s) must maintain uniqueness.",
 	"vmcps_failed_to_add_server_to_vmcp": "Failed to add MCP server to vMCP.",
 	"vmcps_failed_to_create": "Failed to create vMCP.",
 	"vmcps_failed_to_delete": "Failed to delete vMCP.",
