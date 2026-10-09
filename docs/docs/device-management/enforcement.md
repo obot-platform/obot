@@ -19,11 +19,20 @@ Enforcement fails closed. A call is blocked when:
 
 Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
 
-Kiro runs no hooks in a workspace the user has not trusted, or in a window with no folder open. Tool calls made there are neither checked nor audited.
-
 :::important
 Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
 Doing this will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
+:::
+
+:::important
+Kiro runs hooks only in folders the user has trusted. In an untrusted folder, Kiro still runs the agent and asks the user to approve each tool call, but Obot Sentry neither checks nor audits those calls. The same is true in a window with no folder open. Kiro also reads trust only when it starts, so a folder the user trusts afterward stays unchecked until Kiro is restarted.
+
+Cover this in your MDM:
+
+- Decide how to handle workspace trust. Setting Kiro's `security.workspace.trust.enabled` to `false` treats every folder as trusted, so the hooks always run, but it also turns off Kiro's protection against untrusted repositories, and users can change it back. Obot Sentry does not change this setting.
+- Tell users to restart Kiro after they trust a new folder.
+
+A user who turns off an Obot Sentry hook in Kiro's Agent Hooks panel only does so until the next hourly hook installation, which turns it back on.
 :::
 
 ### Configure enforcement {#configure-enforcement}
