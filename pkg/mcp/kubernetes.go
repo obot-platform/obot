@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,7 +130,7 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 
 func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server ServerConfig, objs []kclient.Object) error {
 	// Check capacity before deploying (fail-open if capacity can't be determined)
-	if err := k.CheckCapacity(ctx, server); err != nil {
+	if err := k.CheckCapacity(ctx, objs); err != nil {
 		return err
 	}
 
@@ -1964,86 +1965,154 @@ func int64PtrValue(value *int64) string {
 	return strconv.FormatInt(*value, 10)
 }
 
-// CheckCapacity checks if there's enough capacity to deploy a new MCP server.
+// CheckCapacity checks if there's enough capacity to deploy the given MCP server objects.
 // Returns nil if capacity is available, or ErrInsufficientCapacity if not.
 // Uses fail-open strategy: if no ResourceQuota exists, allows deployment and lets Kubernetes decide.
 // Only ResourceQuota is used for precheck since node capacity checks are naive and don't account
 // for taints, affinity, other namespace workloads, or resource fragmentation.
-func (k *kubernetesBackend) CheckCapacity(ctx context.Context, server ServerConfig) error {
-	k8sSettings := k.getK8sSettings(ctx)
-
-	memoryRequest := resource.MustParse("0")
-	cpuRequest := resource.MustParse("0")
-	resources := mcpContainerResources(
-		server.Resources,
-		server.Runtime,
-		server.IsAgentServer(),
-		k8sSettings,
-	)
-	if mem, ok := resources.Requests[corev1.ResourceMemory]; ok {
-		memoryRequest = mem
-	}
-	if cpu, ok := resources.Requests[corev1.ResourceCPU]; ok {
-		cpuRequest = cpu
-	}
-
-	// Only use ResourceQuota for precheck - it's enforced at admission time and accurate
-	if available, err := k.checkResourceQuotaCapacity(ctx, memoryRequest, cpuRequest); err == nil {
-		if !available {
-			return ErrInsufficientCapacity
+//
+// If the deployment already exists and has pods, only the additional requests that applying the
+// objects would add to the namespace are checked, because the existing pods' requests are already
+// counted in the quota's usage.
+func (k *kubernetesBackend) CheckCapacity(ctx context.Context, objs []kclient.Object) error {
+	var desired *appsv1.Deployment
+	for _, obj := range objs {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			desired = dep
+			break
 		}
+	}
+	if desired == nil {
+		// Nothing will be deployed, so no capacity is needed.
 		return nil
 	}
 
-	// No ResourceQuota or can't check - fail open, let Kubernetes decide
+	// Only use ResourceQuota for precheck - it's enforced at admission time and accurate
+	quotas, err := k.clientset.CoreV1().ResourceQuotas(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		// Can't check - fail open, let Kubernetes decide
+		slog.Warn("Failed to list resource quotas for capacity check", "error", err)
+		return nil
+	}
+
+	quota := requestsQuota(quotas.Items)
+	if quota == nil {
+		// No ResourceQuota limiting requests - fail open, let Kubernetes decide
+		return nil
+	}
+
+	memoryRequest, cpuRequest := k.additionalRequestsForDeploy(ctx, desired)
+	if !quotaHasCapacity(quota, memoryRequest, cpuRequest) {
+		return ErrInsufficientCapacity
+	}
 	return nil
 }
 
-// checkResourceQuotaCapacity checks if there's enough capacity based on ResourceQuota.
-// Returns (true, nil) if capacity is available, (false, nil) if not, or (false, error) if quota can't be checked.
-func (k *kubernetesBackend) checkResourceQuotaCapacity(ctx context.Context, memoryRequest, cpuRequest resource.Quantity) (bool, error) {
-	quotas, err := k.clientset.CoreV1().ResourceQuotas(k.mcpNamespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false, fmt.Errorf("failed to list resource quotas: %w", err)
+// additionalRequestsForDeploy returns the memory and CPU requests that applying the desired deployment
+// would add to the namespace quota's usage.
+func (k *kubernetesBackend) additionalRequestsForDeploy(ctx context.Context, desired *appsv1.Deployment) (resource.Quantity, resource.Quantity) {
+	var existing appsv1.Deployment
+	if err := k.client.Get(ctx, kclient.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}, &existing); err != nil {
+		if !apierrors.IsNotFound(err) {
+			slog.Warn("Failed to get existing MCP deployment for capacity check", "deployment", desired.Name, "error", err)
+		}
+		return additionalDeploymentRequests(desired, nil)
 	}
 
-	if len(quotas.Items) == 0 {
-		return false, fmt.Errorf("no resource quotas found")
+	// Ask the API server what the deployment would look like after the update, so that the comparison with
+	// the existing deployment includes server-side defaults (e.g. probe timings) and admission mutations.
+	updated := desired.DeepCopy()
+	updated.ResourceVersion = existing.ResourceVersion
+	if err := k.client.Update(ctx, updated, kclient.DryRunAll); err != nil {
+		slog.Warn("Failed to dry-run MCP deployment update for capacity check", "deployment", desired.Name, "error", err)
+		updated = desired
 	}
 
-	// Check if any quota has memory or CPU request limits
-	for _, quota := range quotas.Items {
-		// Check memory
-		memHard, hasMemHard := quota.Status.Hard[corev1.ResourceRequestsMemory]
-		memUsed, hasMemUsed := quota.Status.Used[corev1.ResourceRequestsMemory]
+	return additionalDeploymentRequests(updated, &existing)
+}
 
-		if hasMemHard && hasMemUsed && memoryRequest.Cmp(resource.Quantity{}) > 0 {
-			available := memHard.DeepCopy()
-			available.Sub(memUsed)
-			if available.Cmp(memoryRequest) < 0 {
-				return false, nil
-			}
+// additionalDeploymentRequests returns the memory and CPU requests that applying the desired deployment
+// would add on top of what the existing deployment (if any) already consumes from the namespace quota.
+// The desired deployment should include server-side defaults so it can be compared with the existing one.
+func additionalDeploymentRequests(desired, existing *appsv1.Deployment) (resource.Quantity, resource.Quantity) {
+	memoryRequest, cpuRequest := podTemplateRequests(desired.Spec.Template.Spec)
+	if existing == nil || existing.Status.Replicas == 0 {
+		// No pods exist for the deployment (e.g. pod creation was rejected by the quota), so none of
+		// its requests are counted in the quota's usage.
+		return memoryRequest, cpuRequest
+	}
+
+	// If the pod template is unchanged, applying the deployment won't create any new pods.
+	if equality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template) {
+		return resource.Quantity{}, resource.Quantity{}
+	}
+
+	// With the default RollingUpdate strategy, the new pod is created before the old one is removed,
+	// so the full request is needed. With Recreate, the old pod's requests are released first.
+	if desired.Spec.Strategy.Type == appsv1.RecreateDeploymentStrategyType {
+		existingMemory, existingCPU := podTemplateRequests(existing.Spec.Template.Spec)
+		memoryRequest.Sub(existingMemory)
+		cpuRequest.Sub(existingCPU)
+	}
+
+	return memoryRequest, cpuRequest
+}
+
+// podTemplateRequests returns the effective memory and CPU requests of a pod.
+func podTemplateRequests(spec corev1.PodSpec) (resource.Quantity, resource.Quantity) {
+	var memoryRequest, cpuRequest resource.Quantity
+	for _, container := range spec.Containers {
+		if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+			memoryRequest.Add(mem)
 		}
-
-		// Check CPU
-		cpuHard, hasCPUHard := quota.Status.Hard[corev1.ResourceRequestsCPU]
-		cpuUsed, hasCPUUsed := quota.Status.Used[corev1.ResourceRequestsCPU]
-
-		if hasCPUHard && hasCPUUsed && cpuRequest.Cmp(resource.Quantity{}) > 0 {
-			available := cpuHard.DeepCopy()
-			available.Sub(cpuUsed)
-			if available.Cmp(cpuRequest) < 0 {
-				return false, nil
-			}
+		if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+			cpuRequest.Add(cpu)
 		}
+	}
+	return memoryRequest, cpuRequest
+}
 
-		// If we found at least one resource limit, we can make a decision
+// requestsQuota returns the first ResourceQuota that limits memory or CPU requests, or nil if there is none.
+func requestsQuota(quotas []corev1.ResourceQuota) *corev1.ResourceQuota {
+	for i, quota := range quotas {
+		_, hasMemHard := quota.Status.Hard[corev1.ResourceRequestsMemory]
+		_, hasMemUsed := quota.Status.Used[corev1.ResourceRequestsMemory]
+		_, hasCPUHard := quota.Status.Hard[corev1.ResourceRequestsCPU]
+		_, hasCPUUsed := quota.Status.Used[corev1.ResourceRequestsCPU]
 		if (hasMemHard && hasMemUsed) || (hasCPUHard && hasCPUUsed) {
-			return true, nil
+			return &quotas[i]
+		}
+	}
+	return nil
+}
+
+// quotaHasCapacity checks if the ResourceQuota has enough remaining capacity for the given requests.
+func quotaHasCapacity(quota *corev1.ResourceQuota, memoryRequest, cpuRequest resource.Quantity) bool {
+	// Check memory
+	memHard, hasMemHard := quota.Status.Hard[corev1.ResourceRequestsMemory]
+	memUsed, hasMemUsed := quota.Status.Used[corev1.ResourceRequestsMemory]
+
+	if hasMemHard && hasMemUsed && memoryRequest.Cmp(resource.Quantity{}) > 0 {
+		available := memHard.DeepCopy()
+		available.Sub(memUsed)
+		if available.Cmp(memoryRequest) < 0 {
+			return false
 		}
 	}
 
-	return false, fmt.Errorf("no memory or CPU quota found")
+	// Check CPU
+	cpuHard, hasCPUHard := quota.Status.Hard[corev1.ResourceRequestsCPU]
+	cpuUsed, hasCPUUsed := quota.Status.Used[corev1.ResourceRequestsCPU]
+
+	if hasCPUHard && hasCPUUsed && cpuRequest.Cmp(resource.Quantity{}) > 0 {
+		available := cpuHard.DeepCopy()
+		available.Sub(cpuUsed)
+		if available.Cmp(cpuRequest) < 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // GetCapacityInfo returns capacity information for the MCP namespace.
