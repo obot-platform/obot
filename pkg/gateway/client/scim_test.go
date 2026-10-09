@@ -640,15 +640,118 @@ func TestLoginProfileRefreshIsModeAware(t *testing.T) {
 		t.Fatalf("the refresh without a connection did not write the profile: %+v", got)
 	}
 
-	// With a connection, even a user SCIM has not provisioned is left alone.
+	// With a connection, a user SCIM has not provisioned gets the provider's display name when they have none.
 	createTestSCIMConnection(t, c, true)
 	unprovisioned := createLifecycleTestUser(t, c, "unprovisioned", lifecycleTestProvider)
 	refresh(unprovisioned.ID)
-	if n := stub.count("/obot-get-user-info"); n != 1 {
-		t.Fatalf("the refresh with a connection made %d more requests", n-1)
+	if n := stub.count("/obot-get-user-info"); n != 2 {
+		t.Fatalf("the refresh of an unnamed user with a connection made %d more requests, want 1", n-1)
 	}
-	if got := storedLifecycleUser(t, c, unprovisioned.ID); got.DisplayName != "" {
-		t.Fatalf("the refresh with a connection wrote the profile: %+v", got)
+	if got := storedLifecycleUser(t, c, unprovisioned.ID); got.DisplayName != "Login Name" {
+		t.Fatalf("the refresh of an unnamed user with a connection did not fill in the display name: %+v", got)
+	}
+
+	// Once the display name is set, the provider is not asked again.
+	refresh(unprovisioned.ID)
+	if n := stub.count("/obot-get-user-info"); n != 2 {
+		t.Fatalf("the refresh of a named user with a connection made %d more requests, want 0", n-2)
+	}
+
+	// A display name the user already has is never overwritten.
+	named := createLifecycleTestUser(t, c, "named", lifecycleTestProvider)
+	if err := c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", named.ID).
+		UpdateColumn("display_name", "Existing Name").Error; err != nil {
+		t.Fatal(err)
+	}
+	refresh(named.ID)
+	if n := stub.count("/obot-get-user-info"); n != 2 {
+		t.Fatalf("the refresh of a named user with a connection made %d more requests, want 0", n-2)
+	}
+	if got := storedLifecycleUser(t, c, named.ID); got.DisplayName != "Existing Name" {
+		t.Fatalf("the refresh with a connection overwrote the display name: %+v", got)
+	}
+}
+
+func TestSCIMProfileReplacesFilledInDisplayName(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	_, srv := newAuthProviderStub(t)
+	ctx := accesstoken.ContextWithAccessToken(t.Context(), "access-token")
+	conn, _ := createTestSCIMConnection(t, c, true)
+	user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+
+	// Sign-in fills in the display name of the unprovisioned user.
+	stored := storedLifecycleUser(t, c, user.ID)
+	if err := c.decryptUser(ctx, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateProfileIfNeeded(ctx, &stored, lifecycleTestProvider.Name, lifecycleTestProvider.Namespace, srv.URL); err != nil {
+		t.Fatalf("failed to refresh the profile: %v", err)
+	}
+	if got := storedLifecycleUser(t, c, user.ID); got.DisplayName != "Login Name" {
+		t.Fatalf("sign-in did not fill in the display name: %+v", got)
+	}
+
+	// Provisioning binds the user and replaces the display name with SCIM's.
+	provisioned := provisionTestSCIMUser(t, c, conn, "00u-alice", "alice@example.com")
+	if provisioned.UserID != user.ID {
+		t.Fatalf("provisioning created user %d instead of binding user %d", provisioned.UserID, user.ID)
+	}
+	if got := storedLifecycleUser(t, c, user.ID); got.DisplayName != "SCIM Name" {
+		t.Fatalf("provisioning did not replace the filled-in display name: %+v", got)
+	}
+
+	// A later rename in the identity provider replaces it again.
+	if _, err := c.UpdateSCIMUser(ctx, conn, provisioned.ID, func(current SCIMUser) (SCIMUserInput, error) {
+		profile := current.Profile
+		profile.DisplayName = "Renamed"
+		return SCIMUserInput{
+			UserName:   current.UserName,
+			ExternalID: current.ExternalID,
+			Profile:    profile,
+		}, nil
+	}); err != nil {
+		t.Fatalf("failed to rename the user: %v", err)
+	}
+	if got := storedLifecycleUser(t, c, user.ID); got.DisplayName != "Renamed" {
+		t.Fatalf("a SCIM rename did not replace the display name: %+v", got)
+	}
+}
+
+func TestLoginDisplayNameFillInFlightWhenSCIMProvisionsWritesNothing(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	stub, srv := newAuthProviderStub(t)
+	ctx := accesstoken.ContextWithAccessToken(t.Context(), "access-token")
+	conn, _ := createTestSCIMConnection(t, c, true)
+	user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+
+	// SCIM provisions the user, without a display name, while the provider is answering the refresh.
+	started := make(chan error, 1)
+	stub.runDuring("/obot-get-user-info", func() {
+		_, err := c.CreateSCIMUser(ctx, conn, SCIMUserInput{
+			UserName:   "alice@example.com",
+			ExternalID: "00u-alice",
+		}, SCIMUserCreateOptions{
+			UserLimit: UserLimit{
+				Unlimited: true,
+			},
+			DefaultRole: apitypes.RoleBasic,
+		})
+		started <- err
+	})
+
+	stored := storedLifecycleUser(t, c, user.ID)
+	if err := c.decryptUser(ctx, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.UpdateProfileIfNeeded(ctx, &stored, lifecycleTestProvider.Name, lifecycleTestProvider.Namespace, srv.URL); err != nil {
+		t.Fatalf("failed to refresh the profile: %v", err)
+	}
+	requireStarted(t, started)
+	if n := stub.count("/obot-get-user-info"); n != 1 {
+		t.Fatalf("the refresh made %d requests, want 1", n)
+	}
+	if got := storedLifecycleUser(t, c, user.ID); got.DisplayName != "" {
+		t.Fatalf("a display name fill in flight when SCIM provisioned the user wrote the profile: %+v", got)
 	}
 }
 
