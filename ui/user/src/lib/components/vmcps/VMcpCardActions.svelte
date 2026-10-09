@@ -82,16 +82,18 @@
 			>
 				{m.vmcps_connect()}
 			</button>
-			<CopyButton
-				tooltipText={m.vmcps_copy_connect_url()}
-				text={connectURL}
-				noButtonText
-				classes={{
-					button:
-						'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
-				}}
-				disabled={hasLicenseEntitlementViolations || disabled || !connectURL}
-			/>
+			{#if connectURL}
+				<CopyButton
+					tooltipText={m.vmcps_copy_connect_url()}
+					text={connectURL}
+					noButtonText
+					classes={{
+						button:
+							'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
+					}}
+					disabled={hasLicenseEntitlementViolations || disabled}
+				/>
+			{/if}
 		</div>
 	</div>
 	{#if !hideTest}

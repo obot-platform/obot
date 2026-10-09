@@ -10,7 +10,7 @@
 	} from '$lib/runes/vmcps/vmcpItem.svelte';
 	import type { VMCP } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { vmcpConnectURL, vmcpRequiresLocalhostCallback } from '$lib/services/vmcps/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
 	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
@@ -70,7 +70,7 @@
 	let descriptionHTML = $derived(
 		vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined
 	);
-	let connectURL = $derived(vmcpConnectURL(vmcp));
+	let connectURL = $derived(vmcpRequiresLocalhostCallback(vmcp) ? undefined : vmcpConnectURL(vmcp));
 	let connectButtonId = $derived(`btn-connect-to-server-${vmcp.id}`);
 	let inSelectMode = $derived(Boolean(selecting));
 

@@ -415,3 +415,29 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncConnectServerLocalhostCallback(t *testing.T) {
+	server := v1.MCPServer{}
+	server.Spec.Manifest.Runtime = types.RuntimeRemote
+	server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"}
+	entry := v1.MCPServerCatalogEntry{}
+	entry.Spec.Manifest.Runtime = types.RuntimeRemote
+	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{}
+	for _, config := range []types.RemoteCatalogConfig{
+		{
+			LocalhostCallbackEnabled: true,
+		},
+		{
+			LocalhostCallbackEnabled: true,
+			LocalhostCallbackPath:    "/custom",
+		},
+		{},
+	} {
+		entry.Spec.Manifest.RemoteConfig = &config
+		require.True(t, syncConnectServerRemoteConfigFromCatalogEntry(&server, entry))
+		require.Equal(t, config.LocalhostCallbackEnabled, server.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled)
+		require.Equal(t, config.LocalhostCallbackPath, server.Spec.Manifest.RemoteConfig.LocalhostCallbackPath)
+		require.Equal(t, "https://example.com/mcp", server.Spec.Manifest.RemoteConfig.URL)
+		require.False(t, syncConnectServerRemoteConfigFromCatalogEntry(&server, entry))
+	}
+}

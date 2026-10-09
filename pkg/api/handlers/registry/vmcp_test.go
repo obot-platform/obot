@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,7 +23,17 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type registryTestStorage struct{ kclient.WithWatch }
+type registryTestStorage struct {
+	kclient.WithWatch
+	instanceLists int
+}
+
+func (s *registryTestStorage) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
+	if _, ok := list.(*v1.VMCPInstanceList); ok {
+		s.instanceLists++
+	}
+	return s.WithWatch.List(ctx, list, opts...)
+}
 
 func TestVMCPComponentsAreExcludedFromPersonalRegistryServers(t *testing.T) {
 	storage := newRegistryTestStorage(
@@ -172,6 +183,12 @@ func newRegistryTestStorage(objects ...kclient.Object) *registryTestStorage {
 	return &registryTestStorage{WithWatch: clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(objects...).
+		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(object kclient.Object) []string {
+			return []string{object.(*v1.VMCPInstance).Spec.UserID}
+		}).
+		WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(object kclient.Object) []string {
+			return []string{object.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
+		}).
 		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(object kclient.Object) []string {
 			return []string{object.(*v1.MCPServerCatalogEntry).Spec.MCPCatalogName}
 		}).

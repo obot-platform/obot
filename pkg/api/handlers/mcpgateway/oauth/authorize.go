@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -551,8 +552,29 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return err
 	}
 
+	pending, _ := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
+	if uiLocalLoginState(pending) {
+		if time.Since(pending.CreatedAt) > localLoginTTL {
+			_ = h.oauthChecker.stateMgr.gatewayClient.DeleteMCPOAuthPendingState(req.Context(), pending.HashedState)
+			completeLocalLogin(req, pending, fmt.Errorf("authentication attempt expired"))
+			return nil
+		}
+		_, _, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+		completeLocalLogin(req, pending, err)
+		return nil
+	}
 	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
+		if oauthAuthRequestID != "" {
+			var request v1.OAuthAuthRequest
+			if loadErr := req.Get(&request, oauthAuthRequestID); loadErr != nil {
+				return loadErr
+			}
+			if req.UserIsAuthenticated() && request.Spec.UserID == req.UserID() {
+				redirectWithAuthorizeError(req, request.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "upstream authorization was denied", request.Spec.State))
+				return nil
+			}
+		}
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
 
@@ -574,7 +596,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 	if !req.UserIsAuthenticated() || req.User.GetName() == system.BootstrapName || authProviderName == system.BootstrapName || authProviderNamespace == system.BootstrapName {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
 		slog.Info("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity", "authRequest", oauthAppAuthRequest.Name)
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authenticated", ""))
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authenticated", oauthAppAuthRequest.Spec.State))
 		return nil
 	}
 

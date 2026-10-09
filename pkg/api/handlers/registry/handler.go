@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,6 +81,10 @@ func registryUserAuthenticated(u user.Info) bool {
 func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) ([]types.RegistryServerResponse, error) {
 	var result []types.RegistryServerResponse
 	userID := req.User.GetUID()
+	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), userID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve registry vMCP user instances: %w", err)
+	}
 
 	// Track what we've already added for deduplication
 	addedCatalogEntries := make(map[string]bool) // catalog entry ID -> true
@@ -102,7 +107,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), req.Storage, server, credMap[server.Name], h.serverURL, slug, reverseDNS, req.User, instances, h.mimeFetcher)
 		if err != nil {
 			// Skip servers that can't be converted
 			continue
@@ -148,7 +153,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), req.Storage, server, credMap[server.Name], h.serverURL, slug, reverseDNS, req.User, instances, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -189,7 +194,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), req.Storage, server, credMap[server.Name], h.serverURL, slug, reverseDNS, req.User, instances, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -273,7 +278,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "", h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), req.Storage, server, credEnv, h.serverURL, slug, reverseDNS, nil, nil, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -787,7 +792,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 		return types.RegistryServerResponse{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
-	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID(), h.mimeFetcher)
+	return ConvertMCPServerToRegistry(req.Context(), req.Storage, server, credEnv, h.serverURL, slug, reverseDNS, req.User, nil, h.mimeFetcher)
 }
 
 // findMCPServerCatalogEntry looks up an MCPServerCatalogEntry and checks ACR permissions

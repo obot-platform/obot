@@ -8,11 +8,15 @@
 		type CompositeLaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		resolveVMcpComponents,
 		vmcpComponentId,
@@ -44,12 +48,25 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthChecking = $state(false);
+	let compositeAuthID = $derived.by(() => {
+		if (!oauthURL) return '';
+		try {
+			const match = new URL(oauthURL, 'http://localhost').pathname.match(
+				/\/auth\/mcp\/composite\/([^/]+)$/
+			);
+			return match ? decodeURIComponent(match[1]) : '';
+		} catch {
+			return '';
+		}
+	});
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
 	let ignoreNextConfigureClose = false;
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
 
+	let localhostCallback = $derived(vmcp ? vmcpLocalhostCallbackPaths(vmcp).length > 0 : false);
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
@@ -354,14 +371,20 @@
 	}
 
 	async function handleOauthVisibilityChange() {
-		if (!oauthURL && !oauthVerifying) return;
+		// The Continue button and the visibility listener can both fire; run one check at a time.
+		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
-			if (!oauthURL) {
-				oauthDialog?.close();
-				finishLaunch();
+			oauthChecking = true;
+			try {
+				oauthURL = await getOauthURL();
+				if (!oauthURL) {
+					oauthDialog?.close();
+					finishLaunch();
+				}
+				oauthVerifying = false;
+			} finally {
+				oauthChecking = false;
 			}
-			oauthVerifying = false;
 		}
 	}
 
@@ -493,26 +516,30 @@
 	{/snippet}
 
 	{#if connectURL}
-		<div id="connection-url-container" class="flex items-end gap-2 md:p-0 pb-0 p-4">
-			<div class="min-w-0 grow">
-				<CopyField
-					bind:this={connectionUrlField}
-					value={connectURL}
-					id="connectURL"
-					label={m.vmcps_connection_url()}
-				/>
+		{#if !localhostCallback}
+			<div id="connection-url-container" class="flex items-end gap-2 md:p-0 pb-0 p-4">
+				<div class="min-w-0 grow">
+					<CopyField
+						bind:this={connectionUrlField}
+						value={connectURL}
+						id="connectURL"
+						label={m.vmcps_connection_url()}
+					/>
+				</div>
+				<button
+					type="button"
+					aria-label={m.vmcps_test_vmcp()}
+					class="btn btn-primary"
+					onclick={handleTest}
+				>
+					<MessageCircle class="size-4" />
+					{m.vmcps_test_vmcp()}
+				</button>
 			</div>
-			<button
-				type="button"
-				aria-label={m.vmcps_test_vmcp()}
-				class="btn btn-primary"
-				onclick={handleTest}
-			>
-				<MessageCircle class="size-4" />
-				{m.vmcps_test_vmcp()}
-			</button>
-		</div>
+		{/if}
 		<HowToConnect
+			{localhostCallback}
+			callbackPaths={vmcp ? vmcpLocalhostCallbackPaths(vmcp) : []}
 			bind:this={howToConnect}
 			url={connectURL}
 			id={generateIdFromName(displayName)}
@@ -693,23 +720,42 @@
 					{m.vmcps_oauth_required_named({ name: displayName })}
 				</p>
 
-				<p>{m.vmcps_click_link_to_authenticate()}</p>
+				{#if isMcpLoginURL(oauthURL)}
+					<McpLogin
+						url={oauthURL}
+						onComplete={handleOauthVisibilityChange}
+						loading={oauthChecking}
+					/>
+				{:else if localhostCallback && compositeAuthID && vmcp}
+					<McpCompositeOauth
+						class="min-h-0 p-0"
+						compositeMcpId={compositeAuthID}
+						vmcpId={vmcp.id}
+						onComplete={() => {
+							oauthURL = '';
+							oauthDialog?.close();
+							finishLaunch();
+						}}
+					/>
+				{:else}
+					<p>{m.vmcps_click_link_to_authenticate()}</p>
 
-				<a
-					href={oauthURL}
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="btn btn-primary text-center text-sm outline-none"
-					onclick={() => {
-						oauthVerifying = true;
-					}}
-				>
-					{#if oauthVerifying}
-						{m.vmcps_authenticating()}
-					{:else}
-						{m.vmcps_authenticate()}
-					{/if}
-				</a>
+					<a
+						href={oauthURL}
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="btn btn-primary text-center text-sm outline-none"
+						onclick={() => {
+							oauthVerifying = true;
+						}}
+					>
+						{#if oauthVerifying}
+							{m.vmcps_authenticating()}
+						{:else}
+							{m.vmcps_authenticate()}
+						{/if}
+					</a>
+				{/if}
 			{/if}
 		</div>
 	</div>

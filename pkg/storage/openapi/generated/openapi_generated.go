@@ -189,6 +189,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption":                    schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                    schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                 schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPLocalLogin":                             schema_obot_platform_obot_apiclient_types_MCPLocalLogin(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                        schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                      schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                       schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
@@ -10179,6 +10180,41 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPLocalLogin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPLocalLogin describes a pending UI OAuth attempt. All credentials and the PKCE verifier remain on the server; the CLI only relays browser callbacks.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authorizationURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"redirectURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"authorizationURL", "redirectURL", "state"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16025,6 +16061,18 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 				Description: "RemoteCatalogConfig represents template configuration for remote servers in catalog entries",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"localhostCallbackEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"localhostCallbackPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"fixedURL": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -16072,6 +16120,18 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 				Description: "RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"localhostCallbackEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"localhostCallbackPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -19470,6 +19530,20 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 				Description: "VMCP is a stable, optionally multi-component MCP endpoint definition.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"localhostCallbackPaths": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallbackPaths contains the effective callback paths for the requesting user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -19606,7 +19680,7 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"created", "displayName", "components"},
+				Required: []string{"localhostCallbackPaths", "created", "displayName", "components"},
 			},
 		},
 		Dependencies: []string{

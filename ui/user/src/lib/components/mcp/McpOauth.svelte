@@ -8,6 +8,8 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
+	import McpLogin from './McpLogin.svelte';
 	import { Info } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -21,6 +23,13 @@
 	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 	let { onAuthenticate, error = $bindable(), entry, text }: Props = $props();
 
+	let componentAuthID = $derived(
+		'vmcpInstanceID' in entry && entry.vmcpInstanceID
+			? entry.vmcpInstanceID
+			: 'vmcpID' in entry
+				? entry.vmcpID
+				: undefined
+	);
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
 	let loading = $state(false);
@@ -42,30 +51,34 @@
 		}
 
 		// Create new AbortController for this request
-		abortController = new AbortController();
+		const controller = new AbortController();
+		abortController = controller;
 
 		loading = true;
 		oauthURL = '';
 		error = '';
 
 		try {
-			// Route by the server's own scope; the backend only serves a workspace or catalog
-			// server's OAuth URL from that server's scoped route.
-			if (entry.powerUserWorkspaceID) {
+			if (componentAuthID) {
+				const result = await UserService.checkCompositeOAuthComponent(componentAuthID, entry.id, {
+					signal: controller.signal
+				});
+				oauthURL = result.authURL || '';
+			} else if (entry.powerUserWorkspaceID) {
 				oauthURL = await UserService.getWorkspaceMcpServerOauthURL(
 					entry.powerUserWorkspaceID,
 					entry.id,
 					{
-						signal: abortController.signal
+						signal: controller.signal
 					}
 				);
 			} else if ('mcpCatalogID' in entry && entry.mcpCatalogID) {
 				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
-					signal: abortController.signal
+					signal: controller.signal
 				});
 			} else {
 				oauthURL = await UserService.getMcpServerOauthURL(entry.id, {
-					signal: abortController.signal
+					signal: controller.signal
 				});
 			}
 		} catch (err: unknown) {
@@ -76,17 +89,20 @@
 				error = message;
 			}
 		} finally {
-			loading = false;
+			// A superseded request must not complete authentication with the shared, cleared URL.
+			if (abortController === controller) {
+				loading = false;
 
-			if (!oauthURL && showRefresh) {
-				onAuthenticate?.();
-				showRefresh = false;
-			}
+				if (!oauthURL && !error && showRefresh) {
+					onAuthenticate?.();
+					showRefresh = false;
+				}
 
-			if (oauthURL && !initializedListener) {
-				document.addEventListener('visibilitychange', handleVisibilityChange);
-			} else if (!oauthURL) {
-				document.removeEventListener('visibilitychange', handleVisibilityChange);
+				if (oauthURL && !initializedListener) {
+					document.addEventListener('visibilitychange', handleVisibilityChange);
+				} else if (!oauthURL) {
+					document.removeEventListener('visibilitychange', handleVisibilityChange);
+				}
 			}
 		}
 	}
@@ -100,7 +116,29 @@
 	});
 </script>
 
-{#if oauthURL}
+{#if error}
+	<div role="alert" class="notification-error flex flex-col gap-2">
+		<p>{error}</p>
+		<button
+			type="button"
+			class="btn btn-secondary self-start"
+			onclick={() => {
+				showRefresh = true;
+				void loadOauthURL();
+			}}>Retry authentication</button
+		>
+	</div>
+{:else if isMcpLoginURL(oauthURL)}
+	<McpLogin
+		url={oauthURL}
+		{loading}
+		onComplete={() => {
+			if (loading) return;
+			showRefresh = true;
+			void loadOauthURL();
+		}}
+	/>
+{:else if oauthURL}
 	<div class="notification-info flex w-full flex-row justify-between p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
 			<Info class="size-6 shrink-0" />

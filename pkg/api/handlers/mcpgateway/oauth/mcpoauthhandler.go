@@ -55,6 +55,8 @@ type mcpOAuthHandler struct {
 	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
 	catalogEntryName  string
 	credentialContext string
+	redirectURL       string
+	uiLocalLogin      bool
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -174,6 +176,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
+	oauthHandler.uiLocalLogin = mcpServerConfig.LocalhostCallbackEnabled && oauthAppAuthRequestID == ""
 	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
 		if err != nil {
@@ -193,6 +196,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	if err != nil {
 		return "", err
 	}
+	oauthHandler.redirectURL, err = f.upstreamRedirectURL(req, mcpServerConfig, oauthAppAuthRequestID)
+	if err != nil {
+		return "", err
+	}
 	oauthClientName, err := f.oauthClientNameForServer(req, mcpServerConfig.URL, oauthAppAuthRequestID)
 	if err != nil {
 		return "", err
@@ -204,7 +211,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
 			OAuthClientName:               oauthClientName,
-			OAuthClientIDMetadataDocument: f.cimdDocumentURL,
+			OAuthRedirectURL:              oauthHandler.redirectURL,
+			OAuthClientIDMetadataDocument: f.clientMetadataForRedirect(oauthHandler.redirectURL),
 			ClientName:                    obotOAuthClientName,
 			TokenStorage:                  f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
 			CallbackHandler:               oauthHandler,
@@ -223,12 +231,16 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if err != nil || !staticOAuthPending {
 			return "", err
 		}
-		return f.staticOAuthURL(req.Context(), mcpServerConfig, oauthHandler)
+		u, err := f.staticOAuthURL(req.Context(), mcpServerConfig, oauthHandler)
+		if err != nil {
+			return "", err
+		}
+		return f.localLoginURL(u, mcpServerConfig, oauthAppAuthRequestID)
 	case <-req.Context().Done():
 		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", req.Context().Err())
 	case u := <-oauthHandler.URLChan():
 		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
-		return u, nil
+		return f.localLoginURL(u, mcpServerConfig, oauthAppAuthRequestID)
 	}
 }
 
@@ -321,13 +333,16 @@ func (f *MCPOAuthHandlerFactory) staticOAuthPending(ctx context.Context, mcpServ
 }
 
 func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfig mcp.ServerConfig, oauthHandler *mcpOAuthHandler) (string, error) {
+	callbackURL := oauthHandler.redirectURL
+	if callbackURL == "" {
+		callbackURL = system.MCPOAuthCallbackURL(f.baseURL)
+	}
 	metadata, err := f.mcpSessionManager.GetOAuthMetadata(ctx, serverConfig,
-		"Obot MCP Gateway", system.MCPOAuthCallbackURL(f.baseURL), true)
+		"Obot MCP Gateway", callbackURL, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to discover OAuth metadata for static OAuth server: %w", err)
 	}
 
-	callbackURL := system.MCPOAuthCallbackURL(f.baseURL)
 	authorizationServer, registration, err := staticOAuthMetadata(metadata, callbackURL)
 	if err != nil {
 		return "", err
@@ -412,6 +427,10 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 
 func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, resourceURL, verifier string) (string, <-chan mcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
+	// Mark this pending state explicitly: hosted Obot may itself run on localhost.
+	if m.uiLocalLogin {
+		state = uiLocalLoginStatePrefix + state
+	}
 
 	// The channel is required by the nanobot CallbackHandler interface but is not used
 	// in the Obot flow. The auth URL is handled via HandleAuthURL/URLChan, and the

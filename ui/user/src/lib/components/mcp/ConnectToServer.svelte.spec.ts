@@ -71,3 +71,71 @@ describe('ConnectToServer setup completion', () => {
 		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeVisible();
 	}, 4000);
 });
+
+it('uses the CLI instead of a direct URL for a localhost callback server', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/vercel';
+	entry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
+	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
+});
+
+it('passes the catalog callback path to client installation', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	entry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.args).toEqual([
+		'mcp',
+		'connect',
+		entry.connectURL,
+		'--callback-path',
+		'/custom/callback'
+	]);
+});
+
+it('shows CLI login when a deployed localhost server needs authentication', async () => {
+	await preparePageData();
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
+	let checks = 0;
+	worker.use(
+		http.get('*/api/*/oauth-url', () =>
+			HttpResponse.json({ oauthURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
+	const server = structuredClone(fixtures.serverSingle);
+	server.connectURL = 'https://obot.example/mcp-connect/deployed';
+	server.manifest.remoteConfig = {
+		url: 'https://mcp.example.com',
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const onConnect = vi.fn();
+	const result = await render(ConnectToServer, { onConnect });
+	await result.component.authenticate(server);
+	await expect
+		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
+});

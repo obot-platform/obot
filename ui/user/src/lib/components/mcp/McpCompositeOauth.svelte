@@ -3,8 +3,10 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
+	import McpLogin from './McpLogin.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -232,6 +234,8 @@
 									<Loading class="size-4" />
 									{m.mcps_oauth_composite_oauth_checking()}
 								</span>
+							{:else if isMcpLoginURL(item.authURL)}
+								<McpLogin url={item.authURL} onComplete={() => void checkComponent(item)} />
 							{:else}
 								<a
 									href={item.authURL}

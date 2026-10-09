@@ -16,6 +16,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Label from './CatalogFormLabel.svelte';
 	import CustomConfigurationOptions from './CustomConfigurationOptions.svelte';
+	import LocalhostCallbackForm from './LocalhostCallbackForm.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
@@ -61,8 +62,7 @@
 		afterHeaders
 	}: Props = $props();
 
-	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
-	// For servers, we always show the URL field (no advanced toggle needed)
+	// Keep configured advanced settings visible when editing.
 	let showAdvanced = $state(
 		untrack(() =>
 			Boolean(
@@ -71,7 +71,8 @@
 				((tunnels !== undefined || tunnelsLoading) &&
 					(config as RemoteCatalogConfigAdmin).tunnelName) ||
 				(config.headers && config.headers.length > 0) ||
-				(config as RemoteCatalogConfigAdmin).staticOAuthRequired
+				(config as RemoteCatalogConfigAdmin).staticOAuthRequired ||
+				config.localhostCallbackEnabled
 			)
 		)
 	);
@@ -648,25 +649,31 @@
 	{/if}
 {/if}
 
-{#if variant === 'catalog'}
-	<button
-		id={CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn}
-		type="button"
-		class="btn btn-text pl-0"
-		onclick={() => {
-			showAdvanced = !showAdvanced;
-
-			if (!showAdvanced) {
-				const catalogConfig = config as RemoteCatalogConfigAdmin;
-				catalogConfig.hostname = undefined;
-				catalogConfig.tunnelName = undefined;
-				catalogConfig.urlTemplate = undefined;
-				catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
-			}
-		}}
-	>
-		{showAdvanced
-			? m.mcps_catalog_remote_remote_reset_default()
-			: m.mcps_catalog_remote_remote_advanced()}
-	</button>
+{#if showAdvanced}
+	<LocalhostCallbackForm bind:config {readonly} />
 {/if}
+
+<button
+	id={CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn}
+	type="button"
+	class="btn btn-text pl-0"
+	onclick={() => {
+		showAdvanced = !showAdvanced;
+
+		if (!showAdvanced && variant === 'catalog') {
+			const catalogConfig = config as RemoteCatalogConfigAdmin;
+			catalogConfig.hostname = undefined;
+			catalogConfig.tunnelName = undefined;
+			catalogConfig.urlTemplate = undefined;
+			catalogConfig.localhostCallbackEnabled = undefined;
+			catalogConfig.localhostCallbackPath = undefined;
+			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
+		}
+	}}
+>
+	{showAdvanced
+		? variant === 'catalog'
+			? m.mcps_catalog_remote_remote_reset_default()
+			: 'Hide Advanced Configuration'
+		: m.mcps_catalog_remote_remote_advanced()}
+</button>

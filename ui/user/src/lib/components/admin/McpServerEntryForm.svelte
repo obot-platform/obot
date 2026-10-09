@@ -25,7 +25,8 @@
 		isMultiUserCatalogEntry,
 		isDeprecatedMCPServer,
 		isMultiUserServer,
-		getMcpValueLabel
+		getMcpValueLabel,
+		isMcpLoginURL
 	} from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -36,6 +37,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
+	import McpLogin from '../mcp/McpLogin.svelte';
 	import McpServerDetails from '../mcp/McpServerDetails.svelte';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
@@ -1324,6 +1326,8 @@
 		<div class="flex w-full justify-center">
 			<Loading class="size-6" />
 		</div>
+	{:else if oauthURL && isMcpLoginURL(oauthURL)}
+		<McpLogin url={oauthURL} onComplete={() => void handleLaunchTemporaryInstance()} />
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<a

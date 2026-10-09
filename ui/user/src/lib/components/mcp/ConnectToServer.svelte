@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import {
@@ -13,6 +14,8 @@
 		Group
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
+	import { getLocalhostCallbackPaths } from '$lib/services/user/mcp';
 	import {
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
@@ -86,6 +89,11 @@
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
 	let instance = $state<MCPServerInstance>();
+	let localhostCallback = $derived(
+		Boolean(
+			(server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig)?.localhostCallbackEnabled
+		)
+	);
 	let userConfiguredServers = $derived(mcpServersAndEntries.current.userConfiguredServers);
 
 	let manifest = $derived(server?.manifest || entry?.manifest);
@@ -171,6 +179,7 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthChecking = $state(false);
 
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 
@@ -206,6 +215,20 @@
 		}
 
 		notifyConnected(skipOnConnect);
+	}
+
+	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
+		connectCompletion = undefined;
+		server = item;
+		entry = parentEntry;
+		instance = undefined;
+		oauthVerifying = false;
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
+		}
 	}
 
 	function getUniqueAlias(serverName: string): string | undefined {
@@ -408,14 +431,20 @@
 	}
 
 	async function handleOauthVisibilityChange() {
-		if (!oauthURL && !oauthVerifying) return;
+		// The Continue button and the visibility listener can both fire; run one check at a time.
+		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
-			if (!oauthURL) {
-				oauthDialog?.close();
-				handleConnect();
+			oauthChecking = true;
+			try {
+				oauthURL = await getOauthURL();
+				if (!oauthURL) {
+					oauthDialog?.close();
+					handleConnect();
+				}
+				oauthVerifying = false;
+			} finally {
+				oauthChecking = false;
 			}
-			oauthVerifying = false;
 		}
 	}
 
@@ -938,14 +967,20 @@
 		{#if url}
 			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					bind:this={connectionUrlField}
-					value={url}
-					id="connectURL"
-					label={m.mcps_servers_connection_url()}
-				/>
+				{#if !localhostCallback}
+					<CopyField
+						bind:this={connectionUrlField}
+						value={url}
+						id="connectURL"
+						label={m.mcps_servers_connection_url()}
+					/>
+				{/if}
 			</div>
 			<HowToConnect
+				{localhostCallback}
+				callbackPaths={getLocalhostCallbackPaths(
+					server?.manifest.remoteConfig ?? entry?.manifest.remoteConfig
+				)}
 				bind:this={howToConnect}
 				{url}
 				id={generateIdFromName(displayName)}
@@ -1211,23 +1246,31 @@
 					{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}
 				</p>
 
-				<p>{m.mcps_connect_oauth_click_link()}</p>
+				{#if isMcpLoginURL(oauthURL)}
+					<McpLogin
+						url={oauthURL}
+						onComplete={handleOauthVisibilityChange}
+						loading={oauthChecking}
+					/>
+				{:else}
+					<p>{m.mcps_connect_oauth_click_link()}</p>
 
-				<a
-					href={oauthURL}
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="btn btn-primary text-center text-sm outline-none"
-					onclick={() => {
-						oauthVerifying = true;
-					}}
-				>
-					{#if oauthVerifying}
-						{m.mcps_oauth_authenticating()}
-					{:else}
-						{m.mcps_oauth_authenticate()}
-					{/if}
-				</a>
+					<a
+						href={oauthURL}
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="btn btn-primary text-center text-sm outline-none"
+						onclick={() => {
+							oauthVerifying = true;
+						}}
+					>
+						{#if oauthVerifying}
+							{m.mcps_oauth_authenticating()}
+						{:else}
+							{m.mcps_oauth_authenticate()}
+						{/if}
+					</a>
+				{/if}
 			{/if}
 		</div>
 	</div>

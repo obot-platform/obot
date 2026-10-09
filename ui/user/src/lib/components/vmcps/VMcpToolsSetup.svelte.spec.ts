@@ -237,6 +237,117 @@ describe('VMcpToolsSetup preview credentials', () => {
 		untrack(() => result.component.open());
 		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
 	});
+	it('keeps preview credentials for the specific CLI authentication attempt', async () => {
+		const preview = vi.fn();
+		const oauth = vi.fn();
+		worker.use(
+			http.post(previewURL, async ({ request }) => {
+				preview(await request.json());
+				if (preview.mock.calls.length === 1) {
+					return HttpResponse.json(
+						{ message: 'MCP server requires OAuth authentication' },
+						{ status: 400 }
+					);
+				}
+				return HttpResponse.json({
+					...entry,
+					manifest: {
+						...entry.manifest,
+						toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
+					}
+				});
+			}),
+			http.post(`${previewURL}/oauth-url`, async ({ request }) => {
+				oauth(await request.json());
+				return HttpResponse.json({
+					oauthURL: `${window.location.origin}/oauth/mcp/login/temporary-preview-state`
+				});
+			})
+		);
+		const result = await openSetup();
+		await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeDisabled();
+		await expect.element(page.getByLabelText('Fixed credential')).not.toBeInTheDocument();
+		expect(preview).not.toHaveBeenCalled();
+		await fillConfiguration();
+		await page.getByRole('button', { name: 'Configure Tools' }).click();
+		await expect
+			.element(page.getByLabelText('Authentication command'))
+			.toHaveTextContent(
+				`obot mcp login --url '${window.location.origin}/oauth/mcp/login/temporary-preview-state'`
+			);
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).not.toBeInTheDocument();
+		const payload = { TOKEN: 'preview-secret', REGION: 'west' };
+		expect(preview).toHaveBeenCalledWith(payload);
+		expect(oauth).toHaveBeenCalledWith(payload);
+		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+		await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
+		expect(preview).toHaveBeenLastCalledWith(payload);
+		result.component.close();
+		untrack(() => result.component.open());
+		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
+	});
+
+	it.each(['Continue', 'returning to the tab'])(
+		'prevents duplicate authentication retries after %s starts validation',
+		async (trigger) => {
+			const preview = vi.fn();
+			const aborted = vi.fn();
+			let finishPreview!: () => void;
+			const pendingPreview = new Promise<void>((resolve) => {
+				finishPreview = resolve;
+			});
+			worker.use(
+				http.post(previewURL, async ({ request }) => {
+					preview();
+					if (preview.mock.calls.length === 1) {
+						return HttpResponse.json(
+							{ message: 'MCP server requires OAuth authentication' },
+							{ status: 400 }
+						);
+					}
+					request.signal.addEventListener('abort', aborted);
+					await pendingPreview;
+					return HttpResponse.json({
+						...entry,
+						manifest: {
+							...entry.manifest,
+							toolPreview: [{ id: 'search', name: 'search', description: 'Search' }]
+						}
+					});
+				}),
+				http.post(`${previewURL}/oauth-url`, () =>
+					HttpResponse.json({ oauthURL: `${window.location.origin}/oauth/mcp/login/preview` })
+				)
+			);
+			await openSetup();
+			await fillConfiguration();
+			await page.getByRole('button', { name: 'Configure Tools' }).click();
+			const continueButton = page.getByRole('button', { name: 'Continue', exact: true });
+			await expect.element(continueButton).toBeVisible();
+			try {
+				// Native clicks exercise repeated activation before Svelte updates the disabled state.
+				const button = continueButton.element() as HTMLButtonElement;
+				if (trigger === 'Continue') {
+					button.click();
+				} else {
+					document.dispatchEvent(new Event('visibilitychange'));
+				}
+				button.click();
+				await expect
+					.element(page.getByRole('button', { name: 'Validating authentication...' }))
+					.toBeDisabled();
+				button.click();
+				document.dispatchEvent(new Event('visibilitychange'));
+				await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+				expect(aborted).not.toHaveBeenCalled();
+			} finally {
+				finishPreview();
+			}
+			await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
+			expect(preview).toHaveBeenCalledTimes(2);
+			expect(aborted).not.toHaveBeenCalled();
+		}
+	);
 
 	it('allows retry after a preview error and clears credentials when cancelled', async () => {
 		const preview = vi.fn();

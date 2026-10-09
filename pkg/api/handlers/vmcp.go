@@ -12,6 +12,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -35,10 +36,15 @@ func (*VMCPHandler) List(req api.Context) error {
 
 	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 
+	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
+	if err != nil {
+		return fmt.Errorf("resolve vMCP callback paths: %w", err)
+	}
+
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
 		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
-			items = append(items, convertVMCP(vmcpForUser(req, list.Items[itemIndex])))
+			items = append(items, convertVMCPForInstance(req, list.Items[itemIndex], instances[list.Items[itemIndex].Name]))
 		}
 	}
 	return req.Write(types.VMCPList{Items: items})
@@ -49,7 +55,11 @@ func (*VMCPHandler) Get(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
-	return req.Write(convertVMCP(vmcpForUser(req, vmcp)))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 // vmcpForUser limits a shared VMCP to the components, tools, and profiles that
@@ -153,7 +163,11 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
-	return req.WriteCreated(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(converted)
 }
 
 func (h *VMCPHandler) Update(req api.Context) error {
@@ -219,7 +233,11 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}); err != nil {
 		return err
 	}
-	return req.Write(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 // TriggerUpdate adopts current catalog snapshots in one resource update. It does
@@ -282,7 +300,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 			return fmt.Errorf("failed to update vMCP configuration hashes: %v", err)
 		}
 
-		return req.Write(convertVMCP(vmcp))
+		converted, err := convertVMCPForUser(req, vmcp)
+		if err != nil {
+			return err
+		}
+		return req.Write(converted)
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
@@ -295,7 +317,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP configuration hashes: %w", err)
 	}
-	return req.Write(convertVMCP(vmcp))
+	converted, err := convertVMCPForUser(req, vmcp)
+	if err != nil {
+		return err
+	}
+	return req.Write(converted)
 }
 
 func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent, rejectUnconfiguredOAuth bool) error {
@@ -472,4 +498,39 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 			Components: componentStatuses,
 		},
 	}
+}
+
+// convertVMCPForUser exposes only callback paths from the same effective snapshots
+// used by runtime resolution, without exposing private legacy component configuration.
+func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
+	if err != nil {
+		return types.VMCP{}, fmt.Errorf("resolve vMCP callback paths: %w", err)
+	}
+	return convertVMCPForInstance(req, vmcp, instance), nil
+}
+
+// convertVMCPForInstance is convertVMCPForUser with the user's instance, if any, already resolved.
+func convertVMCPForInstance(req api.Context, vmcp v1.VMCP, instance *v1.VMCPInstance) types.VMCP {
+	components := slices.Clone(vmcp.Spec.Manifest.Components)
+	if instance != nil {
+		components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
+	}
+	components = vmcpconfig.EnabledComponents(req.User, vmcp, components)
+	result := convertVMCP(vmcpForUser(req, vmcp))
+	result.LocalhostCallbackPaths = []string{}
+	for _, component := range components {
+		remote := component.CatalogEntry.Manifest.RemoteConfig
+		if remote == nil || !remote.LocalhostCallbackEnabled {
+			continue
+		}
+		path := remote.LocalhostCallbackPath
+		if path == "" {
+			path = mcp.DefaultLocalhostCallbackPath
+		}
+		if !slices.Contains(result.LocalhostCallbackPaths, path) {
+			result.LocalhostCallbackPaths = append(result.LocalhostCallbackPaths, path)
+		}
+	}
+	return result
 }
