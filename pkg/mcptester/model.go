@@ -10,7 +10,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
-	"github.com/obot-platform/obot/pkg/hostedagentmodels"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -123,7 +122,7 @@ func ResolveDefaultModel(ctx context.Context, client kclient.Client, helper Mode
 		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInaccessible, "user does not have access to default llm model %q", model.Name)
 	}
 
-	proxyPath, ok := hostedagentmodels.ProxyPath(manifest.ModelProvider)
+	proxyPath, ok := proxyPath(manifest.ModelProvider)
 	if !ok {
 		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "default llm model provider %q has no LLM proxy route", manifest.ModelProvider)
 	}
@@ -164,5 +163,26 @@ func apiPathForDialect(dialect llmtypes.Dialect) (string, error) {
 		return "/v1/chat/completions", nil
 	default:
 		return "", fmt.Errorf("default llm model uses unsupported dialect %q", dialect)
+	}
+}
+
+func proxyPath(provider string) (string, bool) {
+	switch provider {
+	case system.AnthropicModelProvider:
+		return "anthropic", true
+	case system.OpenAIModelProvider:
+		return "openai", true
+	case system.GenericResponsesModelProvider:
+		return "generic-responses", true
+	case system.AmazonBedrockModelProvider:
+		return "aws-bedrock", true
+	case system.AmazonBedrockAPIKeyModelProvider:
+		return "aws-bedrock-api-key", true
+	case system.AzureModelProvider:
+		return "azure", true
+	case system.AzureEntraModelProvider:
+		return "azure-entra", true
+	default:
+		return "", false
 	}
 }

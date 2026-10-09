@@ -50,13 +50,12 @@ const (
 
 var (
 	referenceKindLabels = map[groupref.Kind]string{
-		groupref.KindAccessControlRule:     "access control rule",
-		groupref.KindModelAccessPolicy:     "model access policy",
-		groupref.KindSkillAccessRule:       "skill access rule",
-		groupref.KindMessagePolicy:         "message policy",
-		groupref.KindHostedAgentAccessRule: "hosted agent access rule",
-		groupref.KindGroupRoleAssignment:   "group role assignment",
-		groupref.KindVMCPProfile:           "virtual MCP server",
+		groupref.KindAccessControlRule:   "access control rule",
+		groupref.KindModelAccessPolicy:   "model access policy",
+		groupref.KindSkillAccessRule:     "skill access rule",
+		groupref.KindMessagePolicy:       "message policy",
+		groupref.KindGroupRoleAssignment: "group role assignment",
+		groupref.KindVMCPProfile:         "virtual MCP server",
 	}
 )
 

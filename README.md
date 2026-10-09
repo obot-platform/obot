@@ -49,7 +49,6 @@ The LLM Gateway presents provider-compatible endpoints that AI clients use to re
 Obot can run agents and MCP servers itself, in isolated execution environments outside the main Obot Server process.
 
 - Host `npx`, `uvx`, and containerized MCP servers as Docker containers or Kubernetes workloads.
-- Run hosted agents in the same isolated environments.
 - Apply domain-based egress rules to hosted MCP servers through a configured network-policy provider.
 
 ### MCP and Skills Registries

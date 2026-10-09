@@ -14,20 +14,6 @@ func (f fakeUpgradeStatusReader) Status() upgrade.Status {
 	return f.status
 }
 
-func TestVersionFeatureValuesIncludesHostedAgentsState(t *testing.T) {
-	disabled := (&VersionHandler{}).featureValues()
-	if enabled := disabled["hostedAgentsEnabled"]; enabled {
-		t.Fatal("expected Hosted Agents to be disabled")
-	}
-
-	handler := &VersionHandler{}
-	handler.HostedAgentsEnabled = true
-	enabled := handler.featureValues()
-	if hostedAgentsEnabled := enabled["hostedAgentsEnabled"]; !hostedAgentsEnabled {
-		t.Fatal("expected Hosted Agents to be enabled")
-	}
-}
-
 func TestVersionHandlerReadsUpgradeStatus(t *testing.T) {
 	want := upgrade.Status{UpgradeAvailable: true, LatestVersion: "v1.2.3"}
 	handler := &VersionHandler{}

@@ -414,10 +414,6 @@ func TestCredentialsAreNotIssuedToInactiveUsers(t *testing.T) {
 					})
 					return err
 				},
-				"hosted agent API key": func() error {
-					_, err := c.CreateHostedAgentAPIKey(ctx, "hai1-test", tt.userID, "agent")
-					return err
-				},
 				"persistent token": func() error {
 					return c.CheckCredentialOwner(ctx, tt.userID)
 				},

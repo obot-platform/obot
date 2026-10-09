@@ -12,7 +12,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -40,7 +39,7 @@ func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx con
 }
 
 func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id string, user kuser.Info, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
-	userID := principal.ResourceOwnerID(user)
+	userID := user.GetUID()
 	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
 		return "", v1.MCPServer{}, ServerConfig{}, nil, err
 	} else if vmcp != nil {
@@ -69,7 +68,7 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 }
 
 func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user kuser.Info) (v1.MCPServer, ServerConfig, error) {
-	userID := principal.ResourceOwnerID(user)
+	userID := user.GetUID()
 	if system.IsMCPServerInstanceID(id) {
 		_, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, user, false)
 		return server, config, err
@@ -120,10 +119,6 @@ func (sm *SessionManager) sharedVMCPComponentConnection(ctx context.Context, ser
 }
 
 func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id string, user kuser.Info, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {
-	user, err := sm.vmcpResourceOwner(ctx, user)
-	if err != nil {
-		return v1.MCPServer{}, ServerConfig{}, err
-	}
 	config, err := sm.serverConfigForVMCP(ctx, vmcp, instance, user)
 	if err != nil {
 		return v1.MCPServer{}, ServerConfig{}, err

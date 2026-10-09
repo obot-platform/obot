@@ -123,22 +123,8 @@ describe('Layout.svelte', () => {
 		await renderLayout();
 		await expectSharedNavigation();
 		await expectNoLink('/dashboard');
+		await expectNoLink('/hosted-agents');
 		await expectNoAdminOnlyNavigation();
-	});
-
-	describe('when Hosted Agents are disabled', () => {
-		it('hides Hosted Agents navigation', async () => {
-			await renderLayout([Group.ADMIN], { hostedAgentsEnabled: false });
-
-			await expectNoLink('/hosted-agents');
-		});
-	});
-
-	describe('when Hosted Agents are enabled', () => {
-		it('shows Hosted Agents navigation', async () => {
-			await renderLayout([Group.ADMIN], { hostedAgentsEnabled: true });
-			await expectLink('/hosted-agents');
-		});
 	});
 
 	describe('based on user role', () => {

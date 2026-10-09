@@ -17,27 +17,15 @@ type APIKey struct {
 	ID     uint `json:"id" gorm:"primaryKey;autoIncrement"`
 	UserID uint `json:"userId" gorm:"index"`
 
-	// HostedAgentInstanceID binds this key to a hosted agent rather than to a
-	// user. When set, the key authenticates as the agent: the principal
-	// identifies the instance, and its authorized MCP servers and models are
-	// resolved from the instance's live configuration rather than from the
-	// scopes stored here.
-	//
-	// An agent's authority is deliberately its own. A key that authenticated as
-	// its owner would turn a prompt injection or a compromised harness into
-	// full user-level access, whereas an agent key reaches only what that one
-	// instance was configured with.
-	HostedAgentInstanceID *string    `json:"hostedAgentInstanceID,omitempty" gorm:"index"`
-	Name                  string     `json:"name"`                  // User-provided name for the key
-	Description           string     `json:"description,omitempty"` // Optional description
-	HashedSecret          string     `json:"-"`                     // bcrypt hash of the secret portion only
-	CreatedAt             time.Time  `json:"createdAt"`
-	LastUsedAt            *time.Time `json:"lastUsedAt,omitempty"`
-	ExpiresAt             *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
-	RevokedAt             *time.Time `json:"revokedAt,omitempty" gorm:"index"`
+	Name         string     `json:"name"`                  // User-provided name for the key
+	Description  string     `json:"description,omitempty"` // Optional description
+	HashedSecret string     `json:"-"`                     // bcrypt hash of the secret portion only
+	CreatedAt    time.Time  `json:"createdAt"`
+	LastUsedAt   *time.Time `json:"lastUsedAt,omitempty"`
+	ExpiresAt    *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
+	RevokedAt    *time.Time `json:"revokedAt,omitempty" gorm:"index"`
 
-	// OwnerStatus is the lifecycle status of the key's user, read with the key when it is validated. For a key
-	// bound to a hosted agent, that user is the agent's owner. It is not stored with the key.
+	// OwnerStatus is the lifecycle status of the key's user, read during validation.
 	OwnerStatus types.UserStatus `json:"-" gorm:"-"`
 }
 

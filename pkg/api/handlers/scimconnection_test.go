@@ -263,22 +263,6 @@ func TestHandlersRefuseNewReferencesToMissingSCIMGroups(t *testing.T) {
 			saved:  &v1.AccessControlRuleList{},
 		},
 		{
-			name: "hosted agent access rule",
-			path: "/api/hosted-agent-access-rules",
-			body: clienttypes.HostedAgentAccessRuleManifest{
-				DisplayName: "Rule",
-				Subjects:    missing,
-				Resources: []clienttypes.HostedAgentResource{
-					{
-						Type: clienttypes.HostedAgentResourceTypeSelector,
-						ID:   "*",
-					},
-				},
-			},
-			create: (&HostedAgentAccessRuleHandler{}).Create,
-			saved:  &v1.HostedAgentAccessRuleList{},
-		},
-		{
 			name: "message policy",
 			path: "/api/message-policies",
 			body: clienttypes.MessagePolicyManifest{

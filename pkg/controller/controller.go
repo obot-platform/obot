@@ -60,12 +60,18 @@ func New(services *services.Services) (*Controller, error) {
 }
 
 func (c *Controller) PreStart(ctx context.Context) error {
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "remove_hosted_agent_runtime", func() error {
+		if err := deleteHostedAgentRuntime(ctx, c.services.LocalK8sClient, c.services.MCPServerNamespace); err != nil {
+			return err
+		}
+		return c.services.GatewayClient.DeleteHostedAgentRecords(ctx)
+	}); err != nil {
+		return fmt.Errorf("failed to remove legacy Hosted Agents: %w", err)
+	}
+
 	if err := data.Data(ctx, c.services.StorageClient, data.Defaults{
-		SkillRepoURL:           c.services.DefaultSkillRepoURL,
-		SkillRepoRef:           c.services.DefaultSkillRepoRef,
-		HostedAgentsCatalogURL: c.services.DefaultHostedAgentsCatalogURL,
-		HostedAgentsCatalogRef: c.services.DefaultHostedAgentsCatalogRef,
-		AllowLocalRepos:        c.services.DevMode,
+		SkillRepoURL: c.services.DefaultSkillRepoURL,
+		SkillRepoRef: c.services.DefaultSkillRepoRef,
 	}); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
@@ -76,10 +82,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
-	}
-
-	if err := ensureHostedAgentPoolDefaults(ctx, c.services.StorageClient); err != nil {
-		return fmt.Errorf("failed to ensure hosted agent pool defaults: %w", err)
 	}
 
 	resourceMaximums, err := c.services.MCPSessionManager.StartupKubernetesResourceMaximums(ctx, c.services.StorageClient)
@@ -345,38 +347,6 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 	return client.Update(ctx, &defaultRoleSetting)
 }
 
-func ensureHostedAgentPoolDefaults(ctx context.Context, client kclient.Client) error {
-	const gibibyte = int64(1024 * 1024 * 1024)
-
-	var defaults v1.HostedAgentPoolDefaults
-	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}
-	if err := client.Get(ctx, key, &defaults); err == nil {
-		// Defaults are administrator-owned after creation.
-		return nil
-	} else if !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	return client.Create(ctx, &v1.HostedAgentPoolDefaults{
-		Name:      key.Name,
-		Namespace: key.Namespace,
-		Spec: v1.HostedAgentPoolDefaultsSpec{
-			Manifest: types.HostedAgentPoolDefaultsManifest{
-				Capacity: types.HostedAgentResourceQuantity{
-					CPUVCPUs:     1,
-					MemoryBytes:  4 * gibibyte,
-					StorageBytes: 20 * gibibyte,
-				},
-				// Seeded explicitly rather than left to the fallback, so an
-				// administrator opening the defaults sees the number that is
-				// actually in force. With the capacity above this gives each
-				// sandbox 250m CPU and 1GiB guaranteed.
-				MaxSandboxes: 4,
-			},
-		},
-	})
-}
-
 // ensureK8sSettings ensures the K8sSettings resource exists with proper configuration.
 // podSchedulingSettings: affinity, tolerations, resources, runtimeClassName - can be managed via Helm OR UI.
 //
@@ -600,9 +570,6 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router
 func (c *Controller) setupLocalK8sRoutes() {
-	// The local router now also exists when only hosted agents run on
-	// Kubernetes, so these are gated on the MCP backend rather than on the
-	// router: every one of them reconciles MCP state from cluster objects.
 	if c.services.LocalRouter != nil && mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) {
 		deploymentHandler := deployment.New(
 			c.services.MCPServerNamespace,

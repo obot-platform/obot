@@ -15,13 +15,12 @@ import (
 )
 
 const (
-	KindAccessControlRule     Kind = "accessControlRule"
-	KindModelAccessPolicy     Kind = "modelAccessPolicy"
-	KindSkillAccessRule       Kind = "skillAccessRule"
-	KindMessagePolicy         Kind = "messagePolicy"
-	KindHostedAgentAccessRule Kind = "hostedAgentAccessRule"
-	KindGroupRoleAssignment   Kind = "groupRoleAssignment"
-	KindVMCPProfile           Kind = "vmcpProfile"
+	KindAccessControlRule   Kind = "accessControlRule"
+	KindModelAccessPolicy   Kind = "modelAccessPolicy"
+	KindSkillAccessRule     Kind = "skillAccessRule"
+	KindMessagePolicy       Kind = "messagePolicy"
+	KindGroupRoleAssignment Kind = "groupRoleAssignment"
+	KindVMCPProfile         Kind = "vmcpProfile"
 )
 
 var (
@@ -42,10 +41,6 @@ var (
 		{
 			kind: KindMessagePolicy,
 			list: listMessagePolicies,
-		},
-		{
-			kind: KindHostedAgentAccessRule,
-			list: listHostedAgentAccessRules,
 		},
 	}
 )
@@ -329,20 +324,6 @@ func listMessagePolicies(ctx context.Context, c kclient.Reader, namespace string
 		return policy.Spec.Manifest.DisplayName, []subjectList{
 			{
 				subjects: &policy.Spec.Manifest.Subjects,
-			},
-		}
-	}), nil
-}
-
-func listHostedAgentAccessRules(ctx context.Context, c kclient.Reader, namespace string) ([]policyObject, error) {
-	var list v1.HostedAgentAccessRuleList
-	if err := c.List(ctx, &list, kclient.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list hosted agent access rules: %w", err)
-	}
-	return policyObjects(list.Items, func(rule *v1.HostedAgentAccessRule) (string, []subjectList) {
-		return rule.Spec.Manifest.DisplayName, []subjectList{
-			{
-				subjects: &rule.Spec.Manifest.Subjects,
 			},
 		}
 	}), nil

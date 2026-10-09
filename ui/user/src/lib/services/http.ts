@@ -175,6 +175,7 @@ export async function doWithBody(
 		fetch?: typeof fetch;
 		headers?: Record<string, string>;
 		signal?: AbortSignal;
+		responseHandler?: ResponseHandler;
 	}
 ): Promise<unknown> {
 	let headers: Record<string, string> | undefined;
@@ -207,7 +208,7 @@ export async function doWithBody(
 		if (!resp.ok && resp.status === 401) {
 			handle401Redirect();
 		}
-		return handleResponse(resp, path, opts);
+		return opts?.responseHandler?.(resp, path, opts) ?? handleResponse(resp, path, opts);
 	} catch (e) {
 		if (opts?.errorHandler) {
 			opts.errorHandler(e);

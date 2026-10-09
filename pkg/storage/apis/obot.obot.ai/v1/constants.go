@@ -11,15 +11,12 @@ const (
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	ImagePullSecretFinalizer       = "obot.obot.ai/image-pull-secret"
 	GitCredentialFinalizer         = "obot.obot.ai/git-credential"
-	HostedAgentInstanceFinalizer   = "obot.obot.ai/hosted-agent-instance"
-	HostedAgentPoolFinalizer       = "obot.obot.ai/hosted-agent-pool"
 
 	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
 	MCPCatalogSyncAnnotation            = "obot.ai/mcp-catalog-sync"
 	SystemMCPCatalogSyncAnnotation      = "obot.ai/system-mcp-catalog-sync"
 	SkillRepositorySyncAnnotation       = "obot.ai/skill-repository-sync"
 	MDMAssetSourceSyncAnnotation        = "obot.ai/mdm-asset-source-sync"
-	AgentCatalogSyncAnnotation          = "obot.ai/agent-catalog-sync"
 	MCPServerCatalogEntrySyncAnnotation = "obot.ai/mcp-server-catalog-entry-sync"
 	ModelInfoSourceSyncAnnotation       = "obot.ai/model-info-source-sync"
 

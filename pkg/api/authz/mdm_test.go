@@ -12,7 +12,7 @@ import (
 // TestMDMRouteAuthorization checks which principals can read and which can
 // mutate the MDM configuration and asset routes.
 func TestMDMRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 	users := []struct {
 		name      string
 		info      user.Info
@@ -162,7 +162,7 @@ func TestMDMRouteAuthorization(t *testing.T) {
 // TestMDMEnrollRouteAuthorization checks that only enrollment tokens can
 // reach the device enrollment route.
 func TestMDMEnrollRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 	users := []struct {
 		name    string
 		info    user.Info

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -22,7 +21,7 @@ import (
 // the MCPServers created by the VMCPInstance controller; the VMCP itself never
 // gets launched as a runtime.
 func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID string, user kuser.Info) (ServerConfig, error) {
-	userID := principal.ResourceOwnerID(user)
+	userID := user.GetUID()
 	vmcp, resolvedInstance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, vmcpID, userID)
 	if err != nil {
 		return ServerConfig{}, err
@@ -31,29 +30,7 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID string
 		return ServerConfig{}, fmt.Errorf("unknown VMCP %q", vmcpID)
 	}
 
-	user, err = sm.vmcpResourceOwner(ctx, user)
-	if err != nil {
-		return ServerConfig{}, err
-	}
 	return sm.serverConfigForVMCP(ctx, vmcp, resolvedInstance, user)
-}
-
-// Hosted agents use their owner's connection and profile grants after the API
-// authorizes the agent's own access. People already have their full identity.
-func (sm *SessionManager) vmcpResourceOwner(ctx context.Context, user kuser.Info) (kuser.Info, error) {
-	ownerID := principal.ResourceOwnerID(user)
-	if ownerID == user.GetUID() {
-		return user, nil
-	}
-	id, err := strconv.ParseUint(ownerID, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid VMCP owner ID: %w", err)
-	}
-	owner, err := sm.gatewayClient.UserInfoByID(ctx, uint(id))
-	if err != nil {
-		return nil, fmt.Errorf("resolve VMCP owner: %w", err)
-	}
-	return owner, nil
 }
 
 func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (ServerConfig, error) {

@@ -10,7 +10,7 @@ import (
 )
 
 func TestModelProxyRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 	users := []struct {
 		name  string
 		role  types.Role

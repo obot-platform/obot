@@ -741,7 +741,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 			WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
 				return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
 			}).Build()
-		return NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+		return NewAuthorizer(nil, storage, storage, false, nil, nil, false)
 	}
 	newObjects := func(singleUser bool) (*v1.VMCP, *v1.VMCPInstance, *v1.MCPServer) {
 		vmcp := &v1.VMCP{
@@ -822,7 +822,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 
 func newVMCPTestAuthorizer(objects ...kclient.Object) *Authorizer {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(objects...).Build()
-	return NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+	return NewAuthorizer(nil, storage, storage, false, nil, nil, false)
 }
 
 func objectMetaForAuthzTest(name string) metav1.ObjectMeta {

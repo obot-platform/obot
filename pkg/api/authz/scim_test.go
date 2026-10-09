@@ -10,7 +10,7 @@ import (
 )
 
 func TestSCIMAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 
 	const connection = "0b6bd0a4-7e44-4c3c-9d0b-8a3d1f1b8f6e"
 
@@ -132,7 +132,7 @@ func TestSCIMAuthorization(t *testing.T) {
 }
 
 func TestSCIMConnectionAdministration(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 	const connection = "0b6bd0a4-7e44-4c3c-9d0b-8a3d1f1b8f6e"
 
 	reads := []string{

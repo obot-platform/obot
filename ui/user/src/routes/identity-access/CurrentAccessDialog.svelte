@@ -8,7 +8,6 @@
 	import {
 		AdminService,
 		ModelAliasLabels,
-		type HostedAgent,
 		type Model,
 		type ModelAlias,
 		type OrgUser,
@@ -16,7 +15,7 @@
 		type SkillRepository,
 		type Skill
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries, version } from '$lib/stores';
+	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
 		ACCESS_MATCH_REASON_LABEL,
@@ -46,7 +45,6 @@
 		mcp: [],
 		models: [],
 		skills: [],
-		hostedAgents: [],
 		vmcps: []
 	});
 
@@ -54,7 +52,6 @@
 		mcp: false,
 		models: false,
 		skills: false,
-		hostedAgents: false,
 		vmcps: false
 	});
 
@@ -71,7 +68,6 @@
 	let models = $state<Model[]>([]);
 	let skills = $state<Skill[]>([]);
 	let skillRepositories = $state<SkillRepository[]>([]);
-	let hostedAgents = $state<HostedAgent[]>([]);
 	let mcpOwners = $state<OrgUser[]>([]);
 	let loadingResources = $state<Record<SectionKey, boolean>>(idleLoading());
 	let loadedPolicySections = new SvelteSet<SectionKey>();
@@ -182,9 +178,6 @@
 						AdminService.listSkillRepositories()
 					]);
 					break;
-				case 'hostedAgents':
-					hostedAgents = await AdminService.listHostedAgents({ all: true });
-					break;
 			}
 		} catch (error) {
 			loadedResourceSections.delete(section);
@@ -205,7 +198,6 @@
 	const skillRepositoriesMap = $derived(
 		new Map(skillRepositories.map((repository) => [repository.id, repository]))
 	);
-	const hostedAgentsMap = $derived(new Map(hostedAgents.map((agent) => [agent.id, agent])));
 	const mcpOwnersMap = $derived(new Map(mcpOwners.map((owner) => [owner.id, owner])));
 
 	function describeResource(resource: AccessPolicyResource): AccessResourceDescription {
@@ -246,8 +238,6 @@
 					name: skillRepositoriesMap.get(resource.id)?.displayName || resource.id,
 					typeLabel: m.identity_access_current_access_type_skill_repository()
 				};
-			case 'hostedAgent':
-				return { name: hostedAgentsMap.get(resource.id)?.name || resource.id };
 			case 'vmcp':
 				return { name: resource.name || resource.id };
 			default:
@@ -257,7 +247,6 @@
 
 	const titleName = $derived(viewing?.name ?? target?.name ?? '');
 
-	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
 	const tabs = $derived([
 		{
 			label: m.nav_vmcps(),
@@ -278,16 +267,7 @@
 			label: m.nav_skills(),
 			value: 'skills' as const,
 			noun: m.identity_access_current_access_noun_skills()
-		},
-		...(hostedAgentsFeatureEnabled
-			? [
-					{
-						label: m.nav_hosted_agents(),
-						value: 'hostedAgents' as const,
-						noun: m.identity_access_current_access_noun_hosted_agents()
-					}
-				]
-			: [])
+		}
 	]);
 
 	const currentNoun = $derived(
@@ -330,8 +310,6 @@
 						id: repository.id
 					}))
 				];
-			case 'hostedAgents':
-				return hostedAgents.map((agent) => ({ type: 'hostedAgent' as const, id: agent.id }));
 			default:
 				return [];
 		}
@@ -396,8 +374,7 @@
 		vmcps: m.identity_access_current_access_all_vmcps(),
 		mcp: m.identity_access_current_access_all_mcp_servers(),
 		models: m.identity_access_current_access_all_models(),
-		skills: m.identity_access_current_access_all_skills(),
-		hostedAgents: m.identity_access_current_access_all_hosted_agents()
+		skills: m.identity_access_current_access_all_skills()
 	};
 
 	function policiesGrantingEverything(policies: MatchedAccessPolicy[]): MatchedAccessPolicy[] {

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/agentcatalog"
 	gitpkg "github.com/obot-platform/obot/pkg/git"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -26,9 +25,6 @@ var (
 
 	//go:embed everything-skill-access-rule.yaml
 	everythingSkillAccessRuleData []byte
-
-	//go:embed everything-hosted-agent-access-rule.yaml
-	everythingHostedAgentAccessRuleData []byte
 )
 
 // Defaults are the seed values for the resources that point at Obot's own
@@ -36,11 +32,8 @@ var (
 // because they are all strings, and a swapped pair would only surface as a
 // repository that fails to sync at runtime.
 type Defaults struct {
-	SkillRepoURL           string
-	SkillRepoRef           string
-	HostedAgentsCatalogURL string
-	HostedAgentsCatalogRef string
-	AllowLocalRepos        bool
+	SkillRepoURL string
+	SkillRepoRef string
 }
 
 func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
@@ -99,8 +92,8 @@ func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
 	}
 
 	var catalogs v1.MCPCatalogList
-	// Only seed default access/skill rules, the default skill repository, and the
-	// default agent catalog if there are no catalogs.
+	// Only seed default access/skill rules and the default skill repository
+	// if there are no catalogs.
 	// There being no catalogs is a proxy for "has this server been started previously."
 	// We don't want to recreate these if an admin deleted them.
 	if err := c.List(ctx, &catalogs); err != nil {
@@ -119,20 +112,7 @@ func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
 			return err
 		}
 
-		var everythingHostedAgentAccessRule v1.HostedAgentAccessRule
-		if err := yaml.Unmarshal(everythingHostedAgentAccessRuleData, &everythingHostedAgentAccessRule); err != nil {
-			return fmt.Errorf("failed to unmarshal everything hosted agent access rule: %w", err)
-		}
-
-		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingHostedAgentAccessRule)); err != nil {
-			return err
-		}
-
 		if err := createDefaultSkillRepository(ctx, c, defaults.SkillRepoURL, defaults.SkillRepoRef); err != nil {
-			return err
-		}
-
-		if err := createDefaultAgentCatalog(ctx, c, defaults.HostedAgentsCatalogURL, defaults.HostedAgentsCatalogRef, defaults.AllowLocalRepos); err != nil {
 			return err
 		}
 	}
@@ -161,39 +141,6 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 			DisplayName: "Default",
 			RepoURL:     repoURL,
 			Ref:         ref,
-		},
-	}))
-}
-
-// createDefaultAgentCatalog seeds the AgentCatalog that hosted agents and
-// harnesses are discovered from, mirroring createDefaultSkillRepository. The
-// repository is cloned by the sync handler at runtime, so only the pointer is
-// stored here.
-func createDefaultAgentCatalog(ctx context.Context, c kclient.Client, repoURL, ref string, allowLocalRepos bool) error {
-	repoURL = strings.TrimSpace(repoURL)
-	ref = strings.TrimSpace(ref)
-
-	if repoURL == "" {
-		return nil
-	}
-
-	manifest := types.AgentCatalogManifest{
-		DisplayName: "Default",
-		RepoURL:     repoURL,
-		Ref:         ref,
-	}
-
-	// A developer may point this at a local checkout, which is only accepted
-	// when Obot itself is in development mode.
-	if err := agentcatalog.Validate(manifest, allowLocalRepos); err != nil {
-		return fmt.Errorf("invalid default agent catalog: %w", err)
-	}
-
-	return kclient.IgnoreAlreadyExists(c.Create(ctx, &v1.AgentCatalog{
-		Name:      system.DefaultAgentCatalog,
-		Namespace: system.DefaultNamespace,
-		Spec: v1.AgentCatalogSpec{
-			AgentCatalogManifest: manifest,
 		},
 	}))
 }

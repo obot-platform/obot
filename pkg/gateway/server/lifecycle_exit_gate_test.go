@@ -17,14 +17,11 @@ import (
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -115,27 +112,11 @@ func TestLifecycleExitGate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const instanceName = "hai1gate"
-	agents := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.HostedAgent{
-			Name:      "agent",
-			Namespace: system.DefaultNamespace,
-		},
-		&v1.HostedAgentInstance{
-			Name:      instanceName,
-			Namespace: system.DefaultNamespace,
-			Spec: v1.HostedAgentInstanceSpec{
-				UserID:          fmt.Sprint(oktaUser.ID),
-				HostedAgentName: "agent",
-			},
-		},
-	).Build()
-
 	chain := authn.NewAdmissionCheck(union.NewFailOnError(
 		union.New(
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: provider}, client, userLimitUnlimited{}),
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: localProvider}, client, userLimitUnlimited{}),
-			NewAPIKeyAuthenticator(client, agents),
+			NewAPIKeyAuthenticator(client),
 			tokenService,
 		),
 		authn.Anonymous{},
@@ -148,10 +129,6 @@ func TestLifecycleExitGate(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("failed to create API key: %v", err)
-		}
-		agentKey, err := client.CreateHostedAgentAPIKey(ctx, instanceName, u.ID, "agent")
-		if err != nil {
-			t.Fatalf("failed to create hosted agent key: %v", err)
 		}
 		now := time.Now().Add(-time.Second)
 		_, mcpToken, err := tokenService.NewToken(ctx, persistent.TokenContext{
@@ -184,10 +161,6 @@ func TestLifecycleExitGate(t *testing.T) {
 			{
 				name:    "personal API key",
 				request: bearer(apiKey.Key),
-			},
-			{
-				name:    "hosted agent key",
-				request: bearer(agentKey.Key),
 			},
 			{
 				name:    "persistent token",

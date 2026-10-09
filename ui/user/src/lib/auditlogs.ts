@@ -35,7 +35,7 @@ export function formatAuditLogCredentialLabel(credential: string, revoked: boole
 }
 
 export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {
-	return userID && !userID.startsWith('hosted-agent:') && apiKeyID !== undefined
+	return userID && !userID.includes(':') && apiKeyID !== undefined
 		? `ok1-${userID}-${apiKeyID}-*****`
 		: '';
 }

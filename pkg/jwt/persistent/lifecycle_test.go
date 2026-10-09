@@ -195,39 +195,6 @@ func TestAuthenticateRequestFailsWhenItCannotReadTheUser(t *testing.T) {
 	assert.Equal(t, user.ID, lookupErr.UserID)
 }
 
-func TestAuthenticateRequestReportsAHostedAgentOwnersStatus(t *testing.T) {
-	tokenService, gatewayClient := newLifecycleTestTokenService(t)
-	owner := createLifecycleTestUser(t, gatewayClient, "carol", types.RoleAdmin)
-	tokenGroups := []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated}
-
-	req, _ := authenticateToken(t, tokenService, TokenContext{
-		UserID:             "hosted-agent:hai1abc",
-		UserGroups:         tokenGroups,
-		HostedAgentOwnerID: fmt.Sprint(owner.ID),
-	})
-
-	response, ok, err := tokenService.AuthenticateRequest(req)
-	require.NoError(t, err)
-	require.True(t, ok)
-	assert.Equal(t, "hosted-agent:hai1abc", response.User.GetUID())
-	// The agent acts for its owner but carries none of the owner's groups.
-	assert.Equal(t, tokenGroups, response.User.GetExtra()["obot_groups"])
-	assert.Empty(t, response.User.GetExtra()["auth_provider_groups"])
-	status, recorded := principal.UserStatus(response.User)
-	assert.True(t, recorded)
-	assert.Equal(t, types.UserStatusActive, status)
-
-	err = deactivateThroughSCIM(t, gatewayClient, lifecycleTestProvider, "00u-"+owner.Username, owner.Email)
-	require.NoError(t, err)
-
-	response, ok, err = tokenService.AuthenticateRequest(req)
-	require.NoError(t, err)
-	require.True(t, ok)
-	status, recorded = principal.UserStatus(response.User)
-	assert.True(t, recorded)
-	assert.Equal(t, types.UserStatusDisabled, status)
-}
-
 func TestNewTokenRefusesInactiveUsers(t *testing.T) {
 	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "dave", types.RoleBasic)
@@ -237,10 +204,6 @@ func TestNewTokenRefusesInactiveUsers(t *testing.T) {
 	for name, tokenContext := range map[string]TokenContext{
 		"user": {
 			UserID: fmt.Sprint(user.ID),
-		},
-		"hosted agent of the user": {
-			UserID:             "hosted-agent:hai1abc",
-			HostedAgentOwnerID: fmt.Sprint(user.ID),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

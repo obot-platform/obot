@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -74,18 +73,6 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 			}
 		}
 	}
-	// A hosted agent is authorized by what it was granted, not by what its
-	// owner can currently reach.
-	//
-	// The checks below ask whether the caller is a user with access to this
-	// server -- through a catalog, a workspace, or ownership. An agent is none
-	// of those: it is a principal of its own, so every one of them denies it and
-	// an agent could never reach the MCP servers it was configured with.
-	//
-	// Its grant list is the authority instead. That list is not self-asserted:
-	// servers on the template were granted by the administrator who published
-	// it, and servers on the instance were checked against the owner when they
-	// were attached.
 	return userCanConnectToResolvedMCP(req.Context(), a.uncached, a.acrHelper, user.Info, connection, resources)
 }
 
@@ -105,27 +92,6 @@ func userCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *
 }
 
 func userCanConnectToResolvedMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, connection *mcpConnection, resources *Resources) (bool, error) {
-	if principal.IsHostedAgent(user) {
-		serverID := connection.id
-		if connection.vmcp == nil && system.IsMCPServerInstanceID(serverID) {
-			var instance v1.MCPServerInstance
-			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &instance); err != nil {
-				return false, err
-			}
-			serverID = instance.Spec.MCPServerName
-		}
-		if connection.vmcp == nil && system.IsMCPServerID(serverID) {
-			var server v1.MCPServer
-			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &server); err != nil {
-				return false, err
-			}
-			if server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" {
-				return false, nil
-			}
-		}
-		return mcpIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), connection, resources)
-	}
-
 	authorized, err := checkMCPIDAccess(ctx, client, acrHelper, user, connection, resources)
 	if err != nil || !authorized {
 		return false, err

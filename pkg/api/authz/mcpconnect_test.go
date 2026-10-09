@@ -115,7 +115,7 @@ func TestMCPConnectVMCPSubpaths(t *testing.T) {
 		},
 	}
 	storage := newMCPIDIsAuthorizedTestStorage(vmcp, instance)
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
 	for _, id := range []string{vmcp.Name, instance.Name} {
 		for _, suffix := range []string{"", "/", "/messages/123"} {
 			for _, uid := range []string{"7", "8"} {

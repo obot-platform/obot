@@ -29,13 +29,12 @@ type captureRoundTripper struct {
 	req *http.Request
 }
 
-func TestNewRunTokenActivityCapturesOwnerAndAPIKey(t *testing.T) {
+func TestNewRunTokenActivityCapturesUserAndAPIKey(t *testing.T) {
 	requestUser := &user.DefaultInfo{
-		UID: "hosted-agent:hai1abc",
+		UID: "7",
 		Extra: map[string][]string{
-			principal.HostedAgentOwnerExtra: {"7"},
-			principal.APIKeyIDExtra:         {"42"},
-			principal.APIKeyNameExtra:       {"CLI token"},
+			principal.APIKeyIDExtra:   {"42"},
+			principal.APIKeyNameExtra: {"CLI token"},
 		},
 	}
 	usage := types.TokenUsage{InputTokens: 10, OutputTokens: 5, TotalSpend: 0.25}

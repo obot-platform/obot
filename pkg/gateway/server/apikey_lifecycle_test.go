@@ -118,7 +118,7 @@ func TestAPIKeyAuthenticatorFailsWhenItCannotReadTheKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
-	authenticator := NewAPIKeyAuthenticator(client, nil)
+	authenticator := NewAPIKeyAuthenticator(client)
 
 	// An invalid key is declined, so that the rest of the chain can try the credential.
 	response, ok, err := authenticator.AuthenticateRequest(apiKeyRequest(fmt.Sprintf("ok1-%d-%d-wrong", user.ID, created.ID)))

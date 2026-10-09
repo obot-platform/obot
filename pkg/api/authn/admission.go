@@ -87,7 +87,7 @@ func isNonUserPrincipal(u user.Info) bool {
 
 // admissionUserID returns the ID of the user a principal acts for, for error reporting, or 0 if it has none.
 func admissionUserID(u user.Info) uint {
-	id, err := strconv.ParseUint(principal.ResourceOwnerID(u), 10, 0)
+	id, err := strconv.ParseUint(u.GetUID(), 10, 0)
 	if err != nil {
 		return 0
 	}

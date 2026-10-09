@@ -5,14 +5,10 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
-	"github.com/obot-platform/obot/pkg/controller/handlers/agentcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	gitcredentialhandler "github.com/obot-platform/obot/pkg/controller/handlers/gitcredential"
-	"github.com/obot-platform/obot/pkg/controller/handlers/hostedagent"
-	hostedagentcreds "github.com/obot-platform/obot/pkg/controller/handlers/hostedagent/credentials"
-	"github.com/obot-platform/obot/pkg/controller/handlers/hostedagentpool"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpclientsession"
@@ -61,9 +57,6 @@ func (c *Controller) setupRoutes() {
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
-	agentCatalogHandler := agentcatalog.New(c.services.GitMaxRepoSizeMB)
-	hostedAgentHandler := hostedagent.New(c.services.AgentBackend, hostedagentcreds.New(c.services.GatewayClient), c.services.ServerURL, c.services.AgentServerURL, c.services.GitMaxRepoSizeMB)
-	hostedAgentPoolHandler := hostedagentpool.New(c.services.AgentBackend)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 	gitCredentialHandler := gitcredentialhandler.New(c.services.GatewayClient)
 	modelHandler := model.NewHandler(c.services.GatewayClient)
@@ -121,24 +114,6 @@ func (c *Controller) setupRoutes() {
 
 	// Skill
 	root.Type(&v1.Skill{}).HandlerFunc(cleanup.Cleanup)
-
-	// AgentCatalog
-	root.Type(&v1.AgentCatalog{}).HandlerFunc(agentCatalogHandler.Sync)
-
-	// HostedAgent
-	// cleanup.Cleanup honors DeleteRefs, which removes agents whose AgentCatalog
-	// is gone. Hand-registered agents have no SourceID and are left alone.
-	root.Type(&v1.HostedAgent{}).HandlerFunc(cleanup.Cleanup)
-
-	// HostedAgentInstance
-	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(hostedAgentHandler.EnsurePool)
-	root.Type(&v1.HostedAgentInstance{}).FinalizeFunc(v1.HostedAgentInstanceFinalizer, hostedAgentHandler.RemoveInstance)
-	root.Type(&v1.HostedAgentInstance{}).HandlerFunc(hostedAgentHandler.OrchestrateInstance)
-
-	// HostedAgentPool
-	root.Type(&v1.HostedAgentPool{}).FinalizeFunc(v1.HostedAgentPoolFinalizer, hostedAgentPoolHandler.Remove)
-	root.Type(&v1.HostedAgentPool{}).HandlerFunc(hostedAgentPoolHandler.Orchestrate)
 
 	// ImagePullSecret
 	root.Type(&v1.ImagePullSecret{}).FinalizeFunc(v1.ImagePullSecretFinalizer, imagePullSecretHandler.Cleanup)

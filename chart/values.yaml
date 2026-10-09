@@ -116,6 +116,8 @@ secret:
 
 # config - Non-sensitive configuration variables for the Obot deployment. These values are converted to a ConfigMap and used via envFrom.
 config:
+  # Egress audit records are retained for 90 days; 0 disables cleanup.
+  OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS: 90
   # config.OBOT_SERVER_MODEL_PROXY_URL -- MCP Tester model proxy used when no model provider is configured. Set to an empty string to disable; omission uses the hosted service.
   OBOT_SERVER_MODEL_PROXY_URL: "https://model-service.obot.ai"
   # config.AWS_REGION -- An AWS region, used to access AWS KMS
@@ -153,21 +155,11 @@ config:
 
 
 
+
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
   OBOT_SERVER_ENABLE_AUTHENTICATION: false
   # config.OBOT_SERVER_ENABLE_REGISTRY_AUTH -- Enables authentication for the MCP registry API. When false (default), registry is accessible without authentication and returns only default catalog items with wildcard access control rules.
   OBOT_SERVER_ENABLE_REGISTRY_AUTH: false
-  # config.OBOT_SERVER_ENABLE_HOSTED_AGENTS -- Enables Hosted Agents. Must be set to true to expose Hosted Agents APIs and UI. Defaults to false.
-  OBOT_SERVER_ENABLE_HOSTED_AGENTS: false
-  # Hosted agent sandboxes follow OBOT_SERVER_MCPRUNTIME_BACKEND: they run on Kubernetes when MCP servers do, in the namespace configured under mcpNamespace. There is deliberately no separate backend setting, because a deployment always wants the two to match.
-  # config.OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME -- StorageClass for hosted agent pool volumes. Each pool gets one ReadWriteOnce volume that every sandbox in the pool mounts, so the StorageClass must use volumeBindingMode: WaitForFirstConsumer -- that is what confines a pool to a single node. Leaving this empty uses the cluster default StorageClass, which commonly binds immediately and can leave a pool's sandboxes unschedulable.
-  OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME: ""
-  # config.OBOT_SERVER_HOSTED_AGENTS_RUNTIME_CLASS_NAME -- RuntimeClass for hosted agent deployments.
-  OBOT_SERVER_HOSTED_AGENTS_RUNTIME_CLASS_NAME: ""
-  # config.OBOT_SERVER_HOSTED_AGENTS_CLEANUP_IMAGE -- Image used to erase a deleted sandbox's directory from its pool volume. Needs a shell and coreutils. Defaults to busybox:1.36. Set this when the cluster cannot pull from Docker Hub.
-  OBOT_SERVER_HOSTED_AGENTS_CLEANUP_IMAGE: ""
-  # config.OBOT_HOSTED_AGENTS_IMAGE_PULL_POLICY -- Pull policy for hosted agent sandbox images (Always, IfNotPresent, Never). Empty means Always, which refuses an image preloaded onto the node rather than published to a registry; use IfNotPresent for air-gapped installs.
-  OBOT_HOSTED_AGENTS_IMAGE_PULL_POLICY: ""
   # config.OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT -- Rate limit for unauthenticated requests in requests per second. Tracked by source IP address. Defaults to 100.
   OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT: ""
   # config.OBOT_SERVER_AUTHENTICATED_RATE_LIMIT -- Rate limit for authenticated non-admin requests in requests per second. Tracked by user ID. Admin users are exempt. Defaults to 200.
@@ -266,11 +258,6 @@ config:
   # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
   # OBOT_DEFAULT_SKILL_REPO_REF: ""
 
-  # config.OBOT_DEFAULT_HOSTED_AGENTS_CATALOG_URL -- The default hosted agent catalog repository URL. Must be a full HTTPS URL. Defaults to https://github.com/obot-platform/hosted-agents-catalog. Only used on first-time setup (before the first owner user is created). Set to an empty string to disable.
-  OBOT_DEFAULT_HOSTED_AGENTS_CATALOG_URL: ""
-  # config.OBOT_DEFAULT_HOSTED_AGENTS_CATALOG_REF -- The ref (branch, tag, or commit SHA) for the default hosted agent catalog repository. If empty, the repository's default branch is used. Only used on first-time setup.
-  OBOT_DEFAULT_HOSTED_AGENTS_CATALOG_REF: ""
-
 # resources -- Resource requests and limits to use for Obot
 resources: {}
 
@@ -341,7 +328,7 @@ mcpNamespace:
     enabled: true
     # mcpNamespace.networkPolicy.dnsNamespace -- The namespace where DNS pods are running. Default is kube-system. Adjust if your cluster uses a different namespace for DNS services.
     dnsNamespace: kube-system
-  # mcpNamespace.podSecurity -- Pod Security Admission configuration for the MCP namespace. Hosted agent sandboxes share this namespace, so the enforce level below is also applied to the security context of every sandbox pod. A restricted sandbox runs as UID 1000 and cannot escalate privileges, so a harness image that must run as root needs this lowered to baseline or privileged.
+  # mcpNamespace.podSecurity -- Pod Security Admission configuration for the MCP namespace.
   podSecurity:
     # mcpNamespace.podSecurity.enabled -- Enable Pod Security Admission labels on the MCP namespace. Default is true.
     enabled: true
@@ -357,15 +344,6 @@ mcpNamespace:
     warn: restricted
     # mcpNamespace.podSecurity.warnVersion -- Kubernetes version for the warn policy. Default is latest.
     warnVersion: latest
-
-# hostedAgentDefaults -- Default Kubernetes scheduling configuration for hosted agent pods
-hostedAgentDefaults:
-  # hostedAgentDefaults.affinity -- Affinity rules applied to hosted agent sandboxes and cleanup jobs
-  affinity: {}
-  # hostedAgentDefaults.tolerations -- Tolerations applied to hosted agent sandboxes and cleanup jobs
-  tolerations: []
-  # hostedAgentDefaults.nodeSelector -- Node labels required by hosted agent sandboxes and cleanup jobs
-  nodeSelector: {}
 
 # mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
 mcpServerDefaults:

@@ -112,7 +112,7 @@ func TestNewLLMAuditRecorderCapturesAPIKeyAttribution(t *testing.T) {
 func TestNewLLMAuditRecorderCapturesMaskedUnnamedAPIKeyAttribution(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
 	requestUser := &user.DefaultInfo{
-		UID: "hosted-agent:hai1abc",
+		UID: "7",
 		Extra: map[string][]string{
 			principal.APIKeyIDExtra:   {"42"},
 			principal.APIKeyNameExtra: {"ok1-7-42-*****"},

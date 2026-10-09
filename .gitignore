@@ -29,6 +29,7 @@ kubeconfig
 
 # Ignore dependency directories
 vendor/
+node_modules/
 
 # Ignore temporary files
 *.tmp
@@ -74,3 +75,5 @@ thoughts
 # Ignore Python bytecode
 __pycache__/
 *.py[cod]
+
+.pnpm-store/

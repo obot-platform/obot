@@ -170,7 +170,7 @@ func newSCIMServerTest(t *testing.T, authenticatedRateLimit int) *scimServerTest
 	s := &Server{
 		gatewayClient: gateway,
 		authenticator: authn.NewAuthenticator(chain),
-		authorizer:    authz.NewAuthorizer(gateway, nil, nil, false, nil, nil, nil, false),
+		authorizer:    authz.NewAuthorizer(gateway, nil, nil, false, nil, nil, false),
 		auditLogger:   logger,
 		rateLimiter:   limiter,
 		mux:           http.NewServeMux(),

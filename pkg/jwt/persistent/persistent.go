@@ -57,10 +57,6 @@ type TokenContext struct {
 	MCPID            string
 	AuthorizedMCPIDs StringSlice
 
-	// HostedAgentOwnerID is set on a token minted for a hosted agent, whose UserID names the agent rather than a
-	// user. It is the user the agent acts for, whose lifecycle status governs the token.
-	HostedAgentOwnerID string `json:",omitempty"`
-
 	// This is used for requesting community license
 	InstallationID string `json:"installation_id,omitempty"`
 
@@ -243,17 +239,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 			principal.RecordUserStatus(extra, gatewayUser.Status())
 		}
 	} else {
-		// A token minted for a hosted agent names the agent. It acts for the agent's owner, whose status governs it,
-		// but it carries none of the owner's groups. Any other token must name a user.
-		ownerID, err := strconv.ParseUint(tokenContext.HostedAgentOwnerID, 10, 64)
-		if err != nil {
-			return nil, false, nil
-		}
-		status, err := t.gatewayClient.UserStatus(req.Context(), uint(ownerID))
-		if err != nil {
-			return nil, false, err
-		}
-		principal.RecordUserStatus(extra, status)
+		return nil, false, nil
 	}
 
 	return &authenticator.Response{
@@ -344,7 +330,6 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
 		AuthorizedMCPIDs:      authorizedMCPIDs,
-		HostedAgentOwnerID:    getStringClaim("HostedAgentOwnerID"),
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
@@ -365,9 +350,6 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 	// mints for that user is not checked again.
 	if t.gatewayClient != nil {
 		ownerID := context.UserID
-		if _, err := strconv.ParseUint(ownerID, 10, 64); err != nil {
-			ownerID = context.HostedAgentOwnerID
-		}
 		if userID, err := strconv.ParseUint(ownerID, 10, 64); err == nil && !principal.AdmittedActiveUser(ctx, ownerID) {
 			if err := t.gatewayClient.CheckCredentialOwner(ctx, uint(userID)); err != nil {
 				return nil, "", err

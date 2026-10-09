@@ -123,7 +123,7 @@ func TestPresentMCPDoesNotDuplicateMaskedUnnamedAPIKey(t *testing.T) {
 	}
 }
 
-func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
+func TestPresentMCPDoesNotDeriveAPIKeyMaskFromNonUserActor(t *testing.T) {
 	apiKeyID := uint(42)
 	for _, test := range []struct {
 		name       string
@@ -141,7 +141,7 @@ func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			log := gatewaytypes.MCPAuditLog{
 				SourceType:    api.AuditLogSourceTypeMCP,
-				UserID:        "hosted-agent:hai1abc",
+				UserID:        "service:example",
 				APIKeyID:      &apiKeyID,
 				APIKeyName:    test.apiKeyName,
 				APIKeyRevoked: true,

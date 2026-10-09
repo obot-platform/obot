@@ -13,9 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
@@ -136,19 +134,4 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	aggregate, err = sm.serverConfigForVMCP(t.Context(), parent, instance, admin)
 	require.NoError(t, err)
 	require.Empty(t, aggregate.Components, "losing the admin role must revoke its tools")
-
-	sm.gatewayClient = gateway
-	owner := &gatewaytypes.User{Username: "owner", Role: types.RoleAdmin}
-	owner.ID = 7
-	require.NoError(t, db.WithContext(t.Context()).Create(owner).Error)
-	require.NoError(t, storage.Update(t.Context(), parent))
-	agent := &user.DefaultInfo{UID: "hosted-agent:test", Extra: map[string][]string{principal.HostedAgentOwnerExtra: {"7"}}}
-	aggregate, err = sm.ServerConfigForVMCP(t.Context(), parent.Name, agent)
-	require.NoError(t, err)
-	require.Equal(t, "7", aggregate.UserID)
-	require.Len(t, aggregate.Components, 1)
-	require.False(t, aggregate.Components[0].DisableTools)
-	_, actionConfig, err := sm.ServerForAction(t.Context(), parent.Name, agent)
-	require.NoError(t, err)
-	require.Equal(t, aggregate, actionConfig)
 }

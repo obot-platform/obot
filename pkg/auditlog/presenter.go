@@ -134,7 +134,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 }
 
 func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
-	if name == "" || userID == "" || apiKeyID == nil || strings.HasPrefix(userID, "hosted-agent:") {
+	if name == "" || userID == "" || apiKeyID == nil || strings.Contains(userID, ":") {
 		return name
 	}
 

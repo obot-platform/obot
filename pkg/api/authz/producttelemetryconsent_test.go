@@ -10,7 +10,7 @@ import (
 )
 
 func TestProductTelemetryConsentRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
 	users := []struct {
 		name    string
 		info    user.Info

@@ -217,7 +217,6 @@ describe('loadCurrentAccess', () => {
 		]);
 		const listModels = vi.spyOn(AdminService, 'listModelAccessPolicies');
 		const listSkills = vi.spyOn(AdminService, 'listSkillAccessPolicies');
-		const listHosted = vi.spyOn(AdminService, 'listHostedAgentAccessPolicies');
 		const listVmcps = vi.spyOn(AdminService, 'listAllVMCPs');
 
 		const mcp = await loadCurrentAccess(userTarget, 'mcp');
@@ -227,11 +226,8 @@ describe('loadCurrentAccess', () => {
 		expect(mcp[1]?.powerUserID).toBe('owner-1');
 		expect(listModels).not.toHaveBeenCalled();
 		expect(listSkills).not.toHaveBeenCalled();
-		expect(listHosted).not.toHaveBeenCalled();
 		expect(listVmcps).not.toHaveBeenCalled();
-		expect(hasAnyCurrentAccess({ mcp, models: [], skills: [], hostedAgents: [], vmcps: [] })).toBe(
-			true
-		);
+		expect(hasAnyCurrentAccess({ mcp, models: [], skills: [], vmcps: [] })).toBe(true);
 	});
 
 	it('normalizes the resources each policy grants', async () => {
@@ -305,9 +301,7 @@ describe('loadCurrentAccess', () => {
 			}
 		]);
 		expect(listMcp).not.toHaveBeenCalled();
-		expect(hasAnyCurrentAccess({ mcp: [], models: [], skills: [], hostedAgents: [], vmcps })).toBe(
-			true
-		);
+		expect(hasAnyCurrentAccess({ mcp: [], models: [], skills: [], vmcps })).toBe(true);
 	});
 
 	it('includes admin-created vMCPs and personal vMCPs the user owns', async () => {

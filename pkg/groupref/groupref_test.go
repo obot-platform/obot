@@ -87,16 +87,6 @@ func referencingObjects(target string) []kclient.Object {
 				},
 			},
 		},
-		&v1.HostedAgentAccessRule{
-			Name:      "haar",
-			Namespace: namespace,
-			Spec: v1.HostedAgentAccessRuleSpec{
-				Manifest: types.HostedAgentAccessRuleManifest{
-					DisplayName: "Agents",
-					Subjects:    subjects,
-				},
-			},
-		},
 		&v1.VMCP{
 			Name:      "vmcp",
 			Namespace: namespace,
@@ -170,11 +160,6 @@ func TestFindCoversEveryReferenceKind(t *testing.T) {
 				Detail: "role Admin, Auditor",
 			},
 			{
-				Kind:        KindHostedAgentAccessRule,
-				Name:        "haar",
-				DisplayName: "Agents",
-			},
-			{
 				Kind:        KindMessagePolicy,
 				Name:        "mp",
 				DisplayName: "Messages",
@@ -215,11 +200,10 @@ func TestRemoveGroupSubjectsChangesOnlyAccessPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantCounts := map[Kind]int{
-		KindAccessControlRule:     1,
-		KindModelAccessPolicy:     1,
-		KindSkillAccessRule:       1,
-		KindMessagePolicy:         1,
-		KindHostedAgentAccessRule: 1,
+		KindAccessControlRule: 1,
+		KindModelAccessPolicy: 1,
+		KindSkillAccessRule:   1,
+		KindMessagePolicy:     1,
 	}
 	if !reflect.DeepEqual(counts, wantCounts) {
 		t.Fatalf("counts = %v, want %v", counts, wantCounts)

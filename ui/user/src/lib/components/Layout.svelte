@@ -20,7 +20,6 @@
 	const defaultNavCollapsed: Record<string, boolean> = {
 		'mcp-server-management': true,
 		'skills-management': true,
-		'hosted-agent-management': true,
 		'device-management': true,
 		'user-management': true,
 		'llm-gateway': true,
@@ -97,7 +96,6 @@
 		X,
 		Logs,
 		Settings2,
-		MessageSquareText,
 		ChevronRight
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
@@ -215,7 +213,6 @@
 		}
 	}
 
-	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
 	let isAtLeastPoweruser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
 	let hasLicenseEntitlementViolations = $derived(
@@ -301,16 +298,6 @@
 					: [])
 			]
 		},
-		...(hostedAgentsFeatureEnabled
-			? [
-					{
-						id: 'hosted-agents',
-						label: m.nav_hosted_agents(),
-						icon: MessageSquareText,
-						href: '/hosted-agents'
-					}
-				]
-			: []),
 		{
 			id: 'identity-and-access',
 			label: m.nav_identity_access(),

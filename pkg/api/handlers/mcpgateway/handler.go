@@ -26,7 +26,6 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -458,10 +457,6 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		MCPID:            mcpServerName,
 		AuthorizedMCPIDs: authorizedMCPIDs,
 	}
-	if principal.IsHostedAgent(caller) {
-		// The token names the agent, which is not a user, so it records the owner whose status governs it.
-		tokenContext.HostedAgentOwnerID = principal.ResourceOwnerID(caller)
-	}
 	return tokenContext
 }
 
@@ -515,7 +510,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 
 	// Ownership, not the acting identity: a system server deployed for an agent
 	// belongs to the person who created that agent.
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, principal.ResourceOwnerID(req.User), credEnv)
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, req.User.GetUID(), credEnv)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to convert system server to config: %w", err)
 	}

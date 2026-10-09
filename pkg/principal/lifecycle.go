@@ -9,7 +9,7 @@ import (
 
 const (
 	// UserStatusExtra carries the lifecycle status of the user a principal acts for, as its authenticator read it
-	// from the gateway database: the user themselves, or a hosted agent's owner. Code must use RecordUserStatus and
+	// from the gateway database. Code must use RecordUserStatus and
 	// UserStatus instead of this key.
 	UserStatusExtra = "obot_user_status"
 )
@@ -41,7 +41,7 @@ func WithAdmittedPrincipal(ctx context.Context, user kuser.Info) context.Context
 }
 
 // AdmittedActiveUser reports whether ctx carries an admitted principal that acts for the user with userID, and that
-// user was active when the request arrived. A principal acts for its own user, and a hosted agent for its owner.
+// user was active when the request arrived. A principal acts for its own user.
 func AdmittedActiveUser(ctx context.Context, userID string) bool {
 	user, _ := ctx.Value(admittedPrincipalKey{}).(kuser.Info)
 	if user == nil || userID == "" {
@@ -49,9 +49,6 @@ func AdmittedActiveUser(ctx context.Context, userID string) bool {
 	}
 	if status, recorded := UserStatus(user); !recorded || status != types.UserStatusActive {
 		return false
-	}
-	if IsHostedAgent(user) {
-		return ResourceOwnerID(user) == userID
 	}
 	return user.GetUID() == userID
 }

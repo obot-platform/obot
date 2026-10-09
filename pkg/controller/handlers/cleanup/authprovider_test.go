@@ -105,18 +105,9 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 			},
 		},
 	}
-	hostedAgentRule := &v1.HostedAgentAccessRule{
-		Name:      "hosted-agent-rule",
-		Namespace: namespace,
-		Spec: v1.HostedAgentAccessRuleSpec{
-			Manifest: clienttypes.HostedAgentAccessRuleManifest{
-				Subjects: mixedSubjects,
-			},
-		},
-	}
 	baseClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule).
+		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy).
 		Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
 	gatewayClient, gatewayDB := newAuthProviderCleanupGatewayClient(t)
@@ -197,9 +188,6 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 	gotMessagePolicy := &v1.MessagePolicy{}
 	mustGet(t, storageClient, messagePolicy, gotMessagePolicy)
 	assertSubjects(t, gotMessagePolicy.Spec.Manifest.Subjects, wantSubjects)
-	gotHostedAgentRule := &v1.HostedAgentAccessRule{}
-	mustGet(t, storageClient, hostedAgentRule, gotHostedAgentRule)
-	assertSubjects(t, gotHostedAgentRule.Spec.Manifest.Subjects, wantSubjects)
 
 	var roleChanges v1.UserRoleChangeList
 	if err := storageClient.List(t.Context(), &roleChanges); err != nil {

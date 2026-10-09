@@ -65,29 +65,8 @@ func TestAdmissionCheck(t *testing.T) {
 			wantDenied: types2.UserStatusDeleted,
 		},
 		{
-			name: "hosted agent of an active owner",
-			resp: principalWith("hosted-agent:hai1abc", []string{types2.GroupAuthenticated, types2.GroupLLM}, map[string][]string{
-				principal.HostedAgentOwnerExtra: {"7"},
-				principal.UserStatusExtra:       {string(types2.UserStatusActive)},
-			}),
-			wantAdmit: true,
-		},
-		{
-			name: "hosted agent of a disabled owner",
-			resp: principalWith("hosted-agent:hai1abc", []string{types2.GroupAuthenticated, types2.GroupLLM}, map[string][]string{
-				principal.HostedAgentOwnerExtra: {"7"},
-				principal.UserStatusExtra:       {string(types2.UserStatusDisabled)},
-			}),
-			wantDenied: types2.UserStatusDisabled,
-		},
-		{
 			name:       "user principal whose authenticator reported no status",
 			resp:       principalWith("7", []string{types2.GroupBasic, types2.GroupAuthenticated}, map[string][]string{}),
-			wantLookup: true,
-		},
-		{
-			name:       "hosted agent whose authenticator reported no status",
-			resp:       principalWith("hosted-agent:hai1abc", []string{types2.GroupAuthenticated}, map[string][]string{principal.HostedAgentOwnerExtra: {"7"}}),
 			wantLookup: true,
 		},
 		{

@@ -9,6 +9,7 @@ resources:
       - mcpoauthpendingstates.obot.obot.ai
       - mcpauditlogs.obot.obot.ai
       - llmauditlogs.obot.obot.ai
+      - egressauditlogs.obot.obot.ai
       - policyviolations.obot.obot.ai
       - properties.obot.obot.ai
     providers:
