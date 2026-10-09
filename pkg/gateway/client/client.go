@@ -33,6 +33,13 @@ const (
 	DefaultDeviceLimit = 100
 )
 
+// SystemLimit describes the maximum number of a resource an installation may have.
+// Maximum is ignored when Unlimited is true.
+type SystemLimit struct {
+	Maximum   int64
+	Unlimited bool
+}
+
 type Client struct {
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
@@ -58,6 +65,9 @@ type Client struct {
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration
 	deviceScanDeleteBatchSize int
+	mcpAuditLogRetentionDays  int
+	llmAuditLogRetentionDays  int
+	startAuditCleanupOnce     sync.Once
 	mcpOAuthTokenTrigger      func(context.Context, string) error
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
@@ -95,6 +105,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 		kickLifecycleDelivery:     make(chan struct{}, 1),
+		mcpAuditLogRetentionDays:  auditLogRetentionDays,
+		llmAuditLogRetentionDays:  llmAuditLogRetentionDays,
 	}
 
 	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
@@ -103,11 +115,19 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runPendingStateCleanup(ctx)
 	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	go c.runUserLifecycleEventDelivery(ctx)
 	go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	return c
+}
+
+// StartAuditCleanup starts deleting audit logs and revoked API keys once they're past retention.
+// Only one replica needs to delete them, so the controller starts it once this replica is elected leader.
+// The licensed retention limit is looked up again on every pass. Calls after the first do nothing.
+func (c *Client) StartAuditCleanup(ctx context.Context, limits RetentionLimits) {
+	c.startAuditCleanupOnce.Do(func() {
+		go c.runAuditCleanup(ctx, limits)
+	})
 }
 
 func (c *Client) Close() error {

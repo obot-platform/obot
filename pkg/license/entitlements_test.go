@@ -1,12 +1,14 @@
 package license
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
 
 	keygen "github.com/keygen-sh/keygen-go/v3"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 )
 
 func TestMissingAndRequire(t *testing.T) {
@@ -69,5 +71,76 @@ func TestGetDistributionFromEntitlements(t *testing.T) {
 				t.Fatalf("GetDistributionFromEntitlements() = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestProviderLimits(t *testing.T) {
+	for _, limit := range []struct {
+		name         string
+		suffix       string
+		get          func(*Provider, context.Context) (gatewayclient.SystemLimit, error)
+		defaultLimit gatewayclient.SystemLimit
+	}{
+		{
+			name:         "UserLimit",
+			suffix:       "_USERS",
+			get:          (*Provider).UserLimit,
+			defaultLimit: gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultUserLimit},
+		},
+		{
+			name:         "DeviceLimit",
+			suffix:       "_DEVICES",
+			get:          (*Provider).DeviceLimit,
+			defaultLimit: gatewayclient.SystemLimit{Maximum: gatewayclient.DefaultDeviceLimit},
+		},
+		{
+			name:   "AuditLogRetentionLimit",
+			suffix: "_DAYS_AUDIT_LOG_RETENTION",
+			get:    (*Provider).AuditLogRetentionLimit,
+		},
+	} {
+		for _, test := range []struct {
+			name         string
+			entitlements []string
+			want         gatewayclient.SystemLimit
+		}{
+			{
+				name: "default",
+				want: limit.defaultLimit,
+			},
+			{
+				name: "both prefixes are additive",
+				entitlements: []string{
+					EnterpriseEntitlement,
+					"OBOT_ENTERPRISE_10" + limit.suffix,
+					"OBOT_20" + limit.suffix,
+				},
+				want: gatewayclient.SystemLimit{Maximum: 30},
+			},
+			{
+				name: "malformed short prefix entitlements are ignored",
+				entitlements: []string{
+					"OBOT" + limit.suffix,
+					"OBOT_TEN" + limit.suffix,
+					"OBOT_ENTERPRISE_OBOT_10" + limit.suffix,
+				},
+				want: limit.defaultLimit,
+			},
+		} {
+			t.Run(limit.name+"/"+test.name, func(t *testing.T) {
+				entitlements := make(map[keygen.EntitlementCode]struct{}, len(test.entitlements))
+				for _, entitlement := range test.entitlements {
+					entitlements[keygen.EntitlementCode(entitlement)] = struct{}{}
+				}
+
+				got, err := limit.get(&Provider{entitlements: entitlements}, t.Context())
+				if err != nil {
+					t.Fatalf("%s() error = %v, want nil", limit.name, err)
+				}
+				if got != test.want {
+					t.Fatalf("%s() = %+v, want %+v", limit.name, got, test.want)
+				}
+			})
+		}
 	}
 }

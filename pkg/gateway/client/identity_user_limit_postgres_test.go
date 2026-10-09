@@ -61,7 +61,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitAcrossPostgresClients(t *testing
 	}
 
 	const maximum = 1
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 	clientA := newPostgresUserLimitTestClient(dbA)
 	clientB := newPostgresUserLimitTestClient(dbB)
 

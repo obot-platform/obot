@@ -19,15 +19,15 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-type deviceLimitProviderFunc func(context.Context) (gatewayclient.DeviceLimit, error)
+type deviceLimitProviderFunc func(context.Context) (gatewayclient.SystemLimit, error)
 
-func (f deviceLimitProviderFunc) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
+func (f deviceLimitProviderFunc) DeviceLimit(ctx context.Context) (gatewayclient.SystemLimit, error) {
 	return f(ctx)
 }
 
 func TestDeviceEnrollPreservesDeviceLimitForbiddenError(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
-	limit := gatewayclient.DeviceLimit{Maximum: 1}
+	limit := gatewayclient.SystemLimit{Maximum: 1}
 
 	firstPublicKey := deviceEnrollTestPublicKey(t)
 	if _, err := gatewayClient.EnrollDevice(t.Context(), gatewayclient.DeviceEnrollment{
@@ -58,7 +58,7 @@ func TestDeviceEnrollPreservesDeviceLimitForbiddenError(t *testing.T) {
 			},
 		},
 	}
-	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.DeviceLimit, error) {
+	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.SystemLimit, error) {
 		return limit, nil
 	}))
 
@@ -111,8 +111,8 @@ func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
 			},
 		},
 	}
-	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.DeviceLimit, error) {
-		return gatewayclient.DeviceLimit{}, nil
+	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.SystemLimit, error) {
+		return gatewayclient.SystemLimit{}, nil
 	}))
 
 	err = handler.Enroll(apiContext)

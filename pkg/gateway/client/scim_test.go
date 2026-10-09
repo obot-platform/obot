@@ -162,7 +162,7 @@ func provisionTestSCIMUser(t *testing.T, c *Client, conn *types.SCIMConnection, 
 			},
 		},
 	}, SCIMUserCreateOptions{
-		UserLimit: UserLimit{
+		UserLimit: SystemLimit{
 			Unlimited: true,
 		},
 		DefaultRole: apitypes.RoleBasic,
@@ -371,7 +371,7 @@ func TestSCIMProvidersNeverReachTheDirectory(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	stub, srv := newAuthProviderStub(t)
 	ctx := accesstoken.ContextWithAccessToken(auth.ContextWithProviderGroupIDPrefix(auth.ContextWithProviderURL(t.Context(), srv.URL), "okta/"), "access-token")
-	unlimited := UserLimit{
+	unlimited := SystemLimit{
 		Unlimited: true,
 	}
 
@@ -440,7 +440,7 @@ func TestSCIMModeLookupFailureNeverFallsBackToTheDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := c.EnsureIdentity(ctx, signInIdentity("00u-alice", "alice@example.com"), "", UserLimit{Unlimited: true}); err == nil {
+	if _, err := c.EnsureIdentity(ctx, signInIdentity("00u-alice", "alice@example.com"), "", SystemLimit{Unlimited: true}); err == nil {
 		t.Fatal("sign-in succeeded although the SCIM mode could not be read")
 	}
 	if _, err := c.ListAuthGroups(ctx, srv.URL, lifecycleTestProvider.Namespace, lifecycleTestProvider.Name, ListAuthGroupsOptions{}); err == nil {
@@ -457,7 +457,7 @@ func TestSCIMModeLookupFailureNeverFallsBackToTheDirectory(t *testing.T) {
 func TestSignInRequiresABindingOnceSCIMIsEnforced(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	ctx := t.Context()
-	unlimited := UserLimit{
+	unlimited := SystemLimit{
 		Unlimited: true,
 	}
 
@@ -519,7 +519,7 @@ func TestSignInRequiresABindingOnceSCIMIsEnforced(t *testing.T) {
 func TestSignInLeavesTheSCIMProfileAlone(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	ctx := t.Context()
-	unlimited := UserLimit{
+	unlimited := SystemLimit{
 		Unlimited: true,
 	}
 
@@ -700,7 +700,7 @@ func TestDirectoryResponsesInFlightWhenSCIMStartsAreDiscarded(t *testing.T) {
 		c := newLifecycleTestClient(t)
 		stub, srv := newAuthProviderStub(t)
 		ctx := accesstoken.ContextWithAccessToken(auth.ContextWithProviderGroupIDPrefix(auth.ContextWithProviderURL(t.Context(), srv.URL), "okta/"), "access-token")
-		unlimited := UserLimit{
+		unlimited := SystemLimit{
 			Unlimited: true,
 		}
 
@@ -890,7 +890,7 @@ func TestEnforcedSignInNeverCreatesAnAccount(t *testing.T) {
 		signInIdentity("00u-deleted", "deleted@example.com"),
 		signInIdentity("00u-unknown", "unknown@example.com"),
 	} {
-		_, err := c.EnsureIdentity(ctx, id, "", UserLimit{
+		_, err := c.EnsureIdentity(ctx, id, "", SystemLimit{
 			Unlimited: true,
 		})
 		if _, ok := errors.AsType[*UserAccessDeniedError](err); !ok {
@@ -923,7 +923,7 @@ func TestSignInThroughAnotherProviderLeavesTheSCIMProfileAlone(t *testing.T) {
 		ProviderUsername:      "person-google",
 		ProviderUserID:        "google-1",
 		Email:                 "person@example.com",
-	}, "", UserLimit{
+	}, "", SystemLimit{
 		Unlimited: true,
 	})
 	if err != nil {

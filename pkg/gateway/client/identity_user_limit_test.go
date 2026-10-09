@@ -34,7 +34,7 @@ func newIdentityUserLimitTestClient(t *testing.T) *Client {
 	return c
 }
 
-func ensureUserLimitTestIdentity(ctx context.Context, c *Client, username, email string, userLimit UserLimit) (*gatewaytypes.User, error) {
+func ensureUserLimitTestIdentity(ctx context.Context, c *Client, username, email string, userLimit SystemLimit) (*gatewaytypes.User, error) {
 	return c.EnsureIdentityWithRole(ctx, &gatewaytypes.Identity{
 		ProviderUsername: username,
 		ProviderUserID:   username,
@@ -95,7 +95,7 @@ func requireIdentityUserLimitForbiddenError(t *testing.T, err error) {
 func TestEnsureIdentityWithRoleEnforcesUserLimit(t *testing.T) {
 	const maximum = 2
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 
 	for i := 1; i <= maximum; i++ {
 		username := fmt.Sprintf("user-%d", i)
@@ -116,7 +116,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimit(t *testing.T) {
 }
 
 func TestEnsureIdentityWithRoleAllowsExistingUserWhenOverLimit(t *testing.T) {
-	limit := UserLimit{Unlimited: true}
+	limit := SystemLimit{Unlimited: true}
 	c := newIdentityUserLimitTestClient(t)
 
 	var thirdUser *gatewaytypes.User
@@ -131,7 +131,7 @@ func TestEnsureIdentityWithRoleAllowsExistingUserWhenOverLimit(t *testing.T) {
 		}
 	}
 
-	limit = UserLimit{Maximum: 2}
+	limit = SystemLimit{Maximum: 2}
 
 	existing, err := ensureUserLimitTestIdentity(t.Context(), c, "user-3", "user-3@example.com", limit)
 	if err != nil {
@@ -149,7 +149,7 @@ func TestEnsureIdentityWithRoleAllowsExistingUserWhenOverLimit(t *testing.T) {
 }
 
 func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *testing.T) {
-	limit := UserLimit{Unlimited: true}
+	limit := SystemLimit{Unlimited: true}
 	c := newIdentityUserLimitTestClient(t)
 
 	googleIdentity := &gatewaytypes.Identity{
@@ -164,7 +164,7 @@ func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *t
 		t.Fatalf("creating user through first verified provider: %v", err)
 	}
 
-	limit = UserLimit{Maximum: 1}
+	limit = SystemLimit{Maximum: 1}
 	githubIdentity := &gatewaytypes.Identity{
 		AuthProviderNamespace: "default",
 		AuthProviderName:      "github-auth-provider",
@@ -190,7 +190,7 @@ func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *t
 func TestEnsureIdentityWithRoleRecoversAfterUserDeletion(t *testing.T) {
 	const maximum = 1
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 
 	first, err := ensureUserLimitTestIdentity(t.Context(), c, "user-1", "user-1@example.com", userLimit)
 	if err != nil {
@@ -214,7 +214,7 @@ func TestEnsureIdentityWithRoleRecoversAfterUserDeletion(t *testing.T) {
 func TestEnsureIdentityWithRoleDoesNotCountBootstrapUser(t *testing.T) {
 	const maximum = 2
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 
 	for _, systemUser := range []string{system.BootstrapName, "nobody", "somebody"} {
 		if _, err := ensureUserLimitTestIdentity(t.Context(), c, systemUser, "", userLimit); err != nil {
@@ -233,7 +233,7 @@ func TestEnsureIdentityWithRoleDoesNotCountBootstrapUser(t *testing.T) {
 func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 	const maximum = 1
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 
 	const localAuthUsers = 3
 	for i := 1; i <= localAuthUsers; i++ {
@@ -295,7 +295,7 @@ func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 
 func TestEnsureIdentityWithRoleAllowsUnlimitedUsers(t *testing.T) {
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: 1, Unlimited: true}
+	userLimit := SystemLimit{Maximum: 1, Unlimited: true}
 
 	for i := 1; i <= 3; i++ {
 		username := fmt.Sprintf("user-%d", i)
@@ -314,7 +314,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitConcurrently(t *testing.T) {
 		attempts = 8
 	)
 	c := newIdentityUserLimitTestClient(t)
-	userLimit := UserLimit{Maximum: maximum}
+	userLimit := SystemLimit{Maximum: maximum}
 
 	start := make(chan struct{})
 	errorsByAttempt := make(chan error, attempts)

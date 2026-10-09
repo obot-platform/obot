@@ -187,7 +187,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleOwner,
 		// Pass unlimited user limit because we always need to ensure the bootstrap user is created.
-		client.UserLimit{Unlimited: true},
+		client.SystemLimit{Unlimited: true},
 	)
 	if err != nil {
 		return nil, false, err

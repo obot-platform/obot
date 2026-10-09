@@ -44,8 +44,8 @@ type credentialRequest struct {
 
 type userLimitUnlimited struct{}
 
-func (userLimitUnlimited) UserLimit(context.Context) (gatewayclient.UserLimit, error) {
-	return gatewayclient.UserLimit{Unlimited: true}, nil
+func (userLimitUnlimited) UserLimit(context.Context) (gatewayclient.SystemLimit, error) {
+	return gatewayclient.SystemLimit{Unlimited: true}, nil
 }
 
 func (s sessionAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -87,7 +87,7 @@ func TestLifecycleExitGate(t *testing.T) {
 			ProviderUsername:      providerUserID,
 			ProviderUserID:        providerUserID,
 			Email:                 providerUserID + "@example.com",
-		}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+		}, "", types2.RoleBasic, gatewayclient.SystemLimit{Unlimited: true})
 		if err != nil {
 			t.Fatalf("failed to sign in %s: %v", providerUserID, err)
 		}

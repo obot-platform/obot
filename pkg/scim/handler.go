@@ -55,7 +55,7 @@ type Environment interface {
 	// when none is configured.
 	ConfiguredAuthProvider(ctx context.Context) (string, string, error)
 	// UserLimit returns the installation's user limit, which SCIM user creation counts against.
-	UserLimit(ctx context.Context) (gclient.UserLimit, error)
+	UserLimit(ctx context.Context) (gclient.SystemLimit, error)
 	// DefaultRole returns the role of new users.
 	DefaultRole(ctx context.Context) (types2.Role, error)
 }

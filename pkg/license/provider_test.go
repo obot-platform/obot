@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 )
+
+// keygenResponder answers a fake Keygen request in place of the default response, and reports whether it did.
+type keygenResponder func(http.ResponseWriter, *http.Request) bool
 
 func requireValidLicense(ctx context.Context, t *testing.T, provider *Provider) bool {
 	t.Helper()
@@ -305,6 +309,270 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	if len(entitlements) != 0 {
 		t.Fatalf("expected entitlements to be cleared, got %v", entitlements)
 	}
+}
+
+func TestUpdateKeepsEntitlementsWhileKeygenIsUnavailable(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		respond keygenResponder
+	}{
+		{
+			name:    "license lookup unavailable",
+			respond: respondWithStatus("/v1/me", http.StatusServiceUnavailable),
+		},
+		{
+			name:    "validation unavailable",
+			respond: respondWithStatus("/v1/licenses/license-1/actions/validate", http.StatusServiceUnavailable),
+		},
+		{
+			name:    "entitlements unavailable",
+			respond: respondWithStatus("/v1/licenses/license-1/entitlements", http.StatusServiceUnavailable),
+		},
+		{
+			name: "activation unavailable",
+			respond: func(w http.ResponseWriter, r *http.Request) bool {
+				switch r.URL.Path {
+				case "/v1/licenses/license-1/actions/validate":
+					_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "NO_MACHINE", false))
+				case "/v1/machines":
+					http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				default:
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name:    "rate limited",
+			respond: respondWithStatus("/v1/me", http.StatusTooManyRequests),
+		},
+		{
+			name: "connection dropped",
+			respond: func(w http.ResponseWriter, r *http.Request) bool {
+				if r.URL.Path != "/v1/me" {
+					return false
+				}
+				conn, _, err := http.NewResponseController(w).Hijack()
+				if err != nil {
+					t.Errorf("failed to hijack connection: %v", err)
+					return true
+				}
+				_ = conn.Close()
+				return true
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var failing atomic.Bool
+			server := newTestKeygenServer(t, func(w http.ResponseWriter, r *http.Request) bool {
+				return failing.Load() && tt.respond(w, r)
+			})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			provider, err := newProvider(ctx, nil, Config{
+				LicenseKey: "license-key",
+			}, server.URL)
+			if err != nil {
+				t.Fatalf("expected provider to be created: %v", err)
+			}
+			backdateFailure := func() {
+				provider.lock.Lock()
+				defer provider.lock.Unlock()
+				provider.failingSince = time.Now().Add(-defaultPollInterval)
+			}
+
+			failing.Store(true)
+			if err := provider.update(ctx); err == nil {
+				t.Fatal("expected update to report the failure")
+			}
+			if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected entitlements to be kept while Keygen is unavailable")
+			}
+
+			// Recovering resets the failure time, so a later outage keeps the entitlements again.
+			backdateFailure()
+			failing.Store(false)
+			if err := provider.update(ctx); err != nil {
+				t.Fatalf("expected update to succeed after Keygen recovers: %v", err)
+			}
+			failing.Store(true)
+			if err := provider.update(ctx); err == nil {
+				t.Fatal("expected update to report the failure")
+			}
+			if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected entitlements to be kept during a later outage")
+			}
+
+			backdateFailure()
+			if err := provider.update(ctx); err == nil {
+				t.Fatal("expected update to report the failure")
+			}
+			if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected entitlements to be cleared once Keygen is unavailable for a poll interval")
+			}
+		})
+	}
+}
+
+func TestUpdateClearsEntitlementsWhenKeygenRejectsLicense(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		respond keygenResponder
+	}{
+		{
+			name: "license suspended",
+			respond: func(w http.ResponseWriter, r *http.Request) bool {
+				if r.URL.Path != "/v1/licenses/license-1/actions/validate" {
+					return false
+				}
+				writeKeygenError(w, http.StatusForbidden, "LICENSE_SUSPENDED")
+				return true
+			},
+		},
+		{
+			name: "license expired",
+			respond: func(w http.ResponseWriter, r *http.Request) bool {
+				if r.URL.Path != "/v1/licenses/license-1/actions/validate" {
+					return false
+				}
+				_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "EXPIRED", false))
+				return true
+			},
+		},
+		{
+			name: "machine limit exceeded",
+			respond: func(w http.ResponseWriter, r *http.Request) bool {
+				switch r.URL.Path {
+				case "/v1/licenses/license-1/actions/validate":
+					_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "NO_MACHINE", false))
+				case "/v1/machines":
+					writeKeygenError(w, http.StatusUnprocessableEntity, "MACHINE_LIMIT_EXCEEDED")
+				default:
+					return false
+				}
+				return true
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var rejecting atomic.Bool
+			server := newTestKeygenServer(t, func(w http.ResponseWriter, r *http.Request) bool {
+				return rejecting.Load() && tt.respond(w, r)
+			})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			provider, err := newProvider(ctx, nil, Config{
+				LicenseKey: "license-key",
+			}, server.URL)
+			if err != nil {
+				t.Fatalf("expected provider to be created: %v", err)
+			}
+
+			rejecting.Store(true)
+			_ = provider.update(ctx)
+			if requireValidLicense(ctx, t, provider) {
+				t.Fatal("expected license to be marked invalid")
+			}
+			if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected entitlements to be cleared immediately")
+			}
+		})
+	}
+}
+
+func TestAuditLogRetentionLimitFailsWithoutValidLicense(t *testing.T) {
+	var unavailable, rejecting atomic.Bool
+	unavailable.Store(true)
+	server := newTestKeygenServer(t, func(w http.ResponseWriter, r *http.Request) bool {
+		if r.URL.Path != "/v1/me" {
+			return false
+		}
+		switch {
+		case unavailable.Load():
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		case rejecting.Load():
+			writeKeygenError(w, http.StatusForbidden, "LICENSE_INVALID")
+		default:
+			return false
+		}
+		return true
+	})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	provider, err := newProvider(ctx, nil, Config{
+		LicenseKey: "license-key",
+	}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err == nil {
+		t.Fatal("expected the limit lookup to fail while Keygen is unavailable")
+	}
+
+	unavailable.Store(false)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected refresh to succeed: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err != nil {
+		t.Fatalf("expected the limit lookup to succeed with a valid license: %v", err)
+	}
+
+	rejecting.Store(true)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected a rejection not to be reported as a failure: %v", err)
+	}
+	if _, err := provider.AuditLogRetentionLimit(ctx); err == nil {
+		t.Fatal("expected the limit lookup to fail after a rejection")
+	}
+
+	unlicensed, err := newProvider(ctx, nil, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if _, err := unlicensed.AuditLogRetentionLimit(ctx); err != nil {
+		t.Fatalf("expected the limit lookup to succeed without a license key: %v", err)
+	}
+}
+
+func respondWithStatus(path string, status int) keygenResponder {
+	return func(w http.ResponseWriter, r *http.Request) bool {
+		if r.URL.Path != path {
+			return false
+		}
+		http.Error(w, http.StatusText(status), status)
+		return true
+	}
+}
+
+func writeKeygenError(w http.ResponseWriter, status int, code string) {
+	w.WriteHeader(status)
+	_, _ = fmt.Fprintf(w, `{"errors":[{"title":"Rejected","detail":"license is rejected","code":%q}]}`, code)
+}
+
+func newTestKeygenServer(t *testing.T, override keygenResponder) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		if override(w, r) {
+			return
+		}
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
 }
 
 func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {

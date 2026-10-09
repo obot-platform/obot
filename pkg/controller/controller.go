@@ -373,6 +373,9 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	go c.retriggerCatalogEntries(ctx, client)
 
 	go c.runServiceAccountKeyRotation(ctx)
+
+	// Start deleting expired audit logs. PostStart only runs on the leader, so replicas don't repeat the same deletes.
+	c.services.GatewayClient.StartAuditCleanup(ctx, c.services.LicenseProvider)
 }
 
 // retriggerCatalogEntries touches all MCPServerCatalogEntries to trigger their handlers,

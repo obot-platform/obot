@@ -78,7 +78,7 @@ type SCIMPage struct {
 
 // SCIMUserCreateOptions holds what a SCIM user create needs from outside the gateway database.
 type SCIMUserCreateOptions struct {
-	UserLimit UserLimit
+	UserLimit SystemLimit
 	// DefaultRole is the role of users that SCIM creates.
 	DefaultRole types2.Role
 }

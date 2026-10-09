@@ -15,16 +15,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// UserLimit describes the maximum number of users an installation may have.
-// Maximum is ignored when Unlimited is true.
-type UserLimit struct {
-	Maximum   int64
-	Unlimited bool
-}
-
 // UserLimitProvider resolves the current license-derived user limit.
 type UserLimitProvider interface {
-	UserLimit(context.Context) (UserLimit, error)
+	UserLimit(context.Context) (SystemLimit, error)
 }
 
 type UserDecorator struct {
@@ -115,14 +108,14 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	return resp, true, nil
 }
 
-func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) {
+func (u UserDecorator) resolveUserLimit(ctx context.Context) (SystemLimit, error) {
 	userLimit, err := u.userLimitProvider.UserLimit(ctx)
 	if err != nil {
-		return UserLimit{}, fmt.Errorf("failed to resolve user limit: %w", err)
+		return SystemLimit{}, fmt.Errorf("failed to resolve user limit: %w", err)
 	}
 
 	if !userLimit.Unlimited && userLimit.Maximum <= 0 {
-		return UserLimit{}, fmt.Errorf("invalid user limit %d", userLimit.Maximum)
+		return SystemLimit{}, fmt.Errorf("invalid user limit %d", userLimit.Maximum)
 	}
 
 	return userLimit, nil
