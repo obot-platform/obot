@@ -448,7 +448,9 @@ func checkStateResponse(statusCode int, body []byte) error {
 		}
 	}
 
-	return fmt.Errorf("auth provider failed to get session state (status %d): %s", statusCode, strings.TrimSpace(string(body)))
+	// The body can hold provider internals, and the error is shown to the client, so the body is only logged.
+	slog.Error("Auth provider failed to get session state", "status", statusCode, "body", strings.TrimSpace(string(body)))
+	return fmt.Errorf("auth provider failed to get session state (status %d)", statusCode)
 }
 
 // Important: do not change the order of these checks.

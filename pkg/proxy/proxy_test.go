@@ -152,9 +152,16 @@ func TestCheckStateResponse(t *testing.T) {
 			wantInvalidSession: true,
 		},
 		{
-			name:               "older provider failing to refresh",
+			name:               "older provider failing to refresh with 401",
 			statusCode:         http.StatusInternalServerError,
 			body:               "failed to get state: failed to refresh token: refreshing token returned 401: Unauthorized\n",
+			wantErr:            true,
+			wantInvalidSession: true,
+		},
+		{
+			name:               "older provider failing to refresh with 403",
+			statusCode:         http.StatusInternalServerError,
+			body:               "failed to get state: failed to refresh token: refreshing token returned 403: Forbidden\n",
 			wantErr:            true,
 			wantInvalidSession: true,
 		},
