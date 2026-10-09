@@ -67,7 +67,11 @@
 	// The error sits at the top of a form that scrolls, and the button that submits it sits below,
 	// so a refusal would otherwise appear out of sight of whoever just submitted.
 	$effect(() => {
-		if (error) errorElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		if (!error) return;
+		errorElement?.scrollIntoView({
+			block: 'nearest',
+			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+		});
 	});
 
 	const isAzureOpenAIProvider = $derived(provider && provider.id === 'azure-openai-model-provider');
