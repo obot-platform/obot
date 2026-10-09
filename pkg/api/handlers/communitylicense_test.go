@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -20,19 +19,24 @@ import (
 )
 
 type fakeCommunityLicenseProvider struct {
-	lock              sync.Mutex
-	key               string
-	configured        bool
-	valid             bool
-	entitlements      []string
-	licenseKeyError   error
-	validErrors       []error
-	entitlementsError error
-	setError          error
-	setCalls          int
-	hasValidCalls     int
-	lastInstalledKey  string
-	validateError     error
+	lock               sync.Mutex
+	key                string
+	configured         bool
+	valid              bool
+	entitlements       []string
+	licenseKeyError    error
+	primaryKeyExists   bool
+	primaryKeyError    error
+	validErrors        []error
+	entitlementsError  error
+	setError           error
+	setCalls           int
+	hasValidCalls      int
+	lastInstalledKey   string
+	validateError      error
+	removeKey          string
+	removeEntitlements []string
+	removeError        error
 }
 
 type fakeCommunityIssuer struct {
@@ -56,7 +60,21 @@ func (p *fakeCommunityLicenseProvider) LicenseKeyViaConfiguration() bool {
 	return p.configured
 }
 
+func (p *fakeCommunityLicenseProvider) PrimaryLicenseKeyExists(context.Context) (bool, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.primaryKeyExists, p.primaryKeyError
+}
+
 func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key string) error {
+	return p.setLicenseKey(key)
+}
+
+func (p *fakeCommunityLicenseProvider) SetCommunityLicenseKey(_ context.Context, key string) error {
+	return p.setLicenseKey(key)
+}
+
+func (p *fakeCommunityLicenseProvider) setLicenseKey(key string) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.setCalls++
@@ -71,6 +89,14 @@ func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key stri
 }
 
 func (p *fakeCommunityLicenseProvider) RemoveLicenseKey(context.Context) error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if p.removeError != nil {
+		return p.removeError
+	}
+	p.key = p.removeKey
+	p.entitlements = slices.Clone(p.removeEntitlements)
+	p.valid = p.key != ""
 	return nil
 }
 
@@ -309,6 +335,24 @@ func TestCreateCommunityLicensePropagatesEligibilityLookupError(t *testing.T) {
 	}
 }
 
+func TestCreateCommunityLicensePropagatesPrimaryLookupError(t *testing.T) {
+	lookupErr := errors.New("primary license lookup failed")
+	provider := &fakeCommunityLicenseProvider{primaryKeyError: lookupErr}
+	issuer := &fakeCommunityIssuer{key: "issued-key"}
+	handler := NewLicenseHandler(provider, issuer)
+	request, _ := communityAPIContext(t, `{"name":"Ada","email":"ada@example.com"}`)
+
+	if err := handler.CreateCommunityLicense(request); !errors.Is(err, lookupErr) {
+		t.Fatalf("CreateCommunityLicense() error = %v, want %v", err, lookupErr)
+	}
+	if issuer.requestCount() != 0 {
+		t.Fatalf("issuer called %d times after primary lookup failed", issuer.requestCount())
+	}
+	if provider.setCalls != 0 {
+		t.Fatalf("license installed %d times after primary lookup failed", provider.setCalls)
+	}
+}
+
 func TestCreateCommunityLicensePropagatesStatusLookupErrors(t *testing.T) {
 	statusErr := errors.New("license status lookup failed")
 	tests := []struct {
@@ -352,34 +396,21 @@ func TestCreateCommunityLicensePropagatesStatusLookupErrors(t *testing.T) {
 	}
 }
 
-func TestCreateCommunityLicenseReplacesInvalidDatabaseKeyAndReturnsMaskedStatus(t *testing.T) {
-	const issuedKey = "keygen/community-full-12345678"
-	provider := &fakeCommunityLicenseProvider{key: "invalid-database-key"}
-	issuer := &fakeCommunityIssuer{key: issuedKey}
+func TestCreateCommunityLicenseRejectsInvalidPrimaryBeforeIssuance(t *testing.T) {
+	provider := &fakeCommunityLicenseProvider{
+		key:              "invalid-database-key",
+		primaryKeyExists: true,
+	}
+	issuer := &fakeCommunityIssuer{key: "keygen/community-full-12345678"}
 	handler := NewLicenseHandler(provider, issuer)
-	request, recorder := communityAPIContext(t, `{"name":"Ada","email":"ada@example.com","company":"Analytical Engines"}`)
+	request, _ := communityAPIContext(t, `{"name":"Ada","email":"ada@example.com","company":"Analytical Engines"}`)
 
-	if err := handler.CreateCommunityLicense(request); err != nil {
-		t.Fatalf("CreateCommunityLicense() error = %v", err)
+	requireHTTPError(t, handler.CreateCommunityLicense(request), http.StatusConflict)
+	if issuer.requestCount() != 0 {
+		t.Fatalf("issuer called %d times, want 0", issuer.requestCount())
 	}
-	if provider.lastInstalledKey != issuedKey || provider.setCalls != 1 {
-		t.Fatalf("installed key = %q, calls = %d", provider.lastInstalledKey, provider.setCalls)
-	}
-	var status LicenseStatus
-	if err := json.NewDecoder(recorder.Body).Decode(&status); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if status.LicenseKey != "****12345678" || status.Source != "database" || !status.Enterprise {
-		t.Fatalf("status = %#v", status)
-	}
-	if len(status.Entitlements) != 1 || status.Entitlements[0] != license.CommunityEntitlement {
-		t.Fatalf("entitlements = %v", status.Entitlements)
-	}
-	responseBody := recorder.Body.String()
-	for _, sensitive := range []string{issuedKey, "Ada", "ada@example.com", "Analytical Engines"} {
-		if strings.Contains(responseBody, sensitive) {
-			t.Fatalf("response leaked %q: %s", sensitive, responseBody)
-		}
+	if provider.setCalls != 0 {
+		t.Fatalf("license installed %d times, want 0", provider.setCalls)
 	}
 }
 
