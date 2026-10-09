@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
@@ -97,46 +96,6 @@ func migrateAuditLogExportSourceTypes(ctx context.Context, client kclient.Client
 		schedule.Spec.Filters.SourceTypes = []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}
 		if err := client.Update(ctx, schedule); err != nil {
 			return fmt.Errorf("failed to migrate scheduled audit-log export %s: %w", schedule.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Client) error {
-	var artifacts v1.PublishedArtifactList
-	if err := client.List(ctx, &artifacts); err != nil {
-		return err
-	}
-
-	for i := range artifacts.Items {
-		artifact := &artifacts.Items[i]
-		if artifact.Spec.LegacyVisibility == "" {
-			continue
-		}
-
-		var subjects []types.Subject
-		switch artifact.Spec.LegacyVisibility {
-		case "public":
-			subjects = []types.Subject{{
-				Type: types.SubjectTypeSelector,
-				ID:   "*",
-			}}
-		case "private":
-			subjects = nil
-		default:
-			slog.Error("invalid legacy visibility for published artifact", "visibility", artifact.Spec.LegacyVisibility, "artifact", artifact.Name)
-			// Make it private to be safe
-			subjects = nil
-		}
-
-		for j := range artifact.Status.Versions {
-			artifact.Status.Versions[j].Subjects = subjects
-		}
-
-		artifact.Spec.LegacyVisibility = ""
-		if err := client.Update(ctx, artifact); err != nil {
-			return err
 		}
 	}
 

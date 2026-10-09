@@ -89,26 +89,26 @@ func TestGroups(t *testing.T) {
 		{
 			"Owner gets owner, admin, power user groups",
 			RoleOwner,
-			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
+			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 			[]string{GroupAuditor},
 		},
 		{
 			"Admin with Auditor",
 			RoleAdmin | RoleAuditor,
-			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
+			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 			[]string{GroupOwner},
 		},
 		{
 			"Owner with all add-ons",
 			RoleOwner | RoleAuditor,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 			nil,
 		},
 		{
 			"Unknown role gets no groups",
 			RoleUnknown,
 			nil,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 		},
 	}
 

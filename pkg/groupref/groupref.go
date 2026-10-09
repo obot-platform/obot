@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -21,7 +20,6 @@ const (
 	KindSkillAccessRule       Kind = "skillAccessRule"
 	KindMessagePolicy         Kind = "messagePolicy"
 	KindHostedAgentAccessRule Kind = "hostedAgentAccessRule"
-	KindPublishedArtifact     Kind = "publishedArtifact"
 	KindGroupRoleAssignment   Kind = "groupRoleAssignment"
 	KindVMCPProfile           Kind = "vmcpProfile"
 )
@@ -48,11 +46,6 @@ var (
 		{
 			kind: KindHostedAgentAccessRule,
 			list: listHostedAgentAccessRules,
-		},
-		{
-			kind:   KindPublishedArtifact,
-			status: true,
-			list:   listPublishedArtifacts,
 		},
 	}
 )
@@ -89,8 +82,6 @@ type Finder struct {
 type policyKind struct {
 	kind Kind
 	list func(ctx context.Context, c kclient.Reader, namespace string) ([]policyObject, error)
-	// status is set when the subjects live in the object's status.
-	status bool
 }
 
 type policyObject struct {
@@ -209,12 +200,7 @@ func RemoveGroupSubjects(ctx context.Context, c kclient.Client, namespace string
 				continue
 			}
 
-			if kind.status {
-				err = c.Status().Update(ctx, obj.obj)
-			} else {
-				err = c.Update(ctx, obj.obj)
-			}
-			if err != nil {
+			if err = c.Update(ctx, obj.obj); err != nil {
 				return counts, fmt.Errorf("failed to remove group subjects from %s %s: %w", kind.kind, obj.obj.GetName(), err)
 			}
 			counts[kind.kind]++
@@ -359,22 +345,5 @@ func listHostedAgentAccessRules(ctx context.Context, c kclient.Reader, namespace
 				subjects: &rule.Spec.Manifest.Subjects,
 			},
 		}
-	}), nil
-}
-
-func listPublishedArtifacts(ctx context.Context, c kclient.Reader, namespace string) ([]policyObject, error) {
-	var list v1.PublishedArtifactList
-	if err := c.List(ctx, &list, kclient.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list published artifacts: %w", err)
-	}
-	return policyObjects(list.Items, func(artifact *v1.PublishedArtifact) (string, []subjectList) {
-		versions := make([]subjectList, 0, len(artifact.Status.Versions))
-		for i := range artifact.Status.Versions {
-			versions = append(versions, subjectList{
-				subjects: &artifact.Status.Versions[i].Subjects,
-				detail:   "version " + strconv.Itoa(artifact.Status.Versions[i].Version),
-			})
-		}
-		return artifact.Spec.Name, versions
 	}), nil
 }

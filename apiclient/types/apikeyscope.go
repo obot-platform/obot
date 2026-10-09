@@ -1,12 +1,11 @@
 package types
 
 const (
-	APIKeyScopeAPI                = "api"
-	APIKeyScopeSkills             = "skills"
-	APIKeyScopeLLM                = "llm"
-	APIKeyScopePublishedArtifacts = "published-artifacts"
-	APIKeyScopeAllMCP             = "all-mcp"
-	APIKeyScopeDeviceScans        = "device-scans"
+	APIKeyScopeAPI         = "api"
+	APIKeyScopeSkills      = "skills"
+	APIKeyScopeLLM         = "llm"
+	APIKeyScopeAllMCP      = "all-mcp"
+	APIKeyScopeDeviceScans = "device-scans"
 )
 
 func DefaultCLIAPIKeyScopes() []string {

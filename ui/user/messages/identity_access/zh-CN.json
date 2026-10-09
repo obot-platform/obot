@@ -380,7 +380,6 @@
 	"identity_access_scim_ref_message_policy": "消息策略",
 	"identity_access_scim_ref_model_access_policy": "模型访问策略",
 	"identity_access_scim_ref_named": "{label}“{name}”",
-	"identity_access_scim_ref_published_artifact": "已发布的工件",
 	"identity_access_scim_ref_role_detail": "{label}（{detail}）",
 	"identity_access_scim_ref_skill_access_rule": "技能访问规则",
 	"identity_access_scim_ref_vmcp": "虚拟 MCP 服务器",

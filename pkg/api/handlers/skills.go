@@ -31,6 +31,7 @@ import (
 const (
 	defaultSkillListLimit = 50
 	maxSkillListLimit     = 200
+	maxSkillMDBytes       = 1024 * 1024
 )
 
 type SkillHandler struct {

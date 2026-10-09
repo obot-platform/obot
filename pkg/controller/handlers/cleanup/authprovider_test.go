@@ -114,32 +114,9 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 			},
 		},
 	}
-	publishedArtifact := &v1.PublishedArtifact{
-		Name:      "artifact",
-		Namespace: namespace,
-		Status: v1.PublishedArtifactStatus{
-			Versions: []clienttypes.PublishedArtifactVersionEntry{
-				{
-					Version:  1,
-					Subjects: mixedSubjects,
-				},
-				{
-					Version: 2,
-					Subjects: []clienttypes.Subject{
-						{
-							Type: clienttypes.SubjectTypeGroup,
-							ID:   targetGroup,
-						},
-					},
-				},
-			},
-		},
-	}
-
 	baseClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithStatusSubresource(&v1.PublishedArtifact{}).
-		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
+		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule).
 		Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
 	gatewayClient, gatewayDB := newAuthProviderCleanupGatewayClient(t)
@@ -223,10 +200,6 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 	gotHostedAgentRule := &v1.HostedAgentAccessRule{}
 	mustGet(t, storageClient, hostedAgentRule, gotHostedAgentRule)
 	assertSubjects(t, gotHostedAgentRule.Spec.Manifest.Subjects, wantSubjects)
-	gotArtifact := &v1.PublishedArtifact{}
-	mustGet(t, storageClient, publishedArtifact, gotArtifact)
-	assertSubjects(t, gotArtifact.Status.Versions[0].Subjects, wantSubjects)
-	assertSubjects(t, gotArtifact.Status.Versions[1].Subjects, []clienttypes.Subject{})
 
 	var roleChanges v1.UserRoleChangeList
 	if err := storageClient.List(t.Context(), &roleChanges); err != nil {

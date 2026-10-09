@@ -836,26 +836,6 @@ func (in ProviderSyncSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in PublishedArtifact) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PublishedArtifact"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in PublishedArtifactList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PublishedArtifactList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in PublishedArtifactSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PublishedArtifactSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in PublishedArtifactStatus) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PublishedArtifactStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Ref) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Ref"
 }

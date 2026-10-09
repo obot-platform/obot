@@ -144,13 +144,6 @@ var (
 			"GET /api/skills/{skill_id}/download",
 			"GET /api/skills/{skill_id}/preview",
 		},
-		types.GroupPublishedArtifacts: {
-			"GET    /api/published-artifacts/{artifact_id}",
-			"GET    /api/published-artifacts/{artifact_id}/download",
-			"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
-			"PUT    /api/published-artifacts/{artifact_id}",
-			"DELETE /api/published-artifacts/{artifact_id}",
-		},
 		types.GroupDeviceScans: {
 			"GET    /api/devices/scans/{scan_id}",
 		},
@@ -172,8 +165,6 @@ type Resources struct {
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
 	MCPID                 string
 	WorkspaceID           string
-	PublishedArtifactID   string
-	ArtifactVersion       string
 	SkillID               string
 	DeviceScanID          string
 	OAuthAuthRequestID    string
@@ -189,7 +180,6 @@ type ResourcesAuthorized struct {
 	VMCP                  *v1.VMCP
 	VMCPInstance          *v1.VMCPInstance
 	PowerUserWorkspace    *v1.PowerUserWorkspace
-	PublishedArtifact     *v1.PublishedArtifact
 	Skill                 *v1.Skill
 	HostedAgent           *v1.HostedAgent
 	HostedAgentInstance   *v1.HostedAgentInstance
@@ -205,8 +195,6 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		VMCPInstanceID:          vars("vmcp_instance_id"),
 		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, catalog entry ID, or vMCP ID
 		WorkspaceID:             vars("workspace_id"),
-		PublishedArtifactID:     vars("artifact_id"),
-		ArtifactVersion:         vars("artifact_version"),
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),
 		OAuthAuthRequestID:      vars("oauth_request_id"),
@@ -247,10 +235,6 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkVMCPComponent(req, &resources, user); !ok || err != nil {
-		return false, err
-	}
-
-	if ok, err := a.checkPublishedArtifact(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

@@ -39,7 +39,7 @@ type SCIMConnectionList List[SCIMConnection]
 // GroupReference is an object that references a group, which makes the group carry authorization.
 type GroupReference struct {
 	// Kind is accessControlRule, modelAccessPolicy, skillAccessRule, messagePolicy, hostedAgentAccessRule,
-	// publishedArtifact, groupRoleAssignment, or vmcpProfile.
+	// groupRoleAssignment, or vmcpProfile.
 	Kind string `json:"kind"`
 	// ID is the object's ID, or the group ID for a group role assignment.
 	ID          string `json:"id"`

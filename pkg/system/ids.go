@@ -44,7 +44,6 @@ const (
 	SystemMCPServerPrefix         = "sms1"
 	ModelAccessPolicyPrefix       = "map1"
 	MessagePolicyPrefix           = "mp1"
-	PublishedArtifactPrefix       = "pa1"
 	APIKeyPrefix                  = "ok1"
 
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"

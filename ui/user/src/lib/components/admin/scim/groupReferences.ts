@@ -7,7 +7,6 @@ const referenceLabels: Record<GroupReference['kind'], () => string> = {
 	skillAccessRule: m.identity_access_scim_ref_skill_access_rule,
 	messagePolicy: m.identity_access_scim_ref_message_policy,
 	hostedAgentAccessRule: m.identity_access_scim_ref_hosted_agent_access_rule,
-	publishedArtifact: m.identity_access_scim_ref_published_artifact,
 	groupRoleAssignment: m.identity_access_scim_ref_group_role,
 	vmcpProfile: m.identity_access_scim_ref_vmcp
 };

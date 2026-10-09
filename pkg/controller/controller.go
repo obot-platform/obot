@@ -97,10 +97,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
 	}
 
-	if err := migratePublishedArtifactVisibility(ctx, c.services.StorageClient); err != nil {
-		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
-	}
-
 	if err := migrateAuditLogExportSourceTypes(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to migrate audit-log export source types: %w", err)
 	}

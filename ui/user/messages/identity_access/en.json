@@ -380,7 +380,6 @@
 	"identity_access_scim_ref_message_policy": "message policy",
 	"identity_access_scim_ref_model_access_policy": "model access policy",
 	"identity_access_scim_ref_named": "{label} “{name}”",
-	"identity_access_scim_ref_published_artifact": "published artifact",
 	"identity_access_scim_ref_role_detail": "{label} ({detail})",
 	"identity_access_scim_ref_skill_access_rule": "skill access rule",
 	"identity_access_scim_ref_vmcp": "virtual MCP server",

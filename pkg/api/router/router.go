@@ -134,7 +134,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper, services.ProviderDispatcher)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth, services.MCPSecretBindingAllowedLabel)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
-	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient))
 	tunnelHandler := handlers.NewTunnelHandler(services.TunnelManager)
@@ -434,15 +433,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/storage-credentials", auditLogExports.GetStorageCredentials)
 	mux.HandleFunc("DELETE /api/storage-credentials", auditLogExports.DeleteStorageCredentials)
 	mux.HandleFunc("POST /api/storage-credentials/test", auditLogExports.TestStorageCredentials)
-
-	// Published Artifacts
-	mux.HandleFunc("POST /api/published-artifacts", publishedArtifacts.Create)
-	mux.HandleFunc("GET /api/published-artifacts", publishedArtifacts.List)
-	mux.HandleFunc("GET /api/published-artifacts/{id}", publishedArtifacts.Get)
-	mux.HandleFunc("GET /api/published-artifacts/{id}/download", publishedArtifacts.Download)
-	mux.HandleFunc("GET /api/published-artifacts/{id}/{version}/skill", publishedArtifacts.GetSkillMD)
-	mux.HandleFunc("PUT /api/published-artifacts/{id}", publishedArtifacts.Update)
-	mux.HandleFunc("DELETE /api/published-artifacts/{id}", publishedArtifacts.Delete)
 
 	// Skills
 	mux.HandleFunc("GET /api/skills", skills.List)

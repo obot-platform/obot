@@ -42,11 +42,10 @@ type APIKey struct {
 }
 
 type APIKeyScopes struct {
-	CanAccessAPI                bool `json:"canAccessAPI" gorm:"default:false;not null"`
-	CanAccessSkills             bool `json:"canAccessSkills" gorm:"default:false;not null"`
-	CanAccessLLMProxy           bool `json:"canAccessLLMProxy" gorm:"default:false;not null"`
-	CanAccessDeviceScans        bool `json:"canAccessDeviceScans" gorm:"default:false;not null"`
-	CanAccessPublishedArtifacts bool `json:"canAccessPublishedArtifacts" gorm:"default:false;not null"`
+	CanAccessAPI         bool `json:"canAccessAPI" gorm:"default:false;not null"`
+	CanAccessSkills      bool `json:"canAccessSkills" gorm:"default:false;not null"`
+	CanAccessLLMProxy    bool `json:"canAccessLLMProxy" gorm:"default:false;not null"`
+	CanAccessDeviceScans bool `json:"canAccessDeviceScans" gorm:"default:false;not null"`
 
 	// MCPServerIDs contains resource names of MCPServers or VMCPs this key can access.
 	// Supports all server types: single-user, multi-user, remote, and composite.
@@ -96,9 +95,6 @@ func (as APIKeyScopes) Groups(u *User) []string {
 	if as.CanAccessLLMProxy {
 		groups = append(groups, types.GroupLLM)
 	}
-	if as.CanAccessPublishedArtifacts {
-		groups = append(groups, types.GroupPublishedArtifacts)
-	}
 	if as.CanAccessDeviceScans {
 		groups = append(groups, types.GroupDeviceScans)
 	}
@@ -109,5 +105,5 @@ func (as APIKeyScopes) Groups(u *User) []string {
 }
 
 func (as APIKeyScopes) HasSomeScope() bool {
-	return as.CanAccessAPI || as.CanAccessSkills || as.CanAccessLLMProxy || as.CanAccessPublishedArtifacts || as.CanAccessDeviceScans || len(as.MCPServerIDs) != 0
+	return as.CanAccessAPI || as.CanAccessSkills || as.CanAccessLLMProxy || as.CanAccessDeviceScans || len(as.MCPServerIDs) != 0
 }

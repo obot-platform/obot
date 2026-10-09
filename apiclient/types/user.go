@@ -28,24 +28,23 @@ const (
 
 	RoleUnknown Role = 0
 
-	GroupOwner              = "owner"
-	GroupAdmin              = "admin"
-	GroupAuditor            = "auditor"
-	GroupPowerUserPlus      = "power-user-plus"
-	GroupPowerUser          = "power-user"
-	GroupBasic              = "basic"
-	GroupAuthenticated      = "authenticated"
-	GroupMCP                = "mcp"
-	GroupCompositeMCP       = "composite-mcp"
-	GroupSkills             = "skills"
-	GroupPublishedArtifacts = "published-artifacts"
-	GroupAPI                = "api"
-	GroupLLM                = "llm"
-	GroupDeviceScans        = "device-scans"
-	GroupDeviceEnroll       = "device-enroll"
-	GroupTunnel             = "obot-tunnel"
-	GroupTunnelBridge       = "obot-tunnel-bridge"
-	GroupTunnelPeer         = "obot-tunnel-peer"
+	GroupOwner         = "owner"
+	GroupAdmin         = "admin"
+	GroupAuditor       = "auditor"
+	GroupPowerUserPlus = "power-user-plus"
+	GroupPowerUser     = "power-user"
+	GroupBasic         = "basic"
+	GroupAuthenticated = "authenticated"
+	GroupMCP           = "mcp"
+	GroupCompositeMCP  = "composite-mcp"
+	GroupSkills        = "skills"
+	GroupAPI           = "api"
+	GroupLLM           = "llm"
+	GroupDeviceScans   = "device-scans"
+	GroupDeviceEnroll  = "device-enroll"
+	GroupTunnel        = "obot-tunnel"
+	GroupTunnelBridge  = "obot-tunnel-bridge"
+	GroupTunnelPeer    = "obot-tunnel-peer"
 	// GroupSCIM is the group of a SCIM connection's principal, which may only use that connection's SCIM endpoint.
 	GroupSCIM = "obot-scim"
 )
@@ -174,7 +173,7 @@ func (u Role) groups(onlyRoleGroups bool) []string {
 		groups = append(groups, GroupAuthenticated)
 
 		if !onlyRoleGroups {
-			groups = append(groups, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans)
+			groups = append(groups, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans)
 		}
 	}
 

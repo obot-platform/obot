@@ -267,11 +267,10 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 
 func create(ctx context.Context, baseURL, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (createResponse, error) {
 	apiScopes := types.APIKeyScopes{
-		CanAccessAPI:                slices.Contains(scopes, types2.APIKeyScopeAPI),
-		CanAccessSkills:             slices.Contains(scopes, types2.APIKeyScopeSkills),
-		CanAccessDeviceScans:        slices.Contains(scopes, types2.APIKeyScopeDeviceScans),
-		CanAccessLLMProxy:           slices.Contains(scopes, types2.APIKeyScopeLLM),
-		CanAccessPublishedArtifacts: slices.Contains(scopes, types2.APIKeyScopePublishedArtifacts),
+		CanAccessAPI:         slices.Contains(scopes, types2.APIKeyScopeAPI),
+		CanAccessSkills:      slices.Contains(scopes, types2.APIKeyScopeSkills),
+		CanAccessDeviceScans: slices.Contains(scopes, types2.APIKeyScopeDeviceScans),
+		CanAccessLLMProxy:    slices.Contains(scopes, types2.APIKeyScopeLLM),
 	}
 	if slices.Contains(scopes, types2.APIKeyScopeAllMCP) {
 		apiScopes.MCPServerIDs = []string{"*"}

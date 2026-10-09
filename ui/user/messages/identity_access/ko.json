@@ -380,7 +380,6 @@
 	"identity_access_scim_ref_message_policy": "메시지 정책",
 	"identity_access_scim_ref_model_access_policy": "모델 액세스 정책",
 	"identity_access_scim_ref_named": "{label} “{name}”",
-	"identity_access_scim_ref_published_artifact": "게시된 아티팩트",
 	"identity_access_scim_ref_role_detail": "{label} ({detail})",
 	"identity_access_scim_ref_skill_access_rule": "스킬 액세스 규칙",
 	"identity_access_scim_ref_vmcp": "가상 MCP 서버",

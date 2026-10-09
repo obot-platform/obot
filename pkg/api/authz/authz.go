@@ -388,13 +388,6 @@ var (
 			"GET /api/skills",
 		},
 
-		types.GroupPublishedArtifacts: {
-			// Published artifacts — any authenticated user can publish and search.
-			// Artifact-specific access is enforced by resource authorization.
-			"POST   /api/published-artifacts",
-			"GET    /api/published-artifacts",
-		},
-
 		types.GroupLLM: {
 			"/api/llm-proxy/",
 		},

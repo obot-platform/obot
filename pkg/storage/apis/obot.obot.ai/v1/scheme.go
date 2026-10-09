@@ -129,8 +129,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ModelAccessPolicyList{},
 		&MessagePolicy{},
 		&MessagePolicyList{},
-		&PublishedArtifact{},
-		&PublishedArtifactList{},
 		&AuthProvider{},
 		&AuthProviderList{},
 		&ModelProvider{},

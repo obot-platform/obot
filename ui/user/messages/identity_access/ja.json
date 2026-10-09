@@ -380,7 +380,6 @@
 	"identity_access_scim_ref_message_policy": "メッセージポリシー",
 	"identity_access_scim_ref_model_access_policy": "モデルアクセスポリシー",
 	"identity_access_scim_ref_named": "{label}「{name}」",
-	"identity_access_scim_ref_published_artifact": "公開済みアーティファクト",
 	"identity_access_scim_ref_role_detail": "{label}（{detail}）",
 	"identity_access_scim_ref_skill_access_rule": "スキルアクセスルール",
 	"identity_access_scim_ref_vmcp": "仮想 MCP サーバー",

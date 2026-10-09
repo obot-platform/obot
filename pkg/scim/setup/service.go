@@ -55,7 +55,6 @@ var (
 		groupref.KindSkillAccessRule:       "skill access rule",
 		groupref.KindMessagePolicy:         "message policy",
 		groupref.KindHostedAgentAccessRule: "hosted agent access rule",
-		groupref.KindPublishedArtifact:     "published artifact",
 		groupref.KindGroupRoleAssignment:   "group role assignment",
 		groupref.KindVMCPProfile:           "virtual MCP server",
 	}

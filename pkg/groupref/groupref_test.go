@@ -97,29 +97,6 @@ func referencingObjects(target string) []kclient.Object {
 				},
 			},
 		},
-		&v1.PublishedArtifact{
-			Name:      "pa",
-			Namespace: namespace,
-			Spec: v1.PublishedArtifactSpec{
-				PublishedArtifactManifest: types.PublishedArtifactManifest{
-					Name: "Workflow",
-				},
-			},
-			Status: v1.PublishedArtifactStatus{
-				Versions: []types.PublishedArtifactVersionEntry{
-					{
-						Version:  1,
-						Subjects: subjects,
-					},
-					{
-						Version: 2,
-						Subjects: []types.Subject{
-							groupSubject(target),
-						},
-					},
-				},
-			},
-		},
 		&v1.VMCP{
 			Name:      "vmcp",
 			Namespace: namespace,
@@ -208,18 +185,6 @@ func TestFindCoversEveryReferenceKind(t *testing.T) {
 				DisplayName: "Models",
 			},
 			{
-				Kind:        KindPublishedArtifact,
-				Name:        "pa",
-				DisplayName: "Workflow",
-				Detail:      "version 1",
-			},
-			{
-				Kind:        KindPublishedArtifact,
-				Name:        "pa",
-				DisplayName: "Workflow",
-				Detail:      "version 2",
-			},
-			{
 				Kind:        KindSkillAccessRule,
 				Name:        "sar",
 				DisplayName: "Skills",
@@ -242,7 +207,6 @@ func TestRemoveGroupSubjectsChangesOnlyAccessPolicies(t *testing.T) {
 
 	storage := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithStatusSubresource(&v1.PublishedArtifact{}).
 		WithObjects(referencingObjects(target)...).
 		Build()
 
@@ -256,7 +220,6 @@ func TestRemoveGroupSubjectsChangesOnlyAccessPolicies(t *testing.T) {
 		KindSkillAccessRule:       1,
 		KindMessagePolicy:         1,
 		KindHostedAgentAccessRule: 1,
-		KindPublishedArtifact:     1,
 	}
 	if !reflect.DeepEqual(counts, wantCounts) {
 		t.Fatalf("counts = %v, want %v", counts, wantCounts)

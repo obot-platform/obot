@@ -464,7 +464,7 @@ func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
 	store.tokens[srv.URL] = "api-token"
 
 	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
-		Scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM, types.APIKeyScopePublishedArtifacts},
+		Scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1850,7 +1850,6 @@ export interface GroupReference {
 		| 'skillAccessRule'
 		| 'messagePolicy'
 		| 'hostedAgentAccessRule'
-		| 'publishedArtifact'
 		| 'groupRoleAssignment'
 		| 'vmcpProfile';
 	id: string;

@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adrg/xdg"
 	"github.com/glebarez/sqlite"
 	kinmdb "github.com/obot-platform/kinm/pkg/db"
 	"github.com/obot-platform/nah"
@@ -63,7 +62,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
-	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
@@ -158,17 +156,6 @@ type Config struct {
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
 	// Published artifact storage
-	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
-	ArtifactStorageBucket         string `usage:"Bucket for published artifacts" name:"artifact-storage-bucket" env:"OBOT_ARTIFACT_STORAGE_BUCKET"`
-	ArtifactS3Region              string `usage:"S3 region for artifact storage" name:"artifact-s3-region" env:"OBOT_ARTIFACT_S3_REGION"`
-	ArtifactS3AccessKeyID         string `usage:"S3 access key ID for artifact storage" name:"artifact-s3-access-key-id" env:"OBOT_ARTIFACT_S3_ACCESS_KEY_ID"`
-	ArtifactS3SecretAccessKey     string `usage:"S3 secret access key for artifact storage" name:"artifact-s3-secret-access-key" env:"OBOT_ARTIFACT_S3_SECRET_ACCESS_KEY"`
-	ArtifactS3Endpoint            string `usage:"Custom S3 endpoint for artifact storage" name:"artifact-s3-endpoint" env:"OBOT_ARTIFACT_S3_ENDPOINT"`
-	ArtifactGCSServiceAccountJSON string `usage:"GCS service account JSON for artifact storage (omit to use Application Default Credentials)" name:"artifact-gcs-service-account-json" env:"OBOT_ARTIFACT_GCS_SERVICE_ACCOUNT_JSON"`
-	ArtifactAzureStorageAccount   string `usage:"Azure storage account name for artifact storage" name:"artifact-azure-storage-account" env:"OBOT_ARTIFACT_AZURE_STORAGE_ACCOUNT"`
-	ArtifactAzureTenantID         string `usage:"Azure tenant ID for artifact storage" name:"artifact-azure-tenant-id" env:"OBOT_ARTIFACT_AZURE_TENANT_ID"`
-	ArtifactAzureClientID         string `usage:"Azure client ID for artifact storage" name:"artifact-azure-client-id" env:"OBOT_ARTIFACT_AZURE_CLIENT_ID"`
-	ArtifactAzureClientSecret     string `usage:"Azure client secret for artifact storage" name:"artifact-azure-client-secret" env:"OBOT_ARTIFACT_AZURE_CLIENT_SECRET"`
 
 	GatewayConfig
 	EncryptionConfig
@@ -296,8 +283,6 @@ type Services struct {
 	MultiUserIdleServerShutdownInterval  time.Duration
 
 	// Published artifact blob storage
-	ArtifactBlobStore  blob.BlobStore
-	ArtifactBlobBucket string
 
 	// License provider
 	LicenseProvider *license.Provider
@@ -1454,34 +1439,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderChartVersion: config.MCPNetworkPolicyProviderChartVersion,
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
-		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 		LicenseProvider:                      licenseProvider,
 		VersionChecker:                       versionChecker,
-	}
-
-	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {
-		return nil, fmt.Errorf("both OBOT_ARTIFACT_STORAGE_PROVIDER and OBOT_ARTIFACT_STORAGE_BUCKET must be set together")
-	}
-
-	if config.ArtifactStorageProvider != "" && config.ArtifactStorageBucket != "" {
-		artifactStorageConfig := buildArtifactStorageConfig(config)
-		artifactBlobStore, err := blob.New(apiclienttypes.StorageProviderType(config.ArtifactStorageProvider), artifactStorageConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create artifact blob store: %w", err)
-		}
-		if err := artifactBlobStore.Test(ctx); err != nil {
-			return nil, fmt.Errorf("failed to validate artifact blob store: %w", err)
-		}
-		svcs.ArtifactBlobStore = artifactBlobStore
-	} else {
-		// Fallback: local directory storage when no cloud provider is configured.
-		defaultDir := filepath.Join(xdg.DataHome, "obot", "published-artifacts")
-		artifactBlobStore, err := blob.NewDirectoryStore(defaultDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create local artifact blob store: %w", err)
-		}
-		svcs.ArtifactBlobStore = artifactBlobStore
-		svcs.ArtifactBlobBucket = "default"
 	}
 
 	return svcs, nil
@@ -1527,45 +1486,6 @@ func migrateGPTScriptCredentials(ctx context.Context, gatewayClient *client.Clie
 	defer sqlDB.Close()
 
 	return gatewayClient.MigrateGPTScriptCredentials(ctx, oldDB)
-}
-
-func buildArtifactStorageConfig(config Config) apiclienttypes.StorageConfig {
-	switch apiclienttypes.StorageProviderType(config.ArtifactStorageProvider) {
-	case apiclienttypes.StorageProviderS3:
-		return apiclienttypes.StorageConfig{
-			S3Config: &apiclienttypes.S3Config{
-				Region:          config.ArtifactS3Region,
-				AccessKeyID:     config.ArtifactS3AccessKeyID,
-				SecretAccessKey: config.ArtifactS3SecretAccessKey,
-			},
-		}
-	case apiclienttypes.StorageProviderCustomS3:
-		return apiclienttypes.StorageConfig{
-			CustomS3Config: &apiclienttypes.CustomS3Config{
-				Endpoint:        config.ArtifactS3Endpoint,
-				Region:          config.ArtifactS3Region,
-				AccessKeyID:     config.ArtifactS3AccessKeyID,
-				SecretAccessKey: config.ArtifactS3SecretAccessKey,
-			},
-		}
-	case apiclienttypes.StorageProviderGCS:
-		return apiclienttypes.StorageConfig{
-			GCSConfig: &apiclienttypes.GCSConfig{
-				ServiceAccountJSON: config.ArtifactGCSServiceAccountJSON,
-			},
-		}
-	case apiclienttypes.StorageProviderAzureBlob:
-		return apiclienttypes.StorageConfig{
-			AzureConfig: &apiclienttypes.AzureConfig{
-				StorageAccount: config.ArtifactAzureStorageAccount,
-				TenantID:       config.ArtifactAzureTenantID,
-				ClientID:       config.ArtifactAzureClientID,
-				ClientSecret:   config.ArtifactAzureClientSecret,
-			},
-		}
-	default:
-		return apiclienttypes.StorageConfig{}
-	}
 }
 
 func configureDevMode(config Config) (int, Config) {
