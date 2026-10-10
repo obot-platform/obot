@@ -291,7 +291,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		(&httputil.ReverseProxy{
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
-				rewriteProxyRequest(r, u, serverConfig.Runtime == types.RuntimeRemote)
+				rewriteProxyRequest(r, u)
 			},
 			ModifyResponse: func(resp *http.Response) error {
 				rewriteMCPAuthResponse(req, resp)
@@ -336,7 +336,7 @@ func isLoopbackHost(hostport string) bool {
 	if h, _, err := net.SplitHostPort(hostport); err == nil {
 		host = h
 	}
-	host = strings.Trim(host, "[]")
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
 	if strings.EqualFold(host, "localhost") {
 		return true
 	}
@@ -344,7 +344,7 @@ func isLoopbackHost(hostport string) bool {
 	return err == nil && ip.IsLoopback()
 }
 
-func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL, remote bool) {
+func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
 	// explicitly configured upstream credentials after this rewrite.
@@ -354,26 +354,21 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL, remote 
 
 	// SetXForwarded preserves the X-Forwarded-For handling that ReverseProxy
 	// applied automatically under the deprecated Director. It also writes
-	// X-Forwarded-Host and X-Forwarded-Proto, so the values this handler cares
-	// about are re-applied afterwards: the scheme is derived from the inbound
-	// host rather than from whether this hop happens to be TLS.
+	// X-Forwarded-Host and X-Forwarded-Proto from this hop, which are rewritten
+	// below: dropped for a loopback host, otherwise the host the client used
+	// over https.
 	r.SetXForwarded()
 
-	loopback := isLoopbackHost(r.In.Host)
-	if remote && loopback {
-		// Obot dialed itself (a vMCP component's local connect URL). A loopback
-		// host means nothing to a third-party server, and a proxy in front of it
-		// that trusts these headers (ingress-nginx with force-ssl-redirect)
-		// answers with a redirect to https://localhost/.
+	if isLoopbackHost(r.In.Host) {
+		// Obot dialed itself (a vMCP component's local connect URL) or the client
+		// connected locally. A loopback host means nothing to the upstream, and a
+		// proxy in front of it that trusts these headers (ingress-nginx with
+		// force-ssl-redirect) answers with a redirect to https://localhost/.
 		r.Out.Header.Del("X-Forwarded-Host")
 		r.Out.Header.Del("X-Forwarded-Proto")
 	} else {
 		r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-		scheme := "https"
-		if loopback {
-			scheme = "http"
-		}
-		r.Out.Header.Set("X-Forwarded-Proto", scheme)
+		r.Out.Header.Set("X-Forwarded-Proto", "https")
 	}
 
 	r.Out.Host = upstreamURL.Host

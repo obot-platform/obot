@@ -197,7 +197,7 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 					TokenSource: tt.tokenSource,
 				}),
 				Rewrite: func(req *httputil.ProxyRequest) {
-					rewriteProxyRequest(req, upstreamURL, false)
+					rewriteProxyRequest(req, upstreamURL)
 				},
 			})
 			defer proxy.Close()
@@ -243,55 +243,60 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 func TestProxyForwardedHeaders(t *testing.T) {
 	tests := []struct {
 		name        string
-		remote      bool
 		inboundHost string
 		wantHost    string
 		wantProto   string
 	}{
 		{
-			name:        "remote via loopback",
-			remote:      true,
+			name:        "loopback",
 			inboundHost: "localhost:8080",
 		},
 		{
-			name:        "remote via uppercase loopback",
-			remote:      true,
+			name:        "uppercase loopback",
 			inboundHost: "LOCALHOST:8080",
 		},
 		{
-			name:        "remote via loopback IPv4",
-			remote:      true,
+			name:        "loopback IPv4",
 			inboundHost: "127.0.0.2:8080",
 		},
 		{
-			name:        "remote via loopback IPv6",
-			remote:      true,
+			name:        "loopback IPv6",
 			inboundHost: "[::1]:8080",
 		},
 		{
-			name:        "remote via public host",
-			remote:      true,
+			name:        "loopback IPv4-mapped IPv6",
+			inboundHost: "[::ffff:127.0.0.1]:8080",
+		},
+		{
+			name:        "loopback without port",
+			inboundHost: "localhost",
+		},
+		{
+			name:        "loopback IPv4 without port",
+			inboundHost: "127.0.0.2",
+		},
+		{
+			name:        "loopback IPv6 without port",
+			inboundHost: "[::1]",
+		},
+		{
+			name:        "loopback IPv4-mapped IPv6 without port",
+			inboundHost: "[::ffff:127.0.0.1]",
+		},
+		{
+			name:        "loopback with trailing dot",
+			inboundHost: "localhost.:8080",
+		},
+		{
+			name:        "public host",
 			inboundHost: "obot.example.com",
 			wantHost:    "obot.example.com",
 			wantProto:   "https",
 		},
 		{
-			name:        "remote via public host starting with localhost",
-			remote:      true,
+			name:        "public host starting with localhost",
 			inboundHost: "localhost.example.com",
 			wantHost:    "localhost.example.com",
-			wantProto:   "https",
-		},
-		{
-			name:        "hosted via loopback",
-			inboundHost: "localhost:8080",
-			wantHost:    "localhost:8080",
-			wantProto:   "http",
-		},
-		{
-			name:        "hosted via public host",
-			inboundHost: "obot.example.com",
-			wantHost:    "obot.example.com",
 			wantProto:   "https",
 		},
 	}
@@ -312,7 +317,7 @@ func TestProxyForwardedHeaders(t *testing.T) {
 
 			proxy := httptest.NewServer(&httputil.ReverseProxy{
 				Rewrite: func(req *httputil.ProxyRequest) {
-					rewriteProxyRequest(req, upstreamURL, tt.remote)
+					rewriteProxyRequest(req, upstreamURL)
 				},
 			})
 			defer proxy.Close()
@@ -335,6 +340,9 @@ func TestProxyForwardedHeaders(t *testing.T) {
 			}
 			if got.Get("X-Forwarded-Proto") != tt.wantProto {
 				t.Fatalf("X-Forwarded-Proto = %q, want %q", got.Get("X-Forwarded-Proto"), tt.wantProto)
+			}
+			if got.Get("X-Forwarded-For") == "" {
+				t.Fatal("X-Forwarded-For is missing")
 			}
 		})
 	}
