@@ -8,8 +8,10 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -302,6 +304,21 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
+// isLoopbackHost reports whether a Host header value, with or without a port,
+// names localhost or a loopback address.
+func isLoopbackHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.IsLoopback()
+}
+
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
@@ -312,17 +329,22 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 
 	// SetXForwarded preserves the X-Forwarded-For handling that ReverseProxy
 	// applied automatically under the deprecated Director. It also writes
-	// X-Forwarded-Host and X-Forwarded-Proto, so the values this handler cares
-	// about are re-applied afterwards: the scheme is derived from the inbound
-	// host rather than from whether this hop happens to be TLS.
+	// X-Forwarded-Host and X-Forwarded-Proto from this hop, which are rewritten
+	// below: dropped for a loopback host, otherwise the host the client used
+	// over https.
 	r.SetXForwarded()
 
-	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-	scheme := "https"
-	if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
-		scheme = "http"
+	if isLoopbackHost(r.In.Host) {
+		// Obot dialed itself (a vMCP component's local connect URL) or the client
+		// connected locally. A loopback host means nothing to the upstream, and a
+		// proxy in front of it that trusts these headers (ingress-nginx with
+		// force-ssl-redirect) answers with a redirect to https://localhost/.
+		r.Out.Header.Del("X-Forwarded-Host")
+		r.Out.Header.Del("X-Forwarded-Proto")
+	} else {
+		r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+		r.Out.Header.Set("X-Forwarded-Proto", "https")
 	}
-	r.Out.Header.Set("X-Forwarded-Proto", scheme)
 
 	r.Out.Host = upstreamURL.Host
 	r.Out.URL.Scheme = upstreamURL.Scheme

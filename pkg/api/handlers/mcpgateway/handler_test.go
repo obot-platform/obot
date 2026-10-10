@@ -240,6 +240,114 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 	}
 }
 
+func TestProxyForwardedHeaders(t *testing.T) {
+	tests := []struct {
+		name        string
+		inboundHost string
+		wantHost    string
+		wantProto   string
+	}{
+		{
+			name:        "loopback",
+			inboundHost: "localhost:8080",
+		},
+		{
+			name:        "uppercase loopback",
+			inboundHost: "LOCALHOST:8080",
+		},
+		{
+			name:        "loopback IPv4",
+			inboundHost: "127.0.0.2:8080",
+		},
+		{
+			name:        "loopback IPv6",
+			inboundHost: "[::1]:8080",
+		},
+		{
+			name:        "loopback IPv4-mapped IPv6",
+			inboundHost: "[::ffff:127.0.0.1]:8080",
+		},
+		{
+			name:        "loopback without port",
+			inboundHost: "localhost",
+		},
+		{
+			name:        "loopback IPv4 without port",
+			inboundHost: "127.0.0.2",
+		},
+		{
+			name:        "loopback IPv6 without port",
+			inboundHost: "[::1]",
+		},
+		{
+			name:        "loopback IPv4-mapped IPv6 without port",
+			inboundHost: "[::ffff:127.0.0.1]",
+		},
+		{
+			name:        "loopback with trailing dot",
+			inboundHost: "localhost.:8080",
+		},
+		{
+			name:        "public host",
+			inboundHost: "obot.example.com",
+			wantHost:    "obot.example.com",
+			wantProto:   "https",
+		},
+		{
+			name:        "public host starting with localhost",
+			inboundHost: "localhost.example.com",
+			wantHost:    "localhost.example.com",
+			wantProto:   "https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			receivedHeaders := make(chan http.Header, 1)
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				receivedHeaders <- req.Header.Clone()
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer upstream.Close()
+
+			upstreamURL, err := url.Parse(upstream.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			proxy := httptest.NewServer(&httputil.ReverseProxy{
+				Rewrite: func(req *httputil.ProxyRequest) {
+					rewriteProxyRequest(req, upstreamURL)
+				},
+			})
+			defer proxy.Close()
+
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Host = tt.inboundHost
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+
+			got := <-receivedHeaders
+			if got.Get("X-Forwarded-Host") != tt.wantHost {
+				t.Fatalf("X-Forwarded-Host = %q, want %q", got.Get("X-Forwarded-Host"), tt.wantHost)
+			}
+			if got.Get("X-Forwarded-Proto") != tt.wantProto {
+				t.Fatalf("X-Forwarded-Proto = %q, want %q", got.Get("X-Forwarded-Proto"), tt.wantProto)
+			}
+			if got.Get("X-Forwarded-For") == "" {
+				t.Fatal("X-Forwarded-For is missing")
+			}
+		})
+	}
+}
+
 func TestMCPJSONRPCErrorPropagatesThroughTransport(t *testing.T) {
 	deploymentErr := errors.New("MCP server is not healthy: container repeatedly crashed (exit code 1, 4 restarts)")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
