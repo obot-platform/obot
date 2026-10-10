@@ -20,8 +20,11 @@ Skip it when the change touches no runtime code: docs, comments, tests, or agent
 ## How
 
 1. **Pick the reviewer.** Start a subagent, or a new session, with no history from the work. Any harness that can
-   start a fresh agent works. In Claude Code, the built-in `/security-review` runs in a fresh context too; if you use
-   it, also give it the threat model below.
+   start a fresh agent works. Claude Code's built-in `/security-review` is not a substitute on its own: it runs from
+   the current session, so the context that wrote the change decides which findings count, and it uses generic rules
+   that don't match `THREAT_MODEL.md` (it skips denial of service, which Obot treats as in scope, and doesn't know the
+   Obot-specific checks below). Use this brief with a fresh subagent. If you also run `/security-review`, run it from
+   a new session and have it read `THREAT_MODEL.md` first.
 2. **Give it the change and the brief below, and nothing else.** No summary of what the change does or why it is safe.
    Name the base to diff against (usually `origin/main`).
 3. **Triage what comes back.** Fix real findings, then have the reviewer check the fix. For a finding you think is
