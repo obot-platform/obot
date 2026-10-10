@@ -43,7 +43,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 			return fmt.Errorf("failed to get auth provider URL: %w", err)
 		}
 		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
-			slog.Warn("failed to update profile icon for user", "username", user.Username, "error", err)
+			slog.Warn("failed to update profile for user", "username", user.Username, "error", err)
 		}
 	}
 

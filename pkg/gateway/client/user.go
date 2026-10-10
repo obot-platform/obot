@@ -416,10 +416,11 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return nil
 	}
 
-	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are never
-	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. Both are read with the
-	// identity, before the provider is asked, and checked again before its answer is written. A failed lookup fails
-	// the refresh.
+	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are not
+	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. The one exception is a user
+	// of a SCIM-managed provider whom SCIM has not provisioned yet and who has no display name: sign-in fills it in,
+	// because until SCIM provisions the user it is the only name Obot has for them. Both are read with the identity,
+	// before the provider is asked, and checked again before its answer is written. A failed lookup fails the refresh.
 	var rows []struct {
 		types.Identity
 		SCIMManaged bool
@@ -439,8 +440,11 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	if len(rows) == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	if rows[0].SCIMManaged || rows[0].SCIMBound {
+	if rows[0].SCIMBound {
 		return nil
+	}
+	if rows[0].SCIMManaged {
+		return c.fillUnprovisionedDisplayName(ctx, user, authProviderURL, accessToken)
 	}
 	identity := rows[0].Identity
 
@@ -570,6 +574,62 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	})
 }
 
+// fillUnprovisionedDisplayName gives a user of a SCIM-managed auth provider whom SCIM has not provisioned the display
+// name that the provider reports, when the user has none. It never overwrites a display name and writes nothing else,
+// so SCIM stays the only writer of every profile it has started managing.
+func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.User, authProviderURL, accessToken string) error {
+	if user.DisplayName != "" {
+		return nil
+	}
+
+	profile, err := c.fetchUserProfile(ctx, authProviderURL, accessToken)
+	if err != nil {
+		return err
+	}
+	displayName, _ := profile["name"].(string)
+	if displayName = strings.TrimSpace(displayName); displayName == "" {
+		return nil
+	}
+
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// SCIM may have provisioned the user, or another sign-in may have filled in the display name, while the
+		// profile was being fetched. The SCIM write lock keeps SCIM from provisioning the user between these checks
+		// and the write; the user lock alone does not, because SCIM binds a user without locking it when the profile
+		// carries neither an email nor a display name. The locks are taken in the order SCIM takes them.
+		if err := lockSCIMWrites(tx); err != nil {
+			return err
+		}
+		current := new(types.User)
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", user.ID).Take(current).Error; err != nil {
+			return err
+		}
+		binding, err := activeSCIMUserBindingForUserTx(tx, user.ID, false)
+		if err != nil {
+			return err
+		}
+		if binding != nil {
+			return nil
+		}
+		if err := c.decryptUser(ctx, current); err != nil {
+			return fmt.Errorf("failed to decrypt user: %w", err)
+		}
+		if current.DisplayName != "" {
+			return nil
+		}
+
+		current.DisplayName = displayName
+		if err := c.encryptUser(ctx, current); err != nil {
+			return fmt.Errorf("failed to encrypt user: %w", err)
+		}
+		if err := tx.Omit(types.UserLifecycleColumns...).Updates(current).Error; err != nil {
+			return err
+		}
+
+		user.DisplayName = displayName
+		return nil
+	})
+}
+
 // EncryptUsers will pull all users out of the database and ensure they are encrypted.
 func (c *Client) EncryptUsers(ctx context.Context, force bool) error {
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -610,12 +670,12 @@ func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessTo
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch profile icon URL: %w", err)
+		return nil, fmt.Errorf("failed to fetch user profile: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch user profile: %s", resp.Status)
 	}
 
 	var body map[string]any
