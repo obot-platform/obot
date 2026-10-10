@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -91,18 +90,13 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 	}
 
 	for _, server := range personalServers {
-		// Get slug for this server
-		slug, err := handlers.SlugForMCPServer(req.Context(), req.Storage, server, userID, "", "")
-		if err != nil {
-			// Skip if we can't get slug
-			continue
-		}
+		slug := server.Name
 
 		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// Skip servers that can't be converted
 			continue
@@ -137,18 +131,13 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 	}
 
 	for _, server := range catalogServers {
-		// Get slug for catalog server (no userID since it's catalog-scoped)
-		slug, err := handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", system.DefaultCatalog, "")
-		if err != nil {
-			// If we failed to get the slug, just skip the server
-			continue
-		}
+		slug := server.Name
 
 		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -178,18 +167,13 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 	}
 
 	for _, server := range workspaceServers {
-		// Get slug for workspace server
-		slug, err := handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", "", server.Spec.PowerUserWorkspaceID)
-		if err != nil {
-			// If slug generation fails, just skip the server
-			continue
-		}
+		slug := server.Name
 
 		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -259,12 +243,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 			continue
 		}
 
-		// Get slug for catalog server (no userID since it's catalog-scoped)
-		slug, err := handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", system.DefaultCatalog, "")
-		if err != nil {
-			// If slug generation fails, just skip the server
-			continue
-		}
+		slug := server.Name
 
 		// Get credentials
 		credEnv := h.getCredentialsForServer(req, server, server.Spec.UserID)
@@ -273,7 +252,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "", h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -744,10 +723,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 	// Worst-case scenario is that a server that is configured will show up without a connect URL.
 	if server.Spec.IsOwnedBy(req.User.GetUID()) && server.Spec.IsSingleUser() {
 		// Personal server - user owns it
-		slug, err = handlers.SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
-		if err != nil {
-			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
-		}
+		slug = server.Name
 		credEnv = h.getCredentialsForServer(req, server, req.User.GetUID())
 	} else if server.Spec.MCPCatalogID != "" {
 		// Catalog server - check ACR
@@ -759,10 +735,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		if err != nil || !hasAccess {
 			return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 		}
-		slug, err = handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", server.Spec.MCPCatalogID, "")
-		if err != nil {
-			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
-		}
+		slug = server.Name
 		credEnv = h.getCredentialsForServer(req, server, server.Spec.UserID)
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		// Workspace server - check ACR
@@ -775,10 +748,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		if err != nil || !hasAccess {
 			return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 		}
-		slug, err = handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", "", server.Spec.PowerUserWorkspaceID)
-		if err != nil {
-			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
-		}
+		slug = server.Name
 		credEnv = h.getCredentialsForServer(req, server, server.Spec.UserID)
 	} else {
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
@@ -787,7 +757,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 		return types.RegistryServerResponse{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
-	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID(), h.mimeFetcher)
+	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, h.mimeFetcher)
 }
 
 // findMCPServerCatalogEntry looks up an MCPServerCatalogEntry and checks ACR permissions

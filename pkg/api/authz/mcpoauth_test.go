@@ -14,14 +14,16 @@ import (
 )
 
 func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerInstance{
-		Name:      "msi1test",
-		Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerInstanceSpec{
-			UserID:        "mcpoauth-user-uid",
-			MCPServerName: "ms1test",
-		},
-	}, &v1.MCPServer{Name: "ms1test", Namespace: system.DefaultNamespace}).Build()
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+		&v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{
+			UserID:   "mcpoauth-user-uid",
+			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{ID: "component"}}},
+		}},
+		&v1.VMCPInstance{Name: "vmcpi1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{
+			UserID:   "mcpoauth-user-uid",
+			Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1test"},
+		}},
+	).Build()
 	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",
@@ -47,7 +49,7 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 		{
 			name:   "MCP connect route",
 			method: http.MethodGet,
-			path:   "/mcp-connect/msi1test",
+			path:   "/mcp-connect/vmcpi1test",
 		},
 	}
 
@@ -62,11 +64,12 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 }
 
 func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
-		Name:      "ms1test",
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.VMCP{
+		Name:      "vmcp1test",
 		Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerSpec{
-			UserID: "mcp-user-uid",
+		Spec: v1.VMCPSpec{
+			UserID:   "mcp-user-uid",
+			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{ID: "component"}}},
 		},
 	}).Build()
 	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
@@ -84,7 +87,7 @@ func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
 		{
 			name:   "MCP connect route",
 			method: http.MethodGet,
-			path:   "/mcp-connect/ms1test",
+			path:   "/mcp-connect/vmcp1test",
 		},
 		{
 			name:   "MCP OAuth route",

@@ -11,6 +11,23 @@ import { page } from 'vitest/browser';
 const fixtures = createMcpServerDetailsFixtures();
 
 describe('ConnectToServer setup completion', () => {
+	it('finishes an existing deployment without showing a direct connection URL', async () => {
+		await preparePageData();
+		const onConnect = vi.fn();
+		const entry = { ...fixtures.entrySingle, connectURL: 'https://obot.example/mcp-connect/entry' };
+		const server = {
+			...fixtures.serverSingle,
+			connectURL: 'https://obot.example/mcp-connect/server'
+		};
+		const result = await render(ConnectToServer, { onConnect });
+
+		result.component.open({ entry, server });
+
+		expect(onConnect).toHaveBeenCalledWith({ entry, server, instance: undefined });
+		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Connection URL')).not.toBeInTheDocument();
+	});
+
 	it('returns an OAuth deployment without opening connection instructions', async () => {
 		await preparePageData();
 		mcpServersAndEntries.current = {
@@ -68,6 +85,6 @@ describe('ConnectToServer setup completion', () => {
 			},
 			{ timeout: 1800 }
 		);
-		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeVisible();
+		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeInTheDocument();
 	}, 4000);
 });

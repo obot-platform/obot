@@ -13,6 +13,18 @@ vi.mock('$lib/url', async (importOriginal) => ({
 }));
 
 describe('MCP server OAuth setup link', () => {
+	it('does not advertise a catalog entry connection URL', async () => {
+		await preparePageData();
+		const entry = {
+			...createMCPCatalogEntry({ id: 'legacy-entry', name: 'Legacy entry', runtime: 'npx' }),
+			connectURL: 'https://obot.example/mcp-connect/legacy-entry'
+		};
+
+		render(McpServerActions, { entry, promptInitialLaunch: true, hideActions: true });
+
+		await expect.element(page.getByCSS('#server-action-connection-url')).not.toBeInTheDocument();
+	});
+
 	it('opens configured credentials with a clear action', async () => {
 		await preparePageData();
 		worker.use(

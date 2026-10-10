@@ -180,7 +180,7 @@ func TestTokenPrivateKeyJWTAudienceMatchesRoute(t *testing.T) {
 	const (
 		baseURL      = "https://obot.example.com"
 		clientID     = "https://client.example/oauth/client.json"
-		mcpID        = system.SystemMCPServerPrefix + "test"
+		mcpID        = system.VMCPPrefix + "test"
 		code         = "authorization-code"
 		refreshToken = "old-refresh-token"
 	)

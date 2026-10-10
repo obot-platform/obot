@@ -779,7 +779,6 @@ export interface MCPCatalogEntry {
 	canConnect?: boolean;
 	needsK8sUpdate?: boolean;
 	oauthCredentialConfigured?: boolean;
-	connectURL?: string;
 	userID?: string;
 }
 

@@ -61,10 +61,6 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 		},
 	} {
 		t.Run(test.id, func(t *testing.T) {
-			id, audience, err := sm.IDAndAudienceFromConnectURL(t.Context(), test.id, "7")
-			if err != nil || id != test.id || audience != test.id {
-				t.Fatalf("id=%s audience=%s error=%v", id, audience, err)
-			}
 			_, _, config, err := sm.ServerForActionWithConnectID(t.Context(), test.id, &kuser.DefaultInfo{UID: "7"})
 			if err != nil {
 				t.Fatal(err)

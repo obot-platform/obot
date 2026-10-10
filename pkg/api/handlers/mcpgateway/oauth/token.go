@@ -41,6 +41,12 @@ func (h *handler) token(req api.Context) (err error) {
 		return types.NewErrBadRequest("failed to parse request body: %v", err)
 	}
 
+	if id := req.PathValue("mcp_id"); id != "" {
+		if _, _, err := resolveOAuthConnection(req, id); err != nil {
+			return newOAuthErrHTTP(http.StatusBadRequest, newOAuthError(ErrInvalidRequest, "mcp_id must identify a vMCP or vMCP instance", ""))
+		}
+	}
+
 	var clientSecret string
 	clientID := req.FormValue("client_id")
 	if clientID == "" {
@@ -183,6 +189,12 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
 	}
 
+	if valid, err := validOAuthConnection(req, oauthAuthRequest.Spec.MCPID, oauthAuthRequest.Spec.Audience, oauthAuthRequest.Spec.Resource, userID); apierrors.IsNotFound(err) || !valid && err == nil {
+		return newOAuthErrHTTP(http.StatusBadRequest, newOAuthError(ErrInvalidGrant, "invalid vMCP connection", ""))
+	} else if err != nil {
+		return err
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
@@ -296,6 +308,12 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	if status, _ := principal.UserStatus(user); status != types.UserStatusActive {
 		// Consuming the refresh token keeps it revoked if the user is reactivated.
 		return invalidGrant("invalid user")
+	}
+
+	if valid, err := validOAuthConnection(req, oauthToken.Spec.MCPID, oauthToken.Spec.Audience, oauthToken.Spec.Resource, user.GetUID()); apierrors.IsNotFound(err) || !valid && err == nil {
+		return invalidGrant("invalid vMCP connection")
+	} else if err != nil {
+		return err
 	}
 
 	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, user, oauthToken.Spec.MCPID)

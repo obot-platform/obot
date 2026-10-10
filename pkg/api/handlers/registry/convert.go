@@ -20,11 +20,10 @@ func ConvertMCPServerToRegistry(
 	serverURL string,
 	slug string,
 	reverseDNS string,
-	userID string,
 	mimeFetcher *mimeFetcher,
 ) (obottypes.RegistryServerResponse, error) {
 	// Use existing conversion function to get types.MCPServer
-	convertedServer := handlers.ConvertMCPServer(server, credEnv, serverURL, slug)
+	convertedServer := handlers.ConvertMCPServer(server, credEnv)
 
 	// Generate registry server name
 	displayName := convertedServer.MCPServerManifest.Name
@@ -72,38 +71,7 @@ func ConvertMCPServerToRegistry(
 		},
 	}
 
-	// Determine if server should show connection URL
-	isPersonalServer := convertedServer.UserID == userID && convertedServer.IsSingleUser()
-	isMultiUserServer := !convertedServer.IsSingleUser()
-
-	// For configured servers, add remote with mcp-connect URL
-	// All Obot servers are exposed as streamable-http remotes regardless of underlying runtime
-	if isPersonalServer && convertedServer.Configured && !convertedServer.NeedsURL && convertedServer.ConnectURL != "" {
-		// This is a personal server that is configured and ready to go.
-		serverDetail.Remotes = []obottypes.RegistryServerRemote{
-			{
-				Type: "streamable-http",
-				URL:  convertedServer.ConnectURL,
-			},
-		}
-	} else if isMultiUserServer {
-		// Multi-user servers are pre-configured by admins, so they always get a connection URL
-		connectURL := fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name)
-		serverDetail.Remotes = []obottypes.RegistryServerRemote{
-			{
-				Type: "streamable-http",
-				URL:  connectURL,
-			},
-		}
-	} else {
-		// Personal server that is not configured
-		meta.Obot = &obottypes.RegistryObotMeta{
-			ConfigurationRequired: true,
-			ConfigurationMessage:  "This server requires configuration. Please visit the Obot UI to configure it.",
-		}
-
-		serverDetail.Meta.PublisherProvided.GitHub.Readme = fmt.Sprintf("> Note: This server requires configuration and cannot be installed directly from your client. Please visit [Obot](%s) to to configure this server and obtain a connection URL.\n\n%s", serverURL, serverDetail.Meta.PublisherProvided.GitHub.Readme)
-	}
+	markVMCPConnectionRequired(&serverDetail, &meta, serverURL)
 
 	return obottypes.RegistryServerResponse{
 		Server:        serverDetail,
@@ -165,8 +133,6 @@ func ConvertMCPServerCatalogEntryToRegistry(
 		}
 	}
 
-	requiresConfiguration := catalogEntryRequiresConfiguration(entry)
-
 	// Create metadata
 	meta := obottypes.RegistryMeta{
 		Official: obottypes.RegistryOfficialMeta{
@@ -176,23 +142,7 @@ func ConvertMCPServerCatalogEntryToRegistry(
 		},
 	}
 
-	if requiresConfiguration {
-		// Requires configuration - show configuration message
-		meta.Obot = &obottypes.RegistryObotMeta{
-			ConfigurationRequired: true,
-			ConfigurationMessage:  "This server needs to be configured before use. Please visit the Obot UI to set it up.",
-		}
-
-		serverDetail.Meta.PublisherProvided.GitHub.Readme = fmt.Sprintf("> Note: This server requires configuration and cannot be installed directly from your client. Please visit [Obot](%s) to to configure this server and obtain a connection URL.\n\n%s", serverURL, serverDetail.Meta.PublisherProvided.GitHub.Readme)
-	} else {
-		// No configuration required - provide connection URL
-		serverDetail.Remotes = []obottypes.RegistryServerRemote{
-			{
-				Type: "streamable-http",
-				URL:  fmt.Sprintf("%s/mcp-connect/%s", serverURL, entry.Name),
-			},
-		}
-	}
+	markVMCPConnectionRequired(&serverDetail, &meta, serverURL)
 
 	return obottypes.RegistryServerResponse{
 		Server:        serverDetail,
@@ -203,28 +153,12 @@ func ConvertMCPServerCatalogEntryToRegistry(
 
 // Helper functions
 
-func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
-	manifest := entry.Spec.Manifest
-
-	for _, env := range manifest.Config {
-		// Required env values without a secret binding must be configured
-		if env.Required && !env.Static && env.SecretBinding == nil {
-			return true
-		}
+func markVMCPConnectionRequired(detail *obottypes.RegistryServerDetail, meta *obottypes.RegistryMeta, serverURL string) {
+	meta.Obot = &obottypes.RegistryObotMeta{
+		ConfigurationRequired: true,
+		ConfigurationMessage:  "Add this server to a vMCP in Obot to connect.",
 	}
-
-	if manifest.Runtime == obottypes.RuntimeRemote && manifest.RemoteConfig != nil {
-		if manifest.RemoteConfig.StaticOAuthRequired && !entry.Status.OAuthCredentialConfigured {
-			return true
-		}
-
-		// Without a fixed URL, the user must supply a connection URL.
-		if manifest.RemoteConfig.FixedURL == "" {
-			return true
-		}
-	}
-
-	return false
+	detail.Meta.PublisherProvided.GitHub.Readme = fmt.Sprintf("> Note: Add this server to a vMCP in [Obot](%s) to connect.\n\n%s", serverURL, detail.Meta.PublisherProvided.GitHub.Readme)
 }
 
 func guessRepoSource(repoURL string) string {

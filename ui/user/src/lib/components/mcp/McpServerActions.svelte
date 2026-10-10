@@ -26,12 +26,10 @@
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import CopyField from '../CopyField.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
@@ -60,7 +58,6 @@
 		entry?: MCPCatalogEntry;
 		loading?: boolean;
 		instance?: MCPServerInstance;
-		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		onOAuthConfigured?: () => void;
 		promptInitialLaunch?: boolean;
@@ -77,7 +74,6 @@
 		entry,
 		instance: instanceProp,
 		loading,
-		skipConnectDialog,
 		onConnect,
 		onOAuthConfigured,
 		promptInitialLaunch,
@@ -284,7 +280,11 @@
 	}
 
 	$effect(() => {
-		if (promptInitialLaunch && !launchPromptHandled) {
+		if (
+			promptInitialLaunch &&
+			!launchPromptHandled &&
+			(isMultiUserCatalogEntry(entry) || isMultiUserServer(server))
+		) {
 			launchPromptHandled = true;
 			launchDialog?.open();
 
@@ -407,17 +407,6 @@
 		onConnect?.(data);
 		refresh();
 	}}
-	{skipConnectDialog}
-	onEdit={({ entry, server, instance }) => {
-		if (server && instance && isMultiUserServer(server)) {
-			connectToServerDialog?.open({ server, instance, configureInstance: true });
-		} else if (entry && server) {
-			editExistingDialog?.edit({
-				server,
-				entry
-			});
-		}
-	}}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
@@ -508,15 +497,6 @@
 			<p class="mb-2 text-center">{m.mcps_servers_actions_launch_now()}</p>
 		{:else if !entry && isMultiUserServer(server)}
 			<p class="mb-2 text-center">{m.mcps_servers_actions_connect_now()}</p>
-		{:else}
-			<div class="mt-4 flex flex-col gap-3">
-				<McpDeprecatedNotice {deprecated} variant="notification" />
-				<CopyField
-					id="server-action-connection-url"
-					label={m.mcps_servers_connection_url()}
-					value={entry?.connectURL ?? server?.connectURL ?? ''}
-				/>
-			</div>
 		{/if}
 		<div class="flex grow"></div>
 		{#if isMultiUserCatalogEntry(entry) || (!entry && isMultiUserServer(server))}

@@ -27,26 +27,6 @@ func agentUser(grants ...string) User {
 	}}
 }
 
-// An agent is not a user, so every user-shaped access check denies it: it owns
-// no server, belongs to no catalog and matches no access control rule. Its
-// grant list is what authorizes it, or it can never reach the MCP servers it
-// was configured with.
-func TestHostedAgentReachesItsGrantedServer(t *testing.T) {
-	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{Name: "ms1github", Namespace: system.DefaultNamespace},
-	).Build()
-	authorizer := &Authorizer{cache: client, uncached: client}
-
-	req := httptest.NewRequest(http.MethodPost, "/mcp-connect/ms1github", nil)
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1github"}, agentUser("ms1github"))
-	if err != nil {
-		t.Fatalf("checkMCPID: %v", err)
-	}
-	if !ok {
-		t.Fatal("an agent was denied the MCP server it was granted")
-	}
-}
-
 // The grant list is the whole authority, so a server absent from it is denied.
 func TestHostedAgentCannotReachAnUngrantedServer(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(

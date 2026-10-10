@@ -16,8 +16,6 @@ type MCPServerInstance struct {
 	MCPServerCatalogEntryID string `json:"mcpServerCatalogEntryID,omitempty"`
 	// PowerUserWorkspaceID is the ID of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
-	// ConnectURL is the URL to connect to the MCP server.
-	ConnectURL string `json:"connectURL,omitempty"`
 	// Config contains the user-allowed configuration copied from the server.
 	Config []MCPConfig `json:"config,omitempty"`
 }

@@ -88,7 +88,7 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 	expected.ToolPreview = nil
 	expected.RepoURL = ""
 
-	actual := convertMCPServerCatalogEntryForList(entry, "", "", "", true)
+	actual := convertMCPServerCatalogEntryForList(entry, "", "", true)
 	require.Equal(t, expected, actual.Manifest)
 }
 

@@ -13,16 +13,66 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type mcpConnection struct {
+	id       string
+	vmcp     *v1.VMCP
+	instance *v1.VMCPInstance
+}
+
+func resolveMCPConnection(ctx context.Context, client kclient.Client, id, userID string) (*mcpConnection, error) {
+	vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, client, id, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &mcpConnection{id: id, vmcp: vmcp, instance: instance}, nil
+}
 
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
 	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect") {
 		// If this is an MCP connect URL and the user is anonymous, then allow access.
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
+	}
+	connection, err := resolveMCPConnection(req.Context(), a.uncached, resources.MCPID, user.GetUID())
+	if err != nil {
+		return false, err
+	}
+	if strings.HasPrefix(req.URL.Path, "/mcp-connect/") || strings.HasPrefix(req.URL.Path, "/mcp-connect-composite/") {
+		id := resources.MCPID
+		// System servers used by hooks retain their existing authorization below.
+		if connection.vmcp == nil && !system.IsSystemMCPServerID(id) {
+			if !system.IsMCPServerID(id) && !system.IsMCPServerInstanceID(id) {
+				return false, nil
+			}
+			// Only signed, explicitly scoped aggregate tokens may reach components.
+			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) ||
+				!slices.Contains(user.GetExtra()["authorized_mcp_ids"], id) {
+				return false, nil
+			}
+			// Reject standalone resources here. checkMCPIDAccess below validates
+			// the referenced vMCP/instance, ownership, and component membership.
+			if system.IsMCPServerID(id) {
+				var server v1.MCPServer
+				if err := a.get(req.Context(), router.Key(system.DefaultNamespace, id), &server); err != nil {
+					return false, err
+				}
+				if server.Spec.VMCPID == "" && server.Spec.VMCPInstanceID == "" {
+					return false, nil
+				}
+			} else {
+				var instance v1.MCPServerInstance
+				if err := a.get(req.Context(), router.Key(system.DefaultNamespace, id), &instance); err != nil {
+					return false, err
+				}
+				if instance.Spec.VMCPInstanceID == "" {
+					return false, nil
+				}
+			}
+		}
 	}
 	// A hosted agent is authorized by what it was granted, not by what its
 	// owner can currently reach.
@@ -36,7 +86,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 	// servers on the template were granted by the administrator who published
 	// it, and servers on the instance were checked against the owner when they
 	// were attached.
-	return userCanConnectToMCP(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID, resources)
+	return userCanConnectToResolvedMCP(req.Context(), a.uncached, a.acrHelper, user.Info, connection, resources)
 }
 
 // UserCanConnectToMCP applies the same current-user authorization used by the
@@ -47,16 +97,24 @@ func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *
 }
 
 func userCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string, resources *Resources) (bool, error) {
+	connection, err := resolveMCPConnection(ctx, client, mcpID, user.GetUID())
+	if err != nil {
+		return false, err
+	}
+	return userCanConnectToResolvedMCP(ctx, client, acrHelper, user, connection, resources)
+}
+
+func userCanConnectToResolvedMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, connection *mcpConnection, resources *Resources) (bool, error) {
 	if principal.IsHostedAgent(user) {
-		serverID := mcpID
-		if system.IsMCPServerInstanceID(serverID) {
+		serverID := connection.id
+		if connection.vmcp == nil && system.IsMCPServerInstanceID(serverID) {
 			var instance v1.MCPServerInstance
 			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &instance); err != nil {
 				return false, err
 			}
 			serverID = instance.Spec.MCPServerName
 		}
-		if system.IsMCPServerID(serverID) {
+		if connection.vmcp == nil && system.IsMCPServerID(serverID) {
 			var server v1.MCPServer
 			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &server); err != nil {
 				return false, err
@@ -65,34 +123,38 @@ func userCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *
 				return false, nil
 			}
 		}
-		return mcpIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), mcpID, resources)
+		return mcpIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), connection, resources)
 	}
 
-	authorized, err := checkMCPIDAccess(ctx, client, acrHelper, user, mcpID, resources)
+	authorized, err := checkMCPIDAccess(ctx, client, acrHelper, user, connection, resources)
 	if err != nil || !authorized {
 		return false, err
 	}
 
 	if authorizedMCPIDs := user.GetExtra()["authorized_mcp_ids"]; len(authorizedMCPIDs) > 0 {
-		return mcpIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), mcpID, resources)
+		return mcpIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), connection, resources)
 	}
 
 	return true, nil
 }
 
 func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
-	return checkMCPIDAccess(ctx, client, acrHelper, user, mcpID, nil)
+	connection, err := resolveMCPConnection(ctx, client, mcpID, user.GetUID())
+	if err != nil {
+		return false, err
+	}
+	return checkMCPIDAccess(ctx, client, acrHelper, user, connection, nil)
 }
 
-func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string, resources *Resources) (bool, error) {
-	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, user.GetUID()); err != nil {
-		return false, err
-	} else if vmcp != nil {
+func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, connection *mcpConnection, resources *Resources) (bool, error) {
+	mcpID := connection.id
+	if vmcp, instance := connection.vmcp, connection.instance; vmcp != nil {
 		if !UserCanConnectVMCP(user, vmcp) {
 			return false, nil
 		}
 		if resources != nil {
 			if instance == nil && resources.VMCPComponentMCPID != "" {
+				var err error
 				instance, err = vmcpaccess.FindInstance(ctx, client, vmcp.Namespace, vmcp.Name, user.GetUID())
 				if err != nil || instance == nil {
 					return false, err
@@ -101,6 +163,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			resources.Authorizated.VMCP = vmcp
 			resources.Authorizated.VMCPInstance = instance
 		}
+		connection.instance = instance
 		return true, nil
 	}
 	switch {
@@ -186,51 +249,30 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		// If this is a system MCP server, then allow access. The system MCP server will enforce its own authorization.
 		return systemMCPServer.Spec.Manifest.Enabled == nil || *systemMCPServer.Spec.Manifest.Enabled, nil
 
-	case system.IsVMCPID(mcpID):
-		var vmcp v1.VMCP
-		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpID), &vmcp); err != nil {
-			return false, err
-		}
-
-		return UserCanConnectVMCP(user, &vmcp), nil
 	default:
-		var entry v1.MCPServerCatalogEntry
-		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpID), &entry); err != nil {
-			return false, err
-		}
-
-		if entry.Spec.MCPCatalogName != "" {
-			return acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, mcpID, entry.Spec.MCPCatalogName)
-		} else if entry.Spec.PowerUserWorkspaceID != "" {
-			return acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx, user, mcpID, entry.Spec.PowerUserWorkspaceID)
-		}
-
 		return false, nil
 	}
 }
 
 func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCPServers []string, userID, mcpID string) (bool, error) {
-	return mcpIDIsAuthorized(ctx, client, authorizedMCPServers, userID, mcpID, nil)
+	connection, err := resolveMCPConnection(ctx, client, mcpID, userID)
+	if err != nil {
+		return false, err
+	}
+	return mcpIDIsAuthorized(ctx, client, authorizedMCPServers, userID, connection, nil)
 }
 
-func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCPServers []string, userID, mcpID string, resources *Resources) (bool, error) {
+func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCPServers []string, userID string, connection *mcpConnection, resources *Resources) (bool, error) {
+	mcpID := connection.id
+	vmcp, instance := connection.vmcp, connection.instance
+	if vmcp == nil && !system.IsMCPServerID(mcpID) && !system.IsMCPServerInstanceID(mcpID) && !system.IsSystemMCPServerID(mcpID) {
+		return false, nil
+	}
+
 	// Check if this server is in the key's allowed list.
 	// "*" is a special wildcard that grants access to all servers the user can access.
 	if slices.Contains(authorizedMCPServers, "*") || slices.Contains(authorizedMCPServers, mcpID) {
 		return true, nil
-	}
-	var (
-		vmcp     *v1.VMCP
-		instance *v1.VMCPInstance
-		err      error
-	)
-	if resources != nil && resources.Authorizated.VMCP != nil {
-		vmcp, instance = resources.Authorizated.VMCP, resources.Authorizated.VMCPInstance
-	} else {
-		vmcp, instance, err = vmcpaccess.ResolveConnectID(ctx, client, mcpID, userID)
-		if err != nil {
-			return false, err
-		}
 	}
 	if vmcp != nil {
 		if vmcpScopeMatches(authorizedMCPServers, vmcp, instance) {
@@ -241,6 +283,7 @@ func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 			return true, nil
 		}
 		if instance == nil {
+			var err error
 			instance, err = vmcpaccess.FindInstance(ctx, client, vmcp.Namespace, vmcp.Name, userID)
 			if err != nil {
 				return false, err
@@ -290,33 +333,8 @@ func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 		}
 		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
 			mcpServer.Spec.VMCPID != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.VMCPID) ||
-			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) ||
-			mcpServer.Spec.VMCPID == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
-	case system.IsVMCPID(mcpID):
-		// Only an explicit vMCP scope (or wildcard above) grants its endpoint.
-		return false, nil
+			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName), nil
 	default:
-		// Check for MCP servers associated with a catalog entry with this ID.
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: mcpID}, &v1.MCPServerCatalogEntry{}); apierrors.IsNotFound(err) {
-			return false, nil
-		} else if err != nil {
-			return false, err
-		}
-
-		var mcpServers v1.MCPServerList
-		if err := client.List(ctx, &mcpServers, kclient.MatchingFields{"spec.mcpServerCatalogEntryName": mcpID, "spec.userID": userID}); err != nil {
-			return false, err
-		}
-
-		for _, mcpServer := range mcpServers.Items {
-			if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
-				continue
-			}
-			if slices.Contains(authorizedMCPServers, mcpServer.Name) || mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) {
-				return true, nil
-			}
-		}
-
 		return false, nil
 	}
 }

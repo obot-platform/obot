@@ -42,26 +42,24 @@ type oauthError struct {
 }
 
 type oauthConsentData struct {
-	VMCPInstanceID            string                   `json:"vmcpInstanceID,omitempty"`
-	VMCPComponents            []types.VMCPComponent    `json:"vmcpComponents,omitempty"`
-	AuthRequestID             string                   `json:"authRequestID"`
-	ContinueURL               string                   `json:"continueURL"`
-	CancelURL                 string                   `json:"cancelURL"`
-	ClientName                string                   `json:"clientName"`
-	ClientCredentialSource    string                   `json:"clientCredentialSource"`
-	ClientURI                 string                   `json:"clientURI,omitempty"`
-	RedirectURI               string                   `json:"redirectURI"`
-	Scope                     string                   `json:"scope,omitempty"`
-	PolicyURI                 string                   `json:"policyURI,omitempty"`
-	TOSURI                    string                   `json:"tosURI,omitempty"`
-	MCPConfigRequired         bool                     `json:"mcpConfigRequired"`
-	MCPServer                 *types.MCPServer         `json:"mcpServer,omitempty"`
-	MCPServerInstance         *types.MCPServerInstance `json:"mcpServerInstance,omitempty"`
-	MCPAuthRequired           bool                     `json:"mcpAuthRequired"`
-	UserHasSecondLevelOAuthed bool                     `json:"userHasSecondLevelOAuthed"`
-	MCPServerName             string                   `json:"mcpServerName,omitempty"`
-	MCPServerURL              string                   `json:"mcpServerURL,omitempty"`
-	ThirdPartyAuthURL         string                   `json:"thirdPartyAuthURL,omitempty"`
+	VMCPInstanceID            string                `json:"vmcpInstanceID,omitempty"`
+	VMCPComponents            []types.VMCPComponent `json:"vmcpComponents,omitempty"`
+	AuthRequestID             string                `json:"authRequestID"`
+	ContinueURL               string                `json:"continueURL"`
+	CancelURL                 string                `json:"cancelURL"`
+	ClientName                string                `json:"clientName"`
+	ClientCredentialSource    string                `json:"clientCredentialSource"`
+	ClientURI                 string                `json:"clientURI,omitempty"`
+	RedirectURI               string                `json:"redirectURI"`
+	Scope                     string                `json:"scope,omitempty"`
+	PolicyURI                 string                `json:"policyURI,omitempty"`
+	TOSURI                    string                `json:"tosURI,omitempty"`
+	MCPConfigRequired         bool                  `json:"mcpConfigRequired"`
+	MCPAuthRequired           bool                  `json:"mcpAuthRequired"`
+	UserHasSecondLevelOAuthed bool                  `json:"userHasSecondLevelOAuthed"`
+	MCPServerName             string                `json:"mcpServerName,omitempty"`
+	MCPServerURL              string                `json:"mcpServerURL,omitempty"`
+	ThirdPartyAuthURL         string                `json:"thirdPartyAuthURL,omitempty"`
 }
 
 func newOAuthError(code ErrorCode, description, state string) oauthError {
@@ -217,6 +215,11 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
+	if _, _, err := resolveOAuthConnection(req, mcpID); err != nil {
+		redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "mcp_id must identify a vMCP or vMCP instance", state))
+		return nil
+	}
+
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		GenerateName: system.OAuthAuthRequestPrefix,
 		Namespace:    oauthClient.Namespace,
@@ -257,30 +260,13 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	mcpID := oauthAppAuthRequest.Spec.MCPID
-	if mcpID != "" {
-		serverOrInstanceID, audience, err := h.oauthChecker.mcpSessionManager.IDAndAudienceFromConnectURL(req.Context(), mcpID, req.User.GetUID())
-		if err != nil {
-			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
-				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, errHTTP.Message, oauthAppAuthRequest.Spec.State))
-			} else {
-				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, fmt.Sprintf("failed to get MCP ID from connect URL: %v", err), oauthAppAuthRequest.Spec.State))
-			}
-			return nil
-		}
-
-		mcpID = serverOrInstanceID
-		if !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, "/"+audience) || oauthAppAuthRequest.Spec.MCPID != mcpID {
-			// Ensure the audience is what the server expects.
-			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audience)
-			oauthAppAuthRequest.Spec.MCPID = mcpID
-			oauthAppAuthRequest.Spec.Audience = audience
-			if err = req.Update(&oauthAppAuthRequest); err != nil {
-				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, fmt.Sprintf("failed to update OAuth app auth request: %v", err), oauthAppAuthRequest.Spec.State))
-				return nil
-			}
-		}
+	if _, _, err := resolveOAuthConnection(req, oauthAppAuthRequest.Spec.MCPID); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, "mcp_id must identify a vMCP or vMCP instance", oauthAppAuthRequest.Spec.State))
+		return nil
 	}
+	// vMCPs have their own audience; no catalog/server connection is created here.
+	oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, oauthAppAuthRequest.Spec.MCPID)
+	oauthAppAuthRequest.Spec.Audience = oauthAppAuthRequest.Spec.MCPID
 
 	oauthAppAuthRequest.Spec.UserID = req.UserID()
 	oauthAppAuthRequest.Spec.AuthProviderUserID = cmp.Or(req.User.GetExtra()["auth_provider_user_id"]...)
@@ -307,24 +293,19 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 	if err != nil {
 		return err
 	}
-	if vmcp != nil {
-		missing, err := vmcpConsentMissingConfiguration(req, *vmcp, *instance)
-		if err != nil {
-			return err
-		}
-		if len(missing) > 0 {
-			oauthAppAuthRequest.Spec.ConsentPrepared = true
-			oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = true
-			oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = false
-			oauthAppAuthRequest.Spec.ConsentMCPAuthURL = ""
-			oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = false
-			oauthAppAuthRequest.Spec.ConsentMCPServerName = vmcp.Spec.Manifest.DisplayName
-			oauthAppAuthRequest.Spec.ConsentMCPServerURL = ""
-			return req.Update(oauthAppAuthRequest)
-		}
+	missing, err := vmcpConsentMissingConfiguration(req, *vmcp, *instance)
+	if err != nil {
+		return err
 	}
-	if vmcp == nil && oauthAppAuthRequest.Spec.ConsentPrepared && !oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
-		return nil
+	if len(missing) > 0 {
+		oauthAppAuthRequest.Spec.ConsentPrepared = true
+		oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = true
+		oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = false
+		oauthAppAuthRequest.Spec.ConsentMCPAuthURL = ""
+		oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = false
+		oauthAppAuthRequest.Spec.ConsentMCPServerName = vmcp.Spec.Manifest.DisplayName
+		oauthAppAuthRequest.Spec.ConsentMCPServerURL = ""
+		return req.Update(oauthAppAuthRequest)
 	}
 
 	// Check whether the MCP server needs authentication.
@@ -402,31 +383,10 @@ func (h *handler) consent(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if vmcp != nil {
-		data := oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, nil, nil)
-		data.VMCPInstanceID = instance.Name
-		data.VMCPComponents = vmcpConsentComponents(req.User, *vmcp, *instance)
-		return req.Write(data)
-	}
-	var (
-		mcpServer         *types.MCPServer
-		mcpServerInstance *types.MCPServerInstance
-	)
-	validationOptions, err := handlers.ValidationOptionsWithResourceMaximums(req, h.oauthChecker.mcpSessionManager)
-	if err != nil {
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
-		return nil
-	}
-	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL, h.oauthChecker.secretBindingAllowedLabel, validationOptions)
-	if err != nil {
-		if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
-			return nil
-		}
-		slog.Warn("Failed to load optional MCP configuration target for OAuth consent", "authRequest", oauthAppAuthRequest.Name, "mcpID", oauthAppAuthRequest.Spec.MCPID, "error", err)
-	}
-
-	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, mcpServer, mcpServerInstance))
+	data := oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL)
+	data.VMCPInstanceID = instance.Name
+	data.VMCPComponents = vmcpConsentComponents(req.User, *vmcp, *instance)
+	return req.Write(data)
 }
 
 func (h *handler) approveConsent(req api.Context) error {
@@ -479,6 +439,11 @@ func (h *handler) oauthConsentRequest(req api.Context, phase string) (v1.OAuthAu
 	var oauthAppAuthRequest v1.OAuthAuthRequest
 	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
 		return oauthAppAuthRequest, false, err
+	}
+
+	if _, _, err := resolveOAuthConnection(req, oauthAppAuthRequest.Spec.MCPID); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, "mcp_id must identify a vMCP or vMCP instance", oauthAppAuthRequest.Spec.State))
+		return oauthAppAuthRequest, false, nil
 	}
 
 	if _, _, ok := authenticatedOAuthUser(req, oauthAppAuthRequest, phase); !ok {
@@ -633,7 +598,7 @@ func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuth
 	return false
 }
 
-func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string, mcpServer *types.MCPServer, mcpServerInstance *types.MCPServerInstance) oauthConsentData {
+func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string) oauthConsentData {
 	clientName := oauthClient.Spec.Manifest.ClientName
 	if clientName == "" {
 		clientName = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
@@ -651,8 +616,6 @@ func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v
 		PolicyURI:                 oauthClient.Spec.Manifest.PolicyURI,
 		TOSURI:                    oauthClient.Spec.Manifest.TOSURI,
 		MCPConfigRequired:         oauthAppAuthRequest.Spec.ConsentMCPConfigRequired,
-		MCPServer:                 mcpServer,
-		MCPServerInstance:         mcpServerInstance,
 		MCPAuthRequired:           oauthAppAuthRequest.Spec.ConsentMCPAuthRequired,
 		UserHasSecondLevelOAuthed: oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed,
 		MCPServerName:             oauthAppAuthRequest.Spec.ConsentMCPServerName,

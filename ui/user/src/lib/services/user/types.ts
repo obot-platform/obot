@@ -510,7 +510,6 @@ export interface MCPCatalogServer {
 	id: string;
 	alias?: string;
 	userID: string;
-	connectURL?: string;
 	configured: boolean;
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
@@ -561,7 +560,6 @@ export interface MCPServerInstance {
 	userID: string;
 	mcpServerID?: string;
 	mcpCatalogID?: string;
-	connectURL?: string;
 }
 
 // Virtual MCPs

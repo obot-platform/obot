@@ -162,7 +162,7 @@ type Resources struct {
 	VMCPComponentMCPID      string
 	VMCPID                  string
 	VMCPInstanceID          string
-	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
+	// MCPID identifies a vMCP, vMCP instance, or migrated alias. Internal requests may identify component servers or instances.
 	MCPID                 string
 	WorkspaceID           string
 	SkillID               string
@@ -193,7 +193,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		VMCPComponentMCPID:      vars("component_mcp_id"),
 		VMCPID:                  vars("vmcp_id"),
 		VMCPInstanceID:          vars("vmcp_instance_id"),
-		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, catalog entry ID, or vMCP ID
+		MCPID:                   vars("mcp_id"),
 		WorkspaceID:             vars("workspace_id"),
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),

@@ -1,12 +1,57 @@
 package authz
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+func TestMCPConnectAllowsMigratedVMCPAliases(t *testing.T) {
+	for _, legacyID := range []string{"default-entry", "ms1legacy", "msi1legacy"} {
+		t.Run(legacyID, func(t *testing.T) {
+			target := &v1.VMCP{
+				Name:      "vmcp1migrated",
+				Namespace: "default",
+				Spec: v1.VMCPSpec{
+					LegacySlug: legacyID,
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{{ID: "component"}},
+						Profiles: []types.VMCPProfile{{
+							Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
+							Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+						}},
+					},
+				},
+			}
+			// The catalog template can remain after migration.
+			entry := &v1.MCPServerCatalogEntry{Name: "default-entry", Namespace: "default"}
+			storage := newMCPIDIsAuthorizedTestStorage(target, entry)
+			authorizer := &Authorizer{cache: storage, uncached: storage}
+			for _, scope := range []string{"", target.Name, legacyID, "*", "vmcp1other"} {
+				u := &user.DefaultInfo{UID: "7"}
+				if scope != "" {
+					u.Extra = map[string][]string{"authorized_mcp_ids": {scope}}
+				}
+				allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+legacyID, nil), &Resources{MCPID: legacyID}, newUser(u))
+				if err != nil || allowed != (scope != "vmcp1other") {
+					t.Fatalf("scope=%s: allowed=%v error=%v", scope, allowed, err)
+				}
+			}
+			target.Spec.Manifest.Profiles = nil
+			if err := storage.Update(t.Context(), target); err != nil {
+				t.Fatal(err)
+			}
+			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+legacyID, nil), &Resources{MCPID: legacyID}, newUser(&user.DefaultInfo{UID: "7"}))
+			if err != nil || allowed {
+				t.Fatalf("revoked profile: allowed=%v error=%v", allowed, err)
+			}
+		})
+	}
+}
 
 func TestMigratedVMCPScopes(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1migrated", Namespace: "default", Spec: v1.VMCPSpec{

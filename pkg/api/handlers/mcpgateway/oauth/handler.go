@@ -2,16 +2,22 @@ package oauth
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 )
 
 type handler struct {
@@ -86,4 +92,38 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	mux.HandleFunc("GET /api/oauth/vmcp/{mcp_id}/components/{component_mcp_id}", h.checkVMCPComponentAuth)
 
 	mux.HandleFunc("GET /oauth/userinfo", h.userInfo)
+}
+
+// OAuth connections must resolve to a vMCP or instance, including migrated aliases.
+func resolveOAuthConnection(req api.Context, id string) (*v1.VMCP, *v1.VMCPInstance, error) {
+	vmcp, instance, err := vmcpconfig.ResolveID(req.Context(), req.Storage, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if vmcp == nil {
+		return nil, nil, types.NewErrBadRequest("mcp_id must identify a vMCP or vMCP instance")
+	}
+	return vmcp, instance, nil
+}
+
+func validOAuthConnection(req api.Context, mcpID, audience, resource, userID string) (bool, error) {
+	u, err := url.Parse(resource)
+	if err != nil {
+		return false, nil
+	}
+	resourceID, ok := strings.CutPrefix(u.Path, "/mcp-connect/")
+	if !ok || resourceID == "" {
+		return false, nil
+	}
+	ids := []string{mcpID, resourceID}
+	if audience != "" {
+		ids = append(ids, audience)
+	}
+	for _, id := range ids {
+		vmcp, _, err := vmcpconfig.ResolveConnectID(req.Context(), req.Storage, id, userID)
+		if err != nil || vmcp == nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
