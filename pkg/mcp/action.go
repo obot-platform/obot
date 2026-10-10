@@ -265,6 +265,7 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 				return v1.MCPServer{}, v1.MCPServerInstance{}, err
 			}
 			if err := ValidateServerManifest(ctx, manifest, false, ValidationOptions{
+				DevMode:                      sm.devMode,
 				AllowMissingURL:              allowMissingURL,
 				RemoteMCPURLValidationConfig: sm.remoteURLValidationConfig,
 				ResourceMaximums:             resourceMaximums,
@@ -361,7 +362,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, err
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
+	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, sm.devMode)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
 	}
@@ -434,7 +435,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, err
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
+	serverConfig, missingConfig, err := ServerToServerConfig(resolvedServer, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, sm.devMode)
 	if err != nil {
 		return ServerConfig{}, nil, err
 	}

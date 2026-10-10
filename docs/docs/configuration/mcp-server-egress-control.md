@@ -60,8 +60,8 @@ With the default set to deny all, admins can still allow unrestricted egress for
 
 ## Configure allowed domains
 
-Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, and `containerized` MCP servers.
-This can be configured in the UI when creating or editing an MCP server.
+Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, `containerized`, and `openapi` MCP servers.
+For `npx`, `uvx`, and `containerized` servers, this can be configured in the UI when creating or editing an MCP server. OpenAPI egress settings can be configured through the API or Git-managed YAML.
 See the YAML configuration examples if you manage MCP servers through Git.
 
 ### YAML configuration examples
@@ -99,6 +99,33 @@ containerizedConfig:
     - api.example.com
     - "*.example-cdn.com"
 ```
+
+Example OpenAPI configuration:
+
+```yaml
+runtime: openapi
+openAPIConfig:
+  source:
+    url: "https://schemas.example.com/openapi.json"
+  # Required schema snapshot (1 MiB maximum); used by running servers.
+  schema:
+    openapi: "3.0.3"
+    info:
+      title: Example API
+      version: "1.0.0"
+    servers:
+      - url: "https://api.example.com"
+      - url: "https://staging-api.example.com"
+    paths: {}
+  egressDomains:
+    - api.example.com
+```
+
+OpenAPI uses `baseURL` when set, otherwise the first absolute HTTP(S) URL in `schema.servers`. This example uses only `api.example.com`, so staging needs no egress allowance.
+
+For restricted egress, include the selected destination's hostname in `egressDomains`. Setting `baseURL` does not grant access. Obot fetches `source.url` separately, so the schema host needs no allowance in the pod's egress policy.
+
+Obot and the wrapper independently validate destinations; wrapper restrictions can cause startup or tool errors even if Obot accepts a destination. Obot requires HTTPS for API destinations and credential forwarding unless development mode is enabled.
 
 To block all external egress for a server, set `denyAllEgress: true` and leave `egressDomains` empty:
 

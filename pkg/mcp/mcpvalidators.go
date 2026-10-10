@@ -37,6 +37,7 @@ type RuntimeValidators map[types.Runtime]RuntimeValidator
 
 // Options configures runtime validation behavior.
 type ValidationOptions struct {
+	DevMode                      bool
 	AllowMissingURL              bool
 	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 	ResourceMaximums             ResourceMaximums
@@ -50,6 +51,12 @@ type NPXValidator struct{}
 
 // ContainerizedValidator implements RuntimeValidator for containerized runtime
 type ContainerizedValidator struct{}
+
+// OpenAPIValidator implements RuntimeValidator for hosted OpenAPI runtimes.
+type OpenAPIValidator struct {
+	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
+	DevMode                      bool
+}
 
 // RemoteValidator implements RuntimeValidator for remote runtime
 type RemoteValidator struct {
@@ -688,6 +695,10 @@ func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 		types.RuntimeUVX:           UVXValidator{},
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
+		types.RuntimeOpenAPI: OpenAPIValidator{
+			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
+			DevMode:                      options.DevMode,
+		},
 		types.RuntimeRemote: RemoteValidator{
 			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
 			AllowMissingURL:              options.AllowMissingURL,

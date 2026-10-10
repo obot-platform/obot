@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -43,6 +45,8 @@ type dockerBackend struct {
 	httpListenPort         int
 	hostBaseURLWithPort    string
 	containerizedBaseImage string
+	openAPIImage           string
+	validationOptions      ValidationOptions
 	authEnabled            bool
 	deploymentCacheMu      sync.RWMutex
 	deploymentCache        map[string]*dockerDeploymentCacheEntry
@@ -57,7 +61,7 @@ type dockerDeploymentCacheEntry struct {
 	containerIDs map[string]string
 }
 
-func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, opts Options, validationOptions ValidationOptions) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -75,6 +79,8 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		httpListenPort:         exposedPort,
 		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage: opts.MCPBaseImage,
+		openAPIImage:           opts.MCPOpenAPIImage,
+		validationOptions:      validationOptions,
 		authEnabled:            authEnabled,
 		deploymentCache:        map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:        map[string]string{},
@@ -315,6 +321,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 		switch existing.State {
 		case container.StateCreated:
 			// Container exists and is created, start it and wait for it to be ready.
+			if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+				return ServerConfig{}, err
+			}
 			if err := d.client.ContainerStart(ctx, existing.ID, container.StartOptions{}); err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to start container: %w", err)
 			}
@@ -340,7 +349,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			}
 
 			containerPort := defaultContainerPort
-			if server.Runtime == otypes.RuntimeContainerized && server.ContainerPort != 0 {
+			if isHTTPContainerRuntime(server.Runtime) && server.ContainerPort != 0 {
 				containerPort = server.ContainerPort
 			}
 
@@ -351,6 +360,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			return d.buildServerConfig(server, existing, containerPort, containerEnv)
 		default:
 			// Container exists but not running, remove it and recreate
+			if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+				return ServerConfig{}, err
+			}
 			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); cerrdefs.IsConflict(err) {
 				// The container is already being removed, wait for it to finish
 				statusCh, errCh := d.client.ContainerWait(ctx, existing.ID, container.WaitConditionRemoved)
@@ -366,6 +378,8 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 				return ServerConfig{}, fmt.Errorf("failed to remove stopped container: %w", err)
 			}
 		}
+	} else if err := validateDeployment(ctx, server, d.validationOptions); err != nil {
+		return ServerConfig{}, err
 	}
 
 	// Create new container
@@ -376,6 +390,8 @@ func (d *dockerBackend) deploymentImage(server ServerConfig) string {
 	switch server.Runtime {
 	case otypes.RuntimeUVX, otypes.RuntimeNPX:
 		return d.containerizedBaseImage
+	case otypes.RuntimeOpenAPI:
+		return d.openAPIImage
 	default:
 		return ""
 	}
@@ -855,6 +871,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:        server.AuditLogMetadata,
 		ContainerPath:           server.ContainerPath,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
+		Headers:                 server.hostedConnectionHeaders(),
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
 		StartupTimeout:          server.StartupTimeout,
 		Webhooks:                server.Webhooks,
@@ -948,6 +965,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 		cmd = []string{"--listen", fmt.Sprintf(":%d", defaultContainerPort), "--config", "/config/mmmcp.yaml"}
 
+	case otypes.RuntimeOpenAPI:
+		server.ContainerImage = d.openAPIImage
+		fallthrough
 	case otypes.RuntimeContainerized:
 		// Use specified container image or base image
 		if server.ContainerImage == "" {
@@ -1309,7 +1329,8 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 
 // runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
 // with the given script and mounts, waits for it to exit, and returns any error.
-func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount) error {
+// An optional tar archive is copied into /tmp before the container starts.
+func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount, archive io.Reader) error {
 	initImage := "alpine:latest"
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
@@ -1329,13 +1350,29 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 			Cmd:        []string{script},
 		},
 		&container.HostConfig{
-			Mounts:     mounts,
-			AutoRemove: true,
+			// Keep the container until its exit status has been read.
+			Mounts: mounts,
 		},
 		networkingConfig, nil,
 		fmt.Sprintf("%s-%s", namePrefix, strings.ToLower(rand.Text())))
 	if err != nil {
 		return fmt.Errorf("failed to create init container: %w", err)
+	}
+
+	// Cleanup must also work after the request is canceled or copying fails.
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+
+		if err := d.client.ContainerRemove(cleanupCtx, resp.ID, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+			slog.WarnContext(cleanupCtx, "Failed to remove init container", "container", resp.ID, "error", err)
+		}
+	}()
+
+	if archive != nil {
+		if err := d.client.CopyToContainer(ctx, resp.ID, "/tmp", archive, container.CopyToContainerOptions{}); err != nil {
+			return fmt.Errorf("failed to copy init files: %w", err)
+		}
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -1344,11 +1381,16 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 
 	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case err := <-errCh:
-		if err != nil && !cerrdefs.IsNotFound(err) {
+		if err != nil {
 			return fmt.Errorf("error waiting for init container: %w", err)
 		}
 	case status := <-statusCh:
+		if status.Error != nil {
+			return fmt.Errorf("init container %s failed: %s", namePrefix, status.Error.Message)
+		}
 		if status.StatusCode != 0 {
 			return fmt.Errorf("init container %s failed with exit code %d", namePrefix, status.StatusCode)
 		}
@@ -1407,9 +1449,11 @@ func fileEnvKeysHash(files []File) string {
 }
 
 func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {
-	var script strings.Builder
-	script.WriteString("#!/bin/sh\nset -e\n")
-	script.WriteString("rm -f /files/*\n")
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{Name: "obot-files/", Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
+		return err
+	}
 
 	fileNames := make([]string, 0, len(fileContents))
 	for filename := range fileContents {
@@ -1418,15 +1462,32 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 	sort.Strings(fileNames)
 
 	for _, filename := range fileNames {
-		containerPath := path.Join("/files", filename)
-		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
+		if filename == "." || filename == ".." || path.Base(filename) != filename {
+			return fmt.Errorf("invalid container filename %q", filename)
+		}
+
+		data := fileContents[filename]
+		if err := writer.WriteHeader(&tar.Header{
+			Name: path.Join("obot-files", filename),
+			Mode: 0644,
+			Size: int64(len(data)),
+		}); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(writer, data); err != nil {
+			return err
+		}
 	}
 
-	return d.runInitContainer(ctx, containerName+"-init", script.String(), []mount.Mount{{
+	if err := writer.Close(); err != nil {
+		return err
+	}
+
+	return d.runInitContainer(ctx, containerName+"-init", "set -e; rm -f /files/*; cp -a /tmp/obot-files/. /files/", []mount.Mount{{
 		Type:   mount.TypeVolume,
 		Source: volumeName,
 		Target: "/files",
-	}})
+	}}, &archive)
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
@@ -1501,7 +1562,7 @@ func (d *dockerBackend) prepareMCPServerMMMCPConfig(ctx context.Context, server 
 			Source: volumeName,
 			Target: "/config",
 		},
-	}); err != nil {
+	}, nil); err != nil {
 		return "", err
 	}
 

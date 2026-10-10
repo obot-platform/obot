@@ -42,6 +42,7 @@ const (
 )
 
 type Options struct {
+	MCPOpenAPIImage                   string   `usage:"Container image for the hosted OpenAPI runtime" default:"ghcr.io/obot-platform/mcp-images/openapi-mcp:v0.27.0"`
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.26.2"`
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.26.2"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
@@ -88,6 +89,7 @@ type Options struct {
 }
 
 type SessionManager struct {
+	devMode                   bool
 	backend                   backend
 	runtimeBackend            string
 	contextLock               sync.Mutex
@@ -118,16 +120,25 @@ type RemoteMCPURLValidationConfig struct {
 	AllowLinkLocalMCP bool
 }
 
-func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
 		return nil, err
 	}
 
+	validationOptions := ValidationOptions{
+		DevMode: devMode,
+		RemoteMCPURLValidationConfig: RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
+			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
+			AllowLinkLocalMCP: !opts.DisallowLinkLocalMCP,
+		},
+	}
+
 	switch opts.MCPRuntimeBackend {
 	case runtimeBackendDocker:
-		dockerBackend, err := newDockerBackend(ctx, authEnabled, httpListenPort, opts)
+		dockerBackend, err := newDockerBackend(ctx, authEnabled, httpListenPort, opts, validationOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -172,12 +183,14 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 			cachedClient,
 			obotStorageClient,
 			opts,
+			validationOptions,
 		)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
 	return &SessionManager{
+		devMode:                   devMode,
 		webhookHelper:             webhookHelper,
 		tokenService:              tokenService,
 		globalTokenStore:          globalTokenStore,
@@ -192,11 +205,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		obotNamespace:             obotNamespace,
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
 		tunnelManager:             tunnelManager,
-		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
-			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
-			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
-			AllowLinkLocalMCP: !opts.DisallowLinkLocalMCP,
-		},
+		remoteURLValidationConfig: validationOptions.RemoteMCPURLValidationConfig,
 	}, nil
 }
 
@@ -206,6 +215,14 @@ func (sm *SessionManager) MCPRuntimeBackend() string {
 
 func (sm *SessionManager) RemoteMCPURLValidationConfig() RemoteMCPURLValidationConfig {
 	return sm.remoteURLValidationConfig
+}
+
+// ValidationOptions returns the startup destination validation settings.
+func (sm *SessionManager) ValidationOptions() ValidationOptions {
+	return ValidationOptions{
+		RemoteMCPURLValidationConfig: sm.remoteURLValidationConfig,
+		DevMode:                      sm.devMode,
+	}
 }
 
 func (sm *SessionManager) ResourceMaximums() ResourceMaximums {
@@ -382,6 +399,9 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
+	if err := validateDeployment(ctx, server, sm.ValidationOptions()); err != nil {
+		return err
+	}
 	return sm.backend.restartServer(ctx, server)
 }
 
@@ -402,6 +422,13 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	defer cancel()
 
 	return sm.backend.ensureServerDeployment(ctx, server)
+}
+
+func (sm *SessionManager) deployServer(ctx context.Context, server ServerConfig) error {
+	if err := validateDeployment(ctx, server, sm.ValidationOptions()); err != nil {
+		return err
+	}
+	return sm.backend.deployServer(ctx, server)
 }
 
 // ValidateRemoteMCPURL rejects remote MCP URLs that resolve to blocked local address ranges.

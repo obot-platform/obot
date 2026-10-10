@@ -306,7 +306,7 @@ func TestTempServerAndConfigIgnoresAuditLogsWithoutChangingNormalTraffic(t *test
 		"temp",
 		"temp",
 		"catalog",
-		nil,
+		nil, false,
 	)
 	require.NoError(t, err)
 	assert.Empty(t, missingFields)

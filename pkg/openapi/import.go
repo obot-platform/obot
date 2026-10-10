@@ -57,8 +57,8 @@ func NewImporter(options safehttp.Options, devMode bool) *Importer {
 // It returns no replacement snapshot on failure; callers retain the last good one.
 func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	source := config.Source
-	if (source.URL == "") == (source.Content == "") {
-		return nil, fmt.Errorf("exactly one OpenAPI source URL or content is required")
+	if err := ValidateSource(source); err != nil {
+		return nil, err
 	}
 
 	if source.URL == "" {
@@ -96,6 +96,14 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	return i.parse(ctx, data, config)
 }
 
+// ValidateSource enforces the source shape without fetching or parsing it.
+func ValidateSource(source types.OpenAPISource) error {
+	if (source.URL == "") == (source.Content == "") {
+		return fmt.Errorf("exactly one OpenAPI source URL or content is required")
+	}
+	return nil
+}
+
 // parse checks the resolved destination against the importer's transport and
 // network policies.
 // It makes no request to the destination.
@@ -104,13 +112,26 @@ func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIR
 	if err != nil {
 		return nil, err
 	}
-	if !i.devMode && strings.HasPrefix(result.BaseURL, "http://") {
-		return nil, fmt.Errorf("API destination must use HTTPS unless Obot development mode is enabled")
-	}
-	if err := safehttp.ValidateURL(ctx, result.BaseURL, i.options); err != nil {
-		return nil, fmt.Errorf("API destination is blocked: %w", err)
+	if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
+		return nil, err
 	}
 	return result, nil
+}
+
+// ValidateDestination checks HTTPS and the configured address policy without
+// requesting the API. The runtime must still enforce policy on API requests.
+func ValidateDestination(ctx context.Context, baseURL string, options safehttp.Options, devMode bool) error {
+	base, err := destination(baseURL)
+	if err != nil {
+		return err
+	}
+	if !devMode && strings.HasPrefix(base, "http://") {
+		return fmt.Errorf("API destination must use HTTPS unless Obot development mode is enabled")
+	}
+	if err := safehttp.ValidateURL(ctx, base, options); err != nil {
+		return fmt.Errorf("API destination is blocked: %w", err)
+	}
+	return nil
 }
 
 // Parse normalizes JSON/YAML and checks the wrapper's supported subset. It does

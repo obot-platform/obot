@@ -312,6 +312,7 @@ func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.
 	manager, err := mcp.NewSessionManager(
 		t.Context(),
 		false,
+		false,
 		nil,
 		nil,
 		"https://obot.example.com",

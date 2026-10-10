@@ -74,9 +74,7 @@ type discardResponse struct{}
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
-	validationOptions := mcp.ValidationOptions{
-		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
-	}
+	validationOptions := mcpSessionManager.ValidationOptions()
 
 	return &Handler{
 		maxRepoSizeMB:            maxRepoSizeMB,

@@ -15206,6 +15206,27 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 							Format: "",
 						},
 					},
+					"egressDomains": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EgressDomains restricts the hosted pod to these domains when network policy enforcement is enabled.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"denyAllEgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DenyAllEgress blocks outbound traffic when network policy enforcement is enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"source"},
 			},

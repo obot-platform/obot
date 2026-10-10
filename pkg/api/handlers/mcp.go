@@ -86,7 +86,7 @@ func ValidationOptionsWithResourceMaximums(req api.Context, sessionManager *mcp.
 	if sessionManager == nil {
 		return mcp.ValidationOptions{}, nil
 	}
-	options := validationOptions(sessionManager.RemoteMCPURLValidationConfig())
+	options := sessionManager.ValidationOptions()
 	maximums, err := sessionManager.EffectiveKubernetesResourceMaximums(req.Context(), req.Storage)
 	if err != nil {
 		return mcp.ValidationOptions{}, err

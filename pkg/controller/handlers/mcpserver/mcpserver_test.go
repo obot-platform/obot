@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,140 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestOpenAPIConfigurationDrift(t *testing.T) {
+	config := func(schema, source, baseURL string) *types.OpenAPIRuntimeConfig {
+		return &types.OpenAPIRuntimeConfig{
+			Source:  types.OpenAPISource{URL: source},
+			Schema:  &types.OpenAPISchema{Raw: json.RawMessage(schema)},
+			BaseURL: baseURL,
+		}
+	}
+
+	for _, test := range []struct {
+		name                 string
+		server               *types.OpenAPIRuntimeConfig
+		catalog              *types.OpenAPIRuntimeConfig
+		defaultDenyAllEgress bool
+		drifted              bool
+	}{
+		{
+			name: "both configs nil",
+		},
+		{
+			name:    "server config nil",
+			catalog: config(`{}`, "https://example.com/schema", ""),
+			drifted: true,
+		},
+		{
+			name:    "catalog config nil",
+			server:  config(`{}`, "https://example.com/schema", ""),
+			drifted: true,
+		},
+		{
+			name:   "nil and empty egress domains",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{},
+			},
+		},
+		{
+			name:   "explicit allow matches default",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(false),
+			},
+		},
+		{
+			name:   "explicit deny matches default",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(true),
+			},
+			defaultDenyAllEgress: true,
+		},
+		{
+			name: "domains override default deny",
+			server: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+				DenyAllEgress: new(false),
+			},
+			defaultDenyAllEgress: true,
+		},
+		{
+			name: "egress domains changed",
+			server: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com"},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"other.example.com"},
+			},
+			drifted: true,
+		},
+		{
+			name:   "explicit deny differs from default allow",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(true),
+			},
+			drifted: true,
+		},
+		{
+			name:   "explicit allow differs from default deny",
+			server: &types.OpenAPIRuntimeConfig{},
+			catalog: &types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(false),
+			},
+			defaultDenyAllEgress: true,
+			drifted:              true,
+		},
+		{
+			name:    "same snapshot",
+			server:  config(`{"servers":[{"url":"https://api.example.com"}]}`, "https://example.com/schema", ""),
+			catalog: config(`{"servers":[{"url":"https://api.example.com"}]}`, "https://example.com/schema", ""),
+		},
+		{
+			name:    "default server changed",
+			server:  config(`{"servers":[{"url":"https://api.example.com"}]}`, "https://example.com/schema", ""),
+			catalog: config(`{"servers":[{"url":"https://other.example.com"}]}`, "https://example.com/schema", ""),
+			drifted: true,
+		},
+		{
+			name:    "source URL changed with same snapshot",
+			server:  config(`{}`, "https://example.com/schema", ""),
+			catalog: config(`{}`, "https://example.com/other", ""),
+		},
+		{
+			name: "inline source formatting changed with same snapshot",
+			server: &types.OpenAPIRuntimeConfig{
+				Source: types.OpenAPISource{Content: `{"openapi":"3.0.0"}`},
+				Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.0.0"}`)},
+			},
+			catalog: &types.OpenAPIRuntimeConfig{
+				Source: types.OpenAPISource{Content: "{\n  \"openapi\": \"3.0.0\"\n}"},
+				Schema: &types.OpenAPISchema{Raw: json.RawMessage(`{"openapi":"3.0.0"}`)},
+			},
+		},
+		{
+			name:    "override changed",
+			server:  config(`{}`, "https://example.com/schema", ""),
+			catalog: config(`{}`, "https://example.com/schema", "https://other.example.com"),
+			drifted: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := types.MCPServerManifest{Runtime: types.RuntimeOpenAPI, OpenAPIConfig: test.server}
+			catalog := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeOpenAPI, OpenAPIConfig: test.catalog}
+
+			drifted, err := configurationHasDrifted(server, catalog, test.defaultDenyAllEgress)
+			require.NoError(t, err)
+			require.Equal(t, test.drifted, drifted)
+		})
+	}
+}
 
 func TestConfigurationHasDrifted(t *testing.T) {
 	tests := []struct {
@@ -1898,6 +2033,75 @@ func TestEnsureMCPNetworkPolicyCreatesDenyAllPolicy(t *testing.T) {
 	require.Len(t, policies.Items, 1)
 	assert.Empty(t, policies.Items[0].Spec.EgressDomains)
 	assert.True(t, policies.Items[0].Spec.DenyAllEgress)
+}
+
+func TestEnsureMCPNetworkPolicyOpenAPI(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		config            types.OpenAPIRuntimeConfig
+		defaultDenyAll    bool
+		wantDomains       []string
+		wantDenyAllEgress bool
+	}{
+		{
+			name: "configured domains replace an existing policy",
+			config: types.OpenAPIRuntimeConfig{
+				EgressDomains: []string{"api.example.com", "*.example.com"},
+			},
+			defaultDenyAll: true,
+			wantDomains:    []string{"*.example.com", "api.example.com"},
+		},
+		{
+			name:              "global deny default applies when no domains are configured",
+			defaultDenyAll:    true,
+			wantDenyAllEgress: true,
+		},
+		{
+			name: "explicit allow all overrides the deny default",
+			config: types.OpenAPIRuntimeConfig{
+				DenyAllEgress: new(false),
+			},
+			defaultDenyAll: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newMCPServer("openapi-server")
+			server.Spec.Manifest.Runtime = types.RuntimeOpenAPI
+			server.Spec.Manifest.OpenAPIConfig = &tt.config
+
+			existing := &v1.MCPNetworkPolicy{
+				Name:      "existing-policy",
+				Namespace: server.Namespace,
+				Spec: v1.MCPNetworkPolicySpec{
+					MCPServerName: server.Name,
+					DenyAllEgress: true,
+				},
+			}
+			client := newFakeClient(t, server, existing)
+			req := router.Request{
+				Client:    client,
+				Ctx:       t.Context(),
+				Object:    server,
+				Namespace: server.Namespace,
+				Name:      server.Name,
+			}
+
+			err := (&Handler{
+				networkPolicyProviderEnabled: true,
+				defaultDenyAllEgress:         tt.defaultDenyAll,
+			}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+			require.NoError(t, err)
+
+			var policies v1.MCPNetworkPolicyList
+			require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+				"spec.mcpServerName": server.Name,
+			}))
+			require.Len(t, policies.Items, 1)
+			assert.Equal(t, tt.wantDomains, policies.Items[0].Spec.EgressDomains)
+			assert.Equal(t, tt.wantDenyAllEgress, policies.Items[0].Spec.DenyAllEgress)
+			assert.Equal(t, map[string]string{"app": server.Name}, policies.Items[0].Spec.PodSelector)
+		})
+	}
 }
 
 func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {

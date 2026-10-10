@@ -115,6 +115,11 @@ func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) 
 			egressDomains = server.Spec.Manifest.ContainerizedConfig.EgressDomains
 			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
 		}
+	case types.RuntimeOpenAPI:
+		if server.Spec.Manifest.OpenAPIConfig != nil {
+			egressDomains = server.Spec.Manifest.OpenAPIConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.OpenAPIConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
 	default:
 		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
 	}
@@ -271,6 +276,8 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig, defaultDenyAllEgress)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+	case types.RuntimeOpenAPI:
+		drifted = openAPIConfigHasDrifted(serverManifest.OpenAPIConfig, entryManifest.OpenAPIConfig, defaultDenyAllEgress)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -348,6 +355,23 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Port != entryConfig.Port ||
 		serverConfig.Path != entryConfig.Path ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
+}
+
+// openAPIConfigHasDrifted checks if OpenAPI configuration has drifted.
+func openAPIConfigHasDrifted(serverConfig, entryConfig *types.OpenAPIRuntimeConfig, defaultDenyAllEgress bool) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	// Source location and text do not affect deployments built from the saved schema.
+	return !reflect.DeepEqual(serverConfig.Schema, entryConfig.Schema) ||
+		serverConfig.BaseURL != entryConfig.BaseURL ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
 		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
 			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
@@ -630,7 +654,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return err
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(resolvedServer, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(resolvedServer, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, h.mcpSessionManager.ValidationOptions().DevMode)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {
