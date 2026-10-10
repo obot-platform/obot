@@ -131,7 +131,8 @@
 		</div>
 	{/if}
 
-	<div class="shrink-0">
+	<!-- The padding leaves room for the search field's focus ring, which the overflow-hidden parent would clip. -->
+	<div class="shrink-0 p-0.5">
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 			value={query}
