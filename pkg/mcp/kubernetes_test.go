@@ -1749,6 +1749,20 @@ func TestAdditionalDeploymentRequests(t *testing.T) {
 			expectedCPU:    "1",
 		},
 		{
+			name:           "unchanged deployment with stuck rollout needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       withStuckRollout(withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))))),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "unchanged deployment with unobserved spec needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       withUnobservedSpec(withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))))),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
 			name:           "changed rolling update deployment needs full request",
 			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "3Gi", "1"))),
 			existing:       withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1")))),
@@ -1787,6 +1801,7 @@ func TestAdditionalRequestsForDeploy(t *testing.T) {
 		name           string
 		existing       bool
 		dryRunErr      error
+		getErr         error
 		expectedMemory string
 		expectedCPU    string
 	}{
@@ -1803,9 +1818,16 @@ func TestAdditionalRequestsForDeploy(t *testing.T) {
 			expectedCPU:    "0",
 		},
 		{
-			name:           "failed dry run falls back to full request",
+			name:           "failed dry run needs full request",
 			existing:       true,
 			dryRunErr:      errors.New("dry run failed"),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "failed get needs full request",
+			existing:       true,
+			getErr:         errors.New("get failed"),
 			expectedMemory: "2Gi",
 			expectedCPU:    "1",
 		},
@@ -1821,6 +1843,12 @@ func TestAdditionalRequestsForDeploy(t *testing.T) {
 				t.Fatalf("AddToScheme() error = %v", err)
 			}
 			builder := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+					if tt.getErr != nil {
+						return tt.getErr
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
 				// The fake client doesn't apply server-side defaults, so simulate them on dry-run updates.
 				Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
 					if !slices.ContainsFunc(opts, func(o kclient.UpdateOption) bool { return o == kclient.DryRunAll }) {
@@ -1897,8 +1925,24 @@ func simulateServerDefaults(dep *appsv1.Deployment) *appsv1.Deployment {
 	return dep
 }
 
+// withPods marks the deployment as fully rolled out to its current pod template.
 func withPods(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Generation = 1
+	dep.Status.ObservedGeneration = 1
 	dep.Status.Replicas = 1
+	dep.Status.UpdatedReplicas = 1
+	return dep
+}
+
+// withStuckRollout marks the deployment as having an old pod running but no pod for its current pod template.
+func withStuckRollout(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Status.UpdatedReplicas = 0
+	return dep
+}
+
+// withUnobservedSpec marks the deployment as having a spec the deployment controller hasn't observed yet.
+func withUnobservedSpec(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Generation = dep.Status.ObservedGeneration + 1
 	return dep
 }
 

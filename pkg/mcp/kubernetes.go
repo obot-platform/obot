@@ -1971,9 +1971,9 @@ func int64PtrValue(value *int64) string {
 // Only ResourceQuota is used for precheck since node capacity checks are naive and don't account
 // for taints, affinity, other namespace workloads, or resource fragmentation.
 //
-// If the deployment already exists and has pods, only the additional requests that applying the
-// objects would add to the namespace are checked, because the existing pods' requests are already
-// counted in the quota's usage.
+// If the deployment already exists and has pods running its current pod template, only the additional
+// requests that applying the objects would add to the namespace are checked, because the existing pods'
+// requests are already counted in the quota's usage.
 func (k *kubernetesBackend) CheckCapacity(ctx context.Context, objs []kclient.Object) error {
 	var desired *appsv1.Deployment
 	for _, obj := range objs {
@@ -2009,23 +2009,26 @@ func (k *kubernetesBackend) CheckCapacity(ctx context.Context, objs []kclient.Ob
 }
 
 // additionalRequestsForDeploy returns the memory and CPU requests that applying the desired deployment
-// would add to the namespace quota's usage.
+// would add to the namespace quota's usage. If the existing deployment can't be compared, it returns the
+// full requests so that a real capacity shortage fails fast instead of timing out on a pod that the quota
+// rejects.
 func (k *kubernetesBackend) additionalRequestsForDeploy(ctx context.Context, desired *appsv1.Deployment) (resource.Quantity, resource.Quantity) {
 	var existing appsv1.Deployment
-	if err := k.client.Get(ctx, kclient.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}, &existing); err != nil {
-		if !apierrors.IsNotFound(err) {
-			slog.Warn("Failed to get existing MCP deployment for capacity check", "deployment", desired.Name, "error", err)
-		}
+	if err := k.client.Get(ctx, kclient.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}, &existing); apierrors.IsNotFound(err) {
+		return additionalDeploymentRequests(desired, nil)
+	} else if err != nil {
+		slog.Warn("Failed to get existing MCP deployment for capacity check, checking full requests", "deployment", desired.Name, "error", err)
 		return additionalDeploymentRequests(desired, nil)
 	}
 
 	// Ask the API server what the deployment would look like after the update, so that the comparison with
 	// the existing deployment includes server-side defaults (e.g. probe timings) and admission mutations.
+	// The update is unconditional (no resourceVersion), so concurrent writes such as status updates from the
+	// deployment controller can't make it fail with a conflict.
 	updated := desired.DeepCopy()
-	updated.ResourceVersion = existing.ResourceVersion
 	if err := k.client.Update(ctx, updated, kclient.DryRunAll); err != nil {
-		slog.Warn("Failed to dry-run MCP deployment update for capacity check", "deployment", desired.Name, "error", err)
-		updated = desired
+		slog.Warn("Failed to dry-run MCP deployment update for capacity check, checking full requests", "deployment", desired.Name, "error", err)
+		return additionalDeploymentRequests(desired, nil)
 	}
 
 	return additionalDeploymentRequests(updated, &existing)
@@ -2042,9 +2045,19 @@ func additionalDeploymentRequests(desired, existing *appsv1.Deployment) (resourc
 		return memoryRequest, cpuRequest
 	}
 
-	// If the pod template is unchanged, applying the deployment won't create any new pods.
+	// If the pod template is unchanged, applying the deployment won't create any new pods. DeepDerivative
+	// ignores fields that are only set on the existing deployment, because the real apply is a three-way merge
+	// that keeps fields obot didn't set (e.g. the restartedAt annotation added by restartServer). As a result, a
+	// change that only removes a field obot used to set is treated as unchanged and isn't prechecked; the quota
+	// is still enforced when the new pod is admitted.
 	if equality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template) {
-		return resource.Quantity{}, resource.Quantity{}
+		// The existing pods only cover the request if they run the current template. If the deployment
+		// controller hasn't observed the latest spec, or the rollout to it is stuck (e.g. its new pod was
+		// rejected by the quota while an old pod keeps running), the full request is still needed.
+		if existing.Status.ObservedGeneration >= existing.Generation && existing.Status.UpdatedReplicas > 0 {
+			return resource.Quantity{}, resource.Quantity{}
+		}
+		return memoryRequest, cpuRequest
 	}
 
 	// With the default RollingUpdate strategy, the new pod is created before the old one is removed,
