@@ -1,0 +1,5 @@
+{
+  "model_validation_failed": "モデルプロバイダー {provider} の検証に失敗しました：{detail}",
+  "model_not_configured": "モデルプロバイダー {provider} は設定されていません。設定パラメーターがありません：{parameters}",
+  "model_credential_not_found": "{provider} の認証情報が見つかりません"
+}

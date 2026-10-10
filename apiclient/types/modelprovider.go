@@ -7,10 +7,17 @@ type CommonProviderMetadata struct {
 	Icon                            string                           `json:"icon,omitempty"`
 	IconDark                        string                           `json:"iconDark,omitempty"`
 	Description                     string                           `json:"description,omitempty"`
+	Locales                         map[string]ProviderTranslation   `json:"locales,omitempty" yaml:"locales,omitempty"`
 	Link                            string                           `json:"link,omitempty"`
 	RequiredEntitlements            []string                         `json:"requiredEntitlements,omitempty" yaml:"requiredEntitlements,omitempty"`
 	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty" yaml:"requiredConfigurationParameters,omitempty"`
 	OptionalConfigurationParameters []ProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty" yaml:"optionalConfigurationParameters,omitempty"`
+}
+
+// ProviderTranslation contains display text for a provider in one locale.
+type ProviderTranslation struct {
+	Name        string `json:"name,omitempty" yaml:"name,omitempty"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 }
 
 type CommonProviderStatus struct {
@@ -20,12 +27,19 @@ type CommonProviderStatus struct {
 }
 
 type ProviderConfigurationParameter struct {
-	Name         string `json:"name"`
+	Name         string                                  `json:"name"`
+	FriendlyName string                                  `json:"friendlyName,omitempty" yaml:"friendlyName,omitempty"`
+	Description  string                                  `json:"description,omitempty"`
+	Locales      map[string]ProviderParameterTranslation `json:"locales,omitempty" yaml:"locales,omitempty"`
+	Sensitive    bool                                    `json:"sensitive,omitempty"`
+	Hidden       bool                                    `json:"hidden,omitempty"`
+	Multiline    bool                                    `json:"multiline,omitempty"`
+}
+
+// ProviderParameterTranslation contains display text for one configuration parameter.
+type ProviderParameterTranslation struct {
 	FriendlyName string `json:"friendlyName,omitempty" yaml:"friendlyName,omitempty"`
-	Description  string `json:"description,omitempty"`
-	Sensitive    bool   `json:"sensitive,omitempty"`
-	Hidden       bool   `json:"hidden,omitempty"`
-	Multiline    bool   `json:"multiline,omitempty"`
+	Description  string `json:"description,omitempty" yaml:"description,omitempty"`
 }
 
 type ModelProvider struct {

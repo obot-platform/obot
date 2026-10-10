@@ -409,6 +409,19 @@ func TestSCIMEnableHandler(t *testing.T) {
 	assert.Contains(t, httpErr.Message, "already provisions users and groups through SCIM")
 	s.requireNoChange()
 
+	// The same blocker is localized in both the preview data and the enable error.
+	req, rec = s.scimContext(http.MethodGet, "/api/scim-connections/enable-preview", "", admin)
+	req.Request.Header.Set("Accept-Language", "ko")
+	require.NoError(t, h.EnablePreview(req))
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &preview))
+	assert.Contains(t, preview.Blockers[0], "SCIM으로 사용자와 그룹을 프로비저닝")
+	assert.Equal(t, "Accept-Language", rec.Header().Get("Vary"))
+	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections", "", owner)
+	req.Request.Header.Set("Accept-Language", "ko")
+	require.ErrorAs(t, h.Enable(req), &httpErr)
+	assert.Contains(t, httpErr.Message, "SCIM으로 사용자와 그룹을 프로비저닝")
+	s.requireNoChange()
+
 	// Only Owners can delete the unreferenced groups.
 	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections/"+result.Connection.ID+"/delete-unreferenced-groups", "", admin)
 	req.SetPathValue("id", result.Connection.ID)

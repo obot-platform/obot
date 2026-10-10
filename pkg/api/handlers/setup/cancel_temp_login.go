@@ -29,7 +29,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		slog.Info("Rejecting cancel temp login because no temporary user is cached")
-		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to cancel")
+		return types.NewErrHTTP(http.StatusNotFound, localized(req, "setup_no_temp_to_cancel"))
 	}
 
 	// Get the user from the database
@@ -42,7 +42,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		slog.Info("Cancelled temporary setup login and cleared cache for missing user", "cachedUserID", cached.UserID)
 		return req.Write(CancelTempLoginResponse{
 			Success: true,
-			Message: "Temporary login cancelled",
+			Message: localized(req, "setup_cancelled"),
 		})
 	}
 
@@ -68,6 +68,6 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 
 	return req.Write(CancelTempLoginResponse{
 		Success: true,
-		Message: fmt.Sprintf("Temporary login for %s cancelled", user.Email),
+		Message: localized(req, "setup_cancelled_user", "email", user.Email),
 	})
 }

@@ -37,19 +37,19 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 
 	var body InitiateTempLoginRequest
 	if err := req.Read(&body); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
+		return types.NewErrBadRequest("%s", localized(req, "local_invalid_body", "detail", err.Error()))
 	}
 
 	// Validate required fields
 	if body.AuthProviderName == "" || body.AuthProviderNamespace == "" {
-		return types.NewErrBadRequest("authProviderName and authProviderNamespace are required")
+		return types.NewErrBadRequest("%s", localized(req, "setup_provider_required"))
 	}
 
 	// Check if a temporary user is already cached
 	if cached := req.GatewayClient.GetTempUserCache(req.Context()); cached != nil {
 		slog.Info("Rejecting temporary setup login initiation because another user is already cached", "cachedUserID", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
-			fmt.Sprintf("temporary user already cached: %s", cached.Email))
+			localized(req, "setup_temp_cached", "email", cached.Email))
 	}
 
 	// Create TokenRequest for OAuth flow with setup context

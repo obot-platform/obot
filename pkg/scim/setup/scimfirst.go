@@ -13,6 +13,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +30,7 @@ type ResidualGroupDataError struct {
 	AuthProviderName        string
 	AuthProviderDisplayName string
 	Data                    types2.ResidualGroupData
+	Locale                  string
 }
 
 func (e *IneligibleError) Error() string {
@@ -37,19 +39,16 @@ func (e *IneligibleError) Error() string {
 
 func (e *ResidualGroupDataError) Error() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s still has group data from an earlier configuration, so it cannot be configured to provision users and groups through SCIM. "+
-		"Remove it by deconfiguring %s, which runs its auth provider cleanup, and configure it again once the cleanup finishes, "+
-		"or provide the directory credentials to synchronize its directory at sign-in instead.",
-		e.AuthProviderDisplayName, e.AuthProviderDisplayName)
+	b.WriteString(i18n.Message(e.Locale, "scim_residual_data", map[string]string{"provider": e.AuthProviderDisplayName}))
 	if len(e.Data.Groups) > 0 {
-		b.WriteString("\n\nGroups:")
+		b.WriteString("\n\n" + i18n.Text(e.Locale, "scim_groups_label"))
 		for _, group := range e.Data.Groups {
 			b.WriteString("\n- ")
-			b.WriteString(describeGroup(group))
+			b.WriteString(describeGroupLocale(e.Locale, group))
 		}
 	}
 	if e.Data.MembershipCount > 0 {
-		fmt.Fprintf(&b, "\n\nGroup memberships: %d", e.Data.MembershipCount)
+		fmt.Fprintf(&b, "\n\n%s", i18n.Message(e.Locale, "scim_memberships_label", map[string]string{"count": fmt.Sprint(e.Data.MembershipCount)}))
 	}
 	return b.String()
 }
@@ -61,7 +60,7 @@ func ResidualGroupData(ctx context.Context, storage kclient.Reader, gateway *gcl
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return nil, &IneligibleError{
-			Message: fmt.Sprintf("%s does not support SCIM provisioning", displayName(authProvider)),
+			Message: message(ctx, "scim_not_supported_basic", "provider", displayName(authProvider)),
 		}
 	}
 	prefix := authProvider.Spec.GroupIDPrefix
@@ -125,7 +124,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return nil, &IneligibleError{
-			Message: fmt.Sprintf("%s does not support SCIM provisioning, so it needs every configuration parameter it requires", displayName(authProvider)),
+			Message: message(ctx, "scim_not_supported_parameters", "provider", displayName(authProvider)),
 		}
 	}
 
@@ -149,6 +148,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 			AuthProviderName:        authProvider.Name,
 			AuthProviderDisplayName: displayName(authProvider),
 			Data:                    *residual,
+			Locale:                  i18n.FromContext(ctx),
 		}
 	}
 
@@ -162,7 +162,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 	})
 	if exists, ok := errors.AsType[*gclient.SCIMConnectionExistsError](err); ok {
 		return nil, &IneligibleError{
-			Message: fmt.Sprintf("%s cannot provision users and groups through SCIM, because another auth provider has the installation's only SCIM connection (%s)", displayName(authProvider), exists.ConnectionID),
+			Message: message(ctx, "scim_connection_occupied", "provider", displayName(authProvider), "connection", exists.ConnectionID),
 		}
 	} else if _, ok := errors.AsType[*gclient.SCIMResidualGroupDataError](err); ok {
 		// Group data appeared after it was listed.
@@ -174,6 +174,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 			AuthProviderName:        authProvider.Name,
 			AuthProviderDisplayName: displayName(authProvider),
 			Data:                    *residual,
+			Locale:                  i18n.FromContext(ctx),
 		}
 	} else if err != nil {
 		return nil, err

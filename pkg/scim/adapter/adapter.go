@@ -61,9 +61,11 @@ type DirectoryParameter struct {
 	Name string
 	// SetupDescription describes the parameter while the auth provider is being configured, when providing it
 	// chooses directory synchronization and omitting it chooses SCIM.
-	SetupDescription string
+	SetupDescription  string
+	SetupTranslations map[string]string
 	// UnusedDescription describes the parameter once a SCIM connection has replaced directory synchronization.
-	UnusedDescription string
+	UnusedDescription  string
+	UnusedTranslations map[string]string
 }
 
 // User holds the SCIM user attributes an adapter may read.
