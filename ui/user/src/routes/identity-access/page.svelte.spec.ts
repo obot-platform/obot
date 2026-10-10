@@ -5,6 +5,7 @@ import * as navigation from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
+import errors from '$lib/stores/errors.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import {
 	getProfileResponse,
@@ -605,6 +606,62 @@ describe('Identity & Access Page', () => {
 						.element(page.getByRole('button', { name: 'Remove leftover group data' }))
 						.toBeVisible();
 				});
+			});
+
+			it('shows a refused switch in the dialog and keeps what was entered', async () => {
+				const refusal =
+					'provide all of OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID and OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY, or none of them; missing: OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY';
+				const localActive: AuthProvider = {
+					...googleProvider,
+					id: CommonAuthProviderIds.LOCAL,
+					name: 'Local',
+					configured: true,
+					missingEntitlements: []
+				};
+				errors.items = [];
+				worker.use(
+					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
+						HttpResponse.json(null, { status: 404 })
+					),
+					http.post(`/api/auth-providers/${oktaProvider.id}/stage`, () =>
+						HttpResponse.json({ error: refusal }, { status: 400 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [localActive, oktaProvider],
+					groups: [Group.ADMIN, Group.OWNER]
+				});
+				// A short window makes the form scroll, so the error at its top starts out of sight of
+				// the fields at its bottom.
+				await page.viewport(1280, 400);
+				try {
+					await providerCard('Okta')
+						.getByRole('button', { name: 'Configure', exact: true })
+						.click();
+					const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
+					await dialog.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+					await dialog.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+					await dialog
+						.getByLabelText('API Services Client ID', { exact: true })
+						.fill('service-client');
+					await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+					const error = dialog.getByRole('alert').filter({ hasText: refusal });
+					await expect.element(error).toBeInViewport();
+					// The form overflows here, which must not squeeze the error out of its own box.
+					const box = error.element();
+					expect(box.clientHeight).toBeGreaterThanOrEqual(box.scrollHeight);
+					// The dialog shows the refusal, so it is not also raised behind the dialog.
+					expect(errors.items).toHaveLength(0);
+					await expect
+						.element(dialog.getByLabelText('API Services Client ID', { exact: true }))
+						.toHaveValue('service-client');
+					await expect
+						.element(dialog.getByLabelText('Org URL', { exact: true }))
+						.toHaveValue('https://example.okta.com');
+				} finally {
+					await page.viewport(1280, 720);
+				}
 			});
 
 			it('asks to discard the staged switch before removing the group data of a staged provider', async () => {

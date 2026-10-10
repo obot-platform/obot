@@ -353,7 +353,7 @@ export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<Aut
 export async function configureAuthProvider(
 	authProviderID: string,
 	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/configure`, envs, opts);
 }
@@ -383,7 +383,7 @@ export async function deconfigureAuthProvider(
 export async function stageAuthProvider(
 	authProviderID: string,
 	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/stage`, envs, opts);
 }

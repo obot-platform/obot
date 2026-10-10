@@ -397,11 +397,16 @@
 			configureError = undefined;
 			clearResidualGroupData();
 			try {
+				// The dialog shows a refusal itself, so it is not also raised behind the dialog.
 				const staging = isSwitching;
 				if (staging) {
-					await AdminService.stageAuthProvider(configuringAuthProvider.id, form);
+					await AdminService.stageAuthProvider(configuringAuthProvider.id, form, {
+						dontLogErrors: true
+					});
 				} else {
-					await AdminService.configureAuthProvider(configuringAuthProvider.id, form);
+					await AdminService.configureAuthProvider(configuringAuthProvider.id, form, {
+						dontLogErrors: true
+					});
 				}
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
@@ -456,9 +461,13 @@
 			// Local follows the same rule as every other provider: with something else already
 			// serving logins, saving settings stages a replacement rather than taking over.
 			if (atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL) {
-				await AdminService.stageAuthProvider(CommonAuthProviderIds.LOCAL, form);
+				await AdminService.stageAuthProvider(CommonAuthProviderIds.LOCAL, form, {
+					dontLogErrors: true
+				});
 			} else {
-				await AdminService.configureAuthProvider(CommonAuthProviderIds.LOCAL, form);
+				await AdminService.configureAuthProvider(CommonAuthProviderIds.LOCAL, form, {
+					dontLogErrors: true
+				});
 			}
 			authProviders = await AdminService.listAuthProviders();
 			adminConfigStore.updateAuthProviders(authProviders);
