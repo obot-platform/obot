@@ -747,7 +747,10 @@ func TestStaticConfigurationDoesNotCauseSourceDrift(t *testing.T) {
 			entry := testEntry("static")
 			entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "VALUE", Usage: usage, Value: "original"}}
 			rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
-			client := migrationClientBuilder().WithStatusSubresource(&v1.VMCP{}).WithObjects(entry, rule).Build()
+			client := migrationClientBuilder().WithStatusSubresource(&v1.VMCP{}).WithObjects(entry, rule).
+				WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
+				}).Build()
 			credentials := make(map[string]map[string]string)
 			require.NoError(t, testHandler(t, nil, credentials).MigrateAll(t.Context(), client))
 			var targets v1.VMCPList
@@ -944,4 +947,110 @@ func TestMigrationContinuesAfterCatalogSyncFailure(t *testing.T) {
 	var targets v1.VMCPList
 	require.NoError(t, client.List(t.Context(), &targets))
 	require.Len(t, targets.Items, 1)
+}
+
+func TestMigratedConnectionsShowCatalogUpdates(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		entry       types.MCPServerCatalogEntryManifest
+		userURL     string
+		deployed    func(*types.MCPServerManifest)
+		wantUpdate  bool
+		wantPackage string
+	}{
+		{
+			name: "current connection",
+			entry: types.MCPServerCatalogEntryManifest{
+				Name:      "npx",
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "server@2.0.0"},
+				Config: []types.MCPConfig{
+					{
+						Key:      "TOKEN",
+						Usage:    types.Env,
+						Required: true,
+					},
+					{
+						Key:   "DEFAULT",
+						Usage: types.Env,
+						Value: "catalog-default",
+					},
+				},
+			},
+		},
+		{
+			name: "connection deployed before a catalog update",
+			entry: types.MCPServerCatalogEntryManifest{
+				Name:      "npx",
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "server@2.0.0"},
+				Config: []types.MCPConfig{
+					{
+						Key:      "TOKEN",
+						Usage:    types.Env,
+						Required: true,
+					},
+				},
+			},
+			deployed: func(manifest *types.MCPServerManifest) {
+				manifest.NPXConfig.Package = "server@1.0.0"
+			},
+			wantUpdate:  true,
+			wantPackage: "server@1.0.0",
+		},
+		{
+			name: "connection URL for a hostname-constrained remote",
+			entry: types.MCPServerCatalogEntryManifest{
+				Name:         "remote",
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{Hostname: "example.com"},
+			},
+			userURL: "https://example.com/private",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := testEntry("catalog")
+			entry.Spec.Manifest = tc.entry
+			deployed, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, tc.userURL, false)
+			require.NoError(t, err)
+			for i := range deployed.Config {
+				if deployed.Config[i].Key == "TOKEN" {
+					deployed.Config[i].Value = "user-secret"
+				}
+			}
+			if tc.deployed != nil {
+				tc.deployed(&deployed)
+			}
+			server := &v1.MCPServer{
+				Name:      "single",
+				Namespace: entry.Namespace,
+				Spec: v1.MCPServerSpec{
+					UserID:                    "1",
+					MCPServerCatalogEntryName: entry.Name,
+					Manifest:                  deployed,
+				},
+			}
+			rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
+			client := migrationClientBuilder().WithStatusSubresource(&v1.VMCP{}).WithObjects(entry, server, rule).
+				WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
+				}).Build()
+			require.NoError(t, testHandler(t, nil, make(map[string]map[string]string)).MigrateAll(t.Context(), client))
+
+			var target v1.VMCP
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Namespace: entry.Namespace, Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)}, &target))
+			require.NoError(t, vmcphandler.DetectDrift(router.Request{Ctx: t.Context(), Client: client, Object: &target}, nil))
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&target), &target))
+			status := target.Status.Components[0]
+			require.Equal(t, tc.wantUpdate, status.NeedsUpdate)
+			if !tc.wantUpdate {
+				require.Nil(t, status.ConnectionSnapshot)
+				return
+			}
+			require.Equal(t, tc.wantPackage, status.ConnectionSnapshot.Manifest.NPXConfig.Package)
+			for _, field := range status.ConnectionSnapshot.Manifest.Config {
+				require.Empty(t, field.Value, field.Key)
+			}
+		})
+	}
 }

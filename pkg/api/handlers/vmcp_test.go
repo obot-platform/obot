@@ -1828,3 +1828,157 @@ func TestVMCPHandlerCreateRefusesProfilesForMissingSCIMGroups(t *testing.T) {
 		t.Fatalf("a refused vMCP was saved: %+v", vmcps.Items)
 	}
 }
+
+func TestVMCPTriggerUpdateReleasesOutdatedConnectionSnapshots(t *testing.T) {
+	entry := vmcpCatalogEntryForTest("entry")
+	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/v2"}
+	storage := newVMCPTestStorage(entry)
+	handler := vmcpHandlerForTest(t, storage)
+	u := &user.DefaultInfo{UID: "user-1"}
+	created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, testVMCPManifest(), u)
+	var parent v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &parent))
+	component := parent.Spec.Manifest.Components[0]
+	binding := utils.Digest([]any{component, parent.Spec.ComponentStaticConfigurationHashes[component.ID]})
+
+	retained := func(name, vmcpID, digest, url string) *v1.VMCPInstance {
+		legacy := *component.DeepCopy()
+		legacy.SourceDigest = digest
+		legacy.ToolPrefix = "mine_"
+		legacy.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: url}
+		return &v1.VMCPInstance{
+			Name:      name,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPInstanceSpec{
+				UserID:           "user-1",
+				LegacySlug:       name,
+				Manifest:         types.VMCPInstanceManifest{VMCPID: vmcpID},
+				LegacyComponents: []types.VMCPComponent{legacy},
+			},
+		}
+	}
+	instances := []*v1.VMCPInstance{
+		retained("outdated", parent.Name, binding, "https://example.com/v1"),
+		retained("current", parent.Name, binding, "https://example.com/v2"),
+		retained("released", parent.Name, "retired", "https://example.com/v1"),
+		retained("other", "other-vmcp", binding, "https://example.com/v1"),
+	}
+	for _, instance := range instances {
+		require.NoError(t, storage.Create(t.Context(), instance))
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+created.ID+"/trigger-update", nil)
+	request.SetPathValue("vmcp_id", created.ID)
+	require.NoError(t, handler.TriggerUpdate(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		User:           u,
+	}))
+
+	var stored v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&parent), &stored))
+	require.Equal(t, parent.Spec.Manifest, stored.Spec.Manifest, "a current component is unchanged")
+	for _, instance := range instances {
+		var got v1.VMCPInstance
+		require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &got))
+		if instance.Name == "outdated" {
+			require.Empty(t, got.Spec.LegacyComponents, "the outdated snapshot is released")
+			require.Equal(t, parent.Spec.Manifest.Components, vmcpconfig.ComponentsForInstance(stored, got))
+			continue
+		}
+		require.Equal(t, instance.Spec.LegacyComponents, got.Spec.LegacyComponents, instance.Name)
+	}
+}
+
+func TestVMCPTriggerUpdatePublishesBeforeReleasingConnectionSnapshots(t *testing.T) {
+	entry, second := vmcpCatalogEntryForTest("entry"), vmcpCatalogEntryForTest("second")
+	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/v2"}
+	second.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
+	storage := newVMCPTestStorage(entry, second)
+	handler := vmcpHandlerForTest(t, storage)
+	u := &user.DefaultInfo{UID: "user-1"}
+	manifest := testVMCPManifest()
+	manifest.Components = append(manifest.Components, types.VMCPComponent{Name: "second", MCPServerCatalogEntryID: second.Name})
+	created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, manifest, u)
+	var parent v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &parent))
+	component := parent.Spec.Manifest.Components[0]
+	legacy := *component.DeepCopy()
+	legacy.SourceDigest = utils.Digest([]any{component, parent.Spec.ComponentStaticConfigurationHashes[component.ID]})
+	legacy.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/v1"}
+	instance := &v1.VMCPInstance{
+		Name:      "outdated",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPInstanceSpec{
+			UserID:           "user-1",
+			LegacySlug:       "outdated",
+			Manifest:         types.VMCPInstanceManifest{VMCPID: parent.Name},
+			LegacyComponents: []types.VMCPComponent{legacy},
+		},
+	}
+	require.NoError(t, storage.Create(t.Context(), instance))
+	second.Spec.Manifest.Name = "Updated second"
+	require.NoError(t, storage.Update(t.Context(), second))
+
+	var failRelease, concurrentInstanceWrite, concurrentStatusWrite bool
+	bumpParentStatus := func() {
+		var current v1.VMCP
+		require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&parent), &current))
+		current.Status.Ready = !current.Status.Ready
+		require.NoError(t, storage.WithWatch.Update(t.Context(), &current))
+	}
+	storage.onUpdate = func(object kclient.Object) {
+		storage.updateErr = nil
+		updated, ok := object.(*v1.VMCPInstance)
+		if !ok {
+			if concurrentStatusWrite {
+				// A controller writes the vMCP's status while the update is loading, so it conflicts once.
+				concurrentStatusWrite = false
+				bumpParentStatus()
+			}
+			return
+		}
+		if failRelease {
+			storage.updateErr = errors.New("release failed")
+			return
+		}
+		if concurrentInstanceWrite {
+			// Another writer changes the connection, so this write conflicts once.
+			concurrentInstanceWrite = false
+			var current v1.VMCPInstance
+			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(updated), &current))
+			current.Status.Configured = !current.Status.Configured
+			require.NoError(t, storage.WithWatch.Update(t.Context(), &current))
+		}
+		// Drift detection watches connections and writes the vMCP's status.
+		bumpParentStatus()
+	}
+	triggerUpdate := func() error {
+		request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+created.ID+"/trigger-update", nil)
+		request.SetPathValue("vmcp_id", created.ID)
+		return handler.TriggerUpdate(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        request,
+			Storage:        storage,
+			User:           u,
+		})
+	}
+
+	failRelease = true
+	require.Error(t, triggerUpdate())
+	var stored v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&parent), &stored))
+	require.Equal(t, "Updated second", stored.Spec.Manifest.Components[1].CatalogEntry.Manifest.Name, "the update is published before snapshots are released")
+	require.Equal(t, parent.Spec.Manifest.Components[0], stored.Spec.Manifest.Components[0])
+	var got v1.VMCPInstance
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &got))
+	require.Len(t, got.Spec.LegacyComponents, 1, "a failed release leaves the snapshot for a retry")
+
+	failRelease, concurrentInstanceWrite, concurrentStatusWrite = false, true, true
+	require.NoError(t, triggerUpdate())
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &got))
+	require.Empty(t, got.Spec.LegacyComponents, "a retry releases the outdated snapshot")
+	require.False(t, concurrentInstanceWrite)
+	require.False(t, concurrentStatusWrite)
+}

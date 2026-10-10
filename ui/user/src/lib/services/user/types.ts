@@ -623,6 +623,8 @@ export interface VMCPStatus {
 }
 
 export interface VMCPComponentStatus {
+	/** An outdated snapshot that migrated connections retain while the component itself is current. */
+	connectionSnapshot?: VMCPComponentCatalogEntrySnapshot;
 	error?: string;
 	name: string;
 	ready?: boolean;

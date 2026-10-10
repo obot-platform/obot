@@ -19775,10 +19775,18 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref common.Re
 							Format: "",
 						},
 					},
+					"connectionSnapshot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConnectionSnapshot is an outdated snapshot that migrated connections retain when the component itself is current. Updating the vMCP releases it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot"},
 	}
 }
 
@@ -29688,10 +29696,18 @@ func schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"connectionSnapshot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConnectionSnapshot is an outdated snapshot that migrated connections retain when the component itself is current. Updating the vMCP releases it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot"},
 	}
 }
 

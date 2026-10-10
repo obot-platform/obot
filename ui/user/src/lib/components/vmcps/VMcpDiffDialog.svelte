@@ -6,7 +6,11 @@
 	} from '$lib/diff';
 	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
-	import { vmcpComponentDiffServers, vmcpOutdatedComponents } from '$lib/services/vmcps/utils';
+	import {
+		vmcpComponentDiffServers,
+		vmcpComponentStatus,
+		vmcpOutdatedComponents
+	} from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Layers, Server } from '@lucide/svelte';
@@ -27,7 +31,8 @@
 		}
 		return vmcpComponentDiffServers(
 			selectedComponent,
-			entriesMap.get(selectedComponent.mcpServerCatalogEntryID)
+			entriesMap.get(selectedComponent.mcpServerCatalogEntryID),
+			vmcp ? vmcpComponentStatus(vmcp, selectedComponent) : undefined
 		);
 	});
 

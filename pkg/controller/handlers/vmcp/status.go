@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -102,7 +103,7 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 			return err
 		}
 	}
-	if ready == vmcp.Status.Ready && slices.Equal(statuses, vmcp.Status.Components) {
+	if ready == vmcp.Status.Ready && equality.Semantic.DeepEqual(statuses, vmcp.Status.Components) {
 		return nil
 	}
 	vmcp.Status.Ready, vmcp.Status.Components = ready, statuses

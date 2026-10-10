@@ -17,6 +17,7 @@ import (
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type VMCPHandler struct {
@@ -226,21 +227,82 @@ func (h *VMCPHandler) Update(req api.Context) error {
 // not change policies or credentials; ordinary edits never refresh snapshots.
 func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
 	var vmcp v1.VMCP
-	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+	// Controllers write the vMCP's status concurrently, so reload and retry on conflict.
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+			return err
+		}
+		if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil, false); err != nil {
+			return err
+		}
+		if err := vmcp.Spec.Manifest.Validate(); err != nil {
+			return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+		}
+		for _, component := range vmcp.Spec.Manifest.Components {
+			if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
+				return types.NewErrBadRequest("invalid component %q: %v", component.Name, err)
+			}
+		}
+		return req.Update(&vmcp)
+	}); err != nil {
 		return err
 	}
-	if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil, false); err != nil {
+	// Release snapshots only after the update is published. Drift detection keeps reporting
+	// snapshots that remain, so a failed release is completed by triggering the update again.
+	return releaseOutdatedLegacyComponents(req, vmcp)
+}
+
+// releaseOutdatedLegacyComponents releases the outdated snapshots that migrated connections retain
+// for components of the published vMCP. Snapshots retained for a component the update changed
+// are already released by the change itself.
+func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
+	var instances v1.VMCPInstanceList
+	if err := req.List(&instances, kclient.MatchingFields{"spec.manifest.vmcpID": vmcp.Name}); err != nil {
 		return err
 	}
-	if err := vmcp.Spec.Manifest.Validate(); err != nil {
-		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
-	}
-	for _, component := range vmcp.Spec.Manifest.Components {
-		if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
-			return types.NewErrBadRequest("invalid component %q: %v", component.Name, err)
+	for i := range instances.Items {
+		instance := &instances.Items[i]
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if !releaseOutdatedLegacyComponentsOf(vmcp, instance) {
+				return nil
+			}
+			err := req.Update(instance)
+			if apierrors.IsConflict(err) {
+				// Reload the connection so the next attempt releases from its current snapshots.
+				if err := req.Get(instance, instance.Name); err != nil {
+					return err
+				}
+			}
+			return err
+		})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to update VMCP instance %q: %w", instance.Name, err)
 		}
 	}
-	return req.Update(&vmcp)
+	return nil
+}
+
+// releaseOutdatedLegacyComponentsOf removes an instance's outdated snapshots and reports whether
+// it removed any.
+func releaseOutdatedLegacyComponentsOf(vmcp v1.VMCP, instance *v1.VMCPInstance) bool {
+	if !instance.DeletionTimestamp.IsZero() {
+		return false
+	}
+	var outdated []types.VMCPComponent
+	for _, component := range vmcp.Spec.Manifest.Components {
+		if legacy, ok := vmcpconfig.LegacyComponent(vmcp, *instance, component); ok && vmcpconfig.LegacyComponentNeedsUpdate(legacy, component) {
+			outdated = append(outdated, legacy)
+		}
+	}
+	if len(outdated) == 0 {
+		return false
+	}
+	instance.Spec.LegacyComponents = slices.DeleteFunc(instance.Spec.LegacyComponents, func(legacy types.VMCPComponent) bool {
+		return slices.ContainsFunc(outdated, func(released types.VMCPComponent) bool {
+			return released.ID == legacy.ID && released.SourceDigest == legacy.SourceDigest
+		})
+	})
+	return true
 }
 
 func (*VMCPHandler) Reveal(req api.Context) error {
@@ -451,11 +513,12 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 	componentStatuses := make([]types.VMCPComponentStatus, 0, len(vmcp.Status.Components))
 	for _, status := range vmcp.Status.Components {
 		componentStatuses = append(componentStatuses, types.VMCPComponentStatus{
-			Name:          status.Name,
-			Ready:         status.Ready,
-			Error:         status.Error,
-			SourceMissing: status.SourceMissing,
-			NeedsUpdate:   status.NeedsUpdate,
+			Name:               status.Name,
+			Ready:              status.Ready,
+			Error:              status.Error,
+			SourceMissing:      status.SourceMissing,
+			NeedsUpdate:        status.NeedsUpdate,
+			ConnectionSnapshot: status.ConnectionSnapshot,
 		})
 	}
 	return types.VMCP{

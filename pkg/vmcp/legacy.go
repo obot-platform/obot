@@ -13,11 +13,8 @@ import (
 func ComponentsForInstance(vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
 	components := vmcp.DeepCopy().Spec.Manifest.Components
 	for i, component := range components {
-		for _, legacy := range instance.Spec.LegacyComponents {
-			if legacy.ID == component.ID && legacy.SourceDigest == utils.Digest([]any{component, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]}) {
-				components[i] = *legacy.DeepCopy()
-				break
-			}
+		if legacy, ok := LegacyComponent(vmcp, instance, component); ok {
+			components[i] = *legacy.DeepCopy()
 		}
 		// Hostname-constrained catalog entries require a URL for each connection.
 		// Carry it through the same credential and consent flow as other user inputs.
@@ -43,4 +40,61 @@ func ComponentsForInstance(vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPC
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
 		return slices.Contains(instance.Spec.LegacyDisabledComponents, component.ID)
 	})
+}
+
+// LegacyComponent returns the snapshot a migrated connection retains for a vMCP component. A
+// retained snapshot is bound to the component it was migrated with, so any change to the
+// component releases it.
+func LegacyComponent(vmcp v1.VMCP, instance v1.VMCPInstance, component types.VMCPComponent) (types.VMCPComponent, bool) {
+	digest := utils.Digest([]any{component, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]})
+	for _, legacy := range instance.Spec.LegacyComponents {
+		if legacy.ID == component.ID && legacy.SourceDigest == digest {
+			return legacy, true
+		}
+	}
+	return types.VMCPComponent{}, false
+}
+
+// LegacyComponentNeedsUpdate reports whether a retained snapshot deploys a different server than
+// its vMCP component, so that releasing it would update the connection.
+func LegacyComponentNeedsUpdate(legacy, component types.VMCPComponent) bool {
+	return SourceDigest(withoutConnectionConfiguration(legacy.CatalogEntry, true)) !=
+		SourceDigest(withoutConnectionConfiguration(component.CatalogEntry, true))
+}
+
+// LegacySnapshot returns a retained snapshot without its connection's configuration, so that it
+// can be shown to anyone who can read the vMCP.
+func LegacySnapshot(legacy, component types.VMCPComponent) types.MCPServerCatalogEntrySnapshot {
+	snapshot := withoutConnectionConfiguration(legacy.CatalogEntry, false)
+	for i := range snapshot.Manifest.Config {
+		field := &snapshot.Manifest.Config[i]
+		for _, current := range component.CatalogEntry.Manifest.Config {
+			if current.Key == field.Key {
+				// Per-user access is vMCP policy, so show the component's.
+				field.UserAllowed = current.UserAllowed
+				break
+			}
+		}
+	}
+	return snapshot
+}
+
+// withoutConnectionConfiguration removes what a migrated snapshot holds for its connection rather
+// than its server: configuration values, per-user access, and the URL a connection chose for a
+// hostname-constrained or templated remote. Retained snapshots were converted from deployed
+// servers, so their static configuration revision may also be the server's, which only
+// identifies where static values are stored.
+func withoutConnectionConfiguration(snapshot types.MCPServerCatalogEntrySnapshot, withoutRevision bool) types.MCPServerCatalogEntrySnapshot {
+	snapshot = *snapshot.DeepCopy()
+	for i := range snapshot.Manifest.Config {
+		snapshot.Manifest.Config[i].Value = ""
+		snapshot.Manifest.Config[i].UserAllowed = false
+	}
+	if remote := snapshot.Manifest.RemoteConfig; remote != nil && (remote.Hostname != "" || remote.URLTemplate != "") {
+		remote.FixedURL = ""
+	}
+	if withoutRevision {
+		snapshot.Manifest.StaticConfigurationRevision = ""
+	}
+	return snapshot
 }

@@ -4,6 +4,7 @@ import type {
 	MCPCatalogEntry,
 	MCPCatalogServer,
 	VMCPComponent,
+	VMCPComponentStatus,
 	MCPConfig,
 	OrgUser,
 	VMCP,
@@ -159,12 +160,22 @@ export function vmcpOutdatedComponents(vmcp: VMCP): VMCPComponent[] {
 	);
 }
 
+export function vmcpComponentStatus(
+	vmcp: VMCP,
+	component: VMCPComponent
+): VMCPComponentStatus | undefined {
+	return vmcp.status?.components?.find((status) => status.name === component.name);
+}
+
 export function vmcpUpdateConfigurationTargets(
 	vmcp: VMCP,
 	entries: MCPCatalogEntry[]
 ): { component: VMCPComponent; entry: MCPCatalogEntry }[] {
 	const byId = new Map(entries.map((entry) => [entry.id, entry]));
 	return vmcpOutdatedComponents(vmcp).flatMap((component) => {
+		// Updating only releases connections' older snapshots of a current component,
+		// so its configuration is already up to date.
+		if (vmcpComponentStatus(vmcp, component)?.connectionSnapshot) return [];
 		const entry = byId.get(component.mcpServerCatalogEntryID);
 		if (!entry || catalogConfigurationFields(entry).length === 0) return [];
 		return [{ component, entry }];
@@ -205,7 +216,8 @@ export function configurationForSnapshotUpdate(
 
 export function vmcpComponentDiffServers(
 	component: VMCPComponent,
-	updatedEntry?: MCPCatalogEntry
+	updatedEntry?: MCPCatalogEntry,
+	status?: VMCPComponentStatus
 ): {
 	fromServer?: MCPCatalogServer;
 	toServer?: MCPCatalogEntry;
@@ -214,10 +226,12 @@ export function vmcpComponentDiffServers(
 		return {};
 	}
 
+	// A current component needs an update only for connections that retain an older snapshot.
+	const deployed = status?.connectionSnapshot ?? component.catalogEntry;
 	return {
 		fromServer: {
 			id: component.mcpServerCatalogEntryID,
-			manifest: stripInformationalManifestFields(component.catalogEntry.manifest)
+			manifest: stripInformationalManifestFields(deployed.manifest)
 		} as MCPCatalogServer,
 		toServer: {
 			...updatedEntry,

@@ -24,6 +24,7 @@ import {
 	sortMcpServers,
 	sortVMcps,
 	vmcpComponentDiffServers,
+	vmcpComponentStatus,
 	vmcpConnectURL,
 	vmcpHasUserAllowedConfiguration,
 	vmcpInstanceNeedsUserConfiguration,
@@ -695,6 +696,43 @@ describe('vmcpOutdatedComponents', () => {
 		expect(updatedEntry.manifest.description).toBe('Updated description');
 		expect(vmcp.components![0].catalogEntry.manifest.icon).toBe(informational.icon);
 	});
+
+	it('diffs from the snapshot migrated connections retain for a current component', () => {
+		const entry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			manifest: { npxConfig: { package: '@example/github@2.0.0' } }
+		});
+		const connectionSnapshot = {
+			manifest: {
+				...entry.manifest,
+				npxConfig: { package: '@example/github@1.0.0' }
+			}
+		};
+		const vmcp = createVMCP(
+			{
+				status: {
+					components: [{ name: 'GitHub', needsUpdate: true, connectionSnapshot }]
+				}
+			},
+			[entry]
+		);
+
+		const component = vmcp.components![0];
+		const { fromServer, toServer } = vmcpComponentDiffServers(
+			component,
+			entry,
+			vmcpComponentStatus(vmcp, component)
+		);
+
+		expect(vmcpOutdatedComponents(vmcp)).toEqual([component]);
+		expect(fromServer?.manifest.npxConfig?.package).toBe('@example/github@1.0.0');
+		expect(toServer?.manifest.npxConfig?.package).toBe('@example/github@2.0.0');
+		expect(
+			vmcpComponentDiffServers(component, entry, { name: 'GitHub', needsUpdate: true }).fromServer
+				?.manifest.npxConfig?.package
+		).toBe('@example/github@2.0.0');
+	});
 });
 
 describe('vmcpUpdateConfigurationTargets', () => {
@@ -731,6 +769,42 @@ describe('vmcpUpdateConfigurationTargets', () => {
 		]);
 		expect(vmcpUpdateConfigurationTargets(vmcp, [snapshot])).toEqual([]);
 		expect(vmcpUpdateConfigurationTargets(vmcp, [])).toEqual([]);
+	});
+
+	it('skips components whose update only releases older connection snapshots', () => {
+		const entry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			manifest: {
+				config: [
+					{
+						key: 'API_TOKEN',
+						name: 'API token',
+						description: 'Token',
+						required: true,
+						sensitive: true,
+						value: '',
+						usage: 'env'
+					}
+				]
+			}
+		});
+		const vmcp = createVMCP(
+			{
+				status: {
+					components: [
+						{
+							name: 'GitHub',
+							needsUpdate: true,
+							connectionSnapshot: { manifest: entry.manifest }
+						}
+					]
+				}
+			},
+			[entry]
+		);
+
+		expect(vmcpUpdateConfigurationTargets(vmcp, [entry])).toEqual([]);
 	});
 });
 

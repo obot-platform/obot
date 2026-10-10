@@ -132,3 +132,158 @@ func TestStaticConfigurationRotationRetainsUnrelatedLegacyComponents(t *testing.
 	SetStaticConfigurationHashes(&parent, configuration)
 	require.NotContains(t, parent.Spec.ComponentStaticConfigurationHashes, "two")
 }
+
+func TestLegacyComponentNeedsUpdate(t *testing.T) {
+	npx := func(pkg string) types.VMCPComponent {
+		return types.VMCPComponent{
+			ID: "component1",
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:    "Server",
+					Runtime: types.RuntimeNPX,
+					NPXConfig: &types.NPXRuntimeConfig{
+						Package: pkg,
+					},
+					Config: []types.MCPConfig{
+						{
+							Key:         "TOKEN",
+							Required:    true,
+							Sensitive:   true,
+							UserAllowed: true,
+						},
+					},
+				},
+			},
+		}
+	}
+	remote := func(config types.RemoteCatalogConfig) types.VMCPComponent {
+		return types.VMCPComponent{
+			ID: "component1",
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:         "Server",
+					Runtime:      types.RuntimeRemote,
+					RemoteConfig: &config,
+				},
+			},
+		}
+	}
+
+	for _, tc := range []struct {
+		name      string
+		component types.VMCPComponent
+		legacy    func(types.VMCPComponent) types.VMCPComponent
+		want      bool
+	}{
+		{
+			name:      "same server",
+			component: npx("current"),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				return legacy
+			},
+		},
+		{
+			name:      "connection configuration and catalog copy",
+			component: npx("current"),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.Config[0].Value = "secret"
+				legacy.CatalogEntry.Manifest.Config[0].UserAllowed = false
+				legacy.CatalogEntry.Manifest.Description = "older description"
+				legacy.CatalogEntry.Manifest.StaticConfigurationRevision = "server-revision"
+				legacy.ToolPrefix = "mine_"
+				return legacy
+			},
+		},
+		{
+			name:      "older package",
+			component: npx("current"),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.NPXConfig.Package = "older"
+				return legacy
+			},
+			want: true,
+		},
+		{
+			name:      "configuration schema changed",
+			component: npx("current"),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.Config = nil
+				return legacy
+			},
+			want: true,
+		},
+		{
+			name:      "connection URL for hostname-constrained remote",
+			component: remote(types.RemoteCatalogConfig{Hostname: "example.com"}),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL = "https://example.com/private"
+				return legacy
+			},
+		},
+		{
+			name:      "rendered URL for templated remote",
+			component: remote(types.RemoteCatalogConfig{URLTemplate: "https://${TENANT}.example.com/mcp"}),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL = "https://tenant.example.com/mcp"
+				return legacy
+			},
+		},
+		{
+			name:      "changed fixed URL",
+			component: remote(types.RemoteCatalogConfig{FixedURL: "https://example.com/v2"}),
+			legacy: func(legacy types.VMCPComponent) types.VMCPComponent {
+				legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL = "https://example.com/v1"
+				return legacy
+			},
+			want: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := *tc.component.DeepCopy()
+			legacy := tc.legacy(*tc.component.DeepCopy())
+			require.Equal(t, tc.want, LegacyComponentNeedsUpdate(legacy, tc.component))
+			require.Equal(t, original, tc.component)
+		})
+	}
+}
+
+func TestLegacySnapshotOmitsConnectionConfiguration(t *testing.T) {
+	component := types.VMCPComponent{
+		ID: "component1",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{Hostname: "example.com"},
+				Config: []types.MCPConfig{
+					{
+						Key:         "TOKEN",
+						UserAllowed: true,
+					},
+				},
+			},
+		},
+	}
+	legacy := *component.DeepCopy()
+	legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL = "https://example.com/private"
+	legacy.CatalogEntry.Manifest.Config[0].Value = "secret"
+	legacy.CatalogEntry.Manifest.Config[0].UserAllowed = false
+	legacy.CatalogEntry.Manifest.Config = append(legacy.CatalogEntry.Manifest.Config, types.MCPConfig{
+		Key:   "OLD",
+		Value: "old-secret",
+	})
+
+	snapshot := LegacySnapshot(legacy, component)
+	require.Empty(t, snapshot.Manifest.RemoteConfig.FixedURL)
+	require.Equal(t, "example.com", snapshot.Manifest.RemoteConfig.Hostname)
+	require.Equal(t, []types.MCPConfig{
+		{
+			Key:         "TOKEN",
+			UserAllowed: true,
+		},
+		{
+			Key: "OLD",
+		},
+	}, snapshot.Manifest.Config)
+	require.Equal(t, "https://example.com/private", legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL, "the retained snapshot is unchanged")
+	require.Equal(t, "secret", legacy.CatalogEntry.Manifest.Config[0].Value, "the retained snapshot is unchanged")
+}
