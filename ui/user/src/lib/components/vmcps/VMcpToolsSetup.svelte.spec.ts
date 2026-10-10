@@ -1,3 +1,5 @@
+import { page as appPage } from '$app/state';
+import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
@@ -7,6 +9,20 @@ import { untrack } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	goto: vi.fn().mockResolvedValue(undefined),
+	replaceState: vi.fn()
+}));
+
+function expectedOAuthPath(entryID: string, modifyToolsID: string) {
+	const params = new URLSearchParams({ 'configure-oauth': 'true' });
+	const returnURL = new URL(appPage.url);
+	returnURL.searchParams.set('modify-tools', modifyToolsID);
+	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
+	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
+}
 
 const entry = createMCPCatalogEntry({
 	id: 'preview-entry',
@@ -111,9 +127,62 @@ describe('VMcpToolsSetup preview credentials', () => {
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
-			.toHaveAttribute('href', '/mcp-servers/c/salesforce?configure-oauth=true');
+			.toHaveAttribute(
+				'href',
+				expectedOAuthPath(
+					'salesforce',
+					salesforceComponent.id || salesforceComponent.mcpServerCatalogEntryID
+				)
+			);
 		expect(preview).not.toHaveBeenCalled();
 	});
+
+	it.each([
+		{ componentID: 'component-salesforce', expectedReturnID: 'component-salesforce' },
+		{ componentID: '', expectedReturnID: 'salesforce' }
+	])(
+		'stores modify-tools for component ID "$componentID" before OAuth setup',
+		async ({ componentID, expectedReturnID }) => {
+			vi.mocked(goto).mockClear();
+			vi.mocked(replaceState).mockClear();
+
+			const salesforceEntry = createMCPCatalogEntry({
+				id: 'salesforce',
+				name: 'Salesforce',
+				runtime: 'remote',
+				manifest: {
+					remoteConfig: {
+						fixedURL: 'https://api.salesforce.com/platform/mcp/v1/platform/sobject-all',
+						staticOAuthRequired: true
+					}
+				}
+			});
+			const salesforceComponent = createVMCPComponent(salesforceEntry, { id: componentID });
+			const vmcp = createVMCP({ id: 'vmcp-preview', components: [salesforceComponent] });
+			vmcp.status = {
+				ready: false,
+				components: [
+					{ name: salesforceComponent.name, error: 'static OAuth credentials are not configured' }
+				]
+			};
+			worker.use(http.get('/api/vmcps/vmcp-preview', () => HttpResponse.json(vmcp)));
+
+			await preparePageData();
+			const result = await render(VMcpToolsSetup, {
+				component: salesforceComponent,
+				vmcpID: vmcp.id,
+				refresh: true
+			});
+			untrack(() => result.component.open());
+			await page.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
+
+			const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
+			expect(url.searchParams.get('modify-tools')).toBe(expectedReturnID);
+			expect(vi.mocked(goto)).toHaveBeenCalledWith(
+				expectedOAuthPath('salesforce', expectedReturnID)
+			);
+		}
+	);
 
 	it('requests a hostname-constrained server URL for discovery and OAuth', async () => {
 		const remoteEntry = createMCPCatalogEntry({

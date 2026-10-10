@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
@@ -14,11 +15,14 @@
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
+		configureOAuthPath,
+		handleConfigureOAuth,
 		resolveVMcpComponents,
 		vmcpComponentId,
 		vmcpConnectURL,
 		vmcpMissingStaticOAuthComponent,
-		vmcpInstanceNeedsUserConfiguration
+		vmcpInstanceNeedsUserConfiguration,
+		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -46,6 +50,7 @@
 	let oauthVerifying = $state(false);
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
+	let connectReturn = $state<VMcpConnectOptions['connectReturn']>();
 	let ignoreNextConfigureClose = false;
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
@@ -98,6 +103,7 @@
 		instance = targetInstance;
 		onConnected = options?.onConnected;
 		onDismissed = options?.onDismissed;
+		connectReturn = options?.connectReturn;
 		configureForm = undefined;
 		error = undefined;
 		launchError = undefined;
@@ -174,6 +180,13 @@
 	function initLaunch() {
 		showIntroDialog = true;
 		connectDialog?.close();
+	}
+
+	function connectOAuthReturnParam(): OAuthReturnParam | undefined {
+		if (!vmcp || !connectReturn) return;
+		if (connectReturn === 'inspector') return { key: 'inspector', value: vmcp.id };
+		if (connectReturn === 'list') return { key: 'connect', value: vmcp.id };
+		return { key: 'connect', value: 'true' };
 	}
 
 	function goToTester() {
@@ -461,16 +474,29 @@
 
 {#snippet oauthSetupGuidance()}
 	{#if missingOAuthComponent}
-		<p>
+		<p class="mb-4">
 			{m.vmcps_connect_requires_oauth_setup({ name: missingOAuthComponent.name })}
 		</p>
 		{#if profile.current.isAdmin?.()}
 			<a
-				class="btn btn-primary"
+				class="btn btn-primary w-full"
 				href={resolve(
-					`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-				)}>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
+					configureOAuthPath(
+						missingOAuthComponent.mcpServerCatalogEntryID,
+						page.url,
+						connectOAuthReturnParam()
+					)
+				)}
+				onclick={(event) =>
+					handleConfigureOAuth(
+						event,
+						missingOAuthComponent.mcpServerCatalogEntryID,
+						page.url,
+						connectOAuthReturnParam()
+					)}
 			>
+				{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}
+			</a>
 		{:else}
 			<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 		{/if}
@@ -484,7 +510,11 @@
 	onClose={() => {
 		howToConnect?.resetCopied();
 		connectionUrlField?.clear();
+		const dismissed = onDismissed;
+		onDismissed = undefined;
+		dismissed?.();
 	}}
+	class={missingOAuthComponent ? 'md:w-sm' : undefined}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
@@ -643,7 +673,7 @@
 
 <Confirm
 	show={showIntroDialog}
-	onsuccess={handleConfigure}
+	onsuccess={missingOAuthComponent ? undefined : handleConfigure}
 	submitText={m.core_continue()}
 	disabled={Boolean(missingOAuthComponent)}
 	type="info"

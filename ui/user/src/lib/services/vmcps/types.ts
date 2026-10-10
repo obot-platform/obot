@@ -31,6 +31,7 @@ export type VMcpSortBy = 'name' | 'created' | 'componentServers';
 export type VMcpConnectOptions = {
 	onConnected?: () => void;
 	onDismissed?: () => void;
+	connectReturn?: 'list' | 'designer' | 'inspector';
 };
 
 export type VMcpFilterOption = { id: string; label: string; disabled?: boolean };

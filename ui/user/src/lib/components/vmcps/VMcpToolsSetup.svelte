@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
@@ -16,7 +17,10 @@
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
 	import {
 		catalogConfigurationFields,
-		vmcpMissingStaticOAuthComponent
+		configureOAuthPath,
+		handleConfigureOAuth,
+		vmcpMissingStaticOAuthComponent,
+		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { onDestroy } from 'svelte';
@@ -109,6 +113,12 @@
 
 	function componentID(value?: VMCPComponent) {
 		return value?.id || value?.mcpServerCatalogEntryID || '';
+	}
+
+	function toolsOAuthReturnParam(): OAuthReturnParam | undefined {
+		const returnComponentID = componentID(component);
+		if (!oauthSetupRequired || !returnComponentID) return;
+		return { key: 'modify-tools', value: returnComponentID };
 	}
 
 	function cancelToolPreviewRequest(preserveOauthState = false) {
@@ -459,9 +469,22 @@
 						<a
 							class="btn btn-primary"
 							href={resolve(
-								`/mcp-servers/c/${encodeURIComponent(component.mcpServerCatalogEntryID)}?configure-oauth=true`
-							)}>{m.vmcps_configure_named_oauth({ name: component.name })}</a
+								configureOAuthPath(
+									component.mcpServerCatalogEntryID,
+									page.url,
+									toolsOAuthReturnParam()
+								)
+							)}
+							onclick={(event) =>
+								handleConfigureOAuth(
+									event,
+									component?.mcpServerCatalogEntryID,
+									page.url,
+									toolsOAuthReturnParam()
+								)}
 						>
+							{m.vmcps_configure_named_oauth({ name: component.name })}
+						</a>
 					{:else}
 						<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 					{/if}

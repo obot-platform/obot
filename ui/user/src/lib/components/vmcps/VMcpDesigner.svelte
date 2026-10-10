@@ -49,6 +49,7 @@
 		isCatalogSyncedVMcp,
 		mcpServerNeedsStaticOAuthConfiguration,
 		resolveVMcpComponents,
+		vmcpComponentId,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
@@ -91,6 +92,7 @@
 		component: VMCPComponent;
 	}>();
 	const toolFlow = createVMcpToolFlow();
+	let openedModifyToolsFor: string | undefined;
 	let selectedVMcp = $state<VMCP | undefined>(untrack(() => vmcp));
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
@@ -159,6 +161,58 @@
 			if (claimCreationHintForVMcp(created.id)) {
 				creationHintQueued = true;
 			}
+		});
+	});
+
+	$effect(() => {
+		const target = selectedVMcp;
+		const actions = vmcpActions;
+		if (page.url.searchParams.get('connect') !== 'true' || !target?.id || !actions) return;
+
+		untrack(() =>
+			actions.openConnect(target, undefined, {
+				connectReturn: 'designer',
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'connect', undefined)
+			})
+		);
+	});
+
+	$effect(() => {
+		const inspectorID = page.url.searchParams.get('inspector');
+		const vmcp = selectedVMcp;
+		if (!inspectorID || vmcp?.id !== inspectorID) return;
+
+		untrack(() =>
+			vmcpActions?.openConnect(vmcp, undefined, {
+				connectReturn: 'inspector',
+				onConnected: () => {
+					setUrlParamAndUpdateUrl(page.url, 'inspector', undefined);
+					goto(`/vmcps/${vmcp.id}?view=inspector`);
+				},
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'inspector', undefined)
+			})
+		);
+	});
+
+	$effect(() => {
+		const componentID = page.url.searchParams.get('modify-tools');
+		if (!componentID) {
+			openedModifyToolsFor = undefined;
+			return;
+		}
+		const vmcp = selectedVMcp;
+		if (!vmcp?.id || openedModifyToolsFor === componentID) return;
+		const match = vmcp.components?.find((component) => vmcpComponentId(component) === componentID);
+		if (!canEdit || isCatalogSyncedVMcp(vmcp) || !match) {
+			setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined);
+			return;
+		}
+
+		openedModifyToolsFor = componentID;
+		untrack(() => {
+			toolFlow.editComponent(match, vmcp, {
+				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined)
+			});
 		});
 	});
 
@@ -352,7 +406,7 @@
 	}
 
 	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
-		vmcpActions?.openConnect(vmcp, undefined, options);
+		vmcpActions?.openConnect(vmcp, undefined, { connectReturn: 'designer', ...options });
 	}
 
 	async function refreshTester(vmcpID: string) {
@@ -467,6 +521,7 @@
 							if (!selectedVMcp) return;
 							const vmcpID = selectedVMcp.id;
 							vmcpActions?.openEditInstanceConfiguration(target, instance, {
+								connectReturn: 'designer',
 								onConnected: () => {
 									void refreshTester(vmcpID);
 								}
@@ -494,7 +549,10 @@
 						openSelectInstance={vmcpActions?.openSelectInstance}
 						openDiff={vmcpActions?.openDiff}
 						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
-						openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
+						openEditInstanceConfiguration={(vmcp, instance) =>
+							vmcpActions?.openEditInstanceConfiguration(vmcp, instance, {
+								connectReturn: 'designer'
+							})}
 						onUpdate={(updated) => {
 							selectedVMcp = updated;
 						}}

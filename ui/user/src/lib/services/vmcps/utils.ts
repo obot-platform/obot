@@ -11,6 +11,7 @@ import type {
 	VMCPManifest
 } from '$lib/services';
 import { profile } from '$lib/stores';
+import { goto, replaceState } from '$lib/url';
 import { getUserDisplayName } from '$lib/utils';
 import { AiClient } from '../user/constants';
 import { getManifestConfiguration } from '../user/mcp';
@@ -321,6 +322,43 @@ export function vmcpInstancePath(vmcpID: string, instanceID: string) {
 
 export function vmcpInstanceAuditLogsPath(vmcpID: string, userID: string) {
 	return `/audit-logs?mcp_id=${encodeURIComponent(vmcpID)}&actor=${encodeURIComponent(userID)}`;
+}
+
+export type OAuthReturnParam = {
+	key: string;
+	value: string;
+};
+
+export function oauthReturnPath(pageURL: URL, returnParam?: OAuthReturnParam) {
+	if (!returnParam?.key || !returnParam.value) return;
+	const returnURL = new URL(pageURL);
+	returnURL.searchParams.set(returnParam.key, returnParam.value);
+	return `${returnURL.pathname}${returnURL.search}${returnURL.hash}`;
+}
+
+export function configureOAuthPath(entryID: string, pageURL: URL, returnParam?: OAuthReturnParam) {
+	const params = new URLSearchParams({ 'configure-oauth': 'true' });
+	const redirect = oauthReturnPath(pageURL, returnParam);
+	if (redirect) params.set('oauth-redirect', redirect);
+	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}` as const;
+}
+
+export function handleConfigureOAuth(
+	event: MouseEvent,
+	entryID: string | undefined,
+	pageURL: URL,
+	returnParam?: OAuthReturnParam
+) {
+	if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+		return;
+	}
+	if (!entryID) return;
+	event.preventDefault();
+	if (returnParam?.key && returnParam.value) {
+		pageURL.searchParams.set(returnParam.key, returnParam.value);
+		replaceState(pageURL, {});
+	}
+	goto(configureOAuthPath(entryID, pageURL, returnParam));
 }
 
 export function vmcpComponentCatalogEntryPath(

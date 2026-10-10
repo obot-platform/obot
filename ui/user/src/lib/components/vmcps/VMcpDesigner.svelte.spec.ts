@@ -229,8 +229,11 @@ async function pressCard(locator: ReturnType<typeof page.getByRole>, pointerId: 
 describe('VMcpDesigner.svelte', () => {
 	afterEach(() => {
 		appPage.url.searchParams.delete('view');
+		appPage.url.searchParams.delete('inspector');
+		appPage.url.searchParams.delete('connect');
 		appPage.url.searchParams.delete('profile');
 		appPage.url.searchParams.delete('tab');
+		appPage.url.searchParams.delete('modify-tools');
 		vmcpInstances.current = { items: [], loading: false };
 		finishVMcpCreateHandoff();
 	});
@@ -248,6 +251,20 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(actions.getByRole('heading', { name: 'Configure GitHub Tools' }))
 				.not.toBeInTheDocument();
+		});
+
+		it('opens the tool editor from modify-tools and clears the param when dismissed', async () => {
+			const vmcp = createIssueTrackerVMcp(toolOverrides);
+			appPage.url.searchParams.set('modify-tools', `component-${componentEntry.id}`);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('button', { name: 'Refresh tools' })).toBeVisible();
+			await page.getByRole('button', { name: 'Cancel' }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Refresh tools' }))
+				.not.toBeInTheDocument();
+			expect(appPage.url.searchParams.get('modify-tools')).toBeNull();
 		});
 
 		it('edits the stored overrides from Modify Tools instead of running setup', async () => {
@@ -583,6 +600,16 @@ describe('VMcpDesigner.svelte', () => {
 
 			await componentBlock().click();
 			await page.getByRole('button', { name: 'Modify Tools' }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
+				.toBeVisible();
+		});
+
+		it('opens tool setup from modify-tools', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			appPage.url.searchParams.set('modify-tools', `component-${componentEntry.id}`);
+			await renderDesigner([componentEntry], vmcp);
 
 			await expect
 				.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
@@ -1548,6 +1575,15 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('tester view', () => {
+		it('resumes the Test connection after returning from administrator OAuth', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			appPage.url.searchParams.set('inspector', vmcp.id);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+			await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+		});
+
 		it('connects through the exact vMCP instance', async () => {
 			const connect = vi.fn();
 			const instance: VMCPInstance = {

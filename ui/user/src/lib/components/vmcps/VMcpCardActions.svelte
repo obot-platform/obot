@@ -49,7 +49,7 @@
 			goToTester();
 			return;
 		}
-		onConnect?.({ onConnected: goToTester });
+		onConnect?.({ onConnected: goToTester, connectReturn: 'inspector' });
 	}
 </script>
 
