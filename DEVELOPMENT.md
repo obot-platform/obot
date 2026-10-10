@@ -114,6 +114,12 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
 
+## Security Review Before Opening a PR
+
+When a change that touches runtime code is done, have an AI agent security-review it in a fresh context, one that didn't help write the change, before you open the PR. The `obot-security-review` skill in `.agents/skills/obot-security-review/` has the steps and a ready-made brief for the reviewer; ask your agent to run it, or start a new session and point it there. Changes that only touch docs, comments, tests, or agent skills can skip it.
+
+Note the result in the PR description: `Security review: no findings`, `Security review: fixed <what>`, or `Security review: n/a (<why>)`.
+
 ## Pull Requests and Issues
 
 When a pull request addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so the two are linked.

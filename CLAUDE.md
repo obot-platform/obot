@@ -82,6 +82,12 @@ A change that alters what a user or admin sees or configures isn't done until th
 
 In the PR description, list the docs you updated, or say in one line why the change needs none. Before editing, read `docs/CLAUDE.md` for linking, versioning, and build rules.
 
+## Security Review Before the PR
+
+When a change that touches runtime code is finished, and before it becomes a PR, have it security-reviewed by an agent in a fresh context: one that did not write the change. Follow the `obot-security-review` skill in `.agents/skills/obot-security-review/`. Do it once, at handoff. Don't start it while the developer is still iterating, and don't prompt them about it mid-task. Changes that only touch docs, comments, tests, or agent skills skip it.
+
+Record the result in the PR description: `Security review: no findings`, `Security review: fixed <what>`, or `Security review: n/a (<why>)`.
+
 ## Pull Requests and Issues
 
 - When a PR addresses a GitHub issue, reference the issue in the PR description (e.g. `Related to #1234` or `Addresses #1234`) so they are linked.
