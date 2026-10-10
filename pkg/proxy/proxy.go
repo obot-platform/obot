@@ -381,8 +381,8 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	if stateResponse.StatusCode == http.StatusInternalServerError && (strings.Contains(string(body), "record not found") || strings.Contains(string(body), "session ticket cookie failed validation")) {
-		return nil, false, ErrInvalidSession
+	if err = checkStateResponse(stateResponse.StatusCode, body); err != nil {
+		return nil, false, err
 	}
 
 	var ss serializableState
@@ -420,6 +420,37 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	return &authenticator.Response{
 		User: u,
 	}, true, nil
+}
+
+// checkStateResponse returns ErrInvalidSession if an auth provider's /obot-get-state response says that the session
+// can no longer be used, so that the session cookie is cleared, and an error for any other unsuccessful response.
+func checkStateResponse(statusCode int, body []byte) error {
+	if statusCode == http.StatusOK {
+		return nil
+	}
+
+	// Providers report a session they could not refresh with a 401.
+	if statusCode == http.StatusUnauthorized {
+		return ErrInvalidSession
+	}
+
+	// Older providers report every failure as a 500, so the invalid session cases are recognized by their message.
+	if statusCode == http.StatusInternalServerError {
+		for _, msg := range []string{
+			"record not found",
+			"session ticket cookie failed validation",
+			"refreshing token returned 401",
+			"refreshing token returned 403",
+		} {
+			if strings.Contains(string(body), msg) {
+				return ErrInvalidSession
+			}
+		}
+	}
+
+	// The body can hold provider internals, and the error is shown to the client, so the body is only logged.
+	slog.Error("Auth provider failed to get session state", "status", statusCode, "body", strings.TrimSpace(string(body)))
+	return fmt.Errorf("auth provider failed to get session state (status %d)", statusCode)
 }
 
 // Important: do not change the order of these checks.
