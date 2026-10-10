@@ -33,6 +33,10 @@ skipped as if it were absent from the source. A vMCP whose component references 
 skipped entry, in any source, is skipped the same way. Neither produces a sync error.
 Catalogs re-sync on startup whenever the Obot version changes.
 
+The catalog validation CLI applies the same range check with its own version. For an
+entry outside that range, it checks only the bounds and the entry key (or, for system
+catalog entries, the name), and it does not validate the rest of the entry.
+
 The fields are rejected on entries that are not synced from a catalog source, because
 nothing enforces them there.
 

@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"github.com/obot-platform/obot/pkg/version"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 )
@@ -21,6 +22,14 @@ var (
 	invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	multipleDashes   = regexp.MustCompile(`-{2,}`)
 )
+
+// ObotVersionBounds is the range of Obot versions that a catalog item declares support for.
+type ObotVersionBounds struct {
+	Name           string `json:"name"`
+	EntryKey       string `json:"entryKey"`
+	MinObotVersion string `json:"minObotVersion"`
+	MaxObotVersion string `json:"maxObotVersion"`
+}
 
 type ValidationOptions struct {
 	MCP        mcp.ValidationOptions
@@ -125,6 +134,25 @@ func ValidateConfigurationFields(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// DecodeObotVersionBounds decodes and validates only the Obot version bounds of a catalog item,
+// so items for other Obot versions can be excluded before validation that depends on this
+// version's runtimes and configuration fields.
+func DecodeObotVersionBounds(data []byte) (ObotVersionBounds, error) {
+	var bounds ObotVersionBounds
+	if err := yaml.Unmarshal(data, &bounds); err != nil {
+		return bounds, err
+	}
+	if err := version.ValidateRange(bounds.MinObotVersion, bounds.MaxObotVersion); err != nil {
+		return bounds, err
+	}
+	return bounds, nil
+}
+
+// InCurrentRange reports whether the running Obot version falls within the bounds.
+func (b ObotVersionBounds) InCurrentRange() bool {
+	return version.CurrentInRange(b.MinObotVersion, b.MaxObotVersion)
 }
 
 // DecodeVMCPManifest maps catalog entry-key references to the resolved-ID

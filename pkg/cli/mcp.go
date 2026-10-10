@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/version"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -87,7 +89,7 @@ func (m *MCPValidateCatalog) Customize(cmd *cobra.Command) {
 }
 
 func (m *MCPValidateCatalog) Run(cmd *cobra.Command, args []string) error {
-	files, err := validateMCPCatalogPaths(cmd.Context(), args, m.RequireEntryKey, m.Format)
+	files, err := validateMCPCatalogPaths(cmd.Context(), cmd.ErrOrStderr(), args, m.RequireEntryKey, m.Format)
 	if err != nil {
 		return err
 	}
@@ -95,11 +97,11 @@ func (m *MCPValidateCatalog) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKey bool, format string) (int, error) {
+func validateMCPCatalogPaths(ctx context.Context, out io.Writer, paths []string, requireEntryKey bool, format string) (int, error) {
 	seenEntryKeys := make(map[string]string)
 	seenVMCPKeys := make(map[string]string)
 	return validateCatalogPaths(paths, format, func(path string) error {
-		return validateMCPCatalogFile(ctx, path, requireEntryKey, seenEntryKeys, seenVMCPKeys)
+		return validateMCPCatalogFile(ctx, out, path, requireEntryKey, seenEntryKeys, seenVMCPKeys)
 	})
 }
 
@@ -111,7 +113,7 @@ func (m *MCPValidateSystemCatalog) Customize(cmd *cobra.Command) {
 }
 
 func (m *MCPValidateSystemCatalog) Run(cmd *cobra.Command, args []string) error {
-	files, err := validateSystemMCPCatalogPaths(cmd.Context(), args, m.Format)
+	files, err := validateSystemMCPCatalogPaths(cmd.Context(), cmd.ErrOrStderr(), args, m.Format)
 	if err != nil {
 		return err
 	}
@@ -119,10 +121,10 @@ func (m *MCPValidateSystemCatalog) Run(cmd *cobra.Command, args []string) error 
 	return nil
 }
 
-func validateSystemMCPCatalogPaths(ctx context.Context, paths []string, format string) (int, error) {
+func validateSystemMCPCatalogPaths(ctx context.Context, out io.Writer, paths []string, format string) (int, error) {
 	seenSanitizedNames := make(map[string]string)
 	return validateCatalogPaths(paths, format, func(path string) error {
-		return validateSystemMCPCatalogFile(ctx, path, seenSanitizedNames)
+		return validateSystemMCPCatalogFile(ctx, out, path, seenSanitizedNames)
 	})
 }
 
@@ -215,7 +217,10 @@ func validateCatalogPaths(paths []string, format string, validateFile func(strin
 	return len(seenFiles), validationErr
 }
 
-func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bool, seenEntryKeys, seenVMCPKeys map[string]string) error {
+// validateMCPCatalogFile validates the catalog items in a file. Entries outside this Obot version's
+// supported range are only checked for their bounds and entry key, as catalog sync skips them, and
+// a note about each is written to out.
+func validateMCPCatalogFile(ctx context.Context, out io.Writer, path string, requireEntryKey bool, seenEntryKeys, seenVMCPKeys map[string]string) error {
 	items, isArray, err := mcpcatalog.DecodeCatalogFile[json.RawMessage](path)
 	if err != nil {
 		return fmt.Errorf("%s: invalid catalog entry: %w", path, err)
@@ -284,6 +289,26 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 			}
 			continue
 		}
+
+		// Check the range before the item type, as catalog sync does, so that items for other Obot
+		// versions are not validated against this version's types, runtimes, and fields.
+		bounds, err := mcpcatalog.DecodeObotVersionBounds(item)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", label, err))
+			continue
+		}
+		if !bounds.InCurrentRange() {
+			if requireEntryKey && strings.TrimSpace(bounds.EntryKey) == "" {
+				errs = append(errs, fmt.Errorf("%s: entryKey is required", label))
+			}
+			if err := mcpcatalog.ValidateEntryKey(bounds.EntryKey); err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", label, err))
+			}
+			checkDuplicateEntryKey(&errs, seenEntryKeys, label, bounds.EntryKey)
+			printVersionSkipped(out, label, bounds)
+			continue
+		}
+
 		if header.Type != "" && header.Type != "entry" {
 			errs = append(errs, fmt.Errorf("%s: unsupported catalog item type %q", label, header.Type))
 			continue
@@ -307,13 +332,7 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 		if err := mcpcatalog.ValidateSourceFields(entry); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
 		}
-		if entry.EntryKey != "" {
-			if previous, ok := seenEntryKeys[entry.EntryKey]; ok {
-				errs = append(errs, fmt.Errorf("%s: duplicate source entry key %q also used by %s", label, entry.EntryKey, previous))
-			} else {
-				seenEntryKeys[entry.EntryKey] = label
-			}
-		}
+		checkDuplicateEntryKey(&errs, seenEntryKeys, label, entry.EntryKey)
 		if err := mcpcatalog.ValidateManifest(ctx, entry, validationOptions); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
 		}
@@ -322,7 +341,10 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 	return errors.Join(errs...)
 }
 
-func validateSystemMCPCatalogFile(ctx context.Context, path string, seenSanitizedNames map[string]string) error {
+// validateSystemMCPCatalogFile validates the system catalog entries in a file. Entries outside this
+// Obot version's supported range are only checked for their bounds and name, as catalog sync skips
+// them, and a note about each is written to out.
+func validateSystemMCPCatalogFile(ctx context.Context, out io.Writer, path string, seenSanitizedNames map[string]string) error {
 	entries, isArray, err := mcpcatalog.DecodeCatalogFile[json.RawMessage](path)
 	if err != nil {
 		return fmt.Errorf("%s: invalid system catalog entry: %w", path, err)
@@ -341,6 +363,18 @@ func validateSystemMCPCatalogFile(ctx context.Context, path string, seenSanitize
 		if isArray {
 			label = fmt.Sprintf("%s[%d]", path, i)
 		}
+
+		bounds, err := mcpcatalog.DecodeObotVersionBounds(entries[i])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", label, err))
+			continue
+		}
+		if !bounds.InCurrentRange() {
+			checkDuplicateSystemEntryName(&errs, seenSanitizedNames, label, bounds.Name)
+			printVersionSkipped(out, label, bounds)
+			continue
+		}
+
 		if err := mcpcatalog.ValidateConfigurationFields(entries[i]); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
 			continue
@@ -353,20 +387,45 @@ func validateSystemMCPCatalogFile(ctx context.Context, path string, seenSanitize
 		}
 		mcpcatalog.NormalizeSystemManifest(&entry)
 
-		sanitizedName := mcpcatalog.SanitizeName(entry.Name)
-		if sanitizedName == "" {
-			errs = append(errs, fmt.Errorf("%s: invalid system catalog entry name after sanitization: original=%q sanitized=%q", label, entry.Name, sanitizedName))
-		} else if previous, ok := seenSanitizedNames[sanitizedName]; ok {
-			errs = append(errs, fmt.Errorf("%s: duplicate sanitized system catalog entry name %q also used by %s", label, sanitizedName, previous))
-		} else {
-			seenSanitizedNames[sanitizedName] = label
-		}
+		checkDuplicateSystemEntryName(&errs, seenSanitizedNames, label, entry.Name)
 		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, validationOptions); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
 		}
 	}
 
 	return errors.Join(errs...)
+}
+
+// checkDuplicateEntryKey records entryKey as used by label, reporting it if another item already used it.
+func checkDuplicateEntryKey(errs *[]error, seenEntryKeys map[string]string, label, entryKey string) {
+	if entryKey == "" {
+		return
+	}
+	if previous, ok := seenEntryKeys[entryKey]; ok {
+		*errs = append(*errs, fmt.Errorf("%s: duplicate source entry key %q also used by %s", label, entryKey, previous))
+	} else {
+		seenEntryKeys[entryKey] = label
+	}
+}
+
+// checkDuplicateSystemEntryName records the sanitized name as used by label, reporting it if it is
+// empty or another entry already used it.
+func checkDuplicateSystemEntryName(errs *[]error, seenSanitizedNames map[string]string, label, name string) {
+	sanitizedName := mcpcatalog.SanitizeName(name)
+	if sanitizedName == "" {
+		*errs = append(*errs, fmt.Errorf("%s: invalid system catalog entry name after sanitization: original=%q sanitized=%q", label, name, sanitizedName))
+	} else if previous, ok := seenSanitizedNames[sanitizedName]; ok {
+		*errs = append(*errs, fmt.Errorf("%s: duplicate sanitized system catalog entry name %q also used by %s", label, sanitizedName, previous))
+	} else {
+		seenSanitizedNames[sanitizedName] = label
+	}
+}
+
+// printVersionSkipped notes that an entry was not fully validated because this Obot version is
+// outside its supported range.
+func printVersionSkipped(out io.Writer, label string, bounds mcpcatalog.ObotVersionBounds) {
+	fmt.Fprintf(out, "%s: skipped validation of %q: Obot %s is outside its supported version range (minObotVersion=%q, maxObotVersion=%q)\n",
+		label, bounds.Name, version.Tag, bounds.MinObotVersion, bounds.MaxObotVersion)
 }
 
 func (m *MCPSearch) Customize(cmd *cobra.Command) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/obot-platform/cmd"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/version"
 	"github.com/stretchr/testify/require"
 )
 
@@ -229,6 +231,101 @@ remoteConfig:
 	if !strings.Contains(stdout, "Catalog entries in 1 files are valid.") {
 		t.Fatalf("unexpected output: %s", stdout)
 	}
+}
+
+func setVersionTag(t *testing.T, tag string) {
+	t.Helper()
+	originalTag := version.Tag
+	version.Tag = tag
+	t.Cleanup(func() { version.Tag = originalTag })
+}
+
+func TestMCPValidateCatalogSkipsEntriesOutsideObotVersionRange(t *testing.T) {
+	// Entries for other Obot versions may use types, runtimes, or fields this version does not support.
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`- name: Future Runtime
+  entryKey: future-runtime
+  minObotVersion: v0.21.0
+  runtime: future-runtime
+- name: Removed Field
+  entryKey: removed-field
+  maxObotVersion: v0.19.0
+  env: []
+  runtime: npx
+  npxConfig: {package: removed-field}
+- type: future-type
+  name: Future Type
+  entryKey: future-type
+  minObotVersion: v0.21.0
+- name: Current
+  entryKey: current
+  minObotVersion: v0.20.0
+  runtime: npx
+  npxConfig: {package: current}
+`), 0o600))
+
+	setVersionTag(t, "v0.20.0")
+	var stderr bytes.Buffer
+	files, err := validateMCPCatalogPaths(t.Context(), &stderr, []string{path}, true, "yaml")
+	require.NoError(t, err)
+	require.Equal(t, 1, files)
+	require.Contains(t, stderr.String(), `catalog.yaml[0]: skipped validation of "Future Runtime": Obot v0.20.0 is outside its supported version range`)
+	require.Contains(t, stderr.String(), `catalog.yaml[1]: skipped validation of "Removed Field"`)
+	require.Contains(t, stderr.String(), `catalog.yaml[2]: skipped validation of "Future Type"`)
+	require.NotContains(t, stderr.String(), `"Current"`)
+
+	// Development builds validate every entry.
+	setVersionTag(t, "v0.0.0-dev")
+	stderr.Reset()
+	_, err = validateMCPCatalogPaths(t.Context(), &stderr, []string{path}, true, "yaml")
+	require.Error(t, err)
+	require.Empty(t, stderr.String())
+}
+
+func TestMCPValidateCatalogChecksEntriesOutsideObotVersionRange(t *testing.T) {
+	setVersionTag(t, "v0.20.0")
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`- name: Bad Bound
+  entryKey: bad-bound
+  minObotVersion: latest
+  runtime: npx
+  npxConfig: {package: bad-bound}
+- name: Missing Key
+  minObotVersion: v0.21.0
+- name: Old
+  entryKey: shared
+  maxObotVersion: v0.19.0
+- name: New
+  entryKey: shared
+  minObotVersion: v0.21.0
+`), 0o600))
+
+	_, err := validateMCPCatalogPaths(t.Context(), io.Discard, []string{path}, true, "yaml")
+	require.ErrorContains(t, err, "catalog.yaml[0]: invalid minObotVersion")
+	require.ErrorContains(t, err, "catalog.yaml[1]: entryKey is required")
+	require.ErrorContains(t, err, `catalog.yaml[3]: duplicate source entry key "shared" also used by`)
+}
+
+func TestMCPValidateSystemCatalogSkipsEntriesOutsideObotVersionRange(t *testing.T) {
+	setVersionTag(t, "v0.20.0")
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`- name: Future Filter
+  minObotVersion: v0.21.0
+  runtime: future-runtime
+- name: Bad Bound
+  maxObotVersion: v0.19
+- name: Duplicate
+  maxObotVersion: v0.19.0
+- name: Duplicate
+  minObotVersion: v0.21.0
+`), 0o600))
+
+	var stderr bytes.Buffer
+	_, err := validateSystemMCPCatalogPaths(t.Context(), &stderr, []string{path}, "yaml")
+	require.ErrorContains(t, err, "catalog.yaml[1]: invalid maxObotVersion")
+	require.ErrorContains(t, err, `catalog.yaml[3]: duplicate sanitized system catalog entry name "duplicate"`)
+	require.NotContains(t, err.Error(), "catalog.yaml[0]")
+	require.Contains(t, stderr.String(), `catalog.yaml[0]: skipped validation of "Future Filter"`)
 }
 
 func TestMCPValidateCatalogRequiresEntryKey(t *testing.T) {

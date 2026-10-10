@@ -118,6 +118,8 @@ obot mcp validate-catalog --format json .
 
 For system MCP catalog entries, use `obot mcp validate-system-catalog` with the same `--format yaml|json` flag. Both commands default to `yaml`; other format values are rejected.
 
+Both commands validate entries against the Obot version of the CLI. An entry whose [Obot version range](#obot-version-range) excludes that version is skipped the same way catalog sync skips it: the command checks only the entry's version range and that its `entryKey` (or, for system catalog entries, its name) is valid and unique, and prints a note to stderr instead of validating the rest of the entry. A development build of the CLI validates every entry. To validate entries that require a newer Obot version, use a CLI from that version or later.
+
 The previous names, `validate-catalog-yaml` and `validate-system-catalog-yaml`, remain available as compatibility aliases with the same flags and YAML default.
 
 ## Converting Legacy Catalog Configuration

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -92,7 +93,7 @@ func TestMCPGenerateVMCPCatalogStdoutWritesOneCatalogList(t *testing.T) {
 	// Catalog sync reads a file as one YAML document, so the output must be a list it can validate.
 	path := filepath.Join(t.TempDir(), "vmcps.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(stdout), 0o644))
-	require.NoError(t, validateMCPCatalogFile(t.Context(), path, true, map[string]string{}, map[string]string{}))
+	require.NoError(t, validateMCPCatalogFile(t.Context(), io.Discard, path, true, map[string]string{}, map[string]string{}))
 }
 
 func TestMCPGenerateVMCPCatalogFileRefusesToOverwrite(t *testing.T) {
@@ -286,7 +287,7 @@ func TestMCPGenerateVMCPCatalogJSON(t *testing.T) {
 					require.Equal(t, "vmcp", entry.Type)
 					require.Equal(t, items[i+j].EntryKey, entry.EntryKey)
 				}
-				require.NoError(t, validateMCPCatalogFile(t.Context(), outputPath, true, map[string]string{}, map[string]string{}))
+				require.NoError(t, validateMCPCatalogFile(t.Context(), io.Discard, outputPath, true, map[string]string{}, map[string]string{}))
 			}
 		})
 	}

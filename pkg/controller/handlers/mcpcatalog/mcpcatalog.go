@@ -729,18 +729,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 // version bounds are decoded, so items for other Obot versions are excluded before validation that
 // depends on this version's runtimes and configuration fields.
 func inObotVersionRange(item json.RawMessage, kind string) (bool, error) {
-	var bounds struct {
-		Name           string `json:"name"`
-		MinObotVersion string `json:"minObotVersion"`
-		MaxObotVersion string `json:"maxObotVersion"`
+	bounds, err := catalogvalidation.DecodeObotVersionBounds(item)
+	if err != nil {
+		return false, fmt.Errorf("invalid %s: %w", strings.TrimSpace(kind+" "+bounds.Name), err)
 	}
-	if err := yaml.Unmarshal(item, &bounds); err != nil {
-		return false, fmt.Errorf("invalid %s: %w", kind, err)
-	}
-	if err := version.ValidateRange(bounds.MinObotVersion, bounds.MaxObotVersion); err != nil {
-		return false, fmt.Errorf("invalid %s %s: %w", kind, bounds.Name, err)
-	}
-	if !version.CurrentInRange(bounds.MinObotVersion, bounds.MaxObotVersion) {
+	if !bounds.InCurrentRange() {
 		slog.Info("Skipping "+kind+" outside supported Obot version range", "entry", bounds.Name, "minObotVersion", bounds.MinObotVersion, "maxObotVersion", bounds.MaxObotVersion, "obotVersion", version.Tag)
 		return false, nil
 	}
