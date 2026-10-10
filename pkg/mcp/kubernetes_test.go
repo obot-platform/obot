@@ -1777,6 +1777,20 @@ func TestAdditionalDeploymentRequests(t *testing.T) {
 			expectedCPU:    "0",
 		},
 		{
+			name:           "changed recreate deployment with stuck rollout needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(agent, "3Gi", "1"))),
+			existing:       withStuckRollout(withPods(simulateServerDefaults(testDeployment(t, k, agent)))),
+			expectedMemory: "3Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "changed recreate deployment with unobserved spec needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(agent, "3Gi", "1"))),
+			existing:       withUnobservedSpec(withPods(simulateServerDefaults(testDeployment(t, k, agent)))),
+			expectedMemory: "3Gi",
+			expectedCPU:    "1",
+		},
+		{
 			name:           "changed recreate deployment without pods needs full request",
 			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(agent, "3Gi", "1"))),
 			existing:       simulateServerDefaults(testDeployment(t, k, agent)),

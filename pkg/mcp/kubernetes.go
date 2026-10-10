@@ -2039,9 +2039,11 @@ func (k *kubernetesBackend) additionalRequestsForDeploy(ctx context.Context, des
 // The desired deployment should include server-side defaults so it can be compared with the existing one.
 func additionalDeploymentRequests(desired, existing *appsv1.Deployment) (resource.Quantity, resource.Quantity) {
 	memoryRequest, cpuRequest := podTemplateRequests(desired.Spec.Template.Spec)
-	if existing == nil || existing.Status.Replicas == 0 {
-		// No pods exist for the deployment (e.g. pod creation was rejected by the quota), so none of
-		// its requests are counted in the quota's usage.
+	// The existing deployment's requests are only known to be counted in the quota's usage if pods run its
+	// current pod template. That isn't the case if it has no pods (e.g. pod creation was rejected by the quota),
+	// if the deployment controller hasn't observed its latest spec, or if the rollout to it is stuck (e.g. its
+	// new pod was rejected by the quota while an old pod keeps running).
+	if existing == nil || existing.Status.ObservedGeneration < existing.Generation || existing.Status.UpdatedReplicas == 0 {
 		return memoryRequest, cpuRequest
 	}
 
@@ -2051,13 +2053,7 @@ func additionalDeploymentRequests(desired, existing *appsv1.Deployment) (resourc
 	// change that only removes a field obot used to set is treated as unchanged and isn't prechecked; the quota
 	// is still enforced when the new pod is admitted.
 	if equality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template) {
-		// The existing pods only cover the request if they run the current template. If the deployment
-		// controller hasn't observed the latest spec, or the rollout to it is stuck (e.g. its new pod was
-		// rejected by the quota while an old pod keeps running), the full request is still needed.
-		if existing.Status.ObservedGeneration >= existing.Generation && existing.Status.UpdatedReplicas > 0 {
-			return resource.Quantity{}, resource.Quantity{}
-		}
-		return memoryRequest, cpuRequest
+		return resource.Quantity{}, resource.Quantity{}
 	}
 
 	// With the default RollingUpdate strategy, the new pod is created before the old one is removed,
