@@ -458,6 +458,8 @@ func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPUR
 	}
 
 	for _, addr := range addrs {
+		// Drop any IPv6 zone (fe80::1%eth0), which net.ParseIP rejects, so scoped literals are still classified.
+		addr, _, _ = strings.Cut(addr, "%")
 		ip := net.ParseIP(addr)
 		if ip == nil {
 			continue

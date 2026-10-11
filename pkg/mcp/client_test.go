@@ -293,6 +293,17 @@ func TestValidateRemoteMCPURL(t *testing.T) {
 			wantErr:           "link-local address",
 		},
 		{
+			name:              "rejects zone-scoped IPv6 link-local",
+			rawURL:            "http://[fe80::1%25zz0]/mcp",
+			allowPrivateIPMCP: true,
+			wantErr:           "link-local address",
+		},
+		{
+			name:    "rejects zone-scoped IPv6 loopback",
+			rawURL:  "http://[::1%25zz0]/mcp",
+			wantErr: "localhost URL",
+		},
+		{
 			name:              "allows link-local when configured",
 			rawURL:            "http://169.254.169.254/latest/meta-data",
 			allowLocalhostMCP: false,
