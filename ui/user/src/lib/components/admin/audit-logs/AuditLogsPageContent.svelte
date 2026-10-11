@@ -189,7 +189,7 @@
 		return filters.filter(
 			(key) =>
 				!(isServerScoped && (key === 'mcp_server' || key === 'event_type')) &&
-				!(isApiKeyScoped && key === 'api_key_id')
+				!(isApiKeyScoped && (key === 'api_key_id' || key === 'actor'))
 		);
 	}
 

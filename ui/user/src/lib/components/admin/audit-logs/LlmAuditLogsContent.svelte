@@ -489,7 +489,9 @@
 			onClose={handleRightSidebarClose}
 			filters={{ ...searchParamFilters, ...propsFilters }}
 			getVisibleFilterKeys={() =>
-				supportedFilters.filter((key) => !(isApiKeyScoped && key === 'api_key_id'))}
+				supportedFilters.filter(
+					(key) => !(isApiKeyScoped && (key === 'api_key_id' || key === 'user_id'))
+				)}
 			isFilterDisabled={(filterId) => propsFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
 			isFilterMultiSelect={(filterId) => filterId !== 'hide_models_requests'}

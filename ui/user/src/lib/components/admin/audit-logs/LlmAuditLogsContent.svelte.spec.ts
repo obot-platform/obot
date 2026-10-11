@@ -16,16 +16,17 @@ function mockLlmAuditLogApis() {
 		http.get('/api/llm-audit-logs', ({ request }) => {
 			requests.auditLogs = request.url;
 			return HttpResponse.json({ items: [], total: 0 });
-		})
+		}),
+		http.get('/api/llm-audit-logs/filter-options/:filter', () => HttpResponse.json({ options: [] }))
 	);
 
 	return requests;
 }
 
-async function renderLlmAuditLogs() {
+async function renderLlmAuditLogs(props: Record<string, unknown> = {}) {
 	const requests = mockLlmAuditLogApis();
 	await preparePageData();
-	render(LlmAuditLogsContent);
+	render(LlmAuditLogsContent, props);
 	return requests;
 }
 
@@ -58,5 +59,23 @@ describe('LlmAuditLogsContent default filters', () => {
 		await expect
 			.element(page.getByCSS('.filter-primary').filter({ hasText: 'Model discovery requests' }))
 			.not.toBeInTheDocument();
+	});
+});
+
+// obot-platform/obot#7649: an API key maps to exactly one user, so offering
+// a "User" filter on top of the api_key_id scoping is redundant.
+describe('LlmAuditLogsContent api key scoping', () => {
+	it('hides the User filter option when scoped to an API key', async () => {
+		await renderLlmAuditLogs({ apiKeyId: 'key-1' });
+		await page.getByRole('button', { name: 'Filters' }).click();
+
+		await expect.element(page.getByText('By User', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('still offers the User filter option when not scoped to an API key', async () => {
+		await renderLlmAuditLogs();
+		await page.getByRole('button', { name: 'Filters' }).click();
+
+		await expect.element(page.getByText('By User', { exact: true })).toBeVisible();
 	});
 });
