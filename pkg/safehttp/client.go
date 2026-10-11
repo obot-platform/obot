@@ -252,6 +252,10 @@ func (d *safeDialer) lookup(ctx context.Context, host string) ([]net.IP, error) 
 }
 
 func (d *safeDialer) blockedReason(ip net.IP) string {
+	// Dialing an unspecified address can reach a listener on the local host.
+	if d.blockLoopback && ip.IsUnspecified() {
+		return "unspecified"
+	}
 	if d.blockLoopback && IsLoopback(ip) {
 		return "loopback"
 	}
