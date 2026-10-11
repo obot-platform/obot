@@ -186,6 +186,15 @@ Print, as the last line of your final message, exactly:
 validated #<n>: <PASSED|FAILED|COULD NOT VALIDATE> <comment URL>
 ```
 
-Then stop and clean up after yourself: `docker rm -f obot` and
-`docker volume rm obot-data`, plus any MCP server containers it started, so
-the box gives its disk back. Commit nothing to the obot repository.
+Before that line, once your comment is posted, give this box's disk back —
+the pool's disk is shared by every box, and a stopped box keeps whatever it
+holds:
+
+```bash
+docker rm -f $(docker ps -aq) 2>/dev/null
+docker volume prune -a -f
+docker image prune -a -f
+docker builder prune -a -f
+```
+
+Pull only the images the issue needs. Commit nothing to the obot repository.
