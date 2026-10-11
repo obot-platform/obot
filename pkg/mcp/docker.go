@@ -1360,7 +1360,7 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("failed to start init container: %w", err)
+		return errors.Join(fmt.Errorf("failed to start init container: %w", err), d.removeInitContainer(ctx, resp.ID))
 	}
 
 	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
