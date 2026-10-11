@@ -694,8 +694,18 @@ func TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername(t *testing.T) {
 		osUserSearch string
 		wantDeviceID string
 	}{
-		{"bootstrap account", "Bootstrap Admin", "bootstrap-os-login", "boot-1"},
-		{"no-email account", "No Email User", "noemail-os-login", "noemail-1"},
+		{
+			name:         "bootstrap account",
+			hiddenSearch: "Bootstrap Admin",
+			osUserSearch: "bootstrap-os-login",
+			wantDeviceID: "boot-1",
+		},
+		{
+			name:         "no-email account",
+			hiddenSearch: "No Email User",
+			osUserSearch: "noemail-os-login",
+			wantDeviceID: "noemail-1",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			hidden, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.hiddenSearch})
