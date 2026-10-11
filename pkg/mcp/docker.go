@@ -1481,7 +1481,12 @@ func initFilesArchive(files map[string]string) (io.Reader, error) {
 	return &buf, nil
 }
 
+// removeInitContainer removes an init container that was never started, so AutoRemove does not
+// apply. It runs even when ctx is already canceled, since that is often why the start was skipped.
 func (d *dockerBackend) removeInitContainer(ctx context.Context, id string) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+
 	if err := d.client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to remove init container: %w", err)
 	}
