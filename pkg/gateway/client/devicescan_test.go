@@ -726,3 +726,44 @@ func TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername(t *testing.T) {
 		})
 	}
 }
+
+// TestListDeviceScans_UserMatchIgnoresNonSubmitters guards the fix for a
+// review finding: newDeviceScanUserMatch must resolve only the distinct
+// submitters present in the candidate scan set, not every user in the
+// org -- otherwise it loads/decrypts the whole users table on every
+// search or user-sort, and the user-sort ORDER BY's one bound parameter
+// pair per resolved user risks exceeding PostgreSQL's 65,535-per-query
+// limit at scale. A "bystander" user who exists but never submitted a
+// scan must not affect results (sanity-checking the bounded query still
+// behaves correctly), and must not be matchable by search.
+func TestListDeviceScans_UserMatchIgnoresNonSubmitters(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("create alice: %v", err)
+	}
+	bystander := types.User{Username: "bystander", HashedUsername: "bystander", DisplayName: "Bystander Bob", Email: "bystander@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bystander).Error; err != nil {
+		t.Fatalf("create bystander: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", ScannedAt: time.Now()})
+
+	searched, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Bystander Bob"})
+	if err != nil {
+		t.Fatalf("search bystander: %v", err)
+	}
+	if total != 0 || len(searched) != 0 {
+		t.Errorf("search for a user who never submitted a scan: want no matches, got total=%d rows=%+v", total, searched)
+	}
+
+	sorted, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with a bystander present: %v", err)
+	}
+	if ids := deviceIDs(sorted); !equalOrdered(ids, []string{"aaa-1"}) {
+		t.Errorf("sort by user with a bystander present: want [aaa-1], got %v", ids)
+	}
+}

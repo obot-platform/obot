@@ -231,6 +231,7 @@
 			'client_count',
 			'scannedAt'
 		]}
+		manualSortFields={Object.keys(SERVER_SORT_FIELDS)}
 		{filterable}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(resolve(`/inventory/devices/${d.deviceID}`), isCtrlClick);

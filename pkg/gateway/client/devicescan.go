@@ -17,8 +17,9 @@ import (
 // DeviceScanListOptions filters the scan-envelope list endpoint.
 // SubmittedBy and DeviceID are multi-value; either narrows the result.
 // Search is a case-insensitive substring match against device ID and the
-// submitter's display name (see userDisplaySQL). SortBy is one of
-// deviceScanSortFields; an unrecognized value falls back to the default
+// submitter's display name (see deviceScanUserDisplay). SortBy is one of
+// deviceScanSortColumns' keys, plus "user" (handled separately, see
+// deviceScanUserMatch); an unrecognized value falls back to the default
 // created_at DESC order.
 type DeviceScanListOptions struct {
 	SubmittedBy   []string
@@ -159,15 +160,14 @@ func deviceScanUserDisplay(u types.User) string {
 }
 
 // deviceScanUserMatch resolves submitted_by -> effective display name for
-// every user the UI can actually show, so search and "sort by user" match
-// the User column's display precedence. This is computed in Go rather than
+// a bounded set of submitters, so search and "sort by user" match the
+// User column's display precedence. This is computed in Go rather than
 // matched/ordered directly in SQL because user PII (display_name, email,
 // username) may be encrypted at rest (see encryptUser/decryptUser):
 // comparing or sorting the raw columns would silently operate on
-// ciphertext. c.Users only excludes soft-deleted rows, so IsUserVisible is
-// applied on top of it to also drop the bootstrap account and any user
-// with no email -- the same two exclusions the Users API applies (see
-// getUsers in pkg/gateway/server/user.go) -- so a scan submitted by a
+// ciphertext. IsUserVisible additionally drops the bootstrap account and
+// any user with no email -- the same two exclusions the Users API applies
+// (see getUsers in pkg/gateway/server/user.go) -- so a scan submitted by a
 // deleted, bootstrap, or email-less user falls back to its own OS-level
 // username here exactly as it's displayed.
 type deviceScanUserMatch struct {
@@ -175,14 +175,44 @@ type deviceScanUserMatch struct {
 	knownIDs    []string          // every resolved submitted_by value, for the "no match" fallback
 }
 
-func (c *Client) newDeviceScanUserMatch(ctx context.Context) (*deviceScanUserMatch, error) {
-	users, err := c.Users(ctx, types.UserQuery{})
-	if err != nil {
+// newDeviceScanUserMatch resolves display names only for submitterIDs --
+// the distinct, non-empty submitted_by values already present in the
+// candidate scan set -- not every user in the org. This matters for two
+// reasons: loading and decrypting the whole users table on every search
+// or user-sort is wasted work when only a handful of them ever submitted
+// a scan, and the user-sort ORDER BY embeds one WHEN/THEN pair of bound
+// parameters per resolved user, which would risk exceeding PostgreSQL's
+// 65,535-parameter-per-query limit on an org with tens of thousands of
+// users -- a query any authenticated scan reader could trigger.
+func (c *Client) newDeviceScanUserMatch(ctx context.Context, submitterIDs []string) (*deviceScanUserMatch, error) {
+	m := &deviceScanUserMatch{
+		displayByID: make(map[string]string, len(submitterIDs)),
+		knownIDs:    make([]string, 0, len(submitterIDs)),
+	}
+	if len(submitterIDs) == 0 {
+		return m, nil
+	}
+
+	ids := make([]uint, 0, len(submitterIDs))
+	for _, s := range submitterIDs {
+		id, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			continue // submitted_by that isn't a user id can't resolve to one
+		}
+		ids = append(ids, uint(id))
+	}
+	if len(ids) == 0 {
+		return m, nil
+	}
+
+	var users []types.User
+	if err := c.db.WithContext(ctx).Where("id IN (?) AND deleted_at IS NULL", ids).Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("failed to load users for device scan search/sort: %w", err)
 	}
-	m := &deviceScanUserMatch{
-		displayByID: make(map[string]string, len(users)),
-		knownIDs:    make([]string, 0, len(users)),
+	for i := range users {
+		if err := c.decryptUser(ctx, &users[i]); err != nil {
+			return nil, fmt.Errorf("failed to decrypt user for device scan search/sort: %w", err)
+		}
 	}
 	for _, u := range users {
 		if !IsUserVisible(u) {
@@ -259,8 +289,19 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 	search := strings.TrimSpace(opts.Search)
 	var userMatch *deviceScanUserMatch
 	if search != "" || opts.SortBy == "user" {
+		// Bounded to the candidate scan set built so far (base filters +
+		// the GroupByDevice latest-per-device narrowing), before search's
+		// own WHERE is added below -- search depends on userMatch, so it
+		// can't also narrow what userMatch resolves from.
+		var submitterIDs []string
+		if err := db.Session(&gorm.Session{}).
+			Where("device_scans.submitted_by <> ''").
+			Distinct("device_scans.submitted_by").
+			Pluck("device_scans.submitted_by", &submitterIDs).Error; err != nil {
+			return nil, 0, err
+		}
 		var err error
-		userMatch, err = c.newDeviceScanUserMatch(ctx)
+		userMatch, err = c.newDeviceScanUserMatch(ctx, submitterIDs)
 		if err != nil {
 			return nil, 0, err
 		}
