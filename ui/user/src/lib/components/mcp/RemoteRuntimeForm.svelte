@@ -17,7 +17,7 @@
 	import Label from './CatalogFormLabel.svelte';
 	import CustomConfigurationOptions from './CustomConfigurationOptions.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
-	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
+	import { Plus, Trash2, Info, Settings, TriangleAlert } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -515,7 +515,15 @@
 										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
 									>
 								</p>
-								<br />
+							</div>
+						</div>
+					</div>
+
+					<div class="notification-alert p-3 text-sm font-light">
+						<div class="flex items-start gap-3">
+							<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+							<div class="flex flex-col gap-1">
+								<p class="font-semibold">{m.mcps_catalog_remote_remote_urls_not_secret()}</p>
 								<p>
 									{m.mcps_catalog_remote_remote_sensitive_warning_prefix()}<code
 										>Authorization: Bearer &lt;token&gt;</code
