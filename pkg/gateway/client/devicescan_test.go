@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/aes"
 	"errors"
 	"strconv"
 	"testing"
@@ -9,6 +10,10 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
+	encryptaes "k8s.io/apiserver/pkg/storage/value/encrypt/aes"
 )
 
 func insertScan(t *testing.T, c *Client, scan types.DeviceScan) types.DeviceScan {
@@ -540,5 +545,117 @@ func assertDeviceIDPage(t *testing.T, c *Client, sortBy, sortOrder string, offse
 	}
 	if got := deviceIDs(scans); !equalOrdered(got, want) {
 		t.Errorf("page at offset %d: want %v, got %v", offset, want, got)
+	}
+}
+
+// TestListDeviceScans_SearchAndSortWithEncryptedUsers guards against a real
+// regression a reviewer caught on the original version of this change:
+// comparing/sorting user PII directly in SQL silently breaks once user
+// encryption is configured, because display_name/email/username are then
+// stored as base64 ciphertext (see encryptUser). Search and sort-by-user
+// must operate on the decrypted values instead.
+func TestListDeviceScans_SearchAndSortWithEncryptedUsers(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	block, err := aes.NewCipher(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transformer, err := encryptaes.NewGCMTransformer(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			userGroupResource: transformer,
+		},
+	}
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.encryptUser(ctx, &alice); err != nil {
+		t.Fatalf("encrypt alice: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("create alice: %v", err)
+	}
+	bob := types.User{Username: "bsmith", HashedUsername: "bsmith", Email: "bob@example.com"}
+	if err := c.encryptUser(ctx, &bob); err != nil {
+		t.Fatalf("encrypt bob: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Create(&bob).Error; err != nil {
+		t.Fatalf("create bob: %v", err)
+	}
+
+	// Sanity check: the stored row really is ciphertext, not plaintext --
+	// otherwise this test would not actually exercise the bug.
+	var stored types.User
+	if err := c.db.WithContext(ctx).Where("id = ?", alice.ID).Take(&stored).Error; err != nil {
+		t.Fatalf("load stored alice: %v", err)
+	}
+	if !stored.Encrypted || stored.DisplayName == "Alice Smith" {
+		t.Fatalf("alice's display_name is stored as %q, want it encrypted", stored.DisplayName)
+	}
+
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", ScannedAt: time.Now()})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "bbb-2", ScannedAt: time.Now().Add(time.Minute)})
+
+	searched, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Alice"})
+	if err != nil {
+		t.Fatalf("search encrypted display name: %v", err)
+	}
+	if ids := deviceIDs(searched); !equalOrdered(ids, []string{"aaa-1"}) {
+		t.Errorf("search %q against encrypted users: want [aaa-1], got %v", "Alice", ids)
+	}
+
+	sorted, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with encrypted users: %v", err)
+	}
+	if got := deviceIDs(sorted); !equalOrdered(got, []string{"aaa-1", "bbb-2"}) {
+		t.Errorf("sort by user asc against encrypted users: want [aaa-1 bbb-2], got %v", got)
+	}
+}
+
+// TestListDeviceScans_DeletedSubmitterFallsBackToOSUsername guards against a
+// second reviewer finding: the frontend's userById map comes from
+// UserService.listUsers(), which excludes soft-deleted users, so a scan
+// submitted by a since-deleted user renders its OS-level username in the
+// table. Server-side search/sort must agree, instead of still matching or
+// ordering by the deleted user's (no-longer-displayed) profile.
+func TestListDeviceScans_DeletedSubmitterFallsBackToOSUsername(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	former := types.User{Username: "former", HashedUsername: "former", DisplayName: "Former Employee", Email: "former@example.com"}
+	if err := c.db.WithContext(ctx).Create(&former).Error; err != nil {
+		t.Fatalf("create former: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Model(&types.User{}).Where("id = ?", former.ID).
+		Update("deleted_at", time.Now()).Error; err != nil {
+		t.Fatalf("soft-delete former: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(former.ID), DeviceID: "del-1", Username: "former-os-login", ScannedAt: time.Now(),
+	})
+
+	// The deleted user's display name must not match -- it's not what the
+	// table shows for this row.
+	byDeletedDisplayName, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Former Employee"})
+	if err != nil {
+		t.Fatalf("search deleted user's display name: %v", err)
+	}
+	if ids := deviceIDs(byDeletedDisplayName); len(ids) != 0 {
+		t.Errorf("search for deleted user's display name: want no matches, got %v", ids)
+	}
+
+	// The OS-level username fallback must match instead.
+	byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "former-os-login"})
+	if err != nil {
+		t.Fatalf("search OS username fallback: %v", err)
+	}
+	if ids := deviceIDs(byOSUsername); !equalOrdered(ids, []string{"del-1"}) {
+		t.Errorf("search %q: want [del-1], got %v", "former-os-login", ids)
 	}
 }

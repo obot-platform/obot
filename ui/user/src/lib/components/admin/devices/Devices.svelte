@@ -142,14 +142,21 @@
 		fetchPage(0, { sortBy, sortOrder });
 	}
 
+	// Guards against overlapping requests (e.g. a sort click right after a
+	// search keystroke): only the response from the most recently started
+	// fetch is committed, so a slower, older request can't clobber newer
+	// results or clear `loading` out from under a still-pending request.
+	let fetchGeneration = 0;
+
 	async function fetchPage(
 		idx: number,
 		sortOverride?: { sortBy?: string; sortOrder?: 'asc' | 'desc' }
 	) {
+		const generation = ++fetchGeneration;
 		loading = true;
 		try {
 			const { sortBy, sortOrder } = sortOverride ?? apiSortFor(initSort);
-			devicesResp = await UserService.listDeviceScans({
+			const response = await UserService.listDeviceScans({
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE,
 				groupByDevice: true,
@@ -157,10 +164,12 @@
 				sortBy,
 				sortOrder
 			});
+			if (generation !== fetchGeneration) return;
+			devicesResp = response;
 			pageIndex = idx;
 			syncUrl();
 		} finally {
-			loading = false;
+			if (generation === fetchGeneration) loading = false;
 		}
 	}
 
@@ -177,7 +186,7 @@
 
 {#if loading || parentLoading}
 	<Skeleton type="table" classes={{ header: 'h-14' }} />
-{:else if total === 0}
+{:else if total === 0 && !query}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Laptop class="text-muted-content size-24 opacity-50" />
 		<h4 class="text-muted-content text-lg font-semibold">
@@ -191,6 +200,7 @@
 {:else}
 	<Table
 		data={rows}
+		noDataMessage={m.core_no_results_found()}
 		fields={[
 			'short_device_id',
 			'os_arch',

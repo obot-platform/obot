@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
@@ -129,45 +131,102 @@ func (c *Client) DeleteDeviceScan(ctx context.Context, id uint) error {
 	return c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id).Error
 }
 
-// userDisplaySQL mirrors Devices.svelte's userDisplay() precedence
-// (displayName -> email -> username -> id -> the scan's own OS-level
-// username) so server-side search and sort agree with what the admin
-// UI actually renders in the User column. Requires the LEFT JOIN users
-// added in ListDeviceScans; for a device-only scan (empty SubmittedBy)
-// the join has no match and every users.* column is NULL, so this
-// falls straight through to device_scans.username as intended.
-const userDisplaySQL = `COALESCE(NULLIF(users.display_name, ''), NULLIF(users.email, ''), NULLIF(users.username, ''), CAST(users.id AS TEXT), device_scans.username)`
-
-// deviceScanSortColumns maps the sort keys accepted by the API to a
-// qualified SQL expression. "user" reuses userDisplaySQL so sorting
-// matches the same precedence used for search and for display.
+// deviceScanSortColumns maps the directly-addressable sort keys accepted
+// by the API to a qualified SQL column. "user" is deliberately not here:
+// it needs decrypted, per-row user data and is handled by
+// deviceScanUserMatch instead (see below).
 var deviceScanSortColumns = map[string]string{
 	"device_id":  "device_scans.device_id",
 	"hostname":   "device_scans.hostname",
 	"os":         "device_scans.os",
 	"arch":       "device_scans.arch",
 	"scanned_at": "device_scans.scanned_at",
-	"user":       "(" + userDisplaySQL + ")",
 }
 
-// deviceScanOrderBy builds the ORDER BY clause for ListDeviceScans. An
-// unrecognized or empty SortBy keeps the historical default. A trailing
-// device_scans.id tiebreaker keeps pagination stable across pages when
-// many rows share the same sort-key value; sorting by "os" also ties
-// to arch so the order matches the UI's combined "OS / Arch" column.
-func deviceScanOrderBy(opts DeviceScanListOptions) string {
-	column, ok := deviceScanSortColumns[opts.SortBy]
-	if !ok {
-		return "device_scans.created_at DESC"
+// deviceScanUserDisplay mirrors Devices.svelte's userDisplay() precedence
+// for a single resolved user: displayName -> email -> username -> id.
+func deviceScanUserDisplay(u types.User) string {
+	switch {
+	case u.DisplayName != "":
+		return u.DisplayName
+	case u.Email != "":
+		return u.Email
+	case u.Username != "":
+		return u.Username
+	default:
+		return strconv.FormatUint(uint64(u.ID), 10)
 	}
-	order := "ASC"
-	if strings.EqualFold(opts.SortOrder, "desc") {
-		order = "DESC"
+}
+
+// deviceScanUserMatch resolves submitted_by -> effective display name for
+// every non-deleted user, so search and "sort by user" can match the
+// User column's display precedence. This is computed in Go rather than
+// matched/ordered directly in SQL because user PII (display_name, email,
+// username) may be encrypted at rest (see encryptUser/decryptUser):
+// comparing or sorting the raw columns would silently operate on
+// ciphertext. c.Users mirrors the non-deleted scoping the frontend's own
+// user list already uses, so a scan submitted by a deleted user falls
+// back to its own OS-level username here exactly as it's displayed.
+type deviceScanUserMatch struct {
+	displayByID map[string]string // submitted_by string -> effective display name
+	knownIDs    []string          // every resolved submitted_by value, for the "no match" fallback
+}
+
+func (c *Client) newDeviceScanUserMatch(ctx context.Context) (*deviceScanUserMatch, error) {
+	users, err := c.Users(ctx, types.UserQuery{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to load users for device scan search/sort: %w", err)
 	}
-	if opts.SortBy == "os" {
-		return fmt.Sprintf("%s %s, device_scans.arch ASC, device_scans.id ASC", column, order)
+	m := &deviceScanUserMatch{
+		displayByID: make(map[string]string, len(users)),
+		knownIDs:    make([]string, 0, len(users)),
 	}
-	return fmt.Sprintf("%s %s, device_scans.id ASC", column, order)
+	for _, u := range users {
+		id := strconv.FormatUint(uint64(u.ID), 10)
+		m.displayByID[id] = deviceScanUserDisplay(u)
+		m.knownIDs = append(m.knownIDs, id)
+	}
+	return m, nil
+}
+
+// matchingUserIDs returns the submitted_by values whose resolved display
+// name contains search, case-insensitively.
+func (m *deviceScanUserMatch) matchingUserIDs(search string) []string {
+	search = strings.ToLower(search)
+	var ids []string
+	for id, display := range m.displayByID {
+		if strings.Contains(strings.ToLower(display), search) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// orderExpr is the ORDER BY expression for sorting by the resolved User
+// column: a known submitted_by maps to its decrypted display name via a
+// bound-parameter CASE (never interpolated SQL), everything else — empty,
+// unrecognized, or a deleted user's id — falls back to the scan's own
+// OS-level username, matching deviceScanUserDisplay/the UI precedence.
+//
+// order ("ASC"/"DESC") and the device_scans.id pagination tiebreaker are
+// baked directly into this single SQL string rather than left to a later
+// chained .Order() call: GORM's OrderBy.MergeClause only carries forward
+// the previous clause's Columns, silently dropping its Expression when a
+// later plain-string .Order() call merges in — so a separate .Order("...
+// id ASC") call after this one would erase the CASE entirely.
+func (m *deviceScanUserMatch) orderExpr(order string) clause.Expr {
+	if len(m.displayByID) == 0 {
+		return clause.Expr{SQL: fmt.Sprintf("device_scans.username %s, device_scans.id ASC", order)}
+	}
+	var sql strings.Builder
+	args := make([]any, 0, len(m.displayByID)*2)
+	sql.WriteString("CASE")
+	for id, display := range m.displayByID {
+		sql.WriteString(" WHEN device_scans.submitted_by = ? THEN ?")
+		args = append(args, id, display)
+	}
+	sql.WriteString(fmt.Sprintf(" ELSE device_scans.username END %s, device_scans.id ASC", order))
+	return clause.Expr{SQL: sql.String(), Vars: args}
 }
 
 // ListDeviceScans returns scan envelopes, sorted and optionally
@@ -190,31 +249,52 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		db = db.Where("device_scans.id IN (?)", sub)
 	}
 
-	// The join is cheap (an indexed primary-key equality) and kept
-	// unconditional so both search and "sort by user" can use
-	// userDisplaySQL without two divergent query-building paths.
-	db = db.Joins("LEFT JOIN users ON CAST(users.id AS TEXT) = device_scans.submitted_by")
-	if search := strings.TrimSpace(opts.Search); search != "" {
+	search := strings.TrimSpace(opts.Search)
+	var userMatch *deviceScanUserMatch
+	if search != "" || opts.SortBy == "user" {
+		var err error
+		userMatch, err = c.newDeviceScanUserMatch(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	if search != "" {
 		like := "LIKE"
 		if db.Name() == "postgres" {
 			like = "ILIKE"
 		}
 		arg := "%" + search + "%"
-		db = db.Where(fmt.Sprintf("(device_scans.device_id %s ? OR (%s) %s ?)", like, userDisplaySQL, like), arg, arg)
+		conds := []string{fmt.Sprintf("device_scans.device_id %s ?", like)}
+		args := []any{arg}
+		if matchingIDs := userMatch.matchingUserIDs(search); len(matchingIDs) > 0 {
+			conds = append(conds, "device_scans.submitted_by IN (?)")
+			args = append(args, matchingIDs)
+		}
+		// A scan with no resolved user (empty, unrecognized, or deleted
+		// submitted_by) displays its own OS-level username instead of a
+		// user; search that same fallback for those rows only, so this
+		// doesn't also match a row whose actual *displayed* user happens
+		// not to match but whose unrelated OS username substring does.
+		if len(userMatch.knownIDs) > 0 {
+			conds = append(conds, fmt.Sprintf("(device_scans.submitted_by NOT IN (?) AND device_scans.username %s ?)", like))
+			args = append(args, userMatch.knownIDs, arg)
+		} else {
+			conds = append(conds, fmt.Sprintf("device_scans.username %s ?", like))
+			args = append(args, arg)
+		}
+		db = db.Where("("+strings.Join(conds, " OR ")+")", args...)
 	}
 
-	// Count and Find diverge from here (different Select/Order/paging),
-	// so each forks its own session from the shared filtered base
-	// rather than mutating db in place — same pattern as ListSkillStats.
+	// Count and Find diverge from here (different Order/paging), so each
+	// forks its own session from the shared filtered base rather than
+	// mutating db in place — same pattern as ListSkillStats.
 	var total int64
 	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// An explicit Select is required once a JOIN is present: GORM's
-	// default "SELECT *" would otherwise collide on columns device_scans
-	// and users both have (id, created_at, ...).
-	q := db.Session(&gorm.Session{}).Select("device_scans.*")
+	q := db.Session(&gorm.Session{})
 	if opts.Limit > 0 {
 		q = q.Limit(opts.Limit)
 	}
@@ -222,8 +302,33 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		q = q.Offset(opts.Offset)
 	}
 
+	order := "ASC"
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		order = "DESC"
+	}
+	switch {
+	case opts.SortBy == "user":
+		q = q.Order(clause.OrderBy{Expression: userMatch.orderExpr(order)})
+	case deviceScanSortColumns[opts.SortBy] != "":
+		// These are all plain-string .Order() calls, which GORM correctly
+		// merges together (unlike the Expression-based "user" case above),
+		// so the tiebreaker can be a separate trailing call here.
+		q = q.Order(fmt.Sprintf("%s %s", deviceScanSortColumns[opts.SortBy], order))
+		if opts.SortBy == "os" {
+			// Ties to arch in the same direction so the order matches the
+			// UI's combined "OS / Arch" column, not just the OS half.
+			q = q.Order(fmt.Sprintf("device_scans.arch %s", order))
+		}
+		// Stable pagination tiebreaker: without it, rows sharing the
+		// primary sort key could shuffle between identically-ordered page
+		// requests.
+		q = q.Order("device_scans.id ASC")
+	default:
+		q = q.Order("device_scans.created_at DESC").Order("device_scans.id ASC")
+	}
+
 	var scans []types.DeviceScan
-	if err := q.Order(deviceScanOrderBy(opts)).
+	if err := q.
 		Preload("MCPServers").
 		Preload("Skills").
 		Preload("Plugins").
