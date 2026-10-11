@@ -177,7 +177,11 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	if directConnect {
 		resourceCheckURL = server.URL
 	}
-	oauthHandler := sm.oauthHandlerForClient(httpClient, server.MCPServerName, resourceCheckURL, clientOpts)
+	oauthClient, err := sm.OAuthClientForServer(server)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OAuth client: %w", err)
+	}
+	oauthHandler := sm.oauthHandlerForClient(oauthClient, server.MCPServerName, resourceCheckURL, clientOpts)
 
 	session, err := c.Connect(ctx, &gomcp.StreamableClientTransport{
 		Endpoint:             url,
@@ -213,7 +217,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	return result, nil
 }
 
-func (sm *SessionManager) oauthHandlerForClient(httpClient *http.Client, serverName, serverURL string, clientOpts ClientOption) auth.OAuthHandler {
+func (sm *SessionManager) oauthHandlerForClient(oauthClient *http.Client, serverName, serverURL string, clientOpts ClientOption) auth.OAuthHandler {
 	if clientOpts.TokenStorage == nil {
 		return authorizationErrorOAuthHandler{}
 	}
@@ -223,7 +227,7 @@ func (sm *SessionManager) oauthHandlerForClient(httpClient *http.Client, serverN
 		oauthClientName = clientOpts.ClientName
 	}
 	return newOAuth(
-		httpClient,
+		oauthClient,
 		clientOpts.CallbackHandler,
 		clientOpts.ClientLookup,
 		clientOpts.TokenStorage,

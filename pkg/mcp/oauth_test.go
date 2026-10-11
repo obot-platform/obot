@@ -326,7 +326,7 @@ func TestResolveClientInfoNilLookupFallsThroughToDynamicRegistration(t *testing.
 	}))
 	defer server.Close()
 
-	o := &oauth{metadataClient: server.Client()}
+	o := &oauth{httpClient: server.Client()}
 	discovery := oauthMetadataDiscovery{
 		ProtectedResourceMetadata: protectedResourceMetadata{
 			AuthorizationServers: []string{server.URL},
@@ -615,7 +615,7 @@ func TestStorageBackedTokenSourcePersistsRefreshedToken(t *testing.T) {
 		Expiry:       time.Now().Add(-time.Hour),
 	}
 
-	tok, err := newStorageBackedTokenSource(storage, conf, initial).Token()
+	tok, err := newStorageBackedTokenSource(storage, conf, initial, server.Client()).Token()
 	require.NoError(t, err)
 	require.Equal(t, "new-access-token", tok.AccessToken)
 	require.Equal(t, "new-refresh-token", tok.RefreshToken)
@@ -677,7 +677,7 @@ func TestOAuthResourceHandlingByAuthorizationServer(t *testing.T) {
 			require.Equal(t, tt.expectedResource, parsedAuthURL.Query().Get("resource"))
 			require.Equal(t, tt.expectedResource, callback.resourceURL)
 
-			_, err = ExchangeOAuthToken(t.Context(), conf, "authorization-code", verifier, resourceURL)
+			_, err = ExchangeOAuthToken(withOAuthHTTPClient(t.Context(), tokenServer.Client()), conf, "authorization-code", verifier, resourceURL)
 			require.NoError(t, err)
 		})
 	}
@@ -798,7 +798,7 @@ func TestResolveOAuthResourceURL(t *testing.T) {
 func TestStorageBackedTokenSourceDoesNotPersistUnchangedToken(t *testing.T) {
 	tok := &oauth2.Token{AccessToken: "access-token", RefreshToken: "refresh-token", Expiry: time.Now().Add(time.Hour)}
 	storage := &recordingTokenStorage{}
-	ts := newStorageBackedTokenSource(storage, &oauth2.Config{}, tok)
+	ts := newStorageBackedTokenSource(storage, &oauth2.Config{}, tok, nil)
 
 	got, err := ts.Token()
 	require.NoError(t, err)
@@ -822,12 +822,50 @@ func TestStorageBackedTokenSourcePropagatesPersistenceError(t *testing.T) {
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
-	ts := newStorageBackedTokenSource(storage, conf, old)
+	ts := newStorageBackedTokenSource(storage, conf, old, server.Client())
 
 	got, err := ts.Token()
 	require.ErrorIs(t, err, persistenceErr)
 	require.Nil(t, got)
 	require.Equal(t, 1, storage.setCalls)
+}
+
+func TestExchangeOAuthTokenRefusesLocalTokenEndpointWithoutClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("token endpoint on loopback must not be reached")
+	}))
+	defer server.Close()
+
+	conf := &oauth2.Config{
+		ClientID: "client-id",
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  server.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+
+	_, err := ExchangeOAuthToken(t.Context(), conf, "authorization-code", "verifier", "")
+	require.ErrorContains(t, err, "blocked loopback IP")
+}
+
+func TestStorageBackedTokenSourceRefusesLocalTokenEndpointWithoutClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("token endpoint on loopback must not be reached")
+	}))
+	defer server.Close()
+
+	storage := &recordingTokenStorage{}
+	conf := &oauth2.Config{
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  server.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	expired := &oauth2.Token{AccessToken: "old-access-token", RefreshToken: "refresh-token", Expiry: time.Now().Add(-time.Hour)}
+
+	_, err := newStorageBackedTokenSource(storage, conf, expired, nil).Token()
+	require.ErrorContains(t, err, "blocked loopback IP")
+	require.Zero(t, storage.setCalls)
 }
 
 func (h *oauthAuthorizeCallbackHandler) HandleAuthURL(_ context.Context, _ string, authURL string) (bool, error) {
@@ -1302,4 +1340,15 @@ func TestOAuthAuthorizeValidatesResourceAgainstServerURLForTunnels(t *testing.T)
 	o := newOAuth(bridge.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client"}, nil, "test-server", upstreamURL, "test-client", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 	require.Equal(t, upstreamURL, (<-tokenRequest).Get("resource"))
+}
+
+func TestOAuthDiscoveryRefusesLocalMetadataWithStrictClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("metadata on loopback must not be fetched")
+	}))
+	defer server.Close()
+
+	header := `Bearer resource_metadata="` + server.URL + `/.well-known/oauth-protected-resource"`
+	_, _, err := discoverOAuthMetadata(t.Context(), strictEgressClient, "https://mcp.example.com/mcp", "https://mcp.example.com/mcp", header, "test-client", "https://obot.example.com/callback")
+	require.ErrorContains(t, err, "blocked loopback IP")
 }

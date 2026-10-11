@@ -200,7 +200,7 @@ func TestNewMCPOAuthHandlerCarriesCatalogEntry(t *testing.T) {
 
 	// Tool preview servers are never written to storage, so the catalog entry name is the
 	// only thing tying them back to the credentials the admin configured.
-	handler := factory.newMCPOAuthHandler(nil, "user", "tool-preview-63cb5f4336ed0dcf", "https://example.com/mcp", "", "slack-entry")
+	handler := factory.newMCPOAuthHandler(nil, "user", "tool-preview-63cb5f4336ed0dcf", "https://example.com/mcp", "", "", "slack-entry")
 	require.Equal(t, "slack-entry", handler.catalogEntryName)
 }
 

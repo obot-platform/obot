@@ -34,7 +34,7 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 	require.NoError(t, db.AutoMigrate())
 	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
-	state := newStateManager(client)
+	state := newStateManager(client, fixedTokenClient(tokenServer.Client()))
 	h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: state}}
 	for _, tt := range []struct {
 		name         string
@@ -94,7 +94,7 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 				require.NoError(t, storage.Create(t.Context(), connection))
 				mcpID = connection.Name
 			}
-			require.NoError(t, state.store(t.Context(), "1", mcpID, "https://upstream.example/mcp", authRequest.Name, "state", "verifier", "", &oauth2.Config{
+			require.NoError(t, state.store(t.Context(), "1", mcpID, "https://upstream.example/mcp", "", authRequest.Name, "state", "verifier", "", &oauth2.Config{
 				ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
 			}))
 			response := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 
 	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
-	stateManager := newStateManager(gatewayClient)
+	stateManager := newStateManager(gatewayClient, fixedTokenClient(tokenServer.Client()))
 	conf := &oauth2.Config{
 		ClientID:    clientID,
 		RedirectURL: redirectURL,
@@ -150,7 +150,7 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 		},
 	}
 
-	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "request", "state", verifier, resourceURL, conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "", "request", "state", verifier, resourceURL, conf))
 	_, _, err = stateManager.createToken(t.Context(), "state", "authorization-code", "", "")
 	require.NoError(t, err)
 
@@ -161,8 +161,50 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 	require.Equal(t, verifier, form.Get("code_verifier"))
 
 	conf.Endpoint.AuthURL = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize"
-	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "request", "entra-state", verifier, resourceURL, conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "", "request", "entra-state", verifier, resourceURL, conf))
 	_, _, err = stateManager.createToken(t.Context(), "entra-state", "authorization-code", "", "")
 	require.NoError(t, err)
 	require.Empty(t, (<-tokenRequest).Get("resource"))
+}
+
+func fixedTokenClient(client *http.Client) tokenClientFunc {
+	return func(string) (*http.Client, error) {
+		return client, nil
+	}
+}
+
+func TestOAuthCallbackExchangeUsesStoredTunnel(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer"}`))
+	}))
+	defer tokenServer.Close()
+
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
+
+	var tunnels []string
+	stateManager := newStateManager(gatewayClient, func(tunnelName string) (*http.Client, error) {
+		tunnels = append(tunnels, tunnelName)
+		return tokenServer.Client(), nil
+	})
+	conf := &oauth2.Config{
+		ClientID: "client",
+		Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
+	}
+
+	require.NoError(t, stateManager.store(t.Context(), "user", "tunneled", "https://private.example/mcp", "private-tunnel", "request", "tunneled-state", "verifier", "", conf))
+	_, _, err = stateManager.createToken(t.Context(), "tunneled-state", "authorization-code", "", "")
+	require.NoError(t, err)
+
+	require.NoError(t, stateManager.store(t.Context(), "user", "direct", "https://public.example/mcp", "", "request", "direct-state", "verifier", "", conf))
+	_, _, err = stateManager.createToken(t.Context(), "direct-state", "authorization-code", "", "")
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"private-tunnel", ""}, tunnels)
 }

@@ -26,6 +26,17 @@ import (
 )
 
 var (
+	// strictEgressClient is the fallback for OAuth token requests when the caller passes no
+	// client. Callers should pass the client from SessionManager.OAuthClientForServer, which
+	// uses the server's tunnel when it has one, so metadata and tokens take the same path.
+	// This fallback only ensures a server-supplied token endpoint is never reached with
+	// http.DefaultClient, which applies no egress policy.
+	strictEgressClient = safehttp.NewClient(safehttp.Options{
+		BlockLoopback:  true,
+		BlockPrivateIP: true,
+		BlockLinkLocal: true,
+		Timeout:        30 * time.Second,
+	})
 	resourceMetadataRegex = regexp.MustCompile(`resource_metadata="([^"]*)"`)
 	scopeRegex            = regexp.MustCompile(`scope="([^"]*)"`)
 )
@@ -65,10 +76,13 @@ type oauth struct {
 	serverURL                string
 	clientIDMetadataDocument string
 	currentToken             oauth2.Token
-	metadataClient           *http.Client
-	callbackHandler          CallbackHandler
-	clientLookup             ClientCredLookup
-	tokenStorage             TokenStorage
+	// httpClient performs discovery, client registration, and token exchange and refresh.
+	// Those URLs are server-supplied, so it applies the egress policy and carries none of
+	// the server's headers (see SessionManager.OAuthClientForServer).
+	httpClient      *http.Client
+	callbackHandler CallbackHandler
+	clientLookup    ClientCredLookup
+	tokenStorage    TokenStorage
 }
 
 type oauthMetadataDiscovery struct {
@@ -414,7 +428,7 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	return t.base.RoundTrip(req)
 }
 
-func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, serverURL, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
+func newOAuth(httpClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, serverURL, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
 	return &oauth{
 		serverName:               serverName,
 		serverURL:                serverURL,
@@ -422,14 +436,14 @@ func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clie
 		redirectURL:              redirectURL,
 		clientIDMetadataDocument: clientIDMetadataDocument,
 		callbackHandler:          callbackHandler,
-		metadataClient:           metadataClient,
+		httpClient:               httpClient,
 		clientLookup:             clientLookup,
 		tokenStorage:             tokenStorage,
 	}
 }
 
 func (o *oauth) TokenSource(ctx context.Context) (oauth2.TokenSource, error) {
-	return o.tokenStorage.TokenSource(ctx)
+	return o.tokenStorage.TokenSource(withOAuthHTTPClient(ctx, o.httpClient))
 }
 
 func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
@@ -447,7 +461,7 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	if resourceCheckURL == "" {
 		resourceCheckURL = connectURL
 	}
-	discovery, ok, err := discoverOAuthMetadata(ctx, o.metadataClient, connectURL, resourceCheckURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
+	discovery, ok, err := discoverOAuthMetadata(ctx, o.httpClient, connectURL, resourceCheckURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
 	if err != nil {
 		slog.Warn("oauth metadata discovery failed", "server", o.serverName, "connect_url", connectURL, "error", err)
 		return err
@@ -509,7 +523,7 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		}
 	}
 
-	tok, err := ExchangeOAuthToken(ctx, conf, cb.Code, verifier, resourceURL)
+	tok, err := ExchangeOAuthToken(withOAuthHTTPClient(ctx, o.httpClient), conf, cb.Code, verifier, resourceURL)
 	if err != nil {
 		slog.Warn("oauth code exchange failed",
 			"server", o.serverName,
@@ -708,7 +722,7 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	}
 
 	// If we didn't get a result from the lookup, register a client dynamically.
-	clientInfo, err := registerOAuthClient(ctx, o.metadataClient, serverName, authorizationServerMetadata, discovery.ClientRegistration)
+	clientInfo, err := registerOAuthClient(ctx, o.httpClient, serverName, authorizationServerMetadata, discovery.ClientRegistration)
 	if err != nil {
 		slog.Warn("oauth dynamic client registration failed",
 			"server", serverName,
@@ -826,8 +840,29 @@ func GetOAuthAuthorizationURL(ctx context.Context, callbackHandler CallbackHandl
 	return authURL, ch, verifier, nil
 }
 
-// ExchangeOAuthToken exchanges an OAuth authorization code for a token.
+// withOAuthHTTPClient returns ctx carrying client as the HTTP client that
+// golang.org/x/oauth2 uses for token exchange and refresh requests.
+func withOAuthHTTPClient(ctx context.Context, client *http.Client) context.Context {
+	if client == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, oauth2.HTTPClient, client)
+}
+
+// oauthHTTPClientContext returns ctx with an HTTP client for oauth2 set, keeping the
+// caller's client when it has one and falling back to strictEgressClient otherwise.
+func oauthHTTPClientContext(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(oauth2.HTTPClient).(*http.Client); ok {
+		return ctx
+	}
+	return withOAuthHTTPClient(ctx, strictEgressClient)
+}
+
+// ExchangeOAuthToken exchanges an OAuth authorization code for a token. The token
+// endpoint is server-supplied, so the request goes through the HTTP client in ctx
+// (see withOAuthHTTPClient) or, without one, through strictEgressClient.
 func ExchangeOAuthToken(ctx context.Context, conf *oauth2.Config, code, verifier, resourceURL string) (*oauth2.Token, error) {
+	ctx = oauthHTTPClientContext(ctx)
 	options := []oauth2.AuthCodeOption{oauth2.VerifierOption(verifier)}
 	if resourceURL = OAuthResourceURL(conf.Endpoint.AuthURL, resourceURL); resourceURL != "" {
 		options = append(options, oauth2.SetAuthURLParam("resource", resourceURL))

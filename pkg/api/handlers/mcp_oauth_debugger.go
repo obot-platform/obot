@@ -62,7 +62,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint; a static client ID must be configured")
 		}
 
-		httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{Timeout: 10 * time.Second, DirectConnect: true})
+		httpClient, err := m.mcpSessionManager.OAuthClientForServer(serverConfig)
 		if err != nil {
 			return err
 		}
@@ -94,6 +94,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		req.User.GetUID(),
 		server.Name,
 		serverConfig.URL,
+		serverConfig.TunnelName,
 		OAuthDebuggerPendingStateMarker,
 		state,
 		oauth2.GenerateVerifier(),
@@ -176,7 +177,7 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 
 	conf := oauthDebuggerConfigFromPendingState(pendingState)
 
-	httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{Timeout: 10 * time.Second, DirectConnect: true})
+	httpClient, err := m.mcpSessionManager.OAuthClientForServer(serverConfig)
 	if err != nil {
 		return err
 	}

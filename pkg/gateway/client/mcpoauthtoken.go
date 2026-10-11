@@ -149,7 +149,7 @@ func (c *Client) triggerMCPOAuthTokenChange(ctx context.Context, mcpID string) e
 
 // Pending state methods
 
-func (c *Client) CreateMCPOAuthPendingState(ctx context.Context, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier, resourceURL string, oauthConf *oauth2.Config) error {
+func (c *Client) CreateMCPOAuthPendingState(ctx context.Context, userID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, state, verifier, resourceURL string, oauthConf *oauth2.Config) error {
 	hashedState := fmt.Sprintf("%x", sha256.Sum256([]byte(state)))
 	ps := &types.MCPOAuthPendingState{
 		HashedState:        hashedState,
@@ -158,6 +158,7 @@ func (c *Client) CreateMCPOAuthPendingState(ctx context.Context, userID, mcpID, 
 		UserID:             userID,
 		MCPID:              mcpID,
 		URL:                mcpURL,
+		TunnelName:         tunnelName,
 		ResourceURL:        resourceURL,
 		OAuthAuthRequestID: oauthAuthRequestID,
 		ClientID:           oauthConf.ClientID,

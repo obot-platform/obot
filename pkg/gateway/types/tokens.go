@@ -71,12 +71,15 @@ type MCPOAuthToken struct {
 }
 
 type MCPOAuthPendingState struct {
-	HashedState        string `gorm:"primaryKey"`
-	State              string
-	Verifier           string
-	UserID             string `gorm:"index:idx_pending_user_mcp"`
-	MCPID              string `gorm:"index:idx_pending_user_mcp"`
-	URL                string
+	HashedState string `gorm:"primaryKey"`
+	State       string
+	Verifier    string
+	UserID      string `gorm:"index:idx_pending_user_mcp"`
+	MCPID       string `gorm:"index:idx_pending_user_mcp"`
+	URL         string
+	// TunnelName is the MCPTunnel the server is reached through, if any. The callback's
+	// code exchange goes through the same tunnel, since the token endpoint may be private.
+	TunnelName         string
 	ResourceURL        string
 	OAuthAuthRequestID string
 	ClientID           string

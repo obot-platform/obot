@@ -225,7 +225,14 @@ func (h *Handler) Proxy(req api.Context) error {
 				return err
 			}
 		} else {
-			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(h.ctx)
+			// Token refreshes go to the server-supplied token endpoint, so they use a client
+			// with the admin's egress policy and the server's network path, and none of the
+			// server's configured headers.
+			refreshClient, err := h.mcpSessionManager.OAuthClientForServer(serverConfig)
+			if err != nil {
+				return fmt.Errorf("failed to get HTTP client for token refresh: %w", err)
+			}
+			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
 			if err != nil {
 				return fmt.Errorf("failed to get token source: %w", err)
 			}

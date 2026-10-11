@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -48,6 +49,7 @@ type mcpOAuthHandler struct {
 	stateMgr           *stateManager
 	mcpID              string
 	mcpURL             string
+	tunnelName         string
 	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
@@ -62,7 +64,7 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		baseURL:                   baseURL,
 		mcpSessionManager:         sessionManager,
 		client:                    client,
-		stateMgr:                  newStateManager(gatewayClient),
+		stateMgr:                  newStateManager(gatewayClient, tokenExchangeClient(sessionManager)),
 		tokenStore:                globalTokenStore,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
@@ -72,6 +74,18 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 	}
 
 	return f
+}
+
+// tokenExchangeClient returns the function the OAuth callback uses to build the client for
+// exchanging a code at the remote server's token endpoint: through the server's tunnel when
+// it has one, and otherwise with the admin's egress policy.
+func tokenExchangeClient(sessionManager *mcp.SessionManager) tokenClientFunc {
+	if sessionManager == nil {
+		return nil
+	}
+	return func(tunnelName string) (*http.Client, error) {
+		return sessionManager.OAuthClientForServer(mcp.ServerConfig{TunnelName: tunnelName})
+	}
 }
 
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
@@ -173,7 +187,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 
 	// Remote server, check for OAuth directly
-	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
+	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, mcpServerConfig.TunnelName, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
 	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
 		if err != nil {
@@ -382,13 +396,14 @@ func staticOAuthMetadata(metadata mcp.OAuthMetadata, redirectURL string) (mcp.Au
 		"Obot MCP Gateway", redirectURL, registration.Scope), nil
 }
 
-func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {
+func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {
 	return &mcpOAuthHandler{
 		gatewayClient:      gatewayClient,
 		stateMgr:           f.stateMgr,
 		userID:             userID,
 		mcpID:              mcpID,
 		mcpURL:             mcpURL,
+		tunnelName:         tunnelName,
 		oauthAuthRequestID: oauthAuthRequestID,
 		catalogEntryName:   catalogEntryName,
 		urlChan:            make(chan string, 1),
@@ -418,7 +433,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
-	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, resourceURL, conf)
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {

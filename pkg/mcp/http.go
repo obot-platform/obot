@@ -54,3 +54,26 @@ func (sm *SessionManager) HTTPClientForServer(server ServerConfig, opts HTTPClie
 	}
 	return safehttp.NewClient(clientOptions), nil
 }
+
+// OAuthClientForServer returns the client for the server's OAuth requests: metadata
+// discovery, dynamic client registration, and token exchange and refresh. Those URLs come
+// from the server's own metadata, so the client follows the server's tunnel when present
+// and otherwise applies the admin's egress policy. Unlike HTTPClientForServer it carries no
+// configured headers, grants no backend-specific exceptions, and has a timeout.
+func (sm *SessionManager) OAuthClientForServer(server ServerConfig) (*http.Client, error) {
+	const timeout = 30 * time.Second
+	if server.TunnelName != "" {
+		if sm.tunnelManager == nil {
+			return nil, fmt.Errorf("tunnel manager is not configured")
+		}
+		return sm.tunnelManager.HTTPClient(server.TunnelName, tunnel.HTTPClientOptions{Timeout: timeout})
+	}
+
+	policy := sm.RemoteMCPURLValidationConfig()
+	return safehttp.NewClient(safehttp.Options{
+		BlockLoopback:  !policy.AllowLocalhostMCP,
+		BlockPrivateIP: !policy.AllowPrivateIPMCP,
+		BlockLinkLocal: !policy.AllowLinkLocalMCP,
+		Timeout:        timeout,
+	}), nil
+}

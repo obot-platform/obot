@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -38,6 +39,8 @@ type storageBackedTokenSource struct {
 	tokenStorage TokenStorage
 	conf         *oauth2.Config
 	tok          *oauth2.Token
+	// httpClient performs the refresh request to the server-supplied token endpoint.
+	httpClient *http.Client
 }
 
 func NewGlobalTokenStore(gatewayClient *gateway.Client) GlobalTokenStore {
@@ -104,19 +107,26 @@ func (t *tokenStore) TokenSource(ctx context.Context) (oauth2.TokenSource, error
 	if config == nil || token == nil {
 		return nil, nil
 	}
-	return newStorageBackedTokenSource(t, config, token), nil
+	// Refreshes reuse the HTTP client the caller put in ctx with withOAuthHTTPClient, so
+	// they follow the same egress policy and network path as the rest of the connection.
+	httpClient, _ := ctx.Value(oauth2.HTTPClient).(*http.Client)
+	return newStorageBackedTokenSource(t, config, token, httpClient), nil
 }
 
-func newStorageBackedTokenSource(tokenStorage TokenStorage, conf *oauth2.Config, tok *oauth2.Token) oauth2.TokenSource {
+func newStorageBackedTokenSource(tokenStorage TokenStorage, conf *oauth2.Config, tok *oauth2.Token, httpClient *http.Client) oauth2.TokenSource {
+	if httpClient == nil {
+		httpClient = strictEgressClient
+	}
 	return oauth2.ReuseTokenSource(tok, &storageBackedTokenSource{
 		tokenStorage: tokenStorage,
 		conf:         conf,
 		tok:          tok,
+		httpClient:   httpClient,
 	})
 }
 
 func (ts *storageBackedTokenSource) Token() (*oauth2.Token, error) {
-	ctx := context.Background()
+	ctx := withOAuthHTTPClient(context.Background(), ts.httpClient)
 	tok, err := ts.conf.TokenSource(ctx, ts.tok).Token()
 	if err != nil {
 		return nil, err
