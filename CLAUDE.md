@@ -71,6 +71,11 @@ make serve-docs       # Start local docs server
 - When an implementation introduces a meaningful architectural decision, include an ADR in the implementation pull request and follow the [`adr/README.md`](adr/README.md) guidance. The ADR records the decision that shipped and links to its related issues and ODP when applicable.
 - If implementation differs materially from the accepted ODP, resolve the change through a follow-up ODP rather than documenting the surprise only in the ADR.
 
+## Pull Requests and Issues
+
+- When a pull request addresses an issue, reference the issue in the PR description (for example, "Addresses #123").
+- Never use a GitHub closing keyword (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) followed by an issue reference in PR descriptions or commit messages. Issues are not closed on merge: they move to the Testing column of the project board, and QA verifies them before they are closed.
+
 ## Architecture
 
 ### Entry Points
