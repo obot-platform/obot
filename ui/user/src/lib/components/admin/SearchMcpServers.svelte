@@ -3,13 +3,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import {
-		UserService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type OrgUser,
-		type VMCP
-	} from '$lib/services';
+	import { UserService, type MCPCatalogEntry, type OrgUser, type VMCP } from '$lib/services';
 	import { isDeprecatedMCPServer, getMcpValueLabel } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -25,7 +19,6 @@
 		vmcps?: VMCP[];
 		mcpEntriesContextFn?: () => {
 			entries: MCPCatalogEntry[];
-			servers: MCPCatalogServer[];
 			loading: boolean;
 		};
 		all?: { label: string; description: string };
@@ -70,7 +63,6 @@
 	const mcpServerAndEntries = $derived(
 		mcpEntriesContextFn?.() ?? {
 			entries: [],
-			servers: [],
 			loading: false
 		}
 	);
@@ -118,36 +110,6 @@
 							? m.mcps_servers_users_registry({
 									name: getUserDisplayName(usersMap, entry.powerUserID)
 								})
-							: ''
-				})),
-			...mcpServerAndEntries.servers
-				.filter((server) => {
-					if (type === 'filter') {
-						return true;
-					}
-
-					// vMCP component servers are only reachable through their vMCP, so they
-					// aren't valid access policy targets.
-					if (server.vmcpID || server.vmcpInstanceID || server.vmcpComponentID) {
-						return false;
-					}
-
-					return entity === 'catalog'
-						? !server.powerUserWorkspaceID
-						: workspaceId
-							? server.powerUserWorkspaceID === workspaceId
-							: !!server.powerUserWorkspaceID;
-				})
-				.map((server) => ({
-					icon: server.manifest.icon,
-					name: server.alias || server.manifest.name || '',
-					description: server.manifest.description,
-					id: server.id,
-					type: 'mcpserver' as const,
-					deprecated: isDeprecatedMCPServer(server),
-					registry:
-						server.userID && server.powerUserWorkspaceID && isAdminView
-							? m.mcps_servers_users_registry({ name: getUserDisplayName(usersMap, server.userID) })
 							: ''
 				}))
 		].filter((item) => !exclude?.includes(item.id))
