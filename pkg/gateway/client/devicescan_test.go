@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -657,5 +658,61 @@ func TestListDeviceScans_DeletedSubmitterFallsBackToOSUsername(t *testing.T) {
 	}
 	if ids := deviceIDs(byOSUsername); !equalOrdered(ids, []string{"del-1"}) {
 		t.Errorf("search %q: want [del-1], got %v", "former-os-login", ids)
+	}
+}
+
+// TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername guards against a
+// second review finding: c.Users only excludes soft-deleted rows, but the
+// Users API (getUsers) additionally hides the bootstrap account and any
+// user with no email (see IsUserVisible). A scan submitted by either kind
+// of hidden account must search/sort by its OS-level username, matching
+// what Devices.svelte actually renders (it never resolves these accounts
+// either, since its user list comes from that same Users API).
+func TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	bootstrap := types.User{Username: system.BootstrapName, HashedUsername: system.BootstrapName, DisplayName: "Bootstrap Admin", Email: "bootstrap@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bootstrap).Error; err != nil {
+		t.Fatalf("create bootstrap user: %v", err)
+	}
+	noEmail := types.User{Username: "noemail", HashedUsername: "noemail", DisplayName: "No Email User"}
+	if err := c.db.WithContext(ctx).Create(&noEmail).Error; err != nil {
+		t.Fatalf("create no-email user: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(bootstrap.ID), DeviceID: "boot-1", Username: "bootstrap-os-login", ScannedAt: time.Now(),
+	})
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(noEmail.ID), DeviceID: "noemail-1", Username: "noemail-os-login", ScannedAt: time.Now().Add(time.Minute),
+	})
+
+	for _, tc := range []struct {
+		name         string
+		hiddenSearch string
+		osUserSearch string
+		wantDeviceID string
+	}{
+		{"bootstrap account", "Bootstrap Admin", "bootstrap-os-login", "boot-1"},
+		{"no-email account", "No Email User", "noemail-os-login", "noemail-1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hidden, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.hiddenSearch})
+			if err != nil {
+				t.Fatalf("search hidden account's display name: %v", err)
+			}
+			if ids := deviceIDs(hidden); len(ids) != 0 {
+				t.Errorf("search %q: want no matches (account is hidden from the Users API), got %v", tc.hiddenSearch, ids)
+			}
+
+			byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.osUserSearch})
+			if err != nil {
+				t.Fatalf("search OS username fallback: %v", err)
+			}
+			if ids := deviceIDs(byOSUsername); !equalOrdered(ids, []string{tc.wantDeviceID}) {
+				t.Errorf("search %q: want [%s], got %v", tc.osUserSearch, tc.wantDeviceID, ids)
+			}
+		})
 	}
 }

@@ -30,6 +30,16 @@ var (
 	}
 )
 
+// IsUserVisible reports whether u is ever shown by the Users API/UI. c.Users
+// only excludes soft-deleted rows; the bootstrap account and any user with
+// no email are additionally hidden (see getUsers in
+// pkg/gateway/server/user.go). Anything that needs to match "every user the
+// UI actually knows about" -- not just "every non-deleted row" -- should
+// filter through this, so the two can't silently drift apart again.
+func IsUserVisible(u types.User) bool {
+	return u.Username != system.BootstrapName && u.Email != ""
+}
+
 func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, string, []string, error) {
 	// Extract the id and hashed token value from the bearer token.
 	id, token, _ := strings.Cut(token, ":")

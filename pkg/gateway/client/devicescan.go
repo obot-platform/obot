@@ -159,14 +159,17 @@ func deviceScanUserDisplay(u types.User) string {
 }
 
 // deviceScanUserMatch resolves submitted_by -> effective display name for
-// every non-deleted user, so search and "sort by user" can match the
-// User column's display precedence. This is computed in Go rather than
+// every user the UI can actually show, so search and "sort by user" match
+// the User column's display precedence. This is computed in Go rather than
 // matched/ordered directly in SQL because user PII (display_name, email,
 // username) may be encrypted at rest (see encryptUser/decryptUser):
 // comparing or sorting the raw columns would silently operate on
-// ciphertext. c.Users mirrors the non-deleted scoping the frontend's own
-// user list already uses, so a scan submitted by a deleted user falls
-// back to its own OS-level username here exactly as it's displayed.
+// ciphertext. c.Users only excludes soft-deleted rows, so IsUserVisible is
+// applied on top of it to also drop the bootstrap account and any user
+// with no email -- the same two exclusions the Users API applies (see
+// getUsers in pkg/gateway/server/user.go) -- so a scan submitted by a
+// deleted, bootstrap, or email-less user falls back to its own OS-level
+// username here exactly as it's displayed.
 type deviceScanUserMatch struct {
 	displayByID map[string]string // submitted_by string -> effective display name
 	knownIDs    []string          // every resolved submitted_by value, for the "no match" fallback
@@ -182,6 +185,9 @@ func (c *Client) newDeviceScanUserMatch(ctx context.Context) (*deviceScanUserMat
 		knownIDs:    make([]string, 0, len(users)),
 	}
 	for _, u := range users {
+		if !IsUserVisible(u) {
+			continue
+		}
 		id := strconv.FormatUint(uint64(u.ID), 10)
 		m.displayByID[id] = deviceScanUserDisplay(u)
 		m.knownIDs = append(m.knownIDs, id)
@@ -205,8 +211,9 @@ func (m *deviceScanUserMatch) matchingUserIDs(search string) []string {
 // orderExpr is the ORDER BY expression for sorting by the resolved User
 // column: a known submitted_by maps to its decrypted display name via a
 // bound-parameter CASE (never interpolated SQL), everything else — empty,
-// unrecognized, or a deleted user's id — falls back to the scan's own
-// OS-level username, matching deviceScanUserDisplay/the UI precedence.
+// unrecognized, or a deleted/bootstrap/email-less user's id — falls back
+// to the scan's own OS-level username, matching
+// deviceScanUserDisplay/the UI precedence.
 //
 // order ("ASC"/"DESC") and the device_scans.id pagination tiebreaker are
 // baked directly into this single SQL string rather than left to a later
@@ -271,11 +278,12 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 			conds = append(conds, "device_scans.submitted_by IN (?)")
 			args = append(args, matchingIDs)
 		}
-		// A scan with no resolved user (empty, unrecognized, or deleted
-		// submitted_by) displays its own OS-level username instead of a
-		// user; search that same fallback for those rows only, so this
-		// doesn't also match a row whose actual *displayed* user happens
-		// not to match but whose unrelated OS username substring does.
+		// A scan with no resolved user (empty, unrecognized, or a
+		// deleted/bootstrap/email-less submitted_by) displays its own
+		// OS-level username instead of a user; search that same fallback
+		// for those rows only, so this doesn't also match a row whose
+		// actual *displayed* user happens not to match but whose
+		// unrelated OS username substring does.
 		if len(userMatch.knownIDs) > 0 {
 			conds = append(conds, fmt.Sprintf("(device_scans.submitted_by NOT IN (?) AND device_scans.username %s ?)", like))
 			args = append(args, userMatch.knownIDs, arg)
