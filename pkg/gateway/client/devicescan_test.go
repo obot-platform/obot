@@ -767,3 +767,37 @@ func TestListDeviceScans_UserMatchIgnoresNonSubmitters(t *testing.T) {
 		t.Errorf("sort by user with a bystander present: want [aaa-1], got %v", ids)
 	}
 }
+
+// TestListDeviceScans_SearchEscapesLikeWildcards guards against a review
+// finding: the search term is embedded in a SQL LIKE pattern, so without
+// escaping, a literal "%" or "_" the user typed would be interpreted as a
+// SQL wildcard instead of a literal character -- e.g. searching "%" would
+// match every device ID instead of only ones containing a literal percent
+// sign, a regression from the old client-side .includes() behavior.
+func TestListDeviceScans_SearchEscapesLikeWildcards(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	insertScan(t, c, types.DeviceScan{DeviceID: "device%special", ScannedAt: time.Now()})
+	insertScan(t, c, types.DeviceScan{DeviceID: "device_underscore", ScannedAt: time.Now().Add(time.Minute)})
+	insertScan(t, c, types.DeviceScan{DeviceID: "normal-device", ScannedAt: time.Now().Add(2 * time.Minute)})
+
+	for _, tc := range []struct {
+		search string
+		want   []string
+	}{
+		{search: "%", want: []string{"device%special"}},
+		{search: "_", want: []string{"device_underscore"}},
+		{search: "device", want: []string{"device%special", "device_underscore", "normal-device"}},
+	} {
+		t.Run(tc.search, func(t *testing.T) {
+			scans, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.search})
+			if err != nil {
+				t.Fatalf("search %q: %v", tc.search, err)
+			}
+			if got := deviceIDs(scans); !sameSet(got, tc.want) {
+				t.Errorf("search %q: want %v, got %v", tc.search, tc.want, got)
+			}
+		})
+	}
+}

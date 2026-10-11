@@ -266,6 +266,15 @@ func (m *deviceScanUserMatch) orderExpr(order string) clause.Expr {
 	return clause.Expr{SQL: sql.String(), Vars: args}
 }
 
+// escapeLikePattern backslash-escapes the characters SQL's LIKE/ILIKE
+// treats as pattern syntax -- the escape character itself, plus the "%"
+// and "_" wildcards -- so a user's literal search text (e.g. a device ID
+// containing "%") matches only itself. Callers must pair this with an
+// `ESCAPE '\'` clause on the LIKE/ILIKE expression.
+func escapeLikePattern(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
 // ListDeviceScans returns scan envelopes, sorted and optionally
 // searched across the full result set (not just the returned page).
 // MCP servers, skills, and plugins are preloaded; files are not —
@@ -312,8 +321,12 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		if db.Name() == "postgres" {
 			like = "ILIKE"
 		}
-		arg := "%" + search + "%"
-		conds := []string{fmt.Sprintf("device_scans.device_id %s ?", like)}
+		// escapeLikePattern neutralizes any "%"/"_"/"\" the user typed so
+		// they match themselves literally, matching the old client-side
+		// .includes() behavior; the ESCAPE clause tells the two wildcards
+		// this wraps around the search term to still work as wildcards.
+		arg := "%" + escapeLikePattern(search) + "%"
+		conds := []string{fmt.Sprintf("device_scans.device_id %s ? ESCAPE '\\'", like)}
 		args := []any{arg}
 		if matchingIDs := userMatch.matchingUserIDs(search); len(matchingIDs) > 0 {
 			conds = append(conds, "device_scans.submitted_by IN (?)")
@@ -326,10 +339,10 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		// actual *displayed* user happens not to match but whose
 		// unrelated OS username substring does.
 		if len(userMatch.knownIDs) > 0 {
-			conds = append(conds, fmt.Sprintf("(device_scans.submitted_by NOT IN (?) AND device_scans.username %s ?)", like))
+			conds = append(conds, fmt.Sprintf("(device_scans.submitted_by NOT IN (?) AND device_scans.username %s ? ESCAPE '\\')", like))
 			args = append(args, userMatch.knownIDs, arg)
 		} else {
-			conds = append(conds, fmt.Sprintf("device_scans.username %s ?", like))
+			conds = append(conds, fmt.Sprintf("device_scans.username %s ? ESCAPE '\\'", like))
 			args = append(args, arg)
 		}
 		db = db.Where("("+strings.Join(conds, " OR ")+")", args...)
