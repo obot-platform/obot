@@ -14,9 +14,16 @@ import (
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
 // SubmittedBy and DeviceID are multi-value; either narrows the result.
+// Search is a case-insensitive substring match against device ID and the
+// submitter's display name (see userDisplaySQL). SortBy is one of
+// deviceScanSortFields; an unrecognized value falls back to the default
+// created_at DESC order.
 type DeviceScanListOptions struct {
 	SubmittedBy   []string
 	DeviceID      []string
+	Search        string
+	SortBy        string
+	SortOrder     string
 	Limit         int
 	Offset        int
 	GroupByDevice bool
@@ -122,7 +129,49 @@ func (c *Client) DeleteDeviceScan(ctx context.Context, id uint) error {
 	return c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id).Error
 }
 
-// ListDeviceScans returns scan envelopes ordered newest first.
+// userDisplaySQL mirrors Devices.svelte's userDisplay() precedence
+// (displayName -> email -> username -> id -> the scan's own OS-level
+// username) so server-side search and sort agree with what the admin
+// UI actually renders in the User column. Requires the LEFT JOIN users
+// added in ListDeviceScans; for a device-only scan (empty SubmittedBy)
+// the join has no match and every users.* column is NULL, so this
+// falls straight through to device_scans.username as intended.
+const userDisplaySQL = `COALESCE(NULLIF(users.display_name, ''), NULLIF(users.email, ''), NULLIF(users.username, ''), CAST(users.id AS TEXT), device_scans.username)`
+
+// deviceScanSortColumns maps the sort keys accepted by the API to a
+// qualified SQL expression. "user" reuses userDisplaySQL so sorting
+// matches the same precedence used for search and for display.
+var deviceScanSortColumns = map[string]string{
+	"device_id":  "device_scans.device_id",
+	"hostname":   "device_scans.hostname",
+	"os":         "device_scans.os",
+	"arch":       "device_scans.arch",
+	"scanned_at": "device_scans.scanned_at",
+	"user":       "(" + userDisplaySQL + ")",
+}
+
+// deviceScanOrderBy builds the ORDER BY clause for ListDeviceScans. An
+// unrecognized or empty SortBy keeps the historical default. A trailing
+// device_scans.id tiebreaker keeps pagination stable across pages when
+// many rows share the same sort-key value; sorting by "os" also ties
+// to arch so the order matches the UI's combined "OS / Arch" column.
+func deviceScanOrderBy(opts DeviceScanListOptions) string {
+	column, ok := deviceScanSortColumns[opts.SortBy]
+	if !ok {
+		return "device_scans.created_at DESC"
+	}
+	order := "ASC"
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		order = "DESC"
+	}
+	if opts.SortBy == "os" {
+		return fmt.Sprintf("%s %s, device_scans.arch ASC, device_scans.id ASC", column, order)
+	}
+	return fmt.Sprintf("%s %s, device_scans.id ASC", column, order)
+}
+
+// ListDeviceScans returns scan envelopes, sorted and optionally
+// searched across the full result set (not just the returned page).
 // MCP servers, skills, and plugins are preloaded; files are not —
 // DeviceScanFile.Content can be large and isn't needed for the list.
 func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions) ([]types.DeviceScan, int64, error) {
@@ -130,26 +179,51 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 	db = applyDeviceScanListFilters(db, opts)
 
 	if opts.GroupByDevice {
+		// Search intentionally does not narrow this subquery: it selects
+		// which scan is "latest" per device, and that selection should
+		// not change depending on search text. Search only narrows the
+		// final displayed rows, applied below on the outer query.
 		sub := applyDeviceScanListFilters(
 			c.db.WithContext(ctx).Model(&types.DeviceScan{}).Select("MAX(id)"),
 			opts,
 		).Group("device_id")
-		db = db.Where("id IN (?)", sub)
+		db = db.Where("device_scans.id IN (?)", sub)
 	}
 
+	// The join is cheap (an indexed primary-key equality) and kept
+	// unconditional so both search and "sort by user" can use
+	// userDisplaySQL without two divergent query-building paths.
+	db = db.Joins("LEFT JOIN users ON CAST(users.id AS TEXT) = device_scans.submitted_by")
+	if search := strings.TrimSpace(opts.Search); search != "" {
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		arg := "%" + search + "%"
+		db = db.Where(fmt.Sprintf("(device_scans.device_id %s ? OR (%s) %s ?)", like, userDisplaySQL, like), arg, arg)
+	}
+
+	// Count and Find diverge from here (different Select/Order/paging),
+	// so each forks its own session from the shared filtered base
+	// rather than mutating db in place — same pattern as ListSkillStats.
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
+
+	// An explicit Select is required once a JOIN is present: GORM's
+	// default "SELECT *" would otherwise collide on columns device_scans
+	// and users both have (id, created_at, ...).
+	q := db.Session(&gorm.Session{}).Select("device_scans.*")
 	if opts.Limit > 0 {
-		db = db.Limit(opts.Limit)
+		q = q.Limit(opts.Limit)
 	}
 	if opts.Offset > 0 {
-		db = db.Offset(opts.Offset)
+		q = q.Offset(opts.Offset)
 	}
 
 	var scans []types.DeviceScan
-	if err := db.Order("created_at DESC").
+	if err := q.Order(deviceScanOrderBy(opts)).
 		Preload("MCPServers").
 		Preload("Skills").
 		Preload("Plugins").

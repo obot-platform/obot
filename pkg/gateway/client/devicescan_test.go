@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -384,5 +385,160 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	}
 	if len(byMCPServers) == 0 || byMCPServers[0].Name != "claude-code" {
 		t.Errorf("sort mcp_server_count desc: want claude-code first, got %+v", byMCPServers)
+	}
+}
+
+// TestListDeviceScans_SortAndSearch exercises obot-platform/obot#6739: sort
+// and search must cover the full result set, not just whatever page the
+// caller asked for, and "user" has to match the same displayName -> email
+// -> username -> id -> device-scan-username precedence Devices.svelte uses
+// to render the User column.
+func TestListDeviceScans_SortAndSearch(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("failed to create user alice: %v", err)
+	}
+	// No DisplayName, so her effective display falls through to Email.
+	bob := types.User{Username: "bsmith", HashedUsername: "bsmith", Email: "bob@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bob).Error; err != nil {
+		t.Fatalf("failed to create user bob: %v", err)
+	}
+
+	now := time.Now().UTC()
+	// Inserted oldest-first so the historical "created_at DESC, page 1"
+	// window would put aaa-1 and bbb-2 on the LAST page, not the first --
+	// exactly the rows a naive current-page-only search would miss.
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", Hostname: "host-a", OS: "linux", Arch: "amd64", ScannedAt: now})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "bbb-2", Hostname: "host-b", OS: "darwin", Arch: "arm64", ScannedAt: now.Add(time.Minute)})
+	// Device-only scan: empty SubmittedBy exercises the LEFT JOIN miss and
+	// the final fallback to the scan's own OS-level Username.
+	insertScan(t, c, types.DeviceScan{DeviceID: "ccc-3", Hostname: "host-c", OS: "windows", Arch: "amd64", Username: "device-os-user", ScannedAt: now.Add(2 * time.Minute)})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "ddd-4", Hostname: "host-d", OS: "linux", Arch: "arm64", ScannedAt: now.Add(3 * time.Minute)})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "eee-5", Hostname: "host-e", OS: "darwin", Arch: "amd64", ScannedAt: now.Add(4 * time.Minute)})
+
+	// Total must reflect every matching row regardless of Limit.
+	page1, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 0})
+	if err != nil {
+		t.Fatalf("list page1: %v", err)
+	}
+	if total != 5 {
+		t.Fatalf("total: want 5, got %d", total)
+	}
+	if len(page1) != 2 {
+		t.Fatalf("page1 len: want 2, got %d", len(page1))
+	}
+
+	// Sorting by device_id must hold across page boundaries, not just
+	// within whichever page happened to be requested.
+	assertDeviceIDPage(t, c, "device_id", "asc", 0, []string{"aaa-1", "bbb-2"})
+	assertDeviceIDPage(t, c, "device_id", "asc", 2, []string{"ccc-3", "ddd-4"})
+	assertDeviceIDPage(t, c, "device_id", "asc", 4, []string{"eee-5"})
+
+	// Searching for a device that would sit on the LAST page under the old
+	// unconditional created_at DESC order must still be found.
+	searched, searchTotal, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Search: "aaa"})
+	if err != nil {
+		t.Fatalf("search device id: %v", err)
+	}
+	if searchTotal != 1 || len(searched) != 1 || searched[0].DeviceID != "aaa-1" {
+		t.Fatalf("search %q: want exactly aaa-1, got total=%d rows=%+v", "aaa", searchTotal, searched)
+	}
+
+	// Search matches the User column's displayName.
+	byDisplayName, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Alice"})
+	if err != nil {
+		t.Fatalf("search displayName: %v", err)
+	}
+	if ids := deviceIDs(byDisplayName); !sameSet(ids, []string{"aaa-1", "ddd-4"}) {
+		t.Errorf("search Alice: want [aaa-1 ddd-4], got %v", ids)
+	}
+
+	// Search matches the User column's email fallback (bob has no DisplayName).
+	byEmail, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "bob@example"})
+	if err != nil {
+		t.Fatalf("search email: %v", err)
+	}
+	if ids := deviceIDs(byEmail); !sameSet(ids, []string{"bbb-2", "eee-5"}) {
+		t.Errorf("search bob@example: want [bbb-2 eee-5], got %v", ids)
+	}
+
+	// Search matches the device-only scan's OS-level username fallback,
+	// proving the LEFT JOIN miss (empty SubmittedBy) doesn't break search.
+	byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "device-os-user"})
+	if err != nil {
+		t.Fatalf("search os username: %v", err)
+	}
+	if ids := deviceIDs(byOSUsername); !sameSet(ids, []string{"ccc-3"}) {
+		t.Errorf("search device-os-user: want [ccc-3], got %v", ids)
+	}
+
+	// Sorting by "user" follows the same precedence: "Alice Smith" <
+	// "bob@example.com" < "device-os-user".
+	byUser, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user: %v", err)
+	}
+	if got := deviceIDs(byUser); !equalOrdered(got, []string{"aaa-1", "ddd-4", "bbb-2", "eee-5", "ccc-3"}) {
+		t.Errorf("sort by user asc: got %v", got)
+	}
+}
+
+func idStr(id uint) string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func deviceIDs(scans []types.DeviceScan) []string {
+	ids := make([]string, len(scans))
+	for i, s := range scans {
+		ids[i] = s.DeviceID
+	}
+	return ids
+}
+
+func equalOrdered(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameSet(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := make(map[string]bool, len(want))
+	for _, w := range want {
+		seen[w] = true
+	}
+	for _, g := range got {
+		if !seen[g] {
+			return false
+		}
+	}
+	return true
+}
+
+func assertDeviceIDPage(t *testing.T, c *Client, sortBy, sortOrder string, offset int, want []string) {
+	t.Helper()
+	scans, _, err := c.ListDeviceScans(t.Context(), DeviceScanListOptions{
+		GroupByDevice: true,
+		Limit:         2,
+		Offset:        offset,
+		SortBy:        sortBy,
+		SortOrder:     sortOrder,
+	})
+	if err != nil {
+		t.Fatalf("list sorted page at offset %d: %v", offset, err)
+	}
+	if got := deviceIDs(scans); !equalOrdered(got, want) {
+		t.Errorf("page at offset %d: want %v, got %v", offset, want, got)
 	}
 }
