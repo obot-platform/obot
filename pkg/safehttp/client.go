@@ -256,13 +256,13 @@ func (d *safeDialer) blockedReason(ip net.IP) string {
 	if d.blockLoopback && ip.IsUnspecified() {
 		return "unspecified"
 	}
-	if d.blockLoopback && ip.IsLoopback() {
+	if d.blockLoopback && IsLoopback(ip) {
 		return "loopback"
 	}
-	if d.blockPrivateIP && ip.IsPrivate() {
+	if d.blockPrivateIP && IsPrivate(ip) {
 		return "private"
 	}
-	if d.blockLinkLocal && (ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()) {
+	if d.blockLinkLocal && IsLinkLocal(ip) {
 		return "link-local"
 	}
 	return ""
