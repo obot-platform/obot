@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -203,7 +202,7 @@ func validateEnforcementAllowlist(allowlist types.EnforcementAllowlist) error {
 }
 
 func validateAllowlistURL(index int, raw string) error {
-	u, err := url.Parse(raw)
+	u, path, err := enforcement.ParseClientURL(raw)
 	if err != nil {
 		return types.NewErrBadRequest("enforcement allowlist server entry %d has an unparseable url %q: %v", index, raw, err)
 	}
@@ -216,6 +215,10 @@ func validateAllowlistURL(index int, raw string) error {
 		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must not include userinfo", index, raw)
 	case u.RawQuery != "" || u.ForceQuery || u.Fragment != "":
 		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must not include a query string or fragment; entries match on scheme, host, port, and path prefix", index, raw)
+	case len(path) > enforcement.MaxMatchedPathBytes:
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url path must be at most %d bytes", index, enforcement.MaxMatchedPathBytes)
+	case enforcement.HasDotSegments(path):
+		return types.NewErrBadRequest("enforcement allowlist server entry %d url %q must not include \".\" or \"..\" path segments", index, raw)
 	}
 	return nil
 }

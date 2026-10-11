@@ -1,6 +1,7 @@
 package enforcement
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -156,6 +157,270 @@ func TestEvaluate(t *testing.T) {
 				},
 			},
 			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not match after dot-segments escape it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/../admin/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix keeps empty segments when resolving dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/other//../team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix keeps an empty segment after a removed parent segment",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/other/..//team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix keeps an encoded slash beside a character Go escapes",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/x%2f../team/é"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url entry with dot-segments matches nothing",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/admin/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team/..",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url entry with an encoded dot inside a segment matches the decoded path",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/v1.0/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/v1%2e0",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix matches a non-ASCII path written either way",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/é/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/%C3%A9",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix matches a caret written either way",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/a^b/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/a%5Eb",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix does not decode encoded slashes before resolving dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/other/%2f/../team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix resolves percent-encoded dot-segments",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/%2e%2e/admin/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not match an encoded slash after the prefix",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team%2f..%2fadmin"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix matches after a single-dot segment",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/./mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix treats a literal backslash as a separator",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team/\../../admin`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix does not treat an encoded backslash as a separator",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team/%5C../admin`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path prefix matches backslash separators within it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com/team\mcp`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url host ends at a literal backslash",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com\@evil.com/team/mcp`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url with a backslash ending the authority does not match a host-only entry",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: `https://h.example.com\@evil.com/mcp`}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url entry with a path longer than the matched limit matches nothing",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/" + strings.Repeat("/", MaxMatchedPathBytes),
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url with an invalid escape in its fragment matches its path",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/mcp#%zz"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url with a long query still matches",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team?" + strings.Repeat("q", MaxMatchedPathBytes)}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "url path longer than the matched limit does not match a host-only entry",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/" + strings.Repeat("/", MaxMatchedPathBytes)}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com",
+					},
+				},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "url path prefix matches after dot-segments stay within it",
+			call: NormalizedCall{Kind: KindMCP, Tool: "t", Server: ServerIdentity{URL: "https://h.example.com/team/a/../b/mcp"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{
+					{
+						URL: "https://h.example.com/team",
+					},
+				},
+			},
+			wantAllow: true,
 		},
 		{
 			name: "url with no path constraint matches any path",
@@ -591,5 +856,14 @@ func TestEvaluateResolvedCallIgnoresAStaleReason(t *testing.T) {
 	allowlist := types.EnforcementAllowlist{Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}}}
 	if got := Evaluate(call, allowlist); !got.Allow {
 		t.Fatalf("Evaluate() denied a resolved call carrying only a reason string (reason: %q)", got.Reason)
+	}
+}
+
+func TestParseClientURLWithoutAColonDoesNotPanic(t *testing.T) {
+	for _, rawURL := range []string{"http", "HTTPS", "https?x", "https#x"} {
+		u, path, err := ParseClientURL(rawURL)
+		if err == nil && u.Host != "" {
+			t.Fatalf("ParseClientURL(%q) = host %q, path %q; want no host", rawURL, u.Host, path)
+		}
 	}
 }

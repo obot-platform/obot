@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/enforcement"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mdmassets"
@@ -463,18 +465,21 @@ func TestMDMConfigurationEnforcementWhitespaceOnlyDimensionRejected(t *testing.T
 
 func TestMDMConfigurationEnforcementRejectsUnmatchableDimensions(t *testing.T) {
 	for name, server := range map[string]types.AllowlistServer{
-		"url without scheme":     {URL: "mcp.example.com/sse"},
-		"scheme-relative url":    {URL: "//mcp.example.com/sse"},
-		"url with typo'd scheme": {URL: "htp://mcp.example.com"},
-		"non-http scheme":        {URL: "ftp://mcp.example.com"},
-		"url without hostname":   {URL: "https://"},
-		"unparseable url":        {URL: "https://exa mple.com"},
-		"url with userinfo":      {URL: "https://user:pass@mcp.example.com"},
-		"url with query":         {URL: "https://mcp.example.com/sse?tenant=a"},
-		"url with fragment":      {URL: "https://mcp.example.com/sse#frag"},
-		"hostname as url":        {Hostname: "https://gitmcp.io"},
-		"hostname with port":     {Hostname: "gitmcp.io:443"},
-		"hostname with path":     {Hostname: "gitmcp.io/mcp"},
+		"url without scheme":            {URL: "mcp.example.com/sse"},
+		"scheme-relative url":           {URL: "//mcp.example.com/sse"},
+		"url with typo'd scheme":        {URL: "htp://mcp.example.com"},
+		"non-http scheme":               {URL: "ftp://mcp.example.com"},
+		"url without hostname":          {URL: "https://"},
+		"unparseable url":               {URL: "https://exa mple.com"},
+		"url with userinfo":             {URL: "https://user:pass@mcp.example.com"},
+		"url with query":                {URL: "https://mcp.example.com/sse?tenant=a"},
+		"url with fragment":             {URL: "https://mcp.example.com/sse#frag"},
+		"url with dot-segment":          {URL: "https://mcp.example.com/sse/.."},
+		"url with encoded dot-segment":  {URL: "https://mcp.example.com/%2e%2e/sse"},
+		"url path over the match limit": {URL: "https://mcp.example.com/" + strings.Repeat("a", enforcement.MaxMatchedPathBytes)},
+		"hostname as url":               {Hostname: "https://gitmcp.io"},
+		"hostname with port":            {Hostname: "gitmcp.io:443"},
+		"hostname with path":            {Hostname: "gitmcp.io/mcp"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			allowlist := types.EnforcementAllowlist{Servers: []types.AllowlistServer{server}}
@@ -511,14 +516,15 @@ func TestMDMConfigurationEnforcementRejectsUnmatchableDimensions(t *testing.T) {
 
 func TestMDMConfigurationEnforcementAcceptsMatchableDimensions(t *testing.T) {
 	for name, server := range map[string]types.AllowlistServer{
-		"host only":          {URL: "https://mcp.example.com"},
-		"host with path":     {URL: "https://mcp.example.com/sse"},
-		"trailing slash":     {URL: "https://mcp.example.com/"},
-		"explicit port":      {URL: "https://mcp.example.com:8443/sse"},
-		"plain http local":   {URL: "http://localhost:3000"},
-		"untrimmed url":      {URL: "  https://mcp.example.com/sse  "},
-		"bare hostname":      {Hostname: "gitmcp.io"},
-		"untrimmed hostname": {Hostname: "\tgitmcp.io "},
+		"host only":           {URL: "https://mcp.example.com"},
+		"host with path":      {URL: "https://mcp.example.com/sse"},
+		"trailing slash":      {URL: "https://mcp.example.com/"},
+		"explicit port":       {URL: "https://mcp.example.com:8443/sse"},
+		"plain http local":    {URL: "http://localhost:3000"},
+		"untrimmed url":       {URL: "  https://mcp.example.com/sse  "},
+		"encoded dot in name": {URL: "https://mcp.example.com/v1%2e0"},
+		"bare hostname":       {Hostname: "gitmcp.io"},
+		"untrimmed hostname":  {Hostname: "\tgitmcp.io "},
 	} {
 		t.Run(name, func(t *testing.T) {
 			env := newMDMEnforcementTestEnv(t)

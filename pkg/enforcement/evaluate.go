@@ -1,6 +1,7 @@
 package enforcement
 
 import (
+	"errors"
 	"net/url"
 	"slices"
 	"strings"
@@ -10,6 +11,20 @@ import (
 
 const (
 	defaultUnresolvedReason = "the device could not determine what this tool call targets"
+
+	// MaxMatchedPathBytes bounds the path of a URL that URL entries will consider.
+	// Resolving a path costs memory in proportion to its segments, and a device can
+	// report a URL as large as the request body, so a longer one matches no URL entry.
+	// The query and fragment are cut off first, because they are never matched.
+	MaxMatchedPathBytes = 64 << 10
+)
+
+var (
+	// percentEncodedDot decodes every encoded ".". WHATWG URL parsers treat "%2e" as "." in
+	// dot-segments, and elsewhere it is an encoded unreserved character, which RFC 3986
+	// section 6.2.2.2 makes equivalent to ".". It never adds or removes a "/", so it cannot
+	// move a path outside an allowed prefix.
+	percentEncodedDot = strings.NewReplacer("%2e", ".", "%2E", ".")
 )
 
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
@@ -86,16 +101,23 @@ func toolMatches(call NormalizedCall, entry types.AllowlistServer) bool {
 // normalized port, plus an optional path-prefix constraint enforced at a path
 // boundary.
 func urlMatches(entryURL, callURL string) bool {
-	if callURL == "" {
+	// The query and fragment are never matched, and the decision log drops them,
+	// so cut them off before a long one is copied and parsed once per entry.
+	if i := strings.IndexAny(callURL, "?#"); i >= 0 {
+		callURL = callURL[:i]
+	}
+	if callURL == "" || len(callURL) > MaxMatchedPathBytes {
 		return false
 	}
 
-	entry, err := url.Parse(entryURL)
-	if err != nil {
+	// An entry saved before the bound was enforced may have a longer path. It is
+	// treated as matching nothing, and skipped before the cost of resolving it.
+	entry, entryPath, err := ParseClientURL(entryURL)
+	if err != nil || len(entryPath) > MaxMatchedPathBytes {
 		return false
 	}
-	actual, err := url.Parse(callURL)
-	if err != nil {
+	actual, actualPath, err := ParseClientURL(callURL)
+	if err != nil || len(actualPath) > MaxMatchedPathBytes {
 		return false
 	}
 
@@ -109,7 +131,113 @@ func urlMatches(entryURL, callURL string) bool {
 		return false
 	}
 
-	return pathPrefixMatches(entry.Path, actual.Path)
+	// An entry saved with dot-segments would resolve to a different, often wider,
+	// prefix than the one written, so it matches nothing.
+	if HasDotSegments(entryPath) {
+		return false
+	}
+	return pathPrefixMatches(ResolvePath(entryPath), ResolvePath(actualPath))
+}
+
+// ParseClientURL parses rawURL the way browsers and Node parse it and returns its path
+// escaped as such a client sends it. For an http(s) URL, a literal backslash in the path is
+// read as "/"; an encoded backslash ("%5C") is not. A literal backslash in the authority, or
+// ending it, is an error, because clients disagree on which host it names. The path is taken
+// from rawURL rather than from url.URL.EscapedPath, which decodes "%2F" into "/" whenever
+// the path also holds a character Go would escape.
+func ParseClientURL(rawURL string) (*url.URL, string, error) {
+	scheme, _, found := strings.Cut(rawURL, ":")
+	if !found || (!strings.EqualFold(scheme, "http") && !strings.EqualFold(scheme, "https")) {
+		u, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, "", err
+		}
+		return u, u.EscapedPath(), nil
+	}
+
+	end := strings.IndexAny(rawURL, "?#")
+	if end < 0 {
+		end = len(rawURL)
+	}
+	normalized := strings.ReplaceAll(rawURL[:end], `\`, "/") + rawURL[end:]
+	u, err := url.Parse(normalized)
+	if err != nil {
+		return nil, "", err
+	}
+
+	hierarchy := normalized[len(scheme)+1 : end]
+	if !strings.HasPrefix(hierarchy, "//") {
+		return u, u.EscapedPath(), nil
+	}
+	authority, path, found := strings.Cut(hierarchy[2:], "/")
+	// A backslash in the authority, or ending it, is a separator to WHATWG parsers but
+	// part of the userinfo or host to others, so "https://a.com\@b.com" reaches a.com
+	// from one client and b.com from another. Neither host can be trusted to match.
+	authorityEnd := min(len(scheme)+3+len(authority)+1, end)
+	if strings.Contains(rawURL[:authorityEnd], `\`) {
+		return nil, "", errors.New("url has a backslash in its authority")
+	}
+	if !found {
+		return u, "", nil
+	}
+	return u, escapeClientPath("/" + path), nil
+}
+
+// escapeClientPath percent-encodes the bytes in path that WHATWG URL parsers encode in a
+// path, and leaves every existing escape as written.
+func escapeClientPath(path string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	b.Grow(len(path))
+	for i := 0; i < len(path); i++ {
+		if c := path[i]; c <= ' ' || c > '~' || strings.IndexByte("\"<>^`{}", c) >= 0 {
+			b.WriteByte('%')
+			b.WriteByte(hex[c>>4])
+			b.WriteByte(hex[c&0xF])
+		} else {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// HasDotSegments reports whether resolving escapedPath with ResolvePath does more than
+// decode "%2e", i.e. whether it holds a "." or ".." segment, written plainly or encoded.
+func HasDotSegments(escapedPath string) bool {
+	return ResolvePath(escapedPath) != percentEncodedDot.Replace(escapedPath)
+}
+
+// ResolvePath returns an escaped path from ParseClientURL with dot-segments removed the way
+// browsers and Node resolve them, which is the path an MCP client actually requests. Empty
+// segments are kept and encoded slashes stay encoded, so "/a//../b" becomes "/a/b", not
+// "/b", and "/a/..//b" becomes "//b", not "/b".
+func ResolvePath(escapedPath string) string {
+	escaped := percentEncodedDot.Replace(escapedPath)
+	if !strings.HasPrefix(escaped, "/") {
+		return escaped
+	}
+
+	segments := strings.Split(escaped[1:], "/")
+	resolved := make([]string, 0, len(segments))
+	for i, segment := range segments {
+		last := i == len(segments)-1
+		switch segment {
+		case "..":
+			if len(resolved) > 0 {
+				resolved = resolved[:len(resolved)-1]
+			}
+			if last {
+				resolved = append(resolved, "")
+			}
+		case ".":
+			if last {
+				resolved = append(resolved, "")
+			}
+		default:
+			resolved = append(resolved, segment)
+		}
+	}
+	return "/" + strings.Join(resolved, "/")
 }
 
 // NormalizedPort returns the explicit port or the scheme's default port.
@@ -129,6 +257,7 @@ func NormalizedPort(u *url.URL) string {
 
 // pathPrefixMatches reports whether callPath is equal to, or a path-boundary
 // descendant of, entryPath. An empty (or "/") entry path imposes no constraint.
+// Both paths must already be escaped and resolved with ResolvePath.
 func pathPrefixMatches(entryPath, callPath string) bool {
 	entryPath = strings.TrimSuffix(entryPath, "/")
 	if entryPath == "" {
