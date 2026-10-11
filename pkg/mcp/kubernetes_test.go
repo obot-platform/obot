@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -1528,5 +1530,241 @@ func assertImagePullSecrets(t *testing.T, dep *appsv1.Deployment, expected []str
 
 	if strings.Join(actual, ",") != strings.Join(expected, ",") {
 		t.Fatalf("image pull secrets = %v, want %v", actual, expected)
+	}
+}
+
+func TestAdditionalDeploymentRequests(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+	containerized := testK8sServerConfig()
+	npx := testK8sServerConfig()
+	npx.Runtime = types.RuntimeNPX
+
+	tests := []struct {
+		name           string
+		desired        *appsv1.Deployment
+		existing       *appsv1.Deployment
+		expectedMemory string
+		expectedCPU    string
+	}{
+		{
+			name:           "new deployment needs full request",
+			desired:        testDeployment(t, k, withTestRequests(containerized, "2Gi", "1")),
+			existing:       nil,
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "unchanged deployment needs nothing",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1")))),
+			expectedMemory: "0",
+			expectedCPU:    "0",
+		},
+		{
+			name:           "unchanged npx deployment with probe needs nothing",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(npx, "2Gi", "1"))),
+			existing:       withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(npx, "2Gi", "1")))),
+			expectedMemory: "0",
+			expectedCPU:    "0",
+		},
+		{
+			name:           "unchanged deployment without pods needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "unchanged deployment with stuck rollout needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       withStuckRollout(withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))))),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "unchanged deployment with unobserved spec needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))),
+			existing:       withUnobservedSpec(withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1"))))),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "changed rolling update deployment needs full request",
+			desired:        simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "3Gi", "1"))),
+			existing:       withPods(simulateServerDefaults(testDeployment(t, k, withTestRequests(containerized, "2Gi", "1")))),
+			expectedMemory: "3Gi",
+			expectedCPU:    "1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			memory, cpu := additionalDeploymentRequests(tt.desired, tt.existing)
+			assertRequests(t, memory, cpu, tt.expectedMemory, tt.expectedCPU)
+		})
+	}
+}
+
+func TestAdditionalRequestsForDeploy(t *testing.T) {
+	npx := withTestRequests(testK8sServerConfig(), "2Gi", "1")
+	npx.Runtime = types.RuntimeNPX
+
+	tests := []struct {
+		name           string
+		existing       bool
+		dryRunErr      error
+		getErr         error
+		expectedMemory string
+		expectedCPU    string
+	}{
+		{
+			name:           "no existing deployment needs full request",
+			existing:       false,
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "unchanged existing deployment compared with server defaults needs nothing",
+			existing:       true,
+			expectedMemory: "0",
+			expectedCPU:    "0",
+		},
+		{
+			name:           "failed dry run needs full request",
+			existing:       true,
+			dryRunErr:      errors.New("dry run failed"),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+		{
+			name:           "failed get needs full request",
+			existing:       true,
+			getErr:         errors.New("get failed"),
+			expectedMemory: "2Gi",
+			expectedCPU:    "1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+			desired := testDeployment(t, k, npx)
+
+			scheme := runtime.NewScheme()
+			if err := appsv1.AddToScheme(scheme); err != nil {
+				t.Fatalf("AddToScheme() error = %v", err)
+			}
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+					if tt.getErr != nil {
+						return tt.getErr
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+				// The fake client doesn't apply server-side defaults, so simulate them on dry-run updates.
+				Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+					if !slices.ContainsFunc(opts, func(o kclient.UpdateOption) bool { return o == kclient.DryRunAll }) {
+						return c.Update(ctx, obj, opts...)
+					}
+					if tt.dryRunErr != nil {
+						return tt.dryRunErr
+					}
+					dep := obj.(*appsv1.Deployment)
+					simulateServerDefaults(dep).DeepCopyInto(dep)
+					return nil
+				},
+			})
+			if tt.existing {
+				builder = builder.WithObjects(withPods(simulateServerDefaults(testDeployment(t, k, npx))))
+			}
+			k.client = builder.Build()
+
+			memory, cpu := k.additionalRequestsForDeploy(t.Context(), desired)
+			assertRequests(t, memory, cpu, tt.expectedMemory, tt.expectedCPU)
+		})
+	}
+}
+
+func testDeployment(t *testing.T, k *kubernetesBackend, server ServerConfig) *appsv1.Deployment {
+	t.Helper()
+
+	objs, err := k.k8sObjects(t.Context(), server)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+	for _, obj := range objs {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			return dep
+		}
+	}
+	t.Fatal("deployment not found")
+	return nil
+}
+
+func withTestRequests(server ServerConfig, memory, cpu string) ServerConfig {
+	server.Resources = &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse(memory),
+			corev1.ResourceCPU:    resource.MustParse(cpu),
+		},
+	}
+	return server
+}
+
+// simulateServerDefaults mimics fields the API server fills in when a deployment is stored.
+func simulateServerDefaults(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep = dep.DeepCopy()
+	if dep.Spec.Strategy.Type == "" {
+		dep.Spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+	spec := &dep.Spec.Template.Spec
+	spec.RestartPolicy = corev1.RestartPolicyAlways
+	spec.DNSPolicy = corev1.DNSClusterFirst
+	spec.TerminationGracePeriodSeconds = new(int64(30))
+	for i := range spec.Containers {
+		container := &spec.Containers[i]
+		if container.ImagePullPolicy == "" {
+			container.ImagePullPolicy = corev1.PullIfNotPresent
+		}
+		container.TerminationMessagePath = corev1.TerminationMessagePathDefault
+		if probe := container.ReadinessProbe; probe != nil {
+			probe.TimeoutSeconds = 1
+			probe.PeriodSeconds = 10
+			probe.SuccessThreshold = 1
+			probe.FailureThreshold = 3
+		}
+	}
+	return dep
+}
+
+// withPods marks the deployment as fully rolled out to its current pod template.
+func withPods(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Generation = 1
+	dep.Status.ObservedGeneration = 1
+	dep.Status.Replicas = 1
+	dep.Status.UpdatedReplicas = 1
+	return dep
+}
+
+// withStuckRollout marks the deployment as having an old pod running but no pod for its current pod template.
+func withStuckRollout(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Status.UpdatedReplicas = 0
+	return dep
+}
+
+// withUnobservedSpec marks the deployment as having a spec the deployment controller hasn't observed yet.
+func withUnobservedSpec(dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Generation = dep.Status.ObservedGeneration + 1
+	return dep
+}
+
+func assertRequests(t *testing.T, memory, cpu resource.Quantity, expectedMemory, expectedCPU string) {
+	t.Helper()
+
+	if memory.Cmp(resource.MustParse(expectedMemory)) != 0 {
+		t.Fatalf("memory = %s, want %s", memory.String(), expectedMemory)
+	}
+	if cpu.Cmp(resource.MustParse(expectedCPU)) != 0 {
+		t.Fatalf("cpu = %s, want %s", cpu.String(), expectedCPU)
 	}
 }
