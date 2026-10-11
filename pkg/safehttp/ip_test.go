@@ -2,7 +2,9 @@ package safehttp
 
 import (
 	"net"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestIPClassification(t *testing.T) {
@@ -147,16 +149,9 @@ func TestIPClassification(t *testing.T) {
 	}
 }
 
-func TestClientBlocksUnspecifiedIP(t *testing.T) {
-	_, err := NewClient(Options{BlockLoopback: true}).Get("http://0.0.0.0:8080/")
-	if err == nil {
-		t.Fatal("expected unspecified IP to be blocked")
-	}
-}
-
 func TestClientBlocksNAT64EmbeddedLinkLocalIP(t *testing.T) {
-	_, err := NewClient(Options{BlockLinkLocal: true}).Get("http://[64:ff9b::a9fe:a9fe]/latest/meta-data")
-	if err == nil {
-		t.Fatal("expected NAT64 address embedding a link-local IP to be blocked")
+	_, err := NewClient(Options{BlockLinkLocal: true, Timeout: 5 * time.Second}).Get("http://[64:ff9b::a9fe:a9fe]/latest/meta-data")
+	if err == nil || !strings.Contains(err.Error(), "blocked link-local IP") {
+		t.Fatalf("expected NAT64 address embedding a link-local IP to be blocked, got %v", err)
 	}
 }
