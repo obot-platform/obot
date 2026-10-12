@@ -12,6 +12,15 @@ import (
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 )
 
+type fixedAuditLogRetention struct {
+	retention AuditLogRetention
+	err       error
+}
+
+func (f fixedAuditLogRetention) AuditLogRetention(context.Context) (AuditLogRetention, error) {
+	return f.retention, f.err
+}
+
 func newTestClient(t *testing.T) *Client {
 	t.Helper()
 
@@ -342,12 +351,118 @@ func TestRunRetentionCleanupDisabled(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))
 
-	// Both retention periods disabled means the function returns immediately.
-	// Call synchronously — if it ever blocks, the test timeout will catch it.
-	c.runRetentionCleanup(t.Context(), 0, 0)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	// The loop keeps running so a subscription can start applying retention
+	// later, but with nothing configured and nothing entitled it deletes nothing.
+	go c.runRetentionCleanup(ctx, 0, 0)
+
+	time.Sleep(5 * c.auditLogCleanupInterval)
 
 	if got := countAuditLogs(t, c); got != 2 {
 		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestRunRetentionCleanupResolvesRetentionEachPass(t *testing.T) {
+	c := newTestClient(t)
+
+	old := time.Now().UTC().AddDate(0, 0, -100)
+	insertAuditLog(t, c, old)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	// Nothing configured and nothing entitled, so the environment retains
+	// indefinitely.
+	go c.runRetentionCleanup(ctx, 0, 0)
+
+	time.Sleep(5 * c.auditLogCleanupInterval)
+	if got := countAuditLogs(t, c); got != 1 {
+		t.Fatalf("audit logs before the entitlement = %d, want 1", got)
+	}
+
+	// The environment subscribes without restarting.
+	c.SetAuditLogRetentionProvider(fixedAuditLogRetention{retention: AuditLogRetention{Days: 30}})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for countAuditLogs(t, c) != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the entitled retention to be applied")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestResolveAuditLogRetention(t *testing.T) {
+	tests := []struct {
+		name              string
+		provider          AuditLogRetentionProvider
+		configuredMCPDays int
+		configuredLLMDays int
+		wantMCPDays       int
+		wantLLMDays       int
+	}{
+		{
+			name:              "no provider keeps the configured retention",
+			configuredMCPDays: 90,
+			configuredLLMDays: 30,
+			wantMCPDays:       90,
+			wantLLMDays:       30,
+		},
+		{
+			name:              "an undefined entitlement keeps the configured retention",
+			provider:          fixedAuditLogRetention{},
+			configuredMCPDays: 90,
+			configuredLLMDays: 30,
+			wantMCPDays:       90,
+			wantLLMDays:       30,
+		},
+		{
+			name:              "an unlimited entitlement keeps the configured retention",
+			provider:          fixedAuditLogRetention{retention: AuditLogRetention{Unlimited: true}},
+			configuredMCPDays: 90,
+			configuredLLMDays: 30,
+			wantMCPDays:       90,
+			wantLLMDays:       30,
+		},
+		{
+			name:              "an entitlement covers both audit log kinds",
+			provider:          fixedAuditLogRetention{retention: AuditLogRetention{Days: 7}},
+			configuredMCPDays: 90,
+			configuredLLMDays: 30,
+			wantMCPDays:       7,
+			wantLLMDays:       7,
+		},
+		{
+			name:              "a failed lookup keeps the configured retention",
+			provider:          fixedAuditLogRetention{err: errors.New("billing is unreachable")},
+			configuredMCPDays: 90,
+			configuredLLMDays: 30,
+			wantMCPDays:       90,
+			wantLLMDays:       30,
+		},
+		{
+			name:        "an entitlement applies without a configured retention",
+			provider:    fixedAuditLogRetention{retention: AuditLogRetention{Days: 30}},
+			wantMCPDays: 30,
+			wantLLMDays: 30,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{}
+			if tt.provider != nil {
+				c.SetAuditLogRetentionProvider(tt.provider)
+			}
+
+			mcpDays, llmDays := c.resolveAuditLogRetention(t.Context(), tt.configuredMCPDays, tt.configuredLLMDays)
+			if mcpDays != tt.wantMCPDays || llmDays != tt.wantLLMDays {
+				t.Fatalf("resolveAuditLogRetention() = (%d, %d), want (%d, %d)", mcpDays, llmDays, tt.wantMCPDays, tt.wantLLMDays)
+			}
+		})
 	}
 }
 

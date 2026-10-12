@@ -91,6 +91,7 @@ func TestUserDecoratorDoesNotCreateUserWhenUserLimitProviderFails(t *testing.T) 
 		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
 			return UserLimit{Maximum: 1}, currentErr
 		}),
+		nil,
 	)
 
 	_, ok, err := decorator.AuthenticateRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))

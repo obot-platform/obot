@@ -184,7 +184,7 @@ func TestGetLicenseViolationsDeviceLimit(t *testing.T) {
 			}
 			storageClient := kfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
 
-			violations, err := provider.GetLicenseViolations(t.Context(), storageClient)
+			violations, err := provider.GetLicenseViolations(t.Context(), storageClient, provider)
 			if err != nil {
 				t.Fatalf("GetLicenseViolations() error = %v", err)
 			}
