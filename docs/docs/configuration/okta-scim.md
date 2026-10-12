@@ -261,8 +261,7 @@ appear in the **Activity** section on the SCIM configuration page in Obot.
 
 ## Stop using SCIM
 
-Deconfiguring the Okta auth provider, or switching to another auth provider,
-removes the SCIM setup:
+Switching to another auth provider removes the SCIM setup:
 
 - Okta groups, their memberships, and their role assignments are deleted, and
   the groups are removed from access policies.
@@ -271,6 +270,6 @@ removes the SCIM setup:
 - Requests from the SCIM app fail. Turn off provisioning in the SCIM app in
   Okta, or delete the app.
 
-To go back to fetching groups at sign-in, configure Okta again with the **API
-Services Client ID** and **API Services Private Key**. To use SCIM again later,
-start over with a new token.
+To go back to fetching groups at sign-in, temporarily switch to the Local auth provider,
+then configure Okta again with the **API Services Client ID** and **API Services Private Key**.
+To use SCIM again later, start over with a new token.
