@@ -12,6 +12,7 @@
 
 	interface Props {
 		config: OpenAPIRuntimeConfig;
+		imported?: boolean;
 		readonly?: boolean;
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
@@ -30,6 +31,7 @@
 	let {
 		config = $bindable(),
 		current,
+		imported = false,
 		onComplete,
 		readonly = false,
 		showEgressDomains = false,
@@ -40,7 +42,7 @@
 		onBaseURLChange,
 		onEditingChange
 	}: Props = $props();
-	let editing = $state(untrack(() => !config.schema));
+	let editing = $state(untrack(() => !imported));
 	// Lets the parent block saving while a replacement schema import is in progress.
 	$effect(() => {
 		onEditingChange?.(editing);
@@ -59,14 +61,15 @@
 	function complete(metadata: OpenAPIMetadata) {
 		if (!result) return;
 		onComplete(draft, result, metadata);
+		imported = true;
 		result = undefined;
 		editing = false;
 		dialog?.close();
 	}
 
-	function imported(value: OpenAPIImportResult) {
+	function handleImported(value: OpenAPIImportResult) {
 		result = value;
-		if (config.schema) {
+		if (imported) {
 			complete({});
 			return;
 		}
@@ -76,7 +79,7 @@
 			if (!current[key]?.trim() && suggestions[key]) selected[key] = suggestions[key];
 		}
 		// An empty form can be prefilled immediately. Existing content is opt-in.
-		if (!config.schema && !fields.some(({ key }) => current[key]?.trim())) {
+		if (!imported && !fields.some(({ key }) => current[key]?.trim())) {
 			complete(suggestions);
 		} else if (!Object.values(suggestions).some(Boolean)) {
 			complete({});
@@ -90,11 +93,11 @@
 	<OpenAPIRuntimeForm
 		bind:config={draft}
 		importOnly
-		onImported={imported}
+		onImported={handleImported}
 		{onBaseURLChange}
 		{showBaseURLError}
 	/>
-	{#if config.schema}
+	{#if imported}
 		<button
 			type="button"
 			class="btn btn-ghost self-start"
@@ -106,6 +109,7 @@
 {:else}
 	<OpenAPIRuntimeForm
 		bind:config
+		{imported}
 		{readonly}
 		{showEgressDomains}
 		{defaultDenyAllEgress}

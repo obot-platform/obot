@@ -105,6 +105,7 @@
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
+	let openAPIImported = $state(untrack(() => Boolean(entry || initialOpenAPIImport)));
 	let importedBaseURL = $state(untrack(() => initialOpenAPIImport?.result.baseURL ?? ''));
 	let destinationValidation = $state<OpenAPIDestinationValidation | undefined>(
 		untrack(() => initialOpenAPIImport?.result.destinationValidation)
@@ -116,6 +117,7 @@
 		metadata: OpenAPIMetadata
 	) {
 		formData.openAPIConfig = config;
+		openAPIImported = true;
 		importedBaseURL = result.baseURL;
 		destinationValidation = result.destinationValidation;
 		formData.config ??= [];
@@ -418,6 +420,7 @@
 	// Runtime change handler
 	function handleRuntimeChange(newRuntime: Runtime) {
 		formData.runtime = newRuntime;
+		openAPIImported = false;
 		importedBaseURL = '';
 		destinationValidation = undefined;
 
@@ -695,7 +698,7 @@
 
 		const validationData =
 			type !== 'multi' ? { ...formData, env: formData.config ?? [] } : formData;
-		const { required, invalid } = validateRuntimeForm(validationData, type);
+		const { required, invalid } = validateRuntimeForm(validationData, type, false, openAPIImported);
 		if (
 			formData.runtime === 'openapi' &&
 			destinationValidation?.valid === false &&
@@ -980,6 +983,7 @@
 				onEditingChange={(editing) => (openAPIImporting = editing)}
 				{showEgressDomains}
 				{defaultDenyAllEgress}
+				imported={openAPIImported}
 				{importedBaseURL}
 				{destinationValidation}
 				{readonly}
@@ -1096,7 +1100,7 @@
 				data-form-action="save"
 				class="btn btn-primary flex items-center gap-1"
 				disabled={loading ||
-					(formData.runtime === 'openapi' && (!formData.openAPIConfig?.schema || openAPIImporting))}
+					(formData.runtime === 'openapi' && (!openAPIImported || openAPIImporting))}
 				aria-busy={loading}
 				id={CATALOG_SERVER_FIELD_IDS.submitBtn}
 			>

@@ -46,13 +46,8 @@ describe('OpenAPI creation', () => {
 			http.post('/api/openapi-import', async ({ request }) => {
 				imported(await request.json());
 				return HttpResponse.json({
-					schema: {
-						openapi: '3.1.0',
-						info: { title: 'Example', version: '1' },
-						servers: [{ url: 'https://example.com/api' }],
-						paths: {}
-					},
 					baseURL: 'https://example.com/api',
+					destinationValidation: { valid: true },
 					suggestedMetadata: {
 						name: 'Example API',
 						description: 'Imported description',

@@ -5,42 +5,12 @@ export type OpenAPIMetadata = Partial<
 	Record<'name' | 'description' | 'shortDescription' | 'icon', string>
 >;
 
-function object(value: unknown): Record<string, unknown> {
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-export function openAPIBaseURL(schema?: Record<string, unknown>): string {
-	if (!Array.isArray(schema?.servers)) return '';
-	for (const server of schema.servers) {
-		const value = object(server).url;
-		if (typeof value !== 'string' || value !== value.trim() || /[{}\\?\t\n\r]/.test(value))
-			continue;
-		try {
-			const url = new URL(value);
-			if (
-				['http:', 'https:'].includes(url.protocol) &&
-				!url.username &&
-				!url.password &&
-				!url.search &&
-				!url.hash
-			)
-				return value;
-		} catch {
-			/* Skip relative server URLs, matching the importer. */
-		}
-	}
-	return '';
-}
-
 export interface OpenAPIDestinationValidation {
 	valid: boolean;
 	error?: string;
 }
 
 export interface OpenAPIImportResult {
-	schema: Record<string, unknown>;
 	baseURL: string;
 	destinationValidation: OpenAPIDestinationValidation;
 	suggestedHeaders: MCPConfig[];

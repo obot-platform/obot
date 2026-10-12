@@ -6,8 +6,8 @@ import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
 const result = {
-	schema: { openapi: '3.1.0', info: { title: 'Example', version: '1' }, paths: {} },
 	baseURL: '',
+	destinationValidation: { valid: false, error: 'no usable server URL; configure baseURL' },
 	suggestedHeaders: [],
 	suggestedMetadata: { name: 'Example' }
 };
@@ -36,8 +36,7 @@ it('keeps import errors in the modal and allows retry', async () => {
 	await vi.waitFor(() =>
 		expect(onComplete).toHaveBeenCalledWith({
 			config: expect.objectContaining({
-				source: { url: 'https://example.com/schema.json' },
-				schema: result.schema
+				source: { url: 'https://example.com/schema.json' }
 			}),
 			result
 		})

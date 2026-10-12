@@ -3,7 +3,6 @@
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import {
 		importOpenAPI,
-		openAPIBaseURL,
 		type OpenAPIImportResult,
 		type OpenAPIDestinationValidation
 	} from '$lib/services/openapi';
@@ -16,6 +15,7 @@
 		config: OpenAPIRuntimeConfig;
 		readonly?: boolean;
 		importOnly?: boolean;
+		imported?: boolean;
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
@@ -29,6 +29,7 @@
 		config = $bindable(),
 		readonly = false,
 		importOnly = false,
+		imported = false,
 		showEgressDomains = false,
 		defaultDenyAllEgress = false,
 		importedBaseURL = '',
@@ -58,10 +59,7 @@
 	const egressHelpText = $derived(
 		defaultDenyAllEgress ? m.mcps_egress_help_default_deny() : m.mcps_egress_help_default_allow()
 	);
-	let baseURLRequired = $derived(
-		Boolean(config.schema) &&
-			(destinationValidation?.valid === false || !openAPIBaseURL(config.schema))
-	);
+	let baseURLRequired = $derived(imported && destinationValidation?.valid === false);
 	let baseURLMissing = $derived(baseURLRequired && !config.baseURL?.trim());
 	let baseURLInvalid = $derived(baseURLMissing && showBaseURLError);
 	onDestroy(() => {
@@ -69,7 +67,6 @@
 	});
 
 	function invalidate() {
-		config.schema = undefined;
 		resolvedBaseURL = '';
 		error = '';
 	}
@@ -106,7 +103,6 @@
 		try {
 			const result = await importOpenAPI(config);
 			if (disposed) return;
-			config.schema = result.schema;
 			resolvedBaseURL = result.baseURL;
 			onImported?.(result);
 		} catch (err) {
@@ -219,7 +215,7 @@
 					>{/if}
 			</div>
 		{/if}
-		{#if config.schema && !importOnly}
+		{#if imported && !importOnly}
 			<div class="border-base-300 mt-2 flex flex-col gap-2 border-t pt-4">
 				<div class="flex items-center gap-2">
 					<label for="openapi-base-url" class="text-sm font-medium">
@@ -247,10 +243,7 @@
 					aria-invalid={baseURLInvalid ? 'true' : undefined}
 					placeholder={baseURLRequired
 						? 'https://api.example.com/v1'
-						: importedBaseURL ||
-							openAPIBaseURL(config.schema) ||
-							resolvedBaseURL ||
-							'https://api.example.com/v1'}
+						: importedBaseURL || resolvedBaseURL || 'https://api.example.com/v1'}
 					aria-describedby={baseURLMissing
 						? 'openapi-base-url-hint openapi-base-url-error'
 						: 'openapi-base-url-hint'}
@@ -262,7 +255,7 @@
 						class:text-error={baseURLInvalid}
 						class:text-muted-content={!baseURLInvalid}
 					>
-						{#if destinationValidation?.valid === false}
+						{#if destinationValidation?.valid === false && destinationValidation.error}
 							{destinationValidation.error}
 							{m.mcps_openapi_destination_override_required()}
 						{:else}
@@ -285,7 +278,7 @@
 	</fieldset>
 	{#if error}<p role="alert" class="text-sm text-error">{error}</p>{/if}
 	{#if !importOnly}
-		{#if config.schema}
+		{#if imported}
 			<p role="status" class="text-sm">
 				{m.mcps_openapi_imported_status()}
 			</p>

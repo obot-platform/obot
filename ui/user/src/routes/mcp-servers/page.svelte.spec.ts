@@ -145,8 +145,8 @@ it('opens direct OpenAPI creation with import before configuration', async () =>
 	worker.use(
 		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
-				schema: { openapi: '3.1.0', info: { title: 'Imported API', version: '1' }, paths: {} },
 				baseURL: '',
+				destinationValidation: { valid: false, error: 'no usable server URL; configure baseURL' },
 				suggestedHeaders: [],
 				suggestedMetadata: { name: 'Imported API' }
 			})

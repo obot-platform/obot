@@ -6,13 +6,8 @@ import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
 const result = {
-	schema: {
-		openapi: '3.1.0',
-		info: { title: 'Example', version: '1' },
-		servers: [{ url: 'https://api.example.com' }],
-		paths: {}
-	},
 	baseURL: 'https://api.example.com',
+	destinationValidation: { valid: true },
 	suggestedHeaders: [],
 	suggestedMetadata: {}
 };
@@ -55,7 +50,8 @@ it('keeps existing metadata when re-importing a schema', async () => {
 	);
 	const onComplete = vi.fn();
 	await render(OpenAPIConfiguration, {
-		config: { source: { url: 'https://example.com/schema.json' }, schema: result.schema },
+		config: { source: { url: 'https://example.com/schema.json' } },
+		imported: true,
 		current: {
 			name: 'Existing name',
 			description: 'Existing description',
@@ -68,8 +64,8 @@ it('keeps existing metadata when re-importing a schema', async () => {
 	await page.getByRole('button', { name: 'Import schema' }).click();
 	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
 	expect(onComplete).toHaveBeenCalledWith(
-		expect.objectContaining({ schema: result.schema }),
-		expect.objectContaining({ schema: result.schema }),
+		expect.objectContaining({ source: { url: 'https://example.com/schema.json' } }),
+		expect.objectContaining({ baseURL: result.baseURL }),
 		{}
 	);
 	expect(document.querySelector('dialog')?.open).toBe(false);
@@ -87,10 +83,10 @@ it('imports a replacement without sending the configured override', async () => 
 	await render(OpenAPIConfiguration, {
 		config: {
 			source: { url: 'https://example.com/schema.json' },
-			schema: result.schema,
 			baseURL: 'https://override.example.com'
 		},
 		current: {},
+		imported: true,
 		onComplete
 	});
 	await page.getByRole('button', { name: 'Replace schema' }).click();
