@@ -256,7 +256,7 @@ unavailable, Okta may not retry it automatically.
 - **Group changes:** In the SCIM app's **Push Groups** tab, select **Retry All
   Groups**.
 
-If Okta were to send a SCIM payload that Obot deems invalid, the failure will
+If Okta sends a SCIM payload that Obot deems invalid, the failure will
 appear in the **Activity** section on the SCIM configuration page in Obot.
 
 ## Stop using SCIM
