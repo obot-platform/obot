@@ -1,13 +1,13 @@
 ---
 name: draft-release-blog
-description: Draft a release announcement blog post for an obot release, modeled on the existing obot.ai blog voice. Use when the user asks to draft a release blog, write a launch post, or write a blog announcement for a vX.Y.0 release. Outputs a markdown file the user can paste into the CMS. Can also create the post as a Wordpress draft via the `obot-wordpress` MCP server when the user asks, but never publishes a live post without explicit confirmation.
+description: Draft a release announcement blog post for an obot release, modeled on the existing obot.ai blog voice. Use when the user asks to draft a release blog, write a launch post, or write a blog announcement for a vX.Y.0 release. Outputs a markdown file the user can paste into the CMS. Can also create the post as a Wordpress draft with the available WordPress MCP tools when the user asks, but never publishes a live post without explicit confirmation.
 ---
 
 # Draft Release Blog Post
 
 Drafts a blog post announcing an obot release. Sources the feature spine from the draft GitHub release (the output of the `draft-release` skill or an existing draft on GitHub), then does additional research to add the kind of detail, context, and rationale that release notes deliberately omit but a blog post needs.
 
-The blog is for obot.ai's hosted Wordpress CMS. The default output is a markdown file at `<repo root>/release-blog-<VERSION>.md` (i.e. the current project directory) that the user can paste into the CMS themselves. Writing it into the repo makes it easy to review in the IDE; it is an intentionally untracked file — do not commit it and do not add it to `.gitignore`. If the user explicitly asks to post it (e.g. "post it up there", "create the draft in Wordpress"), the skill can also create the post as a Wordpress **draft** via the `obot-wordpress` MCP server (see step 8). The skill never publishes a live post without explicit user confirmation of the `publish` status.
+The blog is for obot.ai's hosted Wordpress CMS. The default output is a markdown file at `<repo root>/release-blog-<VERSION>.md` (i.e. the current project directory) that the user can paste into the CMS themselves. Writing it into the repo makes it easy to review in the IDE; it is an intentionally untracked file — do not commit it and do not add it to `.gitignore`. If the user explicitly asks to post it (e.g. "post it up there", "create the draft in Wordpress"), the skill can also create the post as a Wordpress **draft** with the available WordPress MCP tools (see step 8). The skill never publishes a live post without explicit user confirmation of the `publish` status.
 
 ## Voice reference
 
@@ -168,9 +168,9 @@ End the turn there. Do not run any publish/upload commands. Do not modify the Gi
 
 Skip this step unless the user explicitly asks for it. Phrases that mean yes: "post it to Wordpress", "create the draft", "post it up there", "put it in the CMS". If the user just says "good draft" or stops at step 7, leave it as a local file.
 
-When the user does ask, post the blog as a Wordpress **draft** (never `publish` without explicit confirmation) via the `obot-wordpress` MCP server. The flow has four sub-steps.
+When the user does ask, post the blog as a Wordpress **draft** (never `publish` without explicit confirmation) using the WordPress MCP tools. The flow has four sub-steps.
 
-**8a. Connect (one time per session).** The tools below are the `obot-wordpress` MCP server's own tools; your harness may show them with a prefix (e.g. `mcp__obot-wordpress__create_post`). If the server needs authentication first, complete its OAuth flow the way your harness provides: share the authorization URL with the user, and tell them the redirect to `localhost` may show a connection error and that's fine. If the redirect doesn't complete the flow on its own, ask for the full callback URL from their browser. The server's full tool set (`create_post`, `list_categories`, `list_users`, `update_post`, etc.) becomes available once auth completes.
+**8a. Find the WordPress tools.** Look among your available tools for the WordPress ones: `create_post`, `list_categories`, `list_users`, `update_post`, and so on. Your harness may show them with a prefix naming the server. The MCP server handles authentication itself if it needs any. If no WordPress tools are available, tell the user and stop; the markdown file from step 7 is still the deliverable.
 
 **8b. Convert the markdown to HTML.** Wordpress's `create_post` expects the post body as HTML. A helper script lives next to this SKILL.md:
 
