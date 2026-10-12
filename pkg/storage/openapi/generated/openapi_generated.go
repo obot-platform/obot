@@ -10307,13 +10307,6 @@ func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.Refer
 							Format:  "",
 						},
 					},
-					"adminAdded": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AdminAdded marks bindings selected on a deployed multi-user server by an admin. Catalog YAML must not set this; drift/diff logic uses it to ignore local admin config.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"name", "key"},
 			},
@@ -10447,13 +10440,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"needsUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
-							Type:        []string{"boolean"},
-							Format:      "",
 						},
 					},
 					"needsK8sUpdate": {
@@ -24889,13 +24875,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.",
 							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"needsUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
-							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

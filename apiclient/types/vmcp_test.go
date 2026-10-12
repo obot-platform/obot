@@ -423,15 +423,6 @@ func TestVMCPManifestConfigurationSecretBinding(t *testing.T) {
 			wantError: "requires both name and key",
 		},
 		{
-			name: "admin added",
-			policy: VMCPConfigurationPolicy{
-				Key:           "TOKEN",
-				Policy:        VMCPConfigurationPolicyFixed,
-				SecretBinding: &MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key", AdminAdded: true},
-			},
-			wantError: "adminAdded",
-		},
-		{
 			name: "unknown field",
 			policy: VMCPConfigurationPolicy{
 				Key:           "OTHER",

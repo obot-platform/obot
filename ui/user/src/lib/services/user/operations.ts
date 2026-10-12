@@ -638,21 +638,6 @@ export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?:
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
-export async function triggerMcpServerUpdate(mcpServerId: string): Promise<MCPCatalogServer> {
-	return (await doPost(`/mcp-servers/${mcpServerId}/trigger-update`, {})) as MCPCatalogServer;
-}
-
-export async function triggerWorkspaceMcpServerUpdate(
-	workspaceID: string,
-	entryID: string,
-	mcpServerId: string
-): Promise<MCPCatalogServer> {
-	return (await doPost(
-		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/trigger-update`,
-		{}
-	)) as MCPCatalogServer;
-}
-
 export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: string): Promise<{
 	success: boolean;
 	message?: string;

@@ -1052,10 +1052,6 @@ func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutS
 // ValidateSecretBindingsCatalogEntry validates binding ownership and the
 // catalog-specific restrictions on secret-bound URL template inputs.
 func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged, userIsAdmin bool, mcpBackend string) error {
-	if err := validateNoAdminAddedCatalogBindings(manifest); err != nil {
-		return err
-	}
-
 	// Reject URL templates that reference secret-bound env vars. Remote
 	// secretBinding support is limited to headers; URL templates are not a
 	// supported binding target.
@@ -1094,15 +1090,6 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		}
 		if manifest.Runtime == types.RuntimeRemote && config.Usage != types.Header {
 			return fmt.Errorf("config %q: secretBinding is only supported for headers on remote runtime", config.Key)
-		}
-	}
-	return nil
-}
-
-func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryManifest) error {
-	for _, config := range manifest.Config {
-		if config.SecretBinding != nil && config.SecretBinding.AdminAdded {
-			return fmt.Errorf("config %q: secretBinding.adminAdded is not valid for catalog entry", config.Key)
 		}
 	}
 	return nil

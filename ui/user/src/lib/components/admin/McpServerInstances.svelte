@@ -8,11 +8,10 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-	import { hasMissingSecretBindingConfig } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import DeploymentsView from '../mcp/DeploymentsView.svelte';
 	import McpServerDetails from '../mcp/McpServerDetails.svelte';
-	import { CircleFadingArrowUp, Router } from '@lucide/svelte';
+	import { Router } from '@lucide/svelte';
 
 	interface Props {
 		id?: string;
@@ -41,14 +40,6 @@
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let readonly = $derived(profile.current.isAdminReadonly?.());
-
-	function isMissingKubernetesSecret(server: MCPCatalogServer) {
-		return hasMissingSecretBindingConfig(
-			server.manifest,
-			server.missingRequiredEnvVars,
-			server.missingRequiredHeader
-		);
-	}
 </script>
 
 {#if loading}
@@ -81,26 +72,7 @@
 		{@render emptyInstancesContent()}
 	{/if}
 {:else}
-	{@const numServerUpdatesNeeded = configuredServers.filter(
-		(s) => s.needsUpdate && !isMissingKubernetesSecret(s)
-	).length}
 	{#if configuredServers.length > 0}
-		{#if numServerUpdatesNeeded}
-			<div class="group bg-base-100 mb-2 w-fit rounded-md">
-				<div
-					class="border-primary bg-primary/10 group-hover:bg-primary/20 dark:bg-primary/30 dark:group-hover:bg-primary/40 flex items-center gap-1 rounded-md border px-4 py-2 transition-colors duration-300"
-				>
-					<CircleFadingArrowUp class="text-primary size-4" />
-					<p class="text-primary text-sm font-light">
-						{#if numServerUpdatesNeeded === 1}
-							{m.mcps_servers_one_deployment_update()}
-						{:else}
-							{m.mcps_servers_n_deployments_updates({ count: numServerUpdatesNeeded })}
-						{/if}
-					</p>
-				</div>
-			</div>
-		{/if}
 		<DeploymentsView
 			servers={configuredServers}
 			{readonly}

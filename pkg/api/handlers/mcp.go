@@ -1051,7 +1051,6 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
 		MCPCatalogID:                server.Spec.MCPCatalogID,
-		NeedsUpdate:                 server.Status.NeedsUpdate,
 		NeedsK8sUpdate:              server.Status.NeedsK8sUpdate,
 		NeedsURL:                    server.Spec.NeedsURL,
 		PreviousURL:                 server.Spec.PreviousURL,

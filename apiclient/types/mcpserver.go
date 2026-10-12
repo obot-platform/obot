@@ -218,9 +218,6 @@ type MCPConfigurationOption struct {
 type MCPSecretBinding struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
-	// AdminAdded marks bindings selected on a deployed multi-user server by an admin.
-	// Catalog YAML must not set this; drift/diff logic uses it to ignore local admin config.
-	AdminAdded bool `json:"adminAdded,omitempty"`
 }
 
 // MCPAllowedSecretBindingTarget describes a Kubernetes Secret that admins can select for MCP secret bindings.
@@ -426,9 +423,6 @@ type MCPServer struct {
 	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
 	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
 	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
-
-	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
-	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 
 	// NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings
 	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`

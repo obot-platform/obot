@@ -451,7 +451,6 @@ env:
 - Not supported for `remote` runtime env vars (use a header binding instead).
 - `required: false` is allowed — when the Secret or key is absent the server deploys without that env var.
 - For `remoteConfig.urlTemplate`, `${VAR}` placeholders must not reference env vars that use `secretBinding`.
-- Do not set `secretBinding.adminAdded` in Git catalog YAML. Obot sets this field only on deployed servers for admin-selected bindings.
 
 #### File binding
 

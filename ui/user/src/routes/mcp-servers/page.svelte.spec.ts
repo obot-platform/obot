@@ -92,10 +92,7 @@ async function renderMcpServersPage({
 async function waitForServersLoaded() {
 	await expect
 		.element(
-			page
-				.getByRole('row')
-				.filter({ hasText: fixtures.serverSingleNeedsUpdate.manifest.name! })
-				.first()
+			page.getByRole('row').filter({ hasText: fixtures.serverSingle.manifest.name! }).first()
 		)
 		.toBeVisible();
 }
@@ -149,33 +146,10 @@ describe('MCP Servers Page', () => {
 		});
 
 		describe('ellipsis menu actions', () => {
-			it('renders and sanitizes a catalog upgrade note in single confirmation', async () => {
-				await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
-				await page.getByRole('button', { name: 'Update Server', exact: true }).click();
-
-				await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toBeVisible();
-				const upgradeDialog = page.getByRole('dialog').filter({ hasText: 'Before upgrading' });
-				await expect
-					.element(upgradeDialog.getByCSS('strong').filter({ hasText: 'safe mode' }))
-					.toBeVisible();
-				await expect.element(upgradeDialog.getByCSS('ul')).toHaveStyle('list-style-type: disc');
-				await expect.element(upgradeDialog.getByCSS('ol')).toHaveStyle('list-style-type: decimal');
-				await expect
-					.element(upgradeDialog.getByRole('link', { name: 'Unsafe link' }))
-					.toHaveAttribute('href', '');
-				await expect.element(upgradeDialog.getByCSS('script')).not.toBeInTheDocument();
-			});
-
-			it('single-user npx with needsUpdate shows update, diff, edit, restart, delete', async () => {
-				await expectMenuActions(fixtures.serverSingleNeedsUpdate.manifest.name!, {
+			it('single-user npx shows edit, restart, delete', async () => {
+				await expectMenuActions(fixtures.serverSingle.manifest.name!, {
 					links: ['View Catalog Entry'],
-					present: [
-						'Edit Configuration',
-						'Update Server',
-						'View Diff',
-						'Restart Server',
-						'Delete Server'
-					],
+					present: ['Edit Configuration', 'Restart Server', 'Delete Server'],
 					absent: ['Update Scheduling Config']
 				});
 			});
@@ -188,8 +162,7 @@ describe('MCP Servers Page', () => {
 						'Update Scheduling Config',
 						'Restart Server',
 						'Delete Server'
-					],
-					absent: ['Update Server', 'View Diff']
+					]
 				});
 			});
 
@@ -197,7 +170,7 @@ describe('MCP Servers Page', () => {
 				await expectMenuActions(fixtures.serverMulti.manifest.name!, {
 					links: ['View Catalog Entry'],
 					present: ['Edit Configuration', 'Restart Server', 'Delete Server'],
-					absent: ['Update Server', 'View Diff', 'Update Scheduling Config']
+					absent: ['Update Scheduling Config']
 				});
 			});
 
@@ -205,13 +178,7 @@ describe('MCP Servers Page', () => {
 				await expectMenuActions(fixtures.serverRemote.manifest.name!, {
 					links: ['View Catalog Entry'],
 					present: ['Delete Server'],
-					absent: [
-						'Edit Configuration',
-						'Restart Server',
-						'Update Server',
-						'View Diff',
-						'Update Scheduling Config'
-					]
+					absent: ['Edit Configuration', 'Restart Server', 'Update Scheduling Config']
 				});
 			});
 
@@ -219,43 +186,22 @@ describe('MCP Servers Page', () => {
 				await expectMenuActions(fixtures.serverNoCatalogEntry.manifest.name!, {
 					links: ['View Server'],
 					present: ['Edit Configuration', 'Restart Server', 'Delete Server'],
-					absent: ['View Catalog Entry', 'Update Server', 'View Diff', 'Update Scheduling Config']
+					absent: ['View Catalog Entry', 'Update Scheduling Config']
 				});
 			});
 		});
 
 		describe('multi-select action pills', () => {
-			it('deduplicates catalog upgrade notes and omits empty notes in bulk confirmation', async () => {
-				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
-				const actionsBar = page.getByText(/of 7 selected/).locator('..');
-
-				await actionsBar.getByRole('button', { name: /^Upgrade/ }).click();
-
-				await expect
-					.element(page.getByRole('heading', { name: 'Before upgrading' }))
-					.toHaveLength(1);
-				await expect.element(page.getByText('Entry Single Update', { exact: true })).toBeVisible();
-				await expect
-					.element(page.getByText('Entry Empty Upgrade Note', { exact: true }))
-					.not.toBeInTheDocument();
-			});
-
-			it('shows restart, upgrade, k8s upgrade, and delete counts for selected rows', async () => {
+			it('shows restart, k8s upgrade, and delete counts for selected rows', async () => {
 				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
 
-				await expect.element(page.getByText(/of 7 selected/)).toBeVisible();
+				await expect.element(page.getByText(/of 5 selected/)).toBeVisible();
 
-				const actionsBar = page.getByText(/of 7 selected/).locator('..');
+				const actionsBar = page.getByText(/of 5 selected/).locator('..');
 
 				await expect
 					.element(
-						actionsBar.getByRole('button', { name: /^Restart/ }).getByText('6', { exact: true })
-					)
-					.toBeVisible();
-
-				await expect
-					.element(
-						actionsBar.getByRole('button', { name: /^Upgrade/ }).getByText('3', { exact: true })
+						actionsBar.getByRole('button', { name: /^Restart/ }).getByText('4', { exact: true })
 					)
 					.toBeVisible();
 
@@ -269,7 +215,7 @@ describe('MCP Servers Page', () => {
 
 				await expect
 					.element(
-						actionsBar.getByRole('button', { name: /^Delete/ }).getByText('7', { exact: true })
+						actionsBar.getByRole('button', { name: /^Delete/ }).getByText('5', { exact: true })
 					)
 					.toBeVisible();
 			});

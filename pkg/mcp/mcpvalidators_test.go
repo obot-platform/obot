@@ -1853,53 +1853,6 @@ func TestValidateSecretBindingsCatalogEntryAdminManaged(t *testing.T) {
 	}
 }
 
-func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
-	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token", AdminAdded: true}
-
-	tests := []struct {
-		name     string
-		manifest types.MCPServerCatalogEntryManifest
-		wantErr  string
-	}{
-		{
-			name: "env config adminAdded rejected",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeNPX,
-				Config: []types.MCPConfig{
-					{
-						Key:           "TOKEN",
-						Usage:         types.Env,
-						SecretBinding: binding,
-					},
-				},
-			},
-			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
-		},
-		{
-			name: "header config adminAdded rejected",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeRemote,
-				Config: []types.MCPConfig{
-					{
-						Key:           "Authorization",
-						Usage:         types.Header,
-						SecretBinding: binding,
-					},
-				},
-			},
-			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, false, "kubernetes")
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.wantErr)
-		})
-	}
-}
-
 func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 	required := types.MCPConfig{Key: "TAG", Usage: types.Interpolated, Required: true}
 	optional := types.MCPConfig{Key: "TAG", Usage: types.Interpolated, Required: false}

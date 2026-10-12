@@ -4,14 +4,12 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		AdminService,
 		UserService,
@@ -56,7 +54,6 @@
 		CircleFadingArrowUp,
 		Ellipsis,
 		ExternalLink,
-		GitCompare,
 		Layers,
 		Layers2,
 		Power,
@@ -126,13 +123,6 @@
 	let loading = $state(false);
 	let loadingVMcps = $state(false);
 
-	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
-	let existingServer = $state<MCPCatalogServer>();
-	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
-
-	let showUpgradeConfirm = $state<
-		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
-	>();
 	let showK8sUpgradeConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>(undefined);
@@ -341,12 +331,6 @@
 		return Boolean(server.vmcpComponentID || server.vmcpID || server.vmcpInstanceID);
 	}
 
-	function canTriggerUpdate(server: MCPCatalogServer) {
-		if (isVMcpServer(server)) return false;
-		if (!isMultiUserServer(server)) return true;
-		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
-	}
-
 	function canRestartServer(server: MCPCatalogServer) {
 		return server.configured && supportsMCPBackendDetails(server);
 	}
@@ -354,24 +338,6 @@
 	function canDeleteServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
 		if (isVMcpServer(server)) return false;
 		return !!(server.isMyServer || (hasAdminAccess && !readonly));
-	}
-
-	async function handleBulkUpdate() {
-		for (const serverId of Object.keys(selected)) {
-			const server = selected[serverId];
-			if (!server.needsUpdate || !canTriggerUpdate(server)) {
-				continue;
-			}
-			const prompted = await updateServer(server);
-			if (prompted) {
-				selected = {};
-				tableRef?.clearSelectAll();
-				return;
-			}
-		}
-
-		selected = {};
-		tableRef?.clearSelectAll();
 	}
 
 	async function handleK8sBulkUpdate(selections: typeof selected) {
@@ -404,78 +370,6 @@
 		}
 	}
 
-	async function updateCatalogServerAndPromptForConfiguration(server: MCPCatalogServer) {
-		if (!isMultiUserServer(server) || !server.catalogEntryID) return false;
-
-		const entry = entriesMap[server.catalogEntryID];
-		if (!entry) {
-			// Without the entry manifest loaded, fall back to the plain update path.
-			if (server.powerUserWorkspaceID) {
-				await UserService.triggerWorkspaceMcpServerUpdate(
-					server.powerUserWorkspaceID,
-					server.catalogEntryID,
-					server.id
-				);
-			} else if (id) {
-				await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
-			}
-			return false;
-		}
-
-		return (
-			(await editExistingDialog?.updateFromCatalogEntry({
-				server,
-				entry
-			})) ?? false
-		);
-	}
-
-	async function updateServer(server?: MCPCatalogServer) {
-		if (!server || !canTriggerUpdate(server)) return false;
-
-		updating[server.id] = { inProgress: true, error: '' };
-		let prompted = false;
-		try {
-			if (isMultiUserServer(server)) {
-				if (server.catalogEntryID) {
-					// Catalog-backed multi-user servers may need shared config after the manifest update.
-					prompted = await updateCatalogServerAndPromptForConfiguration(server);
-				} else if (server.powerUserWorkspaceID) {
-					prompted = false;
-				} else if (id) {
-					await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
-				}
-			} else {
-				await UserService.triggerMcpServerUpdate(server.id);
-			}
-		} catch (err) {
-			updating[server.id] = {
-				inProgress: false,
-				error: err instanceof Error ? err.message : m.mcps_unknown_error()
-			};
-		}
-
-		delete updating[server.id];
-		return prompted;
-	}
-
-	function upgradeNotesForConfirmation() {
-		const servers =
-			showUpgradeConfirm?.type === 'single'
-				? [showUpgradeConfirm.server]
-				: Object.values(selected).filter(
-						(server) => server.needsUpdate && canTriggerUpdate(server)
-					);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local synchronous deduplication does not need reactive state
-		const seen = new Set<string>();
-		return servers.flatMap((server) => {
-			if (!server.catalogEntryID || seen.has(server.catalogEntryID)) return [];
-			const entry = entriesMap[server.catalogEntryID];
-			if (!entry?.manifest.upgradeNote?.trim()) return [];
-			seen.add(server.catalogEntryID);
-			return [{ id: entry.id, name: getMCPDisplayName(entry), note: entry.manifest.upgradeNote }];
-		});
-	}
 	async function updateK8sSettings(server?: MCPCatalogServer) {
 		if (!server) return;
 		updating[server.id] = { inProgress: true, error: '' };
@@ -672,14 +566,6 @@
 					thead: classes?.tableHeader
 				}}
 				setRowClasses={(d) => {
-					if (d.needsUpdate && d.needsK8sUpdate) {
-						return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
-					}
-
-					if (d.needsUpdate) {
-						return 'bg-primary/5 hover:bg-primary/10 border-primary/20';
-					}
-
 					if (d.needsK8sUpdate) {
 						return 'bg-warning/5 hover:bg-warning/10 border-warning/20';
 					}
@@ -716,17 +602,6 @@
 									}}
 								>
 									<TriangleAlert class="size-4" />
-								</div>
-							{:else if d.needsUpdate}
-								<div
-									use:tooltip={{
-										text: isVMcpServer(d)
-											? m.mcps_deployments_update_vmcp()
-											: m.mcps_deployments_needs_update(),
-										classes: ['wrap-break-word', 'w-58']
-									}}
-								>
-									<CircleFadingArrowUp class="text-primary size-4" />
 								</div>
 							{/if}
 						</div>
@@ -782,64 +657,21 @@
 									</span>
 								</a>
 
-								{#if !isVmcpComponent}
-									{#if (d.isMyServer || (hasAdminAccess && !readonly)) && hasEditableDeploymentConfiguration(d)}
-										<button
-											class="menu-button"
-											onclick={(e) => {
-												e.stopPropagation();
-												editExistingDialog?.edit({
-													server: d,
-													entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
-												});
-												toggle(false);
-											}}
-										>
-											<ServerCog class="size-4" />
-											{m.mcps_actions_edit_configuration()}
-										</button>
-									{/if}
-									{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
-										<button
-											class="menu-button-primary"
-											disabled={updating[d.id]?.inProgress || readonly}
-											onclick={(e) => {
-												e.stopPropagation();
-												if (!d) return;
-												showUpgradeConfirm = {
-													type: 'single',
-													server: d
-												};
-												toggle(false);
-											}}
-										>
-											{#if updating[d.id]?.inProgress}
-												<Loading class="size-4" />
-											{:else}
-												<CircleFadingArrowUp class="size-4" />
-											{/if}
-											{m.mcps_deployments_update_server()}
-										</button>
-									{/if}
-
-									{#if d.catalogEntryID && d.needsUpdate}
-										<button
-											class="menu-button-primary"
-											disabled={updating[d.id]?.inProgress || readonly}
-											onclick={(e) => {
-												e.stopPropagation();
-												if (!d.catalogEntryID) return;
-
-												existingServer = d;
-												updatedServer = entriesMap[d.catalogEntryID];
-												diffDialog?.open();
-												toggle(false);
-											}}
-										>
-											<GitCompare class="size-4" />
-											{m.mcps_deployments_view_diff()}
-										</button>
-									{/if}
+								{#if !isVmcpComponent && (d.isMyServer || (hasAdminAccess && !readonly)) && hasEditableDeploymentConfiguration(d)}
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											editExistingDialog?.edit({
+												server: d,
+												entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
+											});
+											toggle(false);
+										}}
+									>
+										<ServerCog class="size-4" />
+										{m.mcps_actions_edit_configuration()}
+									</button>
 								{/if}
 
 								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
@@ -970,9 +802,6 @@
 					{@const restartableCount = Object.values(currentSelected).filter((s) =>
 						canRestartServer(s)
 					).length}
-					{@const upgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsUpdate && canTriggerUpdate(s)
-					).length}
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate
 					).length}
@@ -997,24 +826,6 @@
 							{#if restartableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{restartableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showUpgradeConfirm = {
-									type: 'multi'
-								};
-							}}
-							disabled={readonly || upgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" />
-							{m.mcps_deployments_upgrade()}
-							{#if upgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{upgradeableCount}
 								</span>
 							{/if}
 						</button>
@@ -1074,59 +885,6 @@
 		{/if}
 	{/if}
 </div>
-
-<DiffDialog bind:this={diffDialog} fromServer={existingServer} toServer={updatedServer} />
-
-<Confirm
-	show={!!showUpgradeConfirm}
-	onsuccess={async () => {
-		if (!showUpgradeConfirm) return;
-		if (showUpgradeConfirm.type === 'single') {
-			await updateServer(showUpgradeConfirm.server);
-		} else {
-			await handleBulkUpdate();
-		}
-		await reload();
-		showUpgradeConfirm = undefined;
-	}}
-	oncancel={() => (showUpgradeConfirm = undefined)}
-	loading={Object.values(updating).some((u) => u.inProgress)}
-	type="info"
-	title={m.mcps_deployments_confirm_update()}
->
-	{#snippet msgContent()}
-		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			{showUpgradeConfirm?.type === 'single'
-				? m.mcps_deployments_update_one({ name: showUpgradeConfirm.server.id })
-				: m.mcps_deployments_update_selected()}
-		</h4>
-	{/snippet}
-	{#snippet note()}
-		<p class="text-sm font-light">
-			{m.mcps_deployments_update_note()}
-		</p>
-		{#each upgradeNotesForConfirmation() as upgradeNote (upgradeNote.id)}
-			<div
-				class="border-warning bg-warning/10 mt-2 flex w-full items-start gap-2 rounded-md border p-3 text-left"
-			>
-				<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
-				<div class="min-w-0 text-sm">
-					<p class="font-medium">
-						{showUpgradeConfirm?.type === 'multi'
-							? upgradeNote.name
-							: m.mcps_deployments_upgrade_notes()}
-					</p>
-					<div
-						class="prose prose-sm text-muted-content mt-1 max-w-none space-y-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
-					>
-						{@html toHTMLFromMarkdownWithNewTabLinks(upgradeNote.note)}
-					</div>
-				</div>
-			</div>
-		{/each}
-	{/snippet}
-</Confirm>
 
 <Confirm
 	show={!!showK8sUpgradeConfirm}

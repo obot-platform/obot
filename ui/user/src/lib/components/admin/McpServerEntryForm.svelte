@@ -194,7 +194,7 @@
 		resolvedConfiguredServers?.length ?? resolvedConfiguredInstances?.length ?? 0
 	);
 	let needsDeploymentsUpdate = $derived(
-		resolvedConfiguredServers?.some((s) => s.needsUpdate || s.needsK8sUpdate) ??
+		resolvedConfiguredServers?.some((s) => s.needsK8sUpdate) ??
 			resolvedConfiguredInstances?.some((i) => !i.configured)
 	);
 	let ownedDeployments = $derived(
@@ -815,16 +815,6 @@
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
-				{#if !('isCatalogEntry' in entry) && entry.needsUpdate}
-					<div class="notification-info mb-3 p-3 text-sm font-light">
-						<div class="flex items-center gap-3">
-							<CircleFadingArrowUp class="size-6" />
-							<p>
-								{m.mcps_catalog_entry_changed()}
-							</p>
-						</div>
-					</div>
-				{/if}
 				{#if hasExistingConfigured}
 					<div class="notification-info mb-3 p-3 text-sm font-light">
 						<div class="flex items-center gap-3">

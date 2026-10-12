@@ -1435,18 +1435,6 @@ export async function getMCPCatalogServerOAuthURL(
 	}
 }
 
-export async function triggerMcpCatalogServerUpdate(
-	catalogID: string,
-	mcpServerId: string,
-	opts?: { fetch?: Fetcher }
-): Promise<MCPCatalogServer> {
-	return (await doPost(
-		`/mcp-catalogs/${catalogID}/servers/${mcpServerId}/trigger-update`,
-		{},
-		opts
-	)) as MCPCatalogServer;
-}
-
 // MCP filters
 
 export async function listMCPFilters(opts?: { fetch?: Fetcher }) {

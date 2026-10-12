@@ -1,4 +1,4 @@
-import { normalizeManifestsForDiff, stripManifestMetadata } from './diff';
+import { normalizeManifestsForDiff } from './diff';
 import { describe, expect, it } from 'vitest';
 
 describe('normalizeManifestsForDiff', () => {
@@ -92,21 +92,5 @@ describe('normalizeManifestsForDiff', () => {
 		);
 
 		expect(normalizedCurrent).not.toEqual(normalizedNext);
-	});
-
-	it('strips admin-added metadata from flattened configuration', () => {
-		const manifest = stripManifestMetadata({
-			config: [
-				{
-					key: 'TOKEN',
-					usage: 'env',
-					secretBinding: { adminAdded: true }
-				}
-			]
-		});
-
-		expect(manifest).toEqual({
-			config: [{ key: 'TOKEN', usage: 'env', secretBinding: {} }]
-		});
 	});
 });

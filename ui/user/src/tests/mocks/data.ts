@@ -521,21 +521,11 @@ const editableEnvField: MCPCatalogEntryFieldManifest = {
 };
 
 export function createDeploymentsPageFixtures() {
-	const entrySingleUpdate = createMCPCatalogEntry({
-		id: 'entry-single-update',
-		name: 'Entry Single Update',
+	const entrySingle = createMCPCatalogEntry({
+		id: 'entry-single',
+		name: 'Entry Single',
 		runtime: 'npx',
-		env: [editableEnvField],
-		manifest: {
-			upgradeNote:
-				'## Before upgrading\n\nUse **safe mode**.\n\n- Review settings\n- Restart clients\n\n1. Back up configuration\n2. Verify the upgrade\n\n[Unsafe link](javascript:alert(1))\n\n<script>alert("unsafe")</script>'
-		}
-	});
-	const entryEmptyUpgradeNote = createMCPCatalogEntry({
-		id: 'entry-empty-upgrade-note',
-		name: 'Entry Empty Upgrade Note',
-		runtime: 'npx',
-		manifest: { upgradeNote: '   ' }
+		env: [editableEnvField]
 	});
 	const entrySingleK8s = createMCPCatalogEntry({
 		id: 'entry-single-k8s',
@@ -554,35 +544,14 @@ export function createDeploymentsPageFixtures() {
 		name: 'Entry Remote',
 		runtime: 'remote'
 	});
-	const serverSingleNeedsUpdate = createMCPCatalogServer({
-		id: 'server-single-needs-update',
-		name: 'Npx Single Needs Update',
+	const serverSingle = createMCPCatalogServer({
+		id: 'server-single',
+		name: 'Npx Single User',
 		runtime: 'npx',
 		serverUserType: 'singleUser',
-		catalogEntryID: entrySingleUpdate.id,
+		catalogEntryID: entrySingle.id,
 		env: [editableEnvField],
-		needsUpdate: true,
 		created: '2026-01-07T00:00:00.000Z',
-		userID
-	});
-	const serverSingleNeedsUpdateDuplicate = createMCPCatalogServer({
-		id: 'server-single-needs-update-duplicate',
-		name: 'Second Upgrade Deployment',
-		runtime: 'npx',
-		serverUserType: 'singleUser',
-		catalogEntryID: entrySingleUpdate.id,
-		needsUpdate: true,
-		created: '2026-01-08T00:00:00.000Z',
-		userID
-	});
-	const serverEmptyUpgradeNote = createMCPCatalogServer({
-		id: 'server-empty-upgrade-note',
-		name: 'Npx Empty Upgrade Note',
-		runtime: 'npx',
-		serverUserType: 'singleUser',
-		catalogEntryID: entryEmptyUpgradeNote.id,
-		needsUpdate: true,
-		created: '2026-01-09T00:00:00.000Z',
 		userID
 	});
 	const serverSingleNeedsK8s = createMCPCatalogServer({
@@ -625,17 +594,9 @@ export function createDeploymentsPageFixtures() {
 		userID
 	});
 
-	const entries = [
-		entrySingleUpdate,
-		entryEmptyUpgradeNote,
-		entrySingleK8s,
-		entryMulti,
-		entryRemote
-	];
+	const entries = [entrySingle, entrySingleK8s, entryMulti, entryRemote];
 	const servers = [
-		serverSingleNeedsUpdate,
-		serverSingleNeedsUpdateDuplicate,
-		serverEmptyUpgradeNote,
+		serverSingle,
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,
@@ -645,9 +606,7 @@ export function createDeploymentsPageFixtures() {
 	return {
 		entries,
 		servers,
-		serverSingleNeedsUpdate,
-		serverSingleNeedsUpdateDuplicate,
-		serverEmptyUpgradeNote,
+		serverSingle,
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,

@@ -1,11 +1,4 @@
 // json diff utility functions
-import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
-import type { MCPServer } from '$lib/services/user/types';
-
-type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
-type DiffManifest = ManifestDiff & {
-	config?: DiffField[];
-};
 
 /**
  * Strips fields from a manifest that should not be considered when computing
@@ -18,12 +11,8 @@ type DiffManifest = ManifestDiff & {
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
- * - `secretBinding.adminAdded`: runtime-only ownership metadata
  */
-export function stripManifestMetadata<T>(
-	manifest: T,
-	options?: { keepSecretBindingMetadata?: boolean }
-): T {
+export function stripManifestMetadata<T>(manifest: T): T {
 	if (!manifest || typeof manifest !== 'object') return manifest;
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +26,6 @@ export function stripManifestMetadata<T>(
 		delete clone.remoteConfig.url;
 		delete clone.remoteConfig.isTemplate;
 	}
-	if (!options?.keepSecretBindingMetadata) stripSecretBindingMetadata(clone);
 
 	return clone as T;
 }
@@ -46,84 +34,7 @@ export function normalizeManifestsForDiff<Current, Next>(
 	currentManifest: Current,
 	newManifest: Next
 ): [Current, Next] {
-	const current = stripManifestMetadata(currentManifest, {
-		keepSecretBindingMetadata: true
-	}) as DiffManifest;
-	const next = stripManifestMetadata(newManifest, {
-		keepSecretBindingMetadata: true
-	}) as DiffManifest;
-
-	// stripManifestMetadata returns undefined for an undefined manifest. Bail out before
-	// dereferencing so callers fall through to their "unable to compare" fallback UI
-	// instead of throwing on current.config.
-	if (!current || !next) {
-		return [current as Current, next as Next];
-	}
-
-	normalizeFieldList(current.config, next.config);
-
-	stripSecretBindingMetadata(current);
-	stripSecretBindingMetadata(next);
-	return [current as Current, next as Next];
-}
-
-type DiffField = {
-	key: string;
-	value?: unknown;
-	secretBinding?: {
-		adminAdded?: boolean;
-	};
-};
-
-function normalizeFieldList(
-	currentFields: DiffField[] | undefined,
-	nextFields: DiffField[] | undefined
-) {
-	removeAdminAddedOnlyFields(currentFields, nextFields);
-	removeAdminAddedOnlyFields(nextFields, currentFields);
-	normalizeAdminAddedFieldBindings(currentFields, nextFields);
-	normalizeAdminAddedFieldBindings(nextFields, currentFields);
-}
-
-function removeAdminAddedOnlyFields(
-	currentFields: DiffField[] | undefined,
-	nextFields: DiffField[] | undefined
-) {
-	if (!currentFields) return;
-	const nextByKey = new Map((nextFields ?? []).map((field) => [field.key, field]));
-
-	for (let i = currentFields.length - 1; i >= 0; i--) {
-		const currentField = currentFields[i];
-		if (currentField?.secretBinding?.adminAdded && !nextByKey.has(currentField.key)) {
-			currentFields.splice(i, 1);
-		}
-	}
-}
-
-function normalizeAdminAddedFieldBindings(
-	currentFields: DiffField[] | undefined,
-	nextFields: DiffField[] | undefined
-) {
-	if (!currentFields || !nextFields) return;
-	const nextByKey = new Map(nextFields.map((field) => [field.key, field]));
-
-	for (const currentField of currentFields) {
-		if (!currentField?.secretBinding?.adminAdded) continue;
-
-		const nextField = nextByKey.get(currentField.key);
-		if (!nextField?.secretBinding || nextField.secretBinding.adminAdded) {
-			delete currentField.secretBinding;
-			currentField.value = nextField?.value;
-		}
-	}
-}
-
-function stripSecretBindingMetadata(manifest?: DiffManifest) {
-	if (!manifest || typeof manifest !== 'object') return;
-
-	for (const field of manifest.config ?? []) {
-		if (field.secretBinding) delete field.secretBinding.adminAdded;
-	}
+	return [stripManifestMetadata(currentManifest), stripManifestMetadata(newManifest)];
 }
 
 export function formatJsonWithHighlighting(json: unknown): string {

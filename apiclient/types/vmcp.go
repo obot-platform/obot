@@ -288,9 +288,6 @@ func validateConfigurationSecretBinding(component VMCPComponent, policy VMCPConf
 	if binding.Name == "" || binding.Key == "" {
 		return fmt.Errorf("component %q configuration %q secretBinding requires both name and key", component.Name, policy.Key)
 	}
-	if binding.AdminAdded {
-		return fmt.Errorf("component %q configuration %q secretBinding.adminAdded is not valid for vMCP configuration", component.Name, policy.Key)
-	}
 	if !slices.ContainsFunc(component.CatalogEntry.Manifest.Config, func(config MCPConfig) bool { return config.Key == policy.Key }) {
 		return fmt.Errorf("component %q configuration %q secretBinding does not match a catalog entry configuration field", component.Name, policy.Key)
 	}

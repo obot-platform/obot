@@ -77,8 +77,6 @@ type MCPServerStatus struct {
 	VMCPSnapshotHash string `json:"vmcpSnapshotHash,omitempty"`
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
-	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
-	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
 	// DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).

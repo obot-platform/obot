@@ -524,7 +524,6 @@ export interface MCPCatalogServer {
 	manifest: MCPServer;
 	oauthMetadata?: OAuthMetadata;
 	serverUserType: 'singleUser' | 'multiUser';
-	needsUpdate?: boolean;
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	toolPreviewsLastGenerated?: string;
@@ -706,7 +705,6 @@ export interface MCPSubField {
 export interface MCPSecretBinding {
 	name: string;
 	key: string;
-	adminAdded?: boolean;
 }
 export interface MCPAllowedSecretBindingTarget {
 	name: string;

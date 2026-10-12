@@ -129,7 +129,7 @@
 	let deploymentsNeedingAttentionByCatalogEntry = $derived(
 		new Set<string>(
 			mcpServersAndEntries.current.servers
-				.filter((s) => s.catalogEntryID && (s.needsUpdate || s.needsK8sUpdate))
+				.filter((s) => s.catalogEntryID && s.needsK8sUpdate)
 				?.map((s) => s.catalogEntryID)
 		)
 	);

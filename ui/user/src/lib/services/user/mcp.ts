@@ -265,8 +265,6 @@ const MCP_VALUE_LABELS: Record<string, () => string> = {
 	Remote: m.core_mcp_value_remote,
 	Deployment: m.core_mcp_value_deployment,
 	'Up to date': m.core_mcp_value_up_to_date,
-	'Needs Scheduling and Config Update': m.core_mcp_value_needs_scheduling_and_config_update,
-	'Needs Config Update': m.core_mcp_value_needs_config_update,
 	'Needs Scheduling Update': m.core_mcp_value_needs_scheduling_update,
 	'Not Configured': m.core_mcp_value_not_configured,
 	'Tunnel Disconnected': m.core_mcp_value_tunnel_disconnected
@@ -582,48 +580,26 @@ export const compileAvailableMcpServers = (
 
 const SERVER_UPGRADES_AVAILABLE = {
 	NONE: 'Up to date',
-	BOTH: 'Needs Scheduling and Config Update',
-	SERVER: 'Needs Config Update',
 	K8S: 'Needs Scheduling Update'
-};
-const SERVER_UPGRADES_AVAILABLE_TOOLTIP = {
-	SERVER: m.core_mcp_update_tooltip_server(),
-	K8S: m.core_mcp_update_tooltip_k8s(),
-	BOTH: m.core_mcp_update_tooltip_both()
 };
 
 export const getMcpServerDeploymentStatus = (
-	deployment: { needsUpdate?: boolean; needsK8sUpdate?: boolean; compositeName?: string },
+	deployment: { needsK8sUpdate?: boolean; compositeName?: string },
 	doesSupportK8sUpdates: boolean
 ) => {
-	const needsUpdate = deployment.needsUpdate && !deployment.compositeName;
-	const needsK8sUpdate =
-		doesSupportK8sUpdates && deployment.needsK8sUpdate && !deployment.compositeName;
-
-	type ServerUpgradesAvailable =
-		(typeof SERVER_UPGRADES_AVAILABLE)[keyof typeof SERVER_UPGRADES_AVAILABLE];
-	let updateStatus: ServerUpgradesAvailable;
-	let updatesAvailable: ServerUpgradesAvailable[];
-	let updateStatusTooltip: string | undefined = undefined;
-
-	if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
-		updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
-		updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
-		updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
-	} else if (needsUpdate) {
-		updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
-		updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
-		updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
-	} else if (needsK8sUpdate && doesSupportK8sUpdates) {
-		updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
-		updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
-		updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
-	} else {
-		updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-		updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
+	if (doesSupportK8sUpdates && deployment.needsK8sUpdate && !deployment.compositeName) {
+		return {
+			updateStatus: SERVER_UPGRADES_AVAILABLE.K8S,
+			updatesAvailable: [SERVER_UPGRADES_AVAILABLE.K8S],
+			updateStatusTooltip: m.core_mcp_update_tooltip_k8s()
+		};
 	}
 
-	return { updateStatus, updatesAvailable, updateStatusTooltip };
+	return {
+		updateStatus: SERVER_UPGRADES_AVAILABLE.NONE,
+		updatesAvailable: [SERVER_UPGRADES_AVAILABLE.NONE],
+		updateStatusTooltip: undefined
+	};
 };
 
 function hasCompleteConfigurationOptions(env: NonNullable<MCPServerInfo['env']>[number]) {

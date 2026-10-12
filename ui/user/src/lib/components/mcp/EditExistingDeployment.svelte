@@ -38,7 +38,6 @@
 
 	let entry = $state<MCPCatalogEntry>();
 	let server = $state<MCPCatalogServer>();
-	let mode = $state<'edit' | 'catalog-update'>('edit');
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
@@ -130,7 +129,6 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
-		mode = 'edit';
 		editingError = isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(initServer.manifest);
@@ -182,78 +180,6 @@
 		configDialog?.open();
 	}
 
-	export async function updateFromCatalogEntry({
-		server: initServer,
-		entry: initEntry
-	}: {
-		server: MCPCatalogServer;
-		entry: MCPCatalogEntry;
-	}): Promise<boolean> {
-		server = initServer;
-		entry = initEntry;
-		mode = 'catalog-update';
-
-		// Apply the catalog manifest first; the updated server response tells us what is missing.
-		const updatedServer = await triggerCatalogUpdate(initServer);
-		server = updatedServer;
-		editingError = isKubernetesRuntimeBackend(version.current.engine)
-			? undefined
-			: getSecretBindingEngineError(updatedServer.manifest);
-
-		// Load secret binding targets so an admin can re-select a secret during the update flow
-		if (
-			isKubernetesRuntimeBackend(version.current.engine) &&
-			updatedServer.mcpCatalogID &&
-			isMultiUserServer(updatedServer)
-		) {
-			try {
-				secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
-					dontLogErrors: true
-				});
-			} catch (err) {
-				errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
-				secretBindingTargets = [];
-			}
-		} else {
-			secretBindingTargets = [];
-		}
-
-		// Keep existing shared values so the dialog only asks for newly required input.
-		let values: Record<string, string>;
-		try {
-			values = await revealServerValues(updatedServer);
-		} catch (error) {
-			if (!(error instanceof HttpError) || error.statusCode !== 404) {
-				console.error('Failed to reveal server values due to unexpected error', error);
-			}
-			values = {};
-		}
-
-		const templateConfiguration = getManifestConfiguration(entry?.manifest);
-		const templateEnvBindings = templateBindingByKey(templateConfiguration.env);
-		const templateHeaderBindings = templateBindingByKey(templateConfiguration.headers);
-		const form: LaunchFormData = {
-			envs: getManifestConfiguration(updatedServer.manifest).env?.map((env) => ({
-				...markPinnedSecretBinding(env, templateEnvBindings),
-				value: values[env.key] ?? '',
-				isStatic: Boolean(env.static)
-			})),
-			headers: getManifestConfiguration(updatedServer.manifest).headers?.map((header) => ({
-				...markPinnedSecretBinding(header, templateHeaderBindings),
-				value: values[header.key] ?? '',
-				isStatic: Boolean(header.static) || header.value !== ''
-			}))
-		};
-
-		if (!hasMissingRequiredSharedConfiguration(updatedServer, form)) {
-			return false;
-		}
-
-		configureForm = form;
-		configDialog?.open();
-		return true;
-	}
-
 	async function revealServerValues(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
 			return UserService.revealWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id, {
@@ -281,7 +207,6 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
-		mode = 'edit';
 
 		editAliasDialog?.open();
 	}
@@ -365,70 +290,6 @@
 		server = { ...server, alias };
 	}
 
-	function hasMissingRequiredSharedConfiguration(server: MCPCatalogServer, form: LaunchFormData) {
-		const missingKeys = new Set([
-			...(server.missingRequiredEnvVars ?? []),
-			...(server.missingRequiredHeader ?? [])
-		]);
-		if (missingKeys.size === 0) return false;
-
-		// Secret-bound and static values are managed outside this shared config form.
-		return [...(form.envs ?? []), ...(form.headers ?? [])].some(
-			(field) =>
-				missingKeys.has(field.key) &&
-				!hasSecretBinding(field) &&
-				!('isStatic' in field && field.isStatic) &&
-				field.required &&
-				!field.value
-		);
-	}
-
-	async function triggerCatalogUpdate(server: MCPCatalogServer): Promise<MCPCatalogServer> {
-		// trigger-update has no useful body, so fetch the scoped server after applying it.
-		if (server.powerUserWorkspaceID && server.catalogEntryID) {
-			await UserService.triggerWorkspaceMcpServerUpdate(
-				server.powerUserWorkspaceID,
-				server.catalogEntryID,
-				server.id
-			);
-			return UserService.getWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
-		}
-		if (server.mcpCatalogID) {
-			await AdminService.triggerMcpCatalogServerUpdate(server.mcpCatalogID, server.id);
-			return AdminService.getMCPCatalogServer(server.mcpCatalogID, server.id);
-		}
-		throw new Error(m.mcps_deployments_edit_cannot_update());
-	}
-
-	async function configureSharedServer(server: MCPCatalogServer, envs: Record<string, string>) {
-		if (server.powerUserWorkspaceID) {
-			return UserService.configureWorkspaceMCPCatalogServer(
-				server.powerUserWorkspaceID,
-				server.id,
-				envs
-			);
-		}
-		if (server.mcpCatalogID) {
-			return AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
-		}
-		throw new Error(m.mcps_deployments_edit_cannot_configure());
-	}
-
-	async function configureUpdatedCatalogServer(lf: LaunchFormData) {
-		if (!server) return;
-		// Persist any secret binding the admin (re)selected before applying shared config;
-		// configureSharedServer only writes user-supplied values, not the manifest bindings.
-		if (server.mcpCatalogID && isMultiUserServer(server)) {
-			await AdminService.updateMCPCatalogServer(
-				server.mcpCatalogID,
-				server.id,
-				applyFormBindingsToManifest(server.manifest, lf)
-			);
-		}
-		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		server = await configureSharedServer(server, envs);
-	}
-
 	async function handleConfigureForm() {
 		if (!server) return;
 		if (!configureForm) return;
@@ -436,12 +297,7 @@
 		editing = true;
 		try {
 			const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
-			if (mode === 'catalog-update') {
-				const lf = configureForm as LaunchFormData;
-				await configureUpdatedCatalogServer(lf);
-			} else {
-				await updateExistingRemoteOrSingleUser(configureForm);
-			}
+			await updateExistingRemoteOrSingleUser(configureForm);
 			launchProgress = 100;
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -472,8 +328,7 @@
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}
-	showAlias={mode === 'edit'}
-	configurationTitle={mode === 'catalog-update' ? m.mcps_info_required_configuration() : undefined}
+	showAlias
 	secretBindingTargets={editableSecretBindingTargets}
 	disableEnvSecretBindings={editingManifest?.runtime === 'remote'}
 	{deprecated}
