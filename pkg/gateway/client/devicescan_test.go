@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/aes"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -805,6 +806,54 @@ func TestListDeviceScans_UserMatchIgnoresNonSubmitters(t *testing.T) {
 	}
 	if ids := deviceIDs(sorted); !equalOrdered(ids, []string{"aaa-1"}) {
 		t.Errorf("sort by user with a bystander present: want [aaa-1], got %v", ids)
+	}
+}
+
+// TestNewDeviceScanUserMatch_BatchesLookups guards against a review finding
+// on the fix for TestListDeviceScans_UserMatchIgnoresNonSubmitters: loading
+// every distinct submitter in one "id IN (?)" query still puts one bind
+// parameter per submitter in that single query, so a fleet with enough
+// distinct submitters would exceed PostgreSQL's 65,535-parameter limit --
+// the failure just moved from the ORDER BY CASE to this WHERE clause.
+// newDeviceScanUserMatch now chunks that load (deviceScanUserBatchSize).
+// Shrinking the batch size here forces multiple chunked queries over a
+// handful of submitters, so this exercises the chunking/merging path
+// itself without creating thousands of rows.
+func TestNewDeviceScanUserMatch_BatchesLookups(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	orig := deviceScanUserBatchSize
+	deviceScanUserBatchSize = 2
+	t.Cleanup(func() { deviceScanUserBatchSize = orig })
+
+	var submitterIDs []string
+	var wantDisplay []string
+	for i := range 5 {
+		u := types.User{
+			Username:       fmt.Sprintf("user%d", i),
+			HashedUsername: fmt.Sprintf("user%d", i),
+			DisplayName:    fmt.Sprintf("User %d", i),
+			Email:          fmt.Sprintf("user%d@example.com", i),
+		}
+		if err := c.db.WithContext(ctx).Create(&u).Error; err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		submitterIDs = append(submitterIDs, idStr(u.ID))
+		wantDisplay = append(wantDisplay, u.DisplayName)
+	}
+
+	m, err := c.newDeviceScanUserMatch(ctx, submitterIDs)
+	if err != nil {
+		t.Fatalf("newDeviceScanUserMatch: %v", err)
+	}
+	if len(m.displayByID) != 5 {
+		t.Fatalf("displayByID: want 5 resolved submitters across 3 chunked queries, got %d (%+v)", len(m.displayByID), m.displayByID)
+	}
+	for i, id := range submitterIDs {
+		if got := m.displayByID[id]; got != wantDisplay[i] {
+			t.Errorf("displayByID[%s]: want %q, got %q", id, wantDisplay[i], got)
+		}
 	}
 }
 
