@@ -620,8 +620,16 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 }
 
 func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {
+	if err := ensureUserCapacity(tx, userLimit, 1); err != nil {
+		return err
+	}
+
+	return tx.Create(user).Error
+}
+
+func ensureUserCapacity(tx *gorm.DB, userLimit UserLimit, additionalUsers int64) error {
 	if userLimit.Unlimited {
-		return tx.Create(user).Error
+		return nil
 	}
 
 	if err := lockUserCreation(tx); err != nil {
@@ -632,11 +640,11 @@ func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) 
 	if err != nil {
 		return fmt.Errorf("failed to count users: %w", err)
 	}
-	if userCount >= userLimit.Maximum {
+	if userCount+additionalUsers > userLimit.Maximum {
 		return newUserLimitError()
 	}
 
-	return tx.Create(user).Error
+	return nil
 }
 
 func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
