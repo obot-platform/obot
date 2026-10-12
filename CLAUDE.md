@@ -73,6 +73,7 @@ make serve-docs       # Start local docs server
 
 ## Pull Requests and Issues
 
+- Never push a branch to `obot-platform/obot` or open a pull request from a branch there. Push the branch to the author's own fork (for example, `github.com/<user>/obot`) and open the pull request from it (`gh pr create --repo obot-platform/obot --head <user>:<branch>`).
 - When a pull request addresses an issue, reference the issue in the PR description (for example, "Addresses #123").
 - Never use a GitHub closing keyword (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`) followed by an issue reference in PR descriptions or commit messages. Issues are not closed on merge: they move to the Testing column of the project board, and QA verifies them before they are closed.
 
