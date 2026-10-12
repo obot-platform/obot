@@ -108,6 +108,24 @@ describe('AuditLogsPageContent server scoping', () => {
 	});
 });
 
+// obot-platform/obot#7649: an API key maps to exactly one user, so offering
+// an "Actor" filter on top of the api_key_id scoping is redundant.
+describe('AuditLogsPageContent api key scoping', () => {
+	it('hides the Actor filter option when scoped to an API key', async () => {
+		await renderAuditLogs({ apiKeyId: 'key-1' });
+		await page.getByRole('button', { name: 'Filters' }).click();
+
+		await expect.element(page.getByText('By Actor', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('still offers the Actor filter option when not scoped to an API key', async () => {
+		await renderAuditLogs();
+		await page.getByRole('button', { name: 'Filters' }).click();
+
+		await expect.element(page.getByText('By Actor', { exact: true })).toBeVisible();
+	});
+});
+
 describe('AuditLogsPageContent default filters', () => {
 	it('applies the default operation filter on first load', async () => {
 		const requests = await renderAuditLogs();
