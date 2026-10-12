@@ -74,3 +74,31 @@ it('keeps existing metadata when re-importing a schema', async () => {
 	);
 	expect(document.querySelector('dialog')?.open).toBe(false);
 });
+
+it('imports a replacement without sending the configured override', async () => {
+	const imported = vi.fn();
+	worker.use(
+		http.post('/api/openapi-import', async ({ request }) => {
+			imported(await request.json());
+			return HttpResponse.json({ ...result, destinationValidation: { valid: true } });
+		})
+	);
+	const onComplete = vi.fn();
+	await render(OpenAPIConfiguration, {
+		config: {
+			source: { url: 'https://example.com/schema.json' },
+			schema: result.schema,
+			baseURL: 'https://override.example.com'
+		},
+		current: {},
+		onComplete
+	});
+	await page.getByRole('button', { name: 'Replace schema' }).click();
+	await expect
+		.element(page.getByLabelText('API request base URL', { exact: false }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Import schema' }).click();
+	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	expect(imported).toHaveBeenCalledWith({ source: { url: 'https://example.com/schema.json' } });
+	expect(onComplete.mock.calls[0][0].baseURL).toBe('https://override.example.com');
+});

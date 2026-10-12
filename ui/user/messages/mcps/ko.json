@@ -534,6 +534,7 @@
 	"mcps_name_required": "이름은 필수입니다",
 	"mcps_no_created_servers": "생성된 MCP 서버가 없습니다",
 	"mcps_no_created_servers_description": "아직 생성된 MCP 서버가 없는 것 같습니다.",
+	"mcps_openapi_destination_override_required": "저장하기 전에 유효한 API 요청 기본 URL을 입력하세요.",
 	"mcps_openapi_base_url_help": "도구 호출이 전송되는 주소입니다.",
 	"mcps_openapi_base_url_label": "API 요청 기본 URL",
 	"mcps_openapi_base_url_optional_help": "비워 두면 스키마에 정의된 API 서버 URL을 사용합니다.",

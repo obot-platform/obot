@@ -34,9 +34,15 @@ export function openAPIBaseURL(schema?: Record<string, unknown>): string {
 	return '';
 }
 
+export interface OpenAPIDestinationValidation {
+	valid: boolean;
+	error?: string;
+}
+
 export interface OpenAPIImportResult {
 	schema: Record<string, unknown>;
 	baseURL: string;
+	destinationValidation: OpenAPIDestinationValidation;
 	suggestedHeaders: MCPConfig[];
 	suggestedMetadata: OpenAPIMetadata;
 }
@@ -49,7 +55,7 @@ export interface OpenAPIImportDraft {
 export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenAPIImportResult> {
 	return (await doPost(
 		'/openapi-import',
-		{ source: config.source, baseURL: config.baseURL },
+		{ source: config.source },
 		{ dontLogErrors: true }
 	)) as OpenAPIImportResult;
 }

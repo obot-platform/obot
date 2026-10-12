@@ -20,6 +20,7 @@
 	} from '$lib/services';
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import type {
+		OpenAPIDestinationValidation,
 		OpenAPIImportDraft,
 		OpenAPIImportResult,
 		OpenAPIMetadata
@@ -105,6 +106,9 @@
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 	let importedBaseURL = $state(untrack(() => initialOpenAPIImport?.result.baseURL ?? ''));
+	let destinationValidation = $state<OpenAPIDestinationValidation | undefined>(
+		untrack(() => initialOpenAPIImport?.result.destinationValidation)
+	);
 
 	function completeOpenAPIImport(
 		config: OpenAPIRuntimeConfig,
@@ -113,6 +117,7 @@
 	) {
 		formData.openAPIConfig = config;
 		importedBaseURL = result.baseURL;
+		destinationValidation = result.destinationValidation;
 		formData.config ??= [];
 		for (const header of result.suggestedHeaders) {
 			if (
@@ -414,6 +419,7 @@
 	function handleRuntimeChange(newRuntime: Runtime) {
 		formData.runtime = newRuntime;
 		importedBaseURL = '';
+		destinationValidation = undefined;
 
 		// Clear all runtime configs first
 		formData.npxConfig = undefined;
@@ -690,6 +696,13 @@
 		const validationData =
 			type !== 'multi' ? { ...formData, env: formData.config ?? [] } : formData;
 		const { required, invalid } = validateRuntimeForm(validationData, type);
+		if (
+			formData.runtime === 'openapi' &&
+			destinationValidation?.valid === false &&
+			!formData.openAPIConfig?.baseURL?.trim()
+		) {
+			required.openAPIBaseURL = true;
+		}
 		if (type !== 'multi' && hasDuplicateConfigKeys()) {
 			invalid.env = true;
 		}
@@ -968,6 +981,7 @@
 				{showEgressDomains}
 				{defaultDenyAllEgress}
 				{importedBaseURL}
+				{destinationValidation}
 				{readonly}
 				current={{
 					name: formData.name,

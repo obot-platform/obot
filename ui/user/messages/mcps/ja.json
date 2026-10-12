@@ -534,6 +534,7 @@
 	"mcps_name_required": "名前は必須です",
 	"mcps_no_created_servers": "作成された MCP サーバーはありません",
 	"mcps_no_created_servers_description": "まだ MCP サーバーが作成されていないようです。",
+	"mcps_openapi_destination_override_required": "保存する前に、有効な API リクエストのベース URL を入力してください。",
 	"mcps_openapi_base_url_help": "ツール呼び出しの送信先です。",
 	"mcps_openapi_base_url_label": "API リクエストのベース URL",
 	"mcps_openapi_base_url_optional_help": "空欄にすると、スキーマで定義された API サーバーの URL を使用します。",

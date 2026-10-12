@@ -534,6 +534,7 @@
 	"mcps_name_required": "名称为必填项",
 	"mcps_no_created_servers": "没有已创建的 MCP 服务器",
 	"mcps_no_created_servers_description": "您似乎还没有创建任何 MCP 服务器。",
+	"mcps_openapi_destination_override_required": "保存前请输入有效的 API 请求基础 URL。",
 	"mcps_openapi_base_url_help": "工具调用的目标地址。",
 	"mcps_openapi_base_url_label": "API 请求基础 URL",
 	"mcps_openapi_base_url_optional_help": "留空则使用架构中定义的 API 服务器 URL。",

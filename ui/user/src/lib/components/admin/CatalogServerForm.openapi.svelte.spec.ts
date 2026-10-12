@@ -651,3 +651,70 @@ it('locks source edits during import and ignores the result after leaving the fo
 	await expect.element(page.getByRole('status')).not.toBeInTheDocument();
 	await expect.element(page.getByLabelText('Value Prefix')).not.toBeInTheDocument();
 });
+
+it.each([
+	{ serverURL: 'http://api.example.com', error: 'API destination must use HTTPS', initial: false },
+	{ serverURL: 'https://127.0.0.1', error: 'API destination is blocked', initial: false },
+	{ serverURL: 'http://api.example.com', error: 'API destination must use HTTPS', initial: true },
+	{ serverURL: 'https://127.0.0.1', error: 'API destination is blocked', initial: true }
+])(
+	'requires an override for $serverURL after import (initial draft: $initial)',
+	async ({ serverURL, error, initial }) => {
+		const result = {
+			schema: { ...schema, servers: [{ url: serverURL }] },
+			baseURL: serverURL,
+			destinationValidation: { valid: false, error },
+			suggestedHeaders: [
+				{ ...suggestedHeader, usage: 'header' as const, value: '', description: '' }
+			],
+			suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
+		};
+		const saved = vi.fn();
+		const imported = vi.fn();
+		worker.use(
+			http.post('/api/openapi-import', async ({ request }) => {
+				imported(await request.json());
+				return HttpResponse.json(result);
+			}),
+			http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json(createMCPCatalogEntryResponse);
+			})
+		);
+		await render(CatalogServerForm, {
+			id: 'test',
+			entity: 'catalog',
+			type: 'openapi',
+			initialOpenAPIImport: initial
+				? { config: { source: { url: sourceURL }, schema: result.schema }, result }
+				: undefined
+		});
+		if (!initial) {
+			await expect
+				.element(page.getByLabelText('API request base URL', { exact: false }))
+				.not.toBeInTheDocument();
+			await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+			await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+			await vi.waitFor(() => expect(imported).toHaveBeenCalledWith({ source: { url: sourceURL } }));
+		}
+		const baseURL = page.getByLabelText('API request base URL', { exact: false });
+		await expect.element(baseURL).toHaveValue('');
+		await expect.element(baseURL).toHaveAttribute('placeholder', 'https://api.example.com/v1');
+		await expect.element(baseURL).toBeRequired();
+		await expect.element(page.getByText(error, { exact: false })).toBeVisible();
+		await expect.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`)).toHaveValue('Example');
+		await expect.element(page.getByLabelText('Value Prefix')).toHaveValue('Bearer ');
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		expect(saved).not.toHaveBeenCalled();
+		await expect.element(baseURL).toHaveAttribute('aria-invalid', 'true');
+		await baseURL.fill('https://override.example.com');
+		await expect.element(page.getByText(error, { exact: false })).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+		expect(saved.mock.calls[0][0].openAPIConfig).toEqual({
+			source: { url: sourceURL },
+			baseURL: 'https://override.example.com',
+			egressDomains: []
+		});
+	}
+);

@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
-	import { type OpenAPIImportResult, type OpenAPIMetadata } from '$lib/services/openapi';
+	import {
+		type OpenAPIDestinationValidation,
+		type OpenAPIImportResult,
+		type OpenAPIMetadata
+	} from '$lib/services/openapi';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import OpenAPIRuntimeForm from './OpenAPIRuntimeForm.svelte';
 	import { untrack } from 'svelte';
@@ -12,6 +16,7 @@
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
+		destinationValidation?: OpenAPIDestinationValidation;
 		showBaseURLError?: boolean;
 		onBaseURLChange?: () => void;
 		onEditingChange?: (editing: boolean) => void;
@@ -30,6 +35,7 @@
 		showEgressDomains = false,
 		defaultDenyAllEgress = false,
 		importedBaseURL = '',
+		destinationValidation,
 		showBaseURLError = false,
 		onBaseURLChange,
 		onEditingChange
@@ -104,6 +110,7 @@
 		{showEgressDomains}
 		{defaultDenyAllEgress}
 		{importedBaseURL}
+		{destinationValidation}
 		{showBaseURLError}
 		{onBaseURLChange}
 		onReplace={() => {
