@@ -47,7 +47,7 @@ export interface OpenAPIImportDraft {
 
 export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenAPIImportResult> {
 	return (await doPost(
-		'/openapi/import',
+		'/openapi-import',
 		{ source: config.source, baseURL: config.baseURL },
 		{ dontLogErrors: true }
 	)) as OpenAPIImportResult;

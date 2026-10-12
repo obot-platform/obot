@@ -15,7 +15,7 @@ const result = {
 it('keeps import errors in the modal and allows retry', async () => {
 	let fail = true;
 	worker.use(
-		http.post('/api/openapi/import', () => {
+		http.post('/api/openapi-import', () => {
 			if (fail) return new HttpResponse('Schema URL is unavailable', { status: 400 });
 			return HttpResponse.json(result);
 		})
@@ -29,7 +29,7 @@ it('keeps import errors in the modal and allows retry', async () => {
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent('400 /openapi/import: Schema URL is unavailable');
+		.toHaveTextContent('400 /openapi-import: Schema URL is unavailable');
 	expect(onComplete).not.toHaveBeenCalled();
 	fail = false;
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
@@ -51,7 +51,7 @@ it('ignores a pending response after cancelling', async () => {
 	});
 	const responded = vi.fn();
 	worker.use(
-		http.post('/api/openapi/import', async () => {
+		http.post('/api/openapi-import', async () => {
 			await pending;
 			responded();
 			return HttpResponse.json(result);

@@ -59,6 +59,10 @@
 
 	function imported(value: OpenAPIImportResult) {
 		result = value;
+		if (config.schema) {
+			complete({});
+			return;
+		}
 		suggestions = value.suggestedMetadata;
 		selected = {};
 		for (const { key } of fields) {

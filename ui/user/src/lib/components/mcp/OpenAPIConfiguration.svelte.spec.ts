@@ -20,7 +20,7 @@ const result = {
 it('imports the schema when Enter is pressed in the schema URL', async () => {
 	const imported = vi.fn();
 	worker.use(
-		http.post('/api/openapi/import', async ({ request }) => {
+		http.post('/api/openapi-import', async ({ request }) => {
 			imported(await request.json());
 			return HttpResponse.json(result);
 		})
@@ -37,4 +37,40 @@ it('imports the schema when Enter is pressed in the schema URL', async () => {
 	expect(imported).toHaveBeenCalledWith(
 		expect.objectContaining({ source: { url: 'https://example.com/schema.json' } })
 	);
+});
+
+it('keeps existing metadata when re-importing a schema', async () => {
+	worker.use(
+		http.post('/api/openapi-import', () =>
+			HttpResponse.json({
+				...result,
+				suggestedMetadata: {
+					name: 'New name',
+					description: 'New description',
+					shortDescription: 'New summary',
+					icon: 'https://example.com/new.png'
+				}
+			})
+		)
+	);
+	const onComplete = vi.fn();
+	await render(OpenAPIConfiguration, {
+		config: { source: { url: 'https://example.com/schema.json' }, schema: result.schema },
+		current: {
+			name: 'Existing name',
+			description: 'Existing description',
+			shortDescription: 'Existing summary',
+			icon: 'https://example.com/existing.png'
+		},
+		onComplete
+	});
+	await page.getByRole('button', { name: 'Replace schema' }).click();
+	await page.getByRole('button', { name: 'Import schema' }).click();
+	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	expect(onComplete).toHaveBeenCalledWith(
+		expect.objectContaining({ schema: result.schema }),
+		expect.objectContaining({ schema: result.schema }),
+		{}
+	);
+	expect(document.querySelector('dialog')?.open).toBe(false);
 });
