@@ -8,6 +8,7 @@ Set up CLI authentication and local bootstrap skills with the procedure below. U
 | Task | Reference |
 |---|---|
 | Configure CLI authentication and local bootstrap skills | [CLI setup](#cli-setup-basic-usage) |
+| Sign in to an MCP server that requires a localhost OAuth callback | [MCP localhost OAuth sign-in](#mcp-localhost-oauth-sign-in) |
 | Obtain and scope API keys with `obot login` | [Agent authorization scopes](../functionality/agent-auth-scopes.md#creating-an-agent-authorization-scope-with-the-cli) |
 | Generate vMCP definitions for migrated Git composites | [Catalog migration](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) |
 | Validate catalog YAML | [Catalog validation](../configuration/mcp-server-gitops.md#validating-catalog-entries) |
@@ -163,3 +164,21 @@ Pass `--clients agents`, `--clients claude-code`, `--clients agents,claude-code`
 ### Existing URL mismatch {#cli-setup-existing-url-mismatch}
 
 If setup reports that another Obot URL is already configured, pass `--yes` to replace the stored default URL.
+
+## MCP localhost OAuth sign-in
+
+Some MCP servers require their OAuth clients to use a localhost callback. When you connect to one through Obot, the authentication screen displays a command:
+
+```bash
+obot mcp login --url 'https://obot.example.com/oauth/mcp/login/<attempt>'
+```
+
+1. Install an Obot CLI version that supports `mcp login` and make sure `obot` is on your `PATH`.
+2. Copy the command from Obot and run it on the same computer as your browser.
+3. Complete sign-in in the browser, then return to Obot. The connection continues automatically once all required servers are authenticated.
+
+Keep using the HTTP connection URL from Obot in your MCP client. The command runs only during sign-in; Obot stores the provider credentials.
+
+Commands expire after ten minutes. If a command expires or its callback port is occupied, select **Get a new sign-in command** and run the replacement.
+
+Administrators must first enable [Localhost OAuth callback](../mcp-gateway/register-remote.md#localhost-oauth-callbacks) for the server.

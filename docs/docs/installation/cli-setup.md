@@ -59,18 +59,4 @@ Continue to [Existing URL mismatch](../reference/cli-api.md#cli-setup-existing-u
 
 ## Authenticate providers that require localhost callbacks
 
-Add the MCP connection URL from Obot to your client using its normal HTTP connection configuration. This also applies to vMCPs with providers that require localhost OAuth callbacks.
-
-When your client connects, its browser authorization flow will show a command if a provider needs a localhost callback:
-
-```bash
-obot mcp login --url 'https://obot.example.com/oauth/mcp/login/<attempt>'
-```
-
-Install a CLI version that includes `mcp login` and ensure `obot` is on your terminal's `PATH`. Run the command on the same computer as your browser. It starts temporary listeners on IPv4 and IPv6 loopback addresses where available, opens the provider's authorization page, and relays the callback to Obot. Obot exchanges the code and stores the provider credentials; the login command does not create an MCP session or store tokens locally.
-
-After the command completes, return to the Obot authorization page. Obot automatically verifies authentication and resumes your client's connection once every required component is authenticated. If a vMCP also requires ordinary browser authentication, complete those providers' sign-in steps as well. MCP traffic continues over the configured HTTP URL after the command exits.
-
-The inspector and tool selection use the same login command. Each command belongs to one authentication attempt and expires after ten minutes. Obot automatically checks completed or expired attempts and obtains a new command if authentication is still needed. If the callback port is occupied or you need to restart sign-in, select **Get a new sign-in command**. The login helper retries failed checks automatically; screens that display a **Retry** action can also be retried manually. If the browser cannot open automatically, the command prints the provider authorization URL.
-
-Administrators can enable **Localhost OAuth callback** in a remote server or catalog entry configuration. Leave the callback path blank for `/oauth/callback`, or enter the provider's required path. Paths must be absolute, without query strings or fragments. `/oauth/obot/callback` is reserved for the login helper's completion endpoint. Callback paths are carried in the authentication attempt and require no client configuration flags. Providers must accept an available port; fixed callback ports are not supported. Hosted callbacks remain the default when this setting is disabled.
+Continue to [MCP localhost OAuth sign-in](../reference/cli-api.md#mcp-localhost-oauth-sign-in).
