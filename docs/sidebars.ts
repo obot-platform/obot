@@ -63,6 +63,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "mcp-gateway/inspector",
+					"label": "Test with Inspector"
+				},
+				{
+					"type": "doc",
 					"id": "mcp-gateway/connect-clients",
 					"label": "Connect AI clients"
 				},

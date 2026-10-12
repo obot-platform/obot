@@ -44,7 +44,7 @@ The authorization-scope guide includes [VS Code](../functionality/agent-auth-sco
 3. Inspect the displayed tool list. Select a read-only tool whose effect you understand, fill in its arguments, and select **Call**.
 4. Confirm that the result shows **Succeeded** and the expected output. Record the vMCP name, tool name, and time of the call.
 
-Inspector tests access as the signed-in user. An administrator's successful test does not verify another user's grants. To check a user's experience, that user should repeat the test under their own account.
+Inspector tests access as the signed-in user. An administrator's successful test does not verify another user's grants. To check a user's experience, that user should repeat the test under their own account. See [Test vMCPs with Inspector](./inspector.md) for everything else Inspector can do.
 
 ### Check the audit record
 

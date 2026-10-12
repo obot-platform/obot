@@ -133,7 +133,7 @@ https://your-obot-instance/mcp-connect/{vmcp-id}
 
 Reconnecting or updating configuration reuses that instance instead of creating another connection identity. Each user authenticates to the Obot Gateway and receives only the tools granted to that user.
 
-Use **Test vMCP** beside the connection action to configure the connection if needed and open Obot's MCP tester.
+Use **Test vMCP** beside the connection action to configure the connection if needed and open the [vMCP Inspector](./mcp-inspector.md).
 
 ## Snapshots and updates
 
