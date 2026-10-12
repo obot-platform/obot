@@ -83,6 +83,7 @@ export const handlers = [
 	http.get('/api/message-policy-violations/filter-options/:filter', () =>
 		HttpResponse.json({ options: [] })
 	),
+	http.get('/api/mcp-audit-logs/filter-options/:filter', () => HttpResponse.json({ options: [] })),
 	http.get('/api/me', () => HttpResponse.json(data.getProfileResponse)),
 	http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
 	http.get('/api/models', () => HttpResponse.json({ items: data.listModelsResponse })),
