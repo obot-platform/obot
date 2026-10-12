@@ -53,7 +53,7 @@ async function openForm(entity: 'catalog' | 'workspace' = 'catalog') {
 function mockImport() {
 	const request = vi.fn();
 	worker.use(
-		http.post('/api/openapi/import', async ({ request: req }) => {
+		http.post('/api/openapi-import', async ({ request: req }) => {
 			request(await req.json());
 			return HttpResponse.json({
 				schema,
@@ -166,7 +166,7 @@ it('prefills new entry metadata and displays the schema base URL only as a place
 		}
 	};
 	worker.use(
-		http.post('/api/openapi/import', () =>
+		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
 				schema: importedSchema,
 				suggestedMetadata: {
@@ -250,7 +250,7 @@ it('only replaces selected metadata fields after importing a replacement', async
 		}
 	};
 	worker.use(
-		http.post('/api/openapi/import', () =>
+		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
 				schema: nextSchema,
 				suggestedMetadata: {
@@ -297,7 +297,7 @@ it('only replaces selected metadata fields after importing a replacement', async
 it('requires a base URL inline after importing a schema with only a relative server', async () => {
 	const saved = vi.fn();
 	worker.use(
-		http.post('/api/openapi/import', () =>
+		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
 				schema: { ...schema, servers: [{ url: '/api/v3' }] },
 				baseURL: '',
@@ -349,7 +349,7 @@ it('shows an applied description in the already-mounted editor', async () => {
 		})
 	);
 	worker.use(
-		http.post('/api/openapi/import', () =>
+		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
 				schema,
 				baseURL: 'https://example.com/api',
@@ -402,7 +402,7 @@ it('uses the shared import endpoint in a workspace and stages source changes', a
 it('shows import errors and allows retry without creating an entry', async () => {
 	worker.use(
 		http.post(
-			'/api/openapi/import',
+			'/api/openapi-import',
 			() => new HttpResponse('schema must be a JSON or YAML document', { status: 400 })
 		)
 	);
@@ -411,7 +411,7 @@ it('shows import errors and allows retry without creating an entry', async () =>
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent('400 /openapi/import: schema must be a JSON or YAML document');
+		.toHaveTextContent('400 /openapi-import: schema must be a JSON or YAML document');
 	await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
 	mockImport();
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
@@ -464,7 +464,7 @@ it.each([
 		const imported = vi.fn();
 		const saved = vi.fn();
 		worker.use(
-			http.post('/api/openapi/import', async ({ request }) => {
+			http.post('/api/openapi-import', async ({ request }) => {
 				imported(await request.json());
 				return HttpResponse.json({
 					schema,
@@ -622,7 +622,7 @@ it('locks source edits during import and ignores the result after leaving the fo
 		finishImport = resolve;
 	});
 	worker.use(
-		http.post('/api/openapi/import', async () => {
+		http.post('/api/openapi-import', async () => {
 			await responseReady;
 			return HttpResponse.json({
 				schema,

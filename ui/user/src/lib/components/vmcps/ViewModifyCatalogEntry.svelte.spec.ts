@@ -38,12 +38,12 @@ describe('catalog entry hydration', () => {
 
 describe('OpenAPI creation', () => {
 	it.each([
-		{ groups: [Group.ADMIN], collection: 'mcp-catalogs', id: 'default' },
-		{ groups: [Group.POWERUSER], collection: 'workspaces', id: 'workspace-test' }
-	])('imports before opening configuration in $collection', async ({ groups, collection, id }) => {
+		{ groups: [Group.ADMIN], collection: 'mcp-catalogs' },
+		{ groups: [Group.POWERUSER], collection: 'workspaces' }
+	])('imports before opening configuration in $collection', async ({ groups }) => {
 		const imported = vi.fn();
 		worker.use(
-			http.post(`/api/${collection}/${id}/openapi/import`, async ({ request }) => {
+			http.post('/api/openapi-import', async ({ request }) => {
 				imported(await request.json());
 				return HttpResponse.json({
 					schema: {

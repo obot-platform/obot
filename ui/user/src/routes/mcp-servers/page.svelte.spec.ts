@@ -143,7 +143,7 @@ it('opens direct OpenAPI creation with import before configuration', async () =>
 	resetMcpServersAndEntriesStore();
 	appPage.url.searchParams.set('new', 'openapi');
 	worker.use(
-		http.post('/api/openapi/import', () =>
+		http.post('/api/openapi-import', () =>
 			HttpResponse.json({
 				schema: { openapi: '3.1.0', info: { title: 'Imported API', version: '1' }, paths: {} },
 				baseURL: '',
