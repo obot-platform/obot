@@ -47,7 +47,7 @@ describe('MCP server OAuth setup link', () => {
 
 for (const kind of ['entry', 'server'] as const) {
 	for (const enabled of [true, false]) {
-		it(`shows HTTP URL after launching a ${kind} with localhost callback ${enabled}`, async () => {
+		it(`does not advertise a direct URL after launching a ${kind} with localhost callback ${enabled}`, async () => {
 			await preparePageData();
 			const resource =
 				kind === 'entry'
@@ -58,13 +58,11 @@ for (const kind of ['entry', 'server'] as const) {
 							runtime: 'remote',
 							userID: 'user-1'
 						});
-			resource.connectURL = 'https://obot.example/mcp-connect/local';
+			Object.assign(resource, { connectURL: 'https://obot.example/mcp-connect/local' });
 			resource.manifest.remoteConfig = { localhostCallbackEnabled: enabled };
 			await render(McpServerActions, { [kind]: resource, promptInitialLaunch: true });
 
-			await expect
-				.element(page.getByCSS('#server-action-connection-url'))
-				.toHaveValue(resource.connectURL);
+			await expect.element(page.getByCSS('#server-action-connection-url')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
 				.not.toBeInTheDocument();
@@ -72,16 +70,14 @@ for (const kind of ['entry', 'server'] as const) {
 	}
 }
 
-it('shows the URL after launch with a custom callback path', async () => {
+it('does not advertise a direct URL with a custom callback path', async () => {
 	await preparePageData();
 	const entry = createMCPCatalogEntry({ id: 'custom-entry', name: 'Custom', runtime: 'remote' });
-	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	Object.assign(entry, { connectURL: 'https://obot.example/mcp-connect/custom' });
 	entry.manifest.remoteConfig = {
 		localhostCallbackEnabled: true,
 		localhostCallbackPath: '/custom/callback'
 	};
 	await render(McpServerActions, { entry, promptInitialLaunch: true });
-	await expect
-		.element(page.getByCSS('#server-action-connection-url'))
-		.toHaveValue(entry.connectURL);
+	await expect.element(page.getByCSS('#server-action-connection-url')).not.toBeInTheDocument();
 });

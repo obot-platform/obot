@@ -49,22 +49,48 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	}))
 	defer provider.Close()
 	providerURL = provider.URL
-	server := &v1.MCPServer{
-		Name: "ms1local", Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerSpec{
-			UserID:   "42",
-			Manifest: types.MCPServerManifest{Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteRuntimeConfig{URL: providerURL + "/mcp", LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/custom/callback"}},
+	vmcp := vmcpComponentVMCP(false)
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest = types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL:                 providerURL + "/mcp",
+			LocalhostCallbackEnabled: true,
+			LocalhostCallbackPath:    "/custom/callback",
 		},
 	}
+	instance := syncedVMCPInstance(vmcpComponentInstance("vmcpi1local", vmcp.Name), vmcp)
+	server := vmcpComponentServer("ms1local", "", vmcp.Name)
+	server.Spec.Manifest = types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			URL:                      providerURL + "/mcp",
+			LocalhostCallbackEnabled: true,
+			LocalhostCallbackPath:    "/custom/callback",
+		},
+	}
+	connection := syncedVMCPConnection(&v1.MCPServerInstance{
+		Name:      "msi1local",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerInstanceSpec{
+			MCPServerName:   server.Name,
+			VMCPInstanceID:  instance.Name,
+			VMCPComponentID: "component",
+			UserID:          "42",
+		},
+	}, vmcp, instance)
 	request := &v1.OAuthAuthRequest{
-		Name: "oar1local", Namespace: system.DefaultNamespace,
-		Spec: v1.OAuthAuthRequestSpec{UserID: 42, MCPID: "msi1local", ClientID: "client", RedirectURI: "https://client.example/callback", State: "original-state", ConsentPrepared: true, ConsentMCPAuthRequired: true, ConsentMCPAuthURL: "https://obot.example/oauth/mcp/login/initial"},
+		Name:      "oar1local",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.OAuthAuthRequestSpec{
+			UserID:          42,
+			MCPID:           instance.Name,
+			ClientID:        "client",
+			RedirectURI:     "https://client.example/callback",
+			State:           "original-state",
+			ConsentPrepared: true,
+		},
 	}
-	instance := &v1.MCPServerInstance{
-		Name: "msi1local", Namespace: system.DefaultNamespace,
-		Spec: v1.MCPServerInstanceSpec{MCPServerName: server.Name, UserID: "42"},
-	}
-	storage := vmcpConsentStorage(server, instance, request)
+	storage := &vmcpOAuthInitialEventsClient{WithWatch: vmcpConsentStorage(vmcp, instance, server, connection, request)}
 	gateway := vmcpConsentGateway(t)
 	tokens := mcp.NewGlobalTokenStore(gateway)
 	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "https://obot.example", 8080,
@@ -76,17 +102,18 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 		return v1.OAuthClient{Spec: v1.OAuthClientSpec{Manifest: types.OAuthClientManifest{ClientName: "HTTP client"}}}, nil
 	}
 	h := &handler{oauthChecker: factory}
-	req := vmcpComponentRequest(storage, "", "")
+	req := vmcpComponentRequest(storage, instance.Name, server.Name)
 	req.GatewayClient = gateway
 	req.SetPathValue("oauth_auth_request", request.Name)
 	response := httptest.NewRecorder()
 	req.ResponseWriter = response
 	require.NoError(t, h.approveConsent(req))
-	require.Equal(t, "/auth/mcp/login/"+request.Name, response.Header().Get("Location"))
+	require.Equal(t, compositeConsentURL("https://obot.example", instance.Name, vmcp.Name, request.Name), response.Header().Get("Location"))
+	req.URL.RawQuery = "oauth_auth_request=" + request.Name
 
 	response = httptest.NewRecorder()
 	req.ResponseWriter = response
-	require.NoError(t, h.checkLocalLogin(req))
+	require.NoError(t, h.checkVMCPComponentAuth(req))
 	var status componentAuthStatus
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &status))
 	require.Contains(t, status.AuthURL, "/oauth/mcp/login/ui-local-")
@@ -110,9 +137,13 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	require.Equal(t, state, completion.Query().Get("state"))
 
 	req.SetPathValue("oauth_auth_request", request.Name)
+	req.SetPathValue("mcp_id", instance.Name)
+	req.SetPathValue("component_mcp_id", server.Name)
+	req.URL.RawQuery = "oauth_auth_request=" + request.Name
 	response = httptest.NewRecorder()
 	req.ResponseWriter = response
-	require.NoError(t, h.checkLocalLogin(req))
+	require.NoError(t, h.checkVMCPComponentAuth(req))
+	status = componentAuthStatus{}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &status))
 	require.Empty(t, status.AuthURL)
 	response = httptest.NewRecorder()

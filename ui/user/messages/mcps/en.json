@@ -1125,9 +1125,12 @@
 	"mcps_login_title": "Authenticate with the MCP server",
 	"mcps_login_instructions": "Run this command in a terminal to authenticate. Your browser and the CLI must run on the same computer.",
 	"mcps_login_command": "Authentication command",
-	"mcps_login_retry_instructions": "After login completes, return here to continue. If the command expires or its callback port is busy, continue to get a new command.",
+	"mcps_login_retry_instructions": "This page continues automatically after you sign in. If the command expires or its callback port is busy, get a new sign-in command.",
 	"mcps_login_validating": "Validating authentication...",
 	"mcps_login_continue": "Continue",
 	"mcps_login_install": "Install the Obot CLI",
-	"mcps_login_callback_description": "For providers that require a localhost callback. Connect using the normal URL; during authentication, Obot shows a temporary CLI login command to run on the same computer as your browser. Obot manages the provider credentials."
+	"mcps_login_callback_description": "For providers that require a localhost callback. Connect using the normal URL; during authentication, Obot shows a temporary CLI login command to run on the same computer as your browser. Obot manages the provider credentials.",
+	"mcps_login_waiting": "Waiting for sign-in…",
+	"mcps_login_refresh": "Get a new sign-in command",
+	"mcps_login_check_failed": "Unable to check sign-in. Retrying automatically. You can also get a new command."
 }

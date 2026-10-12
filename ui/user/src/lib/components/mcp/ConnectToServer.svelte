@@ -30,6 +30,7 @@
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SelectMcpAccessControlRules from '../admin/SelectMcpAccessControlRules.svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
@@ -384,8 +385,12 @@
 		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
 			oauthChecking = true;
+			const currentURL = oauthURL;
 			try {
-				oauthURL = await getOauthURL();
+				const nextURL = await getOauthURL();
+				// Dismissal or a newer attempt must not complete from a stale response.
+				if (oauthURL !== currentURL) return;
+				oauthURL = nextURL;
 				if (!oauthURL) {
 					oauthDialog?.close();
 					handleConnect();
@@ -397,9 +402,13 @@
 		}
 	}
 
+	function handleOauthTabReturn() {
+		if (!isMcpLoginURL(oauthURL)) void handleOauthVisibilityChange();
+	}
+
 	function ensureOauthVisibilityListener() {
-		document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
-		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+		document.removeEventListener('visibilitychange', handleOauthTabReturn);
+		document.addEventListener('visibilitychange', handleOauthTabReturn);
 	}
 
 	async function verifyOauthOrConnect() {
@@ -866,7 +875,7 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
-			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+			document.removeEventListener('visibilitychange', handleOauthTabReturn);
 		};
 	});
 </script>

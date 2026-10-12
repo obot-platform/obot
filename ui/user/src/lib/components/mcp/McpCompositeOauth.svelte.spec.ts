@@ -1,7 +1,7 @@
 import { worker } from '../../../tests/mocks/worker';
 import McpCompositeOauth from './McpCompositeOauth.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -284,7 +284,10 @@ it('keeps mixed client authentication pending after a local component completes'
 		.toHaveTextContent(
 			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/ui-local-component'`
 		);
-	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	worker.use(
+		http.get('*/oauth/mcp/login/ui-local-component', () => new HttpResponse(null, { status: 400 }))
+	);
+	document.dispatchEvent(new Event('visibilitychange'));
 	await vi.waitFor(() => expect(checked).toHaveBeenCalledWith('local', 'original-request'));
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
 	await expect
@@ -307,7 +310,9 @@ it('embeds login instructions without duplicating the parent dialog heading', as
 	render(McpCompositeOauth, { compositeMcpId: 'vmcp1-embedded', embedded: true });
 	await expect.element(page.getByText('Vercel', { exact: true })).toBeVisible();
 	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
-	await expect.element(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('button', { name: 'Get a new sign-in command', exact: true }))
+		.toBeVisible();
 	await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).not.toBeInTheDocument();
 });
 
@@ -345,4 +350,44 @@ it.each([390, 1280])('keeps mixed authentication readable at %ipx', async (width
 	} finally {
 		await page.viewport(1280, 720);
 	}
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
+});
+
+it('automatically resumes only after both local login and browser OAuth have finished', async () => {
+	let consumed = false;
+	const onComplete = vi.fn();
+	const checked = vi.fn();
+	mockConsentApis([
+		{
+			mcpServerID: 'vercel',
+			name: 'Vercel',
+			authURL: `${window.location.origin}/oauth/mcp/login/mixed-completion`
+		},
+		{ mcpServerID: 'outlook', name: 'Outlook', authURL: 'https://provider.example/authorize' }
+	]);
+	worker.use(
+		http.get(
+			'*/oauth/mcp/login/mixed-completion',
+			() => new HttpResponse(null, { status: consumed ? 400 : 200 })
+		),
+		http.get('/api/oauth/vmcp/:id/components/:componentID', ({ params }) => {
+			checked(params.componentID);
+			return HttpResponse.json({ authURL: '' });
+		})
+	);
+	await render(McpCompositeOauth, { compositeMcpId: 'vmcp1mixed-completion', onComplete });
+	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
+	consumed = true;
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+	expect(checked).toHaveBeenCalledWith('vercel');
+	expect(checked).not.toHaveBeenCalledWith('outlook');
+	expect(onComplete).not.toHaveBeenCalled();
+	await page.getByRole('link', { name: 'Authenticate', exact: true }).click();
+	document.dispatchEvent(new Event('visibilitychange'));
+	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	expect(checked).toHaveBeenCalledWith('outlook');
+	await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
 });

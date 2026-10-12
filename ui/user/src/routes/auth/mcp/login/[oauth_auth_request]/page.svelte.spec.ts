@@ -7,6 +7,7 @@ import { page } from 'vitest/browser';
 
 it('shows the scoped login command for the client authorization request', async () => {
 	worker.use(
+		http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})),
 		http.get('*/oauth/mcp/login-request/original-request', () =>
 			HttpResponse.json({
 				authURL: `${window.location.origin}/oauth/mcp/login/ui-local-original`

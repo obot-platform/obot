@@ -1125,9 +1125,12 @@
 	"mcps_login_title": "MCP サーバーで認証",
 	"mcps_login_instructions": "認証するには、ターミナルでこのコマンドを実行してください。ブラウザーと CLI は同じコンピューターで実行する必要があります。",
 	"mcps_login_command": "認証コマンド",
-	"mcps_login_retry_instructions": "ログインが完了したら、ここに戻って続行してください。コマンドの有効期限が切れた場合やコールバックポートが使用中の場合は、続行して新しいコマンドを取得してください。",
+	"mcps_login_retry_instructions": "サインインすると、このページは自動的に次へ進みます。コマンドの有効期限が切れた場合やコールバックポートが使用中の場合は、新しいサインインコマンドを取得してください。",
 	"mcps_login_validating": "認証を確認しています...",
 	"mcps_login_continue": "続行",
 	"mcps_login_install": "Obot CLI をインストール",
-	"mcps_login_callback_description": "localhost コールバックを必要とするプロバイダー向けです。通常の URL で接続すると、認証時にブラウザーと同じコンピューターで実行する一時的な CLI ログインコマンドが表示されます。プロバイダーの認証情報は Obot が管理します。"
+	"mcps_login_callback_description": "localhost コールバックを必要とするプロバイダー向けです。通常の URL で接続すると、認証時にブラウザーと同じコンピューターで実行する一時的な CLI ログインコマンドが表示されます。プロバイダーの認証情報は Obot が管理します。",
+	"mcps_login_waiting": "サインインを待っています…",
+	"mcps_login_refresh": "新しいサインインコマンドを取得",
+	"mcps_login_check_failed": "サインインを確認できません。自動的に再試行します。新しいコマンドを取得することもできます。"
 }

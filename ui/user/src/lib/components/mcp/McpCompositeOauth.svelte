@@ -256,7 +256,7 @@
 									{m.mcps_oauth_composite_oauth_checking()}
 								</span>
 							{:else if isMcpLoginURL(item.authURL)}
-								<McpLogin url={item.authURL} onComplete={() => void checkComponent(item)} />
+								<McpLogin url={item.authURL} onComplete={() => checkComponent(item)} />
 							{:else}
 								<a
 									href={item.authURL}

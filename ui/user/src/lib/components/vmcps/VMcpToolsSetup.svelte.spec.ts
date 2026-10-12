@@ -6,7 +6,7 @@ import { worker } from '../../../tests/mocks/worker';
 import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 import { http, HttpResponse } from 'msw';
 import { untrack } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -348,7 +348,8 @@ describe('VMcpToolsSetup preview credentials', () => {
 		const payload = { TOKEN: 'preview-secret', REGION: 'west' };
 		expect(preview).toHaveBeenCalledWith(payload);
 		expect(oauth).toHaveBeenCalledWith(payload);
-		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+		worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+		document.dispatchEvent(new Event('visibilitychange'));
 		await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
 		expect(preview).toHaveBeenLastCalledWith(payload);
 		result.component.close();
@@ -356,7 +357,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
 	});
 
-	it.each(['Continue', 'returning to the tab'])(
+	it.each(['refresh', 'returning to the tab'])(
 		'prevents duplicate authentication retries after %s starts validation',
 		async (trigger) => {
 			const preview = vi.fn();
@@ -391,20 +392,27 @@ describe('VMcpToolsSetup preview credentials', () => {
 			await openSetup();
 			await fillConfiguration();
 			await page.getByRole('button', { name: 'Configure Tools' }).click();
-			const continueButton = page.getByRole('button', { name: 'Continue', exact: true });
+			worker.use(
+				http.get('*/oauth/mcp/login/preview', () => new HttpResponse(null, { status: 400 }))
+			);
+			const continueButton = page.getByRole('button', {
+				name: 'Get a new sign-in command',
+				exact: true
+			});
 			await expect.element(continueButton).toBeVisible();
 			try {
 				// Native clicks exercise repeated activation before Svelte updates the disabled state.
 				const button = continueButton.element() as HTMLButtonElement;
-				if (trigger === 'Continue') {
+				if (trigger === 'refresh') {
 					button.click();
 				} else {
 					document.dispatchEvent(new Event('visibilitychange'));
 				}
 				button.click();
+				await expect.element(continueButton).toBeDisabled();
 				await expect
-					.element(page.getByRole('button', { name: 'Validating authentication...' }))
-					.toBeDisabled();
+					.element(page.getByRole('status'))
+					.toHaveTextContent('Validating authentication...');
 				button.click();
 				document.dispatchEvent(new Event('visibilitychange'));
 				await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
@@ -443,4 +451,8 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect.element(page.getByLabelText('API token', { exact: false })).toHaveValue('');
 		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	});
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
 });

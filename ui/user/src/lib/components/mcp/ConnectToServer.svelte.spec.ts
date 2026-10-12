@@ -4,7 +4,7 @@ import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import ConnectToServer from './ConnectToServer.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
@@ -89,10 +89,10 @@ describe('ConnectToServer setup completion', () => {
 	}, 4000);
 });
 
-it('shows the direct URL for a localhost callback server', async () => {
+it('does not advertise a direct URL for a localhost callback server', async () => {
 	await preparePageData();
 	const entry = structuredClone(fixtures.entrySingle);
-	entry.connectURL = 'https://obot.example/mcp-connect/vercel';
+	Object.assign(entry, { connectURL: 'https://obot.example/mcp-connect/vercel' });
 	entry.manifest.remoteConfig = {
 		fixedURL: 'https://mcp.example.com',
 		localhostCallbackEnabled: true
@@ -102,13 +102,13 @@ it('shows the direct URL for a localhost callback server', async () => {
 	await expect
 		.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
 		.not.toBeInTheDocument();
-	await expect.element(page.getByText('Connection URL', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Connection URL', { exact: true })).not.toBeInTheDocument();
 });
 
-it('uses HTTP installation with a custom catalog callback path', async () => {
+it('does not offer direct installation with a custom catalog callback path', async () => {
 	await preparePageData();
 	const entry = structuredClone(fixtures.entrySingle);
-	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	Object.assign(entry, { connectURL: 'https://obot.example/mcp-connect/custom' });
 	entry.manifest.remoteConfig = {
 		localhostCallbackEnabled: true,
 		localhostCallbackPath: '/custom/callback'
@@ -116,11 +116,7 @@ it('uses HTTP installation with a custom catalog callback path', async () => {
 	const result = await render(ConnectToServer);
 	result.component.open({ entry });
 	const link = page.getByRole('link', { name: /Add to Cursor$/ });
-	await expect.element(link).toBeVisible();
-	const config = JSON.parse(
-		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
-	);
-	expect(config).toEqual({ type: 'http', url: entry.connectURL });
+	await expect.element(link).not.toBeInTheDocument();
 });
 
 it('shows CLI login when a deployed localhost server needs authentication', async () => {
@@ -134,7 +130,6 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 	);
 
 	const server = structuredClone(fixtures.serverSingle);
-	server.connectURL = 'https://obot.example/mcp-connect/deployed';
 	server.manifest.remoteConfig = {
 		url: 'https://mcp.example.com',
 		localhostCallbackEnabled: true,
@@ -149,7 +144,7 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
 	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
 });
 
@@ -185,4 +180,42 @@ it.each([390, 1280])('keeps local login usable at %ipx and dismisses it once', a
 	} finally {
 		await page.viewport(1280, 720);
 	}
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
+});
+
+it('stops watching local login when its dialog is dismissed, including an in-flight response', async () => {
+	await preparePageData();
+	let finish!: () => void;
+	const pending = new Promise<void>((resolve) => {
+		finish = resolve;
+	});
+	const polled = vi.fn();
+	const oauthChecks = vi.fn();
+	worker.use(
+		http.get('*/api/*/oauth-url', () => {
+			oauthChecks();
+			return HttpResponse.json({ oauthURL: `${window.location.origin}/oauth/mcp/login/dismissed` });
+		}),
+		http.get('*/oauth/mcp/login/dismissed', async () => {
+			polled();
+			await pending;
+			return new HttpResponse(null, { status: 400 });
+		})
+	);
+	const server = structuredClone(fixtures.serverSingle);
+	server.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
+	const onConnect = vi.fn();
+	const result = await render(ConnectToServer, { onConnect });
+	await result.component.authenticate(server);
+	await vi.waitFor(() => expect(polled).toHaveBeenCalledOnce());
+	await userEvent.keyboard('{Escape}');
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+	finish();
+	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
+	document.dispatchEvent(new Event('visibilitychange'));
+	expect(oauthChecks).toHaveBeenCalledOnce();
+	expect(polled).toHaveBeenCalledOnce();
 });

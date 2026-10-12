@@ -449,7 +449,7 @@
 
 	async function handleVisibilityChange() {
 		if (!entry || !id) return;
-		if (document.visibilityState !== 'visible') return;
+		if (document.visibilityState !== 'visible' || isMcpLoginURL(oauthURL ?? '')) return;
 
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
 		handleLaunchTemporaryInstance();
@@ -1317,7 +1317,7 @@
 			<Loading class="size-6" />
 		</div>
 	{:else if oauthURL && isMcpLoginURL(oauthURL)}
-		<McpLogin url={oauthURL} onComplete={() => void handleLaunchTemporaryInstance()} />
+		<McpLogin url={oauthURL} onComplete={() => handleLaunchTemporaryInstance()} />
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<a

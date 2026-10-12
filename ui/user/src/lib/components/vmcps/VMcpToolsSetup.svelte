@@ -180,7 +180,13 @@
 	}
 
 	function handleVisibilityChange() {
-		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
+		if (
+			dialogPhase === 'setup' &&
+			document.visibilityState === 'visible' &&
+			oauthURL &&
+			!isMcpLoginURL(oauthURL) &&
+			!loading
+		) {
 			validateAuthentication();
 		}
 	}
@@ -188,7 +194,7 @@
 	function validateAuthentication() {
 		if (loading) return;
 		oauthValidating = true;
-		void fetchLiveTools();
+		return fetchLiveTools();
 	}
 
 	$effect(() => {
@@ -411,7 +417,7 @@
 			{/if}
 
 			{#if oauthURL && isMcpLoginURL(oauthURL)}
-				<McpLogin url={oauthURL} />
+				<McpLogin url={oauthURL} {loading} onComplete={validateAuthentication} />
 			{/if}
 
 			{#if !oauthURL && !oauthSetupRequired}
@@ -507,19 +513,7 @@
 					</button>
 				{:else if oauthURL}
 					{#if isMcpLoginURL(oauthURL)}
-						<button
-							type="button"
-							class="btn btn-primary flex items-center justify-center gap-2"
-							disabled={loading}
-							onclick={validateAuthentication}
-						>
-							{#if loading}
-								<Loading class="size-4" />
-								{m.mcps_login_validating()}
-							{:else}
-								{m.mcps_login_continue()}
-							{/if}
-						</button>
+						<!-- The shared login component waits for this attempt to finish. -->
 					{:else if oauthValidating}
 						<button
 							in:fade

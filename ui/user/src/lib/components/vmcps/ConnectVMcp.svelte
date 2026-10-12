@@ -390,8 +390,12 @@
 		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
 			oauthChecking = true;
+			const currentURL = oauthURL;
 			try {
-				oauthURL = await getOauthURL();
+				const nextURL = await getOauthURL();
+				// Dismissal or a newer attempt must not complete from a stale response.
+				if (oauthURL !== currentURL) return;
+				oauthURL = nextURL;
 				if (!oauthURL) {
 					finishOauthPrompt();
 				}
@@ -402,9 +406,13 @@
 		}
 	}
 
+	function handleOauthTabReturn() {
+		if (!isMcpLoginURL(oauthURL)) void handleOauthVisibilityChange();
+	}
+
 	function ensureOauthVisibilityListener() {
-		document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
-		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+		document.removeEventListener('visibilitychange', handleOauthTabReturn);
+		document.addEventListener('visibilitychange', handleOauthTabReturn);
 	}
 
 	async function verifyOauthOrConnect() {
@@ -520,7 +528,7 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
-			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+			document.removeEventListener('visibilitychange', handleOauthTabReturn);
 		};
 	});
 </script>

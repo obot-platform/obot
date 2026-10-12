@@ -706,7 +706,11 @@ it('shows component login commands directly during vMCP preconfiguration', async
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
 	await vi.waitFor(() => expect(checked).toHaveBeenCalledOnce());
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
 });

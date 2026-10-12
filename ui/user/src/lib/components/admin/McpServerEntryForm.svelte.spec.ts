@@ -3,7 +3,7 @@ import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import McpServerEntryForm from './McpServerEntryForm.svelte';
 import { HttpResponse, http } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -90,9 +90,13 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
 	await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
 	expect(preview).toHaveBeenCalledTimes(2);
 	expect(oauth.mock.calls[0]).toEqual(preview.mock.calls[0]);
 	expect(preview.mock.calls[1]).toEqual(preview.mock.calls[0]);
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
 });

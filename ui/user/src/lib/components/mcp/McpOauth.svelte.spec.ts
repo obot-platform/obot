@@ -3,7 +3,7 @@ import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import McpOauth from './McpOauth.svelte';
 import { HttpResponse, http } from 'msw';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -50,7 +50,6 @@ it.each([
 it('uses the pending UI attempt and checks authentication before resuming', async () => {
 	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
 	entry.vmcpID = 'vmcp1parent';
-	entry.connectURL = 'https://obot.example/mcp-connect/deployed-server';
 	entry.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
 	const oauthRequest = vi.fn();
 	const attemptURL = `${window.location.origin}/oauth/mcp/login/preview-state`;
@@ -67,7 +66,7 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
-	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
 	await vi.waitFor(() => expect(onAuthenticate).toHaveBeenCalledOnce());
 	expect(oauthRequest).toHaveBeenCalledTimes(2);
 });
@@ -115,4 +114,8 @@ it('keeps provider URLs with a matching login path in the browser OAuth flow', a
 		.element(page.getByRole('link', { name: 'Authenticate' }))
 		.toHaveAttribute('href', providerURL);
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+});
+
+beforeEach(() => {
+	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
 });

@@ -191,7 +191,7 @@ func TestLocalhostCallbackCatalogEntryHasNoDirectRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.Meta.Obot == nil || !got.Meta.Obot.ConfigurationRequired {
-		t.Fatalf("expected CLI configuration to be required, got %#v", got.Meta.Obot)
+		t.Fatalf("expected vMCP connection to be required, got %#v", got.Meta.Obot)
 	}
 	if len(got.Server.Remotes) != 0 {
 		t.Fatalf("expected no direct remote, got %#v", got.Server.Remotes)
@@ -205,12 +205,12 @@ func TestLocalhostCallbackServerHasNoDirectRemote(t *testing.T) {
 		URL:                      "https://example.com/mcp",
 		LocalhostCallbackEnabled: true,
 	}
-	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", "user-1", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Meta.Obot == nil || !got.Meta.Obot.ConfigurationRequired {
-		t.Fatalf("expected CLI configuration to be required, got %#v", got.Meta.Obot)
+		t.Fatalf("expected vMCP connection to be required, got %#v", got.Meta.Obot)
 	}
 	if len(got.Server.Remotes) != 0 {
 		t.Fatalf("expected no direct remote, got %#v", got.Server.Remotes)

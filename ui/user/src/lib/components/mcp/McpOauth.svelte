@@ -20,7 +20,6 @@
 		text?: string;
 	}
 
-	// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 	let { onAuthenticate, error = $bindable(), entry, text }: Props = $props();
 
 	let componentAuthID = $derived(
@@ -38,7 +37,7 @@
 	let initializedListener = $state(false);
 
 	const handleVisibilityChange = () => {
-		if (!showRefresh || loading) return;
+		if (!showRefresh || loading || isMcpLoginURL(oauthURL)) return;
 		if (document.visibilityState === 'visible') {
 			loadOauthURL();
 		}
@@ -135,7 +134,7 @@
 		onComplete={() => {
 			if (loading) return;
 			showRefresh = true;
-			void loadOauthURL();
+			return loadOauthURL();
 		}}
 	/>
 {:else if oauthURL}
