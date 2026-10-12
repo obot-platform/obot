@@ -124,7 +124,7 @@
 			onclick={() => {
 				showRefresh = true;
 				void loadOauthURL();
-			}}>Retry authentication</button
+			}}>{m.mcps_login_retry_authentication()}</button
 		>
 	</div>
 {:else if isMcpLoginURL(oauthURL)}

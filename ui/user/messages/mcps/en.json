@@ -1132,5 +1132,12 @@
 	"mcps_login_callback_description": "For providers that require a localhost callback. Connect using the normal URL; during authentication, Obot shows a temporary CLI login command to run on the same computer as your browser. Obot manages the provider credentials.",
 	"mcps_login_waiting": "Waiting for sign-in…",
 	"mcps_login_refresh": "Get a new sign-in command",
-	"mcps_login_check_failed": "Unable to check sign-in. Retrying automatically. You can also get a new command."
+	"mcps_login_check_failed": "Unable to check sign-in. Retrying automatically. You can also get a new command.",
+	"mcps_login_callback_title": "Localhost OAuth callback",
+	"mcps_login_callback_disable": "Disable Localhost OAuth callback",
+	"mcps_login_callback_enable": "Enable Localhost OAuth callback",
+	"mcps_login_callback_path": "Callback path",
+	"mcps_login_callback_path_hint": "Leave blank for /oauth/callback.",
+	"mcps_catalog_remote_hide_advanced": "Hide Advanced Configuration",
+	"mcps_login_retry_authentication": "Retry authentication"
 }

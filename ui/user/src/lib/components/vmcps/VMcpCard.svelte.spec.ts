@@ -732,3 +732,19 @@ describe('VMcpCard.svelte', () => {
 		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
 	});
 });
+
+it('keeps the HTTP copy shortcut for a ready vMCP with localhost OAuth', async () => {
+	const vmcp = createVMCP({
+		id: 'vmcp-localhost',
+		userID: getProfileResponse.id,
+		localhostCallbackPaths: ['/oauth/callback'],
+		status: { ready: true }
+	});
+	await renderCard({ groups: [Group.USER], vmcp });
+	await expect
+		.element(page.getByRole('button', { name: 'Copy Connect URL', exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('button', { name: 'Copy Connect URL', exact: true }))
+		.toBeEnabled();
+});

@@ -685,6 +685,6 @@
 	{showAdvanced
 		? variant === 'catalog'
 			? m.mcps_catalog_remote_remote_reset_default()
-			: 'Hide Advanced Configuration'
+			: m.mcps_catalog_remote_hide_advanced()
 		: m.mcps_catalog_remote_remote_advanced()}
 </button>

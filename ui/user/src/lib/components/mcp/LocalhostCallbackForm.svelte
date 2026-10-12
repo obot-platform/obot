@@ -24,7 +24,7 @@
 			}}
 		>
 			<h4 class="text-sm font-semibold" class:opacity-50={!config.localhostCallbackEnabled}>
-				Localhost OAuth callback
+				{m.mcps_login_callback_title()}
 			</h4>
 			<p class="text-muted-content text-xs font-light">
 				{m.mcps_login_callback_description()}
@@ -34,8 +34,8 @@
 			<Toggle
 				classes={{ label: 'text-sm text-inherit' }}
 				label={config.localhostCallbackEnabled
-					? 'Disable Localhost OAuth callback'
-					: 'Enable Localhost OAuth callback'}
+					? m.mcps_login_callback_disable()
+					: m.mcps_login_callback_enable()}
 				checked={!!config.localhostCallbackEnabled}
 				disabled={readonly}
 				onChange={(checked) => {
@@ -46,7 +46,9 @@
 	</div>
 	{#if config.localhostCallbackEnabled}
 		<div class="flex flex-col gap-2" in:slide={{ axis: 'y' }}>
-			<label for={`${uid}-callback-path`} class="text-sm font-light">Callback path</label>
+			<label for={`${uid}-callback-path`} class="text-sm font-light"
+				>{m.mcps_login_callback_path()}</label
+			>
 			<input
 				id={`${uid}-callback-path`}
 				class="text-input-filled dark:bg-base-100 w-full"
@@ -57,7 +59,7 @@
 				disabled={readonly}
 				placeholder="/oauth/callback"
 			/>
-			<p class="text-muted-content text-xs font-light">Leave blank for /oauth/callback.</p>
+			<p class="text-muted-content text-xs font-light">{m.mcps_login_callback_path_hint()}</p>
 		</div>
 	{/if}
 </div>
