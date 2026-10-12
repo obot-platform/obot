@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -32,7 +33,7 @@ func TestVMCPComponentsAreExcludedFromPersonalRegistryServers(t *testing.T) {
 	)
 
 	_, ctx := registryTestHandlerAndContext(t, storage)
-	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "").listPersonalServers(ctx, "user-1")
+	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}).listPersonalServers(ctx, "user-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestVMCPComponentsAreExcludedFromWorkspaceRegistryServers(t *testing.T) {
 	)
 
 	_, ctx := registryTestHandlerAndContext(t, storage)
-	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "").listServersInWorkspaces(ctx)
+	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}).listServersInWorkspaces(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +157,7 @@ func registryTestHandlerAndContext(t *testing.T, storage *registryTestStorage) (
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return NewHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), "https://obot.example.com", false, ""), registryTestContext(storage, client)
+	return NewHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}), registryTestContext(storage, client)
 }
 
 func registryTestContext(storage *registryTestStorage, gatewayClient *gateway.Client) api.Context {

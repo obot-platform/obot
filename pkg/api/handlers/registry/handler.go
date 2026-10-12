@@ -28,12 +28,12 @@ type Handler struct {
 	secretBindingAllowedLabel string
 }
 
-func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool, secretBindingAllowedLabel string) *Handler {
+func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool, secretBindingAllowedLabel string, egress mcp.RemoteMCPURLValidationConfig) *Handler {
 	return &Handler{
 		acrHelper:                 acrHelper,
 		serverURL:                 serverURL,
 		registryNoAuth:            registryNoAuth,
-		mimeFetcher:               newMimeFetcher(),
+		mimeFetcher:               newMimeFetcher(egress),
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
 }

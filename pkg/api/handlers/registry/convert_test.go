@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -12,7 +13,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteFixedURLRequiresVMCP(t *tes
 		FixedURL: "https://api.example.com/mcp",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteHostnameRequiresConfigurati
 		Hostname: "api.example.com",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteURLTemplateRequiresConfigur
 		URLTemplate: "https://${WORKSPACE}.example.com/mcp",
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigur
 		StaticOAuthRequired: true,
 	})
 
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigur
 	}
 
 	entry.Status.OAuthCredentialConfigured = true
-	got, err = ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err = ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 		},
 	}
 
-	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestConvertMCPServerToRegistryConfiguredServersRequireVMCP(t *testing.T) {
 					},
 				},
 			}
-			got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher())
+			got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 			if err != nil {
 				t.Fatal(err)
 			}

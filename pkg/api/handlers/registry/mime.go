@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 )
 
@@ -16,15 +17,16 @@ type mimeFetcher struct {
 	client *http.Client
 }
 
-func newMimeFetcher() *mimeFetcher {
+func newMimeFetcher(egress mcp.RemoteMCPURLValidationConfig) *mimeFetcher {
 	return &mimeFetcher{
 		lock:  sync.RWMutex{},
 		cache: make(map[string]string),
-		// Icon URLs are user-supplied, so never let the fetch reach local or internal addresses.
+		// Icon URLs are user-supplied, so only let the fetch reach local or internal addresses
+		// when the admin's egress settings allow it, the same as remote MCP servers.
 		client: safehttp.NewClient(safehttp.Options{
-			BlockLoopback:  true,
-			BlockPrivateIP: true,
-			BlockLinkLocal: true,
+			BlockLoopback:  !egress.AllowLocalhostMCP,
+			BlockPrivateIP: !egress.AllowPrivateIPMCP,
+			BlockLinkLocal: !egress.AllowLinkLocalMCP,
 		}),
 	}
 }
