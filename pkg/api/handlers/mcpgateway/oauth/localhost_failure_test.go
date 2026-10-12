@@ -25,7 +25,14 @@ func TestLocalhostCallbackFailuresPreserveRequest(t *testing.T) {
 		status          int
 		body            string
 		failPersistence bool
+		callbackError   string
 	}{
+		{
+			name:          "provider callback failure",
+			status:        http.StatusServiceUnavailable,
+			body:          `{"error":"temporarily_unavailable"}`,
+			callbackError: "server_error",
+		},
 		{
 			name:   "expired code",
 			status: http.StatusBadRequest,
@@ -87,7 +94,7 @@ func TestLocalhostCallbackFailuresPreserveRequest(t *testing.T) {
 			}
 			require.NoError(t, fixture.storage.Create(t.Context(), authRequest))
 			require.NoError(t, state.store(t.Context(), "1", "connection", provider.URL, authRequest.Name, "callback-state", "verifier", "", conf))
-			req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/callback?state=callback-state&code=code", nil)
+			req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/callback?state=callback-state&code=code&error="+url.QueryEscape(tt.callbackError), nil)
 			response := httptest.NewRecorder()
 			req.ResponseWriter = response
 			h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: state}}
@@ -98,7 +105,8 @@ func TestLocalhostCallbackFailuresPreserveRequest(t *testing.T) {
 			require.Equal(t, "localhost:1234", location.Host)
 			require.Equal(t, "/oauth/obot/callback", location.Path)
 			require.Equal(t, "client-state", location.Query().Get("state"))
-			require.Equal(t, "access_denied", location.Query().Get("error"))
+			require.Equal(t, "server_error", location.Query().Get("error"))
+			require.Equal(t, "Obot: upstream authentication failed", location.Query().Get("error_description"))
 			require.NotContains(t, location.String(), "upstream-token")
 		})
 	}

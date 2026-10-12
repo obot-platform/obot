@@ -543,7 +543,11 @@ func (h *handler) oauthCallback(req api.Context) error {
 				return loadErr
 			}
 			if req.UserIsAuthenticated() && request.Spec.UserID == req.UserID() {
-				redirectWithAuthorizeError(req, request.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "upstream authorization was denied", request.Spec.State))
+				code, description := ErrServerError, "upstream authentication failed"
+				if req.URL.Query().Get("error") == string(ErrAccessDenied) {
+					code, description = ErrAccessDenied, "upstream authorization was denied"
+				}
+				redirectWithAuthorizeError(req, request.Spec.RedirectURI, newOAuthError(code, description, request.Spec.State))
 				return nil
 			}
 		}
