@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import { isMissingRequiredConfigurationField } from '$lib/components/mcp/configurationOptions';
 	import { m } from '$lib/i18n';
@@ -14,6 +15,7 @@
 		ToolOverride,
 		VMCPComponent
 	} from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
 	import {
 		catalogConfigurationFields,
@@ -179,9 +181,14 @@
 
 	function handleVisibilityChange() {
 		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
-			oauthValidating = true;
-			void fetchLiveTools();
+			validateAuthentication();
 		}
+	}
+
+	function validateAuthentication() {
+		if (loading) return;
+		oauthValidating = true;
+		void fetchLiveTools();
 	}
 
 	$effect(() => {
@@ -403,6 +410,10 @@
 				</p>
 			{/if}
 
+			{#if oauthURL && isMcpLoginURL(oauthURL)}
+				<McpLogin url={oauthURL} />
+			{/if}
+
 			{#if !oauthURL && !oauthSetupRequired}
 				{#each userFields as field (field.key)}
 					<div class="mb-4 flex flex-col gap-2">
@@ -461,7 +472,7 @@
 			{#if error}
 				<p class="text-error mb-4 text-sm" role="alert">{error}</p>
 			{/if}
-			<div class="flex w-full flex-col gap-2">
+			<div class="mt-4 flex w-full flex-wrap justify-end gap-2">
 				{#if oauthSetupRequired}
 					{#if profile.current.isAdmin?.() && component?.mcpServerCatalogEntryID}
 						<a
@@ -495,7 +506,21 @@
 						{m.vmcps_check_again()}
 					</button>
 				{:else if oauthURL}
-					{#if oauthValidating}
+					{#if isMcpLoginURL(oauthURL)}
+						<button
+							type="button"
+							class="btn btn-primary flex items-center justify-center gap-2"
+							disabled={loading}
+							onclick={validateAuthentication}
+						>
+							{#if loading}
+								<Loading class="size-4" />
+								{m.mcps_login_validating()}
+							{:else}
+								{m.mcps_login_continue()}
+							{/if}
+						</button>
+					{:else if oauthValidating}
 						<button
 							in:fade
 							class="btn btn-primary flex items-center justify-center gap-2"

@@ -3,8 +3,10 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
+	import McpLogin from './McpLogin.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -16,6 +18,7 @@
 		oauthAuthRequestId?: string;
 		onComplete?: () => void;
 		class?: string;
+		embedded?: boolean;
 	}
 
 	let {
@@ -23,7 +26,8 @@
 		vmcpId,
 		oauthAuthRequestId,
 		onComplete,
-		class: className
+		class: className,
+		embedded = false
 	}: Props = $props();
 
 	type OAuthParent = VMCP;
@@ -183,26 +187,33 @@
 </script>
 
 <div
-	class={twMerge('colors-background flex min-h-screen items-center justify-center p-4', className)}
+	class={twMerge(
+		embedded
+			? 'w-full min-w-0'
+			: 'colors-background flex min-h-screen items-center justify-center p-4',
+		className
+	)}
 >
-	<div class="popover w-full max-w-lg p-6">
-		<div class="mb-6 flex items-center gap-3">
-			<div class="bg-base-200 shrink-0 rounded-md p-2">
-				{#if parentIcon}
-					<img src={parentIcon} alt={parentDisplayName} class="size-8" />
-				{:else}
-					<Server class="size-8" />
-				{/if}
+	<div class={embedded ? 'w-full min-w-0' : 'popover w-full max-w-lg p-6'}>
+		{#if !embedded}
+			<div class="mb-6 flex items-center gap-3">
+				<div class="bg-base-200 shrink-0 rounded-md p-2">
+					{#if parentIcon}
+						<img src={parentIcon} alt={parentDisplayName} class="size-8" />
+					{:else}
+						<Server class="size-8" />
+					{/if}
+				</div>
+				<h1 class="text-2xl font-semibold">
+					{parentDisplayName}
+				</h1>
 			</div>
-			<h1 class="text-2xl font-semibold">
-				{parentDisplayName}
-			</h1>
-		</div>
 
-		{#if !allAuthenticated}
-			<p class="mb-6 text-sm">
-				{m.mcps_oauth_composite_oauth_description()}
-			</p>
+			{#if !allAuthenticated}
+				<p class="mb-6 text-sm">
+					{m.mcps_oauth_composite_oauth_description()}
+				</p>
+			{/if}
 		{/if}
 
 		{#if loading && pending.length === 0}
@@ -218,30 +229,34 @@
 			<div class="flex flex-col gap-4">
 				{#each pending as item (item.mcpServerID)}
 					<div
-						class="border-base-400 bg-base-200 flex items-center justify-between rounded-lg border p-4"
+						class="dark:bg-base-300 dark:border-base-400 bg-base-100 min-w-0 rounded-lg border border-transparent shadow-sm"
 					>
-						<div class="flex items-center gap-3">
+						<div class="flex min-w-0 items-center gap-2 p-2">
 							{#if item.icon || componentInfos[item.catalogEntryID || '']?.icon}
 								<img
 									src={item.icon || componentInfos[item.catalogEntryID || '']?.icon}
 									alt={m.mcps_oauth_icon_alt()}
-									class="size-6"
+									class="size-8 shrink-0"
 								/>
 							{:else}
-								<Server class="size-6" />
+								<Server class="size-8 shrink-0" />
 							{/if}
-							<span class="text-base font-medium">{componentLabel(item)}</span>
+							<span class="min-w-0 break-words text-sm font-medium">{componentLabel(item)}</span>
 							<McpDeprecatedNotice
 								deprecated={componentInfos[item.catalogEntryID || '']?.deprecated}
 								child
 							/>
 						</div>
-						<div class="flex items-center gap-2">
+						<div
+							class="border-base-300 dark:border-base-400 flex min-w-0 flex-wrap items-center justify-end gap-2 border-t p-3"
+						>
 							{#if checking.has(item.mcpServerID)}
 								<span class="flex items-center gap-2 text-sm" role="status">
 									<Loading class="size-4" />
 									{m.mcps_oauth_composite_oauth_checking()}
 								</span>
+							{:else if isMcpLoginURL(item.authURL)}
+								<McpLogin url={item.authURL} onComplete={() => void checkComponent(item)} />
 							{:else}
 								<a
 									href={item.authURL}

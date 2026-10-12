@@ -1153,3 +1153,53 @@ describe('MCP Tester page', () => {
 			.not.toBeInTheDocument();
 	});
 });
+
+it('shows CLI login and retries a localhost component in the inspector', async () => {
+	appPage.url.searchParams.delete('tab');
+	mockMCPInitializationFailure(401);
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
+	let checks = 0;
+	worker.use(
+		http.get(`/api/oauth/vmcp/vmcpi1component/components/${fixtures.serverSingle.id}`, () =>
+			HttpResponse.json({ authURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
+	const server = structuredClone(fixtures.serverSingle);
+	server.configured = true;
+	server.vmcpInstanceID = 'vmcpi1component';
+	server.deploymentStatus = 'Available';
+	server.connectURL = `https://obot.example/mcp-connect/${server.id}`;
+	server.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
+	const data = await preparePageData<PageData>({
+		server,
+		backTarget: `/mcp-servers/s/${server.id}`
+	});
+	await render(TesterPage, { data });
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	mockMCPInitialization();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect
+		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+		.not.toBeInTheDocument();
+});
+
+it('keeps management navigation for a legacy localhost deployment without a vMCP owner', async () => {
+	appPage.url.searchParams.delete('tab');
+	mockMCPInitializationFailure(401);
+	const server = structuredClone(fixtures.serverSingle);
+	server.configured = true;
+	server.deploymentStatus = 'Available';
+	server.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
+	const data = await preparePageData<PageData>({
+		server,
+		backTarget: `/mcp-servers/s/${server.id}`
+	});
+	await render(TesterPage, { data });
+	await expect
+		.element(page.getByRole('link', { name: 'Manage authentication', exact: true }))
+		.toHaveAttribute('href', `/mcp-servers/s/${server.id}`);
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+});

@@ -256,3 +256,93 @@ describe('McpCompositeOauth', () => {
 		expect(oauthPendingGet).toHaveBeenCalledTimes(1);
 	});
 });
+
+it('keeps mixed client authentication pending after a local component completes', async () => {
+	const checked = vi.fn();
+	mockConsentApis([
+		{
+			mcpServerID: 'local',
+			name: 'Local',
+			authURL: `${window.location.origin}/oauth/mcp/login/ui-local-component`
+		},
+		{ mcpServerID: 'hosted', name: 'Hosted', authURL: 'https://provider.example/authorize' }
+	]);
+	worker.use(
+		http.get('/api/oauth/vmcp/:id/components/:componentID', ({ request, params }) => {
+			checked(params.componentID, new URL(request.url).searchParams.get('oauth_auth_request'));
+			return HttpResponse.json({ authURL: '' });
+		})
+	);
+	const onComplete = vi.fn();
+	await render(McpCompositeOauth, {
+		compositeMcpId: 'vmcp1mixed',
+		oauthAuthRequestId: 'original-request',
+		onComplete
+	});
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(
+			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/ui-local-component'`
+		);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await vi.waitFor(() => expect(checked).toHaveBeenCalledWith('local', 'original-request'));
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.toHaveAttribute('href', 'https://provider.example/authorize');
+	await expect
+		.element(page.getByText('All services authenticated successfully!'))
+		.not.toBeInTheDocument();
+	expect(onComplete).not.toHaveBeenCalled();
+});
+
+it('embeds login instructions without duplicating the parent dialog heading', async () => {
+	mockConsentApis([
+		{
+			mcpServerID: 'vercel',
+			name: 'Vercel',
+			authURL: '/oauth/mcp/login/ui-local-vercel'
+		}
+	]);
+	render(McpCompositeOauth, { compositeMcpId: 'vmcp1-embedded', embedded: true });
+	await expect.element(page.getByText('Vercel', { exact: true })).toBeVisible();
+	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
+	await expect.element(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible();
+	await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).not.toBeInTheDocument();
+});
+
+it.each([390, 1280])('keeps mixed authentication readable at %ipx', async (width) => {
+	await page.viewport(width, 900);
+	try {
+		mockConsentApis([
+			{ mcpServerID: 'vercel', name: 'Vercel', authURL: '/oauth/mcp/login/ui-local-vercel' },
+			{
+				mcpServerID: 'calendar',
+				name: 'Microsoft 365 Calendar',
+				authURL: 'https://provider.example/calendar'
+			},
+			{
+				mcpServerID: 'second-local',
+				name: 'Another locally authenticated MCP server',
+				authURL: '/oauth/mcp/login/ui-local-second'
+			}
+		]);
+		render(McpCompositeOauth, {
+			compositeMcpId: 'vmcp1-layout',
+			embedded: true,
+			class: 'max-w-lg'
+		});
+		const commands = page.getByLabelText('Authentication command');
+		await expect.element(commands.nth(1)).toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+			.toHaveAttribute('href', 'https://provider.example/calendar');
+		const name = page.getByText('Vercel', { exact: true }).element().getBoundingClientRect();
+		const command = commands.first().element().getBoundingClientRect();
+		expect(command.top).toBeGreaterThan(name.bottom);
+		expect(command.width).toBeGreaterThan(250);
+		expect(command.right).toBeLessThanOrEqual(width);
+	} finally {
+		await page.viewport(1280, 720);
+	}
+});

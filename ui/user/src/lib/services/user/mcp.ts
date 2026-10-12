@@ -913,6 +913,9 @@ export const convertServerRuntimeFormDataToManifest = (
 			if (baseData.remoteServerConfig) {
 				serverManifest.manifest.remoteConfig = {
 					url: baseData.remoteServerConfig.url,
+					localhostCallbackEnabled: baseData.remoteServerConfig.localhostCallbackEnabled,
+					localhostCallbackPath:
+						baseData.remoteServerConfig.localhostCallbackPath?.trim() || undefined,
 					tunnelName: baseData.remoteServerConfig.tunnelName
 				};
 			}
@@ -1132,10 +1135,18 @@ export async function disconnectMcpServerUser(server: MCPCatalogServer): Promise
 	await UserService.deleteSingleOrRemoteMcpServer(server.id);
 }
 
+export function getLocalhostCallbackPaths(config?: {
+	localhostCallbackEnabled?: boolean;
+	localhostCallbackPath?: string;
+}): string[] {
+	return config?.localhostCallbackEnabled
+		? [config.localhostCallbackPath || '/oauth/callback']
+		: [];
+}
+
 export function getAiClientCommand(client: AiClient, id: string, url: string): string {
 	const idArg = JSON.stringify(id);
 	const urlArg = JSON.stringify(url);
-
 	const commands = {
 		[AiClient.Claude]: `claude mcp add --transport http ${idArg} ${urlArg}`,
 		[AiClient.Codex]: `codex mcp add ${idArg} --url ${urlArg}`
@@ -1144,21 +1155,12 @@ export function getAiClientCommand(client: AiClient, id: string, url: string): s
 }
 
 function generateCursorMagicLink(displayName: string, url: string): string {
-	const cursorConfig = {
-		type: 'http',
-		url: url
-	};
-	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify(cursorConfig));
+	const cursorBase64 = encodeUtf8ToBase64(JSON.stringify({ type: 'http', url }));
 	return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(displayName)}&config=${encodeURIComponent(cursorBase64)}`;
 }
 
 function generateVsCodeMagicLink(displayName: string, url: string): string {
-	const vscodeConfig = {
-		name: displayName,
-		type: 'http',
-		url: url
-	};
-	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(vscodeConfig))}`;
+	return `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: displayName, type: 'http', url }))}`;
 }
 
 export function getAiClientMagicLink(client: AiClient, displayName: string, url: string): string {
@@ -1166,5 +1168,30 @@ export function getAiClientMagicLink(client: AiClient, displayName: string, url:
 		[AiClient.Cursor]: generateCursorMagicLink,
 		[AiClient.VSCode]: generateVsCodeMagicLink
 	};
-	return fn[client as keyof typeof fn] ? fn[client as keyof typeof fn](displayName, url) : '';
+	return fn[client as keyof typeof fn]?.(displayName, url) ?? '';
+}
+
+// Local UI login URLs refer to a specific pending OAuth attempt, not a server.
+export function isMcpLoginURL(value: string): boolean {
+	try {
+		const url = new URL(value, UserService.baseURL);
+		const trustedOrigins = [new URL(UserService.baseURL).origin];
+		// Development OAuth responses can point directly at Vite's API proxy target.
+		if (import.meta.env.DEV) {
+			trustedOrigins.push(
+				new URL(import.meta.env.VITE_API_TARGET || 'http://localhost:8080').origin
+			);
+		}
+		return (
+			(url.protocol === 'http:' || url.protocol === 'https:') &&
+			trustedOrigins.includes(url.origin) &&
+			!url.username &&
+			!url.password &&
+			!url.search &&
+			!url.hash &&
+			/\/oauth\/mcp\/login\/[^/]+$/.test(url.pathname)
+		);
+	} catch {
+		return false;
+	}
 }

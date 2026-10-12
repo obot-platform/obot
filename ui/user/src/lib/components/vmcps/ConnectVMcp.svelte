@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -9,11 +8,14 @@
 		type CompositeLaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
+	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		configureOAuthPath,
 		handleConfigureOAuth,
@@ -27,7 +29,7 @@
 	import { profile, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import VMcpIcon from './VMcpIcon.svelte';
-	import { CircleAlert, MessageCircle, X } from '@lucide/svelte';
+	import { CircleAlert, MessageCircle } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -45,12 +47,25 @@
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
 	let launchState = $state<'relaunching' | 'launching' | undefined>();
-	let oauthDialog = $state<HTMLDialogElement>();
+	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	// True while the OAuth prompt is showing. Every way out of the prompt (its
 	// close buttons, completing authentication, or Escape) ends it exactly once.
 	let oauthPromptOpen = false;
+	let oauthContent = $state<HTMLDivElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthChecking = $state(false);
+	let compositeAuthID = $derived.by(() => {
+		if (!oauthURL) return '';
+		try {
+			const match = new URL(oauthURL, 'http://localhost').pathname.match(
+				/\/auth\/mcp\/composite\/([^/]+)$/
+			);
+			return match ? decodeURIComponent(match[1]) : '';
+		} catch {
+			return '';
+		}
+	});
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
 	let connectReturn = $state<VMcpConnectOptions['connectReturn']>();
@@ -58,6 +73,7 @@
 	let skipConnectDialog = false;
 	let editConfigurationController: AbortController | undefined;
 
+	let localhostCallback = $derived(vmcp ? vmcpLocalhostCallbackPaths(vmcp).length > 0 : false);
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
@@ -370,11 +386,19 @@
 	}
 
 	async function handleOauthVisibilityChange() {
-		if (!oauthURL && !oauthVerifying) return;
+		// The Continue button and the visibility listener can both fire; run one check at a time.
+		if ((!oauthURL && !oauthVerifying) || oauthChecking) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
-			if (!oauthURL) finishOauthPrompt();
-			oauthVerifying = false;
+			oauthChecking = true;
+			try {
+				oauthURL = await getOauthURL();
+				if (!oauthURL) {
+					finishOauthPrompt();
+				}
+				oauthVerifying = false;
+			} finally {
+				oauthChecking = false;
+			}
 		}
 	}
 
@@ -400,7 +424,7 @@
 
 	function showOauthPrompt() {
 		oauthPromptOpen = true;
-		oauthDialog?.showModal();
+		oauthDialog?.open();
 	}
 
 	function finishOauthPrompt() {
@@ -414,7 +438,7 @@
 	// Escape closes the dialog natively, bypassing the close buttons.
 	function handleOauthDialogClosed() {
 		// A close event that arrives after the prompt reopened belongs to the earlier prompt.
-		if (oauthDialog?.open) return;
+		if (oauthContent?.closest('dialog')?.open) return;
 		finishOauthPrompt();
 	}
 
@@ -576,6 +600,7 @@
 				{m.vmcps_test_vmcp()}
 			</button>
 		</div>
+
 		<HowToConnect
 			bind:this={howToConnect}
 			url={connectURL}
@@ -737,38 +762,43 @@
 	{/snippet}
 </Confirm>
 
-<dialog
+<ResponsiveDialog
 	bind:this={oauthDialog}
-	class="dialog"
-	use:dialogAnimation={{ type: 'slide' }}
-	onclose={handleOauthDialogClosed}
+	animate="slide"
+	class={localhostCallback && compositeAuthID ? 'bg-base-200' : ''}
+	classes={{ header: 'mb-0' }}
+	onClose={handleOauthDialogClosed}
 >
-	<div class="dialog-container md:w-sm">
-		<div class="flex flex-col gap-4 p-4">
-			{#if oauthURL}
-				<div class="absolute top-2 right-2">
-					<IconButton onclick={finishOauthPrompt}>
-						<X class="size-4" />
-					</IconButton>
-				</div>
-				<div class="flex items-center gap-2">
-					<VMcpIcon components={componentViews} />
-					<h3 class="text-lg leading-5.5 font-semibold pr-8 truncate">
-						{displayName}
-					</h3>
-				</div>
-
-				<p>
-					{m.vmcps_oauth_required_named({ name: displayName })}
-				</p>
-
+	{#snippet titleContent()}
+		<div class="flex min-w-0 items-center gap-2">
+			<VMcpIcon components={componentViews} />
+			{displayName}
+		</div>
+	{/snippet}
+	<div bind:this={oauthContent} class="flex min-w-0 flex-col gap-4 p-4 md:p-0">
+		{#if oauthURL}
+			<p class="text-sm">{m.vmcps_oauth_required_named({ name: displayName })}</p>
+			{#if isMcpLoginURL(oauthURL)}
+				<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} loading={oauthChecking} />
+			{:else if localhostCallback && compositeAuthID && vmcp}
+				<McpCompositeOauth
+					embedded
+					compositeMcpId={compositeAuthID}
+					vmcpId={vmcp.id}
+					onComplete={() => {
+						oauthURL = '';
+						oauthDialog?.close();
+						finishLaunch();
+					}}
+				/>
+			{:else}
 				<p>{m.vmcps_click_link_to_authenticate()}</p>
 
 				<a
 					href={oauthURL}
 					rel="external noopener noreferrer"
 					target="_blank"
-					class="btn btn-primary text-center text-sm outline-none"
+					class="btn btn-primary self-end text-center text-sm outline-none"
 					onclick={() => {
 						oauthVerifying = true;
 					}}
@@ -780,11 +810,6 @@
 					{/if}
 				</a>
 			{/if}
-		</div>
+		{/if}
 	</div>
-	<form class="dialog-backdrop">
-		<button type="button" aria-label={m.common_close_dialog()} onclick={finishOauthPrompt}
-			>{m.common_close()}</button
-		>
-	</form>
-</dialog>
+</ResponsiveDialog>

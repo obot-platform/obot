@@ -1121,5 +1121,13 @@
 	"mcps_tunnels_tunnel_updated": "MCP 隧道已成功更新。",
 	"mcps_tunnels_wildcard_position": "通配符必须位于开头或结尾",
 	"mcps_unknown_error": "发生未知错误",
-	"mcps_value_prefix": "值前缀"
+	"mcps_value_prefix": "值前缀",
+	"mcps_login_title": "验证 MCP 服务器身份",
+	"mcps_login_instructions": "在终端中运行此命令以进行身份验证。浏览器和 CLI 必须在同一台计算机上运行。",
+	"mcps_login_command": "身份验证命令",
+	"mcps_login_retry_instructions": "登录完成后，请返回此处继续。如果命令已过期或回调端口被占用，请点击继续以获取新命令。",
+	"mcps_login_validating": "正在验证身份...",
+	"mcps_login_continue": "继续",
+	"mcps_login_install": "安装 Obot CLI",
+	"mcps_login_callback_description": "适用于需要 localhost 回调的提供商。使用常规 URL 连接；身份验证时，Obot 会显示临时 CLI 登录命令，请在运行浏览器的同一台计算机上执行。提供商凭据由 Obot 管理。"
 }

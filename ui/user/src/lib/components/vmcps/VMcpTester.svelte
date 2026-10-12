@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import { m } from '$lib/i18n';
@@ -12,6 +13,7 @@
 		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
+	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		configureOAuthPath,
 		handleConfigureOAuth,
@@ -38,6 +40,7 @@
 
 	let { vmcp, onLaunch, loading = false, openEditInstanceConfiguration }: Props = $props();
 
+	let tester = $state<ReturnType<typeof Tester>>();
 	let componentViews = $derived(resolveVMcpComponents(vmcp));
 	let instance = $derived(
 		vmcpInstances.current.items.find(
@@ -95,6 +98,7 @@
 <div class="py-4 h-full w-full">
 	{#if showTester}
 		<Tester
+			bind:this={tester}
 			{server}
 			{serverName}
 			{chatAvailable}
@@ -108,9 +112,18 @@
 			{/snippet}
 
 			{#snippet reauthenticationAction()}
-				<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}
-					>{m.vmcps_manage_authentication()}</button
-				>
+				{#if vmcpLocalhostCallbackPaths(vmcp).length > 0}
+					<McpCompositeOauth
+						class="min-h-0"
+						compositeMcpId={instance?.id ?? vmcp.id}
+						vmcpId={vmcp.id}
+						onComplete={() => tester?.reconnect()}
+					/>
+				{:else}
+					<button type="button" class="btn btn-primary btn-sm" onclick={onLaunch}
+						>{m.vmcps_manage_authentication()}</button
+					>
+				{/if}
 			{/snippet}
 
 			{#snippet setupRequiredAction()}

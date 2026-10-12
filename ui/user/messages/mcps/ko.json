@@ -1121,5 +1121,13 @@
 	"mcps_tunnels_tunnel_updated": "MCP 터널이 업데이트되었습니다.",
 	"mcps_tunnels_wildcard_position": "와일드카드는 시작 또는 끝에 있어야 합니다",
 	"mcps_unknown_error": "알 수 없는 오류가 발생했습니다",
-	"mcps_value_prefix": "값 접두사"
+	"mcps_value_prefix": "값 접두사",
+	"mcps_login_title": "MCP 서버 인증",
+	"mcps_login_instructions": "인증하려면 터미널에서 이 명령을 실행하세요. 브라우저와 CLI는 같은 컴퓨터에서 실행해야 합니다.",
+	"mcps_login_command": "인증 명령",
+	"mcps_login_retry_instructions": "로그인이 완료되면 여기로 돌아와 계속하세요. 명령이 만료되었거나 콜백 포트가 사용 중이면 계속을 눌러 새 명령을 받으세요.",
+	"mcps_login_validating": "인증 확인 중...",
+	"mcps_login_continue": "계속",
+	"mcps_login_install": "Obot CLI 설치",
+	"mcps_login_callback_description": "localhost 콜백이 필요한 공급자용입니다. 일반 URL로 연결하면 인증 시 브라우저와 같은 컴퓨터에서 실행할 임시 CLI 로그인 명령이 표시됩니다. 공급자 자격 증명은 Obot이 관리합니다."
 }

@@ -494,11 +494,13 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 
 	if entry.RemoteConfig != nil {
 		manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-			URL:                 entry.RemoteConfig.FixedURL,
-			IsTemplate:          entry.RemoteConfig.URLTemplate != "",
-			URLTemplate:         entry.RemoteConfig.URLTemplate,
-			Hostname:            entry.RemoteConfig.Hostname,
-			StaticOAuthRequired: entry.RemoteConfig.StaticOAuthRequired,
+			URL:                      entry.RemoteConfig.FixedURL,
+			IsTemplate:               entry.RemoteConfig.URLTemplate != "",
+			URLTemplate:              entry.RemoteConfig.URLTemplate,
+			Hostname:                 entry.RemoteConfig.Hostname,
+			LocalhostCallbackEnabled: entry.RemoteConfig.LocalhostCallbackEnabled,
+			LocalhostCallbackPath:    entry.RemoteConfig.LocalhostCallbackPath,
+			StaticOAuthRequired:      entry.RemoteConfig.StaticOAuthRequired,
 		}
 	}
 

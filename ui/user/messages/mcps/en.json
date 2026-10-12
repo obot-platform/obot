@@ -1121,5 +1121,13 @@
 	"mcps_tunnels_tunnel_updated": "MCP tunnel updated successfully.",
 	"mcps_tunnels_wildcard_position": "The wildcard must be at the beginning or end",
 	"mcps_unknown_error": "An unknown error occurred",
-	"mcps_value_prefix": "Value Prefix"
+	"mcps_value_prefix": "Value Prefix",
+	"mcps_login_title": "Authenticate with the MCP server",
+	"mcps_login_instructions": "Run this command in a terminal to authenticate. Your browser and the CLI must run on the same computer.",
+	"mcps_login_command": "Authentication command",
+	"mcps_login_retry_instructions": "After login completes, return here to continue. If the command expires or its callback port is busy, continue to get a new command.",
+	"mcps_login_validating": "Validating authentication...",
+	"mcps_login_continue": "Continue",
+	"mcps_login_install": "Install the Obot CLI",
+	"mcps_login_callback_description": "For providers that require a localhost callback. Connect using the normal URL; during authentication, Obot shows a temporary CLI login command to run on the same computer as your browser. Obot manages the provider credentials."
 }

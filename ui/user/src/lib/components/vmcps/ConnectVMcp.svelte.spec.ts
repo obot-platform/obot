@@ -604,3 +604,109 @@ describe('ConnectVMcp.svelte', () => {
 		});
 	});
 });
+
+it('uses HTTP when any vMCP component requires a localhost callback', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.components![0].catalogEntry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	await renderDialog(vmcp);
+	await expect
+		.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByText('Connection URL', { exact: true })).toBeVisible();
+	await expect.element(page.getByRole('button', { name: 'Preconfigure server' })).toBeVisible();
+});
+
+it('uses HTTP installation with multiple provider callback paths', async () => {
+	const vmcp = configurableVMcp();
+	const first = vmcp.components![0];
+	first.catalogEntry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const second = structuredClone(first);
+	second.id = 'second';
+	second.name = 'second';
+	second.catalogEntry.manifest.remoteConfig!.localhostCallbackPath = '';
+	vmcp.components!.push(second);
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config.type).toBe('http');
+	expect(config.url).toContain('/mcp-connect/');
+	expect(config).not.toHaveProperty('args');
+});
+
+it('uses HTTP installation even with retained callback paths', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/retained/callback'];
+	await renderDialog(vmcp);
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config).not.toHaveProperty('command');
+	expect(config.type).toBe('http');
+	expect(config.url).toContain('/mcp-connect/');
+	expect(config).not.toHaveProperty('args');
+});
+
+it('shows CLI login for vMCP authentication using retained callback paths', async () => {
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
+	let checks = 0;
+	worker.use(
+		http.get('*/api/*/oauth-url', () =>
+			HttpResponse.json({ oauthURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/retained/callback'];
+	const result = await renderDialog(vmcp);
+	await result.component.authenticate();
+	await expect
+		.element(page.getByLabelText('Authentication command').last())
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+});
+
+it('shows component login commands directly during vMCP preconfiguration', async () => {
+	const vmcp = configurableVMcp();
+	vmcp.localhostCallbackPaths = ['/oauth/callback'];
+	const checked = vi.fn();
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/component-state`;
+	worker.use(
+		http.get('/api/vmcps/vmcp1configurable/oauth-url', () =>
+			HttpResponse.json({
+				oauthURL: 'https://obot.example/auth/mcp/composite/vmcpi-exact?vmcp_id=vmcp1configurable'
+			})
+		),
+		http.get('/api/vmcps/vmcp1configurable', () => HttpResponse.json(vmcp)),
+		http.get('/api/oauth/vmcp/vmcpi-exact', () =>
+			HttpResponse.json([{ mcpServerID: 'component-exact', authURL: attemptURL }])
+		),
+		http.get('/api/oauth/vmcp/vmcpi-exact/components/component-exact', () => {
+			checked();
+			return HttpResponse.json({ authURL: '' });
+		})
+	);
+	const result = await renderDialog(vmcp);
+	await result.component.authenticate();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await vi.waitFor(() => expect(checked).toHaveBeenCalledOnce());
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+});

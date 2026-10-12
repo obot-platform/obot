@@ -160,3 +160,37 @@ func TestMCPGroupDeniesNonMCPAPIRoutes(t *testing.T) {
 		})
 	}
 }
+
+func TestLocalLoginRequestAuthorization(t *testing.T) {
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+	tests := []struct {
+		name    string
+		groups  []string
+		allowed bool
+	}{
+		{
+			name:    "browser API user",
+			groups:  []string{types.GroupAPI, types.GroupAuthenticated},
+			allowed: true,
+		},
+		{
+			name:    "MCP token cannot access browser login request",
+			groups:  []string{types.GroupMCP, types.GroupAuthenticated},
+			allowed: false,
+		},
+		{
+			name:    "anonymous user",
+			allowed: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/oauth/mcp/login-request/oar1test", nil)
+			identity := &user.DefaultInfo{Name: "test", UID: "test", Groups: tt.groups}
+			if allowed := authorizer.Authorize(req, identity); allowed != tt.allowed {
+				t.Fatalf("Authorize() = %v, want %v", allowed, tt.allowed)
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
+	import McpOauth from '$lib/components/mcp/McpOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { m } from '$lib/i18n';
@@ -87,6 +88,8 @@
 					>
 						{m.mcps_manage_authentication()}
 					</button>
+				{:else if data.server.manifest.remoteConfig?.localhostCallbackEnabled && (data.server.vmcpInstanceID || data.server.vmcpID)}
+					<McpOauth entry={data.server} onAuthenticate={authenticationComplete} />
 				{:else}
 					<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}
 						>{m.mcps_manage_authentication()}</a

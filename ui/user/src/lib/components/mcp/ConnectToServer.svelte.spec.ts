@@ -6,7 +6,7 @@ import ConnectToServer from './ConnectToServer.svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 const fixtures = createMcpServerDetailsFixtures();
 
@@ -87,4 +87,102 @@ describe('ConnectToServer setup completion', () => {
 		);
 		await expect.element(page.getByCSS('#connect-to-server-dialog')).not.toBeInTheDocument();
 	}, 4000);
+});
+
+it('shows the direct URL for a localhost callback server', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/vercel';
+	entry.manifest.remoteConfig = {
+		fixedURL: 'https://mcp.example.com',
+		localhostCallbackEnabled: true
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	await expect
+		.element(page.getByRole('link', { name: 'Install the Obot CLI' }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByText('Connection URL', { exact: true })).toBeVisible();
+});
+
+it('uses HTTP installation with a custom catalog callback path', async () => {
+	await preparePageData();
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.connectURL = 'https://obot.example/mcp-connect/custom';
+	entry.manifest.remoteConfig = {
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const result = await render(ConnectToServer);
+	result.component.open({ entry });
+	const link = page.getByRole('link', { name: /Add to Cursor$/ });
+	await expect.element(link).toBeVisible();
+	const config = JSON.parse(
+		atob(new URL(link.element().getAttribute('href')!).searchParams.get('config')!)
+	);
+	expect(config).toEqual({ type: 'http', url: entry.connectURL });
+});
+
+it('shows CLI login when a deployed localhost server needs authentication', async () => {
+	await preparePageData();
+	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
+	let checks = 0;
+	worker.use(
+		http.get('*/api/*/oauth-url', () =>
+			HttpResponse.json({ oauthURL: ++checks === 1 ? attemptURL : '' })
+		)
+	);
+
+	const server = structuredClone(fixtures.serverSingle);
+	server.connectURL = 'https://obot.example/mcp-connect/deployed';
+	server.manifest.remoteConfig = {
+		url: 'https://mcp.example.com',
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom/callback'
+	};
+	const onConnect = vi.fn();
+	const result = await render(ConnectToServer, { onConnect });
+	await result.component.authenticate(server);
+	await expect
+		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+	await expect
+		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
+});
+
+it.each([390, 1280])('keeps local login usable at %ipx and dismisses it once', async (width) => {
+	await page.viewport(width, 900);
+	try {
+		await preparePageData();
+		worker.use(
+			http.get('*/api/*/oauth-url', () =>
+				HttpResponse.json({ oauthURL: `${window.location.origin}/oauth/mcp/login/ui-attempt` })
+			)
+		);
+		const server = structuredClone(fixtures.serverSingle);
+		server.manifest.remoteConfig = {
+			url: 'https://mcp.example.com',
+			localhostCallbackEnabled: true
+		};
+		const onConnect = vi.fn();
+		const result = await render(ConnectToServer, { onConnect });
+		await result.component.authenticate(server);
+		const command = page.getByRole('dialog').getByLabelText('Authentication command');
+		await expect.element(command).toBeVisible();
+		// Wait for the shared dialog's slide-in animation to settle.
+		await vi.waitFor(() => {
+			const bounds = command.element().getBoundingClientRect();
+			expect(bounds.width).toBeGreaterThan(250);
+			expect(bounds.left).toBeGreaterThanOrEqual(0);
+			expect(bounds.right).toBeLessThanOrEqual(width);
+		});
+		await userEvent.keyboard('{Escape}');
+		await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+		await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
+	} finally {
+		await page.viewport(1280, 720);
+	}
 });

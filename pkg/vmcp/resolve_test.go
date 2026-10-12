@@ -63,6 +63,13 @@ func TestFindInstancePreservesLegacyCreationOrder(t *testing.T) {
 			if err != nil || instance == nil || instance.Name != test.want {
 				t.Fatalf("instance=%#v error=%v", instance, err)
 			}
+			instances, err := FindInstances(t.Context(), storage, "default", "7")
+			require.NoError(t, err)
+			require.Len(t, instances, 1)
+			require.Equal(t, instance, instances["vmcp1test"], "batch selection must match canonical runtime selection")
+			instances, err = FindInstances(t.Context(), storage, "default", "other-user")
+			require.NoError(t, err)
+			require.Empty(t, instances)
 		})
 	}
 }
