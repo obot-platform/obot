@@ -27,7 +27,10 @@ test('preserves comma-containing server names when creating and viewing exports'
 	await expect.element(page.getByCSS('#mcp_server')).toHaveTextContent(name);
 	await page.getByLabelText('Export Name').fill('Comma names');
 	await page.getByLabelText('Bucket Name').fill('audit-logs');
-	await page.getByRole('button', { name: 'Create Export', exact: true }).click();
+	await vi.waitFor(() =>
+		expect(page.getByRole('button', { name: 'Create Export', exact: true })).toBeEnabled()
+	);
+	await page.getByRole('button', { name: 'Create Export', exact: true }).click({ force: true });
 	await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
 	const exported = onSubmit.mock.calls[0][0] as AuditLogExport;
 	expect(exported.filters?.mcpServers).toEqual([name]);

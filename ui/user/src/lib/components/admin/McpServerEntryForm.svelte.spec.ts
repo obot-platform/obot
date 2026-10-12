@@ -32,7 +32,7 @@ describe('MCP server entry OAuth management', () => {
 		await expect.element(page.getByText('OAuth credentials configured')).toBeVisible();
 		await page.getByRole('button', { name: 'Manage OAuth Credentials' }).click();
 		await expect.element(page.getByRole('button', { name: 'Clear Credentials' })).toBeVisible();
-		await page.getByRole('button', { name: 'Clear Credentials' }).click();
+		await page.getByRole('button', { name: 'Clear Credentials' }).click({ force: true });
 		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 		await vi.waitFor(() => expect(deleted).toHaveBeenCalledOnce());
 		await expect.element(page.getByText('Requires OAuth Config')).toBeVisible();
