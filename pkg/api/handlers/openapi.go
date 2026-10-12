@@ -52,6 +52,8 @@ func (h *MCPCatalogHandler) prepareOpenAPIEntry(ctx context.Context, manifest *t
 		return nil // The runtime validator reports missing configuration.
 	}
 	config := *manifest.OpenAPIConfig
+	// Ignore a client-supplied snapshot; it is always regenerated from Source.
+	config.Schema = nil
 	if err := openapi.ValidateInput(config); err != nil {
 		return err
 	}
@@ -65,4 +67,15 @@ func (h *MCPCatalogHandler) prepareOpenAPIEntry(ctx context.Context, manifest *t
 	config.Schema = &types.OpenAPISchema{Raw: result.Schema}
 	manifest.OpenAPIConfig = &config
 	return nil
+}
+
+// withoutOpenAPISchema omits the stored snapshot from API responses. Clients
+// never use it, and it can be up to 1 MiB per entry or server.
+func withoutOpenAPISchema(config *types.OpenAPIRuntimeConfig) *types.OpenAPIRuntimeConfig {
+	if config == nil || config.Schema == nil {
+		return config
+	}
+	c := *config
+	c.Schema = nil
+	return &c
 }

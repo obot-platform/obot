@@ -215,6 +215,7 @@ func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
+	entry.Spec.Manifest.OpenAPIConfig = withoutOpenAPISchema(entry.Spec.Manifest.OpenAPIConfig)
 
 	return types.MCPServerCatalogEntry{
 		Metadata:                  MetadataFrom(&entry),
@@ -1055,6 +1056,8 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 			LastUpdateTime:     *types.NewTime(cond.LastUpdateTime.Time),
 		})
 	}
+
+	server.Spec.Manifest.OpenAPIConfig = withoutOpenAPISchema(server.Spec.Manifest.OpenAPIConfig)
 
 	converted := types.MCPServer{
 		Metadata:                    MetadataFrom(&server),

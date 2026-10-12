@@ -13184,7 +13184,7 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Output only: Obot imports Source on every save and sets this field. Requests and GitOps catalog entries that set it are rejected.",
+							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Obot imports Source on every save and sets this field. It is omitted from catalog entry and server responses and ignored when saving catalog entries through the API. Import requests and GitOps catalog entries that set it are rejected.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
 						},
 					},

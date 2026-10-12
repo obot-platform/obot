@@ -58,8 +58,10 @@ type OpenAPISource struct {
 type OpenAPIRuntimeConfig struct {
 	Source OpenAPISource `json:"source"`
 	// Schema is the normalized JSON snapshot used by running servers instead of
-	// Source. Output only: Obot imports Source on every save and sets this field.
-	// Requests and GitOps catalog entries that set it are rejected.
+	// Source. Obot imports Source on every save and sets this field. It is
+	// omitted from catalog entry and server responses and ignored when saving
+	// catalog entries through the API. Import requests and GitOps catalog
+	// entries that set it are rejected.
 	Schema  *OpenAPISchema `json:"schema,omitempty"`
 	BaseURL string         `json:"baseURL,omitempty"`
 	// EgressDomains restricts the hosted pod to these domains when network policy enforcement is enabled.
