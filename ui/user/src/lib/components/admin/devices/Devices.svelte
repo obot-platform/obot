@@ -85,17 +85,23 @@
 		})
 	);
 
-	let filteredRows = $derived.by(() => {
-		const q = query.trim().toLowerCase();
-		if (!q) return rows;
-		return rows.filter((r) => {
-			if ((r.deviceID ?? '').toLowerCase().includes(q)) return true;
-			if ((r.username ?? '').toLowerCase().includes(q)) return true;
-			const u = r.submittedBy ? userById.get(r.submittedBy) : undefined;
-			if (u && userDisplay(u).toLowerCase().includes(q)) return true;
-			return false;
-		});
-	});
+	// Columns the server can sort across the full result set. MCP/Skills/
+	// Plugins/Clients are derived from preloaded child-array lengths and
+	// would need server-side aggregation to sort properly (obot#6739), so
+	// they're intentionally left out here -- Table's own client-side sort
+	// still orders whatever page is currently loaded for those columns.
+	const SERVER_SORT_FIELDS: Record<string, string> = {
+		short_device_id: 'device_id',
+		os_arch: 'os',
+		username: 'user',
+		scannedAt: 'scanned_at'
+	};
+
+	function apiSortFor(sort?: { property: string; order: 'asc' | 'desc' }) {
+		if (!sort) return {};
+		const sortBy = SERVER_SORT_FIELDS[sort.property];
+		return sortBy ? { sortBy, sortOrder: sort.order } : {};
+	}
 
 	let total = $derived(devicesResp.total ?? 0);
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
@@ -124,21 +130,46 @@
 
 	const updateQuery = debounce((v: string) => {
 		query = v;
-		syncUrl();
+		fetchPage(0);
 	}, 100);
 
-	async function fetchPage(idx: number) {
+	// Sort/search changes narrow or reorder the whole result set, so the
+	// current page offset no longer means anything -- always refetch page 0.
+	function handleSort(property: string, order: 'asc' | 'desc') {
+		setSortUrlParams(property, order);
+		const { sortBy, sortOrder } = apiSortFor({ property, order });
+		if (!sortBy) return; // count columns: Table's client-side sort already handles the current page
+		fetchPage(0, { sortBy, sortOrder });
+	}
+
+	// Guards against overlapping requests (e.g. a sort click right after a
+	// search keystroke): only the response from the most recently started
+	// fetch is committed, so a slower, older request can't clobber newer
+	// results or clear `loading` out from under a still-pending request.
+	let fetchGeneration = 0;
+
+	async function fetchPage(
+		idx: number,
+		sortOverride?: { sortBy?: string; sortOrder?: 'asc' | 'desc' }
+	) {
+		const generation = ++fetchGeneration;
 		loading = true;
 		try {
-			devicesResp = await UserService.listDeviceScans({
+			const { sortBy, sortOrder } = sortOverride ?? apiSortFor(initSort);
+			const response = await UserService.listDeviceScans({
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE,
-				groupByDevice: true
+				groupByDevice: true,
+				query: query || undefined,
+				sortBy,
+				sortOrder
 			});
+			if (generation !== fetchGeneration) return;
+			devicesResp = response;
 			pageIndex = idx;
 			syncUrl();
 		} finally {
-			loading = false;
+			if (generation === fetchGeneration) loading = false;
 		}
 	}
 
@@ -155,7 +186,7 @@
 
 {#if loading || parentLoading}
 	<Skeleton type="table" classes={{ header: 'h-14' }} />
-{:else if total === 0}
+{:else if total === 0 && !query}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Laptop class="text-muted-content size-24 opacity-50" />
 		<h4 class="text-muted-content text-lg font-semibold">
@@ -168,7 +199,8 @@
 	</div>
 {:else}
 	<Table
-		data={filteredRows}
+		data={rows}
+		noDataMessage={m.core_no_results_found()}
 		fields={[
 			'short_device_id',
 			'os_arch',
@@ -199,6 +231,7 @@
 			'client_count',
 			'scannedAt'
 		]}
+		manualSortFields={Object.keys(SERVER_SORT_FIELDS)}
 		{filterable}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(resolve(`/inventory/devices/${d.deviceID}`), isCtrlClick);
@@ -206,7 +239,7 @@
 		{initSort}
 		onFilter={setFilterUrlParams}
 		onClearAllFilters={() => clearUrlParams(filterable)}
-		onSort={setSortUrlParams}
+		onSort={handleSort}
 		{filters}
 	>
 		{#snippet onRenderColumn(property, d: Row)}

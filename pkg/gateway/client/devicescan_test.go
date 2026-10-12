@@ -1,13 +1,22 @@
 package client
 
 import (
+	"crypto/aes"
 	"errors"
+	"fmt"
+	"math"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
+	encryptaes "k8s.io/apiserver/pkg/storage/value/encrypt/aes"
 )
 
 func insertScan(t *testing.T, c *Client, scan types.DeviceScan) types.DeviceScan {
@@ -384,5 +393,577 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	}
 	if len(byMCPServers) == 0 || byMCPServers[0].Name != "claude-code" {
 		t.Errorf("sort mcp_server_count desc: want claude-code first, got %+v", byMCPServers)
+	}
+}
+
+// TestListDeviceScans_SortAndSearch exercises obot-platform/obot#6739: sort
+// and search must cover the full result set, not just whatever page the
+// caller asked for, and "user" has to match the same displayName -> email
+// -> username -> id -> device-scan-username precedence Devices.svelte uses
+// to render the User column.
+func TestListDeviceScans_SortAndSearch(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("failed to create user alice: %v", err)
+	}
+	// No DisplayName, so her effective display falls through to Email.
+	bob := types.User{Username: "bsmith", HashedUsername: "bsmith", Email: "bob@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bob).Error; err != nil {
+		t.Fatalf("failed to create user bob: %v", err)
+	}
+
+	now := time.Now().UTC()
+	// Inserted oldest-first so the historical "created_at DESC, page 1"
+	// window would put aaa-1 and bbb-2 on the LAST page, not the first --
+	// exactly the rows a naive current-page-only search would miss.
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", Hostname: "host-a", OS: "linux", Arch: "amd64", ScannedAt: now})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "bbb-2", Hostname: "host-b", OS: "darwin", Arch: "arm64", ScannedAt: now.Add(time.Minute)})
+	// Device-only scan: empty SubmittedBy exercises the LEFT JOIN miss and
+	// the final fallback to the scan's own OS-level Username.
+	insertScan(t, c, types.DeviceScan{DeviceID: "ccc-3", Hostname: "host-c", OS: "windows", Arch: "amd64", Username: "device-os-user", ScannedAt: now.Add(2 * time.Minute)})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "ddd-4", Hostname: "host-d", OS: "linux", Arch: "arm64", ScannedAt: now.Add(3 * time.Minute)})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "eee-5", Hostname: "host-e", OS: "darwin", Arch: "amd64", ScannedAt: now.Add(4 * time.Minute)})
+
+	// Total must reflect every matching row regardless of Limit.
+	page1, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 0})
+	if err != nil {
+		t.Fatalf("list page1: %v", err)
+	}
+	if total != 5 {
+		t.Fatalf("total: want 5, got %d", total)
+	}
+	if len(page1) != 2 {
+		t.Fatalf("page1 len: want 2, got %d", len(page1))
+	}
+
+	// Sorting by device_id must hold across page boundaries, not just
+	// within whichever page happened to be requested.
+	assertDeviceIDPage(t, c, "device_id", "asc", 0, []string{"aaa-1", "bbb-2"})
+	assertDeviceIDPage(t, c, "device_id", "asc", 2, []string{"ccc-3", "ddd-4"})
+	assertDeviceIDPage(t, c, "device_id", "asc", 4, []string{"eee-5"})
+
+	// Searching for a device that would sit on the LAST page under the old
+	// unconditional created_at DESC order must still be found.
+	searched, searchTotal, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Search: "aaa"})
+	if err != nil {
+		t.Fatalf("search device id: %v", err)
+	}
+	if searchTotal != 1 || len(searched) != 1 || searched[0].DeviceID != "aaa-1" {
+		t.Fatalf("search %q: want exactly aaa-1, got total=%d rows=%+v", "aaa", searchTotal, searched)
+	}
+
+	// Search matches the User column's displayName.
+	byDisplayName, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Alice"})
+	if err != nil {
+		t.Fatalf("search displayName: %v", err)
+	}
+	if ids := deviceIDs(byDisplayName); !sameSet(ids, []string{"aaa-1", "ddd-4"}) {
+		t.Errorf("search Alice: want [aaa-1 ddd-4], got %v", ids)
+	}
+
+	// Search matches the User column's email fallback (bob has no DisplayName).
+	byEmail, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "bob@example"})
+	if err != nil {
+		t.Fatalf("search email: %v", err)
+	}
+	if ids := deviceIDs(byEmail); !sameSet(ids, []string{"bbb-2", "eee-5"}) {
+		t.Errorf("search bob@example: want [bbb-2 eee-5], got %v", ids)
+	}
+
+	// Search matches the device-only scan's OS-level username fallback,
+	// proving the LEFT JOIN miss (empty SubmittedBy) doesn't break search.
+	byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "device-os-user"})
+	if err != nil {
+		t.Fatalf("search os username: %v", err)
+	}
+	if ids := deviceIDs(byOSUsername); !sameSet(ids, []string{"ccc-3"}) {
+		t.Errorf("search device-os-user: want [ccc-3], got %v", ids)
+	}
+
+	// Sorting by "user" follows the same precedence: "Alice Smith" <
+	// "bob@example.com" < "device-os-user".
+	byUser, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user: %v", err)
+	}
+	if got := deviceIDs(byUser); !equalOrdered(got, []string{"aaa-1", "ddd-4", "bbb-2", "eee-5", "ccc-3"}) {
+		t.Errorf("sort by user asc: got %v", got)
+	}
+
+	// Sort-by-user is paginated in Go (see listDeviceScansUserAware), not
+	// via a SQL ORDER BY, so page boundaries must still land on exactly the
+	// same global order a Limit-10 call returns in one page.
+	userPage1, userTotal, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 0, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page1: %v", err)
+	}
+	if userTotal != 5 {
+		t.Fatalf("sort by user page1 total: want 5, got %d", userTotal)
+	}
+	if got := deviceIDs(userPage1); !equalOrdered(got, []string{"aaa-1", "ddd-4"}) {
+		t.Errorf("sort by user asc page1: got %v", got)
+	}
+	userPage2, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 2, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page2: %v", err)
+	}
+	if got := deviceIDs(userPage2); !equalOrdered(got, []string{"bbb-2", "eee-5"}) {
+		t.Errorf("sort by user asc page2: got %v", got)
+	}
+	userPage3, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 4, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page3: %v", err)
+	}
+	if got := deviceIDs(userPage3); !equalOrdered(got, []string{"ccc-3"}) {
+		t.Errorf("sort by user asc page3: got %v", got)
+	}
+
+	// Descending reverses the same global order rather than just the page.
+	byUserDesc, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "desc"})
+	if err != nil {
+		t.Fatalf("sort by user desc: %v", err)
+	}
+	// Bob's two scans (bbb-2, eee-5) tie on display name "bob@example.com";
+	// the id-ASC tiebreaker applies regardless of sort direction, so it's
+	// bbb-2 before eee-5 here too, not reversed.
+	if got := deviceIDs(byUserDesc); !equalOrdered(got, []string{"ccc-3", "bbb-2", "eee-5", "aaa-1", "ddd-4"}) {
+		t.Errorf("sort by user desc: got %v", got)
+	}
+}
+
+func idStr(id uint) string {
+	return strconv.FormatUint(uint64(id), 10)
+}
+
+func deviceIDs(scans []types.DeviceScan) []string {
+	ids := make([]string, len(scans))
+	for i, s := range scans {
+		ids[i] = s.DeviceID
+	}
+	return ids
+}
+
+func equalOrdered(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameSet(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := make(map[string]bool, len(want))
+	for _, w := range want {
+		seen[w] = true
+	}
+	for _, g := range got {
+		if !seen[g] {
+			return false
+		}
+	}
+	return true
+}
+
+func assertDeviceIDPage(t *testing.T, c *Client, sortBy, sortOrder string, offset int, want []string) {
+	t.Helper()
+	scans, _, err := c.ListDeviceScans(t.Context(), DeviceScanListOptions{
+		GroupByDevice: true,
+		Limit:         2,
+		Offset:        offset,
+		SortBy:        sortBy,
+		SortOrder:     sortOrder,
+	})
+	if err != nil {
+		t.Fatalf("list sorted page at offset %d: %v", offset, err)
+	}
+	if got := deviceIDs(scans); !equalOrdered(got, want) {
+		t.Errorf("page at offset %d: want %v, got %v", offset, want, got)
+	}
+}
+
+// TestListDeviceScans_SearchAndSortWithEncryptedUsers guards against a real
+// regression a reviewer caught on the original version of this change:
+// comparing/sorting user PII directly in SQL silently breaks once user
+// encryption is configured, because display_name/email/username are then
+// stored as base64 ciphertext (see encryptUser). Search and sort-by-user
+// must operate on the decrypted values instead.
+func TestListDeviceScans_SearchAndSortWithEncryptedUsers(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	block, err := aes.NewCipher(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transformer, err := encryptaes.NewGCMTransformer(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			userGroupResource: transformer,
+		},
+	}
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.encryptUser(ctx, &alice); err != nil {
+		t.Fatalf("encrypt alice: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("create alice: %v", err)
+	}
+	bob := types.User{Username: "bsmith", HashedUsername: "bsmith", Email: "bob@example.com"}
+	if err := c.encryptUser(ctx, &bob); err != nil {
+		t.Fatalf("encrypt bob: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Create(&bob).Error; err != nil {
+		t.Fatalf("create bob: %v", err)
+	}
+
+	// Sanity check: the stored row really is ciphertext, not plaintext --
+	// otherwise this test would not actually exercise the bug.
+	var stored types.User
+	if err := c.db.WithContext(ctx).Where("id = ?", alice.ID).Take(&stored).Error; err != nil {
+		t.Fatalf("load stored alice: %v", err)
+	}
+	if !stored.Encrypted || stored.DisplayName == "Alice Smith" {
+		t.Fatalf("alice's display_name is stored as %q, want it encrypted", stored.DisplayName)
+	}
+
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", ScannedAt: time.Now()})
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(bob.ID), DeviceID: "bbb-2", ScannedAt: time.Now().Add(time.Minute)})
+
+	searched, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Alice"})
+	if err != nil {
+		t.Fatalf("search encrypted display name: %v", err)
+	}
+	if ids := deviceIDs(searched); !equalOrdered(ids, []string{"aaa-1"}) {
+		t.Errorf("search %q against encrypted users: want [aaa-1], got %v", "Alice", ids)
+	}
+
+	sorted, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with encrypted users: %v", err)
+	}
+	if got := deviceIDs(sorted); !equalOrdered(got, []string{"aaa-1", "bbb-2"}) {
+		t.Errorf("sort by user asc against encrypted users: want [aaa-1 bbb-2], got %v", got)
+	}
+}
+
+// TestListDeviceScans_DeletedSubmitterFallsBackToOSUsername guards against a
+// second reviewer finding: the frontend's userById map comes from
+// UserService.listUsers(), which excludes soft-deleted users, so a scan
+// submitted by a since-deleted user renders its OS-level username in the
+// table. Server-side search/sort must agree, instead of still matching or
+// ordering by the deleted user's (no-longer-displayed) profile.
+func TestListDeviceScans_DeletedSubmitterFallsBackToOSUsername(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	former := types.User{Username: "former", HashedUsername: "former", DisplayName: "Former Employee", Email: "former@example.com"}
+	if err := c.db.WithContext(ctx).Create(&former).Error; err != nil {
+		t.Fatalf("create former: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Model(&types.User{}).Where("id = ?", former.ID).
+		Update("deleted_at", time.Now()).Error; err != nil {
+		t.Fatalf("soft-delete former: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(former.ID), DeviceID: "del-1", Username: "former-os-login", ScannedAt: time.Now(),
+	})
+
+	// The deleted user's display name must not match -- it's not what the
+	// table shows for this row.
+	byDeletedDisplayName, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Former Employee"})
+	if err != nil {
+		t.Fatalf("search deleted user's display name: %v", err)
+	}
+	if ids := deviceIDs(byDeletedDisplayName); len(ids) != 0 {
+		t.Errorf("search for deleted user's display name: want no matches, got %v", ids)
+	}
+
+	// The OS-level username fallback must match instead.
+	byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "former-os-login"})
+	if err != nil {
+		t.Fatalf("search OS username fallback: %v", err)
+	}
+	if ids := deviceIDs(byOSUsername); !equalOrdered(ids, []string{"del-1"}) {
+		t.Errorf("search %q: want [del-1], got %v", "former-os-login", ids)
+	}
+}
+
+// TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername guards against a
+// second review finding: c.Users only excludes soft-deleted rows, but the
+// Users API (getUsers) additionally hides the bootstrap account and any
+// user with no email (see IsUserVisible). A scan submitted by either kind
+// of hidden account must search/sort by its OS-level username, matching
+// what Devices.svelte actually renders (it never resolves these accounts
+// either, since its user list comes from that same Users API).
+func TestListDeviceScans_HiddenSubmitterFallsBackToOSUsername(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	bootstrap := types.User{Username: system.BootstrapName, HashedUsername: system.BootstrapName, DisplayName: "Bootstrap Admin", Email: "bootstrap@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bootstrap).Error; err != nil {
+		t.Fatalf("create bootstrap user: %v", err)
+	}
+	noEmail := types.User{Username: "noemail", HashedUsername: "noemail", DisplayName: "No Email User"}
+	if err := c.db.WithContext(ctx).Create(&noEmail).Error; err != nil {
+		t.Fatalf("create no-email user: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(bootstrap.ID), DeviceID: "boot-1", Username: "bootstrap-os-login", ScannedAt: time.Now(),
+	})
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: idStr(noEmail.ID), DeviceID: "noemail-1", Username: "noemail-os-login", ScannedAt: time.Now().Add(time.Minute),
+	})
+
+	for _, tc := range []struct {
+		name         string
+		hiddenSearch string
+		osUserSearch string
+		wantDeviceID string
+	}{
+		{
+			name:         "bootstrap account",
+			hiddenSearch: "Bootstrap Admin",
+			osUserSearch: "bootstrap-os-login",
+			wantDeviceID: "boot-1",
+		},
+		{
+			name:         "no-email account",
+			hiddenSearch: "No Email User",
+			osUserSearch: "noemail-os-login",
+			wantDeviceID: "noemail-1",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hidden, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.hiddenSearch})
+			if err != nil {
+				t.Fatalf("search hidden account's display name: %v", err)
+			}
+			if ids := deviceIDs(hidden); len(ids) != 0 {
+				t.Errorf("search %q: want no matches (account is hidden from the Users API), got %v", tc.hiddenSearch, ids)
+			}
+
+			byOSUsername, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.osUserSearch})
+			if err != nil {
+				t.Fatalf("search OS username fallback: %v", err)
+			}
+			if ids := deviceIDs(byOSUsername); !equalOrdered(ids, []string{tc.wantDeviceID}) {
+				t.Errorf("search %q: want [%s], got %v", tc.osUserSearch, tc.wantDeviceID, ids)
+			}
+		})
+	}
+}
+
+// TestListDeviceScans_UserMatchIgnoresNonSubmitters guards the fix for a
+// review finding: newDeviceScanUserMatch must resolve only the distinct
+// submitters present in the candidate scan set, not every user in the
+// org -- otherwise it loads/decrypts the whole users table on every
+// search or user-sort, and the user-sort ORDER BY's one bound parameter
+// pair per resolved user risks exceeding PostgreSQL's 65,535-per-query
+// limit at scale. A "bystander" user who exists but never submitted a
+// scan must not affect results (sanity-checking the bounded query still
+// behaves correctly), and must not be matchable by search.
+func TestListDeviceScans_UserMatchIgnoresNonSubmitters(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	alice := types.User{Username: "asmith", HashedUsername: "asmith", DisplayName: "Alice Smith", Email: "alice@example.com"}
+	if err := c.db.WithContext(ctx).Create(&alice).Error; err != nil {
+		t.Fatalf("create alice: %v", err)
+	}
+	bystander := types.User{Username: "bystander", HashedUsername: "bystander", DisplayName: "Bystander Bob", Email: "bystander@example.com"}
+	if err := c.db.WithContext(ctx).Create(&bystander).Error; err != nil {
+		t.Fatalf("create bystander: %v", err)
+	}
+
+	insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(alice.ID), DeviceID: "aaa-1", ScannedAt: time.Now()})
+
+	searched, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: "Bystander Bob"})
+	if err != nil {
+		t.Fatalf("search bystander: %v", err)
+	}
+	if total != 0 || len(searched) != 0 {
+		t.Errorf("search for a user who never submitted a scan: want no matches, got total=%d rows=%+v", total, searched)
+	}
+
+	sorted, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with a bystander present: %v", err)
+	}
+	if ids := deviceIDs(sorted); !equalOrdered(ids, []string{"aaa-1"}) {
+		t.Errorf("sort by user with a bystander present: want [aaa-1], got %v", ids)
+	}
+}
+
+// TestNewDeviceScanUserMatch_BatchesLookups guards against a review finding
+// on the fix for TestListDeviceScans_UserMatchIgnoresNonSubmitters: loading
+// every distinct submitter in one "id IN (?)" query still puts one bind
+// parameter per submitter in that single query, so a fleet with enough
+// distinct submitters would exceed PostgreSQL's 65,535-parameter limit --
+// the failure just moved from the ORDER BY CASE to this WHERE clause.
+// newDeviceScanUserMatch now chunks that load (deviceScanIDBatchSize).
+// Shrinking the batch size here forces multiple chunked queries over a
+// handful of submitters, so this exercises the chunking/merging path
+// itself without creating thousands of rows.
+func TestNewDeviceScanUserMatch_BatchesLookups(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	orig := deviceScanIDBatchSize
+	deviceScanIDBatchSize = 2
+	t.Cleanup(func() { deviceScanIDBatchSize = orig })
+
+	var submitterIDs []string
+	var wantDisplay []string
+	for i := range 5 {
+		u := types.User{
+			Username:       fmt.Sprintf("user%d", i),
+			HashedUsername: fmt.Sprintf("user%d", i),
+			DisplayName:    fmt.Sprintf("User %d", i),
+			Email:          fmt.Sprintf("user%d@example.com", i),
+		}
+		if err := c.db.WithContext(ctx).Create(&u).Error; err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		submitterIDs = append(submitterIDs, idStr(u.ID))
+		wantDisplay = append(wantDisplay, u.DisplayName)
+	}
+
+	m, err := c.newDeviceScanUserMatch(ctx, submitterIDs)
+	if err != nil {
+		t.Fatalf("newDeviceScanUserMatch: %v", err)
+	}
+	if len(m.displayByID) != 5 {
+		t.Fatalf("displayByID: want 5 resolved submitters across 3 chunked queries, got %d (%+v)", len(m.displayByID), m.displayByID)
+	}
+	for i, id := range submitterIDs {
+		if got := m.displayByID[id]; got != wantDisplay[i] {
+			t.Errorf("displayByID[%s]: want %q, got %q", id, wantDisplay[i], got)
+		}
+	}
+}
+
+// TestListDeviceScans_SortByUserPageHydrationIsBatched guards against a
+// review finding: listDeviceScansUserAware's final "id IN (?)" fetch for
+// the requested page used to put one bind parameter per page row in a
+// single query. Limit is client-controlled (parseDeviceScanListOpts
+// accepts any positive value, with 0 meaning "no limit" at this layer) and
+// not capped independently of fleet size, so that fetch could still
+// exceed PostgreSQL's 65,535-parameter limit on a large enough page --
+// the failure had just moved again, from the WHERE/ORDER BY clauses to
+// this final hydration step. It's now chunked by deviceScanIDBatchSize.
+// Shrinking that here forces the page itself to be hydrated across
+// multiple chunked queries, verifying the result stays correctly ordered
+// once the chunks are reassembled.
+func TestListDeviceScans_SortByUserPageHydrationIsBatched(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	orig := deviceScanIDBatchSize
+	deviceScanIDBatchSize = 2
+	t.Cleanup(func() { deviceScanIDBatchSize = orig })
+
+	now := time.Now().UTC()
+	users := []types.User{
+		{Username: "e", HashedUsername: "e", DisplayName: "Eve", Email: "eve@example.com"},
+		{Username: "a", HashedUsername: "a", DisplayName: "Alice", Email: "alice@example.com"},
+		{Username: "c", HashedUsername: "c", DisplayName: "Carol", Email: "carol@example.com"},
+		{Username: "b", HashedUsername: "b", DisplayName: "Bob", Email: "bob@example.com"},
+		{Username: "d", HashedUsername: "d", DisplayName: "Dave", Email: "dave@example.com"},
+	}
+	for i := range users {
+		if err := c.db.WithContext(ctx).Create(&users[i]).Error; err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		insertScan(t, c, types.DeviceScan{
+			SubmittedBy: idStr(users[i].ID),
+			DeviceID:    fmt.Sprintf("dev-%d", i),
+			ScannedAt:   now.Add(time.Duration(i) * time.Minute),
+		})
+	}
+
+	// 5 rows hydrated 2-at-a-time means 3 chunked queries for this one page.
+	sorted, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with batched page hydration: %v", err)
+	}
+	if total != 5 {
+		t.Fatalf("total: want 5, got %d", total)
+	}
+	if got := deviceIDs(sorted); !equalOrdered(got, []string{"dev-1", "dev-3", "dev-2", "dev-4", "dev-0"}) {
+		t.Errorf("sort by user asc across batched hydration: want [dev-1(Alice) dev-3(Bob) dev-2(Carol) dev-4(Dave) dev-0(Eve)], got %v", got)
+	}
+}
+
+// TestListDeviceScans_SearchEscapesLikeWildcards guards literal substring
+// semantics for search: a "%" or "_" the user types must match only device
+// IDs containing that exact character, not act as a wildcard, matching the
+// old client-side .includes() behavior. Search is a Go strings.Contains
+// match in listDeviceScansUserAware, so there is no SQL pattern to escape.
+func TestListDeviceScans_SearchEscapesLikeWildcards(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	insertScan(t, c, types.DeviceScan{DeviceID: "device%special", ScannedAt: time.Now()})
+	insertScan(t, c, types.DeviceScan{DeviceID: "device_underscore", ScannedAt: time.Now().Add(time.Minute)})
+	insertScan(t, c, types.DeviceScan{DeviceID: "normal-device", ScannedAt: time.Now().Add(2 * time.Minute)})
+
+	for _, tc := range []struct {
+		search string
+		want   []string
+	}{
+		{search: "%", want: []string{"device%special"}},
+		{search: "_", want: []string{"device_underscore"}},
+		{search: "device", want: []string{"device%special", "device_underscore", "normal-device"}},
+	} {
+		t.Run(tc.search, func(t *testing.T) {
+			scans, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, Search: tc.search})
+			if err != nil {
+				t.Fatalf("search %q: %v", tc.search, err)
+			}
+			if got := deviceIDs(scans); !sameSet(got, tc.want) {
+				t.Errorf("search %q: want %v, got %v", tc.search, tc.want, got)
+			}
+		})
+	}
+}
+
+func TestListDeviceScans_HugeLimitDoesNotOverflow(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+	for i := range 3 {
+		u := types.User{Username: fmt.Sprintf("huge%d", i), HashedUsername: fmt.Sprintf("huge%d", i), DisplayName: fmt.Sprintf("Huge %d", i), Email: fmt.Sprintf("huge%d@example.com", i)}
+		if err := c.db.WithContext(ctx).Create(&u).Error; err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(u.ID), DeviceID: fmt.Sprintf("huge-%d", i), ScannedAt: now.Add(time.Duration(i) * time.Minute)})
+	}
+
+	scans, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Offset: 1, Limit: math.MaxInt, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("list with huge limit: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total: want 3, got %d", total)
+	}
+	if len(scans) != 2 {
+		t.Fatalf("rows: want 2 (offset 1 of 3), got %d", len(scans))
 	}
 }

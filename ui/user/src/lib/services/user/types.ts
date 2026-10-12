@@ -405,6 +405,9 @@ export type DeviceScanListFilters = {
 	submittedBy?: string[];
 	deviceId?: string[];
 	groupByDevice?: boolean;
+	query?: string;
+	sortBy?: string;
+	sortOrder?: 'asc' | 'desc';
 };
 export interface DeviceScanMCPServer {
 	id: number;

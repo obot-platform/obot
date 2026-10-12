@@ -136,6 +136,9 @@ func parseDeviceScanListOpts(query url.Values) gateway.DeviceScanListOptions {
 	opts := gateway.DeviceScanListOptions{
 		SubmittedBy:   parseMultiValueDeviceScan(query, "submitted_by"),
 		DeviceID:      parseMultiValueDeviceScan(query, "device_id"),
+		Search:        strings.TrimSpace(query.Get("query")),
+		SortBy:        query.Get("sort_by"),
+		SortOrder:     query.Get("sort_order"),
 		GroupByDevice: true,
 	}
 	if v := query.Get("group_by_device"); v != "" {

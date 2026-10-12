@@ -1,10 +1,12 @@
 package client
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,9 +16,17 @@ import (
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
 // SubmittedBy and DeviceID are multi-value; either narrows the result.
+// Search is a case-insensitive substring match against device ID and the
+// submitter's display name (see deviceScanUserDisplay). SortBy is one of
+// deviceScanSortColumns' keys, plus "user" (handled separately, see
+// deviceScanUserMatch); an unrecognized value falls back to the default
+// created_at DESC order.
 type DeviceScanListOptions struct {
 	SubmittedBy   []string
 	DeviceID      []string
+	Search        string
+	SortBy        string
+	SortOrder     string
 	Limit         int
 	Offset        int
 	GroupByDevice bool
@@ -122,7 +132,125 @@ func (c *Client) DeleteDeviceScan(ctx context.Context, id uint) error {
 	return c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id).Error
 }
 
-// ListDeviceScans returns scan envelopes ordered newest first.
+// deviceScanSortColumns maps the directly-addressable sort keys accepted
+// by the API to a qualified SQL column. "user" is deliberately not here:
+// it needs decrypted, per-row user data and is handled by
+// deviceScanUserMatch instead (see below).
+var deviceScanSortColumns = map[string]string{
+	"device_id":  "device_scans.device_id",
+	"hostname":   "device_scans.hostname",
+	"os":         "device_scans.os",
+	"arch":       "device_scans.arch",
+	"scanned_at": "device_scans.scanned_at",
+}
+
+// deviceScanUserDisplay mirrors Devices.svelte's userDisplay() precedence
+// for a single resolved user: displayName -> email -> username -> id.
+func deviceScanUserDisplay(u types.User) string {
+	switch {
+	case u.DisplayName != "":
+		return u.DisplayName
+	case u.Email != "":
+		return u.Email
+	case u.Username != "":
+		return u.Username
+	default:
+		return strconv.FormatUint(uint64(u.ID), 10)
+	}
+}
+
+// deviceScanUserMatch resolves submitted_by -> effective display name for
+// a bounded set of submitters, so search and "sort by user" match the
+// User column's display precedence. This is computed in Go rather than
+// matched/ordered directly in SQL because user PII (display_name, email,
+// username) may be encrypted at rest (see encryptUser/decryptUser):
+// comparing or sorting the raw columns would silently operate on
+// ciphertext. IsUserVisible additionally drops the bootstrap account and
+// any user with no email -- the same two exclusions the Users API applies
+// (see getUsers in pkg/gateway/server/user.go) -- so a scan submitted by a
+// deleted, bootstrap, or email-less user falls back to its own OS-level
+// username here exactly as it's displayed.
+type deviceScanUserMatch struct {
+	displayByID map[string]string // submitted_by string -> effective display name
+}
+
+// deviceScanIDBatchSize bounds how many ids any "id IN (?)" query built in
+// this file puts in a single query -- resolving submitter ids to users in
+// newDeviceScanUserMatch, and hydrating a requested page of scan ids in
+// listDeviceScansUserAware. Chunking keeps each query's parameter count
+// fixed regardless of distinct-submitter count or page size (the caller
+// controls Limit, and parseDeviceScanListOpts doesn't cap it), so either
+// growing without bound issues several bounded queries instead of one
+// that could exceed PostgreSQL's 65,535-parameter limit. A var, not a
+// const, so tests can shrink it to exercise chunking without creating
+// thousands of rows.
+var deviceScanIDBatchSize = 1000
+
+// newDeviceScanUserMatch resolves display names only for submitterIDs --
+// the distinct, non-empty submitted_by values already present in the
+// candidate scan set -- not every user in the org. This matters because
+// loading and decrypting the whole users table on every search or
+// user-sort is wasted work when only a handful of them ever submitted a
+// scan. The load itself is chunked (see deviceScanIDBatchSize) so the
+// query's parameter count stays fixed independently of fleet size.
+func (c *Client) newDeviceScanUserMatch(ctx context.Context, submitterIDs []string) (*deviceScanUserMatch, error) {
+	m := &deviceScanUserMatch{
+		displayByID: make(map[string]string, len(submitterIDs)),
+	}
+	if len(submitterIDs) == 0 {
+		return m, nil
+	}
+
+	ids := make([]uint, 0, len(submitterIDs))
+	for _, s := range submitterIDs {
+		id, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			continue // submitted_by that isn't a user id can't resolve to one
+		}
+		ids = append(ids, uint(id))
+	}
+	if len(ids) == 0 {
+		return m, nil
+	}
+
+	var users []types.User
+	for chunk := range slices.Chunk(ids, deviceScanIDBatchSize) {
+		var batch []types.User
+		if err := c.db.WithContext(ctx).Where("id IN (?) AND deleted_at IS NULL", chunk).Find(&batch).Error; err != nil {
+			return nil, fmt.Errorf("failed to load users for device scan search/sort: %w", err)
+		}
+		users = append(users, batch...)
+	}
+	for i := range users {
+		if err := c.decryptUser(ctx, &users[i]); err != nil {
+			return nil, fmt.Errorf("failed to decrypt user for device scan search/sort: %w", err)
+		}
+	}
+	for _, u := range users {
+		if !IsUserVisible(u) {
+			continue
+		}
+		id := strconv.FormatUint(uint64(u.ID), 10)
+		m.displayByID[id] = deviceScanUserDisplay(u)
+	}
+	return m, nil
+}
+
+// effectiveDisplay returns the same precedence used to render the User
+// column for one scan row: a resolved submitter's decrypted display name,
+// falling back to the scan's own OS-level username when submittedBy is
+// empty, unrecognized, or belongs to a deleted/bootstrap/email-less user.
+func (m *deviceScanUserMatch) effectiveDisplay(submittedBy, username string) string {
+	if submittedBy != "" {
+		if d, ok := m.displayByID[submittedBy]; ok {
+			return d
+		}
+	}
+	return username
+}
+
+// ListDeviceScans returns scan envelopes, sorted and optionally
+// searched across the full result set (not just the returned page).
 // MCP servers, skills, and plugins are preloaded; files are not —
 // DeviceScanFile.Content can be large and isn't needed for the list.
 func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions) ([]types.DeviceScan, int64, error) {
@@ -130,26 +258,65 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 	db = applyDeviceScanListFilters(db, opts)
 
 	if opts.GroupByDevice {
+		// Search intentionally does not narrow this subquery: it selects
+		// which scan is "latest" per device, and that selection should
+		// not change depending on search text. Search only narrows the
+		// final displayed rows, applied below on the outer query.
 		sub := applyDeviceScanListFilters(
 			c.db.WithContext(ctx).Model(&types.DeviceScan{}).Select("MAX(id)"),
 			opts,
 		).Group("device_id")
-		db = db.Where("id IN (?)", sub)
+		db = db.Where("device_scans.id IN (?)", sub)
+	}
+
+	search := strings.TrimSpace(opts.Search)
+	if search != "" || opts.SortBy == "user" {
+		// Search and "sort by user" both need the resolved, decrypted User
+		// column value, which can't be pushed into a SQL WHERE/ORDER BY as
+		// parameter lists or a CASE sized by distinct-submitter count
+		// without risking PostgreSQL's 65,535-parameter limit. See
+		// listDeviceScansUserAware.
+		return c.listDeviceScansUserAware(ctx, db.Session(&gorm.Session{}), opts, search)
 	}
 
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
+
+	q := db.Session(&gorm.Session{})
 	if opts.Limit > 0 {
-		db = db.Limit(opts.Limit)
+		q = q.Limit(opts.Limit)
 	}
 	if opts.Offset > 0 {
-		db = db.Offset(opts.Offset)
+		q = q.Offset(opts.Offset)
+	}
+
+	order := "ASC"
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		order = "DESC"
+	}
+	switch {
+	case deviceScanSortColumns[opts.SortBy] != "":
+		// These are all plain-string .Order() calls, which GORM correctly
+		// merges together, so the tiebreaker can be a separate trailing
+		// call here.
+		q = q.Order(fmt.Sprintf("%s %s", deviceScanSortColumns[opts.SortBy], order))
+		if opts.SortBy == "os" {
+			// Ties to arch in the same direction so the order matches the
+			// UI's combined "OS / Arch" column, not just the OS half.
+			q = q.Order(fmt.Sprintf("device_scans.arch %s", order))
+		}
+		// Stable pagination tiebreaker: without it, rows sharing the
+		// primary sort key could shuffle between identically-ordered page
+		// requests.
+		q = q.Order("device_scans.id ASC")
+	default:
+		q = q.Order("device_scans.created_at DESC").Order("device_scans.id ASC")
 	}
 
 	var scans []types.DeviceScan
-	if err := db.Order("created_at DESC").
+	if err := q.
 		Preload("MCPServers").
 		Preload("Skills").
 		Preload("Plugins").
@@ -157,6 +324,155 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		Find(&scans).Error; err != nil {
 		return nil, 0, err
 	}
+	return scans, total, nil
+}
+
+// deviceScanUserAwareRow is the bounded projection listDeviceScansUserAware
+// loads for the whole candidate set: every column any sort key or the
+// search text needs, and nothing else (no preloaded children). Loading it
+// is a single query with no per-row bind parameters, so it costs the same
+// regardless of how many distinct submitters or search matches exist.
+type deviceScanUserAwareRow struct {
+	ID          uint
+	DeviceID    string
+	SubmittedBy string
+	Username    string
+	Hostname    string
+	OS          string
+	Arch        string
+	ScannedAt   time.Time
+	CreatedAt   time.Time
+}
+
+// listDeviceScansUserAware handles search and "sort by user", both of
+// which need the resolved, decrypted User column value for every
+// candidate row. The naive SQL approaches -- a WHERE ... IN/NOT IN list
+// keyed by matching or by all known submitters, or an ORDER BY CASE with
+// one WHEN/THEN per submitter -- all size their bind-parameter count by
+// distinct-submitter or search-match count, so a large enough fleet would
+// exceed PostgreSQL's 65,535-parameter-per-query limit. Instead this loads
+// only deviceScanUserAwareRow for the candidate set (one query, zero
+// per-row parameters) and does search filtering, sorting by any column,
+// and pagination entirely in Go, then re-fetches full preloaded rows for
+// just the requested page's ids.
+func (c *Client) listDeviceScansUserAware(ctx context.Context, db *gorm.DB, opts DeviceScanListOptions, search string) ([]types.DeviceScan, int64, error) {
+	var submitterIDs []string
+	if err := db.Session(&gorm.Session{}).
+		Where("device_scans.submitted_by <> ''").
+		Distinct("device_scans.submitted_by").
+		Pluck("device_scans.submitted_by", &submitterIDs).Error; err != nil {
+		return nil, 0, err
+	}
+	userMatch, err := c.newDeviceScanUserMatch(ctx, submitterIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var rows []deviceScanUserAwareRow
+	if err := db.
+		Select(`device_scans.id AS id, device_scans.device_id AS device_id,
+			device_scans.submitted_by AS submitted_by, device_scans.username AS username,
+			device_scans.hostname AS hostname, device_scans.os AS os, device_scans.arch AS arch,
+			device_scans.scanned_at AS scanned_at, device_scans.created_at AS created_at`).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if search != "" {
+		needle := strings.ToLower(search)
+		filtered := rows[:0]
+		for _, r := range rows {
+			if strings.Contains(strings.ToLower(r.DeviceID), needle) ||
+				strings.Contains(strings.ToLower(userMatch.effectiveDisplay(r.SubmittedBy, r.Username)), needle) {
+				filtered = append(filtered, r)
+			}
+		}
+		rows = filtered
+	}
+	total := int64(len(rows))
+
+	dir := 1
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		dir = -1
+	}
+	cmpTiebreak := func(a, b deviceScanUserAwareRow) int { return cmp.Compare(a.ID, b.ID) }
+	var sortLess func(a, b deviceScanUserAwareRow) int
+	switch opts.SortBy {
+	case "user":
+		sortLess = func(a, b deviceScanUserAwareRow) int {
+			return strings.Compare(userMatch.effectiveDisplay(a.SubmittedBy, a.Username), userMatch.effectiveDisplay(b.SubmittedBy, b.Username))
+		}
+	case "device_id":
+		sortLess = func(a, b deviceScanUserAwareRow) int { return strings.Compare(a.DeviceID, b.DeviceID) }
+	case "hostname":
+		sortLess = func(a, b deviceScanUserAwareRow) int { return strings.Compare(a.Hostname, b.Hostname) }
+	case "os":
+		// Ties to arch in the same direction, matching the UI's combined
+		// "OS / Arch" column rather than just the OS half.
+		sortLess = func(a, b deviceScanUserAwareRow) int {
+			if d := strings.Compare(a.OS, b.OS); d != 0 {
+				return d
+			}
+			return strings.Compare(a.Arch, b.Arch)
+		}
+	case "arch":
+		sortLess = func(a, b deviceScanUserAwareRow) int { return strings.Compare(a.Arch, b.Arch) }
+	case "scanned_at":
+		sortLess = func(a, b deviceScanUserAwareRow) int { return a.ScannedAt.Compare(b.ScannedAt) }
+	default:
+		// Matches the SQL fast path's default: created_at DESC regardless
+		// of opts.SortOrder.
+		dir = 1
+		sortLess = func(a, b deviceScanUserAwareRow) int { return b.CreatedAt.Compare(a.CreatedAt) }
+	}
+	slices.SortFunc(rows, func(a, b deviceScanUserAwareRow) int {
+		if d := sortLess(a, b); d != 0 {
+			return d * dir
+		}
+		return cmpTiebreak(a, b)
+	})
+
+	start := min(opts.Offset, len(rows))
+	end := len(rows)
+	if opts.Limit > 0 {
+		end = start + min(opts.Limit, len(rows)-start)
+	}
+	page := rows[start:end]
+	if len(page) == 0 {
+		return []types.DeviceScan{}, total, nil
+	}
+
+	pageIDs := make([]uint, len(page))
+	pos := make(map[uint]int, len(page))
+	for i, r := range page {
+		pageIDs[i] = r.ID
+		pos[r.ID] = i
+	}
+
+	// Limit is client-controlled (parseDeviceScanListOpts accepts any
+	// positive value, and 0 here means "no limit" -- every matching row)
+	// and not bounded independently of fleet size, so pageIDs can't be
+	// assumed small just because it came from a "page". Hydrate it in
+	// deviceScanIDBatchSize-sized chunks, same as newDeviceScanUserMatch,
+	// so this query's parameter count stays fixed regardless of how many
+	// ids end up in a single requested page.
+	var scans []types.DeviceScan
+	for chunk := range slices.Chunk(pageIDs, deviceScanIDBatchSize) {
+		var batch []types.DeviceScan
+		if err := c.db.WithContext(ctx).
+			Where("id IN (?)", chunk).
+			Preload("MCPServers").
+			Preload("Skills").
+			Preload("Plugins").
+			Preload("Clients").
+			Find(&batch).Error; err != nil {
+			return nil, 0, err
+		}
+		scans = append(scans, batch...)
+	}
+	slices.SortFunc(scans, func(a, b types.DeviceScan) int {
+		return cmp.Compare(pos[a.ID], pos[b.ID])
+	})
 	return scans, total, nil
 }
 

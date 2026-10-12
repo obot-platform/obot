@@ -47,6 +47,17 @@
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
+		/**
+		 * Sortable fields whose order is decided entirely by the caller (e.g.
+		 * a server-side sort) rather than by Table's own comparator. For these
+		 * fields, clicking the header still flips the sort indicator and
+		 * calls `onSort`, but `data` is displayed as given instead of being
+		 * re-sorted locally — otherwise Table's `localeCompare`-based
+		 * comparator can disagree with the server's collation (e.g. on mixed
+		 * case) and silently re-order an already-correctly-sorted page.
+		 * Fields not listed here keep the default local sort.
+		 */
+		manualSortFields?: string[];
 		filterable?: string[];
 		filters?: Record<string, (string | number)[]>;
 		initSort?: InitSort;
@@ -82,6 +93,7 @@
 		noDataMessage = m.core_no_data(),
 		setRowClasses,
 		sortable,
+		manualSortFields,
 		filterable,
 		initSort,
 		filters,
@@ -111,6 +123,7 @@
 	});
 
 	let sortableFields = $derived(new Set(sortable));
+	let manualSortFieldSet = $derived(new Set(manualSortFields));
 	let filterableFields = $derived(new Set(filterable));
 	let noAutoHideFieldIndices = $derived(
 		new Set(fields.flatMap((field, index) => (noAutoHideFields?.includes(field) ? [index] : [])))
@@ -177,7 +190,7 @@
 	let tableData = $derived.by(() => {
 		let updatedTableData = data;
 
-		if (sortedBy) {
+		if (sortedBy && !manualSortFieldSet.has(sortedBy.property)) {
 			updatedTableData = [...data].sort((a, b) => {
 				if (tableSelectActions && validateSelect && sortedBy?.property === 'selectable') {
 					const aSelectable = validateSelect(a);
