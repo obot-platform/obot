@@ -10,8 +10,10 @@ import {
 	buildVMcpComponentFilterOptions,
 	buildWirePath,
 	catalogConfigurationFields,
+	catalogEntryToVMCPComponent,
 	hasVMcpComponentConfiguration,
 	configurationForSnapshotUpdate,
+	configurationRetainingOmittedRequired,
 	configurationWithRevealedValues,
 	distanceToRect,
 	filterMcpServersByCategories,
@@ -801,6 +803,126 @@ describe('configurationForSnapshotUpdate', () => {
 		expect(
 			configurationForSnapshotUpdate(component, [{ key: 'TOKEN', policy: 'userAllowed' }])
 		).toEqual([{ key: 'TOKEN', policy: 'userAllowed' }]);
+	});
+});
+
+describe('configurationRetainingOmittedRequired', () => {
+	function seeded(config: Parameters<typeof createMCPCatalogEntry>[0]['manifest']) {
+		return catalogEntryToVMCPComponent(
+			createMCPCatalogEntry({
+				id: 'entry-1',
+				name: 'Regional',
+				manifest: config
+			})
+		);
+	}
+
+	it('keeps policies and catalog values for required fields the dialog omits', () => {
+		const component = seeded({
+			config: [
+				{
+					key: 'API_TOKEN',
+					name: 'API token',
+					description: 'Token',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'env'
+				},
+				{
+					key: 'REGION',
+					name: 'Region',
+					description: 'Deployment region',
+					required: true,
+					sensitive: false,
+					value: 'us-east-1',
+					usage: 'env'
+				}
+			]
+		});
+
+		expect(
+			configurationRetainingOmittedRequired(component, [
+				{ key: 'API_TOKEN', policy: 'userAllowed' }
+			])
+		).toEqual([
+			{ key: 'API_TOKEN', policy: 'userAllowed' },
+			{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }
+		]);
+	});
+
+	it('drops redacted secret placeholders while retaining the required policy', () => {
+		const component = seeded({
+			config: [
+				{
+					key: 'SECRET',
+					name: 'Secret',
+					description: 'Secret',
+					required: true,
+					sensitive: true,
+					value: '******',
+					usage: 'env'
+				},
+				{
+					key: 'OPTIONAL',
+					name: 'Optional',
+					description: 'Optional',
+					required: false,
+					sensitive: false,
+					value: 'kept-out',
+					usage: 'env'
+				},
+				{
+					key: 'STATIC',
+					name: 'Static',
+					description: 'Static',
+					required: true,
+					sensitive: false,
+					static: true,
+					value: 'catalog',
+					usage: 'env'
+				},
+				{
+					key: 'BOUND',
+					name: 'Bound',
+					description: 'Bound',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'env',
+					secretBinding: { name: 'config', key: 'token' }
+				}
+			]
+		});
+		component.configuration = [
+			{ key: 'SECRET', policy: 'fixed', value: '******' },
+			{ key: 'BOUND', policy: 'fixed', value: 'do-not-copy' }
+		];
+
+		expect(configurationRetainingOmittedRequired(component, [])).toEqual([
+			{ key: 'SECRET', policy: 'fixed' }
+		]);
+	});
+
+	it('keeps a user-allowed policy without copying a catalog value onto it', () => {
+		const component = seeded({
+			config: [
+				{
+					key: 'REGION',
+					name: 'Region',
+					description: 'Deployment region',
+					required: true,
+					sensitive: false,
+					value: 'us-east-1',
+					usage: 'env'
+				}
+			]
+		});
+		component.configuration = [{ key: 'REGION', policy: 'userAllowed' }];
+
+		expect(configurationRetainingOmittedRequired(component, [])).toEqual([
+			{ key: 'REGION', policy: 'userAllowed' }
+		]);
 	});
 });
 

@@ -117,15 +117,19 @@
 			success.add(m.vmcps_vmcp_added({ name: created.displayName }));
 			await onCreated?.(created);
 			closeDialog();
+			return true;
 		} catch {
 			errors.append(m.vmcps_failed_to_create());
+			return false;
 		} finally {
 			saving = false;
 		}
 	}
 
 	export async function saveCreate(draft: VMcpCreateDraft) {
-		await createVMcp(draft);
+		if (!(await createVMcp(draft))) {
+			throw new Error(m.vmcps_failed_to_create());
+		}
 	}
 
 	async function updateVMcp(vmcp: VMCP) {

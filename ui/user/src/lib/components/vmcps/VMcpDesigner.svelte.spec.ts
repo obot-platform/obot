@@ -959,6 +959,58 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
 		});
 
+		it('keeps catalog policies the configuration dialog omits when adding a server', async () => {
+			const regional = createMCPCatalogEntry({
+				id: 'entry-regional-add',
+				name: 'Regional',
+				manifest: {
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						},
+						{
+							key: 'REGION',
+							name: 'Region',
+							description: 'Deployment region',
+							required: true,
+							sensitive: false,
+							value: 'us-east-1',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			mockEntryDetails(regional);
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, regional], vmcp);
+
+			const { el } = await pressCard(panelCard('Regional'), 28);
+			const to = centerOf(await vmcpCard().element());
+			pointer(el, 'pointermove', 28, to);
+			await tick();
+			pointer(el, 'pointerup', 28, to);
+
+			await expect.element(page.getByRole('heading', { name: /Configure Regional/ })).toBeVisible();
+			await page
+				.getByRole('combobox', { name: 'API token policy' })
+				.selectOptions('Provided at connection');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)?.configuration).toEqual([
+				{ key: 'API_TOKEN', policy: 'userAllowed' },
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }
+			]);
+		});
+
 		it('drops the added server when configuration is cancelled', async () => {
 			const tokenSlack = createMCPCatalogEntry({
 				id: 'entry-slack-cancel',
@@ -1265,6 +1317,147 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('dialog').getByText('Create vMCP').first())
 				.not.toBeInTheDocument();
+		});
+
+		it('keeps the configuration draft when creation fails and retries it', async () => {
+			const tokenSlack = createMCPCatalogEntry({
+				id: 'entry-slack-create-retry',
+				name: 'Token Slack',
+				manifest: {
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			mockEntryDetails(tokenSlack);
+			const create = vi.fn();
+			worker.use(
+				http.post('/api/vmcps', async ({ request }) => {
+					const manifest = (await request.json()) as VMCPManifest;
+					create(manifest);
+					if (create.mock.calls.length === 1) {
+						return new HttpResponse(null, { status: 500 });
+					}
+					return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [tokenSlack]));
+				})
+			);
+			await renderDesigner([componentEntry, tokenSlack]);
+
+			const { el } = await pressCard(panelCard('Token Slack'), 29);
+			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
+			pointer(el, 'pointermove', 29, to);
+			await tick();
+			pointer(el, 'pointerup', 29, to);
+
+			await page.getByLabelText(/^Name/).fill('Chat Gateway');
+			await page.getByLabelText(/^Description/).fill('Held until configuration');
+			await page.getByRole('button', { name: 'Create', exact: true }).click();
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+				.toBeVisible();
+			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			const configuration = page.getByRole('dialog').filter({ hasText: 'Configure Token Slack' });
+			await expect
+				.element(configuration.getByRole('alert'))
+				.toHaveTextContent('Failed to create vMCP.');
+			await expect.element(page.getByCSS('#fixed-API_TOKEN')).toHaveValue('secret');
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+				.toBeVisible();
+
+			await page.getByRole('button', { name: 'Next' }).click();
+			await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+			expect(create.mock.calls[1][0]).toMatchObject({
+				displayName: 'Chat Gateway',
+				description: 'Held until configuration'
+			});
+			expect(componentsFrom(create.mock.calls[1][0])[0]).toMatchObject({
+				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
+			});
+		});
+
+		it('keeps catalog policies the configuration dialog omits when creating a vMCP', async () => {
+			const regional = createMCPCatalogEntry({
+				id: 'entry-regional',
+				name: 'Regional',
+				manifest: {
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						},
+						{
+							key: 'REGION',
+							name: 'Region',
+							description: 'Deployment region',
+							required: true,
+							sensitive: false,
+							value: 'us-east-1',
+							usage: 'env'
+						},
+						{
+							key: 'SECRET',
+							name: 'Secret',
+							description: 'Redacted catalog secret',
+							required: true,
+							sensitive: true,
+							value: '******',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			mockEntryDetails(regional);
+			const create = vi.fn();
+			worker.use(
+				http.post('/api/vmcps', async ({ request }) => {
+					const manifest = (await request.json()) as VMCPManifest;
+					create(manifest);
+					return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [regional]));
+				})
+			);
+			await renderDesigner([componentEntry, regional]);
+
+			const { el } = await pressCard(panelCard('Regional'), 27);
+			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
+			pointer(el, 'pointermove', 27, to);
+			await tick();
+			pointer(el, 'pointerup', 27, to);
+
+			await page.getByRole('button', { name: 'Create', exact: true }).click();
+			await expect.element(page.getByRole('heading', { name: /Configure Regional/ })).toBeVisible();
+			await expect
+				.element(page.getByRole('combobox', { name: 'Region policy' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('combobox', { name: 'Secret policy' }))
+				.not.toBeInTheDocument();
+			await page
+				.getByRole('combobox', { name: 'API token policy' })
+				.selectOptions('Provided at connection');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
+			expect(componentsFrom(create.mock.calls[0][0])[0].configuration).toEqual([
+				{ key: 'API_TOKEN', policy: 'userAllowed' },
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'SECRET', policy: 'fixed' }
+			]);
 		});
 
 		it('leaves the vMCP alone when Escape cancels the drag before release', async () => {

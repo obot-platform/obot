@@ -48,6 +48,7 @@
 		appendComponentLabel,
 		catalogConfigurationFields,
 		catalogEntryToVMCPComponent,
+		configurationRetainingOmittedRequired,
 		isCatalogSyncedVMcp,
 		mcpServerNeedsStaticOAuthConfiguration,
 		resolveVMcpComponents,
@@ -373,7 +374,13 @@
 			await createEditVMcp?.saveCreate({
 				displayName: held.displayName,
 				description: held.description,
-				components: [{ ...held.component, configuration, forceSingleUser }]
+				components: [
+					{
+						...held.component,
+						configuration: configurationRetainingOmittedRequired(held.component, configuration),
+						forceSingleUser
+					}
+				]
 			});
 			heldCreate = undefined;
 			return;
@@ -385,7 +392,7 @@
 		try {
 			await addComponentToVMcp(pending.target, pending.entry, {
 				...pending.component,
-				configuration,
+				configuration: configurationRetainingOmittedRequired(pending.component, configuration),
 				forceSingleUser
 			});
 			pendingComponentDrop = undefined;

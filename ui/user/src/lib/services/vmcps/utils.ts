@@ -203,6 +203,35 @@ export function configurationForSnapshotUpdate(
 	return retained.length === 0 ? next : [...next, ...retained];
 }
 
+const REDACTED_CONFIGURATION_VALUE = '******';
+
+function suppliedConfigurationValue(value?: string) {
+	if (!value || value === REDACTED_CONFIGURATION_VALUE) return undefined;
+	return value;
+}
+
+export function configurationRetainingOmittedRequired(
+	component: VMCPComponent,
+	next: NonNullable<VMCPComponent['configuration']>
+): NonNullable<VMCPComponent['configuration']> {
+	const nextKeys = new Set(next.map((policy) => policy.key));
+	const seeded = new Map((component.configuration ?? []).map((policy) => [policy.key, policy]));
+	const retained = catalogConfigurationFields(component.catalogEntry).flatMap((field) => {
+		if (nextKeys.has(field.key) || !field.required || field.static || field.secretBinding) {
+			return [];
+		}
+		const policy = seeded.get(field.key);
+		const type =
+			policy?.policy === 'fixed' || policy?.policy === 'userAllowed' ? policy.policy : 'fixed';
+		const value =
+			type === 'fixed'
+				? (suppliedConfigurationValue(field.value) ?? suppliedConfigurationValue(policy?.value))
+				: undefined;
+		return [{ key: field.key, policy: type, ...(value ? { value } : {}) }];
+	});
+	return retained.length === 0 ? next : [...next, ...retained];
+}
+
 export function vmcpComponentDiffServers(
 	component: VMCPComponent,
 	updatedEntry?: MCPCatalogEntry
