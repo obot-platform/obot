@@ -541,6 +541,35 @@ it('opens the file picker only from the choose button, not the heading', async (
 	expect(pickerClick).toHaveBeenCalledOnce();
 });
 
+it('re-reads a file with the same name after Replace file', async () => {
+	const imported = vi.fn();
+	worker.use(
+		http.post('/api/openapi-import', async ({ request }) => {
+			imported(await request.json());
+			return HttpResponse.json({
+				baseURL: 'https://example.com/api',
+				destinationValidation: { valid: true },
+				suggestedHeaders: [],
+				suggestedMetadata: { name: 'Example' }
+			});
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema source').selectOptions('file');
+	const input = page.getByLabelText('Schema file', { exact: true }).element() as HTMLInputElement;
+	await page.getByLabelText('Schema file', { exact: true }).upload(new File(['first'], 'api.json'));
+	await expect.element(page.getByRole('button', { name: 'Replace file' })).toBeVisible();
+	expect(input.value).not.toBe('');
+	input.addEventListener('click', (event) => event.preventDefault());
+	await page.getByRole('button', { name: 'Replace file' }).click();
+	expect(input.value).toBe('');
+	await page
+		.getByLabelText('Schema file', { exact: true })
+		.upload(new File(['updated'], 'api.json'));
+	await page.getByRole('button', { name: 'Import schema' }).click();
+	await vi.waitFor(() => expect(imported).toHaveBeenCalledWith({ source: { content: 'updated' } }));
+});
+
 it('rejects oversized files before import', async () => {
 	const imported = mockImport();
 	await openForm();

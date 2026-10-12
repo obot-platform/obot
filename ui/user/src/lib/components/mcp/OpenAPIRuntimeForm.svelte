@@ -191,7 +191,11 @@
 						<button
 							type="button"
 							class="btn btn-secondary btn-sm shrink-0"
-							onclick={() => fileInput?.click()}
+							onclick={() => {
+								if (!fileInput) return;
+								fileInput.value = '';
+								fileInput.click();
+							}}
 						>
 							{fileName || config.source.content
 								? m.mcps_openapi_replace_file()
