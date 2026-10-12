@@ -174,21 +174,24 @@ type deviceScanUserMatch struct {
 	displayByID map[string]string // submitted_by string -> effective display name
 }
 
-// deviceScanUserBatchSize bounds how many submitter ids newDeviceScanUserMatch
-// puts in a single "id IN (?)" query. Chunking keeps each query's parameter
-// count fixed regardless of how many distinct submitters the candidate set
-// has, so a fleet large enough to approach PostgreSQL's 65,535-parameter
-// limit issues several bounded queries instead of one unbounded one. A var,
-// not a const, so tests can shrink it to exercise chunking without creating
+// deviceScanIDBatchSize bounds how many ids any "id IN (?)" query built in
+// this file puts in a single query -- resolving submitter ids to users in
+// newDeviceScanUserMatch, and hydrating a requested page of scan ids in
+// listDeviceScansUserAware. Chunking keeps each query's parameter count
+// fixed regardless of distinct-submitter count or page size (the caller
+// controls Limit, and parseDeviceScanListOpts doesn't cap it), so either
+// growing without bound issues several bounded queries instead of one
+// that could exceed PostgreSQL's 65,535-parameter limit. A var, not a
+// const, so tests can shrink it to exercise chunking without creating
 // thousands of rows.
-var deviceScanUserBatchSize = 1000
+var deviceScanIDBatchSize = 1000
 
 // newDeviceScanUserMatch resolves display names only for submitterIDs --
 // the distinct, non-empty submitted_by values already present in the
 // candidate scan set -- not every user in the org. This matters because
 // loading and decrypting the whole users table on every search or
 // user-sort is wasted work when only a handful of them ever submitted a
-// scan. The load itself is chunked (see deviceScanUserBatchSize) so the
+// scan. The load itself is chunked (see deviceScanIDBatchSize) so the
 // query's parameter count stays fixed independently of fleet size.
 func (c *Client) newDeviceScanUserMatch(ctx context.Context, submitterIDs []string) (*deviceScanUserMatch, error) {
 	m := &deviceScanUserMatch{
@@ -211,7 +214,7 @@ func (c *Client) newDeviceScanUserMatch(ctx context.Context, submitterIDs []stri
 	}
 
 	var users []types.User
-	for chunk := range slices.Chunk(ids, deviceScanUserBatchSize) {
+	for chunk := range slices.Chunk(ids, deviceScanIDBatchSize) {
 		var batch []types.User
 		if err := c.db.WithContext(ctx).Where("id IN (?) AND deleted_at IS NULL", chunk).Find(&batch).Error; err != nil {
 			return nil, fmt.Errorf("failed to load users for device scan search/sort: %w", err)
@@ -446,15 +449,26 @@ func (c *Client) listDeviceScansUserAware(ctx context.Context, db *gorm.DB, opts
 		pos[r.ID] = i
 	}
 
+	// Limit is client-controlled (parseDeviceScanListOpts accepts any
+	// positive value, and 0 here means "no limit" -- every matching row)
+	// and not bounded independently of fleet size, so pageIDs can't be
+	// assumed small just because it came from a "page". Hydrate it in
+	// deviceScanIDBatchSize-sized chunks, same as newDeviceScanUserMatch,
+	// so this query's parameter count stays fixed regardless of how many
+	// ids end up in a single requested page.
 	var scans []types.DeviceScan
-	if err := c.db.WithContext(ctx).
-		Where("id IN (?)", pageIDs).
-		Preload("MCPServers").
-		Preload("Skills").
-		Preload("Plugins").
-		Preload("Clients").
-		Find(&scans).Error; err != nil {
-		return nil, 0, err
+	for chunk := range slices.Chunk(pageIDs, deviceScanIDBatchSize) {
+		var batch []types.DeviceScan
+		if err := c.db.WithContext(ctx).
+			Where("id IN (?)", chunk).
+			Preload("MCPServers").
+			Preload("Skills").
+			Preload("Plugins").
+			Preload("Clients").
+			Find(&batch).Error; err != nil {
+			return nil, 0, err
+		}
+		scans = append(scans, batch...)
 	}
 	slices.SortFunc(scans, func(a, b types.DeviceScan) int {
 		return cmp.Compare(pos[a.ID], pos[b.ID])

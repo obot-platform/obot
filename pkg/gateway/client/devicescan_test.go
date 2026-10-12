@@ -815,7 +815,7 @@ func TestListDeviceScans_UserMatchIgnoresNonSubmitters(t *testing.T) {
 // parameter per submitter in that single query, so a fleet with enough
 // distinct submitters would exceed PostgreSQL's 65,535-parameter limit --
 // the failure just moved from the ORDER BY CASE to this WHERE clause.
-// newDeviceScanUserMatch now chunks that load (deviceScanUserBatchSize).
+// newDeviceScanUserMatch now chunks that load (deviceScanIDBatchSize).
 // Shrinking the batch size here forces multiple chunked queries over a
 // handful of submitters, so this exercises the chunking/merging path
 // itself without creating thousands of rows.
@@ -823,9 +823,9 @@ func TestNewDeviceScanUserMatch_BatchesLookups(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
 
-	orig := deviceScanUserBatchSize
-	deviceScanUserBatchSize = 2
-	t.Cleanup(func() { deviceScanUserBatchSize = orig })
+	orig := deviceScanIDBatchSize
+	deviceScanIDBatchSize = 2
+	t.Cleanup(func() { deviceScanIDBatchSize = orig })
 
 	var submitterIDs []string
 	var wantDisplay []string
@@ -854,6 +854,58 @@ func TestNewDeviceScanUserMatch_BatchesLookups(t *testing.T) {
 		if got := m.displayByID[id]; got != wantDisplay[i] {
 			t.Errorf("displayByID[%s]: want %q, got %q", id, wantDisplay[i], got)
 		}
+	}
+}
+
+// TestListDeviceScans_SortByUserPageHydrationIsBatched guards against a
+// review finding: listDeviceScansUserAware's final "id IN (?)" fetch for
+// the requested page used to put one bind parameter per page row in a
+// single query. Limit is client-controlled (parseDeviceScanListOpts
+// accepts any positive value, with 0 meaning "no limit" at this layer) and
+// not capped independently of fleet size, so that fetch could still
+// exceed PostgreSQL's 65,535-parameter limit on a large enough page --
+// the failure had just moved again, from the WHERE/ORDER BY clauses to
+// this final hydration step. It's now chunked by deviceScanIDBatchSize.
+// Shrinking that here forces the page itself to be hydrated across
+// multiple chunked queries, verifying the result stays correctly ordered
+// once the chunks are reassembled.
+func TestListDeviceScans_SortByUserPageHydrationIsBatched(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	orig := deviceScanIDBatchSize
+	deviceScanIDBatchSize = 2
+	t.Cleanup(func() { deviceScanIDBatchSize = orig })
+
+	now := time.Now().UTC()
+	users := []types.User{
+		{Username: "e", HashedUsername: "e", DisplayName: "Eve", Email: "eve@example.com"},
+		{Username: "a", HashedUsername: "a", DisplayName: "Alice", Email: "alice@example.com"},
+		{Username: "c", HashedUsername: "c", DisplayName: "Carol", Email: "carol@example.com"},
+		{Username: "b", HashedUsername: "b", DisplayName: "Bob", Email: "bob@example.com"},
+		{Username: "d", HashedUsername: "d", DisplayName: "Dave", Email: "dave@example.com"},
+	}
+	for i := range users {
+		if err := c.db.WithContext(ctx).Create(&users[i]).Error; err != nil {
+			t.Fatalf("create user %d: %v", i, err)
+		}
+		insertScan(t, c, types.DeviceScan{
+			SubmittedBy: idStr(users[i].ID),
+			DeviceID:    fmt.Sprintf("dev-%d", i),
+			ScannedAt:   now.Add(time.Duration(i) * time.Minute),
+		})
+	}
+
+	// 5 rows hydrated 2-at-a-time means 3 chunked queries for this one page.
+	sorted, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user with batched page hydration: %v", err)
+	}
+	if total != 5 {
+		t.Fatalf("total: want 5, got %d", total)
+	}
+	if got := deviceIDs(sorted); !equalOrdered(got, []string{"dev-1", "dev-3", "dev-2", "dev-4", "dev-0"}) {
+		t.Errorf("sort by user asc across batched hydration: want [dev-1(Alice) dev-3(Bob) dev-2(Carol) dev-4(Dave) dev-0(Eve)], got %v", got)
 	}
 }
 
