@@ -82,7 +82,10 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	locale := providerResponseLocale(req)
+	metadata := authProvider.Spec.CommonProviderMetadata
+	metadata.RequiredConfigurationParameters = params.Required
+	metadata.OptionalConfigurationParameters = params.Optional
+	locale := providerResponseLocale(req, metadata)
 	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params, locale))
 }
 
@@ -201,8 +204,10 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
-	locale := providerResponseLocale(req)
-	for _, a := range authProviders.Items {
+	statuses := make([]types.AuthProviderStatus, len(authProviders.Items))
+	parameters := make([]adapter.Parameters, len(authProviders.Items))
+	metadata := make([]types.CommonProviderMetadata, len(authProviders.Items))
+	for index, a := range authProviders.Items {
 		var conn *gatewaytypes.SCIMConnection
 		if i := slices.IndexFunc(conns, func(c gatewaytypes.SCIMConnection) bool {
 			return c.AuthProviderNamespace == a.Namespace && c.AuthProviderName == a.Name
@@ -228,7 +233,15 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus, params, locale))
+		statuses[index] = *authProviderStatus
+		parameters[index] = params
+		metadata[index] = a.Spec.CommonProviderMetadata
+		metadata[index].RequiredConfigurationParameters = params.Required
+		metadata[index].OptionalConfigurationParameters = params.Optional
+	}
+	locale := providerResponseLocale(req, metadata...)
+	for index, a := range authProviders.Items {
+		resp = append(resp, ap.convertAuthProvider(a, statuses[index], parameters[index], locale))
 	}
 
 	return req.Write(types.AuthProviderList{Items: resp})

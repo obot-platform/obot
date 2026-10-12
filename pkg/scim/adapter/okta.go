@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"net/url"
-
 	"strings"
 	"unicode"
 

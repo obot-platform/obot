@@ -9,21 +9,25 @@ import (
 )
 
 func TestCatalogsMatch(t *testing.T) {
+	checkCatalogTranslations(t, catalogs)
+}
+
+func checkCatalogTranslations(t *testing.T, catalogs map[string]map[string]string) {
+	t.Helper()
 	base := catalogs["en"]
-	for _, locale := range supported[1:] {
-		catalog := catalogs[locale]
-		if !slices.Equal(slices.Sorted(maps.Keys(base)), slices.Sorted(maps.Keys(catalog))) {
-			t.Errorf("%s keys differ from English", locale)
+	for key, english := range base {
+		if english == "" {
+			t.Errorf("English message %q is empty", key)
 		}
-		for key, english := range base {
-			if key == "$schema" {
+	}
+	for locale, catalog := range catalogs {
+		for key, translated := range catalog {
+			english, ok := base[key]
+			if !ok {
+				t.Errorf("%s message %q has no English source", locale, key)
 				continue
 			}
-			translated := catalog[key]
-			if translated == "" {
-				t.Errorf("%s message %q is empty", locale, key)
-			}
-			if !slices.Equal(placeholders(english), placeholders(translated)) {
+			if translated != "" && !slices.Equal(placeholders(english), placeholders(translated)) {
 				t.Errorf("%s message %q has different placeholders", locale, key)
 			}
 		}
@@ -35,30 +39,20 @@ func TestDirectoryCatalogsMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("catalogFiles() error = %v", err)
 	}
-	grouped := map[string]map[string][]string{}
+	grouped := map[string]map[string]map[string]string{}
 	for _, file := range parsed {
 		if grouped[file.dir] == nil {
-			grouped[file.dir] = map[string][]string{}
+			grouped[file.dir] = map[string]map[string]string{}
 		}
-		grouped[file.dir][file.locale] = slices.Sorted(maps.Keys(file.keys))
+		grouped[file.dir][file.locale] = file.keys
 	}
 	for _, dir := range slices.Sorted(maps.Keys(grouped)) {
-		locales := grouped[dir]
-		base, ok := locales["en"]
-		if !ok {
-			t.Errorf("%s is missing en.json", dir)
-			continue
-		}
-		for _, locale := range supported[1:] {
-			keys, ok := locales[locale]
-			if !ok {
-				t.Errorf("%s is missing %s.json", dir, locale)
-				continue
+		t.Run(dir, func(t *testing.T) {
+			if _, ok := grouped[dir]["en"]; !ok {
+				t.Fatal("missing en.json")
 			}
-			if !slices.Equal(base, keys) {
-				t.Errorf("%s keys in %s differ from English", locale, dir)
-			}
-		}
+			checkCatalogTranslations(t, grouped[dir])
+		})
 	}
 }
 
@@ -100,13 +94,22 @@ func TestReadCatalogs(t *testing.T) {
 			wantError: `duplicate message "status_not_found"`,
 		},
 		{
-			name: "reject unsupported locale file",
+			name: "reject malformed JSON",
 			files: fstest.MapFS{
 				"messages/fr.json": {
+					Data: []byte(`{"greeting":`),
+				},
+			},
+			wantError: "parse messages/fr.json",
+		},
+		{
+			name: "reject invalid locale file",
+			files: fstest.MapFS{
+				"messages/not a language.json": {
 					Data: []byte(`{}`),
 				},
 			},
-			wantError: "unsupported locale file messages/fr.json",
+			wantError: "invalid locale file messages/not a language.json",
 		},
 	}
 	for _, tt := range tests {
@@ -145,9 +148,82 @@ func TestMessageFallbackAndArguments(t *testing.T) {
 
 func placeholders(message string) []string {
 	result := make([]string, 0)
-	for _, match := range placeholder.FindAllString(message, -1) {
-		result = append(result, match)
-	}
+	result = append(result, placeholder.FindAllString(message, -1)...)
 	slices.Sort(result)
 	return result
+}
+
+func TestDiscoveredPartialCatalogs(t *testing.T) {
+	loaded, err := readCatalogs(fstest.MapFS{
+		"messages/en.json":         {Data: []byte(`{"greeting":"Hello {name}","missing":"English","empty":"English empty"}`)},
+		"messages/fr.json":         {Data: []byte(`{"greeting":"Bonjour {name}","empty":""}`)},
+		"messages/area/fr.json":    {Data: []byte(`{"area":"Français"}`)},
+		"messages/area/en.json":    {Data: []byte(`{"area":"English area"}`)},
+		"messages/area/pt-br.json": {Data: []byte(`{"area":"Português"}`)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkCatalogTranslations(t, loaded)
+	originalCatalogs, originalSupported := catalogs, supported
+	catalogs, supported = loaded, catalogLocales(loaded)
+	t.Cleanup(func() { catalogs, supported = originalCatalogs, originalSupported })
+	if !slices.Equal(supported, []string{"en", "fr", "pt-BR"}) {
+		t.Fatalf("discovered locales = %v", supported)
+	}
+	if got := Locale("fr-CA,en;q=0.5"); got != "fr" {
+		t.Fatalf("selected locale = %q", got)
+	}
+	if got := Message("fr", "greeting", map[string]string{"name": "Sam"}); got != "Bonjour Sam" {
+		t.Fatalf("translated message = %q", got)
+	}
+	for key, want := range map[string]string{"missing": "English", "empty": "English empty"} {
+		if got := Text("fr", key); got != want {
+			t.Errorf("Text(fr, %s) = %q, want %q", key, got, want)
+		}
+	}
+	if got := Locales("missing"); !maps.Equal(got, map[string]string{"fr": "English", "pt-BR": "English"}) {
+		t.Fatalf("Locales(missing) = %v", got)
+	}
+}
+
+func TestLocaleNegotiation(t *testing.T) {
+	tests := []struct {
+		name      string
+		header    string
+		available []string
+		want      string
+	}{
+		{name: "weighted", header: "fr;q=0.5,ja;q=0.9", available: []string{"en", "fr", "ja"}, want: "ja"},
+		{name: "zero weight", header: "fr;q=0,en;q=0.5", available: []string{"en", "fr"}, want: "en"},
+		{name: "invalid header", header: "not a language", available: []string{"en", "fr"}, want: "en"},
+		{name: "unavailable", header: "de", available: []string{"en", "fr"}, want: "en"},
+		{name: "parent", header: "fr-CA", available: []string{"en", "fr"}, want: "fr"},
+		{name: "exact region", header: "pt-BR", available: []string{"en", "pt", "pt-BR"}, want: "pt-BR"},
+		{name: "canonical spelling", header: "pt-BR", available: []string{"en", "pt-br"}, want: "pt-BR"},
+		{name: "deterministic region", header: "fr", available: []string{"fr-FR", "en", "fr-CA"}, want: "fr-CA"},
+		{name: "Simplified script", header: "zh-Hans-CN", available: []string{"en", "zh-CN"}, want: "zh-CN"},
+		{name: "Singapore", header: "zh-SG", available: []string{"en", "zh-CN"}, want: "zh-CN"},
+		{name: "Traditional skips Simplified", header: "zh-TW,ja;q=0.5", available: []string{"en", "ja", "zh-CN"}, want: "ja"},
+		{name: "different script", header: "sr-Latn", available: []string{"en", "sr"}, want: "en"},
+		{name: "Hong Kong", header: "zh-HK", available: []string{"en", "zh-CN"}, want: "en"},
+		{name: "Traditional available", header: "zh-HK", available: []string{"en", "zh-CN", "zh-TW"}, want: "zh-TW"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selectLocale(tt.header, tt.available); got != tt.want {
+				t.Fatalf("selectLocale(%q, %v) = %q, want %q", tt.header, tt.available, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCanonicalCatalogDuplicate(t *testing.T) {
+	_, err := readCatalogs(fstest.MapFS{
+		"messages/pt-br.json":      {Data: []byte(`{"key":"one"}`)},
+		"messages/area/pt-BR.json": {Data: []byte(`{"key":"two"}`)},
+	})
+	if err == nil || !strings.Contains(err.Error(), `duplicate message "key" for pt-BR`) {
+		t.Fatalf("canonical duplicate error = %v", err)
+	}
 }

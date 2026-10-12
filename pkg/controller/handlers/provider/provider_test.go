@@ -28,12 +28,17 @@ locales:
   ja:
     name: OpenAI
     description: OpenAI のモデルプロバイダー
+  fr:
+    name: OpenAI
+    description: Fournisseur OpenAI
 requiredConfigurationParameters:
   - name: API_KEY
     friendlyName: API Key
     locales:
       ja:
         friendlyName: API キー
+      fr:
+        friendlyName: Clé API
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -47,6 +52,9 @@ locales:
   ko:
     name: GitHub
     description: GitHub 인증 공급자
+  fr:
+    name: GitHub
+    description: Authentification GitHub
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +85,9 @@ locales:
 				t.Fatalf("expected model provider dialect OpenAIResponses, got %q", provider.Spec.Dialect)
 			}
 			if provider.Spec.Locales["ja"].Description != "OpenAI のモデルプロバイダー" ||
-				provider.Spec.RequiredConfigurationParameters[0].Locales["ja"].FriendlyName != "API キー" {
+				provider.Spec.RequiredConfigurationParameters[0].Locales["ja"].FriendlyName != "API キー" ||
+				provider.Spec.Locales["fr"].Description != "Fournisseur OpenAI" ||
+				provider.Spec.RequiredConfigurationParameters[0].Locales["fr"].FriendlyName != "Clé API" {
 				t.Fatal("model provider locales were not loaded")
 			}
 		case *v1.AuthProvider:
@@ -94,7 +104,7 @@ locales:
 			if provider.Spec.GroupIDPrefix != "github/" {
 				t.Fatalf("expected auth provider group ID prefix github/, got %q", provider.Spec.GroupIDPrefix)
 			}
-			if provider.Spec.Locales["ko"].Description != "GitHub 인증 공급자" {
+			if provider.Spec.Locales["ko"].Description != "GitHub 인증 공급자" || provider.Spec.Locales["fr"].Description != "Authentification GitHub" {
 				t.Fatal("auth provider locales were not loaded")
 			}
 		default:

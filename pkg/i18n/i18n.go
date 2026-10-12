@@ -7,26 +7,34 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
 	"golang.org/x/text/language"
 )
 
-// files embeds every locale catalog under messages, including area subdirectories.
-//
-//go:embed messages
-var files embed.FS
-
 var (
+	// files embeds every locale catalog under messages, including area subdirectories.
+	//
+	//go:embed messages
+	files embed.FS
+
 	placeholder = regexp.MustCompile(`\{([a-zA-Z][a-zA-Z0-9]*)\}`)
 	catalogs    = loadCatalogs()
+	supported   = catalogLocales(catalogs)
 )
 
-var supported = []string{"en", "ja", "ko", "zh-CN"}
-
 type localeKey struct{}
+
+type catalogFile struct {
+	path   string
+	dir    string
+	locale string
+	keys   map[string]string
+}
 
 // WithLocale carries a request's selected locale into API services.
 func WithLocale(ctx context.Context, locale string) context.Context {
@@ -41,29 +49,53 @@ func FromContext(ctx context.Context) string {
 	return "en"
 }
 
-// Locale selects the first supported language with a positive Accept-Language weight.
-func Locale(header string) string {
+// Locale selects a catalog or additional locale with a positive Accept-Language weight.
+func Locale(header string, additional ...string) string {
+	return selectLocale(header, append(slices.Clone(supported), additional...))
+}
+
+func selectLocale(header string, available []string) string {
 	tags, weights, err := language.ParseAcceptLanguage(header)
 	if err != nil {
 		return "en"
 	}
+	candidates := map[string]language.Tag{}
+	for _, locale := range available {
+		if tag, err := language.Parse(locale); err == nil {
+			candidates[tag.String()] = tag
+		}
+	}
+	names := slices.Sorted(maps.Keys(candidates))
 	for i, tag := range tags {
 		if weights[i] <= 0 {
 			continue
 		}
-		value := strings.ToLower(tag.String())
-		switch {
-		case value == "en" || strings.HasPrefix(value, "en-"):
-			return "en"
-		case value == "ja" || strings.HasPrefix(value, "ja-"):
-			return "ja"
-		case value == "ko" || strings.HasPrefix(value, "ko-"):
-			return "ko"
-		case value == "zh-cn" || value == "zh-sg" || value == "zh-hans" || strings.HasPrefix(value, "zh-hans-"):
-			return "zh-CN"
+		for parent := tag; parent != language.Und; parent = parent.Parent() {
+			if _, ok := candidates[parent.String()]; ok {
+				return parent.String()
+			}
+		}
+		base, _ := tag.Base()
+		script, _ := tag.Script()
+		for _, name := range names {
+			candidateBase, _ := candidates[name].Base()
+			candidateScript, _ := candidates[name].Script()
+			if base == candidateBase && script == candidateScript {
+				return name
+			}
 		}
 	}
 	return "en"
+}
+
+func catalogLocales(catalogs map[string]map[string]string) []string {
+	locales := []string{"en"}
+	for _, locale := range slices.Sorted(maps.Keys(catalogs)) {
+		if locale != "en" {
+			locales = append(locales, locale)
+		}
+	}
+	return locales
 }
 
 // Message renders a catalog key. A missing translation falls back to English.
@@ -101,6 +133,9 @@ func loadCatalogs() map[string]map[string]string {
 	if err != nil {
 		panic(err)
 	}
+	if len(catalogs["en"]) == 0 {
+		panic("missing English backend messages")
+	}
 	return catalogs
 }
 
@@ -112,13 +147,13 @@ func readCatalogs(fsys fs.FS) (map[string]map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalogs := make(map[string]map[string]string, len(supported))
-	defined := make(map[string]map[string]string, len(supported))
-	for _, locale := range supported {
-		catalogs[locale] = map[string]string{}
-		defined[locale] = map[string]string{}
-	}
+	catalogs := make(map[string]map[string]string)
+	defined := make(map[string]map[string]string)
 	for _, file := range parsed {
+		if catalogs[file.locale] == nil {
+			catalogs[file.locale] = map[string]string{}
+			defined[file.locale] = map[string]string{}
+		}
 		for key, value := range file.keys {
 			if previous, exists := defined[file.locale][key]; exists {
 				return nil, fmt.Errorf("duplicate message %q for %s in %s and %s", key, file.locale, previous, file.path)
@@ -128,13 +163,6 @@ func readCatalogs(fsys fs.FS) (map[string]map[string]string, error) {
 		}
 	}
 	return catalogs, nil
-}
-
-type catalogFile struct {
-	path   string
-	dir    string
-	locale string
-	keys   map[string]string
 }
 
 func catalogFiles(fsys fs.FS) ([]catalogFile, error) {
@@ -147,9 +175,11 @@ func catalogFiles(fsys fs.FS) ([]catalogFile, error) {
 			return nil
 		}
 		locale := strings.TrimSuffix(path.Base(filePath), ".json")
-		if !supportedLocale(locale) {
-			return fmt.Errorf("unsupported locale file %s", filePath)
+		tag, err := language.Parse(locale)
+		if err != nil || tag == language.Und {
+			return fmt.Errorf("invalid locale file %s", filePath)
 		}
+		locale = tag.String()
 		data, err := fs.ReadFile(fsys, filePath)
 		if err != nil {
 			return err
@@ -174,13 +204,4 @@ func catalogFiles(fsys fs.FS) ([]catalogFile, error) {
 		return nil, err
 	}
 	return parsed, nil
-}
-
-func supportedLocale(locale string) bool {
-	for _, candidate := range supported {
-		if locale == candidate {
-			return true
-		}
-	}
-	return false
 }

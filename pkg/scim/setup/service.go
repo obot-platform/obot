@@ -814,11 +814,7 @@ func unboundGroupMessage(ctx context.Context, p *provider, group types2.SCIMSetu
 	return message(ctx, "scim_unbound_group", "group", describeGroupLocale(i18n.FromContext(ctx), group), "provider", p.displayName)
 }
 
-// blockedMessage lists everything that blocks the SCIM transition named by its past participle, such as "enforced".
-func blockedMessage(transition string, blockers []string) string {
-	return blockedMessageLocale("en", transition, blockers)
-}
-
+// blockedMessageLocale lists everything that blocks the SCIM transition named by its past participle, such as "enforced".
 func blockedMessageLocale(locale, transition string, blockers []string) string {
 	var b strings.Builder
 	key := "scim_cannot_enable"
@@ -833,11 +829,7 @@ func blockedMessageLocale(locale, transition string, blockers []string) string {
 	return b.String()
 }
 
-// describeGroup names a group, where to find it in the identity provider, and what references it.
-func describeGroup(group types2.SCIMSetupGroup) string {
-	return describeGroupLocale("en", group)
-}
-
+// describeGroupLocale names a group, where to find it in the identity provider, and what references it.
 func describeGroupLocale(locale string, group types2.SCIMSetupGroup) string {
 	var b strings.Builder
 	if group.Name != "" {
@@ -883,10 +875,6 @@ func missingGroupMessageLocale(locale, groupID string, refs []types2.GroupRefere
 		descriptions = append(descriptions, describeReferenceLocale(locale, ref))
 	}
 	return i18n.Message(locale, "scim_missing_group_references_warning", map[string]string{"group": groupID, "references": strings.Join(descriptions, "; ")})
-}
-
-func describeReference(ref types2.GroupReference) string {
-	return describeReferenceLocale("en", ref)
 }
 
 func describeReferenceLocale(locale string, ref types2.GroupReference) string {

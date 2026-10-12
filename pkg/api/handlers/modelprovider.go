@@ -40,7 +40,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	locale := providerResponseLocale(req)
+	locale := providerResponseLocale(req, modelProvider.Spec.CommonProviderMetadata)
 	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 
@@ -53,7 +53,11 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.ModelProvider, 0, len(modelProviders.Items))
-	locale := providerResponseLocale(req)
+	metadata := make([]types.CommonProviderMetadata, len(modelProviders.Items))
+	for i, provider := range modelProviders.Items {
+		metadata[i] = provider.Spec.CommonProviderMetadata
+	}
+	locale := providerResponseLocale(req, metadata...)
 	for _, modelProvider := range modelProviders.Items {
 		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
 		if err != nil {
@@ -195,7 +199,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return fmt.Errorf("failed to sync models for model provider %q: %w", modelProvider.Name, err)
 	}
 
-	locale := providerResponseLocale(req)
+	locale := providerResponseLocale(req, modelProvider.Spec.CommonProviderMetadata)
 	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 
