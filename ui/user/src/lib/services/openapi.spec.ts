@@ -17,4 +17,15 @@ describe('OpenAPI base URL placeholder for saved snapshots', () => {
 		expect(openAPIBaseURL()).toBe('');
 		expect(openAPIBaseURL({ servers: [{ url: '/relative' }] })).toBe('');
 	});
+	it.each([
+		{ kind: 'bare query marker', url: 'https://api.example.com?' },
+		{ kind: 'backslash', url: 'https://api.example.com\\v1' },
+		{ kind: 'surrounding whitespace', url: ' https://api.example.com ' },
+		{ kind: 'embedded tab', url: 'https://api.example.com/\tpath' }
+	])('skips a server URL with $kind', ({ url }) => {
+		expect(openAPIBaseURL({ servers: [{ url }] })).toBe('');
+		expect(openAPIBaseURL({ servers: [{ url }, { url: 'https://usable.example.com/v1' }] })).toBe(
+			'https://usable.example.com/v1'
+		);
+	});
 });

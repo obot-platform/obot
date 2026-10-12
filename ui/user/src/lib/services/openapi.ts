@@ -15,7 +15,8 @@ export function openAPIBaseURL(schema?: Record<string, unknown>): string {
 	if (!Array.isArray(schema?.servers)) return '';
 	for (const server of schema.servers) {
 		const value = object(server).url;
-		if (typeof value !== 'string' || /[{}]/.test(value)) continue;
+		if (typeof value !== 'string' || value !== value.trim() || /[{}\\?\t\n\r]/.test(value))
+			continue;
 		try {
 			const url = new URL(value);
 			if (

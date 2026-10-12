@@ -297,51 +297,57 @@ it('preserves existing metadata after importing a replacement', async () => {
 	expect(entry.manifest.openAPIConfig?.schema).toEqual(schema);
 });
 
-it('requires a base URL inline after importing a schema with only a relative server', async () => {
-	const saved = vi.fn();
-	worker.use(
-		http.post('/api/openapi-import', () =>
-			HttpResponse.json({
-				schema: { ...schema, servers: [{ url: '/api/v3' }] },
-				baseURL: '',
-				suggestedHeaders: [],
-				suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
+it.each([
+	{ kind: 'relative', serverURL: '/api/v3' },
+	{ kind: 'bare query', serverURL: 'https://api.example.com?' }
+])(
+	'requires a base URL inline after importing a schema with a $kind server URL',
+	async ({ serverURL }) => {
+		const saved = vi.fn();
+		worker.use(
+			http.post('/api/openapi-import', () =>
+				HttpResponse.json({
+					schema: { ...schema, servers: [{ url: serverURL }] },
+					baseURL: '',
+					suggestedHeaders: [],
+					suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
+				})
+			),
+			http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json(createMCPCatalogEntryResponse);
 			})
-		),
-		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
-			saved(await request.json());
-			return HttpResponse.json(createMCPCatalogEntryResponse);
-		})
-	);
-	await openForm();
-	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
-	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
-	const baseURL = page.getByLabelText('API request base URL', { exact: false });
-	await expect.element(baseURL).toBeRequired();
-	await expect.element(baseURL).not.toHaveAttribute('aria-invalid', 'true');
-	await expect.element(baseURL).not.toHaveClass('error');
-	await expect
-		.element(page.getByText('This schema has no usable absolute server URL.', { exact: false }))
-		.toBeVisible();
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect.element(baseURL).toHaveFocus();
-	await expect.element(baseURL).toHaveAttribute('aria-invalid', 'true');
-	await expect.element(baseURL).toHaveClass('error');
-	expect(saved).not.toHaveBeenCalled();
-	await baseURL.fill('https://petstore3.swagger.io/api/v3');
-	await expect.element(baseURL).not.toHaveAttribute('aria-invalid', 'true');
-	await expect
-		.element(page.getByText('This schema has no usable absolute server URL.', { exact: false }))
-		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await vi.waitFor(() =>
-		expect(saved).toHaveBeenCalledWith(
-			expect.objectContaining({
-				openAPIConfig: expect.objectContaining({ baseURL: 'https://petstore3.swagger.io/api/v3' })
-			})
-		)
-	);
-});
+		);
+		await openForm();
+		await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+		await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+		const baseURL = page.getByLabelText('API request base URL', { exact: false });
+		await expect.element(baseURL).toBeRequired();
+		await expect.element(baseURL).not.toHaveAttribute('aria-invalid', 'true');
+		await expect.element(baseURL).not.toHaveClass('error');
+		await expect
+			.element(page.getByText('This schema has no usable absolute server URL.', { exact: false }))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.element(baseURL).toHaveFocus();
+		await expect.element(baseURL).toHaveAttribute('aria-invalid', 'true');
+		await expect.element(baseURL).toHaveClass('error');
+		expect(saved).not.toHaveBeenCalled();
+		await baseURL.fill('https://petstore3.swagger.io/api/v3');
+		await expect.element(baseURL).not.toHaveAttribute('aria-invalid', 'true');
+		await expect
+			.element(page.getByText('This schema has no usable absolute server URL.', { exact: false }))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() =>
+			expect(saved).toHaveBeenCalledWith(
+				expect.objectContaining({
+					openAPIConfig: expect.objectContaining({ baseURL: 'https://petstore3.swagger.io/api/v3' })
+				})
+			)
+		);
+	}
+);
 
 it('shows an applied description in the already-mounted editor', async () => {
 	const saved = vi.fn();
