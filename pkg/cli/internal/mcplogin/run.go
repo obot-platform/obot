@@ -5,6 +5,7 @@ package mcplogin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -80,11 +81,15 @@ func run(ctx context.Context, loginURL string, client *http.Client, openBrowser 
 	if err != nil || (authorization.Scheme != "https" && authorization.Scheme != "http") || authorization.Hostname() == "" || authorization.User != nil || attempt.State != state || authorization.Query().Get("state") != state || authorization.Query().Get("redirect_uri") != attempt.RedirectURL {
 		return fmt.Errorf("authentication attempt has an invalid authorization URL")
 	}
-	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", redirect.Port()))
+	listeners, err := listenLoopback(redirect.Port())
 	if err != nil {
 		return fmt.Errorf("listen for OAuth callback: %w; retry authentication in Obot to get a new command", err)
 	}
-	defer listener.Close()
+	defer func() {
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
+	}()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	callback := *endpoint
@@ -136,14 +141,16 @@ func run(ctx context.Context, loginURL string, client *http.Client, openBrowser 
 		}
 	})
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			select {
-			case result <- err:
-			default:
+	for _, listener := range listeners {
+		go func() {
+			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+				select {
+				case result <- err:
+				default:
+				}
 			}
-		}
-	}()
+		}()
+	}
 	defer func() {
 		shutdownCtx, stop := context.WithTimeout(context.Background(), 2*time.Second)
 		defer stop()
@@ -158,4 +165,40 @@ func run(ctx context.Context, loginURL string, client *http.Client, openBrowser 
 	case <-ctx.Done():
 		return fmt.Errorf("waiting for authentication: %w", ctx.Err())
 	}
+}
+
+// listenLoopback serves localhost on both IP families without binding public
+// interfaces. An unavailable IP family is fine, but an occupied port is not:
+// otherwise the browser could send the callback to a different process.
+func listenLoopback(port string) ([]net.Listener, error) {
+	var listeners []net.Listener
+	for _, address := range []struct {
+		network string
+		host    string
+	}{
+		{
+			network: "tcp4",
+			host:    "127.0.0.1",
+		},
+		{
+			network: "tcp6",
+			host:    "::1",
+		},
+	} {
+		listener, err := net.Listen(address.network, net.JoinHostPort(address.host, port))
+		if errors.Is(err, syscall.EAFNOSUPPORT) || errors.Is(err, syscall.EADDRNOTAVAIL) {
+			continue
+		}
+		if err != nil {
+			for _, listener := range listeners {
+				_ = listener.Close()
+			}
+			return nil, err
+		}
+		listeners = append(listeners, listener)
+	}
+	if len(listeners) == 0 {
+		return nil, fmt.Errorf("no loopback address is available")
+	}
+	return listeners, nil
 }

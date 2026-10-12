@@ -67,7 +67,7 @@ When your client connects, its browser authorization flow will show a command if
 obot mcp login --url 'https://obot.example.com/oauth/mcp/login/<attempt>'
 ```
 
-Install a CLI version that includes `mcp login` and ensure `obot` is on your terminal's `PATH`. Run the command on the same computer as your browser. It starts a temporary localhost listener, opens the provider's authorization page, and relays the callback to Obot. Obot exchanges the code and stores the provider credentials; the login command does not create an MCP session or store tokens locally.
+Install a CLI version that includes `mcp login` and ensure `obot` is on your terminal's `PATH`. Run the command on the same computer as your browser. It starts temporary listeners on IPv4 and IPv6 loopback addresses where available, opens the provider's authorization page, and relays the callback to Obot. Obot exchanges the code and stores the provider credentials; the login command does not create an MCP session or store tokens locally.
 
 After the command completes, return to the Obot authorization page. Obot automatically verifies authentication and resumes your client's connection once every required component is authenticated. If a vMCP also requires ordinary browser authentication, complete those providers' sign-in steps as well. MCP traffic continues over the configured HTTP URL after the command exits.
 

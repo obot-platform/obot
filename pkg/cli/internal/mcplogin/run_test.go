@@ -17,6 +17,35 @@ import (
 )
 
 func TestLoginRelaysOnlyTheUIAttempt(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "::1"} {
+		t.Run(host, func(t *testing.T) {
+			probe, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
+			if err != nil && host == "::1" {
+				t.Skipf("IPv6 loopback unavailable: %v", err)
+			}
+			require.NoError(t, err)
+			require.NoError(t, probe.Close())
+			testLoginRelaysOnlyTheUIAttempt(t, host)
+		})
+	}
+}
+
+func testLoginRelaysOnlyTheUIAttempt(t *testing.T, host string) {
+	t.Helper()
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			name, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, err
+			}
+			if name == "localhost" {
+				address = net.JoinHostPort(host, port)
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, address)
+		},
+	}
+	t.Cleanup(transport.CloseIdleConnections)
+	browser := &http.Client{Transport: transport, Timeout: 3 * time.Second}
 	for _, denied := range []bool{false, true} {
 		t.Run(fmt.Sprint(denied), func(t *testing.T) {
 			listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -55,12 +84,12 @@ func TestLoginRelaysOnlyTheUIAttempt(t *testing.T) {
 			err = run(ctx, server.URL+"/oauth/mcp/login/attempt", server.Client(), func(authURL string) error {
 				// Wrong states and paths cannot complete or consume the attempt.
 				for _, target := range []string{redirect + "?state=wrong&code=bad", fmt.Sprintf("http://localhost:%d/unexpected?state=attempt", port)} {
-					response, err := http.Get(target)
+					response, err := browser.Get(target)
 					require.NoError(t, err)
 					require.GreaterOrEqual(t, response.StatusCode, 400)
 					require.NoError(t, response.Body.Close())
 				}
-				response, err := http.Get(authURL)
+				response, err := browser.Get(authURL)
 				if err != nil {
 					return err
 				}
@@ -148,5 +177,21 @@ func TestLoginCancellationClosesListener(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	listener, err = net.Listen("tcp", address)
 	require.NoError(t, err, "callback listener must close when login is cancelled")
+	require.NoError(t, listener.Close())
+}
+
+func TestLoginRejectsOccupiedIPv6Port(t *testing.T) {
+	occupied, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	defer occupied.Close()
+	port := fmt.Sprint(occupied.Addr().(*net.TCPAddr).Port)
+	listeners, err := listenLoopback(port)
+	require.Error(t, err)
+	require.Empty(t, listeners)
+	// A failed second bind must release the first listener.
+	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", port))
+	require.NoError(t, err)
 	require.NoError(t, listener.Close())
 }

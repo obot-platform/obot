@@ -93,7 +93,7 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	storage := &vmcpOAuthInitialEventsClient{WithWatch: vmcpConsentStorage(vmcp, instance, server, connection, request)}
 	gateway := vmcpConsentGateway(t)
 	tokens := mcp.NewGlobalTokenStore(gateway)
-	manager, err := mcp.NewSessionManager(t.Context(), false, tokens, nil, "https://obot.example", 8080,
+	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "https://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
