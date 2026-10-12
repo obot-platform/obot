@@ -1,6 +1,7 @@
 package client
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
@@ -238,32 +238,17 @@ func (m *deviceScanUserMatch) matchingUserIDs(search string) []string {
 	return ids
 }
 
-// orderExpr is the ORDER BY expression for sorting by the resolved User
-// column: a known submitted_by maps to its decrypted display name via a
-// bound-parameter CASE (never interpolated SQL), everything else — empty,
-// unrecognized, or a deleted/bootstrap/email-less user's id — falls back
-// to the scan's own OS-level username, matching
-// deviceScanUserDisplay/the UI precedence.
-//
-// order ("ASC"/"DESC") and the device_scans.id pagination tiebreaker are
-// baked directly into this single SQL string rather than left to a later
-// chained .Order() call: GORM's OrderBy.MergeClause only carries forward
-// the previous clause's Columns, silently dropping its Expression when a
-// later plain-string .Order() call merges in — so a separate .Order("...
-// id ASC") call after this one would erase the CASE entirely.
-func (m *deviceScanUserMatch) orderExpr(order string) clause.Expr {
-	if len(m.displayByID) == 0 {
-		return clause.Expr{SQL: fmt.Sprintf("device_scans.username %s, device_scans.id ASC", order)}
+// effectiveDisplay returns the same precedence used to render the User
+// column for one scan row: a resolved submitter's decrypted display name,
+// falling back to the scan's own OS-level username when submittedBy is
+// empty, unrecognized, or belongs to a deleted/bootstrap/email-less user.
+func (m *deviceScanUserMatch) effectiveDisplay(submittedBy, username string) string {
+	if submittedBy != "" {
+		if d, ok := m.displayByID[submittedBy]; ok {
+			return d
+		}
 	}
-	var sql strings.Builder
-	args := make([]any, 0, len(m.displayByID)*2)
-	sql.WriteString("CASE")
-	for id, display := range m.displayByID {
-		sql.WriteString(" WHEN device_scans.submitted_by = ? THEN ?")
-		args = append(args, id, display)
-	}
-	sql.WriteString(fmt.Sprintf(" ELSE device_scans.username END %s, device_scans.id ASC", order))
-	return clause.Expr{SQL: sql.String(), Vars: args}
+	return username
 }
 
 // escapeLikePattern backslash-escapes the characters SQL's LIKE/ILIKE
@@ -356,6 +341,10 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		return nil, 0, err
 	}
 
+	if opts.SortBy == "user" {
+		return c.listDeviceScansSortedByUser(ctx, db.Session(&gorm.Session{}), userMatch, opts, total)
+	}
+
 	q := db.Session(&gorm.Session{})
 	if opts.Limit > 0 {
 		q = q.Limit(opts.Limit)
@@ -369,12 +358,10 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		order = "DESC"
 	}
 	switch {
-	case opts.SortBy == "user":
-		q = q.Order(clause.OrderBy{Expression: userMatch.orderExpr(order)})
 	case deviceScanSortColumns[opts.SortBy] != "":
 		// These are all plain-string .Order() calls, which GORM correctly
-		// merges together (unlike the Expression-based "user" case above),
-		// so the tiebreaker can be a separate trailing call here.
+		// merges together, so the tiebreaker can be a separate trailing
+		// call here.
 		q = q.Order(fmt.Sprintf("%s %s", deviceScanSortColumns[opts.SortBy], order))
 		if opts.SortBy == "os" {
 			// Ties to arch in the same direction so the order matches the
@@ -398,6 +385,77 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 		Find(&scans).Error; err != nil {
 		return nil, 0, err
 	}
+	return scans, total, nil
+}
+
+// listDeviceScansSortedByUser orders the filtered candidate set by the
+// resolved User column and returns the requested page. Sorting happens in
+// Go, not a SQL ORDER BY CASE: userMatch has one entry per distinct
+// submitter in the candidate set, and a CASE needs two bound parameters
+// per entry, so a fleet with enough distinct submitters sharing device
+// scans would exceed PostgreSQL's 65,535-parameter-per-query limit (and
+// well before that, rebuild a large CASE on every debounced
+// search/sort). Pulling only (id, submitted_by, username) keeps the query
+// itself bounded by column count rather than by distinct-submitter count,
+// regardless of fleet size; the actual ORDER BY work moves to an in-memory
+// sort over those three columns.
+func (c *Client) listDeviceScansSortedByUser(ctx context.Context, db *gorm.DB, userMatch *deviceScanUserMatch, opts DeviceScanListOptions, total int64) ([]types.DeviceScan, int64, error) {
+	type idRow struct {
+		ID          uint
+		SubmittedBy string
+		Username    string
+	}
+	var rows []idRow
+	if err := db.
+		Select("device_scans.id AS id, device_scans.submitted_by AS submitted_by, device_scans.username AS username").
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	dir := 1
+	if strings.EqualFold(opts.SortOrder, "desc") {
+		dir = -1
+	}
+	slices.SortFunc(rows, func(a, b idRow) int {
+		if d := strings.Compare(
+			userMatch.effectiveDisplay(a.SubmittedBy, a.Username),
+			userMatch.effectiveDisplay(b.SubmittedBy, b.Username),
+		); d != 0 {
+			return d * dir
+		}
+		return cmp.Compare(a.ID, b.ID) // stable pagination tiebreaker
+	})
+
+	start := min(opts.Offset, len(rows))
+	end := len(rows)
+	if opts.Limit > 0 {
+		end = min(start+opts.Limit, len(rows))
+	}
+	page := rows[start:end]
+	if len(page) == 0 {
+		return []types.DeviceScan{}, total, nil
+	}
+
+	pageIDs := make([]uint, len(page))
+	pos := make(map[uint]int, len(page))
+	for i, r := range page {
+		pageIDs[i] = r.ID
+		pos[r.ID] = i
+	}
+
+	var scans []types.DeviceScan
+	if err := c.db.WithContext(ctx).
+		Where("id IN (?)", pageIDs).
+		Preload("MCPServers").
+		Preload("Skills").
+		Preload("Plugins").
+		Preload("Clients").
+		Find(&scans).Error; err != nil {
+		return nil, 0, err
+	}
+	slices.SortFunc(scans, func(a, b types.DeviceScan) int {
+		return cmp.Compare(pos[a.ID], pos[b.ID])
+	})
 	return scans, total, nil
 }
 

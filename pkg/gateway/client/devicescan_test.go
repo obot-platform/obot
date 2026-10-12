@@ -490,6 +490,46 @@ func TestListDeviceScans_SortAndSearch(t *testing.T) {
 	if got := deviceIDs(byUser); !equalOrdered(got, []string{"aaa-1", "ddd-4", "bbb-2", "eee-5", "ccc-3"}) {
 		t.Errorf("sort by user asc: got %v", got)
 	}
+
+	// Sort-by-user is paginated in Go (see listDeviceScansSortedByUser), not
+	// via a SQL ORDER BY, so page boundaries must still land on exactly the
+	// same global order a Limit-10 call returns in one page.
+	userPage1, userTotal, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 0, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page1: %v", err)
+	}
+	if userTotal != 5 {
+		t.Fatalf("sort by user page1 total: want 5, got %d", userTotal)
+	}
+	if got := deviceIDs(userPage1); !equalOrdered(got, []string{"aaa-1", "ddd-4"}) {
+		t.Errorf("sort by user asc page1: got %v", got)
+	}
+	userPage2, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 2, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page2: %v", err)
+	}
+	if got := deviceIDs(userPage2); !equalOrdered(got, []string{"bbb-2", "eee-5"}) {
+		t.Errorf("sort by user asc page2: got %v", got)
+	}
+	userPage3, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 4, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("sort by user page3: %v", err)
+	}
+	if got := deviceIDs(userPage3); !equalOrdered(got, []string{"ccc-3"}) {
+		t.Errorf("sort by user asc page3: got %v", got)
+	}
+
+	// Descending reverses the same global order rather than just the page.
+	byUserDesc, _, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 10, SortBy: "user", SortOrder: "desc"})
+	if err != nil {
+		t.Fatalf("sort by user desc: %v", err)
+	}
+	// Bob's two scans (bbb-2, eee-5) tie on display name "bob@example.com";
+	// the id-ASC tiebreaker applies regardless of sort direction, so it's
+	// bbb-2 before eee-5 here too, not reversed.
+	if got := deviceIDs(byUserDesc); !equalOrdered(got, []string{"ccc-3", "bbb-2", "eee-5", "aaa-1", "ddd-4"}) {
+		t.Errorf("sort by user desc: got %v", got)
+	}
 }
 
 func idStr(id uint) string {
