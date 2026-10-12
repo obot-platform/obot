@@ -116,8 +116,8 @@ func TestOktaDirectoryDescriptions(t *testing.T) {
 	for _, parameter := range provider.DirectoryParameters() {
 		for _, description := range []string{parameter.SetupDescription, parameter.UnusedDescription} {
 			for _, locale := range []string{"ja", "ko", "zh-CN"} {
-				got := adapter.LocalizedDirectoryDescription("okta-auth-provider", parameter.Name, description, locale)
-				if got == "" || got == description {
+				got, recognized := adapter.LocalizedDirectoryDescription("okta-auth-provider", parameter.Name, description, locale)
+				if !recognized || got == "" || got == description {
 					t.Fatalf("missing %s translation for %s", locale, parameter.Name)
 				}
 				manifest := types.AuthProviderManifest{
@@ -132,6 +132,59 @@ func TestOktaDirectoryDescriptions(t *testing.T) {
 				if manifest.OptionalConfigurationParameters[0].Description != got {
 					t.Fatalf("%s SCIM description was replaced by manifest text", locale)
 				}
+			}
+		}
+	}
+}
+
+func TestOktaDirectoryDescriptionFallback(t *testing.T) {
+	provider, ok := adapter.ForAuthProvider("okta-auth-provider")
+	if !ok {
+		t.Fatal("Okta adapter missing")
+	}
+	for _, parameter := range provider.DirectoryParameters() {
+		tests := []struct {
+			name        string
+			description string
+			want        string
+		}{
+			{
+				name:        "setup",
+				description: parameter.SetupDescription,
+				want:        parameter.SetupDescription,
+			},
+			{
+				name:        "unused",
+				description: parameter.UnusedDescription,
+				want:        parameter.UnusedDescription,
+			},
+			{
+				name:        "ordinary manifest description",
+				description: "ordinary setup description",
+				want:        "manifest translation",
+			},
+		}
+		for _, tt := range tests {
+			for _, locale := range []string{"en", "fr"} {
+				t.Run(parameter.Name+"/"+tt.name+"/"+locale, func(t *testing.T) {
+					definition := types.ProviderConfigurationParameter{
+						Name:        parameter.Name,
+						Description: tt.description,
+						Locales: map[string]types.ProviderParameterTranslation{
+							locale: {Description: "manifest translation"},
+						},
+					}
+					manifest := types.AuthProviderManifest{
+						RequiredConfigurationParameters: []types.ProviderConfigurationParameter{definition},
+						OptionalConfigurationParameters: []types.ProviderConfigurationParameter{definition},
+					}
+					localizeAuthProviderManifest(&manifest, "okta-auth-provider", locale)
+					for _, parameters := range [][]types.ProviderConfigurationParameter{manifest.RequiredConfigurationParameters, manifest.OptionalConfigurationParameters} {
+						if got := parameters[0].Description; got != tt.want {
+							t.Errorf("description = %q, want %q", got, tt.want)
+						}
+					}
+				})
 			}
 		}
 	}

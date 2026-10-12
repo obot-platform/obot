@@ -103,15 +103,13 @@ func localizeAuthProviderManifest(manifest *types.AuthProviderManifest, provider
 	requiredOverrides := make([]bool, len(manifest.RequiredConfigurationParameters))
 	for i := range manifest.RequiredConfigurationParameters {
 		parameter := &manifest.RequiredConfigurationParameters[i]
-		requiredDescriptions[i] = adapter.LocalizedDirectoryDescription(providerName, parameter.Name, parameter.Description, locale)
-		requiredOverrides[i] = requiredDescriptions[i] != parameter.Description
+		requiredDescriptions[i], requiredOverrides[i] = adapter.LocalizedDirectoryDescription(providerName, parameter.Name, parameter.Description, locale)
 	}
 	optionalDescriptions := make([]string, len(manifest.OptionalConfigurationParameters))
 	optionalOverrides := make([]bool, len(manifest.OptionalConfigurationParameters))
 	for i := range manifest.OptionalConfigurationParameters {
 		parameter := &manifest.OptionalConfigurationParameters[i]
-		optionalDescriptions[i] = adapter.LocalizedDirectoryDescription(providerName, parameter.Name, parameter.Description, locale)
-		optionalOverrides[i] = optionalDescriptions[i] != parameter.Description
+		optionalDescriptions[i], optionalOverrides[i] = adapter.LocalizedDirectoryDescription(providerName, parameter.Name, parameter.Description, locale)
 	}
 	localizeProviderMetadata(&manifest.CommonProviderMetadata, locale)
 	for i, description := range requiredDescriptions {
