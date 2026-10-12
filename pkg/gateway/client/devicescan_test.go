@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"testing"
 	"time"
@@ -940,5 +941,30 @@ func TestListDeviceScans_SearchEscapesLikeWildcards(t *testing.T) {
 				t.Errorf("search %q: want %v, got %v", tc.search, tc.want, got)
 			}
 		})
+	}
+}
+
+func TestListDeviceScans_HugeLimitDoesNotOverflow(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	now := time.Now().UTC()
+	for i := range 3 {
+		u := types.User{Username: fmt.Sprintf("huge%d", i), HashedUsername: fmt.Sprintf("huge%d", i), DisplayName: fmt.Sprintf("Huge %d", i), Email: fmt.Sprintf("huge%d@example.com", i)}
+		if err := c.db.WithContext(ctx).Create(&u).Error; err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		insertScan(t, c, types.DeviceScan{SubmittedBy: idStr(u.ID), DeviceID: fmt.Sprintf("huge-%d", i), ScannedAt: now.Add(time.Duration(i) * time.Minute)})
+	}
+
+	scans, total, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Offset: 1, Limit: math.MaxInt, SortBy: "user", SortOrder: "asc"})
+	if err != nil {
+		t.Fatalf("list with huge limit: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total: want 3, got %d", total)
+	}
+	if len(scans) != 2 {
+		t.Fatalf("rows: want 2 (offset 1 of 3), got %d", len(scans))
 	}
 }

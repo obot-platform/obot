@@ -435,7 +435,7 @@ func (c *Client) listDeviceScansUserAware(ctx context.Context, db *gorm.DB, opts
 	start := min(opts.Offset, len(rows))
 	end := len(rows)
 	if opts.Limit > 0 {
-		end = min(start+opts.Limit, len(rows))
+		end = start + min(opts.Limit, len(rows)-start)
 	}
 	page := rows[start:end]
 	if len(page) == 0 {
