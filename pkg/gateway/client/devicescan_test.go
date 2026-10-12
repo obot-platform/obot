@@ -910,12 +910,11 @@ func TestListDeviceScans_SortByUserPageHydrationIsBatched(t *testing.T) {
 	}
 }
 
-// TestListDeviceScans_SearchEscapesLikeWildcards guards against a review
-// finding: the search term is embedded in a SQL LIKE pattern, so without
-// escaping, a literal "%" or "_" the user typed would be interpreted as a
-// SQL wildcard instead of a literal character -- e.g. searching "%" would
-// match every device ID instead of only ones containing a literal percent
-// sign, a regression from the old client-side .includes() behavior.
+// TestListDeviceScans_SearchEscapesLikeWildcards guards literal substring
+// semantics for search: a "%" or "_" the user types must match only device
+// IDs containing that exact character, not act as a wildcard, matching the
+// old client-side .includes() behavior. Search is a Go strings.Contains
+// match in listDeviceScansUserAware, so there is no SQL pattern to escape.
 func TestListDeviceScans_SearchEscapesLikeWildcards(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
