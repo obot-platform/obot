@@ -1,0 +1,35 @@
+# Reduced from Typesense's API specification; n must remain a string.
+openapi: 3.0.3
+info:
+  title: Typesense API
+  version: '30.0'
+servers:
+  - url: '{protocol}://{hostname}:{port}'
+    variables:
+      protocol:
+        default: http
+      hostname:
+        default: localhost
+      port:
+        default: '8108'
+security:
+  - api_key_header: []
+paths:
+  /analytics/events:
+    get:
+      operationId: getAnalyticsEvents
+      parameters:
+        - name: n
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Events fetched
+components:
+  securitySchemes:
+    api_key_header:
+      type: apiKey
+      in: header
+      name: X-TYPESENSE-API-KEY

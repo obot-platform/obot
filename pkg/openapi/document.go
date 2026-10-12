@@ -52,9 +52,8 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 	if document.Info == nil || strings.TrimSpace(document.Info.Title) == "" || strings.TrimSpace(document.Info.Version) == "" {
 		return nil, fmt.Errorf("schema requires info.title and info.version")
 	}
-	if len(document.Webhooks) > 0 {
-		return nil, fmt.Errorf("OpenAPI webhooks are unsupported")
-	}
+	// Webhooks describe incoming events. Retain them in the snapshot; the
+	// wrapper generates tools only from paths and does not receive these events.
 	baseURL, err := optionalBaseURL(config.BaseURL, document.Servers)
 	if err != nil {
 		return nil, err

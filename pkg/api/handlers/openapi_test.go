@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -180,6 +181,32 @@ func TestOpenAPIImportRejectsInvalidInput(t *testing.T) {
 			err := newOpenAPIHandler().ImportOpenAPI(ctx)
 			require.ErrorContains(t, err, test.want)
 			require.NotContains(t, err.Error(), "secret-invalid-schema")
+		})
+	}
+}
+
+func TestOpenAPIImportCompatibleSchemas(t *testing.T) {
+	for _, name := range []string{"typesense", "resend"} {
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile("../../openapi/testdata/" + name + ".yaml")
+			require.NoError(t, err)
+			config := types.OpenAPIRuntimeConfig{
+				Source:  types.OpenAPISource{Content: string(data)},
+				BaseURL: "https://8.8.8.8",
+			}
+			ctx, response := openAPIRequest(t, newFakeStorage(t), "", http.MethodPost, config)
+			require.NoError(t, newOpenAPIHandler().ImportOpenAPI(ctx))
+			var result types.OpenAPIImportResponse
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+			require.Equal(t, "https://8.8.8.8/", result.BaseURL)
+			require.Len(t, result.SuggestedHeaders, 1)
+			if name == "typesense" {
+				require.Contains(t, string(result.Schema.Raw), `"name":"n"`)
+				require.Equal(t, "X-TYPESENSE-API-KEY", result.SuggestedHeaders[0].Key)
+			} else {
+				require.Contains(t, string(result.Schema.Raw), `"webhooks":{"email.sent":`)
+				require.Equal(t, "Authorization", result.SuggestedHeaders[0].Key)
+			}
 		})
 	}
 }

@@ -18,6 +18,10 @@ Validate changes with `obot mcp validate-catalog` before synchronizing a source.
 
 For existing Git-synced composites, use the [migration command](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) to generate matching vMCP definitions while retaining component IDs and connections. See [Git Catalogs](../configuration/mcp-server-gitops.md) for source setup and validation commands.
 
+## OpenAPI webhook declarations
+
+OpenAPI imports accept webhook declarations and retain them in the stored schema. The OpenAPI runtime generates MCP tools from ordinary API operations under `paths`; it does not receive webhook events. API endpoints for creating, listing, or deleting webhook registrations remain available as tools when defined under `paths`.
+
 ## OpenAPI credential headers
 
 Every configured OpenAPI credential header must have `required: true`, including static and per-user credential definitions. The wrapper requires these credentials for every tool call, regardless of an operation's OpenAPI security requirements. Credential values can be supplied later when configuring the server or user connection. Ordinary API header parameters are separate from these credential definitions.

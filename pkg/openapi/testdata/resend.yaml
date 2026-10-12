@@ -1,0 +1,38 @@
+# Reduced from Resend's API specification; webhook events are documentation.
+openapi: 3.1.2
+info:
+  title: Resend
+  version: 1.5.1
+servers:
+  - url: https://api.resend.com
+security:
+  - bearerAuth: []
+paths:
+  /webhooks:
+    get:
+      operationId: webhooks/list
+      responses:
+        '200':
+          description: Webhook registrations
+webhooks:
+  email.sent:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailEvent'
+      responses:
+        '200':
+          description: Event acknowledged
+components:
+  schemas:
+    EmailEvent:
+      type: object
+      properties:
+        type:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	yamlv3 "go.yaml.in/yaml/v3"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -163,33 +162,44 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 		return nil, nil, fmt.Errorf("schema must be UTF-8")
 	}
 
-	// Inspect YAML nodes before conversion to reject duplicate keys, aliases,
-	// multiple documents, and excessive nesting without expanding aliases.
-	decoder := yamlv3.NewDecoder(bytes.NewReader(data))
-	var node yamlv3.Node
-	if err := decoder.Decode(&node); err != nil {
-		if err == io.EOF {
-			return nil, nil, fmt.Errorf("schema content is empty")
+	if json.Valid(data) {
+		// JSON permits UTF-16 surrogate escape pairs that YAML rejects. Validate
+		// JSON directly while retaining duplicate-key and nesting limits.
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.UseNumber()
+		if err := checkJSON(decoder, 1); err != nil {
+			return nil, nil, err
 		}
-		// Node parsing reports syntax and locations, not scalar contents, except
-		// for unknown anchors. Do not echo a caller-supplied anchor name.
-		if strings.HasPrefix(err.Error(), "yaml: unknown anchor ") {
-			return nil, nil, fmt.Errorf("schema references an unknown YAML anchor; aliases are unsupported")
+	} else {
+		// Inspect YAML nodes before conversion to reject duplicate keys, aliases,
+		// multiple documents, and excessive nesting without expanding aliases.
+		decoder := yamlv3.NewDecoder(bytes.NewReader(data))
+		var node yamlv3.Node
+		if err := decoder.Decode(&node); err != nil {
+			if err == io.EOF {
+				return nil, nil, fmt.Errorf("schema content is empty")
+			}
+			// Node parsing reports syntax and locations, not scalar contents, except
+			// for unknown anchors. Do not echo a caller-supplied anchor name.
+			if strings.HasPrefix(err.Error(), "yaml: unknown anchor ") {
+				return nil, nil, fmt.Errorf("schema references an unknown YAML anchor; aliases are unsupported")
+			}
+			return nil, nil, fmt.Errorf("schema must be a JSON or YAML document: %w", err)
 		}
-		return nil, nil, fmt.Errorf("schema must be a JSON or YAML document: %w", err)
-	}
-	if err := checkYAML(&node, 0); err != nil {
-		return nil, nil, err
-	}
+		if err := checkYAML(&node, 0); err != nil {
+			return nil, nil, err
+		}
 
-	var extra yamlv3.Node
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return nil, nil, fmt.Errorf("schema must contain exactly one document")
-	}
+		var extra yamlv3.Node
+		if err := decoder.Decode(&extra); err != io.EOF {
+			return nil, nil, fmt.Errorf("schema must contain exactly one document")
+		}
 
-	if !json.Valid(data) {
-		var err error
-		data, err = yaml.YAMLToJSONStrict(data)
+		value, err := yamlJSONValue(&node)
+		if err != nil {
+			return nil, nil, err
+		}
+		data, err = json.Marshal(value)
 		if err != nil {
 			return nil, nil, fmt.Errorf("schema cannot be converted to JSON")
 		}
@@ -211,6 +221,63 @@ func normalize(data []byte) (map[string]any, []byte, error) {
 	}
 
 	return document, canonical, nil
+}
+
+// yamlJSONValue converts the checked node tree without reparsing it with YAML
+// 1.1 rules, which turn valid parameter names such as n and on into booleans.
+// Numeric mapping keys become JSON strings; timestamps retain their source text.
+func yamlJSONValue(node *yamlv3.Node) (any, error) {
+	switch node.Kind {
+	case yamlv3.DocumentNode:
+		return yamlJSONValue(node.Content[0])
+	case yamlv3.MappingNode:
+		object := make(map[string]any, len(node.Content)/2)
+		for n := 0; n < len(node.Content); n += 2 {
+			key := node.Content[n].Value
+			if node.Content[n].Tag == "!!int" {
+				var number any
+				if err := node.Content[n].Decode(&number); err != nil {
+					return nil, fmt.Errorf("schema cannot be converted to JSON")
+				}
+				switch number.(type) {
+				case int, int64, uint64:
+					key = fmt.Sprint(number)
+				default:
+					return nil, fmt.Errorf("schema cannot be converted to JSON")
+				}
+			}
+			if _, exists := object[key]; exists {
+				return nil, fmt.Errorf("schema object keys must be unique strings")
+			}
+			value, err := yamlJSONValue(node.Content[n+1])
+			if err != nil {
+				return nil, err
+			}
+			object[key] = value
+		}
+		return object, nil
+	case yamlv3.SequenceNode:
+		array := make([]any, len(node.Content))
+		for n, child := range node.Content {
+			value, err := yamlJSONValue(child)
+			if err != nil {
+				return nil, err
+			}
+			array[n] = value
+		}
+		return array, nil
+	case yamlv3.ScalarNode:
+		if node.Tag == "!!timestamp" {
+			return node.Value, nil
+		}
+		var value any
+		if err := node.Decode(&value); err != nil {
+			return nil, fmt.Errorf("schema cannot be converted to JSON")
+		}
+		return value, nil
+	default:
+		return nil, fmt.Errorf("schema cannot be converted to JSON")
+	}
 }
 
 // checkYAML rejects excessive nesting, aliases, and invalid or duplicate mapping
@@ -238,6 +305,51 @@ func checkYAML(node *yamlv3.Node, depth int) error {
 		if err := checkYAML(child, depth+1); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// checkJSON rejects duplicate object keys and excessive nesting before decoding
+// into maps, which would otherwise discard duplicate keys.
+func checkJSON(decoder *json.Decoder, depth int) error {
+	if depth > 128 {
+		return fmt.Errorf("schema nesting exceeds 128 levels")
+	}
+	token, err := decoder.Token()
+	if err != nil {
+		return fmt.Errorf("schema must contain valid JSON")
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+
+	switch delimiter {
+	case '{':
+		seen := map[string]bool{}
+		for decoder.More() {
+			token, err := decoder.Token()
+			key, ok := token.(string)
+			if err != nil || !ok || seen[key] {
+				return fmt.Errorf("schema object keys must be unique strings")
+			}
+			seen[key] = true
+			if err := checkJSON(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+	case '[':
+		for decoder.More() {
+			if err := checkJSON(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("schema must contain valid JSON")
+	}
+
+	if _, err := decoder.Token(); err != nil {
+		return fmt.Errorf("schema must contain valid JSON")
 	}
 	return nil
 }

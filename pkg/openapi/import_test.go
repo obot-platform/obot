@@ -194,11 +194,6 @@ func TestUnsupportedDocuments(t *testing.T) {
 			message: "dynamic",
 		},
 		{
-			name:    "webhooks",
-			change:  func(d map[string]any) { d["webhooks"] = map[string]any{"hook": map[string]any{}} },
-			message: "webhooks",
-		},
-		{
 			name: "referenced path",
 			change: func(d map[string]any) {
 				d["paths"].(map[string]any)["/ref"] = map[string]any{"$ref": "#/paths/~1users"}
@@ -334,4 +329,70 @@ func TestURLImportDoesNotForwardConfiguredCredentials(t *testing.T) {
 	header := <-received
 	require.Empty(t, header.Get("Authorization"))
 	require.Empty(t, header.Get("X-API-Key"))
+}
+
+func TestImportSchemaSizeLimit(t *testing.T) {
+	data := documentWith(t, func(doc map[string]any) { doc["x-padding"] = "" })
+	data = documentWith(t, func(doc map[string]any) {
+		doc["x-padding"] = strings.Repeat("x", MaxSchemaBytes-len(data))
+	})
+	require.Len(t, data, MaxSchemaBytes)
+
+	var response atomic.Value
+	response.Store(data)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(response.Load().([]byte))
+	}))
+	defer server.Close()
+	importer := NewImporter(safehttp.Options{}, true)
+
+	for _, source := range []types.OpenAPISource{
+		{Content: string(data)},
+		{URL: server.URL},
+	} {
+		result, err := importer.Import(t.Context(), types.OpenAPIRuntimeConfig{
+			Source:  source,
+			BaseURL: "https://8.8.8.8",
+		})
+		require.NoError(t, err)
+		require.Len(t, result.Schema, MaxSchemaBytes)
+	}
+
+	data = append(data, ' ')
+	response.Store(data)
+	for _, source := range []types.OpenAPISource{
+		{Content: string(data)},
+		{URL: server.URL},
+	} {
+		result, err := importer.Import(t.Context(), types.OpenAPIRuntimeConfig{Source: source})
+		require.EqualError(t, err, "schema exceeds 1 MiB")
+		require.Nil(t, result)
+	}
+}
+
+func TestJSONSurrogatePair(t *testing.T) {
+	data := documentWith(t, func(doc map[string]any) {
+		doc["info"].(map[string]any)["description"] = "👍"
+	})
+	data = []byte(strings.ReplaceAll(string(data), "👍", `\ud83d\udc4d`))
+	require.True(t, json.Valid(data))
+
+	result, err := Parse(data, types.OpenAPIRuntimeConfig{})
+	require.NoError(t, err)
+	require.Equal(t, "👍", result.SuggestedMetadata.Description)
+	require.Contains(t, string(result.Schema), "👍")
+}
+
+func TestJSONStructuralBounds(t *testing.T) {
+	for _, data := range []string{
+		`{"a":1,"\u0061":2}`,
+		`{"nested":{"a":1,"a":2}}`,
+	} {
+		_, _, err := normalize([]byte(data))
+		require.EqualError(t, err, "schema object keys must be unique strings")
+	}
+
+	data := `{"nested":` + strings.Repeat("[", 128) + "0" + strings.Repeat("]", 128) + "}"
+	_, _, err := normalize([]byte(data))
+	require.EqualError(t, err, "schema nesting exceeds 128 levels")
 }
