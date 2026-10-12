@@ -11,6 +11,7 @@
 		config?: MCPConfig[];
 		readonly?: boolean;
 		headersOnly?: boolean;
+		hasDuplicateKeys?: boolean;
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		showRequired?: boolean;
 		showInvalid?: boolean;
@@ -20,6 +21,7 @@
 		config = $bindable(),
 		readonly,
 		headersOnly = false,
+		hasDuplicateKeys = false,
 		secretBindingTargets,
 		showRequired,
 		showInvalid
@@ -49,6 +51,9 @@
 				{/if}
 			</p>
 		</div>
+		{#if headersOnly && showInvalid && hasDuplicateKeys}
+			<p class="text-error text-xs" role="alert">{m.mcps_openapi_duplicate_header_error()}</p>
+		{/if}
 
 		{#each config ?? [] as item, i (i)}
 			<div
@@ -84,6 +89,9 @@
 						{showRequired}
 						{showInvalid}
 					/>
+					{#if headersOnly && showInvalid && !item.required}
+						<p class="text-error text-xs" role="alert">{m.mcps_openapi_header_required_error()}</p>
+					{/if}
 
 					{#if item.usage === 'header'}
 						<div class="flex w-full flex-col gap-1">

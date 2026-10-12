@@ -103,6 +103,59 @@ it('previews a URL schema, then saves only the source and header prefix', async 
 	expect(saved.mock.calls[0][0].openAPIConfig).not.toHaveProperty('schema');
 });
 
+it('rejects OpenAPI header names that differ only by case', async () => {
+	mockImport();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/mcp-catalogs/test/entries', async () => {
+			saved();
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await expect.element(page.getByLabelText('Value Prefix')).toHaveValue('Bearer ');
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
+	await page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-1`).fill('authorization');
+	await page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-1`).fill('Second auth header');
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+	await expect
+		.element(page.getByRole('alert'))
+		.toHaveTextContent('OpenAPI credential header names must be unique, regardless of letter case.');
+	expect(saved).not.toHaveBeenCalled();
+});
+
+it('keeps Required editable but blocks saving optional OpenAPI credential headers', async () => {
+	mockImport();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/mcp-catalogs/test/entries', async () => {
+			saved();
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	const required = page.getByRole('switch', { name: 'Required', exact: true });
+	await expect.element(required).toBeEnabled();
+	await required.click();
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+	await expect
+		.element(page.getByRole('alert'))
+		.toHaveTextContent('OpenAPI credential headers must be marked Required before saving.');
+	expect(saved).not.toHaveBeenCalled();
+	await required.click();
+	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+});
+
 it('saves OpenAPI egress domains when network policy is enabled', async () => {
 	version.initialize({ ...getVersionResponse, mcpNetworkPolicyEnabled: true });
 	mockImport();
@@ -425,6 +478,7 @@ it('loads an existing entry without a snapshot and submits only its URL on updat
 		manifest: {
 			...createMCPCatalogEntryResponse.manifest,
 			runtime: 'openapi',
+			config: [],
 			openAPIConfig: {
 				source: { url: sourceURL }
 			}
@@ -781,6 +835,7 @@ it('edits and saves an existing entry without receiving a schema snapshot', asyn
 		manifest: {
 			...createMCPCatalogEntryResponse.manifest,
 			runtime: 'openapi',
+			config: [],
 			openAPIConfig: { source: { url: sourceURL } }
 		}
 	} as MCPCatalogEntry;

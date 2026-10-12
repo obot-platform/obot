@@ -488,7 +488,12 @@
 	}
 
 	function hasDuplicateConfigKeys() {
-		const keys = (formData.config ?? []).map(({ key }) => key.trim()).filter(Boolean);
+		const keys = (formData.config ?? [])
+			.map(({ key }) => {
+				const trimmed = key.trim();
+				return formData.runtime === 'openapi' ? trimmed.toLowerCase() : trimmed;
+			})
+			.filter(Boolean);
 		return new Set(keys).size !== keys.length;
 	}
 
@@ -711,6 +716,9 @@
 			required.openAPIBaseURL = true;
 		}
 		if (type !== 'multi' && hasDuplicateConfigKeys()) {
+			invalid.env = true;
+		}
+		if (formData.runtime === 'openapi' && formData.config?.some((header) => !header.required)) {
 			invalid.env = true;
 		}
 		if (Object.keys(required).length > 0 || Object.keys(invalid).length > 0) {
@@ -1080,6 +1088,7 @@
 		<CatalogConfigurationForm
 			bind:config={formData.config}
 			headersOnly={formData.runtime === 'openapi'}
+			hasDuplicateKeys={formData.runtime === 'openapi' && hasDuplicateConfigKeys()}
 			{readonly}
 			secretBindingTargets={editableSecretBindingTargets}
 			showRequired={showRequired.env}
