@@ -2,7 +2,7 @@ import { Group, type VMCPInstance, type VMCPManifest } from '$lib/services';
 import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
-import { getProfileResponse } from '../../../tests/mocks/data';
+import { getProfileResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpCardHost from './VMcpCard.svelte.spec.host.svelte';
 import { http, HttpResponse } from 'msw';
@@ -65,6 +65,7 @@ async function renderCard(options: {
 	provideDiff?: boolean;
 	provideUpdateConfirm?: boolean;
 	owner?: string;
+	kubernetes?: boolean;
 }) {
 	const vmcp = options.vmcp
 		? options.userID !== undefined
@@ -77,7 +78,8 @@ async function renderCard(options: {
 			});
 	const instances = options.instances ?? [];
 	await preparePageData({
-		profile: createMockProfile(options.groups)
+		profile: createMockProfile(options.groups),
+		version: options.kubernetes ? { ...getVersionResponse, engine: 'kubernetes' } : undefined
 	});
 	worker.use(http.get('/api/vmcp-instances', () => HttpResponse.json({ items: instances })));
 	vmcpInstances.current = {
@@ -361,6 +363,9 @@ describe('VMcpCard.svelte', () => {
 			status: { components: [{ name: 'GitHub', needsUpdate: false }] }
 		};
 		worker.use(
+			http.get('/api/mcp-server-binding-secrets', () =>
+				HttpResponse.json({ items: [{ name: 'token-secret', keys: ['token'] }] })
+			),
 			http.get('/api/vmcps/vmcp-1', () => HttpResponse.json(refreshed)),
 			http.post('/api/vmcps/vmcp-1/reveal', () => HttpResponse.json({ components: {} })),
 			http.put('/api/vmcps/vmcp-1', async ({ request }) => {
@@ -375,7 +380,8 @@ describe('VMcpCard.svelte', () => {
 
 		await renderCard({
 			groups: [Group.ADMIN],
-			userID: getProfileResponse.id,
+			userID: '',
+			kubernetes: true,
 			vmcp,
 			onUpdate
 		});
@@ -385,6 +391,7 @@ describe('VMcpCard.svelte', () => {
 		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
 
 		await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
 		expect(triggered).not.toHaveBeenCalled();
 		expect(onUpdate).not.toHaveBeenCalled();
 		await expect.element(page.getByRole('combobox', { name: 'API token policy' })).toBeVisible();

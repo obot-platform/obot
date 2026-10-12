@@ -826,6 +826,7 @@ describe('configurationForSnapshotUpdate', () => {
 			key: string;
 			policy?: 'prohibited' | 'fixed' | 'userAllowed';
 			value?: string;
+			secretBinding?: { name: string; key: string };
 		}>
 	) {
 		const entry = createMCPCatalogEntry({
@@ -858,6 +859,18 @@ describe('configurationForSnapshotUpdate', () => {
 		).toEqual([
 			{ key: 'API_TOKEN', policy: 'userAllowed' },
 			{ key: 'TEST_KEY_B', policy: 'fixed' }
+		]);
+	});
+
+	it('keeps secret bindings for omitted required snapshot keys', () => {
+		const secretBinding = { name: 'credentials', key: 'api-token' };
+		const component = snapshotComponent(
+			[{ key: 'API_TOKEN', required: true }],
+			[{ key: 'API_TOKEN', policy: 'fixed', secretBinding }]
+		);
+
+		expect(configurationForSnapshotUpdate(component, [])).toEqual([
+			{ key: 'API_TOKEN', policy: 'fixed', secretBinding }
 		]);
 	});
 
@@ -1017,6 +1030,27 @@ describe('configurationWithRevealedValues', () => {
 		).toEqual([
 			{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' },
 			{ key: 'REGION', policy: 'userAllowed' }
+		]);
+	});
+
+	it('leaves a fixed secret binding without a stored value', () => {
+		expect(
+			configurationWithRevealedValues(
+				[
+					{
+						key: 'API_TOKEN',
+						policy: 'fixed',
+						secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+					}
+				],
+				{ API_TOKEN: 'secret' }
+			)
+		).toEqual([
+			{
+				key: 'API_TOKEN',
+				policy: 'fixed',
+				secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+			}
 		]);
 	});
 });

@@ -3,23 +3,28 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import SecretBindingPicker from '$lib/components/mcp/SecretBindingPicker.svelte';
 	import {
 		configurationSelectOptions,
 		isMissingRequiredConfigurationField,
 		selectedConfigurationOption
 	} from '$lib/components/mcp/configurationOptions';
+	import McpServerIcon from '$lib/components/vmcps/McpServerIcon.svelte';
+	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { LocalizedString } from '$lib/paraglide/messages';
-	import type {
-		MCPCatalogEntry,
-		MCPConfig,
-		VMCPConfigurationPolicy,
-		VMCPConfigurationPolicyType
+	import {
+		AdminService,
+		type MCPAllowedSecretBindingTarget,
+		type MCPCatalogEntry,
+		type MCPConfig,
+		type VMCPConfigurationPolicy,
+		type VMCPConfigurationPolicyType
 	} from '$lib/services';
+	import { isKubernetesRuntimeBackend } from '$lib/services/user/mcp';
 	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
-	import { profile } from '$lib/stores';
-	import McpServerIcon from './McpServerIcon.svelte';
+	import { errors, profile, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -33,10 +38,12 @@
 
 	let { onNext, onClose, readonly = false }: Props = $props();
 
+	type SecretBindingInput = MCPConfig & { secretBindingSource?: 'value' | 'secret' };
+
 	interface PolicyDraft {
 		field: MCPConfig;
 		policy?: VMCPConfigurationPolicyType;
-		value: string;
+		input: SecretBindingInput;
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
@@ -71,9 +78,19 @@
 	let saving = $state(false);
 	let forceSingleUser = $state(false);
 	let advancedExpanded = $state(false);
-	let submitLabel = $state('Next');
-	let failureMessage = $state(m.vmcps_failed_to_add_server_to_vmcp());
+	let submitLabel = $state<string>(m.core_next());
+	let failureMessage = $state<string>(m.vmcps_failed_to_add_server_to_vmcp());
+	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[] | undefined>();
+	let secretBindingController: AbortController | undefined;
 	let hideCancel = $state(false);
+	let isShared = $state(false);
+
+	const canSelectSecretBindings = $derived(
+		isShared &&
+			isKubernetesRuntimeBackend(version.current.engine) &&
+			!version.current.hideK8sDetails &&
+			Boolean(profile.current.isAdmin?.())
+	);
 
 	let hasUserAllowedNonHeaderConfiguration = $derived(
 		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
@@ -97,19 +114,28 @@
 			submitLabel?: LocalizedString;
 			errorMessage?: LocalizedString;
 			hideCancel?: boolean;
+			isShared?: boolean;
 		}
 	) {
 		entry = target;
+		isShared = options?.isShared ?? false;
 		const existing = new Map((options?.configuration ?? []).map((policy) => [policy.key, policy]));
-		drafts = catalogConfigurationFields(target)
-			.filter((field) => !field.value && !field.static && !field.secretBinding)
+		const fields = catalogConfigurationFields(target);
+		drafts = fields
+			.filter((field) => !isPresuppliedCatalogField(field))
 			.toSorted((a, b) => Number(Boolean(b.required)) - Number(Boolean(a.required)))
 			.map((field) => {
 				const policy = existing.get(field.key);
+				const secretBinding = fixedSecretBinding(policy);
 				return {
 					field,
 					policy: initialPolicy(field, policy),
-					value: policy?.value ?? field.value ?? ''
+					input: {
+						...field,
+						value: secretBinding ? '' : (policy?.value ?? ''),
+						secretBinding,
+						secretBindingSource: secretBinding ? 'secret' : 'value'
+					}
 				};
 			});
 		forceSingleUser = !hasUserAllowedNonHeaderConfiguration && (options?.forceSingleUser ?? false);
@@ -120,6 +146,7 @@
 		error = undefined;
 		saving = false;
 		advancedExpanded = false;
+		loadSecretBindingTargets();
 		dialog?.open();
 	}
 
@@ -129,6 +156,68 @@
 
 	function isFileField(field: MCPConfig) {
 		return field.usage === 'file' || field.usage === 'dynamicFile';
+	}
+
+	function isCatalogSecretBinding(field: MCPConfig) {
+		return Boolean(field.secretBinding?.name && field.secretBinding.key);
+	}
+
+	function isPresuppliedCatalogField(field: MCPConfig) {
+		return Boolean(field.value) || Boolean(field.static) || isCatalogSecretBinding(field);
+	}
+
+	function fixedSecretBinding(policy?: VMCPConfigurationPolicy) {
+		const binding = policy?.secretBinding;
+		if (!binding?.name || !binding.key) return undefined;
+		return { name: binding.name, key: binding.key };
+	}
+
+	function usesSecretBindingSource(field: SecretBindingInput) {
+		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
+	}
+
+	function fieldSupportsSecretBinding(field: MCPConfig) {
+		if (field.options?.length) return false;
+		return entry?.manifest.runtime !== 'remote' || field.usage === 'header';
+	}
+
+	function offeredSecretBindingTargets(draft: PolicyDraft) {
+		if (!canSelectSecretBindings || !fieldSupportsSecretBinding(draft.field)) return undefined;
+		const binding = draft.input.secretBinding;
+		const hasBinding = Boolean(binding?.name && binding.key);
+		if (secretBindingTargets === undefined) {
+			return hasBinding && binding ? [{ name: binding.name, keys: [binding.key] }] : undefined;
+		}
+		if (secretBindingTargets.length > 0 || hasBinding) return secretBindingTargets;
+		return undefined;
+	}
+
+	function abortSecretBindingTargets() {
+		secretBindingController?.abort();
+		secretBindingController = undefined;
+	}
+
+	function loadSecretBindingTargets() {
+		abortSecretBindingTargets();
+		if (!canSelectSecretBindings) {
+			secretBindingTargets = undefined;
+			return;
+		}
+		const controller = new AbortController();
+		secretBindingController = controller;
+		AdminService.listMCPSecretBindingTargets({
+			dontLogErrors: true,
+			signal: controller.signal
+		})
+			.then((targets) => {
+				if (controller.signal.aborted) return;
+				secretBindingTargets = targets;
+			})
+			.catch((err) => {
+				if (controller.signal.aborted || isAbortError(err)) return;
+				secretBindingTargets = [];
+				errors.append(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
+			});
 	}
 
 	function fieldLabel(field: MCPConfig) {
@@ -143,11 +232,15 @@
 	}
 
 	function configurationPayload(): VMCPConfigurationPolicy[] {
-		return drafts.map((draft) => ({
-			key: draft.field.key,
-			policy: draft.policy,
-			...(draft.policy === 'fixed' ? { value: draft.value } : {})
-		}));
+		return drafts.map((draft) => {
+			const policy = { key: draft.field.key, policy: draft.policy };
+			if (draft.policy !== 'fixed') return policy;
+			const binding = draft.input.secretBinding;
+			if (usesSecretBindingSource(draft.input) && binding?.name && binding.key) {
+				return { ...policy, secretBinding: { name: binding.name, key: binding.key } };
+			}
+			return { ...policy, value: draft.input.value };
+		});
 	}
 
 	function validate() {
@@ -155,7 +248,13 @@
 		const missingFixed: string[] = [];
 		for (const draft of drafts) {
 			if (draft.policy !== 'fixed') continue;
-			if (isMissingRequiredConfigurationField({ ...draft.field, value: draft.value }, true)) {
+			if (usesSecretBindingSource(draft.input)) {
+				if (!draft.input.secretBinding?.name || !draft.input.secretBinding.key) {
+					missingFixed.push(draft.field.key);
+				}
+				continue;
+			}
+			if (isMissingRequiredConfigurationField({ ...draft.field, value: draft.input.value }, true)) {
 				missingFixed.push(draft.field.key);
 			}
 		}
@@ -189,6 +288,7 @@
 	}
 
 	function handleClose() {
+		abortSecretBindingTargets();
 		if (saving) return;
 		entry = undefined;
 		drafts = [];
@@ -228,24 +328,42 @@
 			{/if}
 		</div>
 		{#if draft.policy === 'fixed'}
-			{#if draft.field.options?.length}
+			{@const bindingTargets = offeredSecretBindingTargets(draft)}
+			{@const usingSecret =
+				Boolean(draft.input.secretBinding) || draft.input.secretBindingSource === 'secret'}
+			{#if bindingTargets}
+				<SecretBindingPicker
+					bind:field={drafts[index].input}
+					targets={bindingTargets}
+					readonly={readonly || saving}
+					showRequired={highlightRequired}
+				/>
+			{/if}
+			{#if usingSecret}
+				{#if !bindingTargets && draft.input.secretBinding}
+					<p class="text-sm font-light break-all">
+						{m.mcps_catalog_secret_source_kubernetes()}: {draft.input.secretBinding.name} / {draft
+							.input.secretBinding.key}
+					</p>
+				{/if}
+			{:else if draft.field.options?.length}
 				<Select
 					id={`fixed-${draft.field.key}`}
 					class="bg-base-200 border-base-300 dark:border-base-400 border"
 					options={configurationSelectOptions(draft.field.options)}
-					selected={draft.value}
+					selected={draft.input.value}
 					placeholder={m.vmcps_select_a_value()}
 					ariaLabelledby={`${draft.field.key}-label`}
 					{readonly}
 					disabled={saving}
-					onSelect={(option) => (draft.value = option.value)}
-					onClear={readonly ? undefined : () => (draft.value = '')}
+					onSelect={(option) => (draft.input.value = option.value)}
+					onClear={readonly ? undefined : () => (draft.input.value = '')}
 				/>
 			{:else if draft.field.sensitive}
 				<SensitiveInput
 					error={highlightRequired}
 					name={fieldLabel(draft.field)}
-					bind:value={draft.value}
+					bind:value={draft.input.value}
 					textarea={isFileField(draft.field)}
 					growable
 					disabled={saving}
@@ -254,7 +372,7 @@
 			{:else if isFileField(draft.field)}
 				<textarea
 					id={`fixed-${draft.field.key}`}
-					bind:value={draft.value}
+					bind:value={draft.input.value}
 					rows="8"
 					disabled={saving}
 					{readonly}
@@ -266,7 +384,7 @@
 				<input
 					type="text"
 					id={`fixed-${draft.field.key}`}
-					bind:value={draft.value}
+					bind:value={draft.input.value}
 					disabled={saving}
 					{readonly}
 					class={twMerge(
@@ -275,9 +393,9 @@
 					)}
 				/>
 			{/if}
-			{#if selectedConfigurationOption({ ...draft.field, value: draft.value })?.description}
+			{#if !usingSecret && selectedConfigurationOption( { ...draft.field, value: draft.input.value } )?.description}
 				<p class="text-muted-content text-xs font-light break-all">
-					{selectedConfigurationOption({ ...draft.field, value: draft.value })?.description}
+					{selectedConfigurationOption({ ...draft.field, value: draft.input.value })?.description}
 				</p>
 			{/if}
 		{:else if draft.policy === 'userAllowed'}

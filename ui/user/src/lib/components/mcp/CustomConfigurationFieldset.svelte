@@ -195,6 +195,9 @@
 				targets={displayedSecretBindingTargets}
 				{readonly}
 				{showRequired}
+				classes={{
+					input: 'bg-base-100 dark:bg-base-200'
+				}}
 			/>
 		{/if}
 		{#if !usesSecretBindingSource(data)}

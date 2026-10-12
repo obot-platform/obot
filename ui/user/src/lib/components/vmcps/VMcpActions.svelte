@@ -98,6 +98,7 @@
 		options?: {
 			configuration?: VMCPConfigurationPolicy[];
 			forceSingleUser?: boolean;
+			isShared?: boolean;
 			submitLabel?: LocalizedString;
 			errorMessage?: LocalizedString;
 		}
@@ -133,6 +134,7 @@
 
 		configurationDialog?.open(current.entry, {
 			configuration,
+			isShared: !pending.vmcp.userID,
 			forceSingleUser: current.component.forceSingleUser,
 			submitLabel: pending.index === pending.queue.length - 1 ? m.core_update() : m.core_next(),
 			errorMessage: m.vmcps_failed_to_update()

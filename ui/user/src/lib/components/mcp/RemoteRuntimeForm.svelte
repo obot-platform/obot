@@ -255,6 +255,9 @@
 								{:else}
 									{#if secretBindingTargets && !version.current.hideK8sDetails}
 										<SecretBindingPicker
+											classes={{
+												input: 'bg-base-100 dark:bg-base-200'
+											}}
 											bind:field={config.headers[i]}
 											targets={secretBindingTargets}
 											{readonly}

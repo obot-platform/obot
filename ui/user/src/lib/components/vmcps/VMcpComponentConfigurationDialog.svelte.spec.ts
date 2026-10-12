@@ -1,8 +1,11 @@
 import { m } from '$lib/i18n';
-import type { MCPCatalogEntry, MCPConfig } from '$lib/services';
+import { AdminService, type MCPCatalogEntry, type MCPConfig } from '$lib/services';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
+import { getVersionResponse } from '../../../tests/mocks/data';
+import { worker } from '../../../tests/mocks/worker';
 import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -51,6 +54,16 @@ function configurableEntry(
 	});
 }
 
+async function selectSecretSource(fieldKey: string, source: 'Manual Value' | 'Kubernetes Secret') {
+	const picker = page.getByCSS(`#secret-binding-source-${fieldKey}`);
+	await expect.element(picker).toBeVisible();
+	await picker.click();
+	await page
+		.getByCSS(`#secret-binding-source-${fieldKey}-popover`)
+		.getByRole('button', { name: source, exact: true })
+		.click();
+}
+
 async function openAdvanced() {
 	const toggle = page.getByRole('dialog').getByRole('checkbox', { name: 'Advanced', exact: true });
 	await expect.element(toggle).toBeInTheDocument();
@@ -83,6 +96,94 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		expect(onNext).not.toHaveBeenCalled();
 	});
 
+	it('omits a catalog secret binding from the configuration draft', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({
+						key: 'BOUND',
+						name: 'Bound',
+						description: 'Catalog token',
+						required: true,
+						secretBinding: { name: 'config', key: 'token' }
+					}),
+					field({ key: 'REGION', name: 'Region', required: true })
+				]
+			})
+		);
+
+		await expect.element(page.getByText('Bound', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('combobox', { name: 'Bound policy' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#secret-binding-source-BOUND')).not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#fixed-BOUND')).not.toBeInTheDocument();
+		await page.getByCSS('#fixed-REGION').fill('us-east-1');
+		await page.getByRole('button', { name: 'Next' }).click();
+		expect(onNext).toHaveBeenCalledWith(
+			[{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }],
+			false
+		);
+	});
+
+	it('omits a catalog secret binding from non-administrators', async () => {
+		await preparePageData({ profile: createMockProfile([]) });
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({
+						key: 'BOUND',
+						name: 'Bound',
+						secretBinding: { name: 'config', key: 'token' }
+					})
+				]
+			})
+		);
+
+		await expect.element(page.getByText('Configure Configurable server')).toBeVisible();
+		await expect.element(page.getByText('Bound', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByText(/config \/ token/)).not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#secret-binding-source-BOUND')).not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#fixed-BOUND')).not.toBeInTheDocument();
+	});
+
+	it('omits a static catalog field from the configuration draft', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({
+						key: 'ENDPOINT',
+						name: 'Endpoint',
+						description: 'Fixed endpoint',
+						required: true,
+						static: true,
+						value: 'https://example.test'
+					}),
+					field({ key: 'REGION', name: 'Region', required: true })
+				]
+			})
+		);
+
+		await expect.element(page.getByText('Endpoint', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('combobox', { name: 'Endpoint policy' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#fixed-ENDPOINT')).not.toBeInTheDocument();
+		await page.getByCSS('#fixed-REGION').fill('us-east-1');
+		await page.getByRole('button', { name: 'Next' }).click();
+		expect(onNext).toHaveBeenCalledWith(
+			[{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }],
+			false
+		);
+	});
+
 	it('hides configuration with static values', async () => {
 		await preparePageData();
 		const onNext = vi.fn();
@@ -112,6 +213,59 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			.not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Next' }).click();
 		expect(onNext).toHaveBeenCalledWith([], false);
+	});
+
+	it('shows vMCP preconfigured values and secret bindings', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({
+						key: 'ENDPOINT',
+						name: 'Endpoint',
+						required: true,
+						static: true,
+						value: 'https://example.test'
+					}),
+					field({ key: 'REGION', name: 'Region', required: true }),
+					field({ key: 'API_TOKEN', name: 'API token', required: true, sensitive: true })
+				]
+			}),
+			{
+				configuration: [
+					{ key: 'ENDPOINT', policy: 'fixed', value: 'https://override.example' },
+					{ key: 'REGION', policy: 'fixed', value: 'us-west-2' },
+					{
+						key: 'API_TOKEN',
+						policy: 'fixed',
+						secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+					}
+				]
+			}
+		);
+
+		await expect.element(page.getByText('Endpoint', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('combobox', { name: 'Region policy' }))
+			.toHaveValue('fixed');
+		await expect.element(page.getByCSS('#fixed-REGION')).toHaveValue('us-west-2');
+		await expect
+			.element(page.getByText('Kubernetes Secret: gitlab-secret / gitlab_key'))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Next' }).click();
+		expect(onNext).toHaveBeenCalledWith(
+			[
+				{ key: 'REGION', policy: 'fixed', value: 'us-west-2' },
+				{
+					key: 'API_TOKEN',
+					policy: 'fixed',
+					secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+				}
+			],
+			false
+		);
 	});
 
 	it('offers only Close for a remote server with no catalog fields', async () => {
@@ -326,5 +480,228 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		await expect.element(page.getByRole('button', { name: 'Next' })).not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Close' }).click();
 		expect(onNext).not.toHaveBeenCalled();
+	});
+
+	it('submits a Kubernetes secret binding instead of a manual fixed value', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		worker.use(
+			http.get('/api/mcp-server-binding-secrets', () =>
+				HttpResponse.json({
+					items: [{ name: 'gitlab-secret', keys: ['gitlab_key', 'other_key'] }]
+				})
+			)
+		);
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry(), { isShared: true });
+
+		await selectSecretSource('API_TOKEN', 'Kubernetes Secret');
+		await expect.element(page.getByCSS('[id="API token"]')).not.toBeInTheDocument();
+		await expect
+			.element(page.getByCSS('#secret-binding-secret-API_TOKEN'))
+			.toHaveTextContent('gitlab-secret');
+		await page.getByCSS('#secret-binding-key-API_TOKEN').click();
+		await page
+			.getByCSS('#secret-binding-key-API_TOKEN-popover')
+			.getByRole('button', { name: 'other_key', exact: true })
+			.click();
+		await page.getByCSS('#fixed-REGION').fill('us-east-1');
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
+		expect(onNext).toHaveBeenCalledWith(
+			[
+				{
+					key: 'API_TOKEN',
+					policy: 'fixed',
+					secretBinding: { name: 'gitlab-secret', key: 'other_key' }
+				},
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'X-Org', policy: 'prohibited' }
+			],
+			false
+		);
+	});
+
+	it('submits a manual value after switching away from a secret binding', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		worker.use(
+			http.get('/api/mcp-server-binding-secrets', () =>
+				HttpResponse.json({
+					items: [{ name: 'gitlab-secret', keys: ['gitlab_key'] }]
+				})
+			)
+		);
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry(), {
+			isShared: true,
+			configuration: [
+				{
+					key: 'API_TOKEN',
+					policy: 'fixed',
+					secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+				},
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }
+			]
+		});
+
+		await expect
+			.element(page.getByCSS('#secret-binding-source-API_TOKEN'))
+			.toHaveTextContent('Kubernetes Secret');
+		await selectSecretSource('API_TOKEN', 'Manual Value');
+		await page.getByCSS('[id="API token"]').fill('manual-token');
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
+		expect(onNext).toHaveBeenCalledWith(
+			[
+				{ key: 'API_TOKEN', policy: 'fixed', value: 'manual-token' },
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'X-Org', policy: 'prohibited' }
+			],
+			false
+		);
+	});
+
+	it('offers secret bindings only for supported fixed fields', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		worker.use(
+			http.get('/api/mcp-server-binding-secrets', () =>
+				HttpResponse.json({ items: [{ name: 'gitlab-secret', keys: ['gitlab_key'] }] })
+			)
+		);
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(
+			configurableEntry({
+				runtime: 'remote',
+				config: [
+					field({
+						key: 'REGION',
+						name: 'Region',
+						required: true,
+						options: [{ name: 'US East', value: 'us-east-1' }]
+					}),
+					field({ key: 'TOKEN', name: 'Token', required: true, sensitive: true }),
+					field({ key: 'X-Org', name: 'Org header', usage: 'header', required: true })
+				]
+			}),
+			{ isShared: true }
+		);
+
+		await expect.element(page.getByCSS('#secret-binding-source-X-Org')).toBeVisible();
+		await expect.element(page.getByCSS('#fixed-REGION')).toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-REGION')).not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#secret-binding-source-TOKEN')).not.toBeInTheDocument();
+	});
+
+	it('aborts secret binding lookup when the dialog closes', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		let signal: AbortSignal | undefined;
+		const listTargets = vi.spyOn(AdminService, 'listMCPSecretBindingTargets').mockImplementation(
+			(opts) =>
+				new Promise((_resolve, reject) => {
+					signal = opts?.signal;
+					opts?.signal?.addEventListener('abort', () => {
+						reject(new DOMException('The operation was aborted.', 'AbortError'));
+					});
+				})
+		);
+		try {
+			const result = await render(VMcpComponentConfigurationDialog);
+			result.component.open(configurableEntry(), { isShared: true });
+
+			await vi.waitFor(() => expect(signal).toBeDefined());
+			await page.getByRole('button', { name: 'Cancel' }).click();
+			await vi.waitFor(() => expect(signal?.aborted).toBe(true));
+			await expect
+				.element(page.getByText(/Failed to load Kubernetes Secrets for binding/))
+				.not.toBeInTheDocument();
+		} finally {
+			listTargets.mockRestore();
+		}
+	});
+
+	it('keeps manual entry when no Kubernetes secrets are available', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		let listed = false;
+		worker.use(
+			http.get('/api/mcp-server-binding-secrets', () => {
+				listed = true;
+				return HttpResponse.json({ items: [] });
+			})
+		);
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(configurableEntry(), { isShared: true });
+
+		await vi.waitFor(() => expect(listed).toBe(true));
+		await expect.element(page.getByCSS('#fixed-REGION')).toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).not.toBeInTheDocument();
+	});
+
+	it('does not offer secret bindings to non-administrators', async () => {
+		await preparePageData({
+			profile: createMockProfile([]),
+			version: { ...getVersionResponse, engine: 'kubernetes' }
+		});
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(configurableEntry());
+
+		await expect.element(page.getByCSS('#fixed-REGION')).toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).not.toBeInTheDocument();
+	});
+
+	it('does not offer secret bindings for personal vMCPs to administrators', async () => {
+		await preparePageData({ version: { ...getVersionResponse, engine: 'kubernetes' } });
+		const listTargets = vi.spyOn(AdminService, 'listMCPSecretBindingTargets');
+		try {
+			const result = await render(VMcpComponentConfigurationDialog);
+			result.component.open(configurableEntry(), { isShared: false });
+
+			await expect.element(page.getByCSS('#fixed-REGION')).toBeVisible();
+			await expect
+				.element(page.getByCSS('#secret-binding-source-API_TOKEN'))
+				.not.toBeInTheDocument();
+			expect(listTargets).not.toHaveBeenCalled();
+		} finally {
+			listTargets.mockRestore();
+		}
+	});
+
+	it('shows an existing secret binding when Kubernetes secrets cannot be selected', async () => {
+		await preparePageData({
+			version: { ...getVersionResponse, engine: 'kubernetes', hideK8sDetails: true }
+		});
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry(), {
+			configuration: [
+				{
+					key: 'API_TOKEN',
+					policy: 'fixed',
+					secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+				},
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' }
+			]
+		});
+
+		await expect
+			.element(page.getByText('Kubernetes Secret: gitlab-secret / gitlab_key'))
+			.toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Next' }).click();
+		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
+		expect(onNext).toHaveBeenCalledWith(
+			[
+				{
+					key: 'API_TOKEN',
+					policy: 'fixed',
+					secretBinding: { name: 'gitlab-secret', key: 'gitlab_key' }
+				},
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'X-Org', policy: 'prohibited' }
+			],
+			false
+		);
 	});
 });

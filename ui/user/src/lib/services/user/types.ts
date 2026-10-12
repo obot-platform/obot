@@ -569,6 +569,7 @@ export interface VMCPConfigurationPolicy {
 	key: string;
 	policy?: VMCPConfigurationPolicyType;
 	value?: string;
+	secretBinding?: MCPSecretBinding;
 }
 
 export interface VMCPComponentCatalogEntrySnapshot {

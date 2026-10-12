@@ -62,6 +62,7 @@
 
 		configurationDialog?.open(flow.configuringEntry, {
 			configuration,
+			isShared: Boolean(flow.modifyingVMcp && !flow.modifyingVMcp.userID),
 			forceSingleUser: flow.configuringComponent?.forceSingleUser,
 			submitLabel: flow.postCreateConfiguration ? m.core_next() : m.core_save(),
 			errorMessage: m.vmcps_failed_to_update_configuration(),

@@ -189,7 +189,7 @@ export function configurationWithRevealedValues(
 ): VMCPComponent['configuration'] {
 	if (!configuration || !revealed) return configuration;
 	return configuration.map((policy) => {
-		if (policy.policy !== 'fixed') return policy;
+		if (policy.policy !== 'fixed' || policy.secretBinding) return policy;
 		const value = revealed[policy.key];
 		return value ? { ...policy, value } : policy;
 	});
@@ -210,7 +210,13 @@ export function configurationForSnapshotUpdate(
 		if (nextKeys.has(policy.key)) return [];
 		const field = snapshotFields.find((candidate) => candidate.key === policy.key);
 		if (!field?.required || field.value || field.static || field.secretBinding) return [];
-		return [{ key: policy.key, policy: policy.policy }];
+		return [
+			{
+				key: policy.key,
+				policy: policy.policy,
+				...(policy.secretBinding ? { secretBinding: policy.secretBinding } : {})
+			}
+		];
 	});
 	return retained.length === 0 ? next : [...next, ...retained];
 }

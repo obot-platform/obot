@@ -15,7 +15,7 @@ import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
 import { mcpServersAndEntries, responsive, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
-import { getProfileResponse } from '../../../tests/mocks/data';
+import { getProfileResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpDesigner from './VMcpDesigner.svelte';
 import { http, HttpResponse } from 'msw';
@@ -108,7 +108,12 @@ function withExplicitToolGrant(vmcp: VMCP, toolNames: string[]) {
 async function renderDesigner(
 	entries: MCPCatalogEntry[],
 	vmcp?: VMCP,
-	options?: { groups?: string[]; instances?: VMCPInstance[]; onBack?: () => void }
+	options?: {
+		groups?: string[];
+		instances?: VMCPInstance[];
+		onBack?: () => void;
+		kubernetes?: boolean;
+	}
 ) {
 	localStorage.setItem('@obot/seen-vmcp-introduction', new Date().toISOString());
 	mcpServersAndEntries.current = {
@@ -121,7 +126,8 @@ async function renderDesigner(
 		isInitialized: true
 	};
 	await preparePageData({
-		profile: createMockProfile(options?.groups ?? [Group.ADMIN])
+		profile: createMockProfile(options?.groups ?? [Group.ADMIN]),
+		version: options?.kubernetes ? { ...getVersionResponse, engine: 'kubernetes' } : undefined
 	});
 	vmcpInstances.current = { items: options?.instances ?? [], loading: false };
 	return render(VMcpDesigner, {
@@ -1403,7 +1409,12 @@ describe('VMcpDesigner.svelte', () => {
 			const vmcp = createIssueTrackerVMcp();
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
-			await renderDesigner([componentEntry, tokenSlack], vmcp);
+			worker.use(
+				http.get('/api/mcp-server-binding-secrets', () =>
+					HttpResponse.json({ items: [{ name: 'token-secret', keys: ['token'] }] })
+				)
+			);
+			await renderDesigner([componentEntry, tokenSlack], vmcp, { kubernetes: true });
 
 			const { el } = await pressCard(panelCard('Token Slack'), 18);
 			const to = centerOf(await vmcpCard().element());
@@ -1414,6 +1425,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
 				.toBeVisible();
+			await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
 			expect(update).not.toHaveBeenCalled();
 
@@ -1757,13 +1769,16 @@ describe('VMcpDesigner.svelte', () => {
 			mockEntryDetails(tokenSlack);
 			const create = vi.fn();
 			worker.use(
+				http.get('/api/mcp-server-binding-secrets', () =>
+					HttpResponse.json({ items: [{ name: 'token-secret', keys: ['token'] }] })
+				),
 				http.post('/api/vmcps', async ({ request }) => {
 					const manifest = (await request.json()) as VMCPManifest;
 					create(manifest);
 					return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [tokenSlack]));
 				})
 			);
-			await renderDesigner([componentEntry, tokenSlack]);
+			await renderDesigner([componentEntry, tokenSlack], undefined, { kubernetes: true });
 
 			const { el } = await pressCard(panelCard('Token Slack'), 25);
 			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
@@ -1780,6 +1795,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
 				.toBeVisible();
+			await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
 			expect(create).not.toHaveBeenCalled();
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
 			await page.getByRole('button', { name: 'Next' }).click();

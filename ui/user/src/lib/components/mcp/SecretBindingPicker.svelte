@@ -9,9 +9,12 @@
 		targets: MCPAllowedSecretBindingTarget[];
 		readonly?: boolean;
 		showRequired?: boolean;
+		classes?: {
+			input?: string;
+		};
 	}
 
-	let { field = $bindable(), targets, readonly, showRequired }: Props = $props();
+	let { field = $bindable(), targets, readonly, showRequired, classes }: Props = $props();
 	type SecretBindingOption = { id: string; label: string; disabled?: boolean };
 	type ValueSource = 'value' | 'secret';
 	type SecretBindingField = MCPSubField & { secretBindingSource?: ValueSource };
@@ -124,7 +127,7 @@
 		>
 		<Select
 			id={`secret-binding-source-${field.key}`}
-			class={selectClasses}
+			class={twMerge(selectClasses, classes?.input)}
 			options={sourceOptions}
 			selected={valueSource}
 			disabled={isReadonly}
@@ -150,7 +153,7 @@
 				</label>
 				<Select
 					id={`secret-binding-secret-${field.key}`}
-					class={twMerge(selectClasses, missingSecret && errorClasses)}
+					class={twMerge(selectClasses, classes?.input, missingSecret && errorClasses)}
 					options={secretOptions}
 					selected={field.secretBinding?.name}
 					disabled={isReadonly || targets.length === 0}
@@ -169,7 +172,7 @@
 				</label>
 				<Select
 					id={`secret-binding-key-${field.key}`}
-					class={twMerge(selectClasses, missingKey && errorClasses)}
+					class={twMerge(selectClasses, classes?.input, missingKey && errorClasses)}
 					options={keyOptions}
 					selected={field.secretBinding?.key}
 					disabled={isReadonly || keyOptions.length === 0}

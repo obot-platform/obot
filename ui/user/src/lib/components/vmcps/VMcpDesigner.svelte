@@ -340,6 +340,7 @@
 		const held = heldCreate;
 		if (!held) return;
 		vmcpActions?.openConfiguration(held.entry, {
+			isShared: Boolean(profile.current.isAdmin?.()),
 			errorMessage: m.vmcps_failed_to_create()
 		});
 	}
