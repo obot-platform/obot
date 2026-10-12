@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -17,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, secrets map[string]string, egressHosts []string, allowAllEgress bool) (*pb.Actor, error) {
+func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, secrets map[string]string, egressHosts []string, allowAllEgress bool, egressSecrets []gt.ClaudeEgressSecret) (*pb.Actor, error) {
 	var runtime gt.ClaudeRuntime
 	if err := json.Unmarshal([]byte(instance.Spec.ClaudeRuntime), &runtime); err != nil {
 		return nil, fmt.Errorf("invalid session runtime: %w", err)
@@ -120,6 +122,42 @@ func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, s
 			{Http: &pb.HTTPRule{Hostnames: []string{"*"}, Ports: &pb.Ports{All: &pb.AllPorts{}}}},
 			{Https: &pb.HTTPSRule{Hostnames: []string{"*"}, Ports: &pb.Ports{All: &pb.AllPorts{}}}},
 		}
+	}
+
+	// Exact-host rules take precedence over wildcard rules, while retaining HTTPS inspection.
+	injected := map[string][]*pb.CredentialHeader{}
+	currentRuntime := gt.ClaudeRuntime{EgressHosts: egressHosts, AllowAllEgress: allowAllEgress}
+	for _, secret := range egressSecrets {
+		if clauderunner.EgressHostAllowed(currentRuntime, secret.Hostname) {
+			injected[secret.Hostname] = append(injected[secret.Hostname], &pb.CredentialHeader{
+				Header: secret.Header, CredentialUri: "ate-secret://obot/claude/" + instance.Name + "/" + secret.ID,
+			})
+		}
+	}
+	destinations := make([]string, 0, len(injected))
+	for host := range injected {
+		destinations = append(destinations, host)
+	}
+	sort.Strings(destinations)
+	// Replace overlapping exact rules so policy ranking is unambiguous.
+	if !allowAllEgress {
+		filtered := hosts[:0]
+		for _, host := range hosts {
+			if _, ok := injected[host]; !ok {
+				filtered = append(filtered, host)
+			}
+		}
+		if len(filtered) == 0 {
+			desired.Rules = desired.Rules[:1]
+		} else {
+			desired.Rules[1].Https.Hostnames = filtered
+		}
+	}
+	for _, host := range destinations {
+		desired.Rules = append(desired.Rules, &pb.EgressRule{Https: &pb.HTTPSRule{
+			Hostnames: []string{host}, Ports: &pb.Ports{Numbers: []int32{443}},
+			Effects: &pb.HttpRuleEffects{ReplaceHeaders: injected[host]},
+		}})
 	}
 
 	current, err := c.Control.GetActorEgressPolicy(ctx, &pb.GetActorEgressPolicyRequest{Actor: ref})

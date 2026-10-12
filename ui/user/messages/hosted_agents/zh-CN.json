@@ -1,5 +1,4 @@
 {
-	"hosted_agents_kubernetes_required": "Claude Environments仅适用于Kubernetes部署。此Obot实例正在Docker中运行。",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"hosted_agents_tag_heading": "Claude Tag",
 	"hosted_agents_tag_help": "Claude Tag 频道会话共用一个服务身份，不会以 Slack 消息发送者的身份运行。",
@@ -365,6 +364,14 @@
 	"hosted_agents_remove_hostname": "删除主机名",
 	"hosted_agents_environment_egress_hosts": "其他 HTTPS 出站主机",
 	"hosted_agents_egress_wildcard_help": "使用主机名或 *.github.com 这样的通配符。通配符只匹配一级子域名（api.github.com），不匹配根域名（github.com）或更深层的子域名（a.b.github.com）。如有需要，请单独添加根域名。",
+	"hosted_agents_egress_secrets": "注入密钥",
+	"hosted_agents_egress_secrets_help": "向出站策略允许的精确主机名的端口 443 HTTPS 请求注入标头。请输入完整标头值，例如 Bearer TOKEN。保存的值不会再次显示。相同主机名和标头的配置文件密钥覆盖环境密钥；第一个匹配的配置文件优先。",
+	"hosted_agents_secret_hostname": "目标主机名",
+	"hosted_agents_secret_header": "标头名称",
+	"hosted_agents_secret_value": "密钥值",
+	"hosted_agents_secret_keep": "留空以保留已保存的值",
+	"hosted_agents_add_secret": "添加密钥",
+	"hosted_agents_remove_secret": "删除密钥",
 	"hosted_agents_select_vmcps": "选择 vMCP…",
 	"hosted_agents_search_vmcps": "搜索 vMCP…",
 	"hosted_agents_configuration": "环境配置",
@@ -380,5 +387,6 @@
 	"hosted_agents_mapping_help": "当会话请求提供的邮箱与一个活跃且未映射的Obot用户唯一匹配时，未映射的Claude账户将自动匹配。已保存的用户分配优先，未包含在导入中的成员会保留。选择“Not mapped”会清除分配，但仍允许以后自动匹配。更改适用于此组织的所有环境；更改映射会删除原所有者的会话工作区。环境配置文件仍控制访问权限。",
 	"hosted_agents_slack_sender": "Slack发送者",
 	"hosted_agents_slack_channel": "Slack频道",
-	"hosted_agents_slack_thread": "打开Slack讨论串"
+	"hosted_agents_slack_thread": "打开Slack讨论串",
+	"hosted_agents_kubernetes_required": "Claude Environments仅适用于Kubernetes部署。此Obot实例正在Docker中运行。"
 }

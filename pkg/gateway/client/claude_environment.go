@@ -12,13 +12,27 @@ import (
 func (c *Client) ClaudeEnvironments(ctx context.Context) ([]types.ClaudeEnvironment, error) {
 	environments := []types.ClaudeEnvironment{}
 	err := c.db.WithContext(ctx).Order("display_name, id").Find(&environments).Error
-	return environments, err
+	if err != nil {
+		return nil, err
+	}
+	for i := range environments {
+		if err := c.revealClaudeEgressSecrets(ctx, &environments[i]); err != nil {
+			return nil, err
+		}
+	}
+	return environments, nil
 }
 
 func (c *Client) ClaudeEnvironment(ctx context.Context, id string) (*types.ClaudeEnvironment, error) {
 	var environment types.ClaudeEnvironment
 	err := c.db.WithContext(ctx).Where("id = ?", id).First(&environment).Error
-	return &environment, err
+	if err != nil {
+		return nil, err
+	}
+	if err := c.revealClaudeEgressSecrets(ctx, &environment); err != nil {
+		return nil, err
+	}
+	return &environment, nil
 }
 
 // SaveClaudeEnvironment atomically stores metadata and write-only credentials.
@@ -31,6 +45,10 @@ func (c *Client) SaveClaudeEnvironment(ctx context.Context, environment *types.C
 		}
 	}
 
+	stored, err := c.storeClaudeEgressSecrets(ctx, environment)
+	if err != nil {
+		return err
+	}
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if secrets != nil {
 			if err := tx.Clauses(clause.OnConflict{
@@ -40,7 +58,7 @@ func (c *Client) SaveClaudeEnvironment(ctx context.Context, environment *types.C
 				return err
 			}
 		}
-		return tx.Save(environment).Error
+		return tx.Save(stored).Error
 	})
 }
 

@@ -1,5 +1,4 @@
 {
-	"hosted_agents_kubernetes_required": "Claude EnvironmentsはKubernetesデプロイメントでのみ利用できます。このObotインスタンスはDockerで実行されています。",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"hosted_agents_tag_heading": "Claude Tag",
 	"hosted_agents_tag_help": "Claude Tag のチャンネルセッションはサービス ID を共有し、Slack メッセージの送信者としては実行されません。",
@@ -365,6 +364,14 @@
 	"hosted_agents_remove_hostname": "ホスト名を削除",
 	"hosted_agents_environment_egress_hosts": "追加の HTTPS 送信先ホスト",
 	"hosted_agents_egress_wildcard_help": "ホスト名または *.github.com のようなワイルドカードを使用できます。ワイルドカードは1階層のサブドメイン（api.github.com）に一致しますが、ルートドメイン（github.com）やそれより深いサブドメイン（a.b.github.com）には一致しません。必要に応じてルートドメインを別途追加してください。",
+	"hosted_agents_egress_secrets": "挿入するシークレット",
+	"hosted_agents_egress_secrets_help": "送信ポリシーで許可された完全一致のホスト名へのポート443のHTTPSリクエストにヘッダーを挿入します。Bearer TOKEN など、ヘッダー値全体を入力してください。保存した値は再表示されません。同じホスト名とヘッダーではプロファイルが環境を上書きし、最初に一致するプロファイルが優先されます。",
+	"hosted_agents_secret_hostname": "送信先ホスト名",
+	"hosted_agents_secret_header": "ヘッダー名",
+	"hosted_agents_secret_value": "シークレット値",
+	"hosted_agents_secret_keep": "空欄の場合は保存済みの値を保持",
+	"hosted_agents_add_secret": "シークレットを追加",
+	"hosted_agents_remove_secret": "シークレットを削除",
 	"hosted_agents_select_vmcps": "vMCP を選択…",
 	"hosted_agents_search_vmcps": "vMCP を検索…",
 	"hosted_agents_configuration": "環境設定",
@@ -380,5 +387,6 @@
 	"hosted_agents_mapping_help": "未マッピングのClaudeアカウントは、セッション要求のメールアドレスが有効な未マッピングのObotユーザーに一意に一致すると自動的にマッピングされます。保存済みのユーザー割り当てが優先され、インポートに含まれないメンバーは保持されます。「未マッピング」は割り当てを解除しますが、今後の自動マッピングは許可します。変更はこの組織のすべての環境に適用され、マッピングの変更により以前の所有者のセッションワークスペースが削除されます。アクセスは引き続き環境プロファイルで制御されます。",
 	"hosted_agents_slack_sender": "Slack送信者",
 	"hosted_agents_slack_channel": "Slackチャンネル",
-	"hosted_agents_slack_thread": "Slackスレッドを開く"
+	"hosted_agents_slack_thread": "Slackスレッドを開く",
+	"hosted_agents_kubernetes_required": "Claude EnvironmentsはKubernetesデプロイメントでのみ利用できます。このObotインスタンスはDockerで実行されています。"
 }

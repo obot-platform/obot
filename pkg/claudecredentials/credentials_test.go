@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -78,6 +79,75 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	wrong = &pb.FetchSecretRequest{Uri: input.Uri + "/../another", ActorSpiffeId: input.ActorSpiffeId}
 	_, err = provider.fetchSecret(ctx, wrong)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+
+	env.Runtime.EgressHosts = []string{"*.example.com"}
+	env.EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-env", Hostname: "api.example.com", Header: "authorization", Value: "env-secret"}}
+	env.Profiles[0].EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-profile", Hostname: "api.example.com", Header: "authorization", Value: "profile-secret"}}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	secretInput := &pb.FetchSecretRequest{Uri: input.Uri + "/ces-profile", ActorSpiffeId: input.ActorSpiffeId}
+	injected, err := provider.fetchSecret(ctx, secretInput)
+	require.NoError(t, err)
+	require.Equal(t, "profile-secret", string(injected.OpaqueBytes))
+
+	// A mapped human loses both third-party secrets and MCP credentials immediately.
+	require.NoError(t, db.Create(&gt.User{ID: 123, Username: "mapped", HashedUsername: "mapped", Email: "mapped@example.com"}).Error)
+	require.NoError(t, gateway.SaveClaudeOrganizationAccounts(ctx, env.OrganizationID, []gt.ClaudeOrganizationAccount{{Account: "user_mapped", UserID: "123"}}))
+	env.Profiles[0].Subjects = append(env.Profiles[0].Subjects, types.Subject{Type: types.SubjectTypeUser, ID: "123"})
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	inst.Spec.UserID, inst.Spec.ClaudeAccount = "123", "user_mapped"
+	require.NoError(t, storage.Update(ctx, inst))
+	mappedRef := substrate.Ref(inst)
+	mapped := &pb.FetchSecretRequest{Uri: secretInput.Uri, ActorSpiffeId: "spiffe://substrate-actor.local/actor/" + mappedRef.Atespace + "/" + mappedRef.Name}
+	_, err = provider.fetchSecret(ctx, mapped)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&gt.User{}).Where("id = ?", 123).Update("disabled_at", time.Now()).Error)
+	_, err = provider.fetchSecret(ctx, mapped)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	mapped.Uri = input.Uri
+	_, err = provider.fetchSecret(ctx, mapped)
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	inst.Spec.UserID, inst.Spec.ClaudeAccount = env.ClaudeTagUserID, clauderunner.ClaudeTagAccount
+	require.NoError(t, storage.Update(ctx, inst))
+
+	processor := &AuditProcessor{Provider: provider}
+	entry := &gt.EgressAuditLog{Scheme: "https", Host: "api.example.com:443", EnvironmentID: env.ID, ClaudeAccount: inst.Spec.ClaudeAccount, UserID: inst.Spec.UserID}
+	mutation, err := processor.secretPlaceholders(ctx, entry)
+	require.NoError(t, err)
+	require.Len(t, mutation.SetHeaders, 1)
+	require.Equal(t, "authorization", mutation.SetHeaders[0].Header.Key)
+	require.Equal(t, "obot-egress-placeholder", string(mutation.SetHeaders[0].Header.RawValue))
+	require.Equal(t, core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD, mutation.SetHeaders[0].AppendAction)
+
+	entry.Host = "other.example.com"
+	mutation, err = processor.secretPlaceholders(ctx, entry)
+	require.NoError(t, err)
+	require.Empty(t, mutation.SetHeaders)
+	entry.Host = "api.example.com:8443"
+	mutation, err = processor.secretPlaceholders(ctx, entry)
+	require.NoError(t, err)
+	require.Nil(t, mutation)
+	entry.Host, entry.Scheme = "api.example.com", "http"
+	mutation, err = processor.secretPlaceholders(ctx, entry)
+	require.NoError(t, err)
+	require.Nil(t, mutation)
+
+	secretInput.Uri = input.Uri + "/ces-env"
+	_, err = provider.fetchSecret(ctx, secretInput)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "overridden secrets must not be retrievable")
+	secretInput.Uri = input.Uri + "/ces-profile"
+	env.Runtime.EgressHosts = nil
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	_, err = provider.fetchSecret(ctx, secretInput)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing egress permission also removes secret access")
+	env.Runtime.AllowAllEgress = true
+	env.Profiles[0].EgressSecrets[0].Value = "rotated"
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	injected, err = provider.fetchSecret(ctx, secretInput)
+	require.NoError(t, err)
+	require.Equal(t, "rotated", string(injected.OpaqueBytes))
+	secretInput.ActorSpiffeId = "spiffe://substrate-actor.local/actor/other/" + inst.Name
+	_, err = provider.fetchSecret(ctx, secretInput)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 
 	for _, field := range []string{"suspended", "done"} {

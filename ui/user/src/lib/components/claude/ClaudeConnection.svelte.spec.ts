@@ -192,6 +192,14 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 	await page.getByLabelText('Additional HTTPS hosts for this profile').fill('*.example.com');
 	await page.getByRole('button', { name: 'Add hostname', exact: true }).nth(1).click();
 	await page.getByLabelText('Allow all egress', { exact: true }).nth(1).click();
+	await page.getByRole('button', { name: 'Add secret', exact: true }).first().click();
+	await page.getByLabelText('Destination hostname', { exact: true }).fill('api.example.com');
+	await page.getByLabelText('Header name', { exact: true }).fill('Authorization');
+	await page.getByLabelText('Secret value', { exact: true }).fill('Bearer env-secret');
+	await page.getByRole('button', { name: 'Add secret', exact: true }).nth(1).click();
+	await page.getByLabelText('Destination hostname', { exact: true }).nth(1).fill('api.example.com');
+	await page.getByLabelText('Header name', { exact: true }).nth(1).fill('Authorization');
+	await page.getByLabelText('Secret value', { exact: true }).nth(1).fill('Bearer profile-secret');
 	await page.getByText('Actor overrides', { exact: true }).click();
 	await page.getByLabelText('Actor CPU limit', { exact: true }).nth(1).fill('1500m');
 	await page.getByRole('button', { name: 'Save environment' }).click();
@@ -199,6 +207,13 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 		expect(saved).toHaveBeenCalledWith(
 			expect.objectContaining({
 				mcpServerIDs: ['vmcp-two', 'vmcp-one'],
+				egressSecrets: [
+					expect.objectContaining({
+						hostname: 'api.example.com',
+						header: 'Authorization',
+						value: 'Bearer env-secret'
+					})
+				],
 				runtime: expect.objectContaining({
 					allowAllEgress: true,
 					egressHosts: ['*.github.com'],
@@ -208,6 +223,13 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 				profiles: [
 					expect.objectContaining({
 						mcpServerIDs: ['vmcp-one'],
+						egressSecrets: [
+							expect.objectContaining({
+								hostname: 'api.example.com',
+								header: 'Authorization',
+								value: 'Bearer profile-secret'
+							})
+						],
 						egressHosts: ['*.example.com'],
 						allowAllEgress: true,
 						resources: expect.objectContaining({ actorCPU: '1500m' })

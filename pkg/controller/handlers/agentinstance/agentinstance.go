@@ -70,7 +70,7 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 	ctx, cancel := context.WithTimeout(req.Ctx, 30*time.Second)
 	defer cancel()
 
-	state, err := h.reconcileClaude(ctx, instance, environment.Runtime.EgressHosts, environment.Runtime.AllowAllEgress)
+	state, err := h.reconcileClaude(ctx, instance, environment.Runtime.EgressHosts, environment.Runtime.AllowAllEgress, environment.EgressSecrets)
 	resumeAttempted := state == "ReadyToStart" && err == nil
 	if resumeAttempted {
 		state, err = h.resumeClaude(ctx, req, instance)
@@ -159,12 +159,12 @@ func (h *Handler) resumeClaude(ctx context.Context, req router.Request, instance
 	return "Resuming", err
 }
 
-func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstance, egressHosts []string, allowAllEgress bool) (string, error) {
+func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstance, egressHosts []string, allowAllEgress bool, egressSecrets []gt.ClaudeEgressSecret) (string, error) {
 	credential, err := h.Gateway.RevealCredential(ctx, []string{"claude-runner"}, instance.Name)
 	if err != nil {
 		return "Pending", err
 	}
-	actor, err := h.Substrate.EnsureClaude(ctx, instance, credential.Secrets, egressHosts, allowAllEgress)
+	actor, err := h.Substrate.EnsureClaude(ctx, instance, credential.Secrets, egressHosts, allowAllEgress, egressSecrets)
 	if err != nil {
 		return "Pending", err
 	}

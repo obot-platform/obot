@@ -10,6 +10,7 @@
 	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
 	import ClaudeTagSettings from './ClaudeTagSettings.svelte';
 	import EgressHosts from './EgressHosts.svelte';
+	import EgressSecrets from './EgressSecrets.svelte';
 	import EnvironmentProfiles from './EnvironmentProfiles.svelte';
 	import type { ClaudeConfig, ClaudeEnvironment } from './types';
 	import { onMount } from 'svelte';
@@ -361,6 +362,14 @@
 							/>
 						</details>
 					</fieldset>
+					<EgressSecrets
+						bind:secrets={
+							() => draft?.egressSecrets ?? [],
+							(secrets) => {
+								if (draft) draft.egressSecrets = secrets;
+							}
+						}
+					/>
 					<EnvironmentProfiles
 						bind:profiles={draft.profiles}
 						servers={servers.filter((server) => draft?.mcpServerIDs.includes(server.id))}

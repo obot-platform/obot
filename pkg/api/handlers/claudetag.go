@@ -54,6 +54,7 @@ func (h *ClaudeRunnerHandler) SaveClaudeTag(req api.Context) error {
 				return err
 			}
 		}
+		redactClaudeEgressSecrets(environment)
 		return req.Write(environment)
 	})
 }

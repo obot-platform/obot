@@ -33,9 +33,18 @@ type ClaudeRuntime struct {
 	Resources       ClaudeResources `json:"resources"`
 }
 
+// ClaudeEgressSecret values are write-only in the API and stored separately on the environment.
+type ClaudeEgressSecret struct {
+	ID       string `json:"id"`
+	Hostname string `json:"hostname"`
+	Header   string `json:"header"`
+	Value    string `json:"value,omitempty"`
+}
+
 type ClaudeEnvironmentProfile struct {
-	Name     string        `json:"name"`
-	Subjects []api.Subject `json:"subjects"`
+	EgressSecrets []ClaudeEgressSecret `json:"egressSecrets,omitempty"`
+	Name          string               `json:"name"`
+	Subjects      []api.Subject        `json:"subjects"`
 	// nil inherits the environment allowlist; [] grants no vMCPs.
 	MCPServerIDs   []string        `json:"mcpServerIDs"`
 	EgressHosts    []string        `json:"egressHosts,omitempty"`
@@ -44,16 +53,19 @@ type ClaudeEnvironmentProfile struct {
 }
 
 type ClaudeEnvironment struct {
-	ID               string                     `gorm:"primaryKey" json:"id"`
-	DisplayName      string                     `json:"displayName"`
-	OrganizationID   string                     `json:"organizationID"`
-	EnvironmentID    string                     `gorm:"uniqueIndex" json:"environmentID"`
-	MCPServerIDs     []string                   `gorm:"serializer:json" json:"mcpServerIDs"`
-	Profiles         []ClaudeEnvironmentProfile `gorm:"serializer:json" json:"profiles"`
-	Runtime          ClaudeRuntime              `gorm:"serializer:json" json:"runtime"`
-	Revision         string                     `json:"-"`
-	ClaudeTagUserID  string                     `json:"claudeTagUserID,omitempty"`
-	ClaudeTagEnabled bool                       `json:"claudeTagEnabled"`
+	EgressSecrets          []ClaudeEgressSecret       `gorm:"serializer:json" json:"egressSecrets,omitempty"`
+	EgressSecretValues     map[string]string          `gorm:"serializer:json" json:"-"`
+	EgressSecretsEncrypted bool                       `json:"-"`
+	ID                     string                     `gorm:"primaryKey" json:"id"`
+	DisplayName            string                     `json:"displayName"`
+	OrganizationID         string                     `json:"organizationID"`
+	EnvironmentID          string                     `gorm:"uniqueIndex" json:"environmentID"`
+	MCPServerIDs           []string                   `gorm:"serializer:json" json:"mcpServerIDs"`
+	Profiles               []ClaudeEnvironmentProfile `gorm:"serializer:json" json:"profiles"`
+	Runtime                ClaudeRuntime              `gorm:"serializer:json" json:"runtime"`
+	Revision               string                     `json:"-"`
+	ClaudeTagUserID        string                     `json:"claudeTagUserID,omitempty"`
+	ClaudeTagEnabled       bool                       `json:"claudeTagEnabled"`
 }
 
 // ClaudeOrganizationAccount is an admin-managed or just-in-time identity mapping shared by

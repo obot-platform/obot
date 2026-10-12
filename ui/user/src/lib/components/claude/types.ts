@@ -6,7 +6,14 @@ export type ClaudeResources = {
 	idleTimeoutMinutes?: number;
 	sessionRetentionDays?: number;
 };
+export type EgressSecret = {
+	id: string;
+	hostname: string;
+	header: string;
+	value?: string;
+};
 export type EnvironmentProfile = {
+	egressSecrets?: EgressSecret[];
 	name: string;
 	subjects: AccessControlRuleSubject[];
 	mcpServerIDs: string[] | null;
@@ -29,6 +36,7 @@ export type ClaudeRuntime = {
 	resources: ClaudeResources;
 };
 export type ClaudeEnvironment = {
+	egressSecrets?: EgressSecret[];
 	id: string;
 	displayName: string;
 	organizationID: string;

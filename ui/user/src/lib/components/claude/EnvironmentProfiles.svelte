@@ -12,6 +12,7 @@
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
 	import ActorResources from './ActorResources.svelte';
 	import EgressHosts from './EgressHosts.svelte';
+	import EgressSecrets from './EgressSecrets.svelte';
 	import type { EnvironmentProfile } from './types';
 	import { Plus, Trash2, X, Users } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -210,6 +211,11 @@
 				/>
 				<p class="text-xs text-muted-content">{m.hosted_agents_required_egress_help()}</p>
 			</fieldset>
+			<EgressSecrets
+				bind:secrets={
+					() => profile.egressSecrets ?? [], (secrets) => (profile.egressSecrets = secrets)
+				}
+			/>
 			<details>
 				<summary class="cursor-pointer text-sm font-semibold"
 					>{m.hosted_agents_profile_actor_overrides()}</summary

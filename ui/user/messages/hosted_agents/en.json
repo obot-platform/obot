@@ -1,5 +1,4 @@
 {
-	"hosted_agents_kubernetes_required": "Claude Environments is only available in Kubernetes deployments. This Obot instance is running with Docker.",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"hosted_agents_tag_heading": "Claude Tag",
 	"hosted_agents_tag_help": "Claude Tag channel sessions share a service identity; they do not run as the person who sent the Slack message.",
@@ -365,6 +364,14 @@
 	"hosted_agents_remove_hostname": "Remove hostname",
 	"hosted_agents_environment_egress_hosts": "Additional HTTPS egress hosts",
 	"hosted_agents_egress_wildcard_help": "Use a hostname or a wildcard such as *.github.com. Wildcards match one subdomain level (api.github.com), not the root domain (github.com) or deeper subdomains (a.b.github.com). Add the root domain separately if needed.",
+	"hosted_agents_egress_secrets": "Injected secrets",
+	"hosted_agents_egress_secrets_help": "Inject headers into HTTPS requests on port 443 to exact hostnames allowed by egress policy. Include the full header value, such as Bearer TOKEN. Values are never shown again. Profile secrets override environment secrets for the same hostname and header; the first matching profile wins.",
+	"hosted_agents_secret_hostname": "Destination hostname",
+	"hosted_agents_secret_header": "Header name",
+	"hosted_agents_secret_value": "Secret value",
+	"hosted_agents_secret_keep": "Leave blank to keep the saved value",
+	"hosted_agents_add_secret": "Add secret",
+	"hosted_agents_remove_secret": "Remove secret",
 	"hosted_agents_select_vmcps": "Select vMCPs…",
 	"hosted_agents_search_vmcps": "Search vMCPs…",
 	"hosted_agents_configuration": "Environment configuration",
@@ -380,5 +387,6 @@
 	"hosted_agents_mapping_help": "Unmapped Claude accounts are automatically matched when a session request supplies an email that uniquely matches an active, unmatched Obot user. Saved user assignments take priority. Members absent from the import are kept. Choosing “Not mapped” clears the assignment but allows future automatic matching. Changes apply to every environment in this organization; changing a mapping deletes the previous owner’s session workspaces. Environment profiles still control access.",
 	"hosted_agents_slack_sender": "Slack sender",
 	"hosted_agents_slack_channel": "Slack channel",
-	"hosted_agents_slack_thread": "Open Slack thread"
+	"hosted_agents_slack_thread": "Open Slack thread",
+	"hosted_agents_kubernetes_required": "Claude Environments is only available in Kubernetes deployments. This Obot instance is running with Docker."
 }

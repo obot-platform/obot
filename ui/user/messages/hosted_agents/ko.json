@@ -1,5 +1,4 @@
 {
-	"hosted_agents_kubernetes_required": "Claude Environments는 Kubernetes 배포에서만 사용할 수 있습니다. 이 Obot 인스턴스는 Docker에서 실행 중입니다.",
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"hosted_agents_tag_heading": "Claude Tag",
 	"hosted_agents_tag_help": "Claude Tag 채널 세션은 서비스 ID를 공유하며 Slack 메시지를 보낸 사람의 계정으로 실행되지 않습니다.",
@@ -365,6 +364,14 @@
 	"hosted_agents_remove_hostname": "호스트 이름 제거",
 	"hosted_agents_environment_egress_hosts": "추가 HTTPS 아웃바운드 호스트",
 	"hosted_agents_egress_wildcard_help": "호스트 이름 또는 *.github.com 같은 와일드카드를 사용할 수 있습니다. 와일드카드는 한 단계의 하위 도메인(api.github.com)에만 일치하며 루트 도메인(github.com)이나 더 깊은 하위 도메인(a.b.github.com)에는 일치하지 않습니다. 필요하면 루트 도메인을 별도로 추가하세요.",
+	"hosted_agents_egress_secrets": "주입할 비밀 값",
+	"hosted_agents_egress_secrets_help": "아웃바운드 정책이 허용하는 정확한 호스트 이름의 포트 443 HTTPS 요청에 헤더를 주입합니다. Bearer TOKEN처럼 전체 헤더 값을 입력하세요. 저장한 값은 다시 표시되지 않습니다. 동일한 호스트 이름과 헤더에 대해 프로필 값이 환경 값을 재정의하며 첫 번째 일치 프로필이 우선합니다.",
+	"hosted_agents_secret_hostname": "대상 호스트 이름",
+	"hosted_agents_secret_header": "헤더 이름",
+	"hosted_agents_secret_value": "비밀 값",
+	"hosted_agents_secret_keep": "저장된 값을 유지하려면 비워 두세요",
+	"hosted_agents_add_secret": "비밀 값 추가",
+	"hosted_agents_remove_secret": "비밀 값 삭제",
 	"hosted_agents_select_vmcps": "vMCP 선택…",
 	"hosted_agents_search_vmcps": "vMCP 검색…",
 	"hosted_agents_configuration": "환경 구성",
@@ -380,5 +387,6 @@
 	"hosted_agents_mapping_help": "매핑되지 않은 Claude 계정은 세션 요청의 이메일이 활성 상태의 매핑되지 않은 Obot 사용자와 유일하게 일치하면 자동 매핑됩니다. 저장된 사용자 할당이 우선하며 가져오기에 없는 구성원은 유지됩니다. “Not mapped”는 할당을 지우지만 향후 자동 매핑은 허용합니다. 변경 사항은 이 조직의 모든 환경에 적용되며 매핑을 변경하면 이전 소유자의 세션 작업 공간이 삭제됩니다. 환경 프로필은 계속 접근을 제어합니다.",
 	"hosted_agents_slack_sender": "Slack 발신자",
 	"hosted_agents_slack_channel": "Slack 채널",
-	"hosted_agents_slack_thread": "Slack 스레드 열기"
+	"hosted_agents_slack_thread": "Slack 스레드 열기",
+	"hosted_agents_kubernetes_required": "Claude Environments는 Kubernetes 배포에서만 사용할 수 있습니다. 이 Obot 인스턴스는 Docker에서 실행 중입니다."
 }

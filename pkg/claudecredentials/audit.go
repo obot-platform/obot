@@ -12,6 +12,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
@@ -114,7 +115,11 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			entry.Path = redactPath(firstHeader(headers, ":path"))
 			entry.RequestHeaders = redactedEgressHeaders(headers)
 			started = true
-			reply.Response = &ext.ProcessingResponse_RequestHeaders{RequestHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{}}}
+			mutation, err := p.secretPlaceholders(stream.Context(), &entry)
+			if err != nil {
+				return status.Error(codes.Unavailable, "Cannot prepare egress headers")
+			}
+			reply.Response = &ext.ProcessingResponse_RequestHeaders{RequestHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{HeaderMutation: mutation}}}
 			reply.DynamicMetadata, _ = structpb.NewStruct(map[string]any{"obot.audit": map[string]any{"id": entry.ID}})
 		case *ext.ProcessingRequest_ResponseHeaders:
 			if !started {
@@ -223,4 +228,34 @@ func redactPath(path string) string {
 	parsed.User = nil
 	parsed.Fragment = ""
 	return parsed.String()
+}
+
+// The following Substrate filter replaces existing headers, so supply placeholders
+// here before policy enforcement. Secret values never enter the audit stream.
+func (p *AuditProcessor) secretPlaceholders(ctx context.Context, entry *types.EgressAuditLog) (*ext.HeaderMutation, error) {
+	if entry.Scheme != "https" {
+		return nil, nil
+	}
+	destination, err := url.Parse("https://" + entry.Host)
+	if err != nil || (destination.Port() != "" && destination.Port() != "443") {
+		return nil, nil
+	}
+	env, err := clauderunner.AuthorizedEnvironment(ctx, p.Provider.Gateway, entry.EnvironmentID, entry.ClaudeAccount, entry.UserID)
+	if clauderunner.AccessDenied(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	mutation := &ext.HeaderMutation{}
+	for _, secret := range env.EgressSecrets {
+		if secret.Hostname == strings.ToLower(destination.Hostname()) && clauderunner.EgressHostAllowed(env.Runtime, secret.Hostname) {
+			mutation.SetHeaders = append(mutation.SetHeaders, &core.HeaderValueOption{
+				Header:       &core.HeaderValue{Key: secret.Header, RawValue: []byte("obot-egress-placeholder")},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+			})
+		}
+	}
+	return mutation, nil
 }

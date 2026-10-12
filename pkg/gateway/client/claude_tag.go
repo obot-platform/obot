@@ -41,7 +41,7 @@ func (c *Client) EnsureClaudeTagUser(ctx context.Context, environment *types.Cla
 			return err
 		}
 		environment.ClaudeTagUserID = fmt.Sprint(user.ID)
-		return tx.Save(environment).Error
+		return tx.Model(&types.ClaudeEnvironment{}).Where("id = ?", environment.ID).Update("claude_tag_user_id", environment.ClaudeTagUserID).Error
 	})
 }
 

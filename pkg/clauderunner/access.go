@@ -22,6 +22,12 @@ func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*types.C
 	resolved := *env
 	resolved.MCPServerIDs = []string{}
 	resolved.Profiles = nil
+	resolved.EgressSecrets = slices.Clone(env.EgressSecrets)
+	secretIndexes := map[string]int{}
+	for i, secret := range resolved.EgressSecrets {
+		secretIndexes[SecretKey(secret)] = i
+	}
+	overridden := map[string]bool{}
 	resolved.Runtime.EgressHosts = slices.Clone(env.Runtime.EgressHosts)
 	resolved.Runtime.Resources = types.ClaudeResources{}
 	matched := false
@@ -30,6 +36,20 @@ func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*types.C
 			continue
 		}
 		matched = true
+		for _, secret := range profile.EgressSecrets {
+			key := SecretKey(secret)
+			if overridden[key] {
+				continue
+			}
+			overridden[key] = true
+			if index, exists := secretIndexes[key]; exists {
+				resolved.EgressSecrets[index] = secret
+			} else {
+				secretIndexes[key] = len(resolved.EgressSecrets)
+				resolved.EgressSecrets = append(resolved.EgressSecrets, secret)
+			}
+		}
+
 		ids := profile.MCPServerIDs
 		if ids == nil {
 			ids = env.MCPServerIDs

@@ -95,3 +95,26 @@ func TestProfileEgressAddsAccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, resolved.Runtime.AllowAllEgress)
 }
+
+func TestEgressSecretProfilePrecedence(t *testing.T) {
+	user := &kuser.DefaultInfo{UID: "2"}
+	environment := gt.ClaudeEnvironment{
+		EgressSecrets: []gt.ClaudeEgressSecret{{ID: "env", Hostname: "api.example.com", Header: "authorization", Value: "env"}},
+		Profiles: []gt.ClaudeEnvironmentProfile{
+			{Name: "other", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "3"}}, EgressSecrets: []gt.ClaudeEgressSecret{{ID: "other", Hostname: "api.example.com", Header: "authorization", Value: "other"}}},
+			{Name: "first", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "2"}}, EgressSecrets: []gt.ClaudeEgressSecret{{ID: "first", Hostname: "api.example.com", Header: "Authorization", Value: "first"}}},
+			{Name: "second", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "2"}}, EgressSecrets: []gt.ClaudeEgressSecret{{ID: "second", Hostname: "api.example.com", Header: "authorization", Value: "second"}}},
+		},
+	}
+	resolved, err := ResolveEnvironment(user, &environment)
+	require.NoError(t, err)
+	require.Len(t, resolved.EgressSecrets, 1)
+	require.Equal(t, "first", resolved.EgressSecrets[0].Value)
+	require.Equal(t, "env", environment.EgressSecrets[0].Value)
+	environment.Profiles = environment.Profiles[:1]
+	environment.Profiles[0].Subjects[0].ID = "2"
+	environment.Profiles[0].EgressSecrets = nil
+	resolved, err = ResolveEnvironment(user, &environment)
+	require.NoError(t, err)
+	require.Equal(t, "env", resolved.EgressSecrets[0].Value)
+}

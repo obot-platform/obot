@@ -67,6 +67,7 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 			}
 			environment = *resolved
 		}
+		redactClaudeEgressSecrets(&environment)
 		visible = append(visible, environment)
 		mapping, err := req.GatewayClient.ClaudeOrganizationAccountForUser(req.Context(), environment.OrganizationID, req.User.GetUID())
 		if errors.Is(err, gorm.ErrRecordNotFound) {

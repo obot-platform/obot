@@ -67,7 +67,8 @@ func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSec
 
 func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {
 	name, ok := strings.CutPrefix(input.GetUri(), "ate-secret://obot/claude/")
-	if !ok || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
+	name, secretID, hasSecret := strings.Cut(name, "/")
+	if !ok || (hasSecret && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
 		return nil, status.Error(codes.PermissionDenied, "Invalid credential reference")
 	}
 
@@ -90,6 +91,14 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 	}
 	if err != nil {
 		return nil, err
+	}
+	if hasSecret {
+		for _, secret := range environment.EgressSecrets {
+			if secret.ID == secretID && clauderunner.EgressHostAllowed(environment.Runtime, secret.Hostname) {
+				return &pb.FetchSecretResponse{OpaqueBytes: []byte(secret.Value)}, nil
+			}
+		}
+		return nil, status.Error(codes.PermissionDenied, "Egress secret access has been removed")
 	}
 	if len(environment.MCPServerIDs) == 0 {
 		return nil, status.Error(codes.PermissionDenied, "No MCP access granted")
