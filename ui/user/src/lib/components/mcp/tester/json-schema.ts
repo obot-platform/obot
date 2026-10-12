@@ -115,7 +115,9 @@ export function resolveUnionSchema(schema: JSONSchema, value?: unknown): Resolve
 	if (result.const === null || result.enum?.length === 0) return undefined;
 	const alternatives = members
 		.filter((_, memberIndex) => memberIndex !== index)
-		.map((member) => (typeof member.type === 'string' ? member.type : 'another type'));
+		.map((member) =>
+			typeof member.type === 'string' ? member.type : m.mcps_tester_union_another_type()
+		);
 	return { schema: result, nullable, alternatives: [...new Set(alternatives)] };
 }
 

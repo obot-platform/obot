@@ -1067,6 +1067,7 @@
 	"mcps_tester_tools_unsupported": "このサーバーはツールのサポートを公開していません。",
 	"mcps_tester_turn_stopped": "ターンが停止しました",
 	"mcps_tester_union_also_accepts": "{types} も指定できます。Raw JSON で入力してください。",
+	"mcps_tester_union_another_type": "別の型",
 	"mcps_tester_unknown_type": "不明な形式",
 	"mcps_tester_unlock_chat": "MCP Inspector Chat のロックを解除",
 	"mcps_tester_unsupported_audio_type": "サポートされていない音声形式：{type}",

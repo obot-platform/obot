@@ -1067,6 +1067,7 @@
 	"mcps_tester_tools_unsupported": "此服务器未声明支持工具。",
 	"mcps_tester_turn_stopped": "轮次已停止",
 	"mcps_tester_union_also_accepts": "也接受 {types}，可在 Raw JSON 中输入。",
+	"mcps_tester_union_another_type": "其他类型",
 	"mcps_tester_unknown_type": "未知类型",
 	"mcps_tester_unlock_chat": "解锁 MCP Inspector Chat",
 	"mcps_tester_unsupported_audio_type": "不支持的音频类型：{type}",
