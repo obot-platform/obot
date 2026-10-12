@@ -492,7 +492,7 @@ func TestListDeviceScans_SortAndSearch(t *testing.T) {
 		t.Errorf("sort by user asc: got %v", got)
 	}
 
-	// Sort-by-user is paginated in Go (see listDeviceScansSortedByUser), not
+	// Sort-by-user is paginated in Go (see listDeviceScansUserAware), not
 	// via a SQL ORDER BY, so page boundaries must still land on exactly the
 	// same global order a Limit-10 call returns in one page.
 	userPage1, userTotal, err := c.ListDeviceScans(ctx, DeviceScanListOptions{GroupByDevice: true, Limit: 2, Offset: 0, SortBy: "user", SortOrder: "asc"})
