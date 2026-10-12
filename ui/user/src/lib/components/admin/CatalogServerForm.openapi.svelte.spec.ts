@@ -239,7 +239,7 @@ it('keeps entered details visible and confirms suggestions after inline import',
 	await expect.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`)).toHaveValue('My server');
 });
 
-it('only replaces selected metadata fields after importing a replacement', async () => {
+it('preserves existing metadata after importing a replacement', async () => {
 	const nextSchema = {
 		...schema,
 		info: {
@@ -256,7 +256,8 @@ it('only replaces selected metadata fields after importing a replacement', async
 				suggestedMetadata: {
 					name: 'New name',
 					shortDescription: 'New summary',
-					description: 'New description'
+					description: 'New description',
+					icon: 'https://example.com/new.png'
 				},
 				baseURL: 'https://example.com/api',
 				suggestedHeaders: []
@@ -270,6 +271,7 @@ it('only replaces selected metadata fields after importing a replacement', async
 			name: 'My name',
 			shortDescription: 'My summary',
 			description: 'My description',
+			icon: 'https://example.com/existing.png',
 			runtime: 'openapi',
 			openAPIConfig: { source: { url: sourceURL }, schema, baseURL: 'https://override.example.com' }
 		}
@@ -278,16 +280,17 @@ it('only replaces selected metadata fields after importing a replacement', async
 	await page.getByRole('button', { name: 'Replace schema', exact: true }).click();
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	await expect
-		.element(page.getByRole('heading', { name: 'Use details from schema?' }))
-		.toBeVisible();
-	await expect.element(page.getByRole('checkbox', { name: 'Name', exact: true })).not.toBeChecked();
-	await expect.element(page.getByText('Current: My name', { exact: true })).toBeVisible();
-	await page.getByRole('checkbox', { name: 'Short description', exact: true }).click();
-	await page.getByRole('button', { name: 'Apply selected', exact: true }).click();
+		.element(page.getByRole('status'))
+		.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
+	expect(document.querySelector('dialog[open]')).toBeNull();
 	await expect.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`)).toHaveValue('My name');
 	await expect
 		.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`))
-		.toHaveValue('New summary');
+		.toHaveValue('My summary');
+	await expect.element(page.getByText('My description', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.icon}`))
+		.toHaveValue('https://example.com/existing.png');
 	await expect
 		.element(page.getByLabelText('API request base URL', { exact: false }))
 		.toHaveValue('https://override.example.com');
@@ -607,10 +610,10 @@ it('keeps edited header flags and prefixes and avoids duplicates on another impo
 	await page.getByRole('button', { name: 'Replace schema', exact: true }).click();
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	await vi.waitFor(() => expect(imported).toHaveBeenCalledTimes(2));
-	await page.getByRole('button', { name: 'Keep current values', exact: true }).click();
 	await expect
 		.element(page.getByRole('status'))
 		.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
+	expect(document.querySelector('dialog[open]')).toBeNull();
 	await expect.element(page.getByLabelText('Value Prefix')).toHaveValue('Token ');
 	await expect.element(required).not.toBeChecked();
 	await expect.element(sensitive).not.toBeChecked();
