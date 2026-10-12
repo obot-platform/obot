@@ -247,6 +247,70 @@ describe('MCPTesterChat', () => {
 		session.close();
 	});
 
+	it('preserves empty arguments through approval, MCP execution, and model continuation', async () => {
+		const calledArguments: unknown[] = [];
+		const session = await readySession({ tools: {} }, (request) => {
+			if (request.method === 'tools/list') {
+				return {
+					tools: [
+						{
+							name: 'lookup',
+							inputSchema: {
+								type: 'object',
+								properties: { query: { type: 'string' } }
+							}
+						}
+					]
+				};
+			}
+			if (request.method === 'tools/call') {
+				calledArguments.push(request.params?.arguments);
+				return { content: [{ type: 'text', text: 'success' }] };
+			}
+		});
+		const modelRequests: Array<{ messages: Array<Record<string, unknown>> }> = [];
+		const chat = new MCPTesterChat(
+			session,
+			server.id,
+			vi.fn<typeof fetch>(async (_input, init) => {
+				modelRequests.push(
+					JSON.parse(String(init?.body)) as { messages: Array<Record<string, unknown>> }
+				);
+				if (modelRequests.length === 1) {
+					return stream(
+						{ type: 'assistant_message_start' },
+						{
+							type: 'tool_calls',
+							calls: [{ id: 'call-empty', name: 'lookup', arguments: {} }]
+						},
+						{ type: 'completion', reason: 'tool_calls' }
+					);
+				}
+				return stream(
+					{ type: 'assistant_message_start' },
+					{ type: 'text_delta', delta: 'Done.' },
+					{ type: 'completion', reason: 'stop' }
+				);
+			})
+		);
+
+		await chat.send('Call lookup without any arguments');
+		expect(chat.status).toBe('approval');
+		expect(chat.activeApproval?.arguments).toEqual({});
+		expect(calledArguments).toEqual([]);
+
+		chat.approve('call-empty');
+		await vi.waitFor(() => expect(chat.status).toBe('idle'));
+
+		expect(calledArguments).toEqual([{}]);
+		expect(modelRequests).toHaveLength(2);
+		expect(
+			modelRequests[1]?.messages.find((message) => message.role === 'assistant')?.toolCalls
+		).toEqual([{ id: 'call-empty', name: 'lookup', arguments: {} }]);
+		expect(chat.timeline.at(-1)?.text).toBe('Done.');
+		session.close();
+	});
+
 	it('returns cancellation to the model when an executing approved tool is cancelled', async () => {
 		const session = await readySession({ tools: {} }, (request) => {
 			if (request.method === 'tools/list') {

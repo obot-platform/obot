@@ -278,6 +278,8 @@ func responsesTools(tools []types.MCPTesterTool) []any {
 			"name":        tool.Name,
 			"description": tool.Description,
 			"parameters":  schemaValue(tool.InputSchema),
+			// Responses otherwise attempts strict normalization, making optional MCP parameters required.
+			"strict": false,
 		})
 	}
 	return result
