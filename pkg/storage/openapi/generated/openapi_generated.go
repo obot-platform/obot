@@ -13084,14 +13084,9 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "OpenAPIImportResponse is a validated snapshot and suggested credential inputs. Importing does not create a catalog entry or store credentials.",
+				Description: "OpenAPIImportResponse describes a validated schema and suggested credential inputs. Importing does not create a catalog entry or store credentials.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"schema": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
-						},
-					},
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -13124,11 +13119,11 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.
 						},
 					},
 				},
-				Required: []string{"schema", "baseURL", "suggestedHeaders", "suggestedMetadata", "destinationValidation"},
+				Required: []string{"baseURL", "suggestedHeaders", "suggestedMetadata", "destinationValidation"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIDestinationValidation", "github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata", "github.com/obot-platform/obot/apiclient/types.OpenAPISchema"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIDestinationValidation", "github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata"},
 	}
 }
 
@@ -13184,7 +13179,7 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.R
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Obot imports Source on every save and sets this field. It is omitted from catalog entry and server responses and ignored when saving catalog entries through the API. Import requests and GitOps catalog entries that set it are rejected.",
+							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Obot imports Source on every save and sets this field. It is omitted from API responses and ignored when saving catalog entries through the API. Import requests and GitOps catalog entries that set it are rejected.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
 						},
 					},

@@ -20,10 +20,9 @@ func (OpenAPISchema) OpenAPISchemaType() []string { return []string{"object"} }
 
 func (OpenAPISchema) OpenAPISchemaFormat() string { return "" }
 
-// OpenAPIImportResponse is a validated snapshot and suggested credential inputs.
-// Importing does not create a catalog entry or store credentials.
+// OpenAPIImportResponse describes a validated schema and suggested credential
+// inputs. Importing does not create a catalog entry or store credentials.
 type OpenAPIImportResponse struct {
-	Schema                *OpenAPISchema               `json:"schema"`
 	BaseURL               string                       `json:"baseURL"`
 	SuggestedHeaders      []MCPConfig                  `json:"suggestedHeaders"`
 	SuggestedMetadata     OpenAPIMetadata              `json:"suggestedMetadata"`
@@ -59,8 +58,8 @@ type OpenAPIRuntimeConfig struct {
 	Source OpenAPISource `json:"source"`
 	// Schema is the normalized JSON snapshot used by running servers instead of
 	// Source. Obot imports Source on every save and sets this field. It is
-	// omitted from catalog entry and server responses and ignored when saving
-	// catalog entries through the API. Import requests and GitOps catalog
+	// omitted from API responses and ignored when saving catalog entries
+	// through the API. Import requests and GitOps catalog
 	// entries that set it are rejected.
 	Schema  *OpenAPISchema `json:"schema,omitempty"`
 	BaseURL string         `json:"baseURL,omitempty"`

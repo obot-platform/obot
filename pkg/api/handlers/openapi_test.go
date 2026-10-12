@@ -129,7 +129,7 @@ security:
 	require.NoError(t, newOpenAPIHandler().ImportOpenAPI(ctx))
 	var result types.OpenAPIImportResponse
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
-	require.True(t, json.Valid(result.Schema.Raw))
+	require.NotContains(t, response.Body.String(), `"schema"`)
 	require.Equal(t, "Example", result.SuggestedMetadata.Name)
 	require.Equal(t, "https://api.example.com/v1/", result.BaseURL)
 	require.Len(t, result.SuggestedHeaders, 1)
@@ -201,10 +201,8 @@ func TestOpenAPIImportCompatibleSchemas(t *testing.T) {
 			require.Equal(t, "https://8.8.8.8/", result.BaseURL)
 			require.Len(t, result.SuggestedHeaders, 1)
 			if name == "typesense" {
-				require.Contains(t, string(result.Schema.Raw), `"name":"n"`)
 				require.Equal(t, "X-TYPESENSE-API-KEY", result.SuggestedHeaders[0].Key)
 			} else {
-				require.Contains(t, string(result.Schema.Raw), `"webhooks":{"email.sent":`)
 				require.Equal(t, "Authorization", result.SuggestedHeaders[0].Key)
 			}
 		})
@@ -505,7 +503,6 @@ func TestOpenAPIImportDestinationValidation(t *testing.T) {
 			require.Equal(t, "Example", preview.SuggestedMetadata.Name)
 			require.Len(t, preview.SuggestedHeaders, 1)
 			require.Equal(t, "X-Key", preview.SuggestedHeaders[0].Key)
-			require.JSONEq(t, schema, string(preview.Schema.Raw))
 
 			manifest := types.MCPServerCatalogEntryManifest{
 				Name:          "Example",
@@ -527,7 +524,6 @@ func TestOpenAPIImportDestinationValidation(t *testing.T) {
 			require.True(t, preview.DestinationValidation.Valid)
 			require.Empty(t, preview.DestinationValidation.Error)
 			require.Equal(t, "https://8.8.4.4/", preview.BaseURL)
-			require.JSONEq(t, schema, string(preview.Schema.Raw))
 
 			ctx, _ = openAPIRequest(t, storage, "catalog_id", http.MethodPost, manifest)
 			require.NoError(t, handler.CreateEntry(ctx))

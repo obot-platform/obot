@@ -11,7 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/openapi"
 )
 
-// ImportOpenAPI returns a snapshot for the catalog creation form without
+// ImportOpenAPI previews a schema for the catalog creation form without
 // creating a draft entry. Uploaded files are sent as source.content (JSON/YAML).
 func (h *MCPCatalogHandler) ImportOpenAPI(req api.Context) error {
 	var config types.OpenAPIRuntimeConfig
@@ -37,7 +37,6 @@ func (h *MCPCatalogHandler) ImportOpenAPI(req api.Context) error {
 		return types.NewErrBadRequest("failed to import OpenAPI schema: %v", err)
 	}
 	return req.Write(types.OpenAPIImportResponse{
-		Schema:                &types.OpenAPISchema{Raw: result.Schema},
 		BaseURL:               result.BaseURL,
 		SuggestedHeaders:      append([]types.MCPConfig{}, result.SuggestedHeaders...),
 		SuggestedMetadata:     result.SuggestedMetadata,
