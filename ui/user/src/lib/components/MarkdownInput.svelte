@@ -159,7 +159,7 @@
 			}
 		});
 
-		let state: CMEditorState = CMEditorState.create({
+		const state: CMEditorState = CMEditorState.create({
 			doc: value
 		});
 
@@ -177,7 +177,7 @@
 			if (disabled) contentAttrs['aria-readonly'] = 'true';
 
 			const newState = CMEditorState.create({
-				doc: state.doc,
+				doc: cmView?.state.doc ?? value,
 				extensions: [
 					basicSetup,
 					darkMode.isDark ? githubDark : githubLight,
@@ -191,7 +191,6 @@
 				]
 			});
 			cmView?.setState(newState);
-			state = newState;
 			setDarkMode = darkMode.isDark;
 		};
 		reload();

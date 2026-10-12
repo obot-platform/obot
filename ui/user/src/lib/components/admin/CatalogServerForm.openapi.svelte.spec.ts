@@ -1,10 +1,11 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 import type { MCPCatalogEntry } from '$lib/services';
-import { version } from '$lib/stores';
+import { darkMode, version } from '$lib/stores';
 import { createMCPCatalogEntryResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
 import { http, HttpResponse } from 'msw';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
@@ -359,6 +360,16 @@ it('shows an applied description in the already-mounted editor', async () => {
 	await expect
 		.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.description}-container .cm-content`))
 		.toHaveTextContent('Imported API description');
+	const originalDarkMode = darkMode.isDark;
+	try {
+		darkMode.setDark(!originalDarkMode);
+		await tick();
+		await expect
+			.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.description}-container .cm-content`))
+			.toHaveTextContent('Imported API description');
+	} finally {
+		darkMode.setDark(originalDarkMode);
+	}
 	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('API summary');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await vi.waitFor(() =>
