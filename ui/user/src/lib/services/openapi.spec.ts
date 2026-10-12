@@ -1,5 +1,5 @@
 import { doPost } from './http';
-import { importOpenAPI } from './openapi';
+import { importOpenAPI, validateOpenAPIDestination } from './openapi';
 import { expect, it, vi } from 'vitest';
 
 vi.mock('./http', () => ({ doPost: vi.fn() }));
@@ -21,6 +21,29 @@ it('uses the import summary without a schema snapshot and sends only the source'
 	expect(doPost).toHaveBeenCalledWith(
 		'/openapi-import',
 		{ source: { url: 'https://example.com/schema.json' } },
+		{ dontLogErrors: true }
+	);
+});
+
+it('validates an override against the import endpoint without sending credentials', async () => {
+	vi.mocked(doPost).mockResolvedValue({
+		baseURL: 'https://override.example.com/',
+		destinationValidation: { valid: false, error: 'API destination is blocked' },
+		suggestedHeaders: [],
+		suggestedMetadata: {}
+	});
+	expect(
+		await validateOpenAPIDestination({
+			source: { url: 'https://example.com/schema.json' },
+			baseURL: 'https://override.example.com/'
+		})
+	).toEqual({ valid: false, error: 'API destination is blocked' });
+	expect(doPost).toHaveBeenCalledWith(
+		'/openapi-import',
+		{
+			source: { url: 'https://example.com/schema.json' },
+			baseURL: 'https://override.example.com/'
+		},
 		{ dontLogErrors: true }
 	);
 });

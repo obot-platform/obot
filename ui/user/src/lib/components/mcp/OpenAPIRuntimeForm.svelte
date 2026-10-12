@@ -20,6 +20,7 @@
 		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
 		destinationValidation?: OpenAPIDestinationValidation;
+		overrideValidation?: OpenAPIDestinationValidation;
 		showBaseURLError?: boolean;
 		onImported?: (result: OpenAPIImportResult) => void;
 		onReplace?: () => void;
@@ -34,6 +35,7 @@
 		defaultDenyAllEgress = false,
 		importedBaseURL = '',
 		destinationValidation,
+		overrideValidation,
 		showBaseURLError = false,
 		onImported,
 		onReplace,
@@ -61,7 +63,10 @@
 	);
 	let baseURLRequired = $derived(imported && destinationValidation?.valid === false);
 	let baseURLMissing = $derived(baseURLRequired && !config.baseURL?.trim());
-	let baseURLInvalid = $derived(baseURLMissing && showBaseURLError);
+	let baseURLInvalid = $derived(
+		showBaseURLError && (baseURLMissing || overrideValidation?.valid === false)
+	);
+	let showBaseURLMessage = $derived(baseURLMissing || overrideValidation?.valid === false);
 	onDestroy(() => {
 		disposed = true;
 	});
@@ -248,18 +253,20 @@
 					placeholder={baseURLRequired
 						? 'https://api.example.com/v1'
 						: importedBaseURL || resolvedBaseURL || 'https://api.example.com/v1'}
-					aria-describedby={baseURLMissing
+					aria-describedby={showBaseURLMessage
 						? 'openapi-base-url-hint openapi-base-url-error'
 						: 'openapi-base-url-hint'}
 				/>
-				{#if baseURLMissing}
+				{#if showBaseURLMessage}
 					<p
 						id="openapi-base-url-error"
 						class="text-xs"
 						class:text-error={baseURLInvalid}
 						class:text-muted-content={!baseURLInvalid}
 					>
-						{#if destinationValidation?.valid === false && destinationValidation.error}
+						{#if overrideValidation?.valid === false}
+							{overrideValidation.error || m.mcps_openapi_destination_override_required()}
+						{:else if destinationValidation?.valid === false && destinationValidation.error}
 							{destinationValidation.error}
 							{m.mcps_openapi_destination_override_required()}
 						{:else}

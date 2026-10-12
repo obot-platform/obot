@@ -29,3 +29,14 @@ export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenA
 		{ dontLogErrors: true }
 	)) as OpenAPIImportResult;
 }
+
+export async function validateOpenAPIDestination(
+	config: OpenAPIRuntimeConfig
+): Promise<OpenAPIDestinationValidation> {
+	const result = (await doPost(
+		'/openapi-import',
+		{ source: config.source, baseURL: config.baseURL },
+		{ dontLogErrors: true }
+	)) as OpenAPIImportResult;
+	return result.destinationValidation;
+}

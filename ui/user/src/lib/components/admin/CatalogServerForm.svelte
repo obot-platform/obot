@@ -25,6 +25,7 @@
 		OpenAPIImportResult,
 		OpenAPIMetadata
 	} from '$lib/services/openapi';
+	import { validateOpenAPIDestination } from '$lib/services/openapi';
 	import { MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from '$lib/services/user/constants';
 	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
@@ -110,6 +111,7 @@
 	let destinationValidation = $state<OpenAPIDestinationValidation | undefined>(
 		untrack(() => initialOpenAPIImport?.result.destinationValidation)
 	);
+	let overrideValidation = $state<OpenAPIDestinationValidation>();
 
 	function completeOpenAPIImport(
 		config: OpenAPIRuntimeConfig,
@@ -120,6 +122,7 @@
 		openAPIImported = true;
 		importedBaseURL = result.baseURL;
 		destinationValidation = result.destinationValidation;
+		overrideValidation = undefined;
 		formData.config ??= [];
 		for (const header of result.suggestedHeaders) {
 			if (
@@ -423,6 +426,7 @@
 		openAPIImported = false;
 		importedBaseURL = '';
 		destinationValidation = undefined;
+		overrideValidation = undefined;
 
 		// Clear all runtime configs first
 		formData.npxConfig = undefined;
@@ -718,6 +722,25 @@
 
 		loading = true;
 		try {
+			if (formData.runtime === 'openapi' && formData.openAPIConfig?.baseURL?.trim()) {
+				const previewConfig = $state.snapshot(formData.openAPIConfig);
+				const validation = await validateOpenAPIDestination(previewConfig);
+				if (
+					formData.openAPIConfig?.baseURL !== previewConfig.baseURL ||
+					formData.openAPIConfig?.source.url !== previewConfig.source.url ||
+					formData.openAPIConfig?.source.content !== previewConfig.source.content
+				) {
+					loading = false;
+					return;
+				}
+				overrideValidation = validation;
+				if (!overrideValidation.valid) {
+					showInvalid.openAPIBaseURL = true;
+					highlightFirstAvailableField({ openAPIBaseURL: true }, CATALOG_SERVER_FIELD_IDS);
+					loading = false;
+					return;
+				}
+			}
 			const handleFns = {
 				hosted: handleEntrySubmit,
 				openapi: handleEntrySubmit,
@@ -986,6 +1009,7 @@
 				imported={openAPIImported}
 				{importedBaseURL}
 				{destinationValidation}
+				{overrideValidation}
 				{readonly}
 				current={{
 					name: formData.name,
@@ -994,8 +1018,12 @@
 					icon: formData.icon
 				}}
 				onComplete={completeOpenAPIImport}
-				onBaseURLChange={() => updateRequired('openAPIBaseURL')}
-				showBaseURLError={showRequired.openAPIBaseURL}
+				onBaseURLChange={() => {
+					overrideValidation = undefined;
+					updateRequired('openAPIBaseURL');
+					updateInvalid('openAPIBaseURL');
+				}}
+				showBaseURLError={showRequired.openAPIBaseURL || showInvalid.openAPIBaseURL}
 			/>
 		{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
 			<RemoteRuntimeForm

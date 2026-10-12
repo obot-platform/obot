@@ -18,6 +18,7 @@
 		defaultDenyAllEgress?: boolean;
 		importedBaseURL?: string;
 		destinationValidation?: OpenAPIDestinationValidation;
+		overrideValidation?: OpenAPIDestinationValidation;
 		showBaseURLError?: boolean;
 		onBaseURLChange?: () => void;
 		onEditingChange?: (editing: boolean) => void;
@@ -38,6 +39,7 @@
 		defaultDenyAllEgress = false,
 		importedBaseURL = '',
 		destinationValidation,
+		overrideValidation,
 		showBaseURLError = false,
 		onBaseURLChange,
 		onEditingChange
@@ -115,6 +117,7 @@
 		{defaultDenyAllEgress}
 		{importedBaseURL}
 		{destinationValidation}
+		{overrideValidation}
 		{showBaseURLError}
 		{onBaseURLChange}
 		onReplace={() => {

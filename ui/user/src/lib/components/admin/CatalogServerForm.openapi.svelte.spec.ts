@@ -282,17 +282,17 @@ it('preserves existing metadata after importing a replacement', async () => {
 it('requires a base URL inline when the import has no usable server URL', async () => {
 	const saved = vi.fn();
 	worker.use(
-		http.post('/api/openapi-import', () =>
-			HttpResponse.json({
-				baseURL: '',
-				destinationValidation: {
-					valid: false,
-					error: 'no usable server URL; configure baseURL'
-				},
+		http.post('/api/openapi-import', async ({ request }) => {
+			const body = (await request.json()) as { baseURL?: string };
+			return HttpResponse.json({
+				baseURL: body.baseURL ?? '',
+				destinationValidation: body.baseURL
+					? { valid: true }
+					: { valid: false, error: 'no usable server URL; configure baseURL' },
 				suggestedHeaders: [],
 				suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
-			})
-		),
+			});
+		}),
 		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
 			saved(await request.json());
 			return HttpResponse.json(createMCPCatalogEntryResponse);
@@ -688,8 +688,13 @@ it.each([
 		const imported = vi.fn();
 		worker.use(
 			http.post('/api/openapi-import', async ({ request }) => {
-				imported(await request.json());
-				return HttpResponse.json(result);
+				const body = await request.json();
+				imported(body);
+				return HttpResponse.json(
+					body && typeof body === 'object' && 'baseURL' in body
+						? { ...result, destinationValidation: { valid: true } }
+						: result
+				);
 			}),
 			http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
 				saved(await request.json());
@@ -731,6 +736,44 @@ it.each([
 		});
 	}
 );
+
+it.each([
+	{ baseURL: 'foo', error: 'baseURL must be absolute HTTP(S)' },
+	{ baseURL: 'https://127.0.0.1', error: 'API destination is blocked' },
+	{ baseURL: 'http://api.example.com', error: 'API destination must use HTTPS' },
+	{ baseURL: 'https://user:pass@example.com', error: 'baseURL must be absolute HTTP(S)' }
+])('blocks saving an invalid override $baseURL', async ({ baseURL, error }) => {
+	const imported = vi.fn();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/openapi-import', async ({ request }) => {
+			const body = (await request.json()) as { baseURL?: string };
+			imported(body);
+			return HttpResponse.json({
+				baseURL: body.baseURL ?? 'https://example.com/api',
+				destinationValidation: body.baseURL ? { valid: false, error } : { valid: true },
+				suggestedHeaders: [],
+				suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
+			});
+		}),
+		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	const override = page.getByLabelText('API request base URL', { exact: false });
+	await override.fill(baseURL);
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() =>
+		expect(imported).toHaveBeenCalledWith({ source: { url: sourceURL }, baseURL })
+	);
+	expect(saved).not.toHaveBeenCalled();
+	await expect.element(override).toHaveAttribute('aria-invalid', 'true');
+	await expect.element(page.getByText(error, { exact: false })).toBeVisible();
+});
 
 it('edits and saves an existing entry without receiving a schema snapshot', async () => {
 	const entry = {
