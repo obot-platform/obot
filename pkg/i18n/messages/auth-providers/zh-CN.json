@@ -56,5 +56,11 @@
   "setup_temp_cached_no_email": "临时用户已缓存",
   "setup_confirmed_owner": "已确认用户 {email} 为所有者",
   "setup_cancelled": "临时登录已取消",
-  "setup_cancelled_user": "已取消 {email} 的临时登录"
+  "setup_cancelled_user": "已取消 {email} 的临时登录",
+  "local_login_invalid_form": "表单无效",
+  "local_login_cross_origin": "不允许跨源登录",
+  "local_login_credentials_required": "请输入您的邮箱和密码。",
+  "local_login_throttled": "登录失败次数过多。请稍后重试。",
+  "local_login_incorrect_credentials": "邮箱或密码不正确。",
+  "local_login_domain_disallowed": "不允许使用此邮箱域名登录。"
 }

@@ -1,3 +1,4 @@
 {
-  "setup_not_found": "未找到"
+  "setup_not_found": "未找到",
+  "internal_server_error": "内部服务器错误"
 }

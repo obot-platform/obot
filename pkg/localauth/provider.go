@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
@@ -143,9 +144,15 @@ func (p *Provider) start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "Accept-Language")
+	locale := i18n.Locale(r.Header.Get("Accept-Language"))
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.Text(locale, "local_login_invalid_form"), http.StatusBadRequest)
 		return
+	}
+
+	if selected := r.PostForm.Get("locale"); selected != "" {
+		locale = i18n.Locale(selected)
 	}
 
 	rd := auth.SafeRedirectPath(r.FormValue("rd"))
@@ -153,26 +160,26 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 	// Reject cross-origin logins. Browsers always send Origin on POST, so this blocks login CSRF
 	// without requiring the login form to carry a token.
 	if !sameOrigin(r) {
-		http.Error(w, "cross-origin login is not allowed", http.StatusForbidden)
+		http.Error(w, i18n.Text(locale, "local_login_cross_origin"), http.StatusForbidden)
 		return
 	}
 
 	email := client.NormalizeEmail(r.FormValue("email"))
 	password := r.FormValue("password")
 	if email == "" || password == "" {
-		p.loginFailed(w, r, rd, "Enter your email and password.")
+		p.loginFailed(w, r, rd, i18n.Text(locale, "local_login_credentials_required"))
 		return
 	}
 
 	if p.throttle.blocked(email) {
-		p.loginFailed(w, r, rd, "Too many failed login attempts. Try again later.")
+		p.loginFailed(w, r, rd, i18n.Text(locale, "local_login_throttled"))
 		return
 	}
 
 	user, err := p.gatewayClient.LocalAuthUserByEmail(r.Context(), email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		slog.Error("failed to look up local auth user", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	}
 
@@ -188,17 +195,17 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("failed to verify password for local auth user", "error", err)
 		}
 		p.throttle.failed(email)
-		p.loginFailed(w, r, rd, "Incorrect email or password.")
+		p.loginFailed(w, r, rd, i18n.Text(locale, "local_login_incorrect_credentials"))
 		return
 	}
 
 	allowed, err := p.emailDomainAllowed(r.Context(), email)
 	if err != nil {
 		slog.Error("failed to check allowed email domains", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	} else if !allowed {
-		p.loginFailed(w, r, rd, "This email domain is not allowed to sign in.")
+		p.loginFailed(w, r, rd, i18n.Text(locale, "local_login_domain_disallowed"))
 		return
 	}
 
@@ -207,14 +214,14 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 	token, err := generateToken()
 	if err != nil {
 		slog.Error("failed to generate session token", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	}
 
 	expiresAt := time.Now().Add(sessionDuration)
 	if err := p.gatewayClient.CreateLocalAuthSession(r.Context(), hash.String(token), user.ID, expiresAt); err != nil {
 		slog.Error("failed to create local auth session", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	}
 

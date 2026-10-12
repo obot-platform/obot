@@ -56,5 +56,11 @@
   "setup_temp_cached_no_email": "一時ユーザーはすでにキャッシュされています",
   "setup_confirmed_owner": "ユーザー {email} を所有者として確認しました",
   "setup_cancelled": "一時ログインを取り消しました",
-  "setup_cancelled_user": "{email} の一時ログインを取り消しました"
+  "setup_cancelled_user": "{email} の一時ログインを取り消しました",
+  "local_login_invalid_form": "無効なフォームです",
+  "local_login_cross_origin": "異なるオリジンからのログインは許可されていません",
+  "local_login_credentials_required": "メールアドレスとパスワードを入力してください。",
+  "local_login_throttled": "ログインの失敗回数が多すぎます。しばらくしてからもう一度お試しください。",
+  "local_login_incorrect_credentials": "メールアドレスまたはパスワードが正しくありません。",
+  "local_login_domain_disallowed": "このメールドメインでのログインは許可されていません。"
 }

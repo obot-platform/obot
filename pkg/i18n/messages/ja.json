@@ -1,3 +1,4 @@
 {
-  "setup_not_found": "見つかりません"
+  "setup_not_found": "見つかりません",
+  "internal_server_error": "内部サーバーエラー"
 }

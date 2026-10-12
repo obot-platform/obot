@@ -56,5 +56,11 @@
   "setup_temp_cached_no_email": "임시 사용자가 이미 캐시되어 있습니다",
   "setup_confirmed_owner": "사용자 {email}이(가) 소유자로 확인되었습니다",
   "setup_cancelled": "임시 로그인이 취소되었습니다",
-  "setup_cancelled_user": "{email}의 임시 로그인이 취소되었습니다"
+  "setup_cancelled_user": "{email}의 임시 로그인이 취소되었습니다",
+  "local_login_invalid_form": "유효하지 않은 양식입니다",
+  "local_login_cross_origin": "다른 출처에서의 로그인은 허용되지 않습니다",
+  "local_login_credentials_required": "이메일과 비밀번호를 입력하세요.",
+  "local_login_throttled": "로그인 실패 횟수가 너무 많습니다. 나중에 다시 시도하세요.",
+  "local_login_incorrect_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
+  "local_login_domain_disallowed": "이 이메일 도메인으로는 로그인할 수 없습니다."
 }

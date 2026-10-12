@@ -3,7 +3,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
-	import { m } from '$lib/i18n';
+	import { getLocale, m } from '$lib/i18n';
 	import { CircleAlert } from '@lucide/svelte';
 
 	// The form posts to the auth provider, which sets the session cookie and redirects to `rd`.
@@ -48,6 +48,7 @@
 		{/if}
 
 		<input type="hidden" name="rd" value={rd} />
+		<input type="hidden" name="locale" value={getLocale()} />
 
 		<label class="flex flex-col gap-1 text-sm font-light" for="local-auth-email">
 			{m.common_email()}

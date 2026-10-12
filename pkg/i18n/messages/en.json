@@ -1,3 +1,4 @@
 {
-  "setup_not_found": "not found"
+  "setup_not_found": "not found",
+  "internal_server_error": "internal server error"
 }
