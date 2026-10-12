@@ -18,7 +18,14 @@ trustworthy evidence, not an opinion about the code.
 **Test the product, not the source.** Do not read the Go or Svelte code to
 decide the verdict, and do not run unit or integration tests. You may read any
 linked PR's description, the issue's comments, and the docs in `docs/` to
-learn where in the product to look and how a feature is meant to be used. The verdict comes only from what the running instance does.
+learn where in the product to look and how a feature is meant to be used.
+The verdict comes only from what the running instance does.
+
+**Ask for all your GitHub access in one request**, before you need any of it:
+reading the issue and its links, posting and correcting your comment, pushing
+screenshots, and — only if the issue needs Git-hosted test content — pushing to
+the test-content repo (§3). One request is approved in one step; a second one
+for something you forgot waits.
 
 ## 1. Understand the issue
 
@@ -44,10 +51,22 @@ Write down, before you start the instance:
   `🤖 **AI-driven validation**` already exists, read it; your comment is a new
   round and should say what changed since.
 
-If the issue cannot be validated on a local Docker install at all (it needs
-Kubernetes, a cloud IdP such as Okta/Entra/Google, a paid third-party service,
-Windows/macOS device clients, a specific customer environment), do as much as
-you honestly can, and use the verdict **COULD NOT VALIDATE** with the reason.
+If the issue cannot be validated on a local Docker install at all, do as much
+as you honestly can and use the verdict **COULD NOT VALIDATE** with the reason.
+Recognise these early instead of spending an hour on them:
+
+- **Google sign-in** (the Obot-hosted Gmail, Google Drive and other Google
+  servers, a Google IdP): the OAuth handshake cannot be completed from this
+  sandbox, and there is no Google account. Shared drives also need a paid
+  Workspace account.
+- Other cloud IdPs (Okta, Entra), paid third-party services, Windows/macOS
+  device clients, a specific customer environment.
+
+**Kubernetes** only when the behavior is really Kubernetes-specific (pods,
+scheduling, Helm values) and cannot be seen on Docker. Then one local `kind`
+cluster, the `main` image pinned by digest, and delete the cluster as soon as
+your evidence is in: a cluster costs several GB of the pool's shared disk and a
+lot of its CPU.
 
 ## 2. Run a real Obot
 
@@ -68,7 +87,6 @@ docker run -d --name obot \
   -e OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL \
   -e OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN \
   ghcr.io/obot-platform/obot:main
-curl -s localhost:8080/api/version
 ```
 
 Activate the owner at `http://localhost:8080/activate#token=<setup-token>`.
@@ -76,8 +94,9 @@ Add more Local users (admin, power user, basic user) when the issue involves
 roles or sharing. Use a different auth setup (bootstrap token, auth disabled)
 only when the issue is specifically about it.
 
-Record the image digest, its `Created` time and `/api/version` for the
-comment. If a comment or linked PR points at a specific fix that merged
+Record the image digest, its `Created` time and the version for the comment.
+`/api/version` needs a signed-in session now; the UI footer shows the version
+(`v0.0.0-dev+<commit>`) too. If a comment or linked PR points at a specific fix that merged
 *after* the image's `Created` time, say so in the notes: that fix is not in
 this build.
 
@@ -103,6 +122,13 @@ where the issue is about the API, MCP endpoints, or the registry.
   API keys, bootstrap token).
 - If you hit a different bug on the way, note it as a side finding; do not
   let it change the verdict unless it blocks the issue's own behavior.
+- **An upgrade path is a neighbour worth trying** when the issue is about data
+  a newer version reshapes (composite servers became vMCPs, for one): set the
+  issue's state up on the last release image, then switch the same data
+  volume to `:main`. One run found Obot refusing to start after exactly that.
+- **Git-hosted test content** (a GitOps catalog, a skills repo): push it to the
+  public test-content repo `cjellick/craig-catalog` — any branch, any files —
+  and point Obot at it. Never put it in the screenshots repo.
 
 Verdicts:
 
@@ -156,7 +182,7 @@ second line is the verdict, everything else is detail:
 
 ### Environment
 - Image: `ghcr.io/obot-platform/obot:main@sha256:…` (built <created>)
-- `/api/version`: <output>
+- Version: <UI footer or `/api/version`>
 - Auth: Local, users: owner (+ others used)
 - Related: <linked PRs or comments that suggest it was resolved, or "none found">
 
