@@ -6,6 +6,7 @@
 		type DeviceScanTopBucket
 	} from '$lib/components/admin/device-scan/deviceScanTopBuckets';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
+	import { m } from '$lib/i18n';
 	import { openUrl } from '$lib/utils';
 	import { ChevronRight } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -41,12 +42,13 @@
 		<h4 class="min-w-0 truncate font-semibold">{title}</h4>
 		{#if totalGroups > topN}
 			<span class="text-muted-content shrink-0 text-xs">
-				top {topN} of {totalGroups}
+				{m.inventory_enforcement_devices_scan_top_n_of({ topN, total: totalGroups })}
 			</span>
 		{:else if totalGroups > 0}
 			<span class="text-muted-content shrink-0 text-xs">
-				{totalGroups}
-				{totalGroups === 1 ? 'entry' : 'entries'}
+				{totalGroups === 1
+					? m.inventory_enforcement_devices_scan_entries_one({ count: totalGroups })
+					: m.inventory_enforcement_devices_scan_entries_other({ count: totalGroups })}
 			</span>
 		{/if}
 	</div>
@@ -120,7 +122,11 @@
 							<span class="min-w-0 flex-1 truncate" class:italic={bucket.isOther}>
 								{bucket.label}
 								{#if bucket.isOther && bucket.otherCount !== undefined}
-									<span class="text-muted-content ml-1 not-italic">({bucket.otherCount} more)</span>
+									<span class="text-muted-content ml-1 not-italic"
+										>{m.inventory_enforcement_devices_scan_n_more({
+											count: bucket.otherCount
+										})}</span
+									>
 								{/if}
 							</span>
 							<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>

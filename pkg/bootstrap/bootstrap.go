@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -198,8 +199,9 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: types2.RoleOwner.Groups(),
 			Extra: map[string][]string{
-				"auth_provider_name": {system.BootstrapName},
-				"obot_groups":        types2.RoleOwner.Groups(),
+				"auth_provider_name":      {system.BootstrapName},
+				"obot_groups":             types2.RoleOwner.Groups(),
+				principal.UserStatusExtra: {string(gatewayUser.Status())},
 			},
 		},
 	}, true, nil
@@ -304,7 +306,8 @@ func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 
 // setupEnabled determines whether bootstrap setup flow is currently available.
 // It is available while there is no configured auth provider, or until an owner
-// user exists from the currently configured auth provider.
+// has signed in through the currently configured auth provider. Disabling every
+// such owner does not make it available again; deleting them does.
 func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
 	if b.authProviderGetter == nil {
 		return false, errors.New("configured auth provider getter is not set")
@@ -318,26 +321,10 @@ func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	ownerUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
-		Role: types2.RoleOwner,
-	})
+	hasOwner, err := b.gatewayClient.HasSignedInOwner(ctx, configuredAuthProvider)
 	if err != nil {
-		return false, fmt.Errorf("failed to get owner users: %w", err)
+		return false, fmt.Errorf("failed to check for an owner of the configured auth provider: %w", err)
 	}
 
-	for _, u := range ownerUsers {
-		if u.Username == system.BootstrapName || u.Email == "" {
-			continue
-		}
-
-		hasIdentity, err := b.gatewayClient.UserHasIdentityForAuthProvider(ctx, u.ID, configuredAuthProvider)
-		if err != nil {
-			return false, fmt.Errorf("failed to check owner auth provider identity: %w", err)
-		}
-		if hasIdentity {
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return !hasOwner, nil
 }

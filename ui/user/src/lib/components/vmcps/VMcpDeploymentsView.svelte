@@ -5,6 +5,7 @@
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -91,8 +92,8 @@
 					userName: getUserDisplayName(usersMap, instance.userID),
 					vmcp,
 					updateStatus: vmcpInstanceNeedsUserConfiguration(instance)
-						? 'Not Configured'
-						: 'Configured'
+						? m.core_mcp_value_not_configured()
+						: m.core_status_configured()
 				};
 			});
 
@@ -118,10 +119,10 @@
 		try {
 			await UserService.deleteVMCPInstance(row.id);
 			vmcpInstances.remove(row.id);
-			success.add(`${row.displayName} deployment deleted.`);
+			success.add(m.vmcps_deployments_deployment_deleted({ name: row.displayName }));
 			allVMCPInstances = allVMCPInstances.filter((instance) => instance.id !== row.id);
 		} catch {
-			errors.append('Failed to delete vMCP deployment.');
+			errors.append(m.vmcps_deployments_failed_to_delete_deployment());
 		} finally {
 			deleting = false;
 			showDeleteConfirm = undefined;
@@ -172,7 +173,7 @@
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			value={query}
 			onChange={(value) => setUrlParamAndUpdateUrl(page.url, 'query', value)}
-			placeholder="Search deployments..."
+			placeholder={m.vmcps_deployments_search_deployments()}
 		/>
 	</div>
 	{#if hasFilterPills}
@@ -190,9 +191,10 @@
 				data={tableData}
 				fields={['displayName', 'userName', 'updateStatus', 'created']}
 				headers={[
-					{ title: 'Name', property: 'displayName' },
-					{ title: 'User', property: 'userName' },
-					{ title: 'Update Status', property: 'updateStatus' }
+					{ title: m.core_name(), property: 'displayName' },
+					{ title: m.core_col_user(), property: 'userName' },
+					{ title: m.core_col_update_status(), property: 'updateStatus' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				filterable={['displayName', 'userName']}
 				sortable={['displayName', 'userName', 'created']}
@@ -201,7 +203,7 @@
 				onClearAllFilters={handleClearAllFilters}
 				onSort={setSortUrlParams}
 				{initSort}
-				noDataMessage="No deployments found."
+				noDataMessage={m.vmcps_deployments_no_deployments_found_period()}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'
 				}}
@@ -232,7 +234,7 @@
 					<DotDotDot
 						class="hover:dark:bg-base-100/50"
 						classes={{ menu: 'p-0 gap-0' }}
-						ariaLabel={`Actions for ${d.displayName}`}
+						ariaLabel={m.vmcps_deployments_actions_for_named({ name: d.displayName })}
 					>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
@@ -249,7 +251,7 @@
 									class="menu-button text-left"
 								>
 									<Captions class="size-4" />
-									View Audit Logs
+									{m.vmcps_deployments_view_audit_logs()}
 								</button>
 								{#if canEditInstanceConfiguration(d) && d.vmcp}
 									<button
@@ -264,7 +266,8 @@
 											toggle(false);
 										}}
 									>
-										<ServerCog class="size-4" /> Edit Configuration
+										<ServerCog class="size-4" />
+										{m.vmcps_deployments_edit_configuration()}
 									</button>
 								{/if}
 								{#if canDelete(d)}
@@ -276,7 +279,8 @@
 											toggle(false);
 										}}
 									>
-										<Trash2 class="size-4" /> Delete
+										<Trash2 class="size-4" />
+										{m.core_delete()}
 									</button>
 								{/if}
 							</div>
@@ -287,10 +291,12 @@
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center mx-auto">
 				<Layers class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No deployments found</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.vmcps_deployments_no_deployments_found()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
-					Looks like there aren't any deployments created yet. <br />
-					Deployments are created as users connect to vMCPs.
+					{m.vmcps_deployments_no_deployments_yet()} <br />
+					{m.vmcps_deployments_created_hint()}
 				</p>
 			</div>
 		{/if}
@@ -305,10 +311,11 @@
 	oncancel={() => (showDeleteConfirm = undefined)}
 	msg=""
 	loading={deleting}
-	title="Confirm Delete"
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
-		Are you sure you want to delete the "<b>{showDeleteConfirm?.displayName ?? 'this vMCP'}</b>"
-		deployment? This cannot be undone.
+		{m.vmcps_deployments_delete_deployment_confirm_prefix()}<b
+			>{showDeleteConfirm?.displayName ?? m.vmcps_deployments_this_vmcp()}</b
+		>{m.vmcps_deployments_delete_deployment_confirm_suffix()}
 	{/snippet}
 </Confirm>

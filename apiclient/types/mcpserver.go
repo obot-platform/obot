@@ -12,6 +12,7 @@ const (
 	RuntimeUVX           Runtime = "uvx"
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
+	RuntimeOpenAPI       Runtime = "openapi"
 	RuntimeRemote        Runtime = "remote"
 	RuntimeVMCP          Runtime = "vmcp"
 
@@ -156,6 +157,7 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
+	OpenAPIConfig       *OpenAPIRuntimeConfig       `json:"openAPIConfig,omitempty"`
 
 	Config []MCPConfig `json:"config,omitempty"`
 
@@ -374,6 +376,7 @@ type MCPServerManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
+	OpenAPIConfig       *OpenAPIRuntimeConfig       `json:"openAPIConfig,omitempty"`
 	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
 	// Deprecated: migrate per-user headers to Config with UserAllowed set.
@@ -427,8 +430,7 @@ type MCPServer struct {
 	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
 	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
 	// ConnectURL is the URL clients can use to connect to this MCP server.
-	ConnectURL     string `json:"connectURL,omitempty"`
-	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
+	ConnectURL string `json:"connectURL,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
@@ -651,6 +653,8 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 		catalogManifest.NPXConfig = m.NPXConfig
 	case RuntimeContainerized:
 		catalogManifest.ContainerizedConfig = m.ContainerizedConfig
+	case RuntimeOpenAPI:
+		catalogManifest.OpenAPIConfig = m.OpenAPIConfig
 	case RuntimeRemote:
 		if m.RemoteConfig != nil {
 			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
@@ -694,6 +698,15 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 
 	// Handle runtime-specific mapping
 	switch catalogEntry.Runtime {
+	case RuntimeOpenAPI:
+		if catalogEntry.OpenAPIConfig == nil {
+			return serverManifest, RuntimeValidationError{
+				Runtime: RuntimeOpenAPI,
+				Field:   "openAPIConfig",
+				Message: "OpenAPI configuration is required for OpenAPI runtime",
+			}
+		}
+		serverManifest.OpenAPIConfig = catalogConfiguration.OpenAPIConfig
 	case RuntimeUVX:
 		if catalogEntry.UVXConfig == nil {
 			return serverManifest, RuntimeValidationError{

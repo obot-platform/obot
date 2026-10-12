@@ -4,6 +4,7 @@
 	import CustomConfigurationForm from '$lib/components/mcp/CustomConfigurationForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { formatTimeAgo } from '$lib/time';
 	import { MOCK_CONNECTOR_TABLE_DATA, type BrandingMockConnectorRow } from './constants.js';
 	import { CircleAlert, HouseIcon, Info, X } from '@lucide/svelte';
@@ -19,11 +20,9 @@
 			<div class="flex items-center gap-3">
 				<Info class="size-6 shrink-0" />
 				<div class="flex flex-col gap-1">
-					<p class="font-semibold">Example Components</p>
+					<p class="font-semibold">{m.platform_branding_example_components()}</p>
 					<p>
-						Below are some example components used in the application for easy previewing. This
-						itself is a commonly used notification that is displayed to provide information to the
-						user in a detail view.
+						{m.platform_branding_example_components_description()}
 					</p>
 				</div>
 			</div>
@@ -35,9 +34,9 @@
 				class="absolute top-1/2 left-1/2 flex w-md -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
 			>
 				<Logo class="h-16" />
-				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
+				<h1 class="text-2xl font-semibold">{m.login_welcome()}</h1>
 				<p class="text-md text-muted-content mb-1 text-center font-light">
-					Log in or create your account to continue
+					{m.login_subtitle()}
 				</p>
 
 				<div
@@ -49,7 +48,9 @@
 							src="/user/images/github-mark/github-mark.svg"
 							alt="Github"
 						/>
-						<span class="text-center text-sm font-light">Continue with Github</span>
+						<span class="text-center text-sm font-light"
+							>{m.login_continue_with({ provider: 'Github' })}</span
+						>
 					</button>
 				</div>
 			</div>
@@ -57,7 +58,7 @@
 		<div class="flex justify-center items-center col-span-12 @min-[768px]:col-span-6">
 			<div class="dialog-container max-w-md">
 				<div class="dialog-title p-4 pb-0">
-					Confirm Action
+					{m.platform_branding_confirm_action()}
 					<button type="button">
 						<X class="size-5" />
 					</button>
@@ -67,13 +68,12 @@
 						<CircleAlert class="size-8 text-primary" />
 					</div>
 					<p class="text-center text-base font-medium">
-						Are you sure you want to confirm this action?
+						{m.platform_branding_confirm_action_question()}
 					</p>
 
 					<div class="mb-4 self-center text-center font-light">
 						<p>
-							This is an example of a confirmation dialog. It can be used to confirm any action that
-							is irreversible or information that needs to be conveyed before submission.
+							{m.platform_branding_confirm_example()}
 						</p>
 					</div>
 
@@ -81,9 +81,11 @@
 						class="flex w-full flex-col items-center justify-center gap-2 @min-[768px]:flex-col @min-[768px]:justify-end"
 					>
 						<button type="button" class="flex w-full justify-center p-3 btn btn-primary">
-							Confirm
+							{m.core_confirm()}
 						</button>
-						<button type="button" class="btn btn-secondary w-full justify-center">Cancel</button>
+						<button type="button" class="btn btn-secondary w-full justify-center"
+							>{m.common_cancel()}</button
+						>
 					</div>
 				</div>
 			</div>
@@ -93,37 +95,44 @@
 		<div class="flex gap-4 grow flex-wrap">
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-primary"><HouseIcon /></button>
-				<button class="btn btn-primary">Confirm</button>
+				<button class="btn btn-primary">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-secondary"><HouseIcon /></button>
-				<button class="btn btn-secondary">Confirm</button>
+				<button class="btn btn-secondary">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-success"><HouseIcon /></button>
-				<button class="btn btn-success">Confirm</button>
+				<button class="btn btn-success">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-warning"><HouseIcon /></button>
-				<button class="btn btn-warning">Confirm</button>
+				<button class="btn btn-warning">{m.core_confirm()}</button>
 			</div>
 			<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 				<button class="btn btn-circle btn-error"><HouseIcon /></button>
-				<button class="btn btn-error">Confirm</button>
+				<button class="btn btn-error">{m.core_confirm()}</button>
 			</div>
 		</div>
 	</div>
 	<div class="w-full mt-8">
 		<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 			<div class="flex">
-				<button class="page-tab w-1/2 max-w-1/2 page-tab-active"> Servers </button>
-				<button class="page-tab w-1/2 max-w-1/2"> Users </button>
+				<button class="page-tab w-1/2 max-w-1/2 page-tab-active">
+					{m.platform_branding_servers()}
+				</button>
+				<button class="page-tab w-1/2 max-w-1/2"> {m.platform_branding_users()} </button>
 			</div>
 			<Table
 				data={MOCK_CONNECTOR_TABLE_DATA}
 				fields={['name', 'status', 'created']}
 				filterable={['name', 'status']}
 				sortable={['name', 'created', 'status']}
+				headers={[
+					{ title: m.core_name(), property: 'name' },
+					{ title: m.core_status(), property: 'status' },
+					{ title: m.core_col_created(), property: 'created' }
+				]}
 			>
 				{#snippet onRenderColumn(field: string, row: BrandingMockConnectorRow)}
 					{#if field === 'name'}
@@ -148,13 +157,16 @@
 	</div>
 
 	<div class="w-full paper my-8">
-		<h4 class="text-lg font-semibold">Custom Form</h4>
+		<h4 class="text-lg font-semibold">{m.platform_branding_custom_form()}</h4>
 		<div class="flex flex-col gap-1">
-			<label for="description" class="text-sm font-light">Description</label>
-			<input class="text-input-filled" placeholder="Write a description..." />
+			<label for="description" class="text-sm font-light">{m.core_description()}</label>
+			<input
+				class="text-input-filled"
+				placeholder={m.platform_branding_description_placeholder()}
+			/>
 		</div>
 		<div class="flex gap-4 items-center justify-between">
-			<p class="text-sm font-light">Example Selector</p>
+			<p class="text-sm font-light">{m.platform_branding_example_selector()}</p>
 			<div class="flex grow">
 				<Select
 					class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
@@ -163,17 +175,17 @@
 					}}
 					selected="a"
 					options={[
-						{ label: 'Option 1', id: 'a' },
-						{ label: 'Option 2', id: 'b' },
-						{ label: 'Option 3', id: 'c' },
-						{ label: 'Option 4', id: 'd' }
+						{ label: m.platform_branding_option_n({ n: 1 }), id: 'a' },
+						{ label: m.platform_branding_option_n({ n: 2 }), id: 'b' },
+						{ label: m.platform_branding_option_n({ n: 3 }), id: 'c' },
+						{ label: m.platform_branding_option_n({ n: 4 }), id: 'd' }
 					]}
 				/>
 			</div>
 		</div>
 		<div class="flex justify-end">
 			<label for="toggle" class="label text-sm">
-				Toggle
+				{m.platform_branding_toggle()}
 				<input id="toggle" type="checkbox" checked={true} class="toggle" />
 			</label>
 		</div>
@@ -182,8 +194,8 @@
 	<CustomConfigurationForm
 		config={[
 			{
-				key: 'Example Key',
-				value: 'Example Value',
+				key: m.platform_branding_example_key(),
+				value: m.platform_branding_example_value(),
 				description: 'Example Description',
 				name: 'Example Name',
 				required: true,

@@ -1,8 +1,8 @@
 ---
-title: Architecture
+title: "Platform overview"
 ---
 
-# Architecture
+# Platform overview {#architecture}
 
 Obot connects AI clients and user devices with hosted services and external providers. It provides MCP and LLM gateways, hosting, identity and access control, audit logs, and MCP and Skills registries.
 
@@ -10,7 +10,7 @@ Obot connects AI clients and user devices with hosted services and external prov
 
 ## Key Concepts
 
-- **MCP Clients**: Agents and applications that consume MCP tools, prompts, and resources, including desktop clients and Obot Agent.
+- **MCP Clients**: Agents and applications that consume MCP tools, prompts, and resources, including desktop clients and command-line tools.
 - **MCP Registry**: An index of MCP servers with metadata about how to run them and where to find them.
 - **MCP Gateway**: The proxy inside Obot that authenticates and authorizes requests, records audit data, invokes filters, enforces their responses, and forwards allowed traffic. See [MCP Gateway](./mcp-gateway.md).
 - **MCP Hosting**: Obot manages separate Docker containers or Kubernetes workloads for hosted servers. Remote servers remain on external infrastructure. See [MCP Hosting](./mcp-hosting.md).
@@ -56,7 +56,7 @@ The upstream authorization step is skipped when it is unnecessary or an existing
 
 ### Authorizing MCP Requests
 
-Once connected, the client sends its Obot access token with MCP requests. Obot validates the token, identifies the user, and checks both the user's current server access and the token's permitted servers. Access checks use ownership and applicable [MCP access policies](../functionality/mcp-access-policies.md), including user and group rules.
+Once connected, the client sends its Obot access token with MCP requests. Obot validates the token, identifies the user, and checks both the user's current server access and the token's permitted servers. Access checks use ownership and applicable [MCP access policies](../mcp-gateway/access.md), including user and group rules.
 
 ```mermaid
 sequenceDiagram
@@ -83,12 +83,10 @@ Clients using an existing Obot token or MCP API key begin with authenticated req
 ## Data Persistence
 
 - **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment.
-- **Published Workflow Storage**: Optional S3, GCS, Azure Blob Storage, or S3-compatible storage for published workflows. If unset, Obot stores published workflows on local disk.
-- **Agent State**: Stores files and other data for Obot Agent. External volumes can provide persistence.
 
 ## Encryption
 
-Application-level encryption is disabled by default. When configured, an encryption provider protects selected database fields and credential values, including sensitive audit payloads; it does not encrypt entire records or automatically backfill all historical data. Local passwords are hashed independently of this setting. See [Encryption Providers](../configuration/encryption-providers/overview.md) for field coverage and existing-data considerations.
+Application-level encryption is disabled by default. When configured, an encryption provider protects selected database fields and credential values, including sensitive audit payloads; it does not encrypt entire records or automatically backfill all historical data. Local passwords are hashed independently of this setting. See [Encryption Providers](../security/credentials.md) for field coverage and existing-data considerations.
 
 ## LLMs
 

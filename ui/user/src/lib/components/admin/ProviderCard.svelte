@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import { darkMode } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -64,14 +65,15 @@
 		<div>
 			{#if recommended && !isComingSoon}
 				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
-					>Recommended</span
+					>{m.models_providers_recommended()}</span
 				>
 			{/if}
 			{#if experimental}
 				<span
 					class="bg-warning/15 text-warning rounded-md px-2 py-1 text-[10px] font-medium flex items-center gap-1"
 				>
-					<FlaskConicalIcon class="size-3 text-warning" /> Experimental
+					<FlaskConicalIcon class="size-3 text-warning" />
+					{m.core_experimental()}
 				</span>
 			{/if}
 		</div>
@@ -88,7 +90,7 @@
 							class="menu-button text-error"
 							onclick={() => onDeconfigure()}
 						>
-							Deconfigure Provider
+							{m.models_providers_deconfigure_provider()}
 						</button>
 					</DotDotDot>
 				{/if}
@@ -122,24 +124,29 @@
 					class="rounded-md bg-warning px-2 py-1 text-[10px] font-medium"
 					use:tooltip={{
 						classes: ['w-fit'],
-						text: 'Deprecated – use Amazon Bedrock instead.'
+						text: m.models_providers_deprecated_use_bedrock()
 					}}
 				>
-					Deprecated
+					{m.common_deprecated()}
 				</div>
 			{/if}
 			{#if isLicenseRequired}
 				{#if provider.configured}
-					<TriangleAlert class="size-4 text-warning" /> License {licenseKey ? 'Invalid' : 'Missing'}
+					<TriangleAlert class="size-4 text-warning" />
+					{licenseKey ? m.models_providers_license_invalid() : m.models_providers_license_missing()}
 				{:else}
-					<CircleAlert class="size-4 text-muted-content" /> Registration Required
+					<CircleAlert class="size-4 text-muted-content" />
+					{m.models_providers_registration_required()}
 				{/if}
 			{:else if provider.configured}
-				<CircleCheck class="size-4 text-success" /> Configured
+				<CircleCheck class="size-4 text-success" />
+				{m.core_status_configured()}
 			{:else if staged}
-				<TriangleAlert class="size-4 text-warning" /> Staged
+				<TriangleAlert class="size-4 text-warning" />
+				{m.models_providers_staged()}
 			{:else}
-				<CircleSlash class="size-4 text-error" /> Not Configured
+				<CircleSlash class="size-4 text-error" />
+				{m.core_mcp_value_not_configured()}
 			{/if}
 		</span>
 	</div>
@@ -149,7 +156,8 @@
 			<div
 				class="bg-base-200 dark:bg-base-400 text-muted-content flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
 			>
-				<Construction class="size-4" /> Coming Soon
+				<Construction class="size-4" />
+				{m.models_providers_coming_soon()}
 			</div>
 		{:else}
 			<div
@@ -167,13 +175,13 @@
 					disabled={disableConfigure}
 				>
 					{#if readonly}
-						View
+						{m.models_providers_view()}
 					{:else if provider.configured}
-						Modify
+						{m.models_providers_modify()}
 					{:else if staged}
-						Resume switch
+						{m.models_providers_resume_switch()}
 					{:else}
-						Configure
+						{m.models_providers_configure()}
 					{/if}
 				</button>
 			</div>

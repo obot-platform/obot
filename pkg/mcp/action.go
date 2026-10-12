@@ -115,8 +115,38 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user k
 		return server, ServerConfig{}, err
 	}
 
+	if server.Spec.VMCPID != "" {
+		// The gateway only reaches shared vMCP components through the caller's connection to them.
+		connectionID, err := sm.sharedVMCPComponentConnection(ctx, server, userID)
+		if err != nil {
+			return server, ServerConfig{}, err
+		}
+		_, componentServer, serverConfig, _, err := sm.serverForActionWithConnectID(ctx, connectionID, user, false)
+		return componentServer, serverConfig, err
+	}
+
 	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
 	return server, serverConfig, err
+}
+
+// sharedVMCPComponentConnection returns the name of the user's connection to a shared vMCP component server.
+func (sm *SessionManager) sharedVMCPComponentConnection(ctx context.Context, server v1.MCPServer, userID string) (string, error) {
+	var connections v1.MCPServerInstanceList
+	if err := sm.storageClient.List(ctx, &connections,
+		kclient.InNamespace(server.Namespace),
+		kclient.MatchingFields{
+			"spec.mcpServerName": server.Name,
+			"spec.userID":        userID,
+		},
+	); err != nil {
+		return "", err
+	}
+	for _, connection := range connections.Items {
+		if connection.Spec.VMCPInstanceID != "" && connection.Spec.VMCPComponentID == server.Spec.VMCPComponentID && connection.DeletionTimestamp.IsZero() {
+			return connection.Name, nil
+		}
+	}
+	return "", types.NewErrBadRequest("connect to vMCP %s to use its shared component %s", server.Spec.VMCPID, server.Name)
 }
 
 func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id string, user kuser.Info, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {
@@ -321,7 +351,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, err
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -389,7 +419,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -430,7 +460,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 }
 
 func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]Webhook, error) {
-	if serverConfig.ComponentMCPServer || serverConfig.SystemMCPServer || serverConfig.IsAgentServer() || sm.webhookHelper == nil {
+	if serverConfig.ComponentMCPServer || serverConfig.SystemMCPServer || sm.webhookHelper == nil {
 		return nil, nil
 	}
 
@@ -562,7 +592,7 @@ func (sm *SessionManager) entryMissingAdminConfig(ctx context.Context, entry v1.
 	}
 
 	manifest := entry.Spec.Manifest
-	resolved, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, manifest.Config, nil, sm.secretBindingAllowedLabel)
+	resolved, err := MergeBoundCreds(ctx, sm.localCachedClient, sm.obotNamespace, manifest.Config, nil, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return missing, err
 	}

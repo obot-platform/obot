@@ -58,6 +58,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProvider":                              schema_obot_platform_obot_apiclient_types_AuthProvider(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderList":                          schema_obot_platform_obot_apiclient_types_AuthProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                      schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM":                          schema_obot_platform_obot_apiclient_types_AuthProviderSCIM(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                        schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                               schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                        schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
@@ -121,6 +122,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialManifest":                     schema_obot_platform_obot_apiclient_types_GitCredentialManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialUse":                          schema_obot_platform_obot_apiclient_types_GitCredentialUse(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialUses":                         schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupReference":                            schema_obot_platform_obot_apiclient_types_GroupReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                       schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                   schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Harness":                                   schema_obot_platform_obot_apiclient_types_Harness(ref),
@@ -280,9 +282,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                               schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MultiUserConfig":                           schema_obot_platform_obot_apiclient_types_MultiUserConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig":                          schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgent":                              schema_obot_platform_obot_apiclient_types_NanobotAgent(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgentList":                          schema_obot_platform_obot_apiclient_types_NanobotAgentList(ref),
-		"github.com/obot-platform/obot/apiclient/types.NanobotAgentManifest":                      schema_obot_platform_obot_apiclient_types_NanobotAgentManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                               schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                           schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                       schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
@@ -291,6 +290,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                 schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                             schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig":                      schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPISchema":                             schema_obot_platform_obot_apiclient_types_OpenAPISchema(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPISource":                             schema_obot_platform_obot_apiclient_types_OpenAPISource(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItem":                   schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.OrphanedVMCPCatalogItemList":               schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItemList(ref),
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
@@ -298,15 +300,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                    schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsent":                   schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsentUpdate":             schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref),
-		"github.com/obot-platform/obot/apiclient/types.Project":                                   schema_obot_platform_obot_apiclient_types_Project(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectList":                               schema_obot_platform_obot_apiclient_types_ProjectList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                           schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":            schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifact":                         schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactList":                     schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest":                 schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry":             schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref),
-		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary":           schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                        schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                              schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                          schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
@@ -323,9 +317,26 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                       schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                       schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig":                       schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.ResidualGroupData":                         schema_obot_platform_obot_apiclient_types_ResidualGroupData(ref),
 		"github.com/obot-platform/obot/apiclient/types.Resource":                                  schema_obot_platform_obot_apiclient_types_Resource(ref),
 		"github.com/obot-platform/obot/apiclient/types.RuntimeValidationError":                    schema_obot_platform_obot_apiclient_types_RuntimeValidationError(ref),
 		"github.com/obot-platform/obot/apiclient/types.S3Config":                                  schema_obot_platform_obot_apiclient_types_S3Config(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnection":                            schema_obot_platform_obot_apiclient_types_SCIMConnection(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity":                    schema_obot_platform_obot_apiclient_types_SCIMConnectionActivity(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionList":                        schema_obot_platform_obot_apiclient_types_SCIMConnectionList(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMConnectionReview":                      schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName":                    schema_obot_platform_obot_apiclient_types_SCIMDuplicateGroupName(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnablePreview":                         schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnableResult":                          schema_obot_platform_obot_apiclient_types_SCIMEnableResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMEnforceResult":                         schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMGroupDeletionResult":                   schema_obot_platform_obot_apiclient_types_SCIMGroupDeletionResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure":                        schema_obot_platform_obot_apiclient_types_SCIMRequestFailure(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage":                    schema_obot_platform_obot_apiclient_types_SCIMRequestFailurePage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup":                            schema_obot_platform_obot_apiclient_types_SCIMSetupGroup(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage":                        schema_obot_platform_obot_apiclient_types_SCIMSetupGroupPage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupUser":                             schema_obot_platform_obot_apiclient_types_SCIMSetupUser(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage":                         schema_obot_platform_obot_apiclient_types_SCIMSetupUserPage(ref),
+		"github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning":                          schema_obot_platform_obot_apiclient_types_SCIMSetupWarning(ref),
 		"github.com/obot-platform/obot/apiclient/types.Schedule":                                  schema_obot_platform_obot_apiclient_types_Schedule(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportCreateRequest":      schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":       schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
@@ -525,10 +536,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.ModelProviderStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_ModelProviderStatus(ref),
 		v1.ModelSpec{}.OpenAPIModelName():                                                         schema_storage_apis_obotobotai_v1_ModelSpec(ref),
 		v1.ModelStatus{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_ModelStatus(ref),
-		v1.NanobotAgent{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_NanobotAgent(ref),
-		v1.NanobotAgentList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_NanobotAgentList(ref),
-		v1.NanobotAgentSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_NanobotAgentSpec(ref),
-		v1.NanobotAgentStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_NanobotAgentStatus(ref),
 		v1.OAuthAuthRequest{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_OAuthAuthRequest(ref),
 		v1.OAuthAuthRequestList{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_OAuthAuthRequestList(ref),
 		v1.OAuthAuthRequestSpec{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref),
@@ -547,12 +554,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.PowerUserWorkspaceList{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
 		v1.PowerUserWorkspaceSpec{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref),
 		v1.PowerUserWorkspaceStatus{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref),
-		v1.Project{}.OpenAPIModelName():                                                           schema_storage_apis_obotobotai_v1_Project(ref),
-		v1.ProjectList{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_ProjectList(ref),
-		v1.ProjectSpec{}.OpenAPIModelName():                                                       schema_storage_apis_obotobotai_v1_ProjectSpec(ref),
-		v1.ProjectStatus{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_ProjectStatus(ref),
-		v1.ProjectV2{}.OpenAPIModelName():                                                         schema_storage_apis_obotobotai_v1_ProjectV2(ref),
-		v1.ProjectV2List{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_ProjectV2List(ref),
 		v1.ProviderConfigurationChange{}.OpenAPIModelName():                                       schema_storage_apis_obotobotai_v1_ProviderConfigurationChange(ref),
 		v1.ProviderConfigurationChangeList{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeList(ref),
 		v1.ProviderConfigurationChangeSpec{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeSpec(ref),
@@ -561,10 +562,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.ProviderSync{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_ProviderSync(ref),
 		v1.ProviderSyncList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_ProviderSyncList(ref),
 		v1.ProviderSyncSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_ProviderSyncSpec(ref),
-		v1.PublishedArtifact{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_PublishedArtifact(ref),
-		v1.PublishedArtifactList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref),
-		v1.PublishedArtifactSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref),
-		v1.PublishedArtifactStatus{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref),
 		v1.Ref{}.OpenAPIModelName():                                                               schema_storage_apis_obotobotai_v1_Ref(ref),
 		v1.Schedule{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_Schedule(ref),
 		v1.ScheduledAuditLogExport{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_ScheduledAuditLogExport(ref),
@@ -2825,6 +2822,49 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_AuthProviderSCIM(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AuthProviderSCIM describes how an auth provider supports SCIM provisioning.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"directoryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DirectoryParameters name the configuration parameters that only login-time directory synchronization uses. While the provider is configured or staged without a SCIM connection, providing them sets up directory synchronization, and omitting them sets up SCIM.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"issuerParameter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IssuerParameter names the configuration parameter that holds the identity provider's issuer URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"connectionIssuer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConnectionIssuer is the issuer URL recorded when the provider's SCIM connection was created, and empty while it has none. SCIM bindings belong to the identity provider organization they were created in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"directoryParameters", "issuerParameter"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2864,12 +2904,31 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format:      "",
 						},
 					},
+					"scimState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMState is the state of the provider's SCIM connection: \"connected\", \"enforced\", or empty when the provider has none. Only administrators see it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scimTokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMTokenExpiresAt is when the bearer token of the provider's SCIM connection stops being accepted, and is unset while the connection has no token. Only administrators see it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"scim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIM describes how the provider supports SCIM. It is set only for a provider that supports SCIM, and only administrators see it.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM"),
+						},
+					},
 				},
 				Required: []string{"CommonProviderStatus"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+			"github.com/obot-platform/obot/apiclient/types.AuthProviderSCIM", "github.com/obot-platform/obot/apiclient/types.CommonProviderStatus", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -6135,6 +6194,49 @@ func schema_obot_platform_obot_apiclient_types_GitCredentialUses(ref common.Refe
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_GroupReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupReference is an object that references a group, which makes the group carry authorization.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is accessControlRule, modelAccessPolicy, skillAccessRule, messagePolicy, hostedAgentAccessRule, groupRoleAssignment, or vmcpProfile.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the object's ID, or the group ID for a group role assignment.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"detail": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Detail says where in the object the reference is, such as a published artifact's version, a virtual MCP server's profile, or the role a group role assignment grants.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "id"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8423,27 +8525,6 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
-					"storageClassName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "StorageClassName specifies the StorageClass for nanobot workspace volumes",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"nanobotWorkspaceSize": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NanobotWorkspaceSize specifies the size for nanobot workspace volumes",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"nanobotAgentResources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NanobotAgentResources specifies resource requests/limits for nanobot containers (JSON/YAML blob)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"podSecurityAdmission": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
@@ -10375,12 +10456,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
-					"nanobotAgentID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
@@ -10747,6 +10822,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
+					"openAPIConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig"),
+						},
+					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -10776,7 +10856,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -11192,6 +11272,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
+					"openAPIConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig"),
+						},
+					},
 					"compositeConfig": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
@@ -11292,7 +11377,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -14647,141 +14732,6 @@ func schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref common.Refer
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_NanobotAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NanobotAgent represents a nanobot workflow in the API",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
-					"NanobotAgentManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.NanobotAgentManifest"),
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"projectID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"projectV2ID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"connectURL": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"needsUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"needsK8sUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"needsURL": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"deploymentStatus": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"Metadata", "NanobotAgentManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.NanobotAgentManifest"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_NanobotAgentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NanobotAgentList is a list of nanobot workflows",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.NanobotAgent"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.NanobotAgent"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_NanobotAgentManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "NanobotAgentManifest contains the user-editable fields for a nanobot workflow",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"displayName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"defaultAgent": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15231,6 +15181,77 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPIRuntimeConfig describes a hosted OpenAPI wrapper. Credentials belong in the manifest's header Config, never in this configuration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OpenAPISource"),
+						},
+					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema is the normalized JSON snapshot used by running servers instead of Source. Callers accepting supplied snapshots must validate them before storage.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPISchema"),
+						},
+					},
+					"baseURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OpenAPISchema", "github.com/obot-platform/obot/apiclient/types.OpenAPISource"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPISchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPISchema preserves the imported JSON bytes while describing the snapshot as an object in generated OpenAPI definitions.",
+				Type:        types.OpenAPISchema{}.OpenAPISchemaType(),
+				Format:      types.OpenAPISchema{}.OpenAPISchemaFormat(),
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OpenAPISource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPISource identifies a document to import. Exactly one field must be set. Content accepts JSON or YAML and is the upload/inline GitOps source.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_OrphanedVMCPCatalogItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15468,87 +15489,6 @@ func schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Project represents a project in the API.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
-					"ProjectManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectManifest"),
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"Metadata", "ProjectManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProjectList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ProjectList is a list of projects.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.Project"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Project"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProjectManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ProjectManifest contains the user-editable fields for a project.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"displayName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15596,233 +15536,6 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 				Required: []string{"name"},
 			},
 		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PublishedArtifact represents a published artifact in the API.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
-					"PublishedArtifactManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest"),
-						},
-					},
-					"displayName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"authorID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"latestVersion": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"versions": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PublishedArtifactList is a list of published artifacts.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifact"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.PublishedArtifact"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PublishedArtifactManifest contains the user/client-editable fields for a published artifact.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"artifactType": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"authorEmail": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"name", "artifactType"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PublishedArtifactVersionEntry represents metadata for a single version of an artifact.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"version": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"blobKey": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"createdAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"subjects": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.Subject"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"version", "blobKey", "createdAt"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PublishedArtifactVersionSummary is the public view of a version entry (no internal blob keys).",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"version": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"createdAt": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"subjects": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.Subject"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"version", "createdAt"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -16423,6 +16136,43 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ResidualGroupData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResidualGroupData is what remains of an auth provider's groups from an earlier configuration. It blocks configuring the provider without directory credentials until the provider's auth provider cleanup removes it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Groups are the provider's groups, and the group IDs with its group ID prefix that no group has but something references, each with the objects that reference it. A group ID that no group has has no name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+					"membershipCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MembershipCount is the number of memberships in groups with the provider's group ID prefix.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"groups", "membershipCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_Resource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16514,6 +16264,841 @@ func schema_obot_platform_obot_apiclient_types_S3Config(ref common.ReferenceCall
 				Required: []string{"region"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnection(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnection connects an auth provider to an identity provider's SCIM client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"adapterType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"origin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Origin is \"scim_first\" for a connection created when its auth provider was configured without directory credentials, or \"migrated\" for one that replaced login-time directory synchronization.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authProviderNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authProviderDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State is \"connected\" or \"enforced\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"baseURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BaseURL is the SCIM base URL to configure in the identity provider.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"issuer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"enforcedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"hasToken": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasToken is false until the first bearer token is issued. Every request to a connection without one fails.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"tokenIssuedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenIssuedAt is when the current bearer token was issued, and TokenExpiresAt when it stops being accepted, a year later. A token must be rotated before it expires.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"tokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"previousTokenAccepted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreviousTokenAccepted is true while the token that the last rotation replaced is still accepted, which it is until PreviousTokenExpiresAt unless it is revoked first.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"previousTokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"authProviderConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthProviderConfigured is false while the connection's auth provider is not the one serving sign-ins, such as while it is only staged. The SCIM endpoint then answers 503, and no token is issued.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"token": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Token is the bearer token. It is set only in the response that issued it, and cannot be retrieved again.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "adapterType", "origin", "authProviderNamespace", "authProviderName", "authProviderDisplayName", "state", "baseURL", "enabledAt", "hasToken", "previousTokenAccepted", "authProviderConfigured"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionActivity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnectionActivity shows the SCIM requests a connection received. Activity is not proof that the identity provider and Obot are synchronized.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lastRequestAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastRequestAt is when the last authenticated request arrived, and LastSuccessAt when the last one succeeded. Both are recorded at most every few seconds.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastSuccessAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"recentFailures": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage"),
+						},
+					},
+				},
+				Required: []string{"recentFailures"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailurePage", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMConnectionReview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMConnectionReview is the state of a SCIM connection, and what enforcing it would do. Each list holds its first page; the connection's list routes serve the others.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"provisionedUsers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProvisionedUsers are the users SCIM has provisioned.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage"),
+						},
+					},
+					"unprovisionedUsers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnprovisionedUsers are the users of the auth provider that SCIM has not provisioned. Enforcing disables them.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage"),
+						},
+					},
+					"boundGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BoundGroups are the groups that SCIM manages.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"unboundReferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnboundReferencedGroups are referenced groups that the identity provider has not pushed. They block enforcing.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"unreferencedGroups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnreferencedGroups are unbound groups that nothing references. Enforcing deletes them.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage"),
+						},
+					},
+					"warnings": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"),
+									},
+								},
+							},
+						},
+					},
+					"enforceBlockers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnforceBlockers are the reasons the requesting user cannot enforce SCIM now, other than UnboundReferencedGroups, which also block it. They are empty once SCIM is enforced.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"activity": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity"),
+						},
+					},
+				},
+				Required: []string{"connection", "provisionedUsers", "unprovisionedUsers", "boundGroups", "unboundReferencedGroups", "unreferencedGroups", "warnings", "enforceBlockers", "activity"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection", "github.com/obot-platform/obot/apiclient/types.SCIMConnectionActivity", "github.com/obot-platform/obot/apiclient/types.SCIMSetupGroupPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupUserPage", "github.com/obot-platform/obot/apiclient/types.SCIMSetupWarning"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMDuplicateGroupName(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMDuplicateGroupName is a name that more than one referenced group of an auth provider has, after normalization. The identity provider pushes groups by name, so a pushed group binds to neither.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "groups"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnablePreview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnablePreview names the configured auth provider that SCIM can be enabled for, and what blocks enabling it. Enabling applies only to a configured auth provider that supports SCIM and synchronizes its directory at sign-in.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authProviderNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthProviderNamespace, AuthProviderName, and AuthProviderDisplayName name the configured auth provider. They are empty when no auth provider is configured, or the configured one does not support SCIM.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authProviderDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"blockers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Blockers are the reasons SCIM cannot be enabled now, including one for each duplicate group name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"duplicateGroupNames": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DuplicateGroupNames are the names that more than one referenced group has. They block enabling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"blockers", "duplicateGroupNames"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMDuplicateGroupName"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnableResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnableResult is what enabling SCIM did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connection carries the bearer token, which is shown only in this response.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deletionError": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletionError is set when the groups that nothing references could not be deleted. SCIM is enabled regardless, and the deletion can be retried.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"connection", "deletedGroupCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMEnforceResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMEnforceResult is what enforcing SCIM did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connection": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SCIMConnection"),
+						},
+					},
+					"disabledUserCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledUserCount is the number of users disabled because SCIM never provisioned them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of unbound groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"connection", "disabledUserCount", "deletedGroupCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMConnection"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMGroupDeletionResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMGroupDeletionResult is what a deletion of the unbound groups that nothing references did.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deletedGroupCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeletedGroupCount is the number of groups deleted because nothing referenced them.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deletedGroupCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMRequestFailure(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMRequestFailure is an authenticated SCIM request that failed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource is the request path below the SCIM base URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"scimType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"detail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"time", "method", "resource", "status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMRequestFailurePage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMRequestFailurePage is one page of a connection's recent failed requests, newest first.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMRequestFailure"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupGroup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupGroup is a group of an auth provider that SCIM manages or will manage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"nativeID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NativeID is the identity provider's own ID of the group, when the group ID carries one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"consoleURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConsoleURL is the address of the group in the identity provider's admin console, when it can be built.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scimID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMID is the ID of the group's SCIM binding. It is empty while the group is unbound.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GroupReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id", "name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupReference"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupGroupPage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupGroupPage is one page of a list of groups.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupGroup"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupUser(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupUser is a user of a SCIM connection's auth provider.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is active or disabled.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scimID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SCIMID is the ID of the user's SCIM binding. It is empty while the user is unprovisioned.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"active": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Active is the provisioned state the identity provider last sent. It is only set for provisioned users.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"signedIn": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SignedIn is true once the user has signed in through the auth provider.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "status"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupUserPage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupUserPage is one page of a list of users.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.SCIMSetupUser"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"items", "total"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SCIMSetupUser"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SCIMSetupWarning(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SCIMSetupWarning is a finding that does not block SCIM, but needs the administrator's attention.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is \"everyoneGroup\" for a referenced group that the identity provider cannot push, \"missingGroup\" for references to a group ID of the auth provider that no group has, \"duplicateName\" for a name that more than one unbound referenced group has, or \"unreferencedNamesake\" for an unreferenced group with the name of an unbound referenced group. A group pushed under the name of either of the last two binds to no group.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groupID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.GroupReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type", "message", "groupID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupReference"},
 	}
 }
 
@@ -18795,6 +19380,33 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is the user's lifecycle status. A disabled user keeps their account and data but is denied access.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledAt is when the user was disabled. It is set only while the user is disabled.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledReason explains why the user is disabled. It is set only while the user is disabled.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"managementSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ManagementSource is what controls the user's lifecycle status.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "lastActiveDay"},
 			},
@@ -19071,19 +19683,6 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"allowedTools": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
 						},
 					},
 					"toolPrefix": {
@@ -22898,20 +23497,6 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 							Ref: ref(resource.Quantity{}.OpenAPIModelName()),
 						},
 					},
-					"storageClassName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "StorageClassName specifies the StorageClass for nanobot workspace volumes",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"nanobotWorkspaceSize": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NanobotWorkspaceSize specifies the size for nanobot workspace volumes",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"podSecurityAdmission": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
@@ -24229,7 +24814,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					},
 					"nanobotAgentID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.",
+							Description: "NanobotAgentID is the name of the Obot Agent that created this MCP server, if there is one. Obot Agents were removed; this is only read to delete the MCP servers they left behind.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24385,6 +24970,27 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"unresolvedSecretBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnresolvedSecretBindings contains the config keys bound to a Kubernetes Secret that could not be resolved because the Secret or key is missing, empty, or not allowed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"secretBindingsCheckHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBindingsCheckHash identifies the secret bindings and allow label that UnresolvedSecretBindings was computed from. It is empty when the server has no bindings.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"oauthMetadata": {
@@ -25922,161 +26528,6 @@ func schema_storage_apis_obotobotai_v1_ModelStatus(ref common.ReferenceCallback)
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_NanobotAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.NanobotAgentSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.NanobotAgentStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"metadata", "spec", "status"},
-			},
-		},
-		Dependencies: []string{
-			v1.NanobotAgentSpec{}.OpenAPIModelName(), v1.NanobotAgentStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_NanobotAgentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.NanobotAgent{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			v1.NanobotAgent{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_NanobotAgentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"displayName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"defaultAgent": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UserID is the user that created this nanobot workflow",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"projectID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProjectID is the project this workflow belongs to",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"projectV2ID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProjectV2ID is the project this workflow belongs to Deprecated: use ProjectID instead.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_NanobotAgentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_OAuthAuthRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26993,230 +27444,6 @@ func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref common.Refer
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_Project(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ProjectSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ProjectStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"metadata", "spec", "status"},
-			},
-		},
-		Dependencies: []string{
-			v1.ProjectSpec{}.OpenAPIModelName(), v1.ProjectStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ProjectList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.Project{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			v1.Project{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ProjectSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"displayName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UserID is the user that created this project",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ProjectStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ProjectV2(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Deprecated: use Project instead.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ProjectSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ProjectStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"metadata", "spec", "status"},
-			},
-		},
-		Dependencies: []string{
-			v1.ProjectSpec{}.OpenAPIModelName(), v1.ProjectStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ProjectV2List(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.ProjectV2{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			v1.ProjectV2{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_ProviderConfigurationChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -27377,6 +27604,13 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref com
 							Description: "Error describes a terminal rejection. The remaining reconciliation only removes the staged credential and this task.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"errorCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ErrorCode is the HTTP status that the API answers a terminal rejection with. It is 400 when unset.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
@@ -27540,194 +27774,6 @@ func schema_storage_apis_obotobotai_v1_ProviderSyncSpec(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			v1.ProviderRevision{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_PublishedArtifact(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.PublishedArtifactSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.PublishedArtifactStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"metadata", "spec", "status"},
-			},
-		},
-		Dependencies: []string{
-			v1.PublishedArtifactSpec{}.OpenAPIModelName(), v1.PublishedArtifactStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.PublishedArtifact{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			v1.PublishedArtifact{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"artifactType": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"authorEmail": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"authorID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuthorID is the user ID of the artifact's creator (extracted from auth token).",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"latestVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LatestVersion is the current highest version number for this artifact.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"visibility": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LegacyVisibility is retained only so old stored artifacts can be migrated.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"blobKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "BlobKey is the S3 path to the latest version's ZIP blob. Convention: published-artifacts/{id}/v{N}.zip",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name", "artifactType"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"versions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Versions tracks metadata for each published version.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry"},
 	}
 }
 

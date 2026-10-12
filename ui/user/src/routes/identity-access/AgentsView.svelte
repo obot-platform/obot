@@ -7,6 +7,7 @@
 	import CreateAgentAuthScopeForm from '$lib/components/agent-auth-scope/CreateAgentAuthScopeForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { ApiKeysService, type OrgUser } from '$lib/services';
 	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
 	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
@@ -45,8 +46,12 @@
 				userDisplay: getUserDisplayName(usersMap, String(key.userId)),
 				capabilitiesDisplay: getAPIKeyCapabilityLabels(key),
 				createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
-				lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
-				expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
+				lastUsedAtDisplay: key.lastUsedAt
+					? formatTimeAgo(key.lastUsedAt).relativeTime
+					: m.core_never_used(),
+				expiresAtDisplay: key.expiresAt
+					? formatTimeUntil(key.expiresAt).relativeTime
+					: m.core_never_expires(),
 				mcpServerIds: key.mcpServerIds ?? []
 			}))
 			.filter((key) => (isAdmin ? true : key.userId.toString() === profile.current.id.toString()))
@@ -107,13 +112,15 @@
 		{#if apiKeys.length === 0}
 			<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 				<KeyRound class="text-base-content/80 size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">No Agent Identities</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.identity_access_agents_no_identities()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
 					{isAdmin
-						? "Looks like there aren't any agent identities in the system yet."
-						: "Looks like you don't have any agent identities yet!"}
+						? m.identity_access_agents_none_in_system()
+						: m.identity_access_agents_none_for_you()}
 					<br />
-					Click the "Create Agent Identity" button above to get started.
+					{m.identity_access_agents_click_create()}
 				</p>
 
 				{#if !isAdmin}
@@ -121,12 +128,12 @@
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center gap-2">
 								<Info class="size-4 shrink-0" />
-								<p class="text-sm font-semibold">What are these for?</p>
+								<p class="text-sm font-semibold">{m.identity_access_agents_what_are_these()}</p>
 							</div>
 							<p class="whitespace-pre-line text-left text-sm font-light">
 								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
-									>Create your first agent identity</button
+									>{m.identity_access_agents_create_first()}</button
 								>
 							</p>
 						</div>
@@ -140,10 +147,11 @@
 					? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
 					: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 				headers={[
-					...(isAdmin ? [{ title: 'Created By', property: 'userDisplay' }] : []),
-					{ title: 'Capabilities', property: 'capabilitiesDisplay' },
-					{ title: 'Last Used', property: 'lastUsedAt' },
-					{ title: 'Expires', property: 'expiresAt' }
+					...(isAdmin ? [{ title: m.core_col_created_by(), property: 'userDisplay' }] : []),
+					{ title: m.core_name(), property: 'name' },
+					{ title: m.identity_access_agents_col_capabilities(), property: 'capabilitiesDisplay' },
+					{ title: m.identity_access_agents_col_last_used(), property: 'lastUsedAt' },
+					{ title: m.identity_access_agents_col_expires(), property: 'expiresAt' }
 				]}
 				filterable={isAdmin ? ['userDisplay', 'name'] : undefined}
 				sortable={isAdmin
@@ -168,7 +176,9 @@
 									<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
 								{/each}
 								{#if d.mcpServerIds.length}
-									<span class="badge badge-ghost badge-xs whitespace-nowrap">Servers</span>
+									<span class="badge badge-ghost badge-xs whitespace-nowrap"
+										>{m.identity_access_agents_servers_badge()}</span
+									>
 								{/if}
 							</div>
 						{:else}
@@ -201,7 +211,7 @@
 			<div
 				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 			>
-				View Related Logs
+				{m.identity_access_agents_view_related_logs()}
 			</div>
 			<div class="flex flex-col gap-1 p-2 bg-base-200">
 				<a class="menu-button" href={resolve(url)}>
@@ -213,7 +223,7 @@
 			<div class="flex flex-col gap-1 p-2 pt-1">
 				<button class="menu-button text-error" onclick={() => (deletingKey = d)}>
 					<Trash2 class="size-4" />
-					Delete
+					{m.core_delete()}
 				</button>
 			</div>
 		{/if}
@@ -221,7 +231,7 @@
 {/snippet}
 
 <Confirm
-	msg={`Delete "${deletingKey?.name}"?`}
+	msg={m.identity_access_delete_named_quoted({ name: `${deletingKey?.name}` })}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDelete}

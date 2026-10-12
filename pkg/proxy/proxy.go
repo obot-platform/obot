@@ -26,6 +26,9 @@ const (
 	CurrentAuthProviderCookie  = "current_auth_provider"
 	ObotAccessTokenCookie      = "obot_access_token"
 	ObotAuthProviderQueryParam = "obot-auth-provider"
+	// loginRestartedCookie marks a login that was restarted because its callback arrived without
+	// CurrentAuthProviderCookie, so that a second such callback fails instead of restarting again.
+	loginRestartedCookie = "obot_login_restarted"
 )
 
 var (
@@ -157,6 +160,15 @@ func clearCurrentAuthProviderCookie(w http.ResponseWriter) {
 	})
 }
 
+func clearLoginRestartedCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:   loginRestartedCookie,
+		Value:  "",
+		Path:   "/oauth2/callback",
+		MaxAge: -1,
+	})
+}
+
 func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Request) {
 	// If the proxy manager is not set up, just redirect the user.
 	// This can happen when auth is disabled.
@@ -193,8 +205,25 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 
 			// Now delete the current auth provider cookie so that it doesn't interfere with anything.
 			clearCurrentAuthProviderCookie(w)
+			clearLoginRestartedCookie(w)
+		} else if cookie, err := r.Cookie(loginRestartedCookie); err != nil || cookie.Value != "true" {
+			// The callback belongs to no login that Obot started here: one the identity provider
+			// started itself, such as from an app tile, one that outlived the cookie, or one finished
+			// in another browser. Restart the login from Obot, so that it can complete.
+			http.SetCookie(w, &http.Cookie{
+				Name:     loginRestartedCookie,
+				Value:    "true",
+				Path:     "/oauth2/callback",
+				MaxAge:   60 * 15,
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+			})
+			http.Redirect(w, r, "/oauth2/start?rd=%2F", http.StatusFound)
+			return
 		} else {
-			http.Error(w, "Login timed out. Please try again.", http.StatusUnauthorized)
+			// The login was already restarted once and still came back without the cookie.
+			clearLoginRestartedCookie(w)
+			http.Error(w, "Login could not be completed. Please start again from the Obot login page.", http.StatusUnauthorized)
 			return
 		}
 	} else if param := r.URL.Query().Get(ObotAuthProviderQueryParam); param != "" {
@@ -352,8 +381,8 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	if stateResponse.StatusCode == http.StatusInternalServerError && (strings.Contains(string(body), "record not found") || strings.Contains(string(body), "session ticket cookie failed validation")) {
-		return nil, false, ErrInvalidSession
+	if err = checkStateResponse(stateResponse.StatusCode, body); err != nil {
+		return nil, false, err
 	}
 
 	var ss serializableState
@@ -391,6 +420,37 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	return &authenticator.Response{
 		User: u,
 	}, true, nil
+}
+
+// checkStateResponse returns ErrInvalidSession if an auth provider's /obot-get-state response says that the session
+// can no longer be used, so that the session cookie is cleared, and an error for any other unsuccessful response.
+func checkStateResponse(statusCode int, body []byte) error {
+	if statusCode == http.StatusOK {
+		return nil
+	}
+
+	// Providers report a session they could not refresh with a 401.
+	if statusCode == http.StatusUnauthorized {
+		return ErrInvalidSession
+	}
+
+	// Older providers report every failure as a 500, so the invalid session cases are recognized by their message.
+	if statusCode == http.StatusInternalServerError {
+		for _, msg := range []string{
+			"record not found",
+			"session ticket cookie failed validation",
+			"refreshing token returned 401",
+			"refreshing token returned 403",
+		} {
+			if strings.Contains(string(body), msg) {
+				return ErrInvalidSession
+			}
+		}
+	}
+
+	// The body can hold provider internals, and the error is shown to the client, so the body is only logged.
+	slog.Error("Auth provider failed to get session state", "status", statusCode, "body", strings.TrimSpace(string(body)))
+	return fmt.Errorf("auth provider failed to get session state (status %d)", statusCode)
 }
 
 // Important: do not change the order of these checks.

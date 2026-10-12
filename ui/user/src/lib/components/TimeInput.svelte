@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getDayPeriodLabels } from '$lib/time';
 	import TimeClockPopover, { type AnchorPlacement } from './TimeClockPopover.svelte';
 	import {
 		addHours,
@@ -142,6 +143,8 @@
 		clockOpen = open;
 		if (!open) clockAnchor = null;
 	}
+
+	const dayPeriods = getDayPeriodLabels();
 </script>
 
 <div class={twMerge('time-input bg-base-200 flex h-14 items-center gap-2 rounded-md', klass)}>
@@ -228,7 +231,7 @@
 					if (isAm) return;
 					date = setHours(date, hours - 12);
 					onChange?.(date);
-				}}>AM</button
+				}}>{dayPeriods.am}</button
 			>
 
 			<button
@@ -240,7 +243,7 @@
 					if (!isAm) return;
 					date = setHours(date, (hours + 12) % 24);
 					onChange?.(date);
-				}}>PM</button
+				}}>{dayPeriods.pm}</button
 			>
 		</div>
 	{/if}

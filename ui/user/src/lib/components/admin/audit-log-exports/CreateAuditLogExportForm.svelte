@@ -15,6 +15,7 @@
 		sourceTypesFromEventTypeParam
 	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
@@ -28,7 +29,7 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -85,177 +86,180 @@
 			// Common cross-source filters. Shown only when more than one log source is selected.
 			{
 				filterKey: 'actor',
-				title: 'Actors',
-				description: 'Users and enrolled devices',
+				title: m.audit_usage_exports_filter_title_actors(),
+				description: m.audit_usage_exports_filter_desc_users_and_devices(),
 				useUserDisplayNames: true
 			},
 			{
 				filterKey: 'tool',
-				title: 'Tools',
-				description: 'Tools called (MCP call identifiers and local tool names)'
+				title: m.audit_usage_exports_filter_title_tools(),
+				description: m.audit_usage_exports_filter_desc_tools_called()
 			},
 			{
 				filterKey: 'mcp_server',
-				title: 'MCP Servers',
-				description: 'MCP servers (and the parent server of local tool calls)'
+				title: m.audit_usage_exports_filter_title_mcp_servers(),
+				description: m.audit_usage_exports_filter_desc_mcp_servers_parent()
 			},
 			{
 				filterKey: 'operation',
-				title: 'Operations',
-				description: 'MCP operations; local tool calls are all tools/call'
+				title: m.audit_usage_exports_filter_title_operations(),
+				description: m.audit_usage_exports_filter_desc_mcp_operations()
 			},
 			{
 				filterKey: 'outcome',
-				title: 'Outcomes',
-				description: 'success, failure, denied, timeout, or unknown'
+				title: m.audit_usage_exports_filter_title_outcomes(),
+				description: m.audit_usage_exports_filter_desc_outcome_values()
 			},
 			{
 				filterKey: 'client',
-				title: 'Clients',
-				description: 'MCP clients and local-agent providers'
+				title: m.audit_usage_exports_filter_title_clients(),
+				description: m.audit_usage_exports_filter_desc_mcp_clients_and_providers()
 			},
 			// API-key attribution is shared by every audit-log source.
 			{
 				filterKey: 'api_key_id',
-				title: 'API Keys',
-				description: 'API keys used for the requests'
+				title: m.audit_usage_exports_filter_title_api_keys(),
+				description: m.audit_usage_exports_filter_desc_api_keys_used()
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
 				filterKey: 'user_id',
-				title: 'Users',
-				description: 'List of users',
+				title: m.audit_usage_exports_filter_title_users(),
+				description: m.audit_usage_exports_filter_desc_list_users(),
 				useUserDisplayNames: true
 			},
 			{
 				filterKey: 'mcp_id',
-				title: 'Server IDs',
-				description: 'List of server IDs'
+				title: m.audit_usage_exports_filter_title_server_ids(),
+				description: m.audit_usage_exports_filter_desc_list_server_ids()
 			},
 			{
 				filterKey: 'mcp_server_display_name',
-				title: 'Server Names',
-				description: 'List of server display names'
+				title: m.audit_usage_exports_filter_title_server_names(),
+				description: m.audit_usage_exports_filter_desc_list_server_display_names()
 			},
 			{
 				filterKey: 'call_type',
-				title: 'Call Types',
-				description: 'List of call types'
+				title: m.audit_usage_exports_filter_title_call_types(),
+				description: m.audit_usage_exports_filter_desc_list_call_types()
 			},
 			{
 				filterKey: 'client_name',
-				title: 'Client Names',
-				description: 'List of client names'
+				title: m.audit_usage_exports_filter_title_client_names(),
+				description: m.audit_usage_exports_filter_desc_list_client_names()
 			},
 			{
 				filterKey: 'response_status',
-				title: 'Response Status',
-				description: 'List of HTTP status codes'
+				title: m.audit_usage_exports_filter_title_response_status(),
+				description: m.audit_usage_exports_filter_desc_list_http_status_codes()
 			},
 			{
 				filterKey: 'session_id',
-				title: 'Session IDs',
-				description: 'List of session IDs'
+				title: m.audit_usage_exports_filter_title_session_ids(),
+				description: m.audit_usage_exports_filter_desc_list_session_ids()
 			},
 			{
 				filterKey: 'client_ip',
-				title: 'Client IPs',
-				description: 'List of IP addresses'
+				title: m.audit_usage_exports_filter_title_client_ips(),
+				description: m.audit_usage_exports_filter_desc_list_ip_addresses()
 			},
 			{
 				filterKey: 'call_identifier',
-				title: 'Call Identifier',
-				description: 'List of call identifiers'
+				title: m.audit_usage_exports_filter_title_call_identifier(),
+				description: m.audit_usage_exports_filter_desc_list_call_identifiers()
 			},
 			{
 				filterKey: 'client_version',
-				title: 'Client Versions',
-				description: 'List of client versions'
+				title: m.audit_usage_exports_filter_title_client_versions(),
+				description: m.audit_usage_exports_filter_desc_list_client_versions()
 			},
 			{
 				filterKey: 'mcp_server_catalog_entry_name',
-				title: 'Catalog Entry Names',
-				description: 'List of catalog entry names'
+				title: m.audit_usage_exports_filter_title_catalog_entry_names(),
+				description: m.audit_usage_exports_filter_desc_list_catalog_entry_names()
 			},
 			{
 				filterKey: 'agent_provider',
-				title: 'Agent Providers',
-				description: 'List of local-agent providers'
+				title: m.audit_usage_exports_filter_title_agent_providers(),
+				description: m.audit_usage_exports_filter_desc_list_local_agent_providers()
 			},
 			{
 				filterKey: 'status',
-				title: 'Reported Statuses',
-				description: 'List of local-agent statuses'
+				title: m.audit_usage_exports_filter_title_reported_statuses(),
+				description: m.audit_usage_exports_filter_desc_list_local_agent_statuses()
 			},
 			{
 				filterKey: 'tool_name',
-				title: 'Tool Names',
-				description: 'List of local tool names'
+				title: m.audit_usage_exports_filter_title_tool_names(),
+				description: m.audit_usage_exports_filter_desc_list_local_tool_names()
 			},
 			{
 				filterKey: 'tool_kind',
-				title: 'Tool Kinds',
-				description: 'List of local tool kinds'
+				title: m.audit_usage_exports_filter_title_tool_kinds(),
+				description: m.audit_usage_exports_filter_desc_list_local_tool_kinds()
 			},
 			{
 				filterKey: 'device_id',
-				title: 'Device IDs',
-				description: 'List of enrolled device IDs'
+				title: m.audit_usage_exports_filter_title_device_ids(),
+				description: m.audit_usage_exports_filter_desc_list_enrolled_device_ids()
 			}
 		];
 	const LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<LLMAuditLogExportMultiSelectFilterKey>[] =
 		[
 			{
 				filterKey: 'api_key_id',
-				title: 'API Keys',
-				description: 'API keys used for the requests'
+				title: m.audit_usage_exports_filter_title_api_keys(),
+				description: m.audit_usage_exports_filter_desc_api_keys_used()
 			},
 			{
 				filterKey: 'user_id',
-				title: 'Users',
-				description: 'List of users',
+				title: m.audit_usage_exports_filter_title_users(),
+				description: m.audit_usage_exports_filter_desc_list_users(),
 				useUserDisplayNames: true
 			},
 			{
 				filterKey: 'model_provider',
-				title: 'Model Providers',
-				description: 'List of model providers'
+				title: m.audit_usage_exports_filter_title_model_providers(),
+				description: m.audit_usage_exports_filter_desc_list_model_providers()
 			},
 			{
 				filterKey: 'target_model',
-				title: 'Target Models',
-				description: 'List of target models'
+				title: m.audit_usage_exports_filter_title_target_models(),
+				description: m.audit_usage_exports_filter_desc_list_target_models()
 			},
 			{
 				filterKey: 'request_path',
-				title: 'Request Paths',
-				description: 'List of request paths'
+				title: m.audit_usage_exports_filter_title_request_paths(),
+				description: m.audit_usage_exports_filter_desc_list_request_paths()
 			},
 			{
 				filterKey: 'response_status',
-				title: 'Response Status',
-				description: 'List of HTTP status codes'
+				title: m.audit_usage_exports_filter_title_response_status(),
+				description: m.audit_usage_exports_filter_desc_list_http_status_codes()
 			},
 			{
 				filterKey: 'outcome',
-				title: 'Outcomes',
-				description: 'List of outcomes'
+				title: m.audit_usage_exports_filter_title_outcomes(),
+				description: m.audit_usage_exports_filter_desc_list_outcomes()
 			},
 			{
 				filterKey: 'user_agent',
-				title: 'User Agents',
-				description: 'List of user agents'
+				title: m.audit_usage_exports_filter_title_user_agents(),
+				description: m.audit_usage_exports_filter_desc_list_user_agents()
 			},
 			{
 				filterKey: 'client_session_id',
-				title: 'Client Session IDs',
-				description: 'List of client session IDs'
+				title: m.audit_usage_exports_filter_title_client_session_ids(),
+				description: m.audit_usage_exports_filter_desc_list_client_session_ids()
 			},
 			{
 				filterKey: 'message_policy_triggered',
-				title: 'Message Policy Action',
-				description: 'Filter by whether a message policy was triggered',
-				getOptionLabel: (value) => (value === 'true' ? 'Triggered' : 'Not triggered')
+				title: m.audit_usage_exports_filter_title_message_policy_action(),
+				description: m.audit_usage_exports_filter_desc_message_policy_triggered(),
+				getOptionLabel: (value) =>
+					value === 'true'
+						? m.audit_usage_exports_triggered()
+						: m.audit_usage_exports_not_triggered()
 			}
 		];
 
@@ -571,10 +575,10 @@
 
 			// Validate required fields
 			if (!form.name) {
-				throw new Error('Name is required');
+				throw new Error(m.audit_usage_exports_name_required());
 			}
 			if (!form.bucket) {
-				throw new Error('Bucket name is required');
+				throw new Error(m.audit_usage_exports_bucket_required());
 			}
 
 			if (logType === 'llm') {
@@ -606,7 +610,7 @@
 			}
 
 			if (form.sourceTypes.length === 0) {
-				throw new Error('At least one log source must be selected');
+				throw new Error(m.audit_usage_exports_source_required());
 			}
 
 			// Prepare the request
@@ -650,7 +654,7 @@
 
 			onSubmit(result);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to create export';
+			error = err instanceof Error ? err.message : m.audit_usage_exports_create_failed();
 		} finally {
 			creating = false;
 		}
@@ -671,7 +675,9 @@
 		const opts = filtersOptions[field.filterKey];
 		if (!opts?.map) return [];
 		const resolveUserDisplayName = (id: string) =>
-			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
+			usersMap.has(id)
+				? withDisabledMarker(getUserDisplayName(usersMap, id), usersMap.get(id))
+				: id;
 		if (field.useUserDisplayNames) {
 			return toStringFilterSelectOptions(opts, resolveUserDisplayName);
 		}
@@ -696,8 +702,7 @@
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
-					Exported logs will not include request/response headers and body information. Auditor role
-					is required to access this data.
+					{m.audit_usage_exports_auditor_notice()}
 				</div>
 			</div>
 		{/if}
@@ -705,16 +710,16 @@
 		<div class="flex flex-col gap-4">
 			<h3 class="text-lg font-semibold">
 				{#if mode === 'view'}
-					Export Details
+					{m.audit_usage_exports_details()}
 				{:else if mode === 'edit'}
-					Edit Export
+					{m.audit_usage_exports_edit()}
 				{:else}
-					Basic Information
+					{m.audit_usage_exports_basic_information()}
 				{/if}
 			</h3>
 			<div class="grid grid-cols-1 justify-between gap-6 lg:grid-cols-2">
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="name">Export Name</label>
+					<label class="text-sm font-medium" for="name">{m.audit_usage_exports_name_label()}</label>
 					<input
 						class={twMerge(
 							'text-input-filled',
@@ -728,11 +733,13 @@
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.name) || !isViewMode}
-						<p class="text-muted-content text-xs">Unique name for this export</p>
+						<p class="text-muted-content text-xs">{m.audit_usage_exports_name_help()}</p>
 					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
+					<label class="text-sm font-medium" for="bucket"
+						>{m.audit_usage_exports_bucket_label()}</label
+					>
 					<input
 						class={twMerge(
 							'text-input-filled',
@@ -747,14 +754,16 @@
 					/>
 					{#if (isViewMode && form.bucket) || !isViewMode}
 						<p class="text-muted-content text-xs">
-							Storage bucket name where exports will be saved
+							{m.audit_usage_exports_bucket_help()}
 						</p>
 					{/if}
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="keyPrefix">Key Prefix (Optional)</label>
+				<label class="text-sm font-medium" for="keyPrefix"
+					>{m.audit_usage_exports_key_prefix_label()}</label
+				>
 				<input
 					class={twMerge(
 						'text-input-filled',
@@ -762,20 +771,21 @@
 					)}
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
-					placeholder={`Leave empty for default: ${defaultKeyPrefix}/YYYY/MM/DD/`}
+					placeholder={m.audit_usage_exports_key_prefix_placeholder({ prefix: defaultKeyPrefix })}
 					readonly={isViewMode}
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
 					<p class="text-muted-content text-xs">
-						Path prefix within the bucket. If empty, defaults to "{defaultKeyPrefix}/YYYY/MM/DD/"
-						format based on current date.
+						{m.audit_usage_exports_key_prefix_help({ prefix: defaultKeyPrefix })}
 					</p>
 				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="timeRange">Time Range</label>
+				<label class="text-sm font-medium" for="timeRange"
+					>{m.audit_usage_exports_time_range()}</label
+				>
 				<AuditLogCalendar
 					start={form.startTime}
 					end={form.endTime}
@@ -786,7 +796,7 @@
 
 			{#if logType === 'mcp'}
 				<div class="flex flex-col gap-1">
-					<span class="text-sm font-medium">Log Sources</span>
+					<span class="text-sm font-medium">{m.audit_usage_exports_log_sources()}</span>
 					<div class="flex flex-col gap-2 py-1">
 						{#each ALL_SOURCE_TYPES as sourceType (sourceType)}
 							<label class="flex items-center gap-2 text-sm">
@@ -802,8 +812,7 @@
 					</div>
 					{#if !isViewMode}
 						<p class="text-muted-content text-xs">
-							Which audit-log source(s) to export. Select both to include MCP and local-agent
-							tool-call logs in the same export. At least one source is required.
+							{m.audit_usage_exports_log_sources_help()}
 						</p>
 					{/if}
 				</div>
@@ -819,7 +828,7 @@
 					showAdvancedOptions = !showAdvancedOptions;
 				}}
 			>
-				<h3 class="text-lg font-semibold">Advanced Options</h3>
+				<h3 class="text-lg font-semibold">{m.audit_usage_exports_advanced_options()}</h3>
 				{#if showAdvancedOptions}
 					<ChevronUp class="size-5" />
 				{:else}
@@ -830,11 +839,13 @@
 			{#if showAdvancedOptions}
 				<div transition:slide={{ duration: 200 }} class="space-y-4">
 					<p class="text-sm text-gray-600">
-						Leave filters empty to export all logs in the selected time range
+						{m.audit_usage_exports_leave_filters_empty()}
 					</p>
 
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="query">Search Query</label>
+						<label class="text-sm font-medium" for="query"
+							>{m.audit_usage_exports_search_query()}</label
+						>
 						<input
 							id="query"
 							class={twMerge(
@@ -842,12 +853,12 @@
 								isViewMode && 'text-[currentColor] disabled:opacity-100'
 							)}
 							bind:value={form.filters.query}
-							placeholder="Search audit logs"
+							placeholder={m.audit_usage_exports_search_placeholder()}
 							readonly={isViewMode}
 							disabled={isViewMode}
 						/>
 						<p class="text-muted-content text-xs">
-							Free-text search to apply to the exported audit logs
+							{m.audit_usage_exports_search_help()}
 						</p>
 					</div>
 
@@ -916,15 +927,17 @@
 				onclick={onCancel}
 				disabled={creating && mode !== 'view'}
 			>
-				{mode === 'view' ? 'Back' : 'Cancel'}
+				{mode === 'view' ? m.common_back() : m.common_cancel()}
 			</button>
 			{#if mode !== 'view'}
 				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
 						<Loading class="size-4" />
-						{mode === 'edit' ? 'Saving Changes...' : 'Creating Export...'}
+						{mode === 'edit'
+							? m.audit_usage_exports_saving_changes()
+							: m.audit_usage_exports_creating()}
 					{:else}
-						{mode === 'edit' ? 'Save Changes' : 'Create Export'}
+						{mode === 'edit' ? m.core_save_changes() : m.audit_usage_audit_logs_create_export()}
 					{/if}
 				</button>
 			{/if}

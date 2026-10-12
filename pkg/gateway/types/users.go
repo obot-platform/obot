@@ -13,6 +13,23 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	// UserDisabledReasonSCIMInactive means the identity provider deprovisioned the user through SCIM.
+	UserDisabledReasonSCIMInactive UserDisabledReason = "scim_inactive"
+	// UserDisabledReasonSCIMUnprovisioned means SCIM was enforced for the user's auth provider before the
+	// identity provider provisioned the user.
+	UserDisabledReasonSCIMUnprovisioned UserDisabledReason = "scim_unprovisioned"
+)
+
+var (
+	// UserLifecycleColumns are the user columns that only lifecycle operations write. Every other user write
+	// omits them, so that a stale copy of a user can neither disable nor re-enable the account.
+	UserLifecycleColumns = []string{"disabled_at", "disabled_reason"}
+)
+
+// UserDisabledReason records why a user is disabled.
+type UserDisabledReason string
+
 type User struct {
 	ID             uint        `json:"id" gorm:"primaryKey"`
 	CreatedAt      time.Time   `json:"createdAt"`
@@ -36,6 +53,12 @@ type User struct {
 	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
 	OriginalEmail    string     `json:"-"`
 	OriginalUsername string     `json:"-"`
+
+	// Lifecycle fields. A disabled user keeps their account, identities, roles, memberships, and resources, but
+	// is denied access. Unlike deletion, disabling is reversible. Only lifecycle operations write these fields;
+	// see UserLifecycleColumns.
+	DisabledAt     *time.Time         `json:"disabledAt,omitempty"`
+	DisabledReason UserDisabledReason `json:"disabledReason,omitempty" gorm:"not null;default:''"`
 }
 
 type UserQuery struct {
@@ -43,6 +66,38 @@ type UserQuery struct {
 	Email          string
 	Role           types2.Role
 	IncludeDeleted bool
+}
+
+// Valid reports whether r is a known disable reason.
+func (r UserDisabledReason) Valid() bool {
+	switch r {
+	case UserDisabledReasonSCIMInactive, UserDisabledReasonSCIMUnprovisioned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Status returns the user's lifecycle status. Deletion takes precedence over disabling.
+func (u User) Status() types2.UserStatus {
+	switch {
+	case u.DeletedAt != nil:
+		return types2.UserStatusDeleted
+	case u.DisabledAt != nil:
+		return types2.UserStatusDisabled
+	default:
+		return types2.UserStatusActive
+	}
+}
+
+// ManagementSource returns what controls the user's lifecycle status, as far as the user row shows it. Only
+// SCIM sets a disable reason, so a user with one is managed by SCIM. So is a user with a SCIM binding, which the
+// row does not show, so callers that read the binding report SCIM for it.
+func (u User) ManagementSource() types2.UserManagementSource {
+	if u.DisabledReason.Valid() {
+		return types2.UserManagementSourceSCIM
+	}
+	return types2.UserManagementSourceObot
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
@@ -78,10 +133,16 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 		DailyOutputTokensLimit: u.DailyOutputTokensLimit,
 		OriginalEmail:          u.OriginalEmail,
 		OriginalUsername:       u.OriginalUsername,
+		Status:                 u.Status(),
+		ManagementSource:       u.ManagementSource(),
 	}
 
 	if u.DeletedAt != nil {
 		user.DeletedAt = types2.NewTime(*u.DeletedAt)
+	}
+	if u.DisabledAt != nil {
+		user.DisabledAt = types2.NewTime(*u.DisabledAt)
+		user.DisabledReason = string(u.DisabledReason)
 	}
 
 	return user

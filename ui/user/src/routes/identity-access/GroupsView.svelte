@@ -5,6 +5,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { Group, Role, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { AdminService, UserService, type OrgGroup } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
@@ -21,7 +22,6 @@
 	import AssignGroupRoleDialog from './AssignGroupRoleDialog.svelte';
 	import ConfirmAuditorRoleDialog from './ConfirmAuditorRoleDialog.svelte';
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
-	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
 	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import type { GroupAssignment } from './types';
 	import { debounce } from 'es-toolkit';
@@ -38,7 +38,7 @@
 	let groupRoleAssignments = $state(untrack(() => initialAssignments));
 
 	function getRoleId(role: number): number {
-		return role & ~(Role.AUDITOR | Role.USER_IMPERSONATION);
+		return role & ~Role.AUDITOR;
 	}
 
 	// Create a map for quick role lookups
@@ -91,7 +91,6 @@
 	let showAddAssignment = $state(false);
 	let showAssignGroupRoleDialog = $state(false);
 	let confirmAuditorAdditionToGroup = $state<GroupAssignment>();
-	let confirmUserImpersonationAdditionToGroup = $state<GroupAssignment>();
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -116,7 +115,6 @@
 
 			showAddAssignment = false;
 			confirmAuditorAdditionToGroup = undefined;
-			confirmUserImpersonationAdditionToGroup = undefined;
 			confirmOwnerGroupAssignment = undefined;
 
 			// Refresh data, resolving names for any newly assigned group.
@@ -166,7 +164,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				value={query}
 				onChange={updateQuery}
-				placeholder="Search by group name..."
+				placeholder={m.identity_access_groups_search_placeholder()}
 			/>
 			<div class="groups-table">
 				<Table
@@ -177,7 +175,10 @@
 					onFilter={setFilterUrlParams}
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'role']}
-					headers={[{ property: 'name', title: 'Name' }]}
+					headers={[
+						{ property: 'name', title: m.core_name() },
+						{ property: 'role', title: m.identity_access_col_role() }
+					]}
 					{initSort}
 					onSort={setSortUrlParams}
 				>
@@ -203,7 +204,7 @@
 									});
 								}}
 							>
-								View Access Policies
+								{m.identity_access_view_access_policies()}
 							</button>
 							{#if !isAdminReadonly}
 								<button
@@ -215,7 +216,7 @@
 										showAssignGroupRoleDialog = true;
 									}}
 								>
-									{d.assignment ? 'Update Role' : 'Assign Role'}
+									{d.assignment ? m.identity_access_update_role() : m.identity_access_assign_role()}
 								</button>
 								{#if d.assignment}
 									<button
@@ -224,7 +225,7 @@
 											d.roleId === Role.OWNER}
 										onclick={() => (deletingGroup = d)}
 									>
-										Remove Role Assignment
+										{m.identity_access_groups_remove_role_assignment()}
 									</button>
 								{/if}
 							{/if}
@@ -239,8 +240,8 @@
 <CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
-	title="Confirm Role Removal"
-	msg={`Remove role assignment for group "${deletingGroup?.name}"?`}
+	title={m.identity_access_groups_confirm_role_removal()}
+	msg={m.identity_access_groups_remove_role_assignment_msg({ name: `${deletingGroup?.name}` })}
 	show={Boolean(deletingGroup)}
 	onsuccess={async () => {
 		if (!deletingGroup) return;
@@ -257,8 +258,7 @@
 	oncancel={() => (deletingGroup = undefined)}
 >
 	{#snippet note()}
-		Related permissions tied to the role will no longer be available. Are you sure you wish to
-		continue?
+		{m.identity_access_groups_remove_role_assignment_note()}
 	{/snippet}
 </Confirm>
 
@@ -271,9 +271,6 @@
 	onConfirm={updateGroupRole}
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
-	}}
-	onUserImpersonationConfirm={(groupAssignment) => {
-		confirmUserImpersonationAdditionToGroup = groupAssignment;
 	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
@@ -296,41 +293,8 @@
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
 	}}
-	onUserImpersonationConfirm={(groupAssignment) => {
-		confirmUserImpersonationAdditionToGroup = groupAssignment;
-	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
-	}}
-/>
-
-<ConfirmUserImpersonationRoleDialog
-	bind:groupAssignment={confirmUserImpersonationAdditionToGroup}
-	currentRole={confirmUserImpersonationAdditionToGroup
-		? (groupRoleMap[confirmUserImpersonationAdditionToGroup.group.id]?.role ?? 0)
-		: 0}
-	{loading}
-	onsuccess={(groupAssignment) => {
-		const originalRoleId = getRoleId(updatingRole?.assignment?.role || 0);
-		const newRoleId = getRoleId(groupAssignment.assignment.role);
-
-		if (newRoleId === Role.OWNER && originalRoleId !== Role.OWNER) {
-			confirmOwnerGroupAssignment = groupAssignment;
-			confirmUserImpersonationAdditionToGroup = undefined;
-			return;
-		}
-
-		updateGroupRole(groupAssignment);
-		confirmUserImpersonationAdditionToGroup = undefined;
-		updatingRole = undefined;
-	}}
-	oncancel={() => {
-		confirmUserImpersonationAdditionToGroup = undefined;
-		if (updatingRole) {
-			showAssignGroupRoleDialog = true;
-		} else {
-			showAddAssignment = true;
-		}
 	}}
 />
 

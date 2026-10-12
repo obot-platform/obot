@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
+	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import {
 		AdminService,
@@ -88,7 +89,7 @@
 
 			reloadPage();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unknown error occurred.';
+			error = err instanceof Error ? err.message : m.platform_license_unknown_error();
 		} finally {
 			confirmDowngradeDialog?.close();
 			downgrading = false;
@@ -100,26 +101,24 @@
 	bind:this={licenseViolationDialog}
 	title={warnUserLimit || violations.userLimit
 		? warnUserLimit
-			? 'Nearing User Limit'
-			: 'User Limit Reached'
-		: 'Missing or Invalid License'}
+			? m.platform_license_notice_nearing_user_limit()
+			: m.platform_license_notice_user_limit_reached()
+		: m.platform_license_notice_missing_or_invalid()}
 	class="md:max-w-md"
 >
 	<div class="md:p-0 p-4">
 		<div class="flex flex-col gap-4">
 			<p class="font-light text-center">
 				{#if warnUserLimit || violations.userLimit}
-					Unlock unlimited users and get support with Obot Enterprise! Contact us at <a
-						href="mailto:info@obot.ai"
-						class="text-link">info@obot.ai</a
-					> to upgrade.
+					{m.platform_license_notice_unlock_prefix()}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+					>{m.platform_license_notice_unlock_suffix()}
 				{:else}
-					To re-enable access to existing functionality,
-					{#if violations.authProvider}
-						register your email below or
-					{/if}
-					contact support at
-					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew an Enterprise license.
+					{violations.authProvider
+						? m.platform_license_notice_reenable_register_prefix()
+						: m.platform_license_notice_reenable_prefix()}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+					>{m.platform_license_notice_reenable_suffix()}
 				{/if}
 			</p>
 			{#if violations.authProvider}
@@ -135,16 +134,16 @@
 					}}
 				>
 					<KeyRound class="size-4" />
-					Register Your Email
+					{m.platform_license_notice_register_your_email()}
 				</button>
 			{/if}
 			<a href="mailto:info@obot.ai" class="btn btn-secondary">
 				<Mail class="size-4" />
-				Contact Support
+				{m.platform_license_notice_contact_support()}
 			</a>
 		</div>
 		{#if !warnUserLimit && (violations.authProvider || violations.modelProvider)}
-			<div class="divider">OR</div>
+			<div class="divider">{m.platform_license_notice_or()}</div>
 			<div class="flex flex-col gap-4">
 				{#each version.current.licenseEntitlementViolations as violation (violation.name)}
 					{@const provider =
@@ -166,15 +165,14 @@
 								{/if}
 							</div>
 							<div class="flex grow flex-col gap-0.5">
-								<p class="font-semibold">Deconfigure {provider.name}</p>
+								<p class="font-semibold">
+									{m.platform_license_notice_deconfigure_named({ name: provider.name })}
+								</p>
 								<p class="text-xs text-muted-content">
 									{#if violation.type === 'authProvider'}
-										Users logged in via {provider.name} will need to sign in via a different accessible
-										provider.
+										{m.platform_license_notice_deconfigure_auth_note({ name: provider.name })}
 									{:else}
-										Deconfiguring this model provider will cause loss of access to the models
-										provided by
-										{provider.name}.
+										{m.platform_license_notice_deconfigure_model_note({ name: provider.name })}
 									{/if}
 								</p>
 							</div>
@@ -206,7 +204,7 @@
 						confirmDowngradeDialog?.open();
 					}}
 				>
-					Downgrade
+					{m.platform_license_notice_downgrade()}
 				</button>
 			</div>
 		{/if}
@@ -222,8 +220,8 @@
 	}}
 	loading={downgrading}
 	providers={providersToDeconfigure}
-	title="Confirm Downgrade"
-	confirmButtonText="Downgrade"
+	title={m.platform_license_notice_confirm_downgrade()}
+	confirmButtonText={m.platform_license_notice_downgrade()}
 />
 
 <LicenseProviderDialog
@@ -232,5 +230,5 @@
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={() => reloadPage()}
 	allowSignup
-	signUpMessage="Get permanent, free access to additional authentication providers, including Entra, Okta, JumpCloud, and Auth0, with a one-time registration up to 100 users."
+	signUpMessage={m.platform_license_notice_signup_message()}
 />

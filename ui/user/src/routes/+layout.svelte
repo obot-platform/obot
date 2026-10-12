@@ -4,6 +4,7 @@
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
+	import { applyDocumentLocale } from '$lib/i18n';
 	import {
 		darkMode,
 		profile,
@@ -39,6 +40,7 @@
 	let { children, data }: Props = $props();
 
 	onMount(() => {
+		applyDocumentLocale();
 		document.documentElement.toggleAttribute('hydrated', true);
 	});
 

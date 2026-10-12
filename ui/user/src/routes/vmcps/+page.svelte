@@ -8,6 +8,7 @@
 	import VMcpDesigner from '$lib/components/vmcps/VMcpDesigner.svelte';
 	import VMcpList from '$lib/components/vmcps/VMcpList.svelte';
 	import VMcpListSettings from '$lib/components/vmcps/VMcpListSettings.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Group, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
@@ -32,21 +33,19 @@
 		profile.current.hasAdminAccess?.()
 			? [
 					{
-						label: 'vMCPs',
+						label: m.vmcps(),
 						value: 'vmcps',
 						content: vmcpsView,
-						tooltip:
-							'A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint; it provides a single point of entry to manage the connection, tools, and access. Create, connect, and manage them here.'
+						tooltip: m.vmcps_tab_vmcps_tooltip()
 					},
 					{
-						label: 'Deployments',
+						label: m.vmcps_deployments(),
 						value: 'deployments',
 						content: deploymentsView,
-						tooltip:
-							'Deployments are running instances of vMCPs created from connection by a user via Inspector or external AI client. View and manage them here.'
+						tooltip: m.vmcps_deployments_tab_tooltip()
 					}
 				]
-			: [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
+			: [{ label: m.vmcps(), value: 'vmcps', content: vmcpsView }]
 	);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
@@ -193,7 +192,7 @@
 	/>
 {:else}
 	<TabLayout
-		title="vMCPs"
+		title={m.vmcps()}
 		defaultView="vmcps"
 		rightNavActions={navActions}
 		{views}
@@ -206,7 +205,7 @@
 {#snippet navActions(_view: string)}
 	{#if !responsive.isMobile}
 		<div class="flex items-center gap-2 md:mr-4">
-			<p class="text-xs font-light">Connect all vMCPs:</p>
+			<p class="text-xs font-light">{m.vmcps_connect_all_vmcps_label()}</p>
 			{#each options as option (option.id)}
 				<IconButton
 					class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
@@ -225,7 +224,8 @@
 	{/if}
 	{#if canCreate}
 		<button class="btn btn-primary" onclick={openCreate}>
-			<Plus class="size-4" /> Create vMCP
+			<Plus class="size-4" />
+			{m.vmcps_create_vmcp()}
 		</button>
 	{/if}
 {/snippet}
@@ -239,13 +239,14 @@
 				{#if sortedVMcps.length > 0 && filters.variant === 'grid' && !vmcpList?.isInSelectMode()}
 					<div in:fade>
 						<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectMode()}>
-							<Pencil class="size-4" /> Edit Mode
+							<Pencil class="size-4" />
+							{m.vmcps_edit_mode()}
 						</button>
 					</div>
 				{/if}
 				{#if sortedVMcps.length > 0 && filters.variant === 'grid' && vmcpList?.isInSelectMode()}
 					<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectAll()}>
-						{vmcpList?.isAllSelected() ? 'Deselect All' : 'Select All'}
+						{vmcpList?.isAllSelected() ? m.vmcps_deselect_all() : m.vmcps_select_all()}
 					</button>
 				{/if}
 			{/snippet}
@@ -266,23 +267,26 @@
 		>
 			{#snippet noDataContent()}
 				{#if filters.query}
-					<p class="text-muted-content text-sm font-light">No vMCPs found matching your query.</p>
+					<p class="text-muted-content text-sm font-light">{m.vmcps_no_vmcps_matching_query()}</p>
 				{:else}
 					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<Layers class="text-muted-content size-24 opacity-25" />
 						<div>
 							<h4 class="text-muted-content text-lg font-semibold">
-								{profile.current.hasAdminAccess?.() ? 'Create a vMCP!' : 'No vMCPs available'}
+								{profile.current.hasAdminAccess?.()
+									? m.vmcps_create_a_vmcp()
+									: m.vmcps_no_vmcps_available()}
 							</h4>
 							<p class="text-muted-content text-sm font-light">
 								{profile.current.hasAdminAccess?.()
-									? 'Click below to get started.'
-									: "Looks like there aren't any vMCPs available yet."}
+									? m.vmcps_click_below_to_get_started()
+									: m.vmcps_no_vmcps_available_yet()}
 							</p>
 						</div>
 						{#if canCreate}
 							<button class="btn btn-primary" onclick={openCreate}>
-								<Plus class="size-4" /> Create vMCP Now
+								<Plus class="size-4" />
+								{m.vmcps_create_vmcp_now()}
 							</button>
 						{/if}
 					</div>
@@ -307,5 +311,5 @@
 />
 
 <svelte:head>
-	<title>Obot | {creating ? 'Create vMCP' : 'vMCPs'}</title>
+	<title>Obot | {creating ? m.vmcps_create_vmcp() : m.vmcps()}</title>
 </svelte:head>

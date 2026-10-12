@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -27,6 +28,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchModels from './SearchModels.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import SubjectName from './SubjectName.svelte';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -46,7 +48,7 @@
 	}: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const llmModelWarning = 'Only LLM models are allowed.';
+	const llmModelWarning = m.models_access_policies_only_llm_models_allowed();
 	let modelAccessPolicy = $state(
 		untrack(
 			() =>
@@ -64,7 +66,7 @@
 	let loadingUsersAndGroups = $state(false);
 	let models = $state<Model[]>([]);
 	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
-	let llmModels = $derived(models.filter((m) => m.usage === ModelUsage.LLM));
+	let llmModels = $derived(models.filter((model) => model.usage === ModelUsage.LLM));
 	let loadingModels = $state(true);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
@@ -95,7 +97,7 @@
 		loadingModels = false;
 	});
 
-	let modelsMap = $derived(new Map(models.map((m) => [m.id, m])));
+	let modelsMap = $derived(new Map(models.map((model) => [model.id, model])));
 
 	// Map alias name -> Model for quick lookups
 	let aliasToModelMap = $derived(
@@ -130,7 +132,7 @@
 				aliasName: aliasName,
 				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
 				usage: model?.usage,
-				effectiveModelName: model?.displayName || model?.targetModel || 'Not configured',
+				effectiveModelName: model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				warning: isAllowed ? undefined : llmModelWarning
 			};
@@ -223,7 +225,7 @@
 			if (model.id === '*') {
 				return {
 					id: model.id,
-					name: 'All Models',
+					name: m.models_all_models(),
 					usage: undefined,
 					provider: '-',
 					isPattern: false,
@@ -235,7 +237,9 @@
 				// Wildcard suffix pattern; count the currently matching models
 				// (case-sensitive prefix match on target model, like the backend)
 				const prefix = model.id.slice(0, -1);
-				const matchCount = models.filter((m) => (m.targetModel || '').startsWith(prefix)).length;
+				const matchCount = models.filter((candidate) =>
+					(candidate.targetModel || '').startsWith(prefix)
+				).length;
 
 				return {
 					id: model.id,
@@ -247,18 +251,18 @@
 				};
 			}
 
-			const m = modelsMap.get(model.id);
+			const found = modelsMap.get(model.id);
 			let warning: string | undefined;
-			if (!m) {
-				warning = 'This model no longer exists.';
-			} else if (m.usage !== ModelUsage.LLM && m.usage !== ModelAlias.LlmMini) {
+			if (!found) {
+				warning = m.models_access_policies_model_no_longer_exists();
+			} else if (found.usage !== ModelUsage.LLM && found.usage !== ModelAlias.LlmMini) {
 				warning = llmModelWarning;
 			}
 			return {
 				id: model.id,
-				name: m?.displayName || m?.name || model.id,
-				usage: m?.usage,
-				provider: m?.modelProviderName || '-',
+				name: found?.displayName || found?.name || model.id,
+				usage: found?.usage,
+				provider: found?.modelProviderName || '-',
 				isPattern: false,
 				matchCount: 0,
 				warning
@@ -297,7 +301,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete Policy' }}
+						tooltip={{ text: m.core_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -315,7 +319,7 @@
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
 						<label for="model-access-policy-name" class="flex-1 text-sm font-light capitalize">
-							Name
+							{m.core_name()}
 						</label>
 						<input
 							id="model-access-policy-name"
@@ -330,12 +334,13 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Users & Groups</h2>
+				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
 							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.core_add_user_group()}
 							</button>
 						{:else}
 							<button
@@ -344,7 +349,8 @@
 									addUserGroupDialog?.open();
 								}}
 							>
-								<Plus class="size-4" /> Add User/Group
+								<Plus class="size-4" />
+								{m.core_add_user_group()}
 							</button>
 						{/if}
 					</div>
@@ -363,9 +369,19 @@
 				<Table
 					data={tableData}
 					fields={['displayName', 'type']}
-					headers={[{ property: 'displayName', title: 'Name' }]}
-					noDataMessage="No users or groups added."
+					headers={[
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
+					]}
+					noDataMessage={m.core_no_users_or_groups_added()}
 				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'displayName'}
+							<SubjectName name={d.displayName} disabled={d.disabled} />
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
 					{#snippet actions(d)}
 						{#if !readonly}
 							<IconButton
@@ -375,7 +391,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: 'Delete User/Group' }}
+								tooltip={{ text: m.core_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -387,7 +403,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Models</h2>
+				<h2 class="text-lg font-semibold">{m.models_title()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -395,7 +411,8 @@
 							addModelDialog?.open();
 						}}
 					>
-						<Plus class="size-4" /> Add Model
+						<Plus class="size-4" />
+						{m.models_access_policies_add_model()}
 					</button>
 				{/if}
 			</div>
@@ -408,8 +425,7 @@
 					<div class="notification-alert flex items-start gap-1" role="alert">
 						<TriangleAlert class="text-warning size-4 shrink-0" />
 						<p class="text-xs">
-							This policy contains invalid model(s). To update the policy, remove the invalid
-							models.
+							{m.models_access_policies_invalid_models_notice()}
 						</p>
 					</div>
 				{/if}
@@ -417,10 +433,10 @@
 					data={combinedModelsTableData}
 					fields={['name', 'provider']}
 					headers={[
-						{ property: 'name', title: 'Model' },
-						{ property: 'provider', title: 'Provider' }
+						{ property: 'name', title: m.models_access_policies_col_model() },
+						{ property: 'provider', title: m.core_col_provider() }
 					]}
-					noDataMessage="No models added."
+					noDataMessage={m.models_access_policies_no_models_added()}
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
@@ -441,15 +457,16 @@
 										<span
 											class="bg-base-300 dark:bg-base-400 rounded-full px-2 py-0.5 text-xs font-medium"
 										>
-											Pattern
+											{m.models_access_policies_pattern()}
 										</span>
 									</div>
 									<span class="text-muted-content text-xs">
 										{#if d.matchCount > 0}
-											Matches {d.matchCount}
-											{d.matchCount === 1 ? 'model' : 'models'} across all providers
+											{d.matchCount === 1
+												? m.models_access_policies_pattern_matches_one({ count: d.matchCount })
+												: m.models_access_policies_pattern_matches_other({ count: d.matchCount })}
 										{:else}
-											No current matches — applies to future models
+											{m.models_access_policies_pattern_no_matches()}
 										{/if}
 									</span>
 								</div>
@@ -479,9 +496,9 @@
 								variant="danger"
 								onclick={() => {
 									modelAccessPolicy.models =
-										modelAccessPolicy.models?.filter((m) => m.id !== d.id) ?? [];
+										modelAccessPolicy.models?.filter((model) => model.id !== d.id) ?? [];
 								}}
-								tooltip={{ text: 'Remove Model' }}
+								tooltip={{ text: m.models_access_policies_remove_model() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -505,7 +522,7 @@
 							goto('/models?view=access-policies');
 						}}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button
 						class="btn btn-primary text-sm"
@@ -524,7 +541,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -549,7 +566,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Update
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -584,9 +601,9 @@
 	bind:this={addModelDialog}
 	models={llmModels}
 	defaultAliases={defaultModelAliases}
-	exclude={modelAccessPolicy.models?.map((m) => m.id) ?? []}
+	exclude={modelAccessPolicy.models?.map((model) => model.id) ?? []}
 	onAdd={async (modelIds: string[]) => {
-		const existingModelIds = new Set(modelAccessPolicy.models?.map((m) => m.id) ?? []);
+		const existingModelIds = new Set(modelAccessPolicy.models?.map((model) => model.id) ?? []);
 		const newModels = modelIds.filter((id) => !existingModelIds.has(id)).map((id) => ({ id: id }));
 
 		modelAccessPolicy.models = [...(modelAccessPolicy.models ?? []), ...newModels];
@@ -594,7 +611,9 @@
 />
 
 <Confirm
-	msg={`Delete ${modelAccessPolicy.displayName || 'this policy'}?`}
+	msg={modelAccessPolicy.displayName
+		? m.core_delete_named_component({ name: modelAccessPolicy.displayName })
+		: m.core_delete_this_policy()}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!modelAccessPolicy.id) return;

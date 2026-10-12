@@ -1,13 +1,22 @@
+<script module lang="ts">
+	// A notice shown below a configuration parameter.
+	export interface ParameterNotice {
+		kind: 'info' | 'warning';
+		text: string;
+	}
+</script>
+
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { BaseProvider, ProviderParameter } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import type { ResponsiveDialogAnimate } from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
-	import { CircleAlert } from '@lucide/svelte';
+	import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -27,6 +36,12 @@
 		body?: Snippet;
 		// Receives the dialog's own submit so a custom footer can drive the form it replaces.
 		footer?: Snippet<[() => void]>;
+		// Returns a notice to show below a parameter, given the form's current values, such as a
+		// warning about the consequences of a changed value.
+		parameterNotice?: (
+			parameter: ProviderParameter,
+			form: Record<string, string>
+		) => ParameterNotice | undefined;
 	}
 
 	const {
@@ -41,22 +56,34 @@
 		title,
 		steps,
 		body,
-		footer
+		footer,
+		parameterNotice
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
+	let errorElement = $state<HTMLElement>();
+
+	// The error sits at the top of a form that scrolls, and the button that submits it sits below,
+	// so a refusal would otherwise appear out of sight of whoever just submitted.
+	$effect(() => {
+		if (!error) return;
+		errorElement?.scrollIntoView({
+			block: 'nearest',
+			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+		});
+	});
 
 	const isAzureOpenAIProvider = $derived(provider && provider.id === 'azure-openai-model-provider');
 
 	const collection = $derived.by(() => {
 		if (isAzureOpenAIProvider)
 			return {
-				title: 'Authentication Method',
+				title: m.models_providers_authentication_method(),
 				items: [
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
-						name: 'API Key'
+						name: m.models_providers_api_key()
 					},
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
@@ -264,6 +291,26 @@
 	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
 </script>
 
+{#snippet noticeFor(parameter: ProviderParameter)}
+	{@const notice = parameterNotice?.(parameter, form)}
+	{#if notice}
+		<div
+			class={twMerge(
+				'mt-1 flex items-start gap-2 p-2 text-xs font-light',
+				notice.kind === 'warning' ? 'notification-alert' : 'notification-info'
+			)}
+			role={notice.kind === 'warning' ? 'alert' : 'note'}
+		>
+			{#if notice.kind === 'warning'}
+				<TriangleAlert class="mt-0.5 size-4 shrink-0" />
+			{:else}
+				<Info class="mt-0.5 size-4 shrink-0" />
+			{/if}
+			<span>{notice.text}</span>
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet booleanToggle(parameter: ProviderParameter)}
 	<li class="flex flex-col gap-1">
 		<span>{parameter.friendlyName}</span>
@@ -300,7 +347,7 @@
 			{:else}
 				<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 			{/if}
-			{title ?? `Set Up ${provider?.name}`}
+			{title ?? m.models_providers_set_up_named({ name: provider?.name ?? '' })}
 		</div>
 	{/snippet}
 	{#if provider}
@@ -324,14 +371,17 @@
 				disabled={readonly}
 			/>
 			{#if error}
-				<div class="notification-error flex min-w-0 items-start gap-2 overflow-hidden">
+				<div
+					bind:this={errorElement}
+					class="notification-error flex min-w-0 shrink-0 items-start gap-2 overflow-hidden"
+					role="alert"
+				>
 					<CircleAlert class="mt-0.5 size-6 shrink-0 text-error" />
 					<p class="min-w-0 flex flex-col text-sm font-light">
-						<span class="font-semibold">An error occurred!</span>
-						<span class="max-h-28 overflow-auto wrap-break-word pr-1">
-							Your configuration could not be saved because it failed validation: <b
-								class="break-all font-semibold">{error}</b
-							>
+						<span class="font-semibold">{m.models_providers_an_error_occurred()}</span>
+						<span class="max-h-28 overflow-auto wrap-break-word whitespace-pre-line pr-1">
+							{m.models_providers_config_failed_validation()}
+							<b class="break-all font-semibold">{error}</b>
 						</span>
 					</p>
 				</div>
@@ -368,7 +418,7 @@
 						</div>
 					{/if}
 
-					<h4 class="text-lg font-semibold">Required Configuration</h4>
+					<h4 class="text-lg font-semibold">{m.models_providers_required_configuration()}</h4>
 
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
@@ -398,10 +448,10 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-													? { '*': 'All domains' }
+													? { '*': m.models_providers_all_domains() }
 													: {}}
 												class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
-												placeholder={`Hit "Enter" to insert`.toString()}
+												placeholder={m.models_providers_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -422,6 +472,7 @@
 												disabled={readonly}
 											/>
 										{/if}
+										{@render noticeFor(parameter)}
 									</li>
 								{/if}
 							{/if}
@@ -432,7 +483,7 @@
 
 			{#if optionalConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-2">
-					<h4 class="text-lg font-semibold">Optional Configuration</h4>
+					<h4 class="text-lg font-semibold">{m.models_providers_optional_configuration()}</h4>
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
@@ -457,7 +508,7 @@
 												bind:value={form[parameter.name]}
 												id={parameter.name}
 												class="text-input-filled"
-												placeholder={`Hit "Enter" to insert`.toString()}
+												placeholder={m.models_providers_hit_enter_to_insert()}
 												disabled={readonly}
 											/>
 										{:else if parameter.multiline}
@@ -476,6 +527,7 @@
 												disabled={readonly}
 											/>
 										{/if}
+										{@render noticeFor(parameter)}
 									</li>
 								{/if}
 							{/if}
@@ -501,7 +553,7 @@
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						Confirm
+						{m.core_confirm()}
 					{/if}
 				</button>
 			</div>

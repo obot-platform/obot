@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { GuideHighlight } from '$lib/services/guides';
 import { darkMode } from '$lib/stores';
 import Obot from './Obot.svelte';
@@ -339,7 +340,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 
 						const badge = document.createElement('span');
 						badge.className = 'badge badge-warning badge-xs font-normal';
-						badge.textContent = 'Experimental';
+						badge.textContent = m.core_experimental();
 						popover.title.appendChild(badge);
 					}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { AuthProvider } from '$lib/services';
 
@@ -24,39 +25,41 @@
 </script>
 
 {#if showTitle}
-	<h3 class="mb-4 text-lg font-semibold">Next Step: Owner Setup</h3>
+	<h3 class="mb-4 text-lg font-semibold">{m.auth_setup_next_step_owner_setup()}</h3>
 {/if}
 
 <div class="flex flex-col gap-2">
 	{#if isLocalSetup}
 		<p>
 			{#if localUserEmail}
-				Finish setting up Obot by signing in as <b>{localUserEmail}</b>.
+				{m.auth_setup_finish_setup_signing_in_as_prefix()}
+				<b>{localUserEmail}</b>{m.auth_setup_finish_setup_signing_in_as_suffix()}
 			{:else}
-				Finish setting up Obot by signing in with one of your local accounts.
+				{m.auth_setup_finish_setup_local_accounts()}
 			{/if}
 		</p>
-		<p>This account then becomes the <b>owner</b> of this Obot installation.</p>
+		<p>
+			{m.auth_setup_account_becomes_owner_prefix()}
+			<b>{m.auth_setup_account_becomes_owner_word()}</b>
+			{m.auth_setup_account_becomes_owner_suffix()}
+		</p>
 	{:else if explicitOwners.length > 0}
-		<p>You'll need to continue setup with an owner account.</p>
-		<p>The following user(s) have been explicitly assigned the Owner role:</p>
+		<p>{m.auth_setup_continue_with_owner_account()}</p>
+		<p>{m.auth_setup_explicit_owners_listed()}</p>
 		<ul class="list-disc px-8">
 			{#each explicitOwners as owner (owner)}
 				<li>{owner}</li>
 			{/each}
 		</ul>
 		<p>
-			Log in to the system as one of the explicit owners -- you'll be redirected after
-			authenticating.
+			{m.auth_setup_login_as_explicit_owner()}
 		</p>
 		<p>
-			Or log into a different account with your configured auth provider. After authentication,
-			you'll be asked to confirm the owner before proceeding.
+			{m.auth_setup_login_different_account()}
 		</p>
 	{:else}
 		<p>
-			You'll need to set up an initial owner for the system. Login with your configured auth
-			provider to continue.
+			{m.auth_setup_initial_owner()}
 		</p>
 	{/if}
 
@@ -72,9 +75,9 @@
 				{/if}
 				<span class="text-center text-sm font-light">
 					{#if isLocalSetup && localUserEmail}
-						Sign in as {localUserEmail}
+						{m.auth_setup_sign_in_as({ email: localUserEmail })}
 					{:else}
-						Continue with {provider?.name}
+						{m.login_continue_with({ provider: provider?.name ?? '' })}
 					{/if}
 				</span>
 			</a>
@@ -85,9 +88,9 @@
 		{/if}
 		{#if isLocalSetup && onManageLocalUsers}
 			<p class="text-muted-content text-center text-xs font-light">
-				Want to change your owner account?
+				{m.auth_setup_change_owner_account()}
 				<button type="button" class="text-link underline" onclick={onManageLocalUsers}>
-					Click here
+					{m.auth_setup_click_here()}
 				</button>
 			</p>
 		{/if}

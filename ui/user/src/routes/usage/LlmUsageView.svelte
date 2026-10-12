@@ -43,6 +43,7 @@
 	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -54,7 +55,7 @@
 	} from '$lib/services';
 	import { errors, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { X } from '@lucide/svelte';
 	import { subDays } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -140,7 +141,7 @@
 	}
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
-	const modelsToDisplayName = $derived(new Map(modelsData.map((m) => [m.id, m])));
+	const modelsToDisplayName = $derived(new Map(modelsData.map((model) => [model.id, model])));
 
 	onMount(async () => {
 		usersData = await UserService.listUsersIncludeDeleted();
@@ -214,7 +215,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const targetModelToDisplayName = $derived(
-		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
+		new Map(modelsData.map((model) => [model.targetModel, model.displayName || model.name]))
 	);
 
 	type PerModelRow = {
@@ -311,7 +312,8 @@
 				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
-				const apiKeyLabel = labels.get(apiKeyID) ?? `API key #${apiKeyID}`;
+				const apiKeyLabel =
+					labels.get(apiKeyID) ?? m.audit_usage_usage_api_key_number({ id: apiKeyID });
 				return {
 					apiKeyID,
 					apiKeyLabel,
@@ -658,17 +660,20 @@
 	}
 
 	const usersOptions = $derived([
-		{ label: 'All Users', id: ALL_USERS },
-		...usersData.map((user) => ({ label: getUserDisplayName(usersMap, user.id), id: user.id }))
+		{ label: m.audit_usage_usage_all_users(), id: ALL_USERS },
+		...usersData.map((user) => ({
+			label: withDisabledMarker(getUserDisplayName(usersMap, user.id), user),
+			id: user.id
+		}))
 	]);
 
 	const modelsOptions = $derived([
-		{ label: 'All Models', id: ALL_MODELS },
+		{ label: m.audit_usage_usage_all_models(), id: ALL_MODELS },
 		...modelsData.map((model) => ({ label: model.name, id: model.id }))
 	]);
 
 	const apiKeyOptions = $derived([
-		{ label: 'All API Keys', id: ALL_API_KEYS },
+		{ label: m.audit_usage_usage_all_api_keys(), id: ALL_API_KEYS },
 		...getAPIKeyFilterOptions(data, usersMap)
 	]);
 	const apiKeyOptionsMap = $derived(
@@ -693,7 +698,7 @@
 				class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 			>
 				<Loading class="size-32 stroke-1" />
-				<div class="text-2xl font-semibold">Loading data...</div>
+				<div class="text-2xl font-semibold">{m.audit_usage_usage_loading_data()}</div>
 			</div>
 		</div>
 	{/if}
@@ -701,20 +706,20 @@
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
 		<div class="bg-base-300 dark:bg-base-200 w-full">
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
-				<h4 class="font-semibold">Overall Stats</h4>
+				<h4 class="font-semibold">{m.audit_usage_usage_overall_stats()}</h4>
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					{@render summary('Total', totalTokensData?.totalTokens ?? 0)}
+					{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary('Input', totalTokensData?.inputTokens ?? 0)}
+					{@render summary(m.core_col_input(), totalTokensData?.inputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary('Output', totalTokensData?.outputTokens ?? 0)}
+					{@render summary(m.core_col_output(), totalTokensData?.outputTokens ?? 0)}
 					<div class="divider-horizontal hidden md:block"></div>
 					{@render summary(
-						'Cached Input',
+						m.audit_usage_usage_cached_input(),
 						(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
 					)}
 					<div class="divider-horizontal hidden md:block"></div>
-					{@render spendSummary('Spend', totalTokensData?.totalSpend)}
+					{@render spendSummary(m.core_spend(), totalTokensData?.totalSpend)}
 				</div>
 			</div>
 		</div>
@@ -722,7 +727,7 @@
 			class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
 		>
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
-				<p class="text-muted-content w-full text-sm md:w-fit">Filter by:</p>
+				<p class="text-muted-content w-full text-sm md:w-fit">{m.audit_usage_usage_filter_by()}</p>
 				<Select
 					class="dark:border-base-400 border border-transparent"
 					classes={{
@@ -738,9 +743,9 @@
 					id="api-key-select"
 					multiple
 					searchInDropdown
-					placeholder="Filter by API key..."
+					placeholder={m.audit_usage_usage_filter_by_api_key()}
 					buttonReadOnly
-					buttonTitle="API Keys"
+					buttonTitle={m.audit_usage_exports_filter_title_api_keys()}
 					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
@@ -758,9 +763,9 @@
 					id="user-select"
 					multiple
 					searchInDropdown
-					placeholder="Filter by user..."
+					placeholder={m.audit_usage_usage_filter_by_user()}
 					buttonReadOnly
-					buttonTitle="Users"
+					buttonTitle={m.audit_usage_exports_filter_title_users()}
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
 				/>
 				<Select
@@ -778,9 +783,9 @@
 					id="model-select"
 					multiple
 					searchInDropdown
-					placeholder="Filter by model..."
+					placeholder={m.audit_usage_usage_filter_by_model()}
 					buttonReadOnly
-					buttonTitle="Models"
+					buttonTitle={m.audit_usage_usage_models()}
 					displayCount={!!filteredByModel && filteredByModel !== ALL_MODELS}
 				/>
 				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
@@ -791,11 +796,15 @@
 					{#if selectedUserIdsForSelect !== ALL_USERS}
 						{@const userPills = selectedUserIds.map((selectedUser) => ({
 							id: selectedUser,
-							label: getUserDisplayName(usersMap, selectedUser)
+							label: withDisabledMarker(
+								getUserDisplayName(usersMap, selectedUser),
+								usersMap.get(selectedUser)
+							)
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">User:</span>{userPill.label}
+								<span class="font-semibold">{m.audit_usage_audit_logs_user_label()}</span
+								>{userPill.label}
 								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -805,8 +814,9 @@
 					{#if selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
 							<div class="filter-primary">
-								<span class="font-semibold">API Key:</span>{apiKeyOptionsMap.get(apiKeyID) ??
-									`API key #${apiKeyID}`}
+								<span class="font-semibold">{m.audit_usage_audit_logs_model_api_key_label()}</span
+								>{apiKeyOptionsMap.get(apiKeyID) ??
+									m.audit_usage_usage_api_key_number({ id: apiKeyID })}
 								<button class="ml-1" onclick={() => handleRemoveAPIKeyFilter(apiKeyID)}>
 									<X class="size-3" />
 								</button>
@@ -820,7 +830,8 @@
 						}))}
 						{#each modelPills as modelPill (modelPill.id)}
 							<div class="filter-primary">
-								<span class="font-semibold">Model:</span>{modelPill.label}
+								<span class="font-semibold">{m.audit_usage_usage_pill_model()}</span
+								>{modelPill.label}
 								<button class="ml-1" onclick={() => handleRemoveModelFilter(modelPill.id)}>
 									<X class="size-3" />
 								</button>
@@ -854,7 +865,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
 						>
-							API Keys
+							{m.audit_usage_exports_filter_title_api_keys()}
 						</button>
 						<button
 							class={twMerge(
@@ -865,7 +876,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.MODELS)}
 						>
-							Models
+							{m.audit_usage_usage_models()}
 						</button>
 						<button
 							class={twMerge(
@@ -876,7 +887,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.USERS)}
 						>
-							Users
+							{m.audit_usage_exports_filter_title_users()}
 						</button>
 						<button
 							class={twMerge(
@@ -887,7 +898,7 @@
 							)}
 							onclick={() => selectSubview(USAGE_SUBVIEW.SPEND)}
 						>
-							Spend
+							{m.core_spend()}
 						</button>
 					</div>
 					{#if !responsive.isMobile}
@@ -905,7 +916,11 @@
 						class="bg-base-100 dark:border-base-400 border border-transparent"
 						value={subViewSearchQuery}
 						onChange={(value) => (subViewSearchQuery = value)}
-						placeholder={`Search ${selectedSubview === USAGE_SUBVIEW.USERS ? 'users' : selectedSubview === USAGE_SUBVIEW.API_KEYS ? 'API keys' : 'models'}...`}
+						placeholder={selectedSubview === USAGE_SUBVIEW.USERS
+							? m.audit_usage_usage_search_users()
+							: selectedSubview === USAGE_SUBVIEW.API_KEYS
+								? m.audit_usage_usage_search_api_keys()
+								: m.audit_usage_usage_search_models()}
 					/>
 				</div>
 
@@ -917,7 +932,7 @@
 								aria-live="polite"
 							>
 								<Loading class="size-4 animate-spin" />
-								<span>Preparing charts…</span>
+								<span>{m.audit_usage_usage_preparing_charts()}</span>
 							</div>
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -961,10 +976,14 @@
 																	<div class="text-xl font-bold">{formatUSD(value)}</div>
 																	{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 																		<div class="text-muted-content mt-1 text-xs">
-																			Cache read: {formatUSD(item.details?.cacheReadSpend ?? 0)}
+																			{m.audit_usage_usage_cache_read_spend({
+																				spend: formatUSD(item.details?.cacheReadSpend ?? 0)
+																			})}
 																		</div>
 																		<div class="text-muted-content text-xs">
-																			Cache write: {formatUSD(item.details?.cacheWriteSpend ?? 0)}
+																			{m.audit_usage_usage_cache_write_spend({
+																				spend: formatUSD(item.details?.cacheWriteSpend ?? 0)
+																			})}
 																		</div>
 																	{/if}
 																{:else}
@@ -973,23 +992,26 @@
 																	<div class="text-muted-content text-xs">{formatUSD(spend)}</div>
 																	{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 																		<div class="text-muted-content mt-1 text-xs">
-																			Cache read: {(
-																				item.details?.cacheReadTokens ?? 0
-																			).toLocaleString()}
-																			tokens, {formatUSD(item.details?.cacheReadSpend ?? 0)}
+																			{m.audit_usage_usage_cache_read_tokens({
+																				tokens: (
+																					item.details?.cacheReadTokens ?? 0
+																				).toLocaleString(),
+																				spend: formatUSD(item.details?.cacheReadSpend ?? 0)
+																			})}
 																		</div>
 																		<div class="text-muted-content text-xs">
-																			Cache write: {(
-																				item.details?.cacheWriteTokens ?? 0
-																			).toLocaleString()}
-																			tokens, {formatUSD(item.details?.cacheWriteSpend ?? 0)}
+																			{m.audit_usage_usage_cache_write_tokens({
+																				tokens: (
+																					item.details?.cacheWriteTokens ?? 0
+																				).toLocaleString(),
+																				spend: formatUSD(item.details?.cacheWriteSpend ?? 0)
+																			})}
 																		</div>
 																	{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
 																		<div class="text-muted-content mt-1 text-xs">
-																			Thinking: {(
-																				item.details?.thinkingTokens ?? 0
-																			).toLocaleString()}
-																			tokens
+																			{m.audit_usage_usage_thinking_tokens({
+																				tokens: (item.details?.thinkingTokens ?? 0).toLocaleString()
+																			})}
 																		</div>
 																	{/if}
 																{/if}
@@ -1024,7 +1046,9 @@
 																: (item.secondaryTotal ?? 0)}
 														<div class="flex flex-col gap-0 text-xs">
 															<div class="text-sm font-light">
-																{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
+																{item.hoveredPart === 'primary'
+																	? m.audit_usage_usage_input_tokens()
+																	: m.audit_usage_usage_output_tokens()}
 															</div>
 															<div class="text-muted-content">{item.date}</div>
 															<div class="tooltip-divider"></div>
@@ -1047,17 +1071,24 @@
 									aria-live="polite"
 								>
 									<Loading class="size-4 animate-spin" />
-									<span>Loading charts… {visibleChartCount} of {displayGraphItems.length}</span>
+									<span
+										>{m.audit_usage_usage_loading_charts({
+											visible: visibleChartCount,
+											total: displayGraphItems.length
+										})}</span
+									>
 								</div>
 							{/if}
 						{:else}
 							<div class="text-muted-content mx-auto py-12 text-center text-sm font-light">
-								No matches found.
+								{m.audit_usage_usage_no_matches()}
 							</div>
 						{/if}
 					</div>
 				{:else}
-					<div class="text-muted-content mx-auto py-12 text-sm font-light">No data available.</div>
+					<div class="text-muted-content mx-auto py-12 text-sm font-light">
+						{m.audit_usage_usage_no_data_page()}
+					</div>
 				{/if}
 			</div>
 		</div>

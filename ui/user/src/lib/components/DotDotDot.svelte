@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
+	import { m } from '$lib/i18n';
 	import { responsive } from '$lib/stores';
 	import type { Placement } from '@floating-ui/dom';
 	import { EllipsisVertical } from '@lucide/svelte';
@@ -32,7 +33,7 @@
 		onClick,
 		disablePortal,
 		el,
-		ariaLabel = 'Row actions'
+		ariaLabel = m.core_row_actions()
 	}: Props = $props();
 
 	const { tooltip, ref, toggle } = popover({

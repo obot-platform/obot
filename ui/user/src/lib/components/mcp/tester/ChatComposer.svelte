@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import type { MCPTesterChat } from '$lib/services/mcp/tester-chat.svelte';
 	import type { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import StagedContextPreview from './StagedContextPreview.svelte';
@@ -64,20 +65,20 @@
 
 <section
 	class="border-base-300 dark:border-base-400 mt-3 flex max-h-[60%] shrink-0 flex-col border-t pt-3"
-	aria-label="Chat composer"
+	aria-label={m.mcps_tester_chat_composer()}
 >
 	<div class="default-scrollbar-thin min-h-0 overflow-y-auto">
 		<StagedContextPreview {session} />
 	</div>
 	<div class="flex shrink-0 items-end gap-2">
 		<label class="min-w-0 flex-1" for="mcp-tester-chat-message">
-			<span class="sr-only">Message</span>
+			<span class="sr-only">{m.mcps_tester_message()}</span>
 			<textarea
 				id="mcp-tester-chat-message"
 				class="text-input-filled default-scrollbar-thin block w-full resize-none overflow-y-auto leading-6"
 				style="height: {MIN_HEIGHT}px; max-height: {MAX_HEIGHT}px;"
 				rows="1"
-				placeholder="Test this MCP server…"
+				placeholder={m.mcps_tester_chat_placeholder()}
 				bind:value={draft}
 				bind:this={textareaElement}
 				oninput={autoResize}
@@ -86,8 +87,8 @@
 		<button
 			type="button"
 			class={`btn btn-circle shrink-0 ${responding ? 'btn-secondary' : 'btn-primary'}`}
-			aria-label={responding ? 'Stop' : 'Send'}
-			use:tooltip={responding ? 'Stop' : 'Send'}
+			aria-label={responding ? m.mcps_tester_stop() : m.mcps_tester_send()}
+			use:tooltip={responding ? m.mcps_tester_stop() : m.mcps_tester_send()}
 			disabled={!responding && (!chat.canSend || !hasContent)}
 			onclick={() => (responding ? chat.stop() : send())}
 		>
@@ -99,6 +100,6 @@
 		</button>
 	</div>
 	{#if stagedEndsWithAssistant && !draft.trim()}
-		<p class="mt-2 text-xs text-warning">Add a user message to continue this staged prompt.</p>
+		<p class="mt-2 text-xs text-warning">{m.mcps_tester_add_user_message()}</p>
 	{/if}
 </section>

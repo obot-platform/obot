@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup } from '$lib/services';
 	import Search from '../Search.svelte';
@@ -21,7 +22,7 @@
 		excludeIds,
 		subtitle,
 		pageSize = 50,
-		placeholder = 'Search groups...'
+		placeholder = m.identity_access_groups_search()
 	}: Props = $props();
 
 	let query = $state('');
@@ -125,8 +126,7 @@
 		>
 			<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 			<span>
-				Showing only groups Obot has already recorded. Obot could not list your identity provider's
-				directory &mdash; directory-wide group read permission may not be granted.
+				{m.identity_access_groups_degraded()}
 			</span>
 		</div>
 	{/if}
@@ -146,10 +146,12 @@
 				<Loading class="size-6" />
 			</div>
 		{:else if errored}
-			<p class="text-muted-content py-8 text-center text-sm">Failed to load groups. Try again.</p>
+			<p class="text-muted-content py-8 text-center text-sm">
+				{m.identity_access_groups_load_failed()}
+			</p>
 		{:else if visibleGroups.length === 0}
 			<p class="text-muted-content py-8 text-center text-sm">
-				{query ? 'No groups found matching your search.' : 'No groups available.'}
+				{query ? m.identity_access_groups_no_match() : m.identity_access_groups_none()}
 			</p>
 		{:else}
 			<div class="flex flex-col gap-2">

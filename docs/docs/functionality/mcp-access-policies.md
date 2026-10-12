@@ -1,43 +1,26 @@
 ---
+displayed_sidebar: sidebar
 title: MCP Access Policies
 ---
 
-## Overview
+For the current task-based instructions, see [Control server and tool access](../mcp-gateway/access.md). This page preserves existing bookmarks.
 
-MCP Access Policies control which MCP servers are available to which users. Administrators use access policies to map server entries from the MCP Servers page to specific users and groups, ensuring each team has access to the tools they need.
+## Overview {#overview}
 
-To manage access policies, go to **MCP Management > MCP Access Policies** in the MCP Platform.
+Continue to [Overview](../mcp-gateway/access.md#mcp-access-policies-overview).
 
-## Default Access
+## Default Access {#default-access}
 
-By default, there's an "everyone" group that's assigned to all users. This means anyone that logs into Obot will have access to all MCP servers that are covered by an access policy that includes the "everyone" group.
+Continue to [Default Access](../mcp-gateway/access.md#mcp-access-policies-default-access).
 
-If this default behavior is not what you want, you can restrict access to specific users or groups, or remove the "everyone" group entirely. However, it's recommended that administrators at least should have access to all servers.
+## Creating an Access Policy {#creating-an-access-policy}
 
-## Creating an Access Policy
+Continue to [Creating an Access Policy](../mcp-gateway/access.md#mcp-access-policies-creating-an-access-policy).
 
-To create a new access policy:
+## Example: Marketing Team Access Policy {#example-marketing-team-access-policy}
 
-1. Click the **Add Access Policy** button in the MCP Access Policies section
-2. Give your access policy a name
-3. Assign users and groups to the access policy
-4. Add the MCP servers that this access policy should include
+Continue to [Example: Marketing Team Access Policy](../mcp-gateway/access.md#mcp-access-policies-example-marketing-team-access-policy).
 
-## Example: Marketing Team Access Policy
+## Related {#related}
 
-For instance, if you were creating an access policy for a marketing team:
-
-1. Create a new access policy named "Marketing Team"
-2. Assign your marketing team members, either individually or through an existing group
-3. Add relevant MCP servers such as:
-   - Email tools
-   - Google Calendar
-   - Google Sheets
-   - CRM systems
-   - Other tools your marketing team needs for their day-to-day work
-
-This approach ensures that each team only has access to the tools they need while maintaining security and organization.
-
-## Related
-
-For programmatic discovery of available servers and how to contribute servers to Obot's default set, see [MCP Registry API](./mcp-registry-api.md).
+Continue to [Related](../mcp-gateway/access.md#mcp-access-policies-related).

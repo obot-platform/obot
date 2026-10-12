@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { isWebURL } from '$lib/url';
 	import { Unplug } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -20,8 +21,7 @@
 		class: className
 	}: Props = $props();
 	let acceptingOwnership = $state(false);
-	const explanation =
-		'This entry was removed from its Git catalog. Obot retained it to avoid disrupting deployments. It remains read-only and will resume Git synchronization if restored upstream. Accept ownership to manage it in Obot.';
+	const explanation = m.mcps_servers_detached_explanation();
 
 	async function acceptOwnership() {
 		if (!onAcceptOwnership || acceptingOwnership) return;
@@ -44,7 +44,7 @@
 		>
 			<Unplug class="text-warning mt-0.5 size-4 shrink-0" />
 			<div class="min-w-0 flex-1 text-sm">
-				<p class="font-medium">Detached from Git</p>
+				<p class="font-medium">{m.mcps_servers_detached_from_git()}</p>
 				<p class="text-muted-content">{explanation}</p>
 				{#if sourceURL}
 					{#if isWebURL(sourceURL)}
@@ -54,10 +54,12 @@
 							rel="external noopener noreferrer"
 							class="text-link mt-1 inline-block"
 						>
-							View original Git source
+							{m.mcps_servers_detached_view_source()}
 						</a>
 					{:else}
-						<p class="text-muted-content mt-1 text-xs break-all">Original source: {sourceURL}</p>
+						<p class="text-muted-content mt-1 text-xs break-all">
+							{m.mcps_servers_detached_original_source({ url: sourceURL })}
+						</p>
 					{/if}
 				{/if}
 			</div>
@@ -67,7 +69,9 @@
 					onclick={acceptOwnership}
 					disabled={acceptingOwnership}
 				>
-					{acceptingOwnership ? 'Accepting...' : 'Accept ownership'}
+					{acceptingOwnership
+						? m.mcps_servers_detached_accepting()
+						: m.mcps_servers_detached_accept_ownership()}
 				</button>
 			{/if}
 		</div>
@@ -77,7 +81,7 @@
 			use:tooltip={{ text: explanation, classes: ['w-sm'] }}
 		>
 			<Unplug class="size-3" />
-			Detached
+			{m.mcps_servers_detached_badge()}
 		</span>
 	{/if}
 {/if}

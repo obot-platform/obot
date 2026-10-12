@@ -5,6 +5,7 @@
 	import MCPTunnelForm from '$lib/components/admin/MCPTunnelForm.svelte';
 	import MCPTunnelSecretRevealDialog from '$lib/components/admin/MCPTunnelSecretRevealDialog.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type MCPTunnel, type TunnelConnection } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -30,7 +31,9 @@
 	let refreshingConnections = false;
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
-	let title = $derived(mcpTunnel?.manifest.displayName?.trim() || mcpTunnel?.id || 'MCP Tunnel');
+	let title = $derived(
+		mcpTunnel?.manifest.displayName?.trim() || mcpTunnel?.id || m.mcps_tunnels_mcp_tunnel()
+	);
 	let tunnelConnection = $derived(
 		tunnelConnections?.find((connection) => connection.name === mcpTunnel?.id)
 	);
@@ -95,7 +98,7 @@
 		deleting = true;
 		try {
 			await AdminService.deleteMCPTunnel(mcpTunnel.id);
-			success.add('MCP tunnel deleted successfully.');
+			success.add(m.mcps_tunnels_tunnel_deleted());
 			goto('/mcp-servers?view=tunnels');
 		} finally {
 			deleting = false;
@@ -117,7 +120,7 @@
 					readonly={isReadonly}
 					onUpdate={(updated) => {
 						mcpTunnel = updated;
-						success.add('MCP tunnel updated successfully.');
+						success.add(m.mcps_tunnels_tunnel_updated());
 					}}
 					onDelete={() => {
 						showDeleteConfirm = true;
@@ -132,8 +135,8 @@
 </Layout>
 
 <Confirm
-	msg={`Delete ${title}?`}
-	note="The tunnel cannot be deleted while any MCP catalog entries use it. If deleted, its active connection will be disconnected."
+	msg={m.mcps_delete_named({ name: title })}
+	note={m.mcps_tunnels_delete_tunnel_note()}
 	show={showDeleteConfirm}
 	loading={deleting}
 	onsuccess={deleteTunnel}
@@ -141,13 +144,13 @@
 />
 
 <Confirm
-	title="Rotate MCP Tunnel Secret"
+	title={m.mcps_tunnels_rotate_tunnel_secret_title()}
 	type="info"
-	msg={`Rotate the secret for ${title}?`}
-	note="The current secret will stop working immediately and any active connection will be disconnected."
+	msg={m.mcps_tunnels_rotate_secret_for({ name: title })}
+	note={m.mcps_tunnels_rotate_secret_note()}
 	show={showRotateConfirm}
 	loading={rotating}
-	submitText="Rotate Secret"
+	submitText={m.mcps_tunnels_rotate_secret()}
 	onsuccess={rotateSecret}
 	oncancel={() => (showRotateConfirm = false)}
 />

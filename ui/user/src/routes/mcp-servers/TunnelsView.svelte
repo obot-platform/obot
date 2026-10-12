@@ -6,6 +6,7 @@
 	import MCPTunnelSecretRevealDialog from '$lib/components/admin/MCPTunnelSecretRevealDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { AdminService, type MCPTunnel, type TunnelConnection } from '$lib/services';
 	import { mcpTunnelConnections, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -42,7 +43,12 @@
 				allowedURLs: tunnel.manifest.allowedURLs?.join(', ') || '-',
 				connection,
 				displayName: tunnel.manifest.displayName?.trim() || tunnel.id,
-				status: connections === undefined ? 'Unknown' : connection ? 'Connected' : 'Disconnected'
+				status:
+					connections === undefined
+						? m.core_unknown()
+						: connection
+							? m.core_mcp_value_connected()
+							: m.mcps_tunnels_disconnected()
 			};
 		});
 	});
@@ -73,33 +79,31 @@
 {:else if localTunnels.length === 0}
 	<div class="mx-auto mt-12 flex w-md max-w-full flex-col items-center gap-4 text-center">
 		<Cable class="text-muted-content size-24 opacity-25" />
-		<h2 class="text-muted-content text-lg font-semibold">No MCP tunnels</h2>
+		<h2 class="text-muted-content text-lg font-semibold">{m.mcps_tunnels_no_mcp_tunnels()}</h2>
 		<p class="text-muted-content text-sm font-light">
-			MCP tunnels let Obot securely connect to private MCP servers that are not directly reachable
-			from Obot's network. You run a lightweight <code class="font-mono">obot tunnel</code>
-			process on the private network and it opens an authenticated outbound connection to Obot.
+			{m.mcps_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
+			{m.mcps_tunnels_description_suffix()}
 		</p>
 		{#if !isReadonly}
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={createTunnel}>
 				<Plus class="size-4" />
-				Create MCP Tunnel
+				{m.mcps_tunnels_create_mcp_tunnel()}
 			</button>
 		{/if}
 	</div>
 {:else}
 	<div class="flex flex-col gap-6">
 		<p class="text-muted-content text-sm">
-			MCP tunnels let Obot securely connect to private MCP servers that are not directly reachable
-			from Obot's network. You run a lightweight <code class="font-mono">obot tunnel</code>
-			process on the private network and it opens an authenticated outbound connection to Obot.
+			{m.mcps_tunnels_description_prefix()} <code class="font-mono">obot tunnel</code>
+			{m.mcps_tunnels_description_suffix()}
 		</p>
 		<Table
 			data={tableData}
 			fields={['displayName', 'status', 'allowedURLs']}
 			headers={[
-				{ title: 'Name', property: 'displayName' },
-				{ title: 'Status', property: 'status' },
-				{ title: 'Allowed URLs', property: 'allowedURLs' }
+				{ title: m.core_name(), property: 'displayName' },
+				{ title: m.core_status(), property: 'status' },
+				{ title: m.mcps_tunnels_allowed_urls(), property: 'allowedURLs' }
 			]}
 			filterable={['displayName', 'status']}
 			sortable={['displayName', 'status']}
@@ -115,7 +119,7 @@
 							event.stopPropagation();
 							tunnelToDelete = tunnel;
 						}}
-						tooltip={{ text: 'Delete Tunnel' }}
+						tooltip={{ text: m.mcps_tunnels_delete_tunnel() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -140,8 +144,12 @@
 {/if}
 
 <Confirm
-	msg={`Delete ${tunnelToDelete?.manifest.displayName || tunnelToDelete?.id || 'this tunnel'}?`}
-	note="The tunnel cannot be deleted while any MCP catalog entries use it. If deleted, its active connection will be disconnected."
+	msg={tunnelToDelete?.manifest.displayName || tunnelToDelete?.id
+		? m.mcps_delete_named({
+				name: tunnelToDelete.manifest.displayName || tunnelToDelete.id
+			})
+		: m.mcps_tunnels_delete_this_tunnel()}
+	note={m.mcps_tunnels_delete_tunnel_note()}
 	show={Boolean(tunnelToDelete)}
 	loading={deleting}
 	onsuccess={async () => {
@@ -151,7 +159,7 @@
 			await AdminService.deleteMCPTunnel(tunnelToDelete.id);
 			localTunnels = localTunnels.filter((tunnel) => tunnel.id !== tunnelToDelete?.id);
 			mcpTunnels = localTunnels;
-			success.add('MCP tunnel deleted successfully.');
+			success.add(m.mcps_tunnels_tunnel_deleted());
 			tunnelToDelete = undefined;
 		} finally {
 			deleting = false;

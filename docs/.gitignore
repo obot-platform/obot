@@ -7,6 +7,9 @@
 # Generated files
 .docusaurus
 .cache-loader
+/playwright-report
+/test-results
+/.wrangler
 
 # Misc
 .DS_Store

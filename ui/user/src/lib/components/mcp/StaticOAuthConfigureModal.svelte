@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 	import Confirm from '../Confirm.svelte';
@@ -67,7 +68,7 @@
 
 		// Credentials cannot be updated once configured - must delete and recreate
 		if (oauthStatus?.configured) {
-			error = 'Credentials already configured. Clear credentials first to change them.';
+			error = m.mcps_oauth_static_oauth_already_configured();
 			return;
 		}
 
@@ -85,7 +86,7 @@
 			});
 			dialog?.close();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save OAuth credentials';
+			error = err instanceof Error ? err.message : m.mcps_oauth_static_oauth_save_failed();
 		} finally {
 			loading = false;
 		}
@@ -99,7 +100,7 @@
 			showDeleteConfirm = false;
 			dialog?.close();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to delete OAuth credentials';
+			error = err instanceof Error ? err.message : m.mcps_oauth_static_oauth_delete_failed();
 		} finally {
 			loading = false;
 		}
@@ -120,7 +121,7 @@
 	bind:this={dialog}
 	{onOpen}
 	{onClose}
-	title="Configure Static OAuth"
+	title={m.mcps_oauth_static_oauth_title()}
 	classes={{ header: 'p-4 pb-0', content: 'p-0' }}
 >
 	<form
@@ -141,19 +142,19 @@
 
 		{#if oauthStatus?.configured}
 			<p class="text-muted-content text-sm font-light">
-				OAuth credentials are configured. To change the client ID or secret, clear the credentials
-				and re-enter all values.
+				{m.mcps_oauth_static_oauth_configured_description()}
 			</p>
 		{:else}
 			<p class="text-muted-content text-sm font-light">
-				This remote MCP server requires OAuth configuration. Provide the client ID and, for a
-				confidential client, its client secret.
+				{m.mcps_oauth_static_oauth_required_description()}
 			</p>
 		{/if}
 
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label for="clientID" class:text-error={showRequired && !form.clientID}> Client ID </label>
+				<label for="clientID" class:text-error={showRequired && !form.clientID}>
+					{m.mcps_oauth_static_oauth_client_id()}
+				</label>
 				<input
 					type="text"
 					id="clientID"
@@ -168,7 +169,7 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for="clientSecret">Client Secret (optional)</label>
+				<label for="clientSecret">{m.mcps_oauth_static_oauth_client_secret_optional()}</label>
 				<SensitiveInput
 					name="clientSecret"
 					bind:value={form.clientSecret}
@@ -192,7 +193,7 @@
 				disabled={loading}
 			>
 				<Trash2 class="size-4" />
-				Clear Credentials
+				{m.mcps_oauth_static_oauth_clear_credentials()}
 			</button>
 		{:else}
 			<div></div>
@@ -202,17 +203,17 @@
 			<div class="flex gap-2">
 				{#if showSkip}
 					<button type="button" class="btn btn-secondary" onclick={handleSkip} disabled={loading}>
-						Skip
+						{m.mcps_skip()}
 					</button>
 				{/if}
 				<button type="button" class="btn btn-secondary" onclick={handleCancel} disabled={loading}>
-					Cancel
+					{m.common_cancel()}
 				</button>
 				<button type="button" class="btn btn-primary" onclick={handleSave} disabled={loading}>
 					{#if loading}
 						<Loading class="size-4" />
 					{:else}
-						Save
+						{m.core_save()}
 					{/if}
 				</button>
 			</div>
@@ -222,7 +223,7 @@
 
 <Confirm
 	show={showDeleteConfirm}
-	msg="Are you sure you want to clear the OAuth credentials? Users will not be able to connect to this server until new credentials are configured."
+	msg={m.mcps_oauth_static_oauth_clear_confirm()}
 	onsuccess={handleDelete}
 	oncancel={() => {
 		showDeleteConfirm = false;

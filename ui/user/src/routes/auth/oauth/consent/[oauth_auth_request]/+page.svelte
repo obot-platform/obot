@@ -7,6 +7,7 @@
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { HttpError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { UserService, type OAuthConsent } from '$lib/services';
 	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
@@ -66,7 +67,7 @@
 	const details = $derived.by((): DetailRow[] => {
 		const rows: DetailRow[] = [
 			{
-				label: 'Application',
+				label: m.auth_consent_application(),
 				type: 'text',
 				value: consent.clientName,
 				valueClass: 'wrap-break-word font-medium'
@@ -74,44 +75,50 @@
 		];
 
 		if (consent.clientURI) {
-			rows.push({ label: 'Application URL', type: 'link', value: consent.clientURI });
+			rows.push({
+				label: m.auth_consent_application_url(),
+				type: 'link',
+				value: consent.clientURI
+			});
 		}
 
 		rows.push({
-			label: 'OAuth client',
+			label: m.auth_consent_oauth_client(),
 			type: 'text',
 			value: clientCredentialSourceLabel,
 			valueClass: 'wrap-break-word'
 		});
 
 		rows.push({
-			label: 'Redirect URL',
+			label: m.auth_consent_redirect_url(),
 			type: 'text',
 			value: consent.redirectURI,
 			valueClass: 'break-all'
 		});
 
 		if (scopes.length) {
-			rows.push({ label: 'Scopes', type: 'scopes', values: scopes });
+			rows.push({ label: m.auth_consent_scopes(), type: 'scopes', values: scopes });
 		}
 
 		if (consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed) {
 			rows.push({
-				label: 'MCP server',
+				label: m.auth_consent_mcp_server(),
 				type: 'text',
 				value: consent.mcpServerName ?? '',
 				valueClass: 'wrap-break-word'
 			});
 			rows.push({
-				label: 'Third-party OAuth',
+				label: m.auth_consent_third_party_oauth(),
 				type: 'text',
-				value: consent.userHasSecondLevelOAuthed ? 'Already authorized' : 'Authorization required',
+				value: consent.userHasSecondLevelOAuthed
+					? m.auth_consent_already_authorized()
+					: m.auth_consent_authorization_required(),
 				valueClass: 'wrap-break-word'
 			});
 
 			if (consent.mcpServerURL) {
 				rows.push({
-					label: 'MCP URL',
+					label: m.auth_consent_mcp_url(),
 					type: 'text',
 					value: consent.mcpServerURL,
 					valueClass: 'break-all'
@@ -120,7 +127,7 @@
 
 			if (consent.thirdPartyAuthURL) {
 				rows.push({
-					label: 'OAuth URL',
+					label: m.auth_consent_oauth_url(),
 					type: 'text',
 					value: consent.thirdPartyAuthURL,
 					valueClass: 'break-all'
@@ -129,11 +136,15 @@
 		}
 
 		if (consent.policyURI) {
-			rows.push({ label: 'Privacy policy', type: 'link', value: consent.policyURI });
+			rows.push({
+				label: m.auth_consent_privacy_policy(),
+				type: 'link',
+				value: consent.policyURI
+			});
 		}
 
 		if (consent.tosURI) {
-			rows.push({ label: 'Terms', type: 'link', value: consent.tosURI });
+			rows.push({ label: m.auth_consent_terms(), type: 'link', value: consent.tosURI });
 		}
 
 		return rows;
@@ -242,7 +253,7 @@
 			}
 		} catch (_err) {
 			configureForm = undefined;
-			configError = 'Failed to load current MCP server configuration.';
+			configError = m.auth_consent_load_config_failed();
 		} finally {
 			loadingConfig = false;
 		}
@@ -319,14 +330,13 @@
 			currentConsent = nextConsent;
 			if (nextConsent.mcpConfigRequired) {
 				await loadMCPConfiguration(nextConsent);
-				configError =
-					'Configuration was saved, but additional required configuration is still missing.';
+				configError = m.auth_consent_config_still_missing();
 			} else {
 				configureForm = undefined;
 				configDialog?.close();
 			}
 		} catch (err) {
-			configError = err instanceof Error ? err.message : 'Failed to save MCP server configuration.';
+			configError = err instanceof Error ? err.message : m.auth_consent_save_config_failed();
 		} finally {
 			savingConfig = false;
 		}
@@ -335,19 +345,19 @@
 	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
 		switch (source) {
 			case 'client_id_metadata_document':
-				return 'Client ID Metadata Document';
+				return m.auth_consent_source_cimd();
 			case 'static_client_credentials':
-				return 'Static client credentials';
+				return m.auth_consent_source_static();
 			case 'dynamic_client':
-				return 'Dynamic client';
+				return m.auth_consent_source_dynamic();
 			default:
-				return 'Unknown';
+				return m.core_unknown();
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Authorize OAuth Access</title>
+	<title>{m.auth_consent_page_title()}</title>
 </svelte:head>
 
 <div class="bg-base-200 dark:bg-base-100 flex min-h-screen items-center justify-center p-4">
@@ -355,8 +365,10 @@
 		<BetaLogo class="self-center mt-6" />
 		<h1 class="text-xl font-semibold text-center px-4">
 			{requiresMCPConfiguration
-				? `Configure ${consent.mcpServerName || 'MCP server'}`
-				: `Authorize ${consent.clientName}`}
+				? m.auth_consent_configure_named({
+						name: consent.mcpServerName || m.auth_consent_mcp_server()
+					})
+				: m.auth_consent_authorize_named({ name: consent.clientName })}
 		</h1>
 
 		{#if requiresMCPConfiguration}
@@ -366,8 +378,9 @@
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
-						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required configuration
-						before Obot can finish authorizing this connection.
+						<b class="font-semibold"
+							>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
+						>{m.auth_consent_needs_config_suffix()}
 					</p>
 				</div>
 
@@ -384,12 +397,13 @@
 						<ShieldAlertIcon class="size-5 shrink-0" />
 						<p class="min-w-0 text-sm">
 							{#if consent.mcpAuthRequired}
-								<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its
-								own third-party OAuth authorization. You will be redirected to the third-party OAuth provider
-								to complete the authorization.
+								<b class="font-semibold"
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
+								>{m.auth_consent_requires_oauth_redirect_suffix()}
 							{:else if consent.userHasSecondLevelOAuthed}
-								<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> requires its
-								own third-party OAuth authorization, and you have already authorized it.
+								<b class="font-semibold"
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server_capitalized()}</b
+								>{m.auth_consent_requires_oauth_authorized_suffix()}
 							{/if}
 						</p>
 					</div>
@@ -404,8 +418,9 @@
 							class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
 						>
 							<p class="text-muted-content min-w-0 text-xs">
-								You can update the configuration for
-								<b class="font-semibold">{consent.mcpServerName || 'this MCP server'}</b>
+								{m.auth_consent_update_config_prefix()}<b class="font-semibold"
+									>{consent.mcpServerName || m.auth_consent_this_mcp_server()}</b
+								>{m.auth_consent_update_config_suffix()}
 							</p>
 							<button
 								class="btn btn-text btn-sm flex shrink-0 items-center gap-2"
@@ -414,7 +429,7 @@
 								disabled={loadingConfig || savingConfig}
 							>
 								<SettingsIcon class="size-3.5" />
-								{loadingConfig ? 'Loading...' : 'Configure'}
+								{loadingConfig ? m.auth_loading() : m.auth_configure()}
 							</button>
 						</div>
 					</div>
@@ -425,8 +440,7 @@
 				{/if}
 
 				<p class="text-sm">
-					{consent.clientName} wants to authenticate with Obot for an MCP server connection. If you approve,
-					Obot will redirect you back to the OAuth client that started this request.
+					{m.auth_consent_wants_to_authenticate({ client: consent.clientName })}
 				</p>
 
 				<div>
@@ -435,7 +449,7 @@
 						name="more-details-content"
 					>
 						<summary class="collapse-title text-muted-content text-xs font-medium"
-							>See details</summary
+							>{m.auth_consent_see_details()}</summary
 						>
 
 						<div class="collapse-content space-y-3 overflow-y-auto default-scrollbar-thin max-h-64">
@@ -476,7 +490,9 @@
 			)}
 		>
 			<form method="POST" action={resolve(consent.cancelURL as `/${string}`)}>
-				<button class="btn btn-text w-full" type="submit" disabled={savingConfig}>Cancel</button>
+				<button class="btn btn-text w-full" type="submit" disabled={savingConfig}
+					>{m.common_cancel()}</button
+				>
 			</form>
 			{#if requiresMCPConfiguration}
 				<button
@@ -486,7 +502,7 @@
 					disabled={loadingConfig || savingConfig}
 				>
 					<SettingsIcon class="size-4" />
-					{loadingConfig ? 'Loading...' : 'Configure'}
+					{loadingConfig ? m.auth_loading() : m.auth_configure()}
 				</button>
 			{:else}
 				<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
@@ -495,7 +511,7 @@
 						type="submit"
 						disabled={loadingConfig || savingConfig}
 					>
-						Continue
+						{m.core_continue()}
 					</button>
 				</form>
 			{/if}
@@ -506,15 +522,15 @@
 <CatalogConfigureForm
 	bind:this={configDialog}
 	bind:form={configureForm}
-	name={consent.mcpServerName || 'MCP server'}
+	name={consent.mcpServerName || m.auth_consent_mcp_server()}
 	onSave={saveMCPConfiguration}
 	onCancel={() => configDialog?.close()}
 	loading={savingConfig}
 	error={configError}
 	{deprecated}
 	showComponentToggle={false}
-	cancelText="Close"
-	submitText="Save"
-	configurationTitle="MCP Server Configuration"
+	cancelText={m.core_close()}
+	submitText={m.core_save()}
+	configurationTitle={m.auth_consent_mcp_server_configuration()}
 	disableOutsideClick
 />

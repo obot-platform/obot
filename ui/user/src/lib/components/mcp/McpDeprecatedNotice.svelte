@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -22,8 +23,6 @@
 	let { item, deprecated, variant = 'badge', child = false, class: className }: Props = $props();
 
 	let isDeprecated = $derived(deprecated ?? isDeprecatedMCPServer(item));
-	let subject = $derived(child ? 'component server' : 'server');
-	let replacement = $derived(child ? 'component' : 'server');
 </script>
 
 {#if isDeprecated}
@@ -36,10 +35,15 @@
 		>
 			<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
 			<div class="text-sm">
-				<p class="font-medium">This {subject} is deprecated.</p>
+				<p class="font-medium">
+					{child
+						? m.mcps_servers_deprecated_component_title()
+						: m.mcps_servers_deprecated_server_title()}
+				</p>
 				<p class="text-muted-content">
-					It may stop receiving updates or be removed in a future catalog release. Use a replacement
-					{replacement} when possible.
+					{child
+						? m.mcps_servers_deprecated_component_description()
+						: m.mcps_servers_deprecated_server_description()}
 				</p>
 			</div>
 		</div>
@@ -48,7 +52,7 @@
 			class={twMerge('badge badge-xs border-warning text-warning gap-1 bg-warning/10', className)}
 		>
 			<TriangleAlert class="size-3" />
-			Deprecated
+			{m.common_deprecated()}
 		</span>
 	{/if}
 {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
@@ -69,15 +70,14 @@
 	>
 		<h4 class="text-sm font-semibold">
 			{urlTemplateVariables
-				? 'URL Template Variables'
+				? m.mcps_catalog_custom_config_url_template_variables()
 				: serverUserType === 'singleUser'
-					? 'User Supplied Configuration'
-					: 'Configuration'}
+					? m.mcps_catalog_custom_config_user_supplied()
+					: m.mcps_catalog_config_heading()}
 		</h4>
 		{#if urlTemplateVariables}
 			<p class="text-muted-content text-xs font-light">
-				Define the ${'{VARIABLE}'} placeholders in the URL template. Users provide a value for each variable
-				during setup.
+				{m.mcps_catalog_custom_config_url_template_description({ placeholder: '${VARIABLE}' })}
 			</p>
 		{/if}
 
@@ -91,15 +91,15 @@
 					<div class="flex w-full flex-col gap-4">
 						{#if !urlTemplateVariables}
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+								<label for={`env-type-${i}`} class="text-sm font-light">{m.core_type()}</label>
 								<Select
 									class="dark:border-base-400 bg-base-100 border border-transparent"
 									classes={{
 										root: 'flex grow'
 									}}
 									options={[
-										{ label: 'Environment Variable', id: 'environment_variable_type' },
-										{ label: 'File', id: 'file_type' }
+										{ label: m.mcps_catalog_config_usage_env(), id: 'environment_variable_type' },
+										{ label: m.mcps_catalog_config_usage_file(), id: 'file_type' }
 									]}
 									disabled={readonly || isPrebuiltEntry}
 									selected={config![i].file ? 'file_type' : 'environment_variable_type'}
@@ -116,17 +116,13 @@
 
 							<p class="text-muted-content text-xs font-light">
 								{#if config![i].file}
-									The value {serverUserType === 'singleUser' ? 'the user supplies' : 'you provide'} will
-									be written to a file. An environment variable will be created using the name you specify
-									in the Key field and its value will be the path to that file. This environment variable
-									will be set inside your deployment and you can reference it in the arguments section
-									above using the syntax ${'{KEY_NAME}'}.
+									{serverUserType === 'singleUser'
+										? m.mcps_catalog_custom_config_file_help_user({ syntax: '${KEY_NAME}' })
+										: m.mcps_catalog_custom_config_file_help_admin({ syntax: '${KEY_NAME}' })}
 								{:else}
 									{serverUserType === 'singleUser'
-										? 'The value the user supplies'
-										: 'The value you provide'} will be set as an environment variable using the name you
-									specify in the Key field. This environment variable will be set inside your deployment
-									and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
+										? m.mcps_catalog_custom_config_env_help_user({ syntax: '${KEY_NAME}' })
+										: m.mcps_catalog_custom_config_env_help_admin({ syntax: '${KEY_NAME}' })}
 								{/if}
 							</p>
 						{/if}
@@ -185,10 +181,10 @@
 				>
 					<Plus class="size-4" />
 					{urlTemplateVariables
-						? 'URL Variable'
+						? m.mcps_catalog_custom_config_url_variable()
 						: serverUserType === 'singleUser'
-							? 'User Configuration'
-							: 'Configuration'}
+							? m.mcps_catalog_custom_config_user_configuration()
+							: m.mcps_catalog_config_heading()}
 				</button>
 			</div>
 		{/if}
@@ -200,7 +196,7 @@
 	<div
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
-		<h4 class="text-sm font-semibold">Secret-bound Configuration</h4>
+		<h4 class="text-sm font-semibold">{m.mcps_catalog_custom_config_secret_bound()}</h4>
 
 		{#each allSecretBound as { item, source }, sbIdx (`${source}:${item.key}`)}
 			<div
@@ -208,17 +204,21 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">Type</label>
+						<label for={`sb-${sbIdx}-type`} class="text-sm font-light">{m.core_type()}</label>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-type`}
-							value={source === 'header' ? 'Header' : item.file ? 'File' : 'Environment Variable'}
+							value={source === 'header'
+								? m.mcps_config_usage_header()
+								: item.file
+									? m.mcps_catalog_config_usage_file()
+									: m.mcps_catalog_config_usage_env()}
 							disabled
 						/>
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">Name</label>
+						<label for={`sb-${sbIdx}-name`} class="text-sm font-light">{m.core_name()}</label>
 						<input
 							class={inputClass}
 							id={`sb-${sbIdx}-name`}
@@ -229,7 +229,9 @@
 
 					{#if item.description}
 						<div class="flex w-full flex-col gap-1">
-							<label for={`sb-${sbIdx}-description`} class="text-sm font-light">Description</label>
+							<label for={`sb-${sbIdx}-description`} class="text-sm font-light"
+								>{m.core_description()}</label
+							>
 							<input
 								class={inputClass}
 								id={`sb-${sbIdx}-description`}
@@ -240,13 +242,15 @@
 					{/if}
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`sb-${sbIdx}-key`} class="text-sm font-light">Key</label>
+						<label for={`sb-${sbIdx}-key`} class="text-sm font-light">{m.mcps_field_key()}</label>
 						<input class={inputClass} id={`sb-${sbIdx}-key`} value={item.key} disabled />
 					</div>
 
 					{#if item.secretBinding?.name && item.secretBinding?.key}
 						<div class="flex w-full flex-col gap-1">
-							<label for={`sb-${sbIdx}-secret`} class="text-sm font-light">Secret</label>
+							<label for={`sb-${sbIdx}-secret`} class="text-sm font-light"
+								>{m.mcps_catalog_secret_label()}</label
+							>
 							<input
 								class={twMerge(inputClass, 'font-mono')}
 								id={`sb-${sbIdx}-secret`}
@@ -258,16 +262,16 @@
 
 					<div class="flex flex-wrap gap-2">
 						{#if item.sensitive}
-							<span class="badge badge-secondary badge-xs">sensitive</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_sensitive()}</span>
 						{/if}
 						{#if item.required}
-							<span class="badge badge-secondary badge-xs">required</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_required()}</span>
 						{/if}
 						{#if source === 'env' && item.file}
-							<span class="badge badge-secondary badge-xs">file</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_file()}</span>
 						{/if}
 						{#if source === 'env' && item.dynamicFile}
-							<span class="badge badge-secondary badge-xs">dynamic</span>
+							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_dynamic()}</span>
 						{/if}
 					</div>
 				</div>

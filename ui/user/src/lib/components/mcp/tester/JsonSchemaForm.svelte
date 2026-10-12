@@ -1,5 +1,6 @@
 <script lang="ts">
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
+	import { m } from '$lib/i18n';
 	import JsonSchemaField from './JsonSchemaField.svelte';
 	import {
 		defaultJSONSchemaValue,
@@ -55,7 +56,7 @@
 			formValue = JSON.parse(next) as unknown;
 			rawParseError = undefined;
 		} catch (error) {
-			rawParseError = error instanceof Error ? error.message : 'Invalid JSON';
+			rawParseError = error instanceof Error ? error.message : m.mcps_tester_invalid_json();
 		}
 	}
 
@@ -65,14 +66,14 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex flex-wrap items-center gap-2" aria-label="Argument input mode">
+	<div class="flex flex-wrap items-center gap-2" aria-label={m.mcps_tester_argument_input_mode()}>
 		{#if generatedSupported}
 			<button
 				type="button"
 				class="btn btn-sm"
 				class:btn-primary={mode === 'form'}
 				class:btn-ghost={mode !== 'form'}
-				onclick={() => setMode('form')}>Generated form</button
+				onclick={() => setMode('form')}>{m.mcps_tester_generated_form()}</button
 			>
 		{/if}
 		<button
@@ -80,7 +81,7 @@
 			class="btn btn-sm"
 			class:btn-primary={mode === 'raw'}
 			class:btn-ghost={mode !== 'raw'}
-			onclick={() => setMode('raw')}>Raw JSON</button
+			onclick={() => setMode('raw')}>{m.mcps_tester_raw_json()}</button
 		>
 	</div>
 
@@ -88,14 +89,16 @@
 		<JsonSchemaField
 			{schema}
 			value={formValue}
-			label="Arguments"
+			label={m.mcps_runtime_arguments()}
 			path="arguments"
 			required
 			{disabled}
 			onchange={(value) => (formValue = value)}
 		/>
 	{:else}
-		<label for="mcp-tester-raw-arguments" class="block text-sm font-medium">Arguments JSON</label>
+		<label for="mcp-tester-raw-arguments" class="block text-sm font-medium"
+			>{m.mcps_tester_arguments_json()}</label
+		>
 		<textarea
 			id="mcp-tester-raw-arguments"
 			class="text-input-filled min-h-40 w-full font-mono text-sm"
@@ -106,9 +109,14 @@
 	{/if}
 
 	{#if rawParseError}
-		<p class="text-sm text-error" role="alert">Invalid JSON: {rawParseError}</p>
+		<p class="text-sm text-error" role="alert">
+			{m.mcps_tester_invalid_json_error({ error: rawParseError })}
+		</p>
 	{:else if validationErrors.length}
-		<ul class="list-disc space-y-1 pl-5 text-sm text-error" aria-label="Argument validation errors">
+		<ul
+			class="list-disc space-y-1 pl-5 text-sm text-error"
+			aria-label={m.mcps_tester_argument_validation_errors()}
+		>
 			{#each validationErrors as error (error)}
 				<li>{error}</li>
 			{/each}
@@ -116,7 +124,7 @@
 	{/if}
 
 	<details>
-		<summary class="cursor-pointer text-sm font-medium">Input schema</summary>
-		<JsonPreview value={schema} class="mt-2" ariaLabel="Tool input schema" />
+		<summary class="cursor-pointer text-sm font-medium">{m.mcps_tester_input_schema()}</summary>
+		<JsonPreview value={schema} class="mt-2" ariaLabel={m.mcps_tester_tool_input_schema()} />
 	</details>
 </div>

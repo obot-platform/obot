@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Logo from '$lib/components/Logo.svelte';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService } from '$lib/services';
 	import { profile } from '$lib/stores';
@@ -40,7 +41,7 @@
 			return;
 		}
 		if (!setupToken) {
-			error = 'This setup link is incomplete.';
+			error = m.auth_activate_link_incomplete();
 			return;
 		}
 
@@ -50,7 +51,8 @@
 				invalidateAll: true
 			});
 		} catch (err) {
-			error = err instanceof Error ? parseErrorContent(err).message : 'The setup link is invalid.';
+			error =
+				err instanceof Error ? parseErrorContent(err).message : m.auth_activate_link_invalid();
 		}
 	}
 
@@ -63,7 +65,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Activate Owner Account</title>
+	<title>Obot | {m.auth_activate_page_title()}</title>
 </svelte:head>
 
 <div
@@ -73,23 +75,23 @@
 		class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col items-center gap-4 rounded-xl border border-transparent p-6 shadow-sm"
 	>
 		<Logo class="h-12" />
-		<h1 class="text-center text-xl font-semibold">Activate your Obot account</h1>
+		<h1 class="text-center text-xl font-semibold">{m.auth_activate_heading()}</h1>
 		{#if error}
 			<div class="notification-error flex w-full items-center gap-2" role="alert">
 				<CircleAlert class="text-error size-5 shrink-0" />
 				<p class="text-sm font-light">{error}</p>
 			</div>
 			<p class="text-muted-content text-center text-sm font-light">
-				Ask the person who provisioned this environment to reissue the owner setup link.
+				{m.auth_activate_reissue()}
 			</p>
 		{:else if requiresActivation}
 			<p class="text-muted-content text-center text-sm font-light">
-				Obot requires activation. Open the setup link from your provisioning email to continue.
+				{m.login_requires_activation()}
 			</p>
 		{:else}
 			<Loading class="size-6" />
 			<p class="text-muted-content text-center text-sm font-light">
-				Verifying your secure setup link…
+				{m.auth_activate_verifying()}
 			</p>
 		{/if}
 	</div>

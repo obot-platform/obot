@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import {
 		vmcpItemContext,
@@ -117,12 +118,13 @@
 				placement="bottom-start"
 				class="pointer-events-auto relative z-10 size-9 shrink-0"
 				classes={{ menu: 'min-w-48' }}
-				ariaLabel={`Actions for ${name}`}
+				ariaLabel={m.vmcps_deployments_actions_for_named({ name })}
 			>
 				{#snippet children({ toggle })}
 					{#if onEditDetails}
 						<button class="menu-button" onclick={onEditDetails}>
-							<Pencil class="size-4" /> Edit Details
+							<Pencil class="size-4" />
+							{m.vmcps_edit_details()}
 						</button>
 					{/if}
 					<VMcpMenuActions
@@ -141,14 +143,14 @@
 		{#if inSelectMode}
 			<div
 				class="pointer-events-auto relative z-10 flex size-9 shrink-0 items-center justify-center"
-				title={ctx.canDelete ? undefined : 'You can only delete vMCPs you created.'}
+				title={ctx.canDelete ? undefined : m.vmcps_only_delete_own()}
 			>
 				<input
 					type="checkbox"
 					class={twMerge('checkbox checkbox-sm', selected && 'checkbox-primary')}
 					checked={selected}
 					disabled={!ctx.canDelete}
-					aria-label={`Select ${name}`}
+					aria-label={m.vmcps_select_named({ name })}
 					onclick={(event) => event.stopPropagation()}
 					onchange={() => {
 						if (!ctx.canDelete) return;

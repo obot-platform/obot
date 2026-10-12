@@ -1,5 +1,6 @@
 <script lang="ts">
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
+	import { m } from '$lib/i18n';
 	import type { DirectOperationResult, MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import CapabilityList, { type CapabilityListItem } from './CapabilityList.svelte';
 	import JsonSchemaForm from './JsonSchemaForm.svelte';
@@ -48,23 +49,25 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">Tools</h2>
+	<h2 class="sr-only">{m.mcps_tester_tools()}</h2>
 
 	{#if cache.unsupported}
 		<div class="bg-base-200 dark:bg-base-300 shrink-0 rounded-lg p-5" role="status">
-			<h3 class="font-medium">Not supported</h3>
-			<p class="mt-1 text-sm text-muted-content">This server does not advertise tool support.</p>
+			<h3 class="font-medium">{m.mcps_tester_not_supported()}</h3>
+			<p class="mt-1 text-sm text-muted-content">
+				{m.mcps_tester_tools_unsupported()}
+			</p>
 		</div>
 	{:else if cache.error && !cache.loading}
 		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
 			<strong
 				>{cache.errorStatus === 'cancelled'
-					? 'Loading cancelled'
-					: 'Tools could not be loaded'}</strong
+					? m.mcps_tester_loading_cancelled()
+					: m.mcps_tester_tools_load_failed()}</strong
 			>
 			<p class="mt-1 text-sm">{cache.error}</p>
 			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadTools(true)}
-				>Retry</button
+				>{m.mcps_retry()}</button
 			>
 		</div>
 	{/if}
@@ -74,7 +77,7 @@
 			class="default-scrollbar-thin grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.7fr)] md:overflow-hidden"
 		>
 			<CapabilityList
-				label="Tools"
+				label={m.mcps_tester_tools()}
 				items={listItems}
 				selectedId={inspector.selectedName}
 				loading={cache.loading}
@@ -86,7 +89,7 @@
 
 			<section
 				class="default-scrollbar-thin min-w-0 md:min-h-0 md:overflow-y-auto md:pr-1"
-				aria-label="Tool details"
+				aria-label={m.mcps_tester_tool_details()}
 			>
 				{#if selected}
 					<div class="space-y-5">
@@ -111,17 +114,25 @@
 
 						{#if selected.outputSchema}
 							<details>
-								<summary class="cursor-pointer text-sm font-medium">Output schema</summary>
+								<summary class="cursor-pointer text-sm font-medium"
+									>{m.mcps_tester_output_schema()}</summary
+								>
 								<JsonPreview
 									value={selected.outputSchema}
 									class="mt-2"
-									ariaLabel="Tool output schema"
+									ariaLabel={m.mcps_tester_tool_output_schema()}
 								/>
 							</details>
 						{/if}
 						<details>
-							<summary class="cursor-pointer text-sm font-medium">Raw tool metadata</summary>
-							<JsonPreview value={selected} class="mt-2" ariaLabel="Raw tool metadata" />
+							<summary class="cursor-pointer text-sm font-medium"
+								>{m.mcps_tester_raw_tool_metadata()}</summary
+							>
+							<JsonPreview
+								value={selected}
+								class="mt-2"
+								ariaLabel={m.mcps_tester_raw_tool_metadata()}
+							/>
 						</details>
 
 						<div class="flex flex-wrap gap-2">
@@ -131,11 +142,13 @@
 								disabled={!inspector.argumentsValue || Boolean(session.activeWorkflow)}
 								onclick={callTool}
 							>
-								<Play class="size-4" aria-hidden="true" /> Call
+								<Play class="size-4" aria-hidden="true" />
+								{m.mcps_tester_call()}
 							</button>
 							{#if callActive}
 								<button class="btn btn-secondary" onclick={() => session.cancelActiveWorkflow()}>
-									<Ban class="size-4" aria-hidden="true" /> Cancel
+									<Ban class="size-4" aria-hidden="true" />
+									{m.common_cancel()}
 								</button>
 							{/if}
 						</div>
@@ -152,7 +165,7 @@
 					<div
 						class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 					>
-						Select a tool to inspect and call it.
+						{m.mcps_tester_select_tool()}
 					</div>
 				{/if}
 			</section>

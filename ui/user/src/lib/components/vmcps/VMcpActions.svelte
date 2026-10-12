@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		UserService,
 		type MCPCatalogEntry,
@@ -39,7 +40,7 @@
 	let updateName = $state('');
 	let updating = $state(false);
 	let onSelectInstance = $state<(instance: VMCPInstance) => void>();
-	let selectInstanceTitle = $state('Select Your Connection');
+	let selectInstanceTitle = $state<string>(m.vmcps_select_your_connection());
 	let pendingUpdate = $state<() => Promise<void>>();
 	let pendingUpdateVMcp = $state<VMCP>();
 	let continueUpdateAfterClose = false;
@@ -59,7 +60,7 @@
 	export function openSelectInstance(
 		instances: VMCPInstance[],
 		onSelect: (instance: VMCPInstance) => void,
-		title = 'Select Your Connection'
+		title: string = m.vmcps_select_your_connection()
 	) {
 		onSelectInstance = onSelect;
 		selectInstanceTitle = title;
@@ -105,7 +106,7 @@
 	}
 
 	export function openUpdateConfirm(vmcp: VMCP, onConfirm: () => Promise<void>) {
-		updateName = vmcp.displayName || 'Untitled vMCP';
+		updateName = vmcp.displayName || m.vmcps_untitled_vmcp();
 		pendingUpdateVMcp = vmcp;
 		pendingUpdate = onConfirm;
 		showUpdateConfirm = true;
@@ -131,8 +132,8 @@
 		configurationDialog?.open(current.entry, {
 			configuration,
 			forceSingleUser: current.component.forceSingleUser,
-			submitLabel: pending.index === pending.queue.length - 1 ? 'Update' : 'Next',
-			errorMessage: 'Failed to update vMCP.'
+			submitLabel: pending.index === pending.queue.length - 1 ? m.core_update() : m.core_next(),
+			errorMessage: m.vmcps_failed_to_update()
 		});
 	}
 
@@ -184,8 +185,8 @@
 			pendingConfigUpdate = undefined;
 			await onConfirm();
 		} catch {
-			errors.append('Failed to update vMCP.');
-			throw new Error('Failed to update vMCP.');
+			errors.append(m.vmcps_failed_to_update());
+			throw new Error(m.vmcps_failed_to_update());
 		}
 	}
 
@@ -250,17 +251,17 @@
 	oncancel={() => (showUpdateConfirm = false)}
 	loading={updating}
 	type="info"
-	title="Confirm Update"
+	title={m.vmcps_confirm_update()}
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			Continue with update?
+			{m.vmcps_continue_with_update()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			{updateName} and its components will be updated to the latest version.
+			{m.vmcps_update_confirm_note({ name: updateName })}
 		</p>
 	{/snippet}
 </Confirm>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		type GuideAction,
@@ -765,7 +766,7 @@
 				class="flex w-full gap-4 items-center justify-between p-4 bg-primary text-primary-content"
 			>
 				<div>
-					<h2 class="font-semibold text-md">Quick Start Guide</h2>
+					<h2 class="font-semibold text-md">{m.core_guides_quick_start_guide()}</h2>
 					<p class="text-xs font-light">{guide.selectedGuide.title}</p>
 				</div>
 				<IconButton onclick={closeGuide} class="btn-sm btn-primary">
@@ -811,8 +812,8 @@
 							in:fade={{ duration: CONTENT_FADE_MS }}
 							class="bg-primary/10 rounded-md p-3 text-xs font-light text-primary"
 						>
-							Congratulations! You've completed the guide. <br />
-							You can close this guide now.
+							{m.core_guides_congratulations()} <br />
+							{m.core_guides_close_now()}
 						</div>
 					{/if}
 				</div>
@@ -824,7 +825,7 @@
 				<div class="flex gap-2">
 					{#if !guideCompleted}
 						<button class="btn btn-secondary btn-sm min-w-24" onclick={() => closeGuide()}
-							>Skip All</button
+							>{m.core_guides_skip_all()}</button
 						>
 					{/if}
 					<button
@@ -832,7 +833,7 @@
 						onclick={() => void handlePrimaryNext()}
 						disabled={Boolean(guide.stream[guide.currentStep]?.buttons?.length)}
 					>
-						Next
+						{m.core_next()}
 					</button>
 				</div>
 			</div>
@@ -854,7 +855,7 @@
 
 				<div class="flex justify-end pt-4 mt-4 border-t border-base-300">
 					<button class="btn btn-sm btn-primary" onclick={() => stepDialog?.close()}>
-						{stepDialogContent?.next ? 'Next' : 'Close'}
+						{stepDialogContent?.next ? m.core_next() : m.core_close()}
 					</button>
 				</div>
 			{/if}
@@ -870,13 +871,13 @@
 		onClose={() => {
 			closeGuide();
 		}}
-		title="Guide Completed"
+		title={m.core_guides_completed()}
 	>
 		<Obot animation={['enter', 'idle']} class="mx-auto" size={96} />
-		<h4 class="font-semibold text-center text-lg mb-2">And You're Done!</h4>
-		<p class="font-base text-center">You've completed this guide.</p>
+		<h4 class="font-semibold text-center text-lg mb-2">{m.core_guides_and_youre_done()}</h4>
+		<p class="font-base text-center">{m.core_guides_youve_completed_guide()}</p>
 		<p class="font-base text-center mb-6 px-8">
-			Close this guide and continue exploring the platform.
+			{m.core_guides_close_guide_continue()}
 		</p>
 		<button
 			class="btn btn-sm btn-primary w-full"
@@ -885,7 +886,7 @@
 				closeGuide();
 			}}
 		>
-			Close
+			{m.core_close()}
 		</button>
 	</ResponsiveDialog>
 {/if}

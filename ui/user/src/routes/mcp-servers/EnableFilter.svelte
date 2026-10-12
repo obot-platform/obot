@@ -5,6 +5,7 @@
 	import CatalogConfigureForm, {
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -136,7 +137,7 @@
 			filterId = response.id;
 		} catch (err) {
 			console.error('error: ', err);
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		}
 
 		if (response) {
@@ -159,7 +160,7 @@
 					onSuccess?.();
 				}
 			} catch (err) {
-				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+				launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -246,7 +247,7 @@
 	icon={manifest?.icon}
 	name={manifest?.name || ''}
 	onSave={handleConfigureForm}
-	submitText="Next"
+	submitText={m.core_next()}
 	loading={saving}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
@@ -256,7 +257,7 @@
 <PageLoading
 	isProgressBar
 	show={typeof launchState !== 'undefined'}
-	text="Configuring and initializing server..."
+	text={m.mcps_filters_configuring_initializing_server()}
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{
@@ -265,7 +266,7 @@
 	onClose={handleCancel}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">MCP Server Launch Failed</h4>
+		<h4 class="text-xl font-semibold">{m.mcps_deployments_launch_failed_title()}</h4>
 	{/snippet}
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
@@ -279,7 +280,7 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+			<p class="text-md self-start">{m.mcps_filters_launch_issue_page_mcp()}</p>
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
@@ -296,11 +297,11 @@
 						}
 					}}
 				>
-					Update Configuration and Try Again
+					{m.mcps_filters_update_config_try_again()}
 				</button>
 			{/if}
 			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCancel}>
-				Cancel
+				{m.common_cancel()}
 			</button>
 		</div>
 	{/snippet}
@@ -308,7 +309,7 @@
 
 <ResponsiveDialog
 	bind:this={selectorsAndMcpServersDialog}
-	title="Modify Selectors & MCP Servers"
+	title={m.mcps_filters_modify_selectors_servers()}
 	class="max-w-3xl"
 	animate="slide"
 >
@@ -323,10 +324,10 @@
 					onclick={() => {
 						selectorsAndMcpServersDialog?.close();
 						configDialog?.open();
-					}}>Go Back</button
+					}}>{m.mcps_filters_go_back()}</button
 				>
 			{/if}
-			<button class="btn btn-primary text-sm" onclick={handleFinish}>Save</button>
+			<button class="btn btn-primary text-sm" onclick={handleFinish}>{m.core_save()}</button>
 		</div>
 	</div>
 </ResponsiveDialog>

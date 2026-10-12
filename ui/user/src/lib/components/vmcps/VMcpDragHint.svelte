@@ -1,5 +1,6 @@
 <script lang="ts">
 	import VMcpDragDropStage from '$lib/components/vmcps/VMcpDragDropStage.svelte';
+	import { m } from '$lib/i18n';
 	import { X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -32,12 +33,13 @@
 				id={titleId}
 				class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
 			>
-				Drag &amp; Drop
+				{m.vmcps_drag_and_drop()}
 			</p>
 			<button
 				type="button"
 				class="text-muted-content hover:text-base-content -mt-1 -mr-1 rounded-sm p-1 transition-colors"
-				aria-label="Dismiss drag and drop tip"
+				aria-label={m.vmcps_dismiss_drag_drop_tip()}
+				data-vmcp-drag-hint-dismiss
 				onclick={() => onDismiss?.()}
 			>
 				<X class="size-3" />
@@ -47,7 +49,7 @@
 		<VMcpDragDropStage class="mt-2" />
 
 		<p id={descriptionId} class="text-muted-content mt-2 text-xs font-light">
-			Drag a server from the panel anywhere onto the canvas to build a vMCP.
+			{m.vmcps_drag_hint_description()}
 		</p>
 	</div>
 </div>

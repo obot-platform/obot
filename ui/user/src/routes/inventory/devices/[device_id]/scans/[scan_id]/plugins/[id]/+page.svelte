@@ -3,6 +3,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
+	import { m } from '$lib/i18n';
 	import type { DeviceScanPlugin } from '$lib/services/user/types';
 	import { goto } from '$lib/url';
 	import { formatBytes, lookupFiles } from '../../_shared/files';
@@ -34,17 +35,25 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Plugin {plugin?.name ?? ''}</title>
+	<title
+		>{m.inventory_enforcement_devices_page_title_plugin_named({ name: plugin?.name ?? '' })}</title
+	>
 </svelte:head>
 
-<Layout title={plugin?.name || 'Plugin'} showBackButton onBackButtonClick={() => goto(backHref)}>
+<Layout
+	title={plugin?.name || m.inventory_enforcement_devices_plugin()}
+	showBackButton
+	onBackButtonClick={() => goto(backHref)}
+>
 	<div
 		class="flex flex-col gap-6"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan || !plugin}
-			<p class="text-muted-content text-sm font-light">Plugin not found in this scan.</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_devices_plugin_not_found_in_scan()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
@@ -64,35 +73,43 @@
 						class:bg-success={plugin.enabled}
 						class:bg-base-400={!plugin.enabled}
 					>
-						{plugin.enabled ? 'enabled' : 'disabled'}
+						{plugin.enabled
+							? m.inventory_enforcement_devices_enabled()
+							: m.inventory_enforcement_devices_disabled()}
 					</span>
 				</div>
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if plugin.description}
-						<dt class="text-muted-content">Description</dt>
+						<dt class="text-muted-content">{m.core_description()}</dt>
 						<dd>{plugin.description}</dd>
 					{/if}
 					{#if plugin.author}
-						<dt class="text-muted-content">Author</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_author()}</dt>
 						<dd>{plugin.author}</dd>
 					{/if}
 					{#if plugin.marketplace}
-						<dt class="text-muted-content">Marketplace</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_marketplace()}
+						</dt>
 						<dd class="break-all">{plugin.marketplace}</dd>
 					{/if}
 					{#if plugin.configPath}
-						<dt class="text-muted-content">File</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_file()}</dt>
 						<dd class="break-all">{plugin.configPath}</dd>
 					{/if}
 					{#if plugin.projectPath}
-						<dt class="text-muted-content">Project path</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_project_path()}
+						</dt>
 						<dd class="break-all">{plugin.projectPath}</dd>
 					{/if}
-					<dt class="text-muted-content">Capabilities</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_devices_col_capabilities()}</dt>
 					<dd>
 						{#if capabilities.length === 0}
-							<span class="text-muted-content">none detected</span>
+							<span class="text-muted-content"
+								>{m.inventory_enforcement_devices_none_detected()}</span
+							>
 						{:else}
 							<div class="flex flex-wrap gap-2">
 								{#each capabilities as c (c.key)}
@@ -107,9 +124,13 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h3 class="text-base font-semibold">Supporting files ({files.length})</h3>
+				<h3 class="text-base font-semibold">
+					{m.inventory_enforcement_devices_supporting_files({ count: files.length })}
+				</h3>
 				{#if files.length === 0}
-					<p class="text-muted-content text-sm font-light">No supporting files referenced.</p>
+					<p class="text-muted-content text-sm font-light">
+						{m.inventory_enforcement_devices_no_supporting_files()}
+					</p>
 				{:else}
 					<div class="flex flex-col gap-3">
 						{#each files as { path, file } (path)}
@@ -121,10 +142,14 @@
 									{#if file}
 										<span class="text-muted-content">{formatBytes(file.sizeBytes)}</span>
 										{#if file.oversized}
-											<span class="pill bg-warning">oversized</span>
+											<span class="pill bg-warning"
+												>{m.inventory_enforcement_devices_oversized()}</span
+											>
 										{/if}
 									{:else}
-										<span class="text-muted-content">not collected</span>
+										<span class="text-muted-content"
+											>{m.inventory_enforcement_devices_not_collected()}</span
+										>
 									{/if}
 								</div>
 								{#if file?.content}

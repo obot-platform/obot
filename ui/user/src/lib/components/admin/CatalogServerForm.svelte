@@ -2,6 +2,7 @@
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
 	import { highlightFirstAvailableField } from '$lib/form';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -118,8 +119,10 @@
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 	const shortDescriptionError = $derived(
 		showRequired.shortDescription
-			? 'Short description is required'
-			: `Must be less than or equal to ${MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters`
+			? m.mcps_catalog_form_short_description_required()
+			: m.mcps_catalog_form_short_description_max({
+					max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+				})
 	);
 	const hasShortDescriptionError = $derived(
 		showRequired.shortDescription ?? showInvalid.shortDescription
@@ -407,7 +410,7 @@
 			})
 			.catch((err) => {
 				secretBindingTargets = [];
-				errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
+				errors.append(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
 			});
 	}
 
@@ -674,7 +677,7 @@
 			if (entryResponse.type !== 'mcpserver') {
 				await revealCatalogEntry(id, entryResponse.id, entity);
 			}
-			onSubmit?.(entryResponse, 'Catalog entry updated successfully!');
+			onSubmit?.(entryResponse, m.mcps_catalog_form_entry_updated());
 		} catch (error) {
 			loading = false;
 			throw error;
@@ -727,10 +730,10 @@
 					for={CATALOG_SERVER_FIELD_IDS.name}
 					class={twMerge('text-sm font-light capitalize', showRequired.name && 'error')}
 				>
-					Name
+					{m.core_name()}
 					{#if !readonly}
 						<span class={showRequired.name ? 'text-error' : ''} aria-hidden="true">*</span>
-						<span class="sr-only">(required)</span>
+						<span class="sr-only">{m.mcps_catalog_required_sr()}</span>
 					{/if}
 				</label>
 				<input
@@ -749,22 +752,22 @@
 				/>
 				{#if showRequired.name}
 					<p id={CATALOG_SERVER_FIELD_IDS.nameError} class="text-xs text-error" role="alert">
-						Name is required
+						{m.mcps_name_required()}
 					</p>
 				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1" id={`${CATALOG_SERVER_FIELD_IDS.description}-container`}>
 				<span id={CATALOG_SERVER_FIELD_IDS.description} class="text-sm font-light capitalize">
-					Description
+					{m.core_description()}
 					<span id={CATALOG_SERVER_FIELD_IDS.descriptionHint} class="text-muted-content text-xs">
-						(Markdown syntax supported)
+						{m.mcps_catalog_markdown_supported()}
 					</span>
 				</span>
 				<MarkdownInput
 					bind:value={formData.description}
 					disabled={readonly}
-					placeholder="Provide details about the MCP server."
+					placeholder={m.mcps_catalog_form_description_placeholder()}
 					labelledBy={CATALOG_SERVER_FIELD_IDS.description}
 					describedBy={CATALOG_SERVER_FIELD_IDS.descriptionHint}
 				/>
@@ -778,16 +781,18 @@
 					for={CATALOG_SERVER_FIELD_IDS.shortDescription}
 					class={twMerge('text-sm font-light capitalize', hasShortDescriptionError && 'error')}
 				>
-					Short Description
+					{m.mcps_catalog_form_short_description()}
 					{#if !readonly}
 						<span class={hasShortDescriptionError ? 'text-error' : ''} aria-hidden="true">*</span>
-						<span class="sr-only">(required)</span>
+						<span class="sr-only">{m.mcps_catalog_required_sr()}</span>
 					{/if}
 					<span
 						id={CATALOG_SERVER_FIELD_IDS.shortDescriptionHint}
 						class="text-muted-content text-xs"
 					>
-						(max {MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH} characters)
+						{m.mcps_catalog_form_max_characters({
+							max: MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH
+						})}
 					</span>
 				</label>
 				<input
@@ -797,7 +802,7 @@
 					bind:value={formData.shortDescription}
 					class={twMerge('text-input-filled dark:bg-base-100', hasShortDescriptionError && 'error')}
 					disabled={readonly}
-					placeholder="Provide a brief summary that will be shown in catalog listings."
+					placeholder={m.mcps_catalog_form_short_description_placeholder()}
 					maxlength={MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH}
 					aria-required={!readonly ? 'true' : undefined}
 					aria-describedby={`${CATALOG_SERVER_FIELD_IDS.shortDescriptionHint} ${CATALOG_SERVER_FIELD_IDS.shortDescriptionCount}`}
@@ -837,7 +842,7 @@
 
 			<div class="flex flex-col gap-1" id={`${CATALOG_SERVER_FIELD_IDS.icon}-container`}>
 				<label for={CATALOG_SERVER_FIELD_IDS.icon} class="text-sm font-light capitalize"
-					>Icon URL</label
+					>{m.mcps_catalog_form_icon_url()}</label
 				>
 				<input
 					type="text"
@@ -979,7 +984,7 @@
 					role="alert"
 					tabindex="-1"
 				>
-					Fill out all required fields
+					{m.mcps_catalog_fill_required_fields()}
 				</span>
 			{/if}
 			<button
@@ -988,7 +993,7 @@
 				onclick={() => onCancel?.()}
 				id={CATALOG_SERVER_FIELD_IDS.cancelBtn}
 			>
-				Cancel
+				{m.common_cancel()}
 			</button>
 			<button
 				type="submit"
@@ -1002,9 +1007,9 @@
 					<span aria-hidden="true">
 						<Loading class="size-4" />
 					</span>
-					<span class="sr-only">Saving</span>
+					<span class="sr-only">{m.mcps_catalog_saving()}</span>
 				{:else}
-					{entry ? 'Update' : 'Save'}
+					{entry ? m.core_update() : m.core_save()}
 				{/if}
 			</button>
 		</div>

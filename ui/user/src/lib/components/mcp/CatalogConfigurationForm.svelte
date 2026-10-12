@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { MCPAllowedSecretBindingTarget, MCPConfig, MCPConfigUsage } from '$lib/services';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -23,11 +24,11 @@
 	}: Props = $props();
 
 	const usageOptions: { id: MCPConfigUsage; label: string }[] = [
-		{ id: 'env', label: 'Environment Variable' },
-		{ id: 'header', label: 'Header' },
-		{ id: 'file', label: 'File' },
-		{ id: 'dynamicFile', label: 'Dynamic File' },
-		{ id: 'interpolated', label: 'Interpolated Value' }
+		{ id: 'env', label: m.mcps_catalog_config_usage_env() },
+		{ id: 'header', label: m.mcps_config_usage_header() },
+		{ id: 'file', label: m.mcps_catalog_config_usage_file() },
+		{ id: 'dynamicFile', label: m.mcps_config_usage_dynamic_file() },
+		{ id: 'interpolated', label: m.mcps_config_usage_interpolated() }
 	];
 </script>
 
@@ -37,10 +38,9 @@
 		id={CATALOG_SERVER_FIELD_IDS.configuration}
 	>
 		<div class="flex flex-col gap-1">
-			<h4 class="text-sm font-semibold">Configuration</h4>
+			<h4 class="text-sm font-semibold">{m.mcps_catalog_config_heading()}</h4>
 			<p class="text-muted-content text-xs font-light">
-				Configuration values can be supplied statically, by users, or selected from options.
-				Interpolated values are available to templates but are not added to the server environment.
+				{m.mcps_config_description()}
 			</p>
 		</div>
 
@@ -50,7 +50,9 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`catalog-config-usage-${i}`} class="text-sm font-light">Usage</label>
+						<label for={`catalog-config-usage-${i}`} class="text-sm font-light"
+							>{m.mcps_config_usage()}</label
+						>
 						<Select
 							id={`catalog-config-usage-${i}`}
 							class="dark:border-base-400 bg-base-100 border border-transparent"
@@ -78,7 +80,7 @@
 					{#if item.usage === 'header'}
 						<div class="flex w-full flex-col gap-1">
 							<label for={`catalog-config-prefix-${i}`} class="text-sm font-light"
-								>Value Prefix</label
+								>{m.mcps_value_prefix()}</label
 							>
 							<input
 								id={`catalog-config-prefix-${i}`}
@@ -93,7 +95,7 @@
 					<IconButton
 						class="mt-6"
 						id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
-						aria-label="Remove configuration"
+						aria-label={m.mcps_config_remove()}
 						variant="danger"
 						onclick={() => config?.splice(i, 1)}
 					>
@@ -123,7 +125,7 @@
 					}}
 				>
 					<Plus class="size-4" />
-					Configuration
+					{m.mcps_catalog_config_heading()}
 				</button>
 			</div>
 		{/if}

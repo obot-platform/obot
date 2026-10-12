@@ -127,7 +127,7 @@ func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash st
 		return tx.Create(&user).Error
 	})
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "unique") {
+		if IsUniqueViolation(err) {
 			return nil, ErrLocalAuthUserExists
 		}
 		return nil, err

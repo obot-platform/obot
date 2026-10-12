@@ -5,6 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type MCPCatalog } from '$lib/services';
 	import { isWebURL } from '$lib/url';
 	import { TriangleAlert, Link2, Pencil, Trash2, Info } from '@lucide/svelte';
@@ -41,7 +42,7 @@
 		<div class="notification-info p-3 text-sm font-light" transition:slide={{ axis: 'y' }}>
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
-				<div>The system is currently syncing with your configured Git repositories.</div>
+				<div>{m.mcps_syncing_git_repos()}</div>
 			</div>
 		</div>
 	{/if}
@@ -52,10 +53,10 @@
 			headers={[
 				{
 					property: 'url',
-					title: 'URL'
+					title: m.core_col_url()
 				}
 			]}
-			noDataMessage="No Git Source URLs added."
+			noDataMessage={m.mcps_sources_no_git_source_urls_added()}
 			setRowClasses={(d) => {
 				if (catalog?.syncErrors?.[d.url]) {
 					return 'bg-warning/10';
@@ -108,7 +109,7 @@
 									syncErrorDialog?.open();
 								}}
 								use:tooltip={{
-									text: 'An issue occurred. Click to see more details.',
+									text: m.mcps_sources_issue_click_details(),
 									classes: ['wrap-break-word']
 								}}
 							>
@@ -128,7 +129,8 @@
 						}}
 						disabled={readonly}
 					>
-						<Trash2 class="size-4" /> Delete
+						<Trash2 class="size-4" />
+						{m.core_delete()}
 					</button>
 				</div>
 			{/snippet}
@@ -136,10 +138,12 @@
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Link2 class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No current Git Source URLs.</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.mcps_sources_no_git_source_urls()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
-				Once a Git Source URL has been added, its <br />
-				information will be quickly accessible here.
+				{m.mcps_sources_no_git_source_urls_line1()} <br />
+				{m.mcps_sources_no_git_source_urls_line2()}
 			</p>
 		</div>
 	{/if}
@@ -147,11 +151,11 @@
 
 <Confirm
 	msg={deletingSource?.type === 'single'
-		? 'Delete this Git Source URL?'
-		: 'Delete selected Git Source URLs?'}
+		? m.mcps_sources_delete_source_url()
+		: m.mcps_sources_delete_selected_source_urls()}
 	note={deletingSource?.type === 'single'
-		? 'This action is permanent and cannot be undone. All catalog entries from this source and their deployed MCP servers, including those currently in use, will be deleted. Are you sure you wish to continue?'
-		: 'This action is permanent and cannot be undone. All catalog entries from these sources and their deployed MCP servers, including those currently in use, will be deleted. Are you sure you wish to continue?'}
+		? m.mcps_sources_delete_source_url_note()
+		: m.mcps_sources_delete_selected_source_urls_note()}
 	show={Boolean(deletingSource)}
 	onsuccess={async () => {
 		if (!deletingSource || !catalog) {
@@ -190,13 +194,17 @@
 	loading={deleting}
 />
 
-<ResponsiveDialog title="Git Source URL Sync" bind:this={syncErrorDialog} class="md:w-2xl">
+<ResponsiveDialog
+	title={m.mcps_sources_git_source_url_sync()}
+	bind:this={syncErrorDialog}
+	class="md:w-2xl"
+>
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
 				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					An issue occurred fetching this source URL:
+					{m.mcps_sources_issue_fetching_source_url()}
 				</p>
 			</div>
 			<span class="text-sm font-light break-all">{syncError?.error}</span>

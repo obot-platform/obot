@@ -3,6 +3,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type GitCredential,
@@ -23,9 +24,9 @@
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
 	const repositoryCredentialOptions = [
-		{ id: 'none', label: 'None' },
-		{ id: 'shared', label: 'Choose existing' },
-		{ id: 'token', label: 'Enter personal access token' }
+		{ id: 'none', label: m.core_col_none() },
+		{ id: 'shared', label: m.mcps_sources_cred_choose_existing() },
+		{ id: 'token', label: m.mcps_sources_cred_enter_pat() }
 	];
 
 	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
@@ -188,13 +189,13 @@
 
 {#snippet tokenScopesTooltip()}
 	<div class="text-left">
-		<p>Required scopes:</p>
+		<p>{m.mcps_sources_required_scopes()}</p>
 		<ul class="list-disc pl-4">
 			<li>GitHub: repo</li>
 			<li>GitLab: read_repository + read_api</li>
 		</ul>
 		<p class="mt-2">
-			If no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.
+			{m.mcps_sources_token_fallback_env()}
 		</p>
 	</div>
 {/snippet}
@@ -203,7 +204,9 @@
 	<div class="dialog-container w-full max-w-md p-4 h-96 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
-				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
+				{editingSource.index === -1
+					? m.mcps_sources_add_source_url()
+					: m.mcps_sources_edit_source_url()}
 				<IconButton onclick={closeSourceDialog} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
 				</IconButton>
@@ -211,10 +214,10 @@
 
 			<div class="mb-4 flex flex-col gap-1">
 				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
-					Source URL
+					{m.mcps_sources_source_url()}
 					<span
 						use:tooltip={{
-							text: 'Supported formats:\n• https://github.com/org/repo\n• https://github.com/org/repo/my-branch\n• https://gitlab.com/org/repo\n• https://gitlab.com/org/repo/my-branch\n• https://gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub and GitLab a .git suffix is optional. For self-hosted instances it is required.\nGitLab subgroup repos require the .git suffix.',
+							text: m.mcps_sources_source_url_formats_tooltip(),
 							classes: ['max-w-md', 'whitespace-pre-line'],
 							disablePortal: true
 						}}
@@ -233,7 +236,7 @@
 			<div class="mb-2 flex flex-col gap-1">
 				<div class="flex items-center justify-between gap-4">
 					<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize">
-						Credential
+						{m.core_col_credential()}
 					</span>
 					{#if credentialLocked}
 						<button
@@ -247,7 +250,7 @@
 								tokenExplicitlyCleared = true;
 							}}
 						>
-							Clear token
+							{m.mcps_sources_clear_token()}
 						</button>
 					{/if}
 				</div>
@@ -276,9 +279,11 @@
 					}}
 				/>
 				<p class="text-xs text-muted-content font-light">
-					Need to add or modify a credential? <a
+					{m.mcps_sources_need_modify_credential()}
+					<a
 						class="text-blue-500 hover:underline"
-						href={resolve('/admin/platform?view=settings#git-credentials')}>Manage Credentials</a
+						href={resolve('/admin/platform?view=settings#git-credentials')}
+						>{m.mcps_sources_manage_credentials()}</a
 					>
 				</p>
 			</div>
@@ -306,14 +311,16 @@
 							: undefined}
 					/>
 					<span class="text-muted-content text-xs">
-						Only credentials matching the source host can be selected.
+						{m.mcps_sources_only_matching_host_credentials()}
 					</span>
 				</div>
 			{/if}
 
 			{#if editingSource.credentialType === 'token'}
 				<div class="mb-4 flex flex-col gap-1">
-					<label for="catalog-source-token" class="sr-only">Personal Access Token</label>
+					<label for="catalog-source-token" class="sr-only"
+						>{m.mcps_sources_personal_access_token()}</label
+					>
 					<div class="flex items-center gap-2 min-h-10">
 						{#if credentialLocked && hasSourceURLCredential(editingSourceURL)}
 							<input
@@ -328,7 +335,7 @@
 						{:else}
 							<SensitiveInput
 								name="catalog-source-token"
-								placeholder="Personal Access Token"
+								placeholder={m.mcps_sources_personal_access_token()}
 								bind:value={editingSource.token}
 							/>
 						{/if}
@@ -349,14 +356,15 @@
 				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
+						<p class="my-0.5 flex flex-col text-sm font-semibold">
+							{m.mcps_sources_error_adding_source_url()}
+						</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>
 				</div>
 			{:else if sourceURLChangedWithCredential && !tokenExplicitlyCleared}
 				<p class="mb-4 text-xs notification-alert" in:slide={{ axis: 'y' }}>
-					The source URL has been changed. Please re-enter the personal access token tied to the
-					former URL, otherwise it will be cleared on save.
+					{m.mcps_sources_source_url_changed_notice()}
 				</p>
 			{/if}
 
@@ -364,7 +372,7 @@
 
 			<div class="flex w-full justify-end gap-2">
 				<button class="btn btn-secondary" disabled={saving} onclick={closeSourceDialog}
-					>Cancel</button
+					>{m.common_cancel()}</button
 				>
 				<button
 					class="btn btn-primary"
@@ -380,7 +388,7 @@
 						}
 
 						if (!catalogToUse) {
-							sourceError = 'Failed to fetch catalog';
+							sourceError = m.mcps_sources_failed_fetch_catalog();
 							return;
 						}
 
@@ -455,18 +463,19 @@
 							await onSync?.();
 							closeSourceDialog();
 						} catch (error) {
-							sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
+							sourceError =
+								error instanceof Error ? error.message : m.mcps_sources_unexpected_error();
 						} finally {
 							saving = false;
 						}
 					}}
 				>
-					{editingSource.index === -1 ? 'Add' : 'Save'}
+					{editingSource.index === -1 ? m.mcps_sources_add() : m.core_save()}
 				</button>
 			</div>
 		{/if}
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={closeSourceDialog}>close</button>
+		<button type="button" onclick={closeSourceDialog}>{m.common_close()}</button>
 	</form>
 </dialog>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type Model,
@@ -23,7 +24,13 @@
 		title?: string;
 	}
 
-	let { onAdd, models, defaultAliases, exclude = [], title = 'Add Models' }: Props = $props();
+	let {
+		onAdd,
+		models,
+		defaultAliases,
+		exclude = [],
+		title = m.models_providers_add_models()
+	}: Props = $props();
 	let addModelDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let selected = $state<string[]>([]);
@@ -63,7 +70,8 @@
 	let patternMatchCount = $derived.by(() => {
 		const opt = patternOption;
 		if (!opt) return 0;
-		return models.filter((m) => (m.targetModel || '').startsWith(opt.prefix)).length;
+		return models.filter((candidate) => (candidate.targetModel || '').startsWith(opt.prefix))
+			.length;
 	});
 
 	// Filter models based on exclude list and search
@@ -119,7 +127,7 @@
 	let wildcardAvailable = $derived(!exclude?.includes('*') && !search);
 
 	// Map for quick model lookups
-	let modelsMap = $derived(new Map(models.map((m) => [m.id, m])));
+	let modelsMap = $derived(new Map(models.map((model) => [model.id, model])));
 
 	// Prepare default aliases for display
 	let aliasDisplayData = $derived(
@@ -132,7 +140,7 @@
 				id: aliasId,
 				aliasName,
 				label: ModelAliasLabels[aliasName as keyof typeof ModelAliasLabels] || aliasName,
-				effectiveModelName: model?.displayName || model?.targetModel || 'Not configured',
+				effectiveModelName: model?.displayName || model?.targetModel || m.models_not_configured(),
 				isConfigured: !!model,
 				isExcluded: exclude?.includes(aliasId) ?? false
 			};
@@ -195,7 +203,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (search = val)}
 					value={search}
-					placeholder="Search models..."
+					placeholder={m.models_providers_search_models()}
 				/>
 			</div>
 
@@ -211,9 +219,9 @@
 						<div class="flex items-center gap-2">
 							<Cpu class="size-8 shrink-0" />
 							<div class="flex flex-col">
-								<p class="font-medium">All Models</p>
+								<p class="font-medium">{m.models_all_models()}</p>
 								<span class="text-muted-content text-xs">
-									Grants access to all current and future models
+									{m.models_providers_all_models_description()}
 								</span>
 							</div>
 						</div>
@@ -239,9 +247,15 @@
 							<div class="flex flex-col">
 								<p class="font-mono font-medium">{pattern.id}</p>
 								<span class="text-muted-content text-xs">
-									Grants access to all current and future models whose provider model ID starts with
-									"{pattern.prefix}" — currently matches {patternMatchCount}
-									{patternMatchCount === 1 ? 'model' : 'models'}
+									{patternMatchCount === 1
+										? m.models_providers_pattern_grants_one({
+												prefix: pattern.prefix,
+												count: patternMatchCount
+											})
+										: m.models_providers_pattern_grants_other({
+												prefix: pattern.prefix,
+												count: patternMatchCount
+											})}
 								</span>
 							</div>
 						</div>
@@ -257,7 +271,7 @@
 					<div class="flex flex-col gap-1 px-2 py-1">
 						<h4 class="text-md mx-2 flex items-center gap-2 font-semibold">
 							<Logo class="size-4" />
-							Default Models
+							{m.models_providers_default_models()}
 						</h4>
 					</div>
 					<div class="flex flex-col gap-1 px-8">
@@ -329,14 +343,16 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<Cpu class="size-4" />
-				{selected.length} Selected
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
 			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addModelDialog?.close()}>
-				Cancel
+				{m.common_cancel()}
 			</button>
-			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
+				{m.core_confirm()}
+			</button>
 		</div>
 	</div>
 </ResponsiveDialog>

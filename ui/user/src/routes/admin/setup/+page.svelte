@@ -6,6 +6,7 @@
 	import SetupSplashContent from '$lib/components/admin/SetupSplashContent.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { errors, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -50,7 +51,7 @@
 	async function handleLocalAuthConfigure(
 		form: Record<string, string>
 	): Promise<string | undefined> {
-		if (!localProvider) return 'Local auth provider is not available.';
+		if (!localProvider) return m.auth_setup_local_unavailable();
 		try {
 			await AdminService.configureAuthProvider(localProvider.id, form);
 			const authProviders = await AdminService.listAuthProviders();
@@ -135,7 +136,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Setup</title>
+	<title>Obot | {m.auth_setup_page_title()}</title>
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col items-center">

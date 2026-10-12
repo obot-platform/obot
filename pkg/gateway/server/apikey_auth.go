@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,7 +74,7 @@ func hostedAgentGroups(hasMCPServers bool) []string {
 //
 // The principal never carries GroupAPI, so an exfiltrated agent credential
 // cannot reach the Obot API.
-func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanceID string, attribution principal.APIKeyAttribution) (*authenticator.Response, bool, error) {
+func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanceID string, attribution principal.APIKeyAttribution, ownerStatus types2.UserStatus) (*authenticator.Response, bool, error) {
 	if a.storage == nil {
 		return nil, false, nil
 	}
@@ -132,21 +134,26 @@ func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanc
 
 	groups := hostedAgentGroups(len(mcpIDs) > 0)
 
+	extra := map[string][]string{
+		// The same key a user API key populates, so downstream
+		// authorization needs no agent-specific branch.
+		"authorized_mcp_ids":              mcpIDs,
+		principal.AuthorizedModelIDsExtra: modelIDs,
+		"hosted_agent_instance_id":        {instance.Name},
+		principal.HostedAgentOwnerExtra:   {instance.Spec.UserID},
+		principal.APIKeyIDExtra:           {fmt.Sprintf("%d", attribution.ID)},
+		principal.APIKeyNameExtra:         {attribution.Name},
+	}
+	// The agent carries none of its owner's permissions, but it runs for its owner and stops when they lose
+	// access. The key's user is the owner, and their status was read with the key.
+	principal.RecordUserStatus(extra, ownerStatus)
+
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   "hosted-agent:" + instance.Name,
 			UID:    "hosted-agent:" + instance.Name,
 			Groups: groups,
-			Extra: map[string][]string{
-				// The same key a user API key populates, so downstream
-				// authorization needs no agent-specific branch.
-				"authorized_mcp_ids":              mcpIDs,
-				principal.AuthorizedModelIDsExtra: modelIDs,
-				"hosted_agent_instance_id":        {instance.Name},
-				principal.HostedAgentOwnerExtra:   {instance.Spec.UserID},
-				principal.APIKeyIDExtra:           {fmt.Sprintf("%d", attribution.ID)},
-				principal.APIKeyNameExtra:         {attribution.Name},
-			},
+			Extra:  extra,
 		},
 	}, true, nil
 }
@@ -168,10 +175,18 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 
 	// Validate the API key
 	apiKey, err := a.client.ValidateAPIKey(req.Context(), authHeader)
-	if err != nil {
+	if errors.Is(err, client.ErrInvalidAPIKey) {
 		// Return false, nil to let other authenticators try
 		// This allows the chain to continue if the key is invalid
 		return nil, false, nil
+	} else if err != nil {
+		// The key or its user could not be read, so its user's access is unknown. Fail rather than letting the
+		// request continue to another credential or to anonymous access.
+		_, userID, _, _, _ := client.ParseAPIKey(authHeader)
+		return nil, false, &client.UserAccessLookupError{
+			UserID: userID,
+			Err:    err,
+		}
 	}
 
 	// A key bound to a hosted agent authenticates as that agent, never as the
@@ -179,13 +194,22 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	// or role below.
 	if apiKey.HostedAgentInstanceID != nil && *apiKey.HostedAgentInstanceID != "" {
 		return a.authenticateHostedAgent(req, *apiKey.HostedAgentInstanceID,
-			principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name))
+			principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name), apiKey.OwnerStatus)
 	}
 
 	// Get the user from the database
 	u, authProviderGroups, err := a.client.UserByIDWithEffectiveRole(req.Context(), apiKey.UserID)
-	if err != nil {
-		return nil, false, nil
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The key outlived its user. Deny it rather than letting the request continue as anonymous.
+		return nil, false, &client.UserAccessDeniedError{
+			UserID: apiKey.UserID,
+			Status: types2.UserStatusDeleted,
+		}
+	} else if err != nil {
+		return nil, false, &client.UserAccessLookupError{
+			UserID: apiKey.UserID,
+			Err:    err,
+		}
 	}
 
 	attribution := principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
@@ -201,6 +225,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	if authProviderGroups != nil {
 		extra["auth_provider_groups"] = authProviderGroups
 	}
+	principal.RecordUserStatus(extra, u.Status())
 
 	return &authenticator.Response{
 		User: &user.DefaultInfo{

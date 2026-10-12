@@ -2,6 +2,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import { VMCP_IDS } from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
@@ -48,7 +49,7 @@
 
 <IconButton
 	id={VMCP_IDS.SETTINGS_BUTTON_ID}
-	tooltip={{ text: 'MCP Servers Settings', placement: 'left' }}
+	tooltip={{ text: m.vmcps_mcp_servers_settings(), placement: 'left' }}
 	aria-haspopup="dialog"
 	aria-expanded={open}
 	aria-controls={VMCP_IDS.SETTINGS_PANEL_ID}
@@ -61,7 +62,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	id={VMCP_IDS.SETTINGS_PANEL_ID}
-	title="MCP Server Settings"
+	title={m.vmcps_mcp_server_settings()}
 	class="md:w-md"
 	onOpen={() => (open = true)}
 	onClose={() => (open = false)}
@@ -73,25 +74,25 @@
 				class="checkbox checkbox-sm"
 				bind:checked={settings.showDeprecatedServers}
 			/>
-			Include deprecated MCP servers
+			{m.vmcps_include_deprecated_servers()}
 		</label>
 		<label
 			id={VMCP_IDS.FILTER_LABEL_ID}
 			for="mcp-server-filter-by"
 			class="divider mt-4 mb-2 text-xs uppercase"
 		>
-			Filter By Categories
+			{m.vmcps_filter_by_categories()}
 		</label>
 		<p class="text-muted-content mb-2 text-xs">
-			Choose any combination of categories. A server is shown if it matches any selected category.
+			{m.vmcps_filter_by_categories_description()}
 		</p>
 		<Select
 			id="mcp-server-filter-by"
 			options={unusedOptions(filterOptions, settings.filterBy)}
 			bind:selected={categoryDraft}
 			searchInDropdown
-			placeholder="Filter by category"
-			searchPlaceholder="Search categories..."
+			placeholder={m.vmcps_filter_by_category()}
+			searchPlaceholder={m.vmcps_search_categories()}
 			ariaLabelledby={VMCP_IDS.FILTER_LABEL_ID}
 			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
@@ -117,7 +118,7 @@
 					<button
 						type="button"
 						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
-						aria-label="Remove {item.label}"
+						aria-label={m.vmcps_remove_named({ name: item.label })}
 						onclick={() => onRemove(String(item.id))}
 					>
 						<X class="size-3" />

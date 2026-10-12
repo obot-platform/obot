@@ -6,6 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
+	import { m } from '$lib/i18n';
 	import type { DeviceScanMCPServer } from '$lib/services/user/types';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, shortHash } from '../../_shared/files';
@@ -15,7 +16,7 @@
 	let scan = $derived(data?.scan);
 	let id = $derived(Number(page.params.id));
 	let server = $derived<DeviceScanMCPServer | undefined>(
-		scan?.mcpServers?.find((m) => m.id === id)
+		scan?.mcpServers?.find((srv) => srv.id === id)
 	);
 	let backHref = $derived(
 		`/inventory/devices/${page.params.device_id}/scans/${page.params.scan_id}`
@@ -50,11 +51,15 @@
 </script>
 
 <svelte:head>
-	<title>Obot | MCP Server {server?.name ?? ''}</title>
+	<title
+		>{m.inventory_enforcement_devices_page_title_mcp_server_named({
+			name: server?.name ?? ''
+		})}</title
+	>
 </svelte:head>
 
 <Layout
-	title={server?.name || 'MCP Server'}
+	title={server?.name || m.inventory_enforcement_mcp_server()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -70,7 +75,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan || !server}
-			<p class="text-muted-content text-sm font-light">MCP server not found in this scan.</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_devices_mcp_not_found_in_scan()}
+			</p>
 		{:else}
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-3 rounded-md p-4 shadow-sm">
 				<div class="flex flex-wrap items-baseline gap-2">
@@ -86,15 +93,17 @@
 
 				<dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
 					{#if endpoint}
-						<dt class="text-muted-content">Endpoint</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_col_endpoint()}</dt>
 						<dd class="break-all">{endpoint}</dd>
 					{/if}
 					{#if server.command}
-						<dt class="text-muted-content">Command</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_enforcement_events_command()}
+						</dt>
 						<dd class="font-mono break-all">{server.command}</dd>
 					{/if}
 					{#if server.args && server.args.length > 0}
-						<dt class="text-muted-content">Args</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_args()}</dt>
 						<dd class="text-xs break-all">
 							{#each server.args as arg, i (i)}
 								<span class="dark:bg-base-400 bg-base-300 mr-1 inline-block rounded px-1.5 py-0.5">
@@ -104,10 +113,10 @@
 						</dd>
 					{/if}
 					{#if server.url}
-						<dt class="text-muted-content">URL</dt>
+						<dt class="text-muted-content">{m.core_col_url()}</dt>
 						<dd class="break-all">{server.url}</dd>
 					{/if}
-					<dt class="text-muted-content">Env keys</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_label_env_keys()}</dt>
 					<dd>
 						{#if server.envKeys && server.envKeys.length > 0}
 							<div class="flex flex-wrap gap-2">
@@ -118,10 +127,10 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-muted-content">none</span>
+							<span class="text-muted-content">{m.inventory_enforcement_devices_none()}</span>
 						{/if}
 					</dd>
-					<dt class="text-muted-content">Header keys</dt>
+					<dt class="text-muted-content">{m.inventory_enforcement_label_header_keys()}</dt>
 					<dd>
 						{#if server.headerKeys && server.headerKeys.length > 0}
 							<div class="flex flex-wrap gap-2">
@@ -132,15 +141,17 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-muted-content">none</span>
+							<span class="text-muted-content">{m.inventory_enforcement_devices_none()}</span>
 						{/if}
 					</dd>
 					{#if server.file}
-						<dt class="text-muted-content">File</dt>
+						<dt class="text-muted-content">{m.inventory_enforcement_devices_label_file()}</dt>
 						<dd class="text-sm break-all">{server.file}</dd>
 					{/if}
 					{#if parentPlugin}
-						<dt class="text-muted-content">Part of plugin</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_part_of_plugin()}
+						</dt>
 						<dd>
 							<a
 								class="text-sm text-link"
@@ -153,11 +164,15 @@
 						</dd>
 					{/if}
 					{#if server.projectPath}
-						<dt class="text-muted-content">Project path</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_project_path()}
+						</dt>
 						<dd class="break-all">{server.projectPath}</dd>
 					{/if}
 					{#if server.configHash}
-						<dt class="text-muted-content">Config hash</dt>
+						<dt class="text-muted-content">
+							{m.inventory_enforcement_devices_label_config_hash()}
+						</dt>
 						<dd class="flex items-center gap-1">
 							<span class="text-sm" use:tooltip={server.configHash}>
 								{shortHash(server.configHash)}
@@ -170,7 +185,7 @@
 
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
-					<h3 class="text-base font-semibold">Configuration</h3>
+					<h3 class="text-base font-semibold">{m.inventory_enforcement_configuration_tab()}</h3>
 					<CopyButton showTextLeft text={renderConfig(server)} />
 				</div>
 				<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-2 rounded-md p-3 shadow-sm">
@@ -179,8 +194,8 @@
 							server
 						)}</pre>
 					<p class="text-muted-content text-xs">
-						Reconstructed from parsed fields. <code>&lt;set&gt;</code> indicates the key was present but
-						the value was not captured.
+						{m.inventory_enforcement_devices_reconstructed_prefix()} <code>&lt;set&gt;</code>
+						{m.inventory_enforcement_devices_reconstructed_suffix()}
 					</p>
 				</div>
 			</div>

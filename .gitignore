@@ -70,3 +70,7 @@ thoughts
 
 # Riptide artifacts (cloud-synced)
 .humanlayer/tasks/
+
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]

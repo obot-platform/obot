@@ -1,4 +1,5 @@
 import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
+import { m } from '$lib/i18n';
 import { MCP_SERVERS_TAB_ACCESS_POLICIES } from '../mcp/constants';
 import { getNavigateToMcpServersTabStep } from '../mcp/steps';
 import type { GuideStep } from '../types';
@@ -6,27 +7,25 @@ import type { GuideStep } from '../types';
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'**What is an MCP access policy?**',
-			'An MCP access policy allows you to grant one or more users or user groups access to one or more MCP servers.'
+			m.mcps_access_policies_guide_what_is_an_mcp_access_policy(),
+			m.mcps_access_policies_guide_an_mcp_access_policy_allows_you()
 		]
 	},
 	getNavigateToMcpServersTabStep(
 		MCP_SERVERS_TAB_ACCESS_POLICIES,
-		'Access Policies',
-		'Click here to manage MCP access policies.',
-		"Let's head to the Access Policies tab on the MCP Servers page."
+		m.mcps_access_policies_tab(),
+		m.mcps_guide_click_here_to_manage_mcp_access(),
+		m.mcps_access_policies_guide_let_s_head_to_the_access()
 	),
 	{
-		content: [
-			"Create and manage your MCP access policies here. We'll take you through creating a new MCP access policy."
-		],
+		content: [m.mcps_access_policies_guide_create_and_manage_your_mcp_access()],
 		action: {
 			routeContains: '/mcp-servers',
 			highlight: {
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn },
 				side: 'left',
-				title: 'Add Access Policy',
-				description: 'This is where you go to create a new MCP access policy.'
+				title: m.mcps_access_policies_add_access_policy(),
+				description: m.mcps_access_policies_guide_this_is_where_you_go_to()
 			},
 			listener: {
 				id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn,
@@ -35,13 +34,13 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: ["Let's go over the basic fields for the access policy."],
+		content: [m.mcps_access_policies_guide_let_s_go_over_the_basic()],
 		action: {
 			highlight: {
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.name },
 				side: 'top',
-				title: 'Policy Name',
-				description: 'This is where you enter a recognizable name for this access policy.'
+				title: m.mcps_access_policies_guide_policy_name(),
+				description: m.mcps_access_policies_guide_this_is_where_you_enter_a()
 			},
 			listener: {
 				id: MCP_ACCESS_POLICY_FIELD_IDS.name,
@@ -49,9 +48,8 @@ export const steps: GuideStep[] = [
 					highlight: {
 						selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.usersGroupsSection },
 						side: 'top',
-						title: 'Users & Groups',
-						description:
-							'Here is where you can add the users and groups that should have access to the selected MCP servers.',
+						title: m.core_users_and_groups(),
+						description: m.mcps_access_policies_guide_here_is_where_you_can_add(),
 						noDescendantInteraction: true
 					},
 					listener: {
@@ -61,17 +59,16 @@ export const steps: GuideStep[] = [
 							highlight: {
 								selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn },
 								side: 'left',
-								title: 'Add User/Group',
-								description: 'You can add user and groups here.'
+								title: m.core_add_user_group(),
+								description: m.mcps_access_policies_guide_you_can_add_user_and_groups()
 							},
 							listener: {
 								id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn,
 								action: {
 									highlight: {
 										selector: { id: 'add-user-group-dialog-content' },
-										title: 'Adding Users/Groups',
-										description:
-											'Clicking it will open this dialog, where you can search who or what groups you want to add to the access policy.',
+										title: m.mcps_access_policies_guide_adding_users_groups(),
+										description: m.mcps_access_policies_guide_clicking_it_will_open_this_dialog(),
 										noDescendantInteraction: true
 									},
 									listener: {
@@ -81,9 +78,8 @@ export const steps: GuideStep[] = [
 											highlight: {
 												selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption },
 												side: 'right',
-												title: 'Select A User/Group',
-												description:
-													"For now, we'll select All Obot Users. This will grant access to everyone."
+												title: m.mcps_access_policies_guide_select_a_user_group(),
+												description: m.mcps_access_policies_guide_for_now_we_ll_select_all()
 											},
 											listener: {
 												id: MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption,
@@ -91,8 +87,9 @@ export const steps: GuideStep[] = [
 													highlight: {
 														selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn },
 														side: 'top',
-														title: 'Confirm Selection',
-														description: 'Then you can apply your changes here.'
+														title: m.mcps_access_policies_guide_confirm_selection(),
+														description:
+															m.mcps_access_policies_guide_then_you_can_apply_your_changes()
 													},
 													listener: {
 														id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn,
@@ -100,9 +97,9 @@ export const steps: GuideStep[] = [
 															highlight: {
 																selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.serversSection },
 																side: 'top',
-																title: 'Servers',
+																title: m.mcps_servers_tab(),
 																description:
-																	'This is where you can select the servers that will be available to the selected users and groups.',
+																	m.mcps_access_policies_guide_this_is_where_you_can_select(),
 																noDescendantInteraction: true
 															},
 															listener: {
@@ -112,17 +109,18 @@ export const steps: GuideStep[] = [
 																	highlight: {
 																		selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn },
 																		side: 'left',
-																		title: 'Add Server',
-																		description: 'You can add a server from here.'
+																		title: m.mcps_access_policies_add_server(),
+																		description:
+																			m.mcps_access_policies_guide_you_can_add_a_server_from()
 																	},
 																	listener: {
 																		id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn,
 																		action: {
 																			highlight: {
 																				selector: { id: 'search-mcp-servers-dialog-content' },
-																				title: 'Adding A Server',
+																				title: m.mcps_access_policies_guide_adding_a_server(),
 																				description:
-																					'Clicking it will open this dialog, where you can search and add any servers that you want to make available to the selected users and groups.',
+																					m.mcps_access_policies_guide_clicking_it_will_open_this_dialog_2(),
 																				noDescendantInteraction: true
 																			},
 																			listener: {
@@ -134,9 +132,9 @@ export const steps: GuideStep[] = [
 																							id: MCP_ACCESS_POLICY_FIELD_IDS.everythingOption
 																						},
 																						side: 'right',
-																						title: 'Add a Server',
+																						title: m.mcps_access_policies_guide_add_a_server(),
 																						description:
-																							"For this guide, we'll go ahead and add everything. You can choose to modify this later."
+																							m.mcps_access_policies_guide_for_this_guide_we_ll_go()
 																					},
 																					listener: {
 																						id: MCP_ACCESS_POLICY_FIELD_IDS.everythingOption,
@@ -146,8 +144,10 @@ export const steps: GuideStep[] = [
 																									id: MCP_ACCESS_POLICY_FIELD_IDS.serverConfirmBtn
 																								},
 																								side: 'top',
-																								title: 'Confirm Changes',
-																								description: 'Then you can apply your changes here.'
+																								title:
+																									m.mcps_access_policies_guide_confirm_changes(),
+																								description:
+																									m.mcps_access_policies_guide_then_you_can_apply_your_changes()
 																							},
 																							listener: {
 																								id: MCP_ACCESS_POLICY_FIELD_IDS.serverConfirmBtn,
@@ -157,9 +157,10 @@ export const steps: GuideStep[] = [
 																											id: MCP_ACCESS_POLICY_FIELD_IDS.saveBtn
 																										},
 																										side: 'left',
-																										title: 'Save Access Policy',
+																										title:
+																											m.mcps_access_policies_guide_save_access_policy(),
 																										description:
-																											"Once you've finished configuring the access policy, you can save it here."
+																											m.mcps_access_policies_guide_once_you_ve_finished_configuring_the()
 																									},
 																									listener: {
 																										id: MCP_ACCESS_POLICY_FIELD_IDS.saveBtn,
@@ -194,7 +195,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Create MCP Access Policy',
-	description: 'Grant users and groups access to MCP servers.',
+	title: m.mcps_create_mcp_access_policy(),
+	description: m.mcps_access_policies_guide_grant_users_and_groups_access_to(),
 	id: 'mcp-create-access-policy-guide'
 };

@@ -2,6 +2,7 @@
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
+	import { m } from '$lib/i18n';
 	import { responsive } from '$lib/stores';
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
@@ -14,7 +15,7 @@
 
 	const actions = [
 		{
-			label: 'Last Hour',
+			label: m.audit_usage_exports_calendar_last_hour(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 
@@ -25,7 +26,7 @@
 			}
 		},
 		{
-			label: 'Last 6 Hours',
+			label: m.audit_usage_exports_calendar_last_6_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = subHours(end, 6);
@@ -35,7 +36,7 @@
 			}
 		},
 		{
-			label: 'Last 24 Hour',
+			label: m.audit_usage_exports_calendar_last_24_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = subHours(end, 24);
@@ -45,7 +46,7 @@
 			}
 		},
 		{
-			label: 'Last 7 Days',
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 7 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 7));
@@ -55,7 +56,7 @@
 			}
 		},
 		{
-			label: 'Last 30 Days',
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 30 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 30));
@@ -65,7 +66,7 @@
 			}
 		},
 		{
-			label: 'Last 60 Days',
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 60 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 60));
@@ -75,7 +76,7 @@
 			}
 		},
 		{
-			label: 'Last 90 Days',
+			label: m.audit_usage_exports_calendar_last_n_days({ days: 90 }),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = startOfDay(subDays(end, 90));
@@ -122,7 +123,7 @@
 		}}
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
-				text: 'Calendar Quick Actions',
+				text: m.audit_usage_exports_calendar_quick_actions(),
 				placement: 'top-end',
 				classes: ['z-60']
 			});
@@ -162,7 +163,7 @@
 		{#key isSmallScreen}
 			<div class="popover flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
 				<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
-					<div>Select Export Time Range</div>
+					<div>{m.audit_usage_exports_calendar_select_export_range()}</div>
 				</div>
 
 				<div class="flex w-full min-w-36 flex-col">

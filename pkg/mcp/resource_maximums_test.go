@@ -73,18 +73,13 @@ func TestValidateK8sSettingsResourceMaximumsUsesEffectiveDefaults(t *testing.T) 
 	settings := v1.K8sSettingsSpec{
 		Resources: &corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
-			},
-		},
-		NanobotAgentResources: &corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
 			},
 		},
 	}
 
 	if err := ValidateK8sSettingsResourceMaximums(settings, maximums); err == nil {
-		t.Fatal("expected nanobot agent default memory request to exceed maximum")
+		t.Fatal("expected default memory request to exceed maximum")
 	}
 }
 
@@ -94,11 +89,6 @@ func TestValidateK8sSettingsResourceMaximumsAllowsDefaultsBelowMaximum(t *testin
 		Resources: &corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("128Mi"),
-			},
-		},
-		NanobotAgentResources: &corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("192Mi"),
 			},
 		},
 	}

@@ -48,7 +48,6 @@ func TestListOrphanedVMCPsReturnsVMCPsAwaitingAdoption(t *testing.T) {
 			Name:                    "Search",
 			MCPCatalogID:            system.DefaultCatalog,
 			MCPServerCatalogEntryID: "default-search",
-			AllowedTools:            []string{"find"},
 		},
 	}
 	email.Spec.Manifest.Profiles = []types.VMCPProfile{{
@@ -112,8 +111,6 @@ components:
   - id: default-search
     name: Search
     mcpServerCatalogEntryKey: github.com/example/shared::search
-    allowedTools:
-      - find
 profiles:
   - name: everyone
     subjects:
@@ -144,7 +141,6 @@ profiles:
 	require.Equal(t, email.Spec.Manifest.Components[0].ToolOverrides, manifest.Components[0].ToolOverrides)
 	require.Equal(t, "default-search", manifest.Components[1].ID)
 	require.Equal(t, "github.com/example/shared::search", manifest.Components[1].MCPServerCatalogEntryID)
-	require.Equal(t, []string{"find"}, manifest.Components[1].AllowedTools)
 }
 
 func TestListOrphanedVMCPsKeepsEmptyProfiles(t *testing.T) {

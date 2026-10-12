@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import LLMGatewayProviderSection from '$lib/components/llm-gateway/LLMGatewayProviderSection.svelte';
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { Model } from '$lib/services';
 	import {
 		PROVIDER_CONNECTIONS,
@@ -26,20 +27,20 @@
 	});
 
 	let openaiModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.OPENAI)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.OPENAI)
 	);
 	let anthropicModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.ANTHROPIC)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.ANTHROPIC)
 	);
 	let genericResponsesModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
 	);
 	let genericResponsesDisplayModels = $derived(toCallableModelNames(genericResponsesModels));
 	let bedrockModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
 	);
 	let bedrockAPIKeyModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK_API_KEY)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK_API_KEY)
 	);
 	let bedrockAnthropicModels = $derived(bedrockModels.filter(isBedrockAnthropicModel));
 	let bedrockOpenAIModels = $derived(bedrockModels.filter(isBedrockOpenAICompatibleModel));
@@ -54,10 +55,10 @@
 	);
 	let bedrockAPIKeyOpenAIDisplayModels = $derived(toCallableModelNames(bedrockAPIKeyOpenAIModels));
 	let azureModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.AZURE)
 	);
 	let azureEntraModels = $derived(
-		models.filter((m) => m.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
+		models.filter((model) => model.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
 	);
 	let azureAnthropicModels = $derived(azureModels.filter(isAnthropicDialect));
 	let azureOpenAIModels = $derived(azureModels.filter(isOpenAIDialect));
@@ -133,9 +134,7 @@
 
 <div class="flex h-full w-full flex-col gap-6" in:fade={{ duration }}>
 	<p class="text-muted-content max-w-3xl text-sm">
-		Use the Obot LLM Gateway to call OpenAI, Anthropic, Generic Responses, Amazon Bedrock, and Azure
-		models with your Obot credentials. Configure your client below, then pick from the models you
-		have access to.
+		{m.models_gateway_intro()}
 	</p>
 
 	{#if ready}

@@ -2,6 +2,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import { m } from '$lib/i18n';
 	import { VMCP_SORT_OPTIONS, VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption, VMcpListSettings } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
@@ -67,11 +68,12 @@
 		<Search
 			value={filters.query}
 			onChange={(value) => onChange('query', value ? [value] : [])}
-			placeholder="Search vMCPs..."
+			placeholder={m.vmcps_search_vmcps()}
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 		/>
 		<button class="btn btn-neutral h-12.5" id={BUTTON_ID} onclick={() => dialog?.open()}>
-			<Funnel class="size-4" /> Filters
+			<Funnel class="size-4" />
+			{m.core_filters_title()}
 		</button>
 	</div>
 	{#if activeFilterPills.length > 0}
@@ -82,7 +84,7 @@
 					<button
 						type="button"
 						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
-						aria-label="Remove {item.label}"
+						aria-label={m.vmcps_remove_named({ name: item.label })}
 						onclick={() =>
 							onChange(
 								item.property,
@@ -115,18 +117,20 @@
 			class={twMerge('btn', filters.variant === 'grid' ? 'btn-active' : undefined)}
 			onclick={() => onChange('variant', ['grid'])}
 		>
-			<LayoutGrid class="size-4" /> Grid View
+			<LayoutGrid class="size-4" />
+			{m.vmcps_grid_view()}
 		</button>
 		<button
 			class={twMerge('btn', filters.variant === 'table' ? 'btn-active' : undefined)}
 			onclick={() => onChange('variant', ['table'])}
 		>
-			<Table class="size-4" /> Table View
+			<Table class="size-4" />
+			{m.vmcps_table_view()}
 		</button>
 	</div>
 </div>
 
-<ResponsiveDialog bind:this={dialog} title="vMCPs Settings" class="md:w-md">
+<ResponsiveDialog bind:this={dialog} title={m.vmcps_settings()} class="md:w-md">
 	<div class="flex flex-col gap-2">
 		<label class="flex items-center gap-1.5 w-fit text-sm">
 			<input
@@ -139,18 +143,18 @@
 						(event.currentTarget as HTMLInputElement).checked ? ['true'] : []
 					)}
 			/>
-			Show my vMCPs only
+			{m.vmcps_show_my_vmcps_only()}
 		</label>
 
 		<label id={SORT_LABEL_ID} for="vmcp-sort-by" class="divider my-2 text-xs uppercase">
-			Sort By
+			{m.vmcps_sort_by_heading()}
 		</label>
 		<div class="flex gap-4 items-center">
 			<Select
 				id="vmcp-sort-by"
 				options={VMCP_SORT_OPTIONS}
 				selected={filters.sortBy}
-				placeholder="Sort by"
+				placeholder={m.vmcps_sort_by()}
 				ariaLabelledby={SORT_LABEL_ID}
 				class={selectClasses}
 				classes={{ root: 'grow', option: 'text-sm' }}
@@ -163,13 +167,13 @@
 			for="vmcp-filter-by-status"
 			class="divider my-2 text-xs uppercase"
 		>
-			Filter By Status
+			{m.vmcps_filter_by_status_heading()}
 		</label>
 		<Select
 			id="vmcp-filter-by-status"
 			options={unusedOptions(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy)}
 			bind:selected={statusDraft}
-			placeholder="Filter by status"
+			placeholder={m.vmcps_filter_by_status()}
 			ariaLabelledby={STATUS_FILTER_LABEL_ID}
 			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
@@ -191,15 +195,15 @@
 			for="vmcp-filter-by-server"
 			class="divider my-2 text-xs uppercase"
 		>
-			Filter By MCP Servers
+			{m.vmcps_filter_by_mcp_servers_heading()}
 		</label>
 		<Select
 			id="vmcp-filter-by-server"
 			options={unusedOptions(componentFilterOptions, filters.componentFilterBy)}
 			bind:selected={componentDraft}
 			searchInDropdown
-			placeholder="Filter by MCP server"
-			searchPlaceholder="Search MCP servers..."
+			placeholder={m.vmcps_filter_by_mcp_server()}
+			searchPlaceholder={m.vmcps_search_mcp_servers()}
 			ariaLabelledby={SERVER_FILTER_LABEL_ID}
 			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
@@ -230,7 +234,7 @@
 					<button
 						type="button"
 						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
-						aria-label="Remove {item.label}"
+						aria-label={m.vmcps_remove_named({ name: item.label })}
 						onclick={() =>
 							onChange(
 								property,

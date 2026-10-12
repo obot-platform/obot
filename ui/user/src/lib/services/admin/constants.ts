@@ -1,52 +1,45 @@
+import { m } from '$lib/i18n';
 import { Role } from './types';
 
 export const userRoleOptions = [
 	{
 		id: Role.BASIC,
-		label: 'Standard User',
-		description: 'Connect to MCP servers made available through access policies and use Chat.'
+		label: m.core_role_standard_user(),
+		description: m.core_role_standard_user_description()
 	},
 	{
 		id: Role.POWERUSER,
-		label: 'Power User',
-		description:
-			'In addition to standard user features, users can publish custom MCP servers for their own personal use.'
+		label: m.core_role_power_user(),
+		description: m.core_role_power_user_description()
 	},
 	{
 		id: Role.POWERUSER_PLUS,
-		label: 'Power User Plus',
-		description:
-			'In addition to power user features, users can share their custom MCP servers through their own access policies.'
+		label: m.core_role_power_user_plus(),
+		description: m.core_role_power_user_plus_description()
 	},
 	{
 		id: Role.ADMIN,
-		label: 'Admin',
-		description: 'Every user is a full admin. Use caution when selecting this option.'
+		label: m.core_role_admin(),
+		description: m.core_role_admin_description()
 	}
 ];
 
 export const groupRoleOptions = [
 	{
 		id: Role.ADMIN,
-		label: 'Admin',
-		description: 'All group members will be full admins. Use caution when selecting this option.'
+		label: m.core_role_admin(),
+		description: m.core_group_role_admin_description()
 	},
 	{
 		id: Role.POWERUSER_PLUS,
-		label: 'Power User Plus',
-		description:
-			'In addition to Power User features, all group members can share their custom MCP servers through their own Access Control Rules.'
+		label: m.core_role_power_user_plus(),
+		description: m.core_group_role_power_user_plus_description()
 	},
 	{
 		id: Role.POWERUSER,
-		label: 'Power User',
-		description: 'All group members can publish custom MCP servers for their own personal use.'
+		label: m.core_role_power_user(),
+		description: m.core_group_role_power_user_description()
 	}
 ];
 
 export const OBOT_PLATFORM_REPO = 'https://github.com/obot-platform/';
-
-export const MCP_MULTI_TENANT_LAUNCH_TEXT =
-	'You are about to launch a new server for a multi-tenant catalog entry.';
-export const MCP_SINGLE_TENANT_LAUNCH_TEXT =
-	'You are about to launch a personal server for a single-tenant catalog entry. This will only be accessible to you.';

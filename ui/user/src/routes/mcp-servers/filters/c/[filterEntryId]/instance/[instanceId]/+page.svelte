@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { m } from '$lib/i18n';
 	import { goto } from '$lib/url';
 	import FilterView from '../../../../../FilterView.svelte';
 
 	let { data } = $props();
 	let { filter, entry } = $derived(data);
-	let title = $derived(entry?.manifest.name ?? filter?.name ?? 'Filter');
+	let title = $derived(entry?.manifest.name ?? filter?.name ?? m.mcps_filters_filter());
 	let selected = $derived<string>((page.url.searchParams.get('view') as string) || 'configuration');
 
 	function handleSelectionChange(newSelection: string) {

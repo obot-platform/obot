@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type { AppNotification } from '$lib/services/user/types';
 	import { CircleAlert, Info, X } from '@lucide/svelte';
@@ -53,7 +54,7 @@
 				)}
 				onclick={() => onDismiss?.()}
 				type="button"
-				aria-label="Dismiss notification banner"
+				aria-label={m.core_dismiss_notification_banner()}
 			>
 				<X class="size-3" />
 			</button>

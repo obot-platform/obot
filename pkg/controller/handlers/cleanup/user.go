@@ -68,26 +68,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	slog.Info("Removed user identities during cleanup", "userID", userID, "identities", len(identities))
 
-	var projects v1.ProjectList
-	if err := req.List(&projects, &kclient.ListOptions{
-		Namespace: req.Namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userID": userID,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	for _, project := range projects.Items {
-		if err := req.Delete(&project); err != nil {
-			return err
-		}
-	}
-	slog.Info("Deleted projects during user cleanup", "userID", userID, "projects", len(projects.Items))
-
-	// Revoke any API keys the user created. Nanobot-agent keys are handled by the
-	// NanobotAgent delete flow above; this sweeps user-created keys plus anything
-	// the nanobot path missed.
+	// Revoke any API keys the user created.
 	apiKeys, err := u.gatewayClient.ListAPIKeys(req.Ctx, userDelete.Spec.UserID)
 	if err != nil {
 		return fmt.Errorf("failed to list API keys for user %d: %w", userDelete.Spec.UserID, err)
@@ -154,11 +135,9 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	var deletedServers int
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
-		// Also skip servers that are associated with an agent because we need the credential to stick
-		// around so we can revoke the API key.
-		// Finally, skip servers associated to vMCP components because those will be deleted when the above
+		// Also skip servers associated to vMCP components because those will be deleted when the above
 		// objects are deleted.
-		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.NanobotAgentID != "" || server.Spec.VMCPComponentID != "" {
+		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.VMCPComponentID != "" {
 			continue
 		}
 		if err := req.Delete(&server); err != nil {

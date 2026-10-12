@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, type OrgUser } from '$lib/services';
 	import type {
@@ -10,6 +11,7 @@
 		HostedAgentPoolUtilization
 	} from '$lib/services/admin/types';
 	import { errors } from '$lib/stores';
+	import { isDisabledUser } from '$lib/utils';
 	import { Activity, Pencil, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -43,8 +45,10 @@
 	// resolve them to people and let the pool be recognised by who is in it.
 	function userLabel(id: string) {
 		const user = usersByID.get(id);
-		if (!user) return `User ${id}`;
-		return user.displayName || user.email || user.username || `User ${id}`;
+		if (!user) return m.hosted_agents_pools_user_id_label({ id });
+		return (
+			user.displayName || user.email || user.username || m.hosted_agents_pools_user_id_label({ id })
+		);
 	}
 
 	function membersOf(poolID: string) {
@@ -78,7 +82,11 @@
 	});
 	const formatQuantity = (q?: { cpuVcpus: number; memoryBytes: number; storageBytes: number }) =>
 		q
-			? `${q.cpuVcpus} vCPU · ${toGiB(q.memoryBytes)} GiB RAM · ${toGiB(q.storageBytes)} GiB disk`
+			? m.hosted_agents_pools_quantity({
+					cpu: q.cpuVcpus,
+					memory: toGiB(q.memoryBytes),
+					storage: toGiB(q.storageBytes)
+				})
 			: '—';
 
 	async function reload() {
@@ -155,7 +163,7 @@
 			scheduleRefresh();
 			poolDialog?.close();
 		} catch (error) {
-			errors.append(`Failed to save pool: ${error}`);
+			errors.append(m.hosted_agents_pools_save_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -172,7 +180,7 @@
 				? await AdminService.updateHostedAgentPoolDefaults(manifest)
 				: await AdminService.createHostedAgentPoolDefaults(manifest);
 		} catch (error) {
-			errors.append(`Failed to save pool defaults: ${error}`);
+			errors.append(m.hosted_agents_pools_save_defaults_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -186,7 +194,7 @@
 			scheduleRefresh();
 			assignmentDialog?.close();
 		} catch (error) {
-			errors.append(`Failed to assign pool: ${error}`);
+			errors.append(m.hosted_agents_pools_assign_failed({ error: String(error) }));
 		} finally {
 			saving = false;
 		}
@@ -199,7 +207,7 @@
 		try {
 			usage = await AdminService.getHostedAgentPoolUtilization(pool.id);
 		} catch (error) {
-			errors.append(`Failed to load utilization: ${error}`);
+			errors.append(m.hosted_agents_pools_load_utilization_failed({ error: String(error) }));
 		}
 	}
 
@@ -224,8 +232,8 @@
 		     each is a couple of characters wide, so stacking them wasted the row. -->
 		<div class="flex flex-wrap items-end gap-x-4 gap-y-3">
 			<div class="mr-auto">
-				<h2 class="font-semibold">Deployment defaults</h2>
-				<p class="text-muted-content text-xs">Applied when a pool is created on demand.</p>
+				<h2 class="font-semibold">{m.hosted_agents_pools_deployment_defaults()}</h2>
+				<p class="text-muted-content text-xs">{m.hosted_agents_pools_deployment_defaults_hint()}</p>
 			</div>
 			<label class="text-muted-content flex flex-col text-xs"
 				>vCPU<input
@@ -238,7 +246,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>Memory (GiB)<input
+				>{m.hosted_agents_pools_memory_gib()}<input
 					type="number"
 					min="0.1"
 					step="0.1"
@@ -248,7 +256,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>Storage (GiB)<input
+				>{m.hosted_agents_pools_storage_gib()}<input
 					type="number"
 					min="0.1"
 					step="0.1"
@@ -258,7 +266,7 @@
 				/></label
 			>
 			<label class="text-muted-content flex flex-col text-xs"
-				>Max sandboxes<input
+				>{m.hosted_agents_pools_max_sandboxes()}<input
 					type="number"
 					min="1"
 					step="1"
@@ -271,7 +279,7 @@
 				<button
 					class="btn btn-primary text-sm"
 					disabled={saving || !defaultsForm.cpu || !defaultsForm.memory || !defaultsForm.storage}
-					onclick={saveDefaults}>Save</button
+					onclick={saveDefaults}>{m.core_save()}</button
 				>
 			{/if}
 		</div>
@@ -280,18 +288,18 @@
 	<section>
 		<div class="mb-3 flex items-center justify-between">
 			<div>
-				<h2 class="font-semibold">Pools</h2>
+				<h2 class="font-semibold">{m.hosted_agents_pools()}</h2>
 				<p class="text-muted-content text-sm">
-					Shared CPU, memory and disk. Every member's sandboxes draw from the same pool.
+					{m.hosted_agents_pools_hint()}
 				</p>
 			</div>
 			<div class="flex gap-2">
 				{#if !readonly}
 					<button class="btn btn-secondary text-sm" onclick={() => assignmentDialog?.open()}
-						><Plus class="size-4" /> Assign user</button
+						><Plus class="size-4" /> {m.hosted_agents_pools_assign_user()}</button
 					>
 					<button class="btn btn-primary text-sm" onclick={() => openPool()}
-						><Plus class="size-4" /> Add pool</button
+						><Plus class="size-4" /> {m.hosted_agents_pools_add_pool()}</button
 					>
 				{/if}
 			</div>
@@ -310,7 +318,7 @@
 									{:else if members.length > 1}
 										{userLabel(members[0].userID)} +{members.length - 1}
 									{:else}
-										Unassigned pool
+										{m.hosted_agents_pools_unassigned()}
 									{/if}
 								</span>
 								<span
@@ -319,11 +327,18 @@
 										: pool.status?.ready
 											? 'badge-success'
 											: 'badge-secondary'}"
-									>{pool.suspended ? 'Suspended' : pool.status?.ready ? 'Ready' : 'Pending'}</span
+									>{pool.suspended
+										? m.hosted_agents_suspended()
+										: pool.status?.ready
+											? m.core_status_ready()
+											: m.core_status_pending()}</span
 								>
 							</div>
 							<p class="text-muted-content mt-1 text-sm">
-								{formatQuantity(pool.capacity)} · up to {pool.maxSandboxes ?? 10} sandboxes
+								{m.hosted_agents_pools_capacity_summary({
+									quantity: formatQuantity(pool.capacity),
+									count: pool.maxSandboxes ?? 10
+								})}
 							</p>
 							{#if pool.status?.message}<p class="text-warning mt-1 text-xs">
 									{pool.status.message}
@@ -332,17 +347,17 @@
 						</div>
 						<div class="flex shrink-0">
 							<button class="btn btn-ghost btn-sm" onclick={() => showUsage(pool)}
-								><Activity class="size-4" /> Usage</button
+								><Activity class="size-4" /> {m.hosted_agents_pools_usage()}</button
 							>
 							{#if !readonly}
 								<button
 									class="btn btn-ghost btn-sm"
-									aria-label="Edit pool"
+									aria-label={m.hosted_agents_pools_edit_pool()}
 									onclick={() => openPool(pool)}><Pencil class="size-4" /></button
 								>
 								<button
 									class="btn btn-ghost btn-sm text-error"
-									aria-label="Delete pool"
+									aria-label={m.hosted_agents_pools_delete_pool()}
 									onclick={() => (deleting = pool)}><Trash2 class="size-4" /></button
 								>
 							{/if}
@@ -353,26 +368,39 @@
 					     two lists cross-referenced by ID. -->
 					<div class="border-base-400 mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
 						{#each members as member (member.id)}
+							{@const disabled = isDisabledUser(usersByID.get(member.userID))}
 							<span
-								class="border-base-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+								class={[
+									'border-base-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
+									disabled && 'opacity-50'
+								]}
 							>
 								{userLabel(member.userID)}
-								{#if member.default}<span class="text-muted-content">· default</span>{/if}
+								{#if disabled}<span class="text-muted-content"
+										>{m.hosted_agents_pools_member_disabled()}</span
+									>{/if}
+								{#if member.default}<span class="text-muted-content"
+										>{m.hosted_agents_pools_member_default()}</span
+									>{/if}
 								{#if !readonly}
 									<button
 										class="text-muted-content hover:text-error"
-										aria-label="Remove {userLabel(member.userID)} from pool"
+										aria-label={m.hosted_agents_pools_remove_member({
+											name: userLabel(member.userID)
+										})}
 										onclick={() => (deletingAssignment = member)}><Trash2 class="size-3" /></button
 									>
 								{/if}
 							</span>
 						{:else}
-							<span class="text-muted-content text-xs">No users assigned.</span>
+							<span class="text-muted-content text-xs">{m.hosted_agents_pools_no_users()}</span>
 						{/each}
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted-content py-6 text-center text-sm">No pools yet.</p>
+				<p class="text-muted-content py-6 text-center text-sm">
+					{m.hosted_agents_pools_no_pools()}
+				</p>
 			{/each}
 		</div>
 	</section>
@@ -380,7 +408,7 @@
 
 <ResponsiveDialog
 	bind:this={poolDialog}
-	title={editing ? 'Edit pool' : 'Add pool'}
+	title={editing ? m.hosted_agents_pools_edit_pool() : m.hosted_agents_pools_add_pool()}
 	class="md:max-w-md"
 >
 	<div class="grid gap-3">
@@ -394,7 +422,7 @@
 			/></label
 		>
 		<label class="text-sm"
-			>Memory (GiB)<input
+			>{m.hosted_agents_pools_memory_gib()}<input
 				type="number"
 				min="0.1"
 				step="0.1"
@@ -403,7 +431,7 @@
 			/></label
 		>
 		<label class="text-sm"
-			>Storage (GiB)<input
+			>{m.hosted_agents_pools_storage_gib()}<input
 				type="number"
 				min="0.1"
 				step="0.1"
@@ -412,72 +440,90 @@
 			/></label
 		>
 		<label class="text-sm"
-			>Max sandboxes<input
+			>{m.hosted_agents_pools_max_sandboxes()}<input
 				type="number"
 				min="1"
 				step="1"
 				class="text-input-filled mt-1"
 				bind:value={form.maxSandboxes}
 			/><span class="text-muted-content mt-1 block text-xs">
-				Sandboxes share this pool. Each is guaranteed capacity ÷ this number and may burst to the
-				whole pool, so a higher number means smaller guaranteed shares.
+				{m.hosted_agents_pools_sandboxes_hint()}
 			</span></label
 		>
 		<label class="flex items-center gap-2 text-sm"
-			><input type="checkbox" bind:checked={form.suspended} /> Suspend new starts</label
+			><input type="checkbox" bind:checked={form.suspended} />
+			{m.hosted_agents_pools_suspend_new_starts()}</label
 		>
 		<button
 			class="btn btn-primary mt-2"
 			disabled={saving || !form.cpu || !form.memory || !form.storage}
 			onclick={savePool}
-			>{#if saving}<Loading class="size-4" />{:else}Save{/if}</button
+			>{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}</button
 		>
 	</div>
 </ResponsiveDialog>
 
-<ResponsiveDialog bind:this={assignmentDialog} title="Assign pool" class="md:max-w-md">
+<ResponsiveDialog
+	bind:this={assignmentDialog}
+	title={m.hosted_agents_pools_assign_pool()}
+	class="md:max-w-md"
+>
 	<div class="grid gap-3">
 		<label class="text-sm"
-			>User ID<input class="text-input-filled mt-1" bind:value={assignmentForm.userID} /></label
+			>{m.hosted_agents_pools_user_id()}<input
+				class="text-input-filled mt-1"
+				bind:value={assignmentForm.userID}
+			/></label
 		>
 		<label class="text-sm"
-			>Pool<select class="text-input-filled mt-1" bind:value={assignmentForm.poolID}
-				><option value="">Select a pool</option>{#each pools as pool (pool.id)}<option
-						value={pool.id}>{pool.id}</option
-					>{/each}</select
+			>{m.hosted_agents_pools_pool()}<select
+				class="text-input-filled mt-1"
+				bind:value={assignmentForm.poolID}
+				><option value="">{m.hosted_agents_pools_select_pool()}</option
+				>{#each pools as pool (pool.id)}<option value={pool.id}>{pool.id}</option>{/each}</select
 			></label
 		>
 		<label class="flex items-center gap-2 text-sm"
-			><input type="checkbox" bind:checked={assignmentForm.default} /> Default pool</label
+			><input type="checkbox" bind:checked={assignmentForm.default} />
+			{m.hosted_agents_pools_default_pool()}</label
 		>
 		<button
 			class="btn btn-primary"
 			disabled={saving || !assignmentForm.userID || !assignmentForm.poolID}
-			onclick={saveAssignment}>Assign</button
+			onclick={saveAssignment}>{m.hosted_agents_pools_assign()}</button
 		>
 	</div>
 </ResponsiveDialog>
 
-<ResponsiveDialog bind:this={usageDialog} title="Live utilization" class="md:max-w-lg">
+<ResponsiveDialog
+	bind:this={usageDialog}
+	title={m.hosted_agents_pools_live_utilization()}
+	class="md:max-w-lg"
+>
 	{#if !usage}<div class="flex justify-center p-8"><Loading class="size-6" /></div>
 	{:else}
 		<div class="grid gap-3">
 			<p class="text-sm">
-				<strong>{usagePool?.id}</strong> · snapshot {new Date(usage.timestamp).toLocaleString()}
+				<strong>{usagePool?.id}</strong>
+				{m.hosted_agents_pools_snapshot({ time: new Date(usage.timestamp).toLocaleString() })}
 			</p>
-			<p class="text-sm">Used: {formatQuantity(usage.pool)}</p>
+			<p class="text-sm">{m.hosted_agents_pools_used({ quantity: formatQuantity(usage.pool) })}</p>
 			<p class="text-muted-content text-xs">
-				Pressure: CPU {usage.pressure.cpu ?? 'unknown'} · memory {usage.pressure.memory ??
-					'unknown'} · storage {usage.pressure.storage ?? 'unknown'}
+				{m.hosted_agents_pools_pressure({
+					cpu: usage.pressure.cpu ?? m.hosted_agents_pools_unknown(),
+					memory: usage.pressure.memory ?? m.hosted_agents_pools_unknown(),
+					storage: usage.pressure.storage ?? m.hosted_agents_pools_unknown()
+				})}
 			</p>
 			<p class="text-muted-content text-xs">
-				Totals cover every member of this pool. Disk is not reported per instance, because members
-				share one volume.
+				{m.hosted_agents_pools_totals_hint()}
 			</p>
 			{#each usage.instances as instance (instance.instanceID)}<div
 					class="border-base-400 rounded border p-2 text-xs"
 				>
-					{instance.instanceID} · {instance.state ?? 'unknown'} · {formatQuantity(instance.usage)}
+					{instance.instanceID} · {instance.state ?? m.hosted_agents_pools_unknown()} · {formatQuantity(
+						instance.usage
+					)}
 				</div>{/each}
 		</div>
 	{/if}
@@ -485,7 +531,7 @@
 
 {#if deleting}
 	<Confirm
-		msg="Delete this pool? Deletion completes only after the backend resources are gone."
+		msg={m.hosted_agents_pools_delete_confirm()}
 		show
 		onsuccess={async () => {
 			await AdminService.deleteHostedAgentPool(deleting!.id);
@@ -498,7 +544,7 @@
 {/if}
 {#if deletingAssignment}
 	<Confirm
-		msg="Remove this assignment? The user will no longer be able to select the pool."
+		msg={m.hosted_agents_pools_remove_assignment_confirm()}
 		show
 		onsuccess={async () => {
 			await AdminService.deleteHostedAgentPoolAssignment(deletingAssignment!.id);

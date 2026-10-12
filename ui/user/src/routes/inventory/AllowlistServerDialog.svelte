@@ -8,6 +8,7 @@
 		PACKAGE_SOURCE_LABELS,
 		type AllowlistServerKind
 	} from '$lib/enforcement';
+	import { m } from '$lib/i18n';
 	import type { AllowlistServer, AllowlistServerPackageSource } from '$lib/services';
 	import { X } from '@lucide/svelte';
 
@@ -115,12 +116,14 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={editingIndex === undefined ? 'Allow an MCP Server' : 'Edit Allowed MCP Server'}
+	title={editingIndex === undefined
+		? m.inventory_enforcement_allowlist_add_title()
+		: m.inventory_enforcement_allowlist_edit_title()}
 	class="w-full max-w-lg"
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<span class="input-label">Identify this server by</span>
+			<span class="input-label">{m.inventory_enforcement_allowlist_identify_by()}</span>
 			<div class="flex flex-wrap gap-2">
 				{#each kinds as option (option)}
 					<button
@@ -139,7 +142,9 @@
 
 		{#if kind === 'url'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-url" class="input-label">Server URL</label>
+				<label for="allowlist-url" class="input-label"
+					>{m.inventory_enforcement_allowlist_server_url()}</label
+				>
 				<input
 					id="allowlist-url"
 					type="text"
@@ -148,13 +153,12 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					Matches on scheme, host, port, and path prefix. Query strings and fragments are not
-					allowed.
+					{m.inventory_enforcement_allowlist_url_description()}
 				</span>
 			</div>
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
-				<span id="allowlist-package-source-label" class="input-label">Registry</span>
+				<span id="allowlist-package-source-label" class="input-label">{m.core_col_registry()}</span>
 				<Select
 					id="allowlist-package-source"
 					class="bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
@@ -166,7 +170,9 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-package-name" class="input-label">Package name</label>
+				<label for="allowlist-package-name" class="input-label"
+					>{m.inventory_enforcement_allowlist_package_name()}</label
+				>
 				<input
 					id="allowlist-package-name"
 					type="text"
@@ -176,22 +182,23 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-package-version" class="input-label">Version (optional)</label>
+				<label for="allowlist-package-version" class="input-label"
+					>{m.inventory_enforcement_allowlist_version_optional()}</label
+				>
 				<input
 					id="allowlist-package-version"
 					type="text"
 					bind:value={packageVersion}
-					placeholder="Any version"
+					placeholder={m.inventory_enforcement_allowlist_any_version()}
 					class="text-input-filled w-40"
 				/>
 				<span class="input-description">
-					Leave empty to allow any version. Pinning a version re-blocks the server when it is
-					upgraded.
+					{m.inventory_enforcement_allowlist_version_description()}
 				</span>
 			</div>
 		{:else if kind === 'hostname'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-hostname" class="input-label">Hostname</label>
+				<label for="allowlist-hostname" class="input-label">{m.core_col_hostname()}</label>
 				<input
 					id="allowlist-hostname"
 					type="text"
@@ -200,12 +207,14 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					Allows any MCP server on this hostname, over any path or port.
+					{m.inventory_enforcement_allowlist_hostname_description()}
 				</span>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-connector" class="input-label">Connector name</label>
+				<label for="allowlist-connector" class="input-label"
+					>{m.inventory_enforcement_allowlist_connector_name()}</label
+				>
 				<input
 					id="allowlist-connector"
 					type="text"
@@ -214,15 +223,15 @@
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					The connector's display name, matched without regard to case. Use this for MCP connectors
-					that expose no local URL or command, such as claude.ai Connectors (i.e. claude.ai Google
-					Calendar). claude.ai Connectors always have the format "claude.ai &lt;name&gt;".
+					{m.inventory_enforcement_allowlist_connector_description()}
 				</span>
 			</div>
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="allowlist-tools" class="input-label">Tools</label>
+			<label for="allowlist-tools" class="input-label"
+				>{m.inventory_enforcement_allowlist_tools()}</label
+			>
 			{#if tools.length > 0}
 				<div class="flex flex-wrap gap-1.5 pb-1">
 					{#each tools as tool (tool)}
@@ -233,7 +242,7 @@
 							<button
 								type="button"
 								class="text-muted-content hover:text-base-content"
-								aria-label={`Remove ${tool}`}
+								aria-label={m.inventory_enforcement_allowlist_remove_tool({ tool })}
 								onclick={() => (tools = tools.filter((candidate) => candidate !== tool))}
 							>
 								<X class="size-3" />
@@ -248,12 +257,11 @@
 				bind:value={toolDraft}
 				onkeydown={handleToolKeydown}
 				onblur={addTool}
-				placeholder="Add a tool name and press Enter"
+				placeholder={m.inventory_enforcement_allowlist_tool_placeholder()}
 				class="text-input-filled"
 			/>
 			<span class="input-description">
-				Leave empty to allow every tool on this server. Enforcement never looks at the arguments
-				passed to a tool.
+				{m.inventory_enforcement_allowlist_tools_description()}
 			</span>
 		</div>
 
@@ -263,9 +271,11 @@
 	</div>
 
 	<div class="mt-6 flex justify-end gap-2">
-		<button class="btn btn-secondary" onclick={() => dialog?.close()}>Cancel</button>
+		<button class="btn btn-secondary" onclick={() => dialog?.close()}>{m.common_cancel()}</button>
 		<button class="btn btn-primary" disabled={Boolean(problem)} onclick={handleSubmit}>
-			{editingIndex === undefined ? 'Add Server' : 'Save Server'}
+			{editingIndex === undefined
+				? m.inventory_enforcement_allowlist_add_server()
+				: m.inventory_enforcement_allowlist_save_server()}
 		</button>
 	</div>
 </ResponsiveDialog>

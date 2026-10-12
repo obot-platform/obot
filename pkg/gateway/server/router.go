@@ -49,6 +49,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("POST /api/users/{user_id}/internal", wrap(s.markUserInternal))
 	mux.HandleFunc("POST /api/users/{user_id}/external", wrap(s.markUserExternal))
 	mux.HandleFunc("DELETE /api/users/{user_id}", wrap(s.deleteUser))
+	mux.HandleFunc("POST /api/users/{user_id}/enable", wrap(s.enableUser))
 	mux.HandleFunc("GET /api/active-users", wrap(s.activeUsers))
 
 	mux.HandleFunc("GET /api/token-usage", wrap(s.systemTokenUsageByUser))

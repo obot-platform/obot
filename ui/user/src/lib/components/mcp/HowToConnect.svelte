@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		AiClient,
 		COMMAND_SUPPORTED_AI_CLIENTS,
@@ -84,7 +85,7 @@
 
 <div class="w-full @container md:px-0 px-4">
 	{#if magicLinks.length > 0}
-		<div class="divider">Quick Install</div>
+		<div class="divider">{m.mcps_connect_quick_install()}</div>
 		<div
 			id="magic-links-container"
 			class={twMerge('flex gap-2 flex-col', commands.length > 0 ? 'mb-8' : '')}
@@ -101,12 +102,12 @@
 						>
 							<img
 								src={client?.iconDark ?? client?.icon}
-								alt={`${client?.alt} branding icon`}
+								alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 								class="size-4 dark:block hidden"
 							/>
 							<img
 								src={client?.icon}
-								alt={`${client?.alt} branding icon`}
+								alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 								class="size-4 block dark:hidden"
 							/>
 							{client?.alt}
@@ -120,15 +121,15 @@
 							>
 								<img
 									src={client?.iconDark ?? client?.icon}
-									alt={`${client?.alt} branding icon`}
+									alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 									class="size-4 dark:block hidden"
 								/>
 								<img
 									src={client?.icon}
-									alt={`${client?.alt} branding icon`}
+									alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 									class="size-4 block dark:hidden"
 								/>
-								Add to {client?.alt}
+								{m.mcps_connect_add_to({ name: client?.alt ?? '' })}
 							</a>
 						</div>
 					</div>
@@ -138,7 +139,7 @@
 	{/if}
 
 	{#if commands.length > 0}
-		<div class="divider">Install via CLI</div>
+		<div class="divider">{m.mcps_connect_install_via_cli()}</div>
 		<div id="cli-commands-container" class="flex gap-2 flex-col">
 			{#each commands as aiClientCommand, index (aiClientCommand.client)}
 				{@const client = aiClientsMap.get(aiClientCommand.client as AiClient)}
@@ -157,12 +158,12 @@
 								<span class="label shrink-0 w-38 mr-0 text-base-content">
 									<img
 										src={client?.iconDark ?? client?.icon}
-										alt={`${client?.alt} branding icon`}
+										alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 										class="size-4 dark:block hidden"
 									/>
 									<img
 										src={client?.icon}
-										alt={`${client?.alt} branding icon`}
+										alt={m.mcps_connect_branding_icon_alt({ name: client?.alt ?? '' })}
 										class="size-4 block dark:hidden"
 									/>
 									{client?.alt}
@@ -177,35 +178,37 @@
 
 	{#if onLaunch || onEdit || onReauthenticate}
 		{#if onLaunch}
-			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
+			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
+				{m.mcps_connect_preconfigure()}
+			</div>
 			<p class="text-xs text-center">
-				If you need to configure this server or perform authentication before connecting, <button
+				{m.mcps_connect_preconfigure_prefix()}<button
 					class="text-blue-500 underline hover:text-blue-400"
-					aria-label="Preconfigure server"
-					onclick={onLaunch}>click here</button
-				>.
+					aria-label={m.mcps_connect_preconfigure_server()}
+					onclick={onLaunch}>{m.mcps_connect_click_here()}</button
+				>{m.mcps_connect_preconfigure_suffix()}
 			</p>
 		{:else if onEdit || onReauthenticate}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
 				<span>
-					Preconfigure <CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
+					{m.mcps_connect_preconfigure()}
+					<CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
 				</span>
 			</div>
 			<div role="status" class="notification-info text-xs text-center">
-				This server has already been configured.
+				{m.mcps_connect_already_configured()}
 				{#if onEdit}
-					If you need to update the configuration,
-					<button
+					{m.mcps_connect_update_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"
-						aria-label="Edit configuration"
-						onclick={onEdit}>click here</button
-					>.
+						aria-label={m.mcps_connect_edit_configuration()}
+						onclick={onEdit}>{m.mcps_connect_click_here()}</button
+					>{m.mcps_connect_update_suffix()}
 				{:else if onReauthenticate}
-					If you need to reauthenticate, <button
+					{m.mcps_connect_reauth_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"
-						aria-label="Reauthenticate"
-						onclick={onReauthenticate}>click here</button
-					>.
+						aria-label={m.mcps_connect_reauthenticate()}
+						onclick={onReauthenticate}>{m.mcps_connect_click_here()}</button
+					>{m.mcps_connect_reauth_suffix()}
 				{/if}
 			</div>
 		{/if}
@@ -215,7 +218,7 @@
 <div class="w-full px-4 md:px-0">
 	<div class="flex flex-col md:flex-row w-full gap-2 md:justify-end justify-center items-center">
 		<p class="text-xs font-light text-muted-content">
-			For more documentation on how to set up your MCP server:
+			{m.mcps_connect_more_docs()}
 		</p>
 		<div class="flex gap-2 items-center justify-end">
 			{#each options as option (option.id)}
@@ -225,9 +228,13 @@
 					rel="noopener noreferrer external"
 					class="tooltip tooltip-left shrink-0"
 					data-tip={option.label}
-					aria-label={`Open ${option.label} MCP server documentation`}
+					aria-label={m.mcps_connect_open_docs({ name: option.label })}
 				>
-					<img src={option.icon} alt={`${option.label} branding icon`} class="size-4" />
+					<img
+						src={option.icon}
+						alt={m.mcps_connect_branding_icon_alt({ name: option.label })}
+						class="size-4"
+					/>
 				</a>
 			{/each}
 		</div>

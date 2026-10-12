@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { LaunchType } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Container, Users } from '@lucide/svelte';
@@ -21,7 +22,11 @@
 	}
 </script>
 
-<ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
+<ResponsiveDialog
+	title={m.mcps_catalog_select_server_type_title()}
+	class="md:w-lg"
+	bind:this={selectServerTypeDialog}
+>
 	<div class="flex flex-col gap-4 p-4 md:p-0">
 		<button
 			id="add-hosted-server-button"
@@ -32,10 +37,9 @@
 				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
-				<p class="mb-1 text-sm font-semibold">Hosted Server</p>
+				<p class="mb-1 text-sm font-semibold">{m.mcps_catalog_select_server_type_hosted()}</p>
 				<span class="text-muted-content block text-xs leading-4">
-					This option is appropriate for setting up a MCP server hosted under the Obot platform. It
-					can be configured for individualized access or shared under multiple users.
+					{m.mcps_catalog_select_server_type_hosted_description()}
 				</span>
 			</div>
 		</button>
@@ -48,11 +52,9 @@
 				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
-				<p class="mb-1 text-sm font-semibold">Remote Server</p>
+				<p class="mb-1 text-sm font-semibold">{m.mcps_catalog_select_server_type_remote()}</p>
 				<span class="text-muted-content block text-xs leading-4">
-					This option is appropriate for allowing users to connect to MCP servers that are already
-					elsewhere. When a user selects this server, their connection to the remote MCP server will
-					go through the Obot gateway.
+					{m.mcps_catalog_select_server_type_remote_description()}
 				</span>
 			</div>
 		</button>

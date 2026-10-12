@@ -319,11 +319,12 @@ kbd {
 
 /* Tables */
 table {
-  display: table;
+  /* Keep wide tables scrollable within the article on small screens. */
+  display: block;
   width: 100%;
   border-collapse: collapse;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 th {

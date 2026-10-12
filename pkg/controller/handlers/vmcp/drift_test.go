@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -31,6 +32,7 @@ func TestDetectDrift(t *testing.T) {
 				Name:                    "one",
 				MCPServerCatalogEntryID: entry.Name,
 				CatalogEntry:            types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest},
+				SourceDigest:            vmcpconfig.SourceDigest(types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest}),
 			},
 			{
 				ID:                      "two",

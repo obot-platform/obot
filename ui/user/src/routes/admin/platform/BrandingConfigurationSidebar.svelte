@@ -9,6 +9,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import UploadImage from '$lib/components/UploadImage.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AppPreferences } from '$lib/services';
 	import { darkMode, profile, responsive } from '$lib/stores';
@@ -271,7 +272,7 @@
 			await invalidateAll();
 			prevAppPreferences = saveForm;
 			customSurfaces = surfacesSnapshotFromTheme(saveForm.theme);
-			success.add('Your changes have been saved.');
+			success.add(m.core_changes_saved());
 		} catch (err) {
 			console.error(err);
 			// default behavior will show snackbar error
@@ -285,7 +286,7 @@
 	<div class="fixed top-20 right-4 z-40">
 		<IconButton
 			onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}
-			tooltip={{ text: 'Open Branding Sidebar' }}
+			tooltip={{ text: m.platform_branding_open_sidebar() }}
 		>
 			<PanelRightOpen class="size-6 text-muted-content" />
 		</IconButton>
@@ -306,7 +307,7 @@
 			<div
 				class="flex justify-between items-center p-4 sticky bg-base-100 dark:bg-base-200 top-0 left-0"
 			>
-				<h3 class="text-base font-semibold">Configuration</h3>
+				<h3 class="text-base font-semibold">{m.platform_branding_configuration()}</h3>
 				<IconButton onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}>
 					<PanelRightClose class="size-6 text-muted-content" />
 				</IconButton>
@@ -314,7 +315,7 @@
 		{/if}
 		<div class="flex items-center justify-between px-4 py-2">
 			{#if !responsive.isMobile}
-				<h3 class="text-base font-semibold">Configuration</h3>
+				<h3 class="text-base font-semibold">{m.platform_branding_configuration()}</h3>
 			{/if}
 			<div
 				class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner w-full md:w-auto"
@@ -326,7 +327,7 @@
 					)}
 					onclick={() => {
 						selectedConfigurationMode = 'theme';
-					}}>Theme</button
+					}}>{m.platform_branding_theme()}</button
 				>
 				<button
 					class={twMerge(
@@ -335,12 +336,12 @@
 					)}
 					onclick={() => {
 						selectedConfigurationMode = 'logos';
-					}}>Logos</button
+					}}>{m.platform_branding_logos()}</button
 				>
 			</div>
 		</div>
 		<div class="flex items-center justify-between px-4 py-2">
-			<p class="text-sm font-medium">Mode</p>
+			<p class="text-sm font-medium">{m.platform_branding_mode()}</p>
 			<div class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner">
 				<button
 					class={twMerge(
@@ -351,7 +352,7 @@
 						selectedColorScheme = 'light';
 						darkMode.setDark(false);
 						appPreferences.setThemeColors(form.theme);
-					}}>Light</button
+					}}>{m.platform_branding_light()}</button
 				>
 				<button
 					class={twMerge(
@@ -362,7 +363,7 @@
 						selectedColorScheme = 'dark';
 						darkMode.setDark(true);
 						appPreferences.setThemeColors(form.theme);
-					}}>Dark</button
+					}}>{m.platform_branding_dark()}</button
 				>
 			</div>
 		</div>
@@ -394,14 +395,14 @@
 						editUrlDialog?.close();
 					}}
 				>
-					Restore Default
+					{m.platform_branding_restore_default()}
 				</button>
 				<div class="flex items-center gap-2">
 					<button class="btn btn-primary" onclick={handleSave}>
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.core_save()}
 						{/if}
 					</button>
 					<button
@@ -415,7 +416,7 @@
 							resetTintedControls();
 							selectedSurfaceMode = 'solid';
 							editUrlDialog?.close();
-						}}>Cancel</button
+						}}>{m.common_cancel()}</button
 					>
 				</div>
 			</div>
@@ -426,7 +427,7 @@
 {#snippet themeConfiguration()}
 	<div class="flex flex-col gap-2 px-4 pt-2 pb-4">
 		<div class="flex items-center justify-between">
-			<p class="text-sm font-medium">Surfaces</p>
+			<p class="text-sm font-medium">{m.platform_branding_surfaces()}</p>
 
 			<div class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner">
 				<button
@@ -438,7 +439,7 @@
 						selectedSurfaceMode = 'solid';
 						form = applyCustomSurfacesToForm();
 						appPreferences.setThemeColors(form.theme);
-					}}>Custom</button
+					}}>{m.platform_branding_custom()}</button
 				>
 				<button
 					class={twMerge(
@@ -448,7 +449,7 @@
 					onclick={() => {
 						selectedSurfaceMode = 'tinted';
 						captureTintedSurfaceSnapshot();
-					}}>Tinted</button
+					}}>{m.platform_branding_tinted()}</button
 				>
 			</div>
 		</div>
@@ -463,61 +464,58 @@
 			{/each}
 		{:else}
 			<p class="text-xs font-light text-muted-content">
-				Tinted always starts from the built-in default surface ramp; hue, tint, and shade adjust
-				that. Custom picker colors stay on Custom only.
+				{m.platform_branding_tinted_description()}
 			</p>
 			{#if selectedColorScheme === 'light'}
 				<TintedSurfaceHueTintShadeControls
 					bind:hue={tintedHueLight}
 					bind:tint={tintedTintLight}
 					bind:shade={tintedShadeLight}
-					hueAriaLabel="Light mode surface hue"
+					hueAriaLabel={m.platform_branding_light_hue()}
 				/>
 			{:else}
 				<TintedSurfaceHueTintShadeControls
 					bind:hue={tintedHueDark}
 					bind:tint={tintedTintDark}
 					bind:shade={tintedShadeDark}
-					hueAriaLabel="Dark mode surface hue"
+					hueAriaLabel={m.platform_branding_dark_hue()}
 				/>
 			{/if}
 			<p class="text-xs font-light text-muted-content pl-22 mt-1">
-				{SHADE_TICK_NEUTRAL} is neutral for shade. Light and dark each have their own hue, tint, and shade—adjusting
-				one scheme does not change the other’s sliders.
+				{m.platform_branding_shade_neutral({ value: SHADE_TICK_NEUTRAL })}
 			</p>
 		{/if}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
 		<div class="flex justify-between items-center gap-4 pb-1">
-			<p class="text-sm font-medium">Per-Theme Colors</p>
+			<p class="text-sm font-medium">{m.platform_branding_per_theme_colors()}</p>
 			<input type="checkbox" class="toggle toggle-sm" bind:checked={isPerThemeColorsEnabled} />
 		</div>
 
 		<p class="text-xs font-light text-muted-content">
-			Per-Theme Colors is <span class="font-semibold text-base-content"
-				>{isPerThemeColorsEnabled ? 'enabled' : 'disabled'}
-			</span>.
+			{m.platform_branding_per_theme_prefix()}
+			<span class="font-semibold text-base-content"
+				>{isPerThemeColorsEnabled ? m.platform_branding_enabled() : m.platform_branding_disabled()}
+			</span>{m.platform_branding_per_theme_suffix()}
 			{#if isPerThemeColorsEnabled}
-				Accent color, button & indicator colors, and text options are separately customizable for
-				light &amp; dark modes.
+				{m.platform_branding_per_theme_on()}
 			{:else}
-				Accent color, button & indicator colors, and text options stay aligned between light & dark
-				i.e. changing one updates the paired value for the other mode.
+				{m.platform_branding_per_theme_off()}
 			{/if}
 		</p>
 	</div>
 
 	<div class="flex justify-between items-center gap-4 px-4 py-2">
-		<p class="text-sm font-medium">Accent Color</p>
+		<p class="text-sm font-medium">{m.platform_branding_accent_color()}</p>
 		{@render colorSelector({
 			id: selectedColorScheme === 'light' ? 'primaryColor' : 'darkPrimaryColor',
-			label: 'Primary'
+			label: m.platform_branding_primary()
 		})}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
-		<p class="text-sm font-medium">Buttons & Indicators</p>
+		<p class="text-sm font-medium">{m.platform_branding_buttons_indicators()}</p>
 		{#each selectedColorScheme === 'light' ? themeLightIndicatorFields : themeDarkIndicatorFields as field (field.id)}
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-light">{field.label}</p>
@@ -527,7 +525,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
-		<p class="text-sm font-medium">Text</p>
+		<p class="text-sm font-medium">{m.platform_branding_text()}</p>
 		{#each selectedColorScheme === 'light' ? textLightFields : textDarkFields as field (field.id)}
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-light">{field.label}</p>
@@ -535,7 +533,7 @@
 			</div>
 		{/each}
 		<div class="flex items-center justify-between gap-2">
-			<p class="text-sm font-light shrink-0">Font Family</p>
+			<p class="text-sm font-light shrink-0">{m.platform_branding_font_family()}</p>
 			<select
 				class="select select-sm max-w-46 min-w-0"
 				value={form.theme.fontFamily}
@@ -661,7 +659,7 @@
 
 <ResponsiveDialog
 	bind:this={editUrlDialog}
-	title={editImageUrl ? 'Edit Image URL' : 'Add Image URL'}
+	title={editImageUrl ? m.platform_branding_edit_image_url() : m.platform_branding_add_image_url()}
 	onClose={() => {
 		editImageUrl = '';
 		selectedImageField = undefined;
@@ -669,7 +667,7 @@
 	}}
 >
 	<UploadImage
-		label="Upload Image"
+		label={m.platform_branding_upload_image()}
 		onUpload={(imageUrl: string) => {
 			editImageUrl = imageUrl;
 		}}
@@ -681,7 +679,7 @@
 		<button
 			type="button"
 			class="btn btn-secondary mt-4 w-full md:w-fit"
-			onclick={() => editUrlDialog?.close()}>Cancel</button
+			onclick={() => editUrlDialog?.close()}>{m.common_cancel()}</button
 		>
 		<button
 			type="button"
@@ -703,7 +701,7 @@
 				selectedImageField = undefined;
 				editUrlDialog?.close();
 				uploadImage?.clearPreview();
-			}}>Apply</button
+			}}>{m.common_apply()}</button
 		>
 	</div>
 </ResponsiveDialog>

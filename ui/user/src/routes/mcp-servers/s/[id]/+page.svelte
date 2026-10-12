@@ -6,6 +6,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
@@ -20,7 +21,7 @@
 	let workspaceId = $derived(mcpServer?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || mcpServer?.mcpCatalogID || DEFAULT_MCP_CATALOG_ID);
-	let title = $derived(getMCPDisplayName(mcpServer) || 'MCP Server');
+	let title = $derived(getMCPDisplayName(mcpServer) || m.mcps_server_fallback_name());
 	let deprecated = $derived(
 		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
 	);

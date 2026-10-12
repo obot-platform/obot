@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		type LaunchServerType,
@@ -69,7 +70,7 @@
 				};
 			})}
 			k8sOverrides={{
-				title: 'Details',
+				title: m.core_details(),
 				classes: {
 					title: 'text-lg font-semibold'
 				}
@@ -92,9 +93,9 @@
 					<CircleFadingArrowUp class="text-primary size-4" />
 					<p class="text-primary text-sm font-light">
 						{#if numServerUpdatesNeeded === 1}
-							1 deployment has an update available.
+							{m.mcps_servers_one_deployment_update()}
 						{:else}
-							{numServerUpdatesNeeded} deployments have updates available.
+							{m.mcps_servers_n_deployments_updates({ count: numServerUpdatesNeeded })}
 						{/if}
 					</p>
 				</div>
@@ -118,7 +119,9 @@
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Router class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No server details</h4>
-		<p class="text-muted-content text-sm font-light">No details available yet for this entry.</p>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_servers_no_server_details()}</h4>
+		<p class="text-muted-content text-sm font-light">
+			{m.mcps_servers_no_details_for_entry()}
+		</p>
 	</div>
 {/snippet}

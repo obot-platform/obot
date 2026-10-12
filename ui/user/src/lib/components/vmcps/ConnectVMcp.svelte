@@ -10,6 +10,7 @@
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
@@ -430,13 +431,13 @@
 
 			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(target.id);
 			if (!launchResponse.success) {
-				launchError = launchResponse.message ?? 'Failed to launch this vMCP.';
+				launchError = launchResponse.message ?? m.vmcps_failed_to_launch();
 				return;
 			}
 
 			await verifyOauthOrConnect();
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'Failed to launch this vMCP.';
+			launchError = err instanceof Error ? err.message : m.vmcps_failed_to_launch();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -461,18 +462,17 @@
 {#snippet oauthSetupGuidance()}
 	{#if missingOAuthComponent}
 		<p>
-			{missingOAuthComponent.name} requires administrator OAuth setup. Configure OAuth for this MCP server
-			before starting the vMCP.
+			{m.vmcps_connect_requires_oauth_setup({ name: missingOAuthComponent.name })}
 		</p>
 		{#if profile.current.isAdmin?.()}
 			<a
 				class="btn btn-primary"
 				href={resolve(
 					`/mcp-servers/c/${encodeURIComponent(missingOAuthComponent.mcpServerCatalogEntryID)}?configure-oauth=true`
-				)}>Configure {missingOAuthComponent.name} OAuth</a
+				)}>{m.vmcps_configure_named_oauth({ name: missingOAuthComponent.name })}</a
 			>
 		{:else}
-			<p>Ask an administrator to configure OAuth for this MCP server.</p>
+			<p>{m.vmcps_ask_admin_configure_oauth()}</p>
 		{/if}
 	{/if}
 {/snippet}
@@ -499,11 +499,17 @@
 					bind:this={connectionUrlField}
 					value={connectURL}
 					id="connectURL"
-					label="Connection URL"
+					label={m.vmcps_connection_url()}
 				/>
 			</div>
-			<button type="button" aria-label="Test vMCP" class="btn btn-primary" onclick={handleTest}>
-				<MessageCircle class="size-4" /> Test vMCP
+			<button
+				type="button"
+				aria-label={m.vmcps_test_vmcp()}
+				class="btn btn-primary"
+				onclick={handleTest}
+			>
+				<MessageCircle class="size-4" />
+				{m.vmcps_test_vmcp()}
 			</button>
 		</div>
 		<HowToConnect
@@ -527,9 +533,11 @@
 	{:else}
 		<div class="flex flex-col items-start gap-3 md:p-0 p-4">
 			<p class="text-sm text-muted-content font-light">
-				This vMCP is not ready to connect. Complete its setup first.
+				{m.vmcps_not_ready_complete_setup()}
 			</p>
-			<button class="btn btn-primary btn-sm" onclick={initLaunch}>Preconfigure server</button>
+			<button class="btn btn-primary btn-sm" onclick={initLaunch}
+				>{m.vmcps_preconfigure_server()}</button
+			>
 		</div>
 	{/if}
 </ResponsiveDialog>
@@ -546,12 +554,12 @@
 		}
 		dismissConnect();
 	}}
-	submitText={instance ? 'Update' : 'Configure'}
+	submitText={instance ? m.core_update() : m.vmcps_configure()}
 	loading={saving || launchState === 'launching'}
 	{error}
 	isNew={false}
 	showComponentToggle={false}
-	configurationTitle="User Specific Configuration"
+	configurationTitle={m.vmcps_user_specific_configuration()}
 >
 	{#snippet icon()}
 		<VMcpIcon components={componentViews} />
@@ -563,17 +571,17 @@
 					<div class="notification-error">
 						<div class="flex items-center gap-2">
 							<CircleAlert class="size-5 text-error" />
-							<h4 class="text-md font-medium">vMCP Launch Failed</h4>
+							<h4 class="text-md font-medium">{m.vmcps_launch_failed()}</h4>
 						</div>
 
 						<div class="text-xs mt-2">
-							There was an issue launching this vMCP.
+							{m.vmcps_launch_issue()}
 
 							<ul class="list-disc px-4 py-1 space-y-1">
 								{#if hasUserConfiguration}
-									<li>Verify your configurations provided at launch are correct and try again.</li>
+									<li>{m.vmcps_launch_verify_configurations()}</li>
 								{/if}
-								<li>If the issue persists, please contact support.</li>
+								<li>{m.vmcps_launch_contact_support()}</li>
 							</ul>
 						</div>
 					</div>
@@ -589,7 +597,7 @@
 									saving = false;
 								}}
 							>
-								Update Configuration and Try Again
+								{m.vmcps_update_configuration_and_retry()}
 							</button>
 						{/if}
 						<button
@@ -607,7 +615,7 @@
 								if (vmcp) connectDialog?.open();
 							}}
 						>
-							Close
+							{m.core_close()}
 						</button>
 					</div>
 				</div>
@@ -625,7 +633,7 @@
 					</div>
 
 					<div class="flex w-md flex-col justify-center gap-2 text-center">
-						<p class="text-xs font-light">Launching vMCP...</p>
+						<p class="text-xs font-light">{m.vmcps_launching_vmcp()}</p>
 					</div>
 				</div>
 			{/if}
@@ -636,10 +644,10 @@
 <Confirm
 	show={showIntroDialog}
 	onsuccess={handleConfigure}
-	submitText="Continue"
+	submitText={m.core_continue()}
 	disabled={Boolean(missingOAuthComponent)}
 	type="info"
-	title="Connect To Server"
+	title={m.vmcps_connect_to_server()}
 	oncancel={() => {
 		showIntroDialog = false;
 		dismissConnect();
@@ -655,11 +663,11 @@
 		{#if missingOAuthComponent}
 			{@render oauthSetupGuidance()}
 		{:else}<p>
-				This will begin the initial setup process for this server.
+				{m.vmcps_initial_setup_begin()}
 				{#if hasUserConfiguration}
-					Additional configuration details may also be required before the server can be used.
+					{m.vmcps_initial_setup_additional_config()}
 				{:else}
-					<br />Click below to begin.
+					<br />{m.vmcps_click_below_to_begin()}
 				{/if}
 			</p>{/if}
 	{/snippet}
@@ -682,10 +690,10 @@
 				</div>
 
 				<p>
-					In order to use {displayName}, authentication with the MCP server is required.
+					{m.vmcps_oauth_required_named({ name: displayName })}
 				</p>
 
-				<p>Click the link below to authenticate.</p>
+				<p>{m.vmcps_click_link_to_authenticate()}</p>
 
 				<a
 					href={oauthURL}
@@ -697,15 +705,17 @@
 					}}
 				>
 					{#if oauthVerifying}
-						Authenticating...
+						{m.vmcps_authenticating()}
 					{:else}
-						Authenticate
+						{m.vmcps_authenticate()}
 					{/if}
 				</a>
 			{/if}
 		</div>
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
+		<button type="button" aria-label={m.common_close_dialog()} onclick={handleOauthClose}
+			>{m.common_close()}</button
+		>
 	</form>
 </dialog>

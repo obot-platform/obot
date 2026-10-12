@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		UserService,
 		type MCPFilterResource,
@@ -34,7 +35,7 @@
 		try {
 			vmcps = await UserService.listVMCPs({ all: true });
 		} catch {
-			errors.append('Failed to load vMCPs for filter selection.');
+			errors.append(m.mcps_filters_failed_load_vmcps());
 		}
 	});
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
@@ -77,9 +78,9 @@
 				id: resource.id,
 				name:
 					resource.id === '*' && resource.type === 'selector'
-						? 'Everything'
+						? m.mcps_filters_everything()
 						: resource.id === 'default' && resource.type === 'mcpCatalog'
-							? 'All Entries in Global Registry'
+							? m.mcps_filters_all_entries_global_registry()
 							: resource.id,
 				type: resource.type
 			};
@@ -113,15 +114,16 @@
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterSelectors}>
 	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
-			<h2 class="text-lg font-semibold">Selectors</h2>
+			<h2 class="text-lg font-semibold">{m.mcps_filters_selectors()}</h2>
 			<p class="text-muted-content text-sm">
-				Specify which requests should be matched by this filter.
+				{m.mcps_filters_selectors_description()}
 			</p>
 		</div>
 		{#if !readonly}
 			<div class="relative flex items-center gap-4">
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={addSelector}>
-					<Plus class="size-4" /> Add Selector
+					<Plus class="size-4" />
+					{m.mcps_filters_add_selector()}
 				</button>
 			</div>
 		{/if}
@@ -129,8 +131,7 @@
 
 	{#if form.selectors.length === 0}
 		<div class="text-muted-content p-4 text-center font-light text-sm">
-			No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
-			specify filter criteria.
+			{m.mcps_filters_no_selectors_added()}<br />{m.mcps_filters_click_add_selector()}
 		</div>
 	{:else}
 		{#each form.selectors as selector, selectorIndex (selectorIndex)}
@@ -148,9 +149,9 @@
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterMcpServers}>
 	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
-			<h2 class="text-lg font-semibold">MCP Servers</h2>
+			<h2 class="text-lg font-semibold">{m.mcps_filters_mcp_servers()}</h2>
 			<p class="text-muted-content text-sm">
-				Specify which MCP servers this filter should be applied to.
+				{m.mcps_filters_mcp_servers_description()}
 			</p>
 		</div>
 		{#if !readonly}
@@ -161,7 +162,8 @@
 						addMcpServerDialog?.open();
 					}}
 				>
-					<Plus class="size-4" /> Add MCP Server
+					<Plus class="size-4" />
+					{m.mcps_add_mcp_server()}
 				</button>
 			</div>
 		{/if}
@@ -216,13 +218,13 @@
 	>
 		<div class="mb-1 flex items-center justify-between">
 			<h3 class="text-sm font-medium text-muted-content dark:text-muted-content">
-				Selector {selectorIndex + 1}
+				{m.mcps_filters_selector_n({ index: selectorIndex + 1 })}
 			</h3>
 			{#if !readonly}
 				<IconButton
 					variant="danger"
 					onclick={() => removeSelector(selectorIndex)}
-					tooltip={{ text: 'Remove Selector' }}
+					tooltip={{ text: m.mcps_filters_remove_selector() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -231,19 +233,23 @@
 
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-2">
-				<label for="method-{selectorIndex}" class="text-sm font-light">Method (Optional)</label>
+				<label for="method-{selectorIndex}" class="text-sm font-light"
+					>{m.mcps_filters_method_optional()}</label
+				>
 				<input
 					id="method-{selectorIndex}"
 					bind:value={selector.method}
 					class="text-input-filled"
-					placeholder="e.g.: 'tools/call' or 'resources/read'"
+					placeholder={m.mcps_filters_method_placeholder()}
 					disabled={readonly}
 				/>
 			</div>
 
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between">
-					<label for="identifier-btn" class="text-sm font-light"> Identifiers (Optional) </label>
+					<label for="identifier-btn" class="text-sm font-light">
+						{m.mcps_filters_identifiers_optional()}
+					</label>
 					{#if !readonly}
 						<button
 							id="identifier-btn"
@@ -251,7 +257,8 @@
 							class="btn btn-secondary btn-sm flex items-center gap-1"
 							onclick={() => addIdentifier(selectorIndex)}
 						>
-							<Plus class="size-3" /> Add Identifier
+							<Plus class="size-3" />
+							{m.mcps_filters_add_identifier()}
 						</button>
 					{/if}
 				</div>
@@ -259,9 +266,9 @@
 				{#if !selector.identifiers || selector.identifiers.length === 0}
 					<div class="text-muted-content p-3 text-center text-sm">
 						{#if !readonly}
-							No identifiers added. Click "Add Identifier" to specify filter criteria.
+							{m.mcps_filters_no_identifiers_click_add()}
 						{:else}
-							No identifiers added.
+							{m.mcps_filters_no_identifiers_added()}
 						{/if}
 					</div>
 				{:else}
@@ -271,14 +278,14 @@
 								id="identifier-{selectorIndex}-{identifierIndex}"
 								bind:value={selector.identifiers[identifierIndex]}
 								class="text-input-filled flex-1"
-								placeholder="e.g.: tool name or resource URI"
+								placeholder={m.mcps_filters_identifier_placeholder()}
 								disabled={readonly}
 							/>
 							{#if !readonly}
 								<IconButton
 									variant="danger"
 									onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
-									tooltip={{ text: 'Remove Identifier' }}
+									tooltip={{ text: m.mcps_filters_remove_identifier() }}
 								>
 									<X class="size-4" />
 								</IconButton>
@@ -292,7 +299,12 @@
 {/snippet}
 
 {#snippet mcpServersTable()}
-	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
+	<Table
+		data={mcpServersTableData}
+		fields={['name']}
+		headers={[{ property: 'name', title: m.core_name() }]}
+		noDataMessage={m.mcps_filters_no_mcp_servers_added()}
+	>
 		{#snippet actions(d)}
 			{#if !readonly}
 				<IconButton
@@ -300,7 +312,7 @@
 					onclick={() => {
 						form.resources = form.resources.filter((resource) => resource.id !== d.id);
 					}}
-					tooltip={{ text: 'Remove MCP Server' }}
+					tooltip={{ text: m.mcps_filters_remove_mcp_server() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

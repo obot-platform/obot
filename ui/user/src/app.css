@@ -1408,6 +1408,15 @@
 		}
 	}
 
+	.pill-secondary {
+		border-radius: var(--radius-sm);
+		background-color: var(--color-base-300);
+		color: var(--color-base-content);
+		padding: 0.125rem 0.25rem;
+		font-size: 11px;
+		line-height: 1rem;
+	}
+
 	.pill-warning {
 		border-radius: var(--radius-sm);
 		background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
@@ -1624,8 +1633,7 @@
 	}
 }
 
-.nanobot .prose,
-.nanobot .milkdown .ProseMirror {
+.markdown-editor .milkdown .ProseMirror {
 	& h1 {
 		font-size: 1.5rem;
 		font-weight: 700;
@@ -1684,7 +1692,7 @@
 	}
 }
 
-.nanobot .milkdown .ProseMirror {
+.markdown-editor .milkdown .ProseMirror {
 	& h1 {
 		margin-top: 0;
 		margin-bottom: 0;
@@ -1794,8 +1802,7 @@
 	}
 }
 
-.milkdown-content,
-.nanobot .prose {
+.milkdown-content {
 	& h1,
 	& h2,
 	& h3,

@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
@@ -10,7 +11,7 @@
 	const { accessControlRule, workspaceId } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
+	let title = $derived(accessControlRule?.displayName ?? m.mcps_access_policies_mcp_registry());
 </script>
 
 <Layout {title} showBackButton>

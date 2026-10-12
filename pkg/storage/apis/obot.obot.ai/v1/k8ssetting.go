@@ -35,20 +35,10 @@ type K8sSettingsSpec struct {
 	MaxMemoryRequest *resource.Quantity `json:"maxMemoryRequest,omitempty"`
 	MaxMemoryLimit   *resource.Quantity `json:"maxMemoryLimit,omitempty"`
 
-	// Resource requests and limits for NanobotAgent pods
-	// +k8s:openapi-gen=false
-	NanobotAgentResources *corev1.ResourceRequirements `json:"nanobotAgentResources,omitempty"`
-
 	// RuntimeClassName specifies the RuntimeClass for MCP server pods
 	// This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
 	// +k8s:openapi-gen=false
 	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
-
-	// StorageClassName specifies the StorageClass for nanobot workspace volumes
-	StorageClassName *string `json:"storageClassName,omitempty"`
-
-	// NanobotWorkspaceSize specifies the size for nanobot workspace volumes
-	NanobotWorkspaceSize string `json:"nanobotWorkspaceSize,omitempty"`
 
 	// PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace
 	PodSecurityAdmission *PodSecurityAdmissionSettings `json:"podSecurityAdmission,omitempty"`

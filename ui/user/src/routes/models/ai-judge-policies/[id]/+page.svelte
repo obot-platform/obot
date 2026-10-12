@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
@@ -11,7 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 	const listHref = '/models?view=ai-judge-policies';
 
-	let title = $derived(messagePolicy?.displayName ?? 'Message Policy');
+	let title = $derived(messagePolicy?.displayName ?? m.models_message_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

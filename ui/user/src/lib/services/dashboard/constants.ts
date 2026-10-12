@@ -1,4 +1,5 @@
 import type { DonutLegendItem } from '$lib/components/graph/DonutGraph.svelte';
+import { m } from '$lib/i18n';
 
 export const DEPLOYMENT_STATUS_ORDER = [
 	'Available',
@@ -14,9 +15,9 @@ export const ENTRY_TYPE_GRAPH_META: {
 	label: string;
 	baseColor: string;
 }[] = [
-	{ key: 'single', label: 'Hosted (Single-tenant)', baseColor: '#fee090' },
-	{ key: 'multi', label: 'Hosted (Multi-tenant)', baseColor: '#f46d43' },
-	{ key: 'remote', label: 'Remote', baseColor: '#4575b4' }
+	{ key: 'single', label: m.dashboard_entry_type_hosted_single(), baseColor: '#fee090' },
+	{ key: 'multi', label: m.dashboard_entry_type_hosted_multi(), baseColor: '#f46d43' },
+	{ key: 'remote', label: m.dashboard_entry_type_remote(), baseColor: '#4575b4' }
 ];
 
 export const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(

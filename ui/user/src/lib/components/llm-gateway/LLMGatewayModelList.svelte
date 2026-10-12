@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { m } from '$lib/i18n';
 	import type { Model } from '$lib/services';
 	import { ModelUsageLabels, type ModelUsage } from '$lib/services/admin/types';
 
@@ -37,15 +38,15 @@
 		class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 		onChange={(val) => (search = val)}
 		value={search}
-		placeholder="Search models..."
+		placeholder={m.models_providers_search_models()}
 	/>
 
 	{#if filteredModels.length === 0}
 		<div class="text-muted-content py-4 text-center text-sm">
 			{#if models.length === 0}
-				No models available.
+				{m.models_gateway_no_models_available()}
 			{:else}
-				No models match "{search}".
+				{m.models_gateway_no_models_match({ search })}
 			{/if}
 		</div>
 	{:else}
@@ -57,7 +58,7 @@
 					<div class="flex min-w-0 flex-col gap-0.5">
 						<div class="flex items-center gap-2">
 							<span class="truncate font-mono text-sm">{model.name}</span>
-							<CopyButton text={model.name} tooltipText="Copy model name" />
+							<CopyButton text={model.name} tooltipText={m.models_gateway_copy_model_name()} />
 						</div>
 						{#if model.displayName && model.displayName !== model.name}
 							<span class="text-muted-content truncate text-xs">{model.displayName}</span>

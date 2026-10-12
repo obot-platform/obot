@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		UserService,
@@ -118,7 +119,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder="Search by client name..."
+	placeholder={m.inventory_enforcement_device_clients_search_clients()}
 />
 
 {#if loading}
@@ -126,10 +127,13 @@
 {:else if clients.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<MonitorCheck class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No clients observed yet</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_device_clients_no_clients_title()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Run <code class="font-mono">obot scan</code> from a managed device with clients to populate this
-			view.
+			{m.inventory_enforcement_device_clients_no_clients_prefix()}<code class="font-mono"
+				>obot scan</code
+			>{m.inventory_enforcement_device_clients_no_clients_suffix()}
 		</p>
 	</div>
 {:else}
@@ -138,10 +142,10 @@
 		{pageSize}
 		fields={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		headers={[
-			{ title: 'Name', property: 'name' },
-			{ title: 'MCP Servers', property: 'mcpServerCount' },
-			{ title: 'Skills', property: 'skillCount' },
-			{ title: 'Users', property: 'userCount' }
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.inventory_enforcement_tab_mcp_servers(), property: 'mcpServerCount' },
+			{ title: m.inventory_enforcement_skills_tab(), property: 'skillCount' },
+			{ title: m.inventory_enforcement_col_users(), property: 'userCount' }
 		]}
 		sortable={['name', 'mcpServerCount', 'skillCount', 'userCount']}
 		{initSort}
@@ -155,7 +159,7 @@
 				{#if d.name?.trim()}
 					{d.name.trim()}
 				{:else}
-					<span class="text-muted-content italic">(unnamed)</span>
+					<span class="text-muted-content italic">{m.inventory_enforcement_unnamed()}</span>
 				{/if}
 			{:else}
 				{d[property as keyof (typeof rows)[number]]}
@@ -168,7 +172,10 @@
 		{pageIndex}
 		{lastPageIndex}
 		{total}
-		itemLabelSingular="client"
+		itemCountLabel={(count) =>
+			count === 1
+				? m.inventory_enforcement_device_clients_count_one({ count })
+				: m.inventory_enforcement_device_clients_count_other({ count })}
 		{loading}
 		onPageChange={fetchPage}
 	/>

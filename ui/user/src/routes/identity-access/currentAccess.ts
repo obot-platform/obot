@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import {
 	AdminService,
 	type AccessControlRule,
@@ -84,12 +85,12 @@ export interface CurrentAccessSections {
 export type CurrentAccessSectionKey = keyof CurrentAccessSections;
 
 export const ACCESS_MATCH_REASON_LABEL: Record<AccessMatchReason, string> = {
-	everyone: 'All Obot Users',
-	'direct-user': 'Assigned to this user',
-	'direct-group': 'Assigned to this group',
-	'via-group': 'via group membership',
-	'via-role': 'via role',
-	owner: 'Owned by this user'
+	everyone: m.core_all_obot_users(),
+	'direct-user': m.identity_access_current_access_reason_direct_user(),
+	'direct-group': m.identity_access_current_access_reason_direct_group(),
+	'via-group': m.identity_access_current_access_reason_via_group(),
+	'via-role': m.identity_access_current_access_reason_via_role(),
+	owner: m.identity_access_current_access_reason_owner()
 };
 
 export function isEveryoneSubject(subject: AccessControlRuleSubject): boolean {
@@ -309,7 +310,7 @@ function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedA
 				return [
 					{
 						id: `${vmcp.id}:owner`,
-						displayName: 'Personal vMCP',
+						displayName: m.identity_access_current_access_personal_vmcp(),
 						href: personalVmcpHref(vmcp.id),
 						reasons: ['owner'],
 						resources

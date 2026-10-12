@@ -19,10 +19,6 @@ func TestExtractBaseRole(t *testing.T) {
 		{"PowerUser with Auditor", RolePowerUser | RoleAuditor, RolePowerUser},
 		{"Owner and Admin", RoleOwner | RoleAdmin, RoleOwner | RoleAdmin},
 		{"Owner and Admin with Auditor", RoleOwner | RoleAdmin | RoleAuditor, RoleOwner | RoleAdmin},
-		{"Admin with User Impersonation", RoleAdmin | RoleUserImpersonation, RoleAdmin},
-		{"Owner with User Impersonation", RoleOwner | RoleUserImpersonation, RoleOwner},
-		{"User Impersonation only", RoleUserImpersonation, 0},
-		{"Owner and Admin with Auditor and User Impersonation", RoleOwner | RoleAdmin | RoleAuditor | RoleUserImpersonation, RoleOwner | RoleAdmin},
 	}
 
 	for _, tt := range tests {
@@ -30,32 +26,6 @@ func TestExtractBaseRole(t *testing.T) {
 			result := tt.role.ExtractBaseRole()
 			if result != tt.expected {
 				t.Errorf("extractBaseRole(%d) = %d, want %d", tt.role, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestHasUserImpersonationRole(t *testing.T) {
-	tests := []struct {
-		name     string
-		role     Role
-		expected bool
-	}{
-		{"Admin only", RoleAdmin, false},
-		{"Admin with User Impersonation", RoleAdmin | RoleUserImpersonation, true},
-		{"User Impersonation only", RoleUserImpersonation, true},
-		{"Owner only", RoleOwner, false},
-		{"Owner with User Impersonation", RoleOwner | RoleUserImpersonation, true},
-		{"PowerUser only", RolePowerUser, false},
-		{"Owner and Admin", RoleOwner | RoleAdmin, false},
-		{"Owner and Admin with User Impersonation", RoleOwner | RoleAdmin | RoleUserImpersonation, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.role.HasUserImpersonationRole()
-			if result != tt.expected {
-				t.Errorf("hasUserImpersonationRole(%d) = %v, want %v", tt.role, result, tt.expected)
 			}
 		})
 	}
@@ -95,8 +65,6 @@ func TestSwitchBaseRole(t *testing.T) {
 		expected    Role
 	}{
 		{"Switch base role preserves Auditor", RoleAdmin | RoleAuditor, RolePowerUser, RolePowerUser | RoleAuditor},
-		{"Switch base role preserves User Impersonation", RoleOwner | RoleUserImpersonation, RoleAdmin, RoleAdmin | RoleUserImpersonation},
-		{"Switch base role preserves both add-ons", RoleOwner | RoleAuditor | RoleUserImpersonation, RoleAdmin, RoleAdmin | RoleAuditor | RoleUserImpersonation},
 		{"Switch base role with no add-ons", RoleOwner, RoleAdmin, RoleAdmin},
 		{"Switch from basic to admin no add-ons", RoleBasic, RoleAdmin, RoleAdmin},
 	}
@@ -121,38 +89,26 @@ func TestGroups(t *testing.T) {
 		{
 			"Owner gets owner, admin, power user groups",
 			RoleOwner,
-			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
-			[]string{GroupAuditor, GroupUserImpersonation},
+			[]string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser, GroupBasic, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
+			[]string{GroupAuditor},
 		},
 		{
 			"Admin with Auditor",
 			RoleAdmin | RoleAuditor,
-			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
-			[]string{GroupOwner, GroupUserImpersonation},
-		},
-		{
-			"Admin with User Impersonation",
-			RoleAdmin | RoleUserImpersonation,
-			[]string{GroupAdmin, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
-			[]string{GroupOwner, GroupAuditor},
+			[]string{GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
+			[]string{GroupOwner},
 		},
 		{
 			"Owner with all add-ons",
-			RoleOwner | RoleAuditor | RoleUserImpersonation,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
+			RoleOwner | RoleAuditor,
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 			nil,
 		},
 		{
 			"Unknown role gets no groups",
 			RoleUnknown,
 			nil,
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
-		},
-		{
-			"User Impersonation alone gets authenticated",
-			RoleUserImpersonation,
-			[]string{GroupUserImpersonation, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans},
-			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupBasic},
+			[]string{GroupOwner, GroupAdmin, GroupAuditor, GroupAuthenticated, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans},
 		},
 	}
 
@@ -186,7 +142,6 @@ func TestRoleValues(t *testing.T) {
 		{"RoleAuditor", RoleAuditor, 32},
 		{"RolePowerUserPlus", RolePowerUserPlus, 64},
 		{"RolePowerUser", RolePowerUser, 128},
-		{"RoleUserImpersonation", RoleUserImpersonation, 256},
 	}
 
 	for _, r := range roles {
@@ -217,11 +172,6 @@ func TestHasRole(t *testing.T) {
 		{"Owner has Admin", RoleOwner, RoleAdmin, true},
 		{"Owner has Basic", RoleOwner, RoleBasic, true},
 		{"Admin does not have Owner", RoleAdmin, RoleOwner, false},
-		{"Admin with UserImpersonation has Admin", RoleAdmin | RoleUserImpersonation, RoleAdmin, true},
-		{"Admin with UserImpersonation has UserImpersonation", RoleAdmin | RoleUserImpersonation, RoleUserImpersonation, true},
-		{"Admin with UserImpersonation does not have Owner", RoleAdmin | RoleUserImpersonation, RoleOwner, false},
-		{"Basic does not have UserImpersonation", RoleBasic, RoleUserImpersonation, false},
-		{"UserImpersonation alone does not have Admin", RoleUserImpersonation, RoleAdmin, false},
 	}
 
 	for _, tt := range tests {

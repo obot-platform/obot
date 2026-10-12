@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import JsonSchemaField from './JsonSchemaField.svelte';
 	import { defaultJSONSchemaValue, nonNullableJSONSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
@@ -76,7 +77,7 @@
 				onchange={(event) =>
 					onchange(event.currentTarget.checked ? null : defaultJSONSchemaValue(nonNullable))}
 			/>
-			Use null for {label}
+			{m.mcps_tester_use_null_for({ label })}
 		</label>
 		<JsonSchemaField
 			schema={nonNullable}
@@ -106,7 +107,7 @@
 			/>
 		{/each}
 		{#if Object.keys(schema.properties ?? {}).length === 0}
-			<p class="text-sm text-muted-content">No declared properties.</p>
+			<p class="text-sm text-muted-content">{m.mcps_tester_no_declared_properties()}</p>
 		{/if}
 	</fieldset>
 {:else if type === 'array'}
@@ -121,7 +122,7 @@
 					<JsonSchemaField
 						schema={schema.items ?? { type: 'string' }}
 						value={item}
-						label={`${label} item ${index + 1}`}
+						label={m.mcps_tester_array_item({ label, index: index + 1 })}
 						path={`${path}-${index}`}
 						required
 						{disabled}
@@ -132,7 +133,7 @@
 					type="button"
 					class="btn btn-ghost btn-square btn-sm mt-7"
 					onclick={() => removeArrayItem(index)}
-					aria-label={`Remove ${label} item ${index + 1}`}
+					aria-label={m.mcps_tester_remove_array_item({ label, index: index + 1 })}
 					{disabled}
 				>
 					<Trash2 class="size-4" aria-hidden="true" />
@@ -147,7 +148,8 @@
 			onclick={() =>
 				onchange([...arrayValue(), defaultJSONSchemaValue(schema.items ?? { type: 'string' })])}
 		>
-			<Plus class="size-4" aria-hidden="true" /> Add item
+			<Plus class="size-4" aria-hidden="true" />
+			{m.mcps_tester_add_item()}
 		</button>
 	</fieldset>
 {:else}
@@ -165,7 +167,7 @@
 				onchange={(event) => onchange(schema.enum?.[Number(event.currentTarget.value)])}
 			>
 				{#if !required || enumIndex < 0}
-					<option value={-1} selected={enumIndex < 0}>Not set</option>
+					<option value={-1} selected={enumIndex < 0}>{m.mcps_tester_not_set()}</option>
 				{/if}
 				{#each schema.enum as option, index (index)}
 					<option value={index} selected={index === enumIndex}
@@ -216,7 +218,7 @@
 			{#if schema.pattern}
 				<!-- We don't evaluate the pattern here in case it freezes the tab. -->
 				<p id={`${id}-pattern`} class="text-xs text-muted-content">
-					Must match <code class="break-all">{schema.pattern}</code>
+					{m.mcps_tester_must_match_prefix()}<code class="break-all">{schema.pattern}</code>
 				</p>
 			{/if}
 		{/if}

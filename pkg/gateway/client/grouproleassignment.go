@@ -140,7 +140,6 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 	// Check if add-on bits are set
 	hasAuditor := combinedRole.HasAuditorRole()
-	hasUserImpersonation := combinedRole.HasUserImpersonationRole()
 
 	// Find the highest base role in descending order of privilege
 	var highestRole types2.Role
@@ -156,12 +155,9 @@ func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 		highestRole = types2.RoleBasic
 	}
 
-	// Add add-on bits back if they were present
+	// Add the add-on bit back if it was present
 	if hasAuditor {
 		highestRole = highestRole | types2.RoleAuditor
-	}
-	if hasUserImpersonation {
-		highestRole = highestRole | types2.RoleUserImpersonation
 	}
 
 	return highestRole

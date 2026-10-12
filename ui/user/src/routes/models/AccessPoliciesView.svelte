@@ -5,6 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { type ModelAccessPolicy } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { accessibleModels, profile } from '$lib/stores/index.js';
@@ -24,8 +25,8 @@
 	let policyToDelete = $state<ModelAccessPolicy>();
 
 	function convertToTableData(policy: ModelAccessPolicy) {
-		const hasEverything = policy.models?.find((m) => m.id === '*');
-		const count = hasEverything ? 'All' : (policy.models?.length ?? 0);
+		const hasEverything = policy.models?.find((model) => model.id === '*');
+		const count = hasEverything ? m.models_all() : (policy.models?.length ?? 0);
 
 		return {
 			...policy,
@@ -53,11 +54,13 @@
 		{#if modelAccessPolicies.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<LockKeyhole class="text-base-content/80 size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No model access policies</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.models_no_access_policies()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
-					Looks like you don't have any model access policies created yet. <br />
+					{m.models_no_access_policies_desc()} <br />
 					{#if !isReadonly}
-						Click the button below to get started.
+						{m.core_click_below_to_start()}
 					{/if}
 				</p>
 
@@ -81,11 +84,11 @@
 		}}
 		headers={[
 			{
-				title: 'Name',
+				title: m.core_name(),
 				property: 'displayName'
 			},
 			{
-				title: 'Models',
+				title: m.models_title(),
 				property: 'modelsCount'
 			}
 		]}
@@ -100,7 +103,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: 'Delete Policy' }}
+					tooltip={{ text: m.core_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -124,7 +127,8 @@
 				goto(`${page.url.pathname}?view=access-policies&new=true`);
 			}}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.models_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -136,7 +140,9 @@
 {/snippet}
 
 <Confirm
-	msg={`Delete ${policyToDelete?.displayName || 'this policy'}?`}
+	msg={m.models_delete_named({
+		name: policyToDelete?.displayName || m.models_this_policy()
+	})}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;

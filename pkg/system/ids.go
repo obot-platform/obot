@@ -11,7 +11,6 @@ const (
 	AliasPrefix                   = "al1"
 	DefaultModelAliasPrefix       = "dma1"
 	DeviceEnrollmentPrefix        = "ode1"
-	ProjectPrefix                 = "p1"
 	UserDeletePrefix              = "ud1"
 	AuthProviderCleanupPrefix     = "apc1"
 	ProviderChangePrefix          = "pcc1"
@@ -45,11 +44,8 @@ const (
 	SystemMCPServerPrefix         = "sms1"
 	ModelAccessPolicyPrefix       = "map1"
 	MessagePolicyPrefix           = "mp1"
-	NanobotAgentPrefix            = "nba1"
-	PublishedArtifactPrefix       = "pa1"
 	APIKeyPrefix                  = "ok1"
 
-	ObotMCPServerName      = SystemMCPServerPrefix + "obot-mcp-server"
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
 	ProviderSyncName       = "provider-sync"
 )

@@ -2,13 +2,14 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import AgentAuthScopeDetails from '$lib/components/agent-auth-scope/AgentAuthScopeDetails.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { ApiKeysService } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	const { apiKey, isAdmin } = $derived(data);
-	let title = $derived(apiKey?.name || 'Agent Identity');
+	let title = $derived(apiKey?.name || m.identity_access_agents_agent_identity());
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 

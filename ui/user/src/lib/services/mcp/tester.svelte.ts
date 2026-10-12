@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { DefaultModelAlias, MCPCatalogServer, Model, Version } from '$lib/services/user/types';
 import { LoggingTransport } from './logging-transport';
 import { MCPTesterLog } from './tester-log.svelte';
@@ -119,7 +120,7 @@ export function testerChatAvailability(
 	if (version.hasModelProvider === null) {
 		return {
 			available: false,
-			unavailableMessage: 'Model configuration is unavailable or changing. Try again later.'
+			unavailableMessage: m.mcps_tester_chat_model_config_unavailable()
 		};
 	}
 
@@ -132,8 +133,8 @@ export function testerChatAvailability(
 			available: false,
 			unavailableMessage:
 				version.hasValidLicense !== true
-					? 'The chat feature is managed by your administrator. Contact your Obot admin to enable access.'
-					: 'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+					? m.mcps_tester_chat_managed_by_admin()
+					: m.mcps_tester_chat_model_service_unavailable()
 		};
 	}
 
@@ -150,8 +151,8 @@ export function testerChatAvailability(
 	return {
 		available: Boolean(configuredDefault?.model && defaultModel),
 		unavailableMessage: !configuredDefault?.model
-			? 'No default llm model is configured. Configure one to use Chat.'
-			: 'The configured default llm model is inactive or unavailable to your account.'
+			? m.mcps_tester_chat_no_default_model()
+			: m.mcps_tester_chat_default_model_inactive()
 	};
 }
 
@@ -240,13 +241,13 @@ function classifyOperationError(
 		(error instanceof DOMException && error.name === 'AbortError') ||
 		(error instanceof Error && error.name === 'AbortError')
 	) {
-		return { status: 'cancelled', message: 'Cancelled by user' };
+		return { status: 'cancelled', message: m.mcps_tester_op_cancelled_by_user() };
 	}
 	if (error instanceof McpError && error.code === ErrorCode.RequestTimeout) {
-		return { status: 'timeout', message: 'The MCP operation timed out' };
+		return { status: 'timeout', message: m.mcps_tester_op_timed_out() };
 	}
 	if (error instanceof StreamableHTTPError && error.code === 403) {
-		return { status: 'denied', message: 'Access to this MCP operation was denied' };
+		return { status: 'denied', message: m.mcps_tester_op_denied() };
 	}
 	return { status: 'transport-error', message: errorMessage(error) };
 }
@@ -299,11 +300,11 @@ async function collectPages<T, TPage extends { nextCursor?: string }>(
 			// The tester talks to arbitrary servers, so a cursor that repeats (or cycles) would
 			// otherwise page forever and grow these arrays without bound.
 			if (seen.has(cursor)) {
-				throw new Error(`server repeated pagination cursor ${JSON.stringify(cursor)}`);
+				throw new Error(m.mcps_tester_op_repeated_cursor({ cursor: JSON.stringify(cursor) }));
 			}
 			seen.add(cursor);
 			if (seen.size > maxPages) {
-				throw new Error(`server returned more than ${maxPages} pages`);
+				throw new Error(m.mcps_tester_op_too_many_pages({ count: maxPages }));
 			}
 		}
 	} while (cursor);
@@ -643,12 +644,12 @@ export class MCPTesterSession {
 
 	stagePrompt(name: string, result: GetPromptResult): StageResult {
 		if (result.messages.length === 0) {
-			return { ok: false, message: 'This prompt resolved to no messages.' };
+			return { ok: false, message: m.mcps_tester_stage_prompt_empty() };
 		}
 		if (result.messages.some((message) => message.content.type !== 'text')) {
 			return {
 				ok: false,
-				message: 'This prompt contains content that the tester cannot send to Chat.'
+				message: m.mcps_tester_stage_prompt_unsupported()
 			};
 		}
 		const size = result.messages.reduce(
@@ -657,7 +658,7 @@ export class MCPTesterSession {
 			0
 		);
 		if (size > MAX_STAGED_CONTEXT_BYTES) {
-			return { ok: false, message: 'This prompt is larger than the 100 KiB staging limit.' };
+			return { ok: false, message: m.mcps_tester_stage_prompt_too_large() };
 		}
 		this.stagedContext.push({
 			id: crypto.randomUUID(),
@@ -670,7 +671,7 @@ export class MCPTesterSession {
 
 	stageResource(name: string, result: ReadResourceResult): StageResult {
 		if (result.contents.length === 0) {
-			return { ok: false, message: 'This resource returned no content.' };
+			return { ok: false, message: m.mcps_tester_stage_resource_empty() };
 		}
 		const textContents = result.contents.filter(
 			(content): content is ResourceContents & { text: string } =>
@@ -679,7 +680,7 @@ export class MCPTesterSession {
 		if (textContents.length !== result.contents.length) {
 			return {
 				ok: false,
-				message: 'Only textual resource content can be staged for Chat.'
+				message: m.mcps_tester_stage_resource_unsupported()
 			};
 		}
 		const size = textContents.reduce(
@@ -687,7 +688,7 @@ export class MCPTesterSession {
 			0
 		);
 		if (size > MAX_STAGED_CONTEXT_BYTES) {
-			return { ok: false, message: 'This resource is larger than the 100 KiB staging limit.' };
+			return { ok: false, message: m.mcps_tester_stage_resource_too_large() };
 		}
 		this.stagedContext.push({
 			id: crypto.randomUUID(),
@@ -712,10 +713,10 @@ export class MCPTesterSession {
 
 	beginWorkflow(kind: TesterWorkflowKind, label: string): TesterWorkflow {
 		if (this.status !== 'ready') {
-			throw new Error('The MCP tester is not ready');
+			throw new Error(m.mcps_tester_not_ready());
 		}
 		if (this.activeWorkflow) {
-			throw new Error(`Cannot start ${label} while ${this.activeWorkflow.label} is active`);
+			throw new Error(m.mcps_tester_workflow_busy({ label, active: this.activeWorkflow.label }));
 		}
 		const workflow: TesterWorkflow = {
 			id: Symbol(label),

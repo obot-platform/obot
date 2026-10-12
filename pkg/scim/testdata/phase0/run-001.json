@@ -1,0 +1,2304 @@
+[
+  {
+    "sequence": 1,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/ServiceProviderConfig",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "authenticationSchemes": [
+        {
+          "description": "Connection-scoped bearer token for the Phase 0 capture responder",
+          "name": "Bearer token",
+          "primary": true,
+          "type": "oauthbearertoken"
+        }
+      ],
+      "bulk": {
+        "maxOperations": 0,
+        "maxPayloadSize": 0,
+        "supported": false
+      },
+      "changePassword": {
+        "supported": false
+      },
+      "etag": {
+        "supported": false
+      },
+      "filter": {
+        "maxResults": 200,
+        "supported": true
+      },
+      "patch": {
+        "supported": true
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+      ],
+      "sort": {
+        "supported": false
+      }
+    }
+  },
+  {
+    "sequence": 2,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=2&startIndex=1",
+    "requestBody": null,
+    "status": 401,
+    "responseBody": {
+      "detail": "missing or invalid bearer token",
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:Error"
+      ],
+      "status": "401"
+    }
+  },
+  {
+    "sequence": 3,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=2&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 4,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=2&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 5,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "count=100&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 6,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=2&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 7,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "count=100&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 8,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&filter=userName+eq+%22user-1%40example.invalid%22&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 9,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&filter=userName+eq+%22user-2%40example.invalid%22&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 10,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&filter=userName+eq+%22user-3%40example.invalid%22&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 11,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-1@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-4",
+      "groups": [],
+      "locale": "en-US",
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "password": "<redacted>",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-1@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-1@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-4",
+      "groups": [],
+      "id": "add54f90-c78e-4df2-a945-64bd4defe307",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.000000Z",
+        "lastModified": "2026-01-01T00:00:00.000000Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/add54f90-c78e-4df2-a945-64bd4defe307",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-1@example.invalid"
+    }
+  },
+  {
+    "sequence": 12,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "locale": "en-US",
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "password": "<redacted>",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:00:00.011948Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 13,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-6",
+      "groups": [],
+      "locale": "en-US",
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "password": "<redacted>",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-3@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-6",
+      "groups": [],
+      "id": "f750689c-4994-41c7-afd0-81ae51fca0b1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.063526Z",
+        "lastModified": "2026-01-01T00:00:00.063526Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/f750689c-4994-41c7-afd0-81ae51fca0b1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 14,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-1@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-4",
+          "groups": [],
+          "id": "add54f90-c78e-4df2-a945-64bd4defe307",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.000000Z",
+            "lastModified": "2026-01-01T00:00:00.000000Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/add54f90-c78e-4df2-a945-64bd4defe307",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-1@example.invalid"
+        },
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-2@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-5",
+          "groups": [],
+          "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.011948Z",
+            "lastModified": "2026-01-01T00:00:00.011948Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-2@example.invalid"
+        },
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-3@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-6",
+          "groups": [],
+          "id": "f750689c-4994-41c7-afd0-81ae51fca0b1",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.063526Z",
+            "lastModified": "2026-01-01T00:00:00.063526Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/f750689c-4994-41c7-afd0-81ae51fca0b1",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-3@example.invalid"
+        }
+      ],
+      "itemsPerPage": 3,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 3
+    }
+  },
+  {
+    "sequence": 15,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:00:00.011948Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 16,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PUT",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:00:00.011948Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:04:58.917823Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 17,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:04:58.917823Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 18,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "active": false
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:07:33.386951Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 19,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&filter=userName+eq+%22user-2%40example.invalid%22&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [
+        {
+          "active": false,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-2@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-5",
+          "groups": [],
+          "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.011948Z",
+            "lastModified": "2026-01-01T00:07:33.386951Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-2@example.invalid"
+        }
+      ],
+      "itemsPerPage": 1,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 1
+    }
+  },
+  {
+    "sequence": 20,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "active": true
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:24.929593Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 21,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:24.929593Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 22,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PUT",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:24.929593Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:25.107073Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 23,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "test",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "test",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-01T00:13:48.728388Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 24,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "add",
+          "path": "members",
+          "value": [
+            {
+              "display": "user-3@example.invalid",
+              "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+            },
+            {
+              "display": "user-1@example.invalid",
+              "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-01T00:13:48.953899Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 25,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "obot-scim-empty",
+      "members": [],
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T21:35:26.132047Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 26,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "test",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-01T00:13:48.953899Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 27,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "test-renamed",
+            "id": "507a7364-9515-4740-9b44-5aaa44f80af3"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:50:24.124478Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 28,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:25.107073Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 29,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:50:24.124478Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 30,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "test-renamed",
+            "id": "507a7364-9515-4740-9b44-5aaa44f80af3"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:53:01.560153Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 31,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "add",
+          "path": "members",
+          "value": [
+            {
+              "display": "user-2@example.invalid",
+              "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:53:01.794443Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 32,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users/add54f90-c78e-4df2-a945-64bd4defe307",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-1@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-4",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "add54f90-c78e-4df2-a945-64bd4defe307",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.000000Z",
+        "lastModified": "2026-01-01T00:00:00.000000Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/add54f90-c78e-4df2-a945-64bd4defe307",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-1@example.invalid"
+    }
+  },
+  {
+    "sequence": 33,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:53:01.794443Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 34,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "test-renamed",
+            "id": "507a7364-9515-4740-9b44-5aaa44f80af3"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-1@example.invalid",
+          "value": "add54f90-c78e-4df2-a945-64bd4defe307"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:56:18.678838Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 35,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "remove",
+          "path": "members[value eq \"add54f90-c78e-4df2-a945-64bd4defe307\"]"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:56:18.997133Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 36,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T21:56:18.997133Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 37,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "test-renamed",
+            "id": "507a7364-9515-4740-9b44-5aaa44f80af3"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T22:00:29.101666Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 38,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "path": "members",
+          "value": [
+            {
+              "display": "user-3@example.invalid",
+              "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+            },
+            {
+              "display": "user-2@example.invalid",
+              "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "test-renamed",
+      "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+      "members": [
+        {
+          "display": "user-3@example.invalid",
+          "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+        },
+        {
+          "display": "user-2@example.invalid",
+          "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+        }
+      ],
+      "meta": {
+        "created": "2026-01-01T00:13:48.728388Z",
+        "lastModified": "2026-01-03T22:00:29.466690Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 39,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T21:35:26.132047Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 40,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "obot-scim-empty",
+            "id": "08319b99-7242-4c7d-9d0f-a94d82c05358"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T22:01:25.494084Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 41,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "path": "members",
+          "value": []
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T22:01:25.724676Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 42,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T22:01:25.724676Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 43,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "replace",
+          "value": {
+            "displayName": "obot-scim-empty",
+            "id": "08319b99-7242-4c7d-9d0f-a94d82c05358"
+          }
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T22:07:57.982967Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 44,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "08319b99-7242-4c7d-9d0f-a94d82c05358",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T21:35:26.132047Z",
+        "lastModified": "2026-01-03T22:07:57.982967Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 45,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "DELETE",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": null,
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 46,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Groups/08319b99-7242-4c7d-9d0f-a94d82c05358",
+    "query": "",
+    "requestBody": null,
+    "status": 404,
+    "responseBody": {
+      "detail": "Groups resource \"08319b99-7242-4c7d-9d0f-a94d82c05358\" was not found",
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:Error"
+      ],
+      "status": "404"
+    }
+  },
+  {
+    "sequence": 47,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "obot-scim-empty",
+      "members": [],
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "obot-scim-empty",
+      "id": "3c0becca-81df-40a4-a735-cb819a33ea5c",
+      "members": [],
+      "meta": {
+        "created": "2026-01-03T22:17:47.317608Z",
+        "lastModified": "2026-01-03T22:17:47.317608Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/3c0becca-81df-40a4-a735-cb819a33ea5c",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 48,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:25.107073Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 49,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "count=100&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-1@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-4",
+          "groups": [],
+          "id": "add54f90-c78e-4df2-a945-64bd4defe307",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.000000Z",
+            "lastModified": "2026-01-01T00:00:00.000000Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/add54f90-c78e-4df2-a945-64bd4defe307",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-1@example.invalid"
+        },
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-2@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-5",
+          "groups": [
+            {
+              "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+              "display": "test-renamed",
+              "type": "direct",
+              "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+            }
+          ],
+          "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.011948Z",
+            "lastModified": "2026-01-01T00:09:25.107073Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-2@example.invalid"
+        },
+        {
+          "active": true,
+          "displayName": "Example User",
+          "emails": [
+            {
+              "primary": true,
+              "type": "work",
+              "value": "user-3@example.invalid"
+            }
+          ],
+          "externalId": "okta-user-6",
+          "groups": [
+            {
+              "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+              "display": "test-renamed",
+              "type": "direct",
+              "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+            }
+          ],
+          "id": "f750689c-4994-41c7-afd0-81ae51fca0b1",
+          "locale": "en-US",
+          "meta": {
+            "created": "2026-01-01T00:00:00.063526Z",
+            "lastModified": "2026-01-01T00:00:00.063526Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Users/f750689c-4994-41c7-afd0-81ae51fca0b1",
+            "resourceType": "User"
+          },
+          "name": {
+            "familyName": "Family",
+            "givenName": "Given"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User"
+          ],
+          "userName": "user-3@example.invalid"
+        }
+      ],
+      "itemsPerPage": 3,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 3
+    }
+  },
+  {
+    "sequence": 50,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "count=100&startIndex=1",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [
+        {
+          "displayName": "obot-scim-empty",
+          "id": "3c0becca-81df-40a4-a735-cb819a33ea5c",
+          "members": [],
+          "meta": {
+            "created": "2026-01-03T22:17:47.317608Z",
+            "lastModified": "2026-01-03T22:17:47.317608Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Groups/3c0becca-81df-40a4-a735-cb819a33ea5c",
+            "resourceType": "Group"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:Group"
+          ]
+        },
+        {
+          "displayName": "test-renamed",
+          "id": "507a7364-9515-4740-9b44-5aaa44f80af3",
+          "members": [
+            {
+              "display": "user-3@example.invalid",
+              "value": "f750689c-4994-41c7-afd0-81ae51fca0b1"
+            },
+            {
+              "display": "user-2@example.invalid",
+              "value": "b46b3f1c-15f1-4548-b862-3598896ca9e1"
+            }
+          ],
+          "meta": {
+            "created": "2026-01-01T00:13:48.728388Z",
+            "lastModified": "2026-01-03T22:00:29.466690Z",
+            "location": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+            "resourceType": "Group"
+          },
+          "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:Group"
+          ]
+        }
+      ],
+      "itemsPerPage": 2,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 2
+    }
+  },
+  {
+    "sequence": 51,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:25.107073Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-2@example.invalid"
+    }
+  },
+  {
+    "sequence": 52,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PUT",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-01T00:09:25.107073Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-03T22:32:20.011751Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    }
+  },
+  {
+    "sequence": 53,
+    "userAgent": "curl",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-03T22:32:20.011751Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    }
+  },
+  {
+    "sequence": 54,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "GET",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-2@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-03T22:32:20.011751Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    }
+  },
+  {
+    "sequence": 55,
+    "userAgent": "Okta SCIM Client 1.0.0",
+    "method": "PUT",
+    "path": "/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-7@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-03T22:32:20.011751Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "Example User",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-7@example.invalid"
+        }
+      ],
+      "externalId": "okta-user-5",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/507a7364-9515-4740-9b44-5aaa44f80af3",
+          "display": "test-renamed",
+          "type": "direct",
+          "value": "507a7364-9515-4740-9b44-5aaa44f80af3"
+        }
+      ],
+      "id": "b46b3f1c-15f1-4548-b862-3598896ca9e1",
+      "locale": "en-US",
+      "meta": {
+        "created": "2026-01-01T00:00:00.011948Z",
+        "lastModified": "2026-01-03T22:48:50.195928Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/b46b3f1c-15f1-4548-b862-3598896ca9e1",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "Family",
+        "givenName": "Given"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-7@example.invalid"
+    }
+  }
+]

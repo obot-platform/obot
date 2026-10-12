@@ -1,5 +1,6 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
+import { m } from '$lib/i18n';
 import { Group } from '$lib/services/admin/types';
 import { buildQueryString } from '$lib/url';
 import type {
@@ -24,7 +25,6 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
-import type { Skill } from '../nanobot/types';
 import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
@@ -64,7 +64,8 @@ import {
 	type VMCPComponent,
 	type VMCPInstance,
 	type VMCPManifest,
-	type VMCPConfiguration
+	type VMCPConfiguration,
+	type Skill
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -629,23 +630,6 @@ export async function getMcpServerOauthURL(
 	}
 }
 
-export async function isMcpServerOauthNeeded(
-	id: string,
-	opts?: { signal?: AbortSignal }
-): Promise<boolean> {
-	try {
-		await doPost(`${mcpActionPath(id)}/check-oauth`, {
-			dontLogErrors: true,
-			signal: opts?.signal
-		});
-	} catch (err) {
-		if (err instanceof HttpError && err.statusCode === 412) {
-			return true;
-		}
-	}
-	return false;
-}
-
 export async function restartMcpServer(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
 	await doPost(`/mcp-servers/${id}/restart`, {}, opts);
 }
@@ -855,9 +839,6 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	};
 	obj.isBootstrapUser = () => {
 		return obj.username === BOOTSTRAP_USER_ID;
-	};
-	obj.canImpersonate = () => {
-		return obj.groups.includes(Group.USER_IMPERSONATION) && obj.groups.includes(Group.ADMIN);
 	};
 	obj.loaded = true;
 	return obj;
@@ -1503,7 +1484,7 @@ export async function fetchWorkspaceIDForProfile(
 	const workspaces = await listWorkspaces(opts);
 	const workspaceID = workspaces.find((w) => w.userID === currentProfileID)?.id ?? null;
 	if (!workspaceID) {
-		throw new HttpError(404, 'Workspace not found.');
+		throw new HttpError(404, m.core_workspace_not_found());
 	}
 	return workspaceID;
 }
@@ -1522,6 +1503,10 @@ export async function listSkills(opts?: {
 }): Promise<Skill[]> {
 	const response = (await doGet('/skills', opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
+}
+
+export async function getSkill(id: string, opts?: { fetch?: Fetcher }): Promise<Skill> {
+	return (await doGet(`/skills/${encodeURIComponent(id)}`, opts)) as Skill;
 }
 
 export async function downloadSkill(

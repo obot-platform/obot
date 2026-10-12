@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { isAbortError, parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
@@ -44,7 +45,7 @@
 	const success = $derived(allAuthenticated && !loading && !error && checking.size === 0);
 	const parentIcon = $derived(compositeServer ? compositeServer.icon : undefined);
 	const parentDisplayName = $derived(
-		compositeServer ? compositeServer.displayName : 'MCP Server Authentication'
+		compositeServer ? compositeServer.displayName : m.mcps_oauth_composite_oauth_title()
 	);
 
 	// Complete only after every pending or in-flight authentication check succeeds.
@@ -186,15 +187,14 @@
 
 		{#if !allAuthenticated}
 			<p class="mb-6 text-sm">
-				This vMCP requires authentication with multiple services. Please authenticate with each
-				service below.
+				{m.mcps_oauth_composite_oauth_description()}
 			</p>
 		{/if}
 
 		{#if loading && pending.length === 0}
 			<div class="flex items-center justify-center gap-2 py-8">
 				<Loading class="size-6" />
-				<span>Loading servers...</span>
+				<span>{m.mcps_oauth_loading_servers()}</span>
 			</div>
 		{:else if error}
 			<div class="notification-error">
@@ -210,7 +210,7 @@
 							{#if item.icon || componentInfos[item.catalogEntryID || '']?.icon}
 								<img
 									src={item.icon || componentInfos[item.catalogEntryID || '']?.icon}
-									alt="icon"
+									alt={m.mcps_oauth_icon_alt()}
 									class="size-6"
 								/>
 							{:else}
@@ -229,7 +229,8 @@
 						<div class="flex items-center gap-2">
 							{#if checking.has(item.mcpServerID)}
 								<span class="flex items-center gap-2 text-sm" role="status">
-									<Loading class="size-4" /> Checking for valid authentication…
+									<Loading class="size-4" />
+									{m.mcps_oauth_composite_oauth_checking()}
 								</span>
 							{:else}
 								<a
@@ -237,13 +238,13 @@
 									rel="external noopener noreferrer"
 									target="_blank"
 									class="btn btn-primary"
-									onclick={() => recordAttempt(item)}>Authenticate</a
+									onclick={() => recordAttempt(item)}>{m.mcps_oauth_authenticate()}</a
 								>
 								{#if rowErrors[item.mcpServerID]}
 									<button
 										class="btn btn-secondary"
 										type="button"
-										onclick={() => void checkComponent(item)}>Retry</button
+										onclick={() => void checkComponent(item)}>{m.mcps_retry()}</button
 									>
 								{/if}
 							{/if}
@@ -259,9 +260,9 @@
 		{#if success}
 			<div class="notification-info mt-6 flex justify-center">
 				<div class="flex flex-col items-center gap-2">
-					<p class="text-center font-semibold">All services authenticated successfully!</p>
+					<p class="text-center font-semibold">{m.mcps_oauth_composite_oauth_success()}</p>
 					<p class="text-center text-sm font-light">
-						You can close this window and return to the application.
+						{m.mcps_oauth_composite_oauth_close_window()}
 					</p>
 				</div>
 			</div>

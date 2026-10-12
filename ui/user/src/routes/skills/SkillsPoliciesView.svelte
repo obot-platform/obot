@@ -4,6 +4,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { type SkillAccessPolicy } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
@@ -30,11 +31,13 @@
 	{#if skillAccessPolicies.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Vault class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No skill access policies</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.skills_no_access_policies()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
-				Looks like you don't have any skill access policies created yet. <br />
+				{m.skills_no_access_policies_desc()} <br />
 				{#if !isReadonly}
-					Click the button below to get started.
+					{m.core_click_below_to_start()}
 				{/if}
 			</p>
 
@@ -51,7 +54,7 @@
 	<Table
 		data={skillAccessPolicies}
 		fields={['displayName']}
-		headers={[{ property: 'displayName', title: 'Name' }]}
+		headers={[{ property: 'displayName', title: m.core_name() }]}
 		onClickRow={(d, isCtrlClick) => {
 			const url = `/skills/access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
@@ -66,7 +69,7 @@
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					tooltip={{ text: 'Delete Policy' }}
+					tooltip={{ text: m.core_delete_policy() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -88,13 +91,16 @@
 				);
 			}}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.skills_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
 
 <Confirm
-	msg={`Delete ${policyToDelete?.displayName || 'this policy'}?`}
+	msg={m.skills_delete_named({
+		name: policyToDelete?.displayName || m.skills_this_policy()
+	})}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;

@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { isAuditLogAPIKeyFilterOption, toAuditLogFilterSelectOption } from '$lib/auditlogs';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import { UserService, type AuditLogFilterOption } from '$lib/services';
 	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
 	import { goto } from '$lib/url';
@@ -135,7 +136,7 @@
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
-						? `Showing up to ${AUDIT_LOG_FILTER_OPTIONS_LIMIT} results`
+						? m.audit_usage_exports_filter_showing_up_to({ limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT })
 						: undefined;
 				},
 				get selected() {
@@ -232,7 +233,7 @@
 	class="dark:border-base-400 text-base-content h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl"
 >
 	<div class="relative w-full text-center">
-		<h4 class="p-4 text-xl font-semibold">Filters</h4>
+		<h4 class="p-4 text-xl font-semibold">{m.core_filters_title()}</h4>
 		<IconButton class="absolute top-1/2 right-4 -translate-y-1/2" onclick={onClose}>
 			<X class="size-5" />
 		</IconButton>
@@ -260,11 +261,11 @@
 		<div class="mt-auto flex flex-col gap-2">
 			<button
 				class="btn btn-secondary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleClearAllFilters}>Clear All</button
+				onclick={handleClearAllFilters}>{m.core_clear_all()}</button
 			>
 			<button
 				class="btn btn-primary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleApplyFilters}>Apply Filters</button
+				onclick={handleApplyFilters}>{m.audit_usage_exports_filter_apply_filters()}</button
 			>
 		</div>
 	</div>

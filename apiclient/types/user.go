@@ -11,7 +11,6 @@ package types
 //
 // Orthogonal roles:
 //   - RoleAuditor (32): Can view audit logs and sensitive data (can be combined with any base role)
-//   - RoleUserImpersonation (256): Can connect to other users' MCP servers (must be explicitly assigned)
 //
 // Examples of combined roles:
 //   - RoleAdmin | RoleAuditor (48): Admin with audit access
@@ -26,29 +25,28 @@ const (
 	RoleAuditor
 	RolePowerUserPlus
 	RolePowerUser
-	RoleUserImpersonation
 
 	RoleUnknown Role = 0
 
-	GroupOwner              = "owner"
-	GroupAdmin              = "admin"
-	GroupAuditor            = "auditor"
-	GroupUserImpersonation  = "user-impersonation"
-	GroupPowerUserPlus      = "power-user-plus"
-	GroupPowerUser          = "power-user"
-	GroupBasic              = "basic"
-	GroupAuthenticated      = "authenticated"
-	GroupMCP                = "mcp"
-	GroupCompositeMCP       = "composite-mcp"
-	GroupSkills             = "skills"
-	GroupPublishedArtifacts = "published-artifacts"
-	GroupAPI                = "api"
-	GroupLLM                = "llm"
-	GroupDeviceScans        = "device-scans"
-	GroupDeviceEnroll       = "device-enroll"
-	GroupTunnel             = "obot-tunnel"
-	GroupTunnelBridge       = "obot-tunnel-bridge"
-	GroupTunnelPeer         = "obot-tunnel-peer"
+	GroupOwner         = "owner"
+	GroupAdmin         = "admin"
+	GroupAuditor       = "auditor"
+	GroupPowerUserPlus = "power-user-plus"
+	GroupPowerUser     = "power-user"
+	GroupBasic         = "basic"
+	GroupAuthenticated = "authenticated"
+	GroupMCP           = "mcp"
+	GroupCompositeMCP  = "composite-mcp"
+	GroupSkills        = "skills"
+	GroupAPI           = "api"
+	GroupLLM           = "llm"
+	GroupDeviceScans   = "device-scans"
+	GroupDeviceEnroll  = "device-enroll"
+	GroupTunnel        = "obot-tunnel"
+	GroupTunnelBridge  = "obot-tunnel-bridge"
+	GroupTunnelPeer    = "obot-tunnel-peer"
+	// GroupSCIM is the group of a SCIM connection's principal, which may only use that connection's SCIM endpoint.
+	GroupSCIM = "obot-scim"
 )
 
 var (
@@ -84,7 +82,35 @@ type User struct {
 	OriginalEmail          string   `json:"originalEmail,omitempty"`
 	OriginalUsername       string   `json:"originalUsername,omitempty"`
 	RequirePasswordChange  bool     `json:"requirePasswordChange,omitempty"`
+
+	// Status is the user's lifecycle status. A disabled user keeps their account and data but is denied access.
+	Status UserStatus `json:"status,omitempty"`
+	// DisabledAt is when the user was disabled. It is set only while the user is disabled.
+	DisabledAt *Time `json:"disabledAt,omitempty"`
+	// DisabledReason explains why the user is disabled. It is set only while the user is disabled.
+	DisabledReason string `json:"disabledReason,omitempty"`
+	// ManagementSource is what controls the user's lifecycle status.
+	ManagementSource UserManagementSource `json:"managementSource,omitempty"`
 }
+
+// UserStatus is a user's lifecycle status.
+type UserStatus string
+
+const (
+	UserStatusActive   UserStatus = "active"
+	UserStatusDisabled UserStatus = "disabled"
+	UserStatusDeleted  UserStatus = "deleted"
+)
+
+// UserManagementSource is what controls a user's lifecycle status.
+type UserManagementSource string
+
+const (
+	// UserManagementSourceObot means Obot controls the user's status.
+	UserManagementSourceObot UserManagementSource = "obot"
+	// UserManagementSourceSCIM means an identity provider controls the user's status through SCIM.
+	UserManagementSourceSCIM UserManagementSource = "scim"
+)
 
 type UserList List[User]
 
@@ -102,21 +128,17 @@ func (u Role) IsExactBaseRole(role Role) bool {
 }
 
 func (u Role) SwitchBaseRole(role Role) Role {
-	return role | (u & (RoleAuditor | RoleUserImpersonation))
+	return role | (u & RoleAuditor)
 }
 
 // ExtractBaseRole removes orthogonal role flags to get the base role
 func (u Role) ExtractBaseRole() Role {
-	return u &^ (RoleAuditor | RoleUserImpersonation)
+	return u &^ RoleAuditor
 }
 
 // HasAuditorRole checks if the Auditor flag is set in the role
 func (u Role) HasAuditorRole() bool {
 	return u&RoleAuditor != 0
-}
-
-func (u Role) HasUserImpersonationRole() bool {
-	return u&RoleUserImpersonation != 0
 }
 
 func (u Role) RoleGroups() []string {
@@ -147,14 +169,11 @@ func (u Role) groups(onlyRoleGroups bool) []string {
 	if u.HasRole(RoleAuditor) {
 		groups = append(groups, GroupAuditor)
 	}
-	if u.HasRole(RoleUserImpersonation) {
-		groups = append(groups, GroupUserImpersonation)
-	}
 	if u != RoleUnknown {
 		groups = append(groups, GroupAuthenticated)
 
 		if !onlyRoleGroups {
-			groups = append(groups, GroupAPI, GroupLLM, GroupSkills, GroupPublishedArtifacts, GroupMCP, GroupDeviceScans)
+			groups = append(groups, GroupAPI, GroupLLM, GroupSkills, GroupMCP, GroupDeviceScans)
 		}
 	}
 

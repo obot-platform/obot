@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import AccessPolicyView from './AccessPolicyView.svelte';
@@ -24,22 +25,32 @@
 	);
 	let createTitle = $derived(
 		selectedView === 'access-policies'
-			? 'Create Hosted Agent Access Policy'
-			: 'Create Agent Template'
+			? m.hosted_agents_create_access_policy()
+			: m.hosted_agents_create_template()
 	);
 
 	let harnessesView = $state<ReturnType<typeof HarnessesView>>();
 	let configSourcesView = $state<ReturnType<typeof ConfigSourcesView>>();
 
 	let views = $derived.by(() => {
-		const items: TabView[] = [{ label: 'Agents', value: 'agents', content: agents }];
+		const items: TabView[] = [
+			{ label: m.hosted_agents_agents_tab(), value: 'agents', content: agents }
+		];
 		if (hasAdminAccess) {
 			items.push(
-				{ label: 'Templates', value: 'templates', content: templates },
-				{ label: 'Harnesses', value: 'harnesses', content: harnesses },
-				{ label: 'Pools', value: 'pools', content: pools },
-				{ label: 'Config Sources', value: 'config-sources', content: configSources },
-				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }
+				{ label: m.hosted_agents_templates_tab(), value: 'templates', content: templates },
+				{ label: m.hosted_agents_harnesses_tab(), value: 'harnesses', content: harnesses },
+				{ label: m.hosted_agents_pools(), value: 'pools', content: pools },
+				{
+					label: m.hosted_agents_config_sources_tab(),
+					value: 'config-sources',
+					content: configSources
+				},
+				{
+					label: m.hosted_agents_access_policies_tab(),
+					value: 'access-policies',
+					content: accessPolicy
+				}
 			);
 		}
 		return items;
@@ -57,7 +68,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {creating ? createTitle : 'Hosted Agents'}</title>
+	<title>{m.chat_page_title_named({ name: creating ? createTitle : m.nav_hosted_agents() })}</title>
 </svelte:head>
 
 {#if creating}
@@ -70,7 +81,7 @@
 	</Layout>
 {:else}
 	<TabLayout
-		title="Hosted Agents"
+		title={m.nav_hosted_agents()}
 		defaultView="agents"
 		rightNavActions={navActions}
 		{views}
@@ -84,28 +95,32 @@
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => showCreate(view)}
 		>
-			<Plus class="size-4" /> Add Template
+			<Plus class="size-4" />
+			{m.hosted_agents_templates_add_template()}
 		</button>
 	{:else if !isAdminReadonly && view === 'harnesses'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => harnessesView?.openCreate()}
 		>
-			<Plus class="size-4" /> Add Harness
+			<Plus class="size-4" />
+			{m.hosted_agents_harnesses_add_harness()}
 		</button>
 	{:else if !isAdminReadonly && view === 'config-sources'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => configSourcesView?.openCreate()}
 		>
-			<Plus class="size-4" /> Add Config Source
+			<Plus class="size-4" />
+			{m.hosted_agents_config_sources_add_config_source()}
 		</button>
 	{:else if !isAdminReadonly && view === 'access-policies'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => showCreate(view)}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.hosted_agents_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}

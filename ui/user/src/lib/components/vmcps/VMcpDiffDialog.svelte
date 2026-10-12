@@ -4,6 +4,7 @@
 		generateJsonDiff,
 		normalizeManifestsForDiff
 	} from '$lib/diff';
+	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
 	import { vmcpComponentDiffServers, vmcpOutdatedComponents } from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, responsive } from '$lib/stores';
@@ -105,7 +106,9 @@
 			{#if !responsive.isMobile}
 				<div class="grid h-full grid-cols-2">
 					<div class="h-full">
-						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">Current Version</h3>
+						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">
+							{m.vmcps_current_version()}
+						</h3>
 						<div
 							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
 						>
@@ -115,7 +118,9 @@
 						</div>
 					</div>
 					<div class="h-full">
-						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">New Version</h3>
+						<h3 class="text-muted-content mb-2 px-4 text-sm font-semibold">
+							{m.vmcps_new_version()}
+						</h3>
 						<div
 							class="default-scrollbar-thin dark:border-base-400 dark:bg-base-200 h-full overflow-x-auto bg-gray-50 p-4"
 						>
@@ -127,7 +132,7 @@
 				</div>
 			{:else}
 				<div class="h-full w-full pl-2">
-					<h3 class="text-muted-content mb-2 text-sm font-semibold">Source Diff</h3>
+					<h3 class="text-muted-content mb-2 text-sm font-semibold">{m.vmcps_source_diff()}</h3>
 					<div
 						class="default-scrollbar-thin dark:bg-base-200 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
 					>
@@ -157,12 +162,12 @@
 			{/if}
 		{:else}
 			<div class="flex items-center justify-center py-8">
-				<p class="text-muted-content">Unable to compare manifests. Missing manifest data.</p>
+				<p class="text-muted-content">{m.vmcps_unable_to_compare_manifests()}</p>
 			</div>
 		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-8">
-			<p class="text-muted-content">Unable to compare manifests. Missing manifest data.</p>
+			<p class="text-muted-content">{m.vmcps_unable_to_compare_manifests()}</p>
 		</div>
 	{/if}
 </ResponsiveDialog>

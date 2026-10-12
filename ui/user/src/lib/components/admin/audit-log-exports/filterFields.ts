@@ -1,12 +1,13 @@
 // Shared helpers for the audit-log export forms (CreateAuditLogExportForm and CreateScheduleForm).
 // Both forms offer the same log-source selection and render the same MCP/local-agent filter fields,
 // so that logic lives here to avoid drifting between the two.
+import { m } from '$lib/i18n';
 
 export const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
 
 export const sourceTypeLabels: Record<string, string> = {
 	mcp: 'MCP',
-	local_agent_tool_call: 'Local Agent Tool Calls'
+	local_agent_tool_call: m.audit_usage_exports_source_local_agent_tool_calls()
 };
 
 const SOURCE_TYPE_BY_EVENT_TYPE: Record<string, string> = {

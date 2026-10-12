@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { X } from '@lucide/svelte';
 
 	interface Props {
@@ -19,13 +20,13 @@
 			{COMMUNITY_SIGNUP_BANNER_COPY}
 		</p>
 		<a href={resolve('/admin/platform?view=license')} class="btn btn-xs btn-primary shrink-0">
-			Register
+			{m.platform_license_notice_register()}
 		</a>
 		<button
 			class="btn btn-circle text-primary hover:text-base-content btn-xs w-fit h-fit p-0.5 dark:hover:bg-base-400"
 			onclick={onDismiss}
 			type="button"
-			aria-label="Dismiss community signup banner"
+			aria-label={m.platform_license_notice_dismiss_banner()}
 		>
 			<X class="size-3" />
 		</button>

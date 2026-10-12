@@ -17,6 +17,14 @@ export function escapeRegExp(value: string): string {
  */
 export const PATH_REDIRECTS: Record<string, string> = {
 	// Pages moved between versions
+	"agents/availability": "start-here/choose",
+	"agents/first-agent": "start-here/govern",
+	"agents/identity": "security/credentials",
+	"agents/runtime": "installation/overview",
+	"agents/workflows": "registries/publish-skills",
+	"concepts/obot-agent": "start-here/choose",
+	"functionality/obot-agent-management": "security/model",
+	"functionality/workflow-sharing": "registries/publish-skills",
 	architecture: "concepts/architecture",
 
 	// concepts/admin/* — section removed; map to closest equivalents
@@ -45,6 +53,7 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	"concepts/mcp-gateway/servers-and-tools": "concepts/mcp-gateway",
 
 	// functionality renames
+	"functionality/api-keys": "functionality/agent-auth-scopes",
 	"functionality/message-policies": "functionality/ai-judge-policies",
 
 	// configuration renames

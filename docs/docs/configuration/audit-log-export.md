@@ -1,8 +1,14 @@
-# Audit Log Exports
+---
+displayed_sidebar: sidebar
+title: Audit Log Exports
+---
+
+For the current task-based instructions, see [Audit data, privacy, and retention](../security/audit-data.md). This page preserves existing bookmarks and specialized reference material.
 
 Obot can export MCP and LLM gateway audit logs to various cloud storage providers for long-term retention. This feature supports both one-time exports and scheduled recurring exports.
 
-## Overview
+## Overview {#overview}
+
 
 The audit log export feature enables you to:
 
@@ -13,9 +19,11 @@ The audit log export feature enables you to:
 
 MCP audit log exports and LLM audit log exports use the same storage credentials.
 
-## Supported Storage Providers
+## Supported Storage Providers {#supported-storage-providers}
 
-### Amazon S3
+
+### Amazon S3 {#amazon-s3}
+
 
 **Requirements:**
 
@@ -51,7 +59,8 @@ MCP audit log exports and LLM audit log exports use the same storage credentials
 
 - You can enable server-side encryption (SSE) for your bucket to encrypt your audit logs at rest, using either SSE-S3 or SSE-KMS. For more information, see [Server-Side Encryption](https://docs.aws.amazon.com/AmazonS3/latest/userguide/serv-side-encryption.html). If you are using SSE-KMS, you need to create a KMS key and grant the necessary permissions to the KMS key to the identity associated with your Obot deployment.
 
-### Google Cloud Storage (GCS)
+### Google Cloud Storage (GCS) {#google-cloud-storage-gcs}
+
 
 Google Cloud Storage provides reliable and scalable storage for audit logs.
 
@@ -73,7 +82,8 @@ Google Cloud Storage provides reliable and scalable storage for audit logs.
 
 - Enabled by default using Google-managed keys. You can also use customer-managed encryption keys (CMEK) to encrypt your audit logs. For more information, see [Customer-Managed Encryption Keys](https://cloud.google.com/storage/docs/encryption/customer-managed-keys).
 
-### Azure Blob Storage
+### Azure Blob Storage {#azure-blob-storage}
+
 
 Azure Blob Storage integration uses service principal authentication for secure access.
 
@@ -94,7 +104,8 @@ Azure Blob Storage integration uses service principal authentication for secure 
 - **Tenant ID**: Directory (tenant) ID of your Azure AD tenant. Optional if you are using workload identity.
 - **Client Secret**: Client secret for your Azure AD application. Optional if you are using workload identity.
 
-### Custom S3 Compatible Storage
+### Custom S3 Compatible Storage {#custom-s3-compatible-storage}
+
 
 Support for S3-compatible storage providers like MinIO, DigitalOcean Spaces, Wasabi, R2, etc.
 
@@ -111,14 +122,16 @@ Support for S3-compatible storage providers like MinIO, DigitalOcean Spaces, Was
 - **Access Key ID**: Access key for authentication
 - **Secret Access Key**: Secret key for authentication
 
-## Storage Configuration
+## Storage Configuration {#storage-configuration}
 
-### Initial Setup
+
+### Initial Setup {#initial-setup}
+
 
 1. **Navigate to Audit Log Exports**:
 
-   - For MCP audit logs, go to MCP Management → Audit Logs → Manage Exports
-   - For LLM audit logs, go to LLM Gateway → Audit Logs → Manage Exports
+   - For MCP audit logs, go to Operations → Audit Logs → MCP → Manage Exports
+   - For LLM audit logs, go to Operations → Audit Logs → Model → Manage Exports
    - Click "Configure Storage"
 
 2. **Select Provider**:
@@ -139,13 +152,16 @@ Support for S3-compatible storage providers like MinIO, DigitalOcean Spaces, Was
 5. **Save Configuration**:
    - Click "Save Credentials" to store your configuration securely
 
-### Authentication Methods
+### Authentication Methods {#authentication-methods}
 
-#### Manual Credentials
+
+#### Manual Credentials {#manual-credentials}
+
 
 Provide explicit access keys, service account files, or client secrets. This method gives you full control over the credentials used.
 
-#### Workload Identity (Cloud Providers Only)
+#### Workload Identity (Cloud Providers Only) {#workload-identity-cloud-providers-only}
+
 
 Use the identity associated with your Obot deployment. This method is more secure as it doesn't require storing explicit credentials.
 
@@ -155,60 +171,23 @@ Use the identity associated with your Obot deployment. This method is more secur
 - Google Cloud Storage (when running on Google GKE). See [Workload Identity for Google Cloud](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) for more information.
 - Azure Blob Storage (when running on Azure AKS). See [Workload Identity for Azure](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster) for more information.
 
-## Creating Exports
+## Creating Exports {#creating-exports}
 
-### One-Time Exports
+Continue to [Creating Exports](../security/audit-data.md#audit-log-export-creating-exports).
 
-One-time exports allow you to export MCP or LLM audit logs for a specific time range with optional filters.
+### One-Time Exports {#one-time-exports}
 
-1. **Navigate to Audit Logs**:
+Continue to [One-Time Exports](../security/audit-data.md#audit-log-export-one-time-exports).
 
-   - For MCP audit logs, go to MCP Management → Audit Logs
-   - For LLM audit logs, go to LLM Gateway → Audit Logs
-   - Apply any desired filters
+### Scheduled Exports {#scheduled-exports}
 
-2. **Create Export**:
+Continue to [Scheduled Exports](../security/audit-data.md#audit-log-export-scheduled-exports).
 
-   - Click "Create Export" → "Create One-time Export"
-   - If filters are applied, you'll be asked whether to include them
+## Export Format {#export-format}
 
-3. **Configure Export**:
 
-   - **Name**: Descriptive name for the export
-   - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
-   - **Time Range**: Start and end dates/times
-   - **Filters**: Additional filters to apply
+### JSON Lines (JSONL) {#json-lines-jsonl}
 
-4. **Submit Export**:
-   - Click "Create Export" to start the process
-   - Monitor progress in the exports list
-
-### Scheduled Exports
-
-Scheduled exports run automatically at specified intervals.
-
-1. **Create Schedule**:
-
-   - Click "Create Export" → "Create Export Schedule"
-   - Configure the same options as one-time exports
-
-2. **Schedule Configuration**:
-
-   - **Frequency**: Hourly, Daily, Weekly, or Monthly
-   - **Time**: Specific time to run (for daily/weekly/monthly)
-   - **Day**: Day of week (weekly) or month (monthly)
-   - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
-
-3. **Manage Schedules**:
-   - View and manage schedules in the "Export Schedules" tab
-   - Enable/disable schedules as needed
-   - Edit schedule configuration
-
-## Export Format
-
-### JSON Lines (JSONL)
 
 All audit logs are exported in JSON Lines format, where each line contains a complete JSON object representing one audit log entry.
 
@@ -232,7 +211,8 @@ MCP exports include MCP gateway activity such as server, operation, and response
 Users with the Auditor role can export sensitive request and response fields. Admins and Owners without the Auditor role export metadata only.
 :::
 
-## Filters
+## Filters {#filters}
+
 
 Filters applied in the audit log UI can be carried into a one-time or scheduled export.
 
@@ -240,7 +220,8 @@ MCP audit log exports support filters such as user, MCP server, call type, call 
 
 LLM audit log exports support filters such as user, model provider, target model, request path, response status, outcome, client, client session, and search query.
 
-### File Structure
+### File Structure {#file-structure}
+
 
 Exported files are organized with the following structure by default:
 

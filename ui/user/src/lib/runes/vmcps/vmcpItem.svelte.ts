@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import { UserService, type VMCP, type VMCPInstance } from '$lib/services';
 import {
 	isCatalogSyncedVMcp,
@@ -67,7 +68,7 @@ export function vmcpItemContext(vmcp: VMCP) {
 			vmcpHasUserAllowedConfiguration(vmcp) && myInstances.length > 0
 		),
 		hasActions: isCreator || Boolean(profile.current.hasAdminAccess?.()) || myInstances.length > 0,
-		name: vmcp.displayName || 'Untitled vMCP',
+		name: vmcp.displayName || m.vmcps_untitled_vmcp(),
 		isShared: !vmcp.userID
 	};
 }
@@ -87,7 +88,7 @@ async function disconnectInstance(instanceID: string) {
 		await UserService.deleteVMCPInstance(instanceID);
 		vmcpInstances.remove(instanceID);
 	} catch {
-		errors.append('Failed to disconnect from vMCP.');
+		errors.append(m.vmcps_failed_to_disconnect());
 	} finally {
 		vmcpActionProgress.disconnectingIds.delete(instanceID);
 	}
@@ -110,7 +111,7 @@ export async function resetVMcpConnection(
 			(instance) => {
 				void disconnectInstance(instance.id);
 			},
-			'Select Connection to Disconnect'
+			m.vmcps_select_connection_to_disconnect()
 		);
 		toggle(false);
 		return;
@@ -134,7 +135,7 @@ export async function updateVMcp(
 	isCancelled?: () => boolean
 ) {
 	if (!startAction(vmcpActionProgress.updatingIds, vmcp.id)) return;
-	const name = vmcp.displayName || 'Untitled vMCP';
+	const name = vmcp.displayName || m.vmcps_untitled_vmcp();
 	try {
 		await UserService.triggerVMCPUpdate(vmcp.id);
 		let updated: VMCP | undefined;
@@ -148,10 +149,10 @@ export async function updateVMcp(
 		);
 		if (isCancelled?.() || !updated || vmcpNeedsUpdate(updated)) return;
 		onUpdated?.(updated);
-		success.add(`Updated ${name}.`);
+		success.add(m.vmcps_updated_named({ name }));
 	} catch {
 		if (!isCancelled?.()) {
-			errors.append('Failed to update vMCP.');
+			errors.append(m.vmcps_failed_to_update());
 		}
 	} finally {
 		vmcpActionProgress.updatingIds.delete(vmcp.id);
@@ -175,7 +176,7 @@ export function editVMcpInstanceConfiguration(
 	openSelectInstance(
 		myInstances,
 		(instance) => openEditInstanceConfiguration(vmcp, instance),
-		'Select Connection to Configure'
+		m.vmcps_select_connection_to_configure()
 	);
 	toggle?.(false);
 }

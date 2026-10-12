@@ -1,10 +1,12 @@
 ---
-title: Model Access Policies
+title: "Control model access"
 ---
 
 ## Overview
 
-Model Access Policies control which users and groups can use which language models in Obot Agent. Administrators create policies to grant model access based on organizational needs—whether that means giving everyone access to standard models, restricting powerful models to specific teams, or anything in between.
+Model Access Policies control which users and groups can use which language models through the LLM Gateway. Administrators create policies to grant model access based on organizational needs—whether that means giving everyone access to standard models, restricting powerful models to specific teams, or anything in between.
+
+For external clients, the gateway's model list and requests are limited by these grants. A provider being configured does not make its models available to every user. See [LLM Gateway](../llm-gateway/how-it-works.md) for provider routes and model discovery.
 
 ## How Policies Work
 
@@ -13,7 +15,7 @@ Each policy defines two things:
 - **Who** can use the models (subjects)
 - **Which** models they can use
 
-When a user opens chat, they see only the models granted to them through one or more policies. If no policy grants a user access to any models, they cannot use chat.
+The Models page and gateway model discovery show only models granted to the user through one or more policies. If no policy grants access to a model, the user cannot call it through the LLM Gateway.
 
 ### Subjects
 
@@ -30,12 +32,12 @@ Using "All Obot Users" is convenient for making certain models universally avail
 When adding models to a policy, you can select:
 
 - **Specific models** — Individual models from your configured providers
-- **Default model aliases** — References to whichever model is currently set as the default for a given purpose (see [Default Model Aliases](#default-model-aliases))
-- **Wildcard suffix patterns** — Grants access to every model whose ID starts with a given prefix (see [Wildcard Suffix Patterns](#wildcard-suffix-patterns))
+- **Default model aliases** — References to whichever model is currently set as the default for a given purpose (see [Default Model Aliases](./model-access-policies.md#default-model-aliases))
+- **Wildcard suffix patterns** — Grants access to every model whose ID starts with a given prefix (see [Wildcard Suffix Patterns](./model-access-policies.md#wildcard-suffix-patterns))
 - **All models** — Grants access to every available model
 
 :::info Administrators Must Follow Policies
-Administrators do not have automatic access to all models. Like any other user, an administrator must be included in a policy to use a model in Obot Agent.
+Administrators do not have automatic access to all models. Like any other user, an administrator must be included in a policy to use a model through the LLM Gateway.
 :::
 
 #### Wildcard Suffix Patterns
@@ -56,18 +58,22 @@ Patterns follow these rules:
 
 Only models configured with the **Language Model (Chat)** usage type appear when creating policies. Models configured for other purposes—such as text embedding, image generation, or vision—do not appear as options.
 
-To change which models are available for chat or to configure new model providers, see [Model Providers](../configuration/model-providers.md).
+To change which models are available to clients or to configure new model providers, see [Model Providers](../configuration/model-providers.md).
 
 ## Default Model Aliases
 
-When selecting models for a policy, you'll see options like:
+Default aliases are **global to the Obot installation**. A policy can grant access through an alias, but cannot choose or override the model that alias points to.
 
-- **Language Model (Chat)** — The primary default model
-- **Language Model (Chat - Fast)** — A faster, typically smaller model
+| Policy selection | Alias | Purpose |
+|---|---|---|
+| Language Model (Chat) | `llm` | Primary default language model |
+| Language Model (Chat - Fast) | `llm-mini` | Default for faster language-model tasks |
 
-These are aliases that automatically resolve to whichever model is currently configured as the default in [Model Providers](../configuration/model-providers.md).
+Administrators change the targets under **Models > Model Providers > Set Default Models**. Selecting an alias in a policy grants its subjects access to whichever model that global alias currently resolves to.
 
-Using aliases provides flexibility: if you later change which model serves as the default, users with access to the alias automatically gain access to the new default without needing to update any policies.
+For example, if a policy grants `llm` and an administrator changes `llm` from model A to model B, the policy's users gain access to B. That alias no longer grants A; users retain access to A only if another matching grant allows it. To keep a team's access tied to a particular model, select that specific model in the policy.
+
+Clients may also use `llm` and `llm-mini` in LLM Gateway requests. These request aliases use the same global targets and still require access to the resolved model and its matching provider route. See [Using model aliases](../llm-gateway/how-it-works.md#using-model-aliases).
 
 ## Fresh Installations
 
@@ -76,26 +82,26 @@ When Obot starts for the first time, a **Default Policy** is automatically creat
 - Grants access to **All Obot Users**
 - Includes all default model aliases
 
-This ensures that once you configure a model provider, all users can immediately start chatting. You can modify or delete this policy to restrict access as needed.
+This ensures that once a provider and its default model aliases are configured, users covered by the policy can access those defaults. You can modify or delete this policy to restrict access as needed.
 
 ## Upgrades and Migration
 
-For existing installations that previously used **Allowed Models** and **Default Model** in Chat Configuration:
+For existing installations that previously used **Allowed Models** and **Default Model** in the legacy model settings:
 
 - A **Migrated Policy** is automatically created
 - Your previous allowed models are preserved in this policy
 - Your previous default model setting is preserved as the default model alias
 - No action is required
 
-You can find and modify this migrated policy on the Model Access Policies page. The previous settings in Chat Configuration no longer control model access.
+You can find and modify this migrated policy on the Model Access Policies page. The legacy settings no longer control model access.
 
 ## Managing Policies
 
-To manage policies, go to **Obot Agent Management > Model Access Policies**.
+To manage policies, go to **Models > Access Policies**.
 
 ### Creating a Policy
 
-1. Click **Create Policy**
+1. Click **Add Access Policy**
 2. Enter a descriptive name
 3. Add subjects (users, groups, or All Obot Users)
 4. Select which models to include
@@ -107,10 +113,10 @@ Click any policy in the list to modify its name, subjects, or models. Changes ta
 
 ### Deleting a Policy
 
-Deleting a policy removes model access for the affected subjects. If a user loses access to all models as a result, they will no longer be able to use chat until another policy grants them access.
+Deleting a policy removes model access for the affected subjects. If a user loses access to all models as a result, they will no longer be able to make model requests through the LLM Gateway until another policy grants them access.
 
 ## Related Topics
 
 - [Model Providers](../configuration/model-providers.md) — Configure language models and set defaults
-- [MCP Access Policies](./mcp-access-policies.md) — Similar access control for MCP servers
-- [User Roles](../configuration/user-roles.md) — Understanding administrator and user permissions
+- [MCP Access Policies](../mcp-gateway/access.md) — Similar access control for MCP servers
+- [User Roles](../security/policy-coverage.md) — Understanding administrator and user permissions

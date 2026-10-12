@@ -1,32 +1,33 @@
+import { m } from '$lib/i18n';
 import type { AppPreferences } from '$lib/services';
 
 const LOGO_LABELS = {
-	default: 'Full Logo',
-	enterprise: 'Full Enterprise Logo',
-	community: 'Full Community Logo',
-	chat: 'Full Chat Logo'
+	default: m.platform_branding_full_logo(),
+	enterprise: m.platform_branding_full_enterprise_logo(),
+	community: m.platform_branding_full_community_logo(),
+	chat: m.platform_branding_full_chat_logo()
 };
 
 const INDICATOR_LABELS = {
-	secondary: 'Secondary',
-	success: 'Success',
-	warning: 'Warning',
-	error: 'Error'
+	secondary: m.platform_branding_secondary(),
+	success: m.platform_success(),
+	warning: m.platform_branding_warning(),
+	error: m.platform_branding_error()
 };
 
 const TEXT_LABELS = {
-	base: 'Base Font Color',
-	onAccent: 'On-Accent Button Text',
-	success: 'Success Button Text',
-	warning: 'Warning Button Text',
-	error: 'Error Button Text'
+	base: m.platform_branding_base_font_color(),
+	onAccent: m.platform_branding_on_accent_text(),
+	success: m.platform_branding_success_text(),
+	warning: m.platform_branding_warning_text(),
+	error: m.platform_branding_error_text()
 };
 
 const SURFACE_LABELS = {
-	background: 'Background',
-	surface1: 'Surface 1',
-	surface2: 'Surface 2',
-	surface3: 'Surface 3'
+	background: m.platform_branding_background(),
+	surface1: m.platform_branding_surface_n({ n: 1 }),
+	surface2: m.platform_branding_surface_n({ n: 2 }),
+	surface3: m.platform_branding_surface_n({ n: 3 })
 };
 
 export type BrandingMockConnectorRow = {
@@ -106,15 +107,15 @@ export const MOCK_CONNECTOR_TABLE_DATA: BrandingMockConnectorRow[] = [
 export const standardIconFields: { id: keyof AppPreferences['logos']; label: string }[] = [
 	{
 		id: 'logoIcon',
-		label: 'Default Icon'
+		label: m.platform_branding_default_icon()
 	},
 	{
 		id: 'logoIconError',
-		label: 'Error Icon'
+		label: m.platform_branding_error_icon()
 	},
 	{
 		id: 'logoIconWarning',
-		label: 'Warning Icon'
+		label: m.platform_branding_warning_icon()
 	}
 ];
 

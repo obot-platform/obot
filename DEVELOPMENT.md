@@ -111,9 +111,9 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
 
-## Running Obot Locally with Kubernetes (Nanobot Agents)
+## Running Obot Locally with Kubernetes
 
-Nanobot agent containers run in Kubernetes and need to reach your local Obot process. This requires [Telepresence](https://www.telepresence.io/) to bridge the network between your Mac and the cluster.
+MCP server containers run in Kubernetes and need to reach your local Obot process. This requires [Telepresence](https://www.telepresence.io/) to bridge the network between your Mac and the cluster.
 
 ### Prerequisites
 
@@ -126,8 +126,7 @@ Nanobot agent containers run in Kubernetes and need to reach your local Obot pro
 Rancher Desktop uses containerd, not Docker's image store. Load any locally built images with:
 
 ```bash
-docker save nanobot:local | nerdctl --address /var/run/docker/containerd/containerd.sock load
-docker save nanobot-agent:local | nerdctl --address /var/run/docker/containerd/containerd.sock load
+docker save <image>:local | nerdctl --address /var/run/docker/containerd/containerd.sock load
 ```
 
 ### 2. Configure the cluster namespaces
@@ -184,9 +183,6 @@ Verify the intercept is `ACTIVE` with `telepresence list`.
 export OBOT_SERVER_MCPRUNTIME_BACKEND='k8s'
 export OBOT_SERVER_SERVICE_NAME=obot
 export OBOT_SERVER_SERVICE_NAMESPACE=default
-
-# optional if using locally-built Nanobot images
-export OBOT_SERVER_NANOBOT_AGENT_IMAGE='nanobot-agent:local'
 ```
 
 ### Troubleshooting

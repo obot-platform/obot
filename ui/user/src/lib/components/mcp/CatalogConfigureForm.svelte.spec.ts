@@ -1,6 +1,7 @@
 import type { MCPSubField } from '$lib/services';
 import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 import { convertEnvHeadersToRecord, getManifestConfiguration } from '$lib/services/user/mcp';
+import { reactive } from '../../../tests/helpers/reactive.svelte';
 import CatalogConfigureForm from './CatalogConfigureForm.svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -91,7 +92,7 @@ describe('CatalogConfigureForm.svelte configuration options', () => {
 			]
 		} satisfies MCPCatalogEntryServerManifest;
 		const configuration = getManifestConfiguration(manifest);
-		const form = { envs: configuration.env, headers: configuration.headers };
+		const form = reactive({ envs: configuration.env, headers: configuration.headers });
 		const onSave = vi.fn();
 		const result = await render(CatalogConfigureForm, {
 			form,
@@ -120,9 +121,10 @@ describe('CatalogConfigureForm.svelte configuration options', () => {
 	});
 
 	it.each(scenarios)('handles $name options', async ({ form, id, label }) => {
+		const reactiveForm = reactive(form);
 		const onSave = vi.fn();
 		const result = await render(CatalogConfigureForm, {
-			form,
+			form: reactiveForm,
 			name: 'Catalog server',
 			onSave,
 			animate: null
@@ -143,7 +145,6 @@ describe('CatalogConfigureForm.svelte configuration options', () => {
 
 		await select.click();
 		await page.getByRole('button', { name: 'Europe', exact: true }).click();
-		await result.rerender({ form: { ...form } });
 
 		await expect.element(select).toHaveTextContent('Europe');
 		await expect.element(page.getByText('Europe endpoint', { exact: true })).toBeInTheDocument();
@@ -152,7 +153,6 @@ describe('CatalogConfigureForm.svelte configuration options', () => {
 
 		// Select's single-value clear control has no accessible name.
 		await page.getByCSS(`#${id} + button`).click();
-		await result.rerender({ form: { ...form } });
 
 		await expect.element(select).toHaveTextContent('Select a value');
 		await expect

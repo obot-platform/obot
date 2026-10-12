@@ -1,6 +1,5 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
-import type { Skill } from '$lib/services/nanobot/types';
 import { buildQueryString } from '$lib/url';
 import {
 	doDelete,
@@ -31,6 +30,7 @@ import type {
 	K8sServerDetail,
 	MCPAllowedSecretBindingTarget,
 	MCPSubField,
+	Skill,
 	VMCP,
 	VMCPInstance
 } from '../user/types';
@@ -46,6 +46,18 @@ import type {
 	ModelProxySettingsUpdateManifest,
 	ModelProxyUsage,
 	AuthProvider,
+	ResidualGroupData,
+	SCIMConnection,
+	SCIMConnectionReview,
+	SCIMEnablePreview,
+	SCIMEnableResult,
+	SCIMEnforceResult,
+	SCIMGroupDeletionResult,
+	SCIMGroupList,
+	SCIMPage,
+	SCIMRequestFailure,
+	SCIMSetupGroup,
+	SCIMSetupUser,
 	MCPFilter,
 	MCPFilterManifest,
 	TempUser,
@@ -101,7 +113,6 @@ import type {
 	MessagePolicyViolation,
 	MessagePolicyViolationFilters,
 	MessagePolicyViolationStats,
-	RestartNanobotAgentDeploymentsResult,
 	SystemMCPCatalog,
 	SystemMCPCatalogManifest,
 	SystemMCPServer,
@@ -342,7 +353,7 @@ export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<Aut
 export async function configureAuthProvider(
 	authProviderID: string,
 	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/configure`, envs, opts);
 }
@@ -372,7 +383,7 @@ export async function deconfigureAuthProvider(
 export async function stageAuthProvider(
 	authProviderID: string,
 	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/stage`, envs, opts);
 }
@@ -400,6 +411,140 @@ export async function activateAuthProvider(
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/activate`, {}, opts);
+}
+
+export async function getResidualGroupData(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ResidualGroupData> {
+	return (await doGet(`/auth-providers/${authProviderID}/residual-group-data`, {
+		...opts,
+		dontLogErrors: true
+	})) as ResidualGroupData;
+}
+
+// SCIM provisioning
+
+export async function listSCIMConnections(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<SCIMConnection[]> {
+	const list = (await doGet('/scim-connections', opts)) as ItemsResponse<SCIMConnection>;
+	return list.items ?? [];
+}
+
+// Each list in the review holds its first page of `limit` items.
+export async function getSCIMConnectionReview(
+	id: string,
+	opts?: { fetch?: Fetcher; limit?: number; dontLogErrors?: boolean }
+): Promise<SCIMConnectionReview> {
+	const query = opts?.limit ? `?limit=${opts.limit}` : '';
+	return (await doGet(`/scim-connections/${id}/review${query}`, {
+		fetch: opts?.fetch,
+		dontLogErrors: opts?.dontLogErrors
+	})) as SCIMConnectionReview;
+}
+
+export async function listSCIMUsers(
+	id: string,
+	provisioned: boolean,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMSetupUser>> {
+	return (await doGet(
+		`/scim-connections/${id}/users?provisioned=${provisioned}&offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMSetupUser>;
+}
+
+export async function listSCIMGroups(
+	id: string,
+	list: SCIMGroupList,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMSetupGroup>> {
+	return (await doGet(
+		`/scim-connections/${id}/groups?list=${list}&offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMSetupGroup>;
+}
+
+export async function listSCIMFailures(
+	id: string,
+	page: { offset: number; limit: number },
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMPage<SCIMRequestFailure>> {
+	return (await doGet(
+		`/scim-connections/${id}/failures?offset=${page.offset}&limit=${page.limit}`,
+		opts
+	)) as SCIMPage<SCIMRequestFailure>;
+}
+
+export async function getSCIMEnablePreview(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<SCIMEnablePreview> {
+	return (await doGet('/scim-connections/enable-preview', opts)) as SCIMEnablePreview;
+}
+
+// Enabling is permanent. The result carries the token, which is shown only once.
+export async function enableSCIM(opts?: { fetch?: Fetcher }): Promise<SCIMEnableResult> {
+	return (await doPost(
+		'/scim-connections',
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMEnableResult;
+}
+
+export async function deleteUnreferencedSCIMGroups(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SCIMGroupDeletionResult> {
+	return (await doPost(
+		`/scim-connections/${id}/delete-unreferenced-groups`,
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMGroupDeletionResult;
+}
+
+// Enforcing is permanent.
+export async function enforceSCIM(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SCIMEnforceResult> {
+	return (await doPost(
+		`/scim-connections/${id}/enforce`,
+		{},
+		{ ...opts, dontLogErrors: true }
+	)) as SCIMEnforceResult;
+}
+
+// Issues a new token, including the first one. The result carries it, and it is shown only once.
+export async function rotateSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(`/scim-connections/${id}/rotate-token`, {}, opts)) as SCIMConnection;
+}
+
+// Replaces a leaked token: the current and previous tokens stop working at once. The result
+// carries the new token, which is shown only once.
+export async function revokeCurrentSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(`/scim-connections/${id}/revoke-current-token`, {}, opts)) as SCIMConnection;
+}
+
+export async function revokePreviousSCIMToken(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<SCIMConnection> {
+	return (await doPost(
+		`/scim-connections/${id}/revoke-previous-token`,
+		{},
+		opts
+	)) as SCIMConnection;
 }
 
 // Local auth provider users
@@ -1290,24 +1435,6 @@ export async function getMCPCatalogServerOAuthURL(
 	}
 }
 
-export async function isMCPCatalogServerOauthNeeded(
-	catalogID: string,
-	serverID: string,
-	opts?: { signal?: AbortSignal }
-): Promise<boolean> {
-	try {
-		await doPost(`/mcp-catalogs/${catalogID}/servers/${serverID}/check-oauth`, {
-			dontLogErrors: true,
-			signal: opts?.signal
-		});
-	} catch (err) {
-		if (err instanceof HttpError && err.statusCode === 412) {
-			return true;
-		}
-	}
-	return false;
-}
-
 export async function triggerMcpCatalogServerUpdate(
 	catalogID: string,
 	mcpServerId: string,
@@ -1424,35 +1551,49 @@ export async function getMCPServerById(
 	return response;
 }
 
+type OAuthDebuggerServer = Pick<MCPCatalogServer, 'id' | 'mcpCatalogID' | 'powerUserWorkspaceID'>;
+
+// The OAuth debugger routes are scoped like the server they debug; the backend rejects a
+// catalog or workspace server requested through another scope.
+function oauthDebuggerPath(server: OAuthDebuggerServer, action: string): string {
+	if (server.powerUserWorkspaceID) {
+		return `/workspaces/${server.powerUserWorkspaceID}/servers/${server.id}/oauth-debugger/${action}`;
+	}
+	if (server.mcpCatalogID) {
+		return `/mcp-catalogs/${server.mcpCatalogID}/servers/${server.id}/oauth-debugger/${action}`;
+	}
+	return `/mcp-servers/${server.id}/oauth-debugger/${action}`;
+}
+
 export async function registerMcpServerOAuthDebuggerClient(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerRegisterClientResponse> {
 	return (await doPost(
-		`/mcp-servers/${serverID}/oauth-debugger/client`,
+		oauthDebuggerPath(server, 'client'),
 		{},
 		opts
 	)) as OAuthDebuggerRegisterClientResponse;
 }
 
 export async function getMCPServerOAuthDebuggerAuthorizationURL(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	body: OAuthDebuggerAuthorizationURLRequest,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerAuthorizationURL> {
 	return (await doPost(
-		`/mcp-servers/${serverID}/oauth-debugger/authorization-url`,
+		oauthDebuggerPath(server, 'authorization-url'),
 		body,
 		opts
 	)) as OAuthDebuggerAuthorizationURL;
 }
 
 export async function exchangeMCPServerOAuthDebuggerToken(
-	serverID: string,
+	server: OAuthDebuggerServer,
 	body: OAuthDebuggerTokenRequest,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthToken> {
-	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
+	return (await doPost(oauthDebuggerPath(server, 'token'), body, opts)) as OAuthToken;
 }
 
 // MCP tunnels
@@ -1704,12 +1845,6 @@ export async function updateDefaultModelAlias(
 	defaultModelAlias: DefaultModelAlias
 ): Promise<void> {
 	await doPut(`/default-model-aliases/${alias}`, defaultModelAlias);
-}
-
-// Projects
-
-export async function deleteProject(assistantID: string, projectID: string): Promise<void> {
-	await doDelete(`/assistants/${assistantID}/projects/${projectID}`);
 }
 
 // Setup
@@ -2392,21 +2527,6 @@ export async function getSystemMCPServerTools(
 	return (await doGet(`/system-mcp-servers/${id}/tools`, opts)) as MCPServerTool[];
 }
 
-export async function restartNanobotAgentDeployments(opts?: {
-	fetch?: Fetcher;
-	dryRun?: boolean;
-}): Promise<RestartNanobotAgentDeploymentsResult> {
-	const params = new URLSearchParams();
-	if (opts?.dryRun != null) {
-		params.set('dryRun', String(opts.dryRun));
-	}
-	const qs = params.toString();
-	const path = qs
-		? `/system-mcp-servers/restart-nanobot-agent-deployments?${qs}`
-		: '/system-mcp-servers/restart-nanobot-agent-deployments';
-	return (await doPost(path, {}, opts)) as RestartNanobotAgentDeploymentsResult;
-}
-
 // Token usage
 
 function formatTokenUsageDate(d: Date | string): string {
@@ -2490,6 +2610,11 @@ export async function updateUserRole(
 
 export async function deleteUser(userID: string): Promise<void> {
 	await doDelete(`/users/${userID}`);
+}
+
+// Restores a disabled user's access. Refused while SCIM manages the user.
+export async function enableUser(userID: string): Promise<void> {
+	await doPost(`/users/${userID}/enable`, {});
 }
 
 // Workspaces

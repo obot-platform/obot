@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,6 +62,7 @@ type oauth struct {
 	redirectURL              string
 	clientName               string
 	serverName               string
+	serverURL                string
 	clientIDMetadataDocument string
 	currentToken             oauth2.Token
 	metadataClient           *http.Client
@@ -412,9 +414,10 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	return t.base.RoundTrip(req)
 }
 
-func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
+func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, serverURL, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
 	return &oauth{
 		serverName:               serverName,
+		serverURL:                serverURL,
 		clientName:               clientName,
 		redirectURL:              redirectURL,
 		clientIDMetadataDocument: clientIDMetadataDocument,
@@ -440,7 +443,11 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	connectURL := req.URL.String()
 	slog.Info("starting oauth flow", "server", o.serverName, "connect_url", connectURL)
 
-	discovery, ok, err := discoverOAuthMetadata(ctx, o.metadataClient, connectURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
+	resourceCheckURL := o.serverURL
+	if resourceCheckURL == "" {
+		resourceCheckURL = connectURL
+	}
+	discovery, ok, err := discoverOAuthMetadata(ctx, o.metadataClient, connectURL, resourceCheckURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
 	if err != nil {
 		slog.Warn("oauth metadata discovery failed", "server", o.serverName, "connect_url", connectURL, "error", err)
 		return err
@@ -528,7 +535,10 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	return nil
 }
 
-func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, authenticateHeader, clientName, redirectURL string) (oauthMetadataDiscovery, bool, error) {
+// discoverOAuthMetadata discovers OAuth metadata for the MCP server at baseURL. The protected
+// resource metadata must name a resource that belongs to resourceCheckURL, the server's own URL,
+// which differs from baseURL when the server is reached through a tunnel.
+func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, resourceCheckURL, authenticateHeader, clientName, redirectURL string) (oauthMetadataDiscovery, bool, error) {
 	resourceMetadataURLs, scope, err := oauthResourceMetadataURLs(baseURL, authenticateHeader)
 	if err != nil {
 		return oauthMetadataDiscovery{}, false, err
@@ -553,6 +563,9 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, au
 			protectedResourceMetadata, err = parseProtectedResourceMetadata(bytes.NewReader(protectedResourceMetadataJSON))
 			if err != nil {
 				return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to parse protected resource metadata: %w", err)
+			}
+			if err := validateProtectedResource(string(protectedResourceMetadata.Resource), resourceCheckURL); err != nil {
+				return oauthMetadataDiscovery{}, false, err
 			}
 
 			break
@@ -727,7 +740,7 @@ func GetOAuthMetadataWithClient(ctx context.Context, httpClient *http.Client, se
 		return OAuthMetadata{}, nil
 	}
 
-	discovery, ok, err := discoverOAuthMetadata(ctx, httpClient, server.URL, authenticateHeader, clientName, redirectURL)
+	discovery, ok, err := discoverOAuthMetadata(ctx, httpClient, server.URL, server.URL, authenticateHeader, clientName, redirectURL)
 	if err != nil {
 		return OAuthMetadata{}, err
 	}
@@ -849,6 +862,8 @@ func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client,
 	if err != nil {
 		return "", false, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -1040,6 +1055,100 @@ func parseProtectedResourceMetadata(reader io.Reader) (protectedResourceMetadata
 	return metadata, nil
 }
 
+// ParseOAuthResourceURL returns the resource identifier from protected-resource metadata.
+func ParseOAuthResourceURL(metadata json.RawMessage) (string, error) {
+	parsed, err := parseProtectedResourceMetadata(bytes.NewReader(metadata))
+	if err != nil {
+		return "", err
+	}
+	return string(parsed.Resource), nil
+}
+
+// validateProtectedResource rejects protected resource metadata whose resource identifier
+// does not belong to the MCP server Obot connected to. RFC 9728 says a client must not use
+// metadata whose resource does not match the resource it requested. Without this check, a
+// server could name another service as the resource, and Obot would obtain a token for that
+// service and send it to the server. This follows the MCP TypeScript SDK's
+// checkResourceAllowed: the resource must have the same origin as the connect URL, and its
+// path must be the connect URL's path or a parent of it, so a server can identify itself by
+// its origin but not by another service's path on the same host.
+func validateProtectedResource(resource, connectURL string) error {
+	r, err := url.Parse(resource)
+	if err != nil {
+		return fmt.Errorf("invalid resource %q in protected resource metadata: %w", resource, err)
+	}
+	c, err := url.Parse(connectURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse MCP URL: %w", err)
+	}
+
+	// RFC 8707 forbids a fragment in a resource identifier. A query can identify a different
+	// tenant on the same path, so a resource that has one must match the server URL's query.
+	if strings.Contains(resource, "#") {
+		return fmt.Errorf("protected resource metadata resource %q must not include a fragment", resource)
+	}
+	if r.RawQuery != "" && r.RawQuery != c.RawQuery {
+		return fmt.Errorf("protected resource metadata resource %q has a query that does not match MCP server URL %q", resource, connectURL)
+	}
+	if hasAmbiguousPath(c) {
+		return fmt.Errorf("MCP server URL %q has a path that cannot be safely compared for OAuth: remove any percent-encoding, \";\", \"\\\", or \".\" or \"..\" segments", connectURL)
+	}
+	if hasAmbiguousPath(r) {
+		return fmt.Errorf("protected resource metadata resource %q has a path that cannot be safely compared for OAuth: it contains percent-encoding, \";\", \"\\\", or a \".\" or \"..\" segment", resource)
+	}
+	if !strings.EqualFold(r.Scheme, c.Scheme) ||
+		!strings.EqualFold(r.Hostname(), c.Hostname()) ||
+		urlPort(r) != urlPort(c) ||
+		!isParentOrSamePath(r.EscapedPath(), c.EscapedPath()) {
+		return fmt.Errorf("protected resource metadata resource %q does not match MCP server URL %q", resource, connectURL)
+	}
+	return nil
+}
+
+// hasAmbiguousPath reports whether u's path could be read as a different path by the servers
+// and proxies between Obot and the MCP server. The prefix check compares paths literally, but
+// those servers resolve "." and ".." segments, and some first decode percent-encoding, treat a
+// backslash as "/", or strip ";" parameters. Rather than try to predict every normalization,
+// reject any path with a dot segment, a percent-encoded character, a backslash, or a ";".
+func hasAmbiguousPath(u *url.URL) bool {
+	if strings.ContainsAny(u.EscapedPath(), `%;\`) {
+		return true
+	}
+	segments := strings.Split(u.Path, "/")
+	return slices.Contains(segments, ".") || slices.Contains(segments, "..")
+}
+
+// isParentOrSamePath reports whether resourcePath is connectPath or one of its parents, at a
+// segment boundary. A trailing slash is ignored on both paths, so "/mcp" and "/mcp/" match each
+// other. This is looser than the MCP TypeScript SDK, which rejects a resource of "/mcp/" for an
+// endpoint at "/mcp", but both paths belong to the same server.
+func isParentOrSamePath(resourcePath, connectPath string) bool {
+	if !strings.HasSuffix(resourcePath, "/") {
+		resourcePath += "/"
+	}
+	if !strings.HasSuffix(connectPath, "/") {
+		connectPath += "/"
+	}
+	return strings.HasPrefix(connectPath, resourcePath)
+}
+
+// urlPort returns u's port as a canonical number, or the default port for its scheme.
+func urlPort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		if n, err := strconv.Atoi(port); err == nil {
+			return strconv.Itoa(n)
+		}
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
+}
+
 // parseResourceMetadata extracts the resource_metadata URL from a Bearer authenticate header
 func parseResourceMetadata(authenticateHeader string) string {
 	// Use regex to find resource_metadata parameter
@@ -1081,6 +1190,11 @@ func AuthCodeURL(conf *oauth2.Config, urlFromMetadata, resourceURL, state, verif
 	if authEndpoint.Host != "mcp.zoho.com" {
 		// Zoho doesn't support the access_type parameter
 		authCodeURLOpts = append(authCodeURLOpts, oauth2.AccessTypeOffline)
+	}
+	if strings.EqualFold(authEndpoint.Hostname(), "accounts.google.com") {
+		// Google needs renewed consent to issue refresh tokens on repeat authorization.
+		// https://developers.google.com/identity/protocols/oauth2/web-server#offline
+		authCodeURLOpts = append(authCodeURLOpts, oauth2.SetAuthURLParam("prompt", "consent"))
 	}
 
 	return conf.AuthCodeURL(state, authCodeURLOpts...), nil

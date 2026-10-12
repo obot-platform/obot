@@ -1,10 +1,14 @@
 ---
-title: Filters
+displayed_sidebar: sidebar
+title: "Filter MCP traffic"
 ---
 
-## Overview
+Filters inspect MCP requests and responses. Configure a filter to accept, reject, or modify matching traffic; use [private-network tunnels](./mcp-tunnels.md) when the problem is reaching a remote server.
 
-Filters are a powerful mechanism for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.
+## Overview {#overview}
+
+
+Filters inspect MCP messages and apply validation, logging, or other checks to tool calls and results.
 
 Filters can be implemented in two ways:
 
@@ -13,9 +17,11 @@ Filters can be implemented in two ways:
 
 When you configure a filter, you can narrow when it runs using selectors that target particular tool calls or MCP (Model Context Protocol) tool functions.
 
-Filter implementations run outside the Obot process. Obot handles proxying, calls the filter, and enforces its response; the target MCP server does not host or enforce the filter. See the [gateway architecture](../concepts/mcp-gateway.md#gateway-architecture).
+Filter implementations run outside the Obot process. Obot handles proxying, calls the filter, and enforces its response; the target MCP server does not host or enforce the filter. See the [request flows and trust boundaries](../architecture/request-flows.md).
 
-## How Filters Work
+
+## How Filters Work {#how-filters-work}
+
 
 1. **MCP Request Interception**: When a request is made to an MCP server, the gateway intercepts it and sends the details to your configured filter
 2. **Payload Inspection**: The separate filter server or webhook receives the payload and performs its validation
@@ -25,18 +31,24 @@ Filter implementations run outside the Obot process. Obot handles proxying, call
    - Mutate: Return a modified MCP message, if mutation is allowed for the filter
 4. **Enforcement**: Obot applies the filter response before forwarding the request or returning the response to the client.
 
-## Gateway Configuration
 
-Filters can be configured in Obot as HTTP webhooks, MCP servers, or by selecting one of the built-in filters. See below for the configuration setup for each type.
+## Gateway Configuration {#gateway-configuration}
 
-### Selectors
+
+Open **MCP Servers > Filters** to configure an HTTP webhook, an MCP filter server, or a built-in filter. Choose selectors for the traffic it should process, then test both an accepted and a rejected request. See the [filter contracts and examples](./filters.md) when implementing the filter service.
+
+
+### Selectors {#selectors}
+
 
 All filter types support selectors to control when your filter is triggered:
 
 - **Specific MCP Tool Call Methods**: Target particular tools or functions
 - **MCP Tool Names, URIS**: Choose which MCP servers the filter applies to
 
-## MCP Filter Servers
+
+## MCP Filter Servers {#mcp-filter-servers}
+
 
 MCP filters can be deployed as MCP servers. Their deployment configuration is similar to other MCP servers in Obot: choose a runtime such as `remote`, `containerized`, `npx`, or `uvx`, then provide the runtime-specific configuration and any required environment variables.
 
@@ -44,7 +56,8 @@ With `remote`, Obot connects to the configured endpoint and does not deploy the 
 
 The additional requirement for an MCP filter server is a filter tool name. Obot needs this value so it knows which tool to call when the filter runs.
 
-### Filter Tool Contract
+### Filter Tool Contract {#filter-tool-contract}
+
 
 When you write an MCP server that acts as a filter, implement the tool called by `filterConfig.toolName` with this contract:
 
@@ -88,33 +101,39 @@ notifications, malformed JSON-RPC, or responses the gateway cannot correlate.
 Obot's native hook tests in the external repository exercise request refusal and
 removal of refused content from JSON and SSE responses.
 
-## Built-in Filters
+## Built-in Filters {#built-in-filters}
+
 
 Obot ships with a default set of built-in filters. These are MCP filter servers that are already configured for deployment in Obot through the system MCP catalog.
 
 The default built-in filter catalog is maintained in the [obot-platform/system-mcp-catalog](https://github.com/obot-platform/system-mcp-catalog) repository.
 
-## HTTP-based Filters
+## HTTP-based Filters {#http-based-filters}
+
 
 Deploy a webhook service that accepts MCP messages over HTTP. Configure its URL in Obot, which sends matching messages to the webhook and uses its response to allow or reject them.
 
 Provide the following information to Obot:
 
-### Required Configuration
+### Required Configuration {#required-configuration}
+
 
 - **Name**: A descriptive name for your filter
 - **URL**: The webhook endpoint that receives MCP messages
 - **Secret** (optional): A shared secret with the webhook receiver for payload signature verification
 
-### Security with Secrets
+### Security with Secrets {#security-with-secrets}
+
 
 Configure the same shared secret in Obot and your webhook service. When a secret is configured, webhook requests include a signature in the `X-Obot-Signature-256` header. Your service should verify this signature before processing the request.
 
-### Webhook Receiver
+### Webhook Receiver {#webhook-receiver}
+
 
 Your webhook endpoint must accept HTTP POST requests containing MCP messages.
 
-### Payload Structure
+### Payload Structure {#payload-structure}
+
 
 The webhook will receive a payload with this data structure:
 
@@ -134,14 +153,16 @@ class WebhookMessage(BaseModel):
 
 `X-Obot-Signature-256`
 
-### Response Codes
+### Response Codes {#response-codes}
+
 
 Your webhook service should respond with:
 
 - **HTTP 200**: Accept the tool call - allows execution to proceed
 - **Non-200 codes**: Reject the tool call - blocks execution and may return an error to the user
 
-### Example
+### Example {#example}
+
 
 This Python example inspects the search tools query param in the DuckDuckGo MCP Server.
 
@@ -379,3 +400,26 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+## Credential filter
+
+The built-in Credential Filter uses a default action (Block, Redact, or Allow)
+and optional exceptions for exact credential rules. Block is the default. Search
+by provider, credential name, or rule ID to add an override. Changing the default
+preserves explicit overrides; removing an override restores inheritance.
+
+Any blocking match rejects the entire message. Allow affects only its rule;
+another matching rule can still block the same credential. Redaction enables
+gateway mutation automatically and replaces detected text with
+`[REDACTED_CREDENTIAL]`. It may also replace surrounding context or an entire
+field value. Redact findings in object keys or JSON-RPC identifiers block instead.
+
+Select both request and response directions where both need protection. Configure
+the gateway's existing failure setting to reject on filter transport or execution
+failures. Saving configuration does not establish protection until the managed
+filter deployment successfully initializes.
+
+Detection is pattern-based, without live credential validation or confidence
+thresholds. It can produce false positives and does not recognize every secret.
+Allow passes credentials unchanged; it does not create findings history. Policy
+is deployment configuration and cannot be overridden by tool arguments.

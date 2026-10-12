@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MDMConfiguration } from '$lib/services';
 	import { MonitorSmartphone, TriangleAlert } from '@lucide/svelte';
@@ -42,9 +43,11 @@
 		</div>
 
 		<div class="flex max-w-lg flex-col gap-2">
-			<h3 class="text-xl font-semibold">Configure Managed Devices</h3>
+			<h3 class="text-xl font-semibold">
+				{m.inventory_enforcement_configuration_configure_managed_devices()}
+			</h3>
 			<p class="text-muted-content text-sm">
-				Enable user device scanning, local agent audit logs, and more
+				{m.inventory_enforcement_configuration_getting_started_subtitle()}
 			</p>
 		</div>
 
@@ -57,21 +60,18 @@
 
 		{#if readOnly}
 			<p class="text-muted-content text-sm">
-				An administrator with write access must create the initial configuration.
+				{m.inventory_enforcement_configuration_readonly_create_note()}
 			</p>
 		{:else}
 			<label class="flex w-full items-start gap-3 text-left text-sm">
 				<input type="checkbox" class="mt-0.5" bind:checked={enforcementEnabled} />
 				<span class="flex flex-col gap-0.5">
 					<span class="flex flex-wrap items-center gap-1.5 font-medium">
-						Enforce tool calls on enrolled devices
-						<span class="badge badge-warning badge-sm">Experimental</span>
+						{m.inventory_enforcement_configuration_enforce_tool_calls()}
+						<span class="badge badge-warning badge-sm">{m.core_experimental()}</span>
 					</span>
 					<span class="input-description">
-						Blocks tool calls that aren't on the allowlist. Starts with Obot-hosted MCP servers and
-						built-in agent tools allowed. Requires installing the Obot Sentry package on your
-						devices. This feature is experimental and is not recommended for production use — a
-						misconfigured allowlist blocks real work on every enrolled device.
+						{m.inventory_enforcement_configuration_getting_started_enforce_description()}
 					</span>
 				</span>
 			</label>
@@ -83,7 +83,7 @@
 				onclick={handleCreate}
 			>
 				{#if loading}<Loading class="size-4" />{/if}
-				Get Started
+				{m.inventory_enforcement_configuration_get_started()}
 			</button>
 		{/if}
 	</div>

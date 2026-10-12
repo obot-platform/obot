@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -64,7 +63,6 @@ type ServerConfig struct {
 	MCPCatalogName       string `json:"mcpCatalogName"`
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
-	AgentName            string `json:"agentName"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
 
@@ -99,10 +97,6 @@ func (c ComponentServer) ConnectID() string {
 		return c.MCPServerInstanceID
 	}
 	return c.Name
-}
-
-func (s ServerConfig) IsAgentServer() bool {
-	return s.AgentName != ""
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
@@ -429,7 +423,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		Audiences:              audiences,
 		PassthroughHeaderNames: passthroughHeaderNames,
 		ComponentMCPServer:     mcpServer.Spec.VMCPComponentID != "",
-		AgentName:              mcpServer.Spec.NanobotAgentID,
 		StartupTimeout:         startupTimeout,
 		Resources:              resources,
 	}
@@ -442,7 +435,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 			"powerUserWorkspaceID":      powerUserWorkspaceID,
 			"mcpServerDisplayName":      displayName,
 			"userID":                    userID,
-			AuditLogIgnore:              strconv.FormatBool(mcpServer.Spec.NanobotAgentID != ""),
 		}
 	} else {
 		// Tell the audit logger to not store audit logs for component MCP servers

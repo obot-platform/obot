@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { openDialog, shouldDismissNonModalDialogOnEscape } from '$lib/actions/openDialog';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
@@ -34,18 +35,18 @@
 
 	let {
 		show = false,
-		msg = 'OK?',
+		msg = m.confirm_default_msg(),
 		onsuccess,
 		oncancel,
 		loading,
-		note = 'This action is permanent and cannot be undone. Are you sure you wish to continue?',
+		note = m.confirm_default_note(),
 		msgContent,
 		classes,
-		title = 'Confirm Delete',
+		title = m.confirm_default_title(),
 		type = 'delete',
 		disabled,
-		submitText = "Yes, I'm sure",
-		cancelText = 'Cancel',
+		submitText = m.confirm_default_submit(),
+		cancelText = m.common_cancel(),
 		titleContent,
 		hideCancelButton
 	}: Props = $props();
@@ -164,6 +165,6 @@
 		</div>
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={oncancel}>close</button>
+		<button type="button" onclick={oncancel}>{m.common_close()}</button>
 	</form>
 </dialog>

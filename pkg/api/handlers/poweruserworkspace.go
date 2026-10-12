@@ -143,12 +143,10 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], p.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, p.secretBindingAllowedLabel); err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}
-
-		servers = append(servers, ConvertMCPServer(server, mergedEnv, p.serverURL, slug))
+		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -248,6 +246,9 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, p.secretBindingAllowedLabel); err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
 		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
 	}
 

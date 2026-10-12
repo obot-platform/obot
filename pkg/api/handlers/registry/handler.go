@@ -98,12 +98,11 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], h.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, mergedCredEnv, h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// Skip servers that can't be converted
 			continue
@@ -145,12 +144,11 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], h.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, mergedCredEnv, h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -187,12 +185,11 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], h.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, mergedCredEnv, h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -272,12 +269,11 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 		// Get credentials
 		credEnv := h.getCredentialsForServer(req, server, server.Spec.UserID)
 
-		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credEnv, h.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
+			// Skip servers whose secret bindings cannot be checked
 			continue
 		}
-
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, mergedCredEnv, h.serverURL, slug, reverseDNS, "", h.mimeFetcher)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "", h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -788,11 +784,9 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
 
-	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credEnv, h.secretBindingAllowedLabel)
-	if err != nil {
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, h.secretBindingAllowedLabel); err != nil {
 		return types.RegistryServerResponse{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
-
 	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID(), h.mimeFetcher)
 }
 

@@ -1,3 +1,5 @@
+import { m } from '$lib/i18n';
+
 const CODE_BLOCK_CLASS = 'markdown-code-block';
 const COPY_BUTTON_CLASS = 'markdown-copy-btn';
 const COPIED_CLASS = 'markdown-copy-btn--copied';
@@ -14,7 +16,7 @@ function createCopyButton(): HTMLButtonElement {
 	const button = document.createElement('button');
 	button.type = 'button';
 	button.className = COPY_BUTTON_CLASS;
-	button.setAttribute('aria-label', 'Copy code');
+	button.setAttribute('aria-label', m.core_copy_code());
 	return button;
 }
 
@@ -69,10 +71,10 @@ export function codeSnippetCopy(node: HTMLElement) {
 			window.clearTimeout(block.resetTimer);
 		}
 		block.button.classList.add(COPIED_CLASS);
-		block.button.setAttribute('aria-label', 'Copied!');
+		block.button.setAttribute('aria-label', m.core_copied());
 		block.resetTimer = window.setTimeout(() => {
 			block.button.classList.remove(COPIED_CLASS);
-			block.button.setAttribute('aria-label', 'Copy code');
+			block.button.setAttribute('aria-label', m.core_copy_code());
 			block.resetTimer = undefined;
 		}, 750);
 	}

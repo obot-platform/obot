@@ -27,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,6 +42,13 @@ type credentialNotFoundClient struct{}
 
 func newHandlerTestGateway(t *testing.T) *gclient.Client {
 	t.Helper()
+	gateway, _ := newHandlerTestGatewayWithDB(t)
+	return gateway
+}
+
+// newHandlerTestGatewayWithDB returns a gateway client over SQLite, and its database.
+func newHandlerTestGatewayWithDB(t *testing.T) (*gclient.Client, *gorm.DB) {
+	t.Helper()
 	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
 	require.NoError(t, err)
 	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
@@ -48,7 +56,7 @@ func newHandlerTestGateway(t *testing.T) *gclient.Client {
 	require.NoError(t, database.AutoMigrate())
 	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gateway.Close() })
-	return gateway
+	return gateway, services.DB.DB
 }
 
 func (f *fakeSkillRepositoryCredentialClient) RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error) {

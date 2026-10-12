@@ -6,8 +6,13 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, UserService, type LaunchType, type MCPCatalogEntry } from '$lib/services';
-	import { getServerTypeLabelByType, isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import {
+		getServerTypeLabelByType,
+		isDeprecatedMCPServer,
+		getMcpValueLabel
+	} from '$lib/services/user/mcp';
 	import { mcpServerNeedsStaticOAuthConfiguration } from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { Plus } from '@lucide/svelte';
@@ -27,7 +32,7 @@
 		rightOffsetWidth,
 		onCreated,
 		onAddToVMcp,
-		addToVMcpLabel = 'Add to vMCP',
+		addToVMcpLabel = m.vmcps_add_to_vmcp(),
 		isAddedToVMcp
 	}: Props = $props();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
@@ -52,8 +57,10 @@
 	);
 	let title = $derived(
 		creating
-			? `Create ${getServerTypeLabelByType(selectedServerType)} Entry`
-			: (catalogEntry?.manifest.name ?? 'MCP Server')
+			? m.vmcps_create_type_entry({
+					type: getMcpValueLabel(getServerTypeLabelByType(selectedServerType))
+				})
+			: (catalogEntry?.manifest.name ?? m.vmcps_mcp_server())
 	);
 	let formKey = $derived(
 		creating
@@ -170,7 +177,7 @@
 			await mcpServersAndEntries.refreshAll();
 			await onCreated?.(createdEntry);
 		} catch {
-			errors.append('The entry was created, but it could not be opened.');
+			errors.append(m.vmcps_entry_created_not_opened());
 			close();
 		}
 	}
@@ -248,9 +255,9 @@
 					>
 						<Plus class="size-4" />
 						{alreadyAdded
-							? 'Already added to vMCP'
+							? m.vmcps_already_added_to_vmcp()
 							: needsConfiguration
-								? 'Administrator configuration required'
+								? m.vmcps_admin_configuration_required()
 								: addToVMcpLabel}
 					</button>
 				</div>

@@ -1,4 +1,5 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+import { m } from '$lib/i18n';
 import { getExpandAdvancedPaneAction } from '../actions';
 import type { GuideAction, GuideStep } from '../types';
 import {
@@ -23,8 +24,8 @@ function getExpandAiResourcesAction({
 		highlight,
 		listener,
 		parentID: SIDEBAR_AI_RESOURCES_COLLAPSE,
-		title: 'Expand AI Resources',
-		description: 'Expand AI Resources to continue.'
+		title: m.core_guide_expand_ai_resources(),
+		description: m.mcps_guides_expand_ai_resources_to_continue()
 	});
 }
 
@@ -46,7 +47,7 @@ function getNavigateToMcpServersLinkAction(): GuideAction[] {
 // shared steps that are used in mcp specific guides
 export function getNavigateToMCPCatalogStep(): GuideStep {
 	return {
-		content: ["To begin, let's head to the MCP Servers page under AI Resources."],
+		content: [m.mcps_guides_to_begin_let_s_head_to()],
 		action: getNavigateToMcpServersLinkAction()
 	};
 }
@@ -103,20 +104,20 @@ export function getNavigateToMcpServersTabStep(
 
 export function getHighlightAddCatalogEntryStep(type: 'hosted' | 'remote'): GuideStep {
 	const SECTION_ID = `add-${type}-server-button`;
-	const toCapitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
 	return {
 		content: [
-			`Create and manage your MCP servers here. We'll take you through creating a new ${type} MCP server.`
+			type === 'hosted'
+				? m.mcps_guides_create_manage_hosted_servers()
+				: m.mcps_guides_create_manage_remote_servers()
 		],
 		action: {
 			highlight: {
 				selector: {
 					id: 'add-catalog-entry-button'
 				},
-				title: 'Add MCP Server',
-				description:
-					'This is where you can create and select what type of MCP server you want to add.',
+				title: m.mcps_add_mcp_server(),
+				description: m.mcps_guides_this_is_where_you_can_create(),
 				side: 'left'
 			},
 			listener: {
@@ -126,7 +127,10 @@ export function getHighlightAddCatalogEntryStep(type: 'hosted' | 'remote'): Guid
 						selector: {
 							id: SECTION_ID
 						},
-						title: `Add ${toCapitalize(type)} Server`,
+						title:
+							type === 'hosted'
+								? m.mcps_guides_add_hosted_server()
+								: m.mcps_guides_add_remote_server(),
 						description: obotCatalogEntryDescriptions[type]
 					},
 					listener: {
@@ -143,7 +147,7 @@ export function getHighlightAddCatalogEntryStep(type: 'hosted' | 'remote'): Guid
 
 export function getNavigateBasicCatalogEntryFieldsStep(): GuideStep {
 	return {
-		content: ['These are the standard fields for an MCP server.'],
+		content: [m.mcps_guides_these_are_the_standard_fields_for()],
 		action: {
 			highlight: {
 				selector: {
@@ -151,9 +155,8 @@ export function getNavigateBasicCatalogEntryFieldsStep(): GuideStep {
 				},
 				side: 'top',
 				align: 'center',
-				title: 'Describe Your MCP',
-				description:
-					'This is where you provide user friendly details about your MCP server; the information here is displayed to users when previewing the MCP server.'
+				title: m.mcps_guides_describe_your_mcp(),
+				description: m.mcps_guides_this_is_where_you_provide_user()
 			},
 			listener: {
 				id: `${CATALOG_SERVER_FIELD_IDS.serverFormDetails}`,

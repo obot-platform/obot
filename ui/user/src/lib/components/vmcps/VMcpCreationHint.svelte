@@ -1,12 +1,10 @@
 <script module>
-	export const INTRODUCTION_HINT_TEXT =
-		"You've created your Virtual MCP! Take a quick tour of three capabilities that help you control access, test your setup, and connect it to your AI clients and agents.";
-	export const PROFILES_HINT_TEXT =
-		'Create and edit Profiles to control which tools different users, groups, and agents can access—all through the same Virtual MCP endpoint.';
-	export const TESTER_HINT_TEXT =
-		'Use Inspector to interact with your Virtual MCP before connecting it. Chat with your tools, explore available capabilities, and test how your Virtual MCP behaves.';
-	export const CONNECT_HINT_TEXT =
-		'Ready to put it to work? Use Connect to quickly configure your Virtual MCP with popular AI clients and agents using setup links, configuration, or CLI commands.';
+	import { m } from '$lib/i18n';
+
+	export const INTRODUCTION_HINT_TEXT = m.vmcps_hint_introduction_text();
+	export const PROFILES_HINT_TEXT = m.vmcps_hint_profiles_text();
+	export const TESTER_HINT_TEXT = m.vmcps_hint_tester_text();
+	export const CONNECT_HINT_TEXT = m.vmcps_hint_connect_text();
 </script>
 
 <script lang="ts">
@@ -61,25 +59,25 @@
 	const allSteps: HintStep[] = [
 		{
 			id: 'introduction',
-			title: 'Your Virtual MCP is ready',
+			title: m.vmcps_hint_introduction_title(),
 			description: INTRODUCTION_HINT_TEXT,
 			placement: 'center'
 		},
 		{
 			id: 'profiles',
-			title: 'Control access with Profiles',
+			title: m.vmcps_hint_profiles_title(),
 			description: PROFILES_HINT_TEXT,
 			placement: 'right'
 		},
 		{
 			id: 'tester',
-			title: 'Explore with Inspector',
+			title: m.vmcps_hint_tester_title(),
 			description: TESTER_HINT_TEXT,
 			placement: 'right'
 		},
 		{
 			id: 'connect',
-			title: 'Connect your Virtual MCP',
+			title: m.vmcps_hint_connect_title(),
 			description: CONNECT_HINT_TEXT,
 			placement: 'bottom'
 		}
@@ -200,7 +198,7 @@
 	<button
 		type="button"
 		class="fixed inset-0 z-69 cursor-default bg-transparent"
-		aria-label="Continue creation tips"
+		aria-label={m.vmcps_hint_continue()}
 		onclick={advance}
 	></button>
 
@@ -250,13 +248,13 @@
 					<div class="flex items-center gap-1">
 						{#if current.id !== 'introduction'}
 							<p class="font-mono uppercase font-semibold text-[0.625rem] tracking-[0.14em]">
-								tutorial {stepIndex}/{tourStepCount}
+								{m.vmcps_hint_tutorial_step({ step: stepIndex, total: tourStepCount })}
 							</p>
 						{/if}
 						<button
 							type="button"
 							class="text-muted-content hover:text-base-content -mt-1 -mr-1 rounded-sm p-1 transition-colors"
-							aria-label="Dismiss creation tips"
+							aria-label={m.vmcps_hint_dismiss()}
 							onclick={finish}
 						>
 							<X class="size-3" />
@@ -272,10 +270,14 @@
 					<button
 						type="button"
 						class="btn btn-primary btn-xs text-xs"
-						aria-label={isLast ? 'Finish tour' : isFirst ? 'Start tour' : 'Go to next tip'}
+						aria-label={isLast
+							? m.vmcps_hint_finish_tour()
+							: isFirst
+								? m.vmcps_hint_start_tour_label()
+								: m.vmcps_hint_next_tip()}
 						onclick={advance}
 					>
-						{isLast ? 'Done' : isFirst ? 'Start Tour' : 'Next'}
+						{isLast ? m.vmcps_done() : isFirst ? m.vmcps_hint_start_tour() : m.core_next()}
 					</button>
 				</div>
 			</div>

@@ -9,6 +9,7 @@
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
@@ -27,7 +28,9 @@
 		hasEditableConfiguration,
 		hasMissingSecretBindingConfig,
 		isMultiUserServer,
-		supportsMCPBackendDetails
+		supportsMCPBackendDetails,
+		getMcpValueLabel,
+		mcpTableDisplayValue
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
@@ -448,7 +451,7 @@
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
-				error: err instanceof Error ? err.message : 'An unknown error occurred'
+				error: err instanceof Error ? err.message : m.mcps_unknown_error()
 			};
 		}
 
@@ -499,7 +502,7 @@
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
-				error: err instanceof Error ? err.message : 'An unknown error occurred'
+				error: err instanceof Error ? err.message : m.mcps_unknown_error()
 			};
 
 			return undefined;
@@ -643,10 +646,13 @@
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
-					{ title: 'Name', property: 'displayName' },
-					{ title: 'User', property: 'userName' },
-					{ title: 'Health', property: 'deploymentStatus' },
-					{ title: 'Update Status', property: 'updatesAvailable' }
+					{ title: m.core_name(), property: 'displayName' },
+					{ title: m.core_type(), property: 'type' },
+					{ title: m.core_col_user(), property: 'userName' },
+					{ title: m.mcps_deployments_column_health(), property: 'deploymentStatus' },
+					{ title: m.core_col_update_status(), property: 'updatesAvailable' },
+					{ title: m.core_col_registry(), property: 'registry' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
@@ -658,8 +664,9 @@
 				{onClearAllFilters}
 				{onSort}
 				{initSort}
+				displayValue={mcpTableDisplayValue}
 				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-				noDataMessage="No catalog servers added."
+				noDataMessage={m.mcps_deployments_no_data()}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
@@ -704,7 +711,7 @@
 								<div
 									class="text-warning"
 									use:tooltip={{
-										text: 'Missing Kubernetes Secret.',
+										text: m.mcps_deployments_missing_secret(),
 										classes: ['break-words', 'w-58']
 									}}
 								>
@@ -714,8 +721,8 @@
 								<div
 									use:tooltip={{
 										text: isVMcpServer(d)
-											? 'In order to update, update the vMCP.'
-											: 'This deployment needs an update. View Diff to see the changes.',
+											? m.mcps_deployments_update_vmcp()
+											: m.mcps_deployments_needs_update(),
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>
@@ -729,19 +736,19 @@
 						<div
 							use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
 						>
-							{d.updateStatus || '--'}
+							{getMcpValueLabel(d.updateStatus) || '--'}
 						</div>
 					{:else if property === 'deploymentStatus'}
-						{d.deploymentStatus || '--'}
+						{getMcpValueLabel(d.deploymentStatus) || '--'}
 					{:else if property === 'type'}
-						{d.type}
+						{getMcpValueLabel(d.type)}
 						{#if d.serverUserType === 'multiUser'}
-							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
+							<div class="p-2" use:tooltip={{ text: m.mcps_deployments_multi_tenant() }}>
 								<UsersIcon class="size-3 text-muted-content" />
 							</div>
 						{/if}
 					{:else}
-						{d[property as keyof typeof d]}
+						{mcpTableDisplayValue(property, d[property as keyof typeof d])}
 					{/if}
 				{/snippet}
 
@@ -768,9 +775,9 @@
 									<ExternalLink class="size-4" />
 									<span>
 										{#if d.catalogEntryID}
-											View Catalog Entry
+											{m.mcps_deployments_view_catalog_entry()}
 										{:else}
-											View Server
+											{m.mcps_deployments_view_server()}
 										{/if}
 									</span>
 								</a>
@@ -788,7 +795,8 @@
 												toggle(false);
 											}}
 										>
-											<ServerCog class="size-4" /> Edit Configuration
+											<ServerCog class="size-4" />
+											{m.mcps_actions_edit_configuration()}
 										</button>
 									{/if}
 									{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
@@ -810,7 +818,7 @@
 											{:else}
 												<CircleFadingArrowUp class="size-4" />
 											{/if}
-											Update Server
+											{m.mcps_deployments_update_server()}
 										</button>
 									{/if}
 
@@ -828,7 +836,8 @@
 												toggle(false);
 											}}
 										>
-											<GitCompare class="size-4" /> View Diff
+											<GitCompare class="size-4" />
+											{m.mcps_deployments_view_diff()}
 										</button>
 									{/if}
 								{/if}
@@ -852,18 +861,18 @@
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
-										Update Scheduling Config
+										{m.mcps_deployments_update_scheduling()}
 									</button>
 								{/if}
 
 								{#if d.vmcpID}
 									<a href={resolve(`/vmcps/${d.vmcpID}`)} class="menu-button">
 										<Layers class="size-4" />
-										View vMCP
+										{m.mcps_deployments_view_vmcp()}
 									</a>
 									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
 										<Layers2 class="size-4" />
-										View vMCP Deployments
+										{m.mcps_deployments_view_vmcp_deployments()}
 									</a>
 								{:else if d.vmcpInstanceID}
 									<button
@@ -877,12 +886,12 @@
 												});
 												await goto(resolve(`/vmcps/${instance.vmcpID}`));
 											} catch {
-												errors.append('Failed to open vMCP.');
+												errors.append(m.mcps_deployments_open_vmcp_failed());
 											}
 										}}
 									>
 										<Layers class="size-4" />
-										View vMCP
+										{m.mcps_deployments_view_vmcp()}
 									</button>
 									<button
 										class="menu-button"
@@ -897,12 +906,12 @@
 													resolve(vmcpInstancePath(instance.vmcpID, instance.id) as `/${string}`)
 												);
 											} catch {
-												errors.append('Failed to open vMCP deployment.');
+												errors.append(m.mcps_deployments_open_vmcp_deployment_failed());
 											}
 										}}
 									>
 										<Layers class="size-4" />
-										View vMCP Deployment
+										{m.mcps_deployments_view_vmcp_deployment()}
 									</button>
 								{/if}
 
@@ -928,10 +937,10 @@
 										}}
 									>
 										{#if restarting}
-											<Loading class="size-4" /> Restarting...
+											<Loading class="size-4" /> {m.mcps_deployments_restarting()}
 										{:else}
 											<Power class="size-4" />
-											Restart Server
+											{m.mcps_deployments_restart_server()}
 										{/if}
 									</button>
 								{/if}
@@ -948,7 +957,8 @@
 											toggle(false);
 										}}
 									>
-										<Trash2 class="size-4" /> Delete Server
+										<Trash2 class="size-4" />
+										{m.mcps_catalog_delete_server()}
 									</button>
 								{/if}
 							</div>
@@ -980,9 +990,9 @@
 							disabled={restarting || readonly || restartableCount === 0}
 						>
 							{#if restarting}
-								<Loading class="size-4 self-center" /> Restarting...
+								<Loading class="size-4 self-center" /> {m.mcps_deployments_restarting()}
 							{:else}
-								<Power class="size-4" /> Restart
+								<Power class="size-4" /> {m.mcps_actions_restart()}
 							{/if}
 							{#if restartableCount > 0 && !readonly}
 								<span class="pill-primary">
@@ -1000,7 +1010,8 @@
 							}}
 							disabled={readonly || upgradeableCount === 0}
 						>
-							<CircleFadingArrowUp class="size-4" /> Upgrade
+							<CircleFadingArrowUp class="size-4" />
+							{m.mcps_deployments_upgrade()}
 							{#if upgradeableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{upgradeableCount}
@@ -1027,7 +1038,8 @@
 							}}
 							disabled={readonly || k8sUpgradeableCount === 0}
 						>
-							<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
+							<CircleFadingArrowUp class="size-4" />
+							{m.mcps_deployments_kubernetes_upgrade()}
 							{#if k8sUpgradeableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{k8sUpgradeableCount}
@@ -1046,7 +1058,8 @@
 							}}
 							disabled={readonly || deletableCount === 0}
 						>
-							<Trash2 class="size-4" /> Delete
+							<Trash2 class="size-4" />
+							{m.core_delete()}
 							{#if deletableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{deletableCount}
@@ -1079,17 +1092,19 @@
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
-	title="Confirm Update"
+	title={m.mcps_deployments_confirm_update()}
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{`Update ${showUpgradeConfirm?.type === 'single' ? showUpgradeConfirm.server.id : 'selected server(s)'}?`}
+			{showUpgradeConfirm?.type === 'single'
+				? m.mcps_deployments_update_one({ name: showUpgradeConfirm.server.id })
+				: m.mcps_deployments_update_selected()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			The selected servers will be updated to their latest catalog configuration.
+			{m.mcps_deployments_update_note()}
 		</p>
 		{#each upgradeNotesForConfirmation() as upgradeNote (upgradeNote.id)}
 			<div
@@ -1098,7 +1113,9 @@
 				<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
 				<div class="min-w-0 text-sm">
 					<p class="font-medium">
-						{showUpgradeConfirm?.type === 'multi' ? upgradeNote.name : 'Upgrade notes'}
+						{showUpgradeConfirm?.type === 'multi'
+							? upgradeNote.name
+							: m.mcps_deployments_upgrade_notes()}
 					</p>
 					<div
 						class="prose prose-sm text-muted-content mt-1 max-w-none space-y-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
@@ -1133,23 +1150,25 @@
 	oncancel={() => (showK8sUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 	type="info"
-	title="Confirm Update"
+	title={m.mcps_deployments_confirm_update()}
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			Update Kubernetes Settings
+			{m.mcps_deployments_update_k8s_settings()}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
 			{#if showK8sUpgradeConfirm?.type === 'multi'}
-				The selected servers ({Object.values(selected).filter((s) => s.needsK8sUpdate).length})
+				{m.mcps_deployments_k8s_redeploy_multi({
+					count: Object.values(selected).filter((s) => s.needsK8sUpdate).length
+				})}
 			{:else}
-				The <span class="font-medium">{showK8sUpgradeConfirm?.server.manifest.name}</span> server
+				{m.mcps_deployments_k8s_redeploy_single_prefix()}<span class="font-medium"
+					>{showK8sUpgradeConfirm?.server.manifest.name}</span
+				>{m.mcps_deployments_k8s_redeploy_single_suffix()}
 			{/if}
-
-			will be redeployed with the latest Kubernetes settings.
 		</p>
 	{/snippet}
 </Confirm>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { AuthProvider, ModelProvider } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -17,8 +18,8 @@
 		onConfirm,
 		onCancel,
 		providers,
-		title = 'Confirm Deconfiguration',
-		confirmButtonText = 'Deconfigure'
+		title = m.models_providers_confirm_deconfiguration(),
+		confirmButtonText = m.models_providers_deconfigure()
 	}: Props = $props();
 
 	let providerDeconfigureConfirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -34,6 +35,9 @@
 	}
 
 	let authProvider = $derived(providers?.find((p) => p.type === 'authprovider'));
+	let scimManaged = $derived(
+		!!authProvider && 'scimState' in authProvider && !!authProvider.scimState
+	);
 	let listOfProviders = $derived(
 		providers
 			?.map((p) => p.name)
@@ -56,30 +60,38 @@
 			<div class="px-4 py-4 md:py-0 flex flex-col gap-4 h-full">
 				<p>
 					{#if providers.length === 1}
-						This action will deconfigure the provider: <b>{providers[0].name}</b>.
+						{m.models_providers_deconfigure_single_prefix()}
+						<b>{providers[0].name}</b>{m.models_providers_sentence_end()}
 					{:else}
-						This action will deconfigure the following providers: <b>{listOfProviders}</b>.
+						{m.models_providers_deconfigure_multi_prefix()}
+						<b>{listOfProviders}</b>{m.models_providers_sentence_end()}
 					{/if}
-					This action cannot be undone. Are you sure you wish to continue?
+					{m.models_providers_cannot_be_undone()}
 				</p>
 				{#if authProvider}
 					<div class="p-4 bg-error/10 text-error rounded-md text-sm">
 						<p class="mb-2">
-							Deconfiguring <b>{authProvider.name || 'this provider'}</b> will result in the following:
+							{m.models_providers_deconfiguring_prefix()}
+							<b>{authProvider.name || m.models_providers_this_provider()}</b>
+							{m.models_providers_deconfiguring_suffix()}
 						</p>
 						<ul class="px-4 list-disc space-y-2">
 							<li>
-								Existing users will need to sign in via a different accessible provider -- each user
-								will log in with a new account & lose access to their previous account.
+								{m.models_providers_deconfigure_effect_users()}
 							</li>
 							<li>
-								Powerusers will lose access to any of their created MCP entries and registries. They
-								will be available for connection but no longer editable by their creator.
+								{m.models_providers_deconfigure_effect_powerusers()}
 							</li>
 							<li>
-								The accounts tied to this provider will continue to exist and will require manual
-								cleanup by an administrator.
+								{m.models_providers_deconfigure_effect_accounts()}
 							</li>
+							{#if scimManaged}
+								<li>
+									{m.identity_access_auth_providers_scim_deconfigure_effect({
+										name: authProvider.name
+									})}
+								</li>
+							{/if}
 						</ul>
 					</div>
 				{/if}
@@ -87,7 +99,9 @@
 				{#if authProvider}
 					<div class="flex flex-col gap-1">
 						<p>
-							Type the provider ID <code class="text-xs p-1 bg-base-200">{authProvider.id}</code> to confirm.
+							{m.models_providers_type_provider_id_prefix()}
+							<code class="text-xs p-1 bg-base-200">{authProvider.id}</code>
+							{m.models_providers_type_provider_id_suffix()}
 						</p>
 
 						<input type="text" class="input-text-filled w-full" bind:value={confirmationInput} />
@@ -96,7 +110,7 @@
 				<div class="md:hidden flex grow"></div>
 				<div class="flex gap-4 w-full pt-4 md:py-4">
 					<button class="btn btn-secondary flex-1" disabled={loading} onclick={onCancel}
-						>Nevermind</button
+						>{m.models_providers_nevermind()}</button
 					>
 					<button
 						class="btn btn-error btn-soft flex-1"

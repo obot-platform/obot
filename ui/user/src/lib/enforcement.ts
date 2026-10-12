@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 // Helpers shared by the enforcement policy editor and the decision log's
 // quick-allow flow. Keeping the identity, merge, and validation rules in one
 // place is what makes those two surfaces agree on what an allowlist entry means.
@@ -19,18 +20,19 @@ const AGENT_LABELS: Record<string, string> = {
 	claude_code: 'Claude Code',
 	codex: 'Codex',
 	cursor: 'Cursor',
+	kiro: 'Kiro',
 	vscode: 'VS Code'
 };
 
 // Tool kinds the device-side classifier reports. Everything except "mcp" is a
 // tool built into the agent itself.
 const KIND_LABELS: Record<string, string> = {
-	generic: 'Generic',
+	generic: m.inventory_enforcement_allowlist_validation_kind_generic(),
 	mcp: 'MCP',
-	read: 'Read',
-	shell: 'Shell',
-	task: 'Task',
-	write: 'Write'
+	read: m.inventory_enforcement_allowlist_validation_kind_read(),
+	shell: m.inventory_enforcement_allowlist_validation_kind_shell(),
+	task: m.inventory_enforcement_allowlist_validation_kind_task(),
+	write: m.inventory_enforcement_allowlist_validation_kind_write()
 };
 
 // titleCase turns an unrecognized snake_case identifier into something readable.
@@ -43,12 +45,12 @@ function titleCase(value: string): string {
 }
 
 export function agentLabel(agent?: string): string {
-	if (!agent) return 'Unknown';
+	if (!agent) return m.core_unknown();
 	return AGENT_LABELS[agent] ?? titleCase(agent);
 }
 
 export function kindLabel(kind?: string): string {
-	if (!kind) return 'Unknown';
+	if (!kind) return m.core_unknown();
 	return KIND_LABELS[kind] ?? titleCase(kind);
 }
 
@@ -60,9 +62,9 @@ export const PACKAGE_SOURCE_LABELS: Record<AllowlistServerPackageSource, string>
 export type AllowlistServerKind = 'url' | 'package' | 'hostname' | 'connector';
 
 export const ALLOWLIST_SERVER_KIND_LABELS: Record<AllowlistServerKind, string> = {
-	connector: 'Connector',
-	hostname: 'Hostname',
-	package: 'Package',
+	connector: m.inventory_enforcement_enforcement_events_connector(),
+	hostname: m.core_col_hostname(),
+	package: m.inventory_enforcement_enforcement_events_package(),
 	url: 'URL'
 };
 
@@ -105,7 +107,7 @@ export function allowlistServerLabel(entry: AllowlistServer): string {
 		case 'connector':
 			return entry.connector!.trim();
 		default:
-			return 'Invalid entry';
+			return m.inventory_enforcement_allowlist_validation_invalid_entry();
 	}
 }
 
@@ -208,7 +210,7 @@ export function canonicalAllowlist(allowlist: EnforcementAllowlist): string {
 export function allowlistServerProblem(entry: AllowlistServer): string | undefined {
 	const kind = allowlistServerKind(entry);
 	if (!kind) {
-		return 'Choose exactly one of URL, package, hostname, or connector.';
+		return m.inventory_enforcement_allowlist_validation_choose_one_kind();
 	}
 
 	if (kind === 'url') {
@@ -217,31 +219,31 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 		try {
 			url = new URL(raw);
 		} catch {
-			return 'Enter a valid URL, including the scheme (https://…).';
+			return m.inventory_enforcement_allowlist_validation_invalid_url();
 		}
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			return 'The URL must use the http or https scheme.';
+			return m.inventory_enforcement_allowlist_validation_url_scheme();
 		}
 		if (!url.hostname) {
-			return 'The URL must include a hostname.';
+			return m.inventory_enforcement_allowlist_validation_url_hostname();
 		}
 		if (url.username || url.password) {
-			return 'The URL must not include a username or password.';
+			return m.inventory_enforcement_allowlist_validation_url_credentials();
 		}
 		// A bare trailing "?" parses to an empty search here but is still a forced
 		// query the server rejects, so it is matched on the raw string.
 		if (url.search || url.hash || raw.includes('?') || raw.includes('#')) {
-			return 'The URL must not include a query string or fragment. Entries match on scheme, host, port, and path prefix.';
+			return m.inventory_enforcement_allowlist_validation_url_query();
 		}
 	}
 
 	if (kind === 'package') {
 		const pkg = entry.package!;
 		if (pkg.source !== 'npm' && pkg.source !== 'pypi') {
-			return 'Choose a package source of NPM or PyPI.';
+			return m.inventory_enforcement_allowlist_validation_package_source();
 		}
 		if (!pkg.name.trim()) {
-			return 'Enter a package name.';
+			return m.inventory_enforcement_allowlist_validation_package_name();
 		}
 	}
 
@@ -249,7 +251,7 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 		// The same character set the server rejects, so a bad hostname is reported
 		// inline rather than coming back as a request error.
 		if (/[:/?#@\s]/.test(entry.hostname!.trim())) {
-			return 'Enter a bare hostname, with no scheme, port, or path (for example gitmcp.io).';
+			return m.inventory_enforcement_allowlist_validation_bare_hostname();
 		}
 	}
 
@@ -257,7 +259,7 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 	// blank, which the server rejects outright.
 	if (entry.tools && entry.tools.length > 0) {
 		if (entry.tools.every((tool) => !tool.trim())) {
-			return 'Remove the blank tool names, or clear the list to allow every tool on this server.';
+			return m.inventory_enforcement_allowlist_validation_blank_tool_names();
 		}
 	}
 
@@ -267,9 +269,9 @@ export function allowlistServerProblem(entry: AllowlistServer): string | undefin
 export type QuickAllowAction = 'hostname' | 'server' | 'tool';
 
 export const QUICK_ALLOW_LABELS: Record<QuickAllowAction, string> = {
-	hostname: 'Allow all MCP servers from this hostname',
-	server: 'Allow all tools in this MCP server',
-	tool: 'Allow this tool in this MCP server'
+	hostname: m.inventory_enforcement_allowlist_validation_quick_allow_hostname(),
+	server: m.inventory_enforcement_allowlist_validation_quick_allow_server(),
+	tool: m.inventory_enforcement_allowlist_validation_quick_allow_tool()
 };
 
 // decisionHostname is the hostname a decision can be allowlisted by, derived from
@@ -342,29 +344,33 @@ export function quickAllowBlockedReason(
 	if (quickAllowEntry(event, action)) return undefined;
 
 	if (event.unresolved) {
-		return 'The device could not identify what this call targets, so there is nothing to allow. Fix the agent MCP configuration on the device, or allow the tool type instead.';
+		return m.inventory_enforcement_allowlist_validation_blocked_unresolved();
 	}
 	if (event.kind !== 'mcp') {
-		return `This is not an MCP tool call. Use the "All built-in agent tools" rule to allow ${kindLabel(event.kind).toLowerCase()} tools.`;
+		return m.inventory_enforcement_allowlist_validation_blocked_not_mcp({
+			kind: kindLabel(event.kind).toLowerCase()
+		});
 	}
 	if (action === 'tool' && !event.tool?.trim()) {
-		return 'This call recorded no tool name.';
+		return m.inventory_enforcement_allowlist_validation_blocked_no_tool_name();
 	}
 
 	const identity = decisionServerIdentity(event);
 	if (action === 'hostname' && identity) {
 		const kind = allowlistServerKind(identity);
-		return `This server has no hostname. Allow it by ${kind === 'connector' ? 'connector' : 'package'} with one of the actions below instead.`;
+		return kind === 'connector'
+			? m.inventory_enforcement_allowlist_validation_blocked_no_hostname_connector()
+			: m.inventory_enforcement_allowlist_validation_blocked_no_hostname_package();
 	}
 
 	const command = event.server?.command?.trim();
 	if (command) {
-		return `This server runs a local command (${command}) and cannot be matched by URL, package, or hostname.`;
+		return m.inventory_enforcement_allowlist_validation_blocked_local_command({ command });
 	}
 	if (action === 'hostname') {
-		return 'This server has no hostname.';
+		return m.inventory_enforcement_allowlist_validation_blocked_no_hostname();
 	}
-	return 'This call has no server identity that can be allowlisted.';
+	return m.inventory_enforcement_allowlist_validation_blocked_no_identity();
 }
 
 // mergeAllowlistEntry adds an entry to an allowlist, folding it into an existing

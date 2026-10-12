@@ -5,6 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { type Harness } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
@@ -80,7 +81,7 @@
 			harnesses = await AdminService.listHarnesses();
 			harnessDialog?.close();
 		} catch (err) {
-			errors.append(`Failed to save harness: ${err}`);
+			errors.append(m.hosted_agents_harnesses_save_harness_failed({ error: String(err) }));
 		} finally {
 			savingHarness = false;
 		}
@@ -89,21 +90,22 @@
 
 <div class="flex flex-col gap-4" in:fade={{ duration }}>
 	<p class="text-muted-content text-sm font-light">
-		A harness is the container image an agent runs inside — its runtime and preinstalled tooling,
-		such as Claude Code. Templates pick a harness; the harness decides the image and whether the
-		agent gets an interactive shell.
+		{m.hosted_agents_harnesses_desc()}
 	</p>
 
 	{#if harnesses.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Cpu class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No harnesses</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.hosted_agents_harnesses_no_harnesses()}
+			</h4>
 			{#if !isReadonly}
 				<p class="text-muted-content text-sm font-light">
-					Add one before registering a template, which has to pick a harness.
+					{m.hosted_agents_harnesses_no_harnesses_desc()}
 				</p>
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openCreateHarness}>
-					<Plus class="size-4" /> Add Harness
+					<Plus class="size-4" />
+					{m.hosted_agents_harnesses_add_harness()}
 				</button>
 			{/if}
 		</div>
@@ -112,12 +114,12 @@
 			data={harnessTableData}
 			fields={['name', 'description', 'image']}
 			headers={[
-				{ property: 'name', title: 'Name' },
-				{ property: 'description', title: 'Description' },
-				{ property: 'image', title: 'Image' }
+				{ property: 'name', title: m.core_name() },
+				{ property: 'description', title: m.core_description() },
+				{ property: 'image', title: m.chat_harnesses_col_image() }
 			]}
 			sortable={['name', 'image']}
-			noDataMessage="No harnesses added."
+			noDataMessage={m.hosted_agents_harnesses_no_harnesses_added()}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
@@ -137,7 +139,7 @@
 							const harness = harnesses.find((h) => h.id === d.id);
 							if (harness) openEditHarness(harness);
 						}}
-						tooltip={{ text: 'Edit Harness' }}
+						tooltip={{ text: m.hosted_agents_harnesses_edit_harness() }}
 					>
 						<Pencil class="size-4" />
 					</IconButton>
@@ -147,7 +149,7 @@
 							e.stopPropagation();
 							harnessToDelete = harnesses.find((h) => h.id === d.id);
 						}}
-						tooltip={{ text: 'Delete Harness' }}
+						tooltip={{ text: m.hosted_agents_harnesses_delete_harness() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -159,12 +161,14 @@
 
 <ResponsiveDialog
 	bind:this={harnessDialog}
-	title={editingHarness ? 'Edit Harness' : 'Add Harness'}
+	title={editingHarness
+		? m.hosted_agents_harnesses_edit_harness()
+		: m.hosted_agents_harnesses_add_harness()}
 	class="md:max-w-md"
 >
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="harness-name" class="text-sm font-light">Name</label>
+			<label for="harness-name" class="text-sm font-light">{m.core_name()}</label>
 			<input
 				id="harness-name"
 				bind:value={harnessForm.name}
@@ -173,7 +177,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-description" class="text-sm font-light">Description</label>
+			<label for="harness-description" class="text-sm font-light">{m.core_description()}</label>
 			<textarea
 				id="harness-description"
 				bind:value={harnessForm.description}
@@ -181,7 +185,9 @@
 				rows="2"></textarea>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-image" class="text-sm font-light">Docker Image</label>
+			<label for="harness-image" class="text-sm font-light"
+				>{m.hosted_agents_harnesses_docker_image()}</label
+			>
 			<input
 				id="harness-image"
 				bind:value={harnessForm.image}
@@ -191,7 +197,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-icon" class="text-sm font-light">Icon URL</label>
+			<label for="harness-icon" class="text-sm font-light">{m.chat_harnesses_icon_url()}</label>
 			<div class="flex items-center gap-3">
 				{#if harnessForm.icon}
 					<img src={harnessForm.icon} alt="" class="size-10 shrink-0 rounded-md object-contain" />
@@ -207,7 +213,9 @@
 			</div>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="harness-icon-dark" class="text-sm font-light">Icon URL (Dark)</label>
+			<label for="harness-icon-dark" class="text-sm font-light"
+				>{m.chat_harnesses_icon_url_dark()}</label
+			>
 			<div class="flex items-center gap-3">
 				{#if harnessForm.iconDark}
 					<img
@@ -228,7 +236,9 @@
 		</div>
 	</div>
 	<div class="flex justify-end gap-2 pt-4">
-		<button class="btn btn-secondary text-sm" onclick={() => harnessDialog?.close()}>Cancel</button>
+		<button class="btn btn-secondary text-sm" onclick={() => harnessDialog?.close()}
+			>{m.common_cancel()}</button
+		>
 		<button
 			class="btn btn-primary text-sm"
 			disabled={!canSaveHarness || savingHarness}
@@ -237,15 +247,15 @@
 			{#if savingHarness}
 				<Loading class="size-4" />
 			{:else}
-				{editingHarness ? 'Update' : 'Add'}
+				{editingHarness ? m.core_update() : m.chat_add()}
 			{/if}
 		</button>
 	</div>
 </ResponsiveDialog>
 
 <Confirm
-	msg={`Delete ${harnessToDelete?.name || 'this harness'}?`}
-	note="A harness that agents still run on cannot be deleted."
+	msg={m.chat_delete_named({ name: harnessToDelete?.name || m.chat_harnesses_this_harness() })}
+	note={m.hosted_agents_harnesses_delete_harness_note()}
 	show={Boolean(harnessToDelete)}
 	onsuccess={async () => {
 		if (!harnessToDelete) return;
@@ -253,7 +263,7 @@
 			await AdminService.deleteHarness(harnessToDelete.id);
 			harnesses = await AdminService.listHarnesses();
 		} catch (err) {
-			errors.append(`Failed to delete harness: ${err}`);
+			errors.append(m.hosted_agents_harnesses_delete_harness_failed({ error: String(err) }));
 		}
 		harnessToDelete = undefined;
 	}}

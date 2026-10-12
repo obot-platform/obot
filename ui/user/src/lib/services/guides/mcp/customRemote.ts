@@ -1,4 +1,5 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+import { m } from '$lib/i18n';
 import type { GuideAction, GuideStep } from '../types';
 import {
 	getHighlightAddCatalogEntryStep,
@@ -11,8 +12,8 @@ function getSubmitAction(): GuideAction {
 		highlight: {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.submitBtn },
 			side: 'left',
-			title: 'Save the entry',
-			description: 'Once you have finished configuring the remote MCP server, you can save here.'
+			title: m.mcps_servers_guide_save_the_entry_2(),
+			description: m.mcps_servers_guide_once_you_have_finished_configuring_the()
 		},
 		listener: {
 			id: CATALOG_SERVER_FIELD_IDS.submitBtn,
@@ -28,9 +29,8 @@ function getStaticOAuthAction(): GuideAction {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth },
 			side: 'top',
 			align: 'center',
-			title: 'Static OAuth',
-			description:
-				'Enable this only when the remote MCP server requires a pre-registered OAuth app. The entry will need to be saved first, then the shared client ID and secret can be configured; each user will still need to complete their own OAuth login.',
+			title: m.mcps_catalog_remote_remote_static_oauth(),
+			description: m.mcps_servers_guide_enable_this_only_when_the_remote(),
 			noDescendantInteraction: true
 		},
 		listener: {
@@ -49,9 +49,8 @@ function getAdvancedFieldsAction(): GuideAction[] {
 				selector: { id: CATALOG_SERVER_FIELD_IDS.remoteConnection },
 				side: 'top',
 				align: 'center',
-				title: 'Connection Restriction',
-				description:
-					'Choose an exact URL, allow a user-configured URL on one hostname, or build a URL from a template. You can also route requests through an MCP tunnel when tunnels are available.',
+				title: m.mcps_servers_guide_connection_restriction(),
+				description: m.mcps_servers_guide_choose_an_exact_url_allow_a(),
 				noDescendantInteraction: true
 			},
 			listener: {
@@ -79,23 +78,22 @@ function getAdvancedFieldsAction(): GuideAction[] {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'**What is a remote MCP server?**',
-			'A remote MCP server is great for allowing users to connect to MCP servers that are already elsewhere. When they deploy from Obot, the MCP server will go through the gateway.'
+			m.mcps_servers_guide_what_is_a_remote_mcp_server(),
+			m.mcps_servers_guide_a_remote_mcp_server_is_great()
 		]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('remote'),
 	getNavigateBasicCatalogEntryFieldsStep(),
 	{
-		content: ["Now let's go over the remote specific fields."],
+		content: [m.mcps_servers_guide_now_let_s_go_over_the_2()],
 		action: {
 			highlight: {
 				selector: { id: CATALOG_SERVER_FIELD_IDS.remoteURL },
 				side: 'top',
 				align: 'center',
-				title: 'Remote Server URL',
-				description:
-					'Enter the full URL of the remote MCP server. Use Advanced Configuration below if you need hostname restrictions, URL templates, tunnels, or static OAuth.'
+				title: m.mcps_servers_guide_remote_server_url(),
+				description: m.mcps_servers_guide_enter_the_full_url_of_the()
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.remoteURL,
@@ -103,9 +101,8 @@ export const steps: GuideStep[] = [
 					highlight: {
 						selector: { id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn },
 						side: 'top',
-						title: 'Advanced Configuration',
-						description:
-							'Open this to restrict connections by hostname or URL template, route through an MCP tunnel, or enable static OAuth. Skip this and save if a fixed URL is all you need.'
+						title: m.mcps_catalog_remote_remote_advanced(),
+						description: m.mcps_servers_guide_open_this_to_restrict_connections_by()
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn,
@@ -120,7 +117,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Reroute a Remote MCP Through Obot',
-	description: 'Add auditing & governance to an existing MCP server.',
+	title: m.mcps_servers_guide_reroute_a_remote_mcp_through_obot(),
+	description: m.mcps_servers_guide_add_auditing_governance_to_an_existing(),
 	id: 'mcp-create-remote-guide'
 };

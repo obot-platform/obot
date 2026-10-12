@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { ImagePullSecret, ImagePullSecretType } from '$lib/services';
 
 export type ImagePullSecretFormState = {
@@ -56,11 +57,26 @@ export function displayName(secret: ImagePullSecret) {
 	return secret.manifest.displayName || secret.id;
 }
 
+type ImagePullSecretStatus = 'disabled' | 'error' | 'ready' | 'pending';
+
+function statusKey(secret: ImagePullSecret): ImagePullSecretStatus {
+	if (!secret.manifest.enabled) return 'disabled';
+	if (secret.status?.lastError) return 'error';
+	if (secret.status?.lastSuccessTime) return 'ready';
+	return 'pending';
+}
+
 export function statusLabel(secret: ImagePullSecret) {
-	if (!secret.manifest.enabled) return 'Disabled';
-	if (secret.status?.lastError) return 'Error';
-	if (secret.status?.lastSuccessTime) return 'Ready';
-	return 'Pending';
+	switch (statusKey(secret)) {
+		case 'disabled':
+			return m.core_status_disabled();
+		case 'error':
+			return m.platform_branding_error();
+		case 'ready':
+			return m.core_status_ready();
+		default:
+			return m.core_status_pending();
+	}
 }
 
 export function statusMessage(secret?: ImagePullSecret) {
@@ -68,12 +84,12 @@ export function statusMessage(secret?: ImagePullSecret) {
 }
 
 export function statusClass(secret: ImagePullSecret) {
-	switch (statusLabel(secret)) {
-		case 'Ready':
+	switch (statusKey(secret)) {
+		case 'ready':
 			return 'bg-green-500/10 text-green-700 dark:text-green-300';
-		case 'Error':
+		case 'error':
 			return 'bg-red-500/10 text-red-700 dark:text-red-300';
-		case 'Disabled':
+		case 'disabled':
 			return 'bg-gray-500/10 text-gray-600 dark:text-gray-300';
 		default:
 			return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300';

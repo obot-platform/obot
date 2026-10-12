@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HostedAgentPools from '$lib/components/admin/HostedAgentPools.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import type {
 		HostedAgentPool,
 		HostedAgentPoolAssignment,
@@ -30,8 +31,7 @@
 
 <div class="flex flex-col gap-4" in:fade={{ duration }}>
 	<p class="text-muted-content text-sm font-light">
-		A pool is a shared bucket of CPU and memory. Every agent placed in it draws from the same budget
-		and can borrow whatever its neighbours are not using, so agents have no fixed size of their own.
+		{m.hosted_agents_pools_desc()}
 	</p>
 	<HostedAgentPools
 		bind:pools

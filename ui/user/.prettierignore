@@ -5,3 +5,8 @@ yarn.lock
 
 # Static assets (generated or vendor files)
 static/
+
+# Paraglide generated output
+src/lib/paraglide/
+project.inlang/*
+!project.inlang/settings.json

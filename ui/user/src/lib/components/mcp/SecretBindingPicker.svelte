@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import Select from '../Select.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -27,8 +28,8 @@
 	);
 
 	const sourceOptions = $derived([
-		{ id: 'value', label: 'Manual Value' },
-		{ id: 'secret', label: 'Kubernetes Secret' }
+		{ id: 'value', label: m.mcps_catalog_secret_source_manual() },
+		{ id: 'secret', label: m.mcps_catalog_secret_source_kubernetes() }
 	]);
 	const secretOptions = $derived.by(() => {
 		const options: SecretBindingOption[] = targets.map((target) => ({
@@ -38,7 +39,11 @@
 		const boundSecret = field.secretBinding?.name;
 
 		if (boundSecret && !targets.some((target) => target.name === boundSecret)) {
-			options.push({ id: boundSecret, label: `${boundSecret} (not available)`, disabled: true });
+			options.push({
+				id: boundSecret,
+				label: m.mcps_catalog_secret_not_available({ name: boundSecret }),
+				disabled: true
+			});
 		}
 
 		return options;
@@ -60,7 +65,11 @@
 		const boundKey = field.secretBinding?.key;
 
 		if (boundKey && !options.some((option) => option.id === boundKey)) {
-			options.push({ id: boundKey, label: `${boundKey} (not available)`, disabled: true });
+			options.push({
+				id: boundKey,
+				label: m.mcps_catalog_secret_not_available({ name: boundKey }),
+				disabled: true
+			});
 		}
 
 		return options;
@@ -110,7 +119,8 @@
 
 <div class="flex w-full flex-col gap-3">
 	<div class="flex w-full flex-col gap-1">
-		<label for={`secret-binding-source-${field.key}`} class="text-sm font-light">Value Source</label
+		<label for={`secret-binding-source-${field.key}`} class="text-sm font-light"
+			>{m.mcps_catalog_secret_value_source()}</label
 		>
 		<Select
 			id={`secret-binding-source-${field.key}`}
@@ -136,7 +146,7 @@
 					class:error={missingSecret}
 					class="text-sm font-light"
 				>
-					Secret
+					{m.mcps_catalog_secret_label()}
 				</label>
 				<Select
 					id={`secret-binding-secret-${field.key}`}
@@ -144,7 +154,7 @@
 					options={secretOptions}
 					selected={field.secretBinding?.name}
 					disabled={isReadonly || targets.length === 0}
-					placeholder="No secrets found"
+					placeholder={m.mcps_catalog_secret_none_found()}
 					searchInDropdown
 					onSelect={(option) => selectSecret(option.id)}
 				/>
@@ -155,7 +165,7 @@
 					class:error={missingKey}
 					class="text-sm font-light"
 				>
-					Key
+					{m.mcps_field_key()}
 				</label>
 				<Select
 					id={`secret-binding-key-${field.key}`}
@@ -163,7 +173,7 @@
 					options={keyOptions}
 					selected={field.secretBinding?.key}
 					disabled={isReadonly || keyOptions.length === 0}
-					placeholder="N/A"
+					placeholder={m.mcps_catalog_not_applicable()}
 					searchInDropdown
 					onSelect={(option) => selectKey(option.id)}
 				/>

@@ -19,6 +19,7 @@
 <script lang="ts">
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Select, { type SelectProps } from '$lib/components/Select.svelte';
+	import { m } from '$lib/i18n';
 	import { parseMultiValue } from '$lib/multiValue';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
@@ -62,7 +63,7 @@
 			shouldShowResetButton
 				? {
 						id: 'reset',
-						label: 'Reset',
+						label: m.core_reset_page(),
 						onclick: () => onReset?.(),
 						class: 'text-primary opacity-80 hover:opacity-90 active:opacity-100'
 					}
@@ -70,9 +71,7 @@
 			shouldShowClearButton
 				? {
 						id: 'clear',
-						label: ['Clear', parseMultiValue(value).length > 1 ? 'All' : '']
-							.filter(Boolean)
-							.join(' '),
+						label: parseMultiValue(value).length > 1 ? m.core_clear_all() : m.core_clear(),
 						onclick: () => onClearAll?.(),
 						class: 'opacity-50 hover:opacity-80 active:opacity-100'
 					}
@@ -95,7 +94,7 @@
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-1">
 			<label for={filter.property} class="text-md font-light capitalize">
-				By {filter.label}
+				{m.audit_usage_exports_filter_by_label({ label: filter.label })}
 			</label>
 			{#if filter.tooltip}
 				<InfoTooltip text={filter.tooltip} popoverWidth="fit" />

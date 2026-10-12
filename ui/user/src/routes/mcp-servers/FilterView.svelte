@@ -8,6 +8,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
@@ -30,10 +31,10 @@
 	let deletingFilter = $state(false);
 
 	const tabs = [
-		{ label: 'Configuration', view: 'configuration' },
-		{ label: 'Server Details', view: 'server-details' },
-		{ label: 'Audit Logs', view: 'audit-logs' },
-		{ label: 'Usage', view: 'usage' }
+		{ label: m.mcps_catalog_config_heading(), view: 'configuration' },
+		{ label: m.mcps_catalog_tab_server_details(), view: 'server-details' },
+		{ label: m.nav_audit_logs(), view: 'audit-logs' },
+		{ label: m.nav_usage(), view: 'usage' }
 	];
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -58,12 +59,12 @@
 		{#if filter?.id}
 			<div class="flex w-full items-center justify-between gap-4">
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{title || filter.name || 'Filter'}
+					{title || filter.name || m.mcps_filters_filter()}
 				</h1>
 				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete Filter', placement: 'left' }}
+						tooltip={{ text: m.mcps_filters_delete_filter(), placement: 'left' }}
 						onclick={() => (deletingFilter = true)}
 					>
 						<Trash2 class="size-4" />
@@ -105,7 +106,7 @@
 					readonly={profile.current.isAdminReadonly?.()}
 					connectedUsers={[]}
 					k8sOverrides={{
-						title: 'Details',
+						title: m.core_details(),
 						classes: {
 							title: 'text-lg font-semibold'
 						}
@@ -117,9 +118,11 @@
 						{#snippet emptyContent()}
 							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 								<BookOpenText class="text-muted-content size-24 opacity-50" />
-								<h4 class="text-muted-content text-lg font-semibold">No recent audit logs</h4>
+								<h4 class="text-muted-content text-lg font-semibold">
+									{m.mcps_filters_no_recent_audit_logs()}
+								</h4>
 								<p class="text-muted-content text-sm font-light">
-									This web validation server has not had any active usage in the last 7 days.
+									{m.mcps_filters_filter_no_recent_usage()}
 								</p>
 							</div>
 						{/snippet}
@@ -144,7 +147,9 @@
 </Layout>
 
 <Confirm
-	msg={`Delete ${filter?.name || 'this filter'}?`}
+	msg={filter?.name
+		? m.mcps_delete_named({ name: filter.name })
+		: m.mcps_filters_delete_this_filter()}
 	show={deletingFilter}
 	onsuccess={async () => {
 		if (!filter?.id) return;

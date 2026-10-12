@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { markSeenTimestamp } from '$lib/localstate';
 	import { AdminService, Group } from '$lib/services';
@@ -73,28 +74,28 @@
 <div class="flex w-full items-center justify-center">
 	<Logo class="size-18" />
 </div>
-<h2 class="mb-6 text-center text-2xl font-semibold">Welcome to Obot!</h2>
+<h2 class="mb-6 text-center text-2xl font-semibold">{m.auth_setup_welcome_to_obot()}</h2>
 
 <div class="w-fit self-center px-4">
 	{#if !version.current.authEnabled}
 		<p class="mb-4">
-			<span class="text-muted-content">Auth is disabled.</span>
+			<span class="text-muted-content">{m.auth_setup_auth_disabled()}</span>
 			<a
 				href="https://docs.obot.ai/installation/enabling-authentication"
 				rel="external noopener noreferrer"
 				target="_blank"
-				class="text-link">Learn more</a
+				class="text-link">{m.auth_setup_learn_more()}</a
 			>
 		</p>
 	{/if}
 	<p>
-		By continuing, I agree to Obot's
+		{m.auth_setup_agree_eula_prefix()}
 		<a
 			href="https://obot.ai/eul"
 			rel="external noopener noreferrer"
 			target="_blank"
 			class="text-link">EULA</a
-		>.
+		>{m.auth_setup_agree_eula_suffix()}
 	</p>
 	{#if needsProductAnalyticsConsent}
 		<div class="flex items-start gap-2 pt-4 text-sm">
@@ -106,14 +107,14 @@
 				disabled={loading}
 			/>
 			<label for="share-product-usage" class="leading-tight">
-				Share product usage data
+				{m.auth_setup_share_usage_data()}
 				<br />
-				<span class="text-muted-content">Help improve Obot by sharing usage data.</span>
+				<span class="text-muted-content">{m.auth_setup_share_usage_help()}</span>
 				<a
 					href="https://docs.obot.ai/configuration/product-analytics"
 					rel="external noopener noreferrer"
 					target="_blank"
-					class="text-link">Learn more</a
+					class="text-link">{m.auth_setup_learn_more()}</a
 				>
 			</label>
 		</div>
@@ -128,6 +129,6 @@
 	{#if loading}
 		<Loading class="size-4" />
 	{:else}
-		Continue
+		{m.core_continue()}
 	{/if}
 </button>

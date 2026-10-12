@@ -68,6 +68,43 @@ func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {
 	require.NotContains(t, headers, "AUTHORIZATION")
 }
 
+func TestGetOAuthMetadataSkipsDiscoveryAfterInitializeWithRequiredHeaders(t *testing.T) {
+	var initializeRequests, metadataRequests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch {
+		case req.Method == http.MethodPost && req.URL.Path == "/mcp":
+			initializeRequests.Add(1)
+			if req.Header.Get("Content-Type") != "application/json" {
+				http.Error(rw, "Invalid Content-Type. Expected application/json.", http.StatusUnsupportedMediaType)
+				return
+			}
+			accept := strings.Split(req.Header.Get("Accept"), ",")
+			for i := range accept {
+				accept[i] = strings.TrimSpace(accept[i])
+			}
+			if !slices.Contains(accept, "application/json") || !slices.Contains(accept, "text/event-stream") {
+				http.Error(rw, "Expected JSON and SSE response support.", http.StatusNotAcceptable)
+				return
+			}
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"test","version":"1"}}}`))
+		case strings.Contains(req.URL.Path, "oauth-protected-resource"):
+			metadataRequests.Add(1)
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"meta":{"title":"AWS Knowledge MCP Server"},"payload":{}}`))
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	metadata, err := getOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "test", "https://obot.example/oauth/mcp/callback", false)
+	require.NoError(t, err)
+	require.Empty(t, metadata)
+	require.Equal(t, int32(1), initializeRequests.Load())
+	require.Zero(t, metadataRequests.Load(), "metadata should not be fetched after successful initialize")
+}
+
 func TestGetOAuthMetadataAssumesOAuthAfterSuccessfulInitialize(t *testing.T) {
 	var initializeRequests atomic.Int32
 	var serverURL string
@@ -646,6 +683,104 @@ func TestOAuthResourceHandlingByAuthorizationServer(t *testing.T) {
 	}
 }
 
+func TestOAuthAuthorizationURLConsent(t *testing.T) {
+	const resourceURL = "https://resource.example.com/mcp"
+	tests := []struct {
+		name               string
+		authorizationURL   string
+		expectedPrompt     string
+		expectedAccessType string
+		expectedResource   string
+	}{
+		{
+			name:               "Google",
+			authorizationURL:   "https://accounts.google.com/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google legacy endpoint",
+			authorizationURL:   "https://accounts.google.com/o/oauth2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google uppercase hostname",
+			authorizationURL:   "https://ACCOUNTS.GOOGLE.COM/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google explicit port",
+			authorizationURL:   "https://accounts.google.com:443/o/oauth2/v2/auth",
+			expectedPrompt:     "consent",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "other provider",
+			authorizationURL:   "https://auth.example.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google lookalike",
+			authorizationURL:   "https://accounts.google.com.example.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:               "Google subdomain",
+			authorizationURL:   "https://other.accounts.google.com/authorize",
+			expectedAccessType: "offline",
+			expectedResource:   resourceURL,
+		},
+		{
+			name:             "Zoho",
+			authorizationURL: "https://mcp.zoho.com/authorize",
+			expectedResource: resourceURL,
+		},
+		{
+			name:               "Entra",
+			authorizationURL:   "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+			expectedAccessType: "offline",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			callback := &oauthAuthorizeCallbackHandler{}
+			conf := &oauth2.Config{
+				ClientID:    "client-id",
+				RedirectURL: "https://obot.example.com/callback",
+				Scopes:      []string{"read", "write"},
+				Endpoint: oauth2.Endpoint{
+					AuthURL: tt.authorizationURL,
+				},
+			}
+
+			authURL, _, verifier, err := GetOAuthAuthorizationURL(t.Context(), callback, conf, conf.Endpoint.AuthURL, resourceURL)
+			require.NoError(t, err)
+			parsedAuthURL, err := url.Parse(authURL)
+			require.NoError(t, err)
+			query := parsedAuthURL.Query()
+			require.Equal(t, tt.expectedPrompt, query.Get("prompt"))
+			require.Equal(t, tt.expectedAccessType, query.Get("access_type"))
+			require.Equal(t, tt.expectedResource, query.Get("resource"))
+			require.Equal(t, "state", query.Get("state"))
+			require.Equal(t, "client-id", query.Get("client_id"))
+			require.Equal(t, conf.RedirectURL, query.Get("redirect_uri"))
+			require.Equal(t, "read write", query.Get("scope"))
+			require.Equal(t, "code", query.Get("response_type"))
+			require.Equal(t, "S256", query.Get("code_challenge_method"))
+			require.Equal(t, oauth2.S256ChallengeFromVerifier(verifier), query.Get("code_challenge"))
+		})
+	}
+}
+
 func TestResolveOAuthResourceURL(t *testing.T) {
 	require.Equal(t,
 		"https://connection.example.com/mcp",
@@ -720,7 +855,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		switch req.URL.Path {
 		case "/.well-known/oauth-protected-resource":
 			_ = json.NewEncoder(rw).Encode(map[string]any{
-				"resource":              serverURL + "/protected-resource",
+				"resource":              serverURL,
 				"authorization_servers": []string{serverURL},
 				"scopes_supported":      []string{"read"},
 			})
@@ -747,7 +882,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 			require.Equal(t, hVerifier(callback), req.Form.Get("code_verifier"))
 			require.Equal(t, "dynamic-client", req.Form.Get("client_id"))
 			require.Equal(t, redirectURL, req.Form.Get("redirect_uri"))
-			require.Equal(t, serverURL+"/protected-resource", req.Form.Get("resource"))
+			require.Equal(t, serverURL, req.Form.Get("resource"))
 			require.Empty(t, req.Form.Get("client_secret"))
 			rw.Header().Set("Content-Type", "application/json")
 			_, _ = rw.Write([]byte(`{"access_token":"access-token","refresh_token":"refresh-token","token_type":"Bearer","expires_in":3600}`))
@@ -766,7 +901,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "", "test-client", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 	require.True(t, registrationCalled.Load())
 	require.True(t, tokenCalled.Load())
@@ -774,7 +909,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 	require.Contains(t, callback.authURL, "code_challenge=")
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
 	require.NoError(t, err)
-	require.Equal(t, serverURL+"/protected-resource", authorizationRequest.URL.Query().Get("resource"))
+	require.Equal(t, serverURL, authorizationRequest.URL.Query().Get("resource"))
 	require.Equal(t, "access-token", o.currentToken.AccessToken)
 	require.Equal(t, 1, storage.setCalls)
 	require.Equal(t, "access-token", storage.lastToken.AccessToken)
@@ -818,7 +953,7 @@ func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "", "test-client", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
@@ -830,4 +965,341 @@ func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *
 
 func hVerifier(callback *oauthAuthorizeCallbackHandler) string {
 	return callback.verifier
+}
+
+func TestValidateProtectedResource(t *testing.T) {
+	tests := []struct {
+		name       string
+		resource   string
+		connectURL string
+		wantErr    bool
+	}{
+		{
+			name:       "exact match",
+			resource:   "https://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "origin as resource",
+			resource:   "https://mcp.example.com",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "parent path as resource",
+			resource:   "https://mcp.example.com/tenant/",
+			connectURL: "https://mcp.example.com/tenant/mcp",
+		},
+		{
+			name:       "resource without the endpoint's trailing slash",
+			resource:   "https://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp/",
+		},
+		{
+			name:       "resource with a trailing slash the endpoint lacks",
+			resource:   "https://mcp.example.com/mcp/",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "dots inside a path segment",
+			resource:   "https://mcp.example.com/v1.2",
+			connectURL: "https://mcp.example.com/v1.2/mcp..json",
+		},
+		{
+			name:       "root resource for an endpoint with no path",
+			resource:   "https://mcp.example.com/",
+			connectURL: "https://mcp.example.com",
+		},
+		{
+			name:       "zero-padded default port",
+			resource:   "https://mcp.example.com/",
+			connectURL: "https://mcp.example.com:0443/mcp",
+		},
+		{
+			name:       "another service on the same origin",
+			resource:   "https://example.com/victim/api",
+			connectURL: "https://example.com/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "sibling path on the same origin",
+			resource:   "https://mcp.example.com/protected-resource",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "path prefix without a segment boundary",
+			resource:   "https://mcp.example.com/api",
+			connectURL: "https://mcp.example.com/api123/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/../attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/%2e%2E/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "mixed encoded dot segment in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/.%2e/attacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "single dot segment in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/./mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "backslash dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: "https://example.com/victim/%5C..%5Cattacker/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segment and slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2e%2e%2fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "uppercase encoded dot segment and slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2E%2E%2Fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "literal backslash dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim\..\attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "dot segment and encoded slash in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..%2fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "dot segment with a path parameter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..;/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "encoded dot segment with a path parameter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%2e%2e;x/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "double-encoded dot segments in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%252e%252e%252fattacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "percent-encoded character in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/my%20server/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "semicolon in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim;x/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "percent-encoded character in the resource",
+			resource:   "https://example.com/my%20server",
+			connectURL: `https://example.com/my%20server/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "encoded semicolon in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/..%3bx/attacker/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "unnecessarily encoded letter in the MCP server URL",
+			resource:   "https://example.com/victim",
+			connectURL: `https://example.com/victim/%41/mcp`,
+			wantErr:    true,
+		},
+		{
+			name:       "query for another tenant",
+			resource:   "https://example.com/mcp?tenant=victim",
+			connectURL: "https://example.com/mcp?tenant=attacker",
+			wantErr:    true,
+		},
+		{
+			name:       "matching query",
+			resource:   "https://example.com/mcp?tenant=a",
+			connectURL: "https://example.com/mcp?tenant=a",
+		},
+		{
+			name:       "resource without a query for an endpoint with one",
+			resource:   "https://example.com/mcp",
+			connectURL: "https://example.com/mcp?tenant=a",
+		},
+		{
+			name:       "query on a resource for an endpoint without one",
+			resource:   "https://example.com/mcp?tenant=a",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "fragment in the resource",
+			resource:   "https://example.com/mcp#x",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "empty fragment in the resource",
+			resource:   "https://example.com/mcp#",
+			connectURL: "https://example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "dot segments in the resource",
+			resource:   "https://example.com/attacker/../victim",
+			connectURL: "https://example.com/attacker/../victim/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "child path of the connect URL",
+			resource:   "https://mcp.example.com/mcp/other",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "case-insensitive scheme and host with default port",
+			resource:   "HTTPS://MCP.Example.com:443/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+		},
+		{
+			name:       "different host",
+			resource:   "https://api.other-service.example/",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "subdomain of the server host",
+			resource:   "https://api.mcp.example.com/",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "different scheme",
+			resource:   "http://mcp.example.com/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+		{
+			name:       "different port",
+			resource:   "https://mcp.example.com:8443/mcp",
+			connectURL: "https://mcp.example.com/mcp",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProtectedResource(tt.resource, tt.connectURL)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetOAuthMetadataRejectsResourceForAnotherService(t *testing.T) {
+	var serverURL string
+	var authServerMetadataRequested atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/mcp":
+			rw.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+		case "/.well-known/oauth-protected-resource":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"resource":              "https://api.other-service.example/",
+				"authorization_servers": []string{serverURL + "/issuer"},
+			})
+		case "/.well-known/oauth-authorization-server/issuer":
+			authServerMetadataRequested.Store(true)
+			http.NotFound(rw, req)
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+
+	_, err := GetOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "Test Client", "http://localhost/callback")
+	require.ErrorContains(t, err, "does not match MCP server URL")
+	require.False(t, authServerMetadataRequested.Load(), "expected discovery to stop before contacting the authorization server")
+}
+
+func TestOAuthAuthorizeValidatesResourceAgainstServerURLForTunnels(t *testing.T) {
+	const (
+		redirectURL = "https://obot.example.com/callback"
+		// The tunneled server's own URL. Obot reaches it through a bridge URL on its own host,
+		// but the server's metadata names this URL as its resource.
+		upstreamURL = "https://mcp.internal.example/mcp"
+	)
+	var bridgeURL string
+	callback := &oauthAuthorizeCallbackHandler{}
+	tokenRequest := make(chan url.Values, 1)
+
+	bridge := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/.well-known/oauth-protected-resource":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"resource":              upstreamURL,
+				"authorization_servers": []string{bridgeURL},
+			})
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"issuer":                                bridgeURL,
+				"authorization_endpoint":                bridgeURL + "/authorize",
+				"token_endpoint":                        bridgeURL + "/token",
+				"response_types_supported":              []string{"code"},
+				"grant_types_supported":                 []string{"authorization_code"},
+				"token_endpoint_auth_methods_supported": []string{"none"},
+			})
+		case "/token":
+			require.NoError(t, req.ParseForm())
+			tokenRequest <- req.Form
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600}`))
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	defer bridge.Close()
+	bridgeURL = bridge.URL
+
+	request := httptest.NewRequest(http.MethodGet, bridge.URL+"/tunnel/bridge/encoded-target", nil)
+	response := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header: http.Header{
+			"WWW-Authenticate": []string{fmt.Sprintf(`Bearer resource_metadata="%s/.well-known/oauth-protected-resource"`, bridge.URL)},
+		},
+		Body: io.NopCloser(strings.NewReader("")),
+	}
+	o := newOAuth(bridge.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client"}, nil, "test-server", upstreamURL, "test-client", redirectURL, "")
+	require.NoError(t, o.Authorize(t.Context(), request, response))
+	require.Equal(t, upstreamURL, (<-tokenRequest).Get("resource"))
 }

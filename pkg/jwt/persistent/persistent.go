@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -17,10 +16,13 @@ import (
 
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -54,6 +56,10 @@ type TokenContext struct {
 
 	MCPID            string
 	AuthorizedMCPIDs StringSlice
+
+	// HostedAgentOwnerID is set on a token minted for a hosted agent, whose UserID names the agent rather than a
+	// user. It is the user the agent acts for, whose lifecycle status governs the token.
+	HostedAgentOwnerID string `json:",omitempty"`
 
 	// This is used for requesting community license
 	InstallationID string `json:"installation_id,omitempty"`
@@ -218,22 +224,36 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	groups := tokenContext.UserGroups
 	extra["obot_groups"] = slices.Clone(groups)
 
-	// Look up auth provider group memberships from the gateway DB
 	if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
-		if authGroupIDs, err := t.gatewayClient.ListGroupIDsForUser(req.Context(), uint(userID)); err != nil {
-			slog.Warn("failed to list auth provider groups for user", "userID", tokenContext.UserID, "error", err)
+		// Read the user and their auth provider groups in one transaction. The role is recomputed from them on every
+		// use, so an old token cannot keep a removed group's role, and the user's lifecycle status comes from the
+		// same read.
+		gatewayUser, authGroupIDs, err := t.gatewayClient.UserByIDWithEffectiveRole(req.Context(), uint(userID))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// The token outlived its user. The admission check denies it.
+			principal.RecordUserStatus(extra, apitypes.UserStatusDeleted)
+		} else if err != nil {
+			return nil, false, &client.UserAccessLookupError{
+				UserID: uint(userID),
+				Err:    err,
+			}
 		} else {
 			extra["auth_provider_groups"] = authGroupIDs
-
-			// Resolve effective role by merging individual + group roles
-			if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
-				slog.Warn("failed to look up user for role resolution", "userID", tokenContext.UserID, "error", err)
-			} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
-				slog.Warn("failed to resolve effective role for user", "userID", tokenContext.UserID, "error", err)
-			} else {
-				extra["obot_groups"] = effectiveRole.RoleGroups()
-			}
+			extra["obot_groups"] = gatewayUser.Role.RoleGroups()
+			principal.RecordUserStatus(extra, gatewayUser.Status())
 		}
+	} else {
+		// A token minted for a hosted agent names the agent. It acts for the agent's owner, whose status governs it,
+		// but it carries none of the owner's groups. Any other token must name a user.
+		ownerID, err := strconv.ParseUint(tokenContext.HostedAgentOwnerID, 10, 64)
+		if err != nil {
+			return nil, false, nil
+		}
+		status, err := t.gatewayClient.UserStatus(req.Context(), uint(ownerID))
+		if err != nil {
+			return nil, false, err
+		}
+		principal.RecordUserStatus(extra, status)
 	}
 
 	return &authenticator.Response{
@@ -324,6 +344,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
 		AuthorizedMCPIDs:      authorizedMCPIDs,
+		HostedAgentOwnerID:    getStringClaim("HostedAgentOwnerID"),
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
@@ -337,6 +358,21 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt.Token, string, error) {
 	if context.Audience == "" {
 		return nil, "", fmt.Errorf("audience is required")
+	}
+
+	// A token is never issued for a disabled or deleted user, including to background work acting for them. A request
+	// that the admission check let through has read the status of the user it acts for already, so a token that it
+	// mints for that user is not checked again.
+	if t.gatewayClient != nil {
+		ownerID := context.UserID
+		if _, err := strconv.ParseUint(ownerID, 10, 64); err != nil {
+			ownerID = context.HostedAgentOwnerID
+		}
+		if userID, err := strconv.ParseUint(ownerID, 10, 64); err == nil && !principal.AdmittedActiveUser(ctx, ownerID) {
+			if err := t.gatewayClient.CheckCredentialOwner(ctx, uint(userID)); err != nil {
+				return nil, "", err
+			}
+		}
 	}
 
 	if strings.HasPrefix(context.Picture, "data:") {

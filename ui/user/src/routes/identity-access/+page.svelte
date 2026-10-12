@@ -1,13 +1,18 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TabLayout from '$lib/components/TabLayout.svelte';
+	import { AUTH_PROVIDERS_VIEW_PATH, isSCIMView, SCIM_VIEW_PATH } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import AgentsView from './AgentsView.svelte';
 	import AuthProvidersView from './AuthProvidersView.svelte';
 	import GroupsView from './GroupsView.svelte';
 	import RolesView from './RolesView.svelte';
+	import ScimView from './ScimView.svelte';
 	import UsersView from './UsersView.svelte';
 	import { Plus } from '@lucide/svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
 	let groupsView = $state<ReturnType<typeof GroupsView>>();
@@ -15,14 +20,20 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let showCreateAgent = $derived(page.url.searchParams.has('new'));
+	// The Auth Providers tab shows the auth providers, or SCIM.
+	let showSCIM = $derived(isSCIMView(page.url.searchParams));
 </script>
 
 <svelte:head>
-	<title>Obot | {showCreateAgent ? 'Create Agent Identity' : 'Identity & Access'}</title>
+	<title
+		>Obot | {showCreateAgent
+			? m.identity_access_create_agent_identity()
+			: m.identity_access_title()}</title
+	>
 </svelte:head>
 
 <TabLayout
-	title={showCreateAgent ? 'Create Agent Identity' : 'Identity & Access'}
+	title={showCreateAgent ? m.identity_access_create_agent_identity() : m.identity_access_title()}
 	defaultView={hasAdminAccess ? 'users' : 'agents'}
 	showBackButton={showCreateAgent}
 	onBackButtonClick={() => agentsView?.hideCreateForm()}
@@ -30,13 +41,17 @@
 	classes={{ childrenContainer: 'max-w-none' }}
 	views={hasAdminAccess
 		? [
-				{ label: 'Users', value: 'users', content: users },
-				{ label: 'Agents', value: 'agents', content: agents },
-				{ label: 'Groups', value: 'groups', content: groups },
-				{ label: 'Roles', value: 'roles', content: roles },
-				{ label: 'Auth Providers', value: 'auth-providers', content: authProviders }
+				{ label: m.identity_access_users_tab(), value: 'users', content: users },
+				{ label: m.identity_access_agents_tab(), value: 'agents', content: agents },
+				{ label: m.identity_access_groups_tab(), value: 'groups', content: groups },
+				{ label: m.identity_access_roles_tab(), value: 'roles', content: roles },
+				{
+					label: m.identity_access_auth_providers_tab(),
+					value: 'auth-providers',
+					content: authProviders
+				}
 			]
-		: [{ label: 'Agents', value: 'agents', content: agents }]}
+		: [{ label: m.identity_access_agents_tab(), value: 'agents', content: agents }]}
 />
 
 {#snippet navActions(view: string)}
@@ -45,7 +60,8 @@
 			class="btn btn-primary w-full text-sm sm:w-auto"
 			onclick={() => groupsView?.openAddAssignment()}
 		>
-			<Plus class="size-4" /> Add Assignment
+			<Plus class="size-4" />
+			{m.identity_access_add_assignment()}
 		</button>
 	{:else if view === 'agents' && !showCreateAgent && !isAdminReadonly}
 		<button
@@ -53,7 +69,7 @@
 			onclick={() => agentsView?.showCreateForm()}
 		>
 			<Plus class="size-4" />
-			Create Agent Identity
+			{m.identity_access_create_agent_identity()}
 		</button>
 	{/if}
 {/snippet}
@@ -75,7 +91,41 @@
 {/snippet}
 
 {#snippet authProviders()}
-	<AuthProvidersView authProviders={data.authProviders} authEnabled={data.authEnabled} />
+	<div class="flex flex-col gap-4">
+		<nav class="flex" aria-label={m.identity_access_auth_providers_nav()}>
+			<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
+				{@render subview(
+					m.identity_access_auth_providers_tab_providers(),
+					AUTH_PROVIDERS_VIEW_PATH,
+					!showSCIM
+				)}
+				{@render subview(m.identity_access_scim_tab(), SCIM_VIEW_PATH, showSCIM)}
+			</div>
+		</nav>
+		{#if showSCIM}
+			<ScimView
+				review={data.scimReview}
+				enablePreview={data.scimEnablePreview}
+				pageSize={data.scimPageSize}
+			/>
+		{:else}
+			<AuthProvidersView authProviders={data.authProviders} authEnabled={data.authEnabled} />
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet subview(
+	label: string,
+	path: typeof AUTH_PROVIDERS_VIEW_PATH | typeof SCIM_VIEW_PATH,
+	active: boolean
+)}
+	<a
+		href={resolve(path)}
+		class={twMerge('tab text-xs min-w-24', active && 'tab-active bg-base-300 dark:bg-base-100')}
+		aria-current={active ? 'page' : undefined}
+	>
+		{label}
+	</a>
 {/snippet}
 
 {#snippet agents()}

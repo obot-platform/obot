@@ -1,18 +1,21 @@
 <script lang="ts">
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { MCPCatalogEntry, MCPCatalogServer, OrgUser } from '$lib/services';
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpTunnelConnections, profile } from '$lib/stores';
+	import { isDisabledUser } from '$lib/utils';
 	import Table from '../table/Table.svelte';
 	import { Info } from '@lucide/svelte';
 
 	interface Props {
 		catalogEntry?: MCPCatalogEntry;
-		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
+		entity?: 'workspace' | 'catalog' | 'webhook-validation';
 		entityId?: string;
 		server?: MCPCatalogServer;
 		serverId?: string;
@@ -80,18 +83,28 @@
 		{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers && connectedUsers.length > 0}
 			<div>
 				<h2 class="mb-2 text-lg font-semibold">
-					{server?.serverUserType === 'multiUser' ? 'Connected Users' : 'Associated User'}
+					{server?.serverUserType === 'multiUser'
+						? m.mcps_servers_details_connected_users()
+						: m.mcps_servers_details_associated_user()}
 				</h2>
 				<Table
 					data={connectedUsers ?? []}
 					fields={['name', 'updateStatus']}
-					headers={[{ title: 'Config Status', property: 'updateStatus' }]}
+					headers={[
+						{ title: m.core_name(), property: 'name' },
+						{ title: m.mcps_servers_details_config_status(), property: 'updateStatus' }
+					]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							{d.email || d.username || 'Unknown'}
+							<SubjectName
+								name={d.email || d.username || m.core_unknown()}
+								disabled={isDisabledUser(d)}
+							/>
 						{:else if property === 'updateStatus'}
-							{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
+							{d.mcpInstanceConfigured === false
+								? m.core_mcp_value_not_configured()
+								: m.core_mcp_value_up_to_date()}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
@@ -107,7 +120,7 @@
 	<div class="notification-info p-3 text-sm font-light">
 		<div class="flex items-center gap-3">
 			<Info class="size-6" />
-			<p>Server information cannot be provided at this time.</p>
+			<p>{m.mcps_servers_details_unavailable()}</p>
 		</div>
 	</div>
 {/if}

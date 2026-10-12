@@ -42,7 +42,8 @@ type (
 
 		// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 		// cluster the obot pod runs in, where source Secrets for
-		// secretBindings live. Nil on the docker backend
+		// secretBindings live. It reads from the local router's cache. Nil on
+		// the docker backend.
 		LocalK8sClient kclient.Client
 
 		// ObotNamespace is the Kubernetes namespace in which the obot server
@@ -209,10 +210,6 @@ func (r *Context) UserIsAdmin() bool {
 
 func (r *Context) UserIsAuditor() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupAuditor)
-}
-
-func (r *Context) UserCanImpersonate() bool {
-	return slices.Contains(r.User.GetGroups(), types.GroupUserImpersonation)
 }
 
 func (r *Context) UserIsPowerUser() bool {

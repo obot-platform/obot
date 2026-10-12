@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { MCPCapacityInfo } from '$lib/services/admin/types';
@@ -60,12 +61,12 @@
 {:else if capacityInfo && !capacityInfo.error}
 	<div class="bg-base-300 dark:bg-base-200 p-4 shadow-sm">
 		<div class="mb-3 flex items-center gap-1">
-			<h3 class="text-sm font-semibold">MCP Requested Resources</h3>
+			<h3 class="text-sm font-semibold">{m.mcps_capacity_title()}</h3>
 			{#if capacityInfo.source === 'resourceQuota'}
 				<span
 					class="text-muted-content"
 					use:tooltip={{
-						text: 'Maximums based on resource quotas',
+						text: m.mcps_capacity_quota_tooltip(),
 						disablePortal: true
 					}}
 				>
@@ -77,13 +78,13 @@
 		<div class="grid grid-cols-3 gap-4">
 			<!-- Active Deployments -->
 			<div class="flex flex-col">
-				<span class="text-muted-content text-xs">Active Deployments</span>
+				<span class="text-muted-content text-xs">{m.mcps_capacity_active_deployments()}</span>
 				<span class="text-lg font-semibold">{capacityInfo.activeDeployments}</span>
 			</div>
 
 			<!-- CPU -->
 			<div class="flex flex-col">
-				<span class="text-muted-content text-xs">CPU Requested</span>
+				<span class="text-muted-content text-xs">{m.mcps_capacity_cpu_requested()}</span>
 				<span class="text-lg font-semibold">
 					{#if capacityInfo.cpuLimit}
 						{formatValue(capacityInfo.cpuRequested)} / {formatValue(capacityInfo.cpuLimit)}
@@ -95,7 +96,7 @@
 
 			<!-- Memory -->
 			<div class="flex flex-col">
-				<span class="text-muted-content text-xs">Memory Requested</span>
+				<span class="text-muted-content text-xs">{m.mcps_capacity_memory_requested()}</span>
 				<span class="text-lg font-semibold">
 					{#if capacityInfo.memoryLimit}
 						{formatValue(capacityInfo.memoryRequested)} / {formatValue(capacityInfo.memoryLimit)}

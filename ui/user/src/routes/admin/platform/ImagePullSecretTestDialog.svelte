@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import type { ImagePullSecret, ImagePullSecretTestResponse } from '$lib/services';
 	import FieldLabel from './FieldLabel.svelte';
 	import { displayName } from './types';
@@ -38,7 +39,9 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={`Test ${secret ? displayName(secret) : 'Image Pull Secret'}`}
+	title={m.platform_settings_image_pull_secrets_test_named({
+		name: secret ? displayName(secret) : m.platform_settings_image_pull_secrets_image_pull_secret()
+	})}
 	class="w-full md:max-w-xl"
 	{onClose}
 >
@@ -51,8 +54,8 @@
 	>
 		<label class="flex flex-col gap-1">
 			<FieldLabel
-				label="Test Image Reference"
-				help="Full image reference to pull with this image pull secret during the connection test."
+				label={m.platform_settings_image_pull_secrets_test_image_ref()}
+				help={m.platform_settings_image_pull_secrets_test_image_ref_help()}
 			/>
 			<input
 				class="input-text-filled"
@@ -79,14 +82,14 @@
 					<span>{testError}</span>
 				{:else}
 					<CircleCheck class="size-5 shrink-0" />
-					<span>{testResult?.message || 'Success'}</span>
+					<span>{testResult?.message || m.platform_success()}</span>
 				{/if}
 			</div>
 		{/if}
 
 		<div class="flex justify-end gap-2">
 			<button type="button" class="btn btn-secondary" disabled={testing} onclick={close}>
-				Cancel
+				{m.common_cancel()}
 			</button>
 			<button
 				type="submit"
@@ -98,7 +101,7 @@
 				{:else}
 					<ShieldCheck class="size-4" />
 				{/if}
-				Test
+				{m.platform_test()}
 			</button>
 		</div>
 	</form>

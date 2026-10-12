@@ -5,6 +5,7 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type DeviceMCPServerStat, type DeviceScanStats } from '$lib/services';
 	import {
 		clearUrlParams,
@@ -74,7 +75,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder="Search by server name..."
+	placeholder={m.inventory_enforcement_device_mcp_servers_search_servers()}
 />
 
 {#if loading}
@@ -82,10 +83,13 @@
 {:else if allRows.length === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Server class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No MCP servers observed yet</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_device_mcp_servers_no_servers_title()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Run <code class="font-mono">obot scan</code> from a managed device with configured MCP servers to
-			populate this view.
+			{m.inventory_enforcement_device_mcp_servers_no_servers_prefix()}<code class="font-mono"
+				>obot scan</code
+			>{m.inventory_enforcement_device_mcp_servers_no_servers_suffix()}
 		</p>
 	</div>
 {:else}
@@ -94,11 +98,11 @@
 		pageSize={PAGE_SIZE}
 		fields={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
 		headers={[
-			{ title: 'Name', property: 'name' },
-			{ title: 'Transport', property: 'transport' },
-			{ title: 'Devices', property: 'deviceCount' },
-			{ title: 'Users', property: 'userCount' },
-			{ title: 'Observations', property: 'observationCount' }
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
+			{ title: m.inventory_enforcement_devices_tab(), property: 'deviceCount' },
+			{ title: m.inventory_enforcement_col_users(), property: 'userCount' },
+			{ title: m.inventory_enforcement_col_observations(), property: 'observationCount' }
 		]}
 		sortable={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
 		filterable={['name', 'transport']}
@@ -116,7 +120,7 @@
 				{#if d.name?.trim()}
 					{d.name.trim()}
 				{:else}
-					<span class="text-muted-content italic">(unnamed)</span>
+					<span class="text-muted-content italic">{m.inventory_enforcement_unnamed()}</span>
 				{/if}
 			{:else if property === 'transport'}
 				<span class="pill-primary bg-primary text-xs">{d.transport}</span>

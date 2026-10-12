@@ -67,12 +67,11 @@ func TestAuthorizeTokenRequestByDeviceCode(t *testing.T) {
 		Name:        "CLI token",
 		Description: "device login",
 		Scopes: types.APIKeyScopes{
-			CanAccessAPI:                true,
-			CanAccessSkills:             true,
-			CanAccessLLMProxy:           true,
-			CanAccessDeviceScans:        true,
-			CanAccessPublishedArtifacts: true,
-			MCPServerIDs:                []string{"*"},
+			CanAccessAPI:         true,
+			CanAccessSkills:      true,
+			CanAccessLLMProxy:    true,
+			CanAccessDeviceScans: true,
+			MCPServerIDs:         []string{"*"},
 		},
 	}
 	code, err := c.CreateDeviceTokenRequest(ctx, request)

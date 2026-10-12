@@ -4,6 +4,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import Success from '$lib/components/Success.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { StorageCredentials } from '$lib/services/admin/types';
@@ -130,43 +131,103 @@
 			if (!useWorkloadIdentity) {
 				if (form.provider === 's3') {
 					if (!form.s3Config?.region) {
-						throw new Error('Region is required for S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_region(),
+								provider: 'S3'
+							})
+						);
 					}
 					if (!form.s3Config?.accessKeyID) {
-						throw new Error('Access Key ID is required for S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_access_key_id(),
+								provider: 'S3'
+							})
+						);
 					}
 					if (!form.s3Config?.secretAccessKey && !existingCredentials?.s3Config) {
-						throw new Error('Secret Access Key is required for S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_secret_access_key(),
+								provider: 'S3'
+							})
+						);
 					}
 				} else if (form.provider === 'gcs') {
 					if (!form.gcsConfig?.serviceAccountJSON && !existingCredentials?.gcsConfig) {
-						throw new Error('Service Account JSON is required for GCS');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_service_account_json(),
+								provider: 'GCS'
+							})
+						);
 					}
 				} else if (form.provider === 'azure') {
 					if (!form.azureConfig?.storageAccount) {
-						throw new Error('Storage Account is required for Azure');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_storage_account(),
+								provider: 'Azure'
+							})
+						);
 					}
 					if (!form.azureConfig?.clientID) {
-						throw new Error('Client ID is required for Azure');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_client_id(),
+								provider: 'Azure'
+							})
+						);
 					}
 					if (!form.azureConfig?.tenantID) {
-						throw new Error('Tenant ID is required for Azure');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_tenant_id(),
+								provider: 'Azure'
+							})
+						);
 					}
 					if (!form.azureConfig?.clientSecret && !existingCredentials?.azureConfig) {
-						throw new Error('Client Secret is required for Azure');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_client_secret(),
+								provider: 'Azure'
+							})
+						);
 					}
 				} else if (form.provider === 'custom') {
 					if (!form.customS3Config?.endpoint) {
-						throw new Error('Endpoint is required for Custom S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_endpoint(),
+								provider: m.audit_usage_exports_custom_s3_short()
+							})
+						);
 					}
 					if (!form.customS3Config?.region) {
-						throw new Error('Region is required for Custom S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_region(),
+								provider: m.audit_usage_exports_custom_s3_short()
+							})
+						);
 					}
 					if (!form.customS3Config?.accessKeyID) {
-						throw new Error('Access Key ID is required for Custom S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_access_key_id(),
+								provider: m.audit_usage_exports_custom_s3_short()
+							})
+						);
 					}
 					if (!form.customS3Config?.secretAccessKey && !existingCredentials?.customS3Config) {
-						throw new Error('Secret Access Key is required for Custom S3');
+						throw new Error(
+							m.audit_usage_exports_field_required({
+								field: m.audit_usage_exports_secret_access_key(),
+								provider: m.audit_usage_exports_custom_s3_short()
+							})
+						);
 					}
 				}
 			}
@@ -179,7 +240,7 @@
 			await AdminService.configureStorageCredentials(request);
 			onSubmit();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to configure credentials';
+			error = err instanceof Error ? err.message : m.audit_usage_exports_configure_failed();
 		} finally {
 			saving = false;
 		}
@@ -247,7 +308,7 @@
 		} catch (err) {
 			testResult = {
 				success: false,
-				message: err instanceof Error ? err.message : 'Test failed'
+				message: err instanceof Error ? err.message : m.audit_usage_exports_test_failed()
 			};
 		} finally {
 			testing = false;
@@ -269,7 +330,7 @@
 			existingCredentials = null;
 			testResult = {
 				success: true,
-				message: 'Storage credentials deleted successfully'
+				message: m.audit_usage_exports_deleted()
 			};
 
 			// Reset form to default state
@@ -300,7 +361,7 @@
 			};
 			useWorkloadIdentity = false;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to delete credentials';
+			error = err instanceof Error ? err.message : m.audit_usage_exports_delete_failed();
 		} finally {
 			deleting = false;
 		}
@@ -311,7 +372,7 @@
 	<div class="dark:bg-base-300 bg-base-100 rounded-md p-6 shadow-sm">
 		<div class="flex items-center justify-center py-8">
 			<Loading class="size-6" />
-			<span class="ml-2 text-sm text-gray-600">Loading storage credentials...</span>
+			<span class="ml-2 text-sm text-gray-600">{m.audit_usage_exports_loading()}</span>
 		</div>
 	</div>
 {:else}
@@ -327,11 +388,11 @@
 				<div class="mb-6 flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 					<TriangleAlert class="size-5 shrink-0 text-warning" />
 					<div class="flex-1 text-sm">
-						<p class="font-medium">Storage provider already configured</p>
+						<p class="font-medium">{m.audit_usage_exports_already_configured()}</p>
 						<p class="mt-1 opacity-80">
-							A storage provider (<span class="uppercase">{existingCredentials.provider}</span>) is
-							already configured. To change providers, you must first delete the existing
-							configuration.
+							{m.audit_usage_exports_already_configured_prefix()}<span class="uppercase"
+								>{existingCredentials.provider}</span
+							>{m.audit_usage_exports_already_configured_suffix()}
 						</p>
 					</div>
 				</div>
@@ -340,18 +401,19 @@
 			<div class={twMerge('flex flex-col gap-8')}>
 				<!-- Provider Selection -->
 				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">Storage Provider</h3>
+					<h3 class="text-lg font-semibold">{m.audit_usage_exports_provider_heading()}</h3>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="storage-provider">Provider</label>
+						<label class="text-sm font-medium" for="storage-provider">{m.core_col_provider()}</label
+						>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Select
 								class="text-input-filled bg-base-200 dark:bg-base-100"
 								classes={{ root: 'w-full' }}
 								options={[
-									{ id: 's3', label: 'Amazon S3' },
-									{ id: 'gcs', label: 'Google Cloud Storage' },
-									{ id: 'azure', label: 'Azure Blob Storage' },
-									{ id: 'custom', label: 'Custom S3 Compatible' }
+									{ id: 's3', label: m.audit_usage_exports_amazon_s3() },
+									{ id: 'gcs', label: m.audit_usage_exports_google_cloud_storage() },
+									{ id: 'azure', label: m.audit_usage_exports_azure_blob_storage() },
+									{ id: 'custom', label: m.audit_usage_exports_custom_s3() }
 								]}
 								selected={form.provider}
 								disabled={!!existingCredentials}
@@ -408,12 +470,12 @@
 
 				{#if form.provider === 's3' && form.s3Config}
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="region">Region</label>
+						<label class="text-sm font-medium" for="region">{m.audit_usage_exports_region()}</label>
 						<input
 							class="text-input-filled"
 							id="region"
 							bind:value={form.s3Config.region}
-							placeholder="e.g. us-east-1"
+							placeholder={m.audit_usage_exports_region_placeholder()}
 						/>
 					</div>
 				{/if}
@@ -423,7 +485,9 @@
 					<div class="space-y-4">
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="storage-account">Storage Account</label>
+								<label class="text-sm font-medium" for="storage-account"
+									>{m.audit_usage_exports_storage_account()}</label
+								>
 								<input
 									class="text-input-filled"
 									id="storage-account"
@@ -438,24 +502,26 @@
 				<!-- Authentication Method -->
 				{#if form.provider !== 'custom'}
 					<div class="space-y-4">
-						<h3 class="text-lg font-semibold">Authentication Method</h3>
+						<h3 class="text-lg font-semibold">{m.audit_usage_exports_auth_method()}</h3>
 						<div class="flex flex-col gap-4">
 							<div class="flex items-center justify-between">
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="auth-method"
-										>Use credential associated with Obot</label
+										>{m.audit_usage_exports_use_obot_credential()}</label
 									>
 								</div>
 								<Toggle
 									checked={useWorkloadIdentity}
 									onChange={(checked) => (useWorkloadIdentity = checked)}
-									label={useWorkloadIdentity ? 'Use workload identity' : 'Configure keys manually'}
+									label={useWorkloadIdentity
+										? m.audit_usage_exports_use_workload_identity()
+										: m.audit_usage_exports_configure_keys_manually()}
 								/>
 							</div>
 							{#if useWorkloadIdentity}
 								<div class="rounded-md bg-blue-50 p-4 dark:bg-blue-950/50">
 									<p class="text-sm text-blue-700 dark:text-blue-300">
-										Using existing workload identity from Obot. No manual credentials required.
+										{m.audit_usage_exports_using_workload_identity()}
 									</p>
 								</div>
 							{/if}
@@ -466,12 +532,14 @@
 				<!-- Credentials -->
 				{#if !useWorkloadIdentity}
 					<div class="space-y-4">
-						<h3 class="text-lg font-semibold">Credentials</h3>
+						<h3 class="text-lg font-semibold">{m.audit_usage_exports_credentials()}</h3>
 
 						{#if form.provider === 's3' && form.s3Config}
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="access-key">Access Key ID</label>
+									<label class="text-sm font-medium" for="access-key"
+										>{m.audit_usage_exports_access_key_id()}</label
+									>
 									<input
 										name="access-key"
 										class="text-input-filled"
@@ -479,7 +547,9 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="secret-key">Secret Access Key</label>
+									<label class="text-sm font-medium" for="secret-key"
+										>{m.audit_usage_exports_secret_access_key()}</label
+									>
 									<SensitiveInput
 										name="secret-key"
 										bind:value={form.s3Config.secretAccessKey}
@@ -492,7 +562,8 @@
 							</div>
 						{:else if form.provider === 'gcs' && form.gcsConfig}
 							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="service-account">Service Account JSON</label
+								<label class="text-sm font-medium" for="service-account"
+									>{m.audit_usage_exports_service_account_json()}</label
 								>
 								<SensitiveInput
 									name="service-account-json"
@@ -505,13 +576,15 @@
 									hideReveal
 								/>
 								<p class="text-muted-content text-xs">
-									Complete JSON key file for the service account
+									{m.audit_usage_exports_service_account_help()}
 								</p>
 							</div>
 						{:else if form.provider === 'azure' && form.azureConfig}
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="azure-client-id">Client ID</label>
+									<label class="text-sm font-medium" for="azure-client-id"
+										>{m.audit_usage_exports_client_id()}</label
+									>
 									<input
 										name="azure-client-id"
 										class="text-input-filled"
@@ -519,7 +592,9 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="azure-tenant-id">Tenant ID</label>
+									<label class="text-sm font-medium" for="azure-tenant-id"
+										>{m.audit_usage_exports_tenant_id()}</label
+									>
 									<input
 										name="azure-tenant-id"
 										class="text-input-filled"
@@ -527,7 +602,9 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="azure-client-secret">Client Secret</label>
+									<label class="text-sm font-medium" for="azure-client-secret"
+										>{m.audit_usage_exports_client_secret()}</label
+									>
 									<SensitiveInput
 										name="azure-client-secret"
 										bind:value={form.azureConfig.clientSecret}
@@ -541,7 +618,9 @@
 						{:else if form.provider === 'custom' && form.customS3Config}
 							<div class="space-y-4">
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="custom-endpoint">Endpoint</label>
+									<label class="text-sm font-medium" for="custom-endpoint"
+										>{m.audit_usage_exports_endpoint()}</label
+									>
 									<input
 										class="text-input-filled"
 										id="custom-endpoint"
@@ -550,16 +629,20 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="custom-region">Region</label>
+									<label class="text-sm font-medium" for="custom-region"
+										>{m.audit_usage_exports_region()}</label
+									>
 									<input
 										class="text-input-filled"
 										id="custom-region"
 										bind:value={form.customS3Config.region}
-										placeholder="e.g. us-east-1"
+										placeholder={m.audit_usage_exports_region_placeholder()}
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="text-sm font-medium" for="custom-access-key">Access Key ID</label>
+									<label class="text-sm font-medium" for="custom-access-key"
+										>{m.audit_usage_exports_access_key_id()}</label
+									>
 									<input
 										name="custom-access-key"
 										class="text-input-filled"
@@ -568,7 +651,7 @@
 								</div>
 								<div class="flex flex-col gap-1">
 									<label class="text-sm font-medium" for="custom-secret-key"
-										>Secret Access Key</label
+										>{m.audit_usage_exports_secret_access_key()}</label
 									>
 									<SensitiveInput
 										name="custom-secret-key"
@@ -622,9 +705,9 @@
 					>
 						{#if testing}
 							<Loading class="size-4" />
-							Testing...
+							{m.audit_usage_exports_testing()}
 						{:else}
-							Test Connection
+							{m.audit_usage_exports_test_connection()}
 						{/if}
 					</button>
 				{/if}
@@ -638,10 +721,10 @@
 					>
 						{#if deleting}
 							<Loading class="size-4" />
-							Deleting...
+							{m.audit_usage_exports_deleting()}
 						{:else}
 							<Trash class="size-4" />
-							Delete Credentials
+							{m.audit_usage_exports_delete_credentials()}
 						{/if}
 					</button>
 				{/if}
@@ -653,14 +736,14 @@
 						onclick={onCancel}
 						disabled={saving || testing}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button type="submit" class="btn btn-primary" disabled={saving || testing}>
 						{#if saving}
 							<Loading class="size-4" />
-							Saving...
+							{m.audit_usage_exports_saving()}
 						{:else}
-							Save Credentials
+							{m.audit_usage_exports_save_credentials()}
 						{/if}
 					</button>
 				</div>
@@ -671,7 +754,9 @@
 
 <Confirm
 	show={showDeleteConfirm}
-	msg={`Delete ${existingCredentials?.provider || 'these credentials'}?`}
+	msg={existingCredentials?.provider
+		? m.audit_usage_exports_delete_provider_msg({ provider: existingCredentials.provider })
+		: m.audit_usage_exports_delete_these_msg()}
 	onsuccess={handleDeleteCredentials}
 	oncancel={() => (showDeleteConfirm = false)}
 	loading={deleting}

@@ -3,6 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
 	import { UserService, type OrgUser, type VMCP } from '$lib/services';
@@ -72,9 +73,9 @@
 			id: item.id,
 			componentServers,
 			vmcp: item,
-			displayName: item.displayName || 'Untitled vMCP',
+			displayName: item.displayName || m.vmcps_untitled_vmcp(),
 			description: item.description ?? '',
-			owner: getVMcpCreator(item, usersMap, '') ?? '',
+			owner: getVMcpCreator(item, usersMap, false) ?? '',
 			serverNames: componentServers.map((component) => component.name),
 			status: ''
 		};
@@ -100,8 +101,8 @@
 		if (hasLicenseEntitlementViolations) return MCP_CONNECTION_INVALID_LICENSE_MESSAGE;
 		if (!ctx.canConnect)
 			return ctx.isShared
-				? 'Requires access to connect or test this vMCP'
-				: 'Cannot connect or test a personal vMCP';
+				? m.vmcps_requires_access_to_connect()
+				: m.vmcps_cannot_connect_personal();
 		return undefined;
 	}
 
@@ -178,11 +179,11 @@
 			}
 			success.add(
 				deleted.length === 1
-					? `${deleted[0].displayName || 'vMCP'} deleted.`
-					: `${deleted.length} vMCPs deleted.`
+					? m.vmcps_named_deleted({ name: deleted[0].displayName || 'vMCP' })
+					: m.vmcps_count_vmcps_deleted({ count: deleted.length })
 			);
 		} catch {
-			errors.append('Failed to delete vMCP(s).');
+			errors.append(m.vmcps_failed_to_delete_vmcps());
 		} finally {
 			tableRef?.clearSelectAll();
 			bulkDeleting = false;
@@ -243,7 +244,7 @@
 
 			if (more) {
 				more.hidden = false;
-				more.textContent = `+${items.length - Math.max(visible, 1)} more`;
+				more.textContent = m.vmcps_n_more({ count: items.length - Math.max(visible, 1) });
 				const moreWidth = more.offsetWidth + gap;
 				while (visible > 0 && used + moreWidth > available + 0.5) {
 					visible -= 1;
@@ -259,7 +260,7 @@
 				const hidden = items.length - visible;
 				more.hidden = hidden <= 0;
 				if (hidden > 0) {
-					more.textContent = `+${hidden} more`;
+					more.textContent = m.vmcps_n_more({ count: hidden });
 				}
 			}
 			setOverflowHidden(current.cardId, Math.max(items.length - visible, 0));
@@ -286,7 +287,7 @@
 			{#if noDataContent}
 				{@render noDataContent()}
 			{:else}
-				<p class="text-muted-content text-sm font-light">No vMCPs available.</p>
+				<p class="text-muted-content text-sm font-light">{m.vmcps_no_vmcps_available_period()}</p>
 			{/if}
 		</div>
 	{:else}
@@ -308,10 +309,10 @@
 	<div
 		class="border-base-300 bg-base-100 dark:border-base-400 dark:bg-base-300 sticky inset-x-0 bottom-4 z-50 flex items-center gap-4 rounded-full px-4 py-2 shadow-sm"
 		role="toolbar"
-		aria-label="Selected vMCP actions"
+		aria-label={m.vmcps_selected_vmcp_actions()}
 	>
 		<p class="text-muted-content pl-4 text-sm font-semibold">
-			{selectedCount} of {selectableCount} selected
+			{m.vmcps_selected_of_total({ selected: selectedCount, total: selectableCount })}
 		</p>
 		<div class="flex grow items-center justify-end gap-2">
 			<button
@@ -319,12 +320,15 @@
 				onclick={() => (pendingBulkDelete = deletable.map((row) => row.vmcp))}
 				disabled={deletable.length === 0}
 			>
-				<Trash2 class="size-4" /> Delete
+				<Trash2 class="size-4" />
+				{m.core_delete()}
 				{#if deletable.length > 0}
 					<span class="pill-primary">{deletable.length}</span>
 				{/if}
 			</button>
-			<button class="btn btn-secondary text-sm font-normal" onclick={exitSelecting}>Cancel</button>
+			<button class="btn btn-secondary text-sm font-normal" onclick={exitSelecting}
+				>{m.common_cancel()}</button
+			>
 		</div>
 	</div>
 {/if}
@@ -337,16 +341,18 @@
 	oncancel={() => (pendingBulkDelete = undefined)}
 	msg=""
 	loading={bulkDeleting}
-	title="Confirm Delete"
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
-		Are you sure you want to delete
 		{#if pendingBulkDelete?.length === 1}
-			"<b>{pendingBulkDelete[0].displayName ?? 'this vMCP'}</b>"?
+			{m.vmcps_delete_confirm_prefix()}<b
+				>{pendingBulkDelete[0].displayName ?? m.vmcps_deployments_this_vmcp()}</b
+			>{m.vmcps_delete_confirm_suffix()}
 		{:else}
-			<b>{pendingBulkDelete?.length ?? 0} vMCPs</b>?
+			{m.vmcps_bulk_delete_confirm_prefix()}<b
+				>{m.vmcps_count_vmcps({ count: pendingBulkDelete?.length ?? 0 })}</b
+			>{m.vmcps_bulk_delete_confirm_suffix()}
 		{/if}
-		This cannot be undone.
 	{/snippet}
 </Confirm>
 
@@ -357,14 +363,15 @@
 			data={items}
 			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
-				{ title: 'Name', property: 'displayName' },
-				{ title: 'Servers', property: 'serverNames' },
-				{ title: 'Created by', property: 'owner' }
+				{ title: m.core_name(), property: 'displayName' },
+				{ title: m.vmcps_servers(), property: 'serverNames' },
+				{ title: m.core_col_created_by(), property: 'owner' },
+				{ title: m.core_status(), property: 'status' }
 			]}
-			noDataMessage="No vMCPs available."
+			noDataMessage={m.vmcps_no_vmcps_available_period()}
 			noAutoHideFields={['displayName']}
 			validateSelect={profile.current.isAdmin?.() ? undefined : canSelectRow}
-			disabledSelectMessage="You can only delete vMCPs you created."
+			disabledSelectMessage={m.vmcps_only_delete_own()}
 			remeasureKey={JSON.stringify(overflowHiddenById)}
 			setRowClasses={() => 'group'}
 			onClickRow={(row) => handleSelect(row.vmcp)}
@@ -430,11 +437,11 @@
 								disabled={connectDisabled(ctx.canConnect)}
 								aria-disabled={connectDisabled(ctx.canConnect)}
 							>
-								Connect
+								{m.vmcps_connect()}
 							</button>
 						</div>
 						<IconButton
-							tooltip={{ text: 'Test vMCP' }}
+							tooltip={{ text: m.vmcps_test_vmcp() }}
 							onclick={(e) => {
 								e.stopPropagation();
 								handleTest(row.vmcp);
@@ -449,7 +456,7 @@
 						<DotDotDot
 							class="hover:dark:bg-base-100/50"
 							classes={{ menu: 'min-w-48' }}
-							ariaLabel={`Actions for ${ctx.name}`}
+							ariaLabel={m.vmcps_deployments_actions_for_named({ name: ctx.name })}
 						>
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
@@ -467,7 +474,8 @@
 											toggle(false);
 										}}
 									>
-										<Plug class="size-4" /> Connect
+										<Plug class="size-4" />
+										{m.vmcps_connect()}
 									</button>
 									<button
 										class="menu-button"
@@ -478,7 +486,8 @@
 											handleTest(row.vmcp, toggle);
 										}}
 									>
-										<MessageCircle class="size-4" /> Test vMCP
+										<MessageCircle class="size-4" />
+										{m.vmcps_test_vmcp()}
 									</button>
 								{/if}
 								{#if ctx.hasActions}
@@ -509,7 +518,8 @@
 						onclick={() => (pendingBulkDelete = deletable.map((row) => row.vmcp))}
 						disabled={deletable.length === 0}
 					>
-						<Trash2 class="size-4" /> Delete
+						<Trash2 class="size-4" />
+						{m.core_delete()}
 						{#if deletable.length > 0}
 							<span class="pill-primary">{deletable.length}</span>
 						{/if}
@@ -524,8 +534,8 @@
 	<VMcpCard
 		vmcp={card.vmcp}
 		selectAriaLabel={isSelectMode
-			? `Select ${card.displayName}`
-			: `Open ${card.displayName || 'Untitled vMCP'}`}
+			? m.vmcps_select_named({ name: card.displayName })
+			: m.vmcps_open_named({ name: card.displayName || m.vmcps_untitled_vmcp() })}
 		selected={Boolean(selected[card.id])}
 		selecting={isSelectMode}
 		onSelect={() => {
@@ -578,10 +588,10 @@
 	{@const overflowed = hiddenCount > 0 ? card.componentServers.slice(-hiddenCount) : []}
 	{#if card.componentServers.length === 0}
 		{#if variant === 'table'}
-			<span class="text-muted-content text-xs italic">No servers</span>
+			<span class="text-muted-content text-xs italic">{m.vmcps_no_servers()}</span>
 		{:else}
 			<p class="text-muted-content py-2 text-center text-xs italic">
-				No servers yet. Open this vMCP in the designer to add some.
+				{m.vmcps_no_servers_yet_open_designer()}
 			</p>
 		{/if}
 	{:else}
@@ -603,7 +613,7 @@
 				<div
 					data-more
 					hidden={hiddenCount <= 0}
-					aria-label={hiddenCount > 0 ? `${hiddenCount} more servers` : undefined}
+					aria-label={hiddenCount > 0 ? m.vmcps_n_more_servers({ count: hiddenCount }) : undefined}
 					class="pointer-events-auto relative z-10 border-base-400 text-muted-content flex shrink-0 items-center justify-center rounded-md border border-dashed px-1.5 py-1 font-mono text-xs whitespace-nowrap"
 					use:tooltip={hiddenCount > 0
 						? {

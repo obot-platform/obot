@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
 	import {
@@ -78,7 +79,7 @@
 	{#if needsUpdate}
 		<div
 			class="absolute -top-1 right-7 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
-			use:tooltip={'Server requires an update.'}
+			use:tooltip={m.mcps_servers_card_requires_update()}
 		>
 			<TriangleAlert class="size-4 text-warning" />
 		</div>

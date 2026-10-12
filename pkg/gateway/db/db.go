@@ -161,8 +161,20 @@ func (db *DB) AutoMigrate() (err error) {
 		types.LocalAuthUser{},
 		types.LocalAuthSession{},
 		types.EnforcementDecisionLog{},
+		types.UserLifecycleEvent{},
+		types.SCIMConnection{},
+		types.SCIMUserBinding{},
+		types.SCIMGroupBinding{},
+		types.SCIMPendingGroupDeletion{},
+		types.SCIMGroupSubjectCleanup{},
+		types.SCIMReferenceWrite{},
+		types.SCIMRequestFailure{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "identity_first_sign_in_backfill", backfillIdentityFirstSignIn); err != nil {
+		return fmt.Errorf("failed to backfill identity sign-in times: %w", err)
 	}
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {
@@ -171,6 +183,14 @@ func (db *DB) AutoMigrate() (err error) {
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_legacy_local_agent_audit_log_columns", dropLegacyLocalAgentAuditLogColumns); err != nil {
 		return fmt.Errorf("failed to drop legacy local-agent audit log columns: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_user_impersonation_role", removeUserImpersonationRole); err != nil {
+		return fmt.Errorf("failed to remove the user impersonation role: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_published_artifact_scope_columns", dropPublishedArtifactScopeColumns); err != nil {
+		return fmt.Errorf("failed to drop the published artifact scope columns: %w", err)
 	}
 
 	// MIGRATION: replace mcp_server_instance with mcp_id as the new primary key.

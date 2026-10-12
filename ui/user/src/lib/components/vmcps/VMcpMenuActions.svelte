@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		editVMcpInstanceConfiguration,
@@ -79,7 +80,7 @@
 	{:else}
 		<Power class="size-4" />
 	{/if}
-	Reset
+	{m.core_reset_page()}
 </button>
 {#if openUpdateConfirm && ctx.needsUpdate && ctx.canUpdate}
 	<button
@@ -96,7 +97,7 @@
 		{:else}
 			<CircleFadingArrowUp class="size-4" />
 		{/if}
-		Update vMCP
+		{m.vmcps_update_vmcp()}
 	</button>
 {/if}
 {#if canEditInstanceConfiguration}
@@ -116,7 +117,8 @@
 			);
 		}}
 	>
-		<ServerCog class="size-4" /> Edit Configuration
+		<ServerCog class="size-4" />
+		{m.vmcps_deployments_edit_configuration()}
 	</button>
 {/if}
 {#if openDiff && ctx.needsUpdate}
@@ -129,7 +131,8 @@
 			toggle(false);
 		}}
 	>
-		<GitCompare class="size-4" /> View Diff
+		<GitCompare class="size-4" />
+		{m.vmcps_view_diff()}
 	</button>
 {/if}
 {#if ctx.isCreator || profile.current.hasAdminAccess?.()}
@@ -143,7 +146,8 @@
 			toggle(false);
 		}}
 	>
-		View Audit Logs <ExternalLink class="size-4" />
+		{m.vmcps_deployments_view_audit_logs()}
+		<ExternalLink class="size-4" />
 	</a>
 	<a
 		class="menu-button justify-between"
@@ -155,7 +159,8 @@
 			toggle(false);
 		}}
 	>
-		View Usage <ExternalLink class="size-4" />
+		{m.vmcps_view_usage()}
+		<ExternalLink class="size-4" />
 	</a>
 {/if}
 {#if ctx.canDelete}
@@ -168,6 +173,6 @@
 		}}
 	>
 		<Trash2 class="size-4" />
-		Delete
+		{m.core_delete()}
 	</button>
 {/if}

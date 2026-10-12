@@ -1,5 +1,6 @@
 <script lang="ts">
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { m } from '$lib/i18n';
 
 	type Props = {
 		rangeStart: Date | string;
@@ -14,17 +15,18 @@
 		rangeEnd,
 		timelineRows,
 		totalSubmissions,
-		emptyMsg = 'No scan submissions in this window.'
+		emptyMsg = m.inventory_enforcement_devices_scan_no_submissions()
 	}: Props = $props();
 </script>
 
 <div class="paper flex h-full flex-col gap-2 pt-4">
 	<div class="flex items-baseline justify-between gap-2">
-		<h4 class="font-semibold">Scan Timeline</h4>
+		<h4 class="font-semibold">{m.inventory_enforcement_devices_scan_timeline()}</h4>
 		{#if totalSubmissions > 0}
 			<span class="text-muted-content text-xs">
-				{totalSubmissions}
-				{totalSubmissions === 1 ? 'submission' : 'submissions'}
+				{totalSubmissions === 1
+					? m.inventory_enforcement_devices_scan_submissions_one({ count: totalSubmissions })
+					: m.inventory_enforcement_devices_scan_submissions_other({ count: totalSubmissions })}
 			</span>
 		{/if}
 	</div>

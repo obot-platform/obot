@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import VMcpDragDropStage from '$lib/components/vmcps/VMcpDragDropStage.svelte';
+	import { m } from '$lib/i18n';
 	import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 	import { profile } from '$lib/stores';
 	import setupSplash from '$lib/stores/setupSplash.svelte';
@@ -48,35 +49,33 @@
 	disableClickOutside
 	onClose={dismiss}
 >
-	<h2 class="text-2xl font-semibold mb-4">Getting Started</h2>
+	<h2 class="text-2xl font-semibold mb-4">{m.vmcps_intro_getting_started()}</h2>
 	<div class="grid md:grid-cols-2 md:items-center">
 		<div class="flex flex-col gap-4">
 			<p class="leading-relaxed">
-				Get started by creating a <b>Virtual MCP</b> — a secure MCP endpoint that connects AI agents,
-				applications, and other MCP clients to the tools and services they need, with centralized control
-				over access.
+				{m.vmcps_intro_lead_prefix()}<b>{m.vmcps_intro_lead_strong()}</b
+				>{m.vmcps_intro_lead_suffix()}
 			</p>
 			<ul class="space-y-2">
 				<li class="flex items-start gap-2">
 					{@render point()}
 					<div class="flex flex-col">
-						<b>Control what AI can access</b>
-						Select and expose only the tools you want from one or more MCP servers.
+						<b>{m.vmcps_intro_point_control_title()}</b>
+						{m.vmcps_intro_point_control_description()}
 					</div>
 				</li>
 				<li class="flex items-start gap-2">
 					{@render point()}
 					<div class="flex flex-col">
-						<b>Secure by design</b>
-						Protect clients from unexpected upstream changes by controlling the tools and definitions
-						they receive.
+						<b>{m.vmcps_intro_point_secure_title()}</b>
+						{m.vmcps_intro_point_secure_description()}
 					</div>
 				</li>
 				<li class="flex items-start gap-2">
 					{@render point()}
 					<div class="flex flex-col">
-						<b>The right access for every identity</b>
-						Give users, groups, and agents the right set of tools through the same Virtual MCP.
+						<b>{m.vmcps_intro_point_identity_title()}</b>
+						{m.vmcps_intro_point_identity_description()}
 					</div>
 				</li>
 			</ul>
@@ -90,15 +89,17 @@
 				id="vmcp-introduction-animation-label"
 				class="font-mono text-[0.625rem] tracking-[0.14em] uppercase"
 			>
-				Drag &amp; Drop
+				{m.vmcps_drag_and_drop()}
 			</p>
 			<VMcpDragDropStage class="mt-2" />
 			<p class="mt-2 text-xs">
-				Drag MCP servers anywhere onto your Virtual MCP canvas to get started.
+				{m.vmcps_intro_drag_description()}
 			</p>
 		</div>
 	</div>
-	<button type="button" class="btn btn-primary w-full mt-8" onclick={dismiss}>Get started</button>
+	<button type="button" class="btn btn-primary w-full mt-8" onclick={dismiss}
+		>{m.vmcps_intro_get_started()}</button
+	>
 </ResponsiveDialog>
 
 {#snippet point()}

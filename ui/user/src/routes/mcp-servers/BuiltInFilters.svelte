@@ -1,6 +1,7 @@
 <script lang="ts">
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
@@ -32,18 +33,25 @@
 	<Table
 		data={filteredBuiltInFiltersData}
 		fields={['name', 'created']}
+		headers={[
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.core_col_created(), property: 'created' }
+		]}
 		filterable={['name']}
 		onClickRow={(d) => {
 			onSelect?.(d);
 		}}
 		sortable={['name', 'status', 'type', 'created']}
-		noDataMessage="No built-in servers available."
+		noDataMessage={m.mcps_filters_no_built_in_servers()}
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex shrink-0 items-center gap-2">
+				<div class="flex min-w-0 flex-col gap-1 py-1">
 					<p class="flex items-center gap-2">
 						{d.name}
+					</p>
+					<p class="text-sm font-light text-muted-content whitespace-normal line-clamp-3">
+						{d.manifest.shortDescription || stripMarkdownToText(d.manifest.description)}
 					</p>
 				</div>
 			{:else if property === 'created'}
@@ -74,5 +82,7 @@
 		</button>
 	</div>
 
-	<div class="text-muted-content text-sm font-light mt-4 text-center italic">More Coming Soon!</div>
+	<div class="text-muted-content text-sm font-light mt-4 text-center italic">
+		{m.mcps_filters_more_coming_soon()}
+	</div>
 {/if}

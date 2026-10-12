@@ -1,0 +1,26 @@
+{
+	"$schema": "https://inlang.com/schema/project-settings",
+	"baseLocale": "en",
+	"locales": ["en", "ja", "ko", "zh-CN"],
+	"modules": ["./node_modules/@inlang/plugin-message-format/dist/index.js"],
+	"plugin.inlang.messageFormat": {
+		"pathPattern": [
+			"./messages/{locale}.json",
+			"./messages/ai_judge/{locale}.json",
+			"./messages/audit_usage/{locale}.json",
+			"./messages/auth/{locale}.json",
+			"./messages/chat/{locale}.json",
+			"./messages/core/{locale}.json",
+			"./messages/dashboard/{locale}.json",
+			"./messages/hosted_agents/{locale}.json",
+			"./messages/identity_access/{locale}.json",
+			"./messages/install_cli/{locale}.json",
+			"./messages/inventory_enforcement/{locale}.json",
+			"./messages/mcps/{locale}.json",
+			"./messages/models/{locale}.json",
+			"./messages/platform/{locale}.json",
+			"./messages/skills/{locale}.json",
+			"./messages/vmcps/{locale}.json"
+		]
+	}
+}

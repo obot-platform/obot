@@ -3,10 +3,17 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import { SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { SCIM_VIEW_PATH, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { reloadPage } from '$lib/navigation';
-	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
+	import { navigateTo, reloadPage } from '$lib/navigation';
+	import {
+		AdminService,
+		UserService,
+		type AuthProvider,
+		type BootstrapStatus,
+		type TempUser
+	} from '$lib/services';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
@@ -24,6 +31,15 @@
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
+	// The configured auth provider, when it provisions users and groups through SCIM. Its setup
+	// continues on the SCIM sub-tab once the new Owner signs in.
+	let scimProvider = $state<AuthProvider>();
+	// Signing out lands on the sign-in page, which returns the new Owner to the SCIM sub-tab once they
+	// sign in. It is sent there directly, because a page that needs a session keeps only its path
+	// when it sends a signed-out browser to sign in.
+	let afterSignOut = $derived(
+		scimProvider ? `/?rd=${encodeURIComponent(SCIM_VIEW_PATH)}` : '/admin'
+	);
 
 	onMount(() => {
 		fetchBootstrapStatus = UserService.getBootstrapStatus();
@@ -32,6 +48,15 @@
 				AdminService.getTempUser(),
 				AdminService.listExplicitRoleEmails()
 			]);
+			AdminService.listAuthProviders()
+				.then((providers) => {
+					scimProvider = providers.find(
+						(provider) => provider.configured && provider.scimState === 'connected'
+					);
+				})
+				.catch(() => {
+					// Only the hint about SCIM setup depends on it.
+				});
 		}
 	});
 
@@ -40,7 +65,7 @@
 			await AdminService.bootstrapLogin(bootstrapToken);
 			reloadPage();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
+			error = err instanceof Error ? err.message : m.auth_bootstrap_unknown_error();
 		}
 	}
 </script>
@@ -83,10 +108,16 @@
 				{#if showSuccessOwnerConfirmation}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6">
 						<p class="text-md px-4 text-left font-light">
-							You've established your first owner user, the bootstrap user currently being used will
-							be disabled. Upon completing this action, you'll be logged out and asked to log into
-							Obot again.
+							{m.auth_bootstrap_handoff_done()}
 						</p>
+						{#if scimProvider}
+							<p class="text-md px-4 text-left font-light">
+								{scimProvider.name} provisions users and groups through SCIM. After you log in, setup
+								continues on Identity &amp; Access → Auth Providers → SCIM: generate the token, create
+								the SCIM app in
+								{scimProvider.name}, and assign users.
+							</p>
+						{/if}
 					</div>
 					<button
 						class="btn btn-secondary place-items-center"
@@ -95,42 +126,42 @@
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
 							localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
 							clearProductAnalyticsConsentDeferral();
-							window.location.href = '/oauth2/sign_out?rd=/admin';
+							navigateTo(`/oauth2/sign_out?rd=${encodeURIComponent(afterSignOut)}`);
 						}}
 					>
-						Log out
+						{m.profile_log_out()}
 					</button>
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
 						<div class="flex items-center justify-center gap-2">
 							{#if isExplicitAdmin}
 								<ShieldAlert class="size-6" />
-								<h3 class="text-xl font-semibold">Explicit Admin Already Set</h3>
+								<h3 class="text-xl font-semibold">{m.auth_bootstrap_explicit_admin_set()}</h3>
 							{:else}
 								<Handshake class="size-6" />
-								<h3 class="text-xl font-semibold">Confirm New Owner</h3>
+								<h3 class="text-xl font-semibold">{m.auth_bootstrap_confirm_new_owner()}</h3>
 							{/if}
 						</div>
 
 						<p class="text-md text-center font-light">
-							You're now logged in as <span class="font-semibold"
-								>{tempUser.email || tempUser.username}</span
-							>.
+							{m.auth_bootstrap_logged_in_as_prefix()}
+							<span class="font-semibold">{tempUser.email || tempUser.username}</span
+							>{m.auth_bootstrap_logged_in_as_suffix()}
 						</p>
 
 						<p class="text-md text-center font-light" class:text-left={isExplicitAdmin}>
 							{#if isExplicitAdmin}
-								This account has been explicitly assigned the Admin role. It cannot be modified. Go
-								back and assign the Owner role to another account or adjust the preconfiguration to
-								set this account as an owner instead. (See <a
+								{m.auth_bootstrap_explicit_admin_note_prefix()}
+								<a
 									class="text-link"
 									target="_blank"
 									rel="external noopener noreferrer"
 									href="https://docs.obot.ai/configuration/auth-providers#preconfiguring-owner--admin-users"
-									>Preconfiguring Owner & Admin Users</a
-								> for more information.)
+									>{m.auth_bootstrap_explicit_admin_note_link()}</a
+								>
+								{m.auth_bootstrap_explicit_admin_note_suffix()}
 							{:else}
-								Are you sure you wish to make this account an owner?
+								{m.auth_bootstrap_make_owner_confirm()}
 							{/if}
 						</p>
 					</div>
@@ -149,7 +180,7 @@
 								{#if loadingConfirmTempUser}
 									<Loading class="size-4" />
 								{:else}
-									Yes, make this account an owner
+									{m.auth_bootstrap_make_owner_yes()}
 								{/if}
 							</button>
 						{/if}
@@ -165,7 +196,7 @@
 							{#if loadingCancelTempUser}
 								<Loading class="size-4" />
 							{:else}
-								{isExplicitAdmin ? 'Go Back' : 'No, cancel & go back'}
+								{isExplicitAdmin ? m.auth_bootstrap_go_back() : m.auth_bootstrap_cancel_go_back()}
 							{/if}
 						</button>
 					</div>
@@ -186,7 +217,7 @@
 			<div class="notification-error mt-4 flex items-center gap-2">
 				<CircleAlert class="size-6 text-error" />
 				<p class="flex flex-col text-sm font-light">
-					<span class="font-semibold">An error occurred!</span>
+					<span class="font-semibold">{m.auth_bootstrap_error_occurred()}</span>
 					<span>
 						{error}
 					</span>
@@ -197,8 +228,7 @@
 		{#if loggedIn && !hasAccess}
 			<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
 				<p class="text-muted-content px-8 text-center text-sm font-light md:px-8">
-					You are not authorized to access this page. Please sign in with an authorized account or
-					contact your administrator.
+					{m.auth_bootstrap_not_authorized()}
 				</p>
 			</div>
 
@@ -207,15 +237,15 @@
 				onclick={clearProductAnalyticsConsentDeferral}
 				class="bg-base-200 hover:bg-base-300 dark:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 			>
-				<p class="text-center text-sm font-medium">Sign Out</p>
+				<p class="text-center text-sm font-medium">{m.auth_bootstrap_sign_out()}</p>
 			</a>
 		{:else if authProviders.length > 0}
 			<div class="relative z-10 mt-6 flex w-full flex-col items-center justify-center gap-6">
 				<p class="text-md text-muted-content px-8 text-center font-light md:px-8">
-					To access the admin panel, you need to sign in with an option below.
+					{m.auth_bootstrap_sign_in_prompt()}
 				</p>
 				<h3 class="dark:bg-base-300 bg-base-100 px-2 text-lg font-semibold">
-					Sign in to Your Account
+					{m.auth_bootstrap_sign_in_heading()}
 				</h3>
 			</div>
 
@@ -238,7 +268,9 @@
 								src={authProvider.icon}
 								alt={authProvider.name}
 							/>
-							<span class="text-center text-sm font-light">Continue with {authProvider.name}</span>
+							<span class="text-center text-sm font-light"
+								>{m.login_continue_with({ provider: authProvider.name })}</span
+							>
 						{/if}
 					</button>
 				{/each}
@@ -248,7 +280,9 @@
 						onclick={() => (showBootstrapLogin = true)}
 						class="bg-base-200 hover:bg-base-300 dark:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 					>
-						<p class="text-center text-sm font-medium">Sign in with Bootstrap Token</p>
+						<p class="text-center text-sm font-medium">
+							{m.auth_bootstrap_sign_in_bootstrap()}
+						</p>
 					</button>
 				{/if}
 			</div>
@@ -256,21 +290,20 @@
 
 		{#if showBootstrapLogin && bootstrapStatus?.enabled && !loggedIn}
 			<div class="flex flex-col gap-4" in:slide class:mt-4={authProviders.length === 0}>
-				<h4 class="text-center text-lg font-semibold">Authenticate with Bootstrap Token</h4>
-				<p class="text-md font-light">Enter the bootstrap token to continue setup.</p>
+				<h4 class="text-center text-lg font-semibold">{m.auth_bootstrap()}</h4>
+				<p class="text-md font-light">{m.auth_bootstrap_enter_bootstrap()}</p>
 
 				<div class="text-md flex flex-col gap-1">
-					<label for="bootstrap-token" class="font-semibold">Bootstrap Token</label>
+					<label for="bootstrap-token" class="font-semibold">{m.auth_bootstrap_token()}</label>
 					<SensitiveInput name="bootstrap-token" bind:value={bootstrapToken} />
 				</div>
 
 				<i class="text-xs font-light">
-					You can find the bootstrap token in the server logs when starting Obot by searching for
-					'Bootstrap Token', or configure it directly through environment variables at startup.
+					{m.auth_bootstrap_hint()}
 				</i>
 
 				<button class="btn btn-primary mt-4 text-sm" onclick={handleBootstrapLogin}>
-					Login as Bootstrap Admin
+					{m.auth_bootstrap_login_bootstrap()}
 				</button>
 			</div>
 		{/if}
@@ -278,5 +311,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | Admin</title>
+	<title>Obot | {m.auth_bootstrap_page_title()}</title>
 </svelte:head>

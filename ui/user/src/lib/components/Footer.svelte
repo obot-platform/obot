@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { m } from '$lib/i18n';
 </script>
 
 <footer class="flex w-full flex-col justify-between text-sm shadow-md">
@@ -13,10 +14,10 @@
 		</a>
 		<div class="flex grow"></div>
 		<div class="mt-8 flex flex-col gap-2 md:mt-0">
-			<p class="self-center text-[11px] md:self-end">© 2025 Acorn. All rights reserved.</p>
+			<p class="self-center text-[11px] md:self-end">{m.footer_rights()}</p>
 			<div class="flex gap-4">
-				<a href={resolve('/privacy-policy')}>Privacy Policy</a> |
-				<a href={resolve('/terms-of-service')}>Terms of Service</a>
+				<a href={resolve('/privacy-policy')}>{m.footer_privacy_policy()}</a> |
+				<a href={resolve('/terms-of-service')}>{m.footer_terms_of_service()}</a>
 			</div>
 		</div>
 	</div>

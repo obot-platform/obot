@@ -1,4 +1,5 @@
 ---
+displayed_sidebar: sidebar
 title: Product Analytics
 ---
 

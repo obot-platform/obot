@@ -23,16 +23,12 @@
 	});
 
 	const setupPath = '/admin/setup';
-	const modelProviderPath = '/models?view=model-providers';
 
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
 		version.current.authEnabled ? storeData.authProviderConfigured : true
 	);
 	const view = $derived(page.url.searchParams.get('view'));
-	const requiresModelProviderConfiguration = $derived(
-		version.current.agentsEnabled !== false && !storeData.modelProviderConfigured
-	);
 	const isOnProductAnalyticsSettings = $derived(
 		page.url.pathname === '/admin/product-analytics' ||
 			(page.url.pathname === '/admin/platform' &&
@@ -81,7 +77,7 @@
 		const needsSetup =
 			!firstTimeViewed &&
 			(isBootstrapUser || isOwner) &&
-			(!isAuthProviderConfigured || requiresModelProviderConfiguration || !storeData.eulaAccepted);
+			(!isAuthProviderConfigured || !storeData.eulaAccepted);
 		if ((needsSetup && !isOnSetupPage) || needsProductAnalyticsConsent) {
 			splashOpened = true;
 			setupSplash.blocking = true;
@@ -95,17 +91,8 @@
 	});
 
 	async function finishOnboarding() {
-		if (isBootstrapUser) {
-			if (!isAuthProviderConfigured) {
-				goto(setupPath);
-			} else if (requiresModelProviderConfiguration) {
-				goto(modelProviderPath);
-			}
-			return;
-		}
-
-		if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
-			goto(modelProviderPath);
+		if (isBootstrapUser && !isAuthProviderConfigured) {
+			goto(setupPath);
 		}
 	}
 

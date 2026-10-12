@@ -4,6 +4,7 @@
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -29,8 +30,16 @@
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import CredentialFilterConfiguration from './CredentialFilterConfiguration.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import {
+		credentialEnvironment,
+		credentialKeys,
+		credentialMutationRequired,
+		readCredentialPolicy,
+		validateCredentialPolicy
+	} from './credentialPolicy';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -71,10 +80,15 @@
 			initialFilter
 				? {
 						name: initialFilter.name || '',
-						resources: initialFilter.resources || [],
+						resources: initialFilter.resources?.map((resource) => ({ ...resource })) || [],
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
-						selectors: initialFilter.selectors || [],
+						// Keep editable nested state separate even when the input is already reactive.
+						selectors:
+							initialFilter.selectors?.map((selector) => ({
+								...selector,
+								identifiers: selector.identifiers ? [...selector.identifiers] : undefined
+							})) || [],
 						toolName: initialFilter.toolName || '',
 						allowedToMutate: initialFilter.allowedToMutate || false,
 						disabled: initialFilter.disabled || false
@@ -96,14 +110,24 @@
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
 	);
+	let credentialConfigurationLoaded = $state(untrack(() => !initialFilter?.id));
+	let credentialLoadError = $state('');
+	let disableError = $state('');
+	let isCredentialFilter = $derived(
+		filter.toolName === 'filter_credentials' && !!mcpSystemCatalogEntryId
+	);
+	let credentialPolicy = $derived(readCredentialPolicy(runtimeFormData?.env ?? []));
+	let credentialError = $derived(
+		isCredentialFilter ? validateCredentialPolicy(credentialPolicy) : undefined
+	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
-		{ id: 'webhook-url', label: 'Webhook URL' },
-		{ id: 'remote', label: 'Remote' },
+		{ id: 'webhook-url', label: m.mcps_filters_webhook_url() },
+		{ id: 'remote', label: m.mcps_catalog_runtime_remote() },
 		{ id: 'npx', label: 'NPX' },
 		{ id: 'uvx', label: 'UVX' },
-		{ id: 'containerized', label: 'Containerized' }
+		{ id: 'containerized', label: m.mcps_catalog_runtime_containerized() }
 	];
 
 	let saving = $state<boolean | undefined>();
@@ -117,8 +141,7 @@
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
 
-	const UNSAVED_LAUNCH_EXIT_MESSAGE =
-		'Are you sure you want to exit? You still have unsaved changes.';
+	const UNSAVED_LAUNCH_EXIT_MESSAGE = m.mcps_filters_unsaved_exit();
 
 	beforeNavigate(({ cancel }) => {
 		if (!launchFilterData) return;
@@ -138,7 +161,7 @@
 
 	onMount(() => {
 		if (initialFilterId) {
-			revealServerValues();
+			void revealServerValues();
 		}
 
 		function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -177,6 +200,24 @@
 				}));
 			}
 
+			if (isCredentialFilter && runtimeFormData) {
+				// Saved values can outlive fields in the instance's old manifest.
+				// Preserve them, including unsupported IDs, for validation and repair.
+				for (const key of credentialKeys) {
+					if (!runtimeFormData.env.some((field) => field.key === key)) {
+						runtimeFormData.env.push({
+							key,
+							name: key,
+							description: '',
+							required: false,
+							sensitive: false,
+							value: response[key] ?? ''
+						});
+					}
+				}
+			}
+			credentialConfigurationLoaded = true;
+
 			// Update headers in the appropriate runtime config based on runtime type
 			if (runtimeFormData?.runtime === 'remote') {
 				if (runtimeFormData.remoteConfig?.headers) {
@@ -197,10 +238,15 @@
 			}
 		} catch (error) {
 			if (error instanceof HttpError && error.statusCode === 404) {
-				// ignore, 404 means no credentials were set
+				// 404 means no credentials were set.
+				credentialConfigurationLoaded = true;
 				return;
 			}
-			// Re-throw other errors
+			if (isCredentialFilter) {
+				credentialLoadError =
+					'Unable to load the saved credential policy. Reload this page before editing.';
+				return;
+			}
 			throw error;
 		}
 	}
@@ -365,11 +411,18 @@
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
 	) {
 		if (mcpServerManifest) {
-			const configValues = Object.fromEntries(
-				(mcpServerManifest.manifest.config ?? [])
-					.filter((field) => !field.userAllowed && field.key && field.value)
-					.map((field) => [field.key, field.value])
-			);
+			const configValues = isCredentialFilter
+				? {
+						...Object.fromEntries(
+							(runtimeFormData?.env ?? []).map((field) => [field.key, field.value ?? ''])
+						),
+						...credentialEnvironment(credentialPolicy)
+					}
+				: Object.fromEntries(
+						(mcpServerManifest.manifest.config ?? [])
+							.filter((field) => !field.userAllowed && field.key && field.value)
+							.map((field) => [field.key, field.value])
+					);
 
 			// Configure the server with the collected values if any exist
 			if (Object.keys(configValues).length > 0) {
@@ -393,7 +446,36 @@
 		return true;
 	}
 
+	async function disableCredentialFilter() {
+		if (!initialFilterId || !initialFilter || readonly) return;
+		saving = true;
+		disableError = '';
+		try {
+			// Use saved settings so disabling never applies unsaved policy changes.
+			const result = await AdminService.updateMCPFilter(initialFilterId, {
+				name: initialFilter.name,
+				resources: initialFilter.resources,
+				url: initialFilter.url,
+				selectors: initialFilter.selectors,
+				toolName: initialFilter.toolName,
+				allowedToMutate: initialFilter.allowedToMutate,
+				systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId,
+				disabled: true
+			});
+			onUpdate?.(result);
+		} catch (err) {
+			disableError = err instanceof Error ? err.message : 'Unable to disable filter';
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function handleSave() {
+		if (
+			isCredentialFilter &&
+			(!credentialConfigurationLoaded || credentialLoadError || credentialError)
+		)
+			return;
 		// Show validation errors if required fields are missing
 		if (
 			!filter.name.trim() ||
@@ -459,7 +541,9 @@
 				secret: filter.secret || undefined,
 				selectors,
 				toolName: filter.toolName,
-				allowedToMutate: filter.allowedToMutate ?? false,
+				allowedToMutate:
+					!!filter.allowedToMutate ||
+					(isCredentialFilter && credentialMutationRequired(credentialPolicy)),
 				disabled: filter.disabled ?? false,
 				...(isPrebuiltEntry
 					? {
@@ -488,7 +572,7 @@
 				}
 			}
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -509,7 +593,7 @@
 			{@render topContent()}
 		{/if}
 		{#if !initialFilterId}
-			<h1 class="text-2xl font-semibold">Create Filter</h1>
+			<h1 class="text-2xl font-semibold">{m.mcps_filters_create_filter()}</h1>
 		{/if}
 
 		<div
@@ -518,7 +602,9 @@
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
-					<label for="filter-name" class="flex-1 text-sm font-light capitalize"> Name </label>
+					<label for="filter-name" class="flex-1 text-sm font-light capitalize">
+						{m.core_name()}
+					</label>
 					<div class="flex grow flex-col gap-0.5">
 						<input
 							id="filter-name"
@@ -529,7 +615,7 @@
 							disabled={readonly}
 						/>
 						{#if nameError}
-							<p class="text-xs text-error">Name is required</p>
+							<p class="text-xs text-error">{m.mcps_name_required()}</p>
 						{/if}
 					</div>
 				</div>
@@ -537,7 +623,7 @@
 				{#if !mcpSystemCatalogEntryId}
 					<div class="flex flex-col gap-2">
 						<label for={MCP_FILTERS_FIELD_IDS.runtimeSelector} class="text-sm font-light"
-							>Type</label
+							>{m.core_type()}</label
 						>
 						<div class="w-full">
 							<Select
@@ -561,7 +647,7 @@
 			>
 				<div class="flex flex-col gap-2">
 					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
-						Webhook URL
+						{m.mcps_filters_webhook_url()}
 					</label>
 					<input
 						id="webhook-url"
@@ -573,13 +659,13 @@
 						disabled={readonly || isPrebuiltEntry}
 					/>
 					{#if urlError}
-						<p class="text-xs text-error">Webhook URL is required</p>
+						<p class="text-xs text-error">{m.mcps_filters_webhook_url_required()}</p>
 					{/if}
 				</div>
 
 				<div class="flex flex-col gap-2">
 					<label for="webhook-secret" class="flex-1 text-sm font-light capitalize">
-						Secret (Optional)
+						{m.mcps_filters_secret_optional()}
 					</label>
 					<div class="relative">
 						<input
@@ -596,7 +682,7 @@
 								class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-muted-content hover:text-base-content dark:text-muted-content dark:hover:text-base-content"
 								onclick={() => (showSecret = !showSecret)}
 								use:tooltip={{
-									text: showSecret ? 'Hide secret' : 'Show secret',
+									text: showSecret ? m.mcps_filters_hide_secret() : m.mcps_filters_show_secret(),
 									placement: 'top-end'
 								}}
 							>
@@ -613,10 +699,7 @@
 					{#if initialFilter?.hasSecret}
 						<div class="flex items-start justify-between gap-4">
 							<p class="flex-1 text-xs text-amber-600 dark:text-amber-400">
-								There is currently a secret configured for this webhook. If you've lost or forgotten
-								this secret, you can change it, but be aware that any integrations using this secret
-								will need to be updated. If you want to keep the secret, you can leave this field
-								unchanged.
+								{m.mcps_filters_secret_configured()}
 							</p>
 							{#if !readonly}
 								<button
@@ -627,16 +710,16 @@
 								>
 									{#if removingSecret}
 										<Loading class="size-3 inline-block" />
-										Removing...
+										{m.mcps_filters_removing()}
 									{:else}
-										Remove Secret
+										{m.mcps_filters_remove_secret()}
 									{/if}
 								</button>
 							{/if}
 						</div>
 					{:else}
 						<p class="text-muted-content text-xs">
-							A shared secret used to sign the payload for webhook verification.
+							{m.mcps_filters_secret_hint()}
 						</p>
 					{/if}
 				</div>
@@ -687,7 +770,17 @@
 					{/if}
 				{/if}
 
-				{#if runtimeFormData.runtime !== 'remote'}
+				{#if isCredentialFilter}
+					{#if readonly && initialFilterId}<p class="text-sm text-muted-content">
+							Saved credential policy is available only to administrators.
+						</p>{:else if credentialLoadError}<p role="alert" class="text-error">
+							{credentialLoadError}
+						</p>{:else if !credentialConfigurationLoaded}<p>
+							Loading saved credential policy...
+						</p>{:else}
+						<CredentialFilterConfiguration bind:config={runtimeFormData.env} {readonly} />
+					{/if}
+				{:else if runtimeFormData.runtime !== 'remote'}
 					<CustomConfigurationForm
 						bind:config={runtimeFormData.env}
 						{readonly}
@@ -711,6 +804,7 @@
 		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
+		{#if disableError}<p role="alert" class="text-error">{disableError}</p>{/if}
 		<div
 			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
 			out:fly={{ x: -100, duration }}
@@ -721,8 +815,15 @@
 					{#if initialFilter?.id}
 						<button
 							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
-							disabled={saving}
+							disabled={saving ||
+								(isCredentialFilter &&
+									filter.disabled &&
+									(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 							onclick={() => {
+								if (isCredentialFilter && !filter.disabled) {
+									void disableCredentialFilter();
+									return;
+								}
 								filter.disabled = !filter.disabled;
 								handleSave();
 							}}
@@ -730,7 +831,7 @@
 							{#if saving}
 								<Loading class="size-4" />
 							{:else}
-								{filter.disabled ? 'Enable' : 'Disable'} Filter
+								{filter.disabled ? m.mcps_filters_enable() : m.mcps_filters_disable()}
 							{/if}
 						</button>
 					{/if}
@@ -746,18 +847,20 @@
 							}
 						}}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button
 						id={MCP_FILTERS_FIELD_IDS.saveBtn}
 						class="btn btn-primary text-sm"
-						disabled={saving}
+						disabled={saving ||
+							(isCredentialFilter &&
+								(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
 						onclick={handleSave}
 					>
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.core_save()}
 						{/if}
 					</button>
 				</div>
@@ -769,7 +872,7 @@
 <PageLoading
 	isProgressBar
 	show={!!saving}
-	text="Configuring and initializing filter..."
+	text={m.mcps_filters_configuring()}
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{
@@ -778,7 +881,7 @@
 	onClose={handleCloseLaunch}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">MCP Filter Launch Failed</h4>
+		<h4 class="text-xl font-semibold">{m.mcps_filters_launch_failed_form_filter()}</h4>
 	{/snippet}
 
 	{#snippet errorPostContent()}
@@ -793,12 +896,12 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-md self-start">An issue occurred while launching the MCP filter.</p>
+			<p class="text-md self-start">{m.mcps_filters_launch_issue_form_filter()}</p>
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}
-				>Close</button
+				>{m.core_close()}</button
 			>
 		</div>
 	{/snippet}
@@ -818,7 +921,7 @@
 				runtimeFormData?.runtime === 'containerized' ? 'w-20' : ''
 			)}
 		>
-			Tool Name
+			{m.mcps_filters_tool_name()}
 		</label>
 		<div class="flex grow flex-col gap-0.5">
 			<input
@@ -831,7 +934,7 @@
 				disabled={readonly || isPrebuiltEntry}
 			/>
 			{#if toolNameError}
-				<p class="text-xs text-error">The name of tool to be called for the filter is required.</p>
+				<p class="text-xs text-error">{m.mcps_filters_tool_name_required()}</p>
 			{/if}
 		</div>
 	</div>
@@ -846,14 +949,13 @@
 					filter.allowedToMutate = checked;
 				}}
 				disabled={readonly || isPrebuiltEntry}
-				label="Enable Mutable Response"
+				label={m.mcps_filters_enable_mutable()}
 				labelInline
 			/>
 		</div>
 
 		<p class="text-muted-content text-xs font-light">
-			Enable this if the filter tool call is allowed to mutate the response. By default, the filter
-			will only accept or reject the call based on validation.
+			{m.mcps_filters_mutable_hint()}
 		</p>
 	</div>
 {/snippet}

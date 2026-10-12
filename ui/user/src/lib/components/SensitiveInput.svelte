@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import type { FullAutoFill } from 'svelte/elements';
 	import { twMerge } from 'tailwind-merge';
@@ -222,7 +223,7 @@
 						onmousedown={handleResizeStart}
 						role="button"
 						tabindex="-1"
-						aria-label="Resize"
+						aria-label={m.core_resize()}
 					>
 						<svg
 							class="h-full w-full text-muted-content hover:text-base-content"
@@ -308,10 +309,10 @@
 	{#if !hideReveal}
 		<div
 			class="absolute top-1/2 right-4 z-10 grid -translate-y-1/2 grid-cols-1 grid-rows-1"
-			use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
+			use:tooltip={{ disablePortal: true, text: showSensitive ? m.core_hide() : m.core_reveal() }}
 		>
 			<button
-				aria-label={showSensitive ? 'Hide' : 'Reveal'}
+				aria-label={showSensitive ? m.core_hide() : m.core_reveal()}
 				type="button"
 				class="cursor-pointer transition-colors duration-150"
 				class:text-error={error}

@@ -4,6 +4,7 @@
 	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type AppNotification, type BannerType } from '$lib/services';
 	import { profile, appNotification as appNotificationStore } from '$lib/stores';
 	import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
@@ -104,13 +105,12 @@
 		const banner = appNotification.banner;
 		const text = banner.text?.trim() ?? '';
 		if ((!text || !banner.type) && banner.enabled) {
-			bannerTextValidationError = 'This field is required.';
+			bannerTextValidationError = m.platform_field_required();
 			return false;
 		}
 
 		if (!hasOnlyAllowedMarkdown(text)) {
-			bannerTextValidationError =
-				'Only simple formatting and HTTP(S) text links are supported (bold, italic, strikethrough, and [text](url)).';
+			bannerTextValidationError = m.platform_settings_notifications_markdown_invalid();
 			return false;
 		}
 
@@ -132,7 +132,7 @@
 			persisted = next;
 			appNotification = withBanner(response);
 			appNotificationStore.initialize(response);
-			success.add('App notification updated successfully.');
+			success.add(m.platform_settings_notifications_updated());
 			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)
@@ -144,12 +144,12 @@
 <div class="relative h-full w-full @container flex flex-col gap-2" in:fade={{ duration }}>
 	<div class="paper gap-0.5">
 		<div>
-			<p class="text-sm font-medium mb-2">Banner Preview</p>
+			<p class="text-sm font-medium mb-2">{m.platform_settings_notifications_banner_preview()}</p>
 
 			<div class="w-full mb-4">
 				<AppNotificationBanner
 					data={appNotification.banner}
-					placeholder="[insert text to display here]"
+					placeholder={m.platform_settings_notifications_banner_placeholder()}
 				/>
 			</div>
 
@@ -157,7 +157,9 @@
 
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-4">
-					<label for="banner-type-selector" class="text-sm font-light">Type</label>
+					<label for="banner-type-selector" class="text-sm font-light shrink-0"
+						>{m.core_type()}</label
+					>
 					<div class="w-full">
 						<Select
 							id="banner-type-selector"
@@ -168,8 +170,8 @@
 							}}
 							disabled={isAdminReadonly || saving}
 							options={[
-								{ id: 'info', label: 'Info' },
-								{ id: 'warning', label: 'Warning' }
+								{ id: 'info', label: m.platform_settings_notifications_info() },
+								{ id: 'warning', label: m.platform_branding_warning() }
 							]}
 						/>
 					</div>
@@ -182,7 +184,8 @@
 							bannerTextValidationError && 'text-error'
 						)}
 					>
-						Text <InfoTooltip text="Supports simple markdown formatting and text URL links." />
+						{m.platform_branding_text()}
+						<InfoTooltip text={m.platform_settings_notifications_text_help()} />
 					</p>
 					<MarkdownInput
 						bind:value={appNotification.banner.text}
@@ -191,7 +194,7 @@
 							bannerTextValidationError && 'ring-2 ring-error border-error'
 						)}
 						classes={{ input: 'min-h-[120px]' }}
-						placeholder="Add banner text. Supports simple formatting and [text](https://example.com) links."
+						placeholder={m.platform_settings_notifications_text_placeholder()}
 						disabled={isAdminReadonly || saving}
 						disablePreview
 					/>
@@ -202,13 +205,11 @@
 				<div class="divider my-0"></div>
 				<label for="dismiss-banner-toggle" class="flex items-center justify-between">
 					<div>
-						<p class="text-sm font-light">Dismissible</p>
+						<p class="text-sm font-light">{m.platform_settings_notifications_dismissible()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
-							The banner is {appNotification.banner.dismissible
-								? 'dismissible'
-								: 'not dismissible'}. {appNotification.banner.dismissible
-								? 'The user can dismiss the banner and it will not appear again for their device.'
-								: 'The banner will stay visible and cannot be hidden by the user.'}
+							{appNotification.banner.dismissible
+								? m.platform_settings_notifications_dismissible_on()
+								: m.platform_settings_notifications_dismissible_off()}
 						</p>
 					</div>
 					<input
@@ -221,10 +222,9 @@
 				</label>
 				<label for="reset-dismissed-toggle" class="flex items-center justify-between">
 					<div>
-						<p class="text-sm font-light">Reset Dismissed</p>
+						<p class="text-sm font-light">{m.platform_settings_notifications_reset_dismissed()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
-							When enabled, the dismissed banner is shown again for users. They can dismiss the
-							banner again after it is shown.
+							{m.platform_settings_notifications_reset_dismissed_description()}
 						</p>
 					</div>
 					<input
@@ -238,10 +238,9 @@
 
 				<label for="enable-banner" class="w-full flex items-start justify-between gap-4">
 					<div class="text-sm">
-						<p>Enable Banner</p>
+						<p>{m.platform_settings_notifications_enable_banner()}</p>
 						<p class="text-xs font-light text-muted-content mb-2">
-							Enabling the banner will display it at the top of the page across all pages (except
-							agents, if enabled).
+							{m.platform_settings_notifications_enable_banner_description()}
 						</p>
 					</div>
 					<input

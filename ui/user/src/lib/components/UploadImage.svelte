@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Error from '$lib/components/Error.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { ImageResponse } from '$lib/services';
 	import { UserService } from '$lib/services';
@@ -12,7 +13,7 @@
 		variant?: 'icon' | 'preview';
 	}
 
-	let { onUpload, label = 'Upload Icon', variant = 'icon' }: Props = $props();
+	let { onUpload, label = m.core_upload_icon(), variant = 'icon' }: Props = $props();
 
 	let fileList = $state<FileList>();
 	let uploadInProgress = $state<Promise<ImageResponse>>();

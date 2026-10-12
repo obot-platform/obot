@@ -1,11 +1,5 @@
-import {
-	Role,
-	type OrgUser,
-	Group,
-	type DefaultModelAlias,
-	ModelAlias,
-	type Version
-} from './services';
+import { m } from '$lib/i18n';
+import { Role, type OrgUser, Group, type Version } from './services';
 import { goto } from './url';
 
 type TableSort = { property: string; order: 'asc' | 'desc' };
@@ -275,15 +269,25 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 }
 
 export const getUserRoleLabel = (role: number) => {
-	const withAuditor = role & Role.AUDITOR ? ', Auditor' : '';
-	const withUserImpersonation = role & Role.USER_IMPERSONATION ? ', Impersonator' : '';
-	if (role & Role.OWNER) return 'Owner' + withAuditor + withUserImpersonation;
-	if (role & Role.ADMIN) return 'Admin' + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER) return 'Power User' + withAuditor + withUserImpersonation;
-	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor + withUserImpersonation;
-	if (role & Role.BASIC) return 'Standard User' + withAuditor + withUserImpersonation;
-	return 'Unknown' + withAuditor + withUserImpersonation;
+	const withAuditor = role & Role.AUDITOR ? `, ${m.core_role_auditor()}` : '';
+	if (role & Role.OWNER) return m.core_role_owner() + withAuditor;
+	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor;
+	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor;
+	if (role & Role.POWERUSER_PLUS) return m.core_role_power_user_plus() + withAuditor;
+	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor;
+	return m.core_unknown() + withAuditor;
 };
+
+// isDisabledUser reports whether a user is disabled: they keep their account, but cannot sign in or use
+// their credentials.
+export function isDisabledUser(user?: Pick<OrgUser, 'status'>): boolean {
+	return user?.status === 'disabled';
+}
+
+// withDisabledMarker marks a user's label when the user is disabled, for lists of users that show only text.
+export function withDisabledMarker(label: string, user?: Pick<OrgUser, 'status'>): string {
+	return isDisabledUser(user) ? m.core_user_disabled_label({ name: label }) : label;
+}
 
 /**
  * Generates a display name for a user with fallbacks and contextual information.
@@ -308,7 +312,7 @@ export function getUserDisplayName(
 		user?.originalUsername,
 		user?.email,
 		user?.username,
-		'Unknown User'
+		m.core_unknown_user()
 	].filter(Boolean);
 
 	let display = primaryValues[0] ?? '';
@@ -338,20 +342,6 @@ export function getUserDisplayName(
 
 	return display;
 }
-
-export function clampThreadContentReportedWidth(widthPx: number): number {
-	const rounded = Math.round(Math.max(0, widthPx));
-	if (typeof window === 'undefined') return rounded;
-	const viewportWidth =
-		window.visualViewport?.width ?? document.documentElement?.clientWidth ?? window.innerWidth;
-	return Math.min(rounded, viewportWidth);
-}
-
-export const isAgentEnabled = (defaultModelAliases?: DefaultModelAlias[]) =>
-	defaultModelAliases &&
-	defaultModelAliases.length > 0 &&
-	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.Llm)?.model &&
-	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.LlmMini)?.model;
 
 export function isSafe<T = unknown>(value: T): value is NonNullable<T> {
 	return value !== undefined && value !== null;

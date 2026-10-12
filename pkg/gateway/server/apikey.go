@@ -297,6 +297,13 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 			Reason:  "user not found",
 		})
 	}
+	if status := user.Status(); status != types2.UserStatusActive {
+		slog.Info("Denied API key auth request", "reason", "user_not_active", "keyUserID", apiKey.UserID, "status", status, "mcpID", req.MCPID)
+		return apiContext.Write(apiKeyAuthResponse{
+			Allowed: false,
+			Reason:  "user is not active",
+		})
+	}
 
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
 	if !req.ValidateOnly && !system.IsWebhookSystemMCPServerID(req.MCPID) {

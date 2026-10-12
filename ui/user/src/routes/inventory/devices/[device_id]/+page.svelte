@@ -7,6 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AGENTS_HOME_CLIENT_LABEL, deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
+	import { m } from '$lib/i18n';
 	import {
 		UserService,
 		type DeviceScan,
@@ -119,11 +120,11 @@
 	}
 
 	let mcpRows = $derived<MCPRow[]>(
-		mcpServers.map((m) => ({
-			...m,
-			client: formatDeviceClient(m.client, m.projectPath),
-			scope: deriveDeviceScope(m.projectPath),
-			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
+		mcpServers.map((srv) => ({
+			...srv,
+			client: formatDeviceClient(srv.client, srv.projectPath),
+			scope: deriveDeviceScope(srv.projectPath),
+			endpoint: srv.transport === 'stdio' ? formatCommand(srv.command, srv.args) : srv.url || '—'
 		}))
 	);
 
@@ -186,11 +187,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Device {deviceId.slice(0, 12)}</title>
+	<title>{m.inventory_enforcement_devices_page_title_device({ id: deviceId.slice(0, 12) })}</title>
 </svelte:head>
 
 <Layout
-	title="Device"
+	title={m.inventory_enforcement_devices_device_title()}
 	showBackButton
 	onBackButtonClick={() => {
 		if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -206,25 +207,31 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !latest}
-			<p class="text-muted-content text-sm font-light">No scans found for this device.</p>
+			<p class="text-muted-content text-sm font-light">
+				{m.inventory_enforcement_devices_no_scans_for_device()}
+			</p>
 		{:else}
 			<!-- Header card -->
 			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<dl class="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Device ID</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						{m.inventory_enforcement_enforcement_events_device_id()}
+					</dt>
 					<dd class="flex items-center gap-2">
 						<span class="text-base font-semibold">{deviceId}</span>
 						<CopyButton text={deviceId} />
 					</dd>
 
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS / Arch</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						{m.inventory_enforcement_devices_label_os_arch()}
+					</dt>
 					<dd>
 						<span class="pill-primary bg-primary">{latest.os}/{latest.arch}</span>
 					</dd>
 
 					{#if hasAdminAccess}
 						<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
-							Submitted by
+							{m.inventory_enforcement_devices_label_submitted_by()}
 						</dt>
 						<dd>
 							{#if submittedByUser}
@@ -251,24 +258,30 @@
 						</dd>
 					{/if}
 
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">OS user</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						{m.inventory_enforcement_devices_label_os_user()}
+					</dt>
 					<dd>{latest.username || '—'}</dd>
 
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Hostname</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						{m.core_col_hostname()}
+					</dt>
 					<dd>{latest.hostname || '—'}</dd>
 
-					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">Scanner</dt>
+					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
+						{m.inventory_enforcement_devices_label_scanner()}
+					</dt>
 					<dd>{latest.scannerVersion || '—'}</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
-						Last scanned
+						{m.inventory_enforcement_devices_label_last_scanned()}
 					</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
 					</dd>
 
 					<dt class="text-muted-content text-xs font-medium tracking-wide uppercase">
-						Total scans
+						{m.inventory_enforcement_devices_label_total_scans()}
 					</dt>
 					<dd>{scans.length}</dd>
 				</dl>
@@ -282,7 +295,8 @@
 						class:tab-active={activeTab === 'clients'}
 						onclick={() => (activeTab = 'clients')}
 					>
-						<MonitorCheck class="size-4" /> Clients
+						<MonitorCheck class="size-4" />
+						{m.inventory_enforcement_overview_clients()}
 						<span class="text-muted-content">({clients.length})</span>
 					</button>
 					<button
@@ -290,7 +304,8 @@
 						class:tab-active={activeTab === 'mcp'}
 						onclick={() => (activeTab = 'mcp')}
 					>
-						<Server class="size-4" /> MCP Servers
+						<Server class="size-4" />
+						{m.inventory_enforcement_tab_mcp_servers()}
 						<span class="text-muted-content">({mcpServers.length})</span>
 					</button>
 					<button
@@ -298,7 +313,8 @@
 						class:tab-active={activeTab === 'skills'}
 						onclick={() => (activeTab = 'skills')}
 					>
-						<PencilRuler class="size-4" /> Skills
+						<PencilRuler class="size-4" />
+						{m.inventory_enforcement_skills_tab()}
 						<span class="text-muted-content">({skills.length})</span>
 					</button>
 					<button
@@ -306,25 +322,26 @@
 						class:tab-active={activeTab === 'plugins'}
 						onclick={() => (activeTab = 'plugins')}
 					>
-						<Boxes class="size-4" /> Plugins
+						<Boxes class="size-4" />
+						{m.inventory_enforcement_devices_col_plugins()}
 						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 				</div>
 
 				{#if activeTab === 'mcp'}
 					{#if mcpRows.length === 0}
-						{@render emptyTab('No MCP servers found in the latest scan.')}
+						{@render emptyTab(m.inventory_enforcement_devices_no_mcp_latest_scan())}
 					{:else}
 						<Table
 							data={mcpRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
-								{ title: 'Transport', property: 'transport' },
-								{ title: 'Endpoint', property: 'endpoint' }
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.inventory_enforcement_col_transport(), property: 'transport' },
+								{ title: m.inventory_enforcement_col_endpoint(), property: 'endpoint' }
 							]}
 							sortable={['client', 'name', 'transport', 'scope']}
 							filterable={['client', 'transport', 'scope']}
@@ -367,7 +384,8 @@
 													toggle();
 												}}
 											>
-												<Scale class="size-4" /> View Related Occurrences
+												<Scale class="size-4" />
+												{m.inventory_enforcement_devices_view_related_occurrences()}
 											</button>
 										{/snippet}
 									</DotDotDot>
@@ -377,19 +395,19 @@
 					{/if}
 				{:else if activeTab === 'skills'}
 					{#if skillRows.length === 0}
-						{@render emptyTab('No skills found in the latest scan.')}
+						{@render emptyTab(m.inventory_enforcement_devices_no_skills_latest_scan())}
 					{:else}
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
 							headers={[
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
-								{ title: 'Description', property: 'description' },
-								{ title: 'Has Scripts', property: 'hasScripts' },
-								{ title: 'Files', property: 'files_count' }
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.core_description(), property: 'description' },
+								{ title: m.inventory_enforcement_col_has_scripts(), property: 'hasScripts' },
+								{ title: m.inventory_enforcement_col_files(), property: 'files_count' }
 							]}
 							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							filterable={['client', 'scope']}
@@ -404,7 +422,9 @@
 								{#if property === 'description'}
 									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
-									{d.hasScripts ? 'yes' : 'no'}
+									{d.hasScripts
+										? m.inventory_enforcement_devices_yes()
+										: m.inventory_enforcement_devices_no()}
 								{:else if property === 'client'}
 									{@render clientLink(d.client)}
 								{:else}
@@ -430,7 +450,8 @@
 													toggle();
 												}}
 											>
-												<Scale class="size-4" /> View Related Occurrences
+												<Scale class="size-4" />
+												{m.inventory_enforcement_devices_view_related_occurrences()}
 											</button>
 										{/snippet}
 									</DotDotDot>
@@ -440,7 +461,7 @@
 					{/if}
 				{:else if activeTab === 'plugins'}
 					{#if pluginRows.length === 0}
-						{@render emptyTab('No plugins found in the latest scan.')}
+						{@render emptyTab(m.inventory_enforcement_devices_no_plugins_latest_scan())}
 					{:else}
 						<Table
 							data={pluginRows}
@@ -455,13 +476,19 @@
 								'capabilities'
 							]}
 							headers={[
-								{ title: 'Client', property: 'client' },
-								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
-								{ title: 'Type', property: 'pluginType' },
-								{ title: 'Version', property: 'version' },
-								{ title: 'Enabled', property: 'enabled' },
-								{ title: 'Capabilities', property: 'capabilities' }
+								{ title: m.inventory_enforcement_col_client(), property: 'client' },
+								{ title: m.inventory_enforcement_col_scope(), property: 'scope' },
+								{ title: m.core_name(), property: 'name' },
+								{ title: m.core_type(), property: 'pluginType' },
+								{
+									title: m.inventory_enforcement_enforcement_events_version(),
+									property: 'version'
+								},
+								{ title: m.core_status_enabled(), property: 'enabled' },
+								{
+									title: m.inventory_enforcement_devices_col_capabilities(),
+									property: 'capabilities'
+								}
 							]}
 							sortable={['client', 'name', 'pluginType', 'version']}
 							filterable={['client', 'pluginType', 'scope']}
@@ -474,7 +501,9 @@
 						>
 							{#snippet onRenderColumn(property, d: PluginRow)}
 								{#if property === 'enabled'}
-									{d.enabled ? 'yes' : 'no'}
+									{d.enabled
+										? m.inventory_enforcement_devices_yes()
+										: m.inventory_enforcement_devices_no()}
 								{:else if property === 'version'}
 									{d.version ?? '—'}
 								{:else if property === 'client'}
@@ -487,17 +516,20 @@
 					{/if}
 				{:else if activeTab === 'clients'}
 					{#if clientRows.length === 0}
-						{@render emptyTab('No clients observed on this device.')}
+						{@render emptyTab(m.inventory_enforcement_devices_no_clients_on_device())}
 					{:else}
 						<Table
 							data={clientRows}
 							pageSize={PAGE_SIZE}
 							fields={['name', 'version', 'paths_display', 'has_display']}
 							headers={[
-								{ title: 'Name', property: 'name' },
-								{ title: 'Version', property: 'version' },
-								{ title: 'Paths', property: 'paths_display' },
-								{ title: 'Has', property: 'has_display' }
+								{ title: m.core_name(), property: 'name' },
+								{
+									title: m.inventory_enforcement_enforcement_events_version(),
+									property: 'version'
+								},
+								{ title: m.inventory_enforcement_devices_col_paths(), property: 'paths_display' },
+								{ title: m.inventory_enforcement_devices_col_has(), property: 'has_display' }
 							]}
 							sortable={['name']}
 							filterable={['name']}
@@ -513,7 +545,7 @@
 			<!-- Scan history (includes latest as first row) -->
 			<div class="flex flex-col gap-2">
 				<h3 class="text-muted-content text-sm font-semibold">
-					Scan history · {scans.length}
+					{m.inventory_enforcement_devices_scan_history({ count: scans.length })}
 				</h3>
 				<Table
 					data={historyRows}
@@ -526,12 +558,12 @@
 						'client_count'
 					]}
 					headers={[
-						{ title: 'Scanned', property: 'scanned_relative' },
-						{ title: 'Scanner', property: 'scanner_version' },
-						{ title: 'MCP', property: 'mcp_count' },
-						{ title: 'Skills', property: 'skill_count' },
-						{ title: 'Plugins', property: 'plugin_count' },
-						{ title: 'Clients', property: 'client_count' }
+						{ title: m.inventory_enforcement_col_scanned(), property: 'scanned_relative' },
+						{ title: m.inventory_enforcement_devices_label_scanner(), property: 'scanner_version' },
+						{ title: m.inventory_enforcement_devices_col_mcp(), property: 'mcp_count' },
+						{ title: m.inventory_enforcement_skills_tab(), property: 'skill_count' },
+						{ title: m.inventory_enforcement_devices_col_plugins(), property: 'plugin_count' },
+						{ title: m.inventory_enforcement_overview_clients(), property: 'client_count' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(resolve(`/inventory/devices/${deviceId}/scans/${d.id}`), isCtrlClick);
@@ -545,7 +577,7 @@
 									<span
 										class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
 									>
-										Latest
+										{m.inventory_enforcement_devices_latest()}
 									</span>
 								{/if}
 							</span>

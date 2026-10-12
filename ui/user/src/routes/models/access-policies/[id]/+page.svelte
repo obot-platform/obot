@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { accessibleModels, profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
@@ -10,7 +11,7 @@
 	const { modelAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(modelAccessPolicy?.displayName ?? 'Model Access Policy');
+	let title = $derived(modelAccessPolicy?.displayName ?? m.models_access_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

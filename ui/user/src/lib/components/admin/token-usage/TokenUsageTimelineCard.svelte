@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Select from '$lib/components/Select.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -187,7 +188,7 @@
 	<div class="mb-1 flex flex-wrap justify-between gap-2">
 		<div class="flex flex-wrap items-center gap-4">
 			<h4 class="flex items-center gap-2 font-semibold">
-				Token Usage
+				{m.audit_usage_usage_tokens_title()}
 				{#if loading}
 					<Loading class="size-4 animate-spin" />
 				{/if}
@@ -203,7 +204,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.INPUT)}
 					>
-						Input Tokens
+						{m.audit_usage_usage_tokens_input_tokens()}
 					</button>
 					<button
 						class={twMerge(
@@ -213,7 +214,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.OUTPUT)}
 					>
-						Output Tokens
+						{m.audit_usage_usage_tokens_output_tokens()}
 					</button>
 					<button
 						class={twMerge(
@@ -223,7 +224,7 @@
 						)}
 						onclick={() => handleTokenTypeChange(TOKEN_TYPE.SPEND)}
 					>
-						Spend
+						{m.core_spend()}
 					</button>
 				</div>
 			{/if}
@@ -280,28 +281,42 @@
 								{#if usesSpendBuckets}
 									{#if item.key === USAGE_BUCKET_LABEL.INPUT}
 										<div class="text-muted-content mt-1 text-xs">
-											Cache read: {formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)}
+											{m.audit_usage_usage_tokens_tooltip_cache_read({
+												value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
+											})}
 										</div>
 										<div class="text-muted-content text-xs">
-											Cache write: {formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)}
+											{m.audit_usage_usage_tokens_tooltip_cache_write({
+												value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
+											})}
 										</div>
 									{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
 										<div class="text-muted-content mt-1 text-xs">
-											Thinking: {(item.details?.thinkingTokens ?? 0).toLocaleString()} tokens
+											{m.audit_usage_usage_tokens_tooltip_thinking({
+												count: (item.details?.thinkingTokens ?? 0).toLocaleString()
+											})}
 										</div>
 									{/if}
 								{:else}
 									<div class="text-muted-content mt-1 text-xs">
-										Input: {formatTokenUsageUSD(item.details?.inputSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_input({
+											value: formatTokenUsageUSD(item.details?.inputSpend ?? 0)
+										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										Output: {formatTokenUsageUSD(item.details?.outputSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_output({
+											value: formatTokenUsageUSD(item.details?.outputSpend ?? 0)
+										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										Cache read: {formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_cache_read({
+											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
+										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										Cache write: {formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_cache_write({
+											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
+										})}
 									</div>
 								{/if}
 							{:else}
@@ -313,16 +328,22 @@
 								<div class="text-muted-content text-xs">{formatTokenUsageUSD(spend)}</div>
 								{#if selectedTokenType === TOKEN_TYPE.INPUT}
 									<div class="text-muted-content mt-1 text-xs">
-										Cache read: {(item.details?.cacheReadTokens ?? 0).toLocaleString()} tokens,
-										{formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_cache_read_tokens({
+											count: (item.details?.cacheReadTokens ?? 0).toLocaleString(),
+											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
+										})}
 									</div>
 									<div class="text-muted-content text-xs">
-										Cache write: {(item.details?.cacheWriteTokens ?? 0).toLocaleString()} tokens,
-										{formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)}
+										{m.audit_usage_usage_tokens_tooltip_cache_write_tokens({
+											count: (item.details?.cacheWriteTokens ?? 0).toLocaleString(),
+											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
+										})}
 									</div>
 								{:else if (item.details?.thinkingTokens ?? 0) > 0}
 									<div class="text-muted-content mt-1 text-xs">
-										Thinking: {(item.details?.thinkingTokens ?? 0).toLocaleString()} tokens
+										{m.audit_usage_usage_tokens_tooltip_thinking({
+											count: (item.details?.thinkingTokens ?? 0).toLocaleString()
+										})}
 									</div>
 								{/if}
 							{/if}

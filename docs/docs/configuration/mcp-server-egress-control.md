@@ -1,4 +1,5 @@
 ---
+displayed_sidebar: sidebar
 title: MCP Server Egress Control
 ---
 

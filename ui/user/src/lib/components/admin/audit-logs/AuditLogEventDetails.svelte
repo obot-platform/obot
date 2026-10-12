@@ -2,6 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import type { AuditLogEvent } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
@@ -53,68 +54,106 @@
 		<div class="bg-base-300 absolute top-0 left-0 h-full w-1"></div>
 
 		<div class="flex flex-wrap gap-2 py-4 px-5">
-			{@render chip('Event', auditLog.eventType)}
-			{@render chip('Outcome', auditLog.outcome.status)}
-			{@render chip('Operation', auditLog.action.operation)}
-			{@render chip('Target', auditLog.target.targetType)}
+			{@render chip(m.audit_usage_audit_logs_event(), auditLog.eventType)}
+			{@render chip(m.audit_usage_audit_logs_outcome(), auditLog.outcome.status)}
+			{@render chip(m.audit_usage_audit_logs_operation(), auditLog.action.operation)}
+			{@render chip(m.audit_usage_audit_logs_target(), auditLog.target.targetType)}
 		</div>
 
 		<div class="px-5 flex flex-col gap-4">
 			{#if details?.payloadRedacted}
 				<div class="bg-base-300 text-muted-content rounded-md p-3 text-xs italic">
-					Payload and sensitive environment details are hidden for your access level.
+					{m.audit_usage_audit_logs_payload_hidden_for_access_level()}
 				</div>
 			{:else if details}
 				{#if hasBody(details.request?.body)}
-					{@render jsonBody('Request / Tool Input', details.request?.body)}
+					{@render jsonBody(m.audit_usage_audit_logs_request_tool_input(), details.request?.body)}
 				{/if}
 				{#if hasBody(details.request?.mutatedBody)}
-					{@render jsonBody('Mutated Request Body', details.request?.mutatedBody)}
+					{@render jsonBody(
+						m.audit_usage_audit_logs_mutated_request_body(),
+						details.request?.mutatedBody
+					)}
 				{/if}
 
 				{#if hasBody(details.response?.originalBody)}
-					{@render jsonBody('Original Response Body', details.response?.originalBody)}
+					{@render jsonBody(
+						m.audit_usage_audit_logs_original_response_body(),
+						details.response?.originalBody
+					)}
 				{/if}
 				{#if hasBody(details.response?.body)}
-					{@render jsonBody('Response / Tool Output', details.response?.body)}
+					{@render jsonBody(
+						m.audit_usage_audit_logs_response_tool_output(),
+						details.response?.body
+					)}
 				{/if}
 			{/if}
 
-			<div class="divider my-0 text-xs uppercase">Additional Information</div>
+			<div class="divider my-0 text-xs uppercase">
+				{m.audit_usage_audit_logs_additional_information()}
+			</div>
 
 			{#if details}
 				{#if details.payloadRedacted}
 					<div class="bg-base-300 text-muted-content rounded-md p-3 text-xs italic">
-						Additional payload and sensitive environment details are hidden for your access level.
+						{m.audit_usage_audit_logs_hidden_for_access_level()}
 					</div>
 					<div class="divider my-0"></div>
 				{:else}
 					{#if details.environment}
 						<div class="divider my-0"></div>
 						<div class="flex flex-col gap-0.5">
-							{@render title('Environment')}
+							{@render title(m.audit_usage_audit_logs_environment())}
 							<div class="flex flex-col gap-1 px-4 text-sm font-light">
-								{@render field('Working Directory', details.environment.cwd)}
-								{@render field('Git Root', details.environment.gitRoot)}
-								{@render field('Git Branch', details.environment.gitBranch)}
-								{@render field('Git Commit', details.environment.gitCommit)}
-								{@render field('Git Remotes', details.environment.gitRemotes?.join(', '))}
-								{@render field('Hostname', details.device?.hostname)}
-								{@render field('Local Username', details.device?.localUsername)}
-								{@render field('Reported Email', details.environment.reportedUserEmail)}
-								{@render field('Transcript Path', details.environment.transcriptPath)}
+								{@render field(
+									m.audit_usage_audit_logs_working_directory(),
+									details.environment.cwd
+								)}
+								{@render field(m.audit_usage_audit_logs_git_root(), details.environment.gitRoot)}
+								{@render field(
+									m.audit_usage_audit_logs_git_branch(),
+									details.environment.gitBranch
+								)}
+								{@render field(
+									m.audit_usage_audit_logs_git_commit(),
+									details.environment.gitCommit
+								)}
+								{@render field(
+									m.audit_usage_audit_logs_git_remotes(),
+									details.environment.gitRemotes?.join(', ')
+								)}
+								{@render field(m.core_col_hostname(), details.device?.hostname)}
+								{@render field(
+									m.audit_usage_audit_logs_local_username(),
+									details.device?.localUsername
+								)}
+								{@render field(
+									m.audit_usage_audit_logs_reported_email(),
+									details.environment.reportedUserEmail
+								)}
+								{@render field(
+									m.audit_usage_audit_logs_transcript_path(),
+									details.environment.transcriptPath
+								)}
 							</div>
 						</div>
 					{/if}
 
 					{#if hasBody(details.request?.headers)}
-						{@render headersBody('Request Headers', details.request?.headers)}
+						{@render headersBody(
+							m.audit_usage_audit_logs_request_headers(),
+							details.request?.headers
+						)}
 					{/if}
 					{#if hasBody(details.response?.headers)}
-						{@render headersBody('Response Headers', details.response?.headers)}
+						{@render headersBody(
+							m.audit_usage_audit_logs_response_headers(),
+							details.response?.headers
+						)}
 					{/if}
 					{#if hasBody(details.rawEvent)}
-						{@render jsonBody('Raw Event', details.rawEvent)}
+						{@render jsonBody(m.audit_usage_audit_logs_raw_event(), details.rawEvent)}
 					{/if}
 					{#if details.environment || details.request?.headers || details.response?.headers || details.rawEvent}
 						<div class="divider my-0"></div>
@@ -123,33 +162,39 @@
 			{/if}
 
 			<div class="flex flex-col gap-0.5">
-				{@render title('Event')}
+				{@render title(m.audit_usage_audit_logs_event())}
 				<div class="flex flex-col gap-1 px-4 text-sm font-light">
-					{@render field('Actor', auditLog.user || auditLog.actor.id || 'Unknown')}
-					{@render field('Actor Type', auditLog.actor.actorType)}
-					{@render field('Credential', auditLog.actor.credentialID)}
-					{@render field('Action', auditLog.action.name)}
-					{@render field('Action Kind', auditLog.action.kind)}
-					{@render field('Target', auditLog.target.name || auditLog.target.id)}
 					{@render field(
-						'Parent Target',
+						m.audit_usage_audit_logs_actor(),
+						auditLog.user || auditLog.actor.id || m.core_unknown()
+					)}
+					{@render field(m.audit_usage_audit_logs_actor_type(), auditLog.actor.actorType)}
+					{@render field(m.core_col_credential(), auditLog.actor.credentialID)}
+					{@render field(m.audit_usage_audit_logs_action(), auditLog.action.name)}
+					{@render field(m.audit_usage_audit_logs_action_kind(), auditLog.action.kind)}
+					{@render field(
+						m.audit_usage_audit_logs_target(),
+						auditLog.target.name || auditLog.target.id
+					)}
+					{@render field(
+						m.audit_usage_audit_logs_parent_target(),
 						auditLog.target.parent?.name || auditLog.target.parent?.id
 					)}
-					{@render field('HTTP Status', auditLog.outcome.httpStatus)}
-					{@render field('Reason', auditLog.outcome.reason)}
-					{@render field('Duration (ms)', auditLog.outcome.durationMs)}
+					{@render field(m.audit_usage_audit_logs_http_status(), auditLog.outcome.httpStatus)}
+					{@render field(m.audit_usage_audit_logs_reason(), auditLog.outcome.reason)}
+					{@render field(m.audit_usage_audit_logs_duration_ms(), auditLog.outcome.durationMs)}
 					{@render field(
-						'Recorded At',
+						m.audit_usage_audit_logs_recorded_at(),
 						formatLogTimestamp(auditLog.timestamp.recordedAt, userDeviceSettings.timeFormat)
 					)}
-					{@render field('Timestamp Source', auditLog.timestamp.source)}
+					{@render field(m.audit_usage_audit_logs_timestamp_source(), auditLog.timestamp.source)}
 				</div>
 			</div>
 
 			{#if auditLog.outcome.error}
 				<div class="divider my-0"></div>
 				<div class="flex flex-col gap-0.5">
-					<div class="text-base font-semibold">Error</div>
+					<div class="text-base font-semibold">{m.audit_usage_audit_logs_error()}</div>
 					<p class="text-error text-sm">{auditLog.outcome.error}</p>
 				</div>
 			{/if}
@@ -158,16 +203,19 @@
 				{#if details.trace || details.network}
 					<div class="divider my-0"></div>
 					<div class="flex flex-col gap-0.5">
-						{@render title('Trace & Network')}
+						{@render title(m.audit_usage_audit_logs_trace_network())}
 						<div class="flex flex-col gap-1 px-4 text-sm font-light">
-							{@render field('Session ID', details.trace?.sessionID)}
-							{@render field('Request ID', details.trace?.requestID)}
-							{@render field('Idempotency Key', details.trace?.idempotencyKey)}
-							{@render field('Tool Use ID', details.trace?.toolUseID)}
-							{@render field('Turn ID', details.trace?.turnID)}
-							{@render field('Client IP', details.network?.clientIP)}
+							{@render field(m.audit_usage_audit_logs_session_id(), details.trace?.sessionID)}
+							{@render field(m.audit_usage_audit_logs_request_id(), details.trace?.requestID)}
 							{@render field(
-								'Started At',
+								m.audit_usage_audit_logs_idempotency_key(),
+								details.trace?.idempotencyKey
+							)}
+							{@render field(m.audit_usage_audit_logs_tool_use_id(), details.trace?.toolUseID)}
+							{@render field(m.audit_usage_audit_logs_turn_id(), details.trace?.turnID)}
+							{@render field(m.audit_usage_audit_logs_client_ip(), details.network?.clientIP)}
+							{@render field(
+								m.audit_usage_audit_logs_started_at(),
 								details.startedAt
 									? formatLogTimestamp(details.startedAt, userDeviceSettings.timeFormat)
 									: undefined
@@ -179,15 +227,21 @@
 				{#if details.client || details.scope}
 					<div class="divider my-0"></div>
 					<div class="flex flex-col gap-0.5">
-						{@render title('MCP Context')}
+						{@render title(m.audit_usage_audit_logs_mcp_context())}
 						<div class="flex flex-col gap-1 px-4 text-sm font-light">
 							{@render field(
-								'Client',
+								m.audit_usage_audit_logs_client(),
 								[details.client?.name, details.client?.version].filter(Boolean).join(' / ')
 							)}
-							{@render field('User Agent', details.client?.userAgent)}
-							{@render field('Workspace', details.scope?.powerUserWorkspaceID)}
-							{@render field('Catalog Entry', details.scope?.mcpServerCatalogEntryName)}
+							{@render field(m.audit_usage_audit_logs_user_agent(), details.client?.userAgent)}
+							{@render field(
+								m.audit_usage_audit_logs_workspace(),
+								details.scope?.powerUserWorkspaceID
+							)}
+							{@render field(
+								m.audit_usage_audit_logs_catalog_entry(),
+								details.scope?.mcpServerCatalogEntryName
+							)}
 						</div>
 					</div>
 				{/if}
@@ -195,10 +249,10 @@
 				{#if details.agent || details.device}
 					<div class="divider my-0"></div>
 					<div class="flex flex-col gap-0.5">
-						{@render title('Agent & Device')}
+						{@render title(m.audit_usage_audit_logs_agent_device())}
 						<div class="flex flex-col gap-1 px-4 text-sm font-light">
 							{@render field(
-								'Agent',
+								m.audit_usage_audit_logs_agent(),
 								[details.agent?.provider, details.agent?.version].filter(Boolean).join(' / ')
 							)}
 							{@render field(
@@ -206,14 +260,20 @@
 								[details.agent?.cliName, details.agent?.cliVersion].filter(Boolean).join(' / ')
 							)}
 							{@render field(
-								'Model',
+								m.audit_usage_audit_logs_model(),
 								[details.agent?.model, details.agent?.modelID].filter(Boolean).join(' / ')
 							)}
-							{@render field('Permission Mode', details.agent?.permissionMode)}
-							{@render field('Device', details.device?.id)}
-							{@render field('Deployment ID', details.device?.deploymentID)}
 							{@render field(
-								'OS / Architecture',
+								m.audit_usage_audit_logs_permission_mode(),
+								details.agent?.permissionMode
+							)}
+							{@render field(m.audit_usage_audit_logs_device(), details.device?.id)}
+							{@render field(
+								m.audit_usage_audit_logs_deployment_id(),
+								details.device?.deploymentID
+							)}
+							{@render field(
+								m.audit_usage_audit_logs_os_architecture(),
 								[details.device?.os, details.device?.architecture].filter(Boolean).join(' / ')
 							)}
 						</div>
@@ -221,7 +281,7 @@
 				{/if}
 
 				{#if details.webhookStatuses?.length}
-					{@render jsonBody('Webhook Statuses', details.webhookStatuses)}
+					{@render jsonBody(m.audit_usage_audit_logs_webhook_statuses(), details.webhookStatuses)}
 				{/if}
 			{/if}
 		</div>

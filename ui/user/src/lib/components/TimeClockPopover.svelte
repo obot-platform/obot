@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
+	import { getDayPeriodLabels } from '$lib/time';
 	import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import { getHours, getMinutes, setHours, setMinutes } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
@@ -194,6 +196,8 @@
 		document.addEventListener('keydown', onKey);
 		return () => document.removeEventListener('keydown', onKey);
 	});
+
+	const dayPeriods = getDayPeriodLabels();
 </script>
 
 {#if open}
@@ -211,7 +215,7 @@
 		)}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Select time"
+		aria-label={m.core_select_time()}
 		tabindex="0"
 	>
 		<!-- Header -->
@@ -261,12 +265,12 @@
 					<button
 						type="button"
 						class={twMerge('rounded px-2 py-0.5', isAm ? 'opacity-100' : 'opacity-50')}
-						onclick={() => toggleAmPm(true)}>AM</button
+						onclick={() => toggleAmPm(true)}>{dayPeriods.am}</button
 					>
 					<button
 						type="button"
 						class={twMerge('rounded px-2 py-0.5', !isAm ? 'opacity-100' : 'opacity-50')}
-						onclick={() => toggleAmPm(false)}>PM</button
+						onclick={() => toggleAmPm(false)}>{dayPeriods.pm}</button
 					>
 				</div>
 			{/if}
@@ -401,8 +405,10 @@
 
 		<!-- Footer -->
 		<div class="border-base-400 flex justify-end gap-2 border-t px-3 py-2">
-			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}>Cancel</button>
-			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>OK</button>
+			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}
+				>{m.common_cancel()}</button
+			>
+			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>{m.core_ok()}</button>
 		</div>
 	</div>
 {/if}

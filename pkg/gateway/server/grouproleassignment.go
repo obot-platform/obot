@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/groupref"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -71,20 +71,26 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		return err
 	}
 
-	created, err := apiContext.GatewayClient.CreateGroupRoleAssignment(
-		apiContext.Context(),
-		req.GroupName,
-		req.Role,
-		req.Description,
-	)
-	if err != nil {
-		// Check for unique constraint violation
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return types2.NewErrHTTP(http.StatusConflict,
-				fmt.Sprintf("group role assignment for group %q already exists", req.GroupName))
+	// A role for a group that SCIM does not know would reach nobody, and no pushed group could bind to it.
+	var created *types.GroupRoleAssignment
+	if err := groupref.WriteNewGroups(apiContext.Context(), apiContext.GatewayClient, apiContext.Storage, []string{req.GroupName}, func() error {
+		var err error
+		created, err = apiContext.GatewayClient.CreateGroupRoleAssignment(
+			apiContext.Context(),
+			req.GroupName,
+			req.Role,
+			req.Description,
+		)
+		if err != nil {
+			if client.IsUniqueViolation(err) {
+				return types2.NewErrHTTP(http.StatusConflict,
+					fmt.Sprintf("group role assignment for group %q already exists", req.GroupName))
+			}
+			return fmt.Errorf("failed to create group role assignment: %v", err)
 		}
-		return fmt.Errorf("failed to create group role assignment: %v", err)
+		return nil
+	}); err != nil {
+		return err
 	}
 	slog.Info("Created group role assignment", "group", req.GroupName, "role", req.Role)
 
@@ -182,7 +188,6 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// Extract base role and add-on role flags
 	baseRole := role.ExtractBaseRole()
 	hasAuditor := role.HasAuditorRole()
-	hasUserImpersonation := role.HasUserImpersonationRole()
 
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {
@@ -197,22 +202,6 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		if !apiContext.UserIsOwner() {
 			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "auditor_role_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
-		}
-	}
-
-	// If role includes User Impersonation, only Owners can assign it and it must be combined with Owner or Admin
-	if hasUserImpersonation {
-		if !apiContext.UserIsOwner() {
-			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "user_impersonation_role_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the user impersonation role to groups")
-		}
-
-		if baseRole != types2.RoleOwner && baseRole != types2.RoleAdmin {
-			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "user_impersonation_can_only_be_combined_with_owner_or_admin")
-			return types2.NewErrBadRequest(
-				"user impersonation role can only be combined with owner (%d) or admin (%d)",
-				types2.RoleOwner, types2.RoleAdmin,
-			)
 		}
 	}
 

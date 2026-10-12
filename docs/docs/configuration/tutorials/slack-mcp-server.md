@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Slack MCP Server
 
 Slack has an [official remote MCP server](https://docs.slack.dev/ai/slack-mcp-server/) that Obot can connect to. This guide explains how to set that up.

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { ChevronsLeft, ChevronsRight } from '@lucide/svelte';
 
 	/**
@@ -26,16 +27,18 @@
 		disabled={!hasPrevious || loading}
 		onclick={onPrevious}
 	>
-		<ChevronsLeft class="size-4" /> Previous
+		<ChevronsLeft class="size-4" />
+		{m.core_previous()}
 	</button>
 	<p class="text-muted-content text-xs">
-		Page {pageIndex + 1}
+		{m.core_page_number({ page: pageIndex + 1 })}
 	</p>
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
 		disabled={!hasNext || loading}
 		onclick={onNext}
 	>
-		Next <ChevronsRight class="size-4" />
+		{m.core_next()}
+		<ChevronsRight class="size-4" />
 	</button>
 </div>

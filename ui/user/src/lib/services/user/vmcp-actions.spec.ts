@@ -1,7 +1,6 @@
 import {
 	clearMcpServerOAuth,
 	getMcpServerOauthURL,
-	isMcpServerOauthNeeded,
 	listMcpCatalogServerPrompts,
 	listMcpCatalogServerResources,
 	listMcpCatalogServerTools,
@@ -27,7 +26,6 @@ it.each(['vmcp1test', 'ms1test'])(
 		await listMcpCatalogServerPrompts(id);
 		await listMcpCatalogServerResources(id);
 		await getMcpServerOauthURL(id);
-		await isMcpServerOauthNeeded(id);
 		await validateSingleOrRemoteMcpServerLaunched(id);
 		await clearMcpServerOAuth(id);
 		const resource = id.startsWith('vmcp1') ? 'vmcps' : 'mcp-servers';
@@ -37,7 +35,6 @@ it.each(['vmcp1test', 'ms1test'])(
 			`/api/${listing}/${id}/prompts`,
 			`/api/${listing}/${id}/resources`,
 			`/api/${resource}/${id}/oauth-url`,
-			`/api/${resource}/${id}/check-oauth`,
 			`/api/${resource}/${id}/launch`,
 			`/api/${resource}/${id}/oauth`
 		]);

@@ -12,6 +12,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
+	"github.com/obot-platform/obot/pkg/scim"
+	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
@@ -31,11 +33,6 @@ func (r *Router) Close() error {
 func NewRouter(ctx context.Context, services *services.Services) (*Router, error) {
 	mux := services.APIServer
 
-	agentsEnabled, err := services.AgentsEnabled(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	version := handlers.NewVersionHandler(handlers.VersionHandlerOptions{
 		GatewayClient:           services.GatewayClient,
 		StorageClient:           services.StorageClient,
@@ -46,7 +43,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		MCPDefaultDenyAllEgress: services.MCPDefaultDenyAllEgress,
 		AuthEnabled:             services.AuthEnabled,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
-		AgentsEnabled:           agentsEnabled,
 		HostedAgentsEnabled:     services.HostedAgentsEnabled,
 		HideK8sDetails:          services.HideK8sDetails,
 		UpgradeStatusReader:     services.VersionChecker,
@@ -116,7 +112,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
-	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
+	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
 
 	mcpTester := handlers.NewMCPTesterHandlerWithModelProxy(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.LocalServerURL, nil, handlers.MCPTesterModelProxyOptions{
 		URL:           services.ModelProxyURL,
@@ -138,7 +134,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper, services.ProviderDispatcher)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth, services.MCPSecretBindingAllowedLabel)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
-	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient))
 	tunnelHandler := handlers.NewTunnelHandler(services.TunnelManager)
@@ -177,6 +172,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Obot replicas use a separate internal websocket upgrade path for tunnel peering.
 	mux.HandleFunc("GET /tunnel/peer", tunnelHandler.Peer)
 
+	// The SCIM endpoint, authenticated only by the SCIM connection's bearer token and authorized only for that
+	// connection's principal.
+	scimHandler := scim.NewHandler(services.GatewayClient, scim.NewEnvironment(services.ProviderDispatcher, services.LicenseProvider, services.StorageClient), services.ServerURL)
+	mux.HandleSCIM(scimHandler.Serve)
+
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)
 	mux.HandleFunc("GET /api/all-mcps/entries/{entry_id}", mcp.GetEntryFromAllSources)
@@ -197,6 +197,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 
 	// Legacy MCP server instances (read-only)
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
@@ -273,6 +277,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
@@ -331,6 +339,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/client", mcp.RegisterOAuthDebuggerClient)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/authorization-url", mcp.GetOAuthDebuggerAuthorizationURL)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-debugger/token", mcp.ExchangeOAuthDebuggerToken)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
@@ -352,7 +364,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// System MCP Servers (admin only)
 	mux.HandleFunc("GET /api/system-mcp-servers", systemMCPServers.List)
-	mux.HandleFunc("POST /api/system-mcp-servers/restart-nanobot-agent-deployments", systemMCPServers.RestartNanobotAgentDeployments)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}", systemMCPServers.Get)
 	mux.HandleFunc("POST /api/system-mcp-servers", systemMCPServers.Create)
 	mux.HandleFunc("PUT /api/system-mcp-servers/{id}", systemMCPServers.Update)
@@ -422,15 +433,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/storage-credentials", auditLogExports.GetStorageCredentials)
 	mux.HandleFunc("DELETE /api/storage-credentials", auditLogExports.DeleteStorageCredentials)
 	mux.HandleFunc("POST /api/storage-credentials/test", auditLogExports.TestStorageCredentials)
-
-	// Published Artifacts
-	mux.HandleFunc("POST /api/published-artifacts", publishedArtifacts.Create)
-	mux.HandleFunc("GET /api/published-artifacts", publishedArtifacts.List)
-	mux.HandleFunc("GET /api/published-artifacts/{id}", publishedArtifacts.Get)
-	mux.HandleFunc("GET /api/published-artifacts/{id}/download", publishedArtifacts.Download)
-	mux.HandleFunc("GET /api/published-artifacts/{id}/{version}/skill", publishedArtifacts.GetSkillMD)
-	mux.HandleFunc("PUT /api/published-artifacts/{id}", publishedArtifacts.Update)
-	mux.HandleFunc("DELETE /api/published-artifacts/{id}", publishedArtifacts.Delete)
 
 	// Skills
 	mux.HandleFunc("GET /api/skills", skills.List)
@@ -608,6 +610,22 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/auth-providers/{id}/verify", authProviders.Verify)
 	mux.HandleFunc("POST /api/auth-providers/{id}/activate", authProviders.Activate)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+	mux.HandleFunc("GET /api/auth-providers/{id}/residual-group-data", authProviders.ResidualGroupData)
+
+	// SCIM connections
+	scimConnections := handlers.NewSCIMConnectionHandler(scimsetup.New(services.GatewayClient, services.StorageClient, services.ProviderDispatcher, services.ServerURL))
+	mux.HandleFunc("GET /api/scim-connections", scimConnections.List)
+	mux.HandleFunc("POST /api/scim-connections", scimConnections.Enable)
+	mux.HandleFunc("GET /api/scim-connections/enable-preview", scimConnections.EnablePreview)
+	mux.HandleFunc("GET /api/scim-connections/{id}/review", scimConnections.Review)
+	mux.HandleFunc("GET /api/scim-connections/{id}/users", scimConnections.Users)
+	mux.HandleFunc("GET /api/scim-connections/{id}/groups", scimConnections.Groups)
+	mux.HandleFunc("GET /api/scim-connections/{id}/failures", scimConnections.Failures)
+	mux.HandleFunc("POST /api/scim-connections/{id}/enforce", scimConnections.Enforce)
+	mux.HandleFunc("POST /api/scim-connections/{id}/delete-unreferenced-groups", scimConnections.DeleteUnreferencedGroups)
+	mux.HandleFunc("POST /api/scim-connections/{id}/rotate-token", scimConnections.RotateToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-current-token", scimConnections.RevokeCurrentToken)
+	mux.HandleFunc("POST /api/scim-connections/{id}/revoke-previous-token", scimConnections.RevokePreviousToken)
 
 	// Local auth provider users
 	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)
@@ -709,24 +727,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Uploaded images
 	mux.HandleFunc("POST /api/image/upload", images.UploadImage)
 	mux.HandleFunc("GET /api/image/{id}", images.GetImage)
-
-	// Projects
-	projects := handlers.NewProjectHandler()
-	mux.HandleFunc("POST /api/projects", projects.Create)
-	mux.HandleFunc("GET /api/projects", projects.List)
-	mux.HandleFunc("GET /api/projects/{project_id}", projects.ByID)
-	mux.HandleFunc("PUT /api/projects/{project_id}", projects.Update)
-	mux.HandleFunc("DELETE /api/projects/{project_id}", projects.Delete)
-
-	// NanobotAgents
-	nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPSessionManager, services.ServerURL, agentsEnabled, services.MCPSecretBindingAllowedLabel)
-	mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
-	mux.HandleFunc("POST /api/projects/{project_id}/agents", nanobotAgents.Create)
-	mux.HandleFunc("GET /api/projects/{project_id}/agents", nanobotAgents.List)
-	mux.HandleFunc("GET /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.ByID)
-	mux.HandleFunc("PUT /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Update)
-	mux.HandleFunc("DELETE /api/projects/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Delete)
-	mux.HandleFunc("POST /api/projects/{project_id}/agents/{nanobot_agent_id}/launch", nanobotAgents.Launch)
 
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())

@@ -1,10 +1,10 @@
 ---
-title: Branding
+title: "Customize branding"
 ---
 
-# Branding
+# Customize branding {#branding}
 
-Branding allows administrators to customize the visual appearance of the Obot platform. Access this page from **Branding** in the sidebar.
+Branding allows administrators to customize the visual appearance of the Obot platform. Access this page from **Platform > Branding**.
 
 ## Theme
 
@@ -79,7 +79,6 @@ Full logos depend on the selected **Mode** (light or dark):
 
 - **Full Logo**: The main logo shown in the navbar (separate versions for light and dark schemes)
 - **Full Enterprise Logo**: Logo used when running enterprise version of Obot
-- **Full Chat Logo**: Logo used for agent chatting in Obot
 
 Changes preview live in the main area; they are not stored until you click **Save**.
 

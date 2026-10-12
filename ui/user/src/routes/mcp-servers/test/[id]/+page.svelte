@@ -5,6 +5,7 @@
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { m } from '$lib/i18n';
 	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
 	import { version } from '$lib/stores';
 	import { Server, ArrowLeft } from '@lucide/svelte';
@@ -67,13 +68,13 @@
 			{#snippet headerActions()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}>
 					<ArrowLeft class="size-4" aria-hidden="true" />
-					Back to {serverName}
+					{m.mcps_back_to_named({ name: serverName })}
 				</a>
 			{/snippet}
 
 			{#snippet accessDeniedAction()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>Back to server management</a
+					>{m.mcps_back_to_server_management()}</a
 				>
 			{/snippet}
 
@@ -84,24 +85,24 @@
 						class="btn btn-primary btn-sm"
 						onclick={() => (managingAuthentication = true)}
 					>
-						Manage authentication
+						{m.mcps_manage_authentication()}
 					</button>
 				{:else}
 					<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-						>Manage authentication</a
+						>{m.mcps_manage_authentication()}</a
 					>
 				{/if}
 			{/snippet}
 
 			{#snippet setupRequiredAction()}
 				<a class="btn btn-primary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>Manage server</a
+					>{m.mcps_manage_server()}</a
 				>
 			{/snippet}
 
 			{#snippet unhealthySecondaryAction()}
 				<a class="btn btn-secondary btn-sm" href={resolve(data.backTarget as `/${string}`)}
-					>Manage server</a
+					>{m.mcps_manage_server()}</a
 				>
 			{/snippet}
 		</Tester>
@@ -114,7 +115,8 @@
 				class="btn btn-secondary btn-sm mb-3"
 				onclick={() => (managingAuthentication = false)}
 			>
-				<ArrowLeft class="size-4" aria-hidden="true" /> Back to tester
+				<ArrowLeft class="size-4" aria-hidden="true" />
+				{m.mcps_back_to_tester()}
 			</button>
 			<McpCompositeOauth
 				class="min-h-0"
@@ -127,5 +129,10 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {data.server.id.startsWith('vmcp') ? 'vMCP' : 'MCP'} Tester | {serverName}</title>
+	<title
+		>Obot | {m.mcps_tester_page_title({
+			kind: data.server.id.startsWith('vmcp') ? 'vMCP' : 'MCP',
+			name: serverName
+		})}</title
+	>
 </svelte:head>

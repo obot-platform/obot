@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { formatTimeRange } from '$lib/time';
 
 	interface Props {
@@ -27,7 +28,7 @@
 	>
 		{#if totalCalls}
 			<div class="flex items-center justify-between gap-4 text-sm">
-				<p class="font-semibold">Total Calls:</p>
+				<p class="font-semibold">{m.core_total_calls()}</p>
 				<p>
 					{totalCalls}
 				</p>
@@ -38,7 +39,7 @@
 		{/if}
 		{#if uniqueUsers}
 			<div class="flex items-center justify-between gap-4 text-sm">
-				<p class="font-semibold">Unique Users:</p>
+				<p class="font-semibold">{m.core_unique_users()}</p>
 				<p>
 					{uniqueUsers}
 				</p>

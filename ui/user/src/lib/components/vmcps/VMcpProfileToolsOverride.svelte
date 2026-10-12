@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
+	import { m } from '$lib/i18n';
 	import type { ToolOverride } from '$lib/services';
 	import { conflictIssue, effectiveToolName, toolNameIssue } from '$lib/services/user/mcp';
 	import Search from '../Search.svelte';
@@ -80,16 +81,16 @@
 	<Search
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 		onChange={(val) => (search = val)}
-		placeholder="Search tools..."
+		placeholder={m.vmcps_search_tools()}
 	/>
 
 	{#if partial}
 		<div class="notification-info flex items-start gap-2">
 			<Info class="size-4 shrink-0" />
 			<p class="text-left text-xs font-normal">
-				Only the tools granted to this profile are shown.
+				{m.vmcps_partial_tools_notice()}
 				{#if onRefresh}
-					Refresh tools to load the full list from the MCP server.
+					{m.vmcps_partial_tools_refresh_hint()}
 				{/if}
 			</p>
 		</div>
@@ -105,7 +106,8 @@
 						: 'btn-sm btn-outline btn not-hover:border-muted-content/50 not-hover:text-muted-content rounded-full hover:btn-primary hover:btn-outline'}
 					onclick={onRefresh}
 				>
-					<RefreshCcw class="size-4" /> Refresh tools
+					<RefreshCcw class="size-4" />
+					{m.vmcps_refresh_tools()}
 				</button>
 			{/if}
 		</div>
@@ -114,7 +116,7 @@
 			checked={!partial && allUnlockedToolsEnabled}
 			disabled={readonly || partial || unlockedTools.length === 0}
 			onChange={setUnlockedToolsEnabled}
-			label="Enable All Tools"
+			label={m.vmcps_enable_all_tools()}
 			labelInline
 			disablePortal
 			classes={{
@@ -157,7 +159,7 @@
 						{/if}
 						{#if unavailable}
 							<p class="text-muted-content mt-1 text-[11px] italic">
-								This tool is no longer available.
+								{m.vmcps_tool_no_longer_available()}
 							</p>
 						{:else if locked && lockedReason}
 							<p class="text-muted-content mt-1 text-[11px] italic">{lockedReason}</p>
@@ -172,7 +174,7 @@
 								tool.enabled = checked;
 								onToolsChange?.();
 							}}
-							label={tool.enabled ? 'Disable tool' : 'Enable tool'}
+							label={tool.enabled ? m.vmcps_disable_tool() : m.vmcps_enable_tool()}
 							disablePortal
 						/>
 					</div>

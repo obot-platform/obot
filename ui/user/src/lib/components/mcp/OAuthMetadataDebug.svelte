@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { OAuthMetadata } from '$lib/services/user/types';
 	import { twMerge } from 'tailwind-merge';
 
@@ -25,31 +26,37 @@
 >
 	{#if !compact}
 		<div class="flex items-center justify-between gap-3">
-			<h2 class="text-lg font-semibold">OAuth Metadata</h2>
+			<h2 class="text-lg font-semibold">{m.mcps_oauth_metadata_title()}</h2>
 			{#if metadata}
 				<span class="text-muted-content text-xs">
-					{hasMetadata ? 'Discovered' : 'No metadata discovered'}
+					{hasMetadata
+						? m.mcps_oauth_metadata_discovered()
+						: m.mcps_oauth_metadata_none_discovered()}
 				</span>
 			{/if}
 		</div>
 	{/if}
 
 	{#if !metadata}
-		<p class="text-sm text-muted-content">OAuth metadata has not been reconciled yet.</p>
+		<p class="text-sm text-muted-content">
+			{m.mcps_oauth_metadata_not_reconciled()}
+		</p>
 	{:else if !hasMetadata}
-		<p class="text-sm text-muted-content">No OAuth metadata was returned by this MCP server.</p>
+		<p class="text-sm text-muted-content">
+			{m.mcps_oauth_metadata_none_returned()}
+		</p>
 	{:else}
 		<div class="grid gap-3 text-sm">
 			{#if metadata.protectedResourceUrl}
 				<div class="grid gap-1">
-					<p class="font-medium">Protected Resource URL</p>
+					<p class="font-medium">{m.mcps_oauth_protected_resource_url()}</p>
 					<p class="break-all text-muted-content">{metadata.protectedResourceUrl}</p>
 				</div>
 			{/if}
 
 			{#if metadata.authorizationServerUrl}
 				<div class="grid gap-1">
-					<p class="font-medium">Authorization Server URL</p>
+					<p class="font-medium">{m.mcps_oauth_authorization_server_url()}</p>
 					<p class="break-all text-muted-content">
 						{metadata.authorizationServerUrl}
 					</p>
@@ -57,22 +64,26 @@
 			{/if}
 
 			<div class="grid gap-1">
-				<p class="font-medium">Dynamic Client Registration</p>
+				<p class="font-medium">{m.mcps_oauth_dynamic_client_registration()}</p>
 				<p class="text-muted-content">
-					{metadata.dynamicClientRegistration ? 'Supported' : 'Not advertised'}
+					{metadata.dynamicClientRegistration
+						? m.mcps_oauth_supported()
+						: m.mcps_oauth_not_advertised()}
 				</p>
 			</div>
 
 			<div class="grid gap-1">
-				<p class="font-medium">Client ID Metadata Document Supported</p>
+				<p class="font-medium">{m.mcps_oauth_client_id_metadata_document_supported()}</p>
 				<p class="text-muted-content">
-					{metadata.clientIdMetadataDocumentSupported ? 'Supported' : 'Unsupported'}
+					{metadata.clientIdMetadataDocumentSupported
+						? m.mcps_oauth_supported()
+						: m.mcps_oauth_unsupported()}
 				</p>
 			</div>
 
 			{#if metadata.protectedResourceMetadata}
 				<div class="grid gap-1">
-					<p class="font-medium">Protected Resource Metadata</p>
+					<p class="font-medium">{m.mcps_oauth_protected_resource_metadata()}</p>
 					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.protectedResourceMetadata
 						)}</pre>
@@ -81,7 +92,7 @@
 
 			{#if metadata.authorizationServerMetadata}
 				<div class="grid gap-1">
-					<p class="font-medium">Authorization Server Metadata</p>
+					<p class="font-medium">{m.mcps_oauth_authorization_server_metadata()}</p>
 					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.authorizationServerMetadata
 						)}</pre>
@@ -90,7 +101,7 @@
 
 			{#if metadata.clientRegistration}
 				<div class="grid gap-1">
-					<p class="font-medium">Client Registration</p>
+					<p class="font-medium">{m.mcps_oauth_client_registration()}</p>
 					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.clientRegistration
 						)}</pre>

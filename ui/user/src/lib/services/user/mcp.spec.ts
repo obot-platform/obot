@@ -1,3 +1,4 @@
+import { getLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 import type {
 	MCPCatalogEntry,
 	MCPConfig,
@@ -12,6 +13,8 @@ import {
 	hasEditableConfiguration,
 	manifestHasSecretBindings,
 	hasMissingSecretBindingConfig,
+	getMcpValueLabel,
+	mcpTableDisplayValue,
 	validateRuntimeForm
 } from './mcp';
 import { describe, expect, it } from 'vitest';
@@ -284,6 +287,36 @@ describe('hasEditableConfiguration', () => {
 	it('asks users for user-supplied values', () => {
 		for (const usage of ['env', 'header'] as const) {
 			expect(hasEditableConfiguration(entryWithConfig([field({ usage })]))).toBe(true);
+		}
+	});
+});
+
+describe('MCP table value labels', () => {
+	it('maps stable table values to display labels and passes unknown values through', () => {
+		expect(getMcpValueLabel('Global Registry')).toBe('Global Registry');
+		expect(getMcpValueLabel("Jane's Registry")).toBe("Jane's Registry");
+		expect(getMcpValueLabel('some-server')).toBe('some-server');
+		expect(getMcpValueLabel(undefined)).toBe('');
+	});
+
+	it('only labels status, type, and registry columns', () => {
+		expect(mcpTableDisplayValue('updatesAvailable', ['Not Configured', 'Up to date'])).toBe(
+			'Not Configured, Up to date'
+		);
+		// A server that happens to be named like a status keeps its name.
+		expect(mcpTableDisplayValue('displayName', 'Remote')).toBe('Remote');
+	});
+
+	it('translates registry and status values in another locale and leaves a server name unchanged', () => {
+		const restoreLocale = getLocale;
+		overwriteGetLocale(() => 'ja');
+		try {
+			expect(mcpTableDisplayValue('registry', 'Global Registry')).toBe('グローバルレジストリ');
+			expect(mcpTableDisplayValue('registry', "Jane's Registry")).toBe('Jane のレジストリ');
+			expect(mcpTableDisplayValue('status', ['Not Configured', 'Up to date'])).toBe('未設定, 最新');
+			expect(mcpTableDisplayValue('displayName', 'Remote')).toBe('Remote');
+		} finally {
+			overwriteGetLocale(restoreLocale);
 		}
 	});
 });

@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Google Cloud KMS
 
 This guide explains how to set up Google Cloud KMS encryption for Obot.

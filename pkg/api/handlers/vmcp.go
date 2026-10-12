@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/groupref"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -126,8 +127,13 @@ func (h *VMCPHandler) Create(req api.Context) error {
 			CreatorUserID: req.User.GetUID(),
 		},
 	}
-	if err := req.Create(&vmcp); err != nil {
-		return fmt.Errorf("failed to create VMCP: %w", err)
+	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
+		if err := req.Create(&vmcp); err != nil {
+			return fmt.Errorf("failed to create VMCP: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
@@ -180,6 +186,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+	previousSubjects := groupref.VMCPProfileSubjects(vmcp.Spec.Manifest)
 
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
 	credentialName := vmcpconfig.StaticConfigurationCredentialName(&vmcp)
@@ -197,15 +204,20 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
 	}
 
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: credentialContext,
-		Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
-		Secrets: staticConfiguration,
+	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
+		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+			Context: credentialContext,
+			Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
+			Secrets: staticConfiguration,
+		}); err != nil {
+			return fmt.Errorf("failed to store VMCP static configuration: %w", err)
+		}
+		if err := req.Update(&vmcp); err != nil {
+			return fmt.Errorf("failed to update VMCP: %w", err)
+		}
+		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to store VMCP static configuration: %w", err)
-	}
-	if err := req.Update(&vmcp); err != nil {
-		return fmt.Errorf("failed to update VMCP: %w", err)
+		return err
 	}
 	return req.Write(convertVMCP(vmcp))
 }

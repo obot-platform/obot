@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { MCPFilterInput, MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
 	import FilterView from '../../../FilterView.svelte';
 	import { untrack } from 'svelte';
@@ -27,7 +28,7 @@
 			};
 		})
 	);
-	let title = 'Create Filter';
+	let title = m.mcps_filters_create_filter();
 </script>
 
 <FilterView {title} {filter} entry={data.entry} />

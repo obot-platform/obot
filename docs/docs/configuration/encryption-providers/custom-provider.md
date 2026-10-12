@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # Custom Encryption Provider
 
 This guide explains how to set up custom encryption for Obot using a local encryption key.
@@ -45,7 +49,7 @@ secret:
   OBOT_SERVER_ENCRYPTION_KEY: "<your-base64-key>"
 ```
 
-The Helm chart uses this key to enable encryption for the [supported resources](./overview.md#encrypted-resources-and-fields).
+The Helm chart uses this key to enable encryption for the [supported resources](../../security/credentials.md#overview-encrypted-resources-and-fields).
 
 #### Standalone Server or Docker
 
@@ -82,4 +86,4 @@ OBOT_SERVER_ENCRYPTION_CONFIG_FILE=/config/encryption.yaml
 
 `OBOT_SERVER_ENCRYPTION_KEY` alone is insufficient for a standalone server; the chart performs the file-generation step.
 
-For existing data, see [enabling encryption on an existing installation](./overview.md#enabling-encryption-on-an-existing-installation).
+For existing data, see [enabling encryption on an existing installation](../../security/credentials.md#overview-enabling-encryption-on-an-existing-installation).

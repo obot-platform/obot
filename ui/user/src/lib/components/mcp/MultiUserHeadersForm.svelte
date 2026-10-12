@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import type { MCPSubField } from '$lib/services';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -19,9 +20,9 @@
 	id={CATALOG_SERVER_FIELD_IDS.headers}
 >
 	<div class="flex flex-col gap-1">
-		<h4 class="text-sm font-semibold">User-Defined Headers</h4>
+		<h4 class="text-sm font-semibold">{m.mcps_catalog_headers_title()}</h4>
 		<p class="text-muted-content text-xs font-light">
-			These headers are collected from each user when they connect to the MCP catalog entry.
+			{m.mcps_catalog_headers_description()}
 		</p>
 	</div>
 
@@ -32,7 +33,9 @@
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
-						<label for={`multi-user-header-name-${i}`} class="text-sm font-light">Name</label>
+						<label for={`multi-user-header-name-${i}`} class="text-sm font-light"
+							>{m.core_name()}</label
+						>
 						<input
 							id={`multi-user-header-name-${i}`}
 							class="text-input-filled bg-base-100 w-full shadow-none"
@@ -43,7 +46,7 @@
 
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-description-${i}`} class="text-sm font-light"
-							>Description</label
+							>{m.core_description()}</label
 						>
 						<input
 							id={`multi-user-header-description-${i}`}
@@ -54,12 +57,14 @@
 					</div>
 
 					<div class="flex w-full flex-col gap-1">
-						<label for={`multi-user-header-key-${i}`} class="text-sm font-light">Key</label>
+						<label for={`multi-user-header-key-${i}`} class="text-sm font-light"
+							>{m.mcps_field_key()}</label
+						>
 						<input
 							id={`multi-user-header-key-${i}`}
 							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].key}
-							placeholder="e.g. X-API-Key"
+							placeholder={m.mcps_example({ example: 'X-API-Key' })}
 							disabled={readonly}
 						/>
 					</div>
@@ -69,11 +74,8 @@
 							for={`multi-user-header-prefix-${i}`}
 							class="flex items-center gap-1 text-sm font-light"
 						>
-							Value Prefix
-							<InfoTooltip
-								text="A constant prepended value added to the user-supplied value. Example: 'Bearer '."
-								popoverWidth="lg"
-							/>
+							{m.mcps_value_prefix()}
+							<InfoTooltip text={m.mcps_catalog_value_prefix_tooltip()} popoverWidth="lg" />
 						</label>
 						<input
 							id={`multi-user-header-prefix-${i}`}
@@ -87,7 +89,7 @@
 						<Toggle
 							classes={{ label: 'text-sm text-inherit' }}
 							disabled={readonly}
-							label="Sensitive"
+							label={m.mcps_field_sensitive()}
 							labelInline
 							checked={!!header.sensitive}
 							onChange={(checked) => {
@@ -97,7 +99,7 @@
 						<Toggle
 							classes={{ label: 'text-sm text-inherit' }}
 							disabled={readonly}
-							label="Required"
+							label={m.mcps_catalog_field_required()}
 							labelInline
 							checked={!!header.required}
 							onChange={(checked) => {
@@ -141,7 +143,7 @@
 				}}
 			>
 				<Plus class="size-4" />
-				Header
+				{m.mcps_config_usage_header()}
 			</button>
 		</div>
 	{/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type VMCP, type VMCPComponent } from '$lib/services';
 	import {
@@ -91,11 +92,11 @@
 				components: creatingComponents
 			});
 
-			success.add(`${created.displayName} vMCP added.`);
+			success.add(m.vmcps_vmcp_added({ name: created.displayName }));
 			await onCreated?.(created);
 			closeDialog();
 		} catch {
-			errors.append('Failed to create vMCP.');
+			errors.append(m.vmcps_failed_to_create());
 		} finally {
 			saving = false;
 		}
@@ -109,11 +110,11 @@
 				displayName: form.displayName.trim(),
 				description: form.description.trim()
 			});
-			success.add(`${updatedVMcp.displayName} vMCP updated.`);
+			success.add(m.vmcps_vmcp_updated({ name: updatedVMcp.displayName }));
 			closeDialog();
 			await onUpdated?.(updatedVMcp);
 		} catch {
-			errors.append('Failed to update vMCP.');
+			errors.append(m.vmcps_failed_to_update());
 		} finally {
 			saving = false;
 		}
@@ -160,10 +161,10 @@
 			if (selectedVMcp?.id === deleted.id) {
 				closeDialog();
 			}
-			success.add(`${deleted.displayName} vMCP deleted.`);
+			success.add(m.vmcps_vmcp_deleted({ name: deleted.displayName }));
 			await onDeleted?.(deleted);
 		} catch {
-			errors.append('Failed to delete vMCP.');
+			errors.append(m.vmcps_failed_to_delete());
 		} finally {
 			deletingVMcp = false;
 			confirmDeleteVMcp = undefined;
@@ -181,11 +182,12 @@
 	oncancel={() => (confirmDeleteVMcp = undefined)}
 	msg=""
 	loading={deletingVMcp}
-	title="Confirm Delete"
+	title={m.vmcps_deployments_confirm_delete()}
 >
 	{#snippet note()}
-		Are you sure you want to delete "<b>{confirmDeleteVMcp?.displayName ?? 'this vMCP'}</b>"? This
-		cannot be undone.
+		{m.vmcps_delete_confirm_prefix()}<b
+			>{confirmDeleteVMcp?.displayName ?? m.vmcps_deployments_this_vmcp()}</b
+		>{m.vmcps_delete_confirm_suffix()}
 	{/snippet}
 </Confirm>
 
@@ -193,7 +195,7 @@
 	animate="slide"
 	class="md:w-md"
 	bind:this={vmcpDialog}
-	title={editing ? 'Edit Details' : 'Create vMCP'}
+	title={editing ? m.vmcps_edit_details() : m.vmcps_create_vmcp()}
 	onClose={handleDialogClose}
 >
 	<div class="flex grow flex-col p-4 md:p-0">
@@ -206,7 +208,8 @@
 				for="vmcp-name"
 				class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
 			>
-				Name <span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
+				{m.core_name()}
+				<span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
 			</label>
 			<input
 				id="vmcp-name"
@@ -218,7 +221,7 @@
 				aria-disabled={readonly}
 			/>
 			{#if showRequired.displayName}
-				<p class="text-error text-xs" role="alert">Name is required</p>
+				<p class="text-error text-xs" role="alert">{m.vmcps_name_required()}</p>
 			{/if}
 		</div>
 
@@ -227,7 +230,7 @@
 				for="vmcp-description"
 				class={twMerge('text-sm font-light', showRequired.description && 'error')}
 			>
-				Description
+				{m.core_description()}
 				<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
 			</label>
 			<textarea
@@ -240,7 +243,7 @@
 				disabled={readonly}
 				aria-disabled={readonly}></textarea>
 			{#if showRequired.description}
-				<p class="text-error text-xs" role="alert">Description is required</p>
+				<p class="text-error text-xs" role="alert">{m.vmcps_description_required()}</p>
 			{/if}
 		</div>
 
@@ -249,13 +252,13 @@
 		{#if !readonly}
 			<div class="flex md:flex-row flex-col justify-end gap-2 mt-4">
 				<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
-					Cancel
+					{m.common_cancel()}
 				</button>
 				<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
 					{#if saving}
 						<Loading class="text-primary-content size-4" />
 					{:else}
-						{editing ? 'Save' : 'Create'}
+						{editing ? m.core_save() : m.vmcps_create()}
 					{/if}
 				</button>
 			</div>

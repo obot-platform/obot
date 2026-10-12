@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { CircleMinus } from '@lucide/svelte';
 
 	interface Props {
@@ -16,7 +17,7 @@
 		aria-atomic="true"
 	>
 		<CircleMinus class="size-3" />
-		Tunnel disconnected
+		{m.mcps_tunnels_tunnel_disconnected()}
 	</span>
 {/snippet}
 
@@ -26,15 +27,15 @@
 	>
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div class="flex flex-col gap-1">
-				<h2 class="text-sm font-semibold">Tunnel Status</h2>
+				<h2 class="text-sm font-semibold">{m.mcps_tunnels_tunnel_status_title()}</h2>
 				<p class="text-muted-content text-xs font-light">
-					Live tunnel connection status refreshes automatically.
+					{m.mcps_tunnels_tunnel_status_description()}
 				</p>
 			</div>
 			{@render badge()}
 		</div>
 		<p class="text-muted-content text-sm font-light">
-			The tunnel client used by this remote MCP server is not connected.
+			{m.mcps_tunnels_tunnel_not_connected()}
 		</p>
 	</section>
 {:else}

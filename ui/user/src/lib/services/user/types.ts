@@ -165,7 +165,7 @@ export type AuditLogDetails = {
 	network?: { clientIP?: string };
 	client?: { name?: string; version?: string; userAgent?: string };
 	agent?: {
-		provider?: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
+		provider?: 'claude_code' | 'codex' | 'vscode' | 'cursor' | 'kiro' | string;
 		version?: string;
 		cliName?: string;
 		cliVersion?: string;
@@ -580,7 +580,6 @@ export interface VMCPComponentCatalogEntrySnapshot {
 }
 
 export interface VMCPComponent {
-	allowedTools?: string[];
 	catalogEntry: VMCPComponentCatalogEntrySnapshot;
 	configuration?: VMCPConfigurationPolicy[];
 	forceSingleUser?: boolean;
@@ -933,7 +932,16 @@ export interface OrgUser {
 	deletedAt?: string;
 	originalEmail?: string;
 	originalUsername?: string;
+	/** Lifecycle status. A disabled user keeps their account and data but cannot sign in or use credentials. */
+	status?: OrgUserStatus;
+	disabledAt?: string;
+	disabledReason?: OrgUserDisabledReason;
+	/** What controls the user's status: Obot, or an identity provider through SCIM. */
+	managementSource?: OrgUserManagementSource;
 }
+export type OrgUserStatus = 'active' | 'disabled' | 'deleted';
+export type OrgUserDisabledReason = 'scim_inactive' | 'scim_unprovisioned';
+export type OrgUserManagementSource = 'obot' | 'scim';
 export interface OrgGroup {
 	id: string;
 	name: string;
@@ -975,8 +983,9 @@ export interface Profile {
 	isAdminReadonly?: () => boolean;
 	isOwner?: () => boolean;
 	isBootstrapUser?: () => boolean;
-	canImpersonate?: () => boolean;
 	unauthorized?: boolean;
+	/** The server refused the session because the account is not active. */
+	accountInactive?: boolean;
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;
@@ -1059,7 +1068,6 @@ export interface Version {
 	mcpNetworkPolicyEnabled?: boolean;
 	mcpDefaultDenyAllEgress?: boolean;
 	messagePoliciesEnabled?: boolean;
-	agentsEnabled?: boolean;
 	hostedAgentsEnabled?: boolean;
 	hideK8sDetails?: boolean;
 	disableLegacyChat?: boolean;
@@ -1076,3 +1084,26 @@ export type Workspace = {
 };
 export type LaunchType = 'hosted' | 'remote';
 export type LaunchServerType = LaunchType | 'multi';
+
+export interface Skill {
+	id: string;
+	created?: string;
+	deleted?: string | null;
+	type: string;
+	name?: string;
+	description?: string;
+	displayName?: string;
+	license?: string;
+	compatibility?: string;
+	allowedTools?: string;
+	metadata?: Record<string, unknown>;
+	repoID?: string;
+	repoURL?: string;
+	repoRef?: string;
+	commitSHA?: string;
+	relativePath?: string;
+	installHash?: string;
+	valid?: boolean;
+	validationError?: string;
+	lastIndexedAt?: string;
+}

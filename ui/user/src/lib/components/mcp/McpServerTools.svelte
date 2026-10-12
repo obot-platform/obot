@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		UserService,
@@ -124,7 +125,7 @@
 			tools = await toolCall;
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') return;
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
+			error = err instanceof Error ? err.message : m.mcps_unknown_error();
 		} finally {
 			loading = false;
 		}
@@ -157,8 +158,7 @@
 					<div class="flex items-center gap-3">
 						<Info class="size-6 shrink-0" />
 						<div>
-							This is a preview of the tools that are available for this MCP server; the actual
-							tools may differ on user connection.
+							{m.mcps_servers_tools_preview_notice()}
 						</div>
 					</div>
 				</div>
@@ -167,7 +167,7 @@
 				<div class="notification-error flex w-full items-center gap-2 p-3">
 					<CircleAlert class="size-4" />
 					<div class="flex flex-col">
-						<p class="text-sm font-semibold">Unable to retrieve the server's tools</p>
+						<p class="text-sm font-semibold">{m.mcps_servers_tools_retrieve_failed()}</p>
 						<p class="text-sm font-light">
 							{error}
 						</p>
@@ -192,7 +192,7 @@
 						allDescriptionsEnabled = checked;
 						expanded = {};
 					}}
-					label="Show All Descriptions"
+					label={m.mcps_servers_tools_show_all_descriptions()}
 					labelInline
 					classes={{
 						label: 'text-sm gap-2'
@@ -203,7 +203,7 @@
 			<Search
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={(val) => (search = val)}
-				placeholder="Search tools..."
+				placeholder={m.mcps_tools_search_placeholder()}
 			/>
 		</div>
 		<div class="flex flex-col gap-4 overflow-hidden">
@@ -227,7 +227,7 @@
 								{/if}
 								{#if tool.unsupported}
 									<span class="text-muted-content ml-3 shrink-0 text-sm">
-										⚠️ Not yet fully supported in Obot
+										⚠️ {m.mcps_servers_tools_not_fully_supported()}
 									</span>
 								{/if}
 							</p>
@@ -257,7 +257,7 @@
 								<div
 									class="from-base-300 dark:from-base-400 text-muted-content flex w-full shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold md:w-sm"
 								>
-									Parameters
+									{m.mcps_servers_tools_parameters()}
 								</div>
 								<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
 									<div class="flex flex-col gap-2">
@@ -282,12 +282,12 @@
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Wrench class="text-muted-content size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+					<h4 class="text-muted-content text-lg font-semibold">{m.mcps_catalog_no_tools()}</h4>
 					<p class="text-muted-content text-sm font-light">
 						{#if showRealTools}
-							Looks like this MCP server doesn't have any tools available.
+							{m.mcps_servers_tools_none_available()}
 						{:else}
-							Connection to the server is required to list available tools.
+							{m.mcps_servers_tools_connection_required()}
 						{/if}
 					</p>
 				</div>

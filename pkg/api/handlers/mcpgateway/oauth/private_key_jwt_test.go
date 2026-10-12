@@ -3,8 +3,11 @@ package oauth
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,7 +23,9 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -72,12 +77,12 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		"client_assertion":      {assertion},
 	}
 
-	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID); err != nil {
+	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID, ""); err != nil {
 		t.Fatalf("validate private_key_jwt: %v", err)
 	}
 
 	form.Set("client_assertion", signClientAssertion(t, key, clientID, "https://other.example/oauth/token"))
-	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID); err == nil {
+	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID, ""); err == nil {
 		t.Fatal("expected invalid audience to fail")
 	}
 }
@@ -168,6 +173,153 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "grant_type") {
 		t.Fatalf("expected request to reach grant type validation, got %v", err)
+	}
+}
+
+func TestTokenPrivateKeyJWTAudienceMatchesRoute(t *testing.T) {
+	const (
+		baseURL      = "https://obot.example.com"
+		clientID     = "https://client.example/oauth/client.json"
+		mcpID        = system.SystemMCPServerPrefix + "test"
+		code         = "authorization-code"
+		refreshToken = "old-refresh-token"
+	)
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	jwks, err := json.Marshal(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{
+		Key:       &key.PublicKey,
+		KeyID:     "test-key",
+		Algorithm: "RS256",
+		Use:       "sig",
+	}}})
+	require.NoError(t, err)
+	metadata, err := json.Marshal(map[string]any{
+		"client_id":                  clientID,
+		"client_name":                "Test CIMD Client",
+		"redirect_uris":              []string{"https://client.example/callback"},
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"token_endpoint_auth_method": "private_key_jwt",
+		"jwks":                       json.RawMessage(jwks),
+	})
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name      string
+		grantType string
+		scoped    bool
+	}{
+		{
+			name:      "authorization code scoped",
+			grantType: "authorization_code",
+			scoped:    true,
+		},
+		{
+			name:      "refresh token scoped",
+			grantType: "refresh_token",
+			scoped:    true,
+		},
+		{
+			name:      "authorization code unscoped",
+			grantType: "authorization_code",
+		},
+		{
+			name:      "refresh token unscoped",
+			grantType: "refresh_token",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var grant kclient.Object
+			if tt.grantType == "authorization_code" {
+				grant = &v1.OAuthAuthRequest{
+					Namespace: system.DefaultNamespace,
+					Name:      "oauth-request",
+					Spec: v1.OAuthAuthRequestSpec{
+						ClientID:       clientID,
+						Resource:       baseURL + "/mcp-connect/" + mcpID,
+						HashedAuthCode: fmt.Sprintf("%x", sha256.Sum256([]byte(code))),
+						UserID:         42,
+						MCPID:          mcpID,
+					},
+				}
+			} else {
+				grant = &v1.OAuthToken{
+					Namespace: system.DefaultNamespace,
+					Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
+					Spec: v1.OAuthTokenSpec{
+						ClientID: clientID,
+						Resource: baseURL + "/mcp-connect/" + mcpID,
+						UserID:   42,
+						MCPID:    mcpID,
+					},
+				}
+			}
+			storage, gatewayClient, tokenService := newOAuthTokenTestServices(t, grant)
+			h := newTestCIMDHandler(func(req *http.Request) (*http.Response, error) {
+				require.Equal(t, clientID, req.URL.String())
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(string(metadata))),
+				}, nil
+			})
+			h.baseURL = baseURL
+			h.oauthConfig.TokenEndpoint = baseURL + "/oauth/token"
+			h.tokenService = tokenService
+
+			endpoint := baseURL + "/oauth/token"
+			path := "/oauth/token"
+			otherEndpoint := endpoint + "/" + mcpID
+			if tt.scoped {
+				endpoint = otherEndpoint
+				path += "/" + mcpID
+				otherEndpoint = baseURL + "/oauth/token"
+			}
+
+			requestToken := func(audience string) (types.OAuthToken, error) {
+				form := url.Values{
+					"grant_type":            {tt.grantType},
+					"client_assertion_type": {clientAssertionTypeJWTBearer},
+					"client_assertion":      {signClientAssertion(t, key, clientID, audience)},
+				}
+				if tt.grantType == "authorization_code" {
+					form.Set("code", code)
+				} else {
+					form.Set("refresh_token", refreshToken)
+				}
+				req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				if tt.scoped {
+					req.SetPathValue("mcp_id", mcpID)
+				}
+				recorder := httptest.NewRecorder()
+				err := h.token(api.Context{
+					ResponseWriter: recorder,
+					Request:        req,
+					Storage:        storage,
+					GatewayClient:  gatewayClient,
+				})
+				if err != nil {
+					return types.OAuthToken{}, err
+				}
+				var response types.OAuthToken
+				return response, json.NewDecoder(recorder.Body).Decode(&response)
+			}
+
+			for _, audience := range []string{otherEndpoint, baseURL + "/oauth/token/unrelated"} {
+				_, err := requestToken(audience)
+				assertInvalidClientErr(t, err)
+				require.Contains(t, err.Error(), "invalid audience")
+			}
+
+			response, err := requestToken(endpoint)
+			require.NoError(t, err)
+			require.NotEmpty(t, response.AccessToken)
+			require.NotEmpty(t, response.RefreshToken)
+			if tt.grantType == "refresh_token" {
+				require.NotEqual(t, refreshToken, response.RefreshToken)
+			}
+		})
 	}
 }
 

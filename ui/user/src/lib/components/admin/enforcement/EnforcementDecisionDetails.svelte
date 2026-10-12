@@ -10,6 +10,7 @@
 		type QuickAllowAction
 	} from '$lib/enforcement';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -82,7 +83,10 @@
 			})
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
-				fetchError = err instanceof Error ? err.message : 'Failed to load decision details';
+				fetchError =
+					err instanceof Error
+						? err.message
+						: m.inventory_enforcement_enforcement_events_load_details_failed();
 			});
 
 		return () => controller.abort();
@@ -123,7 +127,9 @@
 		class="dark:bg-base-200 bg-base-100 relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
 	>
 		<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
-		<h3 class="text-lg font-semibold">Decision Detail</h3>
+		<h3 class="text-lg font-semibold">
+			{m.inventory_enforcement_enforcement_events_decision_detail()}
+		</h3>
 		<IconButton onclick={onClose}>
 			<X class="size-5" />
 		</IconButton>
@@ -135,15 +141,23 @@
 		<div class="flex flex-col gap-1 p-4 pl-5">
 			<div class="flex flex-wrap items-center gap-2">
 				{#if decision.decision === 'allow'}
-					<span class="badge badge-success badge-sm">Allowed</span>
+					<span class="badge badge-success badge-sm"
+						>{m.inventory_enforcement_enforcement_events_allowed()}</span
+					>
 				{:else}
-					<span class="badge badge-error badge-sm">Blocked</span>
+					<span class="badge badge-error badge-sm"
+						>{m.inventory_enforcement_enforcement_events_blocked()}</span
+					>
 				{/if}
 				{#if decision.unresolved}
-					<span class="badge badge-warning badge-sm">Could not be identified</span>
+					<span class="badge badge-warning badge-sm"
+						>{m.inventory_enforcement_enforcement_events_unidentified()}</span
+					>
 				{/if}
 				{#if decision.obotHosted}
-					<span class="badge badge-ghost badge-sm">Obot-hosted</span>
+					<span class="badge badge-ghost badge-sm"
+						>{m.inventory_enforcement_enforcement_events_obot_hosted()}</span
+					>
 				{/if}
 				<span class="text-muted-content text-xs">
 					{formatLogTimestamp(decision.createdAt, userDeviceSettings.timeFormat)}
@@ -160,22 +174,22 @@
 			<div class="notification-alert mx-4 mb-2 ml-5 flex items-start gap-2.5 p-2.5">
 				<CircleAlert class="size-4 shrink-0" />
 				<span class="text-xs break-all">
-					Showing the summary from the list — the full record couldn't be loaded. {fetchError}
+					{m.inventory_enforcement_enforcement_events_showing_summary({ error: fetchError })}
 				</span>
 			</div>
 		{/if}
 
 		<div class="flex flex-col gap-6 p-4 pl-5">
 			<div class="flex flex-col gap-1.5">
-				<p class="text-base font-semibold">Call</p>
+				<p class="text-base font-semibold">{m.inventory_enforcement_enforcement_events_call()}</p>
 				<div class="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-1 text-sm font-light">
-					<span class="font-medium">Agent</span>
+					<span class="font-medium">{m.audit_usage_audit_logs_agent()}</span>
 					<span>{agentLabel(decision.agent)}</span>
-					<span class="font-medium">Tool</span>
+					<span class="font-medium">{m.inventory_enforcement_enforcement_events_tool()}</span>
 					<span class="break-all">{decision.tool || '—'}</span>
-					<span class="font-medium">Tool Type</span>
+					<span class="font-medium">{m.inventory_enforcement_enforcement_events_tool_type()}</span>
 					<span>{kindLabel(decision.kind)}</span>
-					<span class="font-medium">MCP Server</span>
+					<span class="font-medium">{m.inventory_enforcement_mcp_server()}</span>
 					<span class="break-all">{decision.serverName || '—'}</span>
 				</div>
 			</div>
@@ -183,30 +197,40 @@
 			{#if decision.server}
 				{@const server = decision.server}
 				<div class="flex flex-col gap-1.5">
-					<p class="text-base font-semibold">Resolved Target</p>
+					<p class="text-base font-semibold">
+						{m.inventory_enforcement_enforcement_events_resolved_target()}
+					</p>
 					<div class="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-1 text-sm font-light">
 						{#if server.url}
 							<span class="font-medium">URL</span>
 							<span class="break-all">{server.url}</span>
 						{/if}
 						{#if server.hostname}
-							<span class="font-medium">Hostname</span>
+							<span class="font-medium">{m.core_col_hostname()}</span>
 							<span class="break-all">{server.hostname}</span>
 						{/if}
 						{#if server.package}
-							<span class="font-medium">Registry</span>
+							<span class="font-medium">{m.core_col_registry()}</span>
 							<span>{PACKAGE_SOURCE_LABELS[server.package.source] ?? server.package.source}</span>
-							<span class="font-medium">Package</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_package()}</span
+							>
 							<span class="break-all">{server.package.name}</span>
-							<span class="font-medium">Version</span>
-							<span class="break-all">{server.package.version || 'Not reported'}</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_version()}</span
+							>
+							<span class="break-all"
+								>{server.package.version ||
+									m.inventory_enforcement_enforcement_events_not_reported()}</span
+							>
 						{/if}
 						{#if server.connector}
-							<span class="font-medium">Connector</span>
+							<span class="font-medium"
+								>{m.inventory_enforcement_enforcement_events_connector()}</span
+							>
 							<span class="break-all">{server.connector}</span>
 						{/if}
 						{#if server.command}
-							<span class="font-medium">Command</span>
+							<span class="font-medium">{m.inventory_enforcement_enforcement_events_command()}</span
+							>
 							<span class="break-all">{server.command}</span>
 						{/if}
 					</div>
@@ -214,17 +238,17 @@
 			{/if}
 
 			<div class="flex flex-col gap-1.5">
-				<p class="text-base font-semibold">Device</p>
+				<p class="text-base font-semibold">{m.audit_usage_audit_logs_device()}</p>
 				<div class="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-1 text-sm font-light">
 					{#if deviceName && deviceName !== decision.deviceID}
-						<span class="font-medium">Hostname</span>
+						<span class="font-medium">{m.core_col_hostname()}</span>
 						<span class="break-all">{deviceName}</span>
 					{/if}
-					<span class="font-medium">Device ID</span>
+					<span class="font-medium">{m.inventory_enforcement_enforcement_events_device_id()}</span>
 					<span class="break-all">{decision.deviceID || '—'}</span>
-					<span class="font-medium">IP Address</span>
+					<span class="font-medium">{m.audit_usage_audit_logs_model_col_ip_address()}</span>
 					<span class="break-all">{decision.clientIP || '—'}</span>
-					<span class="font-medium">Configuration</span>
+					<span class="font-medium">{m.inventory_enforcement_configuration_tab()}</span>
 					<span>#{decision.mdmConfigurationID}</span>
 				</div>
 			</div>
@@ -232,19 +256,22 @@
 			{#if decision.decision === 'deny' && canQuickAllow}
 				<div class="flex flex-col gap-2">
 					{#if checkingAllowlist}
-						<p class="text-base font-semibold">Allow this call going forward</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_allow_going_forward()}
+						</p>
 						<div class="text-muted-content flex items-center gap-2 text-sm font-light">
 							<Loading class="size-4" />
-							<span>Checking the current allowlist…</span>
+							<span>{m.inventory_enforcement_enforcement_events_checking_allowlist()}</span>
 						</div>
 					{:else if alreadyAllowed}
-						<p class="text-base font-semibold">Already allowed</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_already_allowed()}
+						</p>
 						<div class="notification-info flex items-start gap-2.5 p-2.5">
 							<ShieldCheck class="size-4 shrink-0" />
 							<div class="flex flex-col gap-1">
 								<span class="text-xs">
-									A rule in the allowlist already covers this call, so there is nothing to add. This
-									decision was recorded before the rule existed.
+									{m.inventory_enforcement_enforcement_events_already_allowed_note()}
 								</span>
 								{#if allowlistCheck?.allowlistReason}
 									<span class="text-xs font-light wrap-break-word">
@@ -254,14 +281,16 @@
 							</div>
 						</div>
 					{:else}
-						<p class="text-base font-semibold">Allow this call going forward</p>
+						<p class="text-base font-semibold">
+							{m.inventory_enforcement_enforcement_events_allow_going_forward()}
+						</p>
 						{#if readOnly}
 							<p class="text-muted-content text-sm font-light">
-								Requires an administrator with write access.
+								{m.inventory_enforcement_enforcement_events_requires_write_access()}
 							</p>
 						{:else}
 							<p class="text-muted-content text-sm font-light">
-								Adds a rule to this fleet's enforcement allowlist.
+								{m.inventory_enforcement_enforcement_events_adds_rule()}
 							</p>
 							<div class="flex flex-col gap-2">
 								{#each quickAllows as { action, blocked } (action)}

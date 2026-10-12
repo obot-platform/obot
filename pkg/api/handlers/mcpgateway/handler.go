@@ -8,8 +8,10 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -32,6 +34,7 @@ import (
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -217,31 +220,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, persistent.TokenContext{
-				Audience:         compositeAudienceURL,
-				UserID:           req.User.GetUID(),
-				UserName:         req.User.GetName(),
-				UserEmail:        cmp.Or(req.User.GetExtra()["email"]...),
-				UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
-				MCPID:            serverConfig.MCPServerName,
-				AuthorizedMCPIDs: authorizedMCPIDs,
-			}, now)
+			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, now), now)
 			if err != nil {
 				return err
-			}
-		} else if serverConfig.MCPServerName == system.ObotMCPServerName {
-			// If this is contacting the Obot system MCP server, then we need to mint a token that has access
-			// to the APIs the user has access to so the MCP server can list/connect to MCP servers.
-			_, token, err = h.tokenService.NewToken(req.Context(), persistent.TokenContext{
-				Audience:   h.serverURL,
-				IssuedAt:   persistent.NewTime(now),
-				ExpiresAt:  persistent.NewTime(now.Add(time.Hour)),
-				UserID:     serverConfig.UserID,
-				UserGroups: []string{types.GroupAPI, types.GroupAuthenticated},
-				Namespace:  system.DefaultNamespace,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to generate token: %w", err)
 			}
 		} else {
 			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(h.ctx)
@@ -300,15 +281,11 @@ func (h *Handler) Proxy(req api.Context) error {
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				audit.recordTransportError(err, http.StatusBadGateway)
-				if serverConfig.IsAgentServer() {
-					http.Error(w, fmt.Sprintf("failed to proxy request to Nanobot agent %s: %v", serverConfig.AgentName, err), http.StatusBadGateway)
-				} else {
-					mcpServerName := serverConfig.MCPServerDisplayName
-					if mcpServerName == "" {
-						mcpServerName = serverConfig.MCPServerName
-					}
-					http.Error(w, fmt.Sprintf("failed to proxy request to MCP server %s: %v", mcpServerName, err), http.StatusBadGateway)
+				mcpServerName := serverConfig.MCPServerDisplayName
+				if mcpServerName == "" {
+					mcpServerName = serverConfig.MCPServerName
 				}
+				http.Error(w, fmt.Sprintf("failed to proxy request to MCP server %s: %v", mcpServerName, err), http.StatusBadGateway)
 			},
 		}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -327,6 +304,21 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
+// isLoopbackHost reports whether a Host header value, with or without a port,
+// names localhost or a loopback address.
+func isLoopbackHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.IsLoopback()
+}
+
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
@@ -337,17 +329,22 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 
 	// SetXForwarded preserves the X-Forwarded-For handling that ReverseProxy
 	// applied automatically under the deprecated Director. It also writes
-	// X-Forwarded-Host and X-Forwarded-Proto, so the values this handler cares
-	// about are re-applied afterwards: the scheme is derived from the inbound
-	// host rather than from whether this hop happens to be TLS.
+	// X-Forwarded-Host and X-Forwarded-Proto from this hop, which are rewritten
+	// below: dropped for a loopback host, otherwise the host the client used
+	// over https.
 	r.SetXForwarded()
 
-	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-	scheme := "https"
-	if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
-		scheme = "http"
+	if isLoopbackHost(r.In.Host) {
+		// Obot dialed itself (a vMCP component's local connect URL) or the client
+		// connected locally. A loopback host means nothing to the upstream, and a
+		// proxy in front of it that trusts these headers (ingress-nginx with
+		// force-ssl-redirect) answers with a redirect to https://localhost/.
+		r.Out.Header.Del("X-Forwarded-Host")
+		r.Out.Header.Del("X-Forwarded-Proto")
+	} else {
+		r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+		r.Out.Header.Set("X-Forwarded-Proto", "https")
 	}
-	r.Out.Header.Set("X-Forwarded-Proto", scheme)
 
 	r.Out.Host = upstreamURL.Host
 	r.Out.URL.Scheme = upstreamURL.Scheme
@@ -399,17 +396,6 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
-	// Add-hoc authorization for nanobot agents
-	if mcpServerConfig.IsAgentServer() {
-		var agent v1.NanobotAgent
-		if err = req.Get(&agent, mcpServerConfig.AgentName); err != nil {
-			return mcp.ServerConfig{}, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.AgentName, err)
-		}
-		if agent.Spec.UserID != req.User.GetUID() && (!req.UserCanImpersonate() || !req.UserIsAdmin()) {
-			return mcp.ServerConfig{}, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.AgentName)
-		}
-	}
-
 	mcpServerConfig, err = h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to launch mcp server: %w", err)
@@ -458,6 +444,27 @@ func writeMCPAuthRequired(req api.Context, requiresConfig bool) {
 	}
 }
 
+// compositeLoopbackTokenContext returns the token a composite server's loopback authenticates with, for the caller
+// that reached the composite server.
+func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, now time.Time) persistent.TokenContext {
+	tokenContext := persistent.TokenContext{
+		Audience:         audience,
+		IssuedAt:         persistent.NewTime(now),
+		ExpiresAt:        persistent.NewTime(now.Add(10 * time.Minute)),
+		UserID:           caller.GetUID(),
+		UserName:         caller.GetName(),
+		UserEmail:        cmp.Or(caller.GetExtra()["email"]...),
+		UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		MCPID:            mcpServerName,
+		AuthorizedMCPIDs: authorizedMCPIDs,
+	}
+	if principal.IsHostedAgent(caller) {
+		// The token names the agent, which is not a user, so it records the owner whose status governs it.
+		tokenContext.HostedAgentOwnerID = principal.ResourceOwnerID(caller)
+	}
+	return tokenContext
+}
+
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, error) {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, mcpID); err != nil {
@@ -469,8 +476,8 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 	}
 
 	// Only look up credentials if the manifest has env vars without static values.
-	// This avoids expensive credential lookups on the hot path for servers like
-	// obot-mcp-server where all env vars have static values.
+	// This avoids expensive credential lookups on the hot path for servers
+	// where all env vars have static values.
 	credEnv := make(map[string]string)
 	var needsCredentials bool
 	for _, env := range systemServer.Spec.Manifest.Config {

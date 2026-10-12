@@ -6,6 +6,7 @@
 	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { getAdminModels } from '$lib/context/admin/models.svelte.js';
 	import { HttpError } from '$lib/errors.js';
+	import { m } from '$lib/i18n';
 	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
 	import {
@@ -13,14 +14,13 @@
 		defaultModelAliases as defaultModelAliasesStore,
 		license
 	} from '$lib/stores';
-	import { profile, version } from '$lib/stores';
+	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { delay } from '$lib/utils';
-	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
-	const nanobotIntegratedModels = [
+	const supportedModelProviderIds = [
 		CommonModelProviderIds.OPENAI,
 		CommonModelProviderIds.ANTHROPIC,
 		CommonModelProviderIds.AMAZON_BEDROCK,
@@ -44,7 +44,6 @@
 	let loading = $state(false);
 	let licenseRequiredProvider = $state<ModelProviderType>();
 
-	let atLeastOneConfigured = $derived(modelProviders.some((provider) => provider.configured));
 	let hasAnthropicAwsBedrockConfigured = $derived(
 		!!modelProviders.find((provider) => provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK)
 			?.configured
@@ -57,7 +56,7 @@
 				)
 	);
 	let modelProvidersToShow = $derived(
-		availableModelProviders.filter((provider) => nanobotIntegratedModels.includes(provider.id))
+		availableModelProviders.filter((provider) => supportedModelProviderIds.includes(provider.id))
 	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
@@ -130,7 +129,7 @@
 						configureError = errorMessage;
 					}
 				} else {
-					configureError = 'Failed to configure model provider';
+					configureError = m.models_configure_failed();
 				}
 			} finally {
 				loading = false;
@@ -140,20 +139,6 @@
 </script>
 
 <div class="mb-4 @container" in:fade={{ duration }}>
-	<div class="flex flex-col gap-8">
-		{#if !atLeastOneConfigured && version.current.agentsEnabled !== false}
-			<div class="notification-alert mb-4 flex flex-col gap-2">
-				<div class="flex items-center gap-2">
-					<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">No Model Providers Configured!</p>
-				</div>
-				<span class="text-sm font-light break-all">
-					To use Obot chat features, you'll need to set up a Model Provider. Select and configure
-					one below to get started!
-				</span>
-			</div>
-		{/if}
-	</div>
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 		{#each sortedModelProviders as modelProvider (modelProvider.id)}
 			<ProviderCard
@@ -206,7 +191,7 @@
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
 			<p class="text-muted-content py-4 font-light">
-				Note: Anthropic does not have an embeddings model.
+				{m.models_anthropic_no_embeddings()}
 			</p>
 		{/if}
 	{/snippet}

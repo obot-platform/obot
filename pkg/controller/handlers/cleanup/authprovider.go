@@ -2,18 +2,17 @@ package cleanup
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/groupref"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -58,27 +57,23 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, resp router.Response) 
 		return err
 	}
 	if !checkpoint.DataDeleted {
-		counts := make(map[string]int, 6)
-		if counts["accessControlRules"], err = cleanupAccessControlRuleGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-		if counts["modelAccessPolicies"], err = cleanupModelAccessPolicyGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-		if counts["skillAccessRules"], err = cleanupSkillAccessRuleGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-		if counts["messagePolicies"], err = cleanupMessagePolicyGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-		if counts["hostedAgentAccessRules"], err = cleanupHostedAgentAccessRuleGroups(req, groupIDPrefix); err != nil {
-			return err
-		}
-		if counts["publishedArtifacts"], err = cleanupPublishedArtifactGroups(req, groupIDPrefix); err != nil {
+		// Deconfiguring a provider that SCIM manages deleted its SCIM connection, with its group data, before the
+		// cleanup became ready, so the cleanup goes on as for any other provider. The gateway data goes first, because
+		// its deletion is refused in the same transaction that would delete it while a SCIM connection owns it: the
+		// provider's own connection, which is retried, or that of another provider with the same group ID prefix,
+		// whose groups and policy subjects are kept. The policy subjects follow only once the gateway data is gone. No
+		// connection can be created until the cleanup finishes, because connection setup refuses while a cleanup is
+		// pending for the provider or its group ID prefix.
+		if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); errors.Is(err, gclient.ErrSCIMManagedGroupData) {
+			slog.Warn("Kept the group data of an auth provider whose group ID prefix another provider's SCIM connection manages",
+				"authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix)
+			return req.Delete(cleanup)
+		} else if err != nil {
 			return err
 		}
 
-		if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); err != nil {
+		counts, err := groupref.RemoveGroupSubjects(req.Ctx, req.Client, req.Namespace, groupref.HasPrefix(groupIDPrefix))
+		if err != nil {
 			return err
 		}
 
@@ -154,146 +149,4 @@ func authProviderCheckpoint(cleanup *v1.AuthProviderCleanup) (authProviderCleanu
 		return authProviderCleanupCheckpoint{}, fmt.Errorf("parse auth provider cleanup checkpoint: %w", err)
 	}
 	return checkpoint, nil
-}
-
-func removeGroupSubjects(subjects []types.Subject, groupIDPrefix string) ([]types.Subject, bool) {
-	result := make([]types.Subject, 0, len(subjects))
-	changed := false
-	for _, subject := range subjects {
-		if subject.Type == types.SubjectTypeGroup && strings.HasPrefix(subject.ID, groupIDPrefix) {
-			changed = true
-			continue
-		}
-		result = append(result, subject)
-	}
-	if !changed {
-		return subjects, false
-	}
-	return result, true
-}
-
-func cleanupAccessControlRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.AccessControlRuleList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list access control rules for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
-		if !changed {
-			continue
-		}
-		list.Items[i].Spec.Manifest.Subjects = subjects
-		if err := req.Client.Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update access control rule %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
-}
-
-func cleanupModelAccessPolicyGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.ModelAccessPolicyList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list model access policies for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
-		if !changed {
-			continue
-		}
-		list.Items[i].Spec.Manifest.Subjects = subjects
-		if err := req.Client.Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update model access policy %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
-}
-
-func cleanupSkillAccessRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.SkillAccessRuleList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list skill access rules for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
-		if !changed {
-			continue
-		}
-		list.Items[i].Spec.Manifest.Subjects = subjects
-		if err := req.Client.Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update skill access rule %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
-}
-
-func cleanupMessagePolicyGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.MessagePolicyList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list message policies for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
-		if !changed {
-			continue
-		}
-		list.Items[i].Spec.Manifest.Subjects = subjects
-		if err := req.Client.Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update message policy %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
-}
-
-func cleanupHostedAgentAccessRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.HostedAgentAccessRuleList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list hosted agent access rules for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
-		if !changed {
-			continue
-		}
-		list.Items[i].Spec.Manifest.Subjects = subjects
-		if err := req.Client.Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update hosted agent access rule %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
-}
-
-func cleanupPublishedArtifactGroups(req router.Request, groupIDPrefix string) (int, error) {
-	var list v1.PublishedArtifactList
-	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
-		return 0, fmt.Errorf("list published artifacts for auth provider cleanup: %w", err)
-	}
-	updated := 0
-	for i := range list.Items {
-		changed := false
-		for j := range list.Items[i].Status.Versions {
-			subjects, versionChanged := removeGroupSubjects(list.Items[i].Status.Versions[j].Subjects, groupIDPrefix)
-			if versionChanged {
-				list.Items[i].Status.Versions[j].Subjects = subjects
-				changed = true
-			}
-		}
-		if !changed {
-			continue
-		}
-		if err := req.Client.Status().Update(req.Ctx, &list.Items[i]); err != nil {
-			return updated, fmt.Errorf("update published artifact %s for auth provider cleanup: %w", list.Items[i].Name, err)
-		}
-		updated++
-	}
-	return updated, nil
 }

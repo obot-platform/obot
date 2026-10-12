@@ -1,12 +1,12 @@
 ---
-title: MCP Server GitOps
+title: "Git Catalogs"
 ---
 
 ## Overview
 
 Obot supports managing MCP servers through Git repositories, enabling GitOps workflows. Instead of manually adding MCP servers one at a time, administrators can source server configurations from Git repositories. This supports collaborative workflows with proper code review, versioning, and automated validation processes.
 
-Catalog sources can also define [vMCPs](../functionality/virtual-mcps.md) whose components refer to entries in those sources.
+Catalog sources can also define [vMCPs](../mcp-gateway/server-types.md) whose components refer to entries in those sources.
 
 ### Key Benefits
 
@@ -162,7 +162,7 @@ The optional `entryKey` field defines a stable key for this catalog entry. It mu
 
 ### vMCP definitions
 
-Set top-level `type: vmcp` to synchronize a vMCP. An omitted or empty `type` means `entry`. A vMCP uses the [vMCP manifest fields](../functionality/virtual-mcps.md), plus an optional `entryKey` that keeps its identity stable when its display name changes:
+Set top-level `type: vmcp` to synchronize a vMCP. An omitted or empty `type` means `entry`. A vMCP uses the [vMCP manifest fields](../mcp-gateway/server-types.md), plus an optional `entryKey` that keeps its identity stable when its display name changes:
 
 ```yaml
 type: vmcp
@@ -597,7 +597,7 @@ This example demonstrates all the key components: descriptive content with markd
 
 ## Migrating Git-synced composites to vMCPs
 
-When Obot upgrades to a release without composite MCP servers, it converts every composite catalog entry to a [vMCP](../functionality/virtual-mcps.md) at startup. The vMCP keeps the composite's components, tool settings, access, configuration, and users' existing connections and credentials.
+When Obot upgrades to a release without composite MCP servers, it converts every composite catalog entry to a [vMCP](../mcp-gateway/server-types.md) at startup. The vMCP keeps the composite's components, tool settings, access, configuration, and users' existing connections and credentials.
 
 Composites that you created in the Obot UI need no further action. A composite that was synced from a Git source becomes an **orphaned** vMCP: Obot keeps serving it, but no catalog source defines it. To manage it through GitOps again, publish a matching vMCP definition in the same source. On its next sync, Obot adopts the vMCP instead of creating a new one, so connections and credentials carry over.
 

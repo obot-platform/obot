@@ -73,7 +73,6 @@ func TestEnsureK8sSettingsAllowsStartupMaximumsWithoutConfiguredResources(t *tes
 		Name:      system.K8sSettingsName,
 	}, &settings))
 	require.Nil(t, settings.Spec.Resources)
-	require.Nil(t, settings.Spec.NanobotAgentResources)
 }
 
 func TestEnsureK8sSettingsLocksMaximumsConfiguredThroughHelm(t *testing.T) {

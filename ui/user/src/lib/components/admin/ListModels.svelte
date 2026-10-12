@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getAdminModels } from '$lib/context/admin/models.svelte';
+	import { m } from '$lib/i18n';
 	import { AdminService, ModelUsageLabels, type ModelProvider } from '$lib/services';
 	import { ModelUsage, type Model } from '$lib/services';
 	import { darkMode, profile } from '$lib/stores';
@@ -58,7 +59,7 @@
 		{:else}
 			<img src={provider.icon} alt={provider.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		{provider.name} Models
+		{m.models_providers_list_models_title({ provider: provider.name })}
 	{/snippet}
 	{#if provider}
 		<form class="flex flex-col gap-4" onsubmit={(e) => e.preventDefault()}>
@@ -74,6 +75,11 @@
 				<Table
 					data={modelsByProvider}
 					fields={['name', 'usage', 'active']}
+					headers={[
+						{ property: 'name', title: m.core_name() },
+						{ property: 'usage', title: m.models_providers_list_models_usage() },
+						{ property: 'active', title: m.models_providers_list_models_active() }
+					]}
 					classes={{ root: 'dark:bg-base-200' }}
 					setRowClasses={(row) => {
 						return row.usage !== ModelUsage.LLM ? 'text-muted-content' : '';
@@ -88,12 +94,12 @@
 										...columnData,
 										active: value
 									});
-									const index = modelsByProvider.findIndex((m) => m.id === columnData.id);
+									const index = modelsByProvider.findIndex((model) => model.id === columnData.id);
 									if (index !== -1) {
 										modelsByProvider[index].active = value;
 									}
 								}}
-								label="Toggle Active Model"
+								label={m.models_providers_list_models_toggle_active()}
 								disabled={readonly}
 							/>
 						{:else if field === 'usage'}

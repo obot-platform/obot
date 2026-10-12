@@ -62,51 +62,6 @@ func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: req}, nil
 }
 
-func TestShouldSkipMessagePolicyEnforcement(t *testing.T) {
-	tests := []struct {
-		name string
-		req  *http.Request
-		want bool
-	}{
-		{
-			name: "thread title request",
-			req: func() *http.Request {
-				req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
-				req.Header.Set(internalRequestTypeHeader, threadTitleRequestType)
-				return req
-			}(),
-			want: true,
-		},
-		{
-			name: "other internal request",
-			req: func() *http.Request {
-				req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
-				req.Header.Set(internalRequestTypeHeader, "something-else")
-				return req
-			}(),
-			want: false,
-		},
-		{
-			name: "missing header",
-			req:  httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil),
-			want: false,
-		},
-		{
-			name: "nil request",
-			req:  nil,
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldSkipMessagePolicyEnforcement(tt.req); got != tt.want {
-				t.Fatalf("shouldSkipMessagePolicyEnforcement() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestModifyResponse_WrapGate(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -543,22 +498,6 @@ func TestLLMRewriteRequest_RemovesAcceptEncoding(t *testing.T) {
 
 	if got := req.Header.Get("Accept-Encoding"); got != "" {
 		t.Fatalf("Accept-Encoding = %q, want empty", got)
-	}
-}
-
-func TestLLMRewriteRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
-	u := mustParseURL("https://api.example.com/v1")
-
-	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
-	req.SetPathValue("path", "responses")
-	req.Header.Set(internalRequestTypeHeader, threadTitleRequestType)
-
-	proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
-	llmRewriteRequest(*u)(proxyReq)
-	req = proxyReq.Out
-
-	if got := req.Header.Get(internalRequestTypeHeader); got != "" {
-		t.Fatalf("%s = %q, want empty", internalRequestTypeHeader, got)
 	}
 }
 

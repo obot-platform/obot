@@ -5,6 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { SkillRepository } from '$lib/services/admin/types';
 	import { isWebURL, setUrlParamAndUpdateUrl } from '$lib/url';
@@ -61,7 +62,7 @@
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				value={query}
 				onChange={updateSearchQuery}
-				placeholder="Search sources..."
+				placeholder={m.skills_search_sources()}
 			/>
 		</div>
 	</div>
@@ -73,14 +74,14 @@
 			headers={[
 				{
 					property: 'displayName',
-					title: 'Name'
+					title: m.core_name()
 				},
 				{
 					property: 'repoURL',
-					title: 'URL'
+					title: m.core_col_url()
 				}
 			]}
-			noDataMessage="No Git Source URLs added."
+			noDataMessage={m.skills_no_source_urls_added()}
 			setRowClasses={(d) => {
 				if (d.syncError) {
 					return 'bg-warning/10';
@@ -138,7 +139,7 @@
 									onOpenSyncError(d.repoURL, d.syncError ?? '');
 								}}
 								use:tooltip={{
-									text: 'An issue occurred. Click to see more details.',
+									text: m.skills_sync_error_tooltip(),
 									classes: ['wrap-break-word']
 								}}
 							>
@@ -162,9 +163,11 @@
 						disabled={isAdminReadonly || isSyncing}
 					>
 						{#if isSyncing}
-							<Loading class="size-4" /> Syncing...
+							<Loading class="size-4" />
+							{m.skills_syncing()}
 						{:else}
-							<RefreshCcw class="size-4" /> Sync
+							<RefreshCcw class="size-4" />
+							{m.skills_sync()}
 						{/if}
 					</button>
 					<button
@@ -174,7 +177,8 @@
 						}}
 						disabled={isAdminReadonly}
 					>
-						<Trash2 class="size-4" /> Delete
+						<Trash2 class="size-4" />
+						{m.core_delete()}
 					</button>
 				</div>
 			{/snippet}
@@ -182,10 +186,10 @@
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<PencilRuler class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No current Git Source URLs.</h4>
+			<h4 class="text-muted-content text-lg font-semibold">{m.skills_no_source_urls()}</h4>
 			<p class="text-muted-content text-sm font-light">
-				Once a Git Source URL has been added, its <br />
-				information will be quickly accessible here.
+				{m.skills_no_source_urls_desc_line1()} <br />
+				{m.skills_no_source_urls_desc_line2()}
 			</p>
 		</div>
 	{/if}

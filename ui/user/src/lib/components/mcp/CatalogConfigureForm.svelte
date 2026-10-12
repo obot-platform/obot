@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/user/mcp';
@@ -82,8 +83,8 @@
 		onSave,
 		name,
 		icon,
-		cancelText = 'Cancel',
-		submitText = 'Save',
+		cancelText = m.common_cancel(),
+		submitText = m.core_save(),
 		loading,
 		loadingContent,
 		error,
@@ -286,13 +287,13 @@
 
 		localError = undefined;
 		if (!hasAtLeastOneEnabled(form)) {
-			localError = 'Please enable at least one component server.';
+			localError = m.mcps_configure_enable_one_component();
 			return;
 		}
 
 		if (missingRequiredFields(form)) {
 			highlightMissingRequiredFields(form);
-			localError = 'Please complete all configuration fields with valid values.';
+			localError = m.mcps_configure_complete_fields();
 			return;
 		}
 
@@ -352,10 +353,10 @@
 <ResponsiveDialog
 	bind:this={compositeInfoDialog}
 	{animate}
-	title="MCP Composite Server"
+	title={m.mcps_configure_composite_title()}
 	class="max-w-md"
 >
-	<p class="font-light">This MCP server is a composite of the following MCP servers:</p>
+	<p class="font-light">{m.mcps_configure_composite_of()}</p>
 	{#if form && 'componentConfigs' in form}
 		<div class="my-4 flex flex-col items-center justify-center gap-2">
 			{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
@@ -372,8 +373,7 @@
 		</div>
 	{/if}
 	<p class="font-light">
-		The composite server may require configuring each of the MCP servers or disabling/enabling which
-		servers are included to match your needs.
+		{m.mcps_configure_composite_description()}
 	</p>
 	<button
 		class="btn btn-secondary mt-4"
@@ -382,7 +382,7 @@
 			openConfig();
 		}}
 	>
-		Continue
+		{m.core_continue()}
 	</button>
 </ResponsiveDialog>
 
@@ -441,7 +441,7 @@
 		<div class="notification-error flex items-center gap-2">
 			<CircleAlert class="size-6 shrink-0 text-error" />
 			<p class="flex flex-col text-sm font-light">
-				<span class="font-semibold">Error:</span>
+				<span class="font-semibold">{m.mcps_error_label()}</span>
 				<span>
 					{error || localError}
 				</span>
@@ -463,11 +463,9 @@
 				{#if showAlias}
 					<div class={twMerge('flex flex-col gap-1', isCompositeForm(form) && 'paper p-2')}>
 						<span class="flex items-center gap-2">
-							<label for="name"> Server Alias </label>
-							<span class="text-muted-content">(optional)</span>
-							<InfoTooltip
-								text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
-							/>
+							<label for="name"> {m.mcps_alias_label()} </label>
+							<span class="text-muted-content">{m.mcps_optional()}</span>
+							<InfoTooltip text={m.mcps_configure_alias_tooltip()} />
 						</span>
 						<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
 					</div>
@@ -488,7 +486,7 @@
 									<Toggle
 										checked={!form.componentConfigs[compId].disabled}
 										onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
-										label="Enable"
+										label={m.mcps_enable()}
 										labelInline
 										classes={{ label: 'text-sm gap-2' }}
 									/>
@@ -519,7 +517,7 @@
 													>
 														{fieldLabel(env.data)}
 														{#if !env.data.required}
-															<span class="text-muted-content">(optional)</span>
+															<span class="text-muted-content">{m.mcps_optional()}</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
@@ -531,7 +529,7 @@
 														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 													>
 														<span class="text-muted-content text-xs font-light"
-															>Kubernetes Secret</span
+															>{m.mcps_catalog_secret_source_kubernetes()}</span
 														>
 														<span class="font-mono"
 															>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
@@ -556,7 +554,7 @@
 														)}
 														options={configurationSelectOptions(env.data.options)}
 														selected={comp.envs![env.index].value}
-														placeholder="Select a value"
+														placeholder={m.mcps_select_a_value()}
 														ariaLabelledby={`${compId}-${env.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) => (comp.envs![env.index].value = option.value)}
@@ -626,7 +624,7 @@
 													>
 														{fieldLabel(header.data)}
 														{#if !header.data.required}
-															<span class="text-muted-content">(optional)</span>
+															<span class="text-muted-content">{m.mcps_optional()}</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
@@ -638,7 +636,7 @@
 														class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 													>
 														<span class="text-muted-content text-xs font-light"
-															>Kubernetes Secret</span
+															>{m.mcps_catalog_secret_source_kubernetes()}</span
 														>
 														<span class="font-mono"
 															>{header.data.secretBinding?.name} / {header.data.secretBinding
@@ -664,7 +662,7 @@
 														)}
 														options={configurationSelectOptions(header.data.options)}
 														selected={comp.headers![header.index].value}
-														placeholder="Select a value"
+														placeholder={m.mcps_select_a_value()}
 														ariaLabelledby={`${compId}-${header.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) =>
@@ -719,8 +717,8 @@
 											)}
 										/>
 										<span class="text-muted-content font-light">
-											The URL must contain the hostname: <b class="font-semibold">{comp.hostname}</b
-											>
+											{m.mcps_configure_url_must_contain_hostname()}
+											<b class="font-semibold">{comp.hostname}</b>
 										</span>
 									{/if}
 								</div>
@@ -746,7 +744,7 @@
 									>
 										{fieldLabel(env.data)}
 										{#if !env.data.required}
-											<span class="text-muted-content">(optional)</span>
+											<span class="text-muted-content">{m.mcps_optional()}</span>
 										{/if}
 									</label>
 									{#if !displayDescriptionInline}
@@ -757,7 +755,9 @@
 									<div
 										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 									>
-										<span class="text-muted-content text-xs font-light">Kubernetes Secret</span>
+										<span class="text-muted-content text-xs font-light"
+											>{m.mcps_catalog_secret_source_kubernetes()}</span
+										>
 										<span class="font-mono"
 											>{env.data.secretBinding?.name} / {env.data.secretBinding?.key}</span
 										>
@@ -780,7 +780,7 @@
 										)}
 										options={configurationSelectOptions(env.data.options)}
 										selected={form.envs![env.index].value}
-										placeholder="Select a value"
+										placeholder={m.mcps_select_a_value()}
 										ariaLabelledby={`${env.data.key}-label`}
 										onSelect={(option) => (form.envs![env.index].value = option.value)}
 										onClear={() => (form.envs![env.index].value = '')}
@@ -843,7 +843,7 @@
 									>
 										{fieldLabel(header.data)}
 										{#if !header.data.required}
-											<span class="text-muted-content">(optional)</span>
+											<span class="text-muted-content">{m.mcps_optional()}</span>
 										{/if}
 									</label>
 									<InfoTooltip text={header.data.description} />
@@ -852,7 +852,9 @@
 									<div
 										class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
 									>
-										<span class="text-muted-content text-xs font-light">Kubernetes Secret</span>
+										<span class="text-muted-content text-xs font-light"
+											>{m.mcps_catalog_secret_source_kubernetes()}</span
+										>
 										<span class="font-mono"
 											>{header.data.secretBinding?.name} / {header.data.secretBinding?.key}</span
 										>
@@ -875,7 +877,7 @@
 										)}
 										options={configurationSelectOptions(header.data.options)}
 										selected={form.headers![header.index].value}
-										placeholder="Select a value"
+										placeholder={m.mcps_select_a_value()}
 										ariaLabelledby={`${header.data.key}-label`}
 										onSelect={(option) => (form.headers![header.index].value = option.value)}
 										onClear={() => (form.headers![header.index].value = '')}
@@ -915,7 +917,8 @@
 							class="text-input-filled"
 						/>
 						<span class="text-muted-content font-light">
-							The URL must contain the hostname: <b class="font-semibold">
+							{m.mcps_configure_url_must_contain_hostname()}
+							<b class="font-semibold">
 								{form.hostname}
 							</b>
 						</span>
@@ -956,17 +959,16 @@
 	}}
 	oncancel={() => (showConfirmClose = false)}
 	type="info"
-	title="Confirm Cancel"
+	title={m.mcps_confirm_cancel()}
 >
 	{#snippet msgContent()}
 		<h3 class="text-base-content text-lg font-semibold wrap-break-word">
-			Are you sure you want to exit?
+			{m.mcps_confirm_exit()}
 		</h3>
 	{/snippet}
 	{#snippet note()}
 		<p class="w-sm">
-			It looks like you have started filling out the server information. You will have to fill out
-			the form again to launch this server.
+			{m.mcps_confirm_exit_note()}
 		</p>
 	{/snippet}
 </Confirm>

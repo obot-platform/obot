@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -36,11 +37,15 @@
 <ResponsiveDialog
 	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
-	title="Select Your Server"
+	title={m.mcps_deployments_select_your_server()}
 >
 	<Table
 		data={servers}
 		fields={['name', 'created']}
+		headers={[
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.core_col_created(), property: 'created' }
+		]}
 		onClickRow={async (d) => {
 			selectServerDialog?.close();
 			onSelectServer?.(d);
@@ -66,7 +71,7 @@
 							<span
 								use:tooltip={{
 									classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-									text: 'Configuration requires your attention'
+									text: m.mcps_deployments_config_requires_attention()
 								}}
 							>
 								<CircleFadingArrowUp class="text-primary size-4" />

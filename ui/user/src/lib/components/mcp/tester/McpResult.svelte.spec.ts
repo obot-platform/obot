@@ -20,23 +20,6 @@ function renderScrollableResult(height = 460) {
 }
 
 describe('McpResult', () => {
-	it.each([460, 240])('scrolls the expanded raw response into a %i px pane', async (height) => {
-		const pane = renderScrollableResult(height);
-		const raw = page.getByLabelText('Raw MCP response');
-		await expect.element(raw).not.toBeVisible();
-		const before = pane.scrollTop;
-		await page.getByText('Raw response', { exact: true }).click();
-		await expect.element(raw).toBeVisible();
-		await expect.poll(() => pane.scrollTop).toBeGreaterThan(before);
-		await expect
-			.poll(() => {
-				const bounds = raw.element().getBoundingClientRect();
-				const viewport = pane.getBoundingClientRect();
-				return Math.min(bounds.bottom, viewport.bottom) - Math.max(bounds.top, viewport.top);
-			})
-			.toBeGreaterThan(Math.min(height - 40, 380));
-	});
-
 	it('also reveals the raw response when opened with the keyboard', async () => {
 		const pane = renderScrollableResult();
 		const before = pane.scrollTop;

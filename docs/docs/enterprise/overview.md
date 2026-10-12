@@ -1,8 +1,8 @@
 ---
-title: Obot Editions
+title: "Editions and feature availability"
 ---
 
-# Obot Editions
+# Editions and feature availability {#obot-editions}
 
 Obot is available in three editions. They are all delivered in the same container image, and you can
 upgrade from one to the next in the app. The editions differ in which capabilities are enabled and
@@ -23,3 +23,17 @@ Obot Community is free and just requires a one-time registration. To enable it, 
 
 Everything in Obot Community, with unlimited users and devices and enterprise support. To get an Enterprise license,
 [contact us](https://obot.ai/contact-us/).
+
+## Feature availability
+
+Edition limits and runtime availability are separate. A license does not enable a disabled feature or supply its infrastructure.
+
+| Capability | Additional requirement or status |
+|---|---|
+| MCP and LLM gateways, registries, and skills | Configure resources, credentials, and access policies for the intended users |
+| Device Management | Beta; install and enroll Obot Sentry on supported devices |
+| Local tool-call enforcement | Experimental; only supported clients and identified tool calls are covered |
+| Managed image pull secrets and Kubernetes secret bindings | Kubernetes MCP runtime required |
+| Domain-based MCP egress control | Kubernetes and a configured supported policy provider required |
+
+See [Device Management](../device-management/how-sentry-works.md) and [Server Configuration](../configuration/server-configuration.md) for the relevant constraints.

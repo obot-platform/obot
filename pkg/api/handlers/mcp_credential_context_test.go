@@ -69,7 +69,7 @@ func TestMCPServerCredentialScopeSelection(t *testing.T) {
 				GatewayClient:  gatewayClient,
 				User:           &user.DefaultInfo{UID: "requester"},
 			}
-			configured, err := credentialEnvForMCPServer(ctx, server, "")
+			configured, err := credentialEnvForMCPServer(ctx, server)
 			if err != nil {
 				t.Fatal(err)
 			}

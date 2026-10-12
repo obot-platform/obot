@@ -4,6 +4,7 @@
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import LlmAuditLogsContent from '$lib/components/admin/audit-logs/LlmAuditLogsContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
+	import { m } from '$lib/i18n';
 	import { Group } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -19,11 +20,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Audit Logs</title>
+	<title>{m.audit_usage_audit_logs_page_title()}</title>
 </svelte:head>
 
 <TabLayout
-	title="Audit Logs"
+	title={m.nav_audit_logs()}
 	defaultView="mcp"
 	classes={{ childrenContainer: 'max-w-none' }}
 	rightNavActions={navActions}
@@ -34,7 +35,7 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: 'Model', value: 'llm', content: llm }
+				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm }
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />
@@ -43,37 +44,39 @@
 	{#if view === 'mcp' && canManageMcpExports}
 		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/mcp/exports')}>
 			<Settings class="size-4" />
-			Manage Exports
+			{m.audit_usage_audit_logs_manage_exports()}
 		</button>
 		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" /> Create Export
+					<Plus class="size-4" />
+					{m.audit_usage_audit_logs_create_export()}
 				</span>
 			{/snippet}
 			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('export')}>
-				Create One-time Export
+				{m.audit_usage_audit_logs_create_one_time_export()}
 			</button>
 			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('scheduled')}>
-				Create Export Schedule
+				{m.audit_usage_audit_logs_create_export_schedule()}
 			</button>
 		</DotDotDot>
 	{:else if view === 'llm' && !isAdminReadonly}
 		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/llm/exports')}>
 			<Settings class="size-4" />
-			Manage Exports
+			{m.audit_usage_audit_logs_manage_exports()}
 		</button>
 		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" /> Create Export
+					<Plus class="size-4" />
+					{m.audit_usage_audit_logs_create_export()}
 				</span>
 			{/snippet}
 			<button class="menu-button" onclick={() => llmLogs?.openExportForm('export')}>
-				Create One-time Export
+				{m.audit_usage_audit_logs_create_one_time_export()}
 			</button>
 			<button class="menu-button" onclick={() => llmLogs?.openExportForm('scheduled')}>
-				Create Export Schedule
+				{m.audit_usage_audit_logs_create_export_schedule()}
 			</button>
 		</DotDotDot>
 	{/if}

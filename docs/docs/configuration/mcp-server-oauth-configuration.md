@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # MCP Server OAuth Configuration
 
 Some remote MCP servers require OAuth authentication with pre-registered client credentials. Unlike servers that support dynamic OAuth registration, these servers need administrators to configure a static set of OAuth credentials (Client ID and Client Secret) that all users share.
@@ -29,7 +33,7 @@ Before configuring Obot, you need to register an OAuth application with the serv
 
 ### Step 2: Create or edit a remote MCP server
 
-1. Navigate to **MCP Management > MCP Servers** in the Obot admin interface
+1. Navigate to **MCP Servers** in the Obot admin interface
 2. Click **Add MCP Server** and select **Remote Server**, or edit an existing remote server
 3. Enter the remote server URL
 4. Click **Advanced Configuration** to reveal additional options
@@ -89,7 +93,7 @@ This example demonstrates configuring the GitHub remote MCP server.
 
 ### Configure the remote MCP server in Obot
 
-1. Navigate to **MCP Management > MCP Servers**
+1. Navigate to **MCP Servers**
 2. Click **Add MCP Server** > **Remote Server**
 3. Enter the server details:
    - **Name**: GitHub MCP

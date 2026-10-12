@@ -13,6 +13,10 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+// enabledModelProxySettings reports that the model proxy is enabled, as an installation that never changed the setting
+// does, without a database.
+type enabledModelProxySettings struct{}
+
 type testerDeadlineReader struct {
 	ctx context.Context
 }
@@ -21,6 +25,10 @@ func (r testerDeadlineReader) Read([]byte) (int, error) {
 	<-r.ctx.Done()
 
 	return 0, r.ctx.Err()
+}
+
+func (enabledModelProxySettings) ModelProxyEnabled(context.Context) (bool, error) {
+	return true, nil
 }
 
 func TestTesterModelProxyTimeout(t *testing.T) {
@@ -44,6 +52,9 @@ func TestTesterModelProxyTimeout(t *testing.T) {
 			defer upstream.Close()
 
 			handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+			// The chat runs in a synctest bubble, where reading a database that goroutines outside the bubble share,
+			// such as the gateway client's background work, aborts the test binary.
+			handler.modelProxy.Settings = enabledModelProxySettings{}
 			handler.modelProxyClient = &http.Client{Transport: mcpTesterRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				if !tt.streaming {
 					<-r.Context().Done()

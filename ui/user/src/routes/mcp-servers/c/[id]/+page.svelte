@@ -7,6 +7,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
@@ -39,7 +40,7 @@
 		);
 	}
 
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	let title = $derived(catalogEntry?.manifest?.name ?? m.mcps_server_fallback_name());
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
@@ -67,7 +68,9 @@
 			}}
 			onConnect={({ entry, server }) => {
 				if (isMultiUserCatalogEntry(entry) && server) {
-					success.add(`${server.alias || server.manifest.name} has been created.`);
+					success.add(
+						m.mcps_server_created({ name: String(server.alias || server.manifest.name) })
+					);
 				}
 			}}
 			hideActions
@@ -96,5 +99,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_server_fallback_name()}</title>
 </svelte:head>

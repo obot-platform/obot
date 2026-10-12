@@ -5,6 +5,7 @@ import * as navigation from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
+import errors from '$lib/stores/errors.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import {
 	getProfileResponse,
@@ -42,6 +43,50 @@ const googleConfigured: AuthProvider = {
 	...googleProvider,
 	configured: true,
 	missingConfigurationParameters: []
+};
+
+const oktaProvider: AuthProvider = {
+	id: 'okta-auth-provider',
+	created: googleProvider.created,
+	type: 'authprovider',
+	name: 'Okta',
+	icon: '/admin/assets/okta_icon_small.png',
+	image: '',
+	port: 0,
+	configured: false,
+	missingConfigurationParameters: [],
+	missingEntitlements: [],
+	namespace: 'default',
+	requiredConfigurationParameters: [
+		{
+			name: 'OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID',
+			friendlyName: 'Client ID'
+		},
+		{
+			name: 'OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL',
+			friendlyName: 'Org URL'
+		}
+	],
+	optionalConfigurationParameters: [
+		{
+			name: 'OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID',
+			friendlyName: 'API Services Client ID',
+			description:
+				'Leave this and the private key empty to provision users and groups through SCIM instead.'
+		},
+		{
+			name: 'OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY',
+			friendlyName: 'API Services Private Key',
+			sensitive: true
+		}
+	],
+	scim: {
+		directoryParameters: [
+			'OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID',
+			'OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY'
+		],
+		issuerParameter: 'OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL'
+	}
 };
 
 function providerCard(name: string) {
@@ -209,6 +254,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	appPage.url.searchParams.delete('subview');
 	appPage.url.searchParams.delete('provider');
 	if (window.location.hash) {
 		window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -372,6 +418,297 @@ describe('Identity & Access Page', () => {
 	});
 
 	describe('auth providers tab', () => {
+		describe('sub-tabs', () => {
+			function subTabs() {
+				return page.getByRole('navigation', { name: 'Auth Providers' });
+			}
+
+			it('shows the providers, and links to SCIM, which has no tab of its own', async () => {
+				await renderIdentityAccessPage({ groups: [Group.OWNER, Group.ADMIN] });
+
+				await expect.element(providerCard('Google')).toBeVisible();
+				await expect
+					.element(subTabs().getByRole('link', { name: 'Providers', exact: true }))
+					.toHaveAttribute('aria-current', 'page');
+				await expect
+					.element(subTabs().getByRole('link', { name: 'SCIM', exact: true }))
+					.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
+				await expect
+					.element(page.getByRole('button', { name: 'SCIM', exact: true }))
+					.not.toBeInTheDocument();
+			});
+
+			it('shows SCIM on its sub-tab', async () => {
+				appPage.url.searchParams.set('subview', 'scim');
+				await renderIdentityAccessPage({ groups: [Group.OWNER, Group.ADMIN] });
+
+				await expect
+					.element(page.getByRole('heading', { name: 'SCIM provisioning is not set up' }))
+					.toBeVisible();
+				await expect
+					.element(subTabs().getByRole('link', { name: 'SCIM', exact: true }))
+					.toHaveAttribute('aria-current', 'page');
+				await expect
+					.element(subTabs().getByRole('link', { name: 'Providers', exact: true }))
+					.toHaveAttribute('href', '/identity-access?view=auth-providers');
+				await expect.element(providerCard('Google')).not.toBeInTheDocument();
+			});
+		});
+
+		describe('SCIM setup of the Okta provider', () => {
+			async function openOktaForm(provider: AuthProvider, values?: Record<string, string>) {
+				worker.use(
+					http.post(`/api/auth-providers/${provider.id}/reveal`, () =>
+						values ? HttpResponse.json(values) : HttpResponse.json(null, { status: 404 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [provider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				const buttonName = provider.configured ? 'Modify' : 'Configure';
+				await providerCard('Okta').getByRole('button', { name: buttonName, exact: true }).click();
+				await expect.element(page.getByLabelText('Org URL', { exact: true })).toBeVisible();
+			}
+
+			it('explains the choice the directory credentials make', async () => {
+				await openOktaForm(oktaProvider);
+
+				await expect
+					.element(
+						page.getByText(/With these left empty, Okta provisions users and groups through SCIM/)
+					)
+					.toBeVisible();
+
+				await page.getByLabelText('API Services Client ID', { exact: true }).fill('service-client');
+				await expect
+					.element(page.getByText(/With these provided, Obot fetches each user's groups from Okta/))
+					.toBeVisible();
+			});
+
+			it('warns when the Org URL of a provider with a SCIM connection changes', async () => {
+				await openOktaForm(
+					{
+						...oktaProvider,
+						configured: true,
+						scimState: 'connected',
+						optionalConfigurationParameters: [],
+						scim: {
+							...oktaProvider.scim!,
+							connectionIssuer: 'https://example.okta.com'
+						}
+					},
+					{
+						OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+						OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com/'
+					}
+				);
+
+				await expect
+					.element(page.getByText(/belong to the Okta organization they were provisioned from/))
+					.not.toBeInTheDocument();
+				await page.getByLabelText('Org URL', { exact: true }).fill('https://login.example.com');
+				await expect
+					.element(page.getByText(/belong to the Okta organization they were provisioned from/))
+					.toBeVisible();
+			});
+
+			describe('group data left from an earlier configuration', () => {
+				let deconfigure = vi.fn<() => void>();
+
+				beforeEach(async () => {
+					deconfigure = vi.fn<() => void>();
+					worker.use(
+						http.post(`/api/auth-providers/${oktaProvider.id}/configure`, () =>
+							HttpResponse.json(
+								{ error: 'Okta still has group data from an earlier configuration' },
+								{ status: 409 }
+							)
+						),
+						http.get(`/api/auth-providers/${oktaProvider.id}/residual-group-data`, () =>
+							HttpResponse.json({
+								groups: [
+									{
+										id: 'okta/00g00000000000legacy',
+										name: 'Legacy',
+										references: [
+											{
+												kind: 'groupRoleAssignment',
+												id: 'okta/00g00000000000legacy',
+												detail: 'Admin'
+											}
+										]
+									},
+									{ id: 'okta/00g000000000000other', name: 'Other' },
+									// A referenced group ID that no group has.
+									{
+										id: 'okta/00g0000000000missing',
+										name: '',
+										references: [
+											{
+												kind: 'groupRoleAssignment',
+												id: 'okta/00g0000000000missing',
+												detail: 'Basic'
+											}
+										]
+									}
+								],
+								membershipCount: 2
+							})
+						),
+						http.post(`/api/auth-providers/${oktaProvider.id}/deconfigure`, () => {
+							deconfigure();
+							return new HttpResponse(null, { status: 204 });
+						})
+					);
+					await openOktaForm(oktaProvider);
+
+					await page.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+					await page.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+					await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+					await page.getByRole('button', { name: 'Remove leftover group data' }).click();
+				});
+
+				it('is removed once the admin confirms what the cleanup deletes', async () => {
+					const confirm = page
+						.getByRole('dialog')
+						.filter({ hasText: "Remove Okta's leftover group data?" });
+					await expect
+						.element(confirm.getByText(/deletes 2 groups and 2 group memberships/))
+						.toBeVisible();
+					await expect
+						.element(confirm.getByText('group role assignment (Admin)', { exact: false }))
+						.toBeVisible();
+					await expect
+						.element(confirm.getByText('group role assignment (Basic)', { exact: false }))
+						.toBeVisible();
+					await expect.element(confirm.getByText('Other', { exact: true })).not.toBeInTheDocument();
+					expect(deconfigure).not.toHaveBeenCalled();
+
+					await confirm.getByRole('button', { name: 'Remove group data' }).click();
+					await vi.waitFor(() => expect(deconfigure).toHaveBeenCalledOnce());
+					await expect
+						.element(page.getByText(/cleanup of Okta's leftover group data has started/))
+						.toBeVisible();
+				});
+
+				it('is kept when the admin cancels', async () => {
+					const confirm = page
+						.getByRole('dialog')
+						.filter({ hasText: "Remove Okta's leftover group data?" });
+					await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+					await expect
+						.element(page.getByText("Remove Okta's leftover group data?"))
+						.not.toBeVisible();
+					expect(deconfigure).not.toHaveBeenCalled();
+					await expect
+						.element(page.getByRole('button', { name: 'Remove leftover group data' }))
+						.toBeVisible();
+				});
+			});
+
+			it('shows a refused switch in the dialog and keeps what was entered', async () => {
+				const refusal =
+					'provide all of OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID and OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY, or none of them; missing: OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY';
+				const localActive: AuthProvider = {
+					...googleProvider,
+					id: CommonAuthProviderIds.LOCAL,
+					name: 'Local',
+					configured: true,
+					missingEntitlements: []
+				};
+				errors.items = [];
+				worker.use(
+					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
+						HttpResponse.json(null, { status: 404 })
+					),
+					http.post(`/api/auth-providers/${oktaProvider.id}/stage`, () =>
+						HttpResponse.json({ error: refusal }, { status: 400 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [localActive, oktaProvider],
+					groups: [Group.ADMIN, Group.OWNER]
+				});
+				// A short window makes the form scroll, so the error at its top starts out of sight of
+				// the fields at its bottom.
+				await page.viewport(1280, 400);
+				try {
+					await providerCard('Okta')
+						.getByRole('button', { name: 'Configure', exact: true })
+						.click();
+					const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
+					await dialog.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+					await dialog.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+					await dialog
+						.getByLabelText('API Services Client ID', { exact: true })
+						.fill('service-client');
+					await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+					const error = dialog.getByRole('alert').filter({ hasText: refusal });
+					await expect.element(error).toBeInViewport();
+					// The form overflows here, which must not squeeze the error out of its own box.
+					const box = error.element();
+					expect(box.clientHeight).toBeGreaterThanOrEqual(box.scrollHeight);
+					// The dialog shows the refusal, so it is not also raised behind the dialog.
+					expect(errors.items).toHaveLength(0);
+					await expect
+						.element(dialog.getByLabelText('API Services Client ID', { exact: true }))
+						.toHaveValue('service-client');
+					await expect
+						.element(dialog.getByLabelText('Org URL', { exact: true }))
+						.toHaveValue('https://example.okta.com');
+				} finally {
+					await page.viewport(1280, 720);
+				}
+			});
+
+			it('asks to discard the staged switch before removing the group data of a staged provider', async () => {
+				const localActive: AuthProvider = {
+					...googleProvider,
+					id: CommonAuthProviderIds.LOCAL,
+					name: 'Local',
+					configured: true,
+					missingEntitlements: []
+				};
+				worker.use(
+					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
+						HttpResponse.json(null, { status: 404 })
+					),
+					http.post(`/api/auth-providers/${oktaProvider.id}/stage`, () =>
+						HttpResponse.json(
+							{ error: 'Okta still has group data from an earlier configuration' },
+							{ status: 409 }
+						)
+					),
+					http.get(`/api/auth-providers/${oktaProvider.id}/residual-group-data`, () =>
+						HttpResponse.json({
+							groups: [{ id: 'okta/00g000000000000other', name: 'Other' }],
+							membershipCount: 1
+						})
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [localActive, { ...oktaProvider, staged: true }],
+					groups: [Group.ADMIN, Group.OWNER]
+				});
+				await page.getByRole('button', { name: 'Configuration', exact: true }).click();
+				await page.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+				await page.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+				await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+				await expect
+					.element(
+						page.getByText(/Okta is staged as a replacement\. Discard the staged switch first/)
+					)
+					.toBeVisible();
+				await expect
+					.element(page.getByRole('button', { name: 'Remove leftover group data' }))
+					.not.toBeInTheDocument();
+			});
+		});
+
 		describe('configure auth provider', () => {
 			it('bootstrap user sees owner handoff dialog after configuring', async () => {
 				const { configureAuthProvider } = mockConfigureFlow([googleConfigured]);
@@ -705,6 +1042,81 @@ describe('Identity & Access Page', () => {
 				// The switch confirmation has to spell out both consequences, not just the sign-out.
 				await expect.element(page.getByText(/sessions\s+end/)).toBeVisible();
 				await expect.element(page.getByText(/will\s+not\s+transfer/)).toBeVisible();
+			});
+
+			it("says that switching deletes the outgoing provider's SCIM data, and how SCIM starts for the incoming one", async () => {
+				await renderAsOwner([
+					{ ...localConfigured, scimState: 'enforced' },
+					{ ...verifiedGoogle, scimState: 'connected' }
+				]);
+
+				await page.getByRole('button', { name: /^Switch to/, exact: false }).click();
+
+				await expect
+					.element(page.getByText(/Switching deletes Local's SCIM connection/))
+					.toBeVisible();
+				await expect
+					.element(
+						page.getByText(
+							/Users that SCIM disabled stay disabled until an administrator enables them/
+						)
+					)
+					.toBeVisible();
+				await expect
+					.element(page.getByText(/Using SCIM with Local again starts over/))
+					.toBeVisible();
+				await expect
+					.element(
+						page.getByText(/After the switch, generate its SCIM token and enter it in Google/)
+					)
+					.toBeVisible();
+			});
+
+			it('says nothing about SCIM when neither provider provisions through it', async () => {
+				await renderAsOwner([localConfigured, verifiedGoogle]);
+
+				await page.getByRole('button', { name: /^Switch to/, exact: false }).click();
+
+				await expect.element(page.getByText(/Switch to Google\?/)).toBeVisible();
+				await expect
+					.element(page.getByText(/SCIM connection|provisions users and groups through SCIM/))
+					.not.toBeInTheDocument();
+			});
+
+			it('links to the SCIM tab once a switch to a provider that provisions through SCIM completes', async () => {
+				const activate = vi.fn();
+				worker.use(
+					http.post(`/api/auth-providers/${googleProvider.id}/activate`, () => {
+						activate();
+						return new HttpResponse(null, { status: 204 });
+					}),
+					http.get('/api/auth-providers', () =>
+						HttpResponse.json({
+							items: [
+								{ ...localConfigured, configured: false },
+								{ ...googleConfigured, scimState: 'connected' }
+							]
+						})
+					)
+				);
+				await renderAsOwner([localConfigured, { ...verifiedGoogle, scimState: 'connected' }]);
+
+				await page.getByRole('button', { name: /^Switch to/, exact: false }).click();
+				await page.getByRole('button', { name: 'Switch to Google', exact: true }).last().click();
+
+				await vi.waitFor(() => expect(activate).toHaveBeenCalledOnce());
+				await expect
+					.element(
+						page.getByText(
+							/Google now serves sign-ins, and provisions users and groups through SCIM\. Finish setting it up on Auth Providers → SCIM: generate the token and enter it in Google\./
+						)
+					)
+					.toBeVisible();
+				const link = page.getByRole('link', { name: 'Go to SCIM', exact: true });
+				await expect.element(link).toBeVisible();
+				await expect
+					.element(link)
+					.toHaveAttribute('href', '/identity-access?view=auth-providers&subview=scim');
 			});
 		});
 	});

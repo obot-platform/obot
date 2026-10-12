@@ -5,6 +5,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -59,11 +60,16 @@
 	const keyTableData = $derived(
 		enrollmentKeys.map((key) => ({
 			...key,
-			nameDisplay: key.name || `Key #${key.id}`,
+			nameDisplay:
+				key.name || m.inventory_enforcement_configuration_key_name_fallback({ id: key.id }),
 			prefix: `ode1-${configuration.id}-${key.id}-*****`,
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
-			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
-			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never'
+			lastUsedAtDisplay: key.lastUsedAt
+				? formatTimeAgo(key.lastUsedAt).relativeTime
+				: m.core_never_used(),
+			expiresAtDisplay: key.expiresAt
+				? formatTimeUntil(key.expiresAt).relativeTime
+				: m.core_never_expires()
 		}))
 	);
 
@@ -116,9 +122,11 @@
 			<section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection}>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="flex flex-col gap-1">
-						<h3 class="text-lg font-semibold">Enrollment Keys</h3>
+						<h3 class="text-lg font-semibold">
+							{m.inventory_enforcement_configuration_enrollment_keys()}
+						</h3>
 						<p class="text-muted-content text-sm font-light">
-							Keys used by Obot Sentry to register a new device with Obot.
+							{m.inventory_enforcement_configuration_enrollment_keys_description()}
 						</p>
 					</div>
 					{#if !readOnly}
@@ -128,7 +136,7 @@
 							id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeyButton}
 						>
 							<Plus class="size-4" />
-							New Key
+							{m.inventory_enforcement_configuration_new_key()}
 						</button>
 					{/if}
 				</div>
@@ -137,7 +145,7 @@
 					<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
 						<KeyRound class="text-muted-content size-12 opacity-50" />
 						<p class="text-muted-content text-sm font-light">
-							No enrollment keys. New devices cannot enroll until you create one.
+							{m.inventory_enforcement_configuration_no_enrollment_keys()}
 						</p>
 					</div>
 				{:else}
@@ -145,11 +153,14 @@
 						data={keyTableData}
 						fields={['nameDisplay', 'prefix', 'createdAt', 'lastUsedAt', 'expiresAt']}
 						headers={[
-							{ title: 'Name', property: 'nameDisplay' },
-							{ title: 'Key', property: 'prefix' },
-							{ title: 'Created', property: 'createdAt' },
-							{ title: 'Last Used', property: 'lastUsedAt' },
-							{ title: 'Expires', property: 'expiresAt' }
+							{ title: m.core_name(), property: 'nameDisplay' },
+							{ title: m.inventory_enforcement_configuration_col_key(), property: 'prefix' },
+							{ title: m.core_col_created(), property: 'createdAt' },
+							{
+								title: m.inventory_enforcement_configuration_col_last_used(),
+								property: 'lastUsedAt'
+							},
+							{ title: m.inventory_enforcement_configuration_col_expires(), property: 'expiresAt' }
 						]}
 					>
 						{#snippet onRenderColumn(property, key)}
@@ -170,7 +181,7 @@
 								<DotDotDot>
 									<button class="menu-button text-error" onclick={() => (revokingKey = key)}>
 										<Trash2 class="size-4" />
-										Revoke
+										{m.inventory_enforcement_configuration_revoke()}
 									</button>
 								</DotDotDot>
 							{/if}
@@ -188,39 +199,49 @@
 	/>
 </div>
 
-<ResponsiveDialog bind:this={createKeyDialog} title="New Enrollment Key" class="w-full max-w-md">
+<ResponsiveDialog
+	bind:this={createKeyDialog}
+	title={m.inventory_enforcement_configuration_new_enrollment_key_title()}
+	class="w-full max-w-md"
+>
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-name" class="input-label">Name (Optional)</label>
+			<label for="mdm-key-name" class="input-label"
+				>{m.inventory_enforcement_configuration_name_optional()}</label
+			>
 			<input
 				id="mdm-key-name"
 				type="text"
 				bind:value={newKeyName}
-				placeholder="e.g. rotation-2026-07"
+				placeholder={m.inventory_enforcement_configuration_key_name_placeholder()}
 				class="text-input-filled"
 			/>
 		</div>
 		<div class="flex flex-col gap-2">
-			<label for="mdm-key-expires" class="input-label">Expiration Date</label>
+			<label for="mdm-key-expires" class="input-label"
+				>{m.inventory_enforcement_configuration_expiration_date()}</label
+			>
 			<DatePicker
 				id="mdm-key-expires"
 				bind:value={newKeyExpiresAt}
 				onChange={(date) => (newKeyExpiresAt = date)}
-				placeholder="No expiration"
+				placeholder={m.inventory_enforcement_configuration_no_expiration()}
 				minDate={new Date()}
 			/>
-			<p class="input-description">Defaults to one year from today.</p>
+			<p class="input-description">{m.inventory_enforcement_configuration_expiration_default()}</p>
 		</div>
 	</div>
 	<div class="mt-6 flex justify-end gap-2">
-		<button class="btn btn-secondary" onclick={() => createKeyDialog?.close()}>Cancel</button>
+		<button class="btn btn-secondary" onclick={() => createKeyDialog?.close()}
+			>{m.common_cancel()}</button
+		>
 		<button
 			class="btn btn-primary flex items-center gap-2"
 			disabled={createKeyLoading}
 			onclick={handleCreateKey}
 		>
 			{#if createKeyLoading}<Loading class="size-4" />{/if}
-			Create Key
+			{m.inventory_enforcement_configuration_create_key()}
 		</button>
 	</div>
 </ResponsiveDialog>
@@ -231,7 +252,9 @@
 />
 
 <Confirm
-	msg={`Revoke enrollment key "${revokingKey?.name || `#${revokingKey?.id}`}"? New devices can no longer enroll with it; already-enrolled devices are unaffected.`}
+	msg={m.inventory_enforcement_configuration_revoke_key_msg({
+		name: revokingKey?.name || `#${revokingKey?.id}`
+	})}
 	show={Boolean(revokingKey)}
 	loading={revokeLoading}
 	onsuccess={handleRevokeKey}

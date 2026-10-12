@@ -189,3 +189,19 @@ export function stripMarkdownToText(markdown: string): string {
 		return text;
 	}
 }
+
+export function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {
+	const trimmed = markdown.trimStart();
+	if (!trimmed.startsWith('---')) {
+		return { frontmatter: '', body: markdown };
+	}
+	const afterFirstFence = trimmed.slice(3);
+	const secondFenceIndex = afterFirstFence.indexOf('\n---');
+	if (secondFenceIndex === -1) {
+		return { frontmatter: '', body: markdown };
+	}
+	const fenceEnd = afterFirstFence.indexOf('\n---') + 4; // include \n---
+	const frontmatter = markdown.slice(0, markdown.length - trimmed.length + 3 + fenceEnd);
+	const body = markdown.slice(markdown.length - trimmed.length + 3 + fenceEnd).replace(/^\n?/, '');
+	return { frontmatter, body };
+}

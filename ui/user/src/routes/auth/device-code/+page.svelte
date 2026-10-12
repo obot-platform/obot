@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { getHttpStatusCode } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import { UserService } from '$lib/services';
 	import { CircleAlert, CircleCheck, Clock, LoaderCircle } from '@lucide/svelte';
 
@@ -32,7 +33,7 @@
 		const normalizedCode = code.replaceAll('-', '');
 		if (!deviceCodeAlphabet.test(normalizedCode)) {
 			formState = 'invalid';
-			errorMessage = 'That code is invalid or expired. Check the code and try again.';
+			errorMessage = m.auth_device_invalid();
 			return;
 		}
 
@@ -49,23 +50,23 @@
 			const status = getHttpStatusCode(error);
 			if (status === 400) {
 				formState = 'invalid';
-				errorMessage = 'That code is invalid or expired. Check the code and try again.';
+				errorMessage = m.auth_device_invalid();
 			} else if (status === 429) {
 				formState = 'rate-limited';
-				errorMessage = 'Too many attempts. Wait a moment, then try again.';
+				errorMessage = m.auth_device_rate_limited();
 			} else if (status === 401) {
 				formState = 'error';
-				errorMessage = 'Your session expired. Sign in again, then retry this code.';
+				errorMessage = m.auth_device_session_expired();
 			} else {
 				formState = 'error';
-				errorMessage = 'We could not verify the code. Check your connection and try again.';
+				errorMessage = m.auth_device_verify_failed();
 			}
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Obot | Connect Device</title>
+	<title>Obot | {m.auth_device_page_title()}</title>
 </svelte:head>
 
 <div
@@ -81,16 +82,18 @@
 				<div class="bg-success/10 flex size-12 items-center justify-center rounded-full">
 					<CircleCheck class="text-success size-7" />
 				</div>
-				<h1 class="text-xl font-semibold">Connected</h1>
+				<h1 class="text-xl font-semibold">{m.core_mcp_value_connected()}</h1>
 				<p class="text-muted-content text-sm font-light">
-					Authentication is complete. You can close this window and return to your terminal.
+					{m.auth_device_complete()}
 				</p>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1 text-center">
-				<h1 class="text-xl font-semibold">Connect your device</h1>
+				<h1 class="text-xl font-semibold">{m.auth_device_heading()}</h1>
 				<p class="text-muted-content text-sm font-light">
-					Enter the code shown by <span class="font-medium">obot login</span> in your terminal.
+					{m.auth_device_enter_code_prefix()}
+					<span class="font-medium">obot login</span>
+					{m.auth_device_enter_code_suffix()}
 				</p>
 			</div>
 
@@ -112,7 +115,7 @@
 
 			<form class="flex flex-col gap-4" onsubmit={submit}>
 				<label class="flex flex-col gap-1 text-sm font-light" for="device-code">
-					Device code
+					{m.auth_device_code_label()}
 					<input
 						id="device-code"
 						class="text-input-filled text-center font-mono text-lg tracking-[0.18em] uppercase"
@@ -134,9 +137,9 @@
 				<button class="btn btn-primary w-full" type="submit" disabled={formState === 'submitting'}>
 					{#if formState === 'submitting'}
 						<LoaderCircle class="size-4 animate-spin" />
-						Verifying...
+						{m.auth_device_verifying()}
 					{:else}
-						Continue
+						{m.core_continue()}
 					{/if}
 				</button>
 			</form>

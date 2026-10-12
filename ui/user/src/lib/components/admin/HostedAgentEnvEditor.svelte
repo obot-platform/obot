@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { HostedAgentEnv } from '$lib/services/admin/types';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Eye, EyeOff, Plus, Trash2 } from '@lucide/svelte';
@@ -66,9 +67,9 @@
 <div class="flex flex-col gap-2">
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col">
-			<h2 class="text-lg font-semibold">Environment</h2>
+			<h2 class="text-lg font-semibold">{m.hosted_agents_templates_environment_title()}</h2>
 			<span class="text-muted-content text-xs">
-				Values marked sensitive are stored separately and are not shown after saving.
+				{m.hosted_agents_templates_environment_hint()}
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
@@ -79,22 +80,25 @@
 					onclick={reveal}
 				>
 					{#if revealed}
-						<EyeOff class="size-4" /> Revealed
+						<EyeOff class="size-4" /> {m.hosted_agents_templates_environment_revealed()}
 					{:else}
-						<Eye class="size-4" /> Reveal
+						<Eye class="size-4" /> {m.core_reveal()}
 					{/if}
 				</button>
 			{/if}
 			{#if !readonly}
 				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={addRow}>
-					<Plus class="size-4" /> Add Variable
+					<Plus class="size-4" />
+					{m.hosted_agents_templates_environment_add_variable()}
 				</button>
 			{/if}
 		</div>
 	</div>
 
 	{#if env.length === 0}
-		<p class="text-muted-content py-4 text-center text-sm">No environment variables added.</p>
+		<p class="text-muted-content py-4 text-center text-sm">
+			{m.hosted_agents_templates_environment_empty()}
+		</p>
 	{:else}
 		<div class="flex flex-col gap-3">
 			{#each env as item, i (i)}
@@ -103,7 +107,7 @@
 				>
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-key-{i}" class="text-sm font-light">Key</label>
+							<label for="env-key-{i}" class="text-sm font-light">{m.hosted_agents_key()}</label>
 							<input
 								id="env-key-{i}"
 								value={item.key}
@@ -114,13 +118,15 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-value-{i}" class="text-sm font-light">Value</label>
+							<label for="env-value-{i}" class="text-sm font-light">{m.core_col_value()}</label>
 							<input
 								id="env-value-{i}"
 								bind:value={item.value}
 								type={item.sensitive && !revealed ? 'password' : 'text'}
 								class="text-input-filled"
-								placeholder={item.sensitive ? 'Stored securely' : ''}
+								placeholder={item.sensitive
+									? m.hosted_agents_templates_environment_stored_securely()
+									: ''}
 								disabled={readonly}
 							/>
 						</div>
@@ -128,7 +134,7 @@
 							<IconButton
 								variant="danger"
 								onclick={() => removeRow(i)}
-								tooltip={{ text: 'Remove' }}
+								tooltip={{ text: m.core_remove() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -137,7 +143,7 @@
 
 					<div class="flex items-end gap-3">
 						<div class="flex flex-1 flex-col gap-2">
-							<label for="env-desc-{i}" class="text-sm font-light">Description</label>
+							<label for="env-desc-{i}" class="text-sm font-light">{m.core_description()}</label>
 							<input
 								id="env-desc-{i}"
 								bind:value={item.description}
@@ -154,7 +160,7 @@
 									onchange={() => toggleSensitive(i)}
 									disabled={readonly}
 								/>
-								Sensitive
+								{m.hosted_agents_sensitive()}
 							</label>
 							<label class="flex items-center gap-2 text-sm font-light">
 								<input
@@ -163,7 +169,7 @@
 									bind:checked={item.required}
 									disabled={readonly}
 								/>
-								Required
+								{m.hosted_agents_required()}
 							</label>
 						</div>
 					</div>

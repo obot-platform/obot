@@ -59,7 +59,7 @@ func TestOAuthHandlerForClientUsesConfiguredClientIDMetadataDocument(t *testing.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := &SessionManager{baseURL: "https://obot.example.com"}
-			handler := sm.oauthHandlerForClient(http.DefaultClient, "test-server", ClientOption{
+			handler := sm.oauthHandlerForClient(http.DefaultClient, "test-server", "", ClientOption{
 				ClientName:                    "test-client",
 				TokenStorage:                  &recordingTokenStorage{},
 				OAuthClientIDMetadataDocument: tt.document,
@@ -234,6 +234,21 @@ func TestValidateRemoteMCPURL(t *testing.T) {
 			name:    "rejects loopback",
 			rawURL:  "http://127.0.0.1:8080/mcp",
 			wantErr: "localhost URL",
+		},
+		{
+			name:    "rejects unspecified IPv4",
+			rawURL:  "http://0.0.0.0:8080/mcp",
+			wantErr: "localhost URL",
+		},
+		{
+			name:    "rejects unspecified IPv6",
+			rawURL:  "http://[::]:8080/mcp",
+			wantErr: "localhost URL",
+		},
+		{
+			name:              "allows unspecified when localhost is configured",
+			rawURL:            "http://0.0.0.0:8080/mcp",
+			allowLocalhostMCP: true,
 		},
 		{
 			name:              "allows loopback when configured",

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
@@ -39,57 +40,57 @@
 		if (!('isCatalogEntry' in entry) && ('manifest' in entry || 'mcpID' in entry)) {
 			items = {
 				requiredConfig: {
-					label: 'Required Configuration',
+					label: m.mcps_info_required_configuration(),
 					value: requiredConfiguration
 				},
 				users: {
-					label: 'Users',
+					label: m.mcps_servers_info_users(),
 					value: ''
 				},
 				published: {
-					label: 'Published',
+					label: m.mcps_servers_info_published(),
 					value: formatTimeAgo(entry.created).relativeTime
 				},
 				moreInfo: {
-					label: 'More Information',
+					label: m.mcps_servers_info_more_information(),
 					value: ''
 				},
 				monthlyToolCalls: {
-					label: 'Monthly Tool Calls',
+					label: m.mcps_servers_info_monthly_tool_calls(),
 					value: ''
 				},
 				lastUpdated: {
-					label: 'Last Updated',
+					label: m.mcps_servers_info_last_updated(),
 					value: 'updated' in entry ? formatTimeAgo(entry.updated).relativeTime : ''
 				}
 			};
 		} else if ('isCatalogEntry' in entry) {
 			items = {
 				requiredConfig: {
-					label: 'Required Configuration',
+					label: m.mcps_info_required_configuration(),
 					value: requiredConfiguration
 				},
 				users: {
-					label: 'Users',
+					label: m.mcps_servers_info_users(),
 					value: ''
 				},
 				published: {
-					label: 'Published',
+					label: m.mcps_servers_info_published(),
 					value: formatTimeAgo(entry.created).relativeTime
 				},
 				moreInfo: {
-					label: 'More Information',
+					label: m.mcps_servers_info_more_information(),
 					value: entry.manifest?.repoURL ?? '',
 					link: entry.manifest?.repoURL ?? '',
 					class: 'line-clamp-1',
 					showTooltip: true
 				},
 				monthlyToolCalls: {
-					label: 'Monthly Tool Calls',
+					label: m.mcps_servers_info_monthly_tool_calls(),
 					value: ''
 				},
 				lastUpdated: {
-					label: 'Last Updated',
+					label: m.mcps_servers_info_last_updated(),
 					value: ''
 				}
 			};
@@ -118,7 +119,7 @@
 	let {
 		entry,
 		parent,
-		descriptionPlaceholder = 'No description available',
+		descriptionPlaceholder = m.mcps_servers_info_no_description(),
 		preContent
 	}: Props = $props();
 	let details = $derived(convertEntryDetails(entry));
@@ -163,7 +164,7 @@
 
 {#snippet detailsSection()}
 	<div class="flex flex-col gap-2">
-		<h4 class="text-md font-semibold">Details</h4>
+		<h4 class="text-md font-semibold">{m.core_details()}</h4>
 		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail, i (i)}
 				<div

@@ -2,6 +2,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import GroupPicker from '$lib/components/admin/GroupPicker.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services';
 	import { responsive } from '$lib/stores';
@@ -18,7 +19,6 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
-		onUserImpersonationConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 	}
 
@@ -30,14 +30,6 @@
 		return role | Role.AUDITOR;
 	}
 
-	function hasUserImpersonationFlag(role: number): boolean {
-		return (role & Role.USER_IMPERSONATION) !== 0;
-	}
-
-	function addUserImpersonationFlag(role: number): number {
-		return role | Role.USER_IMPERSONATION;
-	}
-
 	let {
 		open,
 		groupRoleMap,
@@ -45,7 +37,6 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
-		onUserImpersonationConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -53,7 +44,6 @@
 	let selectedGroup = $state<OrgGroup | undefined>();
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
-	let draftHaveUserImpersonationPrivilege = $state(false);
 
 	let isSmallScreen = $derived(responsive.isMobile);
 
@@ -61,7 +51,6 @@
 		selectedGroup = undefined;
 		draftRoleId = 0;
 		draftHaveAuditorPrivilege = false;
-		draftHaveUserImpersonationPrivilege = false;
 	}
 
 	$effect(() => {
@@ -82,13 +71,11 @@
 		const existingAssignment = groupRoleMap[group.id];
 		if (existingAssignment) {
 			const role = existingAssignment.role || 0;
-			draftRoleId = role & ~(Role.AUDITOR | Role.USER_IMPERSONATION);
+			draftRoleId = role & ~Role.AUDITOR;
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
-			draftHaveUserImpersonationPrivilege = hasUserImpersonationFlag(role);
 		} else {
 			draftRoleId = 0;
 			draftHaveAuditorPrivilege = false;
-			draftHaveUserImpersonationPrivilege = false;
 		}
 	}
 
@@ -103,9 +90,6 @@
 		if (draftHaveAuditorPrivilege) {
 			role = addAuditorFlag(role);
 		}
-		if (draftHaveUserImpersonationPrivilege) {
-			role = addUserImpersonationFlag(role);
-		}
 		const result: GroupAssignment = {
 			group: selectedGroup,
 			assignment: {
@@ -119,15 +103,9 @@
 		const hadAuditorBefore = existingAssignment
 			? hasAuditorFlag(existingAssignment.role || 0)
 			: false;
-		const hadUserImpersonationBefore = existingAssignment
-			? hasUserImpersonationFlag(existingAssignment.role || 0)
-			: false;
 
-		// User Impersonation changed - show confirmation only if they didn't have it before
-		if (draftHaveUserImpersonationPrivilege && !hadUserImpersonationBefore && draftRoleId !== 0) {
-			onUserImpersonationConfirm(result);
-		} else if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
-			// Auditor changed - show auditor confirmation only if they didn't have it before
+		// Auditor changed - show auditor confirmation only if they didn't have it before
+		if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER) {
 			// Changing to owner role - show owner confirmation
@@ -152,7 +130,7 @@
 			const role = groupRoleMap[group.id]?.role;
 			return role ? getUserRoleLabel(role) : undefined;
 		}}
-		placeholder="Search groups..."
+		placeholder={m.identity_access_groups_search()}
 	/>
 {/snippet}
 
@@ -165,9 +143,9 @@
 				</div>
 				<div class="text-muted-content text-xs">
 					{#if groupRoleMap[selectedGroup.id]}
-						Update the role for this group
+						{m.identity_access_groups_update_role_for_group()}
 					{:else}
-						Select a role to assign to this group
+						{m.identity_access_groups_select_role_for_group()}
 					{/if}
 				</div>
 			</div>
@@ -175,11 +153,10 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
-				bind:hasUserImpersonationPrivilege={draftHaveUserImpersonationPrivilege}
 			/>
 		{:else}
 			<div class="text-muted-content flex h-full items-center justify-center py-12 text-sm">
-				Select a group to assign a role
+				{m.identity_access_groups_select_group_to_assign()}
 			</div>
 		{/if}
 	</div>
@@ -197,7 +174,11 @@
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
-				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label="Go back">
+				<IconButton
+					onclick={handleBack}
+					class="mr-2 -ml-2"
+					aria-label={m.identity_access_go_back()}
+				>
 					<ChevronLeft class="size-6" />
 				</IconButton>
 			{:else if isSmallScreen}
@@ -206,9 +187,9 @@
 
 			<span class="flex-1 text-center text-lg font-semibold md:text-start md:text-xl">
 				{#if selectedGroup && groupRoleMap[selectedGroup.id]}
-					Update Group Role
+					{m.identity_access_groups_update_group_role()}
 				{:else}
-					Assign Group Role
+					{m.identity_access_groups_assign_group_role()}
 				{/if}
 			</span>
 		{/snippet}
@@ -217,11 +198,13 @@
 			<!-- Large screen: two-column layout -->
 			<div class="grid flex-1 grid-cols-2 gap-8 overflow-hidden">
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">
+						{m.identity_access_groups_select_group()}
+					</h4>
 					{@render groupList()}
 				</div>
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 shrink-0 text-sm font-semibold">Assign Role</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">{m.identity_access_assign_role()}</h4>
 					{@render roleForm()}
 				</div>
 			</div>
@@ -229,7 +212,9 @@
 			<!-- Small screen: single column with conditional rendering -->
 			{#if !selectedGroup}
 				<div class="flex flex-1 flex-col overflow-hidden">
-					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">
+						{m.identity_access_groups_select_group()}
+					</h4>
 					{@render groupList()}
 				</div>
 			{:else}
@@ -240,7 +225,7 @@
 		{/if}
 
 		<div class="mt-6 flex shrink-0 flex-col justify-end gap-2 md:flex-row">
-			<button class="btn btn-secondary" onclick={handleClose}>Cancel</button>
+			<button class="btn btn-secondary" onclick={handleClose}>{m.common_cancel()}</button>
 			<button
 				class="btn btn-primary"
 				onclick={handleConfirm}
@@ -249,9 +234,9 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else if selectedGroup && groupRoleMap[selectedGroup.id]}
-					Update Role
+					{m.identity_access_update_role()}
 				{:else}
-					Assign Role
+					{m.identity_access_assign_role()}
 				{/if}
 			</button>
 		</div>

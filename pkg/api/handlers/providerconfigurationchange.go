@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -74,7 +75,7 @@ func waitForProviderConfigurationChange(req api.Context, change *v1.ProviderConf
 	}
 
 	if settled.Status.Error != "" {
-		return types.NewErrBadRequest("%s", settled.Status.Error)
+		return types.NewErrHTTP(cmp.Or(settled.Status.ErrorCode, http.StatusBadRequest), settled.Status.Error)
 	}
 	return nil
 }

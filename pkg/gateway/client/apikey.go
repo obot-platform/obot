@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -22,6 +23,22 @@ const (
 	apiKeyValidationCacheTTL = 15 * time.Second
 	apiKeyCacheCleanupPeriod = 5 * time.Minute
 	expirationDur            = 7 * 24 * time.Hour
+
+	// apiKeyUsersJoin joins an API key to its user, whose lifecycle state apiKeyOwnerColumns select.
+	apiKeyUsersJoin = "LEFT JOIN users ON users.id = api_keys.user_id"
+)
+
+var (
+	// ErrInvalidAPIKey reports that a presented API key is not a valid credential: it is malformed, unknown, wrong,
+	// expired, or revoked. ValidateAPIKey returns other errors when it could not read the key or its user.
+	ErrInvalidAPIKey = errors.New("invalid API key")
+
+	// apiKeyOwnerColumns select the lifecycle state of an API key's user, joined with apiKeyUsersJoin.
+	apiKeyOwnerColumns = []string{
+		"users.id AS owner_id",
+		"users.deleted_at AS owner_deleted_at",
+		"users.disabled_at AS owner_disabled_at",
+	}
 )
 
 type apiKeyValidationCacheEntry struct {
@@ -326,50 +343,69 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		var lifecycle struct {
 			ExpiresAt *time.Time
 			RevokedAt *time.Time
+			types.APIKeyOwnerLifecycle
 		}
 		if err := c.db.WithContext(ctx).Model(&types.APIKey{}).
-			Select("expires_at", "revoked_at").
-			Where("id = ?", cachedAPIKey.ID).
-			Where("user_id = ?", cachedAPIKey.UserID).
-			First(&lifecycle).Error; err != nil {
+			Select(append([]string{"api_keys.expires_at", "api_keys.revoked_at"}, apiKeyOwnerColumns...)).
+			Joins(apiKeyUsersJoin).
+			Where("api_keys.id = ?", cachedAPIKey.ID).
+			Where("api_keys.user_id = ?", cachedAPIKey.UserID).
+			Take(&lifecycle).Error; err != nil {
 			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidAPIKey, err)
+			}
 			return nil, err
 		}
 		if lifecycle.RevokedAt != nil {
 			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
-			return nil, fmt.Errorf("API key has been revoked")
+			return nil, fmt.Errorf("%w: API key has been revoked", ErrInvalidAPIKey)
 		}
 		if lifecycle.ExpiresAt != nil && lifecycle.ExpiresAt.Before(cacheNow) {
 			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
-			return nil, fmt.Errorf("API key has expired")
+			return nil, fmt.Errorf("%w: API key has expired", ErrInvalidAPIKey)
 		}
+		cachedAPIKey.OwnerStatus = lifecycle.Status()
 		return cachedAPIKey, nil
 	}
 
 	// Parse the key to extract components
 	_, userID, keyID, secret, err := ParseAPIKey(key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrInvalidAPIKey, err)
 	}
 
 	var apiKey types.APIKey
 	err = c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Look up by key ID
-		if err := tx.Where("id = ?", keyID).Where("user_id = ?", userID).First(&apiKey).Error; err != nil {
+		// Look up by key ID, with the lifecycle state of the key's user.
+		var row struct {
+			types.APIKey
+			types.APIKeyOwnerLifecycle
+		}
+		if err := tx.Model(&types.APIKey{}).
+			Select(append([]string{"api_keys.*"}, apiKeyOwnerColumns...)).
+			Joins(apiKeyUsersJoin).
+			Where("api_keys.id = ?", keyID).
+			Where("api_keys.user_id = ?", userID).
+			Take(&row).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: %w", ErrInvalidAPIKey, err)
+		} else if err != nil {
 			return err
 		}
+		apiKey = row.APIKey
+		apiKey.OwnerStatus = row.Status()
 
 		// Verify the secret using bcrypt
 		if err := bcrypt.CompareHashAndPassword([]byte(apiKey.HashedSecret), []byte(secret)); err != nil {
-			return fmt.Errorf("invalid API key")
+			return ErrInvalidAPIKey
 		}
 
 		// Check expiration
 		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
-			return fmt.Errorf("API key has expired")
+			return fmt.Errorf("%w: API key has expired", ErrInvalidAPIKey)
 		}
 		if apiKey.RevokedAt != nil {
-			return fmt.Errorf("API key has been revoked")
+			return fmt.Errorf("%w: API key has been revoked", ErrInvalidAPIKey)
 		}
 
 		// Update last used timestamp if more than a minute has elapsed
@@ -490,6 +526,13 @@ func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, key *types.APIKey) er
 }
 
 func (c *Client) createAPIKey(tx *gorm.DB, userID uint, name, description string, expiresAt *time.Time, scopes types.APIKeyScopes) (*types.APIKeyCreateResponse, error) {
+	// Every key is created here, including by paths that finish without the user present, such as device login
+	// polling and hosted agent reconciliation. Checking in the same transaction means none of them can issue a key
+	// to a user who is disabled or deleted.
+	if err := checkCredentialOwner(tx, userID); err != nil {
+		return nil, err
+	}
+
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
 	if _, err := rand.Read(secretBytes); err != nil {

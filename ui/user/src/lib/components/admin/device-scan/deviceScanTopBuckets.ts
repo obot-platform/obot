@@ -1,4 +1,5 @@
 import type { DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
+import { m } from '$lib/i18n';
 
 export const DEVICE_SCAN_TOP_N = 10;
 
@@ -52,7 +53,7 @@ export function buildDeviceScanTopBuckets<T>(
 	if (otherSum > 0) {
 		top.push({
 			key: '__other__',
-			label: 'Other',
+			label: m.inventory_enforcement_devices_scan_other(),
 			value: otherSum,
 			color: DEVICE_SCAN_OTHER_COLOR,
 			isOther: true,

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -19,11 +20,13 @@
 		oncancel,
 		loading,
 		names,
-		entity = 'server',
+		entity = m.mcps_servers_entity_server(),
 		entityPlural,
 		additionalNote
 	}: Props = $props();
-	let plural = $derived(entityPlural ? entityPlural : entity + '(s)');
+	let plural = $derived(
+		entityPlural ? entityPlural : m.mcps_servers_entity_plural_fallback({ entity })
+	);
 </script>
 
 <Confirm
@@ -31,13 +34,15 @@
 	{onsuccess}
 	{oncancel}
 	{loading}
-	msg={names.length === 1 ? `Delete ${names[0]}?` : `Delete selected ${plural}?`}
+	msg={names.length === 1
+		? m.mcps_delete_named({ name: names[0] })
+		: m.mcps_servers_confirm_delete_msg_other({ plural })}
 	classes={{ body: 'p-0', actions: 'p-4 pt-0' }}
 >
 	{#snippet note()}
 		{#if names.length > 1}
 			<p class="px-4 text-sm font-light">
-				The following {plural} will be permanently deleted:
+				{m.mcps_servers_confirm_delete_following({ plural })}
 			</p>
 			<ul class="my-2 max-h-[50vh] w-full overflow-y-auto font-semibold">
 				{#each names as name, i (i)}
@@ -47,8 +52,9 @@
 		{/if}
 
 		<p class={twMerge('px-4 text-sm font-light', additionalNote && 'mb-4')}>
-			Are you sure you want to delete {names.length === 1 ? 'this ' + entity : plural}?
-			{names.length === 1 ? 'It' : 'They'} will be permanently deleted and cannot be recovered.
+			{names.length === 1
+				? m.mcps_servers_confirm_delete_note_one({ entity })
+				: m.mcps_servers_confirm_delete_note_other({ plural })}
 		</p>
 
 		{#if additionalNote}

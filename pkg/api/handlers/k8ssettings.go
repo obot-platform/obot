@@ -65,11 +65,10 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	}
 
 	var (
-		affinity              corev1.Affinity
-		tolerations           []corev1.Toleration
-		resources             corev1.ResourceRequirements
-		nanobotAgentResources corev1.ResourceRequirements
-		errs                  []error
+		affinity    corev1.Affinity
+		tolerations []corev1.Toleration
+		resources   corev1.ResourceRequirements
+		errs        []error
 	)
 
 	maxCPURequest, err := parseResourceMaximumField("maxCpuRequest", input.MaxCPURequest)
@@ -104,18 +103,6 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	if input.Resources != "" {
 		if err := yaml.UnmarshalStrict([]byte(input.Resources), &resources); err != nil {
 			errs = append(errs, fmt.Errorf("invalid resources YAML: %v", err))
-		}
-	}
-
-	if input.NanobotAgentResources != "" {
-		if err := yaml.UnmarshalStrict([]byte(input.NanobotAgentResources), &nanobotAgentResources); err != nil {
-			errs = append(errs, fmt.Errorf("invalid nanobotAgentResources YAML: %v", err))
-		}
-	}
-
-	if input.NanobotWorkspaceSize != "" {
-		if _, err := resource.ParseQuantity(input.NanobotWorkspaceSize); err != nil {
-			errs = append(errs, fmt.Errorf("invalid nanobotWorkspaceSize: %v", err))
 		}
 	}
 
@@ -175,24 +162,6 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 				settings.Spec.RuntimeClassName = &input.RuntimeClassName
 			} else {
 				settings.Spec.RuntimeClassName = nil
-			}
-
-			if input.StorageClassName != "" {
-				settings.Spec.StorageClassName = &input.StorageClassName
-			} else {
-				settings.Spec.StorageClassName = nil
-			}
-
-			if input.NanobotWorkspaceSize != "" {
-				settings.Spec.NanobotWorkspaceSize = input.NanobotWorkspaceSize
-			} else {
-				settings.Spec.NanobotWorkspaceSize = ""
-			}
-
-			if input.NanobotAgentResources != "" {
-				settings.Spec.NanobotAgentResources = &nanobotAgentResources
-			} else {
-				settings.Spec.NanobotAgentResources = nil
 			}
 		}
 
@@ -276,22 +245,6 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 	result.MaxCPULimit = resourceMaximumString(settings.Spec.MaxCPULimit)
 	result.MaxMemoryRequest = resourceMaximumString(settings.Spec.MaxMemoryRequest)
 	result.MaxMemoryLimit = resourceMaximumString(settings.Spec.MaxMemoryLimit)
-
-	if settings.Spec.StorageClassName != nil {
-		result.StorageClassName = *settings.Spec.StorageClassName
-	}
-
-	if settings.Spec.NanobotWorkspaceSize != "" {
-		result.NanobotWorkspaceSize = settings.Spec.NanobotWorkspaceSize
-	}
-
-	if settings.Spec.NanobotAgentResources != nil {
-		nanobotAgentResourcesYAML, err := yaml.Marshal(settings.Spec.NanobotAgentResources)
-		if err != nil {
-			return types.K8sSettings{}, err
-		}
-		result.NanobotAgentResources = string(nanobotAgentResourcesYAML)
-	}
 
 	// Convert PSA settings
 	if settings.Spec.PodSecurityAdmission != nil {

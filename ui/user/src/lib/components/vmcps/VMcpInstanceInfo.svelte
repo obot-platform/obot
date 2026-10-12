@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import type { MCPCatalogEntry, OrgUser, VMCP, VMCPInstance } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { vmcpComponentId, vmcpInstanceAuditLogsPath } from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { getUserDisplayName, isDisabledUser, openUrl } from '$lib/utils';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import { ChevronRight, CircleAlert, Server } from '@lucide/svelte';
 
@@ -75,7 +77,7 @@
 
 {#if vmcp.components?.length}
 	<div>
-		<h2 class="mb-2 text-lg font-semibold">MCP Servers</h2>
+		<h2 class="mb-2 text-lg font-semibold">{m.vmcps_mcp_servers()}</h2>
 		<div class="flex flex-col gap-2">
 			{#each vmcp.components as component (vmcpComponentId(component) || component.mcpServerCatalogEntryID)}
 				{@const catalogEntryID = component.mcpServerCatalogEntryID}
@@ -127,14 +129,14 @@
 							<p class="text-sm">{name}</p>
 							<McpDeprecatedNotice {deprecated} child />
 							{#if !entriesReady}
-								<span class="text-muted-content text-xs">Loading...</span>
+								<span class="text-muted-content text-xs">{m.vmcps_loading()}</span>
 							{:else}
 								<span
 									class="text-muted-content flex items-center gap-1 text-xs"
-									title="This component server no longer exists"
+									title={m.vmcps_component_server_no_longer_exists()}
 								>
 									<CircleAlert class="size-4" />
-									<span>Deleted</span>
+									<span>{m.vmcps_deleted()}</span>
 								</span>
 							{/if}
 						</div>
@@ -148,11 +150,15 @@
 
 {#if associatedUsers.length > 0}
 	<div>
-		<h2 class="mb-2 text-lg font-semibold">Associated User</h2>
-		<Table data={associatedUsers} fields={['name']}>
+		<h2 class="mb-2 text-lg font-semibold">{m.vmcps_associated_user()}</h2>
+		<Table
+			data={associatedUsers}
+			fields={['name']}
+			headers={[{ property: 'name', title: m.core_name() }]}
+		>
 			{#snippet onRenderColumn(property: string, d: OrgUser)}
 				{#if property === 'name'}
-					{getUserDisplayName(usersMap, d.id)}
+					<SubjectName name={getUserDisplayName(usersMap, d.id)} disabled={isDisabledUser(d)} />
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}
@@ -164,7 +170,7 @@
 						href={resolve(vmcpInstanceAuditLogsPath(vmcp.id, d.id) as `/${string}`)}
 						class="btn btn-link"
 					>
-						View Audit Logs
+						{m.vmcps_deployments_view_audit_logs()}
 					</a>
 				{/if}
 			{/snippet}

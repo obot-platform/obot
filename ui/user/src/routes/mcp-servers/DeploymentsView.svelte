@@ -4,6 +4,7 @@
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import type { InitSort } from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import {
@@ -65,7 +66,7 @@
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			value={query}
 			onChange={updateSearchQuery}
-			placeholder="Search deployments..."
+			placeholder={m.mcps_deployments_search_deployments()}
 		/>
 	</div>
 	<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
@@ -89,10 +90,12 @@
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">No deployments found</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.mcps_deployments_no_deployments_found()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Looks like there aren't any deployments created yet. <br />
-			Deployments are created as users connect to MCP servers.
+			{m.mcps_deployments_no_deployments_line1()} <br />
+			{m.mcps_deployments_no_deployments_line2()}
 		</p>
 	</div>
 {/snippet}

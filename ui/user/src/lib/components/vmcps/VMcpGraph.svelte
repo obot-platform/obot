@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends { id: string }">
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		defaultCamera,
 		fitCamera,
@@ -203,7 +204,7 @@
 	bind:this={viewportEl}
 	data-vmcp-canvas
 	role="application"
-	aria-label="vMCP canvas"
+	aria-label={m.vmcps_canvas()}
 	class="h-full min-h-0 w-full touch-none overflow-hidden {panPointer
 		? 'cursor-grabbing'
 		: 'cursor-grab'}"
@@ -220,26 +221,26 @@
 			data-vmcp-ui
 			role="toolbar"
 			tabindex="-1"
-			aria-label="Canvas zoom"
+			aria-label={m.vmcps_canvas_zoom()}
 			onpointerdown={(event) => event.stopPropagation()}
 		>
 			<IconButton
 				class="btn-sm"
-				tooltip={{ text: 'Zoom in', placement: 'bottom' }}
+				tooltip={{ text: m.vmcps_zoom_in(), placement: 'bottom' }}
 				onclick={() => zoomFromButton(ZOOM_STEP)}
 			>
 				<Plus class="size-4" />
 			</IconButton>
 			<IconButton
 				class="btn-sm"
-				tooltip={{ text: 'Zoom out', placement: 'bottom' }}
+				tooltip={{ text: m.vmcps_zoom_out(), placement: 'bottom' }}
 				onclick={() => zoomFromButton(1 / ZOOM_STEP)}
 			>
 				<Minus class="size-4" />
 			</IconButton>
 			<IconButton
 				class="btn-sm"
-				tooltip={{ text: 'Fit to view', placement: 'bottom' }}
+				tooltip={{ text: m.vmcps_fit_to_view(), placement: 'bottom' }}
 				onclick={applyFit}
 			>
 				<Maximize2 class="size-4" />

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type {
 		MCPTesterChat,
@@ -19,8 +20,8 @@
 
 	let { chat, session }: Props = $props();
 	const suggestedPrompts = [
-		'Help me test this MCP Server',
-		'What tools are available from this MCP Server?'
+		m.mcps_tester_suggested_test_server(),
+		m.mcps_tester_suggested_list_tools()
 	];
 	let messagesElement: HTMLElement;
 	let latestMessageContent = $derived.by(() => {
@@ -48,28 +49,31 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">Chat</h2>
+	<h2 class="sr-only">{m.mcps_tester_chat()}</h2>
 
 	<div
 		class="default-scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-		aria-label="Chat messages"
+		aria-label={m.mcps_tester_chat_messages()}
 		bind:this={messagesElement}
 	>
 		{#if chat.timeline.length === 0}
 			<div
 				class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 			>
-				Send a message or stage a prompt or text resource to begin.
+				{m.mcps_tester_chat_empty()}
 			</div>
 		{/if}
 
 		{#each chat.timeline as message (message.id)}
 			{#if message.role === 'user'}
-				<article class="ml-auto max-w-[90%] sm:max-w-[80%]" aria-label="User message">
+				<article
+					class="ml-auto max-w-[90%] sm:max-w-[80%]"
+					aria-label={m.mcps_tester_user_message()}
+				>
 					<div class="bg-base-200 dark:bg-base-300 rounded-lg p-4">
 						{#if message.stagedName}
 							<p class="mb-2 text-xs font-medium text-muted-content">
-								Staged {message.stagedName}
+								{m.mcps_tester_staged_name({ name: message.stagedName })}
 							</p>
 						{/if}
 						{#each message.content ?? [] as content, index (index)}
@@ -83,10 +87,10 @@
 					</div>
 				</article>
 			{:else if message.role === 'assistant'}
-				<article class="max-w-full" aria-label="Assistant message">
+				<article class="max-w-full" aria-label={m.mcps_tester_assistant_message()}>
 					{#if message.stagedName}
 						<p class="mb-2 text-xs font-medium text-muted-content">
-							Staged {message.stagedName} · assistant
+							{m.mcps_tester_staged_name_assistant({ name: message.stagedName })}
 						</p>
 					{/if}
 					{#if message.text}
@@ -99,7 +103,7 @@
 								<CopyButton
 									noButtonText
 									text={message.text}
-									tooltipText="Copy response"
+									tooltipText={m.mcps_tester_copy_response()}
 									classes={{
 										button:
 											'bg-base-200 dark:bg-base-300 hover:bg-base-300 dark:hover:bg-base-400 rounded p-1.5'
@@ -120,23 +124,24 @@
 							{/if}
 						</div>
 					{:else if message.state === 'streaming'}
-						<p class="text-sm text-muted-content">Thinking…</p>
+						<p class="text-sm text-muted-content">{m.mcps_tester_thinking()}</p>
 					{/if}
 					{#if completedCalls(message).length}
 						<ToolCallRecord calls={completedCalls(message)} />
 					{/if}
 					{#if message.state === 'failed'}
 						<div class="notification-error mt-3 p-3" role="alert">
-							<p class="font-medium">Response failed</p>
+							<p class="font-medium">{m.mcps_tester_response_failed()}</p>
 							<p class="mt-1 text-sm">{message.error?.message}</p>
 							{#if message.error?.retryable}
 								<button class="btn btn-secondary btn-sm mt-3" onclick={() => chat.retry()}>
-									<RotateCw class="size-4" aria-hidden="true" /> Retry response
+									<RotateCw class="size-4" aria-hidden="true" />
+									{m.mcps_tester_retry_response()}
 								</button>
 							{/if}
 						</div>
 					{:else if message.state === 'cancelled'}
-						<p class="mt-2 text-sm text-muted-content">Generation stopped.</p>
+						<p class="mt-2 text-sm text-muted-content">{m.mcps_tester_generation_stopped()}</p>
 					{/if}
 				</article>
 			{/if}
@@ -145,11 +150,13 @@
 
 	{#if chat.status === 'snapshotting' || chat.status === 'streaming'}
 		<p class="sr-only" aria-live="polite">
-			{chat.status === 'snapshotting' ? 'Snapshotting server tools…' : 'Assistant is responding…'}
+			{chat.status === 'snapshotting'
+				? m.mcps_tester_snapshotting()
+				: m.mcps_tester_assistant_responding()}
 		</p>
 	{:else if chat.status === 'round-limit' && chat.error}
 		<div class="notification-alert mt-4 p-3" role="status">
-			<p class="font-medium">Turn stopped</p>
+			<p class="font-medium">{m.mcps_tester_turn_stopped()}</p>
 			<p class="mt-1 text-sm">{chat.error.message}</p>
 		</div>
 	{:else if chat.error && !chat.timeline.some((message) => message.error)}
@@ -159,7 +166,11 @@
 	<ToolApprovalPrompt {chat} />
 
 	{#if chat.timeline.length === 0}
-		<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Suggested messages">
+		<div
+			class="mt-3 flex flex-wrap gap-2"
+			role="group"
+			aria-label={m.mcps_tester_suggested_messages()}
+		>
 			{#each suggestedPrompts as prompt (prompt)}
 				<button
 					type="button"

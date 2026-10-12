@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import {
 		UserService,
 		type DeviceScan,
@@ -149,7 +150,7 @@
 	value={query}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateQuery}
-	placeholder="Search by device ID or user..."
+	placeholder={m.inventory_enforcement_devices_search_placeholder()}
 />
 
 {#if loading || parentLoading}
@@ -157,9 +158,12 @@
 {:else if total === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<Laptop class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No devices scanned yet</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_devices_none_scanned()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Run <code class="font-mono">obot scan</code> from a managed device to populate this view.
+			{m.inventory_enforcement_devices_run_scan_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_devices_run_scan_suffix()}
 		</p>
 	</div>
 {:else}
@@ -176,14 +180,14 @@
 			'scannedAt'
 		]}
 		headers={[
-			{ title: 'Device', property: 'short_device_id' },
-			{ title: 'OS / Arch', property: 'os_arch' },
-			{ title: 'User', property: 'username' },
+			{ title: m.audit_usage_audit_logs_device(), property: 'short_device_id' },
+			{ title: m.inventory_enforcement_devices_col_os_arch(), property: 'os_arch' },
+			{ title: m.core_col_user(), property: 'username' },
 			{ title: 'MCP', property: 'mcp_count' },
-			{ title: 'Skills', property: 'skill_count' },
-			{ title: 'Plugins', property: 'plugin_count' },
-			{ title: 'Clients', property: 'client_count' },
-			{ title: 'Last Scanned', property: 'scannedAt' }
+			{ title: m.inventory_enforcement_skills_tab(), property: 'skill_count' },
+			{ title: m.inventory_enforcement_devices_col_plugins(), property: 'plugin_count' },
+			{ title: m.audit_usage_exports_filter_title_clients(), property: 'client_count' },
+			{ title: m.inventory_enforcement_devices_col_last_scanned(), property: 'scannedAt' }
 		]}
 		sortable={[
 			'short_device_id',
@@ -243,7 +247,10 @@
 			{lastPageIndex}
 			{total}
 			{loading}
-			itemLabelSingular="device"
+			itemCountLabel={(count) =>
+				count === 1
+					? m.inventory_enforcement_devices_count_one({ count })
+					: m.inventory_enforcement_devices_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

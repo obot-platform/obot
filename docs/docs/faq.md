@@ -1,3 +1,7 @@
+---
+displayed_sidebar: sidebar
+---
+
 # FAQ
 
 ## Onboarding & Setup
@@ -6,9 +10,9 @@
 
 Docker is suitable for local testing and small-scale deployments. For production, especially in enterprise settings, Kubernetes is recommended for high availability, resource management, and upgrades.
 
-### Why can’t I see the User Management section?
+### Why can’t I see user management controls? {#why-cant-i-see-the-user-management-section}
 
-User Management is only visible when authentication is enabled. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don't see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](./installation/enabling-authentication.md).
+User management controls are under **Identity & Access**. Administrative controls require an Admin or Owner account; enable authentication before configuring user access. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don't see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](./security/authentication.md).
 
 ### How do I assign roles to users before they log in?
 

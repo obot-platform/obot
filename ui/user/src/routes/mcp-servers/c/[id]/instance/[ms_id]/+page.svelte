@@ -5,6 +5,7 @@
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores';
@@ -37,7 +38,7 @@
 	}
 
 	let title = $derived(
-		getMCPDisplayName(mcpServer) || getMCPDisplayName(catalogEntry) || 'MCP Server'
+		getMCPDisplayName(mcpServer) || getMCPDisplayName(catalogEntry) || m.mcps_server_fallback_name()
 	);
 </script>
 
@@ -72,5 +73,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {catalogEntry?.manifest?.name ?? m.mcps_server_fallback_name()}</title>
 </svelte:head>

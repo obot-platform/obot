@@ -3,12 +3,25 @@ package db
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
 )
+
+// backfillIdentityFirstSignIn marks every existing identity as signed in. It runs once, when the column is
+// added: until then, only a sign-in created an identity. Identities created later start without the marker
+// unless they sign in.
+//
+// Existing users need no backfill. The lifecycle columns are added as enabled: no disabled time and an empty
+// disable reason.
+func backfillIdentityFirstSignIn(tx *gorm.DB) error {
+	return tx.Model(&types.Identity{}).
+		Where("first_sign_in_at IS NULL").
+		UpdateColumn("first_sign_in_at", time.Now()).Error
+}
 
 // migrateRunTokenActivityInputOutput renames legacy token usage columns.
 func migrateRunTokenActivityInputOutput(tx *gorm.DB) error {

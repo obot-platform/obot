@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Select from '../Select.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -40,7 +41,7 @@
 		}}
 		options={localOptions}
 		disabled={readonly}
-		placeholder="Type to Search for a category | hit &quot;Enter&quot; to create one"
+		placeholder={m.core_category_placeholder()}
 		bind:query
 		bind:selected={
 			() => categories,

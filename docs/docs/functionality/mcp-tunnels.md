@@ -1,11 +1,13 @@
 ---
-title: MCP Tunnels
+displayed_sidebar: sidebar
+title: "Connect private-network servers"
 description: Connect Obot to remote MCP servers on private networks through an outbound WebSocket tunnel.
 ---
 
-## Overview
+## Overview {#overview}
 
-MCP tunnels let the Obot gateway reach remote HTTP or HTTPS MCP servers that are not directly accessible from the Obot network. An `obot tunnel` process runs on a machine that can reach the private MCP server and opens an outbound, authenticated WebSocket connection to Obot.
+
+MCP tunnels let the Obot gateway reach remote HTTP or HTTPS MCP servers that are not directly accessible from the Obot network. An admin deploys and operates the `obot tunnel` client externally, on a machine or pod that can reach both the private MCP server and Obot. The client opens an outbound, authenticated WebSocket connection to Obot's built-in receiving endpoint. Creating a tunnel record in Obot does not deploy the client or the MCP server. See [Deployment topologies](../architecture/topologies.md) for Docker and Kubernetes placement examples.
 
 Traffic follows this path:
 
@@ -16,7 +18,8 @@ Traffic follows this path:
 
 The remote MCP server continues to use its ordinary URL, such as `http://mcp.internal.example:8080/mcp`. MCP tunnels proxy HTTP requests and streaming responses; they are not general-purpose TCP tunnels or VPNs.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
+
 
 - An Admin or Owner must create and configure the tunnel.
 - A Docker container or the `obot` CLI must run on a long-lived machine that can reach both Obot and the remote MCP server.
@@ -24,9 +27,11 @@ The remote MCP server continues to use its ordinary URL, such as `http://mcp.int
 - A reverse proxy in front of Obot must allow WebSocket upgrades and long-lived connections on `/tunnel/connect`.
 - The remote catalog entry must use an exact URL or hostname. URL templates are not supported with tunnels.
 
-## Create an MCP tunnel
 
-1. Open **MCP Management > MCP Tunnels**.
+## Create an MCP tunnel {#create-an-mcp-tunnel}
+
+
+1. Open **MCP Servers > Tunnels**.
 2. Select **Create MCP Tunnel**.
 3. Enter a required **Display Name** and an optional **Description**.
 4. Add one or more **Allowed URLs** that describe the destinations this tunnel may reach.
@@ -41,7 +46,9 @@ Store the complete secret in a secure secret manager when it is created. The pre
 
 :::
 
-## Configure allowed URLs
+
+## Configure allowed URLs {#configure-allowed-urls}
+
 
 Allowed URLs are the tunnel's network boundary. An empty list permits no destinations. Each rule can be an exact value or contain one `*` at the beginning or end.
 
@@ -66,7 +73,9 @@ Use the narrowest rules practical. In particular, `*` allows the tunnel process 
 
 Obot checks the allowlist when a tunneled remote catalog entry or server is saved and again for every forwarded request. Updating the allowlist therefore affects new requests immediately, including requests from existing catalog entries.
 
-## Connect the tunnel
+
+## Connect the tunnel {#connect-the-tunnel}
+
 
 The Docker tab is selected by default after creating or rotating a tunnel. Run the displayed command on a machine with network access to the remote MCP server:
 
@@ -104,7 +113,8 @@ concurrent requests. Obot routes a request through an available connection;
 connections for the same tunnel are failover options rather than a guaranteed
 load-balancing pool.
 
-### Multiple Obot replicas
+### Multiple Obot replicas {#multiple-obot-replicas}
+
 
 Helm deployments with `replicaCount` greater than `1` automatically form an internal tunnel peer mesh. The tunnel CLI still opens one WebSocket to one Obot replica, but every replica learns which tunnel is connected and can route gateway requests through the owning replica. The CLI does not need one connection per replica.
 
@@ -131,15 +141,17 @@ externally managed peer secrets.
 
 If a replica or peer connection is lost, new requests can use the tunnel again after the peer mesh or CLI reconnects. An in-flight request is failed rather than replayed because MCP requests may not be safe to repeat.
 
-### CLI logs
+### CLI logs {#cli-logs}
+
 
 The tunnel command logs connection changes and each forwarded request. Request and response entries share a `request_id`, making them easy to correlate. Request logs include the tunnel ID, HTTP method, target URL without its query or fragment, whether a query was present, and content length. Response logs add the status, response content length, and duration.
 
 Headers, query values, and URL fragments are not logged. URL paths are logged, so do not place secrets in paths.
 
-## Configure a remote MCP catalog entry
+## Configure a remote MCP catalog entry {#configure-a-remote-mcp-catalog-entry}
 
-1. Open **MCP Management > MCP Catalog**.
+
+1. Open **MCP Servers**.
 2. Create or edit a remote MCP catalog entry.
 3. Configure the real MCP endpoint using **Exact URL** or **Hostname**.
 4. Open **Advanced Configuration**.
@@ -155,9 +167,11 @@ Tunnel selection is available only for catalog entries managed directly in Obot.
 
 :::
 
-## Operate MCP tunnels
+## Operate MCP tunnels {#operate-mcp-tunnels}
 
-### Check live connections
+
+### Check live connections {#check-live-connections}
+
 
 `GET /api/tunnels` returns tunnels connected anywhere in the Obot installation:
 
@@ -175,13 +189,15 @@ Tunnel selection is available only for catalog entries managed directly in Obot.
 only once even when it has multiple connected clients. The endpoint does not
 expose connection timing or request statistics.
 
-### Rotate a secret
+### Rotate a secret {#rotate-a-secret}
 
-Open the tunnel from **MCP Management > MCP Tunnels** and select **Rotate Secret**. Rotation immediately invalidates the old secret and disconnects clients using it. Save the newly displayed secret, then restart the tunnel clients with it.
+
+Open the tunnel from **MCP Servers > Tunnels** and select **Rotate Secret**. Rotation immediately invalidates the old secret and disconnects clients using it. Save the newly displayed secret, then restart the tunnel clients with it.
 
 A tunnel client that still uses the old secret continues retrying but cannot reconnect.
 
-### Update or delete a tunnel
+### Update or delete a tunnel {#update-or-delete-a-tunnel}
+
 
 Changing the display name or description does not change the tunnel ID or secret. Narrowing **Allowed URLs** can immediately block requests from catalog entries that no longer match.
 
@@ -190,7 +206,8 @@ tunnel references nested in composite catalog entries. The API returns `400 Bad 
 the dependent catalog entries. Update those entries to remove or replace the tunnel first. Deleting
 the tunnel then disconnects its clients.
 
-## Security behavior
+## Security behavior {#security-behavior}
+
 
 - Use HTTPS for Obot in production so the WebSocket uses WSS. The tunnel secret is a bearer credential, and forwarded MCP headers may contain credentials.
 - Obot stores a SHA-256 digest and a shortened preview of the secret, not the complete secret.
@@ -201,7 +218,8 @@ the tunnel then disconnects its clients.
 
 For tunneled targets, the tunnel allowlist is the primary network boundary. The usual gateway restrictions on localhost, private, and link-local destinations do not apply because the tunnel machine performs DNS resolution and connects to the target.
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
+
 
 | Symptom | What to check |
 |---|---|
@@ -212,7 +230,8 @@ For tunneled targets, the tunnel allowlist is the primary network boundary. The 
 | A forwarded request fails with a gateway error | From the tunnel machine, verify DNS, TLS, firewall access, and direct connectivity to the real MCP URL. |
 | A catalog entry cannot be saved | Use an exact URL or hostname that matches the allowlist. Remove any URL template before selecting a tunnel. |
 
-## API reference
+## API reference {#api-reference}
+
 
 | Method | Path | Purpose |
 |---|---|---|

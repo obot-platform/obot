@@ -111,15 +111,6 @@ secret:
   # secret.OBOT_SERVER_OTEL_BEARER_TOKEN -- The bearer token for authentication with OpenTelemetry
   OBOT_SERVER_OTEL_BEARER_TOKEN: ""
 
-  # secret.OBOT_ARTIFACT_S3_ACCESS_KEY_ID -- Access key ID for published workflow storage when explicit S3-compatible credentials are required.
-  OBOT_ARTIFACT_S3_ACCESS_KEY_ID: ""
-  # secret.OBOT_ARTIFACT_S3_SECRET_ACCESS_KEY -- Secret access key for published workflow storage when explicit S3-compatible credentials are required.
-  OBOT_ARTIFACT_S3_SECRET_ACCESS_KEY: ""
-  # secret.OBOT_ARTIFACT_GCS_SERVICE_ACCOUNT_JSON -- Inline GCS service account JSON for published workflow storage. If empty, Application Default Credentials are used.
-  OBOT_ARTIFACT_GCS_SERVICE_ACCOUNT_JSON: ""
-  # secret.OBOT_ARTIFACT_AZURE_CLIENT_SECRET -- Azure client secret for published workflow storage when using explicit Azure credentials.
-  OBOT_ARTIFACT_AZURE_CLIENT_SECRET: ""
-
   # secret.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
   OBOT_SERVER_LICENSE_KEY: ""
 
@@ -166,8 +157,6 @@ config:
   OBOT_SERVER_ENABLE_AUTHENTICATION: false
   # config.OBOT_SERVER_ENABLE_REGISTRY_AUTH -- Enables authentication for the MCP registry API. When false (default), registry is accessible without authentication and returns only default catalog items with wildcard access control rules.
   OBOT_SERVER_ENABLE_REGISTRY_AUTH: false
-  # config.OBOT_ENABLE_AGENTS -- Controls Obot Agent features. Leave empty (default) to disable agents for new deployments while grandfathering in (keeping enabled) existing deployments that already have agents. Set to "true" to force-enable, or "false" to force-disable, regardless of grandfathering.
-  OBOT_ENABLE_AGENTS: ""
   # config.OBOT_SERVER_ENABLE_HOSTED_AGENTS -- Enables Hosted Agents. Must be set to true to expose Hosted Agents APIs and UI. Defaults to false.
   OBOT_SERVER_ENABLE_HOSTED_AGENTS: false
   # Hosted agent sandboxes follow OBOT_SERVER_MCPRUNTIME_BACKEND: they run on Kubernetes when MCP servers do, in the namespace configured under mcpNamespace. There is deliberately no separate backend setting, because a deployment always wants the two to match.
@@ -199,8 +188,6 @@ config:
   # config.OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 100000.
   OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT: ""
 
-  # config.OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS -- The interval in hours to check for idle agents and shut them down. Set to -1 to disable. Defaults to 72.
-  OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS: ""
   # config.OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle single-user MCP servers and shut them down. Set to -1 to disable. Defaults to 24.
   OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS: ""
   # config.OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle multi-user MCP servers and shut them down. Set to -1 to disable. Defaults to 168.
@@ -219,8 +206,6 @@ config:
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image.
   OBOT_SERVER_MCPBASE_IMAGE: ""
-  # config.OBOT_SERVER_NANOBOT_AGENT_IMAGE -- Container image for the Nanobot agent MCP server.
-  OBOT_SERVER_NANOBOT_AGENT_IMAGE: ""
   # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.
   OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: ""
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
@@ -270,21 +255,6 @@ config:
   # config.OBOT_SERVER_FORCE_DYNAMIC_CLIENT -- Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. Defaults to false.
   OBOT_SERVER_FORCE_DYNAMIC_CLIENT: false
 
-  # config.OBOT_ARTIFACT_STORAGE_PROVIDER -- Storage provider for published workflows. Can be 's3', 'gcs', 'azure', or 'custom'. If unset, local disk storage is used.
-  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
-  # config.OBOT_ARTIFACT_STORAGE_BUCKET -- Bucket or container name for published workflow storage.
-  OBOT_ARTIFACT_STORAGE_BUCKET: ""
-  # config.OBOT_ARTIFACT_S3_REGION -- Region for published workflow storage when using 's3' or 'custom'.
-  OBOT_ARTIFACT_S3_REGION: ""
-  # config.OBOT_ARTIFACT_S3_ENDPOINT -- Endpoint URL for published workflow storage when using 'custom' S3-compatible storage.
-  OBOT_ARTIFACT_S3_ENDPOINT: ""
-  # config.OBOT_ARTIFACT_AZURE_STORAGE_ACCOUNT -- Azure storage account name for published workflow storage.
-  OBOT_ARTIFACT_AZURE_STORAGE_ACCOUNT: ""
-  # config.OBOT_ARTIFACT_AZURE_TENANT_ID -- Azure tenant ID for published workflow storage when using explicit Azure credentials.
-  OBOT_ARTIFACT_AZURE_TENANT_ID: ""
-  # config.OBOT_ARTIFACT_AZURE_CLIENT_ID -- Azure client ID for published workflow storage when using explicit Azure credentials.
-  OBOT_ARTIFACT_AZURE_CLIENT_ID: ""
-
   # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality.
   OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ""
 
@@ -309,8 +279,6 @@ runtimeClassName: ""
 
 persistence:
   # persistence.enabled -- Enables persistence using a PVC mounted at /data.
-  # This also persists local published workflow artifacts when OBOT_ARTIFACT_STORAGE_PROVIDER is unset,
-  # because those files are stored under /data/.local/share/obot/published-artifacts.
   enabled: true
   # persistence.path -- The path the volume will be mounted
   path: /data
@@ -321,7 +289,6 @@ persistence:
   storageClass: ""
   # persistence.accessModes -- Persistent Volume access modes.
   # ReadWriteOnce is appropriate for replicaCount=1.
-  # ReadWriteMany is required for multi-replica deployments that rely on local artifact storage instead of object storage.
   accessModes:
     - ReadWriteOnce
   # persistence.size -- Persistent Volume size
@@ -453,12 +420,6 @@ mcpServerDefaults:
   # mcpServerDefaults.runtimeClassName -- RuntimeClass name for MCP server pods
   # This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
   runtimeClassName: ""
-
-  # mcpServerDefaults.storageClassName -- StorageClass name for nanobot workspace volumes
-  storageClassName: ""
-
-  # mcpServerDefaults.nanobotWorkspaceSize -- Size for nanobot workspace volumes (e.g., 1Gi)
-  nanobotWorkspaceSize: ""
 
   # mcpServerDefaults.maxCPURequest -- Maximum CPU request allowed for MCP server pods
   # Also caps the built-in default CPU request when no explicit default is configured.

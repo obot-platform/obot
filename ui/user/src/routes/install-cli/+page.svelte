@@ -3,6 +3,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import { m } from '$lib/i18n';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { darkMode, profile } from '$lib/stores';
 	import {
@@ -51,18 +52,14 @@
 			<div class="flex flex-col @2xl/cli:flex-row items-center justify-center gap-8">
 				<div class="max-w-md">
 					<Logo class="@2xl/cli:size-16 size-12 mb-1 mx-auto @2xl:mx-0" />
-					<h2 class="text-2xl font-bold mb-2">One CLI. Your entire AI tooling.</h2>
+					<h2 class="text-2xl font-bold mb-2">{m.install_cli_hero_heading()}</h2>
 					{#if isAdmin}
 						<p class="font-light">
-							Obot is the open-source platform for hosting, governing, and using Model Context
-							Protocol servers & skills. Have users run the CLI locally, and bring your team’s AI
-							tooling under one roof.
+							{m.install_cli_hero_admin()}
 						</p>
 					{:else}
 						<p class="font-light">
-							Obot is the open-source platform for hosting, governing, and using Model Context
-							Protocol servers & skills. Run the CLI locally to start connecting your AI clients and
-							have access to your team's AI tooling in one place.
+							{m.install_cli_hero_user()}
 						</p>
 					{/if}
 				</div>
@@ -84,22 +81,18 @@
 				{/each}
 			</div>
 			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1" id="obot-cli-installation">
-				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
+				<h3 class="text-2xl font-bold">{m.install_cli_how_to_install()}</h3>
 
 				{@render codesnippet(
-					'For MacOS, install through Homebrew:',
+					m.install_cli_step_homebrew(),
 					installCommand,
 					'obot-cli-homebrew-install'
 				)}
 
-				{@render codesnippet(
-					'Then run the following command:',
-					setupCommand,
-					'obot-cli-setup-command'
-				)}
+				{@render codesnippet(m.install_cli_step_setup(), setupCommand, 'obot-cli-setup-command')}
 
 				<div class="flex flex-col">
-					<p class="text-sm">For more installation options, click below:</p>
+					<p class="text-sm">{m.install_cli_more_options()}</p>
 					<a
 						id="obot-cli-windows-installer"
 						href="https://github.com/obot-platform/obot/releases/latest"
@@ -107,12 +100,14 @@
 						target="_blank"
 						rel="noopener noreferrer external"
 					>
-						Get Latest Release <ExternalLinkIcon class="size-4" />
+						{m.install_cli_get_latest_release()}
+						<ExternalLinkIcon class="size-4" />
 					</a>
 					<div class="flex items-center gap-1 badge badge-outline border-base-400 opacity-50">
 						<div class="devicon devicon-windows11-original text-[#0078D7]"></div>
 						<p class="text-xs font-light">
-							<b class="font-medium">Windows Installer</b> Coming Soon
+							<b class="font-medium">{m.install_cli_windows_installer()}</b>
+							{m.install_cli_coming_soon()}
 						</p>
 					</div>
 				</div>
@@ -127,14 +122,15 @@
 					<AntennaIcon class="@2xl/cli:size-10 size-6 text-primary translate-y-0.5" />
 				</div>
 				<h4 class="text-xl font-semibold text-center my-2">
-					What does <code class="font-mono font-normal mx-2">obot setup</code> do?
+					{m.install_cli_what_does_prefix()}<code class="font-mono font-normal mx-2"
+						>obot setup</code
+					>{m.install_cli_what_does_suffix()}
 				</h4>
 				<ul class="list-disc font-light flex flex-col gap-2 px-4">
-					<li>Detects Cursor and Claude Code on your machine</li>
-					<li>Authenticates and saves your default Obot URL locally</li>
+					<li>{m.install_cli_setup_detects()}</li>
+					<li>{m.install_cli_setup_authenticates()}</li>
 					<li>
-						Installs Obot bootstrap skills so AI clients know how to work with your org’s MCP
-						catalog
+						{m.install_cli_setup_installs_skills()}
 					</li>
 				</ul>
 			</div>
@@ -143,34 +139,34 @@
 		<div class="divider"></div>
 
 		<section class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
-			<h3 class="text-2xl font-bold">Obot CLI Commands</h3>
+			<h3 class="text-2xl font-bold">{m.install_cli_commands_heading()}</h3>
 
 			<div class="paper" id="obot-cli-command-setup">
 				{@render commandPreview('obot setup')}
 				<p>
-					Use <code class="inline-code">obot setup</code> to authenticate with Obot and install the Obot
-					skills into your AI clients.
+					{m.install_cli_use_prefix()}<code class="inline-code">obot setup</code
+					>{m.install_cli_setup_desc_suffix()}
 				</p>
 			</div>
 
 			<div class="paper" id="obot-cli-command-mcp">
 				{@render commandPreview('obot mcp')}
 				<p class="mb-2">
-					Use <code class="inline-code">obot mcp</code> to install and manage MCP servers. We
-					support Claude, Codex, and all clients that support
-					<code class="inline-code">~/.agents</code>, including:
+					{m.install_cli_use_prefix()}<code class="inline-code">obot mcp</code
+					>{m.install_cli_mcp_desc_middle()}<code class="inline-code">~/.agents</code
+					>{m.install_cli_including_suffix()}
 				</p>
 				{@render supportedClients('size-6')}
 
 				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
 					<li>
 						<p class="mb-2">
-							Search Obot for installable MCP servers from your AI client using the following skill:
+							{m.install_cli_mcp_search_skill()}
 						</p>
 						<div class="mb-2">
 							{@render slashCommandPreview(
 								'/obot-search-mcp-servers',
-								'Search Obot for installable MCP servers. (user)'
+								m.install_cli_blurb_search_mcp_servers()
 							)}
 						</div>
 					</li>
@@ -180,26 +176,26 @@
 			<div class="paper" id="obot-cli-command-skills">
 				{@render commandPreview('obot skills')}
 				<p>
-					Use <code class="inline-code">obot skills</code> to install and manage skills. We support
-					Claude, Codex, and all clients that support <code class="inline-code">~/.agents</code>,
-					including:
+					{m.install_cli_use_prefix()}<code class="inline-code">obot skills</code
+					>{m.install_cli_skills_desc_middle()}<code class="inline-code">~/.agents</code
+					>{m.install_cli_including_suffix()}
 				</p>
 				{@render supportedClients()}
 
 				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
 					<li>
 						<p class="mb-2">
-							Directly install skills to your AI clients using the following skills:
+							{m.install_cli_skills_install_skills()}
 						</p>
 						<div class="mb-2">
 							{@render slashCommandPreview(
 								'/obot-search-skills',
-								'Search Obot for installable skills. (user)'
+								m.install_cli_blurb_search_skills()
 							)}
 						</div>
 						{@render slashCommandPreview(
 							'/obot-install-skill',
-							'Install a skill from Obot. (user)'
+							m.install_cli_blurb_install_skill()
 						)}
 					</li>
 				</ul>
@@ -277,7 +273,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot CLI | Install</title>
+	<title>{m.install_cli_page_title()}</title>
 </svelte:head>
 
 <style lang="postcss">

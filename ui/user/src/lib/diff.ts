@@ -234,65 +234,6 @@ function backtrackDiff(
 	return result;
 }
 
-export type LineDiffOpType = 'unchanged' | 'removed' | 'added' | 'modified';
-
-export type LineDiffOp = {
-	type: LineDiffOpType;
-	line: string;
-	oldIndex?: number;
-	newIndex?: number;
-	/** When type is 'modified', which side this line belongs to (for filtering old vs new view) */
-	modifiedSide?: 'old' | 'new';
-};
-
-export type LineDiffResult = {
-	oldLines: string[];
-	newLines: string[];
-	unifiedLines: string[];
-	diffOps: LineDiffOp[];
-};
-
-/** Line-based diff for plain text (e.g. workflow markdown). Treats consecutive remove+add as "modified". */
-export function generateLineDiff(oldText: string, newText: string): LineDiffResult {
-	const oldLines = oldText.split('\n');
-	const newLines = newText.split('\n');
-	const dp = computeLCS(oldLines, newLines);
-	const rawOps = backtrackDiff(dp, oldLines, newLines);
-
-	// Mark consecutive removed+added pairs as 'modified'
-	const diffOps: LineDiffOp[] = rawOps.map((op, idx) => {
-		const next = rawOps[idx + 1];
-		const prev = rawOps[idx - 1];
-		if (op.type === 'removed' && next?.type === 'added') {
-			return { ...op, type: 'modified' as const, modifiedSide: 'old' as const };
-		}
-		if (op.type === 'added' && prev?.type === 'removed') {
-			return { ...op, type: 'modified' as const, modifiedSide: 'new' as const };
-		}
-		return { ...op, type: op.type };
-	});
-
-	const unifiedLines = diffOps.map((op) => {
-		switch (op.type) {
-			case 'modified':
-				return op.modifiedSide === 'old' ? `-${op.line}` : `+${op.line}`;
-			case 'unchanged':
-				return ` ${op.line}`;
-			case 'removed':
-				return `-${op.line}`;
-			case 'added':
-				return `+${op.line}`;
-		}
-	});
-
-	return {
-		oldLines,
-		newLines,
-		unifiedLines,
-		diffOps
-	};
-}
-
 function escapeHtml(text: string): string {
 	return text
 		.replace(/&/g, '&amp;')
@@ -300,38 +241,6 @@ function escapeHtml(text: string): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;');
-}
-
-/**
- * Renders diff ops as HTML with red (removal), green (addition), yellow (modified).
- * @param diff Result of generateLineDiff(currentWorkflowContents, latestVersionContents)
- * @param isOldVersion true = show current workflow (removed/modified); false = show latest (added/modified)
- */
-export function formatTextWithDiffHighlighting(
-	diff: LineDiffResult,
-	isOldVersion: boolean
-): string {
-	const relevantOps = diff.diffOps.filter((op) => {
-		if (isOldVersion) {
-			return op.type === 'unchanged' || op.type === 'removed' || op.modifiedSide === 'old';
-		}
-		return op.type === 'unchanged' || op.type === 'added' || op.modifiedSide === 'new';
-	});
-
-	let html = '';
-	for (const op of relevantOps) {
-		const escaped = escapeHtml(op.line);
-		let lineClass = 'text-base-content';
-		if (op.type === 'removed') {
-			lineClass = 'bg-error/20 text-error';
-		} else if (op.type === 'added') {
-			lineClass = 'bg-success/20 text-success';
-		} else if (op.type === 'modified') {
-			lineClass = 'bg-warning/20 text-warning';
-		}
-		html += `<div class="font-mono text-sm whitespace-pre-wrap wrap-break-word ${lineClass} px-2 py-0.5 border-l-2 border-transparent">${escaped}</div>`;
-	}
-	return html;
 }
 
 export function generateJsonDiff(

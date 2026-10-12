@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { GuideAction, GuideHighlight, GuideListener } from './types';
 
 // shared action that can be used in multiple guides
@@ -23,8 +24,8 @@ export function getExpandAdvancedPaneAction({
 			selector: {
 				id: parentID
 			},
-			title: title || 'Expand MCP Management',
-			description: description || "Let's expand this section to continue."
+			title: title || m.core_guides_expand_mcp_management(),
+			description: description || m.core_guides_let_s_expand_this_section_to()
 		},
 		listener: {
 			id: parentID,

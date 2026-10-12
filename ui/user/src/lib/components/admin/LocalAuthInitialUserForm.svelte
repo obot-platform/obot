@@ -2,6 +2,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AuthProvider } from '$lib/services';
 	import { darkMode } from '$lib/stores';
@@ -78,15 +79,18 @@
 
 		const email = initialEmail.trim();
 		if (!email || !initialPassword || !initialPasswordConfirm) {
-			initialUserError = 'Fill out the required email and password fields.';
+			initialUserError = m.identity_access_auth_providers_local_auth_fill_email_password();
 			return;
 		}
 		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			initialUserError = `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
+			initialUserError = m.identity_access_auth_providers_local_auth_password_min({
+				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+			});
 			return;
 		}
 		if (initialPassword !== initialPasswordConfirm) {
-			initialUserError = 'The passwords do not match.';
+			initialUserError =
+				m.identity_access_auth_providers_local_auth_initial_user_passwords_mismatch();
 			return;
 		}
 
@@ -101,7 +105,10 @@
 			await AdminService.createLocalAuthUser(email, initialPassword, false);
 		} catch (err) {
 			saving = false;
-			initialUserError = errorMessage(err, 'Failed to create the initial user.');
+			initialUserError = errorMessage(
+				err,
+				m.identity_access_auth_providers_local_auth_initial_user_create_failed()
+			);
 		}
 
 		if (!initialUserError) {
@@ -109,7 +116,10 @@
 				const users = await AdminService.listLocalAuthUsers();
 				userCount = users.length;
 			} catch (err) {
-				initialUserError = errorMessage(err, 'Failed to list local auth users.');
+				initialUserError = errorMessage(
+					err,
+					m.identity_access_auth_providers_local_auth_initial_user_list_failed()
+				);
 				userCount = 1;
 			} finally {
 				onCreated?.(userCount, email);
@@ -130,17 +140,20 @@
 	{:else}
 		<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 	{/if}
-	<h2 class="text-lg font-semibold">Set Up Owner Account</h2>
+	<h2 class="text-lg font-semibold">
+		{m.identity_access_auth_providers_local_auth_initial_user_title()}
+	</h2>
 </div>
 
 <div class="notification-info mb-4 flex flex-col items-start gap-1">
 	<div class="flex items-center gap-1">
-		<p class="text-sm font-semibold">Set up your initial owner account to get started!</p>
+		<p class="text-sm font-semibold">
+			{m.identity_access_auth_providers_local_auth_initial_user_intro()}
+		</p>
 	</div>
 	<div>
 		<p class="text-xs font-light">
-			You will have an opportunity later to configure Obot with other authentication providers such
-			as Gmail, GitHub, Okta, Entra, etc.
+			{m.identity_access_auth_providers_local_auth_initial_user_other_providers()}
 		</p>
 	</div>
 </div>
@@ -154,7 +167,7 @@
 	{/if}
 
 	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_EMAIL_ID}>
-		Email
+		{m.common_email()}
 		<input
 			id={INITIAL_EMAIL_ID}
 			class="text-input-filled"
@@ -176,7 +189,7 @@
 	</label>
 
 	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_ID}>
-		Password
+		{m.common_password()}
 		<SensitiveInput
 			name={INITIAL_PASSWORD_ID}
 			bind:value={initialPassword}
@@ -189,12 +202,14 @@
 			data1pIgnore={false}
 		/>
 		<span class="text-muted-content min-h-4 pt-0.5 text-xs">
-			Minimum of {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters is required.
+			{m.identity_access_auth_providers_local_auth_initial_user_password_min_required({
+				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+			})}
 		</span>
 	</label>
 
 	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_CONFIRM_ID}>
-		Confirm password
+		{m.identity_access_auth_providers_local_auth_initial_user_confirm_password()}
 		<SensitiveInput
 			name={INITIAL_PASSWORD_CONFIRM_ID}
 			bind:value={initialPasswordConfirm}
@@ -227,7 +242,7 @@
 			{#if saving}
 				<Loading class="size-4" />
 			{:else}
-				Continue
+				{m.core_continue()}
 			{/if}
 		</button>
 	</div>

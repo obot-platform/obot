@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { HostedAgent, HostedAgentAccessPolicyResource } from '$lib/services/admin/types';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -17,7 +18,7 @@
 		hostedAgents,
 		onAdd,
 		exclude = [],
-		title = 'Add Templates',
+		title = m.hosted_agents_add_templates(),
 		wildcardAvailable = true
 	}: Props = $props();
 
@@ -74,7 +75,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (query = val)}
 					value={query}
-					placeholder="Search templates..."
+					placeholder={m.hosted_agents_search_templates()}
 				/>
 			</div>
 
@@ -89,9 +90,9 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="flex flex-col">
-								<p class="font-medium">All Templates</p>
+								<p class="font-medium">{m.hosted_agents_all_templates()}</p>
 								<span class="text-muted-content text-xs">
-									Grants access to all current and future templates
+									{m.hosted_agents_all_templates_description()}
 								</span>
 							</div>
 						</div>
@@ -133,14 +134,16 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<Bot class="size-4" />
-				{selected.length} Selected
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
 			<button class="btn btn-secondary w-full md:w-fit" onclick={() => dialog?.close()}>
-				Cancel
+				{m.common_cancel()}
 			</button>
-			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
+				{m.core_confirm()}
+			</button>
 		</div>
 	</div>
 </ResponsiveDialog>

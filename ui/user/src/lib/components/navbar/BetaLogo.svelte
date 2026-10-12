@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -38,6 +39,6 @@
 </script>
 
 <div class={twMerge('flex shrink-0', klass)}>
-	<img src={logoPair.light} class={twMerge(imgClass, 'dark:hidden')} alt="Obot logo" />
-	<img src={logoPair.dark} class={twMerge(imgClass, 'hidden dark:block')} alt="Obot logo" />
+	<img src={logoPair.light} class={twMerge(imgClass, 'dark:hidden')} alt={m.obot_logo()} />
+	<img src={logoPair.dark} class={twMerge(imgClass, 'hidden dark:block')} alt={m.obot_logo()} />
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { DirectOperationResult, MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import CapabilityList, { type CapabilityListItem } from './CapabilityList.svelte';
 	import McpContent from './McpContent.svelte';
@@ -78,23 +79,23 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">Prompts</h2>
+	<h2 class="sr-only">{m.mcps_tester_prompts()}</h2>
 
 	{#if cache.unsupported}
 		<div class="bg-base-200 dark:bg-base-300 shrink-0 rounded-lg p-5" role="status">
-			<h3 class="font-medium">Not supported</h3>
-			<p class="mt-1 text-sm text-muted-content">This server does not provide prompts.</p>
+			<h3 class="font-medium">{m.mcps_tester_not_supported()}</h3>
+			<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_prompts_unsupported()}</p>
 		</div>
 	{:else if cache.error && !cache.loading}
 		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
 			<strong
 				>{cache.errorStatus === 'cancelled'
-					? 'Loading cancelled'
-					: 'Prompts could not be loaded'}</strong
+					? m.mcps_tester_loading_cancelled()
+					: m.mcps_tester_prompts_load_failed()}</strong
 			>
 			<p class="mt-1 text-sm">{cache.error}</p>
 			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadPrompts(true)}
-				>Retry</button
+				>{m.mcps_retry()}</button
 			>
 		</div>
 	{/if}
@@ -104,7 +105,7 @@
 			class="default-scrollbar-thin grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.7fr)] md:overflow-hidden"
 		>
 			<CapabilityList
-				label="Prompts"
+				label={m.mcps_tester_prompts()}
 				items={listItems}
 				selectedId={inspector.selectedName}
 				loading={cache.loading}
@@ -116,7 +117,7 @@
 
 			<section
 				class="default-scrollbar-thin min-w-0 p-1 md:min-h-0 md:overflow-y-auto"
-				aria-label="Prompt details"
+				aria-label={m.mcps_tester_prompt_details()}
 			>
 				{#if selected}
 					<div class="space-y-5">
@@ -129,7 +130,7 @@
 						</div>
 
 						{#if selected.arguments?.length}
-							<div class="space-y-3" aria-label="Prompt arguments">
+							<div class="space-y-3" aria-label={m.mcps_tester_prompt_arguments()}>
 								{#each selected.arguments as argument (argument.name)}
 									<div class="space-y-1">
 										<label
@@ -159,18 +160,20 @@
 								disabled={requiredMissing || Boolean(session.activeWorkflow)}
 								onclick={getPrompt}
 							>
-								<Play class="size-4" aria-hidden="true" /> Get prompt
+								<Play class="size-4" aria-hidden="true" />
+								{m.mcps_tester_get_prompt()}
 							</button>
 							{#if getActive}
 								<button class="btn btn-secondary" onclick={() => session.cancelActiveWorkflow()}>
-									<Ban class="size-4" aria-hidden="true" /> Cancel
+									<Ban class="size-4" aria-hidden="true" />
+									{m.common_cancel()}
 								</button>
 							{/if}
 						</div>
 
 						{#if inspector.result?.value}
-							<section class="space-y-3" aria-label="Resolved prompt preview">
-								<h4 class="font-medium">Resolved messages</h4>
+							<section class="space-y-3" aria-label={m.mcps_tester_resolved_prompt_preview()}>
+								<h4 class="font-medium">{m.mcps_tester_resolved_messages()}</h4>
 								{#each inspector.result.value.messages as message, index (index)}
 									<div class="border-base-300 dark:border-base-400 rounded-lg border p-3">
 										<p class="mb-2 text-xs font-semibold uppercase text-muted-content">
@@ -181,7 +184,7 @@
 								{/each}
 								{#if !promptSupported}
 									<p class="text-sm text-error" role="alert">
-										This resolved prompt contains unsupported non-text content and cannot be staged.
+										{m.mcps_tester_prompt_not_stageable()}
 									</p>
 								{/if}
 							</section>
@@ -196,7 +199,8 @@
 							</p>{/if}
 						{#if inspector.result?.status === 'success' && inspector.result.value && promptSupported}
 							<button class="btn btn-secondary" onclick={useInChat}>
-								<MessageSquarePlus class="size-4" aria-hidden="true" /> Use in Chat
+								<MessageSquarePlus class="size-4" aria-hidden="true" />
+								{m.mcps_tester_use_in_chat()}
 							</button>
 						{/if}
 					</div>
@@ -205,9 +209,9 @@
 						class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 					>
 						{#if cache.loaded && !cache.loading && !cache.error && cache.items.length === 0}
-							This server does not provide prompts.
+							{m.mcps_tester_prompts_unsupported()}
 						{:else}
-							Select a prompt to provide arguments and preview it.
+							{m.mcps_tester_select_prompt()}
 						{/if}
 					</div>
 				{/if}

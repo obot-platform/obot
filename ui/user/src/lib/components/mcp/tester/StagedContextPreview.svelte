@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import { X } from '@lucide/svelte';
 
@@ -10,29 +11,29 @@
 </script>
 
 {#if session.stagedContext.length}
-	<section class="mt-4 space-y-3" aria-label="Staged Chat context">
-		<h3 class="font-medium">Staged context</h3>
-		<p class="text-sm text-muted-content">Nothing is sent until you send a Chat message.</p>
+	<section class="mt-4 space-y-3" aria-label={m.mcps_tester_staged_chat_context()}>
+		<h3 class="font-medium">{m.mcps_tester_staged_context()}</h3>
+		<p class="text-sm text-muted-content">{m.mcps_tester_staged_context_hint()}</p>
 		{#each session.stagedContext as context (context.id)}
 			<article class="border-base-300 dark:border-base-400 rounded-lg border p-3">
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<p class="text-sm font-medium break-all">{context.name}</p>
 						<p class="text-xs text-muted-content">
-							{context.type === 'prompt' ? 'Prompt' : 'Resource'}
+							{context.type === 'prompt' ? m.mcps_tester_prompt() : m.mcps_tester_resource()}
 						</p>
 					</div>
 					<button
 						type="button"
 						class="btn btn-ghost btn-square btn-sm"
 						onclick={() => session.removeStagedContext(context.id)}
-						aria-label={`Remove staged ${context.name}`}
+						aria-label={m.mcps_tester_remove_staged({ name: context.name })}
 					>
 						<X class="size-4" aria-hidden="true" />
 					</button>
 				</div>
 				<details class="mt-2">
-					<summary class="cursor-pointer text-xs font-medium">Preview</summary>
+					<summary class="cursor-pointer text-xs font-medium">{m.core_preview()}</summary>
 					{#if context.type === 'prompt'}
 						<div class="mt-2 space-y-2">
 							{#each context.messages as message, index (index)}

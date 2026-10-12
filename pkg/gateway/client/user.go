@@ -14,8 +14,10 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -56,7 +58,14 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 	// Get the user and their group IDs for this auth provider
 	u, groupIDs, err := c.getUserAndGroupIDs(ctx, userID, namespace, name)
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The token outlived its user. Deny it rather than treating it as an unknown token, which would let the
+		// request continue as anonymous.
+		return nil, "", "", "", nil, &UserAccessDeniedError{
+			UserID: userID,
+			Status: types2.UserStatusDeleted,
+		}
+	} else if err != nil {
 		return nil, "", "", "", nil, err
 	}
 
@@ -145,9 +154,10 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		UID:    fmt.Sprintf("%d", u.ID),
 		Groups: u.Role.Groups(),
 		Extra: map[string][]string{
-			"obot_groups":          u.Role.Groups(),
-			"auth_provider_groups": groupIDs,
-			"email":                {u.Email},
+			"obot_groups":             u.Role.Groups(),
+			"auth_provider_groups":    groupIDs,
+			"email":                   {u.Email},
+			principal.UserStatusExtra: {string(u.Status())},
 		},
 	}, nil
 }
@@ -224,6 +234,12 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 			return err
 		}
 
+		// A user that SCIM has provisioned can be deleted only once the identity provider has deprovisioned them.
+		// Their SCIM ID is retired, so it answers 404 and userName lookups no longer find them.
+		if err := retireSCIMUserBindingForDeletionTx(tx, existingUser.ID); err != nil {
+			return err
+		}
+
 		// Decrypt user to get original values before soft delete
 		if err := c.decryptUser(ctx, existingUser); err != nil {
 			return fmt.Errorf("failed to decrypt user: %w", err)
@@ -286,7 +302,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 		}
 
 		// Update the user with soft delete fields and modified email/username
-		if err := tx.Save(existingUser).Error; err != nil {
+		if err := tx.Omit(types.UserLifecycleColumns...).Save(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -297,7 +313,9 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
+		// Every column of the user is written back, so it is locked, and a concurrent SCIM write of its profile is
+		// never overwritten with a stale copy.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
 		}
 
@@ -307,6 +325,10 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 
 		// If the username is being changed, then ensure that a user with that name doesn't already exist.
 		if len(updatedUser.Username) != 0 && updatedUser.Username != existingUser.Username {
+			if err := refuseSCIMProvisionedUserTx(tx, existingUser.ID, "this user's profile is managed by the identity provider through SCIM"); err != nil {
+				return err
+			}
+
 			if err := tx.Model(updatedUser).Where("username = ? AND deleted_at IS NULL", updatedUser.Username).First(new(types.User)).Error; err == nil {
 				return &AlreadyExistsError{name: fmt.Sprintf("user with username %q", updatedUser.Username)}
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -376,7 +398,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			return fmt.Errorf("failed to encrypt user: %w", err)
 		}
 
-		return tx.Updates(&u).Error
+		return tx.Omit(types.UserLifecycleColumns...).Updates(&u).Error
 	})
 }
 
@@ -394,13 +416,33 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return nil
 	}
 
-	var identity types.Identity
-	if err := c.db.WithContext(ctx).Where("user_id = ?", user.ID).
-		Where("auth_provider_name = ?", authProviderName).
-		Where("auth_provider_namespace = ?", authProviderNamespace).
-		First(&identity).Error; err != nil {
+	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are never
+	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. Both are read with the
+	// identity, before the provider is asked, and checked again before its answer is written. A failed lookup fails
+	// the refresh.
+	var rows []struct {
+		types.Identity
+		SCIMManaged bool
+		SCIMBound   bool
+	}
+	if err := c.db.WithContext(ctx).Model(new(types.Identity)).
+		Select("identities.*, "+
+			"EXISTS (SELECT 1 FROM scim_connections WHERE scim_connections.auth_provider_namespace = identities.auth_provider_namespace AND scim_connections.auth_provider_name = identities.auth_provider_name) AS scim_managed, "+
+			"EXISTS (SELECT 1 FROM scim_user_bindings WHERE scim_user_bindings.user_id = identities.user_id AND scim_user_bindings.retired_at IS NULL) AS scim_bound").
+		Where("identities.user_id = ?", user.ID).
+		Where("identities.auth_provider_name = ?", authProviderName).
+		Where("identities.auth_provider_namespace = ?", authProviderNamespace).
+		Limit(1).
+		Scan(&rows).Error; err != nil {
 		return err
 	}
+	if len(rows) == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	if rows[0].SCIMManaged || rows[0].SCIMBound {
+		return nil
+	}
+	identity := rows[0].Identity
 
 	if err := c.decryptIdentity(ctx, &identity); err != nil {
 		return fmt.Errorf("failed to decrypt identity: %w", err)
@@ -496,7 +538,30 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	}
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Updates(u).Error; err != nil {
+		// A SCIM connection may have been created, or SCIM may have provisioned the user, while the profile was being
+		// fetched. SCIM's profile wins. The mode lock keeps a connection from being created, and the user lock keeps
+		// SCIM from provisioning the user, between these checks and the write.
+		conn, err := scimConnectionForAuthProviderLockedTx(tx, authProviderNamespace, authProviderName)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			return nil
+		}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", user.ID).Take(new(types.User)).Error; err != nil {
+			return err
+		}
+		binding, err := activeSCIMUserBindingForUserTx(tx, user.ID, false)
+		if err != nil {
+			return err
+		}
+		if binding != nil {
+			return nil
+		}
+
+		// The user was read before the profile was fetched, so its lifecycle state may be stale. Only lifecycle
+		// operations write that state.
+		if err := tx.Omit(types.UserLifecycleColumns...).Updates(u).Error; err != nil {
 			return err
 		}
 
@@ -526,7 +591,7 @@ func (c *Client) EncryptUsers(ctx context.Context, force bool) error {
 				return fmt.Errorf("failed to encrypt user: %w", err)
 			}
 
-			if err := tx.Updates(users[i]).Error; err != nil {
+			if err := tx.Omit(types.UserLifecycleColumns...).Updates(users[i]).Error; err != nil {
 				return err
 			}
 		}

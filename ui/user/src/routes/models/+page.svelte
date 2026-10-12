@@ -5,6 +5,7 @@
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
 	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
+	import { m } from '$lib/i18n';
 	import { profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import AccessPoliciesView from './AccessPoliciesView.svelte';
@@ -32,35 +33,33 @@
 	let views = $derived.by(() => {
 		const items: TabView[] = [
 			{
-				label: 'Models',
+				label: m.models_title(),
 				value: 'models',
 				content: models,
-				tooltip: 'Access and set up your AI client with models you have access to.'
+				tooltip: m.models_tab_tooltip()
 			}
 		];
 		if (hasAdminAccess) {
 			items.push(
 				{
-					label: 'Model Providers',
+					label: m.models_providers_tab(),
 					value: 'model-providers',
 					content: modelProviders,
-					tooltip:
-						'Set up and manage LLM model providers to enforce what models your organization can use or supply to the vMCP Inspector.'
+					tooltip: m.models_providers_tab_tooltip()
 				},
 				{
-					label: 'Access Policies',
+					label: m.models_access_policies_tab(),
 					value: 'access-policies',
 					content: accessPolicies,
-					tooltip: 'Manage which models a user or group can access.'
+					tooltip: m.models_access_policies_tab_tooltip()
 				}
 			);
 			if (messagePoliciesEnabled) {
 				items.push({
-					label: 'AI Judge Policies',
+					label: m.models_tab_ai_judge(),
 					value: 'ai-judge-policies',
 					content: messagePolicies,
-					tooltip:
-						'Enforce user messages with the LLM or view policy violations against existing policies.'
+					tooltip: m.models_tab_ai_judge_tooltip()
 				});
 			}
 		}
@@ -78,10 +77,10 @@
 	}
 
 	let title = $derived.by(() => {
-		if (!creating) return 'Models';
+		if (!creating) return m.models_title();
 		return creatingView === 'ai-judge-policies'
-			? 'Create AI Judge Policy'
-			: 'Create Model Access Policy';
+			? m.models_create_ai_judge_policy()
+			: m.models_create_access_policy();
 	});
 
 	function handleFirstConfigure(required: boolean) {
@@ -107,7 +106,7 @@
 	</Layout>
 {:else}
 	<TabLayout
-		title="Models"
+		title={m.models_title()}
 		defaultView="models"
 		rightNavActions={navActions}
 		{views}
@@ -127,14 +126,16 @@
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => showCreate('access-policies')}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.models_add_access_policy()}
 		</button>
 	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => showCreate('ai-judge-policies')}
 		>
-			<Plus class="size-4" /> Add AI Judge Policy
+			<Plus class="size-4" />
+			{m.models_add_ai_judge_policy()}
 		</button>
 	{/if}
 {/snippet}

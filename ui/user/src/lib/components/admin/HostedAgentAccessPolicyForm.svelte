@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -22,6 +23,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchHostedAgents from './SearchHostedAgents.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import SubjectName from './SubjectName.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -85,7 +87,9 @@
 		try {
 			hostedAgents = await AdminService.listHostedAgents();
 		} catch (error) {
-			errors.append(`Failed to load templates: ${error}`);
+			errors.append(
+				m.hosted_agents_access_policies_load_templates_failed({ error: String(error) })
+			);
 		} finally {
 			loadingHostedAgents = false;
 		}
@@ -140,7 +144,7 @@
 					} else if (resource.type === 'selector') {
 						return {
 							id: resource.id,
-							name: resource.id === '*' ? 'All Templates' : resource.id,
+							name: resource.id === '*' ? m.hosted_agents_all_templates() : resource.id,
 							description: '',
 							type: 'Selector'
 						};
@@ -185,7 +189,7 @@
 				{#if !readonly}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete Policy' }}
+						tooltip={{ text: m.core_delete_policy() }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
@@ -206,7 +210,7 @@
 							for="hosted-agent-access-policy-name"
 							class="flex-1 text-sm font-light capitalize"
 						>
-							Name
+							{m.core_name()}
 						</label>
 						<input
 							id="hosted-agent-access-policy-name"
@@ -221,7 +225,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Users & Groups</h2>
+				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
@@ -231,7 +235,8 @@
 								addUserGroupDialog?.open();
 							}}
 						>
-							<Plus class="size-4" /> Add User/Group
+							<Plus class="size-4" />
+							{m.core_add_user_group()}
 						</button>
 					</div>
 				{/if}
@@ -244,9 +249,19 @@
 				<Table
 					data={subjectTableData}
 					fields={['displayName', 'type']}
-					headers={[{ property: 'displayName', title: 'Name' }]}
-					noDataMessage="No users or groups added."
+					headers={[
+						{ property: 'displayName', title: m.core_name() },
+						{ property: 'type', title: m.core_type() }
+					]}
+					noDataMessage={m.core_no_users_or_groups_added()}
 				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'displayName'}
+							<SubjectName name={d.displayName} disabled={d.disabled} />
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
 					{#snippet actions(d)}
 						{#if !readonly}
 							<IconButton
@@ -256,7 +271,7 @@
 										(subject) => resolveSubjectPickerById(subject) !== d.id
 									);
 								}}
-								tooltip={{ text: 'Delete User/Group' }}
+								tooltip={{ text: m.core_delete_user_group() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -268,7 +283,7 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Templates</h2>
+				<h2 class="text-lg font-semibold">{m.hosted_agents_templates_tab()}</h2>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -276,7 +291,8 @@
 							addHostedAgentDialog?.open();
 						}}
 					>
-						<Plus class="size-4" /> Add Template
+						<Plus class="size-4" />
+						{m.hosted_agents_templates_add_template()}
 					</button>
 				{/if}
 			</div>
@@ -289,10 +305,10 @@
 					data={resourceTableData}
 					fields={['name', 'description']}
 					headers={[
-						{ property: 'name', title: 'Template' },
-						{ property: 'description', title: 'Description' }
+						{ property: 'name', title: m.hosted_agents_access_policies_template() },
+						{ property: 'description', title: m.core_description() }
 					]}
-					noDataMessage="No templates added."
+					noDataMessage={m.hosted_agents_access_policies_no_templates()}
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
@@ -308,7 +324,7 @@
 								onclick={() => {
 									policy.resources = policy.resources?.filter((r) => r.id !== d.id) ?? [];
 								}}
-								tooltip={{ text: 'Remove Template' }}
+								tooltip={{ text: m.hosted_agents_access_policies_remove_template() }}
 							>
 								<Trash2 class="size-4" />
 							</IconButton>
@@ -332,7 +348,7 @@
 							goto('/hosted-agents?view=access-policies');
 						}}
 					>
-						Cancel
+						{m.common_cancel()}
 					</button>
 					<button
 						class="btn btn-primary text-sm"
@@ -351,7 +367,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Save
+							{m.core_save()}
 						{/if}
 					</button>
 				{:else}
@@ -376,7 +392,7 @@
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
-							Update
+							{m.core_update()}
 						{/if}
 					</button>
 				{/if}
@@ -418,7 +434,9 @@
 />
 
 <Confirm
-	msg={`Delete ${policy.displayName || 'this policy'}?`}
+	msg={m.core_delete_named_form({
+		name: policy.displayName || m.hosted_agents_access_policies_this_policy()
+	})}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!policy.id) return;

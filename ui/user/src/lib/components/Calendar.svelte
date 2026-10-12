@@ -1,9 +1,10 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { m } from '$lib/i18n';
 	import { responsive, userDeviceSettings } from '$lib/stores';
 	import CalendarGrid, {
-		months,
+		monthsShort,
 		isToday,
 		isCurrentMonth,
 		isDateDisabled
@@ -53,7 +54,7 @@
 		maxDate,
 		start = $bindable(initialValue.start),
 		end = $bindable(initialValue.end),
-		placeholder = 'Select date range',
+		placeholder = m.core_select_date_range(),
 		format = 'MMM dd, yyyy',
 		compact,
 		open = $bindable(false)
@@ -71,14 +72,14 @@
 		return format
 			.replace('dd', day)
 			.replace('MM', month)
-			.replace('MMM', months[date.getMonth()].substring(0, 3))
+			.replace('MMM', monthsShort[date.getMonth()])
 			.replace('yyyy', year.toString());
 	}
 
 	function formatRange(): string {
 		if (!start && !end) return placeholder;
-		if (start && !end) return `${formatDate(start)} - Select end date`;
-		if (!start && end) return `Select start date - ${formatDate(end)}`;
+		if (start && !end) return m.core_range_select_end_date({ start: formatDate(start) });
+		if (!start && end) return m.core_range_select_start_date({ end: formatDate(end) });
 		if (start && end) return `${formatDate(start)} - ${formatDate(end)}`;
 		return placeholder;
 	}
@@ -190,7 +191,7 @@
 	onclick={() => !disabled && calendarPopover.toggle()}
 	{@attach (node: HTMLElement) => {
 		const response = tooltip(node, {
-			text: 'Filter By Date',
+			text: m.core_filter_by_date(),
 			placement: 'top-end',
 			classes: ['z-60']
 		});
@@ -237,7 +238,7 @@
 			use:tooltipRef
 		>
 			<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
-				<div>Select Export Time Range</div>
+				<div>{m.core_select_export_time_range()}</div>
 			</div>
 
 			<CalendarGrid
@@ -292,9 +293,11 @@
 
 				<div class="mt-4 flex justify-end gap-2">
 					<button type="button" class="btn btn-sm btn-secondary" onclick={handleCancel}
-						>Cancel</button
+						>{m.common_cancel()}</button
 					>
-					<button type="button" class="btn btn-primary btn-sm" onclick={handleApply}>Apply</button>
+					<button type="button" class="btn btn-primary btn-sm" onclick={handleApply}
+						>{m.common_apply()}</button
+					>
 				</div>
 			</CalendarGrid>
 		</div>

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import type { ImagePullSecret } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatTime } from '$lib/time.js';
-	import { displayName, statusLabel, statusMessage } from './types';
+	import { displayName, statusClass, statusLabel, statusMessage } from './types';
 	import { CircleAlert, Clock, History, LoaderCircle, Server } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -31,28 +32,13 @@
 	function formatDate(value?: string) {
 		return value ? formatTime(value, userDeviceSettings.timeFormat) : '-';
 	}
-
-	function statusTone(value?: string) {
-		switch (value) {
-			case 'Ready':
-				return 'bg-green-500/10 text-green-700 dark:text-green-300';
-			case 'Error':
-				return 'bg-red-500/10 text-red-700 dark:text-red-300';
-			case 'Disabled':
-				return 'bg-gray-500/10 text-gray-600 dark:text-gray-300';
-			default:
-				return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300';
-		}
-	}
-
-	function shouldBadge(label: string) {
-		return label === 'Status';
-	}
 </script>
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={`Status${secret ? `: ${displayName(secret)}` : ''}`}
+	title={secret
+		? m.platform_settings_image_pull_secrets_status_title_named({ name: displayName(secret) })
+		: m.core_status()}
 	class="w-full md:max-w-4xl"
 	{onClose}
 >
@@ -60,7 +46,7 @@
 		{#if loading}
 			<div class="notification-info flex items-center gap-3 text-sm">
 				<LoaderCircle class="size-5 animate-spin" />
-				<span>Loading status...</span>
+				<span>{m.platform_settings_image_pull_secrets_loading_status()}</span>
 			</div>
 		{:else if error}
 			<div class="notification-error flex items-center gap-3 text-sm">
@@ -70,13 +56,17 @@
 		{:else if details}
 			<section class="flex flex-col gap-3">
 				<div class="grid gap-3 md:grid-cols-3">
-					{@render statusValue('Status', statusLabel(details), Server)}
+					{@render statusValue(m.core_status(), statusLabel(details), Server, statusClass(details))}
 					{@render statusValue(
-						'Last Success',
+						m.platform_settings_image_pull_secrets_col_last_success(),
 						formatDate(details.status?.lastSuccessTime),
 						History
 					)}
-					{@render statusValue('Token Expires', formatDate(details.status?.tokenExpiresAt), Clock)}
+					{@render statusValue(
+						m.platform_settings_image_pull_secrets_token_expires(),
+						formatDate(details.status?.tokenExpiresAt),
+						Clock
+					)}
 				</div>
 			</section>
 
@@ -87,7 +77,7 @@
 					<div class="mb-3 flex items-center justify-between gap-2">
 						<div class="flex items-center gap-2 text-sm font-semibold">
 							<CircleAlert class="size-4" />
-							Last Error
+							{m.platform_settings_image_pull_secrets_last_error()}
 						</div>
 						<CopyButton showTextLeft text={statusMessage(details)} />
 					</div>
@@ -97,7 +87,7 @@
 
 			{#if details.status?.registryEndpoints?.length}
 				<section class="flex flex-col gap-3">
-					{@render sectionHeader('Registry Endpoints')}
+					{@render sectionHeader(m.platform_settings_image_pull_secrets_registry_endpoints())}
 					<div
 						class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex flex-col gap-2 rounded-lg border border-transparent p-3 shadow-sm"
 					>
@@ -119,7 +109,7 @@
 	<h4 class="text-sm font-semibold">{title}</h4>
 {/snippet}
 
-{#snippet statusValue(label: string, value?: string, Icon?: IconComponent)}
+{#snippet statusValue(label: string, value?: string, Icon?: IconComponent, badgeClass?: string)}
 	<div
 		class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex min-w-0 items-start gap-3 rounded-lg border border-transparent p-3 shadow-sm"
 	>
@@ -132,11 +122,11 @@
 		{/if}
 		<div class="min-w-0">
 			<div class="text-muted-content text-xs font-medium">{label}</div>
-			{#if shouldBadge(label)}
+			{#if badgeClass}
 				<div
 					class={twMerge(
 						'mt-1 inline-flex max-w-full rounded-full px-2 py-0.5 text-xs font-medium',
-						statusTone(value)
+						badgeClass
 					)}
 				>
 					<span class="truncate">{value || '-'}</span>

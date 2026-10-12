@@ -1,8 +1,16 @@
-# Auth Providers
+---
+displayed_sidebar: sidebar
+title: "Configure authentication providers"
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Configure authentication providers {#auth-providers}
 
 Authentication providers allow your Obot installation to authenticate users with the identity provider of your choice.
 Administrators must configure an authentication provider before users can log in. Only one authentication provider can be configured at a time.
-To replace it later, see [Switching Between Auth Providers](#switching-between-auth-providers).
+To replace it later, see [Switching Between Auth Providers](./auth-providers.md#switching-between-auth-providers).
 
 :::note
 In order for authentication to be enabled, the Obot server must be run with the environment variable set:
@@ -11,6 +19,102 @@ In order for authentication to be enabled, the Obot server must be run with the 
 :::
 
 ## Setting up Authentication
+
+Configure either the built-in Local provider or an external identity provider. Use the bootstrap user only to complete setup, then sign in with a regular account.
+
+:::note
+If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
+:::
+
+### Step 1: Set Environment Variables {#enabling-authentication-step-1-set-environment-variables}
+
+Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](../installation/docker-deployment.md) or [Kubernetes](../installation/kubernetes-deployment.md) deployment guides for full setup details.
+
+<Tabs>
+  <TabItem value="docker" label="Docker" default>
+
+Add these settings to the environment file used by your [Docker deployment](../installation/docker-deployment.md):
+
+```dotenv
+OBOT_SERVER_ENABLE_AUTHENTICATION=true
+OBOT_BOOTSTRAP_TOKEN=<random-bootstrap-secret>
+OBOT_SERVER_AUTH_OWNER_EMAILS=owner@company.com
+```
+
+Generate the bootstrap secret with `openssl rand -hex 32`. Keep the environment file private.
+
+  </TabItem>
+  <TabItem value="kubernetes" label="Kubernetes">
+
+```yaml
+config:
+  # Required: Enable authentication
+  OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
+
+  # Required: Set the owner email (can also be configured in the UI later)
+  OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
+
+  # Optional: Set additional admin emails
+  OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
+
+secret:
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
+```
+
+  </TabItem>
+</Tabs>
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
+| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
+| `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
+| `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | No | Initial local-auth owner's email. Must be set with the setup token. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | No | At least 32 characters of high-entropy, randomly generated secret material used to activate the initial owner. Store as a secret; `openssl rand -hex 32` is the recommended generator. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | No | Setup-link validity in hours. Defaults to `168`. |
+
+### Step 2: Start Obot and Login {#enabling-authentication-step-2-start-obot-and-login}
+
+Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and use the bootstrap token to login. Open **Identity & Access** to continue setup.
+
+### Step 3: Configure Authentication Provider {#enabling-authentication-step-3-configure-authentication-provider}
+
+1. Go to **Identity & Access > Auth Providers**
+2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require Community registration or an Enterprise license.
+3. Follow the provider-specific configuration steps
+
+For detailed provider configuration, see the [Auth Providers](./auth-providers.md) documentation.
+
+### Post-Setup {#enabling-authentication-post-setup}
+
+Once you have configured an authentication provider:
+
+1. Users can login using the configured authentication provider
+2. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will have owner access
+3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will have admin access
+
+Note that you can always assign the owner or admin role to additional users through the User pages.
+
+### Troubleshooting {#enabling-authentication-troubleshooting}
+
+### Bootstrap Token Not Working {#enabling-authentication-bootstrap-token-not-working}
+
+- Ensure `OBOT_SERVER_ENABLE_AUTHENTICATION=true` is set
+- Check that you're using the correct token
+- If an auth provider has already been configured and a non-bootstrap owner user exists, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
+
+### Authentication Provider Issues {#enabling-authentication-authentication-provider-issues}
+
+- Verify callback URLs match between Obot and your OAuth provider
+- Check that client ID and secret are correct
+- Ensure proper scopes and permissions are configured
+
+## Next Steps {#enabling-authentication-next-steps}
+
+- Review [Auth Providers configuration](./auth-providers.md) for detailed provider setup
+
 
 ### Bootstrap Token
 
@@ -70,11 +174,11 @@ You can:
 
 To register for Community or configure an Enterprise license, use the **License** page in the admin UI. See [Obot Editions](../enterprise/overview.md).
 
-Obot supports the built-in [Local](#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
+Obot supports the built-in [Local](./auth-providers.md#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
 
 ### Local
 
-Local passwords are stored as salted Argon2id hashes, independently of optional [database field encryption](./encryption-providers/overview.md#local-passwords).
+Local passwords are stored as salted Argon2id hashes, independently of optional [database field encryption](../security/credentials.md#overview-local-passwords).
 
 The Local provider authenticates users with an email address and password stored in Obot's own database. It requires no external identity provider, which makes it a good fit for evaluations, air-gapped installations, and small deployments.
 
@@ -179,6 +283,11 @@ Create an OAuth app of type `OIDC` in Okta following these [instructions](https:
 Make sure to add the redirect URL displayed in Obot to the list of Sign-in redirect URIs in your Okta application settings.
 
 Take note of the Client ID and Client Secret. You will need to provide these to Obot.
+
+Obot can get users and groups from Okta in one of two ways:
+
+- **SCIM:** Okta sends Obot only the users and groups you choose. Skip the API Services app below, and follow [Provision users and groups from Okta with SCIM](./okta-scim.md).
+- **API Services app:** Obot reads each user's groups from Okta when they sign in. Continue with the steps below.
 
 Next, create another OAuth app, this time of type `API Services`. Grant it the API scopes `okta.users.read` and `okta.groups.read`.
 Assign an administrator role to this app that has, at a minimum, `okta.users.read` and `okta.groups.read` permissions.
@@ -336,7 +445,7 @@ This section describes the steps involved in switching authentication providers 
 
 1. Navigate to **Identity & Access** and select the **Auth Providers** tab.
 2. Locate **Microsoft Entra** and click **Configure**. The **Switch to Microsoft Entra** dialog opens.
-3. Follow the documentation to create and configure the Entra application from [Entra Instructions](#entra).
+3. Follow the documentation to create and configure the Entra application from [Entra Instructions](./auth-providers.md#entra).
 4. Click **Continue**.
 
 ### Step 2: Sign In Using Microsoft Entra

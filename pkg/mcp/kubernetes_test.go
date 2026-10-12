@@ -44,26 +44,16 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 	}
-	agentSettings := *resourceSettings.DeepCopy()
-	agentSettings.NanobotWorkspaceSize = "10Gi"
-	agentSettings.NanobotAgentResources = &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
-		},
-	}
-
 	baseHash := ComputeK8sSettingsHash(
 		baseSettings,
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	)
 	if got := ComputeK8sSettingsHash(
 		resourceSettings,
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	); got == baseHash {
 		t.Fatalf("regular server hash = %s, want it to differ when default resources are set", got)
@@ -73,59 +63,15 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		baseSettings,
 		nil,
 		types.RuntimeRemote,
-		false,
 		nil,
 	)
 	if got := ComputeK8sSettingsHash(
 		resourceSettings,
 		nil,
 		types.RuntimeRemote,
-		false,
 		nil,
 	); got != remoteBaseHash {
 		t.Fatalf("remote server hash = %s, want %s", got, remoteBaseHash)
-	}
-
-	agentBaseHash := ComputeK8sSettingsHash(
-		baseSettings,
-		nil,
-		types.RuntimeNPX,
-		true,
-		nil,
-	)
-	if got := ComputeK8sSettingsHash(
-		resourceSettings,
-		nil,
-		types.RuntimeNPX,
-		true,
-		nil,
-	); got != agentBaseHash {
-		t.Fatalf("agent server hash = %s, want %s before agent-only settings are set", got, agentBaseHash)
-	}
-	regularHash := ComputeK8sSettingsHash(
-		resourceSettings,
-		nil,
-		types.RuntimeNPX,
-		false,
-		nil,
-	)
-	if got := ComputeK8sSettingsHash(
-		agentSettings,
-		nil,
-		types.RuntimeNPX,
-		false,
-		nil,
-	); got != regularHash {
-		t.Fatalf("non-agent hash = %s, want agent-only settings ignored", got)
-	}
-	if got := ComputeK8sSettingsHash(
-		agentSettings,
-		nil,
-		types.RuntimeNPX,
-		true,
-		nil,
-	); got == agentBaseHash {
-		t.Fatalf("agent hash = %s, want it to differ when agent-only settings are set", got)
 	}
 
 	serverResources := &corev1.ResourceRequirements{
@@ -137,7 +83,6 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		baseSettings,
 		serverResources,
 		types.RuntimeNPX,
-		false,
 		nil,
 	); got == baseHash {
 		t.Fatalf("server-specific resources hash = %s, want it to differ from default resource hash", got)
@@ -149,7 +94,6 @@ func TestComputeK8sSettingsHashUsesSettingsResourceMaximums(t *testing.T) {
 		v1.K8sSettingsSpec{},
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	)
 	cappedHash := ComputeK8sSettingsHash(
@@ -159,7 +103,6 @@ func TestComputeK8sSettingsHashUsesSettingsResourceMaximums(t *testing.T) {
 		},
 		nil,
 		types.RuntimeNPX,
-		false,
 		nil,
 	)
 	if cappedHash == baseHash {
@@ -176,7 +119,7 @@ func TestMCPContainerResourcesAppliesServerOverridesWithRequestDefaults(t *testi
 			corev1.ResourceCPU: resource.MustParse("1"),
 		},
 	}
-	resources := mcpContainerResources(serverResources, types.RuntimeNPX, false, v1.K8sSettingsSpec{})
+	resources := mcpContainerResources(serverResources, types.RuntimeNPX, v1.K8sSettingsSpec{})
 
 	if got, want := resources.Requests[corev1.ResourceMemory], resource.MustParse("512Mi"); got.Cmp(want) != 0 {
 		t.Fatalf("memory request = %s, want %s", got.String(), want.String())
@@ -234,7 +177,7 @@ func TestMCPContainerResourcesAppliesServerCPURequestWithMemoryDefault(t *testin
 			corev1.ResourceCPU: resource.MustParse("250m"),
 		},
 	}
-	resources := mcpContainerResources(serverResources, types.RuntimeNPX, false, v1.K8sSettingsSpec{})
+	resources := mcpContainerResources(serverResources, types.RuntimeNPX, v1.K8sSettingsSpec{})
 
 	if got, want := resources.Requests[corev1.ResourceCPU], resource.MustParse("250m"); got.Cmp(want) != 0 {
 		t.Fatalf("cpu request = %s, want %s", got.String(), want.String())
@@ -394,31 +337,6 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 	}
 }
 
-func TestK8sObjects_AgentExcludesAuditLogConfig(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-
-	objs, err := k.k8sObjects(t.Context(), ServerConfig{
-		Runtime:              types.RuntimeContainerized,
-		MCPServerName:        "nanobot-agent-server",
-		MCPServerDisplayName: "Nanobot Agent Server",
-		UserID:               "user-1",
-		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/obot-platform/nanobot:latest",
-		ContainerPort:        8080,
-		ContainerPath:        "/mcp",
-		Command:              "nanobot",
-		Args:                 []string{"run"},
-		AgentName:            "agent-1",
-		AuditLogMetadata:     map[string]string{"mcpID": "server-1"},
-	})
-	if err != nil {
-		t.Fatalf("k8sObjects() error = %v", err)
-	}
-
-	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "mcp", "config"))
-	assertNoAuditLogEnv(t, configSecret.Data)
-}
-
 func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	k := newTestKubernetesBackend(t, &v1.K8sSettings{
 		Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
@@ -539,19 +457,11 @@ func TestK8sObjects_UVXAndNPXUseMMMCP(t *testing.T) {
 func TestK8sObjects_ServicePorts(t *testing.T) {
 	tests := []struct {
 		name                   string
-		agentName              string
 		expectedHTTPPortTarget intstr.IntOrString
-		expectedStrategy       appsv1.DeploymentStrategyType
 	}{
 		{
 			name:                   "standard containerized server routes http service port to mcp container",
 			expectedHTTPPortTarget: intstr.FromString("mcp"),
-		},
-		{
-			name:                   "nanobot agent routes http service port to mcp container",
-			agentName:              "agent-1",
-			expectedHTTPPortTarget: intstr.FromString("mcp"),
-			expectedStrategy:       appsv1.RecreateDeploymentStrategyType,
 		},
 	}
 
@@ -569,7 +479,6 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				ContainerPath:        "/mcp",
 				Command:              "server",
 				Args:                 []string{"run"},
-				AgentName:            tt.agentName,
 			})
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
@@ -578,11 +487,6 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 			service := findService(t, objs, "test-server")
 			assertServicePort(t, service, "http", 80, tt.expectedHTTPPortTarget)
 			assertServicePort(t, service, "mcp", 8080, intstr.FromString("mcp"))
-
-			dep := findDeployment(t, objs, "test-server")
-			if dep.Spec.Strategy.Type != tt.expectedStrategy {
-				t.Fatalf("deployment strategy = %q, want %q", dep.Spec.Strategy.Type, tt.expectedStrategy)
-			}
 		})
 	}
 }
@@ -597,14 +501,14 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 		wantMemoryLimit   string
 	}{
 		{
-			name: "non-agent default requests 200Mi memory",
+			name: "default requests 200Mi memory",
 			server: ServerConfig{
 				Runtime: types.RuntimeContainerized,
 			},
 			wantMemoryRequest: "200Mi",
 		},
 		{
-			name: "non-agent implicit defaults are capped by maximums",
+			name: "implicit defaults are capped by maximums",
 			server: ServerConfig{
 				Runtime: types.RuntimeContainerized,
 			},
@@ -617,51 +521,6 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			},
 			wantCPURequest:    "5m",
 			wantMemoryRequest: "128Mi",
-		},
-		{
-			name: "nanobot agent default requests 400Mi memory",
-			server: ServerConfig{
-				Runtime:   types.RuntimeContainerized,
-				AgentName: "agent-1",
-			},
-			wantMemoryRequest: "400Mi",
-		},
-		{
-			name: "nanobot agent implicit defaults are capped by maximums",
-			server: ServerConfig{
-				Runtime:   types.RuntimeContainerized,
-				AgentName: "agent-1",
-			},
-			settings: &v1.K8sSettings{
-				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
-				Spec: v1.K8sSettingsSpec{
-					MaxCPURequest:    new(resource.MustParse("5m")),
-					MaxMemoryRequest: new(resource.MustParse("256Mi")),
-				},
-			},
-			wantCPURequest:    "5m",
-			wantMemoryRequest: "256Mi",
-		},
-		{
-			name: "nanobot agent uses dedicated resources",
-			server: ServerConfig{
-				Runtime:   types.RuntimeContainerized,
-				AgentName: "agent-1",
-			},
-			settings: &v1.K8sSettings{
-				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
-				Spec: v1.K8sSettingsSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
-					},
-					NanobotAgentResources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("512Mi")},
-						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
-					},
-				},
-			},
-			wantMemoryRequest: "512Mi",
-			wantMemoryLimit:   "1Gi",
 		},
 		{
 			name: "uvx runtime uses standard MCP resources",
@@ -748,7 +607,6 @@ func TestK8sObjectsUsesStoredMaximums(t *testing.T) {
 		settings.Spec,
 		server.Resources,
 		server.Runtime,
-		server.IsAgentServer(),
 		nil,
 	)
 	if got := deployment.Annotations["obot.ai/k8s-settings-hash"]; got != wantHash {
@@ -847,24 +705,12 @@ func TestAnalyzePodStatus(t *testing.T) {
 			wantErrContains: "pod failed",
 		},
 		{
-			name: "succeeded phase fails health check timeout for non-agent",
+			name: "succeeded phase fails health check timeout",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodSucceeded,
 				},
 			},
-			wantErr:         ErrHealthCheckTimeout,
-			wantErrContains: "pod succeeded and exited",
-		},
-		{
-			name: "succeeded phase remains retryable for agent",
-			pod: corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodSucceeded,
-				},
-			},
-			server:          ServerConfig{AgentName: "agent-1"},
-			wantRetryable:   true,
 			wantErr:         ErrHealthCheckTimeout,
 			wantErrContains: "pod succeeded and exited",
 		},
@@ -1177,20 +1023,14 @@ func (f *fakeWithWatch) Watch(_ context.Context, _ kclient.ObjectList, _ ...kcli
 	return f.watcher, nil
 }
 
-func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
+func TestUpdatedMCPPodName_SucceededPodFailsImmediately(t *testing.T) {
 	tests := []struct {
 		name            string
-		agentName       string
 		wantErrContains string
 	}{
 		{
-			name:            "non-agent succeeded pod fails immediately",
+			name:            "succeeded pod fails immediately",
 			wantErrContains: "pod succeeded and exited",
-		},
-		{
-			name:            "agent succeeded pod remains retryable",
-			agentName:       "agent-1",
-			wantErrContains: "watch retries",
 		},
 	}
 
@@ -1243,7 +1083,6 @@ func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 
 			_, err := k.updatedMCPPodName(t.Context(), "http://mcp.example.com", "test-server", ServerConfig{
 				Runtime:        types.RuntimeRemote,
-				AgentName:      tt.agentName,
 				StartupTimeout: time.Second,
 			}, "")
 			if !errors.Is(err, ErrHealthCheckTimeout) {
@@ -1372,7 +1211,6 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 		v1.K8sSettingsSpec{},
 		nil,
 		types.RuntimeContainerized,
-		false,
 		[]string{"managed-b", "managed-a"},
 	)
 	if dep.Annotations["obot.ai/k8s-settings-hash"] != expectedHash {
@@ -1690,15 +1528,5 @@ func assertImagePullSecrets(t *testing.T, dep *appsv1.Deployment, expected []str
 
 	if strings.Join(actual, ",") != strings.Join(expected, ",") {
 		t.Fatalf("image pull secrets = %v, want %v", actual, expected)
-	}
-}
-
-func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
-	t.Helper()
-
-	for key := range env {
-		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") {
-			t.Fatalf("unexpected audit log env %q present", key)
-		}
 	}
 }

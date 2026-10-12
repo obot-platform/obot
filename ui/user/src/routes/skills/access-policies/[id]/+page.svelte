@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
@@ -10,7 +11,7 @@
 	const { skillAccessPolicy } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(skillAccessPolicy?.displayName ?? 'Skill Access Policy');
+	let title = $derived(skillAccessPolicy?.displayName ?? m.skills_access_policy_fallback_title());
 </script>
 
 <Layout {title} showBackButton>

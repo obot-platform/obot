@@ -41,7 +41,6 @@ type dockerBackend struct {
 	containerEnv           bool
 	network                string
 	httpListenPort         int
-	hostBaseURL            string
 	hostBaseURLWithPort    string
 	containerizedBaseImage string
 	authEnabled            bool
@@ -74,7 +73,6 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 		containerEnv:           containerEnv,
 		network:                network,
 		httpListenPort:         exposedPort,
-		hostBaseURL:            "http://" + host,
 		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage: opts.MCPBaseImage,
 		authEnabled:            authEnabled,
@@ -856,7 +854,6 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		Audiences:               server.Audiences,
 		AuditLogMetadata:        server.AuditLogMetadata,
 		ContainerPath:           server.ContainerPath,
-		AgentName:               server.AgentName,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
 		StartupTimeout:          server.StartupTimeout,
@@ -895,7 +892,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		env           []string
 		containerPort int
 		image         string
-		workspaceName string
 	)
 
 	// Prepare file volumes and environment variables
@@ -909,20 +905,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Source: fileVolumeName,
 			Target: "/files",
 		})
-	}
-
-	if server.IsAgentServer() {
-		workspaceName, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
-		if err != nil {
-			return "", 0, fmt.Errorf("failed to create workspace volume: %w", err)
-		}
-		if workspaceName != "" {
-			volumeMounts = append(volumeMounts, mount.Mount{
-				Type:   mount.TypeVolume,
-				Source: workspaceName,
-				Target: agentWorkspaceMountPath,
-			})
-		}
 	}
 
 	if len(fileEnvVars) > 0 {
@@ -1018,14 +1000,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			"mcp.config.hash":        configHash,
 			"mcp.file.env.keys.hash": fileEnvKeysHash,
 		},
-	}
-	if server.IsAgentServer() {
-		config.WorkingDir = agentWorkspaceMountPath
-		config.Env = append(config.Env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
-
-		for key, value := range OTELEnv("nanobot-agent", d.hostBaseURL) {
-			config.Env = append(config.Env, key+"="+string(value))
-		}
 	}
 
 	// Host config with port bindings and volume mounts
@@ -1302,43 +1276,6 @@ func (d *dockerBackend) syncContainerFiles(ctx context.Context, server ServerCon
 	d.fileSyncMu.Unlock()
 
 	return nil
-}
-
-func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
-	volumeName := server.MCPServerName + "-workspace"
-	labels := map[string]string{
-		"mcp.server.id": server.MCPServerName,
-		"mcp.purpose":   "workspace",
-	}
-	if mcpServerName != "" {
-		labels["mcp.deployment.id"] = mcpServerName
-	}
-
-	resp, err := d.client.VolumeList(ctx, volume.ListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{
-			Key:   "name",
-			Value: volumeName,
-		}),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	for _, v := range resp.Volumes {
-		if v.Name == volumeName {
-			return volumeName, nil
-		}
-	}
-
-	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
-		Labels: labels,
-		Name:   volumeName,
-	})
-	if err != nil && !cerrdefs.IsAlreadyExists(err) {
-		return "", fmt.Errorf("failed to create workspace volume: %w", err)
-	}
-
-	return volumeName, nil
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container

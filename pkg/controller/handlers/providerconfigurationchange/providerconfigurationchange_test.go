@@ -72,7 +72,7 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -158,7 +158,7 @@ func TestConfigureAuthProviderRejectsConflictingConfiguredProvider(t *testing.T)
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -219,7 +219,7 @@ func TestAuthDeconfigurationPersistsCleanupBeforeCredentialDeletion(t *testing.T
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, nil, licenseProvider, "")
+	handler := New(gatewayClient, nil, licenseProvider, "", client)
 
 	err = handler.Reconcile(router.Request{
 		Client:    client,
@@ -436,7 +436,7 @@ func TestConfigureAuthProviderReplacesOutgoingProvider(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -507,7 +507,7 @@ func TestStageAuthProviderSavesReplacementWithoutTouchingActive(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -574,7 +574,7 @@ func TestStageAuthProviderRejectsASecondReplacement(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -614,7 +614,7 @@ func TestUnstageAuthProviderDiscardsTheReplacement(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -665,7 +665,7 @@ func TestSwitchAuthProviderRejectsUnexpectedConfiguredProvider(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -724,7 +724,7 @@ func TestStageAuthProviderAcceptsLocalAsTheReplacement(t *testing.T) {
 	}))
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
-	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "", client)
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,

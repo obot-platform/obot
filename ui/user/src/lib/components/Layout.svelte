@@ -18,7 +18,6 @@
 	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
 
 	const defaultNavCollapsed: Record<string, boolean> = {
-		'agent-management': true,
 		'mcp-server-management': true,
 		'skills-management': true,
 		'hosted-agent-management': true,
@@ -54,12 +53,13 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, isSCIMView } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
+	import { m } from '$lib/i18n';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
 	import {
@@ -77,6 +77,9 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import CommunitySignupBanner from './admin/license/CommunitySignupBanner.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
+	import SCIMSetupBanner from './admin/scim/SCIMSetupBanner.svelte';
+	import SCIMTokenExpiryBanner from './admin/scim/SCIMTokenExpiryBanner.svelte';
+	import { tokenExpiryState } from './admin/scim/tokenExpiry';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -226,7 +229,7 @@
 					{
 						id: 'mcp-dashboard',
 						icon: LayoutDashboard,
-						label: 'Dashboard',
+						label: m.nav_dashboard(),
 						href: '/dashboard',
 						collapsible: false
 					}
@@ -235,31 +238,31 @@
 		{
 			id: 'ai-resources',
 			icon: Bot,
-			label: 'AI Resources',
+			label: m.nav_ai_resources(),
 			collapsible: true,
 			items: [
 				{
 					id: 'vmcp',
-					label: 'vMCPs',
+					label: m.nav_vmcps(),
 					href: '/vmcps'
 				},
 				...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
 					? [
 							{
 								id: 'mcp-servers',
-								label: 'MCP Servers',
+								label: m.nav_mcp_servers(),
 								href: '/mcp-servers'
 							}
 						]
 					: []),
 				{
 					id: 'skills',
-					label: 'Skills',
+					label: m.nav_skills(),
 					href: '/skills'
 				},
 				{
 					id: 'models',
-					label: 'Models',
+					label: m.nav_models(),
 					href: '/models'
 				}
 			]
@@ -267,30 +270,30 @@
 		{
 			id: 'operations',
 			icon: Logs,
-			label: 'Operations',
+			label: m.nav_operations(),
 			collapsible: true,
 			items: [
 				{
 					id: 'audit-logs',
-					label: 'Audit Logs',
+					label: m.nav_audit_logs(),
 					href: '/audit-logs'
 				},
 				{
 					id: 'usage',
-					label: 'Usage',
+					label: m.nav_usage(),
 					href: '/usage'
 				},
 				...(profile.current.hasAdminAccess?.()
 					? [
 							{
 								id: 'inventory',
-								label: 'Inventory',
+								label: m.nav_inventory(),
 								href: '/inventory',
 								beta: true
 							},
 							{
 								id: 'enforcement-events',
-								label: 'Enforcement Events',
+								label: m.nav_enforcement_events(),
 								href: '/admin/enforcement-events',
 								beta: true
 							}
@@ -302,7 +305,7 @@
 			? [
 					{
 						id: 'hosted-agents',
-						label: 'Hosted Agents',
+						label: m.nav_hosted_agents(),
 						icon: MessageSquareText,
 						href: '/hosted-agents'
 					}
@@ -310,7 +313,7 @@
 			: []),
 		{
 			id: 'identity-and-access',
-			label: 'Identity & Access',
+			label: m.nav_identity_access(),
 			icon: Users,
 			href: '/identity-access'
 		},
@@ -318,7 +321,7 @@
 			? [
 					{
 						id: 'platform',
-						label: 'Platform',
+						label: m.nav_platform(),
 						icon: Settings2,
 						href: '/admin/platform'
 					}
@@ -364,7 +367,6 @@
 		await restoreSidebarScroll();
 	});
 
-	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -473,9 +475,52 @@
 		return !isCommunitySignupDismissedForCurrentProfile();
 	});
 
-	let showAppNotificationBanner = $derived.by(() => {
-		if (isAgentRoute) return false;
+	// The configured auth provider while it provisions users and groups through SCIM and SCIM is not
+	// enforced yet. Its setup continues on the SCIM sub-tab, which is where an Owner who just signed in
+	// for the first time, from Owner Setup, a switch, or an owner email, is sent from here. Its banner
+	// cannot be dismissed.
+	let unfinishedSCIMProvider = $derived.by(() => {
+		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
+		if (pathname === '/identity-access' && isSCIMView(page.url.searchParams)) {
+			return undefined;
+		}
+		return $adminConfigStore.authProviders.find(
+			(provider) => provider.configured && provider.scimState === 'connected'
+		);
+	});
 
+	// Holds the expiry of the last token whose banner was dismissed, so that a new token that expires
+	// later is announced again.
+	const SCIM_TOKEN_BANNER_KEY = '@obot/dismiss-scim-token-banner';
+	let scimTokenBannerDismissedFor = localState<string>(SCIM_TOKEN_BANNER_KEY, '');
+
+	// The configured auth provider while the bearer token of its SCIM connection expires soon, or has
+	// expired, and the Owner who must rotate it is not on the SCIM sub-tab, which says so itself. An
+	// expired token cannot be dismissed, as provisioning fails until the token is rotated.
+	let expiringSCIMToken = $derived.by(() => {
+		if (!profile.current.isOwner?.() || profile.current.isBootstrapUser?.()) return undefined;
+		if (pathname === '/identity-access' && isSCIMView(page.url.searchParams)) return undefined;
+
+		const provider = $adminConfigStore.authProviders.find(
+			(p) => p.configured && p.scimTokenExpiresAt
+		);
+		const expiresAt = provider?.scimTokenExpiresAt;
+		const state = tokenExpiryState(expiresAt);
+		if (!provider || !expiresAt || !state) return undefined;
+		if (state === 'expiring') {
+			if (!scimTokenBannerDismissedFor.isReady) return undefined;
+			if (scimTokenBannerDismissedFor.current === expiresAt) return undefined;
+		}
+		return { providerName: provider.name, expiresAt, expired: state === 'expired' };
+	});
+
+	function handleDismissSCIMTokenBanner() {
+		if (expiringSCIMToken) {
+			scimTokenBannerDismissedFor.current = expiringSCIMToken.expiresAt;
+		}
+	}
+
+	let showAppNotificationBanner = $derived.by(() => {
 		const appNotification = appNotificationStore.current;
 		if (!appNotification?.banner?.enabled) return false;
 		if (!appNotification.banner.dismissible) return true; // enabled & not dismissible, always show
@@ -513,7 +558,7 @@
 					<BetaLogo variant={logoVariant} />
 					{#if responsive.isMobile}
 						<IconButton
-							tooltip={{ text: 'Close Menu', placement: 'left' }}
+							tooltip={{ text: m.nav_close_menu(), placement: 'left' }}
 							onclick={() => (layout.sidebarOpen = false)}
 						>
 							<X class="size-6" />
@@ -541,7 +586,7 @@
 				{#if !responsive.isMobile}
 					<div class="flex justify-end px-3 py-2">
 						<IconButton
-							tooltip={{ text: 'Close Sidebar' }}
+							tooltip={{ text: m.nav_close_sidebar() }}
 							onclick={() => (layout.sidebarOpen = false)}
 						>
 							<PanelLeftClose class="size-6" />
@@ -586,6 +631,15 @@
 						data={appNotificationStore.current?.banner}
 						onDismiss={handleDismissBanner}
 					/>
+				{:else if expiringSCIMToken}
+					<SCIMTokenExpiryBanner
+						providerName={expiringSCIMToken.providerName}
+						expiresAt={expiringSCIMToken.expiresAt}
+						expired={expiringSCIMToken.expired}
+						onDismiss={expiringSCIMToken.expired ? undefined : handleDismissSCIMTokenBanner}
+					/>
+				{:else if unfinishedSCIMProvider}
+					<SCIMSetupBanner providerName={unfinishedSCIMProvider.name} />
 				{:else if canShowCommunitySignup}
 					<CommunitySignupBanner onDismiss={handleDismissCommunitySignupBanner} />
 				{/if}
@@ -601,7 +655,7 @@
 								{#if responsive.isMobile}
 									<IconButton
 										class="w-fit"
-										tooltip={{ text: 'Open Menu', placement: 'right' }}
+										tooltip={{ text: m.nav_open_menu(), placement: 'right' }}
 										onclick={() => (layout.sidebarOpen = true)}
 									>
 										<Menu class="size-6" />
@@ -683,7 +737,10 @@
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar && !responsive.isMobile}
 		<div class="fixed bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
-			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
+			<IconButton
+				onclick={() => (layout.sidebarOpen = true)}
+				tooltip={{ text: m.nav_open_sidebar() }}
+			>
 				<PanelLeftOpen class="size-6" />
 			</IconButton>
 		</div>
@@ -696,7 +753,7 @@
 	{#if showBackButton}
 		<IconButton
 			class="btn btn-square btn-ghost shrink-0"
-			tooltip={{ text: 'Back' }}
+			tooltip={{ text: m.common_back() }}
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();
@@ -724,7 +781,8 @@
 				{:else}
 					{title}
 					{#if isBetaRoute}
-						<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+						<span class="badge badge-primary badge-sm font-medium uppercase">{m.common_beta()}</span
+						>
 					{/if}
 				{/if}
 			</h1>
@@ -910,7 +968,7 @@
 	{/if}
 	{link.label}
 	{#if link.beta}
-		<span class="badge badge-primary badge-xs font-medium uppercase">Beta</span>
+		<span class="badge badge-primary badge-xs font-medium uppercase">{m.common_beta()}</span>
 	{/if}
 {/snippet}
 

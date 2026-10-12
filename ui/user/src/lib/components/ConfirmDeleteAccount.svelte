@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Confirm from './Confirm.svelte';
 
 	interface Props {
@@ -29,19 +30,20 @@
 
 <Confirm
 	{show}
-	title="Confirm Account Deletion"
-	msg="Delete your account?"
+	title={m.account_delete_title()}
+	msg={m.account_delete_msg()}
 	{onsuccess}
 	{oncancel}
 	disabled={username2 === '' || username2 !== username}
 >
 	{#snippet note()}
 		<p class="text-base-content mb-4 text-sm font-normal">
-			This will sign you out of all other devices and browsers, except for this one.
+			{m.account_delete_note()}
 		</p>
 
 		<p class="text-base-content mb-4 text-sm font-normal">
-			To confirm, type <strong>{username}</strong> in the box below
+			{m.account_delete_type_to_confirm_prefix()} <strong>{username}</strong>
+			{m.account_delete_type_to_confirm_suffix()}
 		</p>
 
 		<input

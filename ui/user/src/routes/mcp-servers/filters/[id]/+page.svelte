@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { m } from '$lib/i18n';
 	import type { MCPFilter } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
 	import FilterView from '../../FilterView.svelte';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	let { filter } = $derived(data);
-	let title = $derived(filter?.name ?? 'Filter');
+	let title = $derived(filter?.name ?? m.mcps_filters_filter());
 	let selected = $derived<string>((page.url.searchParams.get('view') as string) || 'configuration');
 
 	function handleSelectionChange(newSelection: string) {

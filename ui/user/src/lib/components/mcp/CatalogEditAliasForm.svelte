@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
@@ -39,7 +40,7 @@
 			dialog?.close();
 			onUpdateConfigure?.();
 		} catch (err) {
-			errors.append(`Failed to update server alias: ${err}`);
+			errors.append(m.mcps_alias_update_failed({ error: String(err) }));
 		} finally {
 			saving = false;
 		}
@@ -67,7 +68,7 @@
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{newName || getMCPDisplayName(server, 'Server')}
+			{newName || getMCPDisplayName(server, m.core_col_server())}
 		</div>
 	{/snippet}
 
@@ -79,13 +80,13 @@
 	>
 		<div class="my-4 flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label for="serverName" class="text-sm font-medium">Server Alias</label>
+				<label for="serverName" class="text-sm font-medium">{m.mcps_alias_label()}</label>
 				<input
 					type="text"
 					id="serverName"
 					bind:value={newName}
 					class="text-input-filled"
-					placeholder="Enter server alias..."
+					placeholder={m.mcps_alias_placeholder()}
 				/>
 			</div>
 		</div>
@@ -100,7 +101,7 @@
 			{#if saving}
 				<Loading class="size-4" />
 			{:else}
-				Update
+				{m.core_update()}
 			{/if}
 		</button>
 	</div>

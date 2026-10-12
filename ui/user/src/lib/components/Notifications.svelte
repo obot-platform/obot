@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
+	import { m } from '$lib/i18n';
 	import { errors, profile } from '$lib/stores';
 	import { CircleX, Copy, X } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
@@ -49,7 +50,7 @@
 			</button>
 			{#if copied[error.message]}
 				<div class="text-muted-content self-end text-xs" in:fade={{ duration: 200 }}>
-					Error copied to clipboard.
+					{m.notifications_error_copied()}
 				</div>
 			{/if}
 			<button

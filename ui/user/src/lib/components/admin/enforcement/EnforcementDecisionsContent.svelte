@@ -11,6 +11,7 @@
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { agentLabel, kindLabel } from '$lib/enforcement';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type EnforcementDecisionEvent,
@@ -192,7 +193,10 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				console.error('Failed to fetch enforcement events:', err);
-				fetchError = err instanceof Error ? err.message : 'Failed to load enforcement events';
+				fetchError =
+					err instanceof Error
+						? err.message
+						: m.inventory_enforcement_enforcement_events_load_events_failed();
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -303,18 +307,21 @@
 
 	function getFilterDisplayLabel(key: string) {
 		const labels: Record<string, string> = {
-			actor: 'Device',
-			agent: 'Agent',
-			decision: 'Result',
-			kind: 'Tool Type',
-			server: 'MCP Server',
-			tool: 'Tool'
+			actor: m.audit_usage_audit_logs_device(),
+			agent: m.audit_usage_audit_logs_agent(),
+			decision: m.inventory_enforcement_enforcement_events_result(),
+			kind: m.inventory_enforcement_enforcement_events_tool_type(),
+			server: m.inventory_enforcement_mcp_server(),
+			tool: m.inventory_enforcement_enforcement_events_tool()
 		};
 		return labels[key] ?? key.replace(/_(\w)/g, ' $1');
 	}
 
 	function getFilterOptionLabel(key: string, value: string) {
-		if (key === 'decision') return value === 'allow' ? 'Allowed' : 'Blocked';
+		if (key === 'decision')
+			return value === 'allow'
+				? m.inventory_enforcement_enforcement_events_allowed()
+				: m.inventory_enforcement_enforcement_events_blocked();
 		if (key === 'agent') return agentLabel(value);
 		if (key === 'kind') return kindLabel(value);
 		if (key === 'actor') return getDeviceDisplayName(value);
@@ -333,7 +340,7 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={handleQueryChange}
-			placeholder="Search..."
+			placeholder={m.core_search_placeholder()}
 			value={query}
 		/>
 		<div class="flex gap-4 self-start @min-[768px]:self-end">
@@ -351,13 +358,13 @@
 				}}
 			>
 				<Funnel class="size-4" />
-				Filters
+				{m.core_filters_title()}
 			</button>
 		</div>
 	</div>
 
 	<div class="flex flex-wrap gap-4">
-		{#each [{ verdict: 'allow', label: 'Allowed', value: allowedTotal }, { verdict: 'deny', label: 'Blocked', value: blockedTotal }] as const as tile (tile.verdict)}
+		{#each [{ verdict: 'allow', label: m.inventory_enforcement_enforcement_events_allowed(), value: allowedTotal }, { verdict: 'deny', label: m.inventory_enforcement_enforcement_events_blocked(), value: blockedTotal }] as const as tile (tile.verdict)}
 			<button
 				type="button"
 				aria-pressed={pillsSearchParamFilters.decision === tile.verdict}
@@ -392,9 +399,9 @@
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
-				Enforcement is currently disabled, so no new decisions are being recorded.
+				{m.inventory_enforcement_enforcement_events_disabled_notice()}
 				<a class="text-link" href={resolve('/inventory?view=configuration')}
-					>Enable it on the Devices page.</a
+					>{m.inventory_enforcement_enforcement_events_enable_on_devices_page()}</a
 				>
 			</span>
 		</div>
@@ -415,7 +422,9 @@
 	<div class="notification-error flex w-full items-center gap-3 p-4">
 		<CircleAlert class="size-5 shrink-0" />
 		<div class="flex flex-col gap-1">
-			<p class="text-sm font-semibold">Unable to load enforcement events</p>
+			<p class="text-sm font-semibold">
+				{m.inventory_enforcement_enforcement_events_unable_to_load_events()}
+			</p>
 			<p class="text-sm font-light">{fetchError}</p>
 		</div>
 	</div>
@@ -431,10 +440,11 @@
 {:else}
 	<div class="flex w-full flex-col items-center justify-center gap-4 px-6 py-16 text-center">
 		<ShieldCheck class="text-muted-content size-20 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No enforcement events</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_enforcement_events_no_events()}
+		</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
-			Nothing has been recorded for this range. Decisions are only logged while enforcement is
-			enabled for the fleet.
+			{m.inventory_enforcement_enforcement_events_no_events_hint()}
 		</p>
 	</div>
 {/if}
@@ -449,13 +459,15 @@
 				disabled={isReachedMin}
 				onclick={prevPage}
 			>
-				<ChevronLeft class="size-4" /> Previous Page
+				<ChevronLeft class="size-4" />
+				{m.audit_usage_audit_logs_previous_page()}
 			</button>
 			<div class="flex gap-4">
 				<div>
-					{Intl.NumberFormat().format(pageIndex + 1)} of {Intl.NumberFormat().format(
-						numberOfPages || 1
-					)} pages
+					{m.audit_usage_audit_logs_model_page_of({
+						page: Intl.NumberFormat().format(pageIndex + 1),
+						total: Intl.NumberFormat().format(numberOfPages || 1)
+					})}
 				</div>
 			</div>
 			<button
@@ -463,7 +475,8 @@
 				disabled={isReachedMax}
 				onclick={nextPage}
 			>
-				Next Page <ChevronRight class="size-4" />
+				{m.audit_usage_audit_logs_next_page()}
+				<ChevronRight class="size-4" />
 			</button>
 		</div>
 	</div>

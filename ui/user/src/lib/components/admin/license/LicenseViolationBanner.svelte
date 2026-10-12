@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import { license, profile, version } from '$lib/stores';
@@ -71,20 +72,21 @@
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
-					You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit.
-					{userLimitText} Upgrade to Obot Enterprise!
+					{hasUserLimitViolation
+						? m.platform_license_notice_banner_at_limit({ limit: userLimitText })
+						: m.platform_license_notice_banner_almost_at_limit({ limit: userLimitText })}
 				</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<button class="btn btn-xs btn-warning" onclick={() => resolveLicenseDialog?.open()}>
-					Resolve
+					{m.platform_license_notice_resolve()}
 				</button>
 				{#if !hasUserLimitViolation}
 					<button
 						class="btn btn-circle btn-ghost btn-xs w-fit h-fit p-0.5"
 						onclick={handleDismissUserLimitBanner}
 						type="button"
-						aria-label="Dismiss user limit banner"
+						aria-label={m.platform_license_notice_dismiss_user_limit_banner()}
 					>
 						<X class="size-3" />
 					</button>
@@ -99,9 +101,11 @@
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
 					{#if profile.current.hasAdminAccess?.()}
-						Your license is <b class="font-semibold uppercase"
-							>{licenseKey ? 'invalid' : 'missing'}</b
-						>. For full functionality, it is recommended to resolve the outstanding issues.
+						{m.platform_license_notice_status_prefix()}<b class="font-semibold uppercase"
+							>{licenseKey
+								? m.platform_license_notice_status_invalid()
+								: m.platform_license_notice_status_missing()}</b
+						>{m.platform_license_notice_status_suffix()}
 					{:else}
 						{MCP_CONNECTION_INVALID_LICENSE_MESSAGE}
 					{/if}
@@ -109,7 +113,7 @@
 			</div>
 			{#if profile.current.hasAdminAccess?.()}
 				<button class="btn btn-xs btn-warning" onclick={() => resolveLicenseDialog?.open()}>
-					Resolve
+					{m.platform_license_notice_resolve()}
 				</button>
 			{/if}
 		</div>

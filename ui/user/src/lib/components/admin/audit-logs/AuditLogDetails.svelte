@@ -2,6 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Group } from '$lib/services';
 	import { profile, userDeviceSettings } from '$lib/stores';
@@ -102,17 +103,23 @@
 					<Loading />
 				{:else}
 					{#if hasBody(auditLog?.requestBody)}
-						{@render jsonBody('Request Body', auditLog?.requestBody)}
+						{@render jsonBody(m.audit_usage_audit_logs_request_body(), auditLog?.requestBody)}
 					{:else if !hasAuditorAccess}
 						{@render noAuditorAccessInfo()}
 					{/if}
 
 					{#if hasBody(auditLog?.policyModifiedRequestBody)}
-						{@render jsonBody('Policy-Modified Request Body', auditLog?.policyModifiedRequestBody)}
+						{@render jsonBody(
+							m.audit_usage_audit_logs_policy_modified_request_body(),
+							auditLog?.policyModifiedRequestBody
+						)}
 					{/if}
 
 					{#if hasBody(auditLog?.mutatedRequestBody)}
-						{@render jsonBody('Mutated Request Body', auditLog?.mutatedRequestBody)}
+						{@render jsonBody(
+							m.audit_usage_audit_logs_mutated_request_body(),
+							auditLog?.mutatedRequestBody
+						)}
 					{/if}
 				{/if}
 			{/if}
@@ -122,24 +129,29 @@
 					<Loading />
 				{:else}
 					{#if hasBody(auditLog?.originalResponseBody)}
-						{@render jsonBody('Original Response Body', auditLog?.originalResponseBody)}
+						{@render jsonBody(
+							m.audit_usage_audit_logs_original_response_body(),
+							auditLog?.originalResponseBody
+						)}
 					{/if}
 
 					{#if hasBody(auditLog?.responseBody)}
-						{@render jsonBody('Response Body', auditLog?.responseBody)}
+						{@render jsonBody(m.audit_usage_audit_logs_response_body(), auditLog?.responseBody)}
 					{:else if !hasAuditorAccess}
 						{@render noAuditorAccessInfo()}
 					{/if}
 				{/if}
 			{/if}
 
-			<div class="divider text-xs uppercase my-0">Additional Information</div>
+			<div class="divider text-xs uppercase my-0">
+				{m.audit_usage_audit_logs_additional_information()}
+			</div>
 			{#if hasHeaders(auditLog.requestHeaders)}
-				{@render jsonBody('Request Headers', auditLog.requestHeaders)}
+				{@render jsonBody(m.audit_usage_audit_logs_request_headers(), auditLog.requestHeaders)}
 			{/if}
 
 			{#if hasHeaders(auditLog.responseHeaders)}
-				{@render jsonBody('Response Headers', auditLog.responseHeaders)}
+				{@render jsonBody(m.audit_usage_audit_logs_response_headers(), auditLog.responseHeaders)}
 			{/if}
 
 			{#if !hasAuditorAccess}
@@ -149,12 +161,12 @@
 			{#if shouldShowPayload}
 				<div class="divider my-0"></div>
 				<div class="flex flex-col gap-0.5">
-					{@render title('HTTP Request')}
+					{@render title(m.audit_usage_audit_logs_http_request())}
 					{#if auditLog.user || additRequestContent}
 						<div class="flex flex-col gap-1 px-4 py-2 text-sm font-light">
 							{#if auditLog.user}
 								<p class="grid grid-cols-2 gap-2 break-all">
-									<span class="font-medium">User:</span>
+									<span class="font-medium">{m.audit_usage_audit_logs_user_label()}</span>
 									{auditLog.user}
 								</p>
 							{/if}
@@ -168,7 +180,7 @@
 				<div class="divider my-0"></div>
 
 				<div class="flex items-center gap-2">
-					<p class="text-base font-semibold">HTTP Response</p>
+					<p class="text-base font-semibold">{m.audit_usage_audit_logs_http_response()}</p>
 					{#if loading?.response}
 						<div class="skeleton h-4 w-8 rounded-full"></div>
 					{:else if auditLog?.responseStatus}
@@ -187,7 +199,7 @@
 			{#if auditLog?.error}
 				<div class="divider my-0"></div>
 				<div class="flex flex-col gap-0.5">
-					{@render title('Response Error')}
+					{@render title(m.audit_usage_audit_logs_response_error())}
 					<p class="text-error text-sm">{auditLog.error}</p>
 				</div>
 			{/if}
@@ -195,7 +207,7 @@
 			{#if shouldShowPayload}
 				{#if auditLog?.webhookStatuses && auditLog.webhookStatuses.length > 0}
 					<div class="divider my-0"></div>
-					{@render jsonBody('Webhook Statuses', auditLog.webhookStatuses)}
+					{@render jsonBody(m.audit_usage_audit_logs_webhook_statuses(), auditLog.webhookStatuses)}
 				{/if}
 			{/if}
 		</div>
@@ -223,6 +235,6 @@
 
 {#snippet noAuditorAccessInfo()}
 	<div class="bg-base-300 text-muted-content rounded-md p-3 text-xs italic">
-		Additional payload and sensitive environment details are hidden for your access level.
+		{m.audit_usage_audit_logs_hidden_for_access_level()}
 	</div>
 {/snippet}

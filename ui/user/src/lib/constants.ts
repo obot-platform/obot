@@ -1,3 +1,5 @@
+import { m } from '$lib/i18n';
+
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
 
@@ -11,11 +13,26 @@ export const UNAUTHORIZED_PATHS = new Set([
 	'/login/local',
 	// Activation carries its setup token in the URL fragment, so redirecting an anonymous visitor
 	// away would discard the only browser-side copy of it.
-	'/activate'
+	'/activate',
+	// The login page of the Okta SCIM provisioning app, which explains to anyone who opens the app
+	// that it does not sign them in. Okta requires a separate app just to act as a SCIM provisioning
+	// container, and it needs a login URL, even though it will never be used for login. So we point
+	// it to this page.
+	'/okta-scim'
 ]);
 
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
+
+// The sub-tabs of the Auth Providers tab of Identity & Access: the providers, and SCIM.
+export const AUTH_PROVIDERS_VIEW_PATH = '/identity-access?view=auth-providers';
+export const SCIM_VIEW_PATH = '/identity-access?view=auth-providers&subview=scim';
+const scimViewParams = Array.from(new URL(SCIM_VIEW_PATH, 'http://localhost').searchParams);
+
+// Whether the query of a URL of Identity & Access selects the SCIM sub-tab, as SCIM_VIEW_PATH's does.
+export function isSCIMView(searchParams: URLSearchParams): boolean {
+	return scimViewParams.every(([key, value]) => searchParams.get(key) === value);
+}
 
 export const SEEN_SPLASH_DIALOG_KEY = 'seenSplashDialog';
 
@@ -73,20 +90,14 @@ export const ADMIN_SESSION_STORAGE = {
 } as const;
 
 export const ADMIN_ALL_OPTION = {
-	label: 'Everything in Global Registry',
-	description: 'Include all MCP servers in the global registry'
+	label: m.core_everything_in_global_registry(),
+	description: m.core_everything_in_global_registry_description()
 };
 
 export const MCP_PUBLISHER_ALL_OPTION = {
-	label: 'Everything in My Registry',
-	description: 'Include all MCP servers I have created in my registry'
+	label: m.core_everything_in_my_registry(),
+	description: m.core_everything_in_my_registry_description()
 };
-
-export const ADMIN_AGENT_DISABLED_MESSAGE =
-	'Set up a model provider w/ default Language Model & Language Model (Fast) models to access this page.';
-
-export const USER_AGENT_DISABLED_MESSAGE =
-	'Agent is currently disabled. Contact your administrator to enable it.';
 
 /** Filter Constants  */
 export const PII_REDACT_TYPES = 'PII_REDACT_TYPES';
@@ -95,27 +106,27 @@ export const PII_BLOCK_TYPES = 'PII_BLOCK_TYPES';
 export const PII_FILTER_DEFAULT_OPTIONS = [
 	{
 		id: 'EMAIL_ADDRESS',
-		label: 'Email Address'
+		label: m.mcps_filters_personal_data_email_address()
 	},
 	{
 		id: 'PHONE_NUMBER',
-		label: 'Phone Number'
+		label: m.mcps_filters_personal_data_phone_number()
 	},
 	{
 		id: 'CREDIT_CARD',
-		label: 'Credit Card'
+		label: m.mcps_filters_personal_data_credit_card()
 	},
 	{
 		id: 'CRYPTO',
-		label: 'Crypto'
+		label: m.mcps_filters_personal_data_crypto()
 	},
 	{
 		id: 'IBAN_CODE',
-		label: 'IBAN Code'
+		label: m.mcps_filters_personal_data_iban_code()
 	},
 	{
 		id: 'IP_ADDRESS',
-		label: 'IP Address'
+		label: m.mcps_filters_personal_data_ip_address()
 	},
 	{
 		id: 'US_SSN',
@@ -123,19 +134,19 @@ export const PII_FILTER_DEFAULT_OPTIONS = [
 	},
 	{
 		id: 'US_BANK_NUMBER',
-		label: 'US Bank Number'
+		label: m.mcps_filters_personal_data_us_bank_number()
 	},
 	{
 		id: 'US_PASSPORT',
-		label: 'US Passport'
+		label: m.mcps_filters_personal_data_us_passport()
 	},
 	{
 		id: 'MEDICAL_LICENSE',
-		label: 'Medical License'
+		label: m.mcps_filters_personal_data_medical_license()
 	},
 	{
 		id: 'US_DRIVER_LICENSE',
-		label: 'US Driver License'
+		label: m.mcps_filters_personal_data_us_driver_license()
 	}
 ];
 export const PII_FILTER_OPTIONAL_OPTIONS = [
@@ -149,7 +160,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'AU_MEDICARE',
-		label: 'AU Medicare'
+		label: m.mcps_filters_personal_data_au_medicare()
 	},
 	{
 		id: 'AU_TFN',
@@ -157,7 +168,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'DATE_TIME',
-		label: 'Date Time'
+		label: m.mcps_filters_personal_data_date_time()
 	},
 	{
 		id: 'ES_NIE',
@@ -169,7 +180,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'FI_PERSONAL_IDENTITY_CODE',
-		label: 'FI Personal Identity Code'
+		label: m.mcps_filters_personal_data_fi_personal_identity_code()
 	},
 	{
 		id: 'IN_AADHAAR',
@@ -185,35 +196,35 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'IN_PASSPORT',
-		label: 'IN Passport'
+		label: m.mcps_filters_personal_data_in_passport()
 	},
 	{
 		id: 'IN_VEHICLE_REGISTRATION',
-		label: 'IN Vehicle Registration'
+		label: m.mcps_filters_personal_data_in_vehicle_registration()
 	},
 	{
 		id: 'IN_VOTER',
-		label: 'IN Voter'
+		label: m.mcps_filters_personal_data_in_voter()
 	},
 	{
 		id: 'IT_DRIVER_LICENSE',
-		label: 'IT Driver License'
+		label: m.mcps_filters_personal_data_it_driver_license()
 	},
 	{
 		id: 'IT_FISCAL_CODE',
-		label: 'IT Fiscal Code'
+		label: m.mcps_filters_personal_data_it_fiscal_code()
 	},
 	{
 		id: 'IT_IDENTITY_CARD',
-		label: 'IT Identity Card'
+		label: m.mcps_filters_personal_data_it_identity_card()
 	},
 	{
 		id: 'IT_PASSPORT',
-		label: 'IT Passport'
+		label: m.mcps_filters_personal_data_it_passport()
 	},
 	{
 		id: 'IT_VAT_CODE',
-		label: 'IT VAT Code'
+		label: m.mcps_filters_personal_data_it_vat_code()
 	},
 	{
 		id: 'KR_BRN',
@@ -221,7 +232,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'KR_DRIVER_LICENSE',
-		label: 'KR Driver License'
+		label: m.mcps_filters_personal_data_kr_driver_license()
 	},
 	{
 		id: 'KR_FRN',
@@ -229,7 +240,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'KR_PASSPORT',
-		label: 'KR Passport'
+		label: m.mcps_filters_personal_data_kr_passport()
 	},
 	{
 		id: 'KR_RRN',
@@ -237,43 +248,43 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'LOCATION',
-		label: 'Location'
+		label: m.mcps_filters_personal_data_location()
 	},
 	{
 		id: 'MAC_ADDRESS',
-		label: 'MAC Address'
+		label: m.mcps_filters_personal_data_mac_address()
 	},
 	{
 		id: 'MEDICAL_BIOLOGICAL_ATTRIBUTE',
-		label: 'Medical Biological Attribute'
+		label: m.mcps_filters_personal_data_medical_biological_attribute()
 	},
 	{
 		id: 'MEDICAL_BIOLOGICAL_STRUCTURE',
-		label: 'Medical Biological Structure'
+		label: m.mcps_filters_personal_data_medical_biological_structure()
 	},
 	{
 		id: 'MEDICAL_CLINICAL_EVENT',
-		label: 'Medical Clinical Event'
+		label: m.mcps_filters_personal_data_medical_clinical_event()
 	},
 	{
 		id: 'MEDICAL_DISEASE_DISORDER',
-		label: 'Medical Disease Disorder'
+		label: m.mcps_filters_personal_data_medical_disease_disorder()
 	},
 	{
 		id: 'MEDICAL_FAMILY_HISTORY',
-		label: 'Medical Family History'
+		label: m.mcps_filters_personal_data_medical_family_history()
 	},
 	{
 		id: 'MEDICAL_HISTORY',
-		label: 'Medical History'
+		label: m.mcps_filters_personal_data_medical_history()
 	},
 	{
 		id: 'MEDICAL_MEDICATION',
-		label: 'Medical Medication'
+		label: m.mcps_filters_personal_data_medical_medication()
 	},
 	{
 		id: 'MEDICAL_THERAPEUTIC_PROCEDURE',
-		label: 'Medical Therapeutic Procedure'
+		label: m.mcps_filters_personal_data_medical_therapeutic_procedure()
 	},
 	{
 		id: 'NG_NIN',
@@ -281,7 +292,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'NG_VEHICLE_REGISTRATION',
-		label: 'NG Vehicle Registration'
+		label: m.mcps_filters_personal_data_ng_vehicle_registration()
 	},
 	{
 		id: 'NRP',
@@ -289,7 +300,7 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'PERSON',
-		label: 'Person'
+		label: m.mcps_filters_personal_data_person()
 	},
 	{
 		id: 'PL_PESEL',
@@ -317,15 +328,15 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	},
 	{
 		id: 'UK_PASSPORT',
-		label: 'UK Passport'
+		label: m.mcps_filters_personal_data_uk_passport()
 	},
 	{
 		id: 'UK_POSTCODE',
-		label: 'UK Postcode'
+		label: m.mcps_filters_personal_data_uk_postcode()
 	},
 	{
 		id: 'UK_VEHICLE_REGISTRATION',
-		label: 'UK Vehicle Registration'
+		label: m.mcps_filters_personal_data_uk_vehicle_registration()
 	},
 	{
 		id: 'URL',
@@ -345,9 +356,9 @@ export const PII_FILTER_OPTIONAL_OPTIONS = [
 	}
 ];
 export const PII_FILTER_OPTION_VALUES = [
-	{ id: 'none', label: 'None' },
-	{ id: 'block', label: 'Block' },
-	{ id: 'redact', label: 'Redact' }
+	{ id: 'none', label: m.core_col_none() },
+	{ id: 'block', label: m.mcps_filters_personal_data_option_block() },
+	{ id: 'redact', label: m.mcps_filters_personal_data_option_redact() }
 ];
 
 export const OBOT_GUIDE_KEYS = {
@@ -458,5 +469,4 @@ export const COMMUNITY_ENTITLEMENT = 'OBOT_COMMUNITY';
 export const ENTERPRISE_ENTITLEMENT = 'OBOT_ENTERPRISE';
 export const MODEL_PROVIDERS_ENTITLEMENT = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
 
-export const COMMUNITY_SIGNUP_BANNER_COPY =
-	'Register your email to unlock all remaining IDPs and to receive the Obot Community Newsletter!';
+export const COMMUNITY_SIGNUP_BANNER_COPY = m.core_community_signup_banner();

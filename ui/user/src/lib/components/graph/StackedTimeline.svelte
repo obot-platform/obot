@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends object">
 	import { lightenHex } from '$lib/colors';
+	import { m } from '$lib/i18n';
 	import { darkMode, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -978,12 +979,12 @@
 			{#if legendExpanded}
 				<button
 					class="text-muted-content hover:underline"
-					onclick={() => (legendExpanded = !legendExpanded)}>Show less</button
+					onclick={() => (legendExpanded = !legendExpanded)}>{m.core_show_less()}</button
 				>
 			{:else}
 				<IconButton
 					class="btn-xs"
-					tooltip={{ text: 'Show all legend items' }}
+					tooltip={{ text: m.core_show_all_legend_items() }}
 					onclick={() => (legendExpanded = !legendExpanded)}
 				>
 					<Ellipsis class="size-3" />

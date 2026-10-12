@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import type { VMCP } from '$lib/services';
 	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
 
@@ -20,12 +21,12 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title={`Connect to ${vmcp?.displayName ?? 'vMCP'}`}
+	title={m.vmcps_connect_to_named({ name: vmcp?.displayName ?? 'vMCP' })}
 	onClose={close}
 >
 	{#if vmcp && vmcpConnectURL(vmcp)}
 		<p class="text-muted-content mb-4 text-sm font-light">
-			Use this URL in an MCP client. Each user connects directly to the vMCP endpoint.
+			{m.vmcps_connect_dialog_description()}
 		</p>
 		<div class="relative">
 			<input
@@ -34,10 +35,14 @@
 				value={vmcpConnectURL(vmcp)}
 			/>
 			<div class="absolute top-1/2 right-1 -translate-y-1/2">
-				<CopyButton text={vmcpConnectURL(vmcp)} noButtonText tooltipText="Copy Connect URL" />
+				<CopyButton
+					text={vmcpConnectURL(vmcp)}
+					noButtonText
+					tooltipText={m.vmcps_copy_connect_url()}
+				/>
 			</div>
 		</div>
 	{:else}
-		<p class="text-muted-content text-sm">This vMCP is not ready to connect yet.</p>
+		<p class="text-muted-content text-sm">{m.vmcps_not_ready_to_connect()}</p>
 	{/if}
 </ResponsiveDialog>

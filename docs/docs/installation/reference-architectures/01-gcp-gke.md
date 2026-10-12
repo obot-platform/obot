@@ -1,4 +1,9 @@
-# Google Cloud GKE
+---
+displayed_sidebar: sidebar
+title: "Google GKE"
+---
+
+# Google GKE {#google-cloud-gke}
 
 Deploying Obot to Google Kubernetes Engine follows the standard Helm workflow. As a prerequisite, you'll need the following resources set up in your Google Cloud environment:
 
@@ -116,9 +121,6 @@ config:
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
 
-mcpServerDefaults:
-  storageClassName: hyperdisk # replace with the name of your StorageClass
-  nanobotWorkspaceSize: 4Gi # Some disk types have a minimum size, read the documentation for the storage type you select.
 ```
 
 With the default configuration on GKE, this will set up ingress to expose Obot through a load balancer. You should also consider adding TLS termination to your load balancer for secure HTTPS access.

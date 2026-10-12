@@ -27,15 +27,6 @@ type K8sSettings struct {
 	// This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
 	RuntimeClassName string `json:"runtimeClassName,omitempty"`
 
-	// StorageClassName specifies the StorageClass for nanobot workspace volumes
-	StorageClassName string `json:"storageClassName,omitempty"`
-
-	// NanobotWorkspaceSize specifies the size for nanobot workspace volumes
-	NanobotWorkspaceSize string `json:"nanobotWorkspaceSize,omitempty"`
-
-	// NanobotAgentResources specifies resource requests/limits for nanobot containers (JSON/YAML blob)
-	NanobotAgentResources string `json:"nanobotAgentResources,omitempty"`
-
 	// PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace
 	PodSecurityAdmission *PodSecurityAdmissionSettings `json:"podSecurityAdmission,omitempty"`
 

@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
@@ -123,11 +124,9 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 	// Check the environment the daemon will actually receive rather than Status, which the
 	// controller computes from the active contexts alone and so never sees a staged replacement.
-	var missing []string
-	for _, param := range authProvider.Spec.RequiredConfigurationParameters {
-		if _, ok := credEnv[param.Name]; !ok {
-			missing = append(missing, param.Name)
-		}
+	missing, err := d.missingDaemonParameters(ctx, authProvider, credEnv)
+	if err != nil {
+		return url.URL{}, err
 	}
 	if len(missing) > 0 {
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missing, ", "))
@@ -136,6 +135,30 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
 	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
+}
+
+// missingDaemonParameters returns the effective required parameters of an auth provider that credEnv, the
+// environment its daemon would start with, lacks. The daemon runs with this configuration, so without a SCIM
+// connection the provider synchronizes its directory and needs the parameters that only directory synchronization
+// uses. A connection relaxes them, so the provider starts without them.
+func (d *Dispatcher) missingDaemonParameters(ctx context.Context, authProvider v1.AuthProvider, credEnv map[string]string) ([]string, error) {
+	conn, err := d.gatewayClient.SCIMConnectionForAuthProvider(ctx, authProvider.Namespace, authProvider.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var missing []string
+	for _, param := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName:      authProvider.Name,
+		Configured:            true,
+		ConnectionAdapterType: adapter.ConnectionAdapterType(conn),
+		Stored:                credEnv,
+	}).Required {
+		if _, ok := credEnv[param.Name]; !ok {
+			missing = append(missing, param.Name)
+		}
+	}
+	return missing, nil
 }
 
 // GroupIDPrefixForAuthProvider returns the group ID namespace declared by an auth provider.
@@ -290,22 +313,25 @@ func (d *Dispatcher) LoginableAuthProvider(ctx context.Context, r *http.Request,
 // We need to check this way instead of using the status fields to avoid race conditions with the controller.
 // Returns: isConfigured (bool)
 func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider v1.AuthProvider) bool {
-	credEnv, err := CredentialEnvForAuthProvider(ctx, d.gatewayClient, authProvider)
+	// The SCIM connection is read with the credential, so that the check costs one query on every request.
+	cred, adapterType, err := d.gatewayClient.RevealAuthProviderCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Namespace, authProvider.Name)
 	if err != nil {
 		return false
 	}
+	credEnv := cred.Secrets
 
-	for _, envVar := range authProvider.Spec.RequiredConfigurationParameters {
+	for _, envVar := range adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, adapter.ProviderState{
+		AuthProviderName:      authProvider.Name,
+		Configured:            true,
+		ConnectionAdapterType: adapterType,
+		Stored:                credEnv,
+	}).Required {
 		if _, ok := credEnv[envVar.Name]; !ok {
 			return false
 		}
 	}
 
 	return true
-}
-
-func CredentialEnvForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.AuthProvider) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gatewayClient, &authProvider, system.GenericAuthProviderCredentialContext)
 }
 
 func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ModelProvider) (map[string]string, error) {

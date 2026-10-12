@@ -1,3 +1,4 @@
+import type { OrgUser } from '$lib/services';
 import {
 	convertSubjectsToTableData,
 	resolveSubjectFromGroup,
@@ -55,5 +56,24 @@ describe('convertSubjectsToTableData', () => {
 				[{ id: 'entra/engineering', name: 'Engineering' }]
 			)
 		).toEqual([{ id: 'entra/engineering', displayName: 'Engineering', type: 'Group' }]);
+	});
+
+	it('marks a disabled user', () => {
+		expect(
+			convertSubjectsToTableData(
+				[
+					{ type: 'user', id: 'u1' },
+					{ type: 'user', id: 'u2' }
+				],
+				[
+					{ id: 'u1', displayName: 'Alice', status: 'active' } as OrgUser,
+					{ id: 'u2', displayName: 'Dan', status: 'disabled' } as OrgUser
+				],
+				[]
+			)
+		).toEqual([
+			{ id: 'u1', displayName: 'Alice', type: 'User', disabled: false },
+			{ id: 'u2', displayName: 'Dan', type: 'User', disabled: true }
+		]);
 	});
 });

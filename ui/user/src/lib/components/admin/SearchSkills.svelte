@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
+	import type { Skill } from '$lib/services';
 	import type { SkillRepository, SkillAccessPolicyResource } from '$lib/services/admin/types';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { Check, PencilRuler } from '@lucide/svelte';
@@ -20,7 +21,7 @@
 		skillRepositories,
 		onAdd,
 		exclude = [],
-		title = 'Add Skills',
+		title = m.skills_add_skills(),
 		wildcardAvailable = true
 	}: Props = $props();
 	let addSkillDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -110,7 +111,7 @@
 					class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 					onChange={(val) => (query = val)}
 					value={query}
-					placeholder="Search repositories & skills..."
+					placeholder={m.skills_search_repos_skills()}
 				/>
 			</div>
 
@@ -125,9 +126,9 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="flex flex-col">
-								<p class="font-medium">All Skills</p>
+								<p class="font-medium">{m.skills_access_policies_all_skills()}</p>
 								<span class="text-muted-content text-xs">
-									Grants access to all current and future skills
+									{m.skills_all_skills_description()}
 								</span>
 							</div>
 						</div>
@@ -161,7 +162,7 @@
 								<p class="font-medium">{item.name}</p>
 								<span class="text-muted-content line-clamp-1 text-xs">
 									{#if item.type === 'skillRepository'}
-										Grants access to all skills in this repository
+										{m.skills_repo_skills_description()}
 									{:else}
 										{item.description}
 									{/if}
@@ -182,14 +183,16 @@
 		<div class="flex items-center gap-1 font-light">
 			{#if selected.length > 0}
 				<PencilRuler class="size-4" />
-				{selected.length} Selected
+				{m.core_n_selected({ count: selected.length })}
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
 			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addSkillDialog?.close()}>
-				Cancel
+				{m.common_cancel()}
 			</button>
-			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}>
+				{m.core_confirm()}
+			</button>
 		</div>
 	</div>
 </ResponsiveDialog>

@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { AdminService, type DeviceSkillStat, type DeviceSkillStatResponse } from '$lib/services';
 	import { getTableUrlParamsSort, replaceState, setSortUrlParams } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
@@ -99,7 +100,7 @@
 	value={nameFilter}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 	onChange={updateName}
-	placeholder="Search by skill name..."
+	placeholder={m.inventory_enforcement_device_skills_search_skills()}
 />
 
 {#if loading}
@@ -107,10 +108,13 @@
 {:else if total === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<PencilRuler class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No skills observed yet</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_device_skills_no_skills_title()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Run <code class="font-mono">obot scan</code> from a managed device with SKILL.md files to populate
-			this view.
+			{m.inventory_enforcement_device_skills_no_skills_prefix()}<code class="font-mono"
+				>obot scan</code
+			>{m.inventory_enforcement_device_skills_no_skills_suffix()}
 		</p>
 	</div>
 {:else}
@@ -118,10 +122,10 @@
 		data={rows}
 		fields={['name', 'deviceCount', 'userCount', 'observationCount']}
 		headers={[
-			{ title: 'Name', property: 'name' },
-			{ title: 'Devices', property: 'deviceCount' },
-			{ title: 'Users', property: 'userCount' },
-			{ title: 'Observations', property: 'observationCount' }
+			{ title: m.core_name(), property: 'name' },
+			{ title: m.inventory_enforcement_devices_tab(), property: 'deviceCount' },
+			{ title: m.inventory_enforcement_col_users(), property: 'userCount' },
+			{ title: m.inventory_enforcement_col_observations(), property: 'observationCount' }
 		]}
 		sortable={['name', 'deviceCount', 'userCount', 'observationCount']}
 		{initSort}
@@ -141,7 +145,10 @@
 			{lastPageIndex}
 			{total}
 			{loading}
-			itemLabelSingular="skill"
+			itemCountLabel={(count) =>
+				count === 1
+					? m.skills_device_skills_count_one({ count })
+					: m.skills_device_skills_count_other({ count })}
 			onPageChange={fetchPage}
 		/>
 	{/if}

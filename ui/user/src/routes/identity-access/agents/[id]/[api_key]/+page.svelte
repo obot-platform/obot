@@ -11,6 +11,7 @@
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { isAbortError } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -90,13 +91,13 @@
 	const views = $derived([
 		{
 			value: 'mcp' as const,
-			label: 'MCP Server Logs'
+			label: m.identity_access_agents_api_key_mcp_server_logs()
 		},
 		...(canViewLlmLogs
 			? [
 					{
 						value: 'llm' as const,
-						label: 'LLM Gateway Logs'
+						label: m.identity_access_agents_api_key_llm_gateway_logs()
 					}
 				]
 			: [])
@@ -193,7 +194,7 @@
 </script>
 
 <Layout
-	title={`${apiKey?.name || 'Agent Identity'} | ${apiKeyId}`}
+	title={`${apiKey?.name || m.identity_access_agents_agent_identity()} | ${apiKeyId}`}
 	showBackButton
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
@@ -211,18 +212,18 @@
 	>
 		<section class="flex flex-col gap-4">
 			<div class="paper flex flex-col flex-wrap items-stretch gap-4 p-4 md:flex-row">
-				{@render summary('Total', totalTokensData.totalTokens ?? 0)}
+				{@render summary(m.core_total_label(), totalTokensData.totalTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary('Input', totalTokensData.inputTokens ?? 0)}
+				{@render summary(m.core_col_input(), totalTokensData.inputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render summary('Output', totalTokensData.outputTokens ?? 0)}
+				{@render summary(m.core_col_output(), totalTokensData.outputTokens ?? 0)}
 				<div class="divider-horizontal hidden md:block"></div>
 				{@render summary(
-					'Cached Input',
+					m.identity_access_tokens_cached_input(),
 					(totalTokensData.cacheReadTokens ?? 0) + (totalTokensData.cacheWriteTokens ?? 0)
 				)}
 				<div class="divider-horizontal hidden md:block"></div>
-				{@render spendSummary('Spend', totalTokensData.totalSpend)}
+				{@render spendSummary(m.core_spend(), totalTokensData.totalSpend)}
 			</div>
 			<TokenUsageTimelineCard
 				{startDate}
@@ -266,9 +267,11 @@
 							class="flex w-full flex-col items-center justify-center gap-4 px-6 py-16 text-center"
 						>
 							<Captions class="text-muted-content size-20 opacity-50" />
-							<h4 class="text-muted-content text-lg font-semibold">No MCP server logs</h4>
+							<h4 class="text-muted-content text-lg font-semibold">
+								{m.identity_access_agents_api_key_no_mcp_logs()}
+							</h4>
 							<p class="text-muted-content max-w-md text-sm font-light">
-								There are no MCP server logs for this API key in the selected range.
+								{m.identity_access_agents_api_key_no_mcp_logs_description()}
 							</p>
 						</div>
 					{/snippet}
@@ -315,7 +318,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | {apiKey?.name || 'Agent Identity'} | {apiKeyId}</title>
+	<title>Obot | {apiKey?.name || m.identity_access_agents_agent_identity()} | {apiKeyId}</title>
 </svelte:head>
 
 <style lang="postcss">

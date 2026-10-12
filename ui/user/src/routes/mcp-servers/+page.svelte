@@ -12,6 +12,7 @@
 		MCP_ACCESS_POLICY_FIELD_IDS,
 		MCP_FILTERS_FIELD_IDS
 	} from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -109,83 +110,78 @@
 		return false;
 	});
 	let layoutTitle = $derived.by(() => {
-		if (!creating) return 'MCP Servers';
+		if (!creating) return m.nav_mcp_servers();
 		switch (selectedView) {
 			case 'entries':
-				return 'Add MCP Server';
+				return m.mcps_add_mcp_server();
 			case 'filters':
-				return 'Create Filter';
+				return m.mcps_filters_create_filter();
 			case 'tunnels':
-				return 'Create MCP Tunnel';
+				return m.mcps_tunnels_create_mcp_tunnel();
 			case 'ai-judge-policies':
-				return 'Create AI Judge Policy';
+				return m.mcps_create_ai_judge_policy();
 			case 'access-policies':
-				return 'Create MCP Access Policy';
+				return m.mcps_create_mcp_access_policy();
 			default:
-				return 'MCP Servers';
+				return m.nav_mcp_servers();
 		}
 	});
 	let views = $derived([
 		...(hasAdminAccess || isPowerUser
 			? [
 					{
-						label: 'Servers',
+						label: m.mcps_servers_tab(),
 						value: 'servers',
 						content: servers,
-						tooltip:
-							'MCP Servers gives AI systems a predictable way to plug into databases, local files, search engines, and APIs; these are the core components of vMCPs. Create or manage them here.'
+						tooltip: m.mcps_servers_tab_tooltip()
 					}
 				]
 			: []),
 		...(hasAdminAccess
 			? [
 					{
-						label: 'Sources',
+						label: m.mcps_sources_tab(),
 						value: 'sources',
 						content: sources,
-						tooltip:
-							'Manage URLs containing a repository of MCP servers that are supplied to the Obot gateway.'
+						tooltip: m.mcps_sources_tab_tooltip()
 					},
 					{
-						label: 'Deployments',
+						label: m.mcps_deployments_tab(),
 						value: 'deployments',
 						content: deployments,
-						tooltip: 'Manage running instances of MCP servers.'
+						tooltip: m.mcps_deployments_tab_tooltip()
 					},
 					{
-						label: 'Filters',
+						label: m.core_filters_title(),
 						value: 'filters',
 						content: filters,
-						tooltip:
-							'Intercept tool requests and responses of MCP servers to provide custom validation, logging, security checks, or other business logic before they are processed.'
+						tooltip: m.mcps_filters_tab_tooltip()
 					},
 					{
-						label: 'Tunnels',
+						label: m.mcps_tunnels_tab(),
 						value: 'tunnels',
 						content: tunnels,
-						tooltip:
-							'Set up tunnels to let the Obot gateway reach remote HTTP or HTTPS MCP servers that are not directly accessible from the Obot gateway.'
+						tooltip: m.mcps_tunnels_tab_tooltip()
 					}
 				]
 			: []),
 		...(isPowerUserPlus || hasAdminAccess
 			? [
 					{
-						label: 'Access Policies',
+						label: m.mcps_access_policies_tab(),
 						value: 'access-policies',
 						content: accessPolicy,
-						tooltip: 'Manage which MCP servers a user or group can access.'
+						tooltip: m.mcps_access_policies_tab_tooltip()
 					}
 				]
 			: []),
 		...(hasAdminAccess && messagePoliciesEnabled
 			? [
 					{
-						label: 'AI Judge Policies',
+						label: m.mcps_ai_judge_policies_tab(),
 						value: 'ai-judge-policies',
 						content: messagePolicies,
-						tooltip:
-							'Enforce MCP server tool calls with the LLM or view policy violations against existing policies.'
+						tooltip: m.mcps_ai_judge_policies_tab_tooltip()
 					}
 				]
 			: [])
@@ -302,7 +298,7 @@
 	</Layout>
 {:else}
 	<TabLayout
-		title="MCP Servers"
+		title={m.nav_mcp_servers()}
 		defaultView="servers"
 		rightNavActions={navActions}
 		{views}
@@ -317,15 +313,16 @@
 			id="add-catalog-entry-button"
 			onclick={() => selectServerTypeDialog?.open()}
 		>
-			<Plus class="size-4" /> Add MCP Server
+			<Plus class="size-4" />
+			{m.mcps_add_mcp_server()}
 		</button>
 	{:else if view === 'sources' && hasAdminAccess && !isAdminReadonly}
 		<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>
 			{#if syncing}
-				<Loading class="size-4" /> Syncing...
+				<Loading class="size-4" /> {m.mcps_syncing()}
 			{:else}
 				<RefreshCcw class="size-4" />
-				Sync
+				{m.mcps_sync()}
 			{/if}
 		</button>
 		<button
@@ -333,7 +330,8 @@
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			onclick={() => sourceDialog?.open()}
 		>
-			<Plus class="size-4" /> Add Source URL
+			<Plus class="size-4" />
+			{m.mcps_add_source_url()}
 		</button>
 	{:else if view === 'filters' && !isAdminReadonly}
 		{#if filtersLoading}
@@ -344,11 +342,12 @@
 			placement="bottom"
 			classes={{ popover: 'z-50' }}
 			id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
-			ariaLabel="Add New Filter"
+			ariaLabel={m.mcps_add_new_filter()}
 		>
 			{#snippet icon()}
 				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" /> Add New Filter
+					<Plus class="size-4" />
+					{m.mcps_add_new_filter()}
 				</span>
 			{/snippet}
 			<button
@@ -356,7 +355,7 @@
 				class="menu-button"
 				onclick={() => openCreate('filters')}
 			>
-				Create Custom
+				{m.mcps_create_custom()}
 			</button>
 			<button
 				id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
@@ -364,7 +363,7 @@
 				disabled={data.systemCatalogEntries.length === 0}
 				onclick={() => filtersTab?.openBuiltInPicker()}
 			>
-				Create From Built-in
+				{m.mcps_create_from_built_in()}
 			</button>
 		</DotDotDot>
 	{:else if view === 'tunnels' && !isAdminReadonly}
@@ -373,14 +372,15 @@
 			onclick={() => openCreate('tunnels')}
 		>
 			<Plus class="size-4" />
-			Create MCP Tunnel
+			{m.mcps_tunnels_create_mcp_tunnel()}
 		</button>
 	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => openCreate('ai-judge-policies')}
 		>
-			<Plus class="size-4" /> Add AI Judge Policy
+			<Plus class="size-4" />
+			{m.mcps_add_ai_judge_policy()}
 		</button>
 	{:else if view === 'access-policies' && !isAdminReadonly}
 		<button
@@ -388,7 +388,8 @@
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => openCreate('access-policies')}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.mcps_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -460,9 +461,9 @@
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">No created MCP Servers</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_no_created_servers()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			Looks like you don't have any MCP servers created yet.
+			{m.mcps_no_created_servers_description()}
 		</p>
 	</div>
 {/snippet}

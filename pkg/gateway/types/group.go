@@ -65,8 +65,9 @@ type GroupMemberships struct {
 	// UserID is the ID of the user that is a member of the group.
 	UserID uint `json:"userID" gorm:"primaryKey"`
 
-	// GroupID is the globally unique identifier for the group.
-	GroupID string `json:"groupID" gorm:"primaryKey"`
+	// GroupID is the globally unique identifier for the group. The primary key leads with UserID, so GroupID has its
+	// own index for the queries that read or replace a group's members.
+	GroupID string `json:"groupID" gorm:"primaryKey;index"`
 
 	// CreatedAt is when the group membership was created.
 	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`

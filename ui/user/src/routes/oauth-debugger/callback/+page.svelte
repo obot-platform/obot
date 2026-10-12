@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import { m } from '$lib/i18n';
 	import { twMerge } from 'tailwind-merge';
 
 	let error = $derived(page.url.searchParams.get('error') ?? '');
@@ -23,18 +24,18 @@
 		)}
 	>
 		<BetaLogo />
-		<h1 class=" text-lg font-semibold">OAuth Debugger Authorization</h1>
+		<h1 class=" text-lg font-semibold">{m.mcps_oauth_debugger_heading()}</h1>
 
 		<div class="flex flex-col items-center justify-center gap-4 p-4 pt-0">
 			{#if !hasPayload}
 				<p class="text-base-content text-sm">
-					This page is opened after the MCP OAuth debugger redirect. No code or error was provided.
+					{m.mcps_oauth_debugger_no_payload()}
 				</p>
 			{:else if isError}
 				<dl class="border-error/30 bg-error/10 space-y-4 rounded-md border p-4">
 					<div class="flex items-start justify-between">
 						<div>
-							<dt class="text-error text-sm font-medium">Error</dt>
+							<dt class="text-error text-sm font-medium">{m.common_error()}</dt>
 							<dd class="text-base-content mt-1 font-mono text-sm break-all">{error}</dd>
 						</div>
 						<CopyButton
@@ -48,20 +49,20 @@
 					</div>
 					{#if errorDescription}
 						<div>
-							<dt class="text-error text-sm font-medium">Description</dt>
+							<dt class="text-error text-sm font-medium">{m.core_description()}</dt>
 							<dd class="text-base-content mt-1 text-sm wrap-break-word">{errorDescription}</dd>
 						</div>
 					{/if}
 				</dl>
 			{:else}
 				<p class="text-muted-content text-sm font-light">
-					Copy the authorization code below into the "<b>Request & Acquire Authorization Code</b>"
-					step.
+					{m.mcps_oauth_debugger_copy_code_prefix()}<b>{m.mcps_oauth_debugger_copy_code_step()}</b
+					>{m.mcps_oauth_debugger_copy_code_suffix()}
 				</p>
 
 				<div class="relative bg-base-300 rounded-md px-4 py-2">
 					<div class="flex items-center justify-between mb-2">
-						<p class="text-sm font-semibold">Authorization Code</p>
+						<p class="text-sm font-semibold">{m.mcps_oauth_debugger_authorization_code()}</p>
 						<CopyButton
 							showTextLeft
 							classes={{ button: 'text-xs shrink-0 flex items-center gap-1' }}
@@ -76,7 +77,7 @@
 
 		<div class="border-t border-base-300 py-2 px-4 w-full">
 			<p class="text-[9px] text-muted-content truncate">
-				<span class="font-medium">State:</span>
+				<span class="font-medium">{m.mcps_oauth_debugger_state_label()}</span>
 				{state}
 			</p>
 		</div>
@@ -84,5 +85,5 @@
 </main>
 
 <svelte:head>
-	<title>Obot | OAuth Debugger Authorization</title>
+	<title>{m.mcps_oauth_debugger_page_title()}</title>
 </svelte:head>

@@ -61,6 +61,7 @@ type Client struct {
 	mcpOAuthTokenTrigger      func(context.Context, string) error
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
+	kickLifecycleDelivery     chan struct{}
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
@@ -93,6 +94,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		auditLogDeleteBatchSize:   defaultAuditLogDeleteBatchSize,
 		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
+		kickLifecycleDelivery:     make(chan struct{}, 1),
 	}
 
 	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
@@ -103,6 +105,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runAPIKeyCacheCleanup(ctx)
 	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
+	go c.runUserLifecycleEventDelivery(ctx)
+	go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	return c
 }
 

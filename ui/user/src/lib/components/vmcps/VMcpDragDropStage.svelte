@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { GripVertical, Layers, MousePointer2, Plus, Server } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -23,7 +24,8 @@
 	>
 		<Layers class="text-primary/70 size-3.5" />
 		<p class="flex items-center gap-0.5 font-mono text-[0.5rem] tracking-[0.08em] uppercase">
-			<Plus class="size-2 shrink-0" /> Create New vMCP
+			<Plus class="size-2 shrink-0" />
+			{m.vmcps_create_new_vmcp()}
 		</p>
 		<span class="bg-base-content/15 block h-1 w-20 rounded-full"></span>
 	</div>
@@ -37,7 +39,7 @@
 				<Server class="size-3" />
 			</div>
 			<div class="flex min-w-0 grow flex-col gap-1">
-				<p class="text-[0.5rem] leading-none font-medium">MCP Server</p>
+				<p class="text-[0.5rem] leading-none font-medium">{m.vmcps_mcp_server()}</p>
 				<span class="bg-base-content/15 block h-1 w-4/5 rounded-full"></span>
 			</div>
 		</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
+	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import LlmUsageView from './LlmUsageView.svelte';
 	import McpUsageView from './McpUsageView.svelte';
@@ -8,18 +9,18 @@
 	let views = $derived.by(() => {
 		const items: TabView[] = [{ label: 'MCP', value: 'mcp', content: mcp }];
 		if (hasAdminAccess) {
-			items.push({ label: 'Model', value: 'llm', content: llm });
+			items.push({ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm });
 		}
 		return items;
 	});
 </script>
 
 <svelte:head>
-	<title>Obot | Usage</title>
+	<title>{m.audit_usage_usage_page_title()}</title>
 </svelte:head>
 
 <TabLayout
-	title="Usage"
+	title={m.nav_usage()}
 	defaultView="mcp"
 	{views}
 	classes={{

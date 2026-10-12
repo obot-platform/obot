@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -14,6 +15,7 @@ func TestAuthProviderStatus(t *testing.T) {
 		name         string
 		authProvider v1.AuthProvider
 		cred         map[string]string
+		conn         *gatewaytypes.SCIMConnection
 		want         types.CommonProviderStatus
 	}{
 		{
@@ -67,6 +69,73 @@ func TestAuthProviderStatus(t *testing.T) {
 			},
 		},
 		{
+			name: "directory synchronization requires the directory parameters",
+			authProvider: authProvider(
+				oktaParameters(),
+				nil,
+				nil,
+			),
+			cred: map[string]string{
+				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL": "https://example.okta.com",
+			},
+			want: types.CommonProviderStatus{
+				Configured: false,
+				MissingConfigurationParameters: []string{
+					"OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+					"OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+				},
+			},
+		},
+		{
+			name: "a SCIM connection does not require the directory parameters",
+			authProvider: authProvider(
+				oktaParameters(),
+				nil,
+				nil,
+			),
+			cred: map[string]string{
+				"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL": "https://example.okta.com",
+			},
+			conn: &gatewaytypes.SCIMConnection{
+				AdapterType: "okta",
+			},
+			want: types.CommonProviderStatus{
+				Configured: true,
+			},
+		},
+		{
+			name: "a SCIM connection still requires the other parameters",
+			authProvider: authProvider(
+				oktaParameters(),
+				nil,
+				nil,
+			),
+			cred: map[string]string{},
+			conn: &gatewaytypes.SCIMConnection{
+				AdapterType: "okta",
+			},
+			want: types.CommonProviderStatus{
+				Configured:                     false,
+				MissingConfigurationParameters: []string{"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL"},
+			},
+		},
+		{
+			name: "nil credential falls back to the effective required configuration",
+			authProvider: authProvider(
+				oktaParameters(),
+				nil,
+				nil,
+			),
+			cred: nil,
+			conn: &gatewaytypes.SCIMConnection{
+				AdapterType: "okta",
+			},
+			want: types.CommonProviderStatus{
+				Configured:                     false,
+				MissingConfigurationParameters: []string{"OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL"},
+			},
+		},
+		{
 			name: "nil credential uses status missing configuration",
 			authProvider: authProvider(
 				[]types.ProviderConfigurationParameter{
@@ -105,7 +174,7 @@ func TestAuthProviderStatus(t *testing.T) {
 	licenseProvider := testLicenseProvider(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := AuthProviderStatus(t.Context(), tt.authProvider, tt.cred, licenseProvider)
+			got, err := AuthProviderStatus(t.Context(), tt.authProvider, tt.cred, tt.conn, licenseProvider)
 			if err != nil {
 				t.Fatalf("AuthProviderStatus() error = %v", err)
 			}
@@ -278,6 +347,22 @@ func testLicenseProvider(t *testing.T) *license.Provider {
 		t.Fatalf("NewProvider() error = %v", err)
 	}
 	return provider
+}
+
+// oktaParameters returns required parameters like the Okta auth provider's: the issuer, and the two directory
+// parameters that only directory synchronization uses.
+func oktaParameters() []types.ProviderConfigurationParameter {
+	return []types.ProviderConfigurationParameter{
+		{
+			Name: "OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL",
+		},
+		{
+			Name: "OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID",
+		},
+		{
+			Name: "OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY",
+		},
+	}
 }
 
 func authProvider(requiredConfig []types.ProviderConfigurationParameter, missingConfig []string, requiredEntitlements []string) v1.AuthProvider {

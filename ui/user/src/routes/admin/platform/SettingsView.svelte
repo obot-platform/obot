@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		type AppNotification,
 		type GitCredential,
@@ -65,15 +66,11 @@
 	let canCreateGitCredential = $derived(!isAdminReadonly);
 
 	const descriptions: Record<string, string | Snippet> = {
-		notifications:
-			'Set up a notification banner to display at the top of the application across all pages.',
+		notifications: m.platform_settings_notifications_description(),
 		productAnalytics: productAnalyticsSnippet,
-		modelProxy:
-			'Configure whether or not the provided model proxy should be enabled to use for the vMCP Inspector.',
-		registryConnections:
-			'Create a managed image pull secret to let Obot pull private MCP server images.',
-		gitCredentials:
-			'Create a host-bound credential to use a personal access token across Git repositories.'
+		modelProxy: m.platform_settings_model_proxy_description(),
+		registryConnections: m.platform_settings_registry_description(),
+		gitCredentials: m.platform_settings_git_description()
 	};
 
 	async function handleSave(event: SubmitEvent) {
@@ -116,23 +113,33 @@
 
 <div class="flex w-full flex-col gap-4">
 	<form id="platform-settings" class="flex flex-col gap-4" novalidate onsubmit={handleSave}>
-		{@render section('Notifications', 'notifications', descriptions.notifications, notifications)}
+		{@render section(
+			m.platform_settings_notifications(),
+			'notifications',
+			descriptions.notifications,
+			notifications
+		)}
 		{#if showProductAnalytics}
 			{@render section(
-				'Product Analytics',
+				m.platform_settings_product_analytics(),
 				'product-analytics',
 				descriptions.productAnalytics,
 				productAnalytics
 			)}
 		{/if}
 		{#if modelProxySettings}
-			{@render section('Model Proxy', 'model-proxy', descriptions.modelProxy, modelProxy)}
+			{@render section(
+				m.platform_settings_model_proxy(),
+				'model-proxy',
+				descriptions.modelProxy,
+				modelProxy
+			)}
 		{/if}
 	</form>
 
 	{#if showRegistryConnections}
 		{@render section(
-			'Registry Connections',
+			m.platform_settings_registry_connections(),
 			'registry-connections',
 			descriptions.registryConnections,
 			registryConnections
@@ -140,7 +147,7 @@
 	{/if}
 
 	{@render section(
-		'Git Credentials',
+		m.platform_settings_git_credentials(),
 		'git-credentials',
 		descriptions.gitCredentials,
 		gitCredentialsSection,
@@ -157,7 +164,7 @@
 				onclick={handleCancel}
 				disabled={saving || !isDirty}
 			>
-				Cancel
+				{m.common_cancel()}
 			</button>
 			<button
 				type="submit"
@@ -166,7 +173,7 @@
 				data-settings-save="true"
 				disabled={saving || !isDirty}
 			>
-				Save
+				{m.core_save()}
 			</button>
 		</div>
 	{/if}
@@ -233,12 +240,12 @@
 
 {#snippet productAnalyticsSnippet()}
 	<p class="text-muted-content text-sm font-light">
-		Share product usage data to help improve Obot.
+		{m.platform_settings_share_usage()}
 		<a
 			class="text-link"
 			href="https://docs.obot.ai/configuration/product-analytics"
 			target="_blank"
-			rel="external noopener noreferrer">Learn more</a
+			rel="external noopener noreferrer">{m.platform_learn_more()}</a
 		>
 	</p>
 {/snippet}
@@ -261,7 +268,7 @@
 			onclick={() => gitCredentialsView?.openCreate()}
 		>
 			<Plus class="size-4" />
-			Add Git Credential
+			{m.platform_settings_add_git_credential()}
 		</button>
 	{/if}
 {/snippet}

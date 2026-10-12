@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { OrgUser, VMCP, VMCPInstance } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
@@ -12,6 +13,8 @@
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
 	import { getToolCounts, getVMcpCreator } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
+	import { hasAccessWithinSubjects } from '$lib/subjectResolver';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -28,14 +31,13 @@
 	interface Props {
 		vmcp: VMCP;
 		components: VMcpComponentView[];
-		canEdit?: boolean;
 		context: RowContext;
 		drag: EntryDrag;
 		onEdit?: () => void;
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		onUpdate?: (vmcp: VMCP) => void;
-		onModifyComponent?: (component: VMcpComponentView) => void;
+		onSelectComponent?: (component: VMcpComponentView) => void;
 		usersMap: Map<string, OrgUser>;
 		openSelectInstance?: (
 			instances: VMCPInstance[],
@@ -46,30 +48,30 @@
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 		connectEl?: HTMLElement;
+		readonly?: boolean;
 	}
 
 	let {
 		vmcp,
 		components,
-		canEdit = true,
 		context,
 		drag,
 		onEdit,
 		onConnect,
 		onDelete,
 		onUpdate,
-		onModifyComponent,
+		onSelectComponent,
 		usersMap,
 		openSelectInstance,
 		openDiff,
 		openUpdateConfirm,
 		openEditInstanceConfiguration,
-		connectEl = $bindable()
+		connectEl = $bindable(),
+		readonly
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
-	const roughEstimationText =
-		'This is a rough approximation of the number of tools available. The exact number may vary.';
+	const roughEstimationText = m.vmcps_rough_tool_estimate();
 
 	let componentRange = $derived.by(() => {
 		if (components.length <= VMCP_COMPONENT_WINDOW_THRESHOLD) {
@@ -85,6 +87,18 @@
 	});
 
 	let owner = $derived(getVMcpCreator(vmcp, usersMap));
+	const sharedViaProfile = $derived(
+		Boolean(readonly) &&
+			!profile.current.hasAdminAccess?.() &&
+			hasAccessWithinSubjects(
+				(vmcp.profiles ?? []).flatMap((item) => item.subjects),
+				profile.current
+			)
+	);
+
+	function componentSelectable(component: VMcpComponentView) {
+		return Boolean(onSelectComponent) && !(sharedViaProfile && !component.toolOverrides?.length);
+	}
 
 	function chainDelay(index: number) {
 		return Math.min(index, CHAIN_STAGGER_MAX_STEPS) * CHAIN_STAGGER_MS;
@@ -190,7 +204,7 @@
 
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
-	{@const name = vmcp.displayName || 'Untitled vMCP'}
+	{@const name = vmcp.displayName || m.vmcps_untitled_vmcp()}
 	<div class="translate-y-1">
 		<div
 			use:drag.vmcpTarget={vmcp.id}
@@ -198,7 +212,7 @@
 				'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
 				linked
 					? 'vmcp-drop-target border-primary text-primary'
-					: canEdit
+					: !readonly
 						? 'p-0.5 aura text-primary'
 						: 'p-0.5'
 			)}
@@ -206,7 +220,7 @@
 		>
 			<VMcpCard
 				{vmcp}
-				selectAriaLabel={canEdit ? `Edit ${name}` : name}
+				selectAriaLabel={!readonly ? m.vmcps_edit_named({ name }) : name}
 				bind:connectEl
 				{onConnect}
 				hideTest
@@ -216,10 +230,10 @@
 				{openDiff}
 				{openUpdateConfirm}
 				{openEditInstanceConfiguration}
-				onEditDetails={canEdit ? onEdit : undefined}
+				onEditDetails={!readonly ? onEdit : undefined}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
-					canEdit && 'cursor-pointer'
+					!readonly && 'cursor-pointer'
 				)}
 				{owner}
 			>
@@ -240,14 +254,18 @@
 			</VMcpCard>
 		</div>
 		<div class="flex justify-between gap-4 pt-1 px-0.5">
-			<p class="text-muted-content text-xs font-light">{vmcp.components.length} Servers</p>
+			<p class="text-muted-content text-xs font-light">
+				{m.vmcps_server_count({ count: vmcp.components.length })}
+			</p>
 
 			{#if tools}
 				<p class="text-muted-content text-xs font-light items-center flex gap-1">
 					{#if tools.total === 0}
-						All tools enabled
+						{m.vmcps_all_tools_enabled()}
 					{:else}
-						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
+						{tools.approximate
+							? m.vmcps_tools_enabled_approx({ count: tools.enabled })
+							: m.vmcps_tools_enabled({ count: tools.enabled })}
 						{#if tools.approximate}
 							<InfoTooltip
 								class="pointer-events-auto relative z-10"
@@ -271,23 +289,24 @@
 			linked && 'vmcp-drop-target border-primary'
 		)}
 		role="region"
-		aria-label={`MCP Servers in ${vmcp.displayName || 'vMCP'}`}
+		aria-label={m.vmcps_mcp_servers_in_named({ name: vmcp.displayName || 'vMCP' })}
 		in:fade={{ delay: CREATE_WIRE_DURATION_MS, duration: 200 }}
 	>
 		<p class="text-muted-content text-xs italic">
-			{canEdit ? 'No servers yet. Drag one in from the MCP Servers panel.' : 'No servers yet.'}
+			{!readonly ? m.vmcps_no_servers_yet_drag() : m.vmcps_no_servers_yet()}
 		</p>
 	</div>
 {/snippet}
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
+	{@const selectable = componentSelectable(component)}
 	<div
 		class={twMerge(
-			canEdit &&
-				'hover:aura hover:aura-glow p-0.5 text-transparent hover:text-primary hover:-translate-y-0.5'
+			'p-0.5 text-transparent',
+			selectable && 'hover:aura hover:aura-glow hover:text-primary hover:-translate-y-0.5'
 		)}
 	>
-		{#if canEdit}
+		{#if selectable}
 			<button
 				use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
 				class={twMerge(
@@ -295,7 +314,7 @@
 				)}
 				aria-label={component.name}
 				in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
-				onclick={() => onModifyComponent?.(component)}
+				onclick={() => onSelectComponent?.(component)}
 			>
 				{@render componentContent(component)}
 			</button>
@@ -317,7 +336,7 @@
 			<div class="min-w-0 grow">
 				<p class="truncate text-sm font-semibold">{component.name}</p>
 				<p class="text-muted-content line-clamp-2 text-xs">
-					{component.description || 'No description'}
+					{component.description || m.vmcps_no_description()}
 				</p>
 			</div>
 		</div>
@@ -327,16 +346,20 @@
 
 {#snippet componentTools(component: VMcpComponentView)}
 	{@const withToolOverrides = component.toolOverrides}
-	<div class="divider my-0 text-xs font-medium text-muted-content mb-2">Tools</div>
+	<div class="divider my-0 text-xs font-medium text-muted-content mb-2">{m.vmcps_tools()}</div>
 	{#if withToolOverrides && withToolOverrides.length > 0}
 		{@const total = withToolOverrides.length}
 		{@const selectedCount = withToolOverrides.filter((tool) => tool.enabled === true).length}
 		<p class="text-muted-content font-mono text-xs text-center w-full">
-			{selectedCount} / {total} selected
+			{#if readonly}
+				{total} total tools
+			{:else}
+				{m.vmcps_tools_selected_count({ selected: selectedCount, total })}
+			{/if}
 		</p>
 	{:else}
 		<p class="text-muted-content font-mono text-xs text-center w-full">
-			All tools enabled by default
+			{m.vmcps_all_tools_enabled_by_default()}
 		</p>
 	{/if}
 {/snippet}

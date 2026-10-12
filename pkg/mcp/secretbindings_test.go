@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -170,4 +171,115 @@ func TestListAllowedSecretBindingTargets(t *testing.T) {
 		{Name: "a-secret", Keys: []string{"token"}},
 		{Name: "z-secret", Keys: []string{"a", "b"}},
 	}, targets)
+}
+
+func TestUnresolvedSecretBindingKeys(t *testing.T) {
+	const ns = "obot-ns"
+	const label = "test-secret-binding-label"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			Data: map[string][]byte{"present": []byte("value"), "empty": nil},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
+		},
+		&corev1.Secret{
+			Data: map[string][]byte{"present": []byte("value")},
+			Name: "unlabeled-secret", Namespace: ns,
+		},
+	).Build()
+
+	config := []types.MCPConfig{
+		{Usage: types.Env, Key: "RESOLVED", SecretBinding: binding("bound-secret", "present")},
+		{Usage: types.Header, Key: "X-Empty", SecretBinding: binding("bound-secret", "empty")},
+		{Usage: types.Env, Key: "MISSING_KEY", SecretBinding: binding("bound-secret", "absent")},
+		{Usage: types.Env, Key: "MISSING_SECRET", SecretBinding: binding("missing-secret", "present")},
+		{Usage: types.Env, Key: "NOT_ALLOWED", SecretBinding: binding("unlabeled-secret", "present")},
+		{Usage: types.Env, Key: "USER_VALUE"},
+	}
+
+	unresolved, err := UnresolvedSecretBindingKeys(t.Context(), c, ns, config, label)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"MISSING_KEY", "MISSING_SECRET", "NOT_ALLOWED", "X-Empty"}, unresolved)
+
+	unresolved, err = UnresolvedSecretBindingKeys(t.Context(), nil, ns, config, label)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"MISSING_KEY", "MISSING_SECRET", "NOT_ALLOWED", "RESOLVED", "X-Empty"}, unresolved)
+
+	unresolved, err = UnresolvedSecretBindingKeys(t.Context(), c, ns, config[5:], label)
+	require.NoError(t, err)
+	assert.Empty(t, unresolved)
+}
+
+func TestSecretBindingsCheckHash(t *testing.T) {
+	const label = "test-secret-binding-label"
+	config := []types.MCPConfig{
+		{Usage: types.Env, Key: "TOKEN", SecretBinding: binding("tokens", "token")},
+		{Usage: types.Env, Key: "USER_VALUE"},
+	}
+	hash := SecretBindingsCheckHash(config, label)
+	require.NotEmpty(t, hash)
+
+	assert.Empty(t, SecretBindingsCheckHash(config[1:], label), "config without bindings")
+	assert.NotEqual(t, hash, SecretBindingsCheckHash(config, "other-label"), "allow label changed")
+
+	rebound := []types.MCPConfig{{Usage: types.Env, Key: "TOKEN", SecretBinding: binding("tokens", "other")}, config[1]}
+	assert.NotEqual(t, hash, SecretBindingsCheckHash(rebound, label), "binding changed")
+
+	userValueChanged := []types.MCPConfig{config[0], {Usage: types.Env, Key: "USER_VALUE", Required: true}}
+	assert.Equal(t, hash, SecretBindingsCheckHash(userValueChanged, label), "unbound config changed")
+}
+
+func TestRefreshSecretBindingStatus(t *testing.T) {
+	const ns = "obot-ns"
+	const label = "test-secret-binding-label"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
+		Data: map[string][]byte{"token": []byte("value")},
+		Name: "tokens", Namespace: ns, Labels: map[string]string{label: "true"},
+	}).Build()
+
+	newServer := func(config ...types.MCPConfig) *v1.MCPServer {
+		return &v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{Config: config}}}
+	}
+	resolved := types.MCPConfig{Usage: types.Env, Key: "RESOLVED", SecretBinding: binding("tokens", "token")}
+	missing := types.MCPConfig{Usage: types.Env, Key: "MISSING", SecretBinding: binding("missing", "token")}
+
+	t.Run("keeps a status the controller computed for the current bindings", func(t *testing.T) {
+		server := newServer(resolved, missing)
+		server.Status.SecretBindingsCheckHash = SecretBindingsCheckHash(server.Spec.Manifest.Config, label)
+		server.Status.UnresolvedSecretBindings = []string{"RESOLVED"}
+
+		// A nil client would leave every binding unresolved if it were read.
+		require.NoError(t, RefreshSecretBindingStatus(t.Context(), nil, ns, server, label))
+		assert.Equal(t, []string{"RESOLVED"}, server.Status.UnresolvedSecretBindings)
+	})
+
+	t.Run("resolves bindings the controller has not checked", func(t *testing.T) {
+		server := newServer(resolved, missing)
+
+		require.NoError(t, RefreshSecretBindingStatus(t.Context(), c, ns, server, label))
+		assert.Equal(t, []string{"MISSING"}, server.Status.UnresolvedSecretBindings)
+		assert.Equal(t, SecretBindingsCheckHash(server.Spec.Manifest.Config, label), server.Status.SecretBindingsCheckHash)
+	})
+
+	t.Run("resolves bindings that changed since the controller checked them", func(t *testing.T) {
+		server := newServer(resolved)
+		server.Status.SecretBindingsCheckHash = SecretBindingsCheckHash(server.Spec.Manifest.Config, label)
+		server.Spec.Manifest.Config = append(server.Spec.Manifest.Config, missing)
+
+		require.NoError(t, RefreshSecretBindingStatus(t.Context(), c, ns, server, label))
+		assert.Equal(t, []string{"MISSING"}, server.Status.UnresolvedSecretBindings)
+	})
+
+	t.Run("does nothing for servers without bindings", func(t *testing.T) {
+		server := newServer(types.MCPConfig{Usage: types.Env, Key: "USER_VALUE", Required: true})
+
+		require.NoError(t, RefreshSecretBindingStatus(t.Context(), nil, ns, server, label))
+		assert.Empty(t, server.Status.UnresolvedSecretBindings)
+		assert.Empty(t, server.Status.SecretBindingsCheckHash)
+	})
 }

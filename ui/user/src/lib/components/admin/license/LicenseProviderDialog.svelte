@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { BaseProvider } from '$lib/services';
 	import type { CommunityLicenseEnrollment } from '$lib/services/admin/types';
 	import { darkMode } from '$lib/stores';
@@ -34,7 +35,7 @@
 		provider = undefined;
 		clearUrlParams(['provider']);
 	}}
-	cancelText="Close"
+	cancelText={m.core_close()}
 >
 	{#snippet titleContent()}
 		{#if provider}
@@ -58,10 +59,12 @@
 			<div class="flex items-center gap-2">
 				{#if provider?.configured}
 					<TriangleAlert class="size-4 text-warning" />
-					<h4 class="font-semibold text-base">License {licenseKey ? 'Invalid' : 'Missing'}</h4>
+					<h4 class="font-semibold text-base">
+						{licenseKey ? m.platform_license_notice_invalid() : m.platform_license_notice_missing()}
+					</h4>
 				{:else}
 					<CircleAlert class="size-4 text-muted-content" />
-					<h4 class="font-semibold text-base">License Required</h4>
+					<h4 class="font-semibold text-base">{m.platform_license_notice_required()}</h4>
 				{/if}
 			</div>
 		{/if}
@@ -72,14 +75,15 @@
 				<CommunitySignUpForm {endpoint} {onSubmit} {signUpMessage} />
 			{:else if provider?.configured}
 				<p>
-					Your license for or access to {provider.name} is invalid. Please contact support at
-					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
+					{m.platform_license_notice_invalid_access_prefix({ name: provider.name })}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+					>{m.platform_license_notice_invalid_access_suffix()}
 				</p>
 			{:else}
 				<p>
-					A valid license is required to use {provider.name}. Please contact support at
-					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> for more information or to
-					upgrade to Obot Enterprise.
+					{m.platform_license_notice_required_prefix({ name: provider.name })}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+					>{m.platform_license_notice_required_suffix()}
 				</p>
 			{/if}
 		{/if}

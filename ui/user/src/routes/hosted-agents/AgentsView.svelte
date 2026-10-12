@@ -6,6 +6,7 @@
 	import HostedAgentInstanceForm from '$lib/components/hosted-agents/HostedAgentInstanceForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type {
@@ -162,10 +163,14 @@
 			// split is mentioned only when someone else is demonstrably using the
 			// pool right now; otherwise the usage is simply the caller's own.
 			title: (others > 0
-				? [label, `Yours: ${format(mine)}`, `Others: ${format(others)}`]
-				: [label, `Used: ${format(mine)}`]
+				? [
+						label,
+						m.hosted_agents_agents_metric_yours({ value: format(mine) }),
+						m.hosted_agents_agents_metric_others({ value: format(others) })
+					]
+				: [label, m.hosted_agents_agents_metric_used({ value: format(mine) })]
 			)
-				.concat(`Capacity: ${format(capacity)}`)
+				.concat(m.hosted_agents_agents_metric_capacity({ value: format(capacity) }))
 				.join('\n')
 		};
 	}
@@ -173,12 +178,12 @@
 	// Shown when the backend reports that it could not attribute disk usage to
 	// this pool, which is why the bar reads "—" rather than 0%.
 	const unmeasuredDiskTitle = [
-		'Disk',
-		'Usage cannot be measured on this cluster.',
+		m.hosted_agents_agents_disk(),
+		m.hosted_agents_agents_disk_unmeasured_1(),
 		'',
-		'The pool volume shares a filesystem with the node,',
-		'so any figure would describe the host rather than',
-		'this pool.'
+		m.hosted_agents_agents_disk_unmeasured_2(),
+		m.hosted_agents_agents_disk_unmeasured_3(),
+		m.hosted_agents_agents_disk_unmeasured_4()
 	].join('\n');
 
 	// Disk is not split between "yours" and "others" the way CPU and memory are.
@@ -189,14 +194,14 @@
 		if (!snapshot?.storageMeasured) return undefined;
 		const used = snapshot.pool.storageBytes;
 		return {
-			label: 'Disk',
+			label: m.hosted_agents_agents_disk(),
 			usedPercent: percent(used, capacity),
 			title: [
-				'Disk',
-				`Used: ${formatMemory(used)}`,
-				`Capacity: ${formatMemory(capacity)}`,
+				m.hosted_agents_agents_disk(),
+				m.hosted_agents_agents_metric_used({ value: formatMemory(used) }),
+				m.hosted_agents_agents_metric_capacity({ value: formatMemory(capacity) }),
 				'',
-				'Counts every sandbox in the pool.'
+				m.hosted_agents_agents_disk_counts_every_sandbox()
 			].join('\n')
 		};
 	}
@@ -310,7 +315,10 @@
 		if (!selectedAgent) return;
 		formError = '';
 		if (!editing && isAtInstanceLimit(selectedAgent)) {
-			formError = `You have reached the limit of ${selectedAgent.maxInstancesPerUser} instances for ${selectedAgent.name}.`;
+			formError = m.hosted_agents_agents_instance_limit_reached({
+				max: selectedAgent.maxInstancesPerUser ?? 0,
+				name: selectedAgent.name
+			});
 			return;
 		}
 		saving = true;
@@ -362,9 +370,11 @@
 	{#if hostedAgents.length === 0}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Bot class="text-muted-content size-24 opacity-25" />
-			<h4 class="text-muted-content text-lg font-semibold">No hosted agents available</h4>
+			<h4 class="text-muted-content text-lg font-semibold">
+				{m.hosted_agents_agents_no_hosted_agents()}
+			</h4>
 			<p class="text-muted-content text-sm font-light">
-				Ask an administrator to grant you access to one.
+				{m.hosted_agents_agents_no_hosted_agents_desc()}
 			</p>
 		</div>
 	{:else}
@@ -372,8 +382,7 @@
 			     left out here and surfaces in the bar's tooltip on the rare occasion
 			     someone else is actually using the pool. -->
 		<p class="text-muted-content -mt-1 text-sm font-light">
-			Launch an agent to get your own instance of it. Instances run in a pool — a bucket of CPU and
-			memory they draw from.
+			{m.hosted_agents_agents_intro()}
 		</p>
 		{#each displayedPools as pool, poolIndex (pool.id || 'pending')}
 			{@const used = utilization.get(pool.id)?.pool}
@@ -381,13 +390,15 @@
 				<div class="bg-base-100 dark:bg-base-300 flex items-center justify-between gap-4 px-4 py-3">
 					<div class="min-w-0">
 						<h2 class="text-sm font-semibold">
-							{pool.id ? `Pool ${poolIndex + 1}` : 'Your pool'}
+							{pool.id
+								? m.hosted_agents_agents_pool_n({ n: poolIndex + 1 })
+								: m.hosted_agents_agents_your_pool()}
 						</h2>
 						<p class="text-muted-content truncate text-xs">
 							{#if pool.id}
 								{pool.id}
 							{:else}
-								Created automatically when you start your first instance
+								{m.hosted_agents_agents_pool_created_automatically()}
 							{/if}
 						</p>
 					</div>
@@ -424,7 +435,7 @@
 									class:cursor-help={!disk}
 									title={disk?.title ?? unmeasuredDiskTitle}
 								>
-									<span class="text-muted-content">Disk</span>
+									<span class="text-muted-content">{m.hosted_agents_agents_disk()}</span>
 									{#if disk}
 										<div class="bg-base-200 dark:bg-base-400 flex h-1.5 overflow-hidden rounded">
 											<div class="bg-primary h-full" style:width={`${disk.usedPercent}%`}></div>
@@ -437,13 +448,17 @@
 								</div>
 							</div>
 						{/if}
-						{#if pool.suspended}<span class="badge badge-warning badge-sm">Suspended</span>{/if}
+						{#if pool.suspended}<span class="badge badge-warning badge-sm"
+								>{m.hosted_agents_suspended()}</span
+							>{/if}
 					</div>
 				</div>
 				<div
 					class="text-muted-content bg-base-300 dark:bg-base-200 border-base-200 dark:border-base-400 grid grid-cols-[minmax(13rem,2fr)_6rem_minmax(8rem,1fr)_11rem] gap-3 border-t px-4 py-2 text-xs font-medium uppercase"
 				>
-					<span>Agent</span><span>Instances</span><span>Status</span><span></span>
+					<span>{m.chat_agents_col_agent()}</span><span>{m.chat_agents_col_instances()}</span><span
+						>{m.core_status()}</span
+					><span></span>
 				</div>
 				{#each hostedAgents as agent (agent.id)}
 					{@const rowInstances = instancesFor(agent.id, pool.id)}
@@ -466,7 +481,9 @@
 									<p class="truncate text-sm font-medium">{agent.name}</p>
 									{#if unavailableReason(agent)}
 										<p class="text-warning truncate text-xs" title={unavailableReason(agent)}>
-											Unavailable — {unavailableReason(agent)}
+											{m.hosted_agents_agents_unavailable_reason({
+												reason: unavailableReason(agent)
+											})}
 										</p>
 									{:else}
 										<p class="text-muted-content truncate text-xs">{agent.description ?? ''}</p>
@@ -476,8 +493,10 @@
 							<span class="text-sm">{rowInstances.length}</span>
 							<div class="text-muted-content min-w-0 text-xs">
 								<p>
-									{rowInstances.filter((item) => instanceState(item) === 'ready')
-										.length}/{rowInstances.length} ready
+									{m.hosted_agents_agents_ready_count({
+										ready: rowInstances.filter((item) => instanceState(item) === 'ready').length,
+										total: rowInstances.length
+									})}
 								</p>
 								{#if rowInstances.length}<p class="truncate">
 										{agentUsage.cpuVcpus.toFixed(1)} CPU · {(
@@ -491,13 +510,15 @@
 									isAtInstanceLimit(agent) ||
 									Boolean(unavailableReason(agent))}
 								title={unavailableReason(agent)
-									? `Cannot be launched here: ${unavailableReason(agent)}`
+									? m.hosted_agents_agents_cannot_launch_here({ reason: unavailableReason(agent) })
 									: isAtInstanceLimit(agent)
-										? `Limit of ${agent.maxInstancesPerUser} instances reached`
+										? m.hosted_agents_agents_limit_reached({ max: agent.maxInstancesPerUser ?? 0 })
 										: pool.suspended
-											? 'This pool is suspended'
-											: 'Create instance'}
-								onclick={() => create(agent, pool.id)}><Plus class="size-4" /> New</button
+											? m.hosted_agents_agents_pool_suspended()
+											: m.hosted_agents_agents_create_instance()}
+								onclick={() => create(agent, pool.id)}
+								><Plus class="size-4" />
+								{m.chat_agents_new()}</button
 							>
 						</div>
 						{#if expanded.has(rowKey)}
@@ -520,7 +541,8 @@
 											</p>
 										</div>
 									</div>
-									<span class="text-muted-content text-xs">Instance</span>
+									<span class="text-muted-content text-xs">{m.hosted_agents_agents_instance()}</span
+									>
 									<div>
 										<span
 											class="badge badge-sm {instanceState(instance) === 'ready'
@@ -550,7 +572,9 @@
 												class="btn btn-ghost btn-sm"
 												href="/agent-connect/{instance.id}"
 												target="_blank"
-												rel="external noopener noreferrer"><ExternalLink class="size-4" /> Open</a
+												rel="external noopener noreferrer"
+												><ExternalLink class="size-4" />
+												{m.chat_agents_open()}</a
 											>{/if}
 										<!-- The terminal is the agent's decision, and a console only
 											     exists while the sandbox is running. -->
@@ -558,23 +582,23 @@
 												class="btn btn-ghost btn-sm {instanceState(instance) === 'ready'
 													? ''
 													: 'btn-disabled pointer-events-none opacity-50'}"
-												aria-label="Open terminal"
+												aria-label={m.hosted_agents_agents_open_terminal()}
 												title={instanceState(instance) === 'ready'
-													? 'Open terminal'
-													: 'The sandbox is not running'}
+													? m.hosted_agents_agents_open_terminal()
+													: m.hosted_agents_agents_sandbox_not_running()}
 												href={resolve('/hosted-agents/[instance_id]/terminal', {
 													instance_id: instance.id
 												})}><SquareTerminal class="size-4" /></a
 											>{/if}
 										<button
 											class="btn btn-ghost btn-sm"
-											aria-label="Edit instance"
+											aria-label={m.hosted_agents_agents_edit_instance()}
 											disabled={Boolean(instance.deleted)}
 											onclick={() => edit(agent, instance)}><Pencil class="size-4" /></button
 										>
 										<button
 											class="btn btn-ghost btn-sm text-error"
-											aria-label="Delete instance"
+											aria-label={m.hosted_agents_agents_delete_instance()}
 											disabled={Boolean(instance.deleted)}
 											onclick={() => (deleting = instance)}><Trash2 class="size-4" /></button
 										>
@@ -583,7 +607,7 @@
 							{:else}<p
 									class="bg-base-200 dark:bg-base-400 border-base-200 dark:border-base-400 text-muted-content border-t px-10 py-3 text-xs"
 								>
-									No instances.
+									{m.hosted_agents_agents_no_instances()}
 								</p>{/each}
 						{/if}
 					</div>
@@ -595,7 +619,11 @@
 
 <ResponsiveDialog
 	bind:this={formDialog}
-	title={editing ? 'Edit instance' : `New ${selectedAgent?.name ?? 'instance'}`}
+	title={editing
+		? m.hosted_agents_agents_edit_instance()
+		: m.hosted_agents_agents_new_named({
+				name: selectedAgent?.name ?? m.hosted_agents_agents_instance_lower()
+			})}
 	class="default-scrollbar-thin max-h-[90vh] overflow-y-auto md:max-w-5xl"
 >
 	{#if selectedAgent}<HostedAgentInstanceForm
@@ -617,13 +645,17 @@
 			</div>
 		{/if}
 		<div class="flex justify-end gap-2">
-			<button class="btn btn-secondary" onclick={() => formDialog?.close()}>Cancel</button><button
+			<button class="btn btn-secondary" onclick={() => formDialog?.close()}
+				>{m.common_cancel()}</button
+			><button
 				class="btn btn-primary"
 				disabled={saving ||
 					!form.name ||
 					(!editing && Boolean(selectedAgent && isAtInstanceLimit(selectedAgent)))}
 				onclick={save}
-				>{#if saving}<Loading class="size-4" />{:else}{editing ? 'Update' : 'Create'}{/if}</button
+				>{#if saving}<Loading class="size-4" />{:else}{editing
+						? m.core_update()
+						: m.chat_agents_create()}{/if}</button
 			>
 		</div>
 	</div>
@@ -631,7 +663,7 @@
 
 <Confirm
 	show={Boolean(deleting)}
-	msg={`Delete ${deleting?.name ?? 'this instance'}?`}
+	msg={m.chat_delete_named({ name: deleting?.name ?? m.chat_agents_this_instance() })}
 	oncancel={() => (deleting = undefined)}
 	onsuccess={async () => {
 		if (!deleting) return;

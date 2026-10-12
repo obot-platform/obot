@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores/index.js';
@@ -16,7 +17,7 @@
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
 	let mcpServer = $state<MCPCatalogServer>();
-	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
+	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? m.core_unknown());
 
 	async function fetchUserInfo() {
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
@@ -57,7 +58,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<p>Server information cannot be provided at this time.</p>
+					<p>{m.mcps_server_info_unavailable()}</p>
 				</div>
 			</div>
 		{/if}

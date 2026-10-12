@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
@@ -40,10 +41,9 @@
 		<div class="flex gap-6">
 			<div class="flex grow flex-col gap-4">
 				<div class="flex flex-col gap-1">
-					<h4 class="text-lg font-semibold">Default User Role</h4>
+					<h4 class="text-lg font-semibold">{m.identity_access_roles_default_user_role()}</h4>
 					<p class="text-muted-content text-sm font-light">
-						Set the initial default role for all new users when they first log into the system. User
-						roles can be changed individually from the "Users" page.
+						{m.identity_access_roles_default_user_role_description()}
 					</p>
 
 					<div class="mt-4 flex flex-col gap-4">
@@ -80,7 +80,7 @@
 					in:fade={{ duration: 200 }}
 					class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
 				>
-					Your changes have been saved.
+					{m.core_changes_saved()}
 				</span>
 			{/if}
 
@@ -90,7 +90,7 @@
 					baseDefaultRole = prevBaseDefaultRole;
 				}}
 			>
-				Reset
+				{m.core_reset_page()}
 			</button>
 			<button
 				class="btn btn-primary flex items-center gap-1"
@@ -100,7 +100,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{:else}
-					Save
+					{m.core_save()}
 				{/if}
 			</button>
 		</div>

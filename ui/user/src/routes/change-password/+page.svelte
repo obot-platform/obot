@@ -4,6 +4,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService } from '$lib/services';
 	import { CircleAlert } from '@lucide/svelte';
@@ -31,7 +32,7 @@
 		event.preventDefault();
 		error = undefined;
 		if (password !== confirmation) {
-			error = 'The passwords do not match.';
+			error = m.auth_password_mismatch();
 			return;
 		}
 
@@ -42,8 +43,7 @@
 			// same-origin absolute path above.
 			window.location.assign(redirectTarget());
 		} catch (err) {
-			error =
-				err instanceof Error ? parseErrorContent(err).message : 'Failed to set your password.';
+			error = err instanceof Error ? parseErrorContent(err).message : m.auth_password_set_failed();
 		} finally {
 			saving = false;
 		}
@@ -51,7 +51,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Set Your Password</title>
+	<title>Obot | {m.auth_password_page_title()}</title>
 </svelte:head>
 
 <div
@@ -62,9 +62,9 @@
 		class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col gap-4 rounded-xl border border-transparent p-6 shadow-sm"
 	>
 		<Logo class="h-12 self-center" />
-		<h1 class="text-center text-xl font-semibold">Set your password</h1>
+		<h1 class="text-center text-xl font-semibold">{m.auth_password_heading()}</h1>
 		<p class="text-muted-content text-center text-sm font-light">
-			Choose a new password before continuing to Obot.
+			{m.auth_password_description()}
 		</p>
 
 		{#if error}
@@ -75,7 +75,7 @@
 		{/if}
 
 		<label class="flex flex-col gap-1 text-sm font-light" for="new-password">
-			New password
+			{m.auth_password_new_password()}
 			<SensitiveInput
 				name="new-password"
 				bind:value={password}
@@ -86,12 +86,12 @@
 				data1pIgnore={false}
 			/>
 			<span class="text-muted-content pt-0.5 text-xs">
-				At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.
+				{m.auth_password_min_length({ count: LOCAL_AUTH_MIN_PASSWORD_LENGTH })}
 			</span>
 		</label>
 
 		<label class="flex flex-col gap-1 text-sm font-light" for="confirm-password">
-			Confirm password
+			{m.auth_password_confirm_password()}
 			<SensitiveInput
 				name="confirm-password"
 				bind:value={confirmation}
@@ -104,7 +104,7 @@
 		</label>
 
 		<button class="btn btn-primary w-full" type="submit" disabled={saving}>
-			{#if saving}<Loading class="size-4" />{:else}Set password and continue{/if}
+			{#if saving}<Loading class="size-4" />{:else}{m.auth_password_submit()}{/if}
 		</button>
 	</form>
 </div>

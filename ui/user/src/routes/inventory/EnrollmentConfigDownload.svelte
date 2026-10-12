@@ -5,6 +5,7 @@
 	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import { saveBlob } from '$lib/download';
 	import { parseErrorContent } from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
@@ -172,8 +173,9 @@
 	});
 	let downloadNote = $derived.by(() => {
 		if (!selectedTarget) return;
-		if (selectedArtifact && dirty) return 'Save your changes before downloading.';
-		if (!selectedArtifact) return 'Save to generate this download.';
+		if (selectedArtifact && dirty)
+			return m.inventory_enforcement_configuration_save_before_download();
+		if (!selectedArtifact) return m.inventory_enforcement_configuration_save_to_generate();
 	});
 
 	onMount(() => {
@@ -281,7 +283,7 @@
 			const digestChanged =
 				!source.isSyncing && Boolean(source.latestDigest) && source.latestDigest !== previousDigest;
 			if (source.isSyncing) {
-				checkNote = 'Still refreshing — check again in a moment.';
+				checkNote = m.inventory_enforcement_configuration_still_refreshing();
 			} else if (digestChanged) {
 				configuration = await AdminService.getMDMConfiguration(configuration.id);
 				settingsOpen = configuration.assetDigest !== source.latestDigest;
@@ -334,7 +336,9 @@
 			operationError = problem.message;
 			if (problem.status === 409) {
 				await loadAssets();
-				operationError = `${problem.message} The fields were reloaded; review and save again.`;
+				operationError = m.inventory_enforcement_configuration_fields_reloaded({
+					message: problem.message
+				});
 			}
 		} finally {
 			saving = false;
@@ -364,29 +368,37 @@
 	<div class="flex flex-col gap-1.5">
 		<div class="flex flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-2.5">
-				<h3 class="text-lg font-semibold">Install Obot Sentry</h3>
+				<h3 class="text-lg font-semibold">
+					{m.inventory_enforcement_configuration_install_sentry()}
+				</h3>
 				{#if versionChip}
 					<span class="badge badge-ghost badge-sm">{versionChip}</span>
 				{/if}
 				{#if configState === 'update'}
-					<span class="badge badge-warning badge-sm">Update available</span>
+					<span class="badge badge-warning badge-sm"
+						>{m.inventory_enforcement_configuration_update_available()}</span
+					>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
 				{#if checkingForUpdates}
-					<span class="text-muted-content text-xs">Checking…</span>
+					<span class="text-muted-content text-xs"
+						>{m.inventory_enforcement_configuration_checking()}</span
+					>
 				{:else if checkNote}
 					<span class="text-muted-content text-xs">{checkNote}</span>
 				{:else if assetSource?.lastSyncTime}
 					<span class="text-muted-content text-xs">
-						checked {formatTimeAgo(assetSource.lastSyncTime).relativeTime}
+						{m.inventory_enforcement_configuration_checked_ago({
+							time: formatTimeAgo(assetSource.lastSyncTime).relativeTime
+						})}
 					</span>
 				{/if}
 				{#if latestAsset}
 					<IconButton
 						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.agentSettingsButton}
 						class="btn-sm {settingsOpen ? 'text-primary' : ''}"
-						tooltip={{ text: 'Agent settings' }}
+						tooltip={{ text: m.inventory_enforcement_configuration_agent_settings() }}
 						aria-expanded={settingsOpen}
 						onclick={() => (settingsOpen = !settingsOpen)}
 					>
@@ -397,7 +409,7 @@
 					<IconButton
 						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.checkForUpdatesButton}
 						class="btn-sm"
-						tooltip={{ text: 'Check for updates' }}
+						tooltip={{ text: m.inventory_enforcement_configuration_check_for_updates() }}
 						disabled={checkingForUpdates || saving}
 						onclick={checkForUpdates}
 					>
@@ -408,15 +420,17 @@
 		</div>
 
 		<p class="text-muted-content text-sm font-light">
-			Obot Sentry is a lightweight program that allows Obot to inventory and audit AI on enrolled
-			devices. Follow the steps below to generate an installation package and deploy it to your
-			devices.
+			{m.inventory_enforcement_configuration_sentry_description()}
 		</p>
 
 		{#if updateAvailable}
 			<p class="text-warning text-xs">
-				{latestVersion ? `v${latestVersion} is out` : 'A new release is out'} — your downloads were built
-				with {versionChip ?? 'an older release'}. Save your settings to update.
+				{m.inventory_enforcement_configuration_update_notice({
+					release: latestVersion
+						? m.inventory_enforcement_configuration_version_is_out({ version: latestVersion })
+						: m.inventory_enforcement_configuration_new_release_is_out(),
+					built: versionChip ?? m.inventory_enforcement_configuration_an_older_release()
+				})}
 			</p>
 		{/if}
 
@@ -425,12 +439,16 @@
 				<TriangleAlert class="size-4 shrink-0" />
 				<div class="flex flex-1 flex-col gap-0.5">
 					<span class="text-xs font-medium">
-						{assetsLoadError ? "Couldn't load release info" : 'The last update check failed'}
+						{assetsLoadError
+							? m.inventory_enforcement_configuration_couldnt_load_release()
+							: m.inventory_enforcement_configuration_last_check_failed()}
 					</span>
 					<span class="text-muted-content text-xs break-all">{catalogError}</span>
 				</div>
 				{#if assetsLoadError}
-					<button class="btn btn-secondary text-sm" onclick={loadAssets}>Retry</button>
+					<button class="btn btn-secondary text-sm" onclick={loadAssets}
+						>{m.inventory_enforcement_configuration_retry()}</button
+					>
 				{/if}
 			</div>
 		{/if}
@@ -444,7 +462,7 @@
 		<Loading class="size-5 self-center" />
 	{:else if !latestAsset && !catalogError}
 		<div class="text-muted-content rounded-lg border border-dashed p-6 text-center text-sm">
-			No Obot Sentry release available yet. Check for updates to fetch the latest.
+			{m.inventory_enforcement_configuration_no_release()}
 		</div>
 	{:else}
 		{#if latestAsset && settingsOpen}
@@ -458,7 +476,7 @@
 							onclick={handleSave}
 						>
 							{#if saving}<Loading class="size-4" />{:else}<Save class="size-4" />{/if}
-							Save
+							{m.core_save()}
 						</button>
 					</div>
 				{/if}
@@ -475,20 +493,20 @@
 			>
 				{@render setupStep(
 					'1',
-					'Generate an enrollment key',
-					'Devices enroll with this server using this key — the instructions tell you where to put it.'
+					m.inventory_enforcement_configuration_step_key_title(),
+					m.inventory_enforcement_configuration_step_key_description()
 				)}
 				{#if enrollmentKeyCount > 0}
 					<span
-						use:tooltip={'An enrollment key already exists'}
+						use:tooltip={m.inventory_enforcement_configuration_key_exists()}
 						role="img"
-						aria-label="An enrollment key already exists"
+						aria-label={m.inventory_enforcement_configuration_key_exists()}
 					>
 						<CircleCheck class="text-success size-5" />
 					</span>
 				{:else if !readOnly}
 					<button class="btn btn-secondary btn-sm" onclick={() => onCreateEnrollmentKey?.()}>
-						New Key
+						{m.inventory_enforcement_configuration_new_key()}
 					</button>
 				{/if}
 			</div>
@@ -500,8 +518,8 @@
 				>
 					{@render setupStep(
 						'2',
-						'Select your installation method',
-						'How Obot Sentry is delivered to your devices'
+						m.inventory_enforcement_configuration_step_method_title(),
+						m.inventory_enforcement_configuration_step_method_description()
 					)}
 					<div class="flex shrink-0 flex-wrap justify-end">
 						{#each platformGroups as group (group.platform)}
@@ -526,8 +544,8 @@
 				>
 					{@render setupStep(
 						'3',
-						'Select an operating system',
-						'The operating system your devices run.'
+						m.inventory_enforcement_configuration_step_os_title(),
+						m.inventory_enforcement_configuration_step_os_description()
 					)}
 					{#if selectedGroup}
 						<div class="flex shrink-0 flex-wrap justify-end">
@@ -552,7 +570,11 @@
 					class="flex flex-wrap items-center justify-between gap-3 py-3"
 					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-4`}
 				>
-					{@render setupStep('4', 'Download the install artifacts', selectedTarget?.description)}
+					{@render setupStep(
+						'4',
+						m.inventory_enforcement_configuration_step_download_title(),
+						selectedTarget?.description
+					)}
 					{#if selectedArtifact && !dirty}
 						<button
 							type="button"
@@ -576,8 +598,8 @@
 						>
 							{@render setupStep(
 								'5',
-								'Follow the instructions to install obot-sentry',
-								'The steps are specific to the installation method and operating system you selected.'
+								m.inventory_enforcement_configuration_step_install_title(),
+								m.inventory_enforcement_configuration_step_install_description()
 							)}
 						</div>
 					</summary>
@@ -590,7 +612,7 @@
 								</div>
 							{:else}
 								<p class="text-muted-content text-sm">
-									Instructions will appear once this download is generated.
+									{m.inventory_enforcement_configuration_instructions_pending()}
 								</p>
 							{/if}
 						</div>
@@ -622,7 +644,9 @@
 {#snippet fieldsForm()}
 	<div class="flex flex-col gap-4">
 		{#if formFields.length === 0}
-			<p class="text-muted-content text-sm">This release has no editable values.</p>
+			<p class="text-muted-content text-sm">
+				{m.inventory_enforcement_configuration_no_editable_values()}
+			</p>
 		{/if}
 		{#each formFields as [fieldName, field] (fieldName)}
 			{@const problem = mdmFieldProblem(fieldName, field, values[fieldName], requiredFields)}
@@ -635,7 +659,7 @@
 						disabled={readOnly}
 						class="text-input-filled w-fit"
 					>
-						<option value={undefined}>Select…</option>
+						<option value={undefined}>{m.inventory_enforcement_configuration_select()}</option>
 						{#each field.enum as option (option)}<option value={option}>{option}</option>{/each}
 					</select>
 				{:else if field.type === 'boolean'}

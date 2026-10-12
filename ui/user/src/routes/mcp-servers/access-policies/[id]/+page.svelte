@@ -7,6 +7,7 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
+	import { m } from '$lib/i18n';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
 	import { onMount, untrack } from 'svelte';
@@ -27,7 +28,7 @@
 		}
 	});
 
-	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
+	let title = $derived(accessControlRule?.displayName ?? m.mcps_access_policies_mcp_registry());
 </script>
 
 <Layout {title} showBackButton>

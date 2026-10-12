@@ -102,6 +102,27 @@ func TestClientBlocksLoopbackLiteralIP(t *testing.T) {
 	}
 }
 
+func TestClientBlocksUnspecifiedAddresses(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("request should have been blocked before reaching server")
+	}))
+	defer ts.Close()
+
+	serverURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, host := range []string{"0.0.0.0", "[::]", "[::ffff:0.0.0.0]"} {
+		t.Run(host, func(t *testing.T) {
+			_, err := NewClient(Options{BlockLoopback: true}).Get("http://" + host + ":" + serverURL.Port())
+			if err == nil || !strings.Contains(err.Error(), "blocked unspecified IP") {
+				t.Fatalf("expected unspecified IP to be blocked, got %v", err)
+			}
+		})
+	}
+}
+
 func TestClientBlocksLoopbackHostname(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Fatal("request should have been blocked before reaching server")

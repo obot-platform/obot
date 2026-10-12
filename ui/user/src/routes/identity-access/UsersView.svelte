@@ -9,9 +9,11 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
+	import type { OrgUserStatus } from '$lib/services/user/types';
 	import { profile, version } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { formatTimeAgo } from '$lib/time';
@@ -40,17 +42,37 @@
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
+	const statusLabels: Record<OrgUserStatus, string> = {
+		active: m.identity_access_users_status_active(),
+		disabled: m.core_status_disabled(),
+		deleted: m.identity_access_users_status_deleted()
+	};
+	const disabledReasonLabels: Record<string, string> = {
+		scim_inactive: m.identity_access_users_status_scim_inactive(),
+		scim_unprovisioned: m.identity_access_users_status_scim_unprovisioned()
+	};
+	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
+	// provisions them through SCIM. Once it deactivates them, they can be deleted.
+	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR;
+	const STILL_PROVISIONED_MESSAGE = m.identity_access_users_still_provisioned();
+
 	const tableData = $derived(
 		users
 			.map((user) => ({
 				...user,
+				lifecycleStatus: user.status ?? 'active',
+				status: statusLabels[user.status ?? 'active'],
+				disabledReasonLabel: user.disabledReason
+					? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
+					: undefined,
 				assignedRole: user.role,
 				name: getUserDisplayName(user),
 				role: getUserRoleLabel(user.role).split(','),
 				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-				roleId: user.role & ~(Role.AUDITOR | Role.USER_IMPERSONATION),
+				roleId: user.role & ~Role.AUDITOR,
 				auditor: user.role & Role.AUDITOR ? true : false,
-				userImpersonation: user.role & Role.USER_IMPERSONATION ? true : false
+				// Only an Owner can enable a user with any of these roles, from their own role or a group.
+				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0
 			}))
 			.filter(
 				(user) =>
@@ -65,17 +87,19 @@
 	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
+	let enablingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let confirmAuditorAdditionToUser = $state<TableItem>();
-	let confirmUserImpersonationAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
 	let roleUpdateError = $state('');
 	let roleOptions = $derived([
-		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
-		{ label: 'Admin', id: Role.ADMIN },
-		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
-		{ label: 'Power User', id: Role.POWERUSER },
-		{ label: 'Standard User', id: Role.BASIC }
+		...(profile.current.groups.includes(Group.OWNER)
+			? [{ label: m.core_role_owner(), id: Role.OWNER }]
+			: []),
+		{ label: m.core_role_admin(), id: Role.ADMIN },
+		{ label: m.identity_access_roles_power_user_plus_short(), id: Role.POWERUSER_PLUS },
+		{ label: m.core_role_power_user(), id: Role.POWERUSER },
+		{ label: m.core_role_standard_user(), id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
@@ -90,7 +114,7 @@
 		if (error instanceof Error && error.message) {
 			return error.message;
 		}
-		return 'Failed to update user role. Please try again.';
+		return m.identity_access_users_update_role_failed();
 	}
 
 	async function updateUserRole(
@@ -120,15 +144,8 @@
 		}
 	}
 
-	function composeRole(roleId: number, auditor: boolean, userImpersonation: boolean): number {
-		let role = roleId;
-		if (auditor) {
-			role |= Role.AUDITOR;
-		}
-		if (userImpersonation) {
-			role |= Role.USER_IMPERSONATION;
-		}
-		return role;
+	function composeRole(roleId: number, auditor: boolean): number {
+		return auditor ? roleId | Role.AUDITOR : roleId;
 	}
 
 	function getUserDisplayName(user: OrgUser): string {
@@ -138,10 +155,10 @@
 			user?.originalEmail ??
 			user?.username ??
 			user?.email ??
-			'Unknown User';
+			m.core_unknown_user();
 
 		if (user?.deletedAt) {
-			display += ' (Deleted)';
+			display = m.identity_access_name_deleted({ name: display });
 		}
 
 		return display;
@@ -161,32 +178,11 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
-	const isAddingAuditorWithUserImpersonation = $derived(
-		Boolean(
-			confirmUserImpersonationAdditionToUser &&
-			confirmUserImpersonationAdditionToUser.auditor &&
-			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
-		)
-	);
-	const isRemovingAuditorWithUserImpersonation = $derived(
-		Boolean(
-			confirmUserImpersonationAdditionToUser &&
-			!confirmUserImpersonationAdditionToUser.auditor &&
-			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
-		)
-	);
 
 	const hasValidLicense = $derived(Boolean(version.current.enterprise));
 	const isCommunityEdition = $derived(
 		version.current.licenseEntitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
 	);
-
-	// Auto-clear user impersonation when base role is not Admin or Owner
-	$effect(() => {
-		if (updatingRole && updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER) {
-			updatingRole.userImpersonation = false;
-		}
-	});
 </script>
 
 <div class="mb-4" in:fade={{ duration }}>
@@ -198,7 +194,7 @@
 
 			{#if version.current.userLimit}
 				<section class="flex items-center justify-end gap-2 text-muted-content">
-					<p class="text-sm">User Limits:</p>
+					<p class="text-sm">{m.identity_access_users_user_limits()}</p>
 					{#if !hasValidLicense || isCommunityEdition}
 						<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
 					{:else}
@@ -210,37 +206,68 @@
 				value={query}
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateQuery}
-				placeholder="Search by name or email..."
+				placeholder={m.identity_access_users_search_placeholder()}
 			/>
 			<Table
 				data={tableData}
-				fields={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
-				filterable={['name', 'email', 'role', 'effectiveRole']}
+				fields={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
+				filterable={['name', 'email', 'status', 'role', 'effectiveRole']}
 				filters={urlFilters}
 				onFilter={setFilterUrlParams}
 				onClearAllFilters={clearUrlParams}
-				sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
+				sortable={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				headers={[
-					{ title: 'Assigned Role', property: 'role' },
 					{
-						title: 'Actual Role',
-						property: 'effectiveRole',
-						tooltip:
-							"The user's highest permission level, based on their assigned role and any roles inherited from groups."
+						title: m.core_status(),
+						property: 'status',
+						tooltip: m.identity_access_users_status_disabled_tooltip()
 					},
-					{ title: 'Last Active', property: 'lastActiveDay' }
+					{ title: m.core_name(), property: 'name' },
+					{ title: m.identity_access_col_email(), property: 'email' },
+					{ title: m.identity_access_users_col_assigned_role(), property: 'role' },
+					{
+						title: m.identity_access_users_col_actual_role(),
+						property: 'effectiveRole',
+						tooltip: m.identity_access_users_col_actual_role_tooltip()
+					},
+					{ title: m.identity_access_users_col_last_active(), property: 'lastActiveDay' },
+					{ title: m.core_col_created(), property: 'created' }
 				]}
 				{initSort}
 				onSort={setSortUrlParams}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'role'}
+					{#if property === 'status'}
+						<div class="flex flex-col gap-0.5">
+							<div class="flex items-center gap-1">
+								<span
+									class={[
+										'badge badge-sm whitespace-nowrap',
+										d.lifecycleStatus === 'active' && 'badge-ghost',
+										d.lifecycleStatus === 'disabled' && 'badge-warning badge-soft',
+										d.lifecycleStatus === 'deleted' && 'badge-error badge-soft'
+									]}
+								>
+									{d.status}
+								</span>
+								{#if d.managementSource === 'scim'}
+									<span
+										class="badge badge-ghost badge-xs"
+										use:tooltip={m.identity_access_users_scim_managed_tooltip()}
+									>
+										{m.identity_access_scim_tab()}
+									</span>
+								{/if}
+							</div>
+							{#if d.disabledReasonLabel}
+								<span class="text-xs text-muted-content">{d.disabledReasonLabel}</span>
+							{/if}
+						</div>
+					{:else if property === 'role'}
 						<div class="flex items-center gap-1">
 							{d.role}
 							{#if d.explicitRole}
-								<div
-									use:tooltip={"This user's role is explicitly set at the system level and cannot be changed."}
-								>
+								<div use:tooltip={m.identity_access_users_explicit_role()}>
 									<ShieldAlert class="size-5" />
 								</div>
 							{/if}
@@ -269,7 +296,7 @@
 								});
 							}}
 						>
-							View Access Policies
+							{m.identity_access_view_access_policies()}
 						</button>
 						{#if !isAdminReadonly}
 							<button
@@ -281,15 +308,32 @@
 									updateRoleDialog?.open();
 								}}
 							>
-								Update Role
+								{m.identity_access_update_role()}
 							</button>
+							{#if d.lifecycleStatus === 'disabled'}
+								<button
+									class="menu-button"
+									disabled={d.privileged && !profile.current.groups.includes(Group.OWNER)}
+									onclick={() => (enablingUser = d)}
+								>
+									{m.identity_access_users_enable()}
+								</button>
+							{/if}
+							{@const stillProvisioned =
+								d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={d.explicitRole ||
+								disabled={stillProvisioned ||
+									d.explicitRole ||
 									(d.groups.includes(Group.OWNER) && !profile.current.groups.includes(Group.OWNER))}
+								use:tooltip={{
+									text: stillProvisioned ? STILL_PROVISIONED_MESSAGE : undefined,
+									placement: 'left',
+									classes: ['z-50']
+								}}
 								onclick={() => (deletingUser = d)}
 							>
-								Delete User
+								{m.identity_access_users_delete_user()}
 							</button>
 						{/if}
 					</DotDotDot>
@@ -302,23 +346,53 @@
 <CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
-	msg={`Delete user ${deletingUser?.email}?`}
+	msg={m.identity_access_users_delete_user_confirm({ email: `${deletingUser?.email}` })}
 	show={Boolean(deletingUser)}
+	{loading}
 	onsuccess={async () => {
 		if (!deletingUser) return;
 		loading = true;
-		await AdminService.deleteUser(deletingUser.id);
-		users = await UserService.listUsers();
-		loading = false;
-		deletingUser = undefined;
+		try {
+			await AdminService.deleteUser(deletingUser.id);
+			users = await UserService.listUsers();
+		} catch {
+			// The refusal is shown as a notification, and asking again would be refused again.
+		} finally {
+			loading = false;
+			deletingUser = undefined;
+		}
 	}}
 	oncancel={() => (deletingUser = undefined)}
+/>
+
+<Confirm
+	title={m.identity_access_users_confirm_enable()}
+	msg={m.identity_access_users_enable_msg({ email: enablingUser?.email ?? '' })}
+	note={m.identity_access_users_enable_note()}
+	show={Boolean(enablingUser)}
+	{loading}
+	type="info"
+	submitText={m.chat_enable()}
+	onsuccess={async () => {
+		if (!enablingUser) return;
+		loading = true;
+		try {
+			await AdminService.enableUser(enablingUser.id);
+			users = await UserService.listUsers();
+		} catch {
+			// The refusal is shown as a notification, and asking again would be refused again.
+		} finally {
+			loading = false;
+			enablingUser = undefined;
+		}
+	}}
+	oncancel={() => (enablingUser = undefined)}
 />
 
 <ResponsiveDialog
 	bind:this={updateRoleDialog}
 	class="w-full overflow-visible p-4 md:max-w-xl"
-	title={`Update ${updatingRole?.name}'s Role`}
+	title={m.identity_access_users_update_role_title({ name: `${updatingRole?.name}` })}
 >
 	{#if updatingRole}
 		{@const roleDescriptionMap = userRoleOptions.reduce(
@@ -336,7 +410,7 @@
 				<div class="notification-info mb-2 p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<Info class="size-6" />
-						<div>This user's role is explicitly set at the system level and cannot be changed.</div>
+						<div>{m.identity_access_users_explicit_role()}</div>
 					</div>
 				</div>
 			{/if}
@@ -352,10 +426,9 @@
 						<p class="w-28 shrink-0 font-semibold">{role.label}</p>
 						<p class="text-muted-content">
 							{#if role.id === Role.OWNER}
-								Owners can manage all aspects of the platform and can also assign the Owner role to
-								other users.
+								{m.identity_access_users_owner_description()}
 							{:else if role.id === Role.ADMIN}
-								Admins can manage all aspects of the platform.
+								{m.identity_access_users_admin_description()}
 							{:else}
 								{roleDescriptionMap[role.id]}
 							{/if}
@@ -368,62 +441,35 @@
 				<label class="mt-4 flex gap-4">
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
-						<p class="w-28 shrink-0 font-semibold">Auditor</p>
+						<p class="w-28 shrink-0 font-semibold">{m.core_role_auditor()}</p>
 						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
 							<p class="text-muted-content">
-								Will have read-only access to the admin system and see additional details such as
-								response, request, and header information in the audit logs.
+								{m.identity_access_users_auditor_readonly_description()}
 							</p>
 						{:else}
 							<p class="text-muted-content">
-								Will gain access to additional details such as response, request, and header
-								information in the audit logs.
+								{m.identity_access_users_auditor_description()}
 							</p>
 						{/if}
-					</span>
-				</label>
-				<label class="mt-2 flex gap-4">
-					<input
-						type="checkbox"
-						bind:checked={updatingRole.userImpersonation}
-						disabled={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
-					/>
-					<span
-						class="flex flex-col"
-						class:opacity-50={updatingRole.roleId !== Role.ADMIN &&
-							updatingRole.roleId !== Role.OWNER}
-					>
-						<p class="shrink-0 font-semibold">Impersonator</p>
-						<p class="text-muted-content">
-							Will be able to connect to other users' Obot Agents. Requires Admin or Owner base
-							role.
-						</p>
 					</span>
 				</label>
 			{/if}
 		</div>
 		<div class="flex grow"></div>
 		<div class="mt-4 flex flex-col justify-end gap-2 p-4 md:flex-row md:p-0">
-			<button class="btn btn-secondary" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
+			<button class="btn btn-secondary" onclick={() => closeUpdateRoleDialog()}
+				>{m.common_cancel()}</button
+			>
 			<button
 				class="btn btn-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
 					roleUpdateError = '';
-					const addingUserImpersonation =
-						updatingRole.userImpersonation &&
-						(updatingRole.assignedRole & Role.USER_IMPERSONATION) === 0;
 					const addingAuditor =
 						updatingRole.auditor && (updatingRole.assignedRole & Role.AUDITOR) === 0;
 					if (profile.current.isBootstrapUser?.() && updatingRole.roleId === Role.OWNER) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
-						return;
-					}
-
-					if (addingUserImpersonation) {
-						updateRoleDialog?.close();
-						confirmUserImpersonationAdditionToUser = updatingRole;
 						return;
 					}
 
@@ -433,17 +479,14 @@
 						return;
 					}
 
-					updateUserRole(
-						updatingRole.id,
-						composeRole(updatingRole.roleId, updatingRole.auditor, updatingRole.userImpersonation)
-					);
+					updateUserRole(updatingRole.id, composeRole(updatingRole.roleId, updatingRole.auditor));
 				}}
 				disabled={loading}
 			>
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					Update
+					{m.core_update()}
 				{/if}
 			</button>
 		</div>
@@ -457,11 +500,7 @@
 		if (!confirmHandoffToUser) return;
 		const ok = await updateUserRole(
 			confirmHandoffToUser.id,
-			composeRole(
-				confirmHandoffToUser.roleId,
-				confirmHandoffToUser.auditor,
-				confirmHandoffToUser.userImpersonation
-			),
+			composeRole(confirmHandoffToUser.roleId, confirmHandoffToUser.auditor),
 			false
 		);
 		if (!ok) {
@@ -475,95 +514,37 @@
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}
 	type="info"
-	title="Confirm Handoff"
+	title={m.identity_access_users_confirm_handoff()}
 >
 	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
 			<Handshake class="size-6" />
-			<h3 class="text-xl font-semibold">Confirm Handoff</h3>
+			<h3 class="text-xl font-semibold">{m.identity_access_users_confirm_handoff()}</h3>
 		</div>
 	{/snippet}
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4">
 			<p>
-				Once you've established your first admin or owner user, the bootstrap user currently being
-				used will be disabled. Upon completing this action, you'll be logged out and asked to log in
-				using your auth provider.
+				{m.identity_access_users_handoff_note()}
 			</p>
-			<p>Are you sure you want to continue?</p>
+			<p>{m.identity_access_are_you_sure_continue()}</p>
 		</div>
 	{/snippet}
 </Confirm>
 
 <Confirm
 	type="info"
-	title={isAddingAuditorWithUserImpersonation
-		? 'Confirm Impersonator + Auditor Roles'
-		: 'Confirm Impersonator Role'}
-	msg={isAddingAuditorWithUserImpersonation
-		? `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the Impersonator and Auditor roles?`
-		: `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the Impersonator role?`}
-	{loading}
-	show={Boolean(confirmUserImpersonationAdditionToUser)}
-	onsuccess={async () => {
-		if (!confirmUserImpersonationAdditionToUser) return;
-		await updateUserRole(
-			confirmUserImpersonationAdditionToUser.id,
-			composeRole(
-				confirmUserImpersonationAdditionToUser.roleId,
-				confirmUserImpersonationAdditionToUser.auditor,
-				true
-			)
-		);
-		confirmUserImpersonationAdditionToUser = undefined;
-	}}
-	oncancel={() => {
-		confirmUserImpersonationAdditionToUser = undefined;
-		updateRoleDialog?.open();
-	}}
->
-	{#snippet note()}
-		<div class="flex flex-col gap-4">
-			<p class="text-left">
-				Impersonator allows connecting to other users' Obot Agents. This is elevated cross-user
-				access and should be granted sparingly.
-			</p>
-			{#if isAddingAuditorWithUserImpersonation}
-				<p class="text-left">
-					This update will also grant Auditor, which adds expanded audit visibility (including
-					request/response/header details).
-				</p>
-			{:else if isRemovingAuditorWithUserImpersonation}
-				<p class="text-left">This update will remove Auditor while granting Impersonator access.</p>
-			{:else}
-				<p class="text-left">This update does not modify the Auditor role.</p>
-			{/if}
-			<p>
-				Are you sure you want to grant <b
-					>{confirmUserImpersonationAdditionToUser?.email ||
-						confirmUserImpersonationAdditionToUser?.name}</b
-				>
-				{isAddingAuditorWithUserImpersonation ? 'these roles' : 'this role'}?
-			</p>
-		</div>
-	{/snippet}
-</Confirm>
-
-<Confirm
-	type="info"
-	title="Confirm Auditor Role"
-	msg={`Grant ${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name} the Auditor role?`}
+	title={m.identity_access_users_confirm_auditor_title()}
+	msg={m.identity_access_users_grant_auditor_msg({
+		user: `${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}`
+	})}
 	{loading}
 	show={Boolean(confirmAuditorAdditionToUser)}
 	onsuccess={async () => {
 		if (!confirmAuditorAdditionToUser) return;
 		await updateUserRole(
 			confirmAuditorAdditionToUser.id,
-			composeRole(
-				confirmAuditorAdditionToUser.roleId,
-				true,
-				confirmAuditorAdditionToUser.userImpersonation
-			)
+			composeRole(confirmAuditorAdditionToUser.roleId, true)
 		);
 		confirmAuditorAdditionToUser = undefined;
 	}}
@@ -576,17 +557,15 @@
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
 				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
-					Standard user auditors will have read-only access to the admin system and can see
-					additional details such as response, request, and header information in the audit logs.
+					{m.identity_access_users_auditor_note_standard()}
 				{:else}
-					Auditors will gain access to additional details such as response, request, and header
-					information in the audit logs.
+					{m.identity_access_users_auditor_note()}
 				{/if}
 			</p>
 			<p>
-				Are you sure you want to grant <b
-					>{confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}</b
-				> this role?
+				{m.identity_access_users_grant_confirm_prefix()}
+				<b>{confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}</b>
+				{m.identity_access_users_grant_confirm_this_role()}
 			</p>
 		</div>
 	{/snippet}

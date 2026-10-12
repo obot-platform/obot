@@ -8,10 +8,9 @@ import (
 type User struct {
 	kuser.Info
 
-	IsAdmin        bool
-	IsAuditor      bool
-	IsOwner        bool
-	CanImpersonate bool
+	IsAdmin   bool
+	IsAuditor bool
+	IsOwner   bool
 }
 
 func newUser(user kuser.Info) User {
@@ -27,8 +26,6 @@ func newUser(user kuser.Info) User {
 			u.IsAuditor = true
 		case types.GroupOwner:
 			u.IsOwner = true
-		case types.GroupUserImpersonation:
-			u.CanImpersonate = true
 		}
 	}
 

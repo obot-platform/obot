@@ -1,4 +1,5 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+import { m } from '$lib/i18n';
 import type { GuideAction, GuideListener, GuideStep } from '../types';
 import { addCatalogEntryDescriptions } from './constants';
 import {
@@ -14,7 +15,7 @@ function getCustomConfigurationAction(): GuideAction[] {
 		},
 		side: 'top' as const,
 		align: 'center' as const,
-		title: 'Custom Configuration',
+		title: m.mcps_servers_guide_custom_configuration(),
 		noDescendantInteraction: true
 	};
 
@@ -29,8 +30,7 @@ function getCustomConfigurationAction(): GuideAction[] {
 		{
 			highlight: {
 				...configurationHighlight,
-				description:
-					"If the MCP server requires any custom configuration such as API keys or secrets, you'll want to add them here. The user will have to provide their custom configuration when deploying the server."
+				description: m.mcps_servers_guide_if_the_mcp_server_requires_any()
 			},
 			listener: configurationListener
 		}
@@ -47,9 +47,8 @@ function getHostedFieldsListener(): GuideListener {
 				},
 				side: 'top',
 				align: 'center',
-				title: 'Runtime Configuration',
-				description:
-					'Depending on which runtime you choose, you will see the appropriate form for that runtime here to fill out.',
+				title: m.mcps_servers_guide_runtime_configuration(),
+				description: m.mcps_servers_guide_depending_on_which_runtime_you_choose(),
 				noDescendantInteraction: true
 			},
 			listener: {
@@ -68,8 +67,8 @@ function getHostedFieldsAction(): GuideAction {
 			},
 			side: 'top',
 			align: 'center',
-			title: 'Runtime',
-			description: 'This is where you choose the runtime configuration for your MCP server.',
+			title: m.mcps_catalog_runtime_heading(),
+			description: m.mcps_servers_guide_this_is_where_you_choose_the(),
 			noDescendantInteraction: true
 		},
 		listener: getHostedFieldsListener()
@@ -83,8 +82,8 @@ function getSubmitAction(): GuideAction {
 				id: CATALOG_SERVER_FIELD_IDS.submitBtn
 			},
 			side: 'left',
-			title: 'Save the entry.',
-			description: "Once you've filled out all necessary fields, you can save the entry here."
+			title: m.mcps_servers_guide_save_the_entry(),
+			description: m.mcps_servers_guide_once_you_ve_filled_out_all()
 		},
 		listener: {
 			skipClickTargetOnNext: true,
@@ -98,24 +97,27 @@ function getSubmitAction(): GuideAction {
 
 export const steps: GuideStep[] = [
 	{
-		content: ['**What is a hosted catalog entry?**', addCatalogEntryDescriptions.hosted]
+		content: [
+			m.mcps_servers_guide_what_is_a_hosted_catalog_entry(),
+			addCatalogEntryDescriptions.hosted
+		]
 	},
 	getNavigateToMCPCatalogStep(),
 	getHighlightAddCatalogEntryStep('hosted'),
 	getNavigateBasicCatalogEntryFieldsStep(),
 	{
-		content: ["Now let's go over the hosted specific fields."],
+		content: [m.mcps_servers_guide_now_let_s_go_over_the()],
 		action: getHostedFieldsAction()
 	},
 	{
 		content: [
-			"Once you've properly filled out the form, you'll get access to additional tabs such as:",
-			'**Server Details**: This is where you see the deployments related to the MCP server.',
-			'**Tools**: This is where you can preview/set up the list of previewable tools for an MCP server that a user can see before deploying the server.',
-			'**Audit Logs**: This is where you can see logs pertaining to the usage of the MCP server.',
-			'**Usage**: This is where you can see usage metrics for the MCP server.',
-			'**Access Policies**: This is where you can access policies pertaining to the MCP server.',
-			'**Filters**: This is where you can see filters tied to the MCP server.'
+			m.mcps_servers_guide_once_you_ve_properly_filled_out(),
+			m.mcps_servers_guide_server_details_this_is_where_you(),
+			m.mcps_servers_guide_tools_this_is_where_you_can(),
+			m.mcps_servers_guide_audit_logs_this_is_where_you(),
+			m.mcps_servers_guide_usage_this_is_where_you_can(),
+			m.mcps_servers_guide_access_policies_this_is_where_you(),
+			m.mcps_servers_guide_filters_this_is_where_you_can()
 		],
 		action: [
 			{
@@ -126,9 +128,8 @@ export const steps: GuideStep[] = [
 					},
 					side: 'top',
 					align: 'center',
-					title: 'User-Defined Headers',
-					description:
-						'These allow you to collect configuration information from users connecting to your server and inject them as HTTP headers. You can use this to, for example, inject an API key as a bearer token header.',
+					title: m.mcps_catalog_headers_title(),
+					description: m.mcps_servers_guide_these_allow_you_to_collect_configuration(),
 					noDescendantInteraction: true
 				},
 				listener: {
@@ -146,7 +147,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Host MCP Server w/ Obot',
-	description: 'Add a hosted MCP server to the catalog.',
+	title: m.mcps_servers_guide_host_mcp_server_w_obot(),
+	description: m.mcps_servers_guide_add_a_hosted_mcp_server_to(),
 	id: 'mcp-create-hosted-guide'
 };

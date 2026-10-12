@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import {
 		isTextualMimeType,
 		type DirectOperationResult,
@@ -89,23 +90,23 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<h2 class="sr-only">Resources</h2>
+	<h2 class="sr-only">{m.mcps_tester_resources()}</h2>
 
 	{#if cache.unsupported}
 		<div class="bg-base-200 dark:bg-base-300 shrink-0 rounded-lg p-5" role="status">
-			<h3 class="font-medium">Not supported</h3>
-			<p class="mt-1 text-sm text-muted-content">This server does not provide resources.</p>
+			<h3 class="font-medium">{m.mcps_tester_not_supported()}</h3>
+			<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_resources_unsupported()}</p>
 		</div>
 	{:else if cache.error && !cache.loading}
 		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
 			<strong
 				>{cache.errorStatus === 'cancelled'
-					? 'Loading cancelled'
-					: 'Resources could not be loaded'}</strong
+					? m.mcps_tester_loading_cancelled()
+					: m.mcps_tester_resources_load_failed()}</strong
 			>
 			<p class="mt-1 text-sm">{cache.error}</p>
 			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadResources(true)}
-				>Retry</button
+				>{m.mcps_retry()}</button
 			>
 		</div>
 	{/if}
@@ -115,7 +116,7 @@
 			class="default-scrollbar-thin grid min-h-0 flex-1 gap-6 overflow-y-auto md:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.7fr)] md:overflow-hidden"
 		>
 			<CapabilityList
-				label="Resources"
+				label={m.mcps_tester_resources()}
 				items={listItems}
 				selectedId={inspector.selectedURI}
 				loading={cache.loading}
@@ -127,7 +128,7 @@
 
 			<section
 				class="default-scrollbar-thin min-w-0 md:min-h-0 md:overflow-y-auto md:pr-1"
-				aria-label="Resource details"
+				aria-label={m.mcps_tester_resource_details()}
 			>
 				{#if selected}
 					<div class="space-y-5">
@@ -145,18 +146,19 @@
 						{#if readActive}
 							<div class="flex items-center gap-3" aria-live="polite">
 								<span class="loading loading-spinner loading-sm"></span>
-								<span class="text-sm">Reading resource…</span>
+								<span class="text-sm">{m.mcps_tester_reading_resource()}</span>
 								<button
 									class="btn btn-secondary btn-sm"
 									onclick={() => session.cancelActiveWorkflow()}
 								>
-									<Ban class="size-4" aria-hidden="true" /> Cancel
+									<Ban class="size-4" aria-hidden="true" />
+									{m.common_cancel()}
 								</button>
 							</div>
 						{/if}
 
 						{#if inspector.result?.value}
-							<div class="space-y-3" aria-label="Resource contents">
+							<div class="space-y-3" aria-label={m.mcps_tester_resource_contents()}>
 								{#each inspector.result.value.contents as content, index (index)}
 									<div class="space-y-2">
 										<p class="text-xs font-medium break-all">{content.uri}</p>
@@ -165,7 +167,7 @@
 								{/each}
 								{#if !resourceStageable}
 									<p class="text-sm text-muted-content">
-										Binary or unsupported content remains inspectable but cannot be staged for Chat.
+										{m.mcps_tester_resource_not_stageable()}
 									</p>
 								{/if}
 							</div>
@@ -174,7 +176,9 @@
 						{#if inspector.result}
 							<McpResult result={inspector.result as DirectOperationResult<unknown>} />
 							{#if inspector.result.status !== 'success' && inspector.result.status !== 'cancelled'}
-								<button class="btn btn-secondary btn-sm" onclick={retryRead}>Retry read</button>
+								<button class="btn btn-secondary btn-sm" onclick={retryRead}
+									>{m.mcps_tester_retry_read()}</button
+								>
 							{/if}
 						{/if}
 
@@ -183,7 +187,8 @@
 							</p>{/if}
 						{#if inspector.result?.status === 'success' && inspector.result.value && resourceStageable}
 							<button class="btn btn-secondary" onclick={useInChat}>
-								<MessageSquarePlus class="size-4" aria-hidden="true" /> Use in Chat
+								<MessageSquarePlus class="size-4" aria-hidden="true" />
+								{m.mcps_tester_use_in_chat()}
 							</button>
 						{/if}
 					</div>
@@ -192,9 +197,9 @@
 						class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 					>
 						{#if cache.loaded && !cache.loading && !cache.error && cache.items.length === 0}
-							This server does not provide resources.
+							{m.mcps_tester_resources_unsupported()}
 						{:else}
-							Select a resource to read and preview it.
+							{m.mcps_tester_select_resource()}
 						{/if}
 					</div>
 				{/if}

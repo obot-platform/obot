@@ -50,7 +50,6 @@ type VMCPComponent struct {
 	Configuration           []VMCPConfigurationPolicy     `json:"configuration,omitempty"`
 	ForceSingleUser         bool                          `json:"forceSingleUser,omitempty"`
 	OAuthCredentialID       string                        `json:"oauthCredentialID,omitempty"`
-	AllowedTools            []string                      `json:"allowedTools,omitempty"`
 	ToolPrefix              string                        `json:"toolPrefix,omitempty"`
 	ToolOverrides           []ToolOverride                `json:"toolOverrides,omitempty"`
 }

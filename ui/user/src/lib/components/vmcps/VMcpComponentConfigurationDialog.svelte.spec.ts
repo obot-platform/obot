@@ -50,12 +50,20 @@ function configurableEntry(
 	});
 }
 
+async function openAdvanced() {
+	const toggle = page.getByRole('dialog').getByRole('checkbox', { name: 'Advanced', exact: true });
+	await expect.element(toggle).toBeInTheDocument();
+	const input = toggle.element() as HTMLInputElement;
+	if (!input.checked) input.click();
+}
+
 describe('VMcpComponentConfigurationDialog.svelte', () => {
 	it('lets non-administrator editors select the override', async () => {
 		await preparePageData({ profile: createMockProfile([]) });
 		const onNext = vi.fn();
 		const result = await render(VMcpComponentConfigurationDialog, { onNext });
 		result.component.open(configurableEntry({ config: [] }));
+		await openAdvanced();
 		await page.getByRole('checkbox', { name: 'Force single-user' }).click();
 		await page.getByRole('button', { name: 'Next' }).click();
 		expect(onNext).toHaveBeenCalledWith([], true);
@@ -105,6 +113,17 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		expect(onNext).toHaveBeenCalledWith([], false);
 	});
 
+	it('offers only Close for a remote server with no catalog fields', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry({ runtime: 'remote', config: [] }));
+
+		await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Next' })).not.toBeInTheDocument();
+		expect(onNext).not.toHaveBeenCalled();
+	});
+
 	it('shows a value field when Fixed is selected and submits policies on Next', async () => {
 		await preparePageData();
 		const onNext = vi.fn();
@@ -137,6 +156,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		const onClose = vi.fn();
 		const result = await render(VMcpComponentConfigurationDialog, { onNext, onClose });
 		result.component.open(configurableEntry({ config: [] }));
+		await openAdvanced();
 		const checkbox = page.getByRole('checkbox', { name: 'Force single-user' });
 		await expect.element(checkbox).not.toBeChecked();
 		await checkbox.click();
@@ -144,6 +164,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		expect(onNext).toHaveBeenCalledWith([], true);
 		await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
 		result.component.open(configurableEntry({ config: [] }));
+		await openAdvanced();
 		await expect.element(checkbox).not.toBeChecked();
 	});
 
@@ -154,12 +175,14 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		result.component.open(configurableEntry({ config: [field({ key: 'TOKEN', name: 'Token' })] }), {
 			forceSingleUser: true
 		});
+		await openAdvanced();
 		const checkbox = page.getByRole('checkbox', { name: 'Force single-user' });
 		await expect.element(checkbox).toBeChecked();
 		const policy = page.getByRole('combobox', { name: 'Token policy' });
 		await policy.selectOptions('Provided at connection');
 		await expect.element(checkbox).not.toBeInTheDocument();
 		await policy.selectOptions('Ignore');
+		await openAdvanced();
 		await expect.element(checkbox).not.toBeChecked();
 		await page.getByRole('button', { name: 'Next' }).click();
 		expect(onNext).toHaveBeenCalledWith([{ key: 'TOKEN', policy: 'prohibited' }], false);
@@ -174,6 +197,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			config: [field({ key: 'HEADER', name: 'Header', usage: 'header' })]
 		});
 		result.component.open(entry, { forceSingleUser: true });
+		await openAdvanced();
 		const checkbox = page.getByRole('checkbox', { name: 'Force single-user' });
 		await page
 			.getByRole('combobox', { name: 'Header policy' })
@@ -187,6 +211,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			configuration: [{ key: 'HEADER', policy: 'userAllowed' }],
 			forceSingleUser: true
 		});
+		await openAdvanced();
 		await expect.element(checkbox).toBeChecked();
 		await checkbox.click();
 		await page.getByRole('button', { name: 'Next' }).click();
@@ -281,6 +306,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		const value = page.getByCSS('#fixed-REGION');
 		await expect.element(value).toHaveValue('us-west-2');
 		await expect.element(value).toHaveAttribute('readonly', '');
+		await openAdvanced();
 		await expect.element(page.getByRole('checkbox', { name: 'Force single-user' })).toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Next' })).not.toBeInTheDocument();

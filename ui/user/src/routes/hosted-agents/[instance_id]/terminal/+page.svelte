@@ -4,6 +4,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import AgentTerminal from '$lib/components/hosted-agents/AgentTerminal.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -17,7 +18,7 @@
 
 <Layout
 	title={data.instance.name}
-	subtitle="Terminal"
+	subtitle={m.hosted_agents_terminal()}
 	showBackButton
 	onBackButtonClick={() => goto(resolve('/hosted-agents'))}
 	alwaysShowHeaderTitle
@@ -36,11 +37,11 @@
 	>
 		{#if !data.agent.terminal}
 			<p class="notification-error text-sm" role="alert">
-				{data.agent.name} does not offer a terminal.
+				{m.hosted_agents_no_terminal({ name: data.agent.name })}
 			</p>
 		{:else if !ready}
 			<p class="notification-info text-sm">
-				This instance is not running yet, so there is no console to attach to.
+				{m.hosted_agents_instance_not_running()}
 				{data.instance.status?.message ?? data.instance.status?.error ?? ''}
 			</p>
 		{:else}

@@ -20,6 +20,7 @@
 
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import type { MCPTunnel } from '$lib/services';
 	import { version } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
@@ -62,7 +63,7 @@
 	<ResponsiveDialog
 		bind:this={dialog}
 		{onClose}
-		title={action === 'created' ? 'MCP Tunnel Created' : 'MCP Tunnel Secret Rotated'}
+		title={action === 'created' ? m.mcps_tunnels_created() : m.mcps_tunnels_rotated()}
 		class="w-full max-w-2xl"
 		disableClickOutside
 	>
@@ -71,17 +72,16 @@
 				<div class="flex items-start gap-3">
 					<TriangleAlert class="size-5 shrink-0" />
 					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">Save this secret now</p>
+						<p class="text-sm font-medium">{m.mcps_tunnels_save_now()}</p>
 						<p class="text-xs">
-							This is the only time the complete tunnel secret will be shown. Store it securely
-							before closing this dialog.
+							{m.mcps_tunnels_only_time()}
 						</p>
 					</div>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">Tunnel Secret</p>
+				<p class="text-sm font-medium">{m.mcps_tunnels_tunnel_secret()}</p>
 				<CopyField value={tunnel.token} id="mcp-tunnel-secret">
 					{#snippet preContent()}
 						<KeyRound class="size-4" />
@@ -90,8 +90,8 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">Connect this tunnel</p>
-				<div class="tabs tabs-box w-fit" role="tablist" aria-label="Tunnel command type">
+				<p class="text-sm font-medium">{m.mcps_tunnels_connect()}</p>
+				<div class="tabs tabs-box w-fit" role="tablist" aria-label={m.mcps_tunnels_command_type()}>
 					<button
 						type="button"
 						role="tab"
@@ -133,7 +133,7 @@
 
 		<div class="mt-6 flex justify-end">
 			<button class="btn btn-primary" onclick={() => dialog?.close()}>
-				I've saved the secret
+				{m.mcps_tunnels_saved()}
 			</button>
 		</div>
 	</ResponsiveDialog>

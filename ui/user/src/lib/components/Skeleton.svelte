@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -15,14 +16,18 @@
 </script>
 
 {#if type === 'table'}
-	<div class={twMerge('flex flex-col gap-0.5', klass)} role="status" aria-label="Loading">
+	<div class={twMerge('flex flex-col gap-0.5', klass)} role="status" aria-label={m.core_loading()}>
 		<div class={twMerge('skeleton h-9 w-full rounded-md', classes?.header)}></div>
 		{#each Array.from({ length: count }) as _, i (i)}
 			<div class={twMerge('skeleton h-14 w-full rounded-md', classes?.body)}></div>
 		{/each}
 	</div>
 {:else if type === 'list'}
-	<div class={twMerge('pt-2 flex flex-col gap-4', klass)} role="status" aria-label="Loading">
+	<div
+		class={twMerge('pt-2 flex flex-col gap-4', klass)}
+		role="status"
+		aria-label={m.core_loading()}
+	>
 		{#each Array.from({ length: count }) as _, i (i)}
 			<div class="flex gap-2 items-center w-full">
 				<div class="size-8 rounded-md skeleton shrink-0"></div>
@@ -34,11 +39,15 @@
 		{/each}
 	</div>
 {:else if type === 'items'}
-	<div class={twMerge('pt-2 flex flex-col gap-2')} role="status" aria-label="Loading">
+	<div class={twMerge('pt-2 flex flex-col gap-2')} role="status" aria-label={m.core_loading()}>
 		{#each Array.from({ length: count }) as _, i (i)}
 			<div class={twMerge('skeleton rounded-md h-16', klass)}></div>
 		{/each}
 	</div>
 {:else}
-	<div class={twMerge('skeleton rounded-md', klass)} role="status" aria-label="Loading"></div>
+	<div
+		class={twMerge('skeleton rounded-md', klass)}
+		role="status"
+		aria-label={m.core_loading()}
+	></div>
 {/if}

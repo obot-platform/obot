@@ -1,3 +1,8 @@
+---
+displayed_sidebar: sidebar
+title: "Azure AKS"
+---
+
 # Azure AKS
 
 Deploying Obot to Azure Kubernetes Service follows the standard Helm workflow. As a prerequisite, you'll need the following resources set up in your Azure environment:
@@ -129,9 +134,6 @@ config:
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
 
-mcpServerDefaults:
-  storageClassName: azure-disk # replace with the name of your StorageClass
-  nanobotWorkspaceSize: 1Gi # Some disk types have a minimum size, read the documentation for the storage type you select.
 ```
 
 With the default configuration on AKS, this will set up ingress to expose Obot through an Application Gateway or NGINX Ingress Controller. Make sure you have the appropriate ingress controller installed in your cluster. You should also consider adding TLS termination to your ingress for secure HTTPS access.

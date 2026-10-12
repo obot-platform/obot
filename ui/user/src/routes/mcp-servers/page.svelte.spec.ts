@@ -13,6 +13,10 @@ import { page } from 'vitest/browser';
 
 const fixtures = createDeploymentsPageFixtures();
 
+// The page loads the default catalog in onMount only after other requests resolve. Tests wait for it so that the
+// request doesn't escape the mocks after the test ends.
+let defaultCatalogRequests = 0;
+
 function resetMcpServersAndEntriesStore() {
 	mcpServersAndEntries.current = {
 		entries: [],
@@ -27,14 +31,15 @@ function resetMcpServersAndEntriesStore() {
 
 function mockDeploymentsApis() {
 	worker.use(
-		http.get('/api/mcp-catalogs/default', () =>
-			HttpResponse.json({
+		http.get('/api/mcp-catalogs/default', () => {
+			defaultCatalogRequests++;
+			return HttpResponse.json({
 				id: 'default',
 				displayName: 'Default',
 				sourceURLs: [],
 				allowedUserIDs: []
-			})
-		),
+			});
+		}),
 		http.get('/api/mcp-catalogs/default/servers', () =>
 			HttpResponse.json({ items: fixtures.servers })
 		),
@@ -78,7 +83,10 @@ async function renderMcpServersPage({
 			? { version: { ...getVersionResponse, messagePoliciesEnabled: true } }
 			: {})
 	});
-	return render(McpServersPage, { data });
+	defaultCatalogRequests = 0;
+	const result = render(McpServersPage, { data });
+	await expect.poll(() => defaultCatalogRequests).toBeGreaterThan(0);
+	return result;
 }
 
 async function waitForServersLoaded() {
@@ -311,6 +319,7 @@ describe('message policies tab', () => {
 	it('hides the tab when message policies are disabled', async () => {
 		resetMcpServersAndEntriesStore();
 		await renderMcpServersPage({ view: 'deployments' });
+		await waitForServersLoaded();
 
 		await expect
 			.element(page.getByRole('button', { name: 'AI Judge Policies' }))

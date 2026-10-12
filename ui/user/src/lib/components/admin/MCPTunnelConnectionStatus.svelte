@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { TunnelConnection } from '$lib/services';
 	import { CircleCheck, CircleQuestionMark, CircleMinus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -14,7 +15,11 @@
 
 {#snippet statusBadge()}
 	{@const badgeClass = connection ? 'badge-success' : known ? 'badge-neutral' : 'badge-secondary'}
-	{@const badgeText = connection ? 'Connected' : known ? 'Disconnected' : 'Unknown'}
+	{@const badgeText = connection
+		? m.core_mcp_value_connected()
+		: known
+			? m.mcps_tunnels_disconnected()
+			: m.core_unknown()}
 	{@const BadgeIcon = connection ? CircleCheck : known ? CircleMinus : CircleQuestionMark}
 	<span
 		class={twMerge('badge badge-soft badge-sm gap-1', badgeClass)}
@@ -33,9 +38,9 @@
 	>
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div class="flex flex-col gap-1">
-				<h2 class="text-sm font-semibold">Connection Status</h2>
+				<h2 class="text-sm font-semibold">{m.mcps_tunnels_connection_status()}</h2>
 				<p class="text-muted-content text-xs font-light">
-					Live tunnel connection status refreshes automatically.
+					{m.mcps_tunnels_status_refreshes()}
 				</p>
 			</div>
 			{@render statusBadge()}
@@ -43,11 +48,11 @@
 
 		<p class="text-muted-content text-sm font-light">
 			{#if connection}
-				A tunnel client is currently connected.
+				{m.mcps_tunnels_client_connected()}
 			{:else if known}
-				No tunnel client is currently connected.
+				{m.mcps_tunnels_no_client_connected()}
 			{:else}
-				Connection status is temporarily unavailable.
+				{m.mcps_tunnels_status_unavailable()}
 			{/if}
 		</p>
 	</section>

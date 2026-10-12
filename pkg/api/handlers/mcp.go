@@ -49,6 +49,7 @@ type MCPHandler struct {
 	mcpRuntimeBackend         string
 	serverURL                 string
 	secretBindingAllowedLabel string
+	forceDynamicClient        bool
 }
 
 type missingCatalogEntryAdminConfig struct {
@@ -60,7 +61,7 @@ type urlTemplateConfigurationError struct {
 	key string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:         mcpLoader,
 		mcpOAuthChecker:           mcpOAuthChecker,
@@ -70,6 +71,7 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 		mcpRuntimeBackend:         mcpLoader.MCPRuntimeBackend(),
 		serverURL:                 serverURL,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		forceDynamicClient:        forceDynamicClient,
 	}
 }
 
@@ -122,7 +124,6 @@ func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sS
 		settings,
 		resources,
 		mcpServer.Spec.Manifest.Runtime,
-		mcpServer.Spec.NanobotAgentID != "",
 		imagePullSecretNames,
 	), nil
 }
@@ -341,11 +342,10 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], m.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, m.secretBindingAllowedLabel); err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}
-		converted := ConvertMCPServer(server, mergedEnv, m.serverURL, slug)
+		converted := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug)
 		items = append(items, converted)
 	}
 
@@ -378,17 +378,16 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, m.secretBindingAllowedLabel)
-	if err != nil {
-		return fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	converted := ConvertMCPServer(server, mergedEnv, m.serverURL, slug)
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, m.secretBindingAllowedLabel); err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+	converted := ConvertMCPServer(server, cred.Secrets, m.serverURL, slug)
 	return req.Write(converted)
 }
 
@@ -1337,9 +1336,16 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		if field.UserAllowed {
 			continue
 		}
-		configuredValue := credEnv[field.Key]
-		missingRequired := field.Required && !field.Static && configuredValue == ""
-		invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(field.ToHeader(), credEnv)
+		var missingRequired, invalidSelection bool
+		if field.SecretBinding != nil {
+			// The controller records bindings it cannot resolve. Callers refresh a status the
+			// controller has not caught up with by calling mcp.RefreshSecretBindingStatus.
+			missingRequired = field.Required && !field.Static && slices.Contains(server.Status.UnresolvedSecretBindings, field.Key)
+		} else {
+			configuredValue := credEnv[field.Key]
+			missingRequired = field.Required && !field.Static && configuredValue == ""
+			invalidSelection = configuredValue != "" && !mcp.ConfigurationOptionValueValid(field.ToHeader(), credEnv)
+		}
 		if missingRequired || invalidSelection {
 			if field.Usage == types.Header {
 				missingHeaders = append(missingHeaders, field.Key)
@@ -1409,7 +1415,6 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		VMCPID:                      server.Spec.VMCPID,
 		VMCPInstanceID:              server.Spec.VMCPInstanceID,
 		VMCPComponentID:             server.Spec.VMCPComponentID,
-		NanobotAgentID:              server.Spec.NanobotAgentID,
 	}
 
 	if server.Spec.IsSingleUser() {
@@ -1440,7 +1445,7 @@ func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindi
 		return nil, &converted, nil
 	}
 
-	credEnv, err := credentialEnvForMCPServer(req, server, secretBindingAllowedLabel)
+	credEnv, err := credentialEnvForMCPServer(req, server)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1449,24 +1454,20 @@ func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindi
 		return nil, nil, fmt.Errorf("failed to determine MCP server slug: %w", err)
 	}
 
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, secretBindingAllowedLabel); err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
 	converted := ConvertMCPServer(server, credEnv, serverURL, slug)
 	return &converted, nil, nil
 }
 
-func credentialEnvForMCPServer(req api.Context, server v1.MCPServer, secretBindingAllowedLabel string) (map[string]string, error) {
-	addExtractedEnvVars(&server)
-
+func credentialEnvForMCPServer(req api.Context, server v1.MCPServer) (map[string]string, error) {
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, secretBindingAllowedLabel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
-	return mergedEnv, nil
+	return cred.Secrets, nil
 }
 
 func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
@@ -1614,11 +1615,10 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, credMap[server.Name], m.secretBindingAllowedLabel)
-		if err != nil {
+		if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, m.secretBindingAllowedLabel); err != nil {
 			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
 		}
-		parent := ConvertMCPServer(server, mergedEnv, m.serverURL, slug)
+		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -1659,17 +1659,15 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		// Don't fail if catalog entry is missing, just continue without preview
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, m.secretBindingAllowedLabel)
-	if err != nil {
-		return fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), server.Spec.MCPCatalogID, server.Spec.PowerUserWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(server, mergedEnv, m.serverURL, slug))
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, m.secretBindingAllowedLabel); err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+	return req.Write(ConvertMCPServer(server, cred.Secrets, m.serverURL, slug))
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
@@ -2011,18 +2009,17 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Config, cred.Secrets, m.secretBindingAllowedLabel)
-	if err != nil {
-		return fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
+	if err := mcp.RefreshSecretBindingStatus(req.Context(), req.LocalK8sClient, req.ObotNamespace, &server, m.secretBindingAllowedLabel); err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+
 	// Return updated server
-	return req.Write(ConvertMCPServer(server, mergedEnv, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, cred.Secrets, m.serverURL, slug))
 }
 
 // ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings

@@ -1,7 +1,15 @@
+import { mcpConnectHandlers } from '../helpers/mcpConnect';
+import { mcpServerActionHandlers } from '../helpers/mcpServerActions';
 import * as data from './data';
 import { http, HttpResponse } from 'msw';
 
+const providerIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" />';
+
 export const handlers = [
+	http.get(
+		/\/(?:admin\/assets\/(?:okta|local)_icon_small\.png|okta\.svg)$/,
+		() => new HttpResponse(providerIcon, { headers: { 'Content-Type': 'image/svg+xml' } })
+	),
 	http.get('/api/all-mcps/entries', () =>
 		HttpResponse.json({ items: data.listMCPCatalogEntriesResponse })
 	),
@@ -12,6 +20,9 @@ export const handlers = [
 	http.get('/api/app-preferences', () => HttpResponse.json(data.listAppPreferencesResponse)),
 	http.get('/api/auth-providers', () =>
 		HttpResponse.json({ items: data.listAuthProvidersResponse })
+	),
+	http.post('/api/auth-providers/:providerID/reveal', () =>
+		HttpResponse.json(null, { status: 404 })
 	),
 	http.get('/api/bootstrap', () => HttpResponse.json(data.getBootstrapStatusResponse)),
 	http.get('/api/local-auth/users', () => HttpResponse.json({ items: [] })),
@@ -48,10 +59,18 @@ export const handlers = [
 	http.get('/api/mcp-catalogs/default/servers', () =>
 		HttpResponse.json({ items: data.listMCPCatalogServersResponse })
 	),
+	...mcpConnectHandlers,
+	...mcpServerActionHandlers,
 	http.get('/api/mcp-server-instances', () =>
 		HttpResponse.json({ items: data.listMcpServerInstancesResponse })
 	),
 	http.get('/api/mcp-servers/:id/logs', () => HttpResponse.json({ items: [] })),
+	http.get('/api/workspaces/:workspaceID/entries/:entryID/servers/:serverID/logs', () =>
+		HttpResponse.json({ items: [] })
+	),
+	http.get('/api/workspaces/:workspaceID/servers/:serverID/logs', () =>
+		HttpResponse.json({ items: [] })
+	),
 	http.get('/api/mcp-servers', () =>
 		HttpResponse.json({ items: data.listSingleOrRemoteMcpServersResponse })
 	),
@@ -64,7 +83,15 @@ export const handlers = [
 	http.get('/api/product-telemetry-consent', () => HttpResponse.json({})),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
 	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),
+	http.post('/api/vmcps/:vmcpID/reveal', () => HttpResponse.json({ components: {} })),
+	http.get('/api/vmcps/:vmcpID', () => new HttpResponse(null, { status: 404 })),
 	http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
+	http.post('/api/vmcp-instances/:instanceID/reveal', () => HttpResponse.json({ components: {} })),
+	http.get('/api/vmcp-instances/:instanceID', () => new HttpResponse(null, { status: 404 })),
+	http.post(
+		'/api/vmcps/:vmcpID/components/:componentID/generate-tool-previews',
+		() => new HttpResponse(null, { status: 404 })
+	),
 	http.get('/api/groups', () => HttpResponse.json({ items: [] })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>

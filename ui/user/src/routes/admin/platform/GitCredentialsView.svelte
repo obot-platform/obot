@@ -4,8 +4,10 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
 	import { errors, profile } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { Pencil, Trash2, TriangleAlert, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -103,9 +105,18 @@
 
 	function useGroups(credential?: GitCredential) {
 		return [
-			{ label: 'Skill Repositories', uses: credential?.uses.skillRepositories ?? [] },
-			{ label: 'MCP Catalogs', uses: credential?.uses.mcpCatalogs ?? [] },
-			{ label: 'System MCP Catalogs', uses: credential?.uses.systemMcpCatalogs ?? [] }
+			{
+				label: m.platform_settings_git_credentials_skill_repositories(),
+				uses: credential?.uses.skillRepositories ?? []
+			},
+			{
+				label: m.platform_settings_git_credentials_mcp_catalogs(),
+				uses: credential?.uses.mcpCatalogs ?? []
+			},
+			{
+				label: m.platform_settings_git_credentials_system_mcp_catalogs(),
+				uses: credential?.uses.systemMcpCatalogs ?? []
+			}
 		].filter((group) => group.uses.length > 0);
 	}
 
@@ -273,7 +284,11 @@
 						);
 					} catch (error) {
 						failedCreates.push(draft);
-						errors.append(error instanceof Error ? error.message : 'Unable to save Git credential');
+						errors.append(
+							error instanceof Error
+								? error.message
+								: m.platform_settings_git_credentials_save_failed()
+						);
 					}
 				}),
 				...Object.entries(pendingEdits)
@@ -292,7 +307,9 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : 'Unable to save Git credential'
+								error instanceof Error
+									? error.message
+									: m.platform_settings_git_credentials_save_failed()
 							);
 						}
 					}),
@@ -301,14 +318,19 @@
 						await AdminService.deleteGitCredential(id, { dontLogErrors: true });
 						deletedIds.push(id);
 					} catch (error) {
-						errors.append(`Failed to delete Git credential: ${error}`);
+						errors.append(m.platform_settings_git_credentials_delete_failed({ error: `${error}` }));
 						if (conflictStatus(error)) {
 							const current = baseline.find((credential) => credential.id === id);
 							if (current) {
 								conflicted[id] = {
 									...current,
 									uses: {
-										skillRepositories: [{ id: 'resource', displayName: 'Unknown resource' }],
+										skillRepositories: [
+											{
+												id: 'resource',
+												displayName: m.platform_settings_git_credentials_unknown_resource()
+											}
+										],
 										mcpCatalogs: [],
 										systemMcpCatalogs: []
 									}
@@ -332,11 +354,14 @@
 			pendingCreates = failedCreates;
 			pendingEdits = failedEdits;
 			pendingDeletes = failedDeletes;
-			return (
+			const succeeded =
 				failedCreates.length === 0 &&
 				Object.keys(failedEdits).length === 0 &&
-				failedDeletes.length === 0
-			);
+				failedDeletes.length === 0;
+			if (succeeded && Object.keys(conflicted).length === 0) {
+				success.add('Git credentials updated successfully.');
+			}
+			return succeeded;
 		} finally {
 			requestPending = false;
 		}
@@ -347,14 +372,14 @@
 	data={tableData}
 	fields={['displayName', 'host', 'usedBy']}
 	headers={[
-		{ title: 'Name', property: 'displayName' },
-		{ title: 'Host', property: 'host' },
-		{ title: 'Used By', property: 'usedBy' }
+		{ title: m.core_name(), property: 'displayName' },
+		{ title: m.platform_settings_git_credentials_col_host(), property: 'host' },
+		{ title: m.platform_settings_git_credentials_col_used_by(), property: 'usedBy' }
 	]}
 	sortable={['displayName', 'host']}
 	filterable={['displayName', 'host']}
 	onClickRow={(row) => openEdit(row)}
-	noDataMessage="Click '+' to add a Git credential."
+	noDataMessage={m.platform_settings_git_credentials_no_data()}
 >
 	{#snippet onRenderColumn(field, credential)}
 		{#if field === 'displayName'}
@@ -362,7 +387,7 @@
 				{credential.displayName}
 				{#if hasUses(credential)}
 					<button
-						aria-label="View sources using this credential"
+						aria-label={m.platform_settings_git_credentials_view_sources()}
 						type="button"
 						class="pill-warning border-warning/30 hover:border-warning/60 hover:bg-warning/20 focus-visible:ring-warning/40 cursor-pointer border transition-colors focus-visible:ring-2 focus-visible:outline-none"
 						onclick={(event) => {
@@ -370,7 +395,7 @@
 							openUses(credential);
 						}}
 					>
-						In Use
+						{m.platform_settings_git_credentials_in_use()}
 					</button>
 				{/if}
 			</span>
@@ -380,15 +405,16 @@
 			{#if credential.usedBy}
 				<button
 					type="button"
-					aria-label="View sources using this credential"
+					aria-label={m.platform_settings_git_credentials_view_sources()}
 					class="text-left hover:underline"
 					onclick={(event) => {
 						event.stopPropagation();
 						openUses(credential);
 					}}
 				>
-					{credential.usedBy}
-					{credential.usedBy > 1 ? 'Sources' : 'Source'}
+					{credential.usedBy > 1
+						? m.platform_settings_git_credentials_sources_other({ count: credential.usedBy })
+						: m.platform_settings_git_credentials_sources_one({ count: credential.usedBy })}
 				</button>
 			{:else}
 				<span class="text-muted-content">—</span>
@@ -398,7 +424,7 @@
 	{#snippet actions(credential)}
 		{#if !isReadonly}
 			<IconButton
-				aria-label="Edit this credential"
+				aria-label={m.platform_settings_git_credentials_edit_aria()}
 				onclick={(event) => {
 					event.stopPropagation();
 					openEdit(credential);
@@ -410,13 +436,13 @@
 				class="shrink-0"
 				use:tooltip={hasUses(credential)
 					? {
-							text: 'This credential is currently in use and cannot be deleted.',
+							text: m.platform_settings_git_credentials_in_use_cannot_delete(),
 							placement: 'left'
 						}
 					: undefined}
 			>
 				<IconButton
-					aria-label="Delete this credential"
+					aria-label={m.platform_settings_git_credentials_delete_aria()}
 					variant="danger"
 					disabled={hasUses(credential)}
 					onclick={(event) => {
@@ -434,7 +460,9 @@
 <dialog bind:this={dialog} class="dialog" onclose={handleDialogClose}>
 	<div class="dialog-container w-full max-w-md p-4">
 		<h3 class="dialog-title">
-			{editingCredential ? 'Edit Git Credential' : 'Add Git Credential'}
+			{editingCredential
+				? m.platform_settings_git_credentials_edit_title()
+				: m.platform_settings_add_git_credential()}
 			<IconButton onclick={closeDialog} class="btn-sm dialog-close-btn">
 				<X class="size-5" />
 			</IconButton>
@@ -453,7 +481,7 @@
 
 		<div class="flex justify-end gap-2">
 			<button class="btn btn-secondary" disabled={inputsDisabled} onclick={closeDialog}
-				>Cancel</button
+				>{m.common_cancel()}</button
 			>
 			<button
 				class="btn btn-primary"
@@ -463,18 +491,18 @@
 					(tokenRequired && !token.trim())}
 				onclick={stageCredential}
 			>
-				{editingPersisted ? 'Update' : 'Add'}
+				{editingPersisted ? m.core_update() : m.platform_add()}
 			</button>
 		</div>
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={closeDialog}>close</button>
+		<button type="button" onclick={closeDialog}>{m.common_close()}</button>
 	</form>
 </dialog>
 
 {#snippet credentialForm()}
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-name" class="text-sm font-light">Name</label>
+		<label for="git-credential-name" class="text-sm font-light">{m.core_name()}</label>
 		<input
 			id="git-credential-name"
 			bind:value={displayName}
@@ -483,7 +511,9 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label for="git-credential-host" class="text-sm font-light">Git host</label>
+		<label for="git-credential-host" class="text-sm font-light"
+			>{m.platform_settings_git_credentials_host()}</label
+		>
 		<input
 			id="git-credential-host"
 			bind:value={host}
@@ -491,11 +521,14 @@
 			placeholder="github.com"
 			class="text-input-filled"
 		/>
-		<span class="text-muted-content text-xs">Enter a hostname without a scheme or path.</span>
+		<span class="text-muted-content text-xs">{m.platform_settings_git_credentials_host_hint()}</span
+		>
 	</div>
 	<div class="flex flex-col gap-1">
 		<div class="flex items-center justify-between gap-4">
-			<label for="git-credential-token" class="text-sm font-light">Personal access token</label>
+			<label for="git-credential-token" class="text-sm font-light"
+				>{m.platform_settings_git_credentials_pat()}</label
+			>
 			{#if showExistingToken && !inputsDisabled}
 				<button
 					type="button"
@@ -505,7 +538,7 @@
 						token = '';
 					}}
 				>
-					Clear token
+					{m.platform_settings_git_credentials_clear_token()}
 				</button>
 			{/if}
 		</div>
@@ -547,12 +580,14 @@
 {/snippet}
 
 <Confirm
-	title="Credential Uses"
-	msg={`${viewingCredential?.displayName ?? 'This credential'} is used by:`}
+	title={m.platform_settings_git_credentials_credential_uses()}
+	msg={m.platform_settings_git_credentials_used_by_msg({
+		name: viewingCredential?.displayName ?? m.platform_settings_git_credentials_this_credential()
+	})}
 	note={usesNote}
 	type="info"
 	show={Boolean(viewingCredential)}
-	cancelText="Close"
+	cancelText={m.core_close()}
 	oncancel={() => (viewingCredential = undefined)}
 	classes={{ note: 'w-full' }}
 />

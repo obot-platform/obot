@@ -7,6 +7,7 @@
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { m } from '$lib/i18n';
 	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import {
@@ -96,10 +97,10 @@
 {:else if localFilters.length === 0}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Funnel class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No created filters</h4>
+		<h4 class="text-muted-content text-lg font-semibold">{m.mcps_filters_no_created_filters()}</h4>
 		<p class="text-muted-content text-sm font-light">
-			Looks like you don't have any filters created yet. <br />
-			Click the "Add New Filter" button above to get started.
+			{m.mcps_filters_no_filters_line1()} <br />
+			{m.mcps_filters_no_filters_line2()}
 		</p>
 	</div>
 {:else}
@@ -109,7 +110,7 @@
 				value={query}
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={updateQuery}
-				placeholder="Search filters..."
+				placeholder={m.mcps_filters_search_filters()}
 			/>
 		</div>
 
@@ -125,12 +126,16 @@
 			onClearAllFilters={clearUrlParams}
 			headers={[
 				{
-					title: 'Name',
+					title: m.core_name(),
 					property: 'name'
 				},
 				{
-					title: 'Selectors',
+					title: m.mcps_filters_col_selectors(),
 					property: 'selectors'
+				},
+				{
+					title: m.core_status(),
+					property: 'status'
 				}
 			]}
 			sortable={['name', 'status']}
@@ -145,7 +150,7 @@
 							e.stopPropagation();
 							filterToDelete = d;
 						}}
-						tooltip={{ text: 'Delete Filter' }}
+						tooltip={{ text: m.mcps_filters_delete_filter() }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -158,12 +163,17 @@
 					{d.url || '-'}
 				{:else if property === 'selectors'}
 					{@const count = d.selectors?.length || 0}
-					{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
+					{count > 0
+						? count > 1
+							? m.mcps_filters_selector_count_other({ count })
+							: m.mcps_filters_selector_count_one({ count })
+						: '-'}
 				{:else if property === 'status'}
 					<span
 						class={d.status === 'Disabled'
 							? 'text-muted-content font-light italic text-xs'
-							: 'pill-primary bg-primary'}>{d.status}</span
+							: 'pill-primary bg-primary'}
+						>{d.status === 'Disabled' ? m.core_status_disabled() : m.core_status_enabled()}</span
 					>
 				{:else}
 					-
@@ -174,7 +184,9 @@
 {/if}
 
 <Confirm
-	msg={`Delete ${filterToDelete?.name || 'this filter'}?`}
+	msg={filterToDelete?.name
+		? m.mcps_delete_named({ name: filterToDelete.name })
+		: m.mcps_filters_delete_this_filter()}
 	show={!!filterToDelete}
 	onsuccess={async () => {
 		if (!filterToDelete) return;
@@ -187,7 +199,7 @@
 
 <ResponsiveDialog
 	class="bg-base-200 dark:bg-base-100 md:max-w-dvw md:w-6xl"
-	title="Select Built-in Filter"
+	title={m.mcps_filters_select_built_in_filter()}
 	bind:this={builtInFiltersDialog}
 >
 	<BuiltInFilters

@@ -995,7 +995,7 @@ func TestVMCPInstanceSelectionValidation(t *testing.T) {
 		for _, selection := range []map[string]types.VMCPComponentSet{nil, {}, {"everything": {AllowedTools: []string{"echo"}}}, {"everything": {AllowedTools: []string{"forbidden"}}}} {
 			t.Run(fmt.Sprintf("%s/%v", method, selection), func(t *testing.T) {
 				vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-					Components: []types.VMCPComponent{{ID: "everything", Name: "everything", AllowedTools: []string{"echo"}}},
+					Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
 					Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
 				}}}
 				instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{
@@ -1779,5 +1779,52 @@ func TestVMCPComponentAccess(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestVMCPHandlerCreateRefusesProfilesForMissingSCIMGroups(t *testing.T) {
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+	gatewayClient := newHandlerTestGateway(t)
+	if _, _, err := gatewayClient.CreateSCIMConnection(t.Context(), gateway.CreateSCIMConnectionOptions{
+		AuthProviderNamespace: system.DefaultNamespace,
+		AuthProviderName:      "okta-auth-provider",
+		GroupIDPrefix:         "okta/",
+		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	handler := vmcpHandlerForTest(t, storage)
+	manifest := testVMCPManifest()
+	manifest.Profiles = []types.VMCPProfile{{
+		Name: "team",
+		Subjects: []types.Subject{{
+			Type: types.SubjectTypeGroup,
+			ID:   "okta/00g-missing",
+		}},
+		Permissions: types.VMCPProfilePermissions{
+			AllowAllComponents: true,
+		},
+	}}
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = handler.Create(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User:           &user.DefaultInfo{Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "okta/00g-missing") || !strings.Contains(err.Error(), "push the group") {
+		t.Fatalf("Create() error = %v, want a refusal of the missing group", err)
+	}
+	var vmcps v1.VMCPList
+	if err := storage.List(t.Context(), &vmcps); err != nil {
+		t.Fatal(err)
+	}
+	if len(vmcps.Items) != 0 {
+		t.Fatalf("a refused vMCP was saved: %+v", vmcps.Items)
 	}
 }

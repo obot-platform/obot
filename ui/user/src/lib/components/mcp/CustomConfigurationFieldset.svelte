@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { MCPAllowedSecretBindingTarget, MCPConfig, MCPSubField } from '$lib/services';
 	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
@@ -92,8 +93,7 @@
 
 {#if serverUserType === 'singleUser'}
 	<p class="text-muted-content text-xs font-light">
-		The Name and Description fields will be displayed to the user when configuring this server. The
-		Key field will not.
+		{m.mcps_catalog_fieldset_single_user_hint()}
 	</p>
 
 	{@render keyInput()}
@@ -119,7 +119,7 @@
 					bind:checked={data.sensitive}
 					disabled={readonly || isPrebuiltEntry}
 				/>
-				<span class="text-sm">Sensitive</span>
+				<span class="text-sm">{m.mcps_field_sensitive()}</span>
 			</label>
 			<label class="flex items-center gap-2">
 				<input
@@ -127,7 +127,7 @@
 					bind:checked={data.required}
 					disabled={readonly || isPrebuiltEntry}
 				/>
-				<span class="text-sm">Required</span>
+				<span class="text-sm">{m.mcps_catalog_field_required()}</span>
 			</label>
 		</div>
 	{/if}
@@ -144,16 +144,16 @@
 
 	{#if !urlTemplateVariable}
 		<div class="flex w-full flex-col gap-1" id={`${id}-value-type-container`}>
-			<Label title="Value" forInput={`env-value-type-${id}`} required />
+			<Label title={m.core_col_value()} forInput={`env-value-type-${id}`} required />
 			<Select
 				class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 				classes={{
 					root: 'flex grow'
 				}}
 				options={[
-					{ label: 'User-Supplied', id: 'user_supplied' },
-					{ label: 'Static', id: 'static' },
-					{ label: 'Options', id: 'options' }
+					{ label: m.mcps_fieldset_user_supplied(), id: 'user_supplied' },
+					{ label: m.mcps_fieldset_static(), id: 'static' },
+					{ label: m.mcps_options_title(), id: 'options' }
 				]}
 				selected={selectedType}
 				onSelect={(option) => {
@@ -199,7 +199,9 @@
 		{/if}
 		{#if !usesSecretBindingSource(data)}
 			<div class="flex w-full flex-col gap-1">
-				<label for={`env-value-${id}`} class="sr-only">Static Value</label>
+				<label for={`env-value-${id}`} class="sr-only"
+					>{m.mcps_catalog_fieldset_static_value()}</label
+				>
 				{#if isFileConfiguration(data)}
 					<textarea
 						id={`env-value-${id}`}
@@ -207,7 +209,7 @@
 						class:error={missingValue}
 						bind:value={data.value}
 						disabled={readonly}
-						placeholder={data.static ? 'Stored value; leave blank to keep it' : undefined}
+						placeholder={data.static ? m.mcps_catalog_fieldset_stored_value() : undefined}
 						rows={(data.value ?? '').split('\n').length + 1}
 						aria-required={!readonly ? 'true' : undefined}
 						aria-invalid={missingValue}></textarea>
@@ -217,7 +219,9 @@
 						class="text-input-filled bg-base-100 w-full shadow-none"
 						class:error={missingValue}
 						bind:value={data.value}
-						placeholder={data.static ? 'Stored value; leave blank to keep it' : 'e.g. 123abcdef456'}
+						placeholder={data.static
+							? m.mcps_catalog_fieldset_stored_value()
+							: m.mcps_example({ example: '123abcdef456' })}
 						disabled={readonly || (data.options ?? []).length > 0}
 						type={data.sensitive ? 'password' : 'text'}
 						aria-required={!readonly ? 'true' : undefined}
@@ -244,7 +248,7 @@
 				<Toggle
 					classes={{ label: 'text-sm text-inherit' }}
 					disabled={readonly || isPrebuiltEntry}
-					label="Sensitive"
+					label={m.mcps_field_sensitive()}
 					labelInline
 					checked={!!data.sensitive}
 					onChange={(checked) => {
@@ -261,7 +265,7 @@
 				<Toggle
 					classes={{ label: 'text-sm text-inherit' }}
 					disabled={readonly || isPrebuiltEntry}
-					label="Required"
+					label={m.mcps_catalog_field_required()}
 					labelInline
 					checked={!!data.required}
 					onChange={(checked) => {
@@ -277,13 +281,13 @@
 
 {#snippet keyInput()}
 	<div class="flex w-full flex-col gap-1" id={`${id}-key-container`}>
-		<Label title="Key" forInput={`env-key-${id}`} required showError={missingKey} />
+		<Label title={m.mcps_field_key()} forInput={`env-key-${id}`} required showError={missingKey} />
 		<input
 			id={`env-key-${id}`}
 			class={classes?.input}
 			class:error={missingKey}
 			bind:value={data.key}
-			placeholder="e.g. CUSTOM_API_KEY"
+			placeholder={m.mcps_example({ example: 'CUSTOM_API_KEY' })}
 			disabled={readonly || isPrebuiltEntry}
 			aria-required={!readonly ? 'true' : undefined}
 			aria-invalid={missingKey}
@@ -293,7 +297,7 @@
 
 {#snippet nameAndDescriptionInputs()}
 	<div class="flex w-full flex-col gap-1" id={`${id}-name-container`}>
-		<Label title="Name" forInput={`env-name-${id}`} required showError={missingName} />
+		<Label title={m.core_name()} forInput={`env-name-${id}`} required showError={missingName} />
 		<input
 			id={`env-name-${id}`}
 			class={classes?.input}
@@ -305,7 +309,7 @@
 		/>
 	</div>
 	<div class="flex w-full flex-col gap-1" id={`${id}-description-container`}>
-		<Label title="Description" forInput={`env-description-${id}`} />
+		<Label title={m.core_description()} forInput={`env-description-${id}`} />
 		<input
 			id={`env-description-${id}`}
 			class={classes?.input}

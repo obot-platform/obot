@@ -58,34 +58,14 @@ func TestNormalizeToHighestRole(t *testing.T) {
 			expected: types2.RoleOwner | types2.RoleAuditor,
 		},
 		{
-			name:     "UserImpersonation preserved with Admin",
-			combined: types2.RoleAdmin | types2.RoleUserImpersonation,
-			expected: types2.RoleAdmin | types2.RoleUserImpersonation,
-		},
-		{
-			name:     "UserImpersonation preserved when merging Owner and Admin",
-			combined: types2.RoleOwner | types2.RoleAdmin | types2.RoleUserImpersonation,
-			expected: types2.RoleOwner | types2.RoleUserImpersonation,
-		},
-		{
-			name:     "Both Auditor and UserImpersonation preserved",
-			combined: types2.RoleAdmin | types2.RoleAuditor | types2.RoleUserImpersonation,
-			expected: types2.RoleAdmin | types2.RoleAuditor | types2.RoleUserImpersonation,
-		},
-		{
 			name:     "All add-ons preserved when merging multiple base roles",
-			combined: types2.RoleOwner | types2.RoleAdmin | types2.RolePowerUser | types2.RoleAuditor | types2.RoleUserImpersonation,
-			expected: types2.RoleOwner | types2.RoleAuditor | types2.RoleUserImpersonation,
+			combined: types2.RoleOwner | types2.RoleAdmin | types2.RolePowerUser | types2.RoleAuditor,
+			expected: types2.RoleOwner | types2.RoleAuditor,
 		},
 		{
 			name:     "Auditor alone normalizes to Basic with Auditor",
 			combined: types2.RoleAuditor,
 			expected: types2.RoleBasic | types2.RoleAuditor,
-		},
-		{
-			name:     "UserImpersonation alone normalizes to Basic with UserImpersonation",
-			combined: types2.RoleUserImpersonation,
-			expected: types2.RoleBasic | types2.RoleUserImpersonation,
 		},
 		{
 			name:     "Zero role normalizes to Basic",

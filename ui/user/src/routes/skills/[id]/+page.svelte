@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import SkillForm from '$lib/components/admin/SkillForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 
@@ -10,7 +11,7 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(skill?.displayName ?? 'Skill');
+	let title = $derived(skill?.displayName ?? m.skills_skill_fallback_title());
 </script>
 
 <Layout {title} showBackButton>
@@ -18,11 +19,13 @@
 		{#if data?.showLicenseError}
 			<div class="my-12 flex w-md flex-col items-center gap-4 m-auto text-center">
 				<TriangleAlert class="size-12 text-warning" />
-				<h4 class="text-muted-content text-lg font-semibold">Limited Functionality</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.skills_limited_functionality()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
-					An issue occurred with fetching the skill due to licensing. Please resolve outstanding
-					licensing issues or contact support at
-					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>.
+					{m.skills_skill_license_error_prefix()}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a
+					>{m.skills_license_error_suffix()}
 				</p>
 			</div>
 		{:else if skill}

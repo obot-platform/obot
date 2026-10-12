@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TabLayout from '$lib/components/TabLayout.svelte';
+	import { m } from '$lib/i18n';
 	import type { GitCredential, ImagePullSecret, ImagePullSecretCapability } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
@@ -24,12 +25,18 @@
 	let showRegistryConnections = $derived(version.current.engine === 'kubernetes');
 
 	let views = $derived([
-		{ label: 'License', value: 'license', content: license },
-		{ label: 'Settings', value: 'settings', content: settings },
+		{ label: m.platform_license_tab(), value: 'license', content: license },
+		{ label: m.platform_settings_tab(), value: 'settings', content: settings },
 		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
-			? [{ label: 'MCP Config', value: 'mcp-config', content: mcpConfig }]
+			? [
+					{
+						label: m.platform_mcp_config_tab(),
+						value: 'mcp-config',
+						content: mcpConfig
+					}
+				]
 			: []),
-		{ label: 'Branding', value: 'branding', content: branding }
+		{ label: m.platform_branding_tab(), value: 'branding', content: branding }
 	]);
 
 	$effect(() => {
@@ -43,11 +50,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Platform</title>
+	<title>Obot | {m.platform_title()}</title>
 </svelte:head>
 
 <TabLayout
-	title="Platform"
+	title={m.platform_title()}
 	defaultView="license"
 	classes={{ container: 'pb-0', childrenContainer: 'max-w-none' }}
 	rightSidebar={viewSidebar}

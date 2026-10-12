@@ -5,6 +5,7 @@
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type DeviceClientStat,
@@ -64,9 +65,9 @@
 	let mcpBuckets = $derived(
 		buildDeviceScanTopBuckets<DeviceMCPServerStat>(
 			stats?.mcpServers,
-			(m) => m.configHash,
-			(m) => m.name?.trim() || '(unnamed)',
-			(m) => m.deviceCount,
+			(s) => s.configHash,
+			(s) => s.name?.trim() || m.inventory_enforcement_unnamed(),
+			(s) => s.deviceCount,
 			'mcp'
 		)
 	);
@@ -140,28 +141,28 @@
 	let tiles = $derived<StatTile[]>([
 		{
 			key: 'devices',
-			label: 'Unique Devices',
+			label: m.inventory_enforcement_overview_unique_devices(),
 			value: stats?.deviceCount ?? 0,
 			icon: Laptop,
 			seeMore: '/inventory?view=devices'
 		},
 		{
 			key: 'clients',
-			label: 'Unique Clients',
+			label: m.inventory_enforcement_overview_unique_clients(),
 			value: totalClientGroups,
 			icon: MonitorCheck,
 			seeMore: '/inventory?view=device-clients'
 		},
 		{
 			key: 'mcps',
-			label: 'Unique MCPs',
+			label: m.inventory_enforcement_overview_unique_mcps(),
 			value: totalMcpGroups,
 			icon: Server,
 			seeMore: '/inventory?view=device-mcp-servers'
 		},
 		{
 			key: 'skills',
-			label: 'Unique Skills',
+			label: m.inventory_enforcement_overview_unique_skills(),
 			value: totalSkillGroups,
 			icon: PencilRuler,
 			seeMore: '/inventory?view=device-skills'
@@ -181,9 +182,12 @@
 {#if !stats || stats.deviceCount === 0}
 	<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 		<ScanLine class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No device scans in this window</h4>
+		<h4 class="text-muted-content text-lg font-semibold">
+			{m.inventory_enforcement_overview_no_scans_title()}
+		</h4>
 		<p class="text-muted-content text-sm font-light">
-			Adjust the date range or run <code class="font-mono">obot scan</code> from a managed device.
+			{m.inventory_enforcement_overview_no_scans_prefix()}<code class="font-mono">obot scan</code
+			>{m.inventory_enforcement_overview_no_scans_suffix()}
 		</p>
 	</div>
 {:else}
@@ -195,22 +199,22 @@
 
 	<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 		<DeviceScanDonutCard
-			title="Clients"
+			title={m.inventory_enforcement_overview_clients()}
 			buckets={clientBuckets}
 			totalGroups={totalClientGroups}
-			emptyMsg="No clients observed yet."
+			emptyMsg={m.inventory_enforcement_overview_no_clients_observed()}
 		/>
 		<DeviceScanDonutCard
-			title="Top MCPs"
+			title={m.inventory_enforcement_overview_top_mcps()}
 			buckets={mcpBuckets}
 			totalGroups={totalMcpGroups}
-			emptyMsg="No MCP servers observed yet."
+			emptyMsg={m.inventory_enforcement_overview_no_mcp_servers_observed()}
 		/>
 		<DeviceScanDonutCard
-			title="Top Skills"
+			title={m.inventory_enforcement_overview_top_skills()}
 			buckets={skillBuckets}
 			totalGroups={totalSkillGroups}
-			emptyMsg="No skills observed yet."
+			emptyMsg={m.inventory_enforcement_overview_no_skills_observed()}
 		/>
 		<DeviceScanTimelineCard
 			rangeStart={range.start}

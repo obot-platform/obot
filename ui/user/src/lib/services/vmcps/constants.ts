@@ -1,3 +1,4 @@
+import { m } from '$lib/i18n';
 import type { VMcpSortBy, VMcpStatusFilter } from './types';
 
 const SETTINGS_BUTTON_ID = 'mcp-server-settings-button';
@@ -105,14 +106,14 @@ export const MCP_SERVER_POPULARITY_ORDER = [
 export const VMCP_FILTER_OWNER_NONE = '__none__';
 
 export const VMCP_SORT_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
-	{ id: 'name', label: 'Name' },
-	{ id: 'created', label: 'Created' },
-	{ id: 'componentServers', label: 'MCP Servers' }
+	{ id: 'name', label: m.core_name() },
+	{ id: 'created', label: m.core_col_created() },
+	{ id: 'componentServers', label: m.vmcps_mcp_servers() }
 ];
 
 export const VMCP_STATUS_FILTER_OPTIONS: Array<{ id: VMcpStatusFilter; label: string }> = [
-	{ id: 'needs-update', label: 'Needs Update' },
-	{ id: 'not-configured', label: 'Not Configured' },
-	{ id: 'connected', label: 'Connected' },
-	{ id: 'not-connected', label: 'Not Connected' }
+	{ id: 'needs-update', label: m.vmcps_status_needs_update() },
+	{ id: 'not-configured', label: m.core_mcp_value_not_configured() },
+	{ id: 'connected', label: m.core_mcp_value_connected() },
+	{ id: 'not-connected', label: m.vmcps_status_not_connected() }
 ];

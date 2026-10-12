@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { m } from '$lib/i18n';
 	import {
 		AdminService,
 		type ImagePullSecret,
@@ -12,6 +13,7 @@
 	} from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
 	import { errors, profile } from '$lib/stores/index.js';
+	import { success } from '$lib/stores/success';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import CapabilityBanner from './CapabilityBanner.svelte';
@@ -277,14 +279,14 @@
 		const errors: Record<string, string> = {};
 
 		if (form.type === 'basic') {
-			if (!form.server.trim()) errors.server = 'Registry Server is required';
-			if (!form.username.trim()) errors.username = 'Username is required';
+			if (!form.server.trim()) errors.server = m.platform_settings_registry_server_required();
+			if (!form.username.trim()) errors.username = m.platform_settings_registry_username_required();
 			if (!currentSecret?.status?.passwordConfigured && !form.password) {
-				errors.password = 'Password is required';
+				errors.password = m.platform_settings_registry_password_required();
 			}
 		} else {
-			if (!form.roleARN.trim()) errors.roleARN = 'Role ARN is required';
-			if (!form.region.trim()) errors.region = 'Region is required';
+			if (!form.roleARN.trim()) errors.roleARN = m.platform_settings_registry_role_arn_required();
+			if (!form.region.trim()) errors.region = m.platform_settings_registry_region_required();
 		}
 
 		return errors;
@@ -359,7 +361,7 @@
 					} catch (error) {
 						failedCreates.push(draft);
 						errors.append(
-							error instanceof Error ? error.message : 'Unable to save image pull secret'
+							error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 						);
 					}
 				}),
@@ -376,7 +378,7 @@
 						} catch (error) {
 							failedEdits[id] = edit;
 							errors.append(
-								error instanceof Error ? error.message : 'Unable to save image pull secret'
+								error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 							);
 						}
 					}),
@@ -387,7 +389,7 @@
 					} catch (error) {
 						failedDeletes.push(id);
 						errors.append(
-							error instanceof Error ? error.message : 'Unable to delete image pull secret'
+							error instanceof Error ? error.message : m.platform_settings_registry_delete_failed()
 						);
 					}
 				})
@@ -404,11 +406,14 @@
 			pendingCreates = failedCreates;
 			pendingEdits = failedEdits;
 			pendingDeletes = failedDeletes;
-			return (
+			const succeeded =
 				failedCreates.length === 0 &&
 				Object.keys(failedEdits).length === 0 &&
-				failedDeletes.length === 0
-			);
+				failedDeletes.length === 0;
+			if (succeeded) {
+				success.add('Registry connections updated successfully.');
+			}
+			return succeeded;
 		} finally {
 			requestPending = false;
 		}
@@ -449,7 +454,7 @@
 				{ dontLogErrors: true }
 			);
 		} catch (err) {
-			testError = err instanceof Error ? err.message : 'Image pull secret test failed';
+			testError = err instanceof Error ? err.message : m.platform_settings_registry_test_failed();
 		} finally {
 			testing = false;
 		}
@@ -468,7 +473,8 @@
 			statusDetails = details;
 			upsertSecret(details);
 		} catch (err) {
-			statusError = err instanceof Error ? err.message : 'Failed to load image pull secret status';
+			statusError =
+				err instanceof Error ? err.message : m.platform_settings_registry_status_failed();
 		} finally {
 			statusLoading = false;
 		}
@@ -487,7 +493,7 @@
 		refreshMessage = '';
 		try {
 			const response = await AdminService.refreshImagePullSecret(secret.id);
-			refreshMessage = response.message ?? 'Refresh started';
+			refreshMessage = response.message ?? m.platform_settings_registry_refresh_started();
 			await refreshList();
 		} finally {
 			refreshing = false;
@@ -524,8 +530,16 @@
 <ResponsiveDialog
 	bind:this={editorDialog}
 	title={mode === 'edit'
-		? `Edit ${currentSecret ? displayName(currentSecret) : form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`
-		: `Add ${form.type === 'basic' ? 'Basic Secret' : 'ECR Secret'}`}
+		? m.platform_settings_registry_edit_named({
+				name: currentSecret
+					? displayName(currentSecret)
+					: form.type === 'basic'
+						? m.platform_settings_registry_basic_secret()
+						: m.platform_settings_registry_ecr_secret()
+			})
+		: form.type === 'basic'
+			? m.platform_settings_image_pull_secrets_add_basic()
+			: m.platform_settings_image_pull_secrets_add_ecr()}
 	class="w-full md:max-w-4xl"
 	onClose={closeEditor}
 >
@@ -554,7 +568,7 @@
 					disabled={formLocked}
 					onclick={() => editorDialog?.close()}
 				>
-					Cancel
+					{m.common_cancel()}
 				</button>
 				<button
 					type="button"
@@ -562,7 +576,7 @@
 					disabled={formLocked || !canStage}
 					onclick={stageSecret}
 				>
-					{mode === 'edit' ? 'Update' : 'Add'}
+					{mode === 'edit' ? m.core_update() : m.platform_add()}
 				</button>
 			</div>
 		</div>
@@ -570,13 +584,17 @@
 </ResponsiveDialog>
 
 <Confirm
-	title="Refresh Image Pull Secret"
+	title={m.platform_settings_registry_refresh_title()}
 	type="info"
-	msg={`Refresh ${refreshingSecret ? displayName(refreshingSecret) : 'this image pull secret'}?`}
-	note="This requests an immediate refresh of the generated ECR image pull secret."
+	msg={m.platform_settings_registry_refresh_msg({
+		name: refreshingSecret
+			? displayName(refreshingSecret)
+			: m.platform_settings_registry_this_secret()
+	})}
+	note={m.platform_settings_registry_refresh_note()}
 	show={Boolean(refreshingSecret)}
 	loading={refreshing}
-	submitText="Refresh"
+	submitText={m.platform_refresh()}
 	onsuccess={async () => {
 		if (!refreshingSecret) return;
 		await refreshECR(refreshingSecret);

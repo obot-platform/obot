@@ -15,6 +15,7 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
+	import { m } from '$lib/i18n';
 	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto, clearUrlParams } from '$lib/url';
@@ -88,7 +89,7 @@
 
 		return {
 			...rule,
-			owner: owner || 'Unknown',
+			owner: owner || m.core_unknown(),
 			serversCount: count || 0
 		};
 	}
@@ -143,11 +144,13 @@
 		{#if accessControlRules.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<BookOpenText class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No created MCP access policies</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.mcps_access_policies_no_access_policies()}
+				</h4>
 				<p class="text-muted-content text-sm font-light">
-					Looks like you don't have any access policies created yet. <br />
+					{m.mcps_access_policies_no_access_policies_line1()} <br />
 					{#if !isReadonly}
-						Click the button below to get started.
+						{m.mcps_access_policies_click_button_below()}
 					{/if}
 				</p>
 
@@ -155,13 +158,13 @@
 			</div>
 		{:else if isAdmin}
 			<div class="flex flex-col gap-2">
-				<h4 class="text-base font-semibold">Admin Managed Access Policies</h4>
+				<h4 class="text-base font-semibold">{m.mcps_access_policies_admin_managed_policies()}</h4>
 				{@render accessControlRuleTable('global')}
 			</div>
 
 			<details class="collapse bg-base-300 collapse-arrow mb-2 w-full border border-transparent">
 				<summary class="collapse-title text-base font-semibold"
-					>User Managed Access Policies</summary
+					>{m.mcps_access_policies_user_managed_policies()}</summary
 				>
 				<div class="collapse-content bg-base-200 p-2 text-sm">
 					{@render accessControlRuleTable('user')}
@@ -176,8 +179,12 @@
 				}}
 				headers={[
 					{
-						title: 'Name',
+						title: m.core_name(),
 						property: 'displayName'
+					},
+					{
+						title: m.mcps_servers_tab(),
+						property: 'servers'
 					}
 				]}
 			>
@@ -189,7 +196,7 @@
 								e.stopPropagation();
 								ruleToDelete = d;
 							}}
-							tooltip={{ text: 'Delete Rule' }}
+							tooltip={{ text: m.mcps_access_policies_delete_rule() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -227,12 +234,16 @@
 		}}
 		headers={[
 			{
-				title: 'Name',
+				title: m.core_name(),
 				property: 'displayName'
 			},
 			{
-				title: 'Servers',
+				title: m.mcps_servers_tab(),
 				property: 'serversCount'
+			},
+			{
+				title: m.core_role_owner(),
+				property: 'owner'
 			}
 		]}
 		filterable={['displayName', 'owner']}
@@ -246,7 +257,7 @@
 						e.stopPropagation();
 						ruleToDelete = d;
 					}}
-					tooltip={{ text: 'Delete Rule' }}
+					tooltip={{ text: m.mcps_access_policies_delete_rule() }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>
@@ -273,7 +284,8 @@
 				);
 			}}
 		>
-			<Plus class="size-4" /> Add Access Policy
+			<Plus class="size-4" />
+			{m.mcps_access_policies_add_access_policy()}
 		</button>
 	{/if}
 {/snippet}
@@ -298,7 +310,9 @@
 {/snippet}
 
 <Confirm
-	msg={`Delete ${ruleToDelete?.displayName || 'this rule'}?`}
+	msg={ruleToDelete?.displayName
+		? m.mcps_delete_named({ name: ruleToDelete.displayName })
+		: m.mcps_access_policies_delete_this_rule()}
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;

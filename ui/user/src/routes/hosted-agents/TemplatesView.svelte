@@ -6,6 +6,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { m } from '$lib/i18n';
 	import { type Harness, type HostedAgent } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
@@ -51,23 +52,25 @@
 {:else}
 	<div class="flex flex-col gap-4" in:fade={{ duration }}>
 		<p class="text-muted-content text-sm font-light">
-			A template describes an agent someone can launch: the harness it runs on, the MCP servers,
-			skills and models it may use, and anything the user is asked when they create one.
+			{m.hosted_agents_templates_desc()}
 		</p>
 
 		{#if hostedAgents.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<Bot class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No agent templates</h4>
+				<h4 class="text-muted-content text-lg font-semibold">
+					{m.hosted_agents_templates_no_templates()}
+				</h4>
 				{#if !isReadonly}
 					<p class="text-muted-content text-sm font-light">
-						Add one directly, or sync them from a config source.
+						{m.hosted_agents_templates_no_templates_desc()}
 					</p>
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
 						onclick={() => goto(`${page.url.pathname}?view=templates&new=true`)}
 					>
-						<Plus class="size-4" /> Add Template
+						<Plus class="size-4" />
+						{m.hosted_agents_templates_add_template()}
 					</button>
 				{/if}
 			</div>
@@ -76,8 +79,8 @@
 				data={tableData}
 				fields={['name', 'harness']}
 				headers={[
-					{ property: 'name', title: 'Name' },
-					{ property: 'harness', title: 'Harness' }
+					{ property: 'name', title: m.core_name() },
+					{ property: 'harness', title: m.chat_templates_col_harness() }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(`/hosted-agents/${d.id}`, isCtrlClick);
@@ -102,7 +105,7 @@
 								e.stopPropagation();
 								agentToDelete = hostedAgents.find((a) => a.id === d.id);
 							}}
-							tooltip={{ text: 'Delete Agent' }}
+							tooltip={{ text: m.hosted_agents_templates_delete_agent() }}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -114,7 +117,7 @@
 {/if}
 
 <Confirm
-	msg={`Delete ${agentToDelete?.name || 'this agent'}?`}
+	msg={m.chat_delete_named({ name: agentToDelete?.name || m.chat_templates_this_agent() })}
 	show={Boolean(agentToDelete)}
 	onsuccess={async () => {
 		if (!agentToDelete) return;
