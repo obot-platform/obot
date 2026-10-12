@@ -110,6 +110,8 @@ func TestInlineImport(t *testing.T) {
 		Source: types.OpenAPISource{Content: string(data)},
 	})
 	require.NoError(t, err)
+	require.True(t, got.DestinationValidation.Valid)
+	want.DestinationValidation = types.OpenAPIDestinationValidation{Valid: true}
 	require.Equal(t, want, got)
 }
 
@@ -121,13 +123,16 @@ func TestDestinationNetworkPolicy(t *testing.T) {
 				Source:  types.OpenAPISource{Content: string(usersSchema(t))},
 			}
 			blocked := NewImporter(safehttp.Options{BlockLoopback: true}, true)
-			_, err := blocked.Import(t.Context(), config)
-			require.ErrorContains(t, err, "API destination is blocked")
+			result, err := blocked.Import(t.Context(), config)
+			require.NoError(t, err)
+			require.False(t, result.DestinationValidation.Valid)
+			require.Contains(t, result.DestinationValidation.Error, "API destination is blocked")
 
 			allowed := NewImporter(safehttp.Options{BlockPrivateIP: true, BlockLinkLocal: true}, true)
-			result, err := allowed.Import(t.Context(), config)
+			result, err = allowed.Import(t.Context(), config)
 			require.NoError(t, err)
 			require.Equal(t, baseURL+"/", result.BaseURL)
+			require.True(t, result.DestinationValidation.Valid)
 		})
 	}
 }
@@ -138,12 +143,15 @@ func TestDestinationHTTPSRequirement(t *testing.T) {
 		Source:  types.OpenAPISource{Content: string(usersSchema(t))},
 	}
 
-	_, err := NewImporter(safehttp.Options{}, false).Import(t.Context(), config)
-	require.ErrorContains(t, err, "API destination must use HTTPS")
+	result, err := NewImporter(safehttp.Options{}, false).Import(t.Context(), config)
+	require.NoError(t, err)
+	require.False(t, result.DestinationValidation.Valid)
+	require.Contains(t, result.DestinationValidation.Error, "API destination must use HTTPS")
 
-	result, err := NewImporter(safehttp.Options{}, true).Import(t.Context(), config)
+	result, err = NewImporter(safehttp.Options{}, true).Import(t.Context(), config)
 	require.NoError(t, err)
 	require.Equal(t, "http://api.example.com/", result.BaseURL)
+	require.True(t, result.DestinationValidation.Valid)
 }
 
 func TestTypedParsingPreservesSnapshot(t *testing.T) {
@@ -395,4 +403,56 @@ func TestJSONStructuralBounds(t *testing.T) {
 	data := `{"nested":` + strings.Repeat("[", 128) + "0" + strings.Repeat("]", 128) + "}"
 	_, _, err := normalize([]byte(data))
 	require.EqualError(t, err, "schema nesting exceeds 128 levels")
+}
+
+func TestInvalidDestinationOverridePreservesSchema(t *testing.T) {
+	data := usersSchema(t)
+	result, err := NewImporter(safehttp.Options{}, false).Import(t.Context(), types.OpenAPIRuntimeConfig{
+		Source:  types.OpenAPISource{Content: string(data)},
+		BaseURL: "not-a-url",
+	})
+	require.NoError(t, err)
+	require.False(t, result.DestinationValidation.Valid)
+	require.Contains(t, result.DestinationValidation.Error, "baseURL must be absolute HTTP(S)")
+	require.Equal(t, "not-a-url", result.BaseURL)
+	require.NotEmpty(t, result.Schema)
+}
+
+func TestPreviewSourceRestrictionsRemainFatal(t *testing.T) {
+	importer := NewImporter(safehttp.Options{
+		BlockLoopback:  true,
+		BlockPrivateIP: true,
+		BlockLinkLocal: true,
+	}, false)
+	for _, test := range []struct {
+		name      string
+		sourceURL string
+		want      string
+	}{
+		{
+			name:      "HTTP source",
+			sourceURL: "http://8.8.8.8/schema",
+			want:      "schema source must use HTTPS",
+		},
+		{
+			name:      "blocked source",
+			sourceURL: "https://127.0.0.1/schema",
+			want:      "schema source URL is blocked",
+		},
+		{
+			name:      "source credentials",
+			sourceURL: "https://user:secret@8.8.8.8/schema",
+			want:      "without credentials or fragment",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := importer.Import(t.Context(), types.OpenAPIRuntimeConfig{
+				Source:  types.OpenAPISource{URL: test.sourceURL},
+				BaseURL: "https://8.8.4.4",
+			})
+			require.ErrorContains(t, err, test.want)
+			require.NotContains(t, err.Error(), "secret")
+			require.Nil(t, result)
+		})
+	}
 }

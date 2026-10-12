@@ -23,6 +23,12 @@ func TestImportBeforeConfiguringDestination(t *testing.T) {
 			result, err := Parse(data, types.OpenAPIRuntimeConfig{})
 			require.NoError(t, err)
 			require.Empty(t, result.BaseURL)
+			preview, err := NewImporter(safehttp.Options{}, false).Import(t.Context(), types.OpenAPIRuntimeConfig{
+				Source: types.OpenAPISource{Content: string(data)},
+			})
+			require.NoError(t, err)
+			require.False(t, preview.DestinationValidation.Valid)
+			require.Contains(t, preview.DestinationValidation.Error, "configure baseURL")
 			require.NotEmpty(t, result.Schema)
 			require.Equal(t, "Users", result.SuggestedMetadata.Name)
 			require.Len(t, result.SuggestedHeaders, 1)

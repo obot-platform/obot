@@ -731,6 +731,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				errs = append(errs, fmt.Errorf("failed to import OpenAPI schema for catalog entry %s: %w", entry.Name, err))
 				continue
 			}
+			// Preview destination status is advisory. ValidateManifest below
+			// rejects invalid destinations before the entry can be applied.
 			entry.OpenAPIConfig.Schema = &types.OpenAPISchema{Raw: result.Schema}
 		}
 		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{

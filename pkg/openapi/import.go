@@ -32,10 +32,11 @@ type Importer struct {
 // Result contains the stored schema, resolved API destination, and suggested
 // credential inputs. MCP tools are generated and listed by the hosted wrapper.
 type Result struct {
-	Schema            json.RawMessage
-	BaseURL           string
-	SuggestedHeaders  []types.MCPConfig
-	SuggestedMetadata types.OpenAPIMetadata
+	Schema                json.RawMessage
+	BaseURL               string
+	SuggestedHeaders      []types.MCPConfig
+	SuggestedMetadata     types.OpenAPIMetadata
+	DestinationValidation types.OpenAPIDestinationValidation
 }
 
 // NewImporter applies the configured network policy to schema fetches. devMode
@@ -55,6 +56,9 @@ func NewImporter(options safehttp.Options, devMode bool) *Importer {
 
 // Import always reads Source anew, ignoring any previous Schema snapshot.
 // It returns no replacement snapshot on failure; callers retain the last good one.
+// Destination failures are reported in Result, allowing import previews before
+// an override is configured. Callers must validate destinations before saving
+// or deploying the returned snapshot.
 func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	source := config.Source
 	if err := ValidateSource(source); err != nil {
@@ -99,18 +103,28 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 	return i.parse(ctx, data, config)
 }
 
-// parse checks the resolved destination against the importer's transport and
-// network policies.
+// parse reports destination validation separately from schema validation.
 // It makes no request to the destination.
 func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
-	result, err := Parse(data, config)
+	// A bad destination override must not discard an otherwise supported schema.
+	parseConfig := config
+	parseConfig.BaseURL = ""
+	result, err := Parse(data, parseConfig)
 	if err != nil {
 		return nil, err
 	}
-	if result.BaseURL != "" {
-		if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
-			return nil, err
+	if config.BaseURL != "" {
+		result.BaseURL = config.BaseURL
+		if base, err := destination(config.BaseURL); err == nil {
+			result.BaseURL = base
 		}
+	}
+	if result.BaseURL == "" {
+		result.DestinationValidation.Error = "no usable server URL; configure baseURL"
+	} else if err := ValidateDestination(ctx, result.BaseURL, i.options, i.devMode); err != nil {
+		result.DestinationValidation.Error = err.Error()
+	} else {
+		result.DestinationValidation.Valid = true
 	}
 	return result, nil
 }

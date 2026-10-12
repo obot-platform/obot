@@ -37,10 +37,11 @@ func (h *MCPCatalogHandler) ImportOpenAPI(req api.Context) error {
 		return types.NewErrBadRequest("failed to import OpenAPI schema: %v", err)
 	}
 	return req.Write(types.OpenAPIImportResponse{
-		Schema:            &types.OpenAPISchema{Raw: result.Schema},
-		BaseURL:           result.BaseURL,
-		SuggestedHeaders:  append([]types.MCPConfig{}, result.SuggestedHeaders...),
-		SuggestedMetadata: result.SuggestedMetadata,
+		Schema:                &types.OpenAPISchema{Raw: result.Schema},
+		BaseURL:               result.BaseURL,
+		SuggestedHeaders:      append([]types.MCPConfig{}, result.SuggestedHeaders...),
+		SuggestedMetadata:     result.SuggestedMetadata,
+		DestinationValidation: result.DestinationValidation,
 	})
 }
 
@@ -59,6 +60,8 @@ func (h *MCPCatalogHandler) prepareOpenAPIEntry(ctx context.Context, manifest *t
 	if err != nil {
 		return err
 	}
+	// Import reports destination failures for previews. CreateEntry and
+	// UpdateEntry still validate the manifest before persisting this snapshot.
 	config.Schema = &types.OpenAPISchema{Raw: result.Schema}
 	manifest.OpenAPIConfig = &config
 	return nil

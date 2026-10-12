@@ -260,6 +260,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                 schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                             schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.OpenAPIDestinationValidation":              schema_obot_platform_obot_apiclient_types_OpenAPIDestinationValidation(ref),
 		"github.com/obot-platform/obot/apiclient/types.OpenAPIImportResponse":                     schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata":                           schema_obot_platform_obot_apiclient_types_OpenAPIMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig":                      schema_obot_platform_obot_apiclient_types_OpenAPIRuntimeConfig(ref),
@@ -13052,6 +13053,33 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_OpenAPIDestinationValidation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OpenAPIDestinationValidation reports whether the effective API destination satisfies the configured HTTPS and network policy. It does not test API availability or credentials. An invalid destination requires a valid override.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"valid": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"valid"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -13089,12 +13117,18 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata"),
 						},
 					},
+					"destinationValidation": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OpenAPIDestinationValidation"),
+						},
+					},
 				},
-				Required: []string{"schema", "baseURL", "suggestedHeaders", "suggestedMetadata"},
+				Required: []string{"schema", "baseURL", "suggestedHeaders", "suggestedMetadata", "destinationValidation"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata", "github.com/obot-platform/obot/apiclient/types.OpenAPISchema"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIDestinationValidation", "github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata", "github.com/obot-platform/obot/apiclient/types.OpenAPISchema"},
 	}
 }
 

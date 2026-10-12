@@ -814,3 +814,47 @@ func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPIPreviewCannotBypassDestinationValidation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "HTTP destination",
+			url:  "http://8.8.8.8",
+			want: "HTTPS",
+		},
+		{
+			name: "blocked destination",
+			url:  "https://127.0.0.1",
+			want: "blocked loopback",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			schema := strings.Replace(storedOpenAPISchema, "https://api.example.com/v1", test.url, 1)
+			config := types.OpenAPIRuntimeConfig{Source: types.OpenAPISource{Content: schema}}
+			importer := openapi.NewImporter((RemoteMCPURLValidationConfig{}).SafeHTTPOptions(), false)
+			preview, err := importer.Import(t.Context(), config)
+			require.NoError(t, err)
+			require.False(t, preview.DestinationValidation.Valid)
+			config.Schema = &types.OpenAPISchema{Raw: preview.Schema}
+			server := openAPITestServer()
+			server.Spec.Manifest.Config = nil
+			server.Spec.Manifest.OpenAPIConfig = &config
+			require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), false, ValidationOptions{}), test.want)
+			deployment := openAPITestConfig(t, server, nil)
+			require.ErrorContains(t, validateDeployment(t.Context(), deployment, ValidationOptions{}), test.want)
+
+			config.BaseURL = "https://8.8.4.4"
+			preview, err = importer.Import(t.Context(), config)
+			require.NoError(t, err)
+			require.True(t, preview.DestinationValidation.Valid)
+			require.JSONEq(t, schema, string(preview.Schema))
+			require.NoError(t, ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), false, ValidationOptions{}))
+			deployment = openAPITestConfig(t, server, nil)
+			require.NoError(t, validateDeployment(t.Context(), deployment, ValidationOptions{}))
+		})
+	}
+}

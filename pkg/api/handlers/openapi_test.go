@@ -486,3 +486,77 @@ func TestOpenAPIInlineSnapshotUsesContent(t *testing.T) {
 	require.Error(t, handler.prepareOpenAPIEntry(t.Context(), &manifest))
 	require.Equal(t, before, manifest.OpenAPIConfig, "failed imports must not modify the manifest")
 }
+
+func TestOpenAPIImportDestinationValidation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "HTTP destination",
+			url:  "http://8.8.8.8",
+			want: "HTTPS",
+		},
+		{
+			name: "blocked destination",
+			url:  "https://127.0.0.1",
+			want: "blocked loopback",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			schema := strings.Replace(apiOpenAPISchema, "https://8.8.8.8", test.url, 1)
+			schema = strings.Replace(schema, `"paths":{}`, `"paths":{},"components":{"securitySchemes":{"key":{"type":"apiKey","in":"header","name":"X-Key"}}},"security":[{"key":[]}]`, 1)
+			config := types.OpenAPIRuntimeConfig{Source: types.OpenAPISource{Content: schema}}
+			handler := NewMCPCatalogHandler("", "", "docker", &mcp.SessionManager{}, nil, nil, nil, "")
+			storage := newFakeStorage(t, &v1.MCPCatalog{Name: "scope", Namespace: system.DefaultNamespace})
+
+			ctx, response := openAPIRequest(t, storage, "", http.MethodPost, config)
+			require.NoError(t, handler.ImportOpenAPI(ctx))
+			var preview types.OpenAPIImportResponse
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &preview))
+			require.False(t, preview.DestinationValidation.Valid)
+			require.Contains(t, preview.DestinationValidation.Error, test.want)
+			require.Equal(t, test.url+"/", preview.BaseURL)
+			require.Equal(t, "Example", preview.SuggestedMetadata.Name)
+			require.Len(t, preview.SuggestedHeaders, 1)
+			require.Equal(t, "X-Key", preview.SuggestedHeaders[0].Key)
+			require.JSONEq(t, schema, string(preview.Schema.Raw))
+
+			manifest := types.MCPServerCatalogEntryManifest{
+				Name:          "Example",
+				Runtime:       types.RuntimeOpenAPI,
+				Config:        preview.SuggestedHeaders,
+				OpenAPIConfig: &config,
+			}
+			ctx, _ = openAPIRequest(t, storage, "catalog_id", http.MethodPost, manifest)
+			require.ErrorContains(t, handler.CreateEntry(ctx), test.want)
+			var entries v1.MCPServerCatalogEntryList
+			require.NoError(t, storage.List(t.Context(), &entries))
+			require.Empty(t, entries.Items)
+
+			config.BaseURL = "https://8.8.4.4"
+			ctx, response = openAPIRequest(t, storage, "", http.MethodPost, config)
+			require.NoError(t, handler.ImportOpenAPI(ctx))
+			preview = types.OpenAPIImportResponse{}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &preview))
+			require.True(t, preview.DestinationValidation.Valid)
+			require.Empty(t, preview.DestinationValidation.Error)
+			require.Equal(t, "https://8.8.4.4/", preview.BaseURL)
+			require.JSONEq(t, schema, string(preview.Schema.Raw))
+
+			ctx, _ = openAPIRequest(t, storage, "catalog_id", http.MethodPost, manifest)
+			require.NoError(t, handler.CreateEntry(ctx))
+			require.NoError(t, storage.List(t.Context(), &entries))
+			require.Len(t, entries.Items, 1)
+			entry := entries.Items[0]
+			require.Equal(t, config.BaseURL, entry.Spec.Manifest.OpenAPIConfig.BaseURL)
+			config.BaseURL = ""
+			ctx, _ = openAPIRequest(t, storage, "catalog_id", http.MethodPut, manifest)
+			ctx.SetPathValue("entry_id", entry.Name)
+			require.ErrorContains(t, handler.UpdateEntry(ctx), test.want)
+			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&entry), &entry))
+			require.Equal(t, "https://8.8.4.4", entry.Spec.Manifest.OpenAPIConfig.BaseURL)
+		})
+	}
+}

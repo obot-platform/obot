@@ -246,3 +246,46 @@ func TestOpenAPIGitOpsDevelopmentMode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "http://localhost:8000/", result.BaseURL)
 }
+
+func TestOpenAPICatalogDestinationValidation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "HTTP destination",
+			url:  "http://8.8.8.8",
+			want: "HTTPS",
+		},
+		{
+			name: "blocked destination",
+			url:  "https://127.0.0.1",
+			want: "blocked loopback",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			schema := strings.Replace(catalogOpenAPISchema, "https://8.8.8.8", test.url, 1)
+			dir := t.TempDir()
+			path := writeOpenAPICatalog(t, dir, types.OpenAPISource{Content: schema})
+			handler := New("", "", nil, nil, &mcp.SessionManager{}, 0)
+			entries, err := handler.readMCPCatalog(t.Context(), "default", dir, "")
+			require.ErrorContains(t, err, test.want)
+			require.Empty(t, entries)
+
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			var manifest types.MCPServerCatalogEntryManifest
+			require.NoError(t, json.Unmarshal(data, &manifest))
+			manifest.OpenAPIConfig.BaseURL = "https://8.8.4.4"
+			data, err = json.Marshal(manifest)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(path, data, 0o600))
+			entries, err = handler.readMCPCatalog(t.Context(), "default", dir, "")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			config := entries[0].(*v1.MCPServerCatalogEntry).Spec.Manifest.OpenAPIConfig
+			require.JSONEq(t, schema, string(config.Schema.Raw))
+		})
+	}
+}
