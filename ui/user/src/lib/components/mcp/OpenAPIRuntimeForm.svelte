@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import { importOpenAPI, openAPIBaseURL, type OpenAPIImportResult } from '$lib/services/openapi';
 	import Toggle from '../Toggle.svelte';
@@ -44,11 +45,11 @@
 	);
 	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
 	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
-	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
+	const toggleLabel = $derived(
+		defaultDenyAllEgress ? m.mcps_egress_allow_all() : m.mcps_egress_deny_all()
+	);
 	const egressHelpText = $derived(
-		defaultDenyAllEgress
-			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress. Examples: example.com, *.example.com.'
-			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress. Examples: example.com, *.example.com.'
+		defaultDenyAllEgress ? m.mcps_egress_help_default_deny() : m.mcps_egress_help_default_allow()
 	);
 	let baseURLRequired = $derived(Boolean(config.schema) && !openAPIBaseURL(config.schema));
 	let baseURLMissing = $derived(baseURLRequired && !config.baseURL?.trim());
@@ -75,7 +76,7 @@
 		config.source = {};
 		fileName = file.name;
 		if (file.size > 1024 * 1024) {
-			error = 'Schema files must be no larger than 1 MiB.';
+			error = m.mcps_openapi_file_too_large();
 			return;
 		}
 		busy = true;
@@ -83,7 +84,7 @@
 			const content = await file.text();
 			if (!disposed) config.source = { content };
 		} catch {
-			error = 'Unable to read the schema file.';
+			error = m.mcps_openapi_file_read_error();
 		} finally {
 			busy = false;
 		}
@@ -106,15 +107,15 @@
 	}
 </script>
 
-<section class="paper flex flex-col gap-4 p-4" aria-label="OpenAPI configuration">
+<section class="paper flex flex-col gap-4 p-4" aria-label={m.mcps_openapi_configuration()}>
 	<h4 class="text-sm font-semibold">OpenAPI</h4>
 	<p class="text-muted-content text-xs">
-		Import a schema to create tools for an HTTP API. API keys are supported; OAuth is not supported.
+		{m.mcps_openapi_intro()}
 	</p>
 	<fieldset disabled={readonly || busy} class="flex flex-col gap-4">
 		{#if importOnly}
 			<div class="flex flex-col gap-1">
-				<label for="openapi-source-type">Schema source</label>
+				<label for="openapi-source-type">{m.mcps_openapi_schema_source()}</label>
 				<select
 					id="openapi-source-type"
 					class="select w-full"
@@ -125,13 +126,13 @@
 						invalidate();
 					}}
 				>
-					<option value="url">URL</option>
-					<option value="file">Upload file</option>
+					<option value="url">{m.mcps_openapi_source_url_option()}</option>
+					<option value="file">{m.mcps_openapi_source_file_option()}</option>
 				</select>
 			</div>
 			{#if sourceType === 'url'}
 				<div class="flex flex-col gap-1">
-					<label for="openapi-source-url">Schema URL</label>
+					<label for="openapi-source-url">{m.mcps_openapi_schema_url()}</label>
 					<input
 						id="openapi-source-url"
 						class="text-input-filled"
@@ -149,7 +150,9 @@
 				</div>
 			{:else if !readonly}
 				<div class="flex flex-col gap-2">
-					<p id="openapi-source-file-label" class="text-sm font-light">Schema file</p>
+					<p id="openapi-source-file-label" class="text-sm font-light">
+						{m.mcps_openapi_schema_file()}
+					</p>
 					<input
 						bind:this={fileInput}
 						id="openapi-source-file"
@@ -166,13 +169,16 @@
 						<FileUp class="text-muted-content size-5 shrink-0" aria-hidden="true" />
 						<div class="min-w-0 flex-1 basis-40">
 							<p class="text-sm font-medium break-all">
-								{fileName || (config.source.content ? 'Saved schema' : 'Choose an OpenAPI schema')}
+								{fileName ||
+									(config.source.content
+										? m.mcps_openapi_saved_schema()
+										: m.mcps_openapi_choose_schema())}
 							</p>
 							<p id="openapi-file-hint" class="text-muted-content mt-1 text-xs">
 								{#if !fileName && config.source.content}
-									The existing schema is kept unless you choose a replacement.
+									{m.mcps_openapi_existing_schema_help()}
 								{:else}
-									JSON or YAML · Up to 1 MiB
+									{m.mcps_openapi_file_hint()}
 								{/if}
 							</p>
 						</div>
@@ -181,7 +187,9 @@
 							class="btn btn-secondary btn-sm shrink-0"
 							onclick={() => fileInput?.click()}
 						>
-							{fileName || config.source.content ? 'Replace file' : 'Choose file'}
+							{fileName || config.source.content
+								? m.mcps_openapi_replace_file()
+								: m.mcps_openapi_choose_file()}
 						</button>
 					</div>
 				</div>
@@ -189,15 +197,15 @@
 		{:else}
 			<div class="flex items-center justify-between gap-4">
 				<div class="min-w-0">
-					<p class="text-sm font-medium">Schema source</p>
+					<p class="text-sm font-medium">{m.mcps_openapi_schema_source()}</p>
 					<p class="text-muted-content text-xs break-all">
-						{config.source.url || 'Uploaded schema'}
+						{config.source.url || m.mcps_openapi_uploaded_schema()}
 					</p>
 				</div>
 				{#if !readonly}<button
 						type="button"
 						class="btn btn-secondary btn-sm shrink-0"
-						onclick={onReplace}>Replace schema</button
+						onclick={onReplace}>{m.mcps_openapi_replace_schema()}</button
 					>{/if}
 			</div>
 		{/if}
@@ -205,18 +213,18 @@
 			<div class="border-base-300 mt-2 flex flex-col gap-2 border-t pt-4">
 				<div class="flex items-center gap-2">
 					<label for="openapi-base-url" class="text-sm font-medium">
-						API request base URL
+						{m.mcps_openapi_base_url_label()}
 						{#if baseURLRequired}
 							<span class:text-error={baseURLInvalid} aria-hidden="true">*</span>
 						{/if}
 					</label>
 					<span class="text-muted-content bg-base-200 rounded px-2 py-0.5 text-xs"
-						>{baseURLRequired ? 'Required' : 'Optional'}</span
+						>{baseURLRequired ? m.mcps_catalog_field_required() : m.mcps_openapi_optional()}</span
 					>
 				</div>
 				<p id="openapi-base-url-hint" class="text-muted-content text-xs">
-					Where tool calls are sent.
-					{#if !baseURLRequired}Leave blank to use the API server URL defined in the schema.{/if}
+					{m.mcps_openapi_base_url_help()}
+					{#if !baseURLRequired}{m.mcps_openapi_base_url_optional_help()}{/if}
 				</p>
 				<input
 					id="openapi-base-url"
@@ -242,8 +250,7 @@
 						class:text-error={baseURLInvalid}
 						class:text-muted-content={!baseURLInvalid}
 					>
-						This schema has no usable absolute server URL. Enter an API request base URL before
-						saving.
+						{m.mcps_openapi_base_url_required_error()}
 					</p>
 				{/if}
 			</div>
@@ -255,7 +262,7 @@
 				onclick={importSchema}
 				disabled={!config.source.url?.trim() && !config.source.content}
 			>
-				{busy ? 'Importing…' : 'Import schema'}
+				{busy ? m.mcps_openapi_importing() : m.mcps_openapi_import_schema()}
 			</button>
 		{/if}
 	</fieldset>
@@ -263,17 +270,17 @@
 	{#if !importOnly}
 		{#if config.schema}
 			<p role="status" class="text-sm">
-				Schema imported. The snapshot will be saved with this entry.
+				{m.mcps_openapi_imported_status()}
 			</p>
 			{#if resolvedBaseURL}<p class="text-muted-content text-xs">
-					Imported API base URL: {resolvedBaseURL}
+					{m.mcps_openapi_imported_base_url({ url: resolvedBaseURL })}
 				</p>{/if}
 		{:else}
-			<p class="text-muted-content text-xs">Import the schema before saving this entry.</p>
+			<p class="text-muted-content text-xs">{m.mcps_openapi_import_before_save()}</p>
 		{/if}
 		{#if showEgressDomains}
 			<div class="flex gap-4">
-				<span class="pt-2.5 text-sm font-light">Egress Domains</span>
+				<span class="pt-2.5 text-sm font-light">{m.mcps_egress_domains()}</span>
 				<div class="flex min-h-10 grow flex-col gap-2">
 					<Toggle
 						label={toggleLabel}
@@ -287,7 +294,7 @@
 						class="text-input-filled dark:bg-base-100"
 						disabled={readonly || toggleChecked}
 						readonly={readonly || toggleChecked}
-						placeholder="hit &quot;Enter&quot; to insert"
+						placeholder={m.mcps_hit_enter_to_insert()}
 					/>
 					<p class="text-muted-content text-xs">{egressHelpText}</p>
 				</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import { type OpenAPIImportResult, type OpenAPIMetadata } from '$lib/services/openapi';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -44,10 +45,10 @@
 	let suggestions = $state<OpenAPIMetadata>({});
 	let selected = $state<OpenAPIMetadata>({});
 	const fields = [
-		{ key: 'name', label: 'Name' },
-		{ key: 'shortDescription', label: 'Short description' },
-		{ key: 'description', label: 'Description' },
-		{ key: 'icon', label: 'Icon URL' }
+		{ key: 'name', label: m.core_name() },
+		{ key: 'shortDescription', label: m.mcps_catalog_form_short_description() },
+		{ key: 'description', label: m.core_description() },
+		{ key: 'icon', label: m.mcps_catalog_form_icon_url() }
 	] as const;
 	function complete(metadata: OpenAPIMetadata) {
 		if (!result) return;
@@ -93,7 +94,7 @@
 			class="btn btn-ghost self-start"
 			onclick={() => {
 				editing = false;
-			}}>Cancel import</button
+			}}>{m.mcps_openapi_cancel_import()}</button
 		>
 	{/if}
 {:else}
@@ -114,14 +115,14 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="Use details from schema?"
+	title={m.mcps_openapi_metadata_title()}
 	onClose={() => complete({})}
 	disableClickOutside
 	animate={null}
 >
 	{#if result}
 		<p class="text-muted-content my-4 text-sm">
-			The schema is ready. Choose which details to use. Unselected fields keep their current values.
+			{m.mcps_openapi_metadata_help()}
 		</p>
 		<div class="flex flex-col gap-4 overflow-y-auto">
 			{#each fields as { key, label } (key)}
@@ -141,19 +142,21 @@
 						{#if current[key]}<p
 								class="text-muted-content mt-2 text-xs whitespace-pre-wrap break-all"
 							>
-								Current: {current[key]}
+								{m.mcps_openapi_metadata_current({ value: current[key] ?? '' })}
 							</p>{/if}
-						<p class="mt-2 text-sm whitespace-pre-wrap break-all">Suggested: {suggestions[key]}</p>
+						<p class="mt-2 text-sm whitespace-pre-wrap break-all">
+							{m.mcps_openapi_metadata_suggested({ value: suggestions[key] ?? '' })}
+						</p>
 					</div>
 				{/if}
 			{/each}
 		</div>
 		<div class="mt-4 flex justify-end gap-2">
 			<button type="button" class="btn btn-ghost" onclick={() => complete({})}
-				>Keep current values</button
+				>{m.mcps_openapi_metadata_keep_current()}</button
 			>
 			<button type="button" class="btn btn-primary" onclick={() => complete(selected)}
-				>Apply selected</button
+				>{m.mcps_openapi_metadata_apply_selected()}</button
 			>
 		</div>
 	{/if}

@@ -67,9 +67,9 @@
 				class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
-				<p class="mb-1 text-sm font-semibold">OpenAPI</p>
+				<p class="mb-1 text-sm font-semibold">{m.mcps_catalog_select_server_type_openapi()}</p>
 				<span class="text-muted-content block text-xs leading-4"
-					>Import an OpenAPI schema to create a hosted MCP server</span
+					>{m.mcps_catalog_select_server_type_openapi_description()}</span
 				>
 			</div>
 		</button>

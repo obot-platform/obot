@@ -43,8 +43,7 @@
 			<h4 class="text-sm font-semibold">{m.mcps_catalog_config_heading()}</h4>
 			<p class="text-muted-content text-xs font-light">
 				{#if headersOnly}
-					Headers are forwarded to the API with each request. Imported suggestions can be edited.
-					Use Value Prefix for values such as "Bearer " (including the trailing space).
+					{m.mcps_openapi_headers_help()}
 				{:else}
 					{m.mcps_config_description()}
 				{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import type { OpenAPIImportDraft } from '$lib/services/openapi';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -26,7 +27,7 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="Import OpenAPI schema"
+	title={m.mcps_openapi_import_title()}
 	onClose={cancel}
 	disableClickOutside
 	animate={null}
@@ -41,6 +42,6 @@
 		}}
 	/>
 	<div class="mt-4 flex justify-end">
-		<button type="button" class="btn btn-ghost" onclick={cancel}>Cancel</button>
+		<button type="button" class="btn btn-ghost" onclick={cancel}>{m.common_cancel()}</button>
 	</div>
 </ResponsiveDialog>
