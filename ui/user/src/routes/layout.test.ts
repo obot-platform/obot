@@ -140,7 +140,7 @@ describe('root layout account status', () => {
 
 	it('marks an account the server refused as inactive', async () => {
 		const data = await loadWith(
-			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+			createRefusedProfileFetch(403, 'You are not authorized to access this application. Contact your administrator.')
 		);
 
 		expect(data.profile.unauthorized).toBe(true);
@@ -190,7 +190,7 @@ describe('root layout account status', () => {
 
 	it('keeps the account inactive across the loads that follow the refusal', async () => {
 		await loadWith(
-			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+			createRefusedProfileFetch(403, 'You are not authorized to access this application. Contact your administrator.')
 		);
 
 		// The refusal ended the session, so the load after a redirect is merely signed out.
@@ -200,7 +200,7 @@ describe('root layout account status', () => {
 
 	it('forgets the inactive account once someone signs in', async () => {
 		await loadWith(
-			createRefusedProfileFetch(403, 'Your account is not active. Contact your administrator.')
+			createRefusedProfileFetch(403, 'You are not authorized to access this application. Contact your administrator.')
 		);
 		await loadWith(createFetch([Group.USER]));
 

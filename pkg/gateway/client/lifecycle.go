@@ -31,7 +31,7 @@ const (
 
 	// AccountNotActiveMessage is what a user denied access by their lifecycle status is told. It does not reveal
 	// the reason, which only administrators see.
-	AccountNotActiveMessage = "Your account is not active. Contact your administrator."
+	AccountNotActiveMessage = "You are not authorized to access this application. Contact your administrator."
 )
 
 // userLifecycleDelivery delivers the events of one type for one user in a batch at once: a user in many changed
