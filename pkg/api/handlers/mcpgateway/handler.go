@@ -147,7 +147,7 @@ func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) *mcpResponse {
 // A nil response leaves error handling to the caller, for example for notifications
 // or requests that cannot be decoded as a JSON-RPC call.
 func genericToolCallErrorResponse(req api.Context, callErr error) *mcpResponse {
-	if errors.Is(callErr, errMCPBatchUnsupported) || errors.Is(callErr, errMCPCaseVariantFieldNames) {
+	if errors.Is(callErr, errMCPBatchUnsupported) {
 		return mcpTextResponse(http.StatusBadRequest, callErr.Error())
 	}
 	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {
@@ -359,9 +359,6 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall)
 		if err != nil {
-			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
-				return nil
-			}
 			return fmt.Errorf("failed to prepare MCP request hooks: %w", err)
 		}
 

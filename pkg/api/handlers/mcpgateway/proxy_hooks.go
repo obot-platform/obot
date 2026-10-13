@@ -23,10 +23,6 @@ const (
 	maxMCPProxyHookBodySize = 10 << 20
 )
 
-var (
-	errMCPCaseVariantFieldNames = errors.New("MCP message field names must match protocol field names exactly")
-)
-
 // pendingRequest is the request context needed when its JSON-RPC response
 // arrives, potentially through another HTTP request or Obot replica.
 type pendingRequest struct {
@@ -141,9 +137,6 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 	if decodeMCPHookMessage(body, &message) != nil {
 		return processor, nil
 	}
-	if err := checkMCPMessageFieldNames(body); err != nil {
-		return nil, err
-	}
 
 	if message.Method == "" {
 		// If there is no method on this message, it's a protocol response
@@ -209,39 +202,6 @@ func decodeMCPHookMessage(body []byte, message *mcp.Message) error {
 		return err
 	}
 	return nil
-}
-
-// checkMCPMessageFieldNames rejects keys that differ from a protocol field only
-// by case. The gateway decodes with encoding/json, which matches such keys and
-// keeps the last one, while go-sdk servers match exactly. Accepting them would
-// let hooks and audit inspect a different method or tool than the server runs.
-func checkMCPMessageFieldNames(body []byte) error {
-	var message map[string]json.RawMessage
-	if json.Unmarshal(body, &message) != nil {
-		return nil
-	}
-	if hasCaseVariantFieldName(message, "jsonrpc", "id", "method", "params", "result", "error") {
-		return errMCPCaseVariantFieldNames
-	}
-	var params map[string]json.RawMessage
-	if json.Unmarshal(message["params"], &params) != nil {
-		return nil
-	}
-	if hasCaseVariantFieldName(params, "name", "uri", "arguments") {
-		return errMCPCaseVariantFieldNames
-	}
-	return nil
-}
-
-func hasCaseVariantFieldName(object map[string]json.RawMessage, fields ...string) bool {
-	for key := range object {
-		for _, field := range fields {
-			if key != field && strings.EqualFold(key, field) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (b *gzipHookBody) Close() error {

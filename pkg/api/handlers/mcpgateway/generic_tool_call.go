@@ -21,6 +21,8 @@ var (
 )
 
 // resolvedToolCall is the currently granted operation behind a generic call.
+// Its name identifies the underlying tool for policy matching and auditing;
+// its revision binds hook mutations to the reference validated during resolution.
 // MMMCP still resolves the forwarded call independently before invocation.
 type resolvedToolCall struct {
 	name      string
@@ -28,6 +30,10 @@ type resolvedToolCall struct {
 	arguments json.RawMessage
 }
 
+// completedGenericToolCall carries a terminal tool result from resolution, such
+// as an invalid or stale reference. The response handler returns it with the
+// original JSON-RPC ID instead of forwarding the request or treating the result
+// as a transport failure.
 type completedGenericToolCall struct {
 	id     any
 	result *gomcp.CallToolResult
@@ -37,6 +43,14 @@ func (e *completedGenericToolCall) Error() string {
 	return "generic tool call completed during resolution"
 }
 
+// resolveGenericToolCall resolves a call_tool request before the gateway runs
+// tool-specific hooks or records its audit identity. inspect enables this work
+// when hooks or auditing need to know the underlying operation.
+//
+// A nil call and nil error leave normal request processing in charge. A resolved
+// call supplies the policy-facing name and arguments without executing the tool.
+// An error prevents forwarding; completedGenericToolCall is handled as a tool
+// result, while other errors use the gateway's protocol or HTTP error responses.
 func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string, inspect bool) (*resolvedToolCall, error) {
 	if !inspect || !cfg.ToolSearch || req.Method != http.MethodPost || req.Body == nil {
 		return nil, nil
@@ -73,9 +87,6 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, errMCPBatchUnsupported
 	}
 
-	if err := checkMCPMessageFieldNames(body); err != nil {
-		return nil, err
-	}
 	var message mcp.Message
 	if decodeMCPHookMessage(body, &message) != nil || message.Method != "tools/call" {
 		return nil, nil
@@ -90,6 +101,8 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, nil
 	}
 
+	// Discovery uses the request's headers and, when supplied, the composite
+	// loopback token that authorizes the caller's selected components.
 	headers := req.Header.Clone()
 	if token != "" {
 		headers.Set("Authorization", "Bearer "+token)
@@ -120,6 +133,9 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 }
 
 // hookMessage presents a generic call to policies as the underlying tool call.
+// It replaces params.name and params.arguments while preserving the JSON-RPC
+// identity and other parameter fields, including _meta. The original wire
+// message remains available for forwarding and for restoring hook mutations.
 func (r *resolvedToolCall) hookMessage(wire mcp.Message) (mcp.Message, error) {
 	var params map[string]json.RawMessage
 	if err := json.Unmarshal(wire.Params, &params); err != nil {
@@ -143,6 +159,9 @@ func (r *resolvedToolCall) hookMessage(wire mcp.Message) (mcp.Message, error) {
 
 // restoreHookMutation retains the validated target and revision while applying
 // a policy's changes to the underlying arguments and shared call metadata.
+// wire is the original call_tool envelope; mutated is the direct tool call seen
+// by hooks. Rewrapping keeps the resolved reference fixed so a mutation cannot
+// redirect execution to a different tool or catalog revision.
 func (r *resolvedToolCall) restoreHookMutation(wire, mutated mcp.Message) (mcp.Message, error) {
 	if mutated.Method != wire.Method || mcp.MessageIDString(mutated.ID) != mcp.MessageIDString(wire.ID) || mutated.JSONRPC != wire.JSONRPC {
 		return mcp.Message{}, fmt.Errorf("generic call hook cannot change the request identity")
@@ -190,6 +209,8 @@ func (r *resolvedToolCall) restoreHookMutation(wire, mutated mcp.Message) (mcp.M
 		return mcp.Message{}, fmt.Errorf("generic call reference changed before hook mutation")
 	}
 
+	// Replace shared parameter metadata with the hook's version, including
+	// removals, while keeping the outer call_tool name and reference envelope.
 	for key := range outer {
 		if key != "name" && key != "arguments" {
 			delete(outer, key)
@@ -222,6 +243,10 @@ func (r *resolvedToolCall) restoreHookMutation(wire, mutated mcp.Message) (mcp.M
 	return result, nil
 }
 
+// matchesGenericCallHook also matches policies targeting the call_tool wrapper
+// when ordinary matching uses the resolved tool name. Only the name is aliased;
+// all other hook constraints still apply. Copying params preserves the resolved
+// identity for subsequent hooks and audit attribution.
 func matchesGenericCallHook(hook mcp.HookMapping, method string, params map[string]string, genericCall bool) bool {
 	if !genericCall || method != "tools/call" || hook.Params["name"] != toolsearch.CallToolName ||
 		params["name"] == toolsearch.CallToolName {
