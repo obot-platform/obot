@@ -699,7 +699,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!id) return;
+		if (!id || (formData.runtime === 'openapi' && openAPIImporting)) return;
 
 		// reset
 		showRequired = {};
@@ -734,6 +734,7 @@
 				const previewConfig = $state.snapshot(formData.openAPIConfig);
 				const validation = await validateOpenAPIDestination(previewConfig);
 				if (
+					openAPIImporting ||
 					formData.openAPIConfig?.baseURL !== previewConfig.baseURL ||
 					formData.openAPIConfig?.source.url !== previewConfig.source.url ||
 					formData.openAPIConfig?.source.content !== previewConfig.source.content

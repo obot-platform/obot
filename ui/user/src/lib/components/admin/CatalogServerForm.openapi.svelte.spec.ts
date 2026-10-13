@@ -505,6 +505,55 @@ it('loads an existing entry without a snapshot and submits only its URL on updat
 	expect(saved.mock.calls[0][0].openAPIConfig).not.toHaveProperty('schema');
 });
 
+it('does not save the old schema when replacement starts during destination validation', async () => {
+	let finishValidation!: () => void;
+	const validationReady = new Promise<void>((resolve) => {
+		finishValidation = resolve;
+	});
+	const validating = vi.fn();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/openapi-import', async ({ request }) => {
+			validating(await request.json());
+			await validationReady;
+			return HttpResponse.json({ destinationValidation: { valid: true } });
+		}),
+		http.post('/api/mcp-catalogs/test/entries', async () => {
+			saved();
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await render(CatalogServerForm, {
+		id: 'test',
+		entity: 'catalog',
+		type: 'openapi',
+		initialOpenAPIImport: {
+			config: { source: { url: sourceURL } },
+			result: {
+				baseURL: 'https://example.com/api',
+				destinationValidation: { valid: true },
+				suggestedHeaders: [],
+				suggestedMetadata: { name: 'Example', shortDescription: 'Example API' }
+			}
+		}
+	});
+	await page
+		.getByLabelText('API request base URL', { exact: false })
+		.fill('https://override.example.com');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(validating).toHaveBeenCalledOnce());
+	await page.getByRole('button', { name: 'Replace schema', exact: true }).click();
+	await page.getByLabelText('Schema URL', { exact: true }).fill('https://example.com/new.json');
+	finishValidation();
+	await expect
+		.element(page.getByRole('button', { name: 'Save', exact: true }))
+		.toHaveAttribute('aria-busy', 'false');
+	expect(saved).not.toHaveBeenCalled();
+	await expect
+		.element(page.getByLabelText('Schema URL', { exact: true }))
+		.toHaveValue('https://example.com/new.json');
+});
+
 it.each([
 	{ name: 'api.json', content: JSON.stringify(schema) },
 	{
