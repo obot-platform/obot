@@ -31,12 +31,13 @@ export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenA
 }
 
 export async function validateOpenAPIDestination(
-	config: OpenAPIRuntimeConfig
+	config: OpenAPIRuntimeConfig,
+	signal?: AbortSignal
 ): Promise<OpenAPIDestinationValidation> {
 	const result = (await doPost(
 		'/openapi-import',
 		{ source: config.source, baseURL: config.baseURL },
-		{ dontLogErrors: true }
+		{ dontLogErrors: true, ...(signal ? { signal } : {}) }
 	)) as OpenAPIImportResult;
 	return result.destinationValidation;
 }

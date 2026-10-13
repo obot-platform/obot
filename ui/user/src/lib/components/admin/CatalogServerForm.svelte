@@ -51,7 +51,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { Info } from '@lucide/svelte';
-	import { onMount, untrack, type Snippet } from 'svelte';
+	import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -100,6 +100,18 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let showInvalid = $state<Record<string, boolean>>({});
 	let loading = $state(false);
+	let disposed = false;
+	let destinationValidationController: AbortController | undefined;
+	onDestroy(() => {
+		disposed = true;
+		destinationValidationController?.abort();
+	});
+
+	function handleCancel() {
+		destinationValidationController?.abort();
+		onCancel?.();
+	}
+
 	let openAPIImporting = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
 	let mcpTunnels = $state<MCPTunnel[]>();
@@ -699,7 +711,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!id || (formData.runtime === 'openapi' && openAPIImporting)) return;
+		if (!id || disposed || loading || (formData.runtime === 'openapi' && openAPIImporting)) return;
 
 		// reset
 		showRequired = {};
@@ -732,8 +744,24 @@
 		try {
 			if (formData.runtime === 'openapi' && formData.openAPIConfig?.baseURL?.trim()) {
 				const previewConfig = $state.snapshot(formData.openAPIConfig);
-				const validation = await validateOpenAPIDestination(previewConfig);
+				const controller = new AbortController();
+				destinationValidationController = controller;
+				let validation: OpenAPIDestinationValidation;
+				try {
+					validation = await validateOpenAPIDestination(previewConfig, controller.signal);
+				} catch (error) {
+					if (!disposed && !controller.signal.aborted) errors.append(error);
+					loading = false;
+					return;
+				} finally {
+					if (destinationValidationController === controller) {
+						destinationValidationController = undefined;
+					}
+				}
+
 				if (
+					disposed ||
+					controller.signal.aborted ||
 					openAPIImporting ||
 					formData.openAPIConfig?.baseURL !== previewConfig.baseURL ||
 					formData.openAPIConfig?.source.url !== previewConfig.source.url ||
@@ -1128,7 +1156,7 @@
 			<button
 				type="button"
 				class="btn btn-secondary flex items-center gap-1"
-				onclick={() => onCancel?.()}
+				onclick={handleCancel}
 				id={CATALOG_SERVER_FIELD_IDS.cancelBtn}
 			>
 				{m.common_cancel()}

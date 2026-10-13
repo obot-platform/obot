@@ -47,3 +47,17 @@ it('validates an override against the import endpoint without sending credential
 		{ dontLogErrors: true }
 	);
 });
+
+it('forwards the validation abort signal to the HTTP request', async () => {
+	const controller = new AbortController();
+	vi.mocked(doPost).mockResolvedValue({ destinationValidation: { valid: true } });
+	await validateOpenAPIDestination(
+		{ source: { url: 'https://example.com/schema.json' }, baseURL: 'https://api.example.com' },
+		controller.signal
+	);
+	expect(doPost).toHaveBeenCalledWith(
+		'/openapi-import',
+		{ source: { url: 'https://example.com/schema.json' }, baseURL: 'https://api.example.com' },
+		{ dontLogErrors: true, signal: controller.signal }
+	);
+});
