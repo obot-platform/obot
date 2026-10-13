@@ -8,6 +8,7 @@
 	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import ProviderConfigure, {
+		type ParameterChoice,
 		type ParameterNotice
 	} from '$lib/components/admin/ProviderConfigure.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
@@ -333,8 +334,7 @@
 		}
 	}
 
-	// Explains the choice that the directory parameters make while a provider that supports SCIM is
-	// set up, and warns when the Org URL of a provider with a SCIM connection changes.
+	// Warns when the Org URL of a provider with a SCIM connection changes.
 	function scimParameterNotice(
 		parameter: ProviderParameter,
 		form: Record<string, string>
@@ -356,18 +356,34 @@
 			}
 		}
 
-		const lastDirectoryParameter = scim.directoryParameters[scim.directoryParameters.length - 1];
-		if (parameter.name === lastDirectoryParameter && !provider.scimState && !provider.configured) {
-			const empty = scim.directoryParameters.every((name) => !form[name]?.trim());
-			return {
-				kind: 'info',
-				text: empty
-					? m.identity_access_auth_providers_scim_directory_empty({ name: provider.name })
-					: m.identity_access_auth_providers_scim_directory_provided({ name: provider.name })
-			};
-		}
 		return undefined;
 	}
+
+	// While a provider that supports SCIM is set up, its directory parameters choose how it gets its
+	// users and groups: omitting them provisions through SCIM, and providing them fetches groups at
+	// sign-in. A configured provider keeps the way it has, which only Enable and Enforce change.
+	const scimParameterChoice = $derived.by((): ParameterChoice | undefined => {
+		const provider = configuringAuthProvider;
+		const scim = provider?.scim;
+		if (!provider || !scim || provider.scimState || provider.configured) return undefined;
+
+		return {
+			title: m.identity_access_auth_providers_scim_choice_title(),
+			parameters: scim.directoryParameters,
+			without: {
+				label: m.identity_access_auth_providers_scim_choice_scim_label(),
+				description: m.identity_access_auth_providers_scim_choice_scim_description({
+					name: provider.name
+				})
+			},
+			with: {
+				label: m.identity_access_auth_providers_scim_choice_api_label({ name: provider.name }),
+				description: m.identity_access_auth_providers_scim_choice_api_description({
+					name: provider.name
+				})
+			}
+		};
+	});
 
 	async function handleRemoveResidualGroupData() {
 		if (!residualProvider) return;
@@ -863,6 +879,7 @@
 	error={configureError}
 	readonly={profile.current.isAdminReadonly?.()}
 	parameterNotice={scimParameterNotice}
+	parameterChoice={scimParameterChoice}
 	title={isSwitching
 		? m.identity_access_auth_providers_switch_to({ name: `${configuringAuthProvider?.name}` })
 		: undefined}

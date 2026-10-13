@@ -58,8 +58,8 @@ Obot, unassign them from the SCIM app in Okta.
    Skip the API Services app.
 2. In Obot, go to **Identity & Access > Auth Providers** and configure **Okta**.
 3. Fill in **Client ID**, **Client Secret**, **Org URL**, and **Allowed E-Mail
-   Domains**. Leave **API Services Client ID** and **API Services Private Key**
-   empty. Leaving them empty tells Obot to use SCIM.
+   Domains**. Leave **Users and groups** set to **SCIM**, which tells Obot not
+   to use an API Services app.
 4. Sign in to Obot through Okta as the account that will be the Owner.
 
 ### Step 2: Generate the SCIM token
@@ -271,5 +271,6 @@ Switching to another auth provider removes the SCIM setup:
   Okta, or delete the app.
 
 To go back to fetching groups at sign-in, temporarily switch to the Local auth provider,
-then configure Okta again with the **API Services Client ID** and **API Services Private Key**.
+then configure Okta again with **Users and groups** set to **Okta API**, and fill in the
+**API Services Client ID** and **API Services Private Key**.
 To use SCIM again later, start over with a new token.

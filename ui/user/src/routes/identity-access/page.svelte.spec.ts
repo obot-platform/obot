@@ -72,12 +72,13 @@ const oktaProvider: AuthProvider = {
 			name: 'OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID',
 			friendlyName: 'API Services Client ID',
 			description:
-				'Leave this and the private key empty to provision users and groups through SCIM instead.'
+				"Client ID of an Okta API Services app, which Obot uses to fetch each user's groups from the Okta Management API when they sign in."
 		},
 		{
 			name: 'OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY',
 			friendlyName: 'API Services Private Key',
-			sensitive: true
+			sensitive: true,
+			multiline: true
 		}
 	],
 	scim: {
@@ -471,19 +472,170 @@ describe('Identity & Access Page', () => {
 				await expect.element(page.getByLabelText('Org URL', { exact: true })).toBeVisible();
 			}
 
-			it('explains the choice the directory credentials make', async () => {
-				await openOktaForm(oktaProvider);
+			describe('choice between SCIM and the Okta API', () => {
+				let configure = vi.fn<(body: Record<string, string>) => void>();
 
-				await expect
-					.element(
-						page.getByText(/With these left empty, Okta provisions users and groups through SCIM/)
-					)
-					.toBeVisible();
+				beforeEach(() => {
+					configure = vi.fn<(body: Record<string, string>) => void>();
+					worker.use(
+						http.post(`/api/auth-providers/${oktaProvider.id}/configure`, async ({ request }) => {
+							configure((await request.json()) as Record<string, string>);
+							return HttpResponse.json(oktaProvider);
+						})
+					);
+				});
 
-				await page.getByLabelText('API Services Client ID', { exact: true }).fill('service-client');
-				await expect
-					.element(page.getByText(/With these provided, Obot fetches each user's groups from Okta/))
-					.toBeVisible();
+				function choiceButton(name: 'SCIM' | 'Okta API') {
+					return page.getByRole('button', { name, exact: true });
+				}
+
+				async function fillOIDCFields() {
+					await page.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
+					await page.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+				}
+
+				async function confirm() {
+					await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+				}
+
+				it('provisions through SCIM by default, without the API Services credentials', async () => {
+					await openOktaForm(oktaProvider);
+
+					await expect.element(choiceButton('SCIM')).toHaveAttribute('aria-pressed', 'true');
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'false');
+					await expect
+						.element(page.getByText(/Okta provisions users and groups through SCIM/))
+						.toBeVisible();
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.not.toBeInTheDocument();
+					await expect
+						.element(page.getByLabelText('API Services Private Key', { exact: true }))
+						.not.toBeInTheDocument();
+
+					await fillOIDCFields();
+					await confirm();
+
+					await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+					const body = configure.mock.calls[0][0];
+					expect(body).toMatchObject({
+						OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+						OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com'
+					});
+					expect(body).not.toHaveProperty('OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID');
+					expect(body).not.toHaveProperty('OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY');
+				});
+
+				it('requires the API Services credentials for the Okta API', async () => {
+					await openOktaForm(oktaProvider);
+
+					await choiceButton('Okta API').click();
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'true');
+					await expect
+						.element(page.getByText(/Obot fetches each user's groups from Okta/))
+						.toBeVisible();
+
+					await fillOIDCFields();
+					await confirm();
+					await expect
+						.element(page.getByLabelText('API Services Private Key', { exact: true }))
+						.toHaveAttribute('aria-invalid', 'true');
+					expect(configure).not.toHaveBeenCalled();
+
+					await page
+						.getByLabelText('API Services Client ID', { exact: true })
+						.fill('service-client');
+					await page
+						.getByLabelText('API Services Private Key', { exact: true })
+						.fill('private-key');
+					await confirm();
+
+					await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+					expect(configure.mock.calls[0][0]).toMatchObject({
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+					});
+				});
+
+				it('leaves out what was entered for the Okta API once SCIM is chosen again', async () => {
+					await openOktaForm(oktaProvider);
+
+					const serviceClientID = page.getByLabelText('API Services Client ID', { exact: true });
+					await choiceButton('Okta API').click();
+					await serviceClientID.fill('service-client');
+					await choiceButton('SCIM').click();
+					await expect.element(serviceClientID).not.toBeInTheDocument();
+
+					// Choosing the Okta API again brings back what was entered for it.
+					await choiceButton('Okta API').click();
+					await expect.element(serviceClientID).toHaveValue('service-client');
+					await choiceButton('SCIM').click();
+
+					await fillOIDCFields();
+					await confirm();
+
+					await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+					expect(configure.mock.calls[0][0]).not.toHaveProperty(
+						'OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID'
+					);
+				});
+
+				it('selects the Okta API when its credentials are stored', async () => {
+					await openOktaForm(oktaProvider, {
+						OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+						OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com',
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+					});
+
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'true');
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.toHaveValue('service-client');
+				});
+
+				it('is not offered once Okta synchronizes its directory', async () => {
+					await openOktaForm(
+						{
+							...oktaProvider,
+							configured: true,
+							requiredConfigurationParameters: [
+								...oktaProvider.requiredConfigurationParameters!,
+								...oktaProvider.optionalConfigurationParameters!
+							],
+							optionalConfigurationParameters: []
+						},
+						{
+							OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+							OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com',
+							OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+							OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+						}
+					);
+
+					await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.toHaveValue('service-client');
+				});
+
+				it('is not offered once Okta has a SCIM connection', async () => {
+					await openOktaForm(
+						{
+							...oktaProvider,
+							configured: true,
+							scimState: 'connected',
+							optionalConfigurationParameters: []
+						},
+						{
+							OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+							OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com'
+						}
+					);
+
+					await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+					await expect.element(choiceButton('Okta API')).not.toBeInTheDocument();
+				});
 			});
 
 			it('warns when the Org URL of a provider with a SCIM connection changes', async () => {
@@ -610,7 +762,7 @@ describe('Identity & Access Page', () => {
 
 			it('shows a refused switch in the dialog and keeps what was entered', async () => {
 				const refusal =
-					'provide all of OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID and OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY, or none of them; missing: OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY';
+					'missing required configuration parameters: OBOT_OKTA_AUTH_PROVIDER_CLIENT_SECRET, OBOT_AUTH_PROVIDER_EMAIL_DOMAINS, OBOT_AUTH_PROVIDER_COOKIE_SECRET';
 				const localActive: AuthProvider = {
 					...googleProvider,
 					id: CommonAuthProviderIds.LOCAL,
@@ -641,9 +793,13 @@ describe('Identity & Access Page', () => {
 					const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
 					await dialog.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
 					await dialog.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
+					await dialog.getByRole('button', { name: 'Okta API', exact: true }).click();
 					await dialog
 						.getByLabelText('API Services Client ID', { exact: true })
 						.fill('service-client');
+					await dialog
+						.getByLabelText('API Services Private Key', { exact: true })
+						.fill('private-key');
 					await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 
 					const error = dialog.getByRole('alert').filter({ hasText: refusal });

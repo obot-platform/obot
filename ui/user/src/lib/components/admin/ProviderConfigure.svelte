@@ -4,6 +4,22 @@
 		kind: 'info' | 'warning';
 		text: string;
 	}
+
+	// A choice between setting a provider up without a group of parameters and with them, such as
+	// provisioning users through SCIM instead of fetching them with API credentials.
+	export interface ParameterChoice {
+		title: string;
+		// The parameters that only the `with` option provides. They are required when it is selected,
+		// and never submitted otherwise.
+		parameters: string[];
+		without: ParameterChoiceOption;
+		with: ParameterChoiceOption;
+	}
+
+	export interface ParameterChoiceOption {
+		label: string;
+		description: string;
+	}
 </script>
 
 <script lang="ts">
@@ -42,6 +58,7 @@
 			parameter: ProviderParameter,
 			form: Record<string, string>
 		) => ParameterNotice | undefined;
+		parameterChoice?: ParameterChoice;
 	}
 
 	const {
@@ -57,11 +74,14 @@
 		steps,
 		body,
 		footer,
-		parameterNotice
+		parameterNotice,
+		parameterChoice
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
+	// Whether the `with` option of parameterChoice is selected.
+	let choiceProvides = $state(false);
 	let errorElement = $state<HTMLElement>();
 
 	// The error sits at the top of a form that scrolls, and the button that submits it sits below,
@@ -157,13 +177,15 @@
 			return requiredParamsIds.map((id) => asObject?.[id]).filter(Boolean) as ProviderParameter[];
 		}
 
-		return (provider?.requiredConfigurationParameters?.filter((p) => !p.hidden) ??
-			[]) as ProviderParameter[];
+		return (provider?.requiredConfigurationParameters?.filter(
+			(p) => !p.hidden && !isChoiceParameter(p)
+		) ?? []) as ProviderParameter[];
 	});
 
 	const optionalConfigurationParameters = $derived.by(() => {
-		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ??
-			[]) as ProviderParameter[];
+		const optionalParams = (provider?.optionalConfigurationParameters?.filter(
+			(p) => !p.hidden && !isChoiceParameter(p)
+		) ?? []) as ProviderParameter[];
 
 		if (isAzureOpenAIProvider) {
 			// Only show the API version parameter as optional
@@ -180,6 +202,30 @@
 
 		return optionalParams;
 	});
+
+	function isChoiceParameter(param: ProviderParameter): boolean {
+		return parameterChoice?.parameters.includes(param.name) ?? false;
+	}
+
+	// The parameters of parameterChoice, in its order, wherever the provider lists them.
+	const choiceParameters = $derived.by(() => {
+		if (!parameterChoice) return [];
+		const allParams = [
+			...(provider?.requiredConfigurationParameters ?? []),
+			...(provider?.optionalConfigurationParameters ?? [])
+		];
+		return parameterChoice.parameters
+			.map((name) => allParams.find((p) => p.name === name))
+			.filter((p): p is ProviderParameter => Boolean(p) && !p?.hidden);
+	});
+
+	// The parameters that must be filled in: the choice's parameters count while its `with` option is
+	// selected.
+	const submittedRequiredParameters = $derived(
+		choiceProvides
+			? [...requiredConfigurationParameters, ...choiceParameters]
+			: requiredConfigurationParameters
+	);
 
 	function initParamValue(param: ProviderParameter): string {
 		let value = values?.[param.name] ? values?.[param.name] : '';
@@ -205,6 +251,8 @@
 				form[param.name] = initParamValue(param);
 			}
 		}
+		choiceProvides =
+			parameterChoice?.parameters.some((name) => Boolean(values?.[name]?.trim())) ?? false;
 	}
 
 	function onClose() {
@@ -248,16 +296,16 @@
 	async function configure() {
 		showRequired = false;
 
-		const requiredFieldsNotFilled = requiredConfigurationParameters.filter(
-			(p) => !form[p.name].length
-		);
+		const requiredFieldsNotFilled = submittedRequiredParameters.filter((p) => !form[p.name].length);
 
 		if (requiredFieldsNotFilled.length > 0) {
 			showRequired = true;
 			return;
 		}
 
-		const allParams = [...requiredConfigurationParameters, ...optionalConfigurationParameters];
+		// The parameters of an unselected choice keep what was typed into them, so that selecting it
+		// again restores them, but they are not submitted.
+		const allParams = [...submittedRequiredParameters, ...optionalConfigurationParameters];
 
 		// Dynamically remove non necessary parameters for Azure OpenAI provider
 		// For Azure OpenAI the server does not expect both authentication methods to be sent
@@ -328,6 +376,83 @@
 	</li>
 {/snippet}
 
+{#snippet parameterField(parameter: ProviderParameter, required: boolean)}
+	{@const error = required && showRequired && !form[parameter.name].length}
+	{#if booleanInputs.has(parameter.name)}
+		{@render booleanToggle(parameter)}
+	{:else}
+		<li class="flex flex-col gap-1">
+			<label for={parameter.name} class:text-error={error}>{parameter.friendlyName}</label>
+			{#if parameter.description}
+				<span class="text-gray text-xs">{parameter.description}</span>
+			{/if}
+			{#if parameter.sensitive}
+				<SensitiveInput
+					{error}
+					name={parameter.name}
+					bind:value={form[parameter.name]}
+					disabled={readonly}
+					textarea={parameter.multiline}
+					growable={parameter.multiline}
+				/>
+			{:else if multipValuesInputs.has(parameter.name)}
+				<MultiValueInput
+					bind:value={form[parameter.name]}
+					id={parameter.name}
+					labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+						? { '*': m.models_providers_all_domains() }
+						: {}}
+					class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
+					placeholder={m.models_providers_hit_enter_to_insert()}
+					disabled={readonly}
+				/>
+			{:else if parameter.multiline}
+				<textarea
+					id={parameter.name}
+					bind:value={form[parameter.name]}
+					class:error
+					class="text-input-filled min-h-[120px] resize-y"
+					disabled={readonly}
+					rows="5"></textarea>
+			{:else}
+				<input
+					type="text"
+					id={parameter.name}
+					bind:value={form[parameter.name]}
+					class:error
+					class="text-input-filled"
+					disabled={readonly}
+				/>
+			{/if}
+			{@render noticeFor(parameter)}
+		</li>
+	{/if}
+{/snippet}
+
+{#snippet segmentedButtons(
+	items: { id: string; name: string }[],
+	selected: string | undefined,
+	onSelect: (id: string) => void
+)}
+	<ul class="flex gap-2">
+		{#each items as item (item.id)}
+			{@const isSelected = selected === item.id}
+			<li>
+				<button
+					class={twMerge(
+						'bg-base-200 hover:bg-base-400 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+						isSelected && 'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
+					)}
+					type="button"
+					aria-pressed={isSelected}
+					disabled={readonly}
+					onclick={() => onSelect(item.id)}>{item.name}</button
+				>
+			</li>
+		{/each}
+	</ul>
+{/snippet}
+
 <ResponsiveDialog
 	bind:this={dialog}
 	{onClose}
@@ -395,26 +520,11 @@
 					{#if collection}
 						<div class="mb-4 flex flex-col gap-2">
 							<h4 class="text-lg font-semibold">{collection.title}</h4>
-							<ul class="flex gap-2">
-								{#each collection.items as item, i (i)}
-									{@const isSelected = selectedCollection === item.id}
-									<li>
-										<button
-											class={twMerge(
-												'bg-base-200 hover:bg-base-400 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
-												isSelected &&
-													'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
-											)}
-											type="button"
-											onclick={() => {
-												selectedCollection = item.id;
-												// Reset form values
-												reset();
-											}}>{item.name}</button
-										>
-									</li>
-								{/each}
-							</ul>
+							{@render segmentedButtons(collection.items, selectedCollection, (id) => {
+								selectedCollection = id;
+								// Reset form values
+								reset();
+							})}
 						</div>
 					{/if}
 
@@ -423,61 +533,38 @@
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
-								{@const error = !form[parameter.name].length && showRequired}
-								{#if booleanInputs.has(parameter.name)}
-									{@render booleanToggle(parameter)}
-								{:else}
-									<li class="flex flex-col gap-1">
-										<label for={parameter.name} class:text-error={error}
-											>{parameter.friendlyName}</label
-										>
-										{#if parameter.description}
-											<span class="text-gray text-xs">{parameter.description}</span>
-										{/if}
-										{#if parameter.sensitive}
-											<SensitiveInput
-												{error}
-												name={parameter.name}
-												bind:value={form[parameter.name]}
-												disabled={readonly}
-												textarea={parameter.multiline}
-												growable={parameter.multiline}
-											/>
-										{:else if multipValuesInputs.has(parameter.name)}
-											<MultiValueInput
-												bind:value={form[parameter.name]}
-												id={parameter.name}
-												labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-													? { '*': m.models_providers_all_domains() }
-													: {}}
-												class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
-												placeholder={m.models_providers_hit_enter_to_insert()}
-												disabled={readonly}
-											/>
-										{:else if parameter.multiline}
-											<textarea
-												id={parameter.name}
-												bind:value={form[parameter.name]}
-												class:error
-												class="text-input-filled min-h-[120px] resize-y"
-												disabled={readonly}
-												rows="5"></textarea>
-										{:else}
-											<input
-												type="text"
-												id={parameter.name}
-												bind:value={form[parameter.name]}
-												class:error
-												class="text-input-filled"
-												disabled={readonly}
-											/>
-										{/if}
-										{@render noticeFor(parameter)}
-									</li>
-								{/if}
+								{@render parameterField(parameter, true)}
 							{/if}
 						{/each}
 					</ul>
+				</div>
+			{/if}
+
+			{#if parameterChoice && choiceParameters.length > 0}
+				{@const option = choiceProvides ? parameterChoice.with : parameterChoice.without}
+				<div class="flex flex-col gap-2">
+					<h4 class="text-lg font-semibold">{parameterChoice.title}</h4>
+					{@render segmentedButtons(
+						[
+							{ id: 'without', name: parameterChoice.without.label },
+							{ id: 'with', name: parameterChoice.with.label }
+						],
+						choiceProvides ? 'with' : 'without',
+						(id) => {
+							choiceProvides = id === 'with';
+							showRequired = false;
+						}
+					)}
+					<span class="text-gray text-xs">{option.description}</span>
+					{#if choiceProvides}
+						<ul class="mt-2 flex flex-col gap-4">
+							{#each choiceParameters as parameter (parameter.name)}
+								{#if parameter.name in form}
+									{@render parameterField(parameter, true)}
+								{/if}
+							{/each}
+						</ul>
+					{/if}
 				</div>
 			{/if}
 
@@ -487,49 +574,7 @@
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
-								{#if booleanInputs.has(parameter.name)}
-									{@render booleanToggle(parameter)}
-								{:else}
-									<li class="flex flex-col gap-1">
-										<label for={parameter.name}>{parameter.friendlyName}</label>
-										{#if parameter.description}
-											<span class="text-gray text-xs">{parameter.description}</span>
-										{/if}
-										{#if parameter.sensitive}
-											<SensitiveInput
-												name={parameter.name}
-												bind:value={form[parameter.name]}
-												disabled={readonly}
-												textarea={parameter.multiline}
-												growable={parameter.multiline}
-											/>
-										{:else if multipValuesInputs.has(parameter.name)}
-											<MultiValueInput
-												bind:value={form[parameter.name]}
-												id={parameter.name}
-												class="text-input-filled"
-												placeholder={m.models_providers_hit_enter_to_insert()}
-												disabled={readonly}
-											/>
-										{:else if parameter.multiline}
-											<textarea
-												id={parameter.name}
-												bind:value={form[parameter.name]}
-												class="text-input-filled min-h-[120px] resize-y"
-												disabled={readonly}
-												rows="5"></textarea>
-										{:else}
-											<input
-												type="text"
-												id={parameter.name}
-												bind:value={form[parameter.name]}
-												class="text-input-filled"
-												disabled={readonly}
-											/>
-										{/if}
-										{@render noticeFor(parameter)}
-									</li>
-								{/if}
+								{@render parameterField(parameter, false)}
 							{/if}
 						{/each}
 					</ul>
