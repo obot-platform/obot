@@ -4,6 +4,112 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('generic object arguments', () => {
+	it.each(['{', ''])(
+		'keeps an object/string union editor invalid while editing malformed JSON %j',
+		async (malformed) => {
+			const onvalidchange = vi.fn();
+			render(JsonSchemaForm, {
+				schema: {
+					type: 'object',
+					properties: {
+						arguments: { anyOf: [{ type: 'object' }, { type: 'string' }] }
+					}
+				},
+				onvalidchange
+			});
+			const editor = page.getByRole('textbox', { name: 'arguments', exact: true });
+			await editor.fill('{"query":"hello"}');
+			await vi.waitFor(() =>
+				expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: { query: 'hello' } })
+			);
+			await editor.fill(malformed);
+			await expect.element(editor).toHaveAttribute('aria-invalid', 'true');
+			await expect.element(editor).toHaveValue(malformed);
+			await expect.element(page.getByText(/Invalid JSON:/)).toBeVisible();
+			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+			await editor.fill('{"query":"fixed"}');
+			await expect.element(editor).toHaveAttribute('aria-invalid', 'false');
+			await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+			await vi.waitFor(() =>
+				expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: { query: 'fixed' } })
+			);
+		}
+	);
+
+	it('keeps the form invalid until every nested JSON editor is repaired or removed', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					items: {
+						type: 'array',
+						items: { anyOf: [{ type: 'object' }, { type: 'string' }] }
+					}
+				}
+			},
+			onvalidchange
+		});
+		await page.getByRole('button', { name: 'Add item' }).click();
+		await page.getByRole('button', { name: 'Add item' }).click();
+		const first = page.getByLabelText('items item 1 *');
+		const second = page.getByLabelText('items item 2 *');
+		await first.fill('{');
+		await second.fill('{');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await first.fill('{"fixed":true}');
+		await expect.element(second).toHaveAttribute('aria-invalid', 'true');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await page.getByRole('button', { name: 'Remove items item 2' }).click();
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ items: [{ fixed: true }] })
+		);
+	});
+
+	it('clears inactive editor errors when switching to Raw JSON and selecting another union member', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: { arguments: { anyOf: [{ type: 'object' }, { type: 'string' }] } }
+			},
+			onvalidchange
+		});
+		await page.getByLabelText('arguments', { exact: true }).fill('{');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await page.getByRole('button', { name: 'Raw JSON', exact: true }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"arguments":"valid string"}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: 'valid string' })
+		);
+		await page.getByRole('button', { name: 'Generated form', exact: true }).click();
+		await expect
+			.element(page.getByLabelText('arguments', { exact: true }))
+			.toHaveValue('valid string');
+		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: 'valid string' })
+		);
+	});
+
+	it('clears an object editor parse error when choosing null', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: { arguments: { type: ['object', 'null'] } }
+			},
+			onvalidchange
+		});
+		await page.getByLabelText('arguments', { exact: true }).fill('{');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await page.getByRole('checkbox', { name: 'Use null for arguments' }).click();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: null }));
+		await page.getByRole('checkbox', { name: 'Use null for arguments' }).click();
+		await expect.element(page.getByLabelText('arguments', { exact: true })).toHaveValue('{}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: {} }));
+	});
+
 	it('describes the JSON editor and retains its description alongside parse errors', async () => {
 		render(JsonSchemaForm, {
 			schema: {

@@ -11,6 +11,7 @@
 		type JSONSchema
 	} from './json-schema';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		schema: JSONSchema;
@@ -31,12 +32,14 @@
 	);
 	let rawValue = $state(untrack(() => JSON.stringify(defaultJSONSchemaValue(schema), null, 2)));
 	let rawParseError = $state<string>();
+	const invalidEditors = new SvelteSet<string>();
 	let submittedValue = $derived(
 		mode === 'form' ? pruneClearedProperties(schema, formValue) : formValue
 	);
 	let validationErrors = $derived(validateJSONSchema(schema, submittedValue));
 	let validObject = $derived.by(() => {
 		if (
+			(mode === 'form' && invalidEditors.size > 0) ||
 			validationErrors.length ||
 			typeof submittedValue !== 'object' ||
 			submittedValue === null ||
@@ -46,6 +49,11 @@
 		}
 		return submittedValue as Record<string, unknown>;
 	});
+
+	function handleParseErrorChange(fieldID: string, invalid: boolean) {
+		if (invalid) invalidEditors.add(fieldID);
+		else invalidEditors.delete(fieldID);
+	}
 
 	function setMode(next: 'form' | 'raw') {
 		if (next === 'raw') {
@@ -107,6 +115,7 @@
 			required
 			{disabled}
 			onchange={(value) => (formValue = value)}
+			onparseerrorchange={handleParseErrorChange}
 		/>
 	{:else}
 		<label for="mcp-tester-raw-arguments" class="block text-sm font-medium"

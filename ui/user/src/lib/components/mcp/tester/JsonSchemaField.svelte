@@ -3,7 +3,7 @@
 	import JsonSchemaField from './JsonSchemaField.svelte';
 	import { defaultJSONSchemaValue, resolveUnionSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
 	interface Props {
 		schema: JSONSchema;
@@ -16,6 +16,9 @@
 		// enclosing union's hint.
 		describedBy?: string;
 		onchange: (value: unknown) => void;
+		// Parse errors are separate from values so malformed text cannot select
+		// another union member or make an optional field appear unset.
+		onparseerrorchange?: (fieldID: string, invalid: boolean) => void;
 	}
 
 	let {
@@ -26,7 +29,8 @@
 		required = false,
 		disabled = false,
 		describedBy,
-		onchange
+		onchange,
+		onparseerrorchange
 	}: Props = $props();
 	// Derived from a per-instance unique id rather than `path`: `-` is already the path
 	// separator, so sibling `a-b` and nested `a`/`b` would otherwise share a DOM id.
@@ -47,6 +51,12 @@
 	let objectJSONError = $state<string>();
 	let lastEmittedObjectValue: string | undefined;
 	let hasPendingObjectValue = false;
+	$effect(() => {
+		const invalid = !disabled && Boolean(objectJSONError);
+		const notify = onparseerrorchange;
+		untrack(() => notify?.(id, invalid));
+	});
+	onDestroy(() => onparseerrorchange?.(id, false));
 	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
@@ -73,17 +83,16 @@
 
 	function updateObjectJSON(next: string) {
 		objectJSON = next;
-		hasPendingObjectValue = true;
 
 		try {
 			const parsed = JSON.parse(next) as unknown;
+			hasPendingObjectValue = true;
 			lastEmittedObjectValue = JSON.stringify(parsed);
 			onchange(parsed);
 			objectJSONError = undefined;
 		} catch (error) {
-			// Keep the parent form invalid until the JSON can be parsed again.
-			lastEmittedObjectValue = JSON.stringify(next);
-			onchange(next);
+			// Retain the last parsed value so the union keeps its object editor.
+			// The separate parse-error callback prevents that value being submitted.
 			objectJSONError = error instanceof Error ? error.message : m.mcps_tester_invalid_json();
 		}
 	}
@@ -139,6 +148,7 @@
 			disabled={disabled || (union.nullable && value === null)}
 			describedBy={[describedBy, alternativesId].filter(Boolean).join(' ') || undefined}
 			{onchange}
+			{onparseerrorchange}
 		/>
 		{#if alternativesId}
 			<p id={alternativesId} class="text-xs text-muted-content">
@@ -191,6 +201,7 @@
 					required={schema.required?.includes(name)}
 					{disabled}
 					onchange={(next) => updateProperty(name, next)}
+					{onparseerrorchange}
 				/>
 			{/each}
 		</fieldset>
@@ -215,6 +226,7 @@
 						required
 						{disabled}
 						onchange={(next) => updateArray(index, next)}
+						{onparseerrorchange}
 					/>
 				</div>
 				<button
