@@ -62,11 +62,11 @@ func (*VMCPHandler) Get(req api.Context) error {
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
-	converted, err := convertVMCPForUser(req, vmcp)
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
 	}
-	return req.Write(converted)
+	return req.Write(convertVMCPForInstance(req, vmcp, instance))
 }
 
 // vmcpForUser limits a shared VMCP to the components, tools, and profiles that
@@ -170,11 +170,11 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
-	converted, err := convertVMCPForUser(req, vmcp)
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
 	}
-	return req.WriteCreated(converted)
+	return req.WriteCreated(convertVMCPForInstance(req, vmcp, instance))
 }
 
 func (h *VMCPHandler) Update(req api.Context) error {
@@ -240,11 +240,11 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}); err != nil {
 		return err
 	}
-	converted, err := convertVMCPForUser(req, vmcp)
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
 	}
-	return req.Write(converted)
+	return req.Write(convertVMCPForInstance(req, vmcp, instance))
 }
 
 // TriggerUpdate adopts current catalog snapshots in one resource update. It does
@@ -368,11 +368,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 			return fmt.Errorf("failed to update vMCP configuration hashes: %v", err)
 		}
 
-		converted, err := convertVMCPForUser(req, vmcp)
+		instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 		if err != nil {
 			return err
 		}
-		return req.Write(converted)
+		return req.Write(convertVMCPForInstance(req, vmcp, instance))
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
@@ -385,11 +385,11 @@ func (*VMCPHandler) Deconfigure(req api.Context) error {
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP configuration hashes: %w", err)
 	}
-	converted, err := convertVMCPForUser(req, vmcp)
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
 	}
-	return req.Write(converted)
+	return req.Write(convertVMCPForInstance(req, vmcp, instance))
 }
 
 func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent, rejectUnconfiguredOAuth bool) error {
@@ -587,17 +587,8 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 	}
 }
 
-// convertVMCPForUser exposes only callback paths from the same effective snapshots
-// used by runtime resolution, without exposing private legacy component configuration.
-func convertVMCPForUser(req api.Context, vmcp v1.VMCP) (types.VMCP, error) {
-	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
-	if err != nil {
-		return types.VMCP{}, fmt.Errorf("resolve vMCP callback paths: %w", err)
-	}
-	return convertVMCPForInstance(req, vmcp, instance), nil
-}
-
-// convertVMCPForInstance is convertVMCPForUser with the user's instance, if any, already resolved.
+// convertVMCPForInstance exposes callback paths from the effective snapshots without
+// exposing private legacy configuration. Callers resolve the user's instance first.
 func convertVMCPForInstance(req api.Context, vmcp v1.VMCP, instance *v1.VMCPInstance) types.VMCP {
 	components := slices.Clone(vmcp.Spec.Manifest.Components)
 	if instance != nil {

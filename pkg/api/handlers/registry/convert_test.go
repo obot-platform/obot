@@ -186,7 +186,7 @@ func registryTestCatalogEntry(remoteConfig types.RemoteCatalogConfig) v1.MCPServ
 func TestLocalhostCallbackCatalogEntryHasNoDirectRemote(t *testing.T) {
 	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"})
 	entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled = true
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestLocalhostCallbackServerHasNoDirectRemote(t *testing.T) {
 		URL:                      "https://example.com/mcp",
 		LocalhostCallbackEnabled: true,
 	}
-	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher())
+	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
 	if err != nil {
 		t.Fatal(err)
 	}

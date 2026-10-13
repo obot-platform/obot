@@ -35,6 +35,6 @@ If Obot cannot directly reach a remote server, use an [MCP tunnel](./filters-tun
 
 Some MCP servers require their OAuth clients to use a localhost callback. For these servers, enable **Localhost OAuth callback** in **Advanced Configuration** when adding or editing the remote server.
 
-Leave **Callback path** blank to use `/oauth/callback`, or enter the path required by the server. The path must start with `/` and contain no query string or fragment. `/oauth/obot/callback` is reserved. The server must accept an available callback port; fixed ports are not supported.
+Leave **Callback path** blank to use `/oauth/callback`, or enter the path required by the server. The path must start with `/` and contain no query string or fragment. `/oauth/obot/callback` is reserved for Obot to notify the CLI that sign-in has finished; it cannot be used for the provider callback. The server must accept an available callback port; fixed ports are not supported.
 
 During authentication, Obot displays an [`obot mcp login` command](../reference/cli-api.md#mcp-localhost-oauth-sign-in) to run on a computer with a web browser. MCP clients continue using their normal Obot HTTP connection URL.

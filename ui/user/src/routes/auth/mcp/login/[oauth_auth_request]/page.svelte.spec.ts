@@ -18,9 +18,11 @@ it('shows the scoped login command for the client authorization request', async 
 	await expect
 		.element(page.getByRole('heading', { name: 'Authenticate with the MCP server' }))
 		.toBeVisible();
+	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/ui-local-original'`
+			`obot mcp login '${window.location.origin}/oauth/mcp/login/ui-local-original'`
 		);
 });

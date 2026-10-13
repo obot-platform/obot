@@ -47,11 +47,11 @@ func Run(ctx context.Context, loginURL string) error {
 func run(ctx context.Context, loginURL string, client *http.Client, openBrowser func(string) error) error {
 	endpoint, err := url.Parse(loginURL)
 	if err != nil || endpoint.User != nil || endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.RawQuery != "" || endpoint.Fragment != "" {
-		return fmt.Errorf("--url must be the UI authentication URL from Obot")
+		return fmt.Errorf("URL must be the UI authentication URL from Obot")
 	}
 	prefix, state, ok := strings.Cut(endpoint.Path, "/oauth/mcp/login/")
 	if !ok || state == "" || strings.Contains(state, "/") {
-		return fmt.Errorf("--url must be the UI authentication URL from Obot, not an MCP connection URL")
+		return fmt.Errorf("URL must be the UI authentication URL from Obot, not an MCP connection URL")
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {

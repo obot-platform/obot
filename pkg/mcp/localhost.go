@@ -13,14 +13,17 @@ const (
 )
 
 // ValidateLocalhostCallbackPath keeps the provider callback separate from the
-// CLI's own OAuth callback and from URL query/authority components.
+// CLI's completion callback and from URL query/authority components.
+// /oauth/obot/callback is reserved for Obot to signal completion to the CLI
+// after exchanging the provider code; using it for both steps would loop the relay.
 func ValidateLocalhostCallbackPath(value string) error {
 	if value == "" {
 		return nil
 	}
 	u, err := url.Parse(value)
 	if err != nil || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") ||
-		strings.ContainsAny(value, "?#\\") || strings.TrimSpace(value) != value ||
+		u.ForceQuery || u.RawQuery != "" || u.Fragment != "" || strings.HasSuffix(value, "#") ||
+		strings.Contains(value, "\\") || strings.TrimSpace(value) != value ||
 		u.Host != "" || u.Path != path.Clean(u.Path) || u.Path == "/oauth/obot/callback" {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,

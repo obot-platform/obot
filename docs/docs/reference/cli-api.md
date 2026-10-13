@@ -170,7 +170,7 @@ If setup reports that another Obot URL is already configured, pass `--yes` to re
 Some MCP servers require their OAuth clients to use a localhost callback. When you connect to one through Obot, select **Authenticate** to display a command:
 
 ```bash
-obot mcp login --url 'https://obot.example.com/oauth/mcp/login/<attempt>'
+obot mcp login 'https://obot.example.com/oauth/mcp/login/<attempt>'
 ```
 
 1. Install an Obot CLI version that supports `mcp login` and make sure `obot` is on your `PATH`.

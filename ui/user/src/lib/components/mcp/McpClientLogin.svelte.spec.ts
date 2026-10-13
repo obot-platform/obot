@@ -20,7 +20,7 @@ it('resumes only after the original request is authenticated', async () => {
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${attempt}'`);
+		.toHaveTextContent(`obot mcp login '${attempt}'`);
 	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
 	expect(onComplete).not.toHaveBeenCalled();
 	await expect
@@ -50,9 +50,7 @@ it('requires manual replacement of expired attempts without completing the conne
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt-1'`
-		);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/attempt-1'`);
 	worker.use(
 		http.get('*/oauth/mcp/login/attempt-1', () => new HttpResponse(null, { status: 410 }))
 	);
@@ -62,9 +60,7 @@ it('requires manual replacement of expired attempts without completing the conne
 	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt-2'`
-		);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/attempt-2'`);
 	expect(onComplete).not.toHaveBeenCalled();
 	// Another expired command can be replaced without claiming success.
 	worker.use(
@@ -75,9 +71,7 @@ it('requires manual replacement of expired attempts without completing the conne
 	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt-3'`
-		);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/attempt-3'`);
 	expect(onComplete).not.toHaveBeenCalled();
 });
 
@@ -97,7 +91,7 @@ it('allows retry after a failed authentication check', async () => {
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/retried'`);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/retried'`);
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 });
 
@@ -119,5 +113,5 @@ it('identifies the authenticating server in a client-initiated login', async () 
 	await expect.element(page.getByText(/Vercel requires a localhost callback/)).toBeVisible();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/named'`);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/named'`);
 });

@@ -11,7 +11,7 @@ func TestLocalhostCallbackValidation(t *testing.T) {
 	for _, value := range []string{"", "/oauth/callback", "/custom", "/"} {
 		require.NoError(t, ValidateLocalhostCallbackPath(value), value)
 	}
-	for _, value := range []string{"callback", "//host/path", "/oauth/obot/callback", "/oauth/%6fbot/callback", "/a/../oauth/obot/callback", "/callback?query", "/callback#fragment", "/callback\\path", " /callback"} {
+	for _, value := range []string{"callback", "//host/path", "/oauth/obot/callback", "/oauth/%6fbot/callback", "/a/../oauth/obot/callback", "/callback?query", "/callback?", "/callback#", "/callback#fragment", "/callback\\path", " /callback"} {
 		require.Error(t, ValidateLocalhostCallbackPath(value), value)
 	}
 	// Both catalog and server validation reject the path before network validation.

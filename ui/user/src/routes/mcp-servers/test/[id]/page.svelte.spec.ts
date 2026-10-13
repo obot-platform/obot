@@ -1160,7 +1160,7 @@ it('shows CLI login and retries a localhost component in the inspector', async (
 	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
 	let checks = 0;
 	worker.use(
-		http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})),
+		http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({ expiresIn: 600 })),
 		http.get(`/api/oauth/vmcp/vmcpi1component/components/${fixtures.serverSingle.id}`, () =>
 			HttpResponse.json({ authURL: ++checks === 1 ? attemptURL : '' })
 		)
@@ -1178,9 +1178,11 @@ it('shows CLI login and retries a localhost component in the inspector', async (
 	await render(TesterPage, { data });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
+	await expect.element(page.getByRole('timer')).toBeVisible();
 	mockMCPInitialization();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await expect
 		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
 		.not.toBeInTheDocument();

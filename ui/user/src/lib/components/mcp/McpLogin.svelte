@@ -54,9 +54,9 @@
 		// The display hint is UI-only; the CLI accepts the bare attempt URL.
 		if (!browser) return '';
 		const endpoint = new URL(loginURL);
-		if (!endpoint.searchParams.has('serverName')) return `obot mcp login --url ${quote(loginURL)}`;
+		if (!endpoint.searchParams.has('serverName')) return `obot mcp login ${quote(loginURL)}`;
 		endpoint.searchParams.delete('serverName');
-		return `obot mcp login --url ${quote(endpoint.href)}`;
+		return `obot mcp login ${quote(endpoint.href)}`;
 	});
 
 	// Watching the existing attempt is read-only. Re-running the owning flow while
@@ -68,7 +68,6 @@
 		remainingSeconds = undefined;
 		checkFailed = false;
 		let deadline: number | undefined;
-		let sawPending = false;
 		const dialog = root.closest('dialog');
 		let stopped = false;
 		let settled = false;
@@ -93,7 +92,7 @@
 				const response = await fetch(attemptURL, { signal: request.signal, cache: 'no-store' });
 				if (request.signal.aborted || !active() || document.visibilityState !== 'visible') return;
 				updateCountdown();
-				if (response.status === 410 || (response.status === 400 && (!sawPending || expired))) {
+				if (response.status === 410 || (response.status === 400 && !onComplete)) {
 					expired = true;
 					remainingSeconds = 0;
 					checkFailed = false;
@@ -108,7 +107,6 @@
 				} else {
 					const metadata = await response.json();
 					if (request.signal.aborted || !active()) return;
-					sawPending = true;
 					if (typeof metadata.expiresIn === 'number' && Number.isFinite(metadata.expiresIn)) {
 						deadline = performance.now() + Math.max(0, metadata.expiresIn) * 1000;
 						updateCountdown();

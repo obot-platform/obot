@@ -524,7 +524,9 @@ func (h *handler) oauthCallback(req api.Context) error {
 	pending, _ := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
 	if localLoginState(pending) {
 		if err := validateLocalLoginRequest(req, pending); err != nil {
-			return types.NewErrHTTP(http.StatusForbidden, err.Error())
+			// Let the CLI terminate promptly, but leave the attempt available to its owner.
+			completeLocalLogin(req, pending, err)
+			return nil
 		}
 		if time.Since(pending.CreatedAt) > localLoginTTL {
 			_ = h.oauthChecker.stateMgr.gatewayClient.DeleteMCPOAuthPendingState(req.Context(), pending.HashedState)

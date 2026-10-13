@@ -65,7 +65,7 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 	await render(McpOauth, { entry, onAuthenticate });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
 	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
 	document.dispatchEvent(new Event('visibilitychange'));
 	await vi.waitFor(() => expect(onAuthenticate).toHaveBeenCalledOnce());
@@ -94,9 +94,7 @@ it('shows endpoint failures and retries the same component without treating erro
 	await page.getByRole('button', { name: 'Retry authentication' }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/retry-attempt'`
-		);
+		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/retry-attempt'`);
 	expect(onAuthenticate).not.toHaveBeenCalled();
 	expect(calls).toBe(2);
 });

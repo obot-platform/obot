@@ -283,7 +283,7 @@ it('keeps mixed client authentication pending after a local component completes'
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/ui-local-component'`
+			`obot mcp login '${window.location.origin}/oauth/mcp/login/ui-local-component'`
 		);
 	worker.use(
 		http.get('*/oauth/mcp/login/ui-local-component', () => new HttpResponse(null, { status: 400 }))

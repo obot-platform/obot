@@ -141,7 +141,7 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();

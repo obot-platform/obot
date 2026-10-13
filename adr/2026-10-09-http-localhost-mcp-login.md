@@ -19,7 +19,7 @@ Some MCP servers require their OAuth clients to use a localhost callback. Obot a
 
 ## Decision
 
-Use `obot mcp login --url <attempt URL>` to run a temporary callback listener on the user's computer. The CLI opens the authorization page and relays the callback to Obot, which exchanges the code and stores the credentials. The CLI exits when authentication completes.
+Use `obot mcp login <attempt URL>` to run a temporary callback listener on the user's computer. The CLI opens the authorization page and relays the callback to Obot, which exchanges the code and stores the credentials. The CLI exits when authentication completes.
 
 Each command is scoped to a pending authentication attempt and its credential owner. Client authorization, the inspector, and tool selection use the same flow. MCP clients continue connecting through Obot's HTTP URLs.
 

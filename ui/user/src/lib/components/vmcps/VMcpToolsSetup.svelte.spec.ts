@@ -342,7 +342,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect
 			.element(page.getByLabelText('Authentication command'))
 			.toHaveTextContent(
-				`obot mcp login --url '${window.location.origin}/oauth/mcp/login/temporary-preview-state'`
+				`obot mcp login '${window.location.origin}/oauth/mcp/login/temporary-preview-state'`
 			);
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).not.toBeInTheDocument();
 		const payload = { TOKEN: 'preview-secret', REGION: 'west' };
@@ -362,11 +362,17 @@ describe('VMcpToolsSetup preview credentials', () => {
 		async (trigger) => {
 			const preview = vi.fn();
 			const aborted = vi.fn();
+			let status = 200;
 			let finishPreview!: () => void;
 			const pendingPreview = new Promise<void>((resolve) => {
 				finishPreview = resolve;
 			});
 			worker.use(
+				http.get('*/oauth/mcp/login/preview', () =>
+					status === 200
+						? HttpResponse.json({ expiresIn: 600 })
+						: new HttpResponse(null, { status })
+				),
 				http.post(previewURL, async ({ request }) => {
 					preview();
 					if (preview.mock.calls.length === 1) {
@@ -392,9 +398,8 @@ describe('VMcpToolsSetup preview credentials', () => {
 			await openSetup();
 			await fillConfiguration();
 			await page.getByRole('button', { name: 'Configure Tools' }).click();
-			worker.use(
-				http.get('*/oauth/mcp/login/preview', () => new HttpResponse(null, { status: 400 }))
-			);
+			await expect.element(page.getByRole('timer')).toBeVisible();
+			status = trigger === 'refresh' ? 410 : 400;
 			const continueButton = page.getByRole('button', {
 				name: 'Generate new command',
 				exact: true
@@ -404,9 +409,6 @@ describe('VMcpToolsSetup preview credentials', () => {
 				// Native clicks exercise repeated activation before Svelte updates the disabled state.
 				const button = continueButton.element() as HTMLButtonElement;
 				if (trigger === 'refresh') {
-					worker.use(
-						http.get('*/oauth/mcp/login/preview', () => new HttpResponse(null, { status: 410 }))
-					);
 					document.dispatchEvent(new Event('visibilitychange'));
 					await expect.element(continueButton).toBeEnabled();
 					button.click();

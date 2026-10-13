@@ -85,7 +85,7 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/catalog-preview'`
+			`obot mcp login '${window.location.origin}/oauth/mcp/login/catalog-preview'`
 		);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))

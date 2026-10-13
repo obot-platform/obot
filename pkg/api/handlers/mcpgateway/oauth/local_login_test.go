@@ -40,15 +40,22 @@ func TestLocalLoginURL(t *testing.T) {
 
 func TestLocalLoginPreservesAttempt(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		userID        string
-		denied        bool
-		expired       bool
-		hosted        bool
-		authRequestID string
-		wrongUser     bool
-		unapproved    bool
+		name            string
+		userID          string
+		denied          bool
+		expired         bool
+		hosted          bool
+		authRequestID   string
+		wrongUser       bool
+		unauthenticated bool
+		unapproved      bool
 	}{
+		{
+			name:            "client callback without browser session",
+			userID:          "1",
+			authRequestID:   "auth1",
+			unauthenticated: true,
+		},
 		{
 			name:          "client callback wrong user",
 			userID:        "1",
@@ -206,10 +213,21 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			if tc.wrongUser {
 				req.User = &user.DefaultInfo{UID: "2", Name: "other", Groups: []string{types.GroupAuthenticated}}
 			}
-			if tc.wrongUser || tc.unapproved {
-				require.Error(t, h.oauthCallback(req))
+			if tc.unauthenticated {
+				req.User = &user.DefaultInfo{}
+			}
+			if tc.wrongUser || tc.unapproved || tc.unauthenticated {
+				require.NoError(t, h.oauthCallback(req))
+				require.Equal(t, http.StatusFound, response.Code)
+				completion, err := url.Parse(response.Header().Get("Location"))
+				require.NoError(t, err)
+				require.Equal(t, "localhost:54321", completion.Host)
+				require.Equal(t, "/oauth/obot/callback", completion.Path)
+				require.Equal(t, state, completion.Query().Get("state"))
+				require.Equal(t, "authentication_failed", completion.Query().Get("error"))
+				require.Empty(t, completion.Query().Get("code"))
 				require.Zero(t, exchanges)
-				_, err := gw.GetMCPOAuthPendingState(t.Context(), state)
+				_, err = gw.GetMCPOAuthPendingState(t.Context(), state)
 				require.NoError(t, err, "unauthorized callbacks must not consume the user's attempt")
 				return
 			}

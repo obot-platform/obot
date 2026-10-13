@@ -7,18 +7,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMCPLoginFlags(t *testing.T) {
+func TestMCPLoginArgument(t *testing.T) {
 	login := &MCPLogin{}
 	command := cmd.Command(login)
-	require.NoError(t, command.ParseFlags([]string{"--url", "https://obot.example/oauth/mcp/login/attempt"}))
-	require.Equal(t, "https://obot.example/oauth/mcp/login/attempt", login.URL)
-	require.NoError(t, command.Args(command, command.Flags().Args()))
-	require.Error(t, command.Args(command, []string{"unexpected"}))
+	require.NoError(t, command.Args(command, []string{"https://obot.example/oauth/mcp/login/attempt"}))
+	require.Error(t, command.Args(command, nil))
+	require.Error(t, command.Args(command, []string{"one", "two"}))
 }
 
 func TestMCPLoginRequiresURL(t *testing.T) {
 	login := &MCPLogin{}
-	require.ErrorContains(t, login.Run(cmd.Command(login), nil), "--url is required")
+	require.ErrorContains(t, login.Run(cmd.Command(login), nil), "authentication URL is required")
+	require.ErrorContains(t, login.Run(cmd.Command(login), []string{"  "}), "authentication URL is required")
 }
 
 func TestMCPAuthenticationCommands(t *testing.T) {

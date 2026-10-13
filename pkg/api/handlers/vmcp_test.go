@@ -2033,10 +2033,11 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 				Storage: newVMCPTestStorage(vmcp, connection),
 				User:    &user.DefaultInfo{UID: tc.userID},
 			}
-			got, err := convertVMCPForUser(req, *vmcp)
+			resolved, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 			if err != nil {
 				t.Fatal(err)
 			}
+			got := convertVMCPForInstance(req, *vmcp, resolved)
 			if !reflect.DeepEqual(got.LocalhostCallbackPaths, tc.want) {
 				t.Fatalf("callback paths = %v, want %v", got.LocalhostCallbackPaths, tc.want)
 			}

@@ -8099,8 +8099,16 @@ func schema_obot_platform_obot_apiclient_types_MCPLocalLogin(ref common.Referenc
 							Format:  "",
 						},
 					},
+					"expiresIn": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExpiresIn is the remaining lifetime in seconds, computed by the server.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
-				Required: []string{"authorizationURL", "redirectURL", "state"},
+				Required: []string{"authorizationURL", "redirectURL", "state", "expiresIn"},
 			},
 		},
 	}
@@ -17434,20 +17442,6 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 				Description: "VMCP is a stable, optionally multi-component MCP endpoint definition.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"localhostCallbackPaths": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LocalhostCallbackPaths contains the effective callback paths for the requesting user.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17541,6 +17535,20 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							},
 						},
 					},
+					"localhostCallbackPaths": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallbackPaths contains the effective callback paths for the requesting user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"legacySlug": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17584,7 +17592,7 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"localhostCallbackPaths", "created", "displayName", "components"},
+				Required: []string{"created", "displayName", "components", "localhostCallbackPaths"},
 			},
 		},
 		Dependencies: []string{
