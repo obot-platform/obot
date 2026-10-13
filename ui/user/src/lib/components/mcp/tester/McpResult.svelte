@@ -40,12 +40,20 @@
 </script>
 
 <section class="space-y-4" aria-label={m.mcps_tester_operation_result()}>
-	{#if result.message || result.status === 'mcp-error'}
+	{#if result.status !== 'success' && (result.message || result.status === 'mcp-error')}
 		<TesterError
 			title={label(result.status)}
 			message={result.message ?? rawJSON ?? m.mcps_tester_status_mcp_error()}
 			details={result.details ?? result.value}
+			severity={result.status === 'cancelled' || result.status === 'timeout' ? 'warning' : 'error'}
 		>
+			{#snippet icon()}
+				{#if result.status === 'cancelled'}
+					<Ban class="size-4 text-warning" aria-hidden="true" />
+				{:else if result.status === 'timeout'}
+					<Clock3 class="size-4 text-warning" aria-hidden="true" />
+				{/if}
+			{/snippet}
 			{#snippet actions()}
 				<span class="self-center text-sm text-muted-content"
 					>{Math.round(result.durationMs)} ms</span
@@ -73,6 +81,7 @@
 				<TriangleAlert class="size-4 text-error" aria-hidden="true" />
 			{/if}
 			<strong>{label(result.status)}</strong>
+			{#if result.message}<span>{result.message}</span>{/if}
 			<span class="text-muted-content">{Math.round(result.durationMs)} ms</span>
 		</div>
 	{/if}

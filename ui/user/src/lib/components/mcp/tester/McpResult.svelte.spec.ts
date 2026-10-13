@@ -21,6 +21,33 @@ function renderScrollableResult(height = 460) {
 }
 
 describe('McpResult', () => {
+	it.each([
+		{ status: 'cancelled' as const, title: 'Cancelled', icon: 'ban' },
+		{ status: 'timeout' as const, title: 'Timed out', icon: 'clock-3' }
+	])(
+		'keeps $status results styled as warnings with full details available',
+		async ({ status, title, icon }) => {
+			render(McpResult, {
+				result: {
+					status,
+					durationMs: 10,
+					message: 'Operation stopped',
+					details: { reason: status }
+				}
+			});
+			await expect
+				.element(page.getByRole('status').getByRole('heading', { name: title }))
+				.toBeVisible();
+			expect(page.getByRole('status').element().classList.contains('notification-alert')).toBe(
+				true
+			);
+			await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+			await expect.element(page.getByCSS(`svg.lucide-${icon}`)).toBeVisible();
+			await page.getByRole('button', { name: 'View full error' }).click();
+			await expect.element(page.getByLabelText('Full error')).toBeVisible();
+		}
+	);
+
 	it('previews the returned tool error rather than only its status', async () => {
 		render(McpResult, {
 			result: {

@@ -67,6 +67,16 @@ function detailsPane(): HTMLElement {
 }
 
 describe('ToolsInspector', () => {
+	it('keeps cached rejected-tool warnings visible after a cancelled refresh', async () => {
+		const { session } = renderInspector(2);
+		session.toolDiscoveryIssues = [{ name: 'rejected', index: 2, issues: [] }];
+		session.cache.tools.error = 'Loading was cancelled';
+		session.cache.tools.errorStatus = 'cancelled';
+		await expect.element(page.getByText('Malformed tools excluded: 1')).toBeVisible();
+		await expect.element(page.getByRole('list', { name: 'Tools' })).toBeVisible();
+		session.close();
+	});
+
 	it('keeps valid tools usable beside rejected-entry diagnostics', async () => {
 		const { session } = renderInspector(2);
 		session.toolDiscoveryIssues = [

@@ -8,6 +8,7 @@ import { preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse, getLicenseResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpTester from './VMcpTester.svelte';
+import { EditorView } from '@codemirror/view';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -151,6 +152,27 @@ afterEach(() => {
 });
 
 describe('VMcpTester', () => {
+	it.each([
+		{
+			status: 403,
+			description: 'Your permission to connect to this server is no longer available.'
+		},
+		{ status: 401, description: 'Reconnect this server before using the tester.' }
+	])(
+		'keeps translated authentication guidance inline and HTTP details in the dialog (%s)',
+		async ({ status, description }) => {
+			await renderVMcpTester({}, { connectFailureStatus: status });
+			await expect.element(page.getByText(description, { exact: true })).toBeVisible();
+			await expect.element(page.getByText(/Streamable HTTP error/)).not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View full error' }).click();
+			await expect.element(page.getByLabelText('Full error')).toBeVisible();
+			const text = EditorView.findFromDOM(
+				page.getByLabelText('Full error').element() as HTMLElement
+			)?.state.doc.toString();
+			expect(text).toContain(String(status));
+		}
+	);
+
 	it('shows administrator OAuth setup before connecting to a vMCP with missing static credentials', async () => {
 		const target = createVMCP({ id: vmcp.id, displayName: vmcp.displayName });
 		target.components![0].name = 'Salesforce';

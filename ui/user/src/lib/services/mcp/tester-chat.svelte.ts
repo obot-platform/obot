@@ -341,15 +341,15 @@ export class MCPTesterChat {
 		try {
 			if (this.toolSnapshot === undefined) {
 				this.status = 'snapshotting';
-				try {
-					const tools = await this.#session.snapshotChatTools(workflow.abort.signal);
-					if (!this.#isCurrent(workflow, generation)) return;
-					this.toolSnapshot = tools.map(normalizedTool);
-				} finally {
-					if (this.#isCurrent(workflow, generation)) {
-						this.toolDiscoveryIssues = [...this.#session.toolDiscoveryIssues];
+				this.toolDiscoveryIssues = [];
+				const tools = await this.#session.snapshotChatTools(
+					workflow.abort.signal,
+					(rejectedTools) => {
+						if (this.#isCurrent(workflow, generation)) this.toolDiscoveryIssues = rejectedTools;
 					}
-				}
+				);
+				if (!this.#isCurrent(workflow, generation)) return;
+				this.toolSnapshot = tools.map(normalizedTool);
 			}
 
 			const staged = stagedMessages(contexts);

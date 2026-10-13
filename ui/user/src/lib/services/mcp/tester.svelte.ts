@@ -180,6 +180,7 @@ export interface CapabilityCache<T = unknown> {
 export interface MCPPageCollection<T, TPage = unknown> {
 	items: T[];
 	pages: TPage[];
+	rejectedTools?: RejectedTesterTool[];
 }
 
 type ToolsPage = Awaited<ReturnType<Client['listTools']>>;
@@ -299,7 +300,11 @@ export function isTextualMimeType(mimeType?: string): boolean {
 	);
 }
 
-class NoValidTesterToolsError extends Error {}
+class NoValidTesterToolsError extends Error {
+	constructor(readonly rejectedTools: RejectedTesterTool[]) {
+		super(m.mcps_tester_no_valid_tools(), { cause: rejectedTools });
+	}
+}
 
 const maxPages = 500;
 
@@ -482,22 +487,17 @@ export class MCPTesterSession {
 	async listTools(
 		signal?: AbortSignal
 	): Promise<MCPPageCollection<ToolsPage['tools'][number], ToolsPage>> {
-		this.client.rejectedTools = [];
-		this.toolDiscoveryIssues = [];
-		try {
-			const result = await collectPages(
-				(cursor) => this.client.listTools(cursor ? { cursor } : {}, { signal }),
-				(page) => page.tools
-			);
-			if (!result.items.length && this.client.rejectedTools.length) {
-				throw new NoValidTesterToolsError(m.mcps_tester_no_valid_tools(), {
-					cause: this.client.rejectedTools
-				});
-			}
-			return result;
-		} finally {
-			if (!signal?.aborted) this.toolDiscoveryIssues = [...this.client.rejectedTools];
+		const client = this.client;
+		client.rejectedTools = [];
+		const result = await collectPages(
+			(cursor) => client.listTools(cursor ? { cursor } : {}, { signal }),
+			(page) => page.tools
+		);
+		const rejectedTools = [...client.rejectedTools];
+		if (!result.items.length && rejectedTools.length) {
+			throw new NoValidTesterToolsError(rejectedTools);
 		}
+		return { ...result, rejectedTools };
 	}
 
 	listPrompts(
@@ -577,6 +577,7 @@ export class MCPTesterSession {
 			if (workflow.abort.signal.aborted) return;
 			cache.items = result.items;
 			cache.pages = result.pages;
+			if (section === 'tools') this.toolDiscoveryIssues = result.rejectedTools ?? [];
 			cache.loaded = true;
 		} catch (error) {
 			if (
@@ -591,7 +592,8 @@ export class MCPTesterSession {
 				cache.pages = [];
 				return;
 			}
-			if (error instanceof NoValidTesterToolsError) {
+			if (error instanceof NoValidTesterToolsError && !workflow.abort.signal.aborted) {
+				this.toolDiscoveryIssues = error.rejectedTools;
 				cache.items = [];
 				cache.pages = [];
 				cache.loaded = false;
@@ -641,14 +643,22 @@ export class MCPTesterSession {
 		});
 	}
 
-	async snapshotChatTools(signal: AbortSignal): Promise<Tool[]> {
+	async snapshotChatTools(
+		signal: AbortSignal,
+		onRejectedTools?: (tools: RejectedTesterTool[]) => void
+	): Promise<Tool[]> {
 		if (!this.isCapabilitySupported('tools')) {
-			this.toolDiscoveryIssues = [];
+			onRejectedTools?.([]);
 			return [];
 		}
 		try {
-			return (await this.listTools(signal)).items;
+			const result = await this.listTools(signal);
+			if (!signal.aborted) onRejectedTools?.(result.rejectedTools ?? []);
+			return result.items;
 		} catch (error) {
+			if (error instanceof NoValidTesterToolsError && !signal.aborted) {
+				onRejectedTools?.(error.rejectedTools);
+			}
 			const classified = classifyOperationError(error, signal);
 			if (classified.status === 'denied') this.status = 'access-denied';
 			throw new Error(classified.message, { cause: error });

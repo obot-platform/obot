@@ -75,6 +75,52 @@ async function readySession(
 }
 
 describe('MCPTesterChat', () => {
+	it.each([false, true])(
+		'keeps Tools diagnostics isolated from a Chat snapshot (malformed Chat tool: %s)',
+		async (malformed) => {
+			let discovery = 0;
+			const session = await readySession({ tools: {} }, (request) => {
+				if (request.method !== 'tools/list') return;
+				discovery += 1;
+				const cached = discovery === 1;
+				return {
+					tools: [
+						{ name: cached ? 'cached-tool' : 'chat-tool', inputSchema: { type: 'object' } },
+						...(cached || malformed
+							? [
+									{
+										name: cached ? 'cached-rejection' : 'chat-rejection',
+										inputSchema: { type: 'array' }
+									}
+								]
+							: [])
+					]
+				};
+			});
+			await session.loadTools();
+			const diagnostics = [...session.toolDiscoveryIssues];
+			const chat = new MCPTesterChat(
+				session,
+				server.id,
+				vi.fn<typeof fetch>(async () =>
+					stream(
+						{ type: 'assistant_message_start' },
+						{ type: 'text_delta', delta: 'Hello' },
+						{ type: 'completion', reason: 'stop' }
+					)
+				)
+			);
+			await chat.send('Hello');
+			expect(session.cache.tools.items.map((tool) => tool.name)).toEqual(['cached-tool']);
+			expect(session.toolDiscoveryIssues).toEqual(diagnostics);
+			expect(chat.toolSnapshot?.map((tool) => tool.name)).toEqual(['chat-tool']);
+			expect(chat.toolDiscoveryIssues.map((tool) => tool.name)).toEqual(
+				malformed ? ['chat-rejection'] : []
+			);
+			session.close();
+		}
+	);
+
 	it('chats with valid tools while retaining rejected-tool diagnostics for its snapshot', async () => {
 		const session = await readySession({ tools: {} }, (request) => {
 			if (request.method === 'tools/list')

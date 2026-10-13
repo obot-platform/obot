@@ -249,8 +249,8 @@
 			{#if session.error}
 				<TesterError
 					title={m.mcps_tester_access_denied()}
-					message={session.error}
-					details={session.errorDetails}
+					message={m.mcps_tester_access_denied_description()}
+					details={session.errorDetails ?? session.error}
 				>
 					{#snippet actions()}
 						{#if accessDeniedAction}{@render accessDeniedAction()}{/if}
@@ -274,9 +274,11 @@
 			{#if session.error}
 				<TesterError
 					title={m.mcps_tester_reauth_required()}
-					message={session.error}
-					details={session.errorDetails}
+					message={m.mcps_tester_reauth_required_description()}
+					details={session.errorDetails ?? session.error}
+					severity="warning"
 				>
+					{#snippet icon()}<KeyRound class="size-5 text-warning" aria-hidden="true" />{/snippet}
 					{#snippet actions()}
 						{#if reauthenticationAction}{@render reauthenticationAction()}{/if}
 					{/snippet}

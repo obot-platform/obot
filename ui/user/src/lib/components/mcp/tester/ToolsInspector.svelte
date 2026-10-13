@@ -75,7 +75,7 @@
 		</TesterError>
 	{/if}
 
-	{#if !cache.error && !cache.loading && session.toolDiscoveryIssues.length}
+	{#if cache.items.length && session.toolDiscoveryIssues.length}
 		<TesterError
 			title={m.mcps_tester_tools_rejected({ count: session.toolDiscoveryIssues.length })}
 			message={m.mcps_tester_valid_tools_available() +

@@ -60,6 +60,48 @@ function readyFetch(
 }
 
 describe('partial tool discovery', () => {
+	it('preserves the cached list and its diagnostics when a refresh is cancelled', async () => {
+		const fetcher = readyFetch({ tools: {} }, (request) => {
+			if (request.method !== 'tools/list') return;
+			return Response.json({
+				jsonrpc: '2.0',
+				id: request.id,
+				result: {
+					tools: [
+						{ name: 'retained', inputSchema: { type: 'object' } },
+						{ name: 'rejected', inputSchema: { type: 'array' } }
+					]
+				}
+			});
+		});
+		const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, fetcher);
+		await session.initialize();
+		await session.loadTools();
+		const diagnostics = [...session.toolDiscoveryIssues];
+		const original = fetcher.getMockImplementation()!;
+		let pending = false;
+		fetcher.mockImplementation(async (input, init) => {
+			if (typeof init?.body === 'string' && JSON.parse(init.body).method === 'tools/list') {
+				pending = true;
+				return new Promise<Response>((_resolve, reject) => {
+					init.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+			return original(input, init);
+		});
+		const refresh = session.loadTools(true);
+		await vi.waitFor(() => expect(pending).toBe(true));
+		session.cancelActiveWorkflow();
+		await refresh;
+		expect(session.cache.tools.items.map((tool) => tool.name)).toEqual(['retained']);
+		expect(session.toolDiscoveryIssues).toEqual(diagnostics);
+		session.close();
+	});
+
 	it('retains valid tools across pages and the original malformed entries in the MCP log', async () => {
 		const fetcher = readyFetch({ tools: {} }, (request) => {
 			if (request.method !== 'tools/list') return;
