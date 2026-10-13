@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -59,43 +60,74 @@ type Handler struct {
 	serverURL                 string
 }
 
-func writeMCPJSONRPCError(w http.ResponseWriter, req *http.Request, rpcErr error) bool {
-	response, ok := mcpJSONRPCErrorResponse(req, rpcErr)
-	if !ok {
-		return false
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(response)
-	return true
+// mcpResponse keeps the client response and its audit representation together.
+type mcpResponse struct {
+	status  int
+	headers http.Header
+	body    []byte
 }
 
-func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) ([]byte, bool) {
+func (r *mcpResponse) write(w http.ResponseWriter, audit *proxyAudit) {
+	audit.recordRequest()
+	for key, values := range r.headers {
+		w.Header().Del(key)
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(r.status)
+	_, _ = w.Write(r.body)
+	if audit != nil {
+		audit.entry.ResponseHeaders, _ = json.Marshal(sanitizedMCPHeaders(w.Header()))
+	}
+	audit.recordHTTPResponse(r.body, r.status, nil)
+}
+
+func mcpTextResponse(status int, message string) *mcpResponse {
+	return &mcpResponse{
+		status: status,
+		headers: http.Header{
+			"Content-Length":         nil,
+			"Content-Type":           {"text/plain; charset=utf-8"},
+			"X-Content-Type-Options": {"nosniff"},
+		},
+		body: []byte(message + "\n"),
+	}
+}
+
+func mcpJSONResponse(body []byte) *mcpResponse {
+	return &mcpResponse{
+		status:  http.StatusOK,
+		headers: http.Header{"Content-Type": {"application/json"}},
+		body:    body,
+	}
+}
+
+func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) *mcpResponse {
 	if req.Method != http.MethodPost || req.Body == nil {
-		return nil, false
+		return nil
 	}
 
 	decoded, _, err := decodeMCPHookBody(req.Body, req.Header.Get("Content-Encoding"))
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
 	defer decoded.Close()
 
 	body, err := io.ReadAll(io.LimitReader(decoded, maxJSONRPCErrorRequestBody+1))
 	if err != nil || len(body) > maxJSONRPCErrorRequestBody {
-		return nil, false
+		return nil
 	}
 
 	msg, err := jsonrpc.DecodeMessage(body)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
 	call, ok := msg.(*jsonrpc.Request)
 	if !ok || call == nil || !call.IsCall() {
-		return nil, false
+		return nil
 	}
 
 	response, err := jsonrpc.EncodeMessage(&jsonrpc.Response{
@@ -106,64 +138,43 @@ func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) ([]byte, bool) {
 		},
 	})
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
-	return response, true
+	return mcpJSONResponse(response)
 }
 
-func writeGenericToolCallError(req api.Context, callErr error) (int, []byte, bool) {
+// A nil response leaves error handling to the caller, for example for notifications
+// or requests that cannot be decoded as a JSON-RPC call.
+func genericToolCallErrorResponse(req api.Context, callErr error) *mcpResponse {
 	if errors.Is(callErr, errMCPBatchUnsupported) || errors.Is(callErr, errMCPCaseVariantFieldNames) {
-		http.Error(req.ResponseWriter, callErr.Error(), http.StatusBadRequest)
-		return http.StatusBadRequest, []byte(callErr.Error() + "\n"), true
+		return mcpTextResponse(http.StatusBadRequest, callErr.Error())
 	}
-
 	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {
 		result, err := json.Marshal(completed.result)
 		if err != nil {
-			return 0, nil, false
+			return nil
 		}
-
-		response, err := json.Marshal(mcp.Message{JSONRPC: "2.0", ID: completed.id, Result: result})
+		body, err := json.Marshal(mcp.Message{JSONRPC: "2.0", ID: completed.id, Result: result})
 		if err != nil {
-			return 0, nil, false
+			return nil
 		}
-
-		req.ResponseWriter.Header().Set("Content-Type", "application/json")
-		req.WriteHeader(http.StatusOK)
-		_, _ = req.ResponseWriter.Write(response)
-		return http.StatusOK, response, true
+		return mcpJSONResponse(body)
 	}
-
 	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](callErr); ok && authErr.StatusCode == http.StatusUnauthorized {
-		return http.StatusUnauthorized, writeMCPAuthRequired(req, false), true
+		return mcpAuthRequiredResponse(req, false)
 	}
-
-	response, ok := mcpJSONRPCErrorResponse(req.Request, callErr)
-	if !ok {
-		return 0, nil, false
-	}
-
-	req.ResponseWriter.Header().Set("Content-Type", "application/json")
-	req.WriteHeader(http.StatusOK)
-	_, _ = req.ResponseWriter.Write(response)
-	return http.StatusOK, response, true
+	return mcpJSONRPCErrorResponse(req.Request, callErr)
 }
 
-func writeAndAuditGenericToolCallError(req api.Context, audit *proxyAudit, callErr error) bool {
-	audit.recordRequest()
-
-	statusCode, body, handled := writeGenericToolCallError(req, callErr)
-	if !handled {
+func handleGenericToolCallError(req api.Context, audit *proxyAudit, callErr error) bool {
+	response := genericToolCallErrorResponse(req, callErr)
+	if response == nil {
+		audit.recordRequest()
 		audit.recordTransportError(callErr, http.StatusInternalServerError)
 		return false
 	}
-
-	if audit != nil {
-		audit.entry.ResponseHeaders, _ = json.Marshal(sanitizedMCPHeaders(req.ResponseWriter.Header()))
-	}
-
-	audit.recordHTTPResponse(body, statusCode, nil)
+	response.write(req.ResponseWriter, audit)
 	return true
 }
 
@@ -235,7 +246,7 @@ func (h *Handler) Close() error {
 
 func (h *Handler) Proxy(req api.Context) error {
 	if !req.UserIsAuthenticated() {
-		writeMCPAuthRequired(req, false)
+		mcpAuthRequiredResponse(req, false).write(req.ResponseWriter, nil)
 		return nil
 	}
 
@@ -245,7 +256,8 @@ func (h *Handler) Proxy(req api.Context) error {
 			return nil
 		}
 		err = fmt.Errorf("failed to ensure server is deployed: %w", err)
-		if writeMCPJSONRPCError(req.ResponseWriter, req.Request, err) {
+		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
+			response.write(req.ResponseWriter, nil)
 			return nil
 		}
 		return err
@@ -335,7 +347,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			inspect := audit != nil || (h.hookRunner != nil && len(hookConfig) > 0)
 			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token, inspect)
 			if err != nil {
-				if writeAndAuditGenericToolCallError(req, audit, err) {
+				if handleGenericToolCallError(req, audit, err) {
 					return nil
 				}
 				return err
@@ -347,7 +359,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall)
 		if err != nil {
-			if errors.Is(err, errMCPCaseVariantFieldNames) && writeAndAuditGenericToolCallError(req, audit, err) {
+			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
 				return nil
 			}
 			return fmt.Errorf("failed to prepare MCP request hooks: %w", err)
@@ -488,7 +500,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 	if len(missingConfig) > 0 {
-		writeMCPAuthRequired(req, true)
+		mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
@@ -519,27 +531,23 @@ func rewriteMCPAuthResponse(req api.Context, resp *http.Response) {
 	if resp.Body != nil {
 		_ = resp.Body.Close()
 	}
-	const body = "MCP server requires authentication\n"
-	resp.Header = http.Header{
-		"Www-Authenticate":       {mcpAuthChallenge(req)},
-		"Content-Type":           {"text/plain; charset=utf-8"},
-		"X-Content-Type-Options": {"nosniff"},
-	}
-	resp.Body = io.NopCloser(strings.NewReader(body))
-	resp.ContentLength = int64(len(body))
+	response := mcpAuthRequiredResponse(req, false)
+	resp.Header = response.headers.Clone()
+	resp.Header.Del("Content-Length")
+	resp.Body = io.NopCloser(bytes.NewReader(response.body))
+	resp.ContentLength = int64(len(response.body))
 	resp.TransferEncoding = nil
 	resp.Trailer = nil
 }
 
-func writeMCPAuthRequired(req api.Context, requiresConfig bool) []byte {
-	req.ResponseWriter.Header().Set("WWW-Authenticate", mcpAuthChallenge(req))
+func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse {
 	message := "MCP server requires authentication"
 	if requiresConfig {
 		message = "MCP server requires configuration"
 	}
-
-	http.Error(req.ResponseWriter, message, http.StatusUnauthorized)
-	return []byte(message + "\n")
+	response := mcpTextResponse(http.StatusUnauthorized, message)
+	response.headers.Set("WWW-Authenticate", mcpAuthChallenge(req))
+	return response
 }
 
 // compositeLoopbackTokenContext returns the token a composite server's loopback authenticates with, for the caller

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -444,7 +445,9 @@ func TestProxyForwardedHeaders(t *testing.T) {
 func TestMCPJSONRPCErrorPropagatesThroughTransport(t *testing.T) {
 	deploymentErr := errors.New("MCP server is not healthy: container repeatedly crashed (exit code 1, 4 restarts)")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if !writeMCPJSONRPCError(w, req, deploymentErr) {
+		if response := mcpJSONRPCErrorResponse(req, deploymentErr); response != nil {
+			response.write(w, nil)
+		} else {
 			http.Error(w, deploymentErr.Error(), http.StatusInternalServerError)
 		}
 	}))
@@ -498,5 +501,70 @@ func TestCompositeSessionKeyUsesResolvedServerName(t *testing.T) {
 	}
 	if compositeSessionKey(firstAlias) == compositeSessionKey(obotmcp.ServerConfig{MCPServerName: "other-composite"}) {
 		t.Fatal("different MCP server names shared an affinity key")
+	}
+}
+
+func TestGenericToolCallErrorLeavesUnsupportedRequestsToCaller(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		method string
+		body   string
+	}{
+		{
+			name:   "notification",
+			method: http.MethodPost,
+			body:   `{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		},
+		{
+			name:   "malformed request",
+			method: http.MethodPost,
+			body:   `{`,
+		},
+		{
+			name:   "get",
+			method: http.MethodGet,
+			body:   `{"jsonrpc":"2.0","id":1,"method":"ping"}`,
+		},
+		{
+			name:   "empty body",
+			method: http.MethodPost,
+		},
+		{
+			name:   "oversized body",
+			method: http.MethodPost,
+			body:   strings.Repeat(" ", maxJSONRPCErrorRequestBody+1),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "/mcp-connect/vmcp", strings.NewReader(tt.body))
+			if handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, errors.New("discovery failed")) {
+				t.Fatal("unsupported request was handled")
+			}
+			if w.Body.Len() != 0 || len(w.Header()) != 0 || w.Flushed {
+				t.Fatalf("fallback wrote a response: headers=%v body=%q", w.Header(), w.Body.String())
+			}
+		})
+	}
+}
+
+func TestMCPTextResponsePreservesHTTPErrorBehavior(t *testing.T) {
+	const message = "rejected request"
+	previousHeaders := http.Header{
+		"Content-Type":     {"application/json"},
+		"Content-Length":   {"999"},
+		"Content-Encoding": {"gzip"},
+		"X-Request-Id":     {"request-1"},
+	}
+	want := httptest.NewRecorder()
+	got := httptest.NewRecorder()
+	for key, values := range previousHeaders {
+		want.Header()[key] = append([]string(nil), values...)
+		got.Header()[key] = append([]string(nil), values...)
+	}
+	http.Error(want, message, http.StatusBadRequest)
+	mcpTextResponse(http.StatusBadRequest, message).write(got, nil)
+	if got.Code != want.Code || got.Body.String() != want.Body.String() || !reflect.DeepEqual(got.Header(), want.Header()) {
+		t.Fatalf("response differs from http.Error: got=%d %v %q want=%d %v %q", got.Code, got.Header(), got.Body.String(), want.Code, want.Header(), want.Body.String())
 	}
 }

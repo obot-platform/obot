@@ -147,7 +147,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !writeAndAuditGenericToolCallError(api.Context{Request: stale, ResponseWriter: w}, staleAudit, err) {
+	if !handleGenericToolCallError(api.Context{Request: stale, ResponseWriter: w}, staleAudit, err) {
 		t.Fatal("stale tool result was not written")
 	}
 
@@ -214,7 +214,7 @@ func TestGenericToolCallRejectsLegacyBatchBeforeHooks(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
+	if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
 		t.Fatal("batch rejection was not written")
 	}
 
@@ -264,7 +264,7 @@ func TestGenericToolCallRejectsCaseVariantFieldNames(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
+			if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
 				t.Fatal("case variant rejection was not written")
 			}
 			if w.Code != http.StatusBadRequest {
@@ -290,9 +290,14 @@ func TestGenericToolCallRejectionReturnsWrittenBody(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			status, body, handled := writeGenericToolCallError(api.Context{ResponseWriter: w}, tt.err)
-			if !handled || status != http.StatusBadRequest || w.Code != status {
-				t.Fatalf("rejection: handled=%v status=%d written status=%d", handled, status, w.Code)
+			response := genericToolCallErrorResponse(api.Context{}, tt.err)
+			if response == nil {
+				t.Fatal("rejection was not handled")
+			}
+			response.write(w, nil)
+			status, body := response.status, response.body
+			if status != http.StatusBadRequest || w.Code != status {
+				t.Fatalf("rejection: status=%d written status=%d", status, w.Code)
 			}
 			if string(body) != tt.err.Error()+"\n" || !bytes.Equal(body, w.Body.Bytes()) {
 				t.Fatalf("returned body=%q written body=%q", body, w.Body.String())
@@ -311,7 +316,7 @@ func TestGenericToolCallCaseVariantRejectionIsAudited(t *testing.T) {
 				t.Fatal(err)
 			}
 			w := httptest.NewRecorder()
-			if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errMCPCaseVariantFieldNames) {
+			if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errMCPCaseVariantFieldNames) {
 				t.Fatal("case variant rejection was not handled")
 			}
 			if len(collector.entries) != 2 || collector.entries[1].ResponseStatus != http.StatusBadRequest {
@@ -374,7 +379,7 @@ func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
+	if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
 		t.Fatalf("invalid generic call was not handled: %v", err)
 	}
 
@@ -394,7 +399,7 @@ func TestGenericToolCallDiscoveryFailureIsAudited(t *testing.T) {
 	}
 
 	w := httptest.NewRecorder()
-	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errors.New("discovery failed")) {
+	if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errors.New("discovery failed")) {
 		t.Fatal("discovery failure was not handled")
 	}
 
@@ -452,7 +457,7 @@ func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T)
 	}
 
 	w := httptest.NewRecorder()
-	if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
+	if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, err) {
 		t.Fatalf("gzip discovery failure was not written as JSON-RPC: %v", err)
 	}
 
@@ -649,7 +654,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 
 	w := httptest.NewRecorder()
 	ctx := api.Context{Request: req, ResponseWriter: w, APIBaseURL: "https://obot.example/api"}
-	if !writeAndAuditGenericToolCallError(ctx, audit, err) {
+	if !handleGenericToolCallError(ctx, audit, err) {
 		t.Fatal("authorization error was not handled")
 	}
 
