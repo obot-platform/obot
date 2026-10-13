@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -31,7 +32,13 @@ func (f *MCPOAuthHandlerFactory) localLoginURL(authURL string, config mcp.Server
 	if err != nil || u.Query().Get("state") == "" {
 		return "", fmt.Errorf("local OAuth authorization URL has no state")
 	}
-	return strings.TrimRight(f.baseURL, "/") + "/oauth/mcp/login/" + url.PathEscape(u.Query().Get("state")), nil
+	loginURL := strings.TrimRight(f.baseURL, "/") + "/oauth/mcp/login/" + url.PathEscape(u.Query().Get("state"))
+	// Display-only context identifies the component requesting authentication,
+	// including when the caller is connecting to an aggregate vMCP.
+	if config.MCPServerDisplayName != "" {
+		loginURL += "?" + url.Values{"serverName": {config.MCPServerDisplayName}}.Encode()
+	}
+	return loginURL, nil
 }
 
 func localLoginState(ps *gatewaytypes.MCPOAuthPendingState) bool {
@@ -51,8 +58,12 @@ func localLoginState(ps *gatewaytypes.MCPOAuthPendingState) bool {
 func (h *handler) localLogin(req api.Context) error {
 	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
 	ps, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.PathValue("state"))
-	if err != nil || !localLoginState(ps) || time.Since(ps.CreatedAt) > localLoginTTL {
+	if err != nil || !localLoginState(ps) {
 		return types.NewErrBadRequest("authentication attempt expired; retry authentication in Obot")
+	}
+	remaining := time.Until(ps.CreatedAt.Add(localLoginTTL))
+	if remaining <= 0 {
+		return types.NewErrHTTP(http.StatusGone, "authentication attempt expired; request a new command in Obot")
 	}
 	conf := &oauth2.Config{
 		ClientID:    ps.ClientID,
@@ -64,7 +75,7 @@ func (h *handler) localLogin(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.Write(types.MCPLocalLogin{AuthorizationURL: authURL, RedirectURL: ps.RedirectURL, State: ps.State})
+	return req.Write(types.MCPLocalLogin{AuthorizationURL: authURL, RedirectURL: ps.RedirectURL, State: ps.State, ExpiresIn: int(math.Ceil(remaining.Seconds()))})
 }
 
 func completeLocalLogin(req api.Context, ps *gatewaytypes.MCPOAuthPendingState, loginErr error) {

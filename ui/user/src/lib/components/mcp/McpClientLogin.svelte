@@ -3,7 +3,7 @@
 	import { m } from '$lib/i18n';
 	import { UserService } from '$lib/services';
 	import { isMcpLoginURL } from '$lib/services/user/mcp';
-	import McpLogin from './McpLogin.svelte';
+	import McpLocalAuth from './McpLocalAuth.svelte';
 	import { onMount } from 'svelte';
 
 	let { authRequestID, onComplete }: { authRequestID: string; onComplete: () => void } = $props();
@@ -39,14 +39,16 @@
 
 <div class="colors-background flex min-h-screen items-center justify-center p-4">
 	<div class="popover w-full max-w-lg p-6 flex flex-col gap-4">
-		<h1 class="text-2xl font-semibold">{m.mcps_login_title()}</h1>
+		{#if !isMcpLoginURL(authURL)}
+			<h1 class="text-2xl font-semibold">{m.mcps_login_title()}</h1>
+		{/if}
 		{#if error}
 			<p role="alert" class="notification-error">{error}</p>
 			<button type="button" class="btn btn-secondary" disabled={loading} onclick={check}
 				>{m.mcps_retry()}</button
 			>
 		{:else if isMcpLoginURL(authURL)}
-			<McpLogin url={authURL} {loading} onComplete={check} />
+			<McpLocalAuth url={authURL} {loading} onComplete={check} />
 		{:else if authURL}
 			<a class="btn btn-primary" href={authURL} target="_blank" rel="external noopener noreferrer"
 				>{m.mcps_oauth_authenticate()}</a

@@ -130,6 +130,8 @@
 {:else if isMcpLoginURL(oauthURL)}
 	<McpLogin
 		url={oauthURL}
+		purpose="tools"
+		serverName={entry.manifest.name}
 		{loading}
 		onComplete={() => {
 			if (loading) return;

@@ -19,7 +19,7 @@ To set up a connection in the UI:
 4. Complete upstream OAuth authentication if a remote component requires it.
 5. Copy the **Connection URL** or use the instructions for a supported client.
 
-Some MCP servers require their OAuth clients to use a localhost callback. If Obot displays an `obot mcp login` command during connection or preconfiguration, run it on the same computer as your browser and complete sign-in. Obot continues the connection automatically. Keep using the vMCP's HTTP connection URL in your AI client. See [MCP localhost OAuth sign-in](../reference/cli-api.md#mcp-localhost-oauth-sign-in) for CLI setup and troubleshooting.
+Some MCP servers require their OAuth clients to use a localhost callback. If Obot displays an `obot mcp login` command during connection or preconfiguration, run it on a computer with a web browser and complete sign-in. Obot continues the connection automatically. Keep using the vMCP's HTTP connection URL in your AI client. See [MCP localhost OAuth sign-in](../reference/cli-api.md#mcp-localhost-oauth-sign-in) for CLI setup and troubleshooting.
 
 The endpoint uses Streamable HTTP and has this form:
 

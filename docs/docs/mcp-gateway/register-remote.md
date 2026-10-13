@@ -37,4 +37,4 @@ Some MCP servers require their OAuth clients to use a localhost callback. For th
 
 Leave **Callback path** blank to use `/oauth/callback`, or enter the path required by the server. The path must start with `/` and contain no query string or fragment. `/oauth/obot/callback` is reserved. The server must accept an available callback port; fixed ports are not supported.
 
-During authentication, Obot displays an [`obot mcp login` command](../reference/cli-api.md#mcp-localhost-oauth-sign-in) to run on the same computer as the browser. MCP clients continue using their normal Obot HTTP connection URL.
+During authentication, Obot displays an [`obot mcp login` command](../reference/cli-api.md#mcp-localhost-oauth-sign-in) to run on a computer with a web browser. MCP clients continue using their normal Obot HTTP connection URL.

@@ -110,7 +110,6 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			require.NoError(t, db.AutoMigrate())
 			gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 			t.Cleanup(func() { require.NoError(t, gw.Close()) })
-			sm := newStateManager(gw)
 			exchanges := 0
 			redirectURL := "http://localhost:54321/custom/callback"
 			if tc.hosted {
@@ -126,6 +125,7 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 				_, _ = w.Write([]byte(`{"access_token":"upstream-token","token_type":"Bearer"}`))
 			}))
 			defer provider.Close()
+			sm := newStateManager(gw, fixedTokenClient(provider.Client()))
 			conf := &oauth2.Config{
 				ClientID:     "provider-client",
 				ClientSecret: "private-secret",
@@ -167,12 +167,18 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			err = h.localLogin(req)
 			if tc.expired || tc.hosted {
 				require.Error(t, err)
+				if tc.expired {
+					var httpErr *types.ErrHTTP
+					require.ErrorAs(t, err, &httpErr)
+					require.Equal(t, http.StatusGone, httpErr.Code)
+				}
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
 				var metadata types.MCPLocalLogin
 				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &metadata))
 				require.Equal(t, conf.RedirectURL, metadata.RedirectURL)
+				require.InDelta(t, 600, metadata.ExpiresIn, 2)
 				auth, err := url.Parse(metadata.AuthorizationURL)
 				require.NoError(t, err)
 				require.Equal(t, state, auth.Query().Get("state"))
@@ -181,6 +187,14 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 				require.NotContains(t, response.Body.String(), "private-secret")
 				require.NotContains(t, response.Body.String(), "private-verifier")
 				require.NotContains(t, response.Body.String(), "temporary-preview-id")
+				// Reading the command again reports the original attempt's remaining
+				// lifetime; polling must not grant another ten minutes.
+				require.NoError(t, services.DB.DB.Model(&gatewaytypes.MCPOAuthPendingState{}).Where("mcp_id = ?", "temporary-preview-id").Update("created_at", time.Now().Add(-7*time.Minute)).Error)
+				response = httptest.NewRecorder()
+				req.ResponseWriter = response
+				require.NoError(t, h.localLogin(req))
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &metadata))
+				require.InDelta(t, 180, metadata.ExpiresIn, 2)
 			}
 			callbackQuery := "?state=" + state + "&code=provider-code"
 			if tc.denied {
@@ -229,4 +243,17 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			require.Error(t, h.oauthCallback(req), "attempt must not be replayable")
 		})
 	}
+}
+
+func TestLocalLoginURLIdentifiesServer(t *testing.T) {
+	f := &MCPOAuthHandlerFactory{baseURL: "https://obot.example"}
+	got, err := f.localLoginURL("https://provider.example/authorize?state=attempt", mcp.ServerConfig{
+		LocalhostCallbackEnabled: true,
+		MCPServerDisplayName:     "Acme & Co / Tools",
+	})
+	require.NoError(t, err)
+	u, err := url.Parse(got)
+	require.NoError(t, err)
+	require.Equal(t, "/oauth/mcp/login/attempt", u.Path)
+	require.Equal(t, "Acme & Co / Tools", u.Query().Get("serverName"))
 }

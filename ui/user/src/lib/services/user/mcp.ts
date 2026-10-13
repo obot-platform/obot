@@ -1187,7 +1187,7 @@ export function isMcpLoginURL(value: string): boolean {
 			trustedOrigins.includes(url.origin) &&
 			!url.username &&
 			!url.password &&
-			!url.search &&
+			[...url.searchParams.keys()].every((key) => key === 'serverName') &&
 			!url.hash &&
 			/\/oauth\/mcp\/login\/[^/]+$/.test(url.pathname)
 		);

@@ -670,6 +670,7 @@ it('shows CLI login for vMCP authentication using retained callback paths', asyn
 	vmcp.localhostCallbackPaths = ['/retained/callback'];
 	const result = await renderDialog(vmcp);
 	await result.component.authenticate();
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command').last())
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
@@ -678,7 +679,7 @@ it('shows CLI login for vMCP authentication using retained callback paths', asyn
 		.not.toBeInTheDocument();
 });
 
-it('shows component login commands directly during vMCP preconfiguration', async () => {
+it('opens component login commands after Authenticate during vMCP preconfiguration', async () => {
 	const vmcp = configurableVMcp();
 	vmcp.localhostCallbackPaths = ['/oauth/callback'];
 	const checked = vi.fn();
@@ -700,13 +701,15 @@ it('shows component login commands directly during vMCP preconfiguration', async
 	);
 	const result = await renderDialog(vmcp);
 	await result.component.authenticate();
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await vi.waitFor(() => expect(checked).toHaveBeenCalledOnce());
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
 });

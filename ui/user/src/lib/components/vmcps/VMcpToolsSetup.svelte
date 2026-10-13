@@ -376,11 +376,13 @@
 <ResponsiveDialog
 	bind:this={setupDialog}
 	animate="slide"
-	title={readonly
-		? m.vmcps_view_named_tools({ name: component?.name ?? m.vmcps_mcp_server() })
-		: m.vmcps_configure_named_tools({
-				name: component?.name ?? m.vmcps_mcp_server()
-			})}
+	title={oauthURL && isMcpLoginURL(oauthURL)
+		? m.mcps_login_tools_title({ name: component?.name || m.mcps_login_server() })
+		: readonly
+			? m.vmcps_view_named_tools({ name: component?.name ?? m.vmcps_mcp_server() })
+			: m.vmcps_configure_named_tools({
+					name: component?.name ?? m.vmcps_mcp_server()
+				})}
 	class="md:w-md"
 	onClose={cancelSetup}
 >
@@ -398,26 +400,33 @@
 						name: component?.name ?? configuringEntry.manifest.name ?? ''
 					})}
 				</p>
-			{:else if oauthURL}
+			{:else if oauthURL && !isMcpLoginURL(oauthURL)}
 				<p class="mb-4 text-sm">
 					{m.vmcps_tools_requires_oauth_authentication()}
 				</p>
-			{:else if userFields.length > 0}
+			{:else if !oauthURL && userFields.length > 0}
 				<p class="text-muted-content mb-6 text-sm font-light">
 					{m.vmcps_tools_enter_credentials()}
 				</p>
-			{:else if !needsLiveTools}
+			{:else if !oauthURL && !needsLiveTools}
 				<p class="text-muted-content mb-6 text-sm font-light">
 					{m.vmcps_tools_read_from_stored()}
 				</p>
-			{:else}
+			{:else if !oauthURL}
 				<p class="text-muted-content mb-6 text-sm font-light">
 					{m.vmcps_tools_use_stored_configuration()}
 				</p>
 			{/if}
 
 			{#if oauthURL && isMcpLoginURL(oauthURL)}
-				<McpLogin url={oauthURL} {loading} onComplete={validateAuthentication} />
+				<McpLogin
+					url={oauthURL}
+					serverName={configuringEntry.manifest.name}
+					purpose="tools"
+					showTitle={false}
+					{loading}
+					onComplete={validateAuthentication}
+				/>
 			{/if}
 
 			{#if !oauthURL && !oauthSetupRequired}

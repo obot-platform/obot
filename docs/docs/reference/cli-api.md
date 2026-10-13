@@ -167,18 +167,18 @@ If setup reports that another Obot URL is already configured, pass `--yes` to re
 
 ## MCP localhost OAuth sign-in
 
-Some MCP servers require their OAuth clients to use a localhost callback. When you connect to one through Obot, the authentication screen displays a command:
+Some MCP servers require their OAuth clients to use a localhost callback. When you connect to one through Obot, select **Authenticate** to display a command:
 
 ```bash
 obot mcp login --url 'https://obot.example.com/oauth/mcp/login/<attempt>'
 ```
 
 1. Install an Obot CLI version that supports `mcp login` and make sure `obot` is on your `PATH`.
-2. Copy the command from Obot and run it on the same computer as your browser.
-3. Complete sign-in in the browser, then return to Obot. The connection continues automatically once all required servers are authenticated.
+2. Copy the command from Obot and run it on a computer with a web browser.
+3. Complete sign-in in the browser opened by the CLI, then return to Obot. The connection continues automatically once all required servers are authenticated.
 
 Keep using the HTTP connection URL from Obot in your MCP client. The command runs only during sign-in; Obot stores the provider credentials.
 
-Commands expire after ten minutes. If a command expires or its callback port is occupied, select **Get a new sign-in command** and run the replacement.
+Commands expire after ten minutes. Once a command expires, select **Generate new command** and run the replacement.
 
 Administrators must first enable [Localhost OAuth callback](../mcp-gateway/register-remote.md#localhost-oauth-callbacks) for the server.

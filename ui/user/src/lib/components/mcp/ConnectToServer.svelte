@@ -1,5 +1,5 @@
 <script lang="ts">
-	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
+	import McpLocalAuth from '$lib/components/mcp/McpLocalAuth.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import {
@@ -1130,11 +1130,22 @@
 			{getMCPDisplayName(server)}
 		</div>
 	{/snippet}
-	<div class="flex min-w-0 flex-col gap-4 p-4 md:p-0">
+	<div
+		class={isMcpLoginURL(oauthURL)
+			? 'flex min-w-0 flex-col gap-4'
+			: 'flex min-w-0 flex-col gap-4 p-4 md:p-0'}
+	>
 		{#if oauthURL}
-			<p class="text-sm">{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}</p>
+			{#if !isMcpLoginURL(oauthURL)}<p class="text-sm">
+					{m.mcps_connect_oauth_required({ name: getMCPDisplayName(server) })}
+				</p>{/if}
 			{#if isMcpLoginURL(oauthURL)}
-				<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} loading={oauthChecking} />
+				<McpLocalAuth
+					url={oauthURL}
+					serverName={getMCPDisplayName(server, entry?.manifest?.name ?? '')}
+					onComplete={handleOauthVisibilityChange}
+					loading={oauthChecking}
+				/>
 			{:else}
 				<p>{m.mcps_connect_oauth_click_link()}</p>
 

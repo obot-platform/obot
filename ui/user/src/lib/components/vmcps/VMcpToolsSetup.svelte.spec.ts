@@ -396,7 +396,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 				http.get('*/oauth/mcp/login/preview', () => new HttpResponse(null, { status: 400 }))
 			);
 			const continueButton = page.getByRole('button', {
-				name: 'Get a new sign-in command',
+				name: 'Generate new command',
 				exact: true
 			});
 			await expect.element(continueButton).toBeVisible();
@@ -404,6 +404,11 @@ describe('VMcpToolsSetup preview credentials', () => {
 				// Native clicks exercise repeated activation before Svelte updates the disabled state.
 				const button = continueButton.element() as HTMLButtonElement;
 				if (trigger === 'refresh') {
+					worker.use(
+						http.get('*/oauth/mcp/login/preview', () => new HttpResponse(null, { status: 410 }))
+					);
+					document.dispatchEvent(new Event('visibilitychange'));
+					await expect.element(continueButton).toBeEnabled();
 					button.click();
 				} else {
 					document.dispatchEvent(new Event('visibilitychange'));
@@ -412,7 +417,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 				await expect.element(continueButton).toBeDisabled();
 				await expect
 					.element(page.getByRole('status'))
-					.toHaveTextContent('Validating authentication...');
+					.toHaveTextContent('Checking for valid authentication…');
 				button.click();
 				document.dispatchEvent(new Event('visibilitychange'));
 				await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(2));

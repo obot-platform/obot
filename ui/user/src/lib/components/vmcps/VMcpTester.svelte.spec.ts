@@ -390,11 +390,13 @@ it('shows CLI login and retries the inspector for localhost OAuth', async () => 
 		{},
 		{ vmcp: target, instance: createInstance({ configured: true }), connectFailureStatus: 401 }
 	);
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
 	mockMCPInitialization('vmcpi-1');
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await expect
 		.element(page.getByRole('heading', { name: 'Reauthentication required' }))
 		.not.toBeInTheDocument();

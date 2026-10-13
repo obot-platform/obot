@@ -6,7 +6,7 @@
 	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
-	import McpLogin from './McpLogin.svelte';
+	import McpLocalAuth from './McpLocalAuth.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -228,56 +228,59 @@
 		{:else}
 			<div class="flex flex-col gap-4">
 				{#each pending as item (item.mcpServerID)}
+					{@const name = componentLabel(item)}
+					{@const icon = item.icon || componentInfos[item.catalogEntryID || '']?.icon}
+					{@const deprecated = componentInfos[item.catalogEntryID || '']?.deprecated}
 					<div
+						role="group"
+						aria-label={name}
 						class="dark:bg-base-300 dark:border-base-400 bg-base-100 min-w-0 rounded-lg border border-transparent shadow-sm"
 					>
-						<div class="flex min-w-0 items-center gap-2 p-2">
-							{#if item.icon || componentInfos[item.catalogEntryID || '']?.icon}
-								<img
-									src={item.icon || componentInfos[item.catalogEntryID || '']?.icon}
-									alt={m.mcps_oauth_icon_alt()}
-									class="size-8 shrink-0"
-								/>
-							{:else}
-								<Server class="size-8 shrink-0" />
-							{/if}
-							<span class="min-w-0 break-words text-sm font-medium">{componentLabel(item)}</span>
-							<McpDeprecatedNotice
-								deprecated={componentInfos[item.catalogEntryID || '']?.deprecated}
-								child
+						{#if isMcpLoginURL(item.authURL)}
+							<McpLocalAuth
+								url={item.authURL}
+								serverName={name}
+								{icon}
+								{deprecated}
+								loading={checking.has(item.mcpServerID)}
+								onComplete={() => checkComponent(item)}
 							/>
-						</div>
-						<div
-							class="border-base-300 dark:border-base-400 flex min-w-0 flex-wrap items-center justify-end gap-2 border-t p-3"
-						>
-							{#if checking.has(item.mcpServerID)}
-								<span class="flex items-center gap-2 text-sm" role="status">
-									<Loading class="size-4" />
-									{m.mcps_oauth_composite_oauth_checking()}
-								</span>
-							{:else if isMcpLoginURL(item.authURL)}
-								<McpLogin url={item.authURL} onComplete={() => checkComponent(item)} />
-							{:else}
-								<a
-									href={item.authURL}
-									rel="external noopener noreferrer"
-									target="_blank"
-									class="btn btn-primary"
-									onclick={() => recordAttempt(item)}>{m.mcps_oauth_authenticate()}</a
-								>
-								{#if rowErrors[item.mcpServerID]}
-									<button
-										class="btn btn-secondary"
-										type="button"
-										onclick={() => void checkComponent(item)}>{m.mcps_retry()}</button
-									>
+						{:else}
+							<div class="flex min-w-0 flex-wrap items-center gap-3 p-3">
+								{#if icon}
+									<img src={icon} alt={m.mcps_oauth_icon_alt()} class="size-8 shrink-0" />
+								{:else}
+									<Server class="size-8 shrink-0" />
 								{/if}
-							{/if}
-						</div>
+								<span class="min-w-0 flex-1 break-words text-sm font-medium">{name}</span>
+								<McpDeprecatedNotice {deprecated} child />
+								{#if checking.has(item.mcpServerID) || attempted.has(item.mcpServerID)}
+									<span class="flex items-center gap-2 text-sm" role="status">
+										<Loading class="size-4 shrink-0" />{m.mcps_oauth_composite_oauth_checking()}
+									</span>
+								{/if}
+								{#if !checking.has(item.mcpServerID)}
+									<a
+										href={item.authURL}
+										rel="external noopener noreferrer"
+										target="_blank"
+										class="btn btn-primary shrink-0"
+										onclick={() => recordAttempt(item)}>{m.mcps_oauth_authenticate()}</a
+									>
+									{#if rowErrors[item.mcpServerID]}
+										<button
+											class="btn btn-secondary"
+											type="button"
+											onclick={() => void checkComponent(item)}>{m.mcps_retry()}</button
+										>
+									{/if}
+								{/if}
+							</div>
+						{/if}
+						{#if rowErrors[item.mcpServerID]}
+							<p role="alert" class="text-error px-3 pb-3 text-sm">{rowErrors[item.mcpServerID]}</p>
+						{/if}
 					</div>
-					{#if rowErrors[item.mcpServerID]}
-						<p class="text-error mt-2 text-sm">{rowErrors[item.mcpServerID]}</p>
-					{/if}
 				{/each}
 			</div>
 		{/if}

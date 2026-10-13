@@ -1302,7 +1302,9 @@
 
 <ResponsiveDialog
 	bind:this={oauthDialog}
-	title={m.mcps_catalog_authentication_required()}
+	title={oauthURL && isMcpLoginURL(oauthURL)
+		? m.mcps_login_tools_title({ name: getMCPDisplayName(entry) })
+		: m.mcps_catalog_authentication_required()}
 	class="w-md"
 	onClose={() => {
 		// Clean up when dialog closes
@@ -1317,7 +1319,13 @@
 			<Loading class="size-6" />
 		</div>
 	{:else if oauthURL && isMcpLoginURL(oauthURL)}
-		<McpLogin url={oauthURL} onComplete={() => handleLaunchTemporaryInstance()} />
+		<McpLogin
+			url={oauthURL}
+			serverName={getMCPDisplayName(entry)}
+			purpose="tools"
+			showTitle={false}
+			onComplete={() => handleLaunchTemporaryInstance()}
+		/>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<a

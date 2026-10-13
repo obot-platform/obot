@@ -138,13 +138,15 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 	const onConnect = vi.fn();
 	const result = await render(ConnectToServer, { onConnect });
 	await result.component.authenticate(server);
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await vi.waitFor(() => expect(onConnect).toHaveBeenCalledOnce());
 });
 
@@ -165,6 +167,7 @@ it.each([390, 1280])('keeps local login usable at %ipx and dismisses it once', a
 		const onConnect = vi.fn();
 		const result = await render(ConnectToServer, { onConnect });
 		await result.component.authenticate(server);
+		await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 		const command = page.getByRole('dialog').getByLabelText('Authentication command');
 		await expect.element(command).toBeVisible();
 		// Wait for the shared dialog's slide-in animation to settle.
@@ -210,6 +213,7 @@ it('stops watching local login when its dialog is dismissed, including an in-fli
 	const onConnect = vi.fn();
 	const result = await render(ConnectToServer, { onConnect });
 	await result.component.authenticate(server);
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await vi.waitFor(() => expect(polled).toHaveBeenCalledOnce());
 	await userEvent.keyboard('{Escape}');
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();

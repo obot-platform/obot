@@ -28,15 +28,17 @@ it('quotes shell metacharacters', async () => {
 		);
 });
 
-it('resolves relative attempt URLs and refreshes only when requested while the attempt is pending', async () => {
+it('resolves relative attempt URLs and disables regeneration while the attempt is pending', async () => {
 	const onComplete = vi.fn();
 	await render(McpLogin, { url: '/oauth/mcp/login/attempt', onComplete });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt'`);
 	expect(onComplete).not.toHaveBeenCalled();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
-	expect(onComplete).toHaveBeenCalledOnce();
+	await expect
+		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+		.toBeDisabled();
+	expect(onComplete).not.toHaveBeenCalled();
 });
 
 it.each(locales)(
@@ -51,9 +53,7 @@ it.each(locales)(
 			await expect
 				.element(page.getByText(m.mcps_login_instructions(), { exact: true }))
 				.toBeVisible();
-			await expect
-				.element(page.getByText(m.mcps_login_retry_instructions(), { exact: true }))
-				.toBeVisible();
+			await expect.element(page.getByText('3', { exact: true })).not.toBeInTheDocument();
 			await expect.element(page.getByRole('link', { name: m.mcps_login_install() })).toBeVisible();
 			const command = page.getByLabelText(m.mcps_login_command());
 			await expect
@@ -63,8 +63,8 @@ it.each(locales)(
 			await expect.element(button).toBeVisible();
 			expect(command.element().getBoundingClientRect().right).toBeLessThanOrEqual(390);
 			expect(button.element().getBoundingClientRect().right).toBeLessThanOrEqual(390);
-			await button.click();
-			expect(onComplete).toHaveBeenCalledOnce();
+			await expect.element(button).toBeDisabled();
+			expect(onComplete).not.toHaveBeenCalled();
 		} finally {
 			overwriteGetLocale(restoreLocale);
 			await page.viewport(1280, 720);
@@ -83,11 +83,15 @@ it('waits on the existing attempt and checks the owning flow only after it is co
 	worker.use(
 		http.get('*/oauth/mcp/login/stable-attempt', () => {
 			polled();
-			return new HttpResponse(null, { status: consumed ? 400 : 200 });
+			return consumed
+				? new HttpResponse(null, { status: 400 })
+				: HttpResponse.json({ expiresIn: 600 });
 		})
 	);
 	await render(McpLogin, { url: '/oauth/mcp/login/stable-attempt', onComplete });
-	await expect.element(page.getByRole('status')).toHaveTextContent('Waiting for sign-in…');
+	await expect
+		.element(page.getByRole('status'))
+		.toHaveTextContent('Checking for valid authentication…');
 	await expect
 		.element(page.getByRole('button', { name: 'Continue', exact: true }))
 		.not.toBeInTheDocument();
@@ -108,9 +112,8 @@ it('does not treat a failed status request as successful sign-in and recovers au
 	let failed = true;
 	const onComplete = vi.fn();
 	worker.use(
-		http.get(
-			'*/oauth/mcp/login/network-error',
-			() => new HttpResponse(null, { status: failed ? 503 : 200 })
+		http.get('*/oauth/mcp/login/network-error', () =>
+			failed ? new HttpResponse(null, { status: 503 }) : HttpResponse.json({ expiresIn: 600 })
 		)
 	);
 	const result = await render(McpLogin, { url: '/oauth/mcp/login/network-error', onComplete });
@@ -118,7 +121,9 @@ it('does not treat a failed status request as successful sign-in and recovers au
 	expect(onComplete).not.toHaveBeenCalled();
 	failed = false;
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
-	await expect.element(page.getByRole('status')).toHaveTextContent('Waiting for sign-in…');
+	await expect
+		.element(page.getByRole('status'))
+		.toHaveTextContent('Checking for valid authentication…');
 	expect(onComplete).not.toHaveBeenCalled();
 	await result.unmount();
 });
@@ -143,4 +148,87 @@ it('ignores an in-flight status response after the login view is removed', async
 	finish();
 	document.dispatchEvent(new Event('visibilitychange'));
 	expect(onComplete).not.toHaveBeenCalled();
+});
+
+it('explains the named component callback requirement in two steps', async () => {
+	await render(McpLogin, {
+		url: '/oauth/mcp/login/attempt?serverName=Acme+%26+Co',
+		serverName: 'Parent vMCP',
+		purpose: 'tools'
+	});
+	await expect
+		.element(page.getByRole('heading', { name: 'Sign in to Acme & Co to load its tools' }))
+		.toBeVisible();
+	await expect.element(page.getByText(m.mcps_login_reason({ name: 'Acme & Co' }))).toBeVisible();
+	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
+	await expect.element(page.getByText('3', { exact: true })).not.toBeInTheDocument();
+	await expect
+		.element(
+			page.getByText('Run this in a terminal on a computer with a web browser:', { exact: true })
+		)
+		.toBeVisible();
+	await expect.element(page.getByText('Parent vMCP', { exact: true })).not.toBeInTheDocument();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt'`);
+});
+
+it('uses the supplied server name for older login URLs', async () => {
+	await render(McpLogin, { url: '/oauth/mcp/login/attempt', serverName: 'Example MCP' });
+	await expect
+		.element(page.getByRole('heading', { name: 'Sign in to Example MCP', exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByText(m.mcps_login_tools_reason({ name: 'Example MCP' })))
+		.not.toBeInTheDocument();
+});
+
+it('counts down server lifetime and requires a new command after expiration', async () => {
+	let elapsed = 0;
+	const now = performance.now.bind(performance);
+	const clock = vi.spyOn(performance, 'now').mockImplementation(() => now() + elapsed);
+	const onComplete = vi.fn();
+	worker.use(http.get('*/oauth/mcp/login/countdown', () => HttpResponse.json({ expiresIn: 65 })));
+	const result = await render(McpLogin, { url: '/oauth/mcp/login/countdown', onComplete });
+	try {
+		await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 1:05');
+		await expect
+			.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+			.toBeDisabled();
+		elapsed = 70000;
+		document.dispatchEvent(new Event('visibilitychange'));
+		await expect.element(page.getByRole('alert')).toHaveTextContent(m.mcps_login_expired());
+		await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /Copy/ })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('status')).toHaveTextContent('Command expired');
+		document.dispatchEvent(new Event('visibilitychange'));
+		expect(onComplete).not.toHaveBeenCalled();
+		await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
+		expect(onComplete).toHaveBeenCalledOnce();
+	} finally {
+		await result.unmount();
+		clock.mockRestore();
+	}
+});
+
+it('shows an already expired attempt without automatically replacing it and resets for a new URL', async () => {
+	const onComplete = vi.fn();
+	worker.use(
+		http.get('*/oauth/mcp/login/expired', () => new HttpResponse(null, { status: 410 })),
+		http.get('*/oauth/mcp/login/fresh', () => HttpResponse.json({ expiresIn: 600 }))
+	);
+	const result = await render(McpLogin, { url: '/oauth/mcp/login/expired', onComplete });
+	await expect.element(page.getByRole('alert')).toHaveTextContent(m.mcps_login_expired());
+	expect(onComplete).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
+	expect(onComplete).toHaveBeenCalledOnce();
+	await result.rerender({ url: '/oauth/mcp/login/fresh', onComplete });
+	await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 10:00');
+	await expect
+		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+		.toBeDisabled();
+	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/fresh'`);
 });

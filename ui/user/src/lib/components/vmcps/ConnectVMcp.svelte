@@ -9,7 +9,7 @@
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
-	import McpLogin from '$lib/components/mcp/McpLogin.svelte';
+	import McpLocalAuth from '$lib/components/mcp/McpLocalAuth.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
@@ -783,11 +783,22 @@
 			{displayName}
 		</div>
 	{/snippet}
-	<div bind:this={oauthContent} class="flex min-w-0 flex-col gap-4 p-4 md:p-0">
+	<div
+		bind:this={oauthContent}
+		class={isMcpLoginURL(oauthURL)
+			? 'flex min-w-0 flex-col gap-4'
+			: 'flex min-w-0 flex-col gap-4 p-4 md:p-0'}
+	>
 		{#if oauthURL}
-			<p class="text-sm">{m.vmcps_oauth_required_named({ name: displayName })}</p>
+			{#if !isMcpLoginURL(oauthURL)}<p class="text-sm">
+					{m.vmcps_oauth_required_named({ name: displayName })}
+				</p>{/if}
 			{#if isMcpLoginURL(oauthURL)}
-				<McpLogin url={oauthURL} onComplete={handleOauthVisibilityChange} loading={oauthChecking} />
+				<McpLocalAuth
+					url={oauthURL}
+					onComplete={handleOauthVisibilityChange}
+					loading={oauthChecking}
+				/>
 			{:else if localhostCallback && compositeAuthID && vmcp}
 				<McpCompositeOauth
 					embedded

@@ -17,13 +17,16 @@ it('resumes only after the original request is authenticated', async () => {
 		})
 	);
 	await render(McpClientLogin, { authRequestID: 'client-request', onComplete });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attempt}'`);
 	await expect.element(page.getByRole('link', { name: 'Install the Obot CLI' })).toBeVisible();
 	expect(onComplete).not.toHaveBeenCalled();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
-	await vi.waitFor(() => expect(requests).toHaveBeenCalledTimes(2));
+	await expect
+		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+		.toBeDisabled();
+	expect(requests).toHaveBeenCalledOnce();
 	expect(onComplete).not.toHaveBeenCalled();
 	completed = true;
 	worker.use(
@@ -33,7 +36,7 @@ it('resumes only after the original request is authenticated', async () => {
 	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
 });
 
-it('replaces expired or busy-port attempts without completing the connection', async () => {
+it('requires manual replacement of expired attempts without completing the connection', async () => {
 	let checks = 0;
 	const onComplete = vi.fn();
 	worker.use(
@@ -44,23 +47,32 @@ it('replaces expired or busy-port attempts without completing the connection', a
 		)
 	);
 	await render(McpClientLogin, { authRequestID: 'retry-request', onComplete });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
 			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt-1'`
 		);
 	worker.use(
-		http.get('*/oauth/mcp/login/attempt-1', () => new HttpResponse(null, { status: 400 }))
+		http.get('*/oauth/mcp/login/attempt-1', () => new HttpResponse(null, { status: 410 }))
 	);
 	document.dispatchEvent(new Event('visibilitychange'));
+	await expect.element(page.getByRole('status')).toHaveTextContent('Command expired');
+	expect(checks).toBe(1);
+	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
 			`obot mcp login --url '${window.location.origin}/oauth/mcp/login/attempt-2'`
 		);
 	expect(onComplete).not.toHaveBeenCalled();
-	// A busy callback port can also be recovered explicitly without claiming success.
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	// Another expired command can be replaced without claiming success.
+	worker.use(
+		http.get('*/oauth/mcp/login/attempt-2', () => new HttpResponse(null, { status: 410 }))
+	);
+	document.dispatchEvent(new Event('visibilitychange'));
+	await expect.element(page.getByRole('status')).toHaveTextContent('Command expired');
+	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
@@ -82,6 +94,7 @@ it('allows retry after a failed authentication check', async () => {
 	await expect.element(page.getByRole('alert')).toBeVisible();
 	failed = false;
 	await page.getByRole('button', { name: 'Retry', exact: true }).click();
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/retried'`);
@@ -90,4 +103,21 @@ it('allows retry after a failed authentication check', async () => {
 
 beforeEach(() => {
 	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
+});
+
+it('identifies the authenticating server in a client-initiated login', async () => {
+	worker.use(
+		http.get('*/oauth/mcp/login-request/named', () =>
+			HttpResponse.json({
+				authURL: `${window.location.origin}/oauth/mcp/login/named?serverName=Vercel`
+			})
+		)
+	);
+	await render(McpClientLogin, { authRequestID: 'named', onComplete: vi.fn() });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
+	await expect.element(page.getByText('Vercel', { exact: true })).toBeVisible();
+	await expect.element(page.getByText(/Vercel requires a localhost callback/)).toBeVisible();
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(`obot mcp login --url '${window.location.origin}/oauth/mcp/login/named'`);
 });

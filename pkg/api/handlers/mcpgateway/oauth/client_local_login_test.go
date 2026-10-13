@@ -117,7 +117,9 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	var status componentAuthStatus
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &status))
 	require.Contains(t, status.AuthURL, "/oauth/mcp/login/ui-local-")
-	state := status.AuthURL[strings.LastIndex(status.AuthURL, "/")+1:]
+	loginURL, err := url.Parse(status.AuthURL)
+	require.NoError(t, err)
+	state := loginURL.Path[strings.LastIndex(loginURL.Path, "/")+1:]
 	pending, err := gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
 	require.Equal(t, request.Name, pending.OAuthAuthRequestID)

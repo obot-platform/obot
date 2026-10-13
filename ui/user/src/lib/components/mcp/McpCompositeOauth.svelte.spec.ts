@@ -279,6 +279,7 @@ it('keeps mixed client authentication pending after a local component completes'
 		oauthAuthRequestId: 'original-request',
 		onComplete
 	});
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
@@ -308,10 +309,11 @@ it('embeds login instructions without duplicating the parent dialog heading', as
 		}
 	]);
 	render(McpCompositeOauth, { compositeMcpId: 'vmcp1-embedded', embedded: true });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect.element(page.getByText('Vercel', { exact: true })).toBeVisible();
 	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
 	await expect
-		.element(page.getByRole('button', { name: 'Get a new sign-in command', exact: true }))
+		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
 		.toBeVisible();
 	await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).not.toBeInTheDocument();
 });
@@ -337,6 +339,14 @@ it.each([390, 1280])('keeps mixed authentication readable at %ipx', async (width
 			embedded: true,
 			class: 'max-w-lg'
 		});
+		await page
+			.getByRole('group', { name: 'Vercel', exact: true })
+			.getByRole('button', { name: 'Authenticate', exact: true })
+			.click();
+		await page
+			.getByRole('group', { name: 'Another locally authenticated MCP server', exact: true })
+			.getByRole('button', { name: 'Authenticate', exact: true })
+			.click();
 		const commands = page.getByLabelText('Authentication command');
 		await expect.element(commands.nth(1)).toBeVisible();
 		await expect
@@ -369,9 +379,8 @@ it('automatically resumes only after both local login and browser OAuth have fin
 		{ mcpServerID: 'outlook', name: 'Outlook', authURL: 'https://provider.example/authorize' }
 	]);
 	worker.use(
-		http.get(
-			'*/oauth/mcp/login/mixed-completion',
-			() => new HttpResponse(null, { status: consumed ? 400 : 200 })
+		http.get('*/oauth/mcp/login/mixed-completion', () =>
+			consumed ? new HttpResponse(null, { status: 400 }) : HttpResponse.json({ expiresIn: 600 })
 		),
 		http.get('/api/oauth/vmcp/:id/components/:componentID', ({ params }) => {
 			checked(params.componentID);
@@ -379,7 +388,9 @@ it('automatically resumes only after both local login and browser OAuth have fin
 		})
 	);
 	await render(McpCompositeOauth, { compositeMcpId: 'vmcp1mixed-completion', onComplete });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
+	await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 10:00');
 	consumed = true;
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
 	expect(checked).toHaveBeenCalledWith('vercel');

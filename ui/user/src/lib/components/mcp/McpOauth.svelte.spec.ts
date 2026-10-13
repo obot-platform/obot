@@ -66,7 +66,8 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login --url '${attemptURL}'`);
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await vi.waitFor(() => expect(onAuthenticate).toHaveBeenCalledOnce());
 	expect(oauthRequest).toHaveBeenCalledTimes(2);
 });

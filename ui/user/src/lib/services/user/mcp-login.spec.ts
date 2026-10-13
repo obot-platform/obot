@@ -56,3 +56,8 @@ describe('MCP CLI login URL classification', () => {
 		expect(isMcpLoginURL('http://localhost:8080/oauth/mcp/login/attempt')).toBe(true);
 	});
 });
+
+it('accepts a display name hint but still rejects other query parameters', () => {
+	expect(isMcpLoginURL('/oauth/mcp/login/attempt?serverName=Acme+%26+Co')).toBe(true);
+	expect(isMcpLoginURL('/oauth/mcp/login/attempt?serverName=Acme&state=other')).toBe(false);
+});

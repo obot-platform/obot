@@ -90,7 +90,8 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
-	await page.getByRole('button', { name: 'Get a new sign-in command', exact: true }).click();
+	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));
+	document.dispatchEvent(new Event('visibilitychange'));
 	await expect.element(page.getByText('search', { exact: true }).first()).toBeVisible();
 	expect(preview).toHaveBeenCalledTimes(2);
 	expect(oauth.mock.calls[0]).toEqual(preview.mock.calls[0]);

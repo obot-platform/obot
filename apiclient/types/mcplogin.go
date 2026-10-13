@@ -6,4 +6,6 @@ type MCPLocalLogin struct {
 	AuthorizationURL string `json:"authorizationURL"`
 	RedirectURL      string `json:"redirectURL"`
 	State            string `json:"state"`
+	// ExpiresIn is the remaining lifetime in seconds, computed by the server.
+	ExpiresIn int `json:"expiresIn"`
 }
