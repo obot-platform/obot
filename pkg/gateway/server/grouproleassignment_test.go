@@ -15,6 +15,8 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
@@ -73,6 +75,71 @@ func TestCreateGroupRoleAssignmentRefusesAMissingSCIMGroup(t *testing.T) {
 	}
 	if len(assignments) != 0 {
 		t.Fatalf("a refused role assignment was saved: %+v", assignments)
+	}
+
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.AuthProvider{
+		Name:      "okta-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{AuthProviderManifest: types2.AuthProviderManifest{
+			CommonProviderMetadata: types2.CommonProviderMetadata{Name: "${local_provider_name}"},
+		}},
+	}).Build()
+	conn, err := gatewayClient.SCIMConnectionForAuthProvider(t.Context(), system.DefaultNamespace, "okta-auth-provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storageServices.DB.DB.Create(&types.Group{
+		ID:                    "okta/pending",
+		Name:                  "Pending",
+		AuthProviderName:      "okta-auth-provider",
+		AuthProviderNamespace: system.DefaultNamespace,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := storageServices.DB.DB.Create(&types.SCIMPendingGroupDeletion{
+		GroupID:      "okta/pending",
+		ConnectionID: conn.ID,
+		RunID:        "run",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, locale := range []string{"en", "ja", "ko", "zh-CN"} {
+		for _, id := range []string{"okta/00g-missing", "okta/pending"} {
+			t.Run(locale+"/"+id, func(t *testing.T) {
+				body, err := json.Marshal(types2.GroupRoleAssignment{
+					GroupName: id,
+					Role:      types2.RoleAdmin,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				req := httptest.NewRequest(http.MethodPost, "/api/group-role-assignments", bytes.NewReader(body))
+				req.Header.Set("Accept-Language", locale)
+				rec := httptest.NewRecorder()
+				rec.Header().Set("Vary", "Origin")
+				err = (&Server{}).createGroupRoleAssignment(api.Context{
+					Request:        req,
+					ResponseWriter: rec,
+					Storage:        storage,
+					GatewayClient:  gatewayClient,
+					User: &user.DefaultInfo{
+						Name:   "owner",
+						Groups: types2.RoleOwner.Groups(),
+					},
+				})
+				if err == nil || !strings.Contains(err.Error(), i18n.Text(locale, "local_provider_name")) || !strings.Contains(err.Error(), id) {
+					t.Fatalf("createGroupRoleAssignment() = %v, want a localized refusal", err)
+				}
+				vary := rec.Header().Values("Vary")
+				if len(vary) != 2 || vary[0] != "Origin" || vary[1] != "Accept-Language" {
+					t.Fatalf("Vary = %v, want Origin and Accept-Language", vary)
+				}
+			})
+		}
+	}
+	assignments, err = gatewayClient.ListGroupRoleAssignments(t.Context())
+	if err != nil || len(assignments) != 0 {
+		t.Fatalf("refused role assignments were saved: %+v, error: %v", assignments, err)
 	}
 }
 

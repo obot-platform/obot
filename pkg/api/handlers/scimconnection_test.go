@@ -463,9 +463,11 @@ func TestSCIMEnableHandlerReportsTheControllersRefusal(t *testing.T) {
 
 func TestWaitForProviderConfigurationChangeAnswersWithTheRecordedStatus(t *testing.T) {
 	tests := []struct {
-		name     string
-		status   v1.ProviderConfigurationChangeStatus
-		wantCode int
+		name        string
+		status      v1.ProviderConfigurationChangeStatus
+		wantCode    int
+		locale      string
+		wantMessage string
 	}{
 		{
 			name: "a refusal without a status is a bad request",
@@ -482,6 +484,24 @@ func TestWaitForProviderConfigurationChangeAnswersWithTheRecordedStatus(t *testi
 			},
 			wantCode: http.StatusConflict,
 		},
+		{
+			name: "catalog references in controller errors are resolved in English",
+			status: v1.ProviderConfigurationChangeStatus{
+				Error: "${okta_auth_provider_name} is not configured; a switch to ${github_auth_provider_name} is staged",
+			},
+			wantCode:    http.StatusBadRequest,
+			wantMessage: "Okta is not configured; a switch to GitHub is staged",
+		},
+		{
+			name: "catalog references in controller errors use the request locale",
+			status: v1.ProviderConfigurationChangeStatus{
+				Error:     "${okta_auth_provider_name}: ${okta_auth_provider_client_id_friendly_name} is missing",
+				ErrorCode: http.StatusConflict,
+			},
+			locale:      "ko",
+			wantCode:    http.StatusConflict,
+			wantMessage: "공급자 구성을 변경하지 못했습니다: Okta: 클라이언트 ID is missing",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -494,10 +514,15 @@ func TestWaitForProviderConfigurationChangeAnswersWithTheRecordedStatus(t *testi
 			require.NoError(t, s.storage.Create(t.Context(), change))
 
 			req, _ := s.scimContext(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", "", nil)
+			req.Request.Header.Set("Accept-Language", tt.locale)
 			var httpErr *clienttypes.ErrHTTP
 			require.ErrorAs(t, waitForProviderConfigurationChange(req, change), &httpErr)
 			assert.Equal(t, tt.wantCode, httpErr.Code)
-			assert.Equal(t, tt.status.Error, httpErr.Message)
+			wantMessage := tt.wantMessage
+			if wantMessage == "" {
+				wantMessage = tt.status.Error
+			}
+			assert.Equal(t, wantMessage, httpErr.Message)
 		})
 	}
 }

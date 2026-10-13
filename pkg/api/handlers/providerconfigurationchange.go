@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -77,7 +78,8 @@ func waitForProviderConfigurationChange(req api.Context, change *v1.ProviderConf
 	if settled.Status.Error != "" {
 		return types.NewErrHTTP(
 			cmp.Or(settled.Status.ErrorCode, http.StatusBadRequest),
-			apiMessage(req, "provider_change_failed", "detail", settled.Status.Error),
+			apiMessage(req, "provider_change_failed", "detail",
+				i18n.Resolve(providerResponseLocale(req), settled.Status.Error)),
 		)
 	}
 	return nil

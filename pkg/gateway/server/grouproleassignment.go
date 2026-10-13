@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -72,8 +73,10 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	// A role for a group that SCIM does not know would reach nobody, and no pushed group could bind to it.
+	apiContext.ResponseWriter.Header().Add("Vary", "Accept-Language")
+	ctx := i18n.WithLocale(apiContext.Context(), i18n.Locale(apiContext.Request.Header.Get("Accept-Language")))
 	var created *types.GroupRoleAssignment
-	if err := groupref.WriteNewGroups(apiContext.Context(), apiContext.GatewayClient, apiContext.Storage, []string{req.GroupName}, func() error {
+	if err := groupref.WriteNewGroups(ctx, apiContext.GatewayClient, apiContext.Storage, []string{req.GroupName}, func() error {
 		var err error
 		created, err = apiContext.GatewayClient.CreateGroupRoleAssignment(
 			apiContext.Context(),

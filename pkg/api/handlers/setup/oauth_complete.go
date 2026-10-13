@@ -99,10 +99,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// This will fail if another user is already cached
 	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNamespace); err != nil {
 		slog.Info("Rejecting setup OAuth completion because temporary user cache is already occupied", "userID", user.ID)
-		if cached := req.GatewayClient.GetTempUserCache(req.Context()); cached != nil && cached.Email != "" {
-			return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_temp_cached", "email", cached.Email))
-		}
-		return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_temp_cached_no_email"))
+		return types.NewErrHTTP(http.StatusConflict, err.Error())
 	}
 	slog.Info("Cached temporary setup user after OAuth completion", "userID", user.ID, "providerNamespace", authProviderNamespace, "providerName", authProviderName)
 
