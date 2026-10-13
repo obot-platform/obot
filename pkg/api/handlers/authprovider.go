@@ -20,6 +20,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
@@ -82,10 +83,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	metadata := authProvider.Spec.CommonProviderMetadata
-	metadata.RequiredConfigurationParameters = params.Required
-	metadata.OptionalConfigurationParameters = params.Optional
-	locale := providerResponseLocale(req, metadata)
+	locale := providerResponseLocale(req)
 	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params, locale))
 }
 
@@ -206,7 +204,6 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
 	statuses := make([]types.AuthProviderStatus, len(authProviders.Items))
 	parameters := make([]adapter.Parameters, len(authProviders.Items))
-	metadata := make([]types.CommonProviderMetadata, len(authProviders.Items))
 	for index, a := range authProviders.Items {
 		var conn *gatewaytypes.SCIMConnection
 		if i := slices.IndexFunc(conns, func(c gatewaytypes.SCIMConnection) bool {
@@ -235,11 +232,8 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 
 		statuses[index] = *authProviderStatus
 		parameters[index] = params
-		metadata[index] = a.Spec.CommonProviderMetadata
-		metadata[index].RequiredConfigurationParameters = params.Required
-		metadata[index].OptionalConfigurationParameters = params.Optional
 	}
-	locale := providerResponseLocale(req, metadata...)
+	locale := providerResponseLocale(req)
 	for index, a := range authProviders.Items {
 		resp = append(resp, ap.convertAuthProvider(a, statuses[index], parameters[index], locale))
 	}
@@ -356,7 +350,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		if len(residual.Groups) > 0 || residual.MembershipCount > 0 {
 			return types.NewErrHTTP(http.StatusConflict, (&scimsetup.ResidualGroupDataError{
 				AuthProviderName:        authProvider.Name,
-				AuthProviderDisplayName: cmp.Or(authProvider.Spec.Name, authProvider.Name),
+				AuthProviderDisplayName: cmp.Or(i18n.Resolve(providerResponseLocale(req), authProvider.Spec.Name), authProvider.Name),
 				Data:                    *residual,
 				Locale:                  providerResponseLocale(req),
 			}).Error())

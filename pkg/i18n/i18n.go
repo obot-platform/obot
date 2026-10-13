@@ -22,6 +22,7 @@ var (
 	//go:embed messages
 	files embed.FS
 
+	reference   = regexp.MustCompile(`\$\{([a-zA-Z][a-zA-Z0-9_]*)\}`)
 	placeholder = regexp.MustCompile(`\{([a-zA-Z][a-zA-Z0-9]*)\}`)
 	catalogs    = loadCatalogs()
 	supported   = catalogLocales(catalogs)
@@ -113,6 +114,21 @@ func Message(locale, key string, args map[string]string) string {
 			return replacement
 		}
 		panic(fmt.Sprintf("missing argument %q for backend message %q", name, key))
+	})
+}
+
+// Resolve substitutes catalog references in provider display text once. Missing or empty
+// translations fall back to English; unknown references remain unchanged.
+func Resolve(locale, value string) string {
+	return reference.ReplaceAllStringFunc(value, func(match string) string {
+		key := match[2 : len(match)-1]
+		if translated := catalogs[locale][key]; translated != "" {
+			return translated
+		}
+		if english := catalogs["en"][key]; english != "" {
+			return english
+		}
+		return match
 	})
 }
 

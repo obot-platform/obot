@@ -9,6 +9,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +52,7 @@ func WriteNewGroups(ctx context.Context, gateway *gclient.Client, storage kclien
 	name := refErr.AuthProviderName
 	var authProvider v1.AuthProvider
 	if err := storage.Get(ctx, kclient.ObjectKey{Namespace: refErr.AuthProviderNamespace, Name: refErr.AuthProviderName}, &authProvider); err == nil {
-		name = cmp.Or(authProvider.Spec.Name, name)
+		name = cmp.Or(i18n.Resolve(i18n.FromContext(ctx), authProvider.Spec.Name), name)
 	} else if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to get auth provider %q: %w", refErr.AuthProviderName, err)
 	}

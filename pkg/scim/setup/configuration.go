@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -95,7 +94,7 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 		if len(missing) > 0 {
 			return params, SetupKept, &ConfigurationError{
 				Message: message(ctx, "scim_config_directory_required",
-					"provider", cmp.Or(authProvider.Spec.Name, authProvider.Name),
+					"provider", displayName(ctx, authProvider),
 					"parameters", strings.Join(missing, ", ")),
 			}
 		}

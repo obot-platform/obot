@@ -307,7 +307,7 @@ func (s *Service) configuredEnablePlan(ctx context.Context) (*enablePlan, error)
 // planEnable returns what blocks enabling SCIM for an auth provider, except for what depends on other provider
 // configuration changes: whether the provider is the configured one, and whether a replacement is staged.
 func planEnable(ctx context.Context, storage kclient.Reader, gateway *gclient.Client, finder *groupref.Finder, authProvider v1.AuthProvider) (*enablePlan, error) {
-	name := displayName(authProvider)
+	name := displayName(ctx, authProvider)
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return &enablePlan{
@@ -383,5 +383,5 @@ func authProviderDisplayName(ctx context.Context, storage kclient.Reader, namesp
 	if err := storage.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: name}, &authProvider); err != nil {
 		return name
 	}
-	return displayName(authProvider)
+	return displayName(ctx, authProvider)
 }

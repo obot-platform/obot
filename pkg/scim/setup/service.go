@@ -548,7 +548,7 @@ func (s *Service) connectionProvider(ctx context.Context, conn *types.SCIMConnec
 	name := conn.AuthProviderName
 	var authProvider v1.AuthProvider
 	if err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: conn.AuthProviderNamespace, Name: conn.AuthProviderName}, &authProvider); err == nil {
-		name = displayName(authProvider)
+		name = displayName(ctx, authProvider)
 	} else if !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get auth provider %q: %w", conn.AuthProviderName, err)
 	}

@@ -21,40 +21,21 @@ func TestReadLocalProviderRegistryFromSubdirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(modelProvidersDir, "openai-model-provider.yaml"), []byte(`name: OpenAI
+	if err := os.WriteFile(filepath.Join(modelProvidersDir, "openai-model-provider.yaml"), []byte(`name: "${openai_model_provider_name}"
 command: bin/openai-model-provider
 dialect: OpenAIResponses
-locales:
-  ja:
-    name: OpenAI
-    description: OpenAI のモデルプロバイダー
-  fr:
-    name: OpenAI
-    description: Fournisseur OpenAI
 requiredConfigurationParameters:
   - name: API_KEY
-    friendlyName: API Key
-    locales:
-      ja:
-        friendlyName: API キー
-      fr:
-        friendlyName: Clé API
+    friendlyName: "${openai_model_provider_api_key_friendly_name}"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(modelProvidersDir, "ignored.json"), []byte(`{"name":"ignored"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(authProvidersDir, "github-auth-provider.yaml"), []byte(`name: GitHub
+	if err := os.WriteFile(filepath.Join(authProvidersDir, "github-auth-provider.yaml"), []byte(`name: "${github_auth_provider_name}"
 command: bin/github-auth-provider
 groupIDPrefix: github/
-locales:
-  ko:
-    name: GitHub
-    description: GitHub 인증 공급자
-  fr:
-    name: GitHub
-    description: Authentification GitHub
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +56,7 @@ locales:
 			if provider.Name != "openai-model-provider" {
 				t.Fatalf("expected model provider name openai-model-provider, got %q", provider.Name)
 			}
-			if provider.Spec.Name != "OpenAI" {
+			if provider.Spec.Name != "${openai_model_provider_name}" {
 				t.Fatalf("expected model provider display name OpenAI, got %q", provider.Spec.Name)
 			}
 			if provider.Spec.Command != filepath.Join(dir, "bin/openai-model-provider") {
@@ -84,18 +65,15 @@ locales:
 			if provider.Spec.Dialect != "OpenAIResponses" {
 				t.Fatalf("expected model provider dialect OpenAIResponses, got %q", provider.Spec.Dialect)
 			}
-			if provider.Spec.Locales["ja"].Description != "OpenAI のモデルプロバイダー" ||
-				provider.Spec.RequiredConfigurationParameters[0].Locales["ja"].FriendlyName != "API キー" ||
-				provider.Spec.Locales["fr"].Description != "Fournisseur OpenAI" ||
-				provider.Spec.RequiredConfigurationParameters[0].Locales["fr"].FriendlyName != "Clé API" {
-				t.Fatal("model provider locales were not loaded")
+			if provider.Spec.RequiredConfigurationParameters[0].FriendlyName != "${openai_model_provider_api_key_friendly_name}" {
+				t.Fatal("model provider reference was not preserved")
 			}
 		case *v1.AuthProvider:
 			foundAuth = true
 			if provider.Name != "github-auth-provider" {
 				t.Fatalf("expected auth provider name github-auth-provider, got %q", provider.Name)
 			}
-			if provider.Spec.Name != "GitHub" {
+			if provider.Spec.Name != "${github_auth_provider_name}" {
 				t.Fatalf("expected auth provider display name GitHub, got %q", provider.Spec.Name)
 			}
 			if provider.Spec.Command != filepath.Join(dir, "bin/github-auth-provider") {
@@ -104,9 +82,7 @@ locales:
 			if provider.Spec.GroupIDPrefix != "github/" {
 				t.Fatalf("expected auth provider group ID prefix github/, got %q", provider.Spec.GroupIDPrefix)
 			}
-			if provider.Spec.Locales["ko"].Description != "GitHub 인증 공급자" || provider.Spec.Locales["fr"].Description != "Authentification GitHub" {
-				t.Fatal("auth provider locales were not loaded")
-			}
+
 		default:
 			t.Fatalf("unexpected object type %T", obj)
 		}

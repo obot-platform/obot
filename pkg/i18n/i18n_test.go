@@ -227,3 +227,34 @@ func TestCanonicalCatalogDuplicate(t *testing.T) {
 		t.Fatalf("canonical duplicate error = %v", err)
 	}
 }
+
+func TestResolve(t *testing.T) {
+	original := catalogs
+	catalogs = map[string]map[string]string{
+		"en": {"name": "Name", "empty": "Fallback", "nested": "${name}", "args": "Hello {user}"},
+		"ja": {"name": "名前", "empty": ""},
+	}
+	t.Cleanup(func() { catalogs = original })
+	tests := []struct {
+		name   string
+		locale string
+		input  string
+		want   string
+	}{
+		{name: "complete field", locale: "ja", input: "${name}", want: "名前"},
+		{name: "mixed and repeated", locale: "ja", input: "<${name}> ${empty} ${name}", want: "<名前> Fallback 名前"},
+		{name: "missing translation", locale: "fr", input: "${name}", want: "Name"},
+		{name: "unknown key", locale: "ja", input: "${unknown}", want: "${unknown}"},
+		{name: "literal", locale: "ja", input: "plain {name} {{name}}", want: "plain {name} {{name}}"},
+		{name: "empty", locale: "ja", input: "", want: ""},
+		{name: "single pass", locale: "ja", input: "${nested}", want: "${name}"},
+		{name: "arguments separate", locale: "en", input: "${args}", want: "Hello {user}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Resolve(tt.locale, tt.input); got != tt.want {
+				t.Fatalf("Resolve() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -2,7 +2,6 @@ package localauth
 
 import (
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -25,25 +24,15 @@ func AuthProvider() *v1.AuthProvider {
 		Spec: v1.AuthProviderSpec{
 			AuthProviderManifest: types.AuthProviderManifest{
 				CommonProviderMetadata: types.CommonProviderMetadata{
-					Name:        i18n.Text("en", "local_provider_name"),
+					Name:        "${local_provider_name}",
 					Icon:        icon,
 					IconDark:    iconDark,
-					Description: i18n.Text("en", "local_provider_description"),
-					Locales: map[string]types.ProviderTranslation{
-						"ja":    {Name: i18n.Text("ja", "local_provider_name"), Description: i18n.Text("ja", "local_provider_description")},
-						"ko":    {Name: i18n.Text("ko", "local_provider_name"), Description: i18n.Text("ko", "local_provider_description")},
-						"zh-CN": {Name: i18n.Text("zh-CN", "local_provider_name"), Description: i18n.Text("zh-CN", "local_provider_description")},
-					},
+					Description: "${local_provider_description}",
 					RequiredConfigurationParameters: []types.ProviderConfigurationParameter{
 						{
 							Name:         EmailDomainsEnvVar,
-							FriendlyName: i18n.Text("en", "local_provider_domains_name"),
-							Description:  i18n.Text("en", "local_provider_domains_description"),
-							Locales: map[string]types.ProviderParameterTranslation{
-								"ja":    {FriendlyName: i18n.Text("ja", "local_provider_domains_name"), Description: i18n.Text("ja", "local_provider_domains_description")},
-								"ko":    {FriendlyName: i18n.Text("ko", "local_provider_domains_name"), Description: i18n.Text("ko", "local_provider_domains_description")},
-								"zh-CN": {FriendlyName: i18n.Text("zh-CN", "local_provider_domains_name"), Description: i18n.Text("zh-CN", "local_provider_domains_description")},
-							},
+							FriendlyName: "${local_provider_domains_name}",
+							Description:  "${local_provider_domains_description}",
 						},
 					},
 				},

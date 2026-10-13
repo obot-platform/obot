@@ -60,7 +60,7 @@ func ResidualGroupData(ctx context.Context, storage kclient.Reader, gateway *gcl
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return nil, &IneligibleError{
-			Message: message(ctx, "scim_not_supported_basic", "provider", displayName(authProvider)),
+			Message: message(ctx, "scim_not_supported_basic", "provider", displayName(ctx, authProvider)),
 		}
 	}
 	prefix := authProvider.Spec.GroupIDPrefix
@@ -87,7 +87,7 @@ func ResidualGroupData(ctx context.Context, storage kclient.Reader, gateway *gcl
 	p := &provider{
 		namespace:     authProvider.Namespace,
 		name:          authProvider.Name,
-		displayName:   displayName(authProvider),
+		displayName:   displayName(ctx, authProvider),
 		groupIDPrefix: prefix,
 		adapter:       a,
 	}
@@ -124,7 +124,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 	a, ok := adapter.ForAuthProvider(authProvider.Name)
 	if !ok || !adapter.SupportsSCIM(authProvider.Name, authProvider.Spec.AuthProviderManifest) {
 		return nil, &IneligibleError{
-			Message: message(ctx, "scim_not_supported_parameters", "provider", displayName(authProvider)),
+			Message: message(ctx, "scim_not_supported_parameters", "provider", displayName(ctx, authProvider)),
 		}
 	}
 
@@ -146,7 +146,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 	if !residualEmpty(residual) {
 		return nil, &ResidualGroupDataError{
 			AuthProviderName:        authProvider.Name,
-			AuthProviderDisplayName: displayName(authProvider),
+			AuthProviderDisplayName: displayName(ctx, authProvider),
 			Data:                    *residual,
 			Locale:                  i18n.FromContext(ctx),
 		}
@@ -162,7 +162,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 	})
 	if exists, ok := errors.AsType[*gclient.SCIMConnectionExistsError](err); ok {
 		return nil, &IneligibleError{
-			Message: message(ctx, "scim_connection_occupied", "provider", displayName(authProvider), "connection", exists.ConnectionID),
+			Message: message(ctx, "scim_connection_occupied", "provider", displayName(ctx, authProvider), "connection", exists.ConnectionID),
 		}
 	} else if _, ok := errors.AsType[*gclient.SCIMResidualGroupDataError](err); ok {
 		// Group data appeared after it was listed.
@@ -172,7 +172,7 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 		}
 		return nil, &ResidualGroupDataError{
 			AuthProviderName:        authProvider.Name,
-			AuthProviderDisplayName: displayName(authProvider),
+			AuthProviderDisplayName: displayName(ctx, authProvider),
 			Data:                    *residual,
 			Locale:                  i18n.FromContext(ctx),
 		}
@@ -183,6 +183,6 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 }
 
 // displayName returns the name to show for an auth provider.
-func displayName(authProvider v1.AuthProvider) string {
-	return cmp.Or(authProvider.Spec.Name, authProvider.Name)
+func displayName(ctx context.Context, authProvider v1.AuthProvider) string {
+	return cmp.Or(i18n.Resolve(i18n.FromContext(ctx), authProvider.Spec.Name), authProvider.Name)
 }

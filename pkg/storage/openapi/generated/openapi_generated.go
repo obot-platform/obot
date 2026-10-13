@@ -271,8 +271,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsent":                   schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsentUpdate":             schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":            schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProviderParameterTranslation":              schema_obot_platform_obot_apiclient_types_ProviderParameterTranslation(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProviderTranslation":                       schema_obot_platform_obot_apiclient_types_ProviderTranslation(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                        schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                              schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                          schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
@@ -2528,19 +2526,6 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"link": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -2601,7 +2586,7 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter", "github.com/obot-platform/obot/apiclient/types.ProviderTranslation"},
+			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
 	}
 }
 
@@ -2874,19 +2859,6 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"link": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -2935,7 +2907,7 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter", "github.com/obot-platform/obot/apiclient/types.ProviderTranslation"},
+			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
 	}
 }
 
@@ -12261,19 +12233,6 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref common.
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"link": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -12342,7 +12301,7 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter", "github.com/obot-platform/obot/apiclient/types.ProviderTranslation"},
+			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
 	}
 }
 
@@ -13445,19 +13404,6 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderParameterTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"sensitive": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -13478,58 +13424,6 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 					},
 				},
 				Required: []string{"name"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderParameterTranslation"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProviderParameterTranslation(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ProviderParameterTranslation contains display text for one configuration parameter.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"friendlyName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProviderTranslation(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ProviderTranslation contains display text for a provider in one locale.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
 			},
 		},
 	}
@@ -19643,19 +19537,6 @@ func schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref common.ReferenceCall
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"link": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -19716,7 +19597,7 @@ func schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter", "github.com/obot-platform/obot/apiclient/types.ProviderTranslation"},
+			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
 	}
 }
 
@@ -23483,19 +23364,6 @@ func schema_storage_apis_obotobotai_v1_ModelProviderSpec(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"locales": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ProviderTranslation"),
-									},
-								},
-							},
-						},
-					},
 					"link": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -23564,7 +23432,7 @@ func schema_storage_apis_obotobotai_v1_ModelProviderSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter", "github.com/obot-platform/obot/apiclient/types.ProviderTranslation"},
+			"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
 	}
 }
 

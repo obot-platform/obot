@@ -1,14 +1,10 @@
 package handlers
 
 import (
-	"maps"
-	"slices"
-
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
-	"golang.org/x/text/language"
 )
 
 // providerLocale selects the first supported, positively weighted language range.
@@ -16,36 +12,14 @@ func providerLocale(header string) string {
 	return i18n.Locale(header)
 }
 
-func providerResponseLocale(req api.Context, metadata ...types.CommonProviderMetadata) string {
+func providerResponseLocale(req api.Context) string {
 	if req.ResponseWriter != nil {
 		req.ResponseWriter.Header().Add("Vary", "Accept-Language")
 	}
 	if req.Request == nil {
 		return "en"
 	}
-	var locales []string
-	for _, provider := range metadata {
-		locales = append(locales, slices.Collect(maps.Keys(provider.Locales))...)
-		for _, parameters := range [][]types.ProviderConfigurationParameter{provider.RequiredConfigurationParameters, provider.OptionalConfigurationParameters} {
-			for _, parameter := range parameters {
-				locales = append(locales, slices.Collect(maps.Keys(parameter.Locales))...)
-			}
-		}
-	}
-	return i18n.Locale(req.Request.Header.Get("Accept-Language"), locales...)
-}
-
-func providerTranslation[T any](translations map[string]T, locale string) T {
-	if value, ok := translations[locale]; ok {
-		return value
-	}
-	for _, key := range slices.Sorted(maps.Keys(translations)) {
-		if tag, err := language.Parse(key); err == nil && tag.String() == locale {
-			return translations[key]
-		}
-	}
-	var zero T
-	return zero
+	return i18n.Locale(req.Request.Header.Get("Accept-Language"))
 }
 
 func apiMessage(req api.Context, key string, values ...string) string {
@@ -60,14 +34,8 @@ func apiMessage(req api.Context, key string, values ...string) string {
 }
 
 func localizeProviderMetadata(metadata *types.CommonProviderMetadata, locale string) {
-	translation := providerTranslation(metadata.Locales, locale)
-	if translation.Name != "" {
-		metadata.Name = translation.Name
-	}
-	if translation.Description != "" {
-		metadata.Description = translation.Description
-	}
-	metadata.Locales = nil
+	metadata.Name = i18n.Resolve(locale, metadata.Name)
+	metadata.Description = i18n.Resolve(locale, metadata.Description)
 	for i := range metadata.RequiredConfigurationParameters {
 		localizeProviderParameter(&metadata.RequiredConfigurationParameters[i], locale)
 	}
@@ -77,14 +45,8 @@ func localizeProviderMetadata(metadata *types.CommonProviderMetadata, locale str
 }
 
 func localizeProviderParameter(parameter *types.ProviderConfigurationParameter, locale string) {
-	translation := providerTranslation(parameter.Locales, locale)
-	if translation.FriendlyName != "" {
-		parameter.FriendlyName = translation.FriendlyName
-	}
-	if translation.Description != "" {
-		parameter.Description = translation.Description
-	}
-	parameter.Locales = nil
+	parameter.FriendlyName = i18n.Resolve(locale, parameter.FriendlyName)
+	parameter.Description = i18n.Resolve(locale, parameter.Description)
 }
 
 func copyProviderParameters(parameters []types.ProviderConfigurationParameter) []types.ProviderConfigurationParameter {
