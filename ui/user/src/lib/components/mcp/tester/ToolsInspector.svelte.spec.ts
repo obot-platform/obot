@@ -202,6 +202,34 @@ describe('ToolsInspector', () => {
 		session.close();
 	});
 
+	it('replaces a form that fails to render with an alert and clears its arguments', async () => {
+		const { session } = renderInspector(1);
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
+		await page.getByLabelText('value').fill('typed');
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeEnabled();
+
+		// Refresh returns a malformed schema (enum must be an array), which the form
+		// throws on. selectTool is not called, so only the boundary can clear the arguments.
+		const [tool] = session.cache.tools.items;
+		session.cache.tools.items = [
+			{
+				...tool,
+				inputSchema: {
+					type: 'object' as const,
+					properties: { mode: { type: 'string', enum: 'fast' as unknown as string[] } }
+				}
+			}
+		];
+
+		await expect
+			.element(page.getByRole('alert').getByText('could not be displayed', { exact: false }))
+			.toBeVisible();
+		await expect.element(page.getByLabelText('value')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeDisabled();
+
+		session.close();
+	});
+
 	it('locks the tool list while a workflow runs so results stay with their tool', async () => {
 		const { session } = renderInspector(3);
 		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
