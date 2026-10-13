@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
@@ -376,13 +377,16 @@ func TestAuthProviderServesTheSetupChoice(t *testing.T) {
 	var provider clienttypes.AuthProvider
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
 
-	// A provider that is not configured may omit the directory parameters, and the form describes the choice they
-	// make.
+	// A provider that is not configured may omit the directory parameters, and the form describes them for the
+	// choice they make.
 	require.Len(t, provider.RequiredConfigurationParameters, 1)
 	assert.Equal(t, oktaIssuerParam, provider.RequiredConfigurationParameters[0].Name)
-	require.Len(t, provider.OptionalConfigurationParameters, 2)
-	for _, p := range provider.OptionalConfigurationParameters {
-		assert.Contains(t, p.Description, "SCIM instead")
+	a, ok := adapter.ForAuthProvider(s.provider.Name)
+	require.True(t, ok)
+	directory := a.DirectoryParameters()
+	require.Len(t, provider.OptionalConfigurationParameters, len(directory))
+	for i, p := range provider.OptionalConfigurationParameters {
+		assert.Equal(t, directory[i].SetupDescription, p.Description)
 		assert.NotEmpty(t, p.FriendlyName)
 	}
 	require.NotNil(t, provider.SCIM)

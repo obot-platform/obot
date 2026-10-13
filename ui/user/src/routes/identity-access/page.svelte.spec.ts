@@ -557,6 +557,22 @@ describe('Identity & Access Page', () => {
 					});
 				});
 
+				// Blank credentials are not submitted, which the server takes as choosing SCIM.
+				it('does not take blank API Services credentials for the Okta API', async () => {
+					await openOktaForm(oktaProvider);
+
+					await choiceButton('Okta API').click();
+					await fillOIDCFields();
+					await page.getByLabelText('API Services Client ID', { exact: true }).fill('   ');
+					await page.getByLabelText('API Services Private Key', { exact: true }).fill('   ');
+					await confirm();
+
+					await expect
+						.element(page.getByLabelText('API Services Private Key', { exact: true }))
+						.toHaveAttribute('aria-invalid', 'true');
+					expect(configure).not.toHaveBeenCalled();
+				});
+
 				it('leaves out what was entered for the Okta API once SCIM is chosen again', async () => {
 					await openOktaForm(oktaProvider);
 

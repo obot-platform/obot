@@ -296,7 +296,7 @@
 	async function configure() {
 		showRequired = false;
 
-		const requiredFieldsNotFilled = submittedRequiredParameters.filter((p) => !form[p.name].length);
+		const requiredFieldsNotFilled = submittedRequiredParameters.filter((p) => !form[p.name].trim());
 
 		if (requiredFieldsNotFilled.length > 0) {
 			showRequired = true;
@@ -377,7 +377,7 @@
 {/snippet}
 
 {#snippet parameterField(parameter: ProviderParameter, required: boolean)}
-	{@const error = required && showRequired && !form[parameter.name].length}
+	{@const error = required && showRequired && !form[parameter.name].trim()}
 	{#if booleanInputs.has(parameter.name)}
 		{@render booleanToggle(parameter)}
 	{:else}
