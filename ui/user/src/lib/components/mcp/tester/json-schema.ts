@@ -401,7 +401,8 @@ export function generatedFormRepresents(schema: JSONSchema, value: unknown): boo
 	if (value === undefined) return true;
 	if (schema.anyOf || Array.isArray(schema.type)) {
 		const union = resolveUnionSchema(schema, value);
-		if (!union || value === null) return true;
+		// Null is shown by the null toggle only when this union offers one.
+		if (!union || (value === null && union.nullable)) return true;
 		// A value the union accepts must also satisfy the member the form renders,
 		// or the control would show something other than what is submitted.
 		if (

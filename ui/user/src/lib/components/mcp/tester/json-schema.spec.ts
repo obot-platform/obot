@@ -297,6 +297,10 @@ describe('MCP tester JSON Schema support', () => {
 			true
 		);
 		expect(generatedFormRepresents({ type: ['string', 'null'] }, null)).toBe(true);
+		// Null allowed without a null toggle would show as an empty string.
+		expect(generatedFormRepresents({ anyOf: [{ type: 'string' }, { const: null }] }, null)).toBe(
+			false
+		);
 		expect(generatedFormRepresents({ type: 'object', properties: { value: union } }, null)).toBe(
 			true
 		);
