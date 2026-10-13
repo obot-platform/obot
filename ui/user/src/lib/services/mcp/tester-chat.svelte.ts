@@ -1,4 +1,6 @@
 import { m } from '$lib/i18n';
+import type { RejectedTesterTool } from './tester-client';
+import { testerErrorDetails } from './tester-errors';
 import type {
 	DirectOperationResult,
 	MCPTesterSession,
@@ -60,6 +62,7 @@ export interface TesterChatError {
 	code: string;
 	message: string;
 	retryable?: boolean;
+	details?: unknown;
 }
 
 export interface TesterToolApproval extends TesterChatToolCall {
@@ -236,16 +239,25 @@ async function readEventStream(
 }
 
 async function responseError(response: Response): Promise<TesterChatError> {
+	let details: unknown;
 	try {
-		const value = (await response.json()) as { error?: TesterChatError };
-		if (value.error?.message) return value.error;
+		const body = await response.text();
+		details = body;
+		try {
+			const value = JSON.parse(body) as { error?: TesterChatError };
+			details = value;
+			if (value?.error?.message) return { ...value.error, details: value.error.details ?? value };
+		} catch {
+			// Non-JSON provider errors remain available in the error dialog.
+		}
 	} catch {
 		// Fall through to the stable transport error below.
 	}
 	return {
 		code: 'provider_error',
 		message: m.mcps_tester_chat_request_failed({ status: response.status }),
-		retryable: response.status >= 500
+		retryable: response.status >= 500,
+		details
 	};
 }
 
@@ -274,6 +286,7 @@ export class MCPTesterChat {
 	messages = $state<TesterChatMessage[]>([]);
 	timeline = $state<TesterChatTimelineMessage[]>([]);
 	toolSnapshot = $state<TesterChatTool[]>();
+	toolDiscoveryIssues = $state<RejectedTesterTool[]>([]);
 	status = $state<TesterChatTurnStatus>('idle');
 	error = $state<TesterChatError>();
 	round = $state(0);
@@ -328,9 +341,15 @@ export class MCPTesterChat {
 		try {
 			if (this.toolSnapshot === undefined) {
 				this.status = 'snapshotting';
-				const tools = await this.#session.snapshotChatTools(workflow.abort.signal);
-				if (!this.#isCurrent(workflow, generation)) return;
-				this.toolSnapshot = tools.map(normalizedTool);
+				try {
+					const tools = await this.#session.snapshotChatTools(workflow.abort.signal);
+					if (!this.#isCurrent(workflow, generation)) return;
+					this.toolSnapshot = tools.map(normalizedTool);
+				} finally {
+					if (this.#isCurrent(workflow, generation)) {
+						this.toolDiscoveryIssues = [...this.#session.toolDiscoveryIssues];
+					}
+				}
 			}
 
 			const staged = stagedMessages(contexts);
@@ -393,6 +412,7 @@ export class MCPTesterChat {
 		this.messages = [];
 		this.timeline = [];
 		this.toolSnapshot = undefined;
+		this.toolDiscoveryIssues = [];
 		this.status = 'idle';
 		this.error = undefined;
 		this.round = 0;
@@ -568,7 +588,12 @@ export class MCPTesterChat {
 				const normalized =
 					error && typeof error === 'object' && 'code' in error && 'message' in error
 						? (error as TesterChatError)
-						: { code: 'provider_error', message: errorMessage(error), retryable: true };
+						: {
+								code: 'provider_error',
+								message: errorMessage(error),
+								retryable: true,
+								details: testerErrorDetails(error)
+							};
 				assistant.state = 'failed';
 				assistant.error = normalized;
 				this.status = 'failed';
@@ -645,7 +670,12 @@ export class MCPTesterChat {
 			this.error = { code: 'cancelled', message: m.mcps_tester_chat_stopped_by_user() };
 		} else {
 			this.status = 'failed';
-			this.error = { code: 'transport_error', message: errorMessage(error), retryable: true };
+			this.error = {
+				code: 'transport_error',
+				message: errorMessage(error),
+				retryable: true,
+				details: testerErrorDetails(error)
+			};
 		}
 		this.#finishWorkflow();
 	}

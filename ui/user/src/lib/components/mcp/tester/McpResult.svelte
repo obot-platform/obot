@@ -7,7 +7,8 @@
 	} from '$lib/services/mcp/tester.svelte';
 	import CornerCopyButton from './CornerCopyButton.svelte';
 	import McpContent from './McpContent.svelte';
-	import { Ban, CircleCheck, CircleAlert, Clock3, TriangleAlert } from '@lucide/svelte';
+	import TesterError from './TesterError.svelte';
+	import { Ban, CircleCheck, Clock3, TriangleAlert } from '@lucide/svelte';
 
 	interface Props {
 		result: DirectOperationResult<unknown>;
@@ -39,31 +40,42 @@
 </script>
 
 <section class="space-y-4" aria-label={m.mcps_tester_operation_result()}>
-	<div
-		class={`flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm ${
-			result.status === 'success'
-				? 'bg-success/10'
-				: ['timeout', 'cancelled'].includes(result.status)
-					? 'bg-warning/10'
-					: 'bg-error/10'
-		}`}
-		role={result.status === 'success' ? 'status' : 'alert'}
-	>
-		{#if result.status === 'success'}
-			<CircleCheck class="size-4 text-success" aria-hidden="true" />
-		{:else if result.status === 'cancelled'}
-			<Ban class="size-4 text-warning" aria-hidden="true" />
-		{:else if result.status === 'timeout'}
-			<Clock3 class="size-4 text-warning" aria-hidden="true" />
-		{:else if result.status === 'mcp-error'}
-			<CircleAlert class="size-4 text-error" aria-hidden="true" />
-		{:else}
-			<TriangleAlert class="size-4 text-error" aria-hidden="true" />
-		{/if}
-		<strong>{label(result.status)}</strong>
-		<span class="text-muted-content">{Math.round(result.durationMs)} ms</span>
-		{#if result.message}<span>{result.message}</span>{/if}
-	</div>
+	{#if result.message || result.status === 'mcp-error'}
+		<TesterError
+			title={label(result.status)}
+			message={result.message ?? rawJSON ?? m.mcps_tester_status_mcp_error()}
+			details={result.details ?? result.value}
+		>
+			{#snippet actions()}
+				<span class="self-center text-sm text-muted-content"
+					>{Math.round(result.durationMs)} ms</span
+				>
+			{/snippet}
+		</TesterError>
+	{:else}
+		<div
+			class={`flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm ${
+				result.status === 'success'
+					? 'bg-success/10'
+					: ['timeout', 'cancelled'].includes(result.status)
+						? 'bg-warning/10'
+						: 'bg-error/10'
+			}`}
+			role={result.status === 'success' ? 'status' : 'alert'}
+		>
+			{#if result.status === 'success'}
+				<CircleCheck class="size-4 text-success" aria-hidden="true" />
+			{:else if result.status === 'cancelled'}
+				<Ban class="size-4 text-warning" aria-hidden="true" />
+			{:else if result.status === 'timeout'}
+				<Clock3 class="size-4 text-warning" aria-hidden="true" />
+			{:else}
+				<TriangleAlert class="size-4 text-error" aria-hidden="true" />
+			{/if}
+			<strong>{label(result.status)}</strong>
+			<span class="text-muted-content">{Math.round(result.durationMs)} ms</span>
+		</div>
+	{/if}
 
 	{#if content.length}
 		<div class="space-y-3" aria-label={m.mcps_tester_rendered_content()}>

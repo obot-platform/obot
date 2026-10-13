@@ -4,6 +4,7 @@
 	import CapabilityList, { type CapabilityListItem } from './CapabilityList.svelte';
 	import McpContent from './McpContent.svelte';
 	import McpResult from './McpResult.svelte';
+	import TesterError from './TesterError.svelte';
 	import { Ban, MessageSquarePlus, Play } from '@lucide/svelte';
 
 	interface Props {
@@ -87,17 +88,19 @@
 			<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_prompts_unsupported()}</p>
 		</div>
 	{:else if cache.error && !cache.loading}
-		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
-			<strong
-				>{cache.errorStatus === 'cancelled'
-					? m.mcps_tester_loading_cancelled()
-					: m.mcps_tester_prompts_load_failed()}</strong
-			>
-			<p class="mt-1 text-sm">{cache.error}</p>
-			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadPrompts(true)}
-				>{m.mcps_retry()}</button
-			>
-		</div>
+		<TesterError
+			title={cache.errorStatus === 'cancelled'
+				? m.mcps_tester_loading_cancelled()
+				: m.mcps_tester_prompts_load_failed()}
+			message={cache.error}
+			details={cache.errorDetails}
+		>
+			{#snippet actions()}
+				<button class="btn btn-secondary btn-sm" onclick={() => session.loadPrompts(true)}
+					>{m.mcps_retry()}</button
+				>
+			{/snippet}
+		</TesterError>
 	{/if}
 
 	{#if !cache.unsupported}
@@ -194,9 +197,10 @@
 							<McpResult result={inspector.result as DirectOperationResult<unknown>} />
 						{/if}
 
-						{#if inspector.stageError}<p class="text-sm text-error" role="alert">
-								{inspector.stageError}
-							</p>{/if}
+						{#if inspector.stageError}<TesterError
+								title={m.mcps_tester_response_failed()}
+								message={inspector.stageError}
+							/>{/if}
 						{#if inspector.result?.status === 'success' && inspector.result.value && promptSupported}
 							<button class="btn btn-secondary" onclick={useInChat}>
 								<MessageSquarePlus class="size-4" aria-hidden="true" />

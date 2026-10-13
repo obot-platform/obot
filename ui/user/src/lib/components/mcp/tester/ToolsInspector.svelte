@@ -5,6 +5,7 @@
 	import CapabilityList, { type CapabilityListItem } from './CapabilityList.svelte';
 	import JsonSchemaForm from './JsonSchemaForm.svelte';
 	import McpResult from './McpResult.svelte';
+	import TesterError from './TesterError.svelte';
 	import { Ban, Play } from '@lucide/svelte';
 
 	interface Props {
@@ -59,17 +60,29 @@
 			</p>
 		</div>
 	{:else if cache.error && !cache.loading}
-		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
-			<strong
-				>{cache.errorStatus === 'cancelled'
-					? m.mcps_tester_loading_cancelled()
-					: m.mcps_tester_tools_load_failed()}</strong
-			>
-			<p class="mt-1 text-sm">{cache.error}</p>
-			<button class="btn btn-secondary btn-sm mt-3" onclick={() => session.loadTools(true)}
-				>{m.mcps_retry()}</button
-			>
-		</div>
+		<TesterError
+			title={cache.errorStatus === 'cancelled'
+				? m.mcps_tester_loading_cancelled()
+				: m.mcps_tester_tools_load_failed()}
+			message={cache.error}
+			details={cache.errorDetails}
+		>
+			{#snippet actions()}
+				<button class="btn btn-secondary btn-sm" onclick={() => session.loadTools(true)}
+					>{m.mcps_retry()}</button
+				>
+			{/snippet}
+		</TesterError>
+	{/if}
+
+	{#if !cache.error && !cache.loading && session.toolDiscoveryIssues.length}
+		<TesterError
+			title={m.mcps_tester_tools_rejected({ count: session.toolDiscoveryIssues.length })}
+			message={m.mcps_tester_valid_tools_available() +
+				'\n' +
+				JSON.stringify(session.toolDiscoveryIssues[0])}
+			details={session.toolDiscoveryIssues}
+		/>
 	{/if}
 
 	{#if !cache.unsupported}

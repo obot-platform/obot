@@ -59,6 +59,154 @@ function readyFetch(
 	});
 }
 
+describe('partial tool discovery', () => {
+	it('retains valid tools across pages and the original malformed entries in the MCP log', async () => {
+		const fetcher = readyFetch({ tools: {} }, (request) => {
+			if (request.method !== 'tools/list') return;
+			return Response.json({
+				jsonrpc: '2.0',
+				id: request.id,
+				result: request.params?.cursor
+					? { tools: [null, { name: 'second', inputSchema: { type: 'object' } }] }
+					: {
+							tools: [
+								{ name: 'first', inputSchema: { type: 'object' } },
+								{
+									name: 'add_issue_comment',
+									inputSchema: { type: 'object' },
+									outputSchema: { oneOf: [{ type: 'null' }, { type: 'object' }] }
+								}
+							],
+							nextCursor: 'next-page'
+						}
+			});
+		});
+		const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, fetcher);
+		await session.initialize();
+		await session.loadTools();
+
+		expect(session.cache.tools.error).toBeUndefined();
+		expect(session.cache.tools.items.map((tool) => tool.name)).toEqual(['first', 'second']);
+		expect(session.toolDiscoveryIssues).toMatchObject([
+			{ name: 'add_issue_comment', index: 1, issues: [{ path: ['outputSchema', 'type'] }] },
+			{ index: 0, cursor: 'next-page' }
+		]);
+		expect(
+			session.log.entries.some(
+				(entry) =>
+					entry.direction === 'incoming' && JSON.stringify(entry.message).includes('"oneOf"')
+			)
+		).toBe(true);
+		session.close();
+	});
+
+	it('replaces diagnostics on refresh and clears stale tools when every entry becomes invalid', async () => {
+		let malformed = false;
+		const session = new MCPTesterSession(
+			server,
+			{ name: 'tester', version: 'test' },
+			readyFetch({ tools: {} }, (request) => {
+				if (request.method !== 'tools/list') return;
+				return Response.json({
+					jsonrpc: '2.0',
+					id: request.id,
+					result: {
+						tools: [{ name: 'lookup', inputSchema: { type: malformed ? 'array' : 'object' } }]
+					}
+				});
+			})
+		);
+		await session.initialize();
+		await session.loadTools();
+		expect(session.cache.tools.items).toHaveLength(1);
+		malformed = true;
+		await session.loadTools(true);
+		expect(session.cache.tools.items).toEqual([]);
+		expect(session.cache.tools.loaded).toBe(false);
+		expect(session.cache.tools.error).toContain('every returned tool');
+		expect(session.toolDiscoveryIssues).toHaveLength(1);
+		expect(session.cache.tools.errorDetails).toMatchObject({ cause: [{ name: 'lookup' }] });
+		malformed = false;
+		await session.loadTools(true);
+		expect(session.toolDiscoveryIssues).toEqual([]);
+		expect(session.cache.tools.errorDetails).toBeUndefined();
+		expect(session.cache.tools.error).toBeUndefined();
+		session.close();
+	});
+
+	it.each([
+		{ tools: [], succeeds: true },
+		{ tools: null, succeeds: false },
+		{ tools: { name: 'not-an-array' }, succeeds: false }
+	])(
+		'keeps empty lists valid and rejects malformed list envelopes: $tools',
+		async ({ tools, succeeds }) => {
+			const session = new MCPTesterSession(
+				server,
+				{ name: 'tester', version: 'test' },
+				readyFetch({ tools: {} }, (request) => {
+					if (request.method !== 'tools/list') return;
+					return Response.json({ jsonrpc: '2.0', id: request.id, result: { tools } });
+				})
+			);
+			await session.initialize();
+			await session.loadTools();
+			expect(session.cache.tools.loaded).toBe(succeeds);
+			expect(Boolean(session.cache.tools.error)).toBe(!succeeds);
+			expect(session.toolDiscoveryIssues).toEqual([]);
+			session.close();
+		}
+	);
+
+	it('keeps SDK output validation and task metadata for retained tools', async () => {
+		const session = new MCPTesterSession(
+			server,
+			{ name: 'tester', version: 'test' },
+			readyFetch({ tools: {}, tasks: { requests: { tools: { call: {} } } } }, (request) => {
+				if (request.method === 'tools/list')
+					return Response.json({
+						jsonrpc: '2.0',
+						id: request.id,
+						result: {
+							tools: [
+								{ name: 'bad', inputSchema: { type: 'object' }, outputSchema: { type: 'array' } },
+								{
+									name: 'lookup',
+									inputSchema: { type: 'object' },
+									outputSchema: {
+										type: 'object',
+										properties: { value: { type: 'string' } },
+										required: ['value']
+									}
+								},
+								{
+									name: 'task',
+									inputSchema: { type: 'object' },
+									execution: { taskSupport: 'required' }
+								}
+							]
+						}
+					});
+				if (request.method === 'tools/call')
+					return Response.json({
+						jsonrpc: '2.0',
+						id: request.id,
+						result: { content: [], structuredContent: { value: 42 } }
+					});
+			})
+		);
+		await session.initialize();
+		await session.loadTools();
+		const result = await session.callTool('lookup', {});
+		expect(result.status).toBe('transport-error');
+		expect(result.message).toContain('output schema');
+		expect(result.details).toMatchObject({ code: -32602 });
+		const task = await session.callTool('task', {});
+		expect(task.message).toContain('requires task-based execution');
+		session.close();
+	});
+});
+
 describe('testerConnectionKey', () => {
 	it('keeps the same connection key when only unrelated server fields change', () => {
 		expect(testerConnectionKey(undefined)).toBeUndefined();

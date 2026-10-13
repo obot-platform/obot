@@ -6,6 +6,7 @@
 	import type { TesterLogEntry, TesterLogKind } from '$lib/services/mcp/tester-log.svelte';
 	import type { MCPTesterSession, TesterStatus } from '$lib/services/mcp/tester.svelte';
 	import CornerCopyButton from './CornerCopyButton.svelte';
+	import TesterError from './TesterError.svelte';
 	import {
 		Check,
 		ChevronRight,
@@ -208,25 +209,41 @@
 	<h2 class="sr-only">{m.mcps_tester_mcp_log()}</h2>
 
 	{#if session && status && status !== 'ready' && status !== 'idle'}
-		<div
-			class={twMerge(
-				'mb-3 shrink-0 p-3 text-sm',
-				connectionFailed ? 'notification-error' : 'notification-alert'
-			)}
-			role={connectionFailed ? 'alert' : 'status'}
-		>
-			<div class="flex flex-wrap items-center gap-2">
-				<TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
-				<strong>{STATUS_LABEL[status]}</strong>
-				{#if session.error}<span class="min-w-0 break-all">{session.error}</span>{/if}
-				{#if onretry && (status === 'error' || status === 'unhealthy')}
-					<button type="button" class="btn btn-secondary btn-sm ml-auto" onclick={onretry}>
-						<RotateCw class="size-4" aria-hidden="true" />
-						{m.mcps_retry()}
-					</button>
-				{/if}
+		{#if session.error}
+			<TesterError
+				title={STATUS_LABEL[status]}
+				message={session.error}
+				details={session.errorDetails}
+			>
+				{#snippet actions()}
+					{#if onretry && (status === 'error' || status === 'unhealthy')}
+						<button type="button" class="btn btn-secondary btn-sm" onclick={onretry}>
+							<RotateCw class="size-4" aria-hidden="true" />{m.mcps_retry()}
+						</button>
+					{/if}
+				{/snippet}
+			</TesterError>
+		{:else}
+			<div
+				class={twMerge(
+					'mb-3 shrink-0 p-3 text-sm',
+					connectionFailed ? 'notification-error' : 'notification-alert'
+				)}
+				role={connectionFailed ? 'alert' : 'status'}
+			>
+				<div class="flex flex-wrap items-center gap-2">
+					<TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
+					<strong>{STATUS_LABEL[status]}</strong>
+
+					{#if onretry && (status === 'error' || status === 'unhealthy')}
+						<button type="button" class="btn btn-secondary btn-sm ml-auto" onclick={onretry}>
+							<RotateCw class="size-4" aria-hidden="true" />
+							{m.mcps_retry()}
+						</button>
+					{/if}
+				</div>
 			</div>
-		</div>
+		{/if}
 	{/if}
 
 	<div class="mb-2 flex shrink-0 flex-wrap items-center gap-2">

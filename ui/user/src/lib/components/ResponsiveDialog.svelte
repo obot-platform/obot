@@ -31,6 +31,7 @@
 		children: Snippet;
 		animate?: ResponsiveDialogAnimate;
 		hideClose?: boolean;
+		closeButtonLabel?: string;
 		disableClickOutside?: boolean;
 		disableMobileStyles?: boolean;
 		/**
@@ -53,6 +54,7 @@
 		classes,
 		animate,
 		hideClose,
+		closeButtonLabel,
 		disableClickOutside,
 		disableMobileStyles,
 		rightPanelWidth
@@ -85,6 +87,7 @@
 
 <dialog
 	bind:this={dialog}
+	aria-label={title}
 	class="dialog"
 	style={inset}
 	data-non-modal={rightPanelWidth ? 'true' : undefined}
@@ -129,6 +132,7 @@
 						</span>
 						{#if !hideClose}
 							<IconButton
+								aria-label={closeButtonLabel}
 								class={twMerge(
 									'btn-sm dialog-close-btn',
 									responsive.isMobile && !disableMobileStyles && 'mobile',

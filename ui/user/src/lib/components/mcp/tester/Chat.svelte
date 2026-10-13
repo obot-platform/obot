@@ -9,6 +9,7 @@
 	} from '$lib/services/mcp/tester-chat.svelte';
 	import type { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import ChatComposer from './ChatComposer.svelte';
+	import TesterError from './TesterError.svelte';
 	import ToolApprovalPrompt from './ToolApprovalPrompt.svelte';
 	import ToolCallRecord from './ToolCallRecord.svelte';
 	import { RotateCw } from '@lucide/svelte';
@@ -50,6 +51,16 @@
 
 <div class="flex h-full min-h-0 flex-col">
 	<h2 class="sr-only">{m.mcps_tester_chat()}</h2>
+
+	{#if chat.toolDiscoveryIssues.length && chat.toolSnapshot !== undefined}
+		<TesterError
+			title={m.mcps_tester_tools_rejected({ count: chat.toolDiscoveryIssues.length })}
+			message={m.mcps_tester_valid_tools_available() +
+				'\n' +
+				JSON.stringify(chat.toolDiscoveryIssues[0])}
+			details={chat.toolDiscoveryIssues}
+		/>
+	{/if}
 
 	<div
 		class="default-scrollbar-thin min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
@@ -130,16 +141,20 @@
 						<ToolCallRecord calls={completedCalls(message)} />
 					{/if}
 					{#if message.state === 'failed'}
-						<div class="notification-error mt-3 p-3" role="alert">
-							<p class="font-medium">{m.mcps_tester_response_failed()}</p>
-							<p class="mt-1 text-sm">{message.error?.message}</p>
-							{#if message.error?.retryable}
-								<button class="btn btn-secondary btn-sm mt-3" onclick={() => chat.retry()}>
-									<RotateCw class="size-4" aria-hidden="true" />
-									{m.mcps_tester_retry_response()}
-								</button>
-							{/if}
-						</div>
+						<TesterError
+							title={m.mcps_tester_response_failed()}
+							message={message.error?.message ?? ''}
+							details={message.error?.details ?? message.error}
+						>
+							{#snippet actions()}
+								{#if message.error?.retryable}
+									<button class="btn btn-secondary btn-sm" onclick={() => chat.retry()}>
+										<RotateCw class="size-4" aria-hidden="true" />
+										{m.mcps_tester_retry_response()}
+									</button>
+								{/if}
+							{/snippet}
+						</TesterError>
 					{:else if message.state === 'cancelled'}
 						<p class="mt-2 text-sm text-muted-content">{m.mcps_tester_generation_stopped()}</p>
 					{/if}
@@ -160,7 +175,11 @@
 			<p class="mt-1 text-sm">{chat.error.message}</p>
 		</div>
 	{:else if chat.error && !chat.timeline.some((message) => message.error)}
-		<p class="mt-4 text-sm text-error" role="alert">{chat.error.message}</p>
+		<TesterError
+			title={m.mcps_tester_response_failed()}
+			message={chat.error.message}
+			details={chat.error.details ?? chat.error}
+		/>
 	{/if}
 
 	<ToolApprovalPrompt {chat} />

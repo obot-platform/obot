@@ -76,6 +76,46 @@ function sse(...events: Array<Record<string, unknown>>): Response {
 	});
 }
 
+describe('Chat error diagnostics', () => {
+	it('shows snapshot diagnostics without blocking valid-tool chat controls', async () => {
+		const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, mcpFetch());
+		await session.initialize();
+		const chat = new MCPTesterChat(session, server.id);
+		chat.toolSnapshot = [{ name: 'lookup', inputSchema: { type: 'object' } }];
+		chat.toolDiscoveryIssues = [
+			{ name: 'bad', index: 1, issues: [{ path: ['outputSchema', 'type'] }] }
+		];
+		render(Chat, { chat, session });
+		await expect.element(page.getByText('Malformed tools excluded: 1')).toBeVisible();
+		expect(chat.canSend).toBe(true);
+		await page.getByRole('button', { name: 'View full error' }).click();
+		await expect.element(page.getByRole('dialog', { name: 'Error details' })).toBeVisible();
+		session.close();
+	});
+
+	it('bounds a failed response and keeps retry available', async () => {
+		const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, mcpFetch());
+		await session.initialize();
+		const chat = new MCPTesterChat(session, server.id);
+		chat.timeline = [
+			{
+				id: 'failed',
+				role: 'assistant',
+				state: 'failed',
+				error: { code: 'provider_error', message: 'failure '.repeat(200), retryable: true }
+			}
+		];
+		const retry = vi.spyOn(chat, 'retry').mockResolvedValue();
+		render(Chat, { chat, session });
+		expect(page.getByRole('alert').element().textContent?.length).toBeLessThan(500);
+		await page.getByRole('button', { name: 'Retry response' }).click();
+		expect(retry).toHaveBeenCalled();
+		await page.getByRole('button', { name: 'View full error' }).click();
+		await expect.element(page.getByLabelText('Full error')).toBeVisible();
+		session.close();
+	});
+});
+
 async function renderChatWithToolCalls() {
 	const session = new MCPTesterSession(
 		server,

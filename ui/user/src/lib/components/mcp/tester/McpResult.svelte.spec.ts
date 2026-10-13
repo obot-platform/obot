@@ -1,4 +1,5 @@
 import McpResult from './McpResult.svelte';
+import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
@@ -20,6 +21,35 @@ function renderScrollableResult(height = 460) {
 }
 
 describe('McpResult', () => {
+	it('previews the returned tool error rather than only its status', async () => {
+		render(McpResult, {
+			result: {
+				status: 'mcp-error',
+				durationMs: 10,
+				value: { isError: true, content: [{ type: 'text', text: 'Rate limit exceeded' }] }
+			}
+		});
+		await expect.element(page.getByRole('alert').getByText(/Rate limit exceeded/)).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'View full error' })).toBeVisible();
+	});
+
+	it('shows protocol error details in the shared dialog', async () => {
+		render(McpResult, {
+			result: {
+				status: 'transport-error',
+				durationMs: 10,
+				message: 'Invalid parameters',
+				details: { code: -32602, data: { path: ['query'] } }
+			}
+		});
+		await page.getByRole('button', { name: 'View full error' }).click();
+		await expect.element(page.getByLabelText('Full error')).toBeVisible();
+		const errorText = EditorView.findFromDOM(
+			page.getByLabelText('Full error').element() as HTMLElement
+		)?.state.doc.toString();
+		expect(JSON.parse(errorText ?? '')).toEqual({ code: -32602, data: { path: ['query'] } });
+	});
+
 	it('also reveals the raw response when opened with the keyboard', async () => {
 		const pane = renderScrollableResult();
 		const before = pane.scrollTop;

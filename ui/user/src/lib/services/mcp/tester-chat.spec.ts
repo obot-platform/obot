@@ -75,6 +75,76 @@ async function readySession(
 }
 
 describe('MCPTesterChat', () => {
+	it('chats with valid tools while retaining rejected-tool diagnostics for its snapshot', async () => {
+		const session = await readySession({ tools: {} }, (request) => {
+			if (request.method === 'tools/list')
+				return {
+					tools: [
+						{ name: 'lookup', inputSchema: { type: 'object' } },
+						{
+							name: 'bad',
+							inputSchema: { type: 'object' },
+							outputSchema: { oneOf: [{ type: 'null' }, { type: 'object' }] }
+						}
+					]
+				};
+		});
+		const requests: Array<{ tools: Array<{ name: string }> }> = [];
+		const chat = new MCPTesterChat(
+			session,
+			server.id,
+			vi.fn<typeof fetch>(async (_input, init) => {
+				requests.push(JSON.parse(String(init?.body)));
+				return stream(
+					{ type: 'assistant_message_start' },
+					{ type: 'text_delta', delta: 'Hello' },
+					{ type: 'completion', reason: 'stop' }
+				);
+			})
+		);
+		await chat.send('Hello');
+		expect(requests[0]?.tools.map((tool) => tool.name)).toEqual(['lookup']);
+		expect(chat.error).toBeUndefined();
+		expect(chat.toolDiscoveryIssues).toMatchObject([{ name: 'bad' }]);
+		session.toolDiscoveryIssues = [];
+		expect(chat.toolDiscoveryIssues).toHaveLength(1);
+		chat.newChat();
+		expect(chat.toolDiscoveryIssues).toEqual([]);
+		session.close();
+	});
+
+	it('does not call the model when all tools are malformed', async () => {
+		const session = await readySession({ tools: {} }, (request) => {
+			if (request.method === 'tools/list')
+				return { tools: [{ name: 'bad', inputSchema: { type: 'array' } }] };
+		});
+		const fetcher = vi.fn<typeof fetch>();
+		const chat = new MCPTesterChat(session, server.id, fetcher);
+		await chat.send('Hello');
+		expect(fetcher).not.toHaveBeenCalled();
+		expect(chat.status).toBe('failed');
+		expect(chat.error?.message).toContain('every returned tool');
+		expect(chat.error?.details).toBeDefined();
+		expect(chat.toolDiscoveryIssues).toHaveLength(1);
+		expect(session.activeWorkflow).toBeUndefined();
+		session.close();
+	});
+
+	it('retains non-JSON provider errors for the full-error dialog', async () => {
+		const session = await readySession();
+		const chat = new MCPTesterChat(
+			session,
+			server.id,
+			vi.fn<typeof fetch>(
+				async () => new Response('upstream diagnostic '.repeat(100), { status: 502 })
+			)
+		);
+		await chat.send('Hello');
+		expect(chat.error?.message).toContain('502');
+		expect(chat.error?.details).toBe('upstream diagnostic '.repeat(100));
+		session.close();
+	});
+
 	it('snapshots tools on first send and streams normalized assistant text', async () => {
 		let listCalls = 0;
 		const session = await readySession({ tools: {} }, (request) => {

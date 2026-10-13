@@ -8,6 +8,7 @@
 	import LogsInspector from '$lib/components/mcp/tester/LogsInspector.svelte';
 	import PromptsInspector from '$lib/components/mcp/tester/PromptsInspector.svelte';
 	import ResourcesInspector from '$lib/components/mcp/tester/ResourcesInspector.svelte';
+	import TesterError from '$lib/components/mcp/tester/TesterError.svelte';
 	import ToolsInspector from '$lib/components/mcp/tester/ToolsInspector.svelte';
 	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
 	import { m } from '$lib/i18n';
@@ -245,29 +246,53 @@
 				<p class="mt-1 text-sm text-muted-content">{m.mcps_tester_opening_session()}</p>
 			</section>
 		{:else if session.status === 'access-denied'}
-			<section class="notification-error p-6" role="alert">
-				<TriangleAlert class="mb-2 size-5 text-error" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcps_tester_access_denied()}</h2>
-				<p class="mt-1 text-sm">
-					{m.mcps_tester_access_denied_description()}
-				</p>
-				{#if accessDeniedAction}
-					<div class="mt-4">
-						{@render accessDeniedAction()}
-					</div>
-				{/if}
-			</section>
+			{#if session.error}
+				<TesterError
+					title={m.mcps_tester_access_denied()}
+					message={session.error}
+					details={session.errorDetails}
+				>
+					{#snippet actions()}
+						{#if accessDeniedAction}{@render accessDeniedAction()}{/if}
+					{/snippet}
+				</TesterError>
+			{:else}
+				<section class="notification-error p-6" role="alert">
+					<TriangleAlert class="mb-2 size-5 text-error" aria-hidden="true" />
+					<h2 class="font-semibold">{m.mcps_tester_access_denied()}</h2>
+					<p class="mt-1 text-sm">
+						{m.mcps_tester_access_denied_description()}
+					</p>
+					{#if accessDeniedAction}
+						<div class="mt-4">
+							{@render accessDeniedAction()}
+						</div>
+					{/if}
+				</section>
+			{/if}
 		{:else if session.status === 'reauthentication-required'}
-			<section class="notification-alert p-6" role="status">
-				<KeyRound class="mb-2 size-5 text-warning" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcps_tester_reauth_required()}</h2>
-				<p class="mt-1 text-sm">{m.mcps_tester_reauth_required_description()}</p>
-				{#if reauthenticationAction}
-					<div class="mt-4">
-						{@render reauthenticationAction()}
-					</div>
-				{/if}
-			</section>
+			{#if session.error}
+				<TesterError
+					title={m.mcps_tester_reauth_required()}
+					message={session.error}
+					details={session.errorDetails}
+				>
+					{#snippet actions()}
+						{#if reauthenticationAction}{@render reauthenticationAction()}{/if}
+					{/snippet}
+				</TesterError>
+			{:else}
+				<section class="notification-alert p-6" role="status">
+					<KeyRound class="mb-2 size-5 text-warning" aria-hidden="true" />
+					<h2 class="font-semibold">{m.mcps_tester_reauth_required()}</h2>
+					<p class="mt-1 text-sm">{m.mcps_tester_reauth_required_description()}</p>
+					{#if reauthenticationAction}
+						<div class="mt-4">
+							{@render reauthenticationAction()}
+						</div>
+					{/if}
+				</section>
+			{/if}
 		{:else if session.status === 'setup-required'}
 			<section class="notification-alert p-6" role="status">
 				<TriangleAlert class="mb-2 size-5 text-warning" aria-hidden="true" />
@@ -280,24 +305,27 @@
 				{/if}
 			</section>
 		{:else if session.status === 'unhealthy' || session.status === 'error'}
-			<section class="notification-error p-6" role="alert">
-				<TriangleAlert class="mb-2 size-5 text-error" aria-hidden="true" />
-				<h2 class="font-semibold">{m.mcps_tester_server_unavailable()}</h2>
-				<p class="mt-1 text-sm">{session.error || m.mcps_tester_server_unhealthy()}</p>
-				<div class="mt-4 flex flex-wrap gap-2">
-					<button
-						type="button"
-						class="btn btn-primary btn-sm"
-						onclick={() => session?.initialize(true)}
-					>
-						<RotateCw class="size-4" aria-hidden="true" />
-						{m.mcps_retry()}
-					</button>
-					{#if unhealthySecondaryAction}
-						{@render unhealthySecondaryAction()}
-					{/if}
-				</div>
-			</section>
+			<TesterError
+				title={m.mcps_tester_server_unavailable()}
+				message={session.error || m.mcps_tester_server_unhealthy()}
+				details={session.errorDetails}
+			>
+				{#snippet actions()}
+					<div class="mt-4 flex flex-wrap gap-2">
+						<button
+							type="button"
+							class="btn btn-primary btn-sm"
+							onclick={() => session?.initialize(true)}
+						>
+							<RotateCw class="size-4" aria-hidden="true" />
+							{m.mcps_retry()}
+						</button>
+						{#if unhealthySecondaryAction}
+							{@render unhealthySecondaryAction()}
+						{/if}
+					</div>
+				{/snippet}
+			</TesterError>
 		{:else if session.status === 'ready'}
 			<section
 				class={activeSection === 'chat' && !chatAvailable && !hasCommunityOrEnterprise

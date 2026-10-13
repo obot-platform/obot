@@ -1,6 +1,7 @@
 import type { MCPCatalogServer } from '$lib/services';
 import { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 import ToolsInspector from './ToolsInspector.svelte';
+import { EditorView } from '@codemirror/view';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -66,6 +67,39 @@ function detailsPane(): HTMLElement {
 }
 
 describe('ToolsInspector', () => {
+	it('keeps valid tools usable beside rejected-entry diagnostics', async () => {
+		const { session } = renderInspector(2);
+		session.toolDiscoveryIssues = [
+			{
+				name: 'add_issue_comment',
+				index: 2,
+				issues: [{ path: ['outputSchema', 'type'], message: 'Invalid input: expected object' }]
+			}
+		];
+		await expect.element(page.getByText('Malformed tools excluded: 1')).toBeVisible();
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
+		await expect.element(page.getByLabelText('value')).toBeVisible();
+		await page.getByRole('button', { name: 'View full error' }).click();
+		await expect.element(page.getByRole('dialog', { name: 'Error details' })).toBeVisible();
+		await expect.element(page.getByLabelText('Full error')).toBeVisible();
+		const errorText = EditorView.findFromDOM(
+			page.getByLabelText('Full error').element() as HTMLElement
+		)?.state.doc.toString();
+		expect(JSON.parse(errorText ?? '')).toEqual(session.toolDiscoveryIssues);
+		session.close();
+	});
+
+	it('keeps Retry available beside a bounded discovery error', async () => {
+		const { session } = renderInspector(0);
+		session.cache.tools.error = 'discovery failure '.repeat(200);
+		const retry = vi.spyOn(session, 'loadTools').mockResolvedValue();
+		await expect.element(page.getByRole('button', { name: 'View full error' })).toBeVisible();
+		await page.getByRole('button', { name: 'Retry', exact: true }).click();
+		expect(retry).toHaveBeenCalledWith(true);
+		expect(page.getByRole('alert').element().textContent?.length).toBeLessThan(500);
+		session.close();
+	});
+
 	it('keeps the card fixed and scrolls the tool list inside it', async () => {
 		const { session, card } = renderInspector();
 		await expect.element(page.getByRole('list', { name: 'Tools' })).toBeVisible();
