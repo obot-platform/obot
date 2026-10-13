@@ -11,6 +11,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -23,11 +24,12 @@ const (
 	// referenced it.
 	existingGroupID = "okta/00g-team"
 	pendingGroupID  = "okta/00g-old"
+	pendingGroupID2 = "okta/00g-old-2"
 	missingGroupID  = "okta/00g-missing"
 )
 
 // newWriteTestGateway returns a gateway with a SCIM connection for Okta, which has the groups existingGroupID and
-// pendingGroupID, the second of them marked for deletion.
+// pendingGroupID and pendingGroupID2, the latter two marked for deletion.
 func newWriteTestGateway(t *testing.T) *gclient.Client {
 	t.Helper()
 
@@ -55,7 +57,7 @@ func newWriteTestGateway(t *testing.T) *gclient.Client {
 		t.Fatal(err)
 	}
 	db := services.DB.DB
-	for _, id := range []string{existingGroupID, pendingGroupID} {
+	for _, id := range []string{existingGroupID, pendingGroupID, pendingGroupID2} {
 		if err := db.Create(&gatewaytypes.Group{
 			ID:                    id,
 			AuthProviderName:      oktaProviderName,
@@ -65,14 +67,76 @@ func newWriteTestGateway(t *testing.T) *gclient.Client {
 			t.Fatal(err)
 		}
 	}
-	if err := db.Create(&gatewaytypes.SCIMPendingGroupDeletion{
-		GroupID:      pendingGroupID,
-		ConnectionID: conn.ID,
-		RunID:        "run",
-	}).Error; err != nil {
-		t.Fatal(err)
+	for _, id := range []string{pendingGroupID, pendingGroupID2} {
+		if err := db.Create(&gatewaytypes.SCIMPendingGroupDeletion{
+			GroupID:      id,
+			ConnectionID: conn.ID,
+			RunID:        "run",
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
 	}
 	return gateway
+}
+
+func TestWriteNewGroupsLocalizedProblems(t *testing.T) {
+	gateway := newWriteTestGateway(t)
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.AuthProvider{
+		Name:      oktaProviderName,
+		Namespace: namespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: types.AuthProviderManifest{
+				Name: "${local_provider_name}",
+			},
+		},
+	}).Build()
+
+	for _, tt := range []struct {
+		locale   string
+		provider string
+		missing  string
+		pending  string
+	}{
+		{
+			locale:   "ja",
+			provider: "ローカル",
+			missing:  "先に ローカル からグループをプッシュ",
+			pending:  "削除完了後に再試行",
+		},
+		{
+			locale:   "ko",
+			provider: "로컬",
+			missing:  "먼저 로컬에서 그룹을 푸시",
+			pending:  "삭제가 완료된 후 다시 시도",
+		},
+		{
+			locale:   "zh-CN",
+			provider: "本地",
+			missing:  "请先从 本地 推送",
+			pending:  "删除完成后重试",
+		},
+	} {
+		t.Run(tt.locale, func(t *testing.T) {
+			for _, groupIDs := range [][]string{
+				{missingGroupID, pendingGroupID},
+				{missingGroupID, missingGroupID + "-2", pendingGroupID, pendingGroupID2},
+			} {
+				err := WriteNewGroups(i18n.WithLocale(t.Context(), tt.locale), gateway, storage, groupIDs, func() error {
+					t.Fatal("the write ran for a refused reference")
+					return nil
+				})
+				httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+				if !ok || httpErr.Code != http.StatusBadRequest {
+					t.Fatalf("WriteNewGroups() = %v, want a bad request", err)
+				}
+				for _, part := range append([]string{tt.provider, tt.missing, tt.pending, "; "}, groupIDs...) {
+					if !strings.Contains(httpErr.Message, part) {
+						t.Errorf("message %q does not contain %q", httpErr.Message, part)
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestWriteNewSubjects(t *testing.T) {

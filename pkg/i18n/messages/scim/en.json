@@ -58,5 +58,9 @@
   "scim_ref_vmcp_profile": "virtual MCP server",
   "scim_cleanup_blocks_connection": "auth provider cleanup {cleanup} is pending, so auth provider {provider} cannot have a SCIM connection until it finishes",
   "scim_and": " and ",
-  "scim_your_account_named": "Your account, {name},"
+  "scim_your_account_named": "Your account, {name},",
+  "scim_group_reference_missing": "no {provider} group has the ID {group}. {provider} provisions its groups through SCIM, so push the group from {provider} first, or choose an existing group",
+  "scim_group_references_missing": "no {provider} groups have the IDs {groups}. {provider} provisions its groups through SCIM, so push the groups from {provider} first, or choose existing groups",
+  "scim_group_reference_pending_deletion": "the {provider} group {group} is being deleted because nothing referenced it. Choose another group, or try again once the deletion finishes",
+  "scim_group_references_pending_deletion": "the {provider} groups {groups} are being deleted because nothing referenced them. Choose other groups, or try again once the deletion finishes"
 }

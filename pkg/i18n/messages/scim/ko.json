@@ -58,5 +58,9 @@
   "scim_ref_vmcp_profile": "가상 MCP 서버",
   "scim_cleanup_blocks_connection": "인증 공급자 정리 {cleanup}이(가) 진행 중이므로 완료될 때까지 {provider}에 SCIM 연결을 만들 수 없습니다",
   "scim_and": " 및 ",
-  "scim_your_account_named": "내 계정({name})"
+  "scim_your_account_named": "내 계정({name})",
+  "scim_group_reference_missing": "{provider}에 ID가 {group}인 그룹이 없습니다. {provider}는 SCIM을 통해 그룹을 프로비저닝하므로 먼저 {provider}에서 그룹을 푸시하거나 기존 그룹을 선택하세요",
+  "scim_group_references_missing": "{provider}에 ID가 {groups}인 그룹이 없습니다. {provider}는 SCIM을 통해 그룹을 프로비저닝하므로 먼저 {provider}에서 그룹을 푸시하거나 기존 그룹을 선택하세요",
+  "scim_group_reference_pending_deletion": "{provider}의 그룹 {group}은 참조하는 항목이 없어 삭제 중입니다. 다른 그룹을 선택하거나 삭제가 완료된 후 다시 시도하세요",
+  "scim_group_references_pending_deletion": "{provider}의 그룹 {groups}은 참조하는 항목이 없어 삭제 중입니다. 다른 그룹을 선택하거나 삭제가 완료된 후 다시 시도하세요"
 }

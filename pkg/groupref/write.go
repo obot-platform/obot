@@ -49,10 +49,11 @@ func WriteNewGroups(ctx context.Context, gateway *gclient.Client, storage kclien
 		return err
 	}
 
+	locale := i18n.FromContext(ctx)
 	name := refErr.AuthProviderName
 	var authProvider v1.AuthProvider
 	if err := storage.Get(ctx, kclient.ObjectKey{Namespace: refErr.AuthProviderNamespace, Name: refErr.AuthProviderName}, &authProvider); err == nil {
-		name = cmp.Or(i18n.Resolve(i18n.FromContext(ctx), authProvider.Spec.Name), name)
+		name = cmp.Or(i18n.Resolve(locale, authProvider.Spec.Name), name)
 	} else if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to get auth provider %q: %w", refErr.AuthProviderName, err)
 	}
@@ -61,20 +62,28 @@ func WriteNewGroups(ctx context.Context, gateway *gclient.Client, storage kclien
 	switch len(refErr.Missing) {
 	case 0:
 	case 1:
-		problems = append(problems, fmt.Sprintf("no %s group has the ID %s. %s provisions its groups through SCIM, so push the group from %s first, or choose an existing group",
-			name, refErr.Missing[0], name, name))
+		problems = append(problems, i18n.Message(locale, "scim_group_reference_missing", map[string]string{
+			"provider": name,
+			"group":    refErr.Missing[0],
+		}))
 	default:
-		problems = append(problems, fmt.Sprintf("no %s groups have the IDs %s. %s provisions its groups through SCIM, so push the groups from %s first, or choose existing groups",
-			name, strings.Join(refErr.Missing, ", "), name, name))
+		problems = append(problems, i18n.Message(locale, "scim_group_references_missing", map[string]string{
+			"provider": name,
+			"groups":   strings.Join(refErr.Missing, ", "),
+		}))
 	}
 	switch len(refErr.PendingDeletion) {
 	case 0:
 	case 1:
-		problems = append(problems, fmt.Sprintf("the %s group %s is being deleted because nothing referenced it. Choose another group, or try again once the deletion finishes",
-			name, refErr.PendingDeletion[0]))
+		problems = append(problems, i18n.Message(locale, "scim_group_reference_pending_deletion", map[string]string{
+			"provider": name,
+			"group":    refErr.PendingDeletion[0],
+		}))
 	default:
-		problems = append(problems, fmt.Sprintf("the %s groups %s are being deleted because nothing referenced them. Choose other groups, or try again once the deletion finishes",
-			name, strings.Join(refErr.PendingDeletion, ", ")))
+		problems = append(problems, i18n.Message(locale, "scim_group_references_pending_deletion", map[string]string{
+			"provider": name,
+			"groups":   strings.Join(refErr.PendingDeletion, ", "),
+		}))
 	}
 	return types.NewErrBadRequest("%s", strings.Join(problems, "; "))
 }

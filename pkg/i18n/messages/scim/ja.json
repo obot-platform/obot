@@ -58,5 +58,9 @@
   "scim_ref_vmcp_profile": "仮想 MCP サーバー",
   "scim_cleanup_blocks_connection": "認証プロバイダーのクリーンアップ {cleanup} が進行中のため、完了するまで {provider} に SCIM 接続を作成できません",
   "scim_and": " と ",
-  "scim_your_account_named": "あなたのアカウント（{name}）"
+  "scim_your_account_named": "あなたのアカウント（{name}）",
+  "scim_group_reference_missing": "{provider} に ID {group} のグループはありません。{provider} は SCIM でグループをプロビジョニングするため、先に {provider} からグループをプッシュするか、既存のグループを選択してください",
+  "scim_group_references_missing": "{provider} に ID {groups} のグループはありません。{provider} は SCIM でグループをプロビジョニングするため、先に {provider} からグループをプッシュするか、既存のグループを選択してください",
+  "scim_group_reference_pending_deletion": "{provider} のグループ {group} は参照されていなかったため削除中です。別のグループを選択するか、削除完了後に再試行してください",
+  "scim_group_references_pending_deletion": "{provider} のグループ {groups} は参照されていなかったため削除中です。別のグループを選択するか、削除完了後に再試行してください"
 }

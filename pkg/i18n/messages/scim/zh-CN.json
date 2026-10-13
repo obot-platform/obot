@@ -58,5 +58,9 @@
   "scim_ref_vmcp_profile": "虚拟 MCP 服务器",
   "scim_cleanup_blocks_connection": "身份验证提供商清理 {cleanup} 正在进行中，因此在完成前无法为 {provider} 创建 SCIM 连接",
   "scim_and": " 和 ",
-  "scim_your_account_named": "您的账户（{name}）"
+  "scim_your_account_named": "您的账户（{name}）",
+  "scim_group_reference_missing": "{provider} 中没有 ID 为 {group} 的组。{provider} 通过 SCIM 预配组，因此请先从 {provider} 推送该组，或选择现有组",
+  "scim_group_references_missing": "{provider} 中没有 ID 为 {groups} 的组。{provider} 通过 SCIM 预配组，因此请先从 {provider} 推送这些组，或选择现有组",
+  "scim_group_reference_pending_deletion": "{provider} 的组 {group} 因未被任何内容引用而正在删除。请选择其他组，或在删除完成后重试",
+  "scim_group_references_pending_deletion": "{provider} 的组 {groups} 因未被任何内容引用而正在删除。请选择其他组，或在删除完成后重试"
 }
