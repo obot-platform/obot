@@ -124,7 +124,9 @@ it('rejects OpenAPI header names that differ only by case', async () => {
 
 	await expect
 		.element(page.getByRole('alert'))
-		.toHaveTextContent('OpenAPI credential header names must be unique, regardless of letter case.');
+		.toHaveTextContent(
+			'OpenAPI credential header names must be unique, regardless of letter case.'
+		);
 	expect(saved).not.toHaveBeenCalled();
 });
 
