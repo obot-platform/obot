@@ -12,6 +12,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -21,11 +22,17 @@ import (
 )
 
 type VMCPHandler struct {
-	acrHelper *accesscontrolrule.Helper
+	acrHelper                 *accesscontrolrule.Helper
+	mcpBackend                string
+	secretBindingAllowedLabel string
 }
 
-func NewVMCPHandler(acrHelper *accesscontrolrule.Helper) *VMCPHandler {
-	return &VMCPHandler{acrHelper: acrHelper}
+func NewVMCPHandler(acrHelper *accesscontrolrule.Helper, mcpBackend, secretBindingAllowedLabel string) *VMCPHandler {
+	return &VMCPHandler{
+		acrHelper:                 acrHelper,
+		mcpBackend:                mcpBackend,
+		secretBindingAllowedLabel: secretBindingAllowedLabel,
+	}
 }
 
 func (*VMCPHandler) List(req api.Context) error {
@@ -104,12 +111,12 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := h.loadComponentSnapshots(req, &manifest, userID, nil, true); err != nil {
 		return err
 	}
-	if err := rejectConfigurationSecretBindings(manifest); err != nil {
-		return err
-	}
 
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
+	if err := h.validateConfigurationSecretBindings(req, manifest, userID); err != nil {
+		return err
 	}
 
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
@@ -181,11 +188,11 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components, true); err != nil {
 		return err
 	}
-	if err := rejectConfigurationSecretBindings(manifest); err != nil {
-		return err
-	}
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
+	if err := h.validateConfigurationSecretBindings(req, manifest, vmcp.Spec.UserID); err != nil {
+		return err
 	}
 	previousSubjects := groupref.VMCPProfileSubjects(vmcp.Spec.Manifest)
 
@@ -434,14 +441,32 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 	return nil
 }
 
-// rejectConfigurationSecretBindings keeps Secret selection with Git-synced
-// catalogs, whose contents are controlled by the administrators of the source.
-func rejectConfigurationSecretBindings(manifest types.VMCPManifest) error {
+// validateConfigurationSecretBindings restricts API-selected Secrets to shared,
+// administrator-managed vMCPs and the labeled Secrets exposed by the lookup API.
+func (h *VMCPHandler) validateConfigurationSecretBindings(req api.Context, manifest types.VMCPManifest, ownerID string) error {
 	for _, component := range manifest.Components {
+		var config []types.MCPConfig
 		for _, policy := range component.Configuration {
-			if policy.SecretBinding != nil {
-				return types.NewErrBadRequest("component %q configuration %q: secretBinding is only supported on catalog synced vMCPs", component.Name, policy.Key)
+			if policy.SecretBinding == nil {
+				continue
 			}
+			if !req.UserIsAdmin() || ownerID != "" {
+				return types.NewErrBadRequest("component %q configuration %q: secretBinding is only allowed on administrator-managed shared vMCPs", component.Name, policy.Key)
+			}
+			config = append(config, types.MCPConfig{Key: policy.Key, SecretBinding: policy.SecretBinding})
+		}
+		if len(config) == 0 {
+			continue
+		}
+		if err := mcp.ValidateSecretBindingsVMCP(types.VMCPManifest{Components: []types.VMCPComponent{component}}, h.mcpBackend); err != nil {
+			return types.NewErrBadRequest("invalid VMCP secret binding: %v", err)
+		}
+		unresolved, err := mcp.UnresolvedSecretBindingKeys(req.Context(), req.LocalK8sClient, req.ObotNamespace, config, h.secretBindingAllowedLabel)
+		if err != nil {
+			return fmt.Errorf("validate component %q secret bindings: %w", component.Name, err)
+		}
+		if len(unresolved) > 0 {
+			return types.NewErrBadRequest("component %q: secretBinding must reference an allowed Kubernetes Secret with a nonempty key value for configuration %v", component.Name, unresolved)
 		}
 	}
 	return nil
