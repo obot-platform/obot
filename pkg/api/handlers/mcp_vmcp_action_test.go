@@ -23,6 +23,8 @@ import (
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -152,6 +154,122 @@ func TestClearOAuthCredentialsVMCPUsesDeclaredRemoteComponents(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
 	assert.Equal(t, []string{component.Name}, trigger.keys)
+}
+
+func TestClearOAuthCredentialsVMCPComponentOnlyClearsThatComponent(t *testing.T) {
+	const (
+		vmcpID      = "vmcp1clear-component-oauth"
+		userID      = "user-clear-component-oauth"
+		componentID = "component-a"
+		otherID     = "component-b"
+	)
+	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
+	otherComponent := vmcp.Spec.Manifest.Components[0]
+	otherComponent.ID = otherID
+	otherComponent.Name = otherID
+	otherComponent.MCPServerCatalogEntryID = "entry-b"
+	vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, otherComponent)
+	other := component.DeepCopy()
+	other.Name = "ms1component-b"
+	other.Spec.VMCPComponentID = otherID
+	other.Spec.Manifest.Name = otherID
+	other.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{URL: "https://other.example.com/mcp"}
+	syncedVMCPInstance(instance, vmcp)
+	manager, storage, gatewayClient := newVMCPActionSessionManager(t, vmcp, instance, component, other, unrelated)
+
+	for _, server := range []*v1.MCPServer{component, other} {
+		require.NoError(t, gatewayClient.ReplaceMCPOAuthToken(t.Context(), userID, server.Name, server.Spec.Manifest.RemoteConfig.URL, "", &oauth2.Config{}, &oauth2.Token{AccessToken: "token-" + server.Name}))
+	}
+
+	clearComponent := func(componentID string) (*recordingMCPServerTrigger, error) {
+		trigger := &recordingMCPServerTrigger{}
+		req := httptest.NewRequest(http.MethodDelete, "/api/vmcps/"+vmcpID+"/components/"+componentID+"/oauth", nil)
+		req.SetPathValue("vmcp_id", vmcpID)
+		req.SetPathValue("component_id", componentID)
+		recorder := httptest.NewRecorder()
+		err := (&MCPHandler{
+			mcpSessionManager: manager,
+			controllerBackend: trigger,
+		}).ClearOAuthCredentials(api.Context{
+			ResponseWriter: recorder,
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+			User:           testUser(userID),
+		})
+		if err == nil {
+			assert.Equal(t, http.StatusNoContent, recorder.Code)
+		}
+		return trigger, err
+	}
+
+	authenticatedComponents := func() []string {
+		req := httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcpID+"/oauth-status", nil)
+		req.SetPathValue("vmcp_id", vmcpID)
+		recorder := httptest.NewRecorder()
+		require.NoError(t, (&MCPHandler{mcpSessionManager: manager}).GetVMCPOAuthStatus(api.Context{
+			ResponseWriter: recorder,
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+			User:           testUser(userID),
+		}))
+		var status vmcpOAuthStatus
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &status))
+		return status.AuthenticatedComponents
+	}
+	assert.ElementsMatch(t, []string{componentID, otherID}, authenticatedComponents())
+
+	trigger, err := clearComponent(otherID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{componentID}, authenticatedComponents())
+	assert.Equal(t, []string{other.Name}, trigger.keys)
+
+	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), userID, other.Name, other.Spec.Manifest.RemoteConfig.URL)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	token, err := gatewayClient.GetMCPOAuthToken(t.Context(), userID, component.Name, component.Spec.Manifest.RemoteConfig.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "token-"+component.Name, token.AccessToken)
+
+	_, err = clearComponent("missing")
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusNotFound, httpErr.Code)
+}
+
+func TestClearOAuthCredentialsVMCPComponentClearsTokenFromPreviousURL(t *testing.T) {
+	const (
+		vmcpID      = "vmcp1clear-moved-oauth"
+		userID      = "user-clear-moved-oauth"
+		componentID = "component-a"
+	)
+	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
+	manager, storage, gatewayClient := newVMCPActionSessionManager(t, vmcp, instance, component, unrelated)
+
+	// The user authenticated before the component's URL changed. Token lookups
+	// still fall back to this token, so the reset must remove it too.
+	require.NoError(t, gatewayClient.ReplaceMCPOAuthToken(t.Context(), userID, component.Name, "https://old.example.com/mcp", "", &oauth2.Config{}, &oauth2.Token{AccessToken: "old-token"}))
+	_, err := gatewayClient.GetMCPOAuthToken(t.Context(), userID, component.Name, component.Spec.Manifest.RemoteConfig.URL)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/vmcps/"+vmcpID+"/components/"+componentID+"/oauth", nil)
+	req.SetPathValue("vmcp_id", vmcpID)
+	req.SetPathValue("component_id", componentID)
+	recorder := httptest.NewRecorder()
+	require.NoError(t, (&MCPHandler{
+		mcpSessionManager: manager,
+		controllerBackend: &recordingMCPServerTrigger{},
+	}).ClearOAuthCredentials(api.Context{
+		ResponseWriter: recorder,
+		Request:        req,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User:           testUser(userID),
+	}))
+	assert.Equal(t, http.StatusNoContent, recorder.Code)
+
+	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), userID, component.Name, component.Spec.Manifest.RemoteConfig.URL)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestAggregateComponentServersForActionVMCPUsesServerConfigComponents(t *testing.T) {

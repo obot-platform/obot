@@ -267,6 +267,7 @@
 	"vmcps_profiles_require_vmcp": "In order to create profiles, you must first create a vMCP.",
 	"vmcps_readonly_configuration_prefix": "Configuration for ",
 	"vmcps_readonly_configuration_suffix": " is shown as configured and cannot be changed here.",
+	"vmcps_reauthenticate": "Reauthenticate",
 	"vmcps_recommended_tag": "[Recommended]",
 	"vmcps_refine_tools": "Refine tools",
 	"vmcps_refresh_tools": "Refresh tools",

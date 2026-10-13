@@ -267,6 +267,7 @@
 	"vmcps_profiles_require_vmcp": "프로필을 만들려면 먼저 vMCP를 만들어야 합니다.",
 	"vmcps_readonly_configuration_prefix": "",
 	"vmcps_readonly_configuration_suffix": "의 구성은 설정된 대로 표시되며 여기에서 변경할 수 없습니다.",
+	"vmcps_reauthenticate": "재인증",
 	"vmcps_recommended_tag": "[권장]",
 	"vmcps_refine_tools": "도구 세분화",
 	"vmcps_refresh_tools": "도구 새로 고침",

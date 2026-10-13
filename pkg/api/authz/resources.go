@@ -37,6 +37,8 @@ var (
 			"POST   /api/vmcps/{vmcp_id}/check-oauth",
 			"GET    /api/vmcps/{vmcp_id}/oauth-url",
 			"DELETE /api/vmcps/{vmcp_id}/oauth",
+			"GET    /api/vmcps/{vmcp_id}/oauth-status",
+			"DELETE /api/vmcps/{vmcp_id}/components/{component_id}/oauth",
 			"GET    /api/vmcps/{vmcp_id}/tools",
 			"GET    /api/vmcps/{vmcp_id}/resources",
 			"GET    /api/vmcps/{vmcp_id}/resources/{resource_uri}",

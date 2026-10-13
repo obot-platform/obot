@@ -625,6 +625,8 @@
 							selectedVMcp = updated;
 						}}
 						onSelectComponent={(component) => toolFlow.openComponent(component, item)}
+						onReauthenticateComponent={(componentID) =>
+							vmcpActions?.reauthenticateComponent(item, componentID) ?? Promise.resolve()}
 						bind:connectEl={connectButtonEl}
 						{usersMap}
 						readonly={!canEdit}

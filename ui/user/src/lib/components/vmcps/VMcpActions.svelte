@@ -85,6 +85,28 @@
 		connectVMcpDialog?.open(vmcp, targetInstance, options);
 	}
 
+	// Resolves once the user finishes or dismisses the component's OAuth prompt.
+	export async function reauthenticateComponent(vmcp: VMCP, componentID: string) {
+		const instance = vmcpInstances.current.items.find(
+			(candidate) =>
+				candidate.vmcpID === vmcp.id &&
+				candidate.userID === profile.current.id &&
+				!candidate.deleted
+		);
+		await new Promise<void>((resolve, reject) => {
+			if (!connectVMcpDialog) {
+				resolve();
+				return;
+			}
+			connectVMcpDialog
+				.reauthenticateComponent(vmcp, instance, componentID, {
+					onConnected: resolve,
+					onDismissed: resolve
+				})
+				.catch(reject);
+		});
+	}
+
 	export function openEditInstanceConfiguration(
 		vmcp: VMCP,
 		instance: VMCPInstance,

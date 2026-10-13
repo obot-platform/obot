@@ -46,6 +46,9 @@
 	let launchProgress = $state<number>(0);
 	let launchState = $state<'relaunching' | 'launching' | undefined>();
 	let oauthDialog = $state<HTMLDialogElement>();
+	// True while the OAuth prompt is showing. Every way out of the prompt (its
+	// close buttons, completing authentication, or Escape) ends it exactly once.
+	let oauthPromptOpen = false;
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
@@ -370,10 +373,7 @@
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
 			oauthURL = await getOauthURL();
-			if (!oauthURL) {
-				oauthDialog?.close();
-				finishLaunch();
-			}
+			if (!oauthURL) finishOauthPrompt();
 			oauthVerifying = false;
 		}
 	}
@@ -392,16 +392,30 @@
 		launchProgress = 0;
 		if (oauthURL) {
 			closeConfigureWithoutDismissing();
-			oauthDialog?.showModal();
+			showOauthPrompt();
 		} else {
 			finishLaunch();
 		}
 	}
 
-	function handleOauthClose() {
+	function showOauthPrompt() {
+		oauthPromptOpen = true;
+		oauthDialog?.showModal();
+	}
+
+	function finishOauthPrompt() {
+		if (!oauthPromptOpen) return;
+		oauthPromptOpen = false;
 		oauthDialog?.close();
 		oauthURL = '';
 		finishLaunch();
+	}
+
+	// Escape closes the dialog natively, bypassing the close buttons.
+	function handleOauthDialogClosed() {
+		// A close event that arrives after the prompt reopened belongs to the earlier prompt.
+		if (oauthDialog?.open) return;
+		finishOauthPrompt();
 	}
 
 	export async function authenticate() {
@@ -410,10 +424,30 @@
 		oauthVerifying = false;
 		oauthURL = await getOauthURL();
 		if (oauthURL) {
-			oauthDialog?.showModal();
+			showOauthPrompt();
 		} else {
 			finishLaunch();
 		}
+	}
+
+	// Clears one component's OAuth token and sends the user back through the
+	// component OAuth flow, leaving every other component's authorization intact.
+	export async function reauthenticateComponent(
+		target: VMCP,
+		targetInstance: VMCPInstance | undefined,
+		componentID: string,
+		options?: VMcpConnectOptions
+	) {
+		resetDialogState(target, targetInstance, options);
+		skipConnectDialog = true;
+		connectDialog?.close();
+		try {
+			await UserService.clearVMCPComponentOAuth(target.id, componentID);
+		} catch (err) {
+			dismissConnect();
+			throw err;
+		}
+		await authenticate();
 	}
 
 	async function reauthenticate() {
@@ -703,12 +737,17 @@
 	{/snippet}
 </Confirm>
 
-<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
+<dialog
+	bind:this={oauthDialog}
+	class="dialog"
+	use:dialogAnimation={{ type: 'slide' }}
+	onclose={handleOauthDialogClosed}
+>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
 			{#if oauthURL}
 				<div class="absolute top-2 right-2">
-					<IconButton onclick={handleOauthClose}>
+					<IconButton onclick={finishOauthPrompt}>
 						<X class="size-4" />
 					</IconButton>
 				</div>
@@ -744,7 +783,7 @@
 		</div>
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" aria-label={m.common_close_dialog()} onclick={handleOauthClose}
+		<button type="button" aria-label={m.common_close_dialog()} onclick={finishOauthPrompt}
 			>{m.common_close()}</button
 		>
 	</form>

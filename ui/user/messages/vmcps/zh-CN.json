@@ -267,6 +267,7 @@
 	"vmcps_profiles_require_vmcp": "要创建配置文件，必须先创建 vMCP。",
 	"vmcps_readonly_configuration_prefix": "",
 	"vmcps_readonly_configuration_suffix": " 的配置按已配置的内容显示，无法在此处更改。",
+	"vmcps_reauthenticate": "重新验证",
 	"vmcps_recommended_tag": "[推荐]",
 	"vmcps_refine_tools": "细化工具",
 	"vmcps_refresh_tools": "刷新工具",

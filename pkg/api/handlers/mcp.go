@@ -24,6 +24,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
+	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -46,6 +47,22 @@ type MCPHandler struct {
 	serverURL                 string
 	secretBindingAllowedLabel string
 	forceDynamicClient        bool
+}
+
+// vmcpOAuthStatus lists the vMCP components that hold an OAuth token for the
+// current user, which are the components the user can reauthenticate.
+type vmcpOAuthStatus struct {
+	AuthenticatedComponents []string `json:"authenticatedComponents"`
+}
+
+// vmcpComponentOAuthTarget identifies where the current user's OAuth token for
+// one vMCP component is stored. The URL is empty when the component is not a
+// remote server and therefore never holds a token.
+type vmcpComponentOAuthTarget struct {
+	componentID string
+	serverName  string
+	connectID   string
+	url         string
 }
 
 type urlTemplateConfigurationError struct {
@@ -1246,48 +1263,42 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	mcpServerID := mcpActionID(req)
 
 	if system.IsVMCPID(mcpServerID) {
-		server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpServerID, req.User)
+		// An optional component ID limits the reset to that one component, so
+		// users can reauthenticate it without discarding the others' tokens.
+		componentID := req.PathValue("component_id")
+
+		targets, err := m.vmcpComponentOAuthTargets(req, mcpServerID, catalogID, workspaceID)
 		if err != nil {
 			return err
 		}
 
-		// vMCPs are synthetic MCP servers and intentionally have no catalog or
-		// workspace scope. Keep the same scope check as the legacy endpoint so
-		// scoped routes cannot address an unrelated vMCP.
-		if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server not found")
-		}
-
-		componentServers, err := m.aggregateComponentServersForAction(req, server, serverConfig)
-		if err != nil {
-			return err
-		}
-
-		for i, component := range componentServers {
-			if component.Spec.Manifest.Runtime != types.RuntimeRemote ||
-				component.Spec.Manifest.RemoteConfig == nil {
+		var componentFound bool
+		for _, target := range targets {
+			if componentID != "" {
+				if target.componentID != componentID {
+					continue
+				}
+				componentFound = true
+			}
+			if target.url == "" {
 				continue
 			}
 
-			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User)
-			if err != nil {
-				return fmt.Errorf("failed to get config for vMCP component server %s: %w", component.Name, err)
-			}
-			if componentConfig.Runtime != types.RuntimeRemote {
-				continue
-			}
-			componentURL := componentConfig.URL
-			if componentURL == "" {
-				componentURL = component.Spec.Manifest.RemoteConfig.URL
-			}
-
-			if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), serverConfig.Components[i].ConnectID(), componentURL); err != nil {
+			// The connect ID belongs to this user's connection to this component, so
+			// every token under it is this component's. Clearing them all, rather than
+			// only the current URL's, removes a token saved before the URL changed,
+			// which token lookups would otherwise still fall back to.
+			if err := req.GatewayClient.DeleteMCPOAuthTokens(req.Context(), req.User.GetUID(), target.connectID); err != nil {
 				return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 			}
 
-			if err := m.triggerMCPServerControllers(req.Context(), componentServer.Name); err != nil {
+			if err := m.triggerMCPServerControllers(req.Context(), target.serverName); err != nil {
 				return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
 			}
+		}
+
+		if componentID != "" && !componentFound {
+			return types.NewErrNotFound("vMCP component %q not found", componentID)
 		}
 
 		req.WriteHeader(http.StatusNoContent)
@@ -1318,6 +1329,70 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 
 	req.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+func (m *MCPHandler) GetVMCPOAuthStatus(req api.Context) error {
+	targets, err := m.vmcpComponentOAuthTargets(req, req.PathValue("vmcp_id"), "", "")
+	if err != nil {
+		return err
+	}
+
+	status := vmcpOAuthStatus{AuthenticatedComponents: []string{}}
+	for _, target := range targets {
+		if target.url == "" {
+			continue
+		}
+		if _, err := req.GatewayClient.GetMCPOAuthToken(req.Context(), req.User.GetUID(), target.connectID, target.url); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return fmt.Errorf("failed to get OAuth token for vMCP component %s: %w", target.componentID, err)
+		}
+		status.AuthenticatedComponents = append(status.AuthenticatedComponents, target.componentID)
+	}
+
+	return req.Write(status)
+}
+
+func (m *MCPHandler) vmcpComponentOAuthTargets(req api.Context, vmcpID, catalogID, workspaceID string) ([]vmcpComponentOAuthTarget, error) {
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), vmcpID, req.User)
+	if err != nil {
+		return nil, err
+	}
+
+	// vMCPs are synthetic MCP servers and intentionally have no catalog or
+	// workspace scope. Keep the same scope check as the legacy endpoint so
+	// scoped routes cannot address an unrelated vMCP.
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+		return nil, types.NewErrNotFound("MCP server not found")
+	}
+
+	componentServers, err := m.aggregateComponentServersForAction(req, server, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	targets := make([]vmcpComponentOAuthTarget, 0, len(componentServers))
+	for i, component := range componentServers {
+		target := vmcpComponentOAuthTarget{
+			componentID: component.Spec.VMCPComponentID,
+			serverName:  component.Name,
+			connectID:   serverConfig.Components[i].ConnectID(),
+		}
+		if component.Spec.Manifest.Runtime == types.RuntimeRemote && component.Spec.Manifest.RemoteConfig != nil {
+			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), target.connectID, req.User)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get config for vMCP component server %s: %w", component.Name, err)
+			}
+			if componentConfig.Runtime == types.RuntimeRemote {
+				target.serverName = componentServer.Name
+				target.url = cmp.Or(componentConfig.URL, component.Spec.Manifest.RemoteConfig.URL)
+			}
+		}
+		targets = append(targets, target)
+	}
+
+	return targets, nil
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {

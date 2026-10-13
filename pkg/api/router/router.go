@@ -196,6 +196,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/check-oauth", mcp.CheckOAuth)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/oauth-url", mcp.GetOAuthURL)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}/oauth", mcp.ClearOAuthCredentials)
+	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/oauth-status", mcp.GetVMCPOAuthStatus)
+	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}/components/{component_id}/oauth", mcp.ClearOAuthCredentials)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/tools", mcp.GetTools)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/resources", mcp.GetResources)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/resources/{resource_uri}", mcp.ReadResource)

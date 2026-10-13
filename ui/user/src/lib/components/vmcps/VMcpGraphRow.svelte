@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { OrgUser, VMCP, VMCPInstance } from '$lib/services';
+	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
+	import { UserService, type OrgUser, type VMCP, type VMCPInstance } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
 	import {
 		VMCP_COMPONENT_HEIGHT,
@@ -15,12 +17,13 @@
 	import { getToolCounts, getVMcpCreator } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { hasAccessWithinSubjects } from '$lib/subjectResolver';
+	import DotDotDot from '../DotDotDot.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import './vmcpGraph.css';
-	import { Layers } from '@lucide/svelte';
+	import { KeyRound, Layers } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -38,6 +41,7 @@
 		onDelete?: () => void;
 		onUpdate?: (vmcp: VMCP) => void;
 		onSelectComponent?: (component: VMcpComponentView) => void;
+		onReauthenticateComponent?: (componentID: string) => Promise<void>;
 		usersMap: Map<string, OrgUser>;
 		openSelectInstance?: (
 			instances: VMCPInstance[],
@@ -61,6 +65,7 @@
 		onDelete,
 		onUpdate,
 		onSelectComponent,
+		onReauthenticateComponent,
 		usersMap,
 		openSelectInstance,
 		openDiff,
@@ -95,6 +100,67 @@
 				profile.current
 			)
 	);
+
+	let connected = $derived(vmcpItemContext(vmcp).connected);
+	// Components the user has authenticated with OAuth; only these offer reauthentication.
+	let authenticatedComponents = $state<string[]>([]);
+	// Only the latest request may update the status, so a slow, older response
+	// cannot hide a component the user has since authenticated.
+	let statusRequest = 0;
+
+	async function refreshOAuthStatus(vmcpID: string, signal?: AbortSignal) {
+		const request = ++statusRequest;
+		try {
+			const ids = await UserService.getVMCPOAuthStatus(vmcpID, { signal, dontLogErrors: true });
+			if (!signal?.aborted && request === statusRequest && vmcpID === vmcp.id) {
+				authenticatedComponents = ids;
+			}
+		} catch (err) {
+			if (signal?.aborted || isAbortError(err) || request !== statusRequest) return;
+			authenticatedComponents = [];
+		}
+	}
+
+	$effect(() => {
+		const vmcpID = vmcp.id;
+		if (!onReauthenticateComponent || !connected) {
+			authenticatedComponents = [];
+			return;
+		}
+		const controller = new AbortController();
+		void refreshOAuthStatus(vmcpID, controller.signal);
+
+		// Users authenticate in another tab or window (the OAuth prompt, or an
+		// external MCP client), so check again whenever they come back.
+		const refreshWhenVisible = () => {
+			if (document.visibilityState === 'visible') {
+				void refreshOAuthStatus(vmcpID, controller.signal);
+			}
+		};
+		document.addEventListener('visibilitychange', refreshWhenVisible);
+		window.addEventListener('focus', refreshWhenVisible);
+		return () => {
+			controller.abort();
+			document.removeEventListener('visibilitychange', refreshWhenVisible);
+			window.removeEventListener('focus', refreshWhenVisible);
+		};
+	});
+
+	function canReauthenticate(component: VMcpComponentView): component is VMcpComponentView & {
+		id: string;
+	} {
+		return Boolean(
+			onReauthenticateComponent && component.id && authenticatedComponents.includes(component.id)
+		);
+	}
+
+	async function reauthenticateComponent(componentID: string) {
+		try {
+			await onReauthenticateComponent?.(componentID);
+		} finally {
+			await refreshOAuthStatus(vmcp.id);
+		}
+	}
 
 	function componentSelectable(component: VMcpComponentView) {
 		return Boolean(onSelectComponent) && !(sharedViaProfile && !component.toolOverrides?.length);
@@ -302,7 +368,7 @@
 	{@const selectable = componentSelectable(component)}
 	<div
 		class={twMerge(
-			'p-0.5 text-transparent',
+			'relative p-0.5 text-transparent',
 			selectable && 'hover:aura hover:aura-glow hover:text-primary hover:-translate-y-0.5'
 		)}
 	>
@@ -326,11 +392,25 @@
 				{@render componentContent(component)}
 			</div>
 		{/if}
+		{#if canReauthenticate(component)}
+			<!-- A sibling of the card, not a child, because the card can itself be a button. -->
+			<DotDotDot
+				placement="bottom-start"
+				class="text-base-content absolute top-2 right-2 z-20 size-8"
+				classes={{ menu: 'min-w-48' }}
+				ariaLabel={m.vmcps_deployments_actions_for_named({ name: component.name })}
+			>
+				<button class="menu-button" onclick={() => void reauthenticateComponent(component.id)}>
+					<KeyRound class="size-4" />
+					{m.vmcps_reauthenticate()}
+				</button>
+			</DotDotDot>
+		{/if}
 	</div>
 {/snippet}
 
 {#snippet componentContent(component: VMcpComponentView)}
-	<div class="mb-3 flex items-start gap-2">
+	<div class={twMerge('mb-3 flex items-start gap-2', canReauthenticate(component) && 'pr-8')}>
 		<div class="flex items-center gap-2">
 			<McpServerIcon icon={component.icon} />
 			<div class="min-w-0 grow">

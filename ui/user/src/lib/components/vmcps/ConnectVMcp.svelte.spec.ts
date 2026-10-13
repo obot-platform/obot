@@ -12,7 +12,7 @@ import ConnectVMcp from './ConnectVMcp.svelte';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 vi.mock('$lib/url', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/url')>()),
@@ -519,5 +519,88 @@ describe('ConnectVMcp.svelte', () => {
 
 		await vi.waitFor(() => expect(cleared).toHaveBeenCalledOnce());
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+	});
+
+	it('clears only the chosen component and prompts to authenticate it', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1reauthcomponent', displayName: 'Remote vMCP' }, [
+			createMCPCatalogEntry({ id: 'entry-outlook', name: 'Outlook', runtime: 'remote' }),
+			createMCPCatalogEntry({ id: 'entry-brave', name: 'Brave Search', runtime: 'remote' })
+		]);
+		const clearedAll = vi.fn();
+		const clearedComponent = vi.fn();
+		worker.use(
+			http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => {
+				clearedAll();
+				return HttpResponse.json({});
+			}),
+			http.delete(`/api/vmcps/${vmcp.id}/components/:componentID/oauth`, ({ params }) => {
+				clearedComponent(params.componentID);
+				return HttpResponse.json({});
+			}),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+				HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+			)
+		);
+
+		await preparePageData();
+		const { component } = await render(ConnectVMcp);
+		void component.reauthenticateComponent(vmcp, undefined, 'component-entry-brave');
+
+		await vi.waitFor(() =>
+			expect(clearedComponent).toHaveBeenCalledExactlyOnceWith('component-entry-brave')
+		);
+		expect(clearedAll).not.toHaveBeenCalled();
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+	});
+
+	describe('leaving the component OAuth prompt', () => {
+		async function openComponentPrompt() {
+			const vmcp = createVMCP({ id: 'vmcp1reauthdismiss', displayName: 'Remote vMCP' }, [
+				createMCPCatalogEntry({ id: 'entry-outlook', name: 'Outlook', runtime: 'remote' })
+			]);
+			worker.use(
+				http.delete(`/api/vmcps/${vmcp.id}/components/:componentID/oauth`, () =>
+					HttpResponse.json({})
+				),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+					HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+				)
+			);
+			const onConnected = vi.fn();
+			const onDismissed = vi.fn();
+			await preparePageData();
+			const { component } = await render(ConnectVMcp);
+			void component.reauthenticateComponent(vmcp, undefined, 'component-entry-outlook', {
+				onConnected,
+				onDismissed
+			});
+			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+			return { onConnected, onDismissed };
+		}
+
+		// Outlasts the dialog's 200ms close animation, after which the native close event fires.
+		const closeAnimationSettled = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+		it('finishes the flow when Escape closes the prompt', async () => {
+			const { onConnected, onDismissed } = await openComponentPrompt();
+
+			await userEvent.keyboard('{Escape}');
+
+			await vi.waitFor(() => expect(onConnected).toHaveBeenCalledOnce());
+			await closeAnimationSettled();
+			expect(onConnected).toHaveBeenCalledOnce();
+			expect(onDismissed).not.toHaveBeenCalled();
+		});
+
+		it('finishes the flow once when the close button is used', async () => {
+			const { onConnected } = await openComponentPrompt();
+
+			await page.getByRole('button', { name: 'Close dialog' }).click();
+
+			await vi.waitFor(() => expect(onConnected).toHaveBeenCalledOnce());
+			await closeAnimationSettled();
+			expect(onConnected).toHaveBeenCalledOnce();
+		});
 	});
 });

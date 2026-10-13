@@ -612,6 +612,25 @@ export async function clearMcpServerOAuth(
 	await doDelete(`${mcpActionPath(id)}/oauth`, opts);
 }
 
+export async function clearVMCPComponentOAuth(
+	vmcpID: string,
+	componentID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/vmcps/${vmcpID}/components/${componentID}/oauth`, opts);
+}
+
+// Lists the IDs of the vMCP components the current user has authenticated with OAuth.
+export async function getVMCPOAuthStatus(
+	vmcpID: string,
+	opts?: { signal?: AbortSignal; dontLogErrors?: boolean }
+): Promise<string[]> {
+	const response = (await doGet(`/vmcps/${vmcpID}/oauth-status`, opts)) as {
+		authenticatedComponents?: string[];
+	};
+	return response.authenticatedComponents ?? [];
+}
+
 // 412 means oauth is needed
 export async function getMcpServerOauthURL(
 	id: string,

@@ -545,6 +545,32 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 			userID: "other",
 		},
 		{
+			name:    "profile-matched shared VMCP can delete one component's OAuth",
+			method:  http.MethodDelete,
+			path:    "/api/vmcps/" + shared.Name + "/components/component-a/oauth",
+			userID:  "allowed",
+			allowed: true,
+		},
+		{
+			name:   "profile-unmatched shared VMCP cannot delete one component's OAuth",
+			method: http.MethodDelete,
+			path:   "/api/vmcps/" + shared.Name + "/components/component-a/oauth",
+			userID: "other",
+		},
+		{
+			name:    "profile-matched shared VMCP can read its OAuth status",
+			method:  http.MethodGet,
+			path:    "/api/vmcps/" + shared.Name + "/oauth-status",
+			userID:  "allowed",
+			allowed: true,
+		},
+		{
+			name:   "profile-unmatched shared VMCP cannot read its OAuth status",
+			method: http.MethodGet,
+			path:   "/api/vmcps/" + shared.Name + "/oauth-status",
+			userID: "other",
+		},
+		{
 			name:    "personal VMCP owner is readable through VMCP route",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/" + personal.Name,
