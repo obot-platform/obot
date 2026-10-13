@@ -1303,6 +1303,89 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 	assertImagePullSecrets(t, &updated, []string{"managed"})
 }
 
+func TestRestartServerAppliesAffinityToExistingDeployment(t *testing.T) {
+	desiredAffinity := &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+				Weight: 100,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{{
+							Key:      "mcp-user-id",
+							Operator: metav1.LabelSelectorOpExists,
+						}},
+					},
+					TopologyKey: "kubernetes.io/hostname",
+				},
+			}},
+		},
+	}
+
+	tests := []struct {
+		name             string
+		existingAffinity *corev1.Affinity
+	}{
+		{
+			name:             "deployment without affinity",
+			existingAffinity: nil,
+		},
+		{
+			name: "deployment with different affinity",
+			existingAffinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchExpressions: []corev1.NodeSelectorRequirement{{
+								Key:      "disktype",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"ssd"},
+							}},
+						}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := newTestKubernetesBackend(t,
+				&v1.K8sSettings{
+					Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
+					Spec: v1.K8sSettingsSpec{Affinity: desiredAffinity},
+				},
+			)
+			server := testK8sServerConfig()
+
+			objs, err := k.k8sObjects(t.Context(), server)
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+			// Simulate a deployment created before the affinity setting was configured.
+			dep := findDeployment(t, objs, server.MCPServerName)
+			dep.Spec.Template.Spec.Affinity = tt.existingAffinity
+
+			runtimeScheme := runtime.NewScheme()
+			if err := appsv1.AddToScheme(runtimeScheme); err != nil {
+				t.Fatalf("AddToScheme() error = %v", err)
+			}
+			k.client = fake.NewClientBuilder().WithScheme(runtimeScheme).WithObjects(dep).Build()
+
+			if err := k.restartServer(t.Context(), server); err != nil {
+				t.Fatalf("restartServer() error = %v", err)
+			}
+
+			var updated appsv1.Deployment
+			if err := k.client.Get(t.Context(), kclient.ObjectKey{Name: server.MCPServerName, Namespace: "obot-mcp"}, &updated); err != nil {
+				t.Fatalf("Get() error = %v", err)
+			}
+			if !affinityMatches(updated.Spec.Template.Spec.Affinity, desiredAffinity) {
+				t.Fatalf("affinity = %s, want %s", mustJSON(updated.Spec.Template.Spec.Affinity), mustJSON(desiredAffinity))
+			}
+		})
+	}
+}
+
 func TestStrategicMergePatchReplacesImagePullSecrets(t *testing.T) {
 	dep := &appsv1.Deployment{
 		Spec: appsv1.DeploymentSpec{

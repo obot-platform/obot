@@ -1182,9 +1182,13 @@ func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, 
 	// Add affinity if present
 	if k8sSettings.Affinity != nil {
 		// Use $patch: replace to completely replace the affinity field
-		// rather than merging with existing values
-		affinityMap := map[string]any{
-			"$patch": "replace",
+		// rather than merging with existing values. Only add the directive when the
+		// deployment already has an affinity: strategic merge patch drops any map
+		// containing a directive when the key is missing from the original object,
+		// which would silently discard the desired affinity.
+		affinityMap := map[string]any{}
+		if deployment.Spec.Template.Spec.Affinity != nil {
+			affinityMap["$patch"] = "replace"
 		}
 
 		// Set the actual affinity fields that are present
