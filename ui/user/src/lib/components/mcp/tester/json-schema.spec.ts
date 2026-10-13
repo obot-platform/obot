@@ -289,6 +289,24 @@ describe('MCP tester JSON Schema support', () => {
 		);
 	});
 
+	it('picks the same-typed member the value satisfies and represents it', () => {
+		const union: JSONSchema = {
+			anyOf: [
+				{ type: 'object', properties: { a: { type: 'string' } }, required: ['a'] },
+				{ type: 'object', properties: { b: { type: 'string' } }, required: ['b'] }
+			]
+		};
+		expect(resolveUnionSchema(union, { b: 'x' })?.schema.required).toEqual(['b']);
+		expect(resolveUnionSchema(union, { a: 'x' })?.schema.required).toEqual(['a']);
+		// Mid-edit values that satisfy neither member still keep the type match.
+		expect(resolveUnionSchema(union, {}, 1)?.schema.required).toEqual(['a']);
+		expect(generatedFormRepresents(union, { b: 'x' })).toBe(true);
+		// A value valid only through a member the form renders differently is not.
+		const typeless: JSONSchema = { anyOf: [{ type: 'string', minLength: 3 }, { enum: [5] }] };
+		expect(generatedFormRepresents(typeless, 5)).toBe(false);
+		expect(generatedFormRepresents(typeless, 'abc')).toBe(true);
+	});
+
 	it('still declines unions whose first member cannot render or conflicts with the union', () => {
 		expect(supportsGeneratedForm({ anyOf: [{ enum: [1, 2] }, { type: 'string' }] })).toBe(false);
 		expect(

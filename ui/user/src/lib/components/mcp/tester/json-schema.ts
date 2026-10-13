@@ -114,7 +114,15 @@ export function resolveUnionSchema(
 		candidates.findIndex(
 			(_, index) => memberAcceptsValue(members[index], probe) && renderable(index)
 		);
-	let index = matching(value);
+	// Members can share a type (two object shapes, say), so prefer one the value
+	// actually satisfies before settling for a type match.
+	let index = candidates.findIndex(
+		(candidate, index) =>
+			memberAcceptsValue(members[index], value) &&
+			renderable(index) &&
+			!validateJSONSchema(candidate!, value).length
+	);
+	if (index < 0) index = matching(value);
 	if (index < 0 && previous !== undefined && previous < candidates.length && renderable(previous))
 		index = previous;
 	if (index < 0) index = matching(schema.default);
@@ -371,7 +379,12 @@ export function generatedFormRepresents(schema: JSONSchema, value: unknown): boo
 	if (schema.anyOf || Array.isArray(schema.type)) {
 		const union = resolveUnionSchema(schema, value);
 		if (!union || value === null) return true;
-		if (!memberAcceptsValue(union.schema, value) && !validateJSONSchema(schema, value).length) {
+		// A value the union accepts must also satisfy the member the form renders,
+		// or the control would show something other than what is submitted.
+		if (
+			!validateJSONSchema(schema, value).length &&
+			validateJSONSchema(union.schema, value).length
+		) {
 			return false;
 		}
 		return generatedFormRepresents(union.schema, value);

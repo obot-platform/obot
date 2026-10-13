@@ -222,6 +222,30 @@ describe('JsonSchemaForm', () => {
 		await expect.element(page.getByLabelText('value', { exact: true })).toHaveValue('text');
 	});
 
+	it('renders the same-typed union member that a Raw JSON value satisfies', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					value: {
+						anyOf: [
+							{ type: 'object', properties: { a: { type: 'string' } }, required: ['a'] },
+							{ type: 'object', properties: { b: { type: 'string' } }, required: ['b'] }
+						]
+					}
+				}
+			},
+			onvalidchange
+		});
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"value":{"b":"x"}}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: { b: 'x' } }));
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		await expect.element(page.getByLabelText('b *')).toHaveValue('x');
+		await expect.element(page.getByLabelText('a *')).not.toBeInTheDocument();
+	});
+
 	it('offers a boolean toggle and a null switch for boolean, string, or null unions', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {
