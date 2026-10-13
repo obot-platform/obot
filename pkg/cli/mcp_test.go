@@ -306,6 +306,19 @@ func TestMCPValidateCatalogChecksEntriesOutsideObotVersionRange(t *testing.T) {
 	require.ErrorContains(t, err, `catalog.yaml[3]: duplicate source entry key "shared" also used by`)
 }
 
+func TestMCPValidateCatalogRejectsObotVersionRangeOnVMCPs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`- type: vmcp
+  entryKey: bundle
+  displayName: Bundle
+  maxObotVersion: v0.30.0
+  components: []
+`), 0o600))
+
+	_, err := validateMCPCatalogPaths(t.Context(), io.Discard, []string{path}, true, "yaml")
+	require.ErrorContains(t, err, `catalog.yaml[0]: invalid vMCP: vMCP "Bundle": minObotVersion and maxObotVersion are not supported on vMCPs`)
+}
+
 func TestMCPValidateSystemCatalogSkipsEntriesOutsideObotVersionRange(t *testing.T) {
 	setVersionTag(t, "v0.20.0")
 	path := filepath.Join(t.TempDir(), "catalog.yaml")

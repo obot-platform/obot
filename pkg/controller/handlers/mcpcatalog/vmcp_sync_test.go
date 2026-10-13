@@ -437,7 +437,7 @@ func TestCatalogSyncDoesNotOverwriteUnmanagedVMCP(t *testing.T) {
 		},
 	}
 
-	objects, syncErrors, err := (&Handler{}).prepareCatalogVMCPs(t.Context(), newCatalogFakeClient(existing), catalog, []kclient.Object{desired}, nil)
+	objects, _, syncErrors, err := (&Handler{}).prepareCatalogVMCPs(t.Context(), newCatalogFakeClient(existing), catalog, []kclient.Object{desired}, nil)
 	require.NoError(t, err)
 	require.Empty(t, objects)
 	require.Contains(t, syncErrors["source"], "conflicts")
@@ -679,8 +679,9 @@ components:
 	require.NoError(t, client.List(t.Context(), &vmcps))
 	require.Len(t, vmcps.Items, 1)
 
-	// On an older version, the out-of-range entry and the vMCP that depends on it are removed
-	// without a sync error, so unrelated removals from the catalog are still reconciled.
+	// On an older version, the out-of-range entry is removed without a sync error, so unrelated
+	// removals from the catalog are still reconciled. The existing vMCP that depends on it is kept
+	// as it is, with its servers and configuration.
 	version.Tag = "v0.20.0"
 	writeEntries(future)
 	require.Empty(t, sync().Status.SyncErrors)
@@ -688,5 +689,61 @@ components:
 	require.Empty(t, entries.Items)
 	require.NoError(t, client.List(t.Context(), &vmcps))
 	require.Len(t, vmcps.Items, 1)
+	require.Nil(t, vmcps.Items[0].DeletionTimestamp)
+	retained := vmcps.Items[0]
+
+	// Back in range, the kept vMCP is synced again.
+	version.Tag = "v0.21.0"
+	require.Empty(t, sync().Status.SyncErrors)
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Len(t, vmcps.Items, 1)
+	require.Equal(t, retained.Name, vmcps.Items[0].Name)
+	require.Nil(t, vmcps.Items[0].DeletionTimestamp)
+
+	// Removing the vMCP from its source still deletes it.
+	require.NoError(t, os.Remove(filepath.Join(vmcpsDir, "vmcp.yaml")))
+	require.Empty(t, sync().Status.SyncErrors)
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Len(t, vmcps.Items, 1)
 	require.NotNil(t, vmcps.Items[0].DeletionTimestamp)
+}
+
+func TestCatalogSyncDoesNotCreateVMCPsWithVersionSkippedComponents(t *testing.T) {
+	originalTag := version.Tag
+	version.Tag = "v0.20.0"
+	t.Cleanup(func() { version.Tag = originalTag })
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "catalog.yaml"), []byte(`- entryKey: current
+  name: Current
+  runtime: npx
+  npxConfig: {package: current}
+- entryKey: future
+  name: Future
+  minObotVersion: v0.21.0
+  runtime: npx
+  npxConfig: {package: future}
+- type: vmcp
+  entryKey: bundle
+  displayName: Bundle
+  components:
+    - name: Future
+      id: future
+      mcpServerCatalogEntryKey: future
+`), 0o600))
+
+	catalog := testCatalog()
+	catalog.Spec.SourceURLs = []string{dir}
+	catalog.Annotations = map[string]string{v1.MCPCatalogSyncAnnotation: "true"}
+	client := newCatalogFakeClient(catalog)
+	require.NoError(t, newParseTestHandler(t).Sync(router.Request{Ctx: t.Context(), Client: client, Object: catalog}, &parseTestResponse{}))
+	require.Empty(t, catalog.Status.SyncErrors)
+
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, client.List(t.Context(), &entries))
+	require.Len(t, entries.Items, 1)
+	require.Equal(t, "Current", entries.Items[0].Spec.Manifest.Name)
+	var vmcps v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &vmcps))
+	require.Empty(t, vmcps.Items)
 }

@@ -183,7 +183,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for sourceURL, errMsg := range staticConfigurationErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
-	toAdd, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd, versionSkippedRefs)
+	toAdd, retainedVMCPs, vmcpErrors, err := h.prepareCatalogVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd, versionSkippedRefs)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
 		return err
 	}
-	if err := reconcileRemovedVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
+	if err := reconcileRemovedVMCPs(req.Ctx, req.Client, mcpCatalog, toAdd, retainedVMCPs); err != nil {
 		return err
 	}
 
@@ -647,7 +647,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		// Check the range before the item type so that items of types introduced by newer Obot
-		// versions are skipped rather than reported as unsupported. vMCPs do not support bounds.
+		// versions are skipped rather than reported as unsupported. vMCPs do not support bounds,
+		// and DecodeVMCPManifest rejects them.
 		if inRange, err := inObotVersionRange(item, "catalog entry"); err != nil {
 			errs = append(errs, err)
 			continue

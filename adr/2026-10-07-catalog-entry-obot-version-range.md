@@ -30,8 +30,9 @@ ignore the bounds.
 The bounds are enforced when a catalog source is synced. The range is checked before
 any other validation of an entry, and an entry outside the running version's range is
 skipped as if it were absent from the source. A vMCP whose component references a
-skipped entry, in any source, is skipped the same way. Neither produces a sync error.
-Catalogs re-sync on startup whenever the Obot version changes.
+skipped entry, in any source, is not created, and an existing one is kept as it is
+instead of being updated or removed. Neither produces a sync error. Catalogs re-sync
+on startup whenever the Obot version changes.
 
 The catalog validation CLI applies the same range check with its own version. For an
 entry outside that range, it checks only the bounds and the entry key (or, for system
@@ -62,12 +63,17 @@ easy for catalog authors to read and validate.
   catalog source. Existing servers and filters keep running, but an entry that is in
   use is detached rather than hidden, and an existing filter whose system entry is
   gone cannot be edited.
+- A vMCP is not detached like an entry, and removing one deletes its servers and its
+  stored configuration. An existing vMCP whose component leaves the supported range
+  is therefore kept, still visible and unchanged, so that it keeps running and is
+  synced again when the version is back in range.
 - Obot versions released before this decision ignore the fields and show gated
   entries. Gating applies only from the first release that includes it.
 - Publishing multiple versions of the same entry for different Obot version ranges is
   not supported. The catalog validation CLI rejects the duplicate entry keys and names
   this would need.
-- vMCP catalog items do not support version bounds.
+- vMCP catalog items do not support version bounds. Catalog sync and the validation
+  CLI reject them.
 
 ## References
 

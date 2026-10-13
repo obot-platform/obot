@@ -25,8 +25,9 @@ var (
 
 // prepareCatalogVMCPs resolves catalog vMCP components. vMCPs that reference an entry in
 // versionSkippedRefs are unavailable on this Obot version, like the entry, and are left out
-// without reporting a sync error.
-func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, objs []kclient.Object, versionSkippedRefs map[string]struct{}) ([]kclient.Object, map[string]string, error) {
+// without reporting a sync error. An existing vMCP left out this way is returned in retained, so
+// that it is kept as it is rather than removed, with its servers and configuration.
+func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, objs []kclient.Object, versionSkippedRefs map[string]struct{}) (desired []kclient.Object, retained map[string]struct{}, syncErrors map[string]string, err error) {
 	entries := make([]kclient.Object, 0, len(objs))
 	vmcps := make([]*v1.VMCP, 0)
 	entriesByRef := make(map[string]*v1.MCPServerCatalogEntry)
@@ -42,12 +43,12 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		}
 	}
 	if len(vmcps) == 0 {
-		return objs, nil, nil
+		return objs, nil, nil, nil
 	}
 
 	var existingList v1.VMCPList
 	if err := c.List(ctx, &existingList, kclient.InNamespace(catalog.Namespace)); err != nil {
-		return nil, nil, fmt.Errorf("failed to list vMCPs: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to list vMCPs: %w", err)
 	}
 	existingByName := make(map[string]*v1.VMCP, len(existingList.Items))
 	for index := range existingList.Items {
@@ -65,7 +66,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 			if err := c.Get(ctx, kclient.ObjectKey{Namespace: existing.Namespace, Name: component.MCPServerCatalogEntryID}, &entry); apierrors.IsNotFound(err) {
 				continue
 			} else if err != nil {
-				return nil, nil, fmt.Errorf("failed to recover vMCP component catalog reference: %w", err)
+				return nil, nil, nil, fmt.Errorf("failed to recover vMCP component catalog reference: %w", err)
 			}
 			if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
 				existing.Spec.ComponentCatalogReferences[component.ID] = sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
@@ -75,7 +76,8 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		existingByName[existing.Name] = existing
 	}
 
-	syncErrors := make(map[string]string)
+	retained = make(map[string]struct{})
+	syncErrors = make(map[string]string)
 	seenNames := make(map[string]struct{}, len(vmcps))
 	for _, vmcp := range vmcps {
 		sourceURL := vmcp.Spec.SourceURL
@@ -102,6 +104,9 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 
 		if err := resolveCatalogVMCPComponents(vmcp, existing, sourceURL, entriesByRef, versionSkippedRefs); errors.Is(err, errComponentVersionSkipped) {
 			slog.Info("Skipping vMCP that references a catalog entry outside supported Obot version range", "vmcp", vmcp.Spec.Manifest.DisplayName, "error", err)
+			if existing != nil {
+				retained[existing.Name] = struct{}{}
+			}
 			continue
 		} else if err != nil {
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
@@ -149,7 +154,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		seenNames[vmcp.Name] = struct{}{}
 		entries = append(entries, vmcp)
 	}
-	return entries, syncErrors, nil
+	return entries, retained, syncErrors, nil
 }
 
 // validateCatalogVMCPStaticConfiguration rejects required fixed configuration
@@ -263,7 +268,8 @@ func catalogOwnsVMCP(vmcp *v1.VMCP, catalogName string) bool {
 	return false
 }
 
-func reconcileRemovedVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object) error {
+// reconcileRemovedVMCPs deletes the catalog's vMCPs that are neither desired nor retained.
+func reconcileRemovedVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, retained map[string]struct{}) error {
 	desiredNames := make(map[string]struct{})
 	for _, obj := range desired {
 		if vmcp, ok := obj.(*v1.VMCP); ok {
@@ -281,6 +287,9 @@ func reconcileRemovedVMCPs(ctx context.Context, c kclient.Client, catalog *v1.MC
 			continue
 		}
 		if _, wanted := desiredNames[vmcp.Name]; wanted {
+			continue
+		}
+		if _, kept := retained[vmcp.Name]; kept {
 			continue
 		}
 		if err := c.Delete(ctx, vmcp); err != nil && !apierrors.IsNotFound(err) {

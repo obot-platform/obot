@@ -283,7 +283,7 @@ Use `minObotVersion` and `maxObotVersion` to offer an entry only on the Obot ver
 When the running Obot version is outside the range, Obot skips the entry during catalog sync, as if the entry were not in the source:
 
 - The entry does not appear in Obot and cannot be used to create servers.
-- A [vMCP definition](#vmcp-definitions) that references the entry is skipped too.
+- A [vMCP definition](#vmcp-definitions) that references the entry is not created. A vMCP that already exists is kept as it is, without catalog updates, until the entry is back in range. vMCP definitions do not support `minObotVersion` and `maxObotVersion` themselves.
 - Skipped entries do not cause sync errors, even if they use fields or runtimes that the running Obot version does not support.
 - If an entry that was previously synced falls outside the range, Obot handles it the same way as an entry removed from the source.
 

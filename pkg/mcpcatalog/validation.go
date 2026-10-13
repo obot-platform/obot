@@ -156,7 +156,8 @@ func (b ObotVersionBounds) InCurrentRange() bool {
 }
 
 // DecodeVMCPManifest maps catalog entry-key references to the resolved-ID
-// field used by the vMCP API and storage model.
+// field used by the vMCP API and storage model. vMCPs do not support Obot
+// version bounds, so they are rejected rather than ignored.
 func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 	var manifest types.VMCPManifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
@@ -164,13 +165,18 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 	}
 
 	var references struct {
-		EntryKey   string `json:"entryKey"`
-		Components []struct {
+		EntryKey       string `json:"entryKey"`
+		MinObotVersion string `json:"minObotVersion"`
+		MaxObotVersion string `json:"maxObotVersion"`
+		Components     []struct {
 			EntryKey string `json:"mcpServerCatalogEntryKey"`
 		} `json:"components"`
 	}
 	if err := yaml.Unmarshal(data, &references); err != nil {
 		return manifest, err
+	}
+	if references.MinObotVersion != "" || references.MaxObotVersion != "" {
+		return manifest, fmt.Errorf("vMCP %q: minObotVersion and maxObotVersion are not supported on vMCPs", manifest.DisplayName)
 	}
 
 	for i := range manifest.Components {

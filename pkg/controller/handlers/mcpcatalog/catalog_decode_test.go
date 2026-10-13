@@ -357,6 +357,21 @@ func TestCatalogSyncSkipsEntriesOutsideObotVersionRange(t *testing.T) {
 	require.Len(t, objects, 4)
 }
 
+func TestCatalogSyncRejectsObotVersionRangeOnVMCPs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`- type: vmcp
+  entryKey: bundle
+  displayName: Bundle
+  minObotVersion: v0.21.0
+  components: []
+`), 0o600))
+
+	handler := &Handler{}
+	objects, _, err := handler.readMCPCatalog(t.Context(), "default", path, "")
+	require.ErrorContains(t, err, `vMCP "Bundle": minObotVersion and maxObotVersion are not supported on vMCPs`)
+	require.Empty(t, objects)
+}
+
 func TestCatalogSyncRejectsInvalidObotVersionRange(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("- name: Bad\n  minObotVersion: latest\n  runtime: npx\n  npxConfig: {package: bad}\n"), 0o600))
