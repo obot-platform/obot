@@ -17,15 +17,17 @@ make dev   # Go server on :8080 (dev mode, auth off) + SvelteKit UI on :5174, pr
 - Readiness: `curl -sf localhost:8080/api/healthz && curl -sf -o /dev/null localhost:5174`.
 - The first page load shows a "Welcome to Obot" EULA dialog; click **Continue**.
 
-## Getting an MCP server to test against
+## Optional: connecting a local MCP server through a vMCP
 
-Remote MCP servers on localhost are refused by default. Start the server with `OBOT_SERVER_DISALLOW_LOCALHOST_MCP=false`, then:
+Only needed when the change involves connecting to MCP servers, vMCPs, or the MCP Tester. Skip this section otherwise.
+
+Remote MCP servers on localhost are refused by default, so start Obot with `OBOT_SERVER_DISALLOW_LOCALHOST_MCP=false`. Then:
 
 ```bash
 # catalog entry for a local streamable-HTTP MCP server
 curl -s -X POST localhost:8080/api/mcp-catalogs/default/entries -H 'content-type: application/json' \
   -d '{"name":"Test","runtime":"remote","remoteConfig":{"fixedURL":"http://localhost:9123/mcp/"}}'
-# wrap it in a vMCP (there is no POST /api/mcp-servers)
+# wrap it in a vMCP to connect to it (there is no POST /api/mcp-servers)
 curl -s -X POST localhost:8080/api/vmcps -H 'content-type: application/json' \
   -d '{"displayName":"Test","components":[{"name":"t","mcpCatalogID":"default","mcpServerCatalogEntryID":"<entry id>"}]}'
 ```
