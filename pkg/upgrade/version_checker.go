@@ -71,7 +71,7 @@ func (c *VersionChecker) start(ctx context.Context, gatewayClient propertyClient
 	c.currentVersion = normalizeVersion(c.currentVersion)
 
 	// Don't start the upgrade check if explicitly disabled or if this is a development version.
-	if disableUpdateCheck || (strings.HasPrefix(c.currentVersion, "v0.0.0") && !forceUpdateCheck) {
+	if disableUpdateCheck || (version.IsDev(c.currentVersion) && !forceUpdateCheck) {
 		close(c.done)
 		return nil
 	}

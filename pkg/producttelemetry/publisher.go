@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"os"
-	"strings"
 	"time"
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
@@ -75,7 +74,7 @@ func newPublisher(consent consentReader, gatewayClient requestGatewayClient, sto
 }
 
 func (p *Publisher) start(ctx context.Context, currentVersion string, force bool) {
-	if strings.HasPrefix(currentVersion, "v0.0.0") && !force {
+	if version.IsDev(currentVersion) && !force {
 		close(p.done)
 		return
 	}
