@@ -115,7 +115,7 @@ func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) ([]byte, bool) {
 func writeGenericToolCallError(req api.Context, callErr error) (int, []byte, bool) {
 	if errors.Is(callErr, errMCPBatchUnsupported) || errors.Is(callErr, errMCPCaseVariantFieldNames) {
 		http.Error(req.ResponseWriter, callErr.Error(), http.StatusBadRequest)
-		return http.StatusBadRequest, nil, true
+		return http.StatusBadRequest, []byte(callErr.Error() + "\n"), true
 	}
 
 	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {

@@ -274,6 +274,63 @@ func TestGenericToolCallRejectsCaseVariantFieldNames(t *testing.T) {
 	}
 }
 
+func TestGenericToolCallRejectionReturnsWrittenBody(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "batch",
+			err:  errMCPBatchUnsupported,
+		},
+		{
+			name: "case variant",
+			err:  errMCPCaseVariantFieldNames,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			status, body, handled := writeGenericToolCallError(api.Context{ResponseWriter: w}, tt.err)
+			if !handled || status != http.StatusBadRequest || w.Code != status {
+				t.Fatalf("rejection: handled=%v status=%d written status=%d", handled, status, w.Code)
+			}
+			if string(body) != tt.err.Error()+"\n" || !bytes.Equal(body, w.Body.Bytes()) {
+				t.Fatalf("returned body=%q written body=%q", body, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestGenericToolCallCaseVariantRejectionIsAudited(t *testing.T) {
+	for _, tt := range caseVariantMCPRequests() {
+		t.Run(tt.name, func(t *testing.T) {
+			req := mustMCPHookRequest(t, tt.body)
+			collector := new(recordingProxyAuditCollector)
+			audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			if !writeAndAuditGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errMCPCaseVariantFieldNames) {
+				t.Fatal("case variant rejection was not handled")
+			}
+			if len(collector.entries) != 2 || collector.entries[1].ResponseStatus != http.StatusBadRequest {
+				t.Fatalf("unexpected rejection audit: %#v", collector.entries)
+			}
+			var body string
+			if err := json.Unmarshal(collector.entries[1].ResponseBody, &body); err != nil {
+				t.Fatal(err)
+			}
+			if body != w.Body.String() || body != errMCPCaseVariantFieldNames.Error()+"\n" {
+				t.Fatalf("audited body=%q written body=%q", body, w.Body.String())
+			}
+			if collector.proxyExchangeIDs[0] == "" || collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
+				t.Fatalf("uncorrelated rejection audit: %v", collector.proxyExchangeIDs)
+			}
+		})
+	}
+}
+
 func TestHookProcessorRejectsCaseVariantFieldNames(t *testing.T) {
 	runner := &scriptedMCPHookRunner{run: func(input obotmcp.SessionMessageHook, _ string) (obotmcp.SessionMessageHook, bool, error) {
 		return obotmcp.SessionMessageHook{Accept: true, Message: input.Message}, true, nil
