@@ -117,10 +117,11 @@ func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, s
 	}
 	if allowAllEgress {
 		// Keep the specific Obot rule so only Obot receives injected credentials.
+		// Separate HTTP and HTTPS ports avoid a protocol tie.
 		desired.Rules = []*pb.EgressRule{
 			rule,
-			{Http: &pb.HTTPRule{Hostnames: []string{"*"}, Ports: &pb.Ports{All: &pb.AllPorts{}}}},
-			{Https: &pb.HTTPSRule{Hostnames: []string{"*"}, Ports: &pb.Ports{All: &pb.AllPorts{}}}},
+			{Http: &pb.HTTPRule{Hostnames: []string{"*"}, Ports: &pb.Ports{Numbers: []int32{80}}}},
+			{Https: &pb.HTTPSRule{Hostnames: []string{"*"}, Ports: &pb.Ports{Numbers: []int32{443}}}},
 		}
 	}
 

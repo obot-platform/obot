@@ -31,7 +31,7 @@ For a user matching several profiles:
 | Inherited vMCP list | A profile inheriting the environment list grants that list; an explicit empty list grants no vMCPs. |
 | Actor CPU, memory, idle timeout, retention | Each empty field inherits its environment default; then take the maximum value across matching profiles. Disabled retention (`-1`) wins over finite values. |
 | Additional egress hosts | Union of environment and matching-profile hosts. Profiles can expand network access. |
-| Allow all egress | Enabled if the environment or any matching profile enables it. |
+| Allow all web destinations | Enabled if the environment or any matching profile enables it. |
 | Injected headers | A profile overrides the environment for a destination/header collision; the first matching profile in displayed order wins among profiles. |
 
 For example, two matching profiles granting vMCP A and vMCP B provide both tools, if the environment allows both and the user's vMCP policies permit them. Profiles requesting 1 CPU and 2 CPUs resolve to 2 CPUs. A single profile can lower an environment's actor default; the environment is the inheritance default, not an extra profile included in the maximum.

@@ -163,14 +163,21 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 		.element(page.getByLabelText('Runner image', { exact: true }))
 		.toHaveValue(runtime.image);
 	await expect
-		.element(page.getByLabelText('Allow all egress', { exact: true }).first())
+		.element(page.getByLabelText('Allow all web destinations', { exact: true }).first())
 		.not.toBeChecked();
+	await expect
+		.element(
+			page.getByText('Allow HTTP on port 80 and HTTPS on port 443 to any hostname.', {
+				exact: false
+			})
+		)
+		.toBeVisible();
 	await page.getByRole('button', { name: 'Add hostname', exact: true }).first().click();
 	await page.getByLabelText('Additional HTTPS egress hosts').fill(' *.github.com ');
 	await page.getByRole('button', { name: 'Add hostname', exact: true }).first().click();
 	await page.getByLabelText('Additional HTTPS egress hosts').nth(1).fill('remove.example.com');
 	await page.getByRole('button', { name: 'Remove hostname', exact: true }).nth(1).click();
-	await page.getByLabelText('Allow all egress', { exact: true }).first().click();
+	await page.getByLabelText('Allow all web destinations', { exact: true }).first().click();
 	await expect.element(page.getByLabelText('Additional HTTPS egress hosts')).toBeDisabled();
 	await page.getByLabelText('Runner image', { exact: true }).fill('example/runner:main');
 	await page.getByRole('button', { name: 'Save environment' }).click();
@@ -191,7 +198,7 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 	await page.getByRole('button', { name: 'Add hostname', exact: true }).nth(1).click();
 	await page.getByLabelText('Additional HTTPS hosts for this profile').fill('*.example.com');
 	await page.getByRole('button', { name: 'Add hostname', exact: true }).nth(1).click();
-	await page.getByLabelText('Allow all egress', { exact: true }).nth(1).click();
+	await page.getByLabelText('Allow all web destinations', { exact: true }).nth(1).click();
 	await page.getByRole('button', { name: 'Add secret', exact: true }).first().click();
 	await page.getByLabelText('Destination hostname', { exact: true }).fill('api.example.com');
 	await page.getByLabelText('Header name', { exact: true }).fill('Authorization');
@@ -273,7 +280,9 @@ it.each([false, true])(
 		await expect
 			.element(
 				page.getByText(
-					allowAllEgress ? 'All HTTP and HTTPS egress is allowed.' : 'No additional egress hosts.',
+					allowAllEgress
+						? 'HTTP on port 80 and HTTPS on port 443 are allowed to any hostname.'
+						: 'No additional egress hosts.',
 					{ exact: true }
 				)
 			)

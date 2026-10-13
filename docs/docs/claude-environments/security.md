@@ -13,7 +13,7 @@ The internal Obot service and `api.anthropic.com` are always allowed for the int
 
 Enter hostnames rather than URLs. A wildcard such as `*.github.com` matches **one subdomain level**, such as `api.github.com`. It does not match `github.com` or `a.b.github.com`; add those separately when needed. The environment and profiles support up to 100 unique additional hosts in total. Remember to allow destinations needed for repository cloning, dependencies, and third-party tools.
 
-**Allow all egress** permits HTTP and intercepted HTTPS to any hostname on any port. It does not enable arbitrary TCP or UDP. Auditing and destination-specific credential rules still apply. Any matching profile can enable this broader policy. The saved hostname list becomes effective again when this option is disabled everywhere that applies to the user.
+**Allow all web destinations** permits HTTP on port 80 and intercepted HTTPS on port 443 to any hostname. The internal Obot HTTP endpoint retains its configured port. This option does not enable arbitrary TCP or UDP. Auditing and destination-specific credential rules still apply. Any matching profile can enable this broader policy. The saved hostname list becomes effective again when this option is disabled everywhere that applies to the user.
 
 Policy changes also reach running sessions. Reconciliation and gateway caching normally take approximately 15 seconds; requests already in flight are not canceled. Test with a new request, not an existing connection or Claude's recollection of an earlier result.
 

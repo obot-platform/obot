@@ -147,12 +147,20 @@ func TestClaudeAllowAllEgress(t *testing.T) {
 	require.Equal(t, []string{"obot.obot.svc"}, control.policy.Rules[0].Http.Hostnames)
 	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 1)
 	require.Equal(t, []string{"*"}, control.policy.Rules[1].Http.Hostnames)
-	require.NotNil(t, control.policy.Rules[1].Http.Ports.All)
+	// Wildcard HTTP and HTTPS rules must use distinct ports.
+	require.Nil(t, control.policy.Rules[1].Http.Ports.All)
+	require.Equal(t, []int32{80}, control.policy.Rules[1].Http.Ports.Numbers)
 	require.Nil(t, control.policy.Rules[1].Http.Effects)
 	require.Equal(t, []string{"*"}, control.policy.Rules[2].Https.Hostnames)
-	require.NotNil(t, control.policy.Rules[2].Https.Ports.All)
+	require.Nil(t, control.policy.Rules[2].Https.Ports.All)
+	require.Equal(t, []int32{443}, control.policy.Rules[2].Https.Ports.Numbers)
 	require.Nil(t, control.policy.Rules[2].Https.Effects)
 	require.Nil(t, control.policy.Rules[2].TlsPassthrough)
+	require.Equal(t, 1, control.updates)
+
+	_, err = client.EnsureClaude(t.Context(), instance, nil, nil, true, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, control.updates)
 
 	_, err = client.EnsureClaude(t.Context(), instance, nil, []string{"*.github.com"}, false, nil)
 	require.NoError(t, err)

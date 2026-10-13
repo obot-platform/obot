@@ -64,7 +64,7 @@ Replace `obot-obot` with your release's Obot Deployment name. To inspect a parti
 | Obot says Running, Claude says no runner | A running actor does not prove the Claude process registered. Inspect Obot/runner failures, environment key, outbound Anthropic connectivity, and the latest execution. |
 | Runner integration failed / HTTP 403 | Mapped user is active, environment profile matches, effective vMCP list is allowed by the vMCP itself, and Claude Tag has its own permissions if applicable. |
 | Suspension/resume fails | Snapshot bucket permissions, database health, image compatibility, and retained runtime state. A control-plane restart does not repair incompatible snapshots. |
-| Removed hostname still appears accessible | Wait for reconciliation/cache expiry, make a fresh request, and check other matching profiles or Allow all egress. Internal Obot and Anthropic remain allowed. |
+| Removed hostname still appears accessible | Wait for reconciliation/cache expiry, make a fresh request, and check other matching profiles or Allow all web destinations. Internal Obot and Anthropic remain allowed. |
 | No audit body | Auditor membership, request completion/batch delay, truncation, or dropped capture. A WebSocket transcript is not captured. |
 
 ## Maintenance, backup, and shutdown

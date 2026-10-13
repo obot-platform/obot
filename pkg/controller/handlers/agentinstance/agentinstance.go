@@ -82,7 +82,7 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 	if err != nil {
 		// Do not copy RPC errors into user-visible state: upstream validation may contain environment values.
 		slog.ErrorContext(ctx, "Agent reconciliation failed", "instance", instance.Name, "code", status.Code(err))
-		instance.Status.Error = "Reconciliation pending; check the Substrate control plane and worker status. An active turn must finish before suspension."
+		instance.Status.Error = "Session reconciliation failed. Obot will retry automatically. Check the Substrate control plane and worker status."
 		if status.Code(err) == codes.ResourceExhausted {
 			instance.Status.Error = "Waiting for an available Substrate worker; startup will retry automatically."
 		}
