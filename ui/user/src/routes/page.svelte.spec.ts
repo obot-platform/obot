@@ -43,7 +43,9 @@ describe('home page', () => {
 
 		await expect
 			.element(page.getByRole('alert'))
-			.toHaveTextContent('You are not authorized to access this application. Contact your administrator.');
+			.toHaveTextContent(
+				'You are not authorized to access this application. Contact your administrator.'
+			);
 		await expect.element(page.getByRole('button', { name: /Continue with Okta/ })).toBeVisible();
 	});
 
