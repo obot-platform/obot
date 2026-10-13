@@ -9,6 +9,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -28,35 +29,24 @@ func (c *Client) GetProperty(ctx context.Context, key string) (types.Property, e
 	return p, c.decryptProperty(ctx, &p)
 }
 
+// SetProperty creates or overwrites the property with a single upsert, so writers racing to create it don't conflict.
+// The returned property's CreatedAt is the time of this write, even when the property already existed.
 func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Property, error) {
 	now := time.Now()
-	var p types.Property
-	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("key = ?", key).First(&p).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				p = types.Property{
-					Key:       key,
-					Value:     value,
-					CreatedAt: now,
-					UpdatedAt: now,
-				}
-				toStore := p
-				if err := c.encryptProperty(ctx, &toStore); err != nil {
-					return err
-				}
-				return tx.Create(&toStore).Error
-			}
-			return err
-		}
-		p.Value = value
-		p.Encrypted = false
-		p.UpdatedAt = time.Now()
-		toStore := p
-		if err := c.encryptProperty(ctx, &toStore); err != nil {
-			return err
-		}
-		return tx.Save(&toStore).Error
-	})
+	p := types.Property{
+		Key:       key,
+		Value:     value,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	toStore := p
+	if err := c.encryptProperty(ctx, &toStore); err != nil {
+		return p, err
+	}
+	err := c.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "encrypted", "updated_at"}),
+	}).Create(&toStore).Error
 	return p, err
 }
 

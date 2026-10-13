@@ -91,6 +91,9 @@ func (h *LicenseHandler) Update(req api.Context) error {
 		if errors.Is(err, license.ErrInvalidLicense) {
 			return apitypes.NewErrBadRequest("license key is invalid")
 		}
+		if errors.Is(err, license.ErrLicenseCheckFailed) {
+			return apitypes.NewErrHTTP(http.StatusBadGateway, "couldn't reach the license server to check the license key, try again later")
+		}
 		return err
 	}
 
@@ -110,6 +113,9 @@ func (h *LicenseHandler) CheckLicense(req api.Context) error {
 	}
 
 	if err := h.licenseProvider.Validate(req.Context()); err != nil {
+		if errors.Is(err, license.ErrLicenseCheckFailed) {
+			return apitypes.NewErrHTTP(http.StatusBadGateway, "couldn't reach the license server to check the license key, try again later")
+		}
 		if !errors.Is(err, license.ErrNotConfigured) {
 			return err
 		}

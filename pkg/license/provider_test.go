@@ -3,6 +3,7 @@ package license
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,70 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 )
+
+// fakeKeygen answers license checks for license-1 with a valid license granting EnterpriseAuthProvidersEntitlement,
+// unless it's set to fail or reject them.
+type fakeKeygen struct {
+	// fail, if set, handles every request instead.
+	fail http.HandlerFunc
+
+	// meStatus and meCode, if meCode is set, are the error /v1/me answers with.
+	meStatus int
+	meCode   string
+
+	// validationCode, if set, is the code of a valid:false validation result.
+	validationCode string
+
+	// activationCode, if set, is the error code machine activation is refused with.
+	activationCode string
+}
+
+func (k *fakeKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/vnd.api+json")
+	if k.fail != nil {
+		k.fail(w, r)
+		return
+	}
+
+	switch r.URL.Path {
+	case "/v1/me":
+		if k.meCode != "" {
+			w.WriteHeader(k.meStatus)
+			_, _ = fmt.Fprintf(w, `{"errors":[{"title":"Rejected","code":%q}]}`, k.meCode)
+			return
+		}
+		_, _ = fmt.Fprint(w, licenseResponse())
+	case "/v1/licenses/license-1/actions/validate":
+		if k.validationCode != "" {
+			_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", k.validationCode, false))
+			return
+		}
+		_, _ = fmt.Fprint(w, validationResponse())
+	case "/v1/machines":
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = fmt.Fprintf(w, `{"errors":[{"title":"Unprocessable resource","code":%q}]}`, k.activationCode)
+	case "/v1/licenses/license-1/entitlements":
+		_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func unavailable(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+}
+
+func newTestProvider(ctx context.Context, t *testing.T, gatewayClient *gatewayclient.Client, url string) *Provider {
+	t.Helper()
+
+	provider, err := newProvider(ctx, gatewayClient, Config{
+		LicenseKey: "license-key",
+	}, url)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	return provider
+}
 
 func requireValidLicense(ctx context.Context, t *testing.T, provider *Provider) bool {
 	t.Helper()
@@ -215,7 +280,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 	}
 }
 
-func TestUpdateRefreshesEntitlements(t *testing.T) {
+func TestValidateRefreshesEntitlements(t *testing.T) {
 	entitlement := EnterpriseAuthProvidersEntitlement
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
@@ -243,8 +308,8 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 	}
 
 	entitlement = "OTHER_ENTITLEMENT"
-	if err := provider.update(ctx); err != nil {
-		t.Fatalf("expected provider update to succeed: %v", err)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected validation to succeed: %v", err)
 	}
 
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
@@ -255,7 +320,7 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 	}
 }
 
-func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
+func TestValidateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	invalid := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
@@ -288,8 +353,8 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	}
 
 	invalid = true
-	if err := provider.update(ctx); err != nil {
-		t.Fatalf("expected provider update to succeed: %v", err)
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected validation to succeed: %v", err)
 	}
 
 	if requireValidLicense(ctx, t, provider) {
@@ -522,6 +587,207 @@ func TestRemoveLicenseKeyWaitsForRefreshBeforeClearingState(t *testing.T) {
 	}
 	if provider.hasEntitlement("OLD_ENTITLEMENT") {
 		t.Fatal("expected removed license entitlements to be cleared")
+	}
+}
+
+func TestKeygenFailuresKeepEntitlements(t *testing.T) {
+	tests := []struct {
+		name string
+		fail http.HandlerFunc
+	}{
+		{
+			name: "server error",
+			fail: unavailable,
+		},
+		{
+			name: "rate limited",
+			fail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Too many requests","code":"TOO_MANY_REQUESTS"}]}`)
+			},
+		},
+		{
+			name: "Keygen account subscription inactive",
+			fail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Account does not have an active subscription"}]}`)
+			},
+		},
+		{
+			name: "Keygen account request limit reached",
+			fail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusPaymentRequired)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Daily API request limit reached"}]}`)
+			},
+		},
+		{
+			name: "Keygen account not found",
+			fail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Not found","code":"NOT_FOUND"}]}`)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keygen := &fakeKeygen{}
+			server := httptest.NewServer(keygen)
+			defer server.Close()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			gatewayClient := newTestLicenseGatewayClient(t)
+
+			provider := newTestProvider(ctx, t, gatewayClient, server.URL)
+
+			keygen.fail = tt.fail
+			if err := provider.Validate(ctx); !errors.Is(err, ErrLicenseCheckFailed) {
+				t.Fatalf("expected the failed check to be reported, got %v", err)
+			}
+			if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected entitlement to be kept")
+			}
+
+			// A replica starting while Keygen fails should use them too.
+			restarted := newTestProvider(ctx, t, gatewayClient, server.URL)
+			if !restarted.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected restarted provider to use the saved entitlements")
+			}
+		})
+	}
+}
+
+func TestKeygenRejectionsDegrade(t *testing.T) {
+	tests := []struct {
+		name   string
+		reject func(*fakeKeygen)
+	}{
+		{
+			name: "invalid key",
+			reject: func(k *fakeKeygen) {
+				k.meStatus, k.meCode = http.StatusUnauthorized, "LICENSE_INVALID"
+			},
+		},
+		{
+			name: "banned",
+			reject: func(k *fakeKeygen) {
+				k.meStatus, k.meCode = http.StatusForbidden, "LICENSE_BANNED"
+			},
+		},
+		{
+			name: "suspended",
+			reject: func(k *fakeKeygen) {
+				k.meStatus, k.meCode = http.StatusForbidden, "LICENSE_SUSPENDED"
+			},
+		},
+		{
+			name: "expired",
+			reject: func(k *fakeKeygen) {
+				k.meStatus, k.meCode = http.StatusForbidden, "LICENSE_EXPIRED"
+			},
+		},
+		{
+			name: "license authentication not allowed",
+			reject: func(k *fakeKeygen) {
+				k.meStatus, k.meCode = http.StatusForbidden, "LICENSE_NOT_ALLOWED"
+			},
+		},
+		{
+			name: "validation failed",
+			reject: func(k *fakeKeygen) {
+				k.validationCode = "SUSPENDED"
+			},
+		},
+		{
+			name: "machine limit",
+			reject: func(k *fakeKeygen) {
+				k.validationCode, k.activationCode = "NO_MACHINE", "MACHINE_LIMIT_EXCEEDED"
+			},
+		},
+		{
+			name: "core limit",
+			reject: func(k *fakeKeygen) {
+				k.validationCode, k.activationCode = "NO_MACHINE", "MACHINE_CORE_LIMIT_EXCEEDED"
+			},
+		},
+		{
+			name: "group machine limit",
+			reject: func(k *fakeKeygen) {
+				k.validationCode, k.activationCode = "NO_MACHINE", "GROUP_MACHINE_LIMIT_EXCEEDED"
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keygen := &fakeKeygen{}
+			server := httptest.NewServer(keygen)
+			defer server.Close()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			gatewayClient := newTestLicenseGatewayClient(t)
+
+			provider := newTestProvider(ctx, t, gatewayClient, server.URL)
+
+			tt.reject(keygen)
+			if err := provider.Validate(ctx); err != nil {
+				t.Fatalf("expected the rejection to be a successful check: %v", err)
+			}
+			if requireValidLicense(ctx, t, provider) {
+				t.Fatal("expected rejected license to be invalid")
+			}
+
+			// A replica starting while Keygen is down shouldn't bring back the rejected license.
+			keygen.fail = unavailable
+			restarted := newTestProvider(ctx, t, gatewayClient, server.URL)
+			if requireValidLicense(ctx, t, restarted) {
+				t.Fatal("expected rejected license to stay invalid after restart")
+			}
+		})
+	}
+}
+
+func TestSetLicenseKeyRequiresKeygenVerdict(t *testing.T) {
+	keygen := &fakeKeygen{}
+	server := httptest.NewServer(keygen)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+
+	keygen.fail = unavailable
+	err = provider.SetLicenseKey(ctx, "license-key")
+	if !errors.Is(err, ErrLicenseCheckFailed) {
+		t.Fatalf("expected setting a key while Keygen is unavailable to fail with the check error, got %v", err)
+	}
+	if licenseKey, err := provider.LicenseKey(ctx); err != nil || licenseKey != "" {
+		t.Fatalf("expected license key not to be stored, got %q, %v", licenseKey, err)
+	}
+}
+
+func TestValidateKeepsCachedStateWhenSavedEntitlementsUnreadable(t *testing.T) {
+	keygen := &fakeKeygen{}
+	server := httptest.NewServer(keygen)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	gatewayClient := newTestLicenseGatewayClient(t)
+
+	provider := newTestProvider(ctx, t, gatewayClient, server.URL)
+	if _, err := gatewayClient.SetProperty(ctx, entitlementsPropertyKey("license-key"), "corrupt"); err != nil {
+		t.Fatalf("failed to corrupt saved entitlements: %v", err)
+	}
+
+	keygen.fail = unavailable
+	if err := provider.Validate(ctx); err == nil {
+		t.Fatal("expected validation to report the unreadable saved entitlements")
+	}
+	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+		t.Fatal("expected cached entitlements to be kept")
 	}
 }
 

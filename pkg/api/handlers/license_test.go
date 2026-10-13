@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,10 +95,25 @@ func TestCheckLicenseCooldown(t *testing.T) {
 	}
 }
 
+func TestUpdateLicenseMapsCheckFailureToBadGateway(t *testing.T) {
+	t.Parallel()
+
+	handler := NewLicenseHandler(&fakeCommunityLicenseProvider{
+		setError: fmt.Errorf("%w: %w", license.ErrLicenseCheckFailed, errors.New("keygen is unavailable")),
+	}, nil)
+	err := handler.Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest(http.MethodPut, "/api/license", strings.NewReader(`{"licenseKey":"license-key"}`)),
+		User:           &user.DefaultInfo{},
+	})
+	requireHTTPError(t, err, http.StatusBadGateway)
+}
+
 func TestCheckLicenseSignalsAfterSuccessfulValidation(t *testing.T) {
 	for _, tt := range []struct {
 		name         string
 		validateErr  error
+		wantCode     int
 		wantRevision int64
 	}{
 		{
@@ -106,6 +123,12 @@ func TestCheckLicenseSignalsAfterSuccessfulValidation(t *testing.T) {
 		{
 			name:         "not configured",
 			validateErr:  license.ErrNotConfigured,
+			wantRevision: 4,
+		},
+		{
+			name:         "license check failed",
+			validateErr:  license.ErrLicenseCheckFailed,
+			wantCode:     http.StatusBadGateway,
 			wantRevision: 4,
 		},
 	} {
@@ -134,7 +157,9 @@ func TestCheckLicenseSignalsAfterSuccessfulValidation(t *testing.T) {
 				Storage:        storage,
 				User:           &user.DefaultInfo{},
 			})
-			if err != nil {
+			if tt.wantCode != 0 {
+				requireHTTPError(t, err, tt.wantCode)
+			} else if err != nil {
 				t.Fatalf("expected license check to succeed: %v", err)
 			}
 

@@ -2,6 +2,7 @@ package license
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 
 	keygen "github.com/keygen-sh/keygen-go/v3"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +43,12 @@ const (
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
 
+	// licenseEntitlementsPropertyPrefix is followed by a hash of a license key to make the property key that stores the
+	// entitlements Keygen last accepted for it.
+	licenseEntitlementsPropertyPrefix = "obot-license-entitlements-"
+
 	defaultPollInterval = 24 * time.Hour
+	keygenCheckTimeout  = 15 * time.Second
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
 	keygenAPIURL        = "https://api.keygen.sh"
@@ -56,8 +63,11 @@ var (
 	// ErrLicenseKeyViaConfiguration indicates the license key is managed by startup configuration.
 	ErrLicenseKeyViaConfiguration = errors.New("license key is configured at startup")
 
-	// ErrInvalidLicense indicates the provided license key could not be validated.
+	// ErrInvalidLicense indicates Keygen rejected the provided license key.
 	ErrInvalidLicense = errors.New("license key is invalid")
+
+	// ErrLicenseCheckFailed indicates Keygen didn't give a verdict on a license key.
+	ErrLicenseCheckFailed = errors.New("failed to check license key")
 )
 
 // Config contains the Keygen settings needed to validate an Obot license.
@@ -186,6 +196,8 @@ func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, erro
 	}, nil
 }
 
+// SetLicenseKey stores the license key after Keygen accepts it.
+// It returns ErrInvalidLicense when Keygen rejects the key and ErrLicenseCheckFailed when Keygen didn't give a verdict.
 func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -194,6 +206,7 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 
 	entitlements, err := p.validate(ctx, licenseKey)
 	if err != nil {
+		slog.Error("license check failed", "error", err)
 		return err
 	}
 	if entitlements == nil {
@@ -210,6 +223,10 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
+	// Save the entitlements before the key, so any replica that sees the new key has them to fall back on.
+	if err := p.saveEntitlements(ctx, licenseKey, entitlements); err != nil {
+		return err
+	}
 	property, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey)
 	if err != nil {
 		return err
@@ -284,16 +301,33 @@ func (v *keygenValidationResponse) SetMeta(to func(target any) error) error {
 	return to(&v.Result)
 }
 
-func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, error) {
+// validate checks the license key with Keygen, activating this machine if needed, and returns its entitlements.
+// It returns nil entitlements when Keygen rejects the license, and an ErrLicenseCheckFailed error when Keygen didn't
+// give a verdict.
+func (p *Provider) validate(ctx context.Context, licenseKey string) (entitlementSet map[keygen.EntitlementCode]struct{}, err error) {
 	if strings.TrimSpace(licenseKey) == "" {
 		return nil, ErrNotConfigured
 	}
 
+	// Bound the Keygen calls, so a slow Keygen is a failure to check rather than holding up the caller.
+	ctx, cancel := context.WithTimeout(ctx, keygenCheckTimeout)
+	defer cancel()
+
+	// Keygen rejecting the license is a verdict, so return no entitlements rather than an error. Anything else means
+	// Keygen didn't give a verdict.
+	defer func() {
+		if isLicenseRejection(err) {
+			slog.Warn("license rejected", "error", err)
+			entitlementSet, err = nil, nil
+		} else if err != nil {
+			err = fmt.Errorf("%w: %w", ErrLicenseCheckFailed, err)
+		}
+	}()
+
 	keygenClient := p.keygenClient(licenseKey)
 	lic := &keygen.License{}
 	if _, err := keygenClient.Get(ctx, "me", nil, lic); err != nil {
-		slog.Warn("license lookup failed", "error", err)
-		return nil, nil
+		return nil, fmt.Errorf("look up license: %w", err)
 	}
 
 	validation, err := p.validateLicense(ctx, keygenClient, lic)
@@ -313,8 +347,7 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 			machine.Cores = runtime.NumCPU()
 			if _, activationErr := keygenClient.Post(ctx, "machines", machine, &keygen.Machine{}); activationErr != nil &&
 				!errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
-				slog.Warn("license activation failed", "error", activationErr)
-				return nil, nil
+				return nil, fmt.Errorf("activate license: %w", activationErr)
 			}
 
 			validation, err = p.validateLicense(ctx, keygenClient, lic)
@@ -333,12 +366,91 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 		return nil, fmt.Errorf("list license entitlements: %w", err)
 	}
 
-	entitlementSet := make(map[keygen.EntitlementCode]struct{}, len(entitlements))
+	entitlementSet = make(map[keygen.EntitlementCode]struct{}, len(entitlements))
 	for _, entitlement := range entitlements {
 		entitlementSet[entitlement.Code] = struct{}{}
 	}
 
 	return entitlementSet, nil
+}
+
+// loadEntitlements returns the entitlements Keygen last accepted for the license key, or nil if there aren't any.
+func (p *Provider) loadEntitlements(ctx context.Context, licenseKey string) (map[keygen.EntitlementCode]struct{}, error) {
+	if p.gatewayClient == nil {
+		return nil, nil
+	}
+
+	property, err := p.gatewayClient.GetProperty(ctx, entitlementsPropertyKey(licenseKey))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load license entitlements: %w", err)
+	}
+
+	var entitlements map[keygen.EntitlementCode]struct{}
+	if err := json.Unmarshal([]byte(property.Value), &entitlements); err != nil {
+		return nil, fmt.Errorf("failed to decode license entitlements: %w", err)
+	}
+	return entitlements, nil
+}
+
+// saveEntitlements saves the entitlements Keygen accepted for the license key, encrypted in the property table, or
+// deletes them when Keygen rejected the key.
+func (p *Provider) saveEntitlements(ctx context.Context, licenseKey string, entitlements map[keygen.EntitlementCode]struct{}) error {
+	if p.gatewayClient == nil {
+		return nil
+	}
+
+	if entitlements == nil {
+		return p.gatewayClient.DeleteProperty(ctx, entitlementsPropertyKey(licenseKey))
+	}
+
+	value, err := json.Marshal(entitlements)
+	if err != nil {
+		return fmt.Errorf("failed to encode license entitlements: %w", err)
+	}
+	_, err = p.gatewayClient.SetProperty(ctx, entitlementsPropertyKey(licenseKey), string(value))
+	return err
+}
+
+// entitlementsPropertyKey returns the property key for the license key's entitlements.
+// The license key is hashed since property keys aren't encrypted.
+func entitlementsPropertyKey(licenseKey string) string {
+	return licenseEntitlementsPropertyPrefix + hash.String(licenseKey)
+}
+
+// isLicenseRejection reports whether a Keygen error rejects the license:
+//   - License key authentication, which every request goes through, failed with LICENSE_INVALID, LICENSE_BANNED,
+//     LICENSE_SUSPENDED, LICENSE_EXPIRED, or LICENSE_NOT_ALLOWED
+//   - Machine activation was refused because the license's machine, core, or group machine limit is used up
+//
+// Everything else is a failure to check. That includes Keygen API errors about Obot's Keygen account rather than the
+// license, e.g. a 403 for an inactive subscription or a 402 for the daily request limit.
+func isLicenseRejection(err error) bool {
+	// keygen-go returns these as sentinels, without the underlying *keygen.Error.
+	if errors.Is(err, keygen.ErrLicenseSuspended) ||
+		errors.Is(err, keygen.ErrLicenseExpired) ||
+		errors.Is(err, keygen.ErrLicenseNotAllowed) ||
+		errors.Is(err, keygen.ErrMachineLimitExceeded) {
+		return true
+	}
+
+	// The rest come back as a *keygen.Error, and keygen-go has no constants for most of their codes.
+	keygenErr, ok := errors.AsType[*keygen.Error](err)
+	if !ok {
+		return false
+	}
+
+	switch keygen.ErrorCode(keygenErr.Code) {
+	case keygen.ErrorCodeLicenseInvalid,
+		"LICENSE_BANNED",
+		"MACHINE_CORE_LIMIT_EXCEEDED",
+		"GROUP_MACHINE_LIMIT_EXCEEDED":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Provider) validateLicense(ctx context.Context, keygenClient *keygen.Client, lic *keygen.License) (*keygenValidationResponse, error) {
@@ -391,6 +503,7 @@ func (p *Provider) hasEntitlement(key string) bool {
 	return ok
 }
 
+// poll checks the license key with Keygen once a day.
 func (p *Provider) poll(ctx context.Context) {
 	ticker := time.NewTicker(defaultPollInterval)
 	defer ticker.Stop()
@@ -400,23 +513,17 @@ func (p *Provider) poll(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.update(ctx); err != nil {
+			if err := p.Validate(ctx); err != nil {
 				slog.Warn("license update failed", "error", err)
 			} else {
 				p.lock.RLock()
 				entitlements := p.entitlements
 				p.lock.RUnlock()
 
-				slog.Info("license updated successfully", "entitlements", entitlements)
+				slog.Info("license update finished", "entitlements", entitlements)
 			}
 		}
 	}
-}
-
-func (p *Provider) update(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	return p.refresh(ctx, true)
 }
 
 func (p *Provider) cachedSnapshotMatches(snapshot licenseKeySnapshot) bool {
@@ -432,6 +539,10 @@ func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[
 	p.entitlements = entitlements
 }
 
+// refresh checks the license key with Keygen and caches its entitlements, unless force is false and the key hasn't
+// changed since the last check.
+// When Keygen doesn't give a verdict, it falls back to the entitlements Keygen last accepted for the key, and a forced
+// check also returns the ErrLicenseCheckFailed error.
 func (p *Provider) refresh(ctx context.Context, force bool) error {
 	snapshot, err := p.loadLicenseKey(ctx)
 	if err != nil {
@@ -459,6 +570,24 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 	}
 
 	entitlements, err := p.validate(ctx, snapshot.key)
+	checkErr := err
+	if checkErr != nil {
+		// Keygen didn't give a verdict, fall back to the entitlements it last accepted for the key, if there are any.
+		entitlements, err = p.loadEntitlements(ctx, snapshot.key)
+		slog.Error("license check failed", "error", checkErr, "usingSavedEntitlements", entitlements != nil)
+	} else if err := p.saveEntitlements(ctx, snapshot.key, entitlements); err != nil {
+		// Keygen gave a verdict, use it even if it can't be saved for later checks.
+		slog.Error("failed to save license entitlements", "error", err)
+	}
+	if err != nil {
+		// Couldn't load the saved entitlements, keep the cached state so the next check tries again.
+		return err
+	}
+
 	p.setCachedState(snapshot, entitlements)
-	return err
+	if force {
+		// The license keeps working, but an explicit check should report that Keygen didn't answer.
+		return checkErr
+	}
+	return nil
 }

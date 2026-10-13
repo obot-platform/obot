@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -399,6 +400,11 @@ func TestCreateCommunityLicenseMapsIssuerAndInstallFailures(t *testing.T) {
 		{
 			name:       "invalid issued key",
 			installErr: license.ErrInvalidLicense,
+			wantCode:   http.StatusBadGateway,
+		},
+		{
+			name:       "license check failure",
+			installErr: fmt.Errorf("%w: %w", license.ErrLicenseCheckFailed, errors.New(secret)),
 			wantCode:   http.StatusBadGateway,
 		},
 		{

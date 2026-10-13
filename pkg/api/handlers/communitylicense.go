@@ -72,6 +72,9 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		if errors.Is(err, license.ErrInvalidLicense) {
 			return apitypes.NewErrHTTP(http.StatusBadGateway, "the issued Obot Community license is invalid")
 		}
+		if errors.Is(err, license.ErrLicenseCheckFailed) {
+			return apitypes.NewErrHTTP(http.StatusBadGateway, "couldn't reach the license server to check the issued Obot Community license, try again later")
+		}
 		return apitypes.NewErrHTTP(http.StatusInternalServerError, "failed to install the Obot Community license")
 	}
 
