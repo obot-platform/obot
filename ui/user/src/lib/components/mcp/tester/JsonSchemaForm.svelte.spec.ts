@@ -145,6 +145,36 @@ describe('JsonSchemaForm', () => {
 			.toBeVisible();
 	});
 
+	it('keeps a union member control while its input is cleared or holds an unmatched value', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					value: { anyOf: [{ type: 'string' }, { type: 'integer' }] },
+					count: { anyOf: [{ type: 'string' }, { type: 'integer' }], default: 5 }
+				}
+			},
+			onvalidchange
+		});
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"value":7}');
+		await page.getByRole('button', { name: 'Generated form' }).click();
+
+		const value = page.getByLabelText('value', { exact: true });
+		await expect.element(value).toHaveValue(7);
+		await value.clear();
+		await expect.element(value).toHaveAttribute('type', 'number');
+		await value.fill('8');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: 8 }));
+
+		const count = page.getByLabelText('count', { exact: true });
+		await expect.element(count).toHaveAttribute('type', 'number');
+		await count.fill('2.5');
+		await expect.element(count).toHaveAttribute('type', 'number');
+		await expect.element(count).toHaveValue(2.5);
+	});
+
 	it('offers a boolean toggle and a null switch for boolean, string, or null unions', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

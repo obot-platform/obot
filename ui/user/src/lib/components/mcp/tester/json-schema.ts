@@ -33,6 +33,8 @@ export interface ResolvedUnion {
 	nullable: boolean;
 	// Types of the other non-null members, which stay reachable through Raw JSON.
 	alternatives: string[];
+	// Position of the rendered member among the non-null members.
+	index: number;
 }
 
 function jsonTypeOf(value: unknown): string | undefined {
@@ -67,10 +69,16 @@ function mergeUnionMember(base: JSONSchema, member: JSONSchema): JSONSchema | un
 }
 
 // A union renders an ordinary control for one non-null member: the member whose
-// type matches the current value (or, when unset, the schema default), otherwise
-// the first one. Null, when permitted, is offered through a toggle, and the other
-// members remain available in Raw JSON, where every member can be represented.
-export function resolveUnionSchema(schema: JSONSchema, value?: unknown): ResolvedUnion | undefined {
+// type matches the current value, otherwise the previously rendered member (so a
+// cleared or mid-edit input keeps its control), otherwise the member matching the
+// schema default, otherwise the first one. Null, when permitted, is offered
+// through a toggle, and the other members remain available in Raw JSON, where
+// every member can be represented.
+export function resolveUnionSchema(
+	schema: JSONSchema,
+	value?: unknown,
+	previous?: number
+): ResolvedUnion | undefined {
 	let members: JSONSchema[];
 	let candidates: (JSONSchema | undefined)[];
 	let nullable: boolean;
@@ -98,14 +106,19 @@ export function resolveUnionSchema(schema: JSONSchema, value?: unknown): Resolve
 	// constraints on the union or its null branch.
 	if (nullable && validateJSONSchema(schema, null).length) return undefined;
 
-	const probe = value === undefined ? schema.default : value;
-	const matched = candidates.findIndex(
-		(candidate, index) =>
-			candidate !== undefined &&
-			memberAcceptsValue(members[index], probe) &&
-			supportsGeneratedForm(candidate)
-	);
-	const index = matched >= 0 ? matched : 0;
+	const renderable = (index: number) => {
+		const candidate = candidates[index];
+		return candidate !== undefined && supportsGeneratedForm(candidate);
+	};
+	const matching = (probe: unknown) =>
+		candidates.findIndex(
+			(_, index) => memberAcceptsValue(members[index], probe) && renderable(index)
+		);
+	let index = matching(value);
+	if (index < 0 && previous !== undefined && previous < candidates.length && renderable(previous))
+		index = previous;
+	if (index < 0) index = matching(schema.default);
+	if (index < 0) index = 0;
 	const candidate = candidates[index];
 	if (!candidate) return undefined;
 	const result = { ...candidate };
@@ -118,7 +131,7 @@ export function resolveUnionSchema(schema: JSONSchema, value?: unknown): Resolve
 		.map((member) =>
 			typeof member.type === 'string' ? member.type : m.mcps_tester_union_another_type()
 		);
-	return { schema: result, nullable, alternatives: [...new Set(alternatives)] };
+	return { schema: result, nullable, alternatives: [...new Set(alternatives)], index };
 }
 
 function schemaType(schema: JSONSchema): string | undefined {

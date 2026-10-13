@@ -93,7 +93,8 @@ describe('MCP tester JSON Schema support', () => {
 		expect(resolveUnionSchema(nullable.properties!.amount)).toEqual({
 			schema: { type: 'integer' },
 			nullable: false,
-			alternatives: ['string']
+			alternatives: ['string'],
+			index: 0
 		});
 	});
 
@@ -187,26 +188,43 @@ describe('MCP tester JSON Schema support', () => {
 		const boolean = {
 			schema: { type: 'boolean', default: false, description: 'Whether to reply to all' },
 			nullable: false,
-			alternatives: ['string']
+			alternatives: ['string'],
+			index: 0
 		};
 		expect(resolveUnionSchema(union)).toEqual(boolean);
 		expect(resolveUnionSchema(union, true)).toEqual(boolean);
 		expect(resolveUnionSchema(union, 'yes')).toEqual({
 			schema: { type: 'string', default: false, description: 'Whether to reply to all' },
 			nullable: false,
-			alternatives: ['boolean']
+			alternatives: ['boolean'],
+			index: 1
 		});
 		expect(supportsGeneratedForm(union)).toBe(true);
 		expect(defaultJSONSchemaValue(union)).toBe(false);
 
 		const numeric: JSONSchema = { anyOf: [{ type: 'string' }, { type: 'integer' }], default: 5 };
 		expect(resolveUnionSchema(numeric)?.schema.type).toBe('integer');
-		expect(resolveUnionSchema(numeric, 2.5)?.schema.type).toBe('string');
+		expect(resolveUnionSchema(numeric, 2.5)?.schema.type).toBe('integer');
+		expect(resolveUnionSchema({ anyOf: numeric.anyOf }, 2.5)?.schema.type).toBe('string');
 		expect(resolveUnionSchema({ type: ['string', 'integer'] }, 7)).toEqual({
 			schema: { type: 'integer' },
 			nullable: false,
-			alternatives: ['string']
+			alternatives: ['string'],
+			index: 1
 		});
+	});
+
+	it('keeps the previously rendered member while the value matches no member', () => {
+		const union: JSONSchema = { anyOf: [{ type: 'string' }, { type: 'integer' }] };
+		expect(resolveUnionSchema(union, undefined, 1)?.schema.type).toBe('integer');
+		expect(resolveUnionSchema(union, 2.5, 1)?.schema.type).toBe('integer');
+		// A value matching a member still selects that member.
+		expect(resolveUnionSchema(union, 'text', 1)?.schema.type).toBe('string');
+		// The previous member beats the default, and an out-of-range one is ignored.
+		expect(resolveUnionSchema({ ...union, default: 'a' }, undefined, 1)?.schema.type).toBe(
+			'integer'
+		);
+		expect(resolveUnionSchema(union, undefined, 5)?.schema.type).toBe('string');
 	});
 
 	it('keeps the null toggle for unions with several non-null members', () => {
@@ -217,7 +235,8 @@ describe('MCP tester JSON Schema support', () => {
 			expect(resolveUnionSchema(union)).toEqual({
 				schema: { type: 'boolean' },
 				nullable: true,
-				alternatives: ['string']
+				alternatives: ['string'],
+				index: 0
 			});
 			expect(supportsGeneratedForm(union)).toBe(true);
 			expect(defaultJSONSchemaValue(union)).toBe(false);
@@ -351,7 +370,8 @@ describe('MCP tester JSON Schema support', () => {
 		expect(resolveUnionSchema(nullable)).toEqual({
 			schema: { type: 'string', title: 'Union', description: 'Union hint', minLength: 3 },
 			nullable: true,
-			alternatives: []
+			alternatives: [],
+			index: 0
 		});
 	});
 
