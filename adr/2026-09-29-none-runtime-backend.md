@@ -39,8 +39,8 @@ contacts no container runtime:
   global settings and allows exactly `localhost:<port>`, as the Kubernetes backend
   does, so those calls also work with the default `DisallowLocalhostMCP=true`.
 - The system MCP server controller does not retry a launch that fails with
-  `ErrNotSupportedByBackend` (e.g. the containerized built-in `obot` server when
-  agents are enabled): it logs a warning. Other launch errors are still retried.
+  `ErrNotSupportedByBackend` (e.g. the containerized converter behind an HTTP
+  webhook): it logs a warning. Other launch errors are still retried.
 
 ## Rationale
 
@@ -64,8 +64,9 @@ contacts no container runtime:
 - A remote-only deployment can omit the Docker socket mount, which removes the host
   code execution path through deployed MCP servers. The default backend is still
   `docker`: using `none` is an explicit operator choice.
-- With `none`, hosted MCP servers are refused, and containerized system MCP servers,
-  including the built-in `obot` server that agents need, do not run. The hosted-agents
+- With `none`, hosted MCP servers (npx, uvx, containerized, OpenAPI) are refused, and
+  containerized system MCP servers, such as the converter behind an HTTP webhook, do
+  not run: filters must be remote MCP servers. The hosted-agents
   backend is unchanged: for non-Kubernetes runtimes it still resolves to the
   process-local `fake` backend, which does not refuse agents, so agents do not work
   end to end. Unlike what #7978 proposed, hosted agents are not refused with an

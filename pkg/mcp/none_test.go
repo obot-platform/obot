@@ -38,7 +38,7 @@ func TestNoneBackendAllowsRemoteAndVMCP(t *testing.T) {
 }
 
 func TestNoneBackendRefusesHostedServers(t *testing.T) {
-	for _, runtime := range []types.Runtime{types.RuntimeUVX, types.RuntimeNPX, types.RuntimeContainerized} {
+	for _, runtime := range []types.Runtime{types.RuntimeUVX, types.RuntimeNPX, types.RuntimeContainerized, types.RuntimeOpenAPI} {
 		t.Run(string(runtime), func(t *testing.T) {
 			backend := newNoneBackend(8080)
 			server := ServerConfig{
@@ -128,8 +128,8 @@ func TestNoneBackendSelfCallsPassDefaultLoopbackBlock(t *testing.T) {
 	}
 }
 
-// With agents enabled, Obot reconciles its built-in obot system MCP server, which is
-// containerized: LaunchServer must fail with ErrNotSupportedByBackend, which the
+// Obot reconciles containerized system MCP servers (e.g. the converter behind an HTTP
+// webhook): LaunchServer must fail with ErrNotSupportedByBackend, which the
 // system MCP server controller logs as a warning instead of retrying.
 func TestNoneBackendLaunchContainerizedServerIsNotSupported(t *testing.T) {
 	manager := &SessionManager{backend: newNoneBackend(8080)}

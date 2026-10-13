@@ -108,7 +108,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 // launchError decides whether a failed launch is retried. A runtime backend that
 // cannot run this kind of server (e.g. a containerized system server, such as the
-// built-in obot server when agents are enabled, with the none backend) will not
+// converter behind an HTTP webhook, with the none backend) will not
 // support it on the next attempt either: log a warning and stop instead of
 // retrying forever.
 func launchError(serverName string, err error) error {
