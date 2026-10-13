@@ -246,6 +246,33 @@ describe('JsonSchemaForm', () => {
 		await expect.element(page.getByLabelText('a *')).not.toBeInTheDocument();
 	});
 
+	it('keeps a boolean member after toggling null when the union default is a string', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					mode: {
+						anyOf: [{ type: 'boolean' }, { type: 'string' }, { type: 'null' }],
+						default: 'auto'
+					}
+				}
+			},
+			onvalidchange
+		});
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"mode":true}');
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		const useNull = page.getByRole('checkbox', { name: 'Use null for mode' });
+		await useNull.click();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ mode: null }));
+		await useNull.click();
+		await expect
+			.element(page.getByLabelText('mode', { exact: true }))
+			.toHaveAttribute('type', 'checkbox');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ mode: false }));
+	});
+
 	it('offers a boolean toggle and a null switch for boolean, string, or null unions', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

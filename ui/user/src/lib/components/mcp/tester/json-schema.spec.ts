@@ -195,7 +195,7 @@ describe('MCP tester JSON Schema support', () => {
 		expect(resolveUnionSchema(union)).toEqual(boolean);
 		expect(resolveUnionSchema(union, true)).toEqual(boolean);
 		expect(resolveUnionSchema(union, 'yes')).toEqual({
-			schema: { type: 'string', default: false, description: 'Whether to reply to all' },
+			schema: { type: 'string', description: 'Whether to reply to all' },
 			nullable: false,
 			alternatives: ['boolean'],
 			index: 1
@@ -212,6 +212,19 @@ describe('MCP tester JSON Schema support', () => {
 			nullable: false,
 			alternatives: ['string'],
 			index: 1
+		});
+	});
+
+	it('only gives a member the union default when the default fits it', () => {
+		const union: JSONSchema = {
+			anyOf: [{ type: 'boolean', default: true }, { type: 'string' }, { type: 'null' }],
+			default: 'auto'
+		};
+		expect(resolveUnionSchema(union, true)?.schema).toEqual({ type: 'boolean', default: true });
+		expect(defaultJSONSchemaValue(resolveUnionSchema(union, true)!.schema)).toBe(true);
+		expect(resolveUnionSchema(union)?.schema.default).toBe('auto');
+		expect(resolveUnionSchema({ type: ['integer', 'string'], default: 'x' }, 3)?.schema).toEqual({
+			type: 'integer'
 		});
 	});
 
@@ -298,8 +311,10 @@ describe('MCP tester JSON Schema support', () => {
 		};
 		expect(resolveUnionSchema(union, { b: 'x' })?.schema.required).toEqual(['b']);
 		expect(resolveUnionSchema(union, { a: 'x' })?.schema.required).toEqual(['a']);
-		// Mid-edit values that satisfy neither member still keep the type match.
-		expect(resolveUnionSchema(union, {}, 1)?.schema.required).toEqual(['a']);
+		// Mid-edit values that satisfy neither member keep the remembered same-typed
+		// member, and otherwise fall back to the first type match.
+		expect(resolveUnionSchema(union, {}, 1)?.schema.required).toEqual(['b']);
+		expect(resolveUnionSchema(union, {})?.schema.required).toEqual(['a']);
 		expect(generatedFormRepresents(union, { b: 'x' })).toBe(true);
 		// A value valid only through a member the form renders differently is not.
 		const typeless: JSONSchema = { anyOf: [{ type: 'string', minLength: 3 }, { enum: [5] }] };

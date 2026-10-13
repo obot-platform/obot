@@ -100,6 +100,17 @@ export function resolveUnionSchema(
 	} else {
 		return undefined;
 	}
+	// The union's default belongs to the member it fits; elsewhere it would seed the
+	// control with a value of another member, so keep that member's own default.
+	if (schema.default !== undefined && schema.default !== null) {
+		candidates = candidates.map((candidate, index) => {
+			if (!candidate || !validateJSONSchema(candidate, schema.default).length) return candidate;
+			const own = { ...candidate };
+			if (members[index].default !== undefined) own.default = members[index].default;
+			else delete own.default;
+			return own;
+		});
+	}
 	// There is no usable non-null control when only null is allowed.
 	if (!members.length) return undefined;
 	// The null toggle must represent a permitted value, including any enum/const
@@ -122,9 +133,16 @@ export function resolveUnionSchema(
 			renderable(index) &&
 			!validateJSONSchema(candidate!, value).length
 	);
+	const remembered =
+		previous !== undefined && previous < candidates.length && renderable(previous)
+			? previous
+			: undefined;
+	// While a value fits no member yet (mid-edit), keep the remembered member if
+	// the value is still its type, so same-typed members don't swap under the user.
+	if (index < 0 && remembered !== undefined && memberAcceptsValue(members[remembered], value))
+		index = remembered;
 	if (index < 0) index = matching(value);
-	if (index < 0 && previous !== undefined && previous < candidates.length && renderable(previous))
-		index = previous;
+	if (index < 0 && remembered !== undefined) index = remembered;
 	if (index < 0) index = matching(schema.default);
 	if (index < 0) index = 0;
 	const candidate = candidates[index];
