@@ -66,7 +66,8 @@ export default defineConfig(({ mode }) => {
 						testTimeout: 2000,
 						browser: {
 							enabled: true,
-							provider: playwright(),
+							// Exposes gc() so the setup file can collect each finished test file's iframe.
+							provider: playwright({ launchOptions: { args: ['--js-flags=--expose-gc'] } }),
 							screenshotFailures: false,
 							instances: [{ browser: 'chromium', viewport: { width: 1280, height: 720 } }]
 						},

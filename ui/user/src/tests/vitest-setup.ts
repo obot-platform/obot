@@ -38,4 +38,6 @@ afterEach(async () => {
 afterAll(async () => {
 	restoreTimeouts?.();
 	await worker.stop();
+	// Chromium collects removed test iframes lazily and can exhaust CI memory first.
+	(globalThis as { gc?: () => void }).gc?.();
 });
