@@ -4,6 +4,48 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('generic object arguments', () => {
+	it('describes the JSON editor and retains its description alongside parse errors', async () => {
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					arguments: { type: 'object', description: 'Arguments for the selected tool.' }
+				}
+			}
+		});
+		const editor = page.getByLabelText('arguments', { exact: true });
+		await expect.element(editor).toHaveAccessibleDescription('Arguments for the selected tool.');
+
+		await editor.fill('{');
+		await expect.element(editor).toHaveAttribute('aria-invalid', 'true');
+		await expect
+			.element(editor)
+			.toHaveAccessibleDescription(/^Arguments for the selected tool\. Invalid JSON:/);
+
+		await editor.fill('{}');
+		await expect.element(editor).toHaveAttribute('aria-invalid', 'false');
+		await expect.element(editor).toHaveAccessibleDescription('Arguments for the selected tool.');
+	});
+
+	it('describes a JSON editor with its schema description and inherited union hint', async () => {
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					arguments: {
+						anyOf: [{ type: 'object' }, { type: 'string' }],
+						description: 'Arguments for the selected tool.'
+					}
+				}
+			}
+		});
+		await expect
+			.element(page.getByLabelText('arguments', { exact: true }))
+			.toHaveAccessibleDescription(
+				'Arguments for the selected tool. Also accepts string, which can be entered in Raw JSON.'
+			);
+	});
+
 	it('accepts arbitrary nested arguments for a tool call and rejects invalid input', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

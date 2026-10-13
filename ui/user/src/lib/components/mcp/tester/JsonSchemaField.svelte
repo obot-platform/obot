@@ -155,7 +155,7 @@
 		<div class="space-y-2">
 			<label for={id} class="block text-sm font-medium">{label}{required ? ' *' : ''}</label>
 			{#if schema.description}
-				<p class="text-xs text-muted-content">{schema.description}</p>
+				<p id={`${id}-description`} class="text-xs text-muted-content">{schema.description}</p>
 			{/if}
 			<textarea
 				{id}
@@ -163,7 +163,7 @@
 				value={objectJSON}
 				{disabled}
 				aria-invalid={Boolean(objectJSONError)}
-				aria-describedby={[describedBy, objectJSONError ? `${id}-error` : undefined]
+				aria-describedby={[controlDescribedBy, objectJSONError ? `${id}-error` : undefined]
 					.filter(Boolean)
 					.join(' ') || undefined}
 				oninput={(event) => updateObjectJSON(event.currentTarget.value)}></textarea>
