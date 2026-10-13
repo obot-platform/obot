@@ -248,6 +248,7 @@ describe('LogsInspector', () => {
 
 		const alert = page.getByRole('alert');
 		await expect.element(alert).toBeVisible();
+		await expect.element(alert).toHaveClass('notification-error');
 		await expect.element(alert).toMatchTextContent('Connection failed');
 		await expect.element(alert).toMatchTextContent('fetch failed');
 		// The failed handshake is still inspectable even though the session never connected.
@@ -257,6 +258,27 @@ describe('LogsInspector', () => {
 
 		await page.getByRole('button', { name: 'Retry' }).click();
 		expect(onretry).toHaveBeenCalled();
+	});
+
+	it('shows reauthentication errors as warning statuses with inspectable details', async () => {
+		renderLogs({
+			status: 'reauthentication-required',
+			error: 'Streamable HTTP error: HTTP 401',
+			seed: (session) => {
+				session.errorDetails = { code: 401, message: 'Credentials expired' };
+			}
+		});
+
+		const warning = page.getByRole('status').filter({ hasText: 'Reauthentication required' });
+		await expect.element(warning).toBeVisible();
+		await expect.element(warning).toHaveClass('notification-alert');
+		await expect.element(warning).toMatchTextContent('Streamable HTTP error: HTTP 401');
+		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+
+		await warning.getByRole('button', { name: 'View full error' }).click();
+		await expect.element(page.getByRole('dialog', { name: 'Error details' })).toBeVisible();
+		await expect.element(page.getByLabelText('Full error')).toBeVisible();
 	});
 
 	it('explains why the log is empty for a server that needs setup', async () => {

@@ -214,6 +214,7 @@
 				title={STATUS_LABEL[status]}
 				message={session.error}
 				details={session.errorDetails}
+				severity={connectionFailed ? 'error' : 'warning'}
 			>
 				{#snippet actions()}
 					{#if onretry && (status === 'error' || status === 'unhealthy')}
