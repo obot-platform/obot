@@ -1042,6 +1042,7 @@
 	"mcps_tester_tool_call_named": "{name} 도구 호출",
 	"mcps_tester_tool_calls": "도구 호출",
 	"mcps_tester_tool_details": "도구 세부 정보",
+	"mcps_tester_tool_form_failed": "이 도구의 인수 양식을 표시할 수 없습니다.",
 	"mcps_tester_tool_input_schema": "도구 입력 스키마",
 	"mcps_tester_tool_output_schema": "도구 출력 스키마",
 	"mcps_tester_tool_request_position": "도구 요청 {position}/{total}",

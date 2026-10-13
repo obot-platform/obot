@@ -1042,6 +1042,7 @@
 	"mcps_tester_tool_call_named": "{name} 工具调用",
 	"mcps_tester_tool_calls": "工具调用",
 	"mcps_tester_tool_details": "工具详情",
+	"mcps_tester_tool_form_failed": "无法显示此工具的参数表单。",
 	"mcps_tester_tool_input_schema": "工具输入架构",
 	"mcps_tester_tool_output_schema": "工具输出架构",
 	"mcps_tester_tool_request_position": "工具请求 {position}/{total}",

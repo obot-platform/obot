@@ -1042,6 +1042,7 @@
 	"mcps_tester_tool_call_named": "{name} tool call",
 	"mcps_tester_tool_calls": "Tool calls",
 	"mcps_tester_tool_details": "Tool details",
+	"mcps_tester_tool_form_failed": "The argument form for this tool could not be displayed.",
 	"mcps_tester_tool_input_schema": "Tool input schema",
 	"mcps_tester_tool_output_schema": "Tool output schema",
 	"mcps_tester_tool_request_position": "Tool request {position} of {total}",

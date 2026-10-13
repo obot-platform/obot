@@ -201,10 +201,16 @@ export function jsonValuesEqual(left: unknown, right: unknown): boolean {
 	);
 }
 
+// Schemas often live in Svelte $state, whose deep proxies structuredClone rejects.
+// Schema values are plain JSON, so a JSON round trip copies them exactly.
+function cloneJSON(value: unknown): unknown {
+	return JSON.parse(JSON.stringify(value));
+}
+
 export function defaultJSONSchemaValue(schema: JSONSchema): unknown {
-	if (schema.default !== undefined) return structuredClone(schema.default);
-	if (schema.const !== undefined) return structuredClone(schema.const);
-	if (schema.enum?.length) return structuredClone(schema.enum[0]);
+	if (schema.default !== undefined) return cloneJSON(schema.default);
+	if (schema.const !== undefined) return cloneJSON(schema.const);
+	if (schema.enum?.length) return cloneJSON(schema.enum[0]);
 	const union = resolveUnionSchema(schema);
 	if (union) return defaultJSONSchemaValue(union.schema);
 	switch (schemaType(schema)) {

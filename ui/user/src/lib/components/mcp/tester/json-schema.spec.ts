@@ -34,6 +34,30 @@ describe('MCP tester JSON Schema support', () => {
 		expect(supportsGeneratedForm(schema)).toBe(true);
 	});
 
+	it('copies object and array defaults held in proxies such as Svelte $state', () => {
+		// structuredClone rejects proxies, which the tester's tool cache hands out.
+		const domains = new Proxy<string[]>([], {});
+		const filter = new Proxy({ site: 'example.com' }, {});
+		const proxied: JSONSchema = {
+			type: 'object',
+			properties: {
+				include_domains: { type: 'array', items: { type: 'string' }, default: domains },
+				filter: { type: 'object', const: filter },
+				options: { type: 'object', enum: [filter] }
+			},
+			required: ['filter', 'options']
+		};
+
+		const value = defaultJSONSchemaValue(proxied) as Record<string, unknown>;
+		expect(value).toEqual({
+			include_domains: [],
+			filter: { site: 'example.com' },
+			options: { site: 'example.com' }
+		});
+		expect(value.include_domains).not.toBe(domains);
+		expect(value.filter).not.toBe(filter);
+	});
+
 	it('validates required, nested, array, string, and numeric constraints', () => {
 		expect(
 			validateJSONSchema(schema, {

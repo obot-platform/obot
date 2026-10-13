@@ -129,6 +129,53 @@ describe('ToolsInspector', () => {
 		await expect.element(page.getByLabelText('Arguments JSON')).toHaveValue('{}');
 	});
 
+	it('shows details for tools whose schema has object or array defaults', async () => {
+		const { session } = renderInspector(0);
+		// The tools land in the session's deep $state, so their schemas are proxies,
+		// as they are when loaded from a server.
+		session.cache.tools.items = [
+			{
+				name: 'tavily_research',
+				description: 'Research a topic.',
+				inputSchema: {
+					type: 'object' as const,
+					properties: { input: { type: 'string' } },
+					required: ['input']
+				}
+			},
+			{
+				name: 'tavily_crawl',
+				description: 'Crawl a site.',
+				inputSchema: {
+					type: 'object' as const,
+					properties: {
+						url: { type: 'string' },
+						select_paths: { type: 'array', items: { type: 'string' }, default: [] }
+					},
+					required: ['url']
+				}
+			}
+		];
+
+		const details = page.getByRole('region', { name: 'Tool details' });
+		await page.getByRole('button', { name: 'tavily_research', exact: false }).click();
+		await expect.element(details.getByText('Research a topic.')).toBeVisible();
+
+		await page.getByRole('button', { name: 'tavily_crawl', exact: false }).click();
+		await expect
+			.element(details.getByRole('heading', { name: 'tavily_crawl', level: 3 }))
+			.toBeVisible();
+		await expect.element(details.getByText('Crawl a site.')).toBeVisible();
+		await expect.element(details.getByText('Research a topic.')).not.toBeInTheDocument();
+		await expect.element(details.getByRole('group', { name: 'select_paths' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeDisabled();
+
+		await page.getByLabelText('url *').fill('https://example.com');
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeEnabled();
+
+		session.close();
+	});
+
 	it('locks the tool list while a workflow runs so results stay with their tool', async () => {
 		const { session } = renderInspector(3);
 		await page.getByRole('button', { name: 'tool_0', exact: false }).click();

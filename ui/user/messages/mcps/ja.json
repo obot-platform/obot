@@ -1042,6 +1042,7 @@
 	"mcps_tester_tool_call_named": "{name} ツール呼び出し",
 	"mcps_tester_tool_calls": "ツール呼び出し",
 	"mcps_tester_tool_details": "ツールの詳細",
+	"mcps_tester_tool_form_failed": "このツールの引数フォームを表示できませんでした。",
 	"mcps_tester_tool_input_schema": "ツールの入力スキーマ",
 	"mcps_tester_tool_output_schema": "ツールの出力スキーマ",
 	"mcps_tester_tool_request_position": "ツールリクエスト {position} / {total}",
