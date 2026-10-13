@@ -963,6 +963,7 @@
 	"mcps_tester_prompts_load_failed": "프롬프트를 불러올 수 없습니다",
 	"mcps_tester_prompts_unsupported": "이 서버는 프롬프트를 제공하지 않습니다.",
 	"mcps_tester_raw_json": "원시 JSON",
+	"mcps_tester_raw_json_only_value": "이 값은 Raw JSON에서만 편집할 수 있습니다.",
 	"mcps_tester_raw_mcp_response": "원시 MCP 응답",
 	"mcps_tester_raw_response": "원시 응답",
 	"mcps_tester_raw_tool_metadata": "원시 도구 메타데이터",

@@ -4,6 +4,7 @@
 	import JsonSchemaField from './JsonSchemaField.svelte';
 	import {
 		defaultJSONSchemaValue,
+		generatedFormRepresents,
 		pruneClearedProperties,
 		supportsGeneratedForm,
 		validateJSONSchema,
@@ -18,11 +19,16 @@
 	}
 
 	let { schema, disabled = false, onvalidchange }: Props = $props();
+	const uid = $props.id();
+	const rawOnlyId = `mcp-tester-raw-only-${uid}`;
 	let generatedSupported = $derived(supportsGeneratedForm(schema));
-	let mode = $state<'form' | 'raw'>(
-		untrack(() => (supportsGeneratedForm(schema) ? 'form' : 'raw'))
-	);
 	let formValue = $state<unknown>(untrack(() => defaultJSONSchemaValue(schema)));
+	// Raw JSON can hold a valid value the generated form cannot show; switching then
+	// would display a different value than the one submitted.
+	let generatedRepresents = $derived(generatedFormRepresents(schema, formValue));
+	let mode = $state<'form' | 'raw'>(
+		untrack(() => (generatedSupported && generatedRepresents ? 'form' : 'raw'))
+	);
 	let rawValue = $state(untrack(() => JSON.stringify(defaultJSONSchemaValue(schema), null, 2)));
 	let rawParseError = $state<string>();
 	let submittedValue = $derived(
@@ -73,6 +79,8 @@
 				class="btn btn-sm"
 				class:btn-primary={mode === 'form'}
 				class:btn-ghost={mode !== 'form'}
+				disabled={!generatedRepresents}
+				aria-describedby={generatedRepresents ? undefined : rawOnlyId}
 				onclick={() => setMode('form')}>{m.mcps_tester_generated_form()}</button
 			>
 		{/if}
@@ -83,6 +91,11 @@
 			class:btn-ghost={mode !== 'raw'}
 			onclick={() => setMode('raw')}>{m.mcps_tester_raw_json()}</button
 		>
+		{#if generatedSupported && !generatedRepresents}
+			<p id={rawOnlyId} class="text-xs text-muted-content">
+				{m.mcps_tester_raw_json_only_value()}
+			</p>
+		{/if}
 	</div>
 
 	{#if mode === 'form'}

@@ -963,6 +963,7 @@
 	"mcps_tester_prompts_load_failed": "プロンプトを読み込めませんでした",
 	"mcps_tester_prompts_unsupported": "このサーバーはプロンプトを提供していません。",
 	"mcps_tester_raw_json": "生の JSON",
+	"mcps_tester_raw_json_only_value": "この値は Raw JSON でのみ編集できます。",
 	"mcps_tester_raw_mcp_response": "生の MCP レスポンス",
 	"mcps_tester_raw_response": "生のレスポンス",
 	"mcps_tester_raw_tool_metadata": "生のツールメタデータ",

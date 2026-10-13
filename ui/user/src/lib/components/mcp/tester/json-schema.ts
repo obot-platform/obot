@@ -363,6 +363,36 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 	return errors;
 }
 
+// Whether the generated form can show this value as it stands. A union value that
+// is valid only through a member the form cannot render would otherwise be shown
+// in another member's control while the original value is still submitted.
+export function generatedFormRepresents(schema: JSONSchema, value: unknown): boolean {
+	if (value === undefined) return true;
+	if (schema.anyOf || Array.isArray(schema.type)) {
+		const union = resolveUnionSchema(schema, value);
+		if (!union || value === null) return true;
+		if (!memberAcceptsValue(union.schema, value) && !validateJSONSchema(schema, value).length) {
+			return false;
+		}
+		return generatedFormRepresents(union.schema, value);
+	}
+	if (
+		schema.type === 'object' &&
+		typeof value === 'object' &&
+		value !== null &&
+		!Array.isArray(value)
+	) {
+		const record = value as Record<string, unknown>;
+		return Object.entries(schema.properties ?? {}).every(([name, property]) =>
+			generatedFormRepresents(property, record[name])
+		);
+	}
+	if (schema.type === 'array' && schema.items && Array.isArray(value)) {
+		return value.every((item) => generatedFormRepresents(schema.items!, item));
+	}
+	return true;
+}
+
 export function supportsGeneratedForm(schema: JSONSchema): boolean {
 	if (schema.anyOf || Array.isArray(schema.type)) {
 		const union = resolveUnionSchema(schema);

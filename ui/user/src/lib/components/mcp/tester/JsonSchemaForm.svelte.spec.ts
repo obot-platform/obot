@@ -175,6 +175,53 @@ describe('JsonSchemaForm', () => {
 		await expect.element(count).toHaveValue(2.5);
 	});
 
+	it('describes a union control with its alternatives hint', async () => {
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					value: { anyOf: [{ type: 'string' }, { type: 'integer' }], description: 'A value' }
+				}
+			}
+		});
+		await expect
+			.element(page.getByLabelText('value', { exact: true }))
+			.toHaveAccessibleDescription(
+				'A value Also accepts integer, which can be entered in Raw JSON.'
+			);
+	});
+
+	it('keeps Raw JSON when its value cannot be shown in the generated form', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					value: { anyOf: [{ type: 'string' }, { type: 'object', properties: { nested: {} } }] }
+				}
+			},
+			onvalidchange
+		});
+		const generated = page.getByRole('button', { name: 'Generated form' });
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"value":{"nested":1}}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ value: { nested: 1 } })
+		);
+		await expect.element(generated).toBeDisabled();
+		await expect
+			.element(generated)
+			.toHaveAccessibleDescription('This value can only be edited in Raw JSON.');
+
+		await page.getByLabelText('Arguments JSON').fill('{"value":"text"}');
+		await expect.element(generated).toBeEnabled();
+		await expect
+			.element(page.getByText('This value can only be edited in Raw JSON.'))
+			.not.toBeInTheDocument();
+		await generated.click();
+		await expect.element(page.getByLabelText('value', { exact: true })).toHaveValue('text');
+	});
+
 	it('offers a boolean toggle and a null switch for boolean, string, or null unions', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

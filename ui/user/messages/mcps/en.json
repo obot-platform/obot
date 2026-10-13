@@ -963,6 +963,7 @@
 	"mcps_tester_prompts_load_failed": "Prompts could not be loaded",
 	"mcps_tester_prompts_unsupported": "This server does not provide prompts.",
 	"mcps_tester_raw_json": "Raw JSON",
+	"mcps_tester_raw_json_only_value": "This value can only be edited in Raw JSON.",
 	"mcps_tester_raw_mcp_response": "Raw MCP response",
 	"mcps_tester_raw_response": "Raw response",
 	"mcps_tester_raw_tool_metadata": "Raw tool metadata",

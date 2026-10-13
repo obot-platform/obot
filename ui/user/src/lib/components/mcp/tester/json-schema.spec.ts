@@ -1,5 +1,6 @@
 import {
 	defaultJSONSchemaValue,
+	generatedFormRepresents,
 	jsonValuesEqual,
 	resolveUnionSchema,
 	pruneClearedProperties,
@@ -262,6 +263,30 @@ describe('MCP tester JSON Schema support', () => {
 		};
 		expect(resolveUnionSchema(union, { nested: 1 })?.schema.type).toBe('string');
 		expect(supportsGeneratedForm(union)).toBe(true);
+	});
+
+	it('reports values the generated form cannot show without misrepresenting them', () => {
+		const union: JSONSchema = {
+			anyOf: [{ type: 'string' }, { type: 'object', properties: { nested: {} } }]
+		};
+		const tool: JSONSchema = { type: 'object', properties: { value: union } };
+		// A valid object for the member that cannot render would show as an empty string.
+		expect(generatedFormRepresents(tool, { value: { nested: 1 } })).toBe(false);
+		expect(generatedFormRepresents({ type: 'array', items: union }, ['a', { nested: 1 }])).toBe(
+			false
+		);
+		// Values the rendered member shows, unset values, and invalid values the form
+		// reports as errors are all fine.
+		expect(generatedFormRepresents(tool, { value: 'text' })).toBe(true);
+		expect(generatedFormRepresents(tool, {})).toBe(true);
+		expect(generatedFormRepresents(tool, { value: 3 })).toBe(true);
+		expect(generatedFormRepresents({ anyOf: [{ type: 'string' }, { type: 'integer' }] }, 2.5)).toBe(
+			true
+		);
+		expect(generatedFormRepresents({ type: ['string', 'null'] }, null)).toBe(true);
+		expect(generatedFormRepresents({ type: 'object', properties: { value: union } }, null)).toBe(
+			true
+		);
 	});
 
 	it('still declines unions whose first member cannot render or conflicts with the union', () => {

@@ -11,6 +11,9 @@
 		path: string;
 		required?: boolean;
 		disabled?: boolean;
+		// IDs of text outside this field that describes its control, such as an
+		// enclosing union's hint.
+		describedBy?: string;
 		onchange: (value: unknown) => void;
 	}
 
@@ -21,6 +24,7 @@
 		path,
 		required = false,
 		disabled = false,
+		describedBy,
 		onchange
 	}: Props = $props();
 	// Derived from a per-instance unique id rather than `path`: `-` is already the path
@@ -42,13 +46,14 @@
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
 	);
+	let alternativesId = $derived(union?.alternatives.length ? `${id}-alternatives` : undefined);
+	let controlDescribedBy = $derived(
+		[schema.description ? `${id}-description` : undefined, describedBy].filter(Boolean).join(' ') ||
+			undefined
+	);
 	let textDescribedBy = $derived(
-		[
-			schema.description ? `${id}-description` : undefined,
-			schema.pattern ? `${id}-pattern` : undefined
-		]
-			.filter(Boolean)
-			.join(' ') || undefined
+		[controlDescribedBy, schema.pattern ? `${id}-pattern` : undefined].filter(Boolean).join(' ') ||
+			undefined
 	);
 
 	function objectValue(): Record<string, unknown> {
@@ -98,10 +103,11 @@
 			{path}
 			{required}
 			disabled={disabled || (union.nullable && value === null)}
+			describedBy={[describedBy, alternativesId].filter(Boolean).join(' ') || undefined}
 			{onchange}
 		/>
-		{#if union.alternatives.length}
-			<p class="text-xs text-muted-content">
+		{#if alternativesId}
+			<p id={alternativesId} class="text-xs text-muted-content">
 				{m.mcps_tester_union_also_accepts({
 					types: new Intl.ListFormat(getLocale(), { type: 'disjunction' }).format(
 						union.alternatives
@@ -111,7 +117,10 @@
 		{/if}
 	</div>
 {:else if type === 'object'}
-	<fieldset class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4">
+	<fieldset
+		class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4"
+		aria-describedby={describedBy}
+	>
 		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
 		{#if schema.description}
 			<p class="text-xs text-muted-content">{schema.description}</p>
@@ -132,7 +141,10 @@
 		{/if}
 	</fieldset>
 {:else if type === 'array'}
-	<fieldset class="border-base-300 dark:border-base-400 space-y-3 rounded-lg border p-4">
+	<fieldset
+		class="border-base-300 dark:border-base-400 space-y-3 rounded-lg border p-4"
+		aria-describedby={describedBy}
+	>
 		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
 		{#if schema.description}
 			<p class="text-xs text-muted-content">{schema.description}</p>
@@ -183,7 +195,7 @@
 			<select
 				{id}
 				class="text-input-filled w-full"
-				aria-describedby={schema.description ? `${id}-description` : undefined}
+				aria-describedby={controlDescribedBy}
 				{disabled}
 				onchange={(event) => onchange(schema.enum?.[Number(event.currentTarget.value)])}
 			>
@@ -202,7 +214,7 @@
 				type="checkbox"
 				class="toggle"
 				checked={value === true}
-				aria-describedby={schema.description ? `${id}-description` : undefined}
+				aria-describedby={controlDescribedBy}
 				{disabled}
 				onchange={(event) => onchange(event.currentTarget.checked)}
 			/>
@@ -217,7 +229,7 @@
 				step={type === 'integer' ? 1 : (schema.multipleOf ?? 'any')}
 				{required}
 				{disabled}
-				aria-describedby={schema.description ? `${id}-description` : undefined}
+				aria-describedby={controlDescribedBy}
 				oninput={(event) =>
 					onchange(
 						event.currentTarget.value === '' ? undefined : event.currentTarget.valueAsNumber

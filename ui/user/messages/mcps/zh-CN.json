@@ -963,6 +963,7 @@
 	"mcps_tester_prompts_load_failed": "无法加载提示词",
 	"mcps_tester_prompts_unsupported": "此服务器不提供提示词。",
 	"mcps_tester_raw_json": "原始 JSON",
+	"mcps_tester_raw_json_only_value": "此值只能在 Raw JSON 中编辑。",
 	"mcps_tester_raw_mcp_response": "原始 MCP 响应",
 	"mcps_tester_raw_response": "原始响应",
 	"mcps_tester_raw_tool_metadata": "原始工具元数据",
