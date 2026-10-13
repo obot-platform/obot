@@ -176,6 +176,32 @@ describe('ToolsInspector', () => {
 		session.close();
 	});
 
+	it('resets the argument form when switching between tools with identical schemas', async () => {
+		const { session } = renderInspector(0);
+		const inputSchema = {
+			type: 'object' as const,
+			properties: { value: { type: 'string' } },
+			required: ['value']
+		};
+		session.cache.tools.items = [
+			{ name: 'first_tool', inputSchema },
+			{ name: 'second_tool', inputSchema }
+		];
+
+		await page.getByRole('button', { name: 'first_tool', exact: false }).click();
+		await page.getByLabelText('value *').fill('typed');
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeEnabled();
+
+		await page.getByRole('button', { name: 'second_tool', exact: false }).click();
+		await expect
+			.element(page.getByRole('heading', { name: 'second_tool', level: 3 }))
+			.toBeVisible();
+		await expect.element(page.getByLabelText('value *')).toHaveValue('');
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeDisabled();
+
+		session.close();
+	});
+
 	it('locks the tool list while a workflow runs so results stay with their tool', async () => {
 		const { session } = renderInspector(3);
 		await page.getByRole('button', { name: 'tool_0', exact: false }).click();

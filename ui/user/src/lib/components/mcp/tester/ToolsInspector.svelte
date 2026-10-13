@@ -101,9 +101,15 @@
 							{#if selected.description}<p class="mt-2 text-sm">{selected.description}</p>{/if}
 						</div>
 
-						{#key JSON.stringify(selected.inputSchema)}
-							<!-- A form that fails to render must not leave the previous tool's form in place. -->
-							<svelte:boundary>
+						<!-- Keyed by tool too, so tools with identical schemas don't share form state. A form
+						     that fails must not leave the previous form or its arguments in place. -->
+						{#key JSON.stringify([selected.name, selected.inputSchema])}
+							<svelte:boundary
+								onerror={() => {
+									inspector.argumentsValue = undefined;
+									inspector.result = undefined;
+								}}
+							>
 								<JsonSchemaForm
 									schema={selected.inputSchema}
 									disabled={Boolean(session.activeWorkflow)}
