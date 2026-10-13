@@ -361,24 +361,16 @@ func RequiresStaticOAuth(server v1.MCPServer) bool {
 // assumeOAuthRequired is true, discovery proceeds even if initialize succeeds.
 // This supports servers that defer their OAuth challenge until tools/call.
 func (m *SessionManager) GetOAuthMetadata(ctx context.Context, serverConfig ServerConfig, clientName, redirectURL string, assumeOAuthRequired bool) (OAuthMetadata, error) {
-	var httpClient *http.Client
-	if serverConfig.TunnelName != "" {
-		var err error
-		httpClient, err = m.HTTPClientForServer(serverConfig, HTTPClientOptions{Timeout: 5 * time.Second, DirectConnect: true})
-		if err != nil {
-			return OAuthMetadata{}, err
-		}
-	} else {
-		blockingConfig := m.RemoteMCPURLValidationConfig()
-		httpClient = safehttp.NewClient(safehttp.Options{
-			BlockLoopback:  !blockingConfig.AllowLocalhostMCP,
-			BlockPrivateIP: !blockingConfig.AllowPrivateIPMCP,
-			BlockLinkLocal: !blockingConfig.AllowLinkLocalMCP,
-			Timeout:        5 * time.Second,
-		})
+	// Discovery follows server-supplied URLs, so use the OAuth client: the server's tunnel when
+	// it has one, otherwise the egress policy, and never the server's configured headers.
+	oauthClient, err := m.OAuthClientForServer(serverConfig)
+	if err != nil {
+		return OAuthMetadata{}, err
 	}
+	httpClient := *oauthClient
+	httpClient.Timeout = 5 * time.Second
 
-	return getOAuthMetadataWithClient(ctx, httpClient, serverConfig, clientName, redirectURL, assumeOAuthRequired)
+	return getOAuthMetadataWithClient(ctx, &httpClient, serverConfig, clientName, redirectURL, assumeOAuthRequired)
 }
 
 func getOAuthMetadataWithClient(ctx context.Context, httpClient *http.Client, serverConfig ServerConfig, clientName, redirectURL string, assumeOAuthRequired bool) (OAuthMetadata, error) {
