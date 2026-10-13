@@ -209,6 +209,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName: "Shared VMCP",
+				ToolSearch:  true,
 				Profiles: []types.VMCPProfile{
 					{
 						Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
@@ -394,6 +395,9 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	}
 
 	mmmcpConfig := MMMCPConfig(serverConfig, nil)
+	if !serverConfig.ToolSearch || !mmmcpConfig.ToolSearch {
+		t.Fatal("vMCP tool search was not passed to mmmcp")
+	}
 	if mmmcpConfig.Name != vmcp.Spec.Manifest.DisplayName {
 		t.Fatalf("MMMCP name = %q, want %q", mmmcpConfig.Name, vmcp.Spec.Manifest.DisplayName)
 	}

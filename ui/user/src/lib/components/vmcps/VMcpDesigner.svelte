@@ -104,6 +104,7 @@
 		| {
 				displayName: string;
 				description: string;
+				toolSearch: boolean;
 				entry: MCPCatalogEntry;
 				component: VMCPComponent;
 		  }
@@ -341,6 +342,7 @@
 		heldCreate = {
 			displayName: draft.displayName,
 			description: draft.description,
+			toolSearch: draft.toolSearch,
 			entry: pending.entry,
 			component: pending.component
 		};
@@ -554,6 +556,7 @@
 			await createEditVMcp?.saveCreate({
 				displayName: held.displayName,
 				description: held.description,
+				toolSearch: held.toolSearch,
 				components: [
 					{
 						...held.component,

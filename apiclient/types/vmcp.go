@@ -31,6 +31,7 @@ type VMCPManifest struct {
 	DisplayName string          `json:"displayName"`
 	Description string          `json:"description,omitempty"`
 	Icon        string          `json:"icon,omitempty"`
+	ToolSearch  bool            `json:"toolSearch,omitempty"`
 	Components  []VMCPComponent `json:"components"`
 	Profiles    []VMCPProfile   `json:"profiles,omitempty"`
 }

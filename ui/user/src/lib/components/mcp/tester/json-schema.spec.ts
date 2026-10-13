@@ -532,6 +532,21 @@ describe('MCP tester JSON Schema support', () => {
 		).toEqual([]);
 	});
 
+	it('prunes cleared text inputs for untyped properties but keeps empty strings for other types', () => {
+		const optional: JSONSchema = {
+			type: 'object',
+			properties: {
+				untyped: { description: 'Rendered as a text input' },
+				union: { anyOf: [{ type: 'string' }, { type: 'number' }] },
+				count: { type: 'number' }
+			}
+		};
+
+		expect(pruneClearedProperties(optional, { untyped: '', union: '', count: '' })).toEqual({
+			count: ''
+		});
+	});
+
 	it('keeps cleared required properties so they report as required, and prunes nested optionals', () => {
 		const nested: JSONSchema = {
 			type: 'object',

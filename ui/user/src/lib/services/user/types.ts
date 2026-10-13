@@ -613,6 +613,7 @@ export interface VMCPManifest {
 	displayName: string;
 	icon?: string;
 	profiles?: VMCPProfile[];
+	toolSearch?: boolean;
 }
 
 export interface VMCPStatus {

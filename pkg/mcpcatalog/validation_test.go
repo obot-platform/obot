@@ -70,3 +70,16 @@ components:
 	require.Len(t, manifest.Components[0].Configuration, 1)
 	require.Equal(t, &types.MCPSecretBinding{Name: "gitlab-secret", Key: "gitlab_key"}, manifest.Components[0].Configuration[0].SecretBinding)
 }
+
+func TestDecodeVMCPManifestToolSearch(t *testing.T) {
+	manifest, err := DecodeVMCPManifest([]byte(`type: vmcp
+displayName: Search
+toolSearch: true
+components:
+- id: files
+  name: Files
+  mcpServerCatalogEntryKey: files
+`))
+	require.NoError(t, err)
+	require.True(t, manifest.ToolSearch)
+}

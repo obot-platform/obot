@@ -26,6 +26,7 @@ const (
 func TestListOrphanedVMCPsReturnsVMCPsAwaitingAdoption(t *testing.T) {
 	email := orphanedVMCPForTest(orphanedTestSourceURL, "email", "Email", new(false))
 	email.Spec.Manifest.Description = "Send email"
+	email.Spec.Manifest.ToolSearch = true
 	email.Spec.Manifest.Components = []types.VMCPComponent{
 		{
 			ID:                      "default-gmail",
@@ -97,6 +98,7 @@ func TestListOrphanedVMCPsReturnsVMCPsAwaitingAdoption(t *testing.T) {
 entryKey: email
 displayName: Email
 description: Send email
+toolSearch: true
 components:
   - id: default-gmail
     name: Gmail
@@ -133,6 +135,7 @@ profiles:
 	manifest, err := mcpcatalog.DecodeVMCPManifest([]byte(item.YAML))
 	require.NoError(t, err)
 	require.Equal(t, email.Name, mcpcatalog.VMCPName(system.DefaultCatalog, orphanedTestSourceURL, header.EntryKey, manifest.DisplayName))
+	require.True(t, manifest.ToolSearch)
 	require.Equal(t, email.Spec.Manifest.Profiles, manifest.Profiles)
 	require.Len(t, manifest.Components, 2)
 	require.Equal(t, "default-gmail", manifest.Components[0].ID)

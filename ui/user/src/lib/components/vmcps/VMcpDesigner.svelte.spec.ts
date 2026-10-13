@@ -1857,72 +1857,88 @@ describe('VMcpDesigner.svelte', () => {
 			expect(create).not.toHaveBeenCalled();
 		});
 
-		it('creates the vMCP after both create and configuration are submitted', async () => {
-			const tokenSlack = createMCPCatalogEntry({
-				id: 'entry-slack-create-next',
-				name: 'Token Slack',
-				manifest: {
-					shortDescription: 'Team chat',
-					config: [
-						{
-							key: 'API_TOKEN',
-							name: 'API token',
-							description: 'Token',
-							required: true,
-							sensitive: false,
-							value: '',
-							usage: 'env'
-						}
-					]
-				}
-			});
-			mockEntryDetails(tokenSlack);
-			const create = vi.fn();
-			worker.use(
-				http.get('/api/mcp-server-binding-secrets', () =>
-					HttpResponse.json({ items: [{ name: 'token-secret', keys: ['token'] }] })
-				),
-				http.post('/api/vmcps', async ({ request }) => {
-					const manifest = (await request.json()) as VMCPManifest;
-					create(manifest);
-					return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [tokenSlack]));
-				})
-			);
-			await renderDesigner([componentEntry, tokenSlack], undefined, { kubernetes: true });
+		it.each([true, false])(
+			'preserves toolSearch=%s through deferred component configuration',
+			async (toolSearch) => {
+				const tokenSlack = createMCPCatalogEntry({
+					id: 'entry-slack-create-next',
+					name: 'Token Slack',
+					manifest: {
+						shortDescription: 'Team chat',
+						toolPreview: Array.from({ length: 51 }, (_, index) => ({
+							id: `tool_${index}`,
+							name: `tool_${index}`
+						})),
+						config: [
+							{
+								key: 'API_TOKEN',
+								name: 'API token',
+								description: 'Token',
+								required: true,
+								sensitive: false,
+								value: '',
+								usage: 'env'
+							}
+						]
+					}
+				});
+				mockEntryDetails(tokenSlack);
+				const create = vi.fn();
+				worker.use(
+					http.get('/api/mcp-server-binding-secrets', () =>
+						HttpResponse.json({ items: [{ name: 'token-secret', keys: ['token'] }] })
+					),
+					http.post('/api/vmcps', async ({ request }) => {
+						const manifest = (await request.json()) as VMCPManifest;
+						create(manifest);
+						return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [tokenSlack]));
+					})
+				);
+				await renderDesigner([componentEntry, tokenSlack], undefined, { kubernetes: true });
 
-			const { el } = await pressCard(panelCard('Token Slack'), 25);
-			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
-			pointer(el, 'pointermove', 25, to);
-			await tick();
-			pointer(el, 'pointerup', 25, to);
+				const { el } = await pressCard(panelCard('Token Slack'), 25);
+				const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
+				pointer(el, 'pointermove', 25, to);
+				await tick();
+				pointer(el, 'pointerup', 25, to);
 
-			const dialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
-			await expect.element(dialog.getByText('Create vMCP').first()).toBeVisible();
-			await dialog.getByLabelText(/^Name/).fill('Chat Gateway');
-			await dialog.getByLabelText(/^Description/).fill('Held until configuration');
-			await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+				const dialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
+				await expect.element(dialog.getByText('Create vMCP').first()).toBeVisible();
+				await dialog.getByLabelText(/^Name/).fill('Chat Gateway');
+				await dialog.getByLabelText(/^Description/).fill('Held until configuration');
+				await dialog.getByRole('button', { name: 'Create', exact: true }).click();
+				await expect
+					.element(page.getByRole('heading', { name: 'Enable tool search?' }))
+					.toBeVisible();
+				expect(create).not.toHaveBeenCalled();
+				await page
+					.getByRole('button', {
+						name: toolSearch ? 'Enable tool search' : 'Keep direct tools',
+						exact: true
+					})
+					.click();
 
-			await expect
-				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
-				.toBeVisible();
-			await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
-			expect(create).not.toHaveBeenCalled();
-			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
-			await page.getByRole('button', { name: 'Next' }).click();
+				await expect
+					.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+					.toBeVisible();
+				await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
+				expect(create).not.toHaveBeenCalled();
+				await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+				await page.getByRole('button', { name: 'Next' }).click();
 
-			await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
-			expect(create.mock.calls[0][0]).toMatchObject({
-				displayName: 'Chat Gateway',
-				description: 'Held until configuration'
-			});
-			expect(componentsFrom(create.mock.calls[0][0])[0]).toMatchObject({
-				mcpServerCatalogEntryID: tokenSlack.id,
-				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
-			});
-			await expect
-				.element(page.getByRole('dialog').getByText('Create vMCP').first())
-				.not.toBeInTheDocument();
-		});
+				await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
+				expect(create.mock.calls[0][0]).toMatchObject({
+					displayName: 'Chat Gateway',
+					description: 'Held until configuration',
+					toolSearch
+				});
+				expect(componentsFrom(create.mock.calls[0][0])[0]).toMatchObject({
+					mcpServerCatalogEntryID: tokenSlack.id,
+					configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
+				});
+				await expect.element(dialog.getByText('Create vMCP').first()).not.toBeInTheDocument();
+			}
+		);
 
 		it('keeps the configuration draft when creation fails and retries it', async () => {
 			const tokenSlack = createMCPCatalogEntry({

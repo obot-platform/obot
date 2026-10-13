@@ -198,7 +198,31 @@
 </script>
 
 <Confirm
-	show={pendingAffectedProfiles.length > 0}
+	show={Boolean(flow.pendingToolSearchRecommendation) && !flow.dialog}
+	onsuccess={flow.enableToolSearch}
+	oncancel={flow.dismissToolSearchRecommendation}
+	type="info"
+	title={m.vmcps_tool_search_prompt_title()}
+	submitText={m.vmcps_tool_search_enable()}
+	cancelText={m.vmcps_tool_search_keep_direct()}
+	loading={flow.enablingToolSearch}
+	classes={{ body: '[&_p]:text-sm [&_p]:font-normal' }}
+	msg={flow.pendingToolSearchRecommendation?.approximate
+		? m.vmcps_tool_search_prompt_preview()
+		: m.vmcps_tool_search_prompt_description()}
+>
+	{#snippet titleContent()}
+		<span class="font-normal">{m.vmcps_tool_search_prompt_title()}</span>
+	{/snippet}
+	{#snippet note()}
+		{#if flow.toolSearchError}
+			<p class="text-error text-sm" role="alert">{flow.toolSearchError}</p>
+		{/if}
+	{/snippet}
+</Confirm>
+
+<Confirm
+	show={pendingAffectedProfiles.length > 0 && !flow.pendingToolSearchRecommendation}
 	onsuccess={openAffectedProfiles}
 	oncancel={() => (pendingAffectedProfiles = [])}
 	type="info"

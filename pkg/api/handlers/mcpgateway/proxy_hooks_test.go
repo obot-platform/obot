@@ -84,7 +84,7 @@ func TestMCPProxyHooksScopeByMethodNameAndDirection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			before := runner.callCount()
-			if _, err := newHookProcessor(mustMCPHookRequest(t, tt.request), runner, hooks, nil, nil, nil); err != nil {
+			if _, err := newHookProcessor(mustMCPHookRequest(t, tt.request), runner, hooks, nil, nil, nil, nil); err != nil {
 				t.Fatal(err)
 			}
 			if got := runner.callCount() - before; got != tt.wantCalls {
@@ -94,7 +94,7 @@ func TestMCPProxyHooksScopeByMethodNameAndDirection(t *testing.T) {
 	}
 
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"echo"}}`)
-	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, nil, nil)
+	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestMCPProxyHooksChainAndContinueAfterErrors(t *testing.T) {
 		hooks := mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/first"}, {Target: "policy/second"}}}}
 		request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{"value":"original"}}}`)
 
-		if _, err := newHookProcessor(request, runner, hooks, nil, nil, nil); err != nil {
+		if _, err := newHookProcessor(request, runner, hooks, nil, nil, nil, nil); err != nil {
 			t.Fatal(err)
 		}
 		body, err := io.ReadAll(request.Body)
@@ -146,7 +146,7 @@ func TestMCPProxyHooksChainAndContinueAfterErrors(t *testing.T) {
 			return mcp.SessionMessageHook{Accept: true, Message: input.Message}, true, nil
 		}}
 		hooks := mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/fail"}, {Target: "policy/pass"}}}}
-		hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil)
+		hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -176,7 +176,7 @@ func TestMCPProxyHooksMutateRequestAndResponseWithAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, auditor, nil)
+	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, auditor, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestMCPProxyHookAuditSavesEachMutationCombination(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hookProcessor, err := newHookProcessor(request, runner, hooks, nil, auditor, nil)
+			hookProcessor, err := newHookProcessor(request, runner, hooks, nil, auditor, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -336,7 +336,7 @@ func TestMCPProxyHookAuditKeepsRequestMutationOnTransportError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = newHookProcessor(request, runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/modify"}}}}, nil, auditor, nil)
+	_, err = newHookProcessor(request, runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/modify"}}}}, nil, auditor, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestMCPProxyHooksRejectRequestAndDisallowedMutation(t *testing.T) {
 				return result, true, nil
 			}}
 			hooks := mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/check", MutateDisallowed: tt.mutateDisallowed}}}}
-			hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil)
+			hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -404,7 +404,7 @@ func TestMCPProxyHooksRejectResponse(t *testing.T) {
 		}
 		return mcp.SessionMessageHook{Accept: false, Message: input.Message, Reason: "response blocked"}, true, nil
 	}}
-	hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/check"}}}}, nil, nil, nil)
+	hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/check"}}}}, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +433,7 @@ func TestMCPProxyHookBlockWithoutReasonStillExplainsFailure(t *testing.T) {
 		return mcp.SessionMessageHook{Accept: false, Message: input.Message}, true, nil
 	}}
 	hooks := mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/check"}}}}
-	hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil)
+	hookProcessor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +471,7 @@ func TestMCPProxyHooksFilterLegacySSEAcrossProcessors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	postHookProcessor, err := newHookProcessor(post, runner, hooks, nil, postAuditor, store)
+	postHookProcessor, err := newHookProcessor(post, runner, hooks, nil, postAuditor, store, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +501,7 @@ func TestMCPProxyHooksFilterLegacySSEAcrossProcessors(t *testing.T) {
 	}
 	// This is deliberately a separate processor with no state from the POST,
 	// matching the behavior when the two requests land on different replicas.
-	getHookProcessor, err := newHookProcessor(get, runner, hooks, nil, getAuditor, store)
+	getHookProcessor, err := newHookProcessor(get, runner, hooks, nil, getAuditor, store, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -572,7 +572,7 @@ func TestMCPProxyHooksFilterServerRequestResponseAcrossProcessors(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	getProcessor, err := newHookProcessor(get, runner, hooks, nil, getAuditor, store)
+	getProcessor, err := newHookProcessor(get, runner, hooks, nil, getAuditor, store, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -600,7 +600,7 @@ func TestMCPProxyHooksFilterServerRequestResponseAcrossProcessors(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newHookProcessor(post, runner, hooks, nil, postAuditor, store); err != nil {
+	if _, err := newHookProcessor(post, runner, hooks, nil, postAuditor, store, nil); err != nil {
 		t.Fatal(err)
 	}
 	responseBody, err := io.ReadAll(post.Body)
@@ -635,7 +635,7 @@ func TestMCPProxyHooksFilterStreamableHTTPSSE(t *testing.T) {
 	}}
 	hooks := mcp.Hooks{{Name: "resources/read", Params: map[string]string{"name": "file:///readme"}, Targets: []mcp.HookTarget{{Target: "policy/redact"}}}}
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":"request-1","method":"resources/read","params":{"uri":"file:///readme"}}`)
-	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, nil, nil)
+	hookProcessor, err := newHookProcessor(request, runner, hooks, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -668,6 +668,7 @@ func TestMCPProxyHooksInspectEncodedResponse(t *testing.T) {
 		mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`),
 		new(scriptedMCPHookRunner),
 		mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/check"}}}},
+		nil,
 		nil,
 		nil,
 		nil,

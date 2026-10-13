@@ -23,6 +23,7 @@ type MCPHookCorrelation struct {
 type MCPHookCorrelationSpec struct {
 	Method          string           `json:"method"`
 	Name            string           `json:"name,omitempty"`
+	GenericCall     bool             `json:"genericCall,omitempty"`
 	RequestMutation *MCPHookMutation `json:"requestMutation,omitempty"`
 	ExpiresAt       metav1.Time      `json:"expiresAt"`
 }

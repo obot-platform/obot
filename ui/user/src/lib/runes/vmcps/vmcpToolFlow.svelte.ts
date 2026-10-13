@@ -11,12 +11,15 @@ import {
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
 import {
+	getToolCounts,
 	hasVMcpComponentConfiguration,
+	resolveVMcpComponents,
 	vmcpComponentId,
 	vmcpManifest
 } from '$lib/services/vmcps/utils';
 import { errors, profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
+import { SvelteSet } from 'svelte/reactivity';
 
 export type VMcpToolDialog =
 	| 'added-create'
@@ -152,6 +155,10 @@ export function createVMcpToolFlow() {
 	let collectTools: ((config: VMCPComponent) => void) | undefined;
 	let onVMcpChanged: ((vmcp: VMCP) => void) | undefined;
 	let postCreateConfiguration = $state(false);
+	let pendingToolSearchRecommendation = $state<{ vmcp: VMCP; approximate: boolean }>();
+	let enablingToolSearch = $state(false);
+	let toolSearchError = $state<string>();
+	const recommendedVMcpIDs = new SvelteSet<string>();
 
 	const otherEffectiveNames = $derived(
 		compositeEffectiveToolNames(
@@ -493,6 +500,45 @@ export function createVMcpToolFlow() {
 		});
 	}
 
+	function offerToolSearchRecommendation(vmcp: VMCP) {
+		if (vmcp.toolSearch || recommendedVMcpIDs.has(vmcp.id)) return;
+		const counts = getToolCounts(resolveVMcpComponents(vmcp));
+		if (counts.enabled <= 50) return;
+		recommendedVMcpIDs.add(vmcp.id);
+		toolSearchError = undefined;
+		pendingToolSearchRecommendation = { vmcp, approximate: counts.approximate };
+	}
+
+	function dismissToolSearchRecommendation() {
+		if (enablingToolSearch) return;
+		pendingToolSearchRecommendation = undefined;
+		toolSearchError = undefined;
+	}
+
+	async function enableToolSearch() {
+		const pending = pendingToolSearchRecommendation;
+		if (!pending || enablingToolSearch) return;
+		enablingToolSearch = true;
+		toolSearchError = undefined;
+		try {
+			// Re-read so enabling search preserves tool selections and other edits
+			// made since the recommendation appeared.
+			const latest = await UserService.getVMCP(pending.vmcp.id);
+			const updated = latest.toolSearch
+				? latest
+				: await UserService.updateVMCP(latest.id, {
+						...vmcpManifest(latest),
+						toolSearch: true
+					});
+			onVMcpChanged?.(updated);
+			pendingToolSearchRecommendation = undefined;
+		} catch {
+			toolSearchError = m.vmcps_failed_to_update();
+		} finally {
+			enablingToolSearch = false;
+		}
+	}
+
 	async function saveTools(componentConfig: VMCPComponent) {
 		if (collectTools) {
 			const done = collectTools;
@@ -543,6 +589,7 @@ export function createVMcpToolFlow() {
 				})
 			);
 			onVMcpChanged?.(updated);
+			offerToolSearchRecommendation(updated);
 			return true;
 		} catch {
 			errors.append(m.vmcps_failed_to_update_tools());
@@ -612,6 +659,15 @@ export function createVMcpToolFlow() {
 	}
 
 	return {
+		get pendingToolSearchRecommendation() {
+			return pendingToolSearchRecommendation;
+		},
+		get enablingToolSearch() {
+			return enablingToolSearch;
+		},
+		get toolSearchError() {
+			return toolSearchError;
+		},
 		get dialog() {
 			return dialog;
 		},
@@ -694,6 +750,8 @@ export function createVMcpToolFlow() {
 		refreshTools,
 		saveEditedTools,
 		saveTools,
+		dismissToolSearchRecommendation,
+		enableToolSearch,
 		promptRemove,
 		cancelRemove,
 		removeComponent
