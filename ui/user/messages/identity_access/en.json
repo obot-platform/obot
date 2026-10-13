@@ -138,7 +138,7 @@
 	"identity_access_auth_providers_none_configured_description": "To finish setting up Obot, you'll need to configure an Auth Provider. Select one below to get started!",
 	"identity_access_auth_providers_not_right_account": "Not the right account?",
 	"identity_access_auth_providers_only_owner_can_replace": "Only an owner can replace the auth provider everyone signs in with.",
-	"identity_access_auth_providers_scim_choice_title": "Users and groups",
+	"identity_access_auth_providers_scim_choice_title": "Provision users and groups with:",
 	"identity_access_auth_providers_scim_choice_scim_label": "SCIM",
 	"identity_access_auth_providers_scim_choice_scim_description": "{name} provisions users and groups through SCIM, and Obot never fetches groups from it. Setup continues on Identity & Access → Auth Providers → SCIM once an Owner has signed in.",
 	"identity_access_auth_providers_scim_choice_api_label": "{name} API",

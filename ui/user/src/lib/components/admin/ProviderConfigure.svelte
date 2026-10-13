@@ -34,6 +34,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -429,28 +430,23 @@
 	{/if}
 {/snippet}
 
-{#snippet segmentedButtons(
-	items: { id: string; name: string }[],
-	selected: string | undefined,
-	onSelect: (id: string) => void
-)}
-	<ul class="flex gap-2">
-		{#each items as item (item.id)}
-			{@const isSelected = selected === item.id}
-			<li>
-				<button
-					class={twMerge(
-						'bg-base-200 hover:bg-base-400 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
-						isSelected && 'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
-					)}
-					type="button"
-					aria-pressed={isSelected}
-					disabled={readonly}
-					onclick={() => onSelect(item.id)}>{item.name}</button
-				>
-			</li>
-		{/each}
-	</ul>
+{#snippet choiceTab(option: ParameterChoiceOption, provides: boolean)}
+	<button
+		type="button"
+		role="tab"
+		class={twMerge(
+			'tab',
+			choiceProvides === provides && 'tab-active bg-primary text-white hover:text-white'
+		)}
+		aria-selected={choiceProvides === provides}
+		disabled={readonly}
+		onclick={() => {
+			choiceProvides = provides;
+			showRequired = false;
+		}}
+	>
+		{option.label}
+	</button>
 {/snippet}
 
 <ResponsiveDialog
@@ -520,11 +516,26 @@
 					{#if collection}
 						<div class="mb-4 flex flex-col gap-2">
 							<h4 class="text-lg font-semibold">{collection.title}</h4>
-							{@render segmentedButtons(collection.items, selectedCollection, (id) => {
-								selectedCollection = id;
-								// Reset form values
-								reset();
-							})}
+							<ul class="flex gap-2">
+								{#each collection.items as item, i (i)}
+									{@const isSelected = selectedCollection === item.id}
+									<li>
+										<button
+											class={twMerge(
+												'bg-base-200 hover:bg-base-400 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+												isSelected &&
+													'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
+											)}
+											type="button"
+											onclick={() => {
+												selectedCollection = item.id;
+												// Reset form values
+												reset();
+											}}>{item.name}</button
+										>
+									</li>
+								{/each}
+							</ul>
 						</div>
 					{/if}
 
@@ -542,22 +553,19 @@
 
 			{#if parameterChoice && choiceParameters.length > 0}
 				{@const option = choiceProvides ? parameterChoice.with : parameterChoice.without}
-				<div class="flex flex-col gap-2">
-					<h4 class="text-lg font-semibold">{parameterChoice.title}</h4>
-					{@render segmentedButtons(
-						[
-							{ id: 'without', name: parameterChoice.without.label },
-							{ id: 'with', name: parameterChoice.with.label }
-						],
-						choiceProvides ? 'with' : 'without',
-						(id) => {
-							choiceProvides = id === 'with';
-							showRequired = false;
-						}
-					)}
+				<!-- Outlined rather than filled, so that the choice and the fields it brings in read as one
+				section, apart from the filled inputs around them. -->
+				<div class="border-base-300 dark:border-base-400 flex flex-col gap-3 rounded-lg border p-3">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<p class="text-sm font-semibold">{parameterChoice.title}</p>
+						<div role="tablist" aria-label={parameterChoice.title} class="tabs tabs-box tabs-sm">
+							{@render choiceTab(parameterChoice.without, false)}
+							{@render choiceTab(parameterChoice.with, true)}
+						</div>
+					</div>
 					<span class="text-gray text-xs">{option.description}</span>
 					{#if choiceProvides}
-						<ul class="mt-2 flex flex-col gap-4">
+						<ul class="flex flex-col gap-4" in:slide={{ axis: 'y' }}>
 							{#each choiceParameters as parameter (parameter.name)}
 								{#if parameter.name in form}
 									{@render parameterField(parameter, true)}

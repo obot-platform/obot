@@ -138,7 +138,7 @@
 	"identity_access_auth_providers_none_configured_description": "Obot のセットアップを完了するには、認証プロバイダーを設定する必要があります。以下から 1 つ選択して開始してください。",
 	"identity_access_auth_providers_not_right_account": "別のアカウントですか？",
 	"identity_access_auth_providers_only_owner_can_replace": "全員がサインインに使用する認証プロバイダーを置き換えられるのはオーナーのみです。",
-	"identity_access_auth_providers_scim_choice_title": "ユーザーとグループ",
+	"identity_access_auth_providers_scim_choice_title": "ユーザーとグループのプロビジョニング方法:",
 	"identity_access_auth_providers_scim_choice_scim_label": "SCIM",
 	"identity_access_auth_providers_scim_choice_scim_description": "{name} は SCIM でユーザーとグループをプロビジョニングし、Obot はそこからグループを取得しません。オーナーがサインインすると、Identity & Access → 認証プロバイダー → SCIM で設定を続けます。",
 	"identity_access_auth_providers_scim_choice_api_label": "{name} API",

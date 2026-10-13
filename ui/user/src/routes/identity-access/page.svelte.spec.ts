@@ -486,7 +486,7 @@ describe('Identity & Access Page', () => {
 				});
 
 				function choiceButton(name: 'SCIM' | 'Okta API') {
-					return page.getByRole('button', { name, exact: true });
+					return page.getByRole('tab', { name, exact: true });
 				}
 
 				async function fillOIDCFields() {
@@ -501,8 +501,8 @@ describe('Identity & Access Page', () => {
 				it('provisions through SCIM by default, without the API Services credentials', async () => {
 					await openOktaForm(oktaProvider);
 
-					await expect.element(choiceButton('SCIM')).toHaveAttribute('aria-pressed', 'true');
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'false');
+					await expect.element(choiceButton('SCIM')).toHaveAttribute('aria-selected', 'true');
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'false');
 					await expect
 						.element(page.getByText(/Okta provisions users and groups through SCIM/))
 						.toBeVisible();
@@ -530,7 +530,7 @@ describe('Identity & Access Page', () => {
 					await openOktaForm(oktaProvider);
 
 					await choiceButton('Okta API').click();
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'true');
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'true');
 					await expect
 						.element(page.getByText(/Obot fetches each user's groups from Okta/))
 						.toBeVisible();
@@ -604,7 +604,7 @@ describe('Identity & Access Page', () => {
 						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
 					});
 
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-pressed', 'true');
+					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'true');
 					await expect
 						.element(page.getByLabelText('API Services Client ID', { exact: true }))
 						.toHaveValue('service-client');
@@ -809,7 +809,7 @@ describe('Identity & Access Page', () => {
 					const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
 					await dialog.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
 					await dialog.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
-					await dialog.getByRole('button', { name: 'Okta API', exact: true }).click();
+					await dialog.getByRole('tab', { name: 'Okta API', exact: true }).click();
 					await dialog
 						.getByLabelText('API Services Client ID', { exact: true })
 						.fill('service-client');
