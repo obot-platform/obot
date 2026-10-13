@@ -78,6 +78,7 @@
 		parameterNotice,
 		parameterChoice
 	}: Props = $props();
+	const uid = $props.id();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
@@ -430,23 +431,27 @@
 	{/if}
 {/snippet}
 
-{#snippet choiceTab(option: ParameterChoiceOption, provides: boolean)}
-	<button
-		type="button"
-		role="tab"
+{#snippet choiceOption(option: ParameterChoiceOption, provides: boolean)}
+	<!-- A transparent native radio over its label gives the choice its keyboard behavior. -->
+	<label
 		class={twMerge(
-			'tab',
+			'tab relative has-focus-visible:outline-primary has-focus-visible:outline-2',
 			choiceProvides === provides && 'tab-active bg-primary text-white hover:text-white'
 		)}
-		aria-selected={choiceProvides === provides}
-		disabled={readonly}
-		onclick={() => {
-			choiceProvides = provides;
-			showRequired = false;
-		}}
 	>
+		<input
+			type="radio"
+			class="absolute inset-0 cursor-pointer appearance-none opacity-0 disabled:cursor-default"
+			name={`${uid}-choice`}
+			checked={choiceProvides === provides}
+			disabled={readonly}
+			onchange={() => {
+				choiceProvides = provides;
+				showRequired = false;
+			}}
+		/>
 		{option.label}
-	</button>
+	</label>
 {/snippet}
 
 <ResponsiveDialog
@@ -557,10 +562,14 @@
 				section, apart from the filled inputs around them. -->
 				<div class="border-base-300 dark:border-base-400 flex flex-col gap-3 rounded-lg border p-3">
 					<div class="flex flex-wrap items-center justify-between gap-2">
-						<p class="text-sm font-semibold">{parameterChoice.title}</p>
-						<div role="tablist" aria-label={parameterChoice.title} class="tabs tabs-box tabs-sm">
-							{@render choiceTab(parameterChoice.without, false)}
-							{@render choiceTab(parameterChoice.with, true)}
+						<p id={`${uid}-choice-title`} class="text-sm font-semibold">{parameterChoice.title}</p>
+						<div
+							role="radiogroup"
+							aria-labelledby={`${uid}-choice-title`}
+							class="tabs tabs-box tabs-sm"
+						>
+							{@render choiceOption(parameterChoice.without, false)}
+							{@render choiceOption(parameterChoice.with, true)}
 						</div>
 					</div>
 					<span class="text-gray text-xs">{option.description}</span>

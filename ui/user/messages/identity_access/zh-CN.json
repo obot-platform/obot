@@ -138,7 +138,7 @@
 	"identity_access_auth_providers_none_configured_description": "要完成 Obot 的设置，您需要配置一个身份验证提供商。请从下方选择一个开始！",
 	"identity_access_auth_providers_not_right_account": "不是正确的账户？",
 	"identity_access_auth_providers_only_owner_can_replace": "只有所有者才能替换所有人用于登录的身份验证提供商。",
-	"identity_access_auth_providers_scim_choice_title": "用户和用户组的预配方式：",
+	"identity_access_auth_providers_scim_choice_title": "目录集成：",
 	"identity_access_auth_providers_scim_choice_scim_label": "SCIM",
 	"identity_access_auth_providers_scim_choice_scim_description": "{name} 会通过 SCIM 预配用户和用户组，Obot 不会从中获取用户组。所有者登录后，请在 Identity & Access → 身份验证提供商 → SCIM 中继续设置。",
 	"identity_access_auth_providers_scim_choice_api_label": "{name} API",

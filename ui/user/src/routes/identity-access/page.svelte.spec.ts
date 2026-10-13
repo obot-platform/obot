@@ -20,7 +20,7 @@ import IdentityAccessPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 vi.mock('$app/navigation', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/navigation')>();
@@ -486,7 +486,7 @@ describe('Identity & Access Page', () => {
 				});
 
 				function choiceButton(name: 'SCIM' | 'Okta API') {
-					return page.getByRole('tab', { name, exact: true });
+					return page.getByRole('radio', { name, exact: true });
 				}
 
 				async function fillOIDCFields() {
@@ -501,8 +501,8 @@ describe('Identity & Access Page', () => {
 				it('provisions through SCIM by default, without the API Services credentials', async () => {
 					await openOktaForm(oktaProvider);
 
-					await expect.element(choiceButton('SCIM')).toHaveAttribute('aria-selected', 'true');
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'false');
+					await expect.element(choiceButton('SCIM')).toBeChecked();
+					await expect.element(choiceButton('Okta API')).not.toBeChecked();
 					await expect
 						.element(page.getByText(/Okta provisions users and groups through SCIM/))
 						.toBeVisible();
@@ -530,7 +530,7 @@ describe('Identity & Access Page', () => {
 					await openOktaForm(oktaProvider);
 
 					await choiceButton('Okta API').click();
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'true');
+					await expect.element(choiceButton('Okta API')).toBeChecked();
 					await expect
 						.element(page.getByText(/Obot fetches each user's groups from Okta/))
 						.toBeVisible();
@@ -596,6 +596,24 @@ describe('Identity & Access Page', () => {
 					);
 				});
 
+				it('switches between SCIM and the Okta API with the arrow keys', async () => {
+					await openOktaForm(oktaProvider);
+
+					// Clicking the selected option focuses it without changing the choice.
+					await choiceButton('SCIM').click();
+					await userEvent.keyboard('{ArrowRight}');
+					await expect.element(choiceButton('Okta API')).toBeChecked();
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.toBeVisible();
+
+					await userEvent.keyboard('{ArrowLeft}');
+					await expect.element(choiceButton('SCIM')).toBeChecked();
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.not.toBeInTheDocument();
+				});
+
 				it('selects the Okta API when its credentials are stored', async () => {
 					await openOktaForm(oktaProvider, {
 						OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
@@ -604,7 +622,7 @@ describe('Identity & Access Page', () => {
 						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
 					});
 
-					await expect.element(choiceButton('Okta API')).toHaveAttribute('aria-selected', 'true');
+					await expect.element(choiceButton('Okta API')).toBeChecked();
 					await expect
 						.element(page.getByLabelText('API Services Client ID', { exact: true }))
 						.toHaveValue('service-client');
@@ -809,7 +827,7 @@ describe('Identity & Access Page', () => {
 					const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
 					await dialog.getByLabelText('Client ID', { exact: true }).fill('oidc-client');
 					await dialog.getByLabelText('Org URL', { exact: true }).fill('https://example.okta.com');
-					await dialog.getByRole('tab', { name: 'Okta API', exact: true }).click();
+					await dialog.getByRole('radio', { name: 'Okta API', exact: true }).click();
 					await dialog
 						.getByLabelText('API Services Client ID', { exact: true })
 						.fill('service-client');
