@@ -89,9 +89,6 @@
 						{showRequired}
 						{showInvalid}
 					/>
-					{#if headersOnly && showInvalid && !item.required}
-						<p class="text-error text-xs" role="alert">{m.mcps_openapi_header_required_error()}</p>
-					{/if}
 
 					{#if item.usage === 'header'}
 						<div class="flex w-full flex-col gap-1">

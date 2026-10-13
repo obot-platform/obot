@@ -549,7 +549,6 @@
 	"mcps_openapi_file_read_error": "Unable to read the schema file.",
 	"mcps_openapi_file_too_large": "Schema files must be no larger than 1 MiB.",
 	"mcps_openapi_headers_help": "Headers are forwarded to the API with each request. Imported suggestions can be edited. Use Value Prefix for values such as \"Bearer \" (including the trailing space).",
-	"mcps_openapi_header_required_error": "OpenAPI credential headers must be marked Required before saving.",
 	"mcps_openapi_import_before_save": "Import the schema before saving this entry.",
 	"mcps_openapi_import_schema": "Import schema",
 	"mcps_openapi_import_title": "Import OpenAPI schema",

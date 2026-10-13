@@ -734,9 +734,6 @@
 		if (type !== 'multi' && hasDuplicateConfigKeys()) {
 			invalid.env = true;
 		}
-		if (formData.runtime === 'openapi' && formData.config?.some((header) => !header.required)) {
-			invalid.env = true;
-		}
 		if (Object.keys(required).length > 0 || Object.keys(invalid).length > 0) {
 			showRequired = required;
 			showInvalid = invalid;

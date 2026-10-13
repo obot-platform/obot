@@ -130,12 +130,12 @@ it('rejects OpenAPI header names that differ only by case', async () => {
 	expect(saved).not.toHaveBeenCalled();
 });
 
-it('keeps Required editable but blocks saving optional OpenAPI credential headers', async () => {
+it('keeps imported headers required by default and allows saving optional headers', async () => {
 	mockImport();
 	const saved = vi.fn();
 	worker.use(
-		http.post('/api/mcp-catalogs/test/entries', async () => {
-			saved();
+		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+			saved(await request.json());
 			return HttpResponse.json(createMCPCatalogEntryResponse);
 		})
 	);
@@ -144,18 +144,36 @@ it('keeps Required editable but blocks saving optional OpenAPI credential header
 	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
 	const required = page.getByRole('switch', { name: 'Required', exact: true });
 	await expect.element(required).toBeEnabled();
+	await expect.element(required).toBeChecked();
 	await required.click();
 	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 
+	await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+	expect(saved.mock.calls[0][0].config).toEqual([{ ...suggestedHeader, required: false }]);
+});
+
+it('allows removing schema-suggested credential headers before saving', async () => {
+	mockImport();
+	const saved = vi.fn();
+	worker.use(
+		http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json(createMCPCatalogEntryResponse);
+		})
+	);
+	await openForm();
+	await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await expect.element(page.getByRole('switch', { name: 'Required', exact: true })).toBeChecked();
+	await page.getByRole('button', { name: 'Remove configuration', exact: true }).click();
 	await expect
-		.element(page.getByRole('alert'))
-		.toHaveTextContent('OpenAPI credential headers must be marked Required before saving.');
-	expect(saved).not.toHaveBeenCalled();
-	await required.click();
-	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+		.element(page.getByRole('switch', { name: 'Required', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('An example API');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+	expect(saved.mock.calls[0][0].config).toEqual([]);
 });
 
 it('saves OpenAPI egress domains when network policy is enabled', async () => {

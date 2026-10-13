@@ -79,22 +79,12 @@ func Environment(result *Result, headers []types.MCPConfig, devMode bool) ([]str
 		if err := validateHeader(header.Key); err != nil {
 			return nil, err
 		}
-		if !header.Required {
-			return nil, fmt.Errorf("credential header %s must be marked required for the OpenAPI runtime", header.Key)
-		}
-
 		key := strings.ToLower(header.Key)
 		if seen[key] {
 			return nil, fmt.Errorf("duplicate credential header names")
 		}
 		seen[key] = true
 		names = append(names, header.Key)
-	}
-
-	for _, required := range result.SuggestedHeaders {
-		if !seen[strings.ToLower(required.Key)] {
-			return nil, fmt.Errorf("credential header %s declared by the schema is missing", required.Key)
-		}
 	}
 
 	base, err := destination(result.BaseURL)

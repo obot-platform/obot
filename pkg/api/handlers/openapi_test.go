@@ -343,7 +343,7 @@ func TestOpenAPICatalogRejectsInvalidConfiguration(t *testing.T) {
 	}
 }
 
-func TestOpenAPICatalogRequiresSuggestedHeader(t *testing.T) {
+func TestOpenAPICatalogAllowsRemovingSuggestedHeader(t *testing.T) {
 	storage := newFakeStorage(t, &v1.MCPCatalog{Name: "scope", Namespace: system.DefaultNamespace})
 	manifest := types.MCPServerCatalogEntryManifest{
 		Name:    "Example",
@@ -362,9 +362,9 @@ func TestOpenAPICatalogRequiresSuggestedHeader(t *testing.T) {
 	manifest.Config = nil
 	ctx, _ = openAPIRequest(t, storage, "catalog_id", http.MethodPut, manifest)
 	ctx.SetPathValue("entry_id", entries.Items[0].Name)
-	require.ErrorContains(t, handler.UpdateEntry(ctx), "credential header X-API-Key declared by the schema is missing")
+	require.NoError(t, handler.UpdateEntry(ctx))
 	require.NoError(t, storage.List(t.Context(), &entries))
-	require.Len(t, entries.Items[0].Spec.Manifest.Config, 1)
+	require.Empty(t, entries.Items[0].Spec.Manifest.Config)
 }
 
 func TestOpenAPIUpdateRespectsOwnership(t *testing.T) {

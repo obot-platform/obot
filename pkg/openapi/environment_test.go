@@ -21,7 +21,7 @@ func TestEnvironment(t *testing.T) {
 
 	headers := []types.MCPConfig{
 		{Key: "X-Key", Required: true, Usage: types.Header, Value: "secret"},
-		{Key: "Authorization", Required: true, Usage: types.Header, Prefix: "Bearer "},
+		{Key: "Authorization", Required: false, Usage: types.Header, Prefix: "Bearer "},
 	}
 	env, err = Environment(result, headers, false)
 	require.NoError(t, err)
@@ -63,11 +63,19 @@ func TestEnvironmentValidation(t *testing.T) {
 		"OPENAPI_CREDENTIAL_HEADERS=X-Key",
 	}, env)
 
-	_, err = Environment(&Result{
+	env, err = Environment(&Result{
 		BaseURL:          "https://api.example.com",
 		SuggestedHeaders: []types.MCPConfig{{Key: "X-Required", Required: true, Usage: types.Header}},
 	}, []types.MCPConfig{header}, false)
-	require.ErrorContains(t, err, "X-Required")
+	require.NoError(t, err)
+	require.Equal(t, "OPENAPI_CREDENTIAL_HEADERS=X-Key", env[1])
+
+	env, err = Environment(&Result{
+		BaseURL:          "https://api.example.com",
+		SuggestedHeaders: []types.MCPConfig{{Key: "X-Required", Required: true, Usage: types.Header}},
+	}, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, "OPENAPI_CREDENTIAL_HEADERS=", env[1])
 
 	header.Key = strings.Repeat("a", maxEnvironmentValueBytes+1)
 	_, err = Environment(result, []types.MCPConfig{header}, false)

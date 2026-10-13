@@ -549,7 +549,6 @@
 	"mcps_openapi_file_read_error": "スキーマファイルを読み取れませんでした。",
 	"mcps_openapi_file_too_large": "スキーマファイルのサイズは 1 MiB 以下にしてください。",
 	"mcps_openapi_headers_help": "ヘッダーはリクエストごとに API に転送されます。インポートされた候補は編集できます。値のプレフィックスには「Bearer 」などを使用できます（末尾のスペースも含めてください）。",
-	"mcps_openapi_header_required_error": "OpenAPI の認証情報ヘッダーは、保存前に「必須」に設定してください。",
 	"mcps_openapi_import_before_save": "このエントリを保存する前にスキーマをインポートしてください。",
 	"mcps_openapi_import_schema": "スキーマをインポート",
 	"mcps_openapi_import_title": "OpenAPI スキーマをインポート",

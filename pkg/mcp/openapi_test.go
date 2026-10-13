@@ -337,12 +337,6 @@ func TestOpenAPIInvalidConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "missing schema credential header",
-			mutate: func(m *types.MCPServerManifest) {
-				m.OpenAPIConfig.Schema = testOpenAPISchema(strings.Replace(storedOpenAPISchema, `"paths":{}`, `"paths":{},"components":{"securitySchemes":{"key":{"type":"apiKey","in":"header","name":"X-API-Key"}}}`, 1))
-			},
-		},
-		{
 			name:   "credentials require HTTPS",
 			mutate: func(m *types.MCPServerManifest) { m.OpenAPIConfig.BaseURL = "http://api.example.com" },
 		},
@@ -766,12 +760,13 @@ func TestOpenAPIDestinationPolicyAtDeployment(t *testing.T) {
 	}
 }
 
-func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
+func TestOpenAPICredentialRequirednessUsesConfiguration(t *testing.T) {
 	for _, test := range []struct {
 		name        string
 		supplied    bool
 		value       string
 		userAllowed bool
+		required    bool
 	}{
 		{
 			name: "missing value",
@@ -788,13 +783,27 @@ func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
 			name:        "per-user",
 			userAllowed: true,
 		},
+		{
+			name:        "per-user supplied value",
+			userAllowed: true,
+			supplied:    true,
+		},
+		{
+			name:     "required missing value",
+			required: true,
+		},
+		{
+			name:        "required per-user missing value",
+			required:    true,
+			userAllowed: true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			server := openAPITestServer()
 			server.Spec.Manifest.OpenAPIConfig.BaseURL = "https://93.184.216.34"
 
 			header := &server.Spec.Manifest.Config[0]
-			header.Required = false
+			header.Required = test.required
 			header.Value = test.value
 			header.UserAllowed = test.userAllowed
 
@@ -803,13 +812,47 @@ func TestOpenAPICredentialsMustBeRequired(t *testing.T) {
 				credentials["Authorization"] = "supplied-key"
 			}
 
-			_, _, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials, false)
+			config, missing, deploymentErr := ServerToServerConfig(server, nil, "user-1", "test", "default", credentials, false)
 			for _, err := range []error{
 				ValidateServerManifest(t.Context(), server.Spec.Manifest, test.userAllowed, ValidationOptions{}),
 				ValidateCatalogEntryManifest(t.Context(), server.Spec.Manifest.ConvertToCatalogEntry(), test.userAllowed, ValidationOptions{}),
 				deploymentErr,
 			} {
-				require.ErrorContains(t, err, "credential header Authorization must be marked required")
+				require.NoError(t, err)
+			}
+			if test.required && !test.userAllowed {
+				require.Equal(t, []string{"Authorization"}, missing)
+			} else {
+				require.Empty(t, missing)
+			}
+			require.Contains(t, config.Env, "OPENAPI_CREDENTIAL_HEADERS=Authorization")
+			switch {
+			case test.value != "":
+				require.Equal(t, []string{"Authorization=" + test.value}, config.Headers)
+			case test.supplied && !test.userAllowed:
+				require.Equal(t, []string{"Authorization=Bearer supplied-key"}, config.Headers)
+			default:
+				require.Empty(t, config.Headers)
+			}
+			if test.userAllowed {
+				instance := v1.MCPServerInstance{
+					Spec: v1.MCPServerInstanceSpec{
+						Config: server.Spec.Manifest.Config,
+					},
+				}
+				names, values, missing := serverInstanceHeaders(instance, credentials)
+				if test.supplied {
+					require.Equal(t, []string{"Authorization"}, names)
+					require.Equal(t, []string{"Bearer supplied-key"}, values)
+				} else {
+					require.Empty(t, names)
+					require.Empty(t, values)
+				}
+				if test.required {
+					require.Equal(t, []string{"Authorization"}, missing)
+				} else {
+					require.Empty(t, missing)
+				}
 			}
 		})
 	}

@@ -10,11 +10,10 @@ import (
 
 func TestCredentials(t *testing.T) {
 	for _, test := range []struct {
-		name    string
-		scheme  map[string]any
-		key     string
-		prefix  string
-		invalid bool
+		name   string
+		scheme map[string]any
+		key    string
+		prefix string
 	}{
 		{
 			name:   "header key",
@@ -28,19 +27,24 @@ func TestCredentials(t *testing.T) {
 			prefix: "Bearer ",
 		},
 		{
-			name:    "query key",
-			scheme:  map[string]any{"type": "apiKey", "in": "query", "name": "key"},
-			invalid: true,
+			name:   "query key",
+			scheme: map[string]any{"type": "apiKey", "in": "query", "name": "key"},
 		},
 		{
-			name:    "cookie key",
-			scheme:  map[string]any{"type": "apiKey", "in": "cookie", "name": "key"},
-			invalid: true,
+			name:   "cookie key",
+			scheme: map[string]any{"type": "apiKey", "in": "cookie", "name": "key"},
 		},
 		{
-			name:    "transport header",
-			scheme:  map[string]any{"type": "apiKey", "in": "header", "name": "Host"},
-			invalid: true,
+			name:   "transport header",
+			scheme: map[string]any{"type": "apiKey", "in": "header", "name": "Host"},
+		},
+		{
+			name:   "basic auth",
+			scheme: map[string]any{"type": "http", "scheme": "basic"},
+		},
+		{
+			name:   "invalid header name",
+			scheme: map[string]any{"type": "apiKey", "in": "header", "name": "invalid header"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -48,11 +52,12 @@ func TestCredentials(t *testing.T) {
 				d["components"] = map[string]any{"securitySchemes": map[string]any{"key": test.scheme}}
 			})
 			result, err := Parse(data, types.OpenAPIRuntimeConfig{})
-			if test.invalid {
-				require.Error(t, err)
+			require.NoError(t, err)
+			require.JSONEq(t, string(data), string(result.Schema))
+			if test.key == "" {
+				require.Empty(t, result.SuggestedHeaders)
 				return
 			}
-			require.NoError(t, err)
 			require.Len(t, result.SuggestedHeaders, 1)
 			header := result.SuggestedHeaders[0]
 			require.Equal(t, test.key, header.Key)
@@ -65,6 +70,23 @@ func TestCredentials(t *testing.T) {
 			require.Len(t, result.SuggestedHeaders, 1)
 		})
 	}
+}
+
+func TestCredentialSuggestionsSkipConflictingPrefixes(t *testing.T) {
+	data := documentWith(t, func(d map[string]any) {
+		d["components"] = map[string]any{"securitySchemes": map[string]any{
+			"a-key":   map[string]any{"type": "apiKey", "in": "header", "name": "Authorization"},
+			"b-token": map[string]any{"type": "http", "scheme": "bearer"},
+			"c-key":   map[string]any{"type": "apiKey", "in": "header", "name": "authorization"},
+			"d-safe":  map[string]any{"type": "apiKey", "in": "header", "name": "X-Key"},
+			"e-safe":  map[string]any{"type": "apiKey", "in": "header", "name": "x-key"},
+		}}
+	})
+	result, err := Parse(data, types.OpenAPIRuntimeConfig{})
+	require.NoError(t, err)
+	require.JSONEq(t, string(data), string(result.Schema))
+	require.Len(t, result.SuggestedHeaders, 1)
+	require.Equal(t, "X-Key", result.SuggestedHeaders[0].Key)
 }
 
 func TestHeaderValidation(t *testing.T) {
