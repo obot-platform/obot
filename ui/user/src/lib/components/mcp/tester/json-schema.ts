@@ -134,8 +134,13 @@ export function resolveUnionSchema(
 	if (result.enum) result.enum = result.enum.filter((entry) => entry !== null);
 	// There is no usable non-null control when constraints allow only null.
 	if (result.const === null || result.enum?.length === 0) return undefined;
+	// A shared enum or const can rule out whole members; the hint must not offer those.
+	const allowed = schema.const !== undefined ? [schema.const] : schema.enum;
+	const possible = (member: JSONSchema) =>
+		!allowed ||
+		allowed.some((entry) => entry !== null && !validateJSONSchema(member, entry).length);
 	const alternatives = members
-		.filter((_, memberIndex) => memberIndex !== index)
+		.filter((member, memberIndex) => memberIndex !== index && possible(member))
 		.map((member) =>
 			typeof member.type === 'string' ? member.type : m.mcps_tester_union_another_type()
 		);

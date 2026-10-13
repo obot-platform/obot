@@ -307,6 +307,15 @@ describe('MCP tester JSON Schema support', () => {
 		expect(generatedFormRepresents(typeless, 'abc')).toBe(true);
 	});
 
+	it('leaves members ruled out by a shared enum or const out of the hint', () => {
+		const members = [{ type: 'boolean' }, { type: 'string' }] as JSONSchema[];
+		expect(resolveUnionSchema({ anyOf: members, enum: [true, false] })?.alternatives).toEqual([]);
+		expect(resolveUnionSchema({ anyOf: members, const: true })?.alternatives).toEqual([]);
+		expect(resolveUnionSchema({ anyOf: members, enum: [true, 'yes'] })?.alternatives).toEqual([
+			'string'
+		]);
+	});
+
 	it('still declines unions whose first member cannot render or conflicts with the union', () => {
 		expect(supportsGeneratedForm({ anyOf: [{ enum: [1, 2] }, { type: 'string' }] })).toBe(false);
 		expect(
