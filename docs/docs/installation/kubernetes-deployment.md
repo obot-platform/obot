@@ -10,6 +10,10 @@ Deploy Obot on Kubernetes for production-grade reliability, scalability, and hig
 For a complete list of all available Helm chart configuration values, see [charts.obot.ai](https://charts.obot.ai/).
 :::
 
+:::warning Experimental Claude Environments
+The optional Claude Environments integration has additional certificate API, worker-node, and storage requirements. Review [cluster compatibility](../claude-environments/cluster-requirements.md) before enabling it; the general Obot requirements below are not sufficient on their own.
+:::
+
 ## Prerequisites
 
 - **Helm**

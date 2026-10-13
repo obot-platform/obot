@@ -91,3 +91,14 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |
 | `OBOT_DEFAULT_SKILL_REPO_URL` | The default skill repository URL. Must be a full HTTPS GitHub URL (e.g. `https://github.com/org/repo`). Only used on first-time setup (before the first owner user is created). A SkillRepository resource will be created from this URL and synced automatically. | `https://github.com/obot-platform/skills` |
 | `OBOT_DEFAULT_SKILL_REPO_REF` | The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup. | - |
+
+### Claude egress audit retention (experimental)
+
+`OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS` controls how many days egress audit
+records are retained after their last update. The default is `90`; `0` disables
+cleanup. In Helm, set this under `config.OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS`.
+
+The admin Audit Logs page includes a **Claude Environments** tab. Only members of the auditor
+group can read request/response bodies and headers, including administrators.
+
+See [experimental Claude Environments](../claude-environments/overview.md) for setup, access control, and audit limitations.

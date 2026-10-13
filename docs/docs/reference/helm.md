@@ -12,6 +12,7 @@ The Helm chart reference is published at [charts.obot.ai](https://charts.obot.ai
 | Obot data volume and StorageClass | [Persistent Storage](../installation/kubernetes-persistent-storage.md) |
 | Private image registries | [Image Pull Secrets](../configuration/image-pull-secrets.md) |
 | Domain egress provider | [MCP Server Egress Control](../configuration/mcp-server-egress-control.md) |
+| Experimental Claude Environments | [Install Claude Environments](../claude-environments/installation.md) |
 | Encryption providers | [Encryption](../security/credentials.md) |
 
 Put sensitive values under the chart's `secret` settings rather than `config`. For reviewed production configuration, retain chart version and values alongside the deployment's change history. See [Server Configuration](../configuration/server-configuration.md) for environment-variable descriptions; not every development-only variable has a dedicated Helm value.

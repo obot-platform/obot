@@ -111,6 +111,128 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
 
+## Claude Environments on k3d (experimental)
+
+Claude Environments requires Kubernetes, including certificate APIs and kubelet projections that are not enabled in a default K3s 1.36 cluster. This setup runs Obot and Substrate inside a dedicated local k3d cluster. It uses the K3s version and feature gates exercised during development; it is not a production deployment guide. All commands in this section use **Bash**, from the repository root.
+
+### Prerequisites
+
+- Docker with Linux containers, k3d, kubectl, and Helm (with `--set-literal` support).
+- Enough Docker CPU, memory, and disk for Kubernetes, Obot, Substrate, and workers. Each environment defaults to a worker with 2 CPUs and 4 GiB of memory, in addition to the other services.
+- An existing S3-compatible snapshot bucket and credentials with object read/write/delete access. The example supports AWS S3 or Cloudflare R2; the chart does not create the bucket.
+- A Claude Team or Enterprise organization with self-hosted environments enabled and permission to create an environment key.
+
+Use a cluster without another Substrate installation: its namespaces, certificate signers, and CRDs are shared cluster resources.
+
+### 1. Create the cluster
+
+```bash
+export CLUSTER_NAME=obot-substrate
+
+k3d cluster create "$CLUSTER_NAME" \
+  --image rancher/k3s:v1.36.4-k3s1 \
+  --servers 1 \
+  --agents 0 \
+  --k3s-arg '--kube-apiserver-arg=runtime-config=certificates.k8s.io/v1beta1=true@server:*' \
+  --k3s-arg '--kube-apiserver-arg=feature-gates=ClusterTrustBundle=true,PodCertificateRequest=true@server:*' \
+  --k3s-arg '--kubelet-arg=feature-gates=ClusterTrustBundle=true,ClusterTrustBundleProjection=true,PodCertificateRequest=true@server:*' \
+  --wait
+
+kubectl config use-context "k3d-$CLUSTER_NAME"
+kubectl get nodes -o wide
+kubectl api-resources --api-group=certificates.k8s.io
+kubectl get storageclass
+```
+
+API discovery should list `clustertrustbundles` and `podcertificaterequests`. K3s supplies the default `local-path` StorageClass for this development setup. If you add separate k3d agent nodes, pass the same kubelet feature gates to them using an additional `--k3s-arg '...@agent:*'` argument at cluster creation. Enabling the API server gates alone is insufficient.
+
+### 2. Build and import Obot
+
+Use a new image tag on each rebuild so Kubernetes starts the new image when you upgrade the release.
+
+```bash
+export OBOT_IMAGE_TAG="substrate-dev-$(date +%Y%m%d%H%M%S)"
+docker build -t "obot:$OBOT_IMAGE_TAG" .
+k3d image import "obot:$OBOT_IMAGE_TAG" --cluster "$CLUSTER_NAME"
+```
+
+The chart uses published Substrate and runner images by default. You only need to build those separately when changing their implementation; see [substrate-images](https://github.com/obot-platform/substrate-images).
+
+### 3. Configure snapshot storage and install
+
+Replace the bucket and region below. Enter credentials at the prompts instead of putting literal credentials in shell history. Helm still stores supplied values in its release Secrets.
+
+```bash
+export SNAPSHOT_BUCKET=your-existing-bucket
+export SNAPSHOT_REGION=us-east-1
+read -r -p 'Snapshot access key ID: ' SNAPSHOT_ACCESS_KEY_ID
+read -r -s -p 'Snapshot secret access key: ' SNAPSHOT_SECRET_ACCESS_KEY
+printf '\n'
+
+# AWS S3 needs no custom endpoint.
+snapshot_endpoint_args=()
+
+# For R2, uncomment these lines and replace YOUR_ACCOUNT_ID:
+# SNAPSHOT_REGION=auto
+# snapshot_endpoint_args=(
+#   --set-string 'substrate.storage.env.AWS_ENDPOINT_URL=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com'
+#   --set-string 'substrate.storage.env.AWS_S3_USE_PATH_STYLE=true'
+# )
+
+helm upgrade --install obot ./chart \
+  --kube-context "k3d-$CLUSTER_NAME" \
+  --create-namespace --namespace obot \
+  --set-string image.repository=obot \
+  --set-string image.tag="$OBOT_IMAGE_TAG" \
+  --set image.pullPolicy=IfNotPresent \
+  --set replicaCount=1 \
+  --set dev.useEmbeddedDb=true \
+  --set persistence.enabled=true \
+  --set ingress.enabled=false \
+  --set service.type=ClusterIP \
+  --set-string config.OBOT_SERVER_HOSTNAME=http://localhost:8080 \
+  --set config.OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  --set substrate.enabled=true \
+  --set substrate.apiServer.replicas=1 \
+  --set substrate.storage.backend=s3 \
+  --set-string "config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION=s3://$SNAPSHOT_BUCKET/claude/" \
+  --set-string "substrate.storage.env.AWS_REGION=$SNAPSHOT_REGION" \
+  --set-literal "substrate.storage.credentials.AWS_ACCESS_KEY_ID=$SNAPSHOT_ACCESS_KEY_ID" \
+  --set-literal "substrate.storage.credentials.AWS_SECRET_ACCESS_KEY=$SNAPSHOT_SECRET_ACCESS_KEY" \
+  "${snapshot_endpoint_args[@]}" \
+  --wait --wait-for-jobs --timeout 10m
+```
+
+This uses Obot's development-only embedded PostgreSQL and a separate bundled PostgreSQL for Substrate, with local persistent volumes. To use an external Obot database instead, set `dev.useEmbeddedDb=false` and supply `secret.OBOT_SERVER_DSN`. Do not point both applications at the same database. Helm automatically configures the internal Substrate address and Obot URL.
+
+### 4. Open Obot and create an environment
+
+```bash
+kubectl get pods -n obot
+kubectl get pods -n ate-system
+kubectl get pods -n podcertificate-controller-system
+
+# Retrieve the generated bootstrap login token.
+kubectl get secret obot-config -n obot \
+  -o jsonpath='{.data.OBOT_BOOTSTRAP_TOKEN}' | base64 --decode
+printf '\n'
+
+# Keep this running while using the browser.
+kubectl port-forward -n obot service/obot-obot 8080:80
+```
+
+Open <http://localhost:8080> and use the bootstrap token to sign in. Configure authentication and Obot users, then follow [environment administration](docs/docs/claude-environments/administration.md) to create an environment from its Claude environment key, assign profiles and vMCPs, and map Claude accounts to Obot users. Workers are created when an environment is configured; an empty worker namespace before that is expected. Anthropic provisioning uses an outbound connection from Obot, so it does not require a publicly reachable localhost ingress.
+
+### Troubleshooting and rebuilding
+
+- **Certificate volumes fail with `unimplemented`:** verify the kubelet gates as well as the API server gates. A normal k3d cluster without these settings is insufficient.
+- **Pods remain Pending:** inspect `kubectl get events -A --sort-by=.lastTimestamp` for insufficient resources or unbound volumes. Check Docker's resource allocation and the default StorageClass.
+- **Obot has `ImagePullBackOff`:** confirm the exact image tag was imported into this cluster and that the Helm command uses the same tag.
+- **Snapshot or resume errors:** verify the bucket, endpoint, credentials, and outbound access from the cluster. A successful Helm install alone does not verify snapshot restoration.
+- **After changing Obot:** repeat the build/import step with a fresh tag, then rerun the Helm command with your storage configuration. Restart the port-forward if it disconnects during rollout.
+
+Run the [acceptance checks](docs/docs/claude-environments/operations.md#acceptance-checks), including suspend/resume, before relying on the setup. See [cluster requirements](docs/docs/claude-environments/cluster-requirements.md) for node access and networking details.
+
 ## Running Obot Locally with Kubernetes
 
 MCP server containers run in Kubernetes and need to reach your local Obot process. This requires [Telepresence](https://www.telepresence.io/) to bridge the network between your Mac and the cluster.

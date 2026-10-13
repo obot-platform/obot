@@ -210,6 +210,19 @@ const sidebars = {
 		},
 		{
 			"type": "category",
+			"label": "Claude Environments (experimental)",
+			"link": { "type": "doc", "id": "claude-environments/overview" },
+			"items": [
+				"claude-environments/overview",
+				"claude-environments/cluster-requirements",
+				"claude-environments/installation",
+				"claude-environments/administration",
+				"claude-environments/security",
+				"claude-environments/operations"
+			]
+		},
+		{
+			"type": "category",
 			"label": "Security & Governance",
 			"link": {
 				"type": "doc",
