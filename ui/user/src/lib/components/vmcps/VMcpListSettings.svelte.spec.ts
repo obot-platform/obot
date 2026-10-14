@@ -34,7 +34,7 @@ describe('VMcpListSettings.svelte', () => {
 		await renderSettings([Group.USER]);
 		await openFilters();
 
-		await expect.element(page.getByRole('checkbox', { name: 'Show my vMCPs only' })).toBeVisible();
+		await expect.element(page.getByRole('checkbox', { name: 'Show Only My vMCPs' })).toBeVisible();
 	});
 
 	it('shows the status filter options', async () => {
@@ -43,5 +43,17 @@ describe('VMcpListSettings.svelte', () => {
 
 		await expect.element(page.getByText(/^Filter By Status$/)).toBeVisible();
 		await expect.element(page.getByRole('combobox', { name: 'Filter By Status' })).toBeVisible();
+	});
+
+	it('shows an active filter pill when show my vMCPs only is enabled', async () => {
+		await preparePageData({
+			profile: createMockProfile([Group.USER])
+		});
+		await render(VMcpListSettings, {
+			filters: { ...defaultFilters, showMyVMcpsOnly: true },
+			onChange: () => {}
+		});
+
+		await expect.element(page.getByText('Show Only My vMCPs').first()).toBeVisible();
 	});
 });

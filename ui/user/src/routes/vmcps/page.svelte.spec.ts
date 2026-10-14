@@ -88,7 +88,7 @@ describe('vMCPs Page', () => {
 				.not.toBeInTheDocument();
 		});
 
-		it('filters to creator-owned vMCPs when "Show my vMCPs only" is checked', async () => {
+		it('filters to creator-owned vMCPs when "Show Only My vMCPs" is checked', async () => {
 			const myCreated = createVMCP(
 				{
 					id: 'vmcp-mine',
@@ -127,7 +127,7 @@ describe('vMCPs Page', () => {
 			await expect.element(page.getByRole('button', { name: 'Open Other vMCP' })).toBeVisible();
 
 			await page.getByRole('button', { name: 'Filters' }).click();
-			await page.getByRole('checkbox', { name: 'Show my vMCPs only' }).click();
+			await page.getByRole('checkbox', { name: 'Show Only My vMCPs' }).click();
 
 			await expect
 				.element(page.getByRole('button', { name: 'Open My Created vMCP' }))

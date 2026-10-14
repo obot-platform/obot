@@ -29,6 +29,15 @@
 	let statusDraft = $state<string | number | undefined>('');
 
 	let activeFilterPills = $derived([
+		...(filters.showMyVMcpsOnly
+			? [
+					{
+						id: 'showMyVMcpsOnly',
+						label: m.vmcps_show_my_vmcps_only(),
+						property: 'showMyVMcpsOnly' as const
+					}
+				]
+			: []),
 		...pillsFor(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy).map((item) => ({
 			...item,
 			property: 'statusFilterBy' as const
@@ -85,7 +94,11 @@
 						type="button"
 						class="btn btn-square btn-ghost size-4 min-h-4 text-muted-content hover:text-base-content"
 						aria-label={m.vmcps_remove_named({ name: item.label })}
-						onclick={() =>
+						onclick={() => {
+							if (item.property === 'showMyVMcpsOnly') {
+								onChange('showMyVMcpsOnly', []);
+								return;
+							}
 							onChange(
 								item.property,
 								parseSelectedFilterIds(
@@ -96,7 +109,8 @@
 										String(item.id)
 									)
 								)
-							)}
+							);
+						}}
 					>
 						<X class="size-3" />
 					</button>
