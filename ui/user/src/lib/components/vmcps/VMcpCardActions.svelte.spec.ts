@@ -8,5 +8,5 @@ it('keeps Connect available without offering a direct URL shortcut', async () =>
 	await preparePageData();
 	await render(VMcpCardActions, { id: 'test', hideTest: true });
 	await expect.element(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
-	await expect.element(page.getByRole('button')).toHaveLength(1);
+	expect(page.getByRole('button').elements()).toHaveLength(1);
 });
