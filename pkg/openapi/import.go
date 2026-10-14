@@ -107,15 +107,15 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 // It makes no request to the destination.
 func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	// A bad destination override must not discard an otherwise supported schema.
-	parseConfig := config
-	parseConfig.BaseURL = ""
-	result, err := Parse(data, parseConfig)
+	baseURL := config.BaseURL
+	config.BaseURL = ""
+	result, err := Parse(data, config)
 	if err != nil {
 		return nil, err
 	}
-	if config.BaseURL != "" {
-		result.BaseURL = config.BaseURL
-		if base, err := destination(config.BaseURL); err == nil {
+	if baseURL != "" {
+		result.BaseURL = baseURL
+		if base, err := destination(baseURL); err == nil {
 			result.BaseURL = base
 		}
 	}
