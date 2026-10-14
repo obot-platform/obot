@@ -268,9 +268,12 @@ func ListAllowedSecretBindingTargets(ctx context.Context, c kclient.Client, obot
 	targets := make([]types.MCPAllowedSecretBindingTarget, 0, len(secrets.Items))
 	for _, secret := range secrets.Items {
 		keys := make([]string, 0, len(secret.Data))
-		for key := range secret.Data {
-			keys = append(keys, key)
+		for key, value := range secret.Data {
+			if len(value) > 0 {
+				keys = append(keys, key)
+			}
 		}
+
 		if len(keys) == 0 {
 			continue
 		}

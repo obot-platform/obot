@@ -26,7 +26,19 @@ func TestListAllowedSecrets(t *testing.T) {
 			Name:      "source-secret",
 			Namespace: system.DefaultNamespace,
 			Labels:    map[string]string{testSecretBindingAllowedLabel: "true"},
-			Data:      map[string][]byte{"token": []byte("secret-token")},
+			Data: map[string][]byte{
+				"token": []byte("secret-token"),
+				"empty": {},
+				"nil":   nil,
+			},
+		}, &corev1.Secret{
+			Name:      "empty-secret",
+			Namespace: system.DefaultNamespace,
+			Labels:    map[string]string{testSecretBindingAllowedLabel: "true"},
+			Data: map[string][]byte{
+				"empty": {},
+				"nil":   nil,
+			},
 		}, &corev1.Secret{
 			Name:      "unlabeled-secret",
 			Namespace: system.DefaultNamespace,
