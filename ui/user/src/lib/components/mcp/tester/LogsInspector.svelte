@@ -4,7 +4,7 @@
 	import { formatFileSize } from '$lib/format';
 	import { m } from '$lib/i18n';
 	import type { TesterLogEntry, TesterLogKind } from '$lib/services/mcp/tester-log.svelte';
-	import type { MCPTesterSession, TesterStatus } from '$lib/services/mcp/tester.svelte';
+	import { testerStatusLabel, type MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 	import CornerCopyButton from './CornerCopyButton.svelte';
 	import TesterError from './TesterError.svelte';
 	import {
@@ -40,17 +40,6 @@
 		'error-response': m.mcps_tester_log_kind_error(),
 		notification: m.mcps_tester_log_kind_notification(),
 		'transport-event': m.mcps_tester_log_kind_transport()
-	};
-	const STATUS_LABEL: Record<TesterStatus, string> = {
-		idle: m.mcps_tester_log_status_idle(),
-		initializing: m.mcps_tester_log_status_initializing(),
-		ready: m.core_mcp_value_connected(),
-		'access-denied': m.mcps_tester_access_denied(),
-		unhealthy: m.mcps_tester_server_unavailable(),
-		'reauthentication-required': m.mcps_tester_reauth_required(),
-		'setup-required': m.mcps_tester_status_setup_required(),
-		error: m.mcps_servers_connection_failed(),
-		closed: m.mcps_tester_log_status_closed()
 	};
 	const KIND_OPTIONS: Array<{ id: 'all' | TesterLogKind; label: string }> = [
 		{ id: 'all', label: m.mcps_tester_log_filter_all() },
@@ -211,7 +200,7 @@
 	{#if session && status && status !== 'ready' && status !== 'idle'}
 		{#if session.error}
 			<TesterError
-				title={STATUS_LABEL[status]}
+				title={testerStatusLabel(status)}
 				message={session.error}
 				details={session.errorDetails}
 				severity={connectionFailed ? 'error' : 'warning'}
@@ -234,7 +223,7 @@
 			>
 				<div class="flex flex-wrap items-center gap-2">
 					<TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
-					<strong>{STATUS_LABEL[status]}</strong>
+					<strong>{testerStatusLabel(status)}</strong>
 
 					{#if onretry && (status === 'error' || status === 'unhealthy')}
 						<button type="button" class="btn btn-secondary btn-sm ml-auto" onclick={onretry}>

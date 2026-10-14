@@ -1028,6 +1028,7 @@
 	"mcps_tester_status_mcp_error": "MCP エラー結果",
 	"mcps_tester_status_request_failed": "リクエストに失敗しました",
 	"mcps_tester_status_setup_required": "セットアップが必要",
+	"mcps_tester_status_unavailable": "利用不可",
 	"mcps_tester_status_timeout": "タイムアウト",
 	"mcps_tester_stop": "停止",
 	"mcps_tester_structured_content": "構造化コンテンツ",

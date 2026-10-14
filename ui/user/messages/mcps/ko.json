@@ -1028,6 +1028,7 @@
 	"mcps_tester_status_mcp_error": "MCP 오류 결과",
 	"mcps_tester_status_request_failed": "요청 실패",
 	"mcps_tester_status_setup_required": "설정 필요",
+	"mcps_tester_status_unavailable": "사용 불가",
 	"mcps_tester_status_timeout": "시간 초과",
 	"mcps_tester_stop": "중지",
 	"mcps_tester_structured_content": "구조화된 콘텐츠",

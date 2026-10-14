@@ -42,6 +42,19 @@ export function isUnavailableTesterFailure(status: TesterStatus): boolean {
 	return status === 'error' || status === 'unhealthy';
 }
 
+export function testerStatusLabel(status: TesterStatus): string {
+	switch (status) {
+		case 'idle':
+			return m.mcps_tester_log_status_idle();
+		case 'initializing':
+			return m.mcps_tester_log_status_initializing();
+		case 'ready':
+			return m.core_mcp_value_connected();
+		default:
+			return m.mcps_tester_status_unavailable();
+	}
+}
+
 export type TesterWorkflowKind = 'chat' | 'direct';
 export type DirectOperationStatus =
 	| 'success'

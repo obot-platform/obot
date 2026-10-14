@@ -20,6 +20,7 @@
 		MCPTesterSession,
 		normalizeTesterSection,
 		testerConnectionKey,
+		testerStatusLabel,
 		type TesterSection,
 		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
@@ -70,8 +71,10 @@
 	let confirmNewChat = $state(false);
 	let activeSection = $derived(normalizeTesterSection(page.url.searchParams.get('tab')));
 	let statusLabel = $derived(
-		server?.deploymentStatus ||
-			(server?.configured ? m.core_status_configured() : m.mcps_tester_status_setup_required())
+		session
+			? testerStatusLabel(session.status)
+			: server?.deploymentStatus ||
+					(server?.configured ? m.core_status_configured() : m.mcps_tester_status_setup_required())
 	);
 
 	const sections: Array<{ id: TesterSection; label: string }> = [

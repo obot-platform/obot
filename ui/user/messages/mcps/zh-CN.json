@@ -1028,6 +1028,7 @@
 	"mcps_tester_status_mcp_error": "MCP 错误结果",
 	"mcps_tester_status_request_failed": "请求失败",
 	"mcps_tester_status_setup_required": "需要设置",
+	"mcps_tester_status_unavailable": "不可用",
 	"mcps_tester_status_timeout": "已超时",
 	"mcps_tester_stop": "停止",
 	"mcps_tester_structured_content": "结构化内容",
