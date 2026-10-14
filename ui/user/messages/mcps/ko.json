@@ -73,7 +73,6 @@
 	"mcps_capacity_quota_tooltip": "최대값은 리소스 할당량을 기준으로 합니다",
 	"mcps_capacity_title": "MCP 요청 리소스",
 	"mcps_catalog_add_to_vmcp": "vMCP에 추가",
-	"mcps_catalog_already_added_to_vmcp": "이미 vMCP에 추가됨",
 	"mcps_catalog_authenticate": "인증",
 	"mcps_catalog_authentication_required": "인증 필요",
 	"mcps_catalog_badge_dynamic": "동적",

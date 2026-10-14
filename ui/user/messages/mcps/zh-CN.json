@@ -73,7 +73,6 @@
 	"mcps_capacity_quota_tooltip": "最大值基于资源配额",
 	"mcps_capacity_title": "MCP 请求的资源",
 	"mcps_catalog_add_to_vmcp": "添加到 vMCP",
-	"mcps_catalog_already_added_to_vmcp": "已添加到 vMCP",
 	"mcps_catalog_authenticate": "进行身份验证",
 	"mcps_catalog_authentication_required": "需要身份验证",
 	"mcps_catalog_badge_dynamic": "动态",

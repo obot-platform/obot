@@ -73,7 +73,6 @@
 	"mcps_capacity_quota_tooltip": "Maximums based on resource quotas",
 	"mcps_capacity_title": "MCP Requested Resources",
 	"mcps_catalog_add_to_vmcp": "Add to vMCP",
-	"mcps_catalog_already_added_to_vmcp": "Already added to vMCP",
 	"mcps_catalog_authenticate": "Authenticate",
 	"mcps_catalog_authentication_required": "Authentication Required",
 	"mcps_catalog_badge_dynamic": "dynamic",

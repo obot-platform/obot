@@ -24,7 +24,6 @@
 		onCreated?: (created: MCPCatalogEntry) => void | Promise<void>;
 		onAddToVMcp?: (entry: MCPCatalogEntry) => void | Promise<void>;
 		addToVMcpLabel?: string;
-		isAddedToVMcp?: (entry: MCPCatalogEntry) => boolean;
 	}
 
 	let {
@@ -32,8 +31,7 @@
 		rightOffsetWidth,
 		onCreated,
 		onAddToVMcp,
-		addToVMcpLabel = m.vmcps_add_to_vmcp(),
-		isAddedToVMcp
+		addToVMcpLabel = m.vmcps_add_to_vmcp()
 	}: Props = $props();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -105,7 +103,6 @@
 		reset();
 	}
 
-	let alreadyAdded = $derived(Boolean(catalogEntry && isAddedToVMcp?.(catalogEntry)));
 	let needsConfiguration = $derived(
 		Boolean(catalogEntry && mcpServerNeedsStaticOAuthConfiguration(catalogEntry))
 	);
@@ -114,7 +111,7 @@
 	);
 
 	function handleAddToVMcp() {
-		if (!catalogEntry || alreadyAdded || needsConfiguration) return;
+		if (!catalogEntry || needsConfiguration) return;
 		const entry = catalogEntry;
 		close();
 		void onAddToVMcp?.(entry);
@@ -242,7 +239,8 @@
 					limitViews={['overview', 'tools']}
 					isDialogView
 					onAddFromTools={onAddToVMcp ? handleAddToVMcp : undefined}
-					disableAddFromTools={alreadyAdded || needsConfiguration}
+					disableAddFromTools={needsConfiguration}
+					disableAddFromToolsLabel={m.vmcps_admin_configuration_required()}
 				/>
 			{/if}
 			{#if showAddToVMcp}
@@ -250,15 +248,11 @@
 					<button
 						type="button"
 						class="btn btn-primary w-full"
-						disabled={alreadyAdded || needsConfiguration}
+						disabled={needsConfiguration}
 						onclick={handleAddToVMcp}
 					>
 						<Plus class="size-4" />
-						{alreadyAdded
-							? m.vmcps_already_added_to_vmcp()
-							: needsConfiguration
-								? m.vmcps_admin_configuration_required()
-								: addToVMcpLabel}
+						{needsConfiguration ? m.vmcps_admin_configuration_required() : addToVMcpLabel}
 					</button>
 				</div>
 			{/if}

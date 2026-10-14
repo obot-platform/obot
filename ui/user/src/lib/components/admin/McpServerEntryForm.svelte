@@ -72,6 +72,7 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		disableAddFromTools?: boolean;
+		disableAddFromToolsLabel?: string;
 		onAddFromTools?: () => void;
 		onCancel?: () => void;
 		onSubmit?: (id: string, isMultiUserEntry: boolean, message?: string) => void;
@@ -93,6 +94,7 @@
 		type,
 		readonly,
 		disableAddFromTools,
+		disableAddFromToolsLabel,
 		onAddFromTools,
 		onCancel,
 		onSubmit,
@@ -1154,9 +1156,7 @@
 								onclick={onAddFromTools}
 								disabled={disableAddFromTools}
 							>
-								{disableAddFromTools
-									? m.mcps_catalog_already_added_to_vmcp()
-									: m.mcps_catalog_add_to_vmcp()}
+								{disableAddFromTools ? disableAddFromToolsLabel : m.mcps_catalog_add_to_vmcp()}
 							</button>
 						</div>
 					{:else}

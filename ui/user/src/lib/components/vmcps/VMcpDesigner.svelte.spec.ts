@@ -12,7 +12,7 @@ import {
 	type VMCPManifest
 } from '$lib/services';
 import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
-import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
+import { mcpServersAndEntries, responsive, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
@@ -235,6 +235,7 @@ describe('VMcpDesigner.svelte', () => {
 		appPage.url.searchParams.delete('tab');
 		appPage.url.searchParams.delete('modify-tools');
 		vmcpInstances.current = { items: [], loading: false };
+		responsive.isMobile = false;
 		finishVMcpCreateHandoff();
 	});
 
@@ -1101,6 +1102,34 @@ describe('VMcpDesigner.svelte', () => {
 		function duplicateComponentDialog() {
 			return page.getByRole('dialog').filter({ hasText: 'Rename MCP Server' });
 		}
+
+		it('asks for a different component name when a catalog entry is added again from mobile', async () => {
+			responsive.isMobile = true;
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			mockEntryDetails(componentEntry);
+			await renderDesigner([componentEntry], vmcp);
+
+			await page.getByRole('button', { name: 'Click to view GitHub' }).click();
+
+			const details = page.getByRole('dialog').filter({ hasText: 'GitHub' });
+			const add = details.getByRole('button', { name: 'Add to vMCP' });
+			await expect.element(add).toBeEnabled();
+			await add.click();
+
+			const dialog = duplicateComponentDialog();
+			await expect.element(dialog).toBeVisible();
+			await expect.element(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('GitHub 2');
+			await dialog.getByRole('button', { name: 'Continue' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				mcpServerCatalogEntryID: componentEntry.id,
+				name: 'GitHub 2',
+				toolPrefix: 'github-2_'
+			});
+		});
 
 		it('asks for a different component name when the catalog entry is already on the vMCP', async () => {
 			const vmcp = createIssueTrackerVMcp();

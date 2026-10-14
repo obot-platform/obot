@@ -287,12 +287,6 @@
 		handleDroppedOnCreate(entry);
 	}
 
-	function isAddedToSelectedVMcp(entry: MCPCatalogEntry) {
-		return Boolean(
-			selectedVMcp?.components?.some((component) => component.mcpServerCatalogEntryID === entry.id)
-		);
-	}
-
 	function startCatalogEntryCreation(target?: { vmcp?: VMCP }) {
 		if (!canEdit) return;
 		pendingEntryDrop = target;
@@ -870,19 +864,18 @@
 	onCreated={handleCatalogEntryCreated}
 	onAddToVMcp={canEdit ? handleAddFromDetails : undefined}
 	addToVMcpLabel={selectedVMcp ? m.vmcps_add_to_vmcp() : m.vmcps_create_vmcp()}
-	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
 <VMcpIntroduction show={isFirstVMcp && !selectedVMcp && canEdit && viewType === 'graph'} />
 
 <ResponsiveDialog
 	bind:this={duplicateComponentDialog}
-	class="max-w-sm"
+	class="md:max-w-sm"
 	title={m.vmcps_component_already_added()}
 	onClose={dismissDuplicateComponentDialog}
 >
 	<form
-		class="flex flex-col gap-4 pt-2"
+		class="flex flex-col gap-4 pt-2 px-4 md:px-0"
 		onsubmit={(event) => {
 			event.preventDefault();
 			void confirmDuplicateComponent();

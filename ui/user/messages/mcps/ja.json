@@ -73,7 +73,6 @@
 	"mcps_capacity_quota_tooltip": "最大値はリソースクォータに基づきます",
 	"mcps_capacity_title": "MCP の要求リソース",
 	"mcps_catalog_add_to_vmcp": "vMCP に追加",
-	"mcps_catalog_already_added_to_vmcp": "vMCP に追加済み",
 	"mcps_catalog_authenticate": "認証",
 	"mcps_catalog_authentication_required": "認証が必要です",
 	"mcps_catalog_badge_dynamic": "動的",
