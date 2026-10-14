@@ -1598,7 +1598,10 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 17, to);
 
-			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+			const createDialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
+			await expect.element(createDialog).toBeVisible();
+			await createDialog.getByRole('textbox', { name: 'Name' }).fill('Chat Gateway');
+			await createDialog.getByRole('textbox', { name: 'Description' }).fill('Gateway tools');
 		});
 
 		it('opens create before configuring a dropped server', async () => {
@@ -1628,7 +1631,10 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 20, to);
 
-			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+			const createDialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
+			await expect.element(createDialog).toBeVisible();
+			await createDialog.getByRole('textbox', { name: 'Name' }).fill('Chat Gateway');
+			await createDialog.getByRole('textbox', { name: 'Description' }).fill('Gateway tools');
 			await expect
 				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
 				.not.toBeInTheDocument();
@@ -1765,10 +1771,11 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 25, to);
 
-			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
-			await page.getByLabelText(/^Name/).fill('Chat Gateway');
-			await page.getByLabelText(/^Description/).fill('Held until configuration');
-			await page.getByRole('button', { name: 'Create', exact: true }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
+			await expect.element(dialog.getByText('Create vMCP').first()).toBeVisible();
+			await dialog.getByLabelText(/^Name/).fill('Chat Gateway');
+			await dialog.getByLabelText(/^Description/).fill('Held until configuration');
+			await dialog.getByRole('button', { name: 'Create', exact: true }).click();
 
 			await expect
 				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
@@ -1829,9 +1836,10 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 29, to);
 
-			await page.getByLabelText(/^Name/).fill('Chat Gateway');
-			await page.getByLabelText(/^Description/).fill('Held until configuration');
-			await page.getByRole('button', { name: 'Create', exact: true }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Create vMCP' });
+			await dialog.getByLabelText(/^Name/).fill('Chat Gateway');
+			await dialog.getByLabelText(/^Description/).fill('Held until configuration');
+			await dialog.getByRole('button', { name: 'Create', exact: true }).click();
 			await expect
 				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
 				.toBeVisible();
