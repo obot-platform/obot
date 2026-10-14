@@ -199,8 +199,8 @@
 
 	function loadSecretBindingTargets() {
 		abortSecretBindingTargets();
+		secretBindingTargets = undefined;
 		if (!canSelectSecretBindings) {
-			secretBindingTargets = undefined;
 			return;
 		}
 		const controller = new AbortController();
