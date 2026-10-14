@@ -470,7 +470,7 @@
 
 		pendingComponentDrop = { target, entry, component };
 		componentDropPending = false;
-		vmcpActions?.openConfiguration(entry);
+		vmcpActions?.openConfiguration(entry, { isShared: !target.userID });
 	}
 
 	async function confirmDuplicateComponent() {
