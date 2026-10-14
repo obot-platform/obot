@@ -624,6 +624,25 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 	}
 }
 
+func TestComponentOAuthCredentialsAreAdministratorOnly(t *testing.T) {
+	personal := &v1.VMCP{
+		ObjectMeta: objectMetaForAuthzTest("vmcp1personal-oauth"),
+		Spec:       v1.VMCPSpec{UserID: "owner"},
+	}
+	authorizer := newVMCPTestAuthorizer(personal)
+	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodDelete} {
+		for _, group := range []string{types.GroupAdmin, types.GroupPowerUser, types.GroupPowerUserPlus, types.GroupAuditor, types.GroupAPI} {
+			t.Run(method+"/"+group, func(t *testing.T) {
+				req := httptest.NewRequest(method, "/api/vmcps/"+personal.Name+"/components/one/oauth-credentials", nil)
+				allowed := authorizer.Authorize(req, &user.DefaultInfo{Name: "owner", UID: "owner", Groups: []string{types.GroupAPI, group}})
+				if allowed != (group == types.GroupAdmin) {
+					t.Fatalf("allowed=%v for %s %s", allowed, method, group)
+				}
+			})
+		}
+	}
+}
+
 func TestVMCPComponentToolPreviewAuthorization(t *testing.T) {
 	shared := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp-shared-tools"),

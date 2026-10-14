@@ -96,11 +96,11 @@ func InitializeComponentIDs(manifest *types.VMCPManifest) error {
 // ReconcileComponentIDs preserves IDs during update and assigns IDs to newly
 // added components. A supplied ID must already belong to the VMCP.
 func ReconcileComponentIDs(existing types.VMCPManifest, desired *types.VMCPManifest) error {
-	existingByID := make(map[string]struct{}, len(existing.Components))
+	existingByID := make(map[string]string, len(existing.Components))
 	existingByName := make(map[string]string, len(existing.Components))
 	for _, component := range existing.Components {
 		if component.ID != "" {
-			existingByID[component.ID] = struct{}{}
+			existingByID[component.ID] = component.MCPServerCatalogEntryID
 			existingByName[component.Name] = component.ID
 		}
 	}
@@ -108,7 +108,7 @@ func ReconcileComponentIDs(existing types.VMCPManifest, desired *types.VMCPManif
 	for index := range desired.Components {
 		component := &desired.Components[index]
 		if component.ID == "" {
-			if existingID := existingByName[component.Name]; existingID != "" {
+			if existingID := existingByName[component.Name]; existingID != "" && existingByID[existingID] == component.MCPServerCatalogEntryID {
 				component.ID = existingID
 			} else {
 				component.ID = uuid.New().String()
@@ -117,6 +117,9 @@ func ReconcileComponentIDs(existing types.VMCPManifest, desired *types.VMCPManif
 		}
 		if _, ok := existingByID[component.ID]; !ok {
 			return fmt.Errorf("component %q has unknown ID %q", component.Name, component.ID)
+		}
+		if existingByID[component.ID] != component.MCPServerCatalogEntryID {
+			return fmt.Errorf("component %q cannot reuse an ID for a different catalog entry", component.Name)
 		}
 	}
 	return nil

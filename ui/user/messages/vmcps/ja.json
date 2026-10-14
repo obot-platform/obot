@@ -403,5 +403,8 @@
 	"vmcps_vmcp_updated": "vMCP「{name}」を更新しました。",
 	"vmcps_what_would_you_like_to_do": "何をしますか？",
 	"vmcps_zoom_in": "拡大",
-	"vmcps_zoom_out": "縮小"
+	"vmcps_zoom_out": "縮小",
+	"vmcps_oauth_scope": "このコンポーネントの OAuth クライアントを任意で設定できます。この vMCP を使用する全員に対して、カタログの既定の認証情報より優先されます。各ユーザーは自分のアカウントを認可します。保存または削除すると再認可が必要です。",
+	"vmcps_oauth_inherited": "現在、カタログのクライアント {clientID} を使用しています。このコンポーネントで上書きするには、以下で別のクライアントを設定してください。",
+	"vmcps_oauth_clear_confirmation": "このコンポーネントの OAuth 設定を削除しますか？利用可能な場合はカタログの認証情報を使用し、許可されていれば自動登録を使用します。ユーザーは再認可が必要です。"
 }

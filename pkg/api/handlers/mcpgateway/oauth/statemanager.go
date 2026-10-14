@@ -76,8 +76,8 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 		return ps.OAuthAuthRequestID, ps.MCPID, fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	// Save the completed token
-	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, ps.UserID, ps.MCPID, ps.URL, ps.OAuthAuthRequestID, conf, token); err != nil {
+	// Only save the token if its pending state has not been invalidated.
+	if err := sm.gatewayClient.CompleteMCPOAuthPendingState(ctx, ps, conf, token); err != nil {
 		return ps.OAuthAuthRequestID, ps.MCPID, err
 	}
 

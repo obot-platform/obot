@@ -66,6 +66,32 @@ func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID, url string
 }
 
 func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+	if err := c.replaceMCPOAuthToken(ctx, c.db.WithContext(ctx), userID, mcpID, url, oauthAuthRequestID, oauthConf, token); err != nil {
+		return err
+	}
+	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
+}
+
+// CompleteMCPOAuthPendingState consumes pending state and saves its token atomically.
+// Deleting the state locks it against invalidation until the token is committed.
+// If invalidation has already deleted the state, the callback cannot save a token.
+func (c *Client) CompleteMCPOAuthPendingState(ctx context.Context, ps *types.MCPOAuthPendingState, oauthConf *oauth2.Config, token *oauth2.Token) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Delete(&types.MCPOAuthPendingState{}, "hashed_state = ? AND mcp_id = ? AND user_id = ?", ps.HashedState, ps.MCPID, ps.UserID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("OAuth pending state was invalidated or already consumed: %w", gorm.ErrRecordNotFound)
+		}
+		return c.replaceMCPOAuthToken(ctx, tx, ps.UserID, ps.MCPID, ps.URL, ps.OAuthAuthRequestID, oauthConf, token)
+	}); err != nil {
+		return err
+	}
+	return c.triggerMCPOAuthTokenChange(ctx, ps.MCPID)
+}
+
+func (c *Client) replaceMCPOAuthToken(ctx context.Context, db *gorm.DB, userID, mcpID, url, oauthAuthRequestID string, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
 		UserID:             userID,
 		MCPID:              mcpID,
@@ -87,10 +113,7 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, o
 		return fmt.Errorf("failed to encrypt token: %w", err)
 	}
 
-	if err := c.db.WithContext(ctx).Save(t).Error; err != nil {
-		return err
-	}
-	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
+	return db.Save(t).Error
 }
 
 // CopyMCPOAuthTokens preserves a migrated connection's upstream authorization.
@@ -134,7 +157,14 @@ func (c *Client) DeleteMCPOAuthTokens(ctx context.Context, userID, mcpID string)
 }
 
 func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "mcp_id = ?", mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Fence callbacks before deleting tokens. A callback that already consumed
+		// its state must commit its token before this deletion can proceed.
+		if err := tx.Delete(&types.MCPOAuthPendingState{}, "mcp_id = ?", mcpID).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&types.MCPOAuthToken{}, "mcp_id = ?", mcpID).Error
+	}); err != nil {
 		return err
 	}
 	return c.triggerMCPOAuthTokenChange(ctx, mcpID)

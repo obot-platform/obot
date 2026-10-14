@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
@@ -1194,20 +1195,28 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 	// GenerateToolPreviews uses the system OAuth identity. Include the
 	// requester and vMCP component in the temporary server name so concurrent
 	// preview requests never share OAuth state or a runtime.
+	oauthRevision, err := vmcpconfig.ComponentOAuthCredentialCheckHash(router.Request{Ctx: req.Context(), Client: req.Storage}, vmcp, *component)
+	if err != nil {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
 	tempName := "vmcp-tool-preview-" + utils.Digest(struct {
 		VMCPID              string
 		ComponentID         string
 		UserID              string
 		SnapshotDigest      string
 		ConfigurationDigest string
+		OAuthRevision       string
 	}{
 		VMCPID:              vmcp.Name,
 		ComponentID:         component.ID,
 		UserID:              req.User.GetUID(),
 		SnapshotDigest:      utils.Digest(*manifest),
 		ConfigurationDigest: utils.Digest(staticConfiguration),
+		OAuthRevision:       oauthRevision,
 	})[:16]
 	server.Name = tempName
+	server.Spec.VMCPID = vmcp.Name
+	server.Spec.VMCPComponentID = component.ID
 	serverConfig.MCPServerName = tempName
 
 	return vmcp, *component, server, serverConfig, nil

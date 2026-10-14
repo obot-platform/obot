@@ -25,6 +25,7 @@
 		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
+	import VMcpComponentOAuth from './VMcpComponentOAuth.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -40,6 +41,7 @@
 		onSuccess?: (config: { toolOverrides: ToolOverride[]; toolPrefix: string }) => void;
 		additionalActions?: Snippet;
 		readonly?: boolean;
+		gitManaged?: boolean;
 	}
 
 	let {
@@ -52,7 +54,8 @@
 		onCancel,
 		onSuccess,
 		additionalActions: additionalActionsSnippet,
-		readonly = false
+		readonly = false,
+		gitManaged = false
 	}: Props = $props();
 
 	let setupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -393,6 +396,17 @@
 			configureTools();
 		}}
 	>
+		<VMcpComponentOAuth
+			{vmcpID}
+			{component}
+			disabled={readonly || gitManaged}
+			onChanged={() => {
+				cancelToolPreviewRequest();
+				oauthSetupRequired = false;
+				oauthURL = undefined;
+				error = undefined;
+			}}
+		/>
 		{#if configuringEntry}
 			{#if oauthSetupRequired}
 				<p class="mb-4 text-sm">

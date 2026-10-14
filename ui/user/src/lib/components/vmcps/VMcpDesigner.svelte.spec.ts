@@ -1417,12 +1417,19 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
-		it('keeps an unconfigured server visible but disabled', async () => {
+		it('lets admins add required-OAuth servers before component credentials are configured', async () => {
+			const salesforce = unconfiguredSalesforceEntry();
+			await renderDesigner([componentEntry, salesforce], createIssueTrackerVMcp());
+			await expect.element(page.getByCSS('#mcp-server-card-entry-salesforce')).toBeEnabled();
+		});
+
+		it('keeps an unconfigured server visible but disabled for non-admins', async () => {
 			const salesforce = unconfiguredSalesforceEntry();
 			const vmcp = createIssueTrackerVMcp();
+			vmcp.userID = createMockProfile().id;
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
-			await renderDesigner([componentEntry, salesforce], vmcp);
+			await renderDesigner([componentEntry, salesforce], vmcp, { groups: [Group.POWERUSER] });
 
 			const card = page.getByCSS('#mcp-server-card-entry-salesforce');
 			await expect.element(card).toBeVisible();

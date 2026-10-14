@@ -2549,3 +2549,30 @@ export async function listAllVMCPInstances(opts?: {
 	const response = (await doGet('/vmcp-instances?all=true', opts)) as ItemsResponse<VMCPInstance>;
 	return response.items ?? [];
 }
+
+export async function getVMCPComponentOAuthCredentials(
+	vmcpID: string,
+	componentID: string
+): Promise<MCPServerOAuthCredentialStatus> {
+	return doGet(
+		`/vmcps/${vmcpID}/components/${componentID}/oauth-credentials`
+	) as Promise<MCPServerOAuthCredentialStatus>;
+}
+export async function setVMCPComponentOAuthCredentials(
+	vmcpID: string,
+	componentID: string,
+	credentials: MCPServerOAuthCredentialRequest
+): Promise<MCPServerOAuthCredentialStatus> {
+	return doPost(
+		`/vmcps/${vmcpID}/components/${componentID}/oauth-credentials`,
+		credentials
+	) as Promise<MCPServerOAuthCredentialStatus>;
+}
+export async function deleteVMCPComponentOAuthCredentials(
+	vmcpID: string,
+	componentID: string
+): Promise<MCPServerOAuthCredentialStatus> {
+	return doDelete(
+		`/vmcps/${vmcpID}/components/${componentID}/oauth-credentials`
+	) as Promise<MCPServerOAuthCredentialStatus>;
+}

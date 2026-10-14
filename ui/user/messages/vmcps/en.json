@@ -403,5 +403,8 @@
 	"vmcps_vmcp_updated": "{name} vMCP updated.",
 	"vmcps_what_would_you_like_to_do": "What would you like to do?",
 	"vmcps_zoom_in": "Zoom in",
-	"vmcps_zoom_out": "Zoom out"
+	"vmcps_zoom_out": "Zoom out",
+	"vmcps_oauth_scope": "Optionally configure an OAuth client for this component. These credentials override the catalog default for everyone using this vMCP. Each user authorizes their own account. Saving or clearing an override requires authorization again.",
+	"vmcps_oauth_inherited": "Currently using catalog client {clientID}. Configure a separate client below to override it for this component.",
+	"vmcps_oauth_clear_confirmation": "Clear this component’s OAuth override? Connections will use catalog credentials if available, or automatic registration when allowed. Users must authorize again."
 }
