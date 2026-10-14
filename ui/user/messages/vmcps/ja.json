@@ -182,6 +182,7 @@
 	"vmcps_hint_dismiss": "作成のヒントを閉じる",
 	"vmcps_hint_finish_tour": "ツアーを終了",
 	"vmcps_hint_introduction_text": "Virtual MCP を作成しました！アクセスの管理、設定のテスト、AI クライアントやエージェントへの接続に役立つ 3 つの機能を簡単にご紹介します。",
+	"vmcps_hint_introduction_text_user": "Virtual MCP を作成しました！設定のテスト方法と、AI クライアントやエージェントへの接続方法を簡単にご紹介します。",
 	"vmcps_hint_introduction_title": "Virtual MCP の準備ができました",
 	"vmcps_hint_next_tip": "次のヒントへ",
 	"vmcps_hint_profiles_text": "プロファイルを作成・編集して、さまざまなユーザー、グループ、エージェントがアクセスできるツールを管理します。すべて同じ Virtual MCP エンドポイントを通じて行えます。",

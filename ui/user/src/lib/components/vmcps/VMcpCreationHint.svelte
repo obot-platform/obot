@@ -1,7 +1,8 @@
 <script module>
 	import { m } from '$lib/i18n';
 
-	export const INTRODUCTION_HINT_TEXT = m.vmcps_hint_introduction_text();
+	export const INTRODUCTION_HINT_TEXT_ADMIN = m.vmcps_hint_introduction_text();
+	export const INTRODUCTION_HINT_TEXT_USER = m.vmcps_hint_introduction_text_user();
 	export const PROFILES_HINT_TEXT = m.vmcps_hint_profiles_text();
 	export const TESTER_HINT_TEXT = m.vmcps_hint_tester_text();
 	export const CONNECT_HINT_TEXT = m.vmcps_hint_connect_text();
@@ -13,6 +14,7 @@
 		markVMcpCreationHintSeen,
 		VMCP_CREATION_HINT_STORAGE_KEY
 	} from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import { profile } from '$lib/stores';
 	import { X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -56,12 +58,20 @@
 		onDismiss
 	}: Props = $props();
 
-	const allSteps: HintStep[] = [
+	const allSteps: HintStep[] = $derived([
 		{
 			id: 'introduction',
 			title: m.vmcps_hint_introduction_title(),
-			description: INTRODUCTION_HINT_TEXT,
+			description: profile.current.hasAdminAccess?.()
+				? INTRODUCTION_HINT_TEXT_ADMIN
+				: INTRODUCTION_HINT_TEXT_USER,
 			placement: 'center'
+		},
+		{
+			id: 'profiles',
+			title: m.vmcps_hint_profiles_title(),
+			description: PROFILES_HINT_TEXT,
+			placement: 'right'
 		},
 		{
 			id: 'profiles',
@@ -81,7 +91,7 @@
 			description: CONNECT_HINT_TEXT,
 			placement: 'bottom'
 		}
-	];
+	]);
 
 	let dismissed = $state(true);
 	let stepIndex = $state(0);

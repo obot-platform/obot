@@ -182,6 +182,7 @@
 	"vmcps_hint_dismiss": "생성 팁 닫기",
 	"vmcps_hint_finish_tour": "둘러보기 완료",
 	"vmcps_hint_introduction_text": "Virtual MCP를 만들었습니다! 액세스 제어, 설정 테스트, AI 클라이언트 및 에이전트 연결에 도움이 되는 세 가지 기능을 간단히 둘러보세요.",
+	"vmcps_hint_introduction_text_user": "Virtual MCP를 만들었습니다! 설정을 테스트하는 방법과 AI 클라이언트 및 에이전트에 연결하는 방법을 간단히 둘러보세요.",
 	"vmcps_hint_introduction_title": "Virtual MCP가 준비되었습니다",
 	"vmcps_hint_next_tip": "다음 팁으로 이동",
 	"vmcps_hint_profiles_text": "프로필을 만들고 편집하여 여러 사용자, 그룹, 에이전트가 액세스할 수 있는 도구를 제어하세요. 모두 동일한 Virtual MCP 엔드포인트를 통해 이루어집니다.",

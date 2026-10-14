@@ -182,6 +182,7 @@
 	"vmcps_hint_dismiss": "关闭创建提示",
 	"vmcps_hint_finish_tour": "完成导览",
 	"vmcps_hint_introduction_text": "您已创建 Virtual MCP！快速了解三项功能，帮助您控制访问、测试设置，并将其连接到 AI 客户端和智能体。",
+	"vmcps_hint_introduction_text_user": "您已创建 Virtual MCP！快速了解如何测试设置，以及如何将其连接到 AI 客户端和智能体。",
 	"vmcps_hint_introduction_title": "您的 Virtual MCP 已就绪",
 	"vmcps_hint_next_tip": "转到下一条提示",
 	"vmcps_hint_profiles_text": "创建和编辑配置文件，控制不同用户、用户组和智能体可以访问哪些工具，全部通过同一个 Virtual MCP 端点实现。",

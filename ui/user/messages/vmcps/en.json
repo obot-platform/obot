@@ -182,6 +182,7 @@
 	"vmcps_hint_dismiss": "Dismiss creation tips",
 	"vmcps_hint_finish_tour": "Finish tour",
 	"vmcps_hint_introduction_text": "You've created your Virtual MCP! Take a quick tour of three capabilities that help you control access, test your setup, and connect it to your AI clients and agents.",
+	"vmcps_hint_introduction_text_user": "You've created your Virtual MCP! Take a quick tour on how to test your setup and how to connect it to your AI clients and agents.",
 	"vmcps_hint_introduction_title": "Your Virtual MCP is ready",
 	"vmcps_hint_next_tip": "Go to next tip",
 	"vmcps_hint_profiles_text": "Create and edit Profiles to control which tools different users, groups, and agents can access—all through the same Virtual MCP endpoint.",
