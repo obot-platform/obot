@@ -111,9 +111,40 @@ func TestPasswordChangeRequestAllowed(t *testing.T) {
 			if err != nil {
 				t.Fatalf("creating request: %v", err)
 			}
-			if got := passwordChangeRequestAllowed(req); got != tt.want {
+			if got := passwordChangeRequestAllowed(req, false); got != tt.want {
 				t.Fatalf("passwordChangeRequestAllowed() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// In dev mode the Vite dev server serves the UI's modules from its own paths, which the
+// change-password page needs; outside dev mode they aren't let through.
+func TestPasswordChangeRequestAllowsViteModulesInDevMode(t *testing.T) {
+	for _, path := range []string{
+		"/@fs/repo/ui/user/.svelte-kit/generated/client/app.js",
+		"/@vite/client",
+		"/@id/__x00__virtual:module",
+		"/node_modules/.vite/deps/svelte.js",
+		"/src/routes/change-password/+page.svelte",
+		"/.svelte-kit/generated/root.svelte",
+	} {
+		req, err := http.NewRequest(http.MethodGet, path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !passwordChangeRequestAllowed(req, true) {
+			t.Errorf("%s: blocked in dev mode", path)
+		}
+		if passwordChangeRequestAllowed(req, false) {
+			t.Errorf("%s: allowed outside dev mode", path)
+		}
+	}
+	post, err := http.NewRequest(http.MethodPost, "/@fs/anything", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if passwordChangeRequestAllowed(post, true) {
+		t.Error("a POST to a dev module path is allowed")
 	}
 }

@@ -59,6 +59,8 @@ type Server struct {
 	mcpOAuthScope           string
 	registryNoAuth          bool
 	providerEntitlementGate *license.ProviderEntitlementGate
+	// devUI is set when the UI is served by the Vite dev server (dev mode).
+	devUI bool
 
 	mux         *http.ServeMux
 	otelHandler http.Handler
@@ -304,7 +306,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 		// Enforced after audit logging is installed and refreshed provider cookies are replayed, so
 		// rejected probes stay auditable and a cookie refresh is not lost to a blocked operation.
-		if cmp.Or(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req) {
+		if cmp.Or(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req, s.devUI) {
 			if req.Pattern != "/" {
 				http.Error(rw, "password change required", http.StatusForbidden)
 			} else {
@@ -400,7 +402,20 @@ func writeSCIMAuthenticationError(rw http.ResponseWriter, err error) {
 	scim.WriteError(rw, http.StatusInternalServerError, "internal error")
 }
 
-func passwordChangeRequestAllowed(req *http.Request) bool {
+// ServeDevUI tells the server that the UI is served by the Vite dev server, as in dev mode. The
+// dev server loads the UI's modules from its own paths, which must stay reachable while a user
+// has to change their password, or the change-password page can't load.
+func (s *Server) ServeDevUI() {
+	s.devUI = true
+}
+
+// viteDevPathPrefixes are the paths the Vite dev server serves the UI's modules from.
+var viteDevPathPrefixes = []string{"/@fs/", "/@vite/", "/@id/", "/node_modules/", "/src/", "/.svelte-kit/"}
+
+func passwordChangeRequestAllowed(req *http.Request, devUI bool) bool {
+	if devUI && req.Method == http.MethodGet && slices.ContainsFunc(viteDevPathPrefixes, func(prefix string) bool { return strings.HasPrefix(req.URL.Path, prefix) }) {
+		return true
+	}
 	if isStaticAssetPath(req.URL.Path) || req.URL.Path == "/change-password" || strings.HasPrefix(req.URL.Path, "/change-password/") || req.URL.Path == "/activate" || strings.HasPrefix(req.URL.Path, "/activate/") || req.URL.Path == "/oauth2/sign_out" {
 		return true
 	}

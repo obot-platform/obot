@@ -1246,6 +1246,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if svcs.Substrate != nil {
 		svcs.Substrate.Kube = svcs.LocalK8sClient
 	}
+	if config.DevMode {
+		svcs.APIServer.ServeDevUI()
+	}
 
 	return svcs, nil
 }
