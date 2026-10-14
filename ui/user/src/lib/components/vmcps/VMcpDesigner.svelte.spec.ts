@@ -2718,7 +2718,7 @@ describe('VMcpDesigner.svelte', () => {
 				finishRefresh();
 			}
 
-			await expect.element(page.getByText('Status: Available')).toBeVisible();
+			await expect.element(page.getByText('Status: Connected')).toBeVisible();
 			await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
 			await expect
 				.element(page.getByRole('heading', { name: 'Server unavailable' }))

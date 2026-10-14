@@ -1123,7 +1123,7 @@ describe('MCP Tester page', () => {
 		});
 		render(TesterPage, { data });
 
-		await expect.element(page.getByRole('alert')).toMatchTextContent('Connection failed');
+		await expect.element(page.getByRole('alert')).toMatchTextContent('Unavailable');
 		// The failed handshake is inspectable even though the session never connected.
 		await expect
 			.element(page.getByRole('button', { name: /transport .*Streamable HTTP error/ }))

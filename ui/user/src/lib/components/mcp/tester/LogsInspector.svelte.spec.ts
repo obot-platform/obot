@@ -249,7 +249,7 @@ describe('LogsInspector', () => {
 		const alert = page.getByRole('alert');
 		await expect.element(alert).toBeVisible();
 		await expect.element(alert).toHaveClass('notification-error');
-		await expect.element(alert).toMatchTextContent('Connection failed');
+		await expect.element(alert).toMatchTextContent('Unavailable');
 		await expect.element(alert).toMatchTextContent('fetch failed');
 		// The failed handshake is still inspectable even though the session never connected.
 		await expect
@@ -269,7 +269,7 @@ describe('LogsInspector', () => {
 			}
 		});
 
-		const warning = page.getByRole('status').filter({ hasText: 'Reauthentication required' });
+		const warning = page.getByRole('status').filter({ hasText: 'Unavailable' });
 		await expect.element(warning).toBeVisible();
 		await expect.element(warning).toHaveClass('notification-alert');
 		await expect.element(warning).toMatchTextContent('Streamable HTTP error: HTTP 401');
