@@ -116,7 +116,7 @@ func TestConvertMCPServer_SecretBindingsUseStatus(t *testing.T) {
 	}
 }
 
-func TestConvertMCPServer_LiteralRequiredValuesAreConfigured(t *testing.T) {
+func TestConvertMCPServer_ExtractedStaticValuesAreConfigured(t *testing.T) {
 	server := v1.MCPServer{
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{
@@ -137,6 +137,17 @@ func TestConvertMCPServer_LiteralRequiredValuesAreConfigured(t *testing.T) {
 				},
 			},
 		},
+	}
+
+	values, err := mcp.ExtractStaticConfiguration(server.Spec.Manifest.Config, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"REGION":   "us-west",
+		"X-Tenant": "tenant-1",
+	}, values)
+	for _, field := range server.Spec.Manifest.Config {
+		require.True(t, field.Static)
+		require.Empty(t, field.Value)
 	}
 
 	converted := ConvertMCPServer(server, nil)
