@@ -7,14 +7,19 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 
 	let vmcps: VMCP[];
 	let workspaceId: string | undefined;
+
+	if (!profile.isAdmin?.()) {
+		try {
+			workspaceId = await UserService.fetchWorkspaceIDForProfile(profile?.id, { fetch });
+		} catch {
+			workspaceId = undefined;
+		}
+	}
+
 	try {
 		vmcps = profile.hasAdminAccess?.()
 			? await AdminService.listAllVMCPs({ fetch })
 			: await UserService.listVMCPs({ fetch });
-
-		if (!profile.isAdmin?.()) {
-			workspaceId = await UserService.fetchWorkspaceIDForProfile(profile?.id, { fetch });
-		}
 	} catch {
 		vmcps = [];
 	}

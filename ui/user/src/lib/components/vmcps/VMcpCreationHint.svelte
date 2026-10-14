@@ -74,12 +74,6 @@
 			placement: 'right'
 		},
 		{
-			id: 'profiles',
-			title: m.vmcps_hint_profiles_title(),
-			description: PROFILES_HINT_TEXT,
-			placement: 'right'
-		},
-		{
 			id: 'tester',
 			title: m.vmcps_hint_tester_title(),
 			description: TESTER_HINT_TEXT,
