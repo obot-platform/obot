@@ -6,6 +6,7 @@
 	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { buildConnectAllSnippets, vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
+	import { hasAccessWithinSubjects } from '$lib/subjectResolver';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -18,11 +19,22 @@
 	let selectedClient = $state<(typeof COMMON_AI_CLIENTS)[number]>();
 	let selectedConnectAllSnippetId = $state<string>();
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
-	let hasConnectableVMcps = $derived(
-		vmcps.some((vmcp) => (vmcp.components?.length ?? 0) > 0 && !!vmcpConnectURL(vmcp))
-	);
+	let connectableVMcps = $derived.by(() => {
+		return vmcps.filter((vmcp) => {
+			return (
+				(vmcp.components?.length ?? 0) > 0 &&
+				(!vmcp.userID
+					? hasAccessWithinSubjects(
+							vmcp.profiles?.flatMap((p) => p.subjects) ?? [],
+							profile.current
+						)
+					: vmcp.userID === profile.current.id) &&
+				!!vmcpConnectURL(vmcp)
+			);
+		});
+	});
 	let connectAllSnippets = $derived(
-		selectedClient ? buildConnectAllSnippets(selectedClient.id, vmcps, isAdmin) : []
+		selectedClient ? buildConnectAllSnippets(selectedClient.id, connectableVMcps, isAdmin) : []
 	);
 	let selectedConnectAllSnippet = $derived(
 		connectAllSnippets.find((snippet) => snippet.id === selectedConnectAllSnippetId) ??
@@ -56,7 +68,7 @@
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 md:p-0 p-4">
-		{#if !hasConnectableVMcps}
+		{#if connectableVMcps.length === 0}
 			<p class="text-sm text-muted-content font-light">
 				{m.vmcps_connect_all_none()}
 			</p>
