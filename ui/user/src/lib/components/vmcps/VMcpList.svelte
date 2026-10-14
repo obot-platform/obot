@@ -420,6 +420,9 @@
 				{ title: m.core_col_created_by(), property: 'owner' },
 				{ title: m.core_status(), property: 'status' }
 			]}
+			columnMaxWidths={{
+				displayName: 300
+			}}
 			noDataMessage={m.vmcps_no_vmcps_available_period()}
 			noAutoHideFields={['displayName']}
 			validateSelect={profile.current.isAdmin?.() ? undefined : canSelectRow}
