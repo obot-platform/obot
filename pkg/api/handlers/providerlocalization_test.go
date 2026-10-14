@@ -119,7 +119,8 @@ func TestOktaDirectoryDescriptions(t *testing.T) {
 				}
 				manifest := types.AuthProviderManifest{
 					OptionalConfigurationParameters: []types.ProviderConfigurationParameter{{
-						Name: parameter.Name, Description: description,
+						Name:        parameter.Name,
+						Description: description,
 					}},
 				}
 				localizeAuthProviderManifest(&manifest, "okta-auth-provider", locale)
