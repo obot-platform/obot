@@ -61,3 +61,17 @@ it('forwards the validation abort signal to the HTTP request', async () => {
 		{ dontLogErrors: true, signal: controller.signal }
 	);
 });
+
+it('normalizes null header suggestions without changing the other import fields', async () => {
+	const result = {
+		baseURL: 'https://api.example.com',
+		destinationValidation: { valid: true },
+		suggestedHeaders: null,
+		suggestedMetadata: { name: 'Example', description: 'Public API' }
+	};
+	vi.mocked(doPost).mockResolvedValue(result);
+	expect(await importOpenAPI({ source: { url: 'https://example.com/schema.json' } })).toEqual({
+		...result,
+		suggestedHeaders: []
+	});
+});

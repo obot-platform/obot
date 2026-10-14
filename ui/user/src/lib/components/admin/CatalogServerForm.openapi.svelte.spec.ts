@@ -916,3 +916,74 @@ it('edits and saves an existing entry without receiving a schema snapshot', asyn
 	expect(saved.mock.calls[0][0].openAPIConfig).toMatchObject({ source: { url: sourceURL } });
 	expect(saved.mock.calls[0][0].openAPIConfig).not.toHaveProperty('schema');
 });
+
+it.each(['inline', 'initial draft', 'replacement'])(
+	'completes %s import with null header suggestions and saves an API without credentials',
+	async (mode) => {
+		const result = {
+			baseURL: 'https://example.com/api',
+			destinationValidation: { valid: true },
+			suggestedHeaders: null,
+			suggestedMetadata: { name: 'Public API', shortDescription: 'Public API description' }
+		};
+		const saved = vi.fn();
+		const entry = {
+			...createMCPCatalogEntryResponse,
+			manifest: {
+				...createMCPCatalogEntryResponse.manifest,
+				runtime: 'openapi',
+				config: [],
+				openAPIConfig: { source: { url: sourceURL } }
+			}
+		} as MCPCatalogEntry;
+		worker.use(
+			http.post('/api/openapi-import', () => HttpResponse.json(result)),
+			http.post('/api/mcp-catalogs/test/entries', async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json(createMCPCatalogEntryResponse);
+			}),
+			http.put(`/api/mcp-catalogs/test/entries/${entry.id}`, async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json(entry);
+			})
+		);
+		// The initial dialog receives the normalized service result before opening this form.
+		const { importOpenAPI } = await import('$lib/services/openapi');
+		const initialOpenAPIImport =
+			mode === 'initial draft'
+				? {
+						config: { source: { url: sourceURL } },
+						result: await importOpenAPI({ source: { url: sourceURL } })
+					}
+				: undefined;
+		await render(CatalogServerForm, {
+			id: 'test',
+			entity: 'catalog',
+			type: 'openapi',
+			entry: mode === 'replacement' ? entry : undefined,
+			initialOpenAPIImport
+		});
+		if (mode !== 'initial draft') {
+			if (mode === 'replacement')
+				await page.getByRole('button', { name: 'Replace schema', exact: true }).click();
+			await page.getByLabelText('Schema URL', { exact: true }).fill(sourceURL);
+			await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+		}
+		await expect
+			.element(page.getByRole('status'))
+			.toHaveTextContent('Schema imported. The snapshot will be saved with this entry.');
+		await expect.element(page.getByLabelText('Value Prefix')).not.toBeInTheDocument();
+		if (mode !== 'replacement')
+			await expect
+				.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`))
+				.toHaveValue('Public API');
+		await page
+			.getByRole('button', { name: mode === 'replacement' ? 'Update' : 'Save', exact: true })
+			.click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+		expect(saved.mock.calls[0][0]).toMatchObject({
+			config: [],
+			openAPIConfig: { source: { url: sourceURL } }
+		});
+	}
+);

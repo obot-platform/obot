@@ -17,17 +17,22 @@ export interface OpenAPIImportResult {
 	suggestedMetadata: OpenAPIMetadata;
 }
 
+interface OpenAPIImportResponse extends Omit<OpenAPIImportResult, 'suggestedHeaders'> {
+	suggestedHeaders: MCPConfig[] | null;
+}
+
 export interface OpenAPIImportDraft {
 	config: OpenAPIRuntimeConfig;
 	result: OpenAPIImportResult;
 }
 
 export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenAPIImportResult> {
-	return (await doPost(
+	const result = (await doPost(
 		'/openapi-import',
 		{ source: config.source },
 		{ dontLogErrors: true }
-	)) as OpenAPIImportResult;
+	)) as OpenAPIImportResponse;
+	return { ...result, suggestedHeaders: result.suggestedHeaders ?? [] };
 }
 
 export async function validateOpenAPIDestination(
@@ -38,6 +43,6 @@ export async function validateOpenAPIDestination(
 		'/openapi-import',
 		{ source: config.source, baseURL: config.baseURL },
 		{ dontLogErrors: true, ...(signal ? { signal } : {}) }
-	)) as OpenAPIImportResult;
+	)) as OpenAPIImportResponse;
 	return result.destinationValidation;
 }
