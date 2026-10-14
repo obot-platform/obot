@@ -1231,15 +1231,6 @@ function oauthRootURL() {
 	return baseURL.replace(/\/api$/, '');
 }
 
-export async function checkOAuthLocalLogin(
-	authRequestID: string,
-	opts?: { signal?: AbortSignal }
-): Promise<{ authURL: string }> {
-	const path = `/oauth/mcp/login-request/${encodeURIComponent(authRequestID)}`;
-	const response = await fetch(oauthRootURL() + path, { signal: opts?.signal });
-	return (await handleResponse(response, path)) as { authURL: string };
-}
-
 export async function getOAuthConsent(
 	authRequestID: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }

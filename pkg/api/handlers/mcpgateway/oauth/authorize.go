@@ -416,11 +416,7 @@ func (h *handler) approveConsent(req api.Context) error {
 		}
 
 		slog.Info("OAuth consent approved; redirecting to second-level MCP authentication", "authRequest", oauthAppAuthRequest.Name, "mcpID", oauthAppAuthRequest.Spec.MCPID)
-		target := oauthAppAuthRequest.Spec.ConsentMCPAuthURL
-		if strings.HasPrefix(target, strings.TrimRight(h.oauthChecker.baseURL, "/")+"/oauth/mcp/login/") {
-			target = "/auth/mcp/login/" + url.PathEscape(oauthAppAuthRequest.Name)
-		}
-		http.Redirect(req.ResponseWriter, req.Request, target, http.StatusFound)
+		http.Redirect(req.ResponseWriter, req.Request, oauthAppAuthRequest.Spec.ConsentMCPAuthURL, http.StatusFound)
 		return nil
 	}
 

@@ -10,6 +10,41 @@ import { page, userEvent } from 'vitest/browser';
 
 const fixtures = createMcpServerDetailsFixtures();
 
+async function startServerSetup(server: typeof fixtures.serverSingle, onConnect: () => void) {
+	const entry = structuredClone(fixtures.entrySingle);
+	entry.manifest.remoteConfig = {
+		fixedURL: server.manifest.remoteConfig?.url,
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: server.manifest.remoteConfig?.localhostCallbackPath
+	};
+	const createdServer = { ...server, configured: true, canConnect: true };
+	mcpServersAndEntries.current = {
+		entries: [entry],
+		servers: [],
+		userInstances: [],
+		userConfiguredServers: [],
+		loading: false,
+		lastFetched: Date.now(),
+		isInitialized: true
+	};
+	const createRequest = vi.fn();
+	worker.use(
+		http.post('/api/mcp-servers', async ({ request }) => {
+			createRequest(await request.json());
+			return HttpResponse.json(createdServer);
+		}),
+		http.post(`/api/mcp-servers/${server.id}/configure`, () => HttpResponse.json(createdServer)),
+		http.post(`/api/mcp-servers/${server.id}/launch`, () => HttpResponse.json({}))
+	);
+	const result = await render(ConnectToServer, { onConnect });
+	result.component.setupNewInstance(entry);
+	await page.getByRole('button', { name: 'Continue', exact: true }).click();
+	await expect
+		.element(page.getByRole('button', { name: 'Authenticate', exact: true }))
+		.toBeVisible();
+	expect(createRequest).toHaveBeenCalledWith({ catalogEntryID: entry.id, manifest: {} });
+}
+
 describe('ConnectToServer setup completion', () => {
 	it('finishes an existing deployment without showing a direct connection URL', async () => {
 		await preparePageData();
@@ -136,8 +171,7 @@ it('shows CLI login when a deployed localhost server needs authentication', asyn
 		localhostCallbackPath: '/custom/callback'
 	};
 	const onConnect = vi.fn();
-	const result = await render(ConnectToServer, { onConnect });
-	await result.component.authenticate(server);
+	await startServerSetup(server, onConnect);
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByRole('dialog').getByLabelText('Authentication command'))
@@ -165,8 +199,7 @@ it.each([390, 1280])('keeps local login usable at %ipx and dismisses it once', a
 			localhostCallbackEnabled: true
 		};
 		const onConnect = vi.fn();
-		const result = await render(ConnectToServer, { onConnect });
-		await result.component.authenticate(server);
+		await startServerSetup(server, onConnect);
 		await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 		const command = page.getByRole('dialog').getByLabelText('Authentication command');
 		await expect.element(command).toBeVisible();
@@ -211,8 +244,7 @@ it('stops watching local login when its dialog is dismissed, including an in-fli
 	const server = structuredClone(fixtures.serverSingle);
 	server.manifest.remoteConfig = { url: 'https://mcp.example.com', localhostCallbackEnabled: true };
 	const onConnect = vi.fn();
-	const result = await render(ConnectToServer, { onConnect });
-	await result.component.authenticate(server);
+	await startServerSetup(server, onConnect);
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await vi.waitFor(() => expect(polled).toHaveBeenCalledOnce());
 	await userEvent.keyboard('{Escape}');

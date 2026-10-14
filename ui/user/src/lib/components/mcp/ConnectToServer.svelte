@@ -167,20 +167,6 @@
 		onClose?.();
 	}
 
-	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
-		connectCompletion = undefined;
-		server = item;
-		entry = parentEntry;
-		instance = undefined;
-		oauthVerifying = false;
-		oauthURL = await getOauthURL();
-		if (oauthURL) {
-			oauthDialog?.open();
-		} else {
-			handleConnect();
-		}
-	}
-
 	function getUniqueAlias(serverName: string): string | undefined {
 		const nameLower = serverName.toLowerCase();
 

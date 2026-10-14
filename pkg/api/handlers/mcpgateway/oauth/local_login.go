@@ -96,28 +96,6 @@ func completeLocalLogin(req api.Context, ps *gatewaytypes.MCPOAuthPendingState, 
 	http.Redirect(req.ResponseWriter, req.Request, u.String(), http.StatusFound)
 }
 
-// checkLocalLogin resumes the approved client request using its original identity.
-// An empty URL means the browser can proceed to the normal OAuth completion page.
-func (h *handler) checkLocalLogin(req api.Context) error {
-	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
-	request, ok, err := h.oauthConsentRequest(req, "MCP local login")
-	if err != nil || !ok {
-		return err
-	}
-	if !request.Spec.ConsentApproved {
-		return types.NewErrBadRequest("OAuth consent has not been approved")
-	}
-	mcpID, server, config, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), request.Spec.MCPID, req.User)
-	if err != nil {
-		return err
-	}
-	authURL, err := h.oauthChecker.CheckForMCPAuth(req, server, config, req.User.GetUID(), mcpID, request.Name)
-	if err != nil {
-		return err
-	}
-	return req.Write(map[string]string{"authURL": authURL})
-}
-
 func validateLocalLoginRequest(req api.Context, ps *gatewaytypes.MCPOAuthPendingState) error {
 	if ps.OAuthAuthRequestID == "" {
 		return nil

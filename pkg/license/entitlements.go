@@ -31,7 +31,6 @@ var (
 		"GET /oauth/consent/",
 		"POST /oauth/consent/",
 		"GET /oauth/complete/",
-		"GET /oauth/mcp/login-request/",
 		"GET /oauth/mcp/callback/",
 		"POST /oauth/",
 		"PUT /oauth/",

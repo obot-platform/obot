@@ -20,7 +20,6 @@ var (
 			"GET    /oauth/callback/{oauth_request_id}",
 			"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 			"GET    /oauth/mcp/callback",
-			"GET    /oauth/mcp/login-request/{oauth_auth_request}",
 			"GET    /oauth/consent/{oauth_auth_request}",
 			"POST   /oauth/consent/{oauth_auth_request}/approve",
 			"POST   /oauth/consent/{oauth_auth_request}/cancel",
