@@ -28,7 +28,7 @@ Tool controls apply in layers:
 
 When several components expose the same tool name, configure a component prefix or rename a tool so clients receive unique names. Refreshing tool information may require the component's fixed configuration and OAuth authentication.
 
-The **Tool search** setting is off by default, so clients list and call the selected tools directly. When enabled, clients see two tools: `search_tools` finds relevant tools, and `call_tool` invokes a result. This can improve model performance when a vMCP has many tools by reducing the tool definitions in the model's context and helping it focus on relevant tools. The same component, profile, and user selections determine which tools can be found and called.
+The **Tool search** setting is off by default, so clients list and call the selected tools directly. When enabled, clients see two tools: `search_tools` finds relevant tools, and `call_tool` invokes a tool found during search. This can improve model performance when a vMCP has many tools by reducing the tool definitions in the model's context and helping it focus on relevant tools. The same component, profile, and user selections determine which tools can be found and called.
 
 ## Catalog access policies {#mcp-access-policies-overview}
 
