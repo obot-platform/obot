@@ -402,3 +402,25 @@ it('automatically resumes only after both local login and browser OAuth have fin
 	expect(checked).toHaveBeenCalledWith('outlook');
 	await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
 });
+
+it('automatically retries a failed component check after local login is consumed', async () => {
+	mockConsentApis([
+		{ mcpServerID: 'local-retry', name: 'Local Retry', authURL: '/oauth/mcp/login/component-retry' }
+	]);
+	let checks = 0;
+	const onComplete = vi.fn();
+	worker.use(
+		http.get('*/oauth/mcp/login/component-retry', () => new HttpResponse(null, { status: 400 })),
+		http.get('/api/oauth/vmcp/:id/components/:componentID', () => {
+			checks++;
+			return checks === 1
+				? HttpResponse.json({ message: 'Temporary authentication check failure' }, { status: 503 })
+				: HttpResponse.json({ authURL: '' });
+		})
+	);
+	await render(McpCompositeOauth, { compositeMcpId: 'vmcp1-retry', onComplete });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
+	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	expect(checks).toBe(2);
+	await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
+});

@@ -116,7 +116,7 @@
 		}
 	}
 
-	async function checkComponent(item: PendingCompositeAuth) {
+	async function checkComponent(item: PendingCompositeAuth, propagateError = false) {
 		const id = item.mcpServerID;
 		if (checking.has(id)) return;
 		checking.add(id);
@@ -139,6 +139,8 @@
 			if (abortController?.signal.aborted || isAbortError(err)) return;
 			const { message } = parseErrorContent(err);
 			rowErrors = { ...rowErrors, [id]: message };
+			// Local login owns delayed retries; browser OAuth uses the row Retry action.
+			if (propagateError) throw err;
 		} finally {
 			checking.delete(id);
 		}
@@ -243,7 +245,7 @@
 								{icon}
 								{deprecated}
 								loading={checking.has(item.mcpServerID)}
-								onComplete={() => checkComponent(item)}
+								onComplete={() => checkComponent(item, true)}
 							/>
 						{:else}
 							<div class="flex min-w-0 flex-wrap items-center gap-3 p-3">

@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
 
 const (
@@ -58,7 +60,10 @@ func localLoginState(ps *gatewaytypes.MCPOAuthPendingState) bool {
 func (h *handler) localLogin(req api.Context) error {
 	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
 	ps, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.PathValue("state"))
-	if err != nil || !localLoginState(ps) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to get pending state: %w", err)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) || !localLoginState(ps) {
 		return types.NewErrBadRequest("authentication attempt expired; retry authentication in Obot")
 	}
 	remaining := time.Until(ps.CreatedAt.Add(localLoginTTL))

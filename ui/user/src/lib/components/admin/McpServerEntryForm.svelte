@@ -1314,18 +1314,19 @@
 	{#if error}
 		{@render errorSnippet()}
 	{/if}
-	{#if saving}
-		<div class="flex w-full justify-center">
-			<Loading class="size-6" />
-		</div>
-	{:else if oauthURL && isMcpLoginURL(oauthURL)}
+	{#if oauthURL && isMcpLoginURL(oauthURL)}
 		<McpLogin
 			url={oauthURL}
 			serverName={getMCPDisplayName(entry)}
 			purpose="tools"
 			showTitle={false}
+			loading={saving}
 			onComplete={() => handleLaunchTemporaryInstance()}
 		/>
+	{:else if saving}
+		<div class="flex w-full justify-center">
+			<Loading class="size-6" />
+		</div>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<a

@@ -26,7 +26,7 @@ it('excludes browser hints and shell metacharacters from the command', async () 
 		.toHaveTextContent('obot mcp login "https://obot.example/oauth/mcp/login/test"');
 });
 
-it('resolves relative attempt URLs and disables regeneration while the attempt is pending', async () => {
+it('resolves relative attempt URLs and allows manual regeneration while pending', async () => {
 	const onComplete = vi.fn();
 	await render(McpLogin, { url: '/oauth/mcp/login/attempt', onComplete });
 	await expect
@@ -35,7 +35,7 @@ it('resolves relative attempt URLs and disables regeneration while the attempt i
 	expect(onComplete).not.toHaveBeenCalled();
 	await expect
 		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
-		.toBeDisabled();
+		.toBeEnabled();
 	expect(onComplete).not.toHaveBeenCalled();
 });
 
@@ -61,7 +61,7 @@ it.each(locales)(
 			await expect.element(button).toBeVisible();
 			expect(command.element().getBoundingClientRect().right).toBeLessThanOrEqual(390);
 			expect(button.element().getBoundingClientRect().right).toBeLessThanOrEqual(390);
-			await expect.element(button).toBeDisabled();
+			await expect.element(button).toBeEnabled();
 			expect(onComplete).not.toHaveBeenCalled();
 		} finally {
 			overwriteGetLocale(restoreLocale);
@@ -118,7 +118,7 @@ it('does not treat a failed status request as successful sign-in and recovers au
 		.toHaveTextContent('Unable to check sign-in. Retrying automatically.');
 	await expect
 		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
-		.toBeDisabled();
+		.toBeEnabled();
 	expect(onComplete).not.toHaveBeenCalled();
 	failed = false;
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
@@ -189,13 +189,19 @@ it('counts down server lifetime and requires a new command after expiration', as
 	const now = performance.now.bind(performance);
 	const clock = vi.spyOn(performance, 'now').mockImplementation(() => now() + elapsed);
 	const onComplete = vi.fn();
-	worker.use(http.get('*/oauth/mcp/login/countdown', () => HttpResponse.json({ expiresIn: 65 })));
+	worker.use(
+		http.get('*/oauth/mcp/login/countdown', () =>
+			elapsed >= 65000
+				? new HttpResponse(null, { status: 410 })
+				: HttpResponse.json({ expiresIn: 65 })
+		)
+	);
 	const result = await render(McpLogin, { url: '/oauth/mcp/login/countdown', onComplete });
 	try {
 		await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 1:05');
 		await expect
 			.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
-			.toBeDisabled();
+			.toBeEnabled();
 		elapsed = 70000;
 		document.dispatchEvent(new Event('visibilitychange'));
 		await expect.element(page.getByRole('alert')).toHaveTextContent(m.mcps_login_expired());
@@ -227,7 +233,7 @@ it('shows an already expired attempt without automatically replacing it and rese
 	await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 10:00');
 	await expect
 		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
-		.toBeDisabled();
+		.toBeEnabled();
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
@@ -255,3 +261,113 @@ it('shows an unavailable attempt as expired when there is no owning flow to chec
 	await expect.element(page.getByRole('alert')).toHaveTextContent(m.mcps_login_expired());
 	await expect.element(page.getByLabelText('Authentication command')).not.toBeInTheDocument();
 });
+
+it.each([false, true])(
+	'checks completed authentication past the deadline (hidden: %s)',
+	async (hidden) => {
+		let elapsed = 0;
+		const now = performance.now.bind(performance);
+		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now() + elapsed);
+		const visibility = vi.spyOn(document, 'visibilityState', 'get');
+		visibility.mockReturnValue('visible');
+		const onComplete = vi.fn();
+		let consumed = false;
+		worker.use(
+			http.get('*/oauth/mcp/login/final-check', () =>
+				consumed ? new HttpResponse(null, { status: 400 }) : HttpResponse.json({ expiresIn: 60 })
+			)
+		);
+		const result = await render(McpLogin, { url: '/oauth/mcp/login/final-check', onComplete });
+		try {
+			await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 1:00');
+			if (hidden) {
+				visibility.mockReturnValue('hidden');
+				document.dispatchEvent(new Event('visibilitychange'));
+			}
+			consumed = true;
+			elapsed = 61000;
+			visibility.mockReturnValue('visible');
+			document.dispatchEvent(new Event('visibilitychange'));
+			await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+			await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+		} finally {
+			await result.unmount();
+			clock.mockRestore();
+			visibility.mockRestore();
+		}
+	}
+);
+
+it('retries a status failure after the cached deadline without replacing the command', async () => {
+	let elapsed = 0;
+	const now = performance.now.bind(performance);
+	const clock = vi.spyOn(performance, 'now').mockImplementation(() => now() + elapsed);
+	let status = 200;
+	const requests = vi.fn(() =>
+		status === 200 ? HttpResponse.json({ expiresIn: 60 }) : new HttpResponse(null, { status })
+	);
+	worker.use(http.get('*/oauth/mcp/login/final-retry', requests));
+	const onComplete = vi.fn();
+	const result = await render(McpLogin, { url: '/oauth/mcp/login/final-retry', onComplete });
+	try {
+		await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 1:00');
+		elapsed = 61000;
+		status = 503;
+		document.dispatchEvent(new Event('visibilitychange'));
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent('Unable to check sign-in. Retrying automatically.');
+		await expect
+			.element(page.getByText('Command expired', { exact: true }))
+			.not.toBeInTheDocument();
+		expect(onComplete).not.toHaveBeenCalled();
+		status = 400;
+		document.dispatchEvent(new Event('visibilitychange'));
+		await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	} finally {
+		await result.unmount();
+		clock.mockRestore();
+	}
+});
+
+it('resumes polling when a manual refresh overlapping a consumed response fails', async () => {
+	let returnConsumed!: () => void;
+	const statusResponse = new Promise<void>((resolve) => {
+		returnConsumed = resolve;
+	});
+	let rejectRefresh!: (error: Error) => void;
+	const manualRefresh = new Promise<void>((_, reject) => {
+		rejectRefresh = reject;
+	});
+	const polled = vi.fn();
+	worker.use(
+		http.get('*/oauth/mcp/login/overlapping-refresh', async () => {
+			polled();
+			await statusResponse;
+			return new HttpResponse(null, { status: 400 });
+		})
+	);
+	const onComplete = vi
+		.fn()
+		.mockImplementationOnce(() => manualRefresh)
+		.mockResolvedValue(undefined);
+	const result = await render(McpLogin, {
+		url: '/oauth/mcp/login/overlapping-refresh',
+		onComplete
+	});
+	try {
+		await vi.waitFor(() => expect(polled).toHaveBeenCalledOnce());
+		await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
+		expect(onComplete).toHaveBeenCalledOnce();
+		returnConsumed();
+		// Allow the outstanding status response to reach the component while refresh is pending.
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(onComplete).toHaveBeenCalledOnce();
+		rejectRefresh(new Error('Temporary authentication check failure'));
+		await vi.waitFor(() => expect(onComplete).toHaveBeenCalledTimes(2), { timeout: 3500 });
+		expect(polled).toHaveBeenCalledTimes(2);
+		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+	} finally {
+		await result.unmount();
+	}
+}, 5000);

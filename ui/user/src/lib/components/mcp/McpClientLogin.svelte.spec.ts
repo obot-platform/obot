@@ -25,7 +25,7 @@ it('resumes only after the original request is authenticated', async () => {
 	expect(onComplete).not.toHaveBeenCalled();
 	await expect
 		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
-		.toBeDisabled();
+		.toBeEnabled();
 	expect(requests).toHaveBeenCalledOnce();
 	expect(onComplete).not.toHaveBeenCalled();
 	completed = true;
@@ -114,4 +114,40 @@ it('identifies the authenticating server in a client-initiated login', async () 
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/named"`);
+});
+
+it('replaces a pending command on request and prevents duplicate regeneration', async () => {
+	let requests = 0;
+	let finishRegeneration!: () => void;
+	const pending = new Promise<void>((resolve) => {
+		finishRegeneration = resolve;
+	});
+	const onComplete = vi.fn();
+	worker.use(
+		http.get('*/oauth/mcp/login-request/occupied-port', async () => {
+			const attempt = ++requests;
+			if (attempt > 1) await pending;
+			return HttpResponse.json({ authURL: `/oauth/mcp/login/occupied-port-${attempt}` });
+		}),
+		http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({ expiresIn: 600 }))
+	);
+	await render(McpClientLogin, { authRequestID: 'occupied-port', onComplete });
+	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
+	await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 10:00');
+	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
+	await vi.waitFor(() => expect(requests).toBe(2));
+	try {
+		await expect
+			.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+			.toBeDisabled();
+	} finally {
+		finishRegeneration();
+	}
+	await expect
+		.element(page.getByLabelText('Authentication command'))
+		.toHaveTextContent(
+			`obot mcp login "${window.location.origin}/oauth/mcp/login/occupied-port-2"`
+		);
+	expect(requests).toBe(2);
+	expect(onComplete).not.toHaveBeenCalled();
 });

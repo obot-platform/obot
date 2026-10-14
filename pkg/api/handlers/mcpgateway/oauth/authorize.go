@@ -521,7 +521,13 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return err
 	}
 
-	pending, _ := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
+	pending, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrBadRequest("authentication attempt not found")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get pending state: %w", err)
+	}
 	if localLoginState(pending) {
 		if err := validateLocalLoginRequest(req, pending); err != nil {
 			// Let the CLI terminate promptly, but leave the attempt available to its owner.

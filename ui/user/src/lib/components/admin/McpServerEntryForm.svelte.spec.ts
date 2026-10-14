@@ -101,3 +101,67 @@ it('resumes the same temporary tool preview after CLI authentication', async () 
 beforeEach(() => {
 	worker.use(http.get('*/oauth/mcp/login/:state', () => HttpResponse.json({})));
 });
+
+it('keeps local login mounted and avoids a preview loop after a consumed attempt fails', async () => {
+	await preparePageData();
+	const entry = createMCPCatalogEntry({
+		id: 'local-preview-error',
+		name: 'Local Preview',
+		runtime: 'remote',
+		manifest: { remoteConfig: { fixedURL: 'https://mcp.example', localhostCallbackEnabled: true } }
+	});
+	let calls = 0;
+	let consumed = false;
+	let finishPreview!: () => void;
+	const pendingPreview = new Promise<void>((resolve) => {
+		finishPreview = resolve;
+	});
+	const path = '/api/mcp-catalogs/default/entries/local-preview-error/generate-tool-previews';
+	worker.use(
+		http.post(path, async () => {
+			calls++;
+			if (calls === 1)
+				return HttpResponse.json(
+					{ message: 'MCP server requires OAuth authentication' },
+					{ status: 400 }
+				);
+			await pendingPreview;
+			return HttpResponse.json({ message: 'Tool preview unavailable' }, { status: 503 });
+		}),
+		http.post(path + '/oauth-url', () =>
+			HttpResponse.json({ oauthURL: '/oauth/mcp/login/preview-error' })
+		),
+		http.get('*/oauth/mcp/login/preview-error', () =>
+			consumed ? new HttpResponse(null, { status: 400 }) : HttpResponse.json({ expiresIn: 600 })
+		)
+	);
+	await render(McpServerEntryForm, {
+		entry,
+		id: 'default',
+		entity: 'catalog',
+		type: 'remote',
+		isDialogView: true
+	});
+	await page.getByRole('button', { name: 'Tools', exact: true }).click();
+	await page.getByRole('button', { name: 'Populate Tool Preview' }).click();
+	await expect.element(page.getByLabelText('Authentication command')).toBeVisible();
+	const command = page.getByLabelText('Authentication command').element();
+	consumed = true;
+	await vi.waitFor(() => expect(calls).toBe(2));
+	try {
+		expect(command.isConnected).toBe(true);
+		await expect
+			.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+			.toBeDisabled();
+	} finally {
+		finishPreview();
+	}
+	await expect
+		.element(page.getByText('Tool preview unavailable', { exact: false }).first())
+		.toBeVisible();
+	await new Promise((resolve) => setTimeout(resolve, 100));
+	expect(calls).toBe(2);
+	expect(page.getByLabelText('Authentication command').element()).toBe(command);
+	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
+	await vi.waitFor(() => expect(calls).toBe(3));
+});

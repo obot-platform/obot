@@ -179,6 +179,6 @@ obot mcp login "https://obot.example.com/oauth/mcp/login/<attempt>"
 
 Keep using the HTTP connection URL from Obot in your MCP client. The command runs only during sign-in; Obot stores the provider credentials.
 
-Commands expire after ten minutes. Once a command expires, select **Generate new command** and run the replacement.
+Commands expire after ten minutes. If a command expires or the CLI cannot use the localhost port, select **Generate new command**, then copy and run the replacement. You can generate a replacement before expiry. Expired commands are not replaced automatically.
 
 Administrators must first enable [Localhost OAuth callback](../mcp-gateway/register-remote.md#localhost-oauth-callbacks) for the server.

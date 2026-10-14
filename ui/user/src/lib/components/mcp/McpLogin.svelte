@@ -83,7 +83,7 @@
 			if (active() && !settled && !expired) timer = setTimeout(checkAttempt, 2000);
 		};
 		async function checkAttempt() {
-			if (!active() || expired) return;
+			if (!active() || expired || controller || settled) return;
 			updateCountdown();
 			if (expired) return;
 			if (document.visibilityState !== 'visible' || loading || checking) {
@@ -103,9 +103,7 @@
 				} else if (response.status === 400 && onComplete) {
 					// A consumed attempt may have completed or failed. The owner checks
 					// authentication. Expiration never silently replaces the command.
-					settled = true;
-					await refresh();
-					if (checkFailed) settled = false;
+					settled = await refresh();
 				} else if (!response.ok) {
 					checkFailed = true;
 				} else {
@@ -127,11 +125,8 @@
 		function updateCountdown() {
 			if (deadline === undefined) return;
 			remainingSeconds = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
-			if (remainingSeconds === 0 && !expired) {
-				expired = true;
-				checkFailed = false;
-				clearTimeout(timer);
-			}
+			// The local deadline only updates the display. The server must confirm
+			// expiration: authentication may have completed while this tab was hidden.
 		}
 		const countdownTimer = setInterval(updateCountdown, 1000);
 		const visibilityChanged = () => {
@@ -160,17 +155,26 @@
 		};
 	});
 
-	async function refresh() {
-		if (checking || loading || !onComplete) return;
+	let refreshPromise: Promise<boolean> | undefined;
+	function refresh(): Promise<boolean> {
+		// Manual regeneration and completion polling must await the same result.
+		if (refreshPromise) return refreshPromise;
+		if (loading || !onComplete) return Promise.resolve(false);
+		const complete = onComplete;
 		checking = true;
 		checkFailed = false;
-		try {
-			await onComplete();
-		} catch {
-			checkFailed = true;
-		} finally {
-			checking = false;
-		}
+		refreshPromise = Promise.resolve()
+			.then(() => complete())
+			.then(() => true)
+			.catch(() => {
+				checkFailed = true;
+				return false;
+			})
+			.finally(() => {
+				checking = false;
+				refreshPromise = undefined;
+			});
+		return refreshPromise;
 	}
 </script>
 
@@ -245,7 +249,7 @@
 							class={expired ? 'btn btn-primary btn-sm shrink-0' : 'btn btn-ghost btn-sm shrink-0'}
 							aria-label={m.mcps_login_refresh()}
 							title={m.mcps_login_refresh()}
-							disabled={!expired || loading || checking}
+							disabled={loading || checking}
 							onclick={refresh}
 						>
 							<RefreshCw class="size-4" /><span class="hidden sm:inline"
