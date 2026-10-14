@@ -5,10 +5,13 @@ import { worker } from '../../tests/mocks/worker';
 import Sessions from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { afterEach, expect, it, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { cleanup, render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-afterEach(() => appPage.url.searchParams.delete('view'));
+afterEach(() => {
+	cleanup();
+	appPage.url.searchParams.delete('view');
+});
 
 it('shows session status and confirms workspace deletion', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });

@@ -25,12 +25,14 @@ export const handlers = [
 		HttpResponse.json(null, { status: 404 })
 	),
 	http.get('/api/bootstrap', () => HttpResponse.json(data.getBootstrapStatusResponse)),
+	http.get('/api/claude-environments', () => HttpResponse.json({})),
 	http.get('/api/local-auth/users', () => HttpResponse.json({ items: [] })),
 	http.get('/api/default-model-aliases', () =>
 		HttpResponse.json({ items: data.listDefaultModelAliasesResponse })
 	),
 	http.get('/api/image-pull-secrets/capability', () => HttpResponse.json({ available: false })),
 	http.get('/api/image-pull-secrets', () => HttpResponse.json({ items: [] })),
+	http.get('/api/egress-audit-logs/environments', () => HttpResponse.json({})),
 	http.get('/api/eula', () => HttpResponse.json({ accepted: true })),
 	http.get('/api/license', () => HttpResponse.json(data.getLicenseResponse)),
 	http.delete('/api/license', () => HttpResponse.json(data.getLicenseResponse)),
@@ -71,9 +73,13 @@ export const handlers = [
 	http.get('/api/workspaces/:workspaceID/servers/:serverID/logs', () =>
 		HttpResponse.json({ items: [] })
 	),
+	http.get('/api/mcp-audit-logs', () =>
+		HttpResponse.json({ items: [], total: 0, offset: 0, limit: 50 })
+	),
 	http.get('/api/mcp-servers', () =>
 		HttpResponse.json({ items: data.listSingleOrRemoteMcpServersResponse })
 	),
+	http.get('/api/mcp-server-binding-secrets', () => HttpResponse.json({ items: [] })),
 	http.get('/api/message-policy-violations/filter-options/:filter', () =>
 		HttpResponse.json({ options: [] })
 	),
