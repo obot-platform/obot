@@ -1102,6 +1102,9 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		if config.Static {
 			return fmt.Errorf("config %q: secretBinding and static are mutually exclusive", config.Key)
 		}
+		if len(config.Options) > 0 {
+			return fmt.Errorf("config %q: secretBinding and options are mutually exclusive", config.Key)
+		}
 		if config.SecretBinding.Name == "" || config.SecretBinding.Key == "" {
 			return fmt.Errorf("config %q: secretBinding requires both name and key", config.Key)
 		}

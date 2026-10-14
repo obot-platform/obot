@@ -31,6 +31,7 @@ func TestVMCPHandlerSecretBindings(t *testing.T) {
 			empty      bool
 			missingKey bool
 			value      string
+			options    []types.MCPConfigurationOption
 			policy     types.VMCPConfigurationPolicyType
 			usage      types.Usage
 			runtime    types.Runtime
@@ -45,6 +46,20 @@ func TestVMCPHandlerSecretBindings(t *testing.T) {
 				backend: mcp.RuntimeBackendKubernetes,
 				runtime: types.RuntimeNPX,
 				usage:   types.Env,
+			},
+			{
+				name:      "header binding with options",
+				backend:   mcp.RuntimeBackendKubernetes,
+				options:   []types.MCPConfigurationOption{{Value: "old-literal"}},
+				wantError: "secretBinding and options are mutually exclusive",
+			},
+			{
+				name:      "environment binding with options",
+				backend:   mcp.RuntimeBackendKubernetes,
+				runtime:   types.RuntimeNPX,
+				usage:     types.Env,
+				options:   []types.MCPConfigurationOption{{Value: "old-literal"}},
+				wantError: "secretBinding and options are mutually exclusive",
 			},
 			{
 				name:      "docker backend",
@@ -116,7 +131,12 @@ func TestVMCPHandlerSecretBindings(t *testing.T) {
 				if usage == "" {
 					usage = types.Header
 				}
-				entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: usage, Required: true}}
+				entry.Spec.Manifest.Config = []types.MCPConfig{{
+					Key:      "TOKEN",
+					Usage:    usage,
+					Required: true,
+					Options:  tc.options,
+				}}
 				storage := newVMCPTestStorage(entry)
 				handler := vmcpHandlerForTest(t, storage)
 				handler.mcpBackend = tc.backend
@@ -190,6 +210,7 @@ func TestVMCPHandlerSecretBindings(t *testing.T) {
 					require.ErrorAs(t, err, &httpErr)
 					require.Equal(t, http.StatusBadRequest, httpErr.Code)
 					require.Contains(t, httpErr.Message, tc.wantError)
+					require.NotContains(t, httpErr.Message, "secret-value")
 					return
 				}
 				require.NoError(t, err)
