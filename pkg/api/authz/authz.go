@@ -39,6 +39,7 @@ var (
 		"/api/claude-organizations/",
 		"/api/claude-environments",
 		"/api/claude-environments/",
+		"POST /api/openapi-import",
 		"/api/model-proxy",
 		"/api/model-proxy/",
 		"/api/mcp-tunnels",

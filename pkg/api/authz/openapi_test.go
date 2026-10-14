@@ -21,14 +21,22 @@ func TestOpenAPIImportAuthorization(t *testing.T) {
 		allowed bool
 	}{
 		{
+			name:    "owner",
+			role:    types.RoleOwner,
+			allowed: true,
+		},
+		{
 			name:    "admin",
 			role:    types.RoleAdmin,
 			allowed: true,
 		},
 		{
-			name:    "power user",
-			role:    types.RolePowerUser,
-			allowed: true,
+			name: "power user",
+			role: types.RolePowerUser,
+		},
+		{
+			name: "power user plus",
+			role: types.RolePowerUserPlus,
 		},
 		{
 			name: "basic user",
