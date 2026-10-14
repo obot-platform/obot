@@ -81,7 +81,13 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 			seen[environment.OrganizationID] = true
 		}
 	}
-	return req.Write(map[string]any{"enabled": true, "environments": visible, "mappings": mappings, "defaultWorkerImage": h.Substrate.Config.WorkerImage, "defaultRunnerImage": h.Substrate.Config.RunnerImage})
+	return req.Write(map[string]any{
+		"enabled":            true,
+		"environments":       visible,
+		"mappings":           mappings,
+		"defaultWorkerImage": h.Substrate.Config.WorkerImage,
+		"defaultRunnerImage": h.Substrate.Config.RunnerImage,
+	})
 }
 
 // Spawn is accessible without an Obot login, but authenticates the trusted orchestrator.

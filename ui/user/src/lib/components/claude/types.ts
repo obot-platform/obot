@@ -28,7 +28,6 @@ export type ClaudeRuntime = {
 	allowAllEgress?: boolean;
 	egressHosts: string[];
 	worker: {
-		nodeSelector?: Record<string, string>;
 		workerReplicas: number;
 		cpuLimit: string;
 		memoryLimit: string;

@@ -1,3 +1,6 @@
+{{- if hasKey .Values.atelet "nodeSelector" -}}
+{{- fail "move substrate.atelet.nodeSelector to substrate.worker.nodeSelector (shared by atelet and workers)" -}}
+{{- end }}
 {{- if ne (empty .Values.atelet.imageCredentialProviderConfig) (empty .Values.atelet.imageCredentialProviderBinDir) -}}
 {{- fail "set both substrate.atelet.imageCredentialProviderConfig and substrate.atelet.imageCredentialProviderBinDir" -}}
 {{- end }}
@@ -131,9 +134,9 @@ spec:
     spec:
       serviceAccountName: atelet
       priorityClassName: ate-node-critical
-      # Use the same selector as the POC WorkerPool; no manual node labels required.
+      # Obot applies this same selector to every WorkerPool.
       nodeSelector:
-        {{- toYaml .Values.atelet.nodeSelector | nindent 8 }}
+        {{- toYaml .Values.worker.nodeSelector | nindent 8 }}
       # Budget for the full shutdown sequence: --drain-delay (0 for atelet) +
       # --drain-timeout (5m). Sized long because Checkpoint/Restore stream
       # multi-GiB snapshots and must not be force-cancelled mid-upload. The sum
@@ -151,6 +154,9 @@ spec:
       - key: ate.dev/sandboxClass
         operator: Exists
         effect: NoSchedule
+      {{- with .Values.worker.tolerations }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

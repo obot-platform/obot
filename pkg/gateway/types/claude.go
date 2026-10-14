@@ -8,10 +8,9 @@ import (
 )
 
 type ClaudeWorker struct {
-	NodeSelector   map[string]string `json:"nodeSelector"`
-	WorkerReplicas int               `json:"workerReplicas,omitempty"`
-	CPULimit       string            `json:"cpuLimit,omitempty"`
-	MemoryLimit    string            `json:"memoryLimit,omitempty"`
+	WorkerReplicas int    `json:"workerReplicas,omitempty"`
+	CPULimit       string `json:"cpuLimit,omitempty"`
+	MemoryLimit    string `json:"memoryLimit,omitempty"`
 }
 
 // ClaudeResources can be overridden by profiles. Zero/empty values inherit the

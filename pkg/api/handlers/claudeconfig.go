@@ -56,6 +56,7 @@ func (h *ClaudeRunnerHandler) SaveEnvironment(req api.Context) error {
 		}
 		environment.EgressSecrets = input.EgressSecrets
 		environment.DisplayName = input.DisplayName
+
 		environment.MCPServerIDs, environment.Profiles, environment.Runtime = input.MCPServerIDs, input.Profiles, input.Runtime
 		if err := h.validateEnvironment(req, environment, req.PathValue("environment") == ""); err != nil {
 			return err

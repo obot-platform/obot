@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -80,6 +81,15 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			require.Equal(t, environment.Profiles, stored.Profiles)
 		})
 	}
+}
+
+func TestEnvironmentIgnoresWorkerSchedulingOverrides(t *testing.T) {
+	var environment gt.ClaudeEnvironment
+	require.NoError(t, json.Unmarshal([]byte(`{"runtime":{"worker":{"nodeSelector":{"workload":"custom"},"tolerations":[{"operator":"Exists"}]}}}`), &environment))
+	encoded, err := json.Marshal(environment)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "nodeSelector")
+	require.NotContains(t, string(encoded), "tolerations")
 }
 
 func TestEnvironmentKeyIdentity(t *testing.T) {

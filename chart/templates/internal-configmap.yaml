@@ -9,6 +9,8 @@ data:
   {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_ADDRESS" "" }}
   {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_OBOT_URL" "" }}
   {{- if .Values.substrate.enabled }}
+  {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_WORKER_NODE_SELECTOR" (.Values.substrate.worker.nodeSelector | toJson) }}
+  {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_WORKER_TOLERATIONS" (.Values.substrate.worker.tolerations | toJson) }}
   {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_ADDRESS" "api.ate-system.svc:443" }}
   {{- $_ := set $cfg "OBOT_SERVER_SUBSTRATE_OBOT_URL" (printf "http://%s.%s.svc:%v" (include "obot.fullname" .) .Release.Namespace .Values.service.port) }}
   {{- if not $cfg.OBOT_SERVER_SUBSTRATE_WORKER_IMAGE }}

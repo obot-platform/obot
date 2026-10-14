@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +21,12 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "ate.dev", Version: "v1alpha1", Kind: "WorkerPool"}, &unstructured.Unstructured{})
 	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "ate.dev", Version: "v1alpha1", Kind: "WorkerPoolList"}, &unstructured.UnstructuredList{})
 	kube := fake.NewClientBuilder().WithScheme(scheme).Build()
-	c := Client{Kube: kube, Config: Config{Namespace: "workers"}}
+	toleration := corev1.Toleration{Key: "dedicated", Value: "agents", Effect: corev1.TaintEffectNoSchedule}
+	c := Client{Kube: kube, Config: Config{
+		Namespace:          "workers",
+		WorkerNodeSelector: map[string]string{"dedicated": "agents"},
+		WorkerTolerations:  []corev1.Toleration{toleration},
+	}}
 	env := gt.ClaudeEnvironment{ID: "environment"}
 	clauderunner.DefaultRuntime(&env.Runtime, "worker:test", "runner:test")
 	ctx := t.Context()
@@ -38,6 +44,12 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"cpu": "2", "memory": "4Gi"}, resources["limits"])
 	require.Equal(t, resources["limits"], resources["requests"])
+	selector, _, err := unstructured.NestedStringMap(pool.Object, "spec", "template", "nodeSelector")
+	require.NoError(t, err)
+	require.Equal(t, c.Config.WorkerNodeSelector, selector)
+	tolerations, _, err := unstructured.NestedSlice(pool.Object, "spec", "template", "tolerations")
+	require.NoError(t, err)
+	require.Equal(t, []any{map[string]any{"key": "dedicated", "value": "agents", "effect": "NoSchedule"}}, tolerations)
 
 	// Repair a pool whose requests differ from its limits on the next reconciliation.
 	require.NoError(t, unstructured.SetNestedMap(pool.Object, map[string]any{"cpu": "500m", "memory": "1Gi"}, "spec", "template", "resources", "requests"))
@@ -54,6 +66,26 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"cpu": "1", "memory": "2Gi"}, resources["limits"])
 	require.Equal(t, resources["limits"], resources["requests"])
+
+	// Global scheduling updates replace old selectors and revoke removed tolerations.
+	c.Config.WorkerNodeSelector = map[string]string{"pool": "new"}
+	c.Config.WorkerTolerations = nil
+	require.NoError(t, c.ReconcileWorkerPools(ctx, []gt.ClaudeEnvironment{env}, nil, mutateWorkerPool))
+	require.NoError(t, kube.Get(ctx, key, pool))
+	selector, _, err = unstructured.NestedStringMap(pool.Object, "spec", "template", "nodeSelector")
+	require.NoError(t, err)
+	require.Equal(t, c.Config.WorkerNodeSelector, selector)
+	tolerations, _, err = unstructured.NestedSlice(pool.Object, "spec", "template", "tolerations")
+	require.NoError(t, err)
+	require.Empty(t, tolerations)
+
+	// Configuration additions apply to existing environments without an environment update.
+	c.Config.WorkerTolerations = []corev1.Toleration{toleration}
+	require.NoError(t, c.ReconcileWorkerPools(ctx, []gt.ClaudeEnvironment{env}, nil, mutateWorkerPool))
+	require.NoError(t, kube.Get(ctx, key, pool))
+	tolerations, _, err = unstructured.NestedSlice(pool.Object, "spec", "template", "tolerations")
+	require.NoError(t, err)
+	require.Equal(t, []any{map[string]any{"key": "dedicated", "value": "agents", "effect": "NoSchedule"}}, tolerations)
 
 	require.NoError(t, c.ReconcileWorkerPools(ctx, nil, map[string]bool{env.ID: true}, mutateWorkerPool))
 	require.NoError(t, kube.Get(ctx, key, pool), "retain pool while its sessions are being finalized")

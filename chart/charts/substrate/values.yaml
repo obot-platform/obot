@@ -7,8 +7,12 @@ atelet:
   # Optional node-local kubelet credential provider paths; set both or neither.
   imageCredentialProviderConfig: ""
   imageCredentialProviderBinDir: ""
+worker:
+  # Shared by all WorkerPools and the atelet DaemonSet.
   nodeSelector:
     kubernetes.io/os: linux
+  # Applied to every WorkerPool and atelet.
+  tolerations: []
 postgres:
   # A non-empty DSN disables bundled PostgreSQL and is stored in a Secret.
   dsn: ""

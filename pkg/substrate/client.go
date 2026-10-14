@@ -17,6 +17,7 @@ import (
 	pb "github.com/obot-platform/obot/pkg/substrate/ateapipb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	corev1 "k8s.io/api/core/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,14 +26,16 @@ const (
 )
 
 type Config struct {
-	WorkerImage      string
-	RunnerImage      string
-	Namespace        string
-	Address          string
-	CAFile           string
-	TokenFile        string
-	SnapshotLocation string
-	ObotURL          string
+	WorkerNodeSelector map[string]string
+	WorkerTolerations  []corev1.Toleration
+	WorkerImage        string
+	RunnerImage        string
+	Namespace          string
+	Address            string
+	CAFile             string
+	TokenFile          string
+	SnapshotLocation   string
+	ObotURL            string
 }
 
 type Client struct {
@@ -58,6 +61,10 @@ func New(ctx context.Context, config Config) (*Client, error) {
 	if config.Address == "" {
 		return nil, nil
 	}
+	if err := ValidateWorkerScheduling(config.WorkerNodeSelector, config.WorkerTolerations); err != nil {
+		return nil, err
+	}
+
 	host, _, err := net.SplitHostPort(config.Address)
 	if err != nil || host == "" {
 		return nil, fmt.Errorf("substrate address must be host:port")

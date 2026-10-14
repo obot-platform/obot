@@ -63,7 +63,7 @@ Atelet uses host ports **8085 and 9090** and host paths including `/var/lib/ate`
 
 The chart provides the gVisor SandboxConfig; it is not a request to enable GKE Sandbox's RuntimeClass. Upstream also has micro-VM options with different device requirements; this guide covers Obot's packaged gVisor runtime.
 
-If you restrict `substrate.atelet.nodeSelector`, configure each environment's worker node selector to land on those nodes too. The chart does not automatically copy the atelet selector into environment settings.
+Configure `substrate.worker.nodeSelector` to restrict both atelet and all environment workers to the same nodes. Set `substrate.worker.tolerations` for any custom node taints; every WorkerPool and atelet receive the full list. Environments cannot override either setting.
 
 ## Storage, networking, and scope
 

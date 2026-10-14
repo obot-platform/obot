@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,15 +28,25 @@ func (c *Client) ReconcileWorkerPools(ctx context.Context, environments []types.
 		desired[env.ID] = true
 		w := env.Runtime.Worker
 		nodeSelector := map[string]any{}
-		for key, value := range w.NodeSelector {
+		for key, value := range c.Config.WorkerNodeSelector {
 			nodeSelector[key] = value
 		}
+
+		tolerations := []any{}
+		for _, toleration := range c.Config.WorkerTolerations {
+			value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&toleration)
+			if err != nil {
+				return err
+			}
+			tolerations = append(tolerations, value)
+		}
+
 		pool := &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "ate.dev/v1alpha1", "kind": "WorkerPool",
 			"metadata": map[string]any{"name": env.ID, "namespace": c.Config.Namespace, "labels": map[string]any{environmentLabel: env.ID}},
 			"spec": map[string]any{
 				"replicas": int64(w.WorkerReplicas), "sandboxClass": "gvisor", "workerImage": env.Runtime.WorkerImage,
-				"template": map[string]any{"nodeSelector": nodeSelector, "resources": map[string]any{
+				"template": map[string]any{"nodeSelector": nodeSelector, "tolerations": tolerations, "resources": map[string]any{
 					"requests": map[string]any{"cpu": w.CPULimit, "memory": w.MemoryLimit},
 					"limits":   map[string]any{"cpu": w.CPULimit, "memory": w.MemoryLimit},
 				}},
@@ -55,7 +66,7 @@ func (c *Client) ReconcileWorkerPools(ctx context.Context, environments []types.
 		} else {
 			// Patch only the fields we own, preserving server defaults and metadata.
 			before := current.DeepCopy()
-			for _, path := range [][]string{{"spec", "replicas"}, {"spec", "sandboxClass"}, {"spec", "workerImage"}, {"spec", "template", "resources"}, {"spec", "template", "nodeSelector"}} {
+			for _, path := range [][]string{{"spec", "replicas"}, {"spec", "sandboxClass"}, {"spec", "workerImage"}, {"spec", "template", "resources"}, {"spec", "template", "nodeSelector"}, {"spec", "template", "tolerations"}} {
 				value, _, err := unstructured.NestedFieldCopy(pool.Object, path...)
 				if err != nil {
 					return err

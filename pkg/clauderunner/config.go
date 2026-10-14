@@ -21,9 +21,6 @@ func DefaultRuntime(runtime *types.ClaudeRuntime, workerImage, runnerImage strin
 	}
 
 	w := &runtime.Worker
-	if w.NodeSelector == nil {
-		w.NodeSelector = map[string]string{"kubernetes.io/os": "linux"}
-	}
 	if w.WorkerReplicas == 0 {
 		w.WorkerReplicas = 1
 	}
@@ -69,11 +66,6 @@ func ValidateRuntime(runtime types.ClaudeRuntime) error {
 	}
 	if runtime.Worker.WorkerReplicas < 1 || runtime.Worker.WorkerReplicas > 100 {
 		return fmt.Errorf("worker replicas must be between 1 and 100")
-	}
-	for key, value := range runtime.Worker.NodeSelector {
-		if len(validation.IsQualifiedName(key)) != 0 || len(validation.IsValidLabelValue(value)) != 0 {
-			return fmt.Errorf("worker node selector must contain valid Kubernetes labels")
-		}
 	}
 	if err := ValidateEgressHosts(runtime.EgressHosts); err != nil {
 		return err

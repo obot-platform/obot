@@ -133,12 +133,14 @@ type Config struct {
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" env:"OBOT_SERVER_SUBSTRATE_RUNNER_IMAGE" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:d8869222186116d867e54c5c8b33ab0a4c9864e044d333bb190cd29fe0a98d58"`
-	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments" env:"OBOT_SERVER_SUBSTRATE_WORKER_IMAGE"`
-	SubstrateNamespace          string `usage:"Namespace for Claude environment worker pools" default:"obot-agents" env:"OBOT_SERVER_SUBSTRATE_NAMESPACE"`
-	SubstrateAddress            string `usage:"Substrate gRPC address; empty disables Claude environments" env:"OBOT_SERVER_SUBSTRATE_ADDRESS"`
-	SubstrateSnapshotLocation   string `usage:"Substrate snapshot bucket URI" env:"OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION"`
-	SubstrateObotURL            string `usage:"Obot URL reachable from actors; defaults to server URL" env:"OBOT_SERVER_SUBSTRATE_OBOT_URL"`
+	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:d8869222186116d867e54c5c8b33ab0a4c9864e044d333bb190cd29fe0a98d58"`
+	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments"`
+	SubstrateWorkerNodeSelector string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
+	SubstrateWorkerTolerations  string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`
+	SubstrateNamespace          string `usage:"Namespace for Claude environment worker pools" default:"obot-agents"`
+	SubstrateAddress            string `usage:"Substrate gRPC address; empty disables Claude environments"`
+	SubstrateSnapshotLocation   string `usage:"Substrate snapshot bucket URI"`
+	SubstrateObotURL            string `usage:"Obot URL reachable from actors; defaults to server URL"`
 
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
@@ -1229,15 +1231,32 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if obotURL == "" {
 		obotURL = svcs.ServerURL
 	}
+	workerNodeSelector := map[string]string{}
+	var workerTolerations []corev1.Toleration
+	if config.SubstrateAddress != "" {
+		if config.SubstrateWorkerNodeSelector != "" {
+			if err := unmarshalJSONStrict([]byte(config.SubstrateWorkerNodeSelector), &workerNodeSelector); err != nil {
+				return nil, fmt.Errorf("invalid Substrate worker node selector: %w", err)
+			}
+		}
+		if config.SubstrateWorkerTolerations != "" {
+			if err := unmarshalJSONStrict([]byte(config.SubstrateWorkerTolerations), &workerTolerations); err != nil {
+				return nil, fmt.Errorf("invalid Substrate worker tolerations: %w", err)
+			}
+		}
+	}
+
 	svcs.Substrate, err = substrate.New(ctx, substrate.Config{
-		Address:          config.SubstrateAddress,
-		WorkerImage:      config.SubstrateWorkerImage,
-		RunnerImage:      config.SubstrateRunnerImage,
-		Namespace:        config.SubstrateNamespace,
-		CAFile:           "/run/substrate/ca.pem",
-		TokenFile:        "/run/substrate/token",
-		SnapshotLocation: config.SubstrateSnapshotLocation,
-		ObotURL:          obotURL,
+		WorkerNodeSelector: workerNodeSelector,
+		WorkerTolerations:  workerTolerations,
+		Address:            config.SubstrateAddress,
+		WorkerImage:        config.SubstrateWorkerImage,
+		RunnerImage:        config.SubstrateRunnerImage,
+		Namespace:          config.SubstrateNamespace,
+		CAFile:             "/run/substrate/ca.pem",
+		TokenFile:          "/run/substrate/token",
+		SnapshotLocation:   config.SubstrateSnapshotLocation,
+		ObotURL:            obotURL,
 	})
 	if err != nil {
 		return nil, err

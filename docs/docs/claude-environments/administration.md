@@ -44,7 +44,8 @@ Disabled Obot users are denied access. Mapping a Claude account does not grant p
 |---|---|---|
 | Worker replicas | 1 | Environment only |
 | Worker CPU / memory | 2 CPUs / 4 GiB | Environment only; Kubernetes requests equal these limits |
-| Worker image / node selector | Deployment worker image / Linux node selector | Worker **Advanced configuration** |
+| Worker image | Deployment worker image | Worker pool configuration |
+| Worker node selector / tolerations | Deployment configuration | Shared by every environment; not editable through the UI or API |
 | Actor CPU / memory | 1 CPU / 2 GiB | Environment and profile |
 | Idle timeout | 5 minutes | Environment and profile; 1–10080 minutes |
 | Session retention | 30 days | Environment and profile; `-1` disables cleanup |

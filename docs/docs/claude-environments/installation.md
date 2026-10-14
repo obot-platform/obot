@@ -87,7 +87,8 @@ Helm supplies the Substrate API address and internal Obot Service URL. Certifica
 | `substrate.image.repository` | Component repository prefix; `ghcr.io/obot-platform/substrate`. |
 | `substrate.imagePullSecrets` | Registry Secrets already present in both Substrate namespaces. |
 | `substrate.apiServer.replicas` | API replicas; `2`. Set `1` for a smaller evaluation deployment. |
-| `substrate.atelet.nodeSelector` | Nodes running atelet; defaults to Linux nodes. |
+| `substrate.worker.nodeSelector` | Shared node selector for every WorkerPool and atelet; defaults to `kubernetes.io/os: linux`. Environments cannot override it. |
+| `substrate.worker.tolerations` | Kubernetes tolerations applied to every WorkerPool; defaults to `[]`. Atelet receives all entries plus its built-in sandbox-class toleration. Environments cannot override this. |
 | `substrate.storage.backend` | `s3` by default; `gcs` is also supported. |
 | `substrate.storage.existingSecret` / `credentials` / `env` | Snapshot authentication and provider environment settings. |
 | `substrate.postgres.dsn` / `role` | External database configuration; empty DSN selects bundled PostgreSQL. |
@@ -95,6 +96,39 @@ Helm supplies the Substrate API address and internal Obot Service URL. Certifica
 | `config.OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS` | Audit retention; `90`, or `0` to disable audit cleanup. |
 
 Worker replicas, actor limits, idle timeout, session retention, allowed hosts, and secrets are configured per environment in the UI, not through the retired `substrate.poc.*` or `substrate.claude.*` values. Do not carry those values into a new installation.
+
+### Worker scheduling
+
+Configure worker placement centrally in Helm:
+
+```yaml
+substrate:
+  worker:
+    nodeSelector:
+      kubernetes.io/os: linux
+      workload: agents
+    tolerations:
+      - key: workload
+        operator: Equal
+        value: agents
+        effect: NoSchedule
+```
+
+Helm passes these values to Obot as `OBOT_SERVER_SUBSTRATE_WORKER_NODE_SELECTOR`
+and `OBOT_SERVER_SUBSTRATE_WORKER_TOLERATIONS` (JSON), and applies them to atelet.
+Use the shared Helm values rather than overriding these environment variables in
+`config`, so Obot and atelet stay consistent.
+
+Node selectors and tolerations are configuration-only and apply uniformly to all
+WorkerPools, including existing environments. Neither setting can be changed
+through the environment UI or API. Adding or removing a configured toleration
+updates every WorkerPool during reconciliation.
+
+When upgrading, move `substrate.atelet.nodeSelector` to
+`substrate.worker.nodeSelector`. Existing environments' saved node selectors are
+ignored; all workers adopt the global selector and tolerations. Plan this rollout as a scheduling
+change: checkpoint sessions before changing selectors or removing tolerations,
+especially `NoExecute` tolerations.
 
 ## Verify and continue
 

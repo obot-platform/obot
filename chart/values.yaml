@@ -5,6 +5,13 @@ replicaCount: 1
 # Deploy the upstream Agent Substrate runtime alongside Obot.
 # See charts/substrate/README.md for cluster prerequisites and building images.
 substrate:
+  worker:
+    # Applied to every WorkerPool and atelet; environments cannot override this.
+    nodeSelector:
+      kubernetes.io/os: linux
+    # Kubernetes tolerations applied to every WorkerPool; environments cannot override this.
+    # Atelet receives all entries in addition to its sandbox-class toleration.
+    tolerations: []
   apiServer:
     replicas: 2
   # Set true to enable both Claude Environments and the bundled infrastructure.

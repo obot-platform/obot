@@ -27,6 +27,12 @@ if render chart --set substrate.enabled=true > "$work/missing-bucket.yaml" 2> "$
 fi
 grep -q 'config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION' "$work/missing-bucket.err"
 render chart "${flags[@]}" > "$work/enabled.yaml"
+render chart "${flags[@]}" --set-json 'substrate.worker.nodeSelector={"kubernetes.io/os":"linux","workload":"agents"}' --set-json 'substrate.worker.tolerations=[{"key":"workload","operator":"Equal","value":"agents","effect":"NoSchedule"}]' > "$work/scheduling.yaml"
+if render chart "${flags[@]}" --set substrate.atelet.nodeSelector.workload=agents > "$work/old-selector.yaml" 2> "$work/old-selector.err"; then
+    echo 'Expected the retired atelet node selector to fail' >&2
+    exit 1
+fi
+grep -q 'move substrate.atelet.nodeSelector to substrate.worker.nodeSelector' "$work/old-selector.err"
 render chart --set substrate.enabled=true --set config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION=s3://snapshots > "$work/environments.yaml"
 render chart "${flags[@]}" --set config.OBOT_SERVER_SUBSTRATE_ADDRESS=ignored:443 --set service.port=8081 --set config.OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION=s3://custom --set config.OBOT_SERVER_SUBSTRATE_NAMESPACE=custom-workers --set config.OBOT_SERVER_SUBSTRATE_WORKER_IMAGE=custom/worker:test --set config.OBOT_SERVER_SUBSTRATE_RUNNER_IMAGE=custom/runner:test --set config.OBOT_SERVER_SUBSTRATE_OBOT_URL=http://obot.internal > "$work/overrides.yaml"
 dsn='postgresql://substrate:test-password@database.example.com/substrate?sslmode=require&connect_timeout=10'
@@ -234,6 +240,17 @@ api = resource(docs, 'Deployment', 'ate-api-server')
 version = yaml.safe_load(Path('chart/charts/substrate/Chart.yaml').read_text())['appVersion']
 atelet = resource(docs, 'DaemonSet', 'atelet-' + version.replace('.', '-'))
 assert atelet['spec']['template']['spec']['nodeSelector']['kubernetes.io/os'] == 'linux'
+
+scheduling = read('scheduling')
+scheduling_config = resource(scheduling, 'ConfigMap', 'obot-internal-config')['data']
+scheduling_pod = resource(scheduling, 'DaemonSet', atelet['metadata']['name'])['spec']['template']['spec']
+assert scheduling_pod['nodeSelector'] == {'kubernetes.io/os': 'linux', 'workload': 'agents'}
+assert json.loads(scheduling_config['OBOT_SERVER_SUBSTRATE_WORKER_NODE_SELECTOR']) == scheduling_pod['nodeSelector']
+worker_tolerations = json.loads(scheduling_config['OBOT_SERVER_SUBSTRATE_WORKER_TOLERATIONS'])
+assert worker_tolerations == [{'key': 'workload', 'operator': 'Equal', 'value': 'agents', 'effect': 'NoSchedule'}]
+assert scheduling_pod['tolerations'] == [{'key': 'ate.dev/sandboxClass', 'operator': 'Exists', 'effect': 'NoSchedule'}] + worker_tolerations
+assert json.loads(config['OBOT_SERVER_SUBSTRATE_WORKER_NODE_SELECTOR']) == {'kubernetes.io/os': 'linux'}
+assert json.loads(config['OBOT_SERVER_SUBSTRATE_WORKER_TOLERATIONS']) == []
 assert all(has_secret(workload, 'snapshots') for workload in (api, atelet))
 
 # TLS must be gated by the upstream module's verdict, not just its transport.

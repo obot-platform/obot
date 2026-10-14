@@ -69,7 +69,6 @@
 	}
 	let draft = $state<ClaudeEnvironment & { environmentKey: string }>();
 	let managedSettings = $state('');
-	let nodeSelector = $state('kubernetes.io/os=linux');
 	let error = $state('');
 	let busy = $state(false);
 	const admin = $derived(profile.current.isAdmin?.() ?? false);
@@ -121,16 +120,12 @@
 			}
 		};
 		managedSettings = '';
-		nodeSelector = 'kubernetes.io/os=linux';
 	}
 	function edit(environment: ClaudeEnvironment) {
 		draft = { ...structuredClone($state.snapshot(environment)), environmentKey: '' };
 		managedSettings = draft.runtime.managedSettings
 			? JSON.stringify(draft.runtime.managedSettings, null, 2)
 			: '';
-		nodeSelector = Object.entries(draft.runtime.worker.nodeSelector ?? {})
-			.map(([key, value]) => `${key}=${value}`)
-			.join('\n');
 	}
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
@@ -159,16 +154,6 @@
 			}
 			draft.runtime.managedSettings = settings;
 
-			const selectors: Record<string, string> = {};
-			for (const line of nodeSelector
-				.split('\n')
-				.map((line) => line.trim())
-				.filter(Boolean)) {
-				const equals = line.indexOf('=');
-				if (equals < 1) throw new Error(m.hosted_agents_env_selector_error());
-				selectors[line.slice(0, equals)] = line.slice(equals + 1);
-			}
-			draft.runtime.worker.nodeSelector = selectors;
 			const payload = { ...draft, organizationID: undefined, environmentID: undefined };
 			if (draft.id) await doPut(`/claude-environments/${draft.id}`, payload);
 			else await doPost('/claude-environments', payload);
@@ -293,19 +278,6 @@
 									bind:value={draft.runtime.worker.memoryLimit}
 								/></label
 							>
-						</div>
-						<p class="text-xs text-muted-content">
-							{m.hosted_agents_env_capacity_help()}
-						</p>
-						<details class="space-y-3">
-							<summary class="cursor-pointer text-sm font-medium"
-								>{m.hosted_agents_env_advanced()}</summary
-							><label class="flex flex-col gap-1 text-sm"
-								>{m.hosted_agents_env_selectors()}<textarea
-									class="text-input-filled"
-									bind:value={nodeSelector}
-									placeholder={m.hosted_agents_env_selector_placeholder()}></textarea></label
-							>
 							<label class="flex flex-col gap-1 text-sm"
 								>{m.hosted_agents_env_worker_image()}<input
 									class="text-input-filled"
@@ -313,7 +285,10 @@
 									bind:value={draft.runtime.workerImage}
 								/></label
 							>
-						</details>
+						</div>
+						<p class="text-xs text-muted-content">
+							{m.hosted_agents_env_capacity_help()}
+						</p>
 					</fieldset>
 					<fieldset class="space-y-3">
 						<legend class="font-semibold">{m.hosted_agents_env_actor_defaults()}</legend>

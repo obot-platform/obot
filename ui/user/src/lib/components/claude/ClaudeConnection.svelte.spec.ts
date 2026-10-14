@@ -152,13 +152,17 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 
 	await page.getByRole('combobox', { name: 'Select vMCPs…' }).nth(1).click();
 
-	expect(page.getByText('Advanced configuration', { exact: true }).all()).toHaveLength(2);
-	await expect.element(page.getByLabelText('Worker image', { exact: true })).not.toBeVisible();
+	expect(page.getByText('Advanced configuration', { exact: true }).all()).toHaveLength(1);
+	await expect.element(page.getByLabelText('Worker image', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByText('Worker tolerations', { exact: true }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByLabelText('Worker node selectors')).not.toBeInTheDocument();
 	await expect.element(page.getByLabelText('Runner image', { exact: true })).not.toBeVisible();
 	expect(page.getByLabelText('Snapshot location').all()).toHaveLength(0);
 	expect(page.getByLabelText('Worker CPU request').all()).toHaveLength(0);
 	expect(page.getByLabelText('Worker memory request').all()).toHaveLength(0);
-	await page.getByText('Advanced configuration', { exact: true }).nth(1).click();
+	await page.getByText('Advanced configuration', { exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Runner image', { exact: true }))
 		.toHaveValue(runtime.image);
@@ -250,6 +254,8 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 	expect(saved.mock.calls[0][0].runtime).not.toHaveProperty('snapshotLocation');
 	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('cpuRequest');
 	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('memoryRequest');
+	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('nodeSelector');
+	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('tolerations');
 });
 
 it.each([false, true])(
