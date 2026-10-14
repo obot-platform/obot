@@ -39,7 +39,7 @@ describe('catalog entry hydration', () => {
 describe('OpenAPI creation', () => {
 	it.each([
 		{ groups: [Group.ADMIN], collection: 'mcp-catalogs' },
-		{ groups: [Group.POWERUSER], collection: 'workspaces' }
+		{ groups: [Group.OWNER, Group.ADMIN], collection: 'mcp-catalogs' }
 	])('imports before opening configuration in $collection', async ({ groups }) => {
 		const imported = vi.fn();
 		worker.use(
@@ -108,3 +108,23 @@ describe('OpenAPI creation', () => {
 		await expect.element(page.getByLabelText('Schema URL', { exact: true })).toHaveValue('');
 	});
 });
+
+it.each([
+	{ role: 'power user', groups: [Group.POWERUSER] },
+	{ role: 'power user plus', groups: [Group.POWERUSER_PLUS, Group.POWERUSER] }
+])(
+	'keeps hosted and remote workspace creation available to $role without offering OpenAPI',
+	async ({ groups }) => {
+		await preparePageData({ profile: createMockProfile(groups) });
+		const { component } = await render(ViewModifyCatalogEntry, { workspaceId: 'workspace-test' });
+		component.start();
+		await expect.element(page.getByRole('heading', { name: 'Select Server Type' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: /OpenAPI/ })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /Hosted Server/ })).toBeVisible();
+		await page.getByRole('button', { name: /Remote Server/ }).click();
+		await expect.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`)).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Import OpenAPI schema' }))
+			.not.toBeInTheDocument();
+	}
+);

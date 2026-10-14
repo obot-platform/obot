@@ -102,6 +102,7 @@
 	let creating = $derived.by(() => {
 		if (!page.url.searchParams.has('new')) return false;
 		const isNewEntry = selectedView === 'entries' && !!newServerType;
+		if (isNewEntry && newServerType === 'openapi' && !profile.current.isAdmin?.()) return false;
 		if (isPowerUser && isNewEntry) return true;
 		if (isPowerUserPlus && (isNewEntry || selectedView === 'access-policies')) return true;
 		if (hasAdminAccess && !isAdminReadonly) {
