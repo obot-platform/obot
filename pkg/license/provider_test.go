@@ -696,12 +696,17 @@ func TestSetCommunityLicenseKeyStoresFallbackWhenPrimaryInstalledDuringValidatio
 	}
 }
 
-func TestSetCommunityLicenseKeyRefreshesStoredCommunity(t *testing.T) {
+func TestSetCommunityLicenseKeyUsesSavedEntitlementsWhenRefreshFails(t *testing.T) {
+	keygenUnavailable := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 
 		switch r.URL.Path {
 		case "/v1/me":
+			if keygenUnavailable {
+				unavailable(w, r)
+				return
+			}
 			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
 			_, _ = fmt.Fprint(w, validationResponse())
@@ -721,10 +726,11 @@ func TestSetCommunityLicenseKeyRefreshesStoredCommunity(t *testing.T) {
 	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); err != nil {
 		t.Fatalf("SetCommunityLicenseKey(): %v", err)
 	}
+	keygenUnavailable = true
 
 	entitlements, err := provider.Entitlements(ctx)
 	if err != nil {
-		t.Fatalf("refresh Community entitlements: %v", err)
+		t.Fatalf("load saved Community entitlements: %v", err)
 	}
 	if len(entitlements) != 1 || entitlements[0] != CommunityEntitlement {
 		t.Fatalf("entitlements = %v, want [%s]", entitlements, CommunityEntitlement)
@@ -762,6 +768,9 @@ func TestRemoveLicenseKeyDefersFallbackValidation(t *testing.T) {
 	if _, err := gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, "community-license"); err != nil {
 		t.Fatalf("seed Community license: %v", err)
 	}
+	if _, err := gatewayClient.SetProperty(ctx, entitlementsPropertyKey("community-license"), `{"OBOT_COMMUNITY":{}}`); err != nil {
+		t.Fatalf("seed Community entitlements: %v", err)
+	}
 	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "enterprise-license"); err != nil {
 		t.Fatalf("seed primary license: %v", err)
 	}
@@ -780,15 +789,19 @@ func TestRemoveLicenseKeyDefersFallbackValidation(t *testing.T) {
 	if licenseKey != "community-license" {
 		t.Fatalf("fallback license key = %q, want community-license", licenseKey)
 	}
-	if _, err := provider.Entitlements(ctx); err == nil {
-		t.Fatal("Entitlements() error = nil, want fallback validation failure")
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("get saved fallback entitlements: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != CommunityEntitlement {
+		t.Fatalf("saved entitlements = %v, want [%s]", entitlements, CommunityEntitlement)
 	}
 
 	failCommunityValidation = false
 	if err := provider.Validate(ctx); err != nil {
 		t.Fatalf("refresh fallback validation: %v", err)
 	}
-	entitlements, err := provider.Entitlements(ctx)
+	entitlements, err = provider.Entitlements(ctx)
 	if err != nil {
 		t.Fatalf("get refreshed fallback entitlements: %v", err)
 	}

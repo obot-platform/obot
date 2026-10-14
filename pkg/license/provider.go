@@ -352,6 +352,12 @@ func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
+	// Save the entitlements before the key, so any replica that sees the new
+	// Community property can use main's last-known-good fallback behavior.
+	if err := p.saveEntitlements(ctx, licenseKey, entitlements); err != nil {
+		return err
+	}
+
 	// Do not cache this key here because a primary license installed by another
 	// replica may make the Community property dormant. The next normal refresh
 	// resolves and caches whichever property is actually effective.
