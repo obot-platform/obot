@@ -12,4 +12,4 @@
 	});
 </script>
 
-<VMcpDesigner vmcp={data.vmcp} {usersMap} />
+<VMcpDesigner vmcp={data.vmcp} {usersMap} workspaceId={data.workspaceId} />

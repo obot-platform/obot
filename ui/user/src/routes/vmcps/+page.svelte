@@ -189,6 +189,7 @@
 		onBack={hideCreate}
 		{usersMap}
 		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.creatorUserID === profile.current.id)}
+		workspaceId={data.workspaceId}
 	/>
 {:else}
 	<TabLayout

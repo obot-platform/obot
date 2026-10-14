@@ -70,9 +70,17 @@
 		usersMap: Map<string, OrgUser>;
 		isFirstVMcp?: boolean;
 		showBackButton?: boolean;
+		workspaceId?: string;
 	}
 
-	let { vmcp, onBack, usersMap, isFirstVMcp = false, showBackButton = true }: Props = $props();
+	let {
+		vmcp,
+		onBack,
+		usersMap,
+		isFirstVMcp = false,
+		showBackButton = true,
+		workspaceId
+	}: Props = $props();
 
 	let view = $derived(
 		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'inspector' | undefined) ?? 'graph'
@@ -875,6 +883,7 @@
 	onCreated={handleCatalogEntryCreated}
 	onAddToVMcp={canEdit ? handleAddFromDetails : undefined}
 	addToVMcpLabel={selectedVMcp ? m.vmcps_add_to_vmcp() : m.vmcps_create_vmcp()}
+	{workspaceId}
 />
 
 <VMcpIntroduction show={isFirstVMcp && !selectedVMcp && canEdit && viewType === 'graph'} />
