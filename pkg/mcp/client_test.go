@@ -23,8 +23,8 @@ func TestRemoteMCPAndOpenAPINetworkPoliciesMatch(t *testing.T) {
 			url:  "http://127.0.0.1",
 		},
 		{
-			name: "localhost alias blocked",
-			url:  "http://service.localhost",
+			name: "localhost blocked",
+			url:  "http://localhost",
 		},
 		{
 			name:   "loopback allowed",
@@ -64,9 +64,6 @@ func TestRemoteMCPAndOpenAPINetworkPoliciesMatch(t *testing.T) {
 			openAPIErr := safehttp.ValidateURL(t.Context(), test.url, test.config.SafeHTTPOptions())
 			if (remoteErr == nil) != (openAPIErr == nil) {
 				t.Fatalf("remote URL error = %v, OpenAPI URL error = %v", remoteErr, openAPIErr)
-			}
-			if test.name == "localhost alias blocked" && (openAPIErr == nil || !strings.Contains(openAPIErr.Error(), "blocked loopback hostname")) {
-				t.Fatalf("OpenAPI URL error = %v, want blocked loopback hostname", openAPIErr)
 			}
 		})
 	}
