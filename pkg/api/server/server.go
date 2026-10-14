@@ -45,6 +45,11 @@ const (
 	accountInactiveCookie = "obot_account_inactive"
 )
 
+var (
+	// viteDevPathPrefixes are the paths the Vite dev server serves the UI's modules from.
+	viteDevPathPrefixes = []string{"/@fs/", "/@vite/", "/@id/", "/node_modules/", "/src/", "/.svelte-kit/"}
+)
+
 type Server struct {
 	storageClient           storage.Client
 	gatewayClient           *gclient.Client
@@ -408,9 +413,6 @@ func writeSCIMAuthenticationError(rw http.ResponseWriter, err error) {
 func (s *Server) ServeDevUI() {
 	s.devUI = true
 }
-
-// viteDevPathPrefixes are the paths the Vite dev server serves the UI's modules from.
-var viteDevPathPrefixes = []string{"/@fs/", "/@vite/", "/@id/", "/node_modules/", "/src/", "/.svelte-kit/"}
 
 func passwordChangeRequestAllowed(req *http.Request, devUI bool) bool {
 	if devUI && req.Method == http.MethodGet && slices.ContainsFunc(viteDevPathPrefixes, func(prefix string) bool { return strings.HasPrefix(req.URL.Path, prefix) }) {
