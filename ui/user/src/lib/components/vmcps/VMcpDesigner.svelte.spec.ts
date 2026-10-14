@@ -1045,6 +1045,56 @@ describe('VMcpDesigner.svelte', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 		let listSlackServers: ReturnType<typeof mockEntryDetails>;
 
+		function lockedCatalogEntry(id: string) {
+			return createMCPCatalogEntry({
+				id,
+				name: 'Locked Slack',
+				manifest: {
+					shortDescription: 'Already configured',
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token stored on the catalog entry',
+							required: true,
+							sensitive: true,
+							value: '',
+							static: true,
+							usage: 'env'
+						},
+						{
+							key: 'REGION',
+							name: 'Region',
+							description: 'Deployment region',
+							required: true,
+							sensitive: false,
+							value: 'us-east-1',
+							usage: 'env'
+						},
+						{
+							key: 'SECRET',
+							name: 'Secret',
+							description: 'Redacted catalog secret',
+							required: true,
+							sensitive: true,
+							value: '******',
+							usage: 'env'
+						},
+						{
+							key: 'BOUND',
+							name: 'Bound',
+							description: 'Secret binding',
+							required: true,
+							sensitive: true,
+							value: '',
+							secretBinding: { name: 'config', key: 'token' },
+							usage: 'env'
+						}
+					]
+				}
+			});
+		}
+
 		beforeEach(() => {
 			listSlackServers = mockEntryDetails(slack);
 		});
@@ -1335,6 +1385,32 @@ describe('VMcpDesigner.svelte', () => {
 			});
 		});
 
+		it('adds a dropped server without configuration when no field is editable', async () => {
+			const locked = lockedCatalogEntry('entry-locked-add');
+			mockEntryDetails(locked);
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, locked], vmcp);
+
+			const { el } = await pressCard(panelCard('Locked Slack'), 31);
+			const to = centerOf(await vmcpCard().element());
+			pointer(el, 'pointermove', 31, to);
+			await tick();
+			pointer(el, 'pointerup', 31, to);
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			const added = componentsFrom(update.mock.calls[0][0]).at(-1);
+			expect(added?.mcpServerCatalogEntryID).toBe(locked.id);
+			expect(added?.configuration).toEqual([
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'SECRET', policy: 'fixed' }
+			]);
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Locked Slack/ }))
+				.not.toBeInTheDocument();
+		});
+
 		it('keeps an unconfigured server visible but disabled', async () => {
 			const salesforce = unconfiguredSalesforceEntry();
 			const vmcp = createIssueTrackerVMcp();
@@ -1602,6 +1678,40 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(createDialog).toBeVisible();
 			await createDialog.getByRole('textbox', { name: 'Name' }).fill('Chat Gateway');
 			await createDialog.getByRole('textbox', { name: 'Description' }).fill('Gateway tools');
+		});
+
+		it('creates a vMCP without configuration when the dropped server has no editable fields', async () => {
+			const locked = lockedCatalogEntry('entry-locked-create');
+			mockEntryDetails(locked);
+			const create = vi.fn();
+			worker.use(
+				http.post('/api/vmcps', async ({ request }) => {
+					const manifest = (await request.json()) as VMCPManifest;
+					create(manifest);
+					return HttpResponse.json(createVMCP({ ...manifest, id: 'vmcp-created' }, [locked]));
+				})
+			);
+			await renderDesigner([componentEntry, locked]);
+
+			const { el } = await pressCard(panelCard('Locked Slack'), 32);
+			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
+			pointer(el, 'pointermove', 32, to);
+			await tick();
+			pointer(el, 'pointerup', 32, to);
+
+			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+			await page.getByRole('button', { name: 'Create', exact: true }).click();
+
+			await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
+			const added = componentsFrom(create.mock.calls[0][0])[0];
+			expect(added?.mcpServerCatalogEntryID).toBe(locked.id);
+			expect(added?.configuration).toEqual([
+				{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
+				{ key: 'SECRET', policy: 'fixed' }
+			]);
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Locked Slack/ }))
+				.not.toBeInTheDocument();
 		});
 
 		it('opens create before configuring a dropped server', async () => {

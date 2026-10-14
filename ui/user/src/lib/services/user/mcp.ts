@@ -113,7 +113,7 @@ export function hasSecretBinding(field?: Partial<MCPSubField> | null): boolean {
 }
 
 // Static and secret-bound values are supplied by the catalog, not entered by the user.
-function hasEditableFields(fields?: MCPSubField[]) {
+export function hasEditableFields(fields?: MCPSubField[]) {
 	return (fields ?? []).some((field) => !field.value && !field.static && !hasSecretBinding(field));
 }
 
