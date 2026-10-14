@@ -20,6 +20,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/scim"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -179,7 +180,8 @@ func newSCIMServerTest(t *testing.T, authenticatedRateLimit int) *scimServerTest
 	s.HandleSCIM(scim.NewHandler(gateway, scimTestEnvironment{}, "https://obot.example.com").Serve)
 	s.HandleFunc("GET /api/me", func(req api.Context) error {
 		return req.Write(map[string]string{
-			"uid": req.User.GetUID(),
+			"uid":    req.User.GetUID(),
+			"locale": i18n.FromContext(req.Context()),
 		})
 	})
 
@@ -249,6 +251,20 @@ func assertSCIMError(t *testing.T, rec *httptest.ResponseRecorder, body map[stri
 	}
 	if got := body["status"]; got != strconv.Itoa(status) {
 		t.Fatalf("status = %#v, want the string %q", got, strconv.Itoa(status))
+	}
+}
+
+func TestWrapProvidesRequestLocale(t *testing.T) {
+	s := newSCIMServerTest(t, 1000)
+	req := scimRequest("/api/me", "")
+	req.Header.Set(scimTestUserHeader, "owner")
+	req.Header.Set("Accept-Language", "ko-KR,ja;q=0.8")
+	rec, body := s.do(req)
+	if rec.Code != http.StatusOK || body["locale"] != "ko" {
+		t.Fatalf("status = %d, locale = %v", rec.Code, body["locale"])
+	}
+	if got := rec.Header().Get("Vary"); got != "Accept-Language" {
+		t.Fatalf("Vary = %q, want Accept-Language", got)
 	}
 }
 

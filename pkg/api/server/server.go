@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -187,6 +188,10 @@ func traced(h http.Handler) http.Handler {
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
+		req = req.WithContext(i18n.WithLocale(req.Context(), i18n.Locale(req.Header.Get("Accept-Language"))))
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			rw.Header().Add("Vary", "Accept-Language")
+		}
 		// Ensure security headers and a sane default Content-Type.
 		// This wrapper is intentionally applied early so it covers authn/authz
 		// errors, registry endpoints, UI, static, and proxy responses.

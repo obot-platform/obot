@@ -6,12 +6,9 @@ import (
 )
 
 func localized(req api.Context, key string, values ...string) string {
-	if req.ResponseWriter != nil {
-		req.ResponseWriter.Header().Add("Vary", "Accept-Language")
-	}
 	locale := "en"
 	if req.Request != nil {
-		locale = i18n.Locale(req.Request.Header.Get("Accept-Language"))
+		locale = i18n.FromContext(req.Context())
 	}
 	args := make(map[string]string, len(values)/2)
 	for i := 0; i+1 < len(values); i += 2 {

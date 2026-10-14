@@ -40,13 +40,12 @@ func TestProviderLocale(t *testing.T) {
 	}
 }
 
-func TestProviderResponseLocaleSetsVary(t *testing.T) {
-	recorder := httptest.NewRecorder()
+func TestProviderResponseLocaleFromContext(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/model-providers", nil)
-	request.Header.Set("Accept-Language", "ko")
-	locale := providerResponseLocale(api.Context{Request: request, ResponseWriter: recorder})
-	if locale != "ko" || recorder.Header().Get("Vary") != "Accept-Language" {
-		t.Fatalf("locale = %q, Vary = %q", locale, recorder.Header().Get("Vary"))
+	request = request.WithContext(i18n.WithLocale(request.Context(), "ko"))
+	locale := providerResponseLocale(api.Context{Request: request})
+	if locale != "ko" {
+		t.Fatalf("locale = %q, want ko", locale)
 	}
 }
 

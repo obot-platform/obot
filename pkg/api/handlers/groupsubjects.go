@@ -10,5 +10,5 @@ import (
 // known to reach groups of a SCIM connection's auth provider. The write is recorded while it runs, so a deletion of
 // unreferenced groups sees its references. See groupref.WriteNewSubjects.
 func writeNewGroupSubjects(req api.Context, subjects, previous []types.Subject, write func() error) error {
-	return groupref.WriteNewSubjects(scimLocaleContext(req), req.GatewayClient, req.Storage, subjects, previous, write)
+	return groupref.WriteNewSubjects(req.Context(), req.GatewayClient, req.Storage, subjects, previous, write)
 }

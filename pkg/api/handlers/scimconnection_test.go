@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/i18n"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -395,13 +396,12 @@ func TestSCIMEnableHandler(t *testing.T) {
 
 	// The same blocker is localized in both the preview data and the enable error.
 	req, rec = s.scimContext(http.MethodGet, "/api/scim-connections/enable-preview", "", admin)
-	req.Request.Header.Set("Accept-Language", "ko")
+	req.Request = req.Request.WithContext(i18n.WithLocale(req.Context(), "ko"))
 	require.NoError(t, h.EnablePreview(req))
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &preview))
 	assert.Contains(t, preview.Blockers[0], "SCIM으로 사용자와 그룹을 프로비저닝")
-	assert.Equal(t, "Accept-Language", rec.Header().Get("Vary"))
 	req, _ = s.scimContext(http.MethodPost, "/api/scim-connections", "", owner)
-	req.Request.Header.Set("Accept-Language", "ko")
+	req.Request = req.Request.WithContext(i18n.WithLocale(req.Context(), "ko"))
 	require.ErrorAs(t, h.Enable(req), &httpErr)
 	assert.Contains(t, httpErr.Message, "SCIM으로 사용자와 그룹을 프로비저닝")
 	s.requireNoChange()
@@ -514,7 +514,7 @@ func TestWaitForProviderConfigurationChangeAnswersWithTheRecordedStatus(t *testi
 			require.NoError(t, s.storage.Create(t.Context(), change))
 
 			req, _ := s.scimContext(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", "", nil)
-			req.Request.Header.Set("Accept-Language", tt.locale)
+			req.Request = req.Request.WithContext(i18n.WithLocale(req.Context(), tt.locale))
 			var httpErr *clienttypes.ErrHTTP
 			require.ErrorAs(t, waitForProviderConfigurationChange(req, change), &httpErr)
 			assert.Equal(t, tt.wantCode, httpErr.Code)

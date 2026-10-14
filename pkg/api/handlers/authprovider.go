@@ -312,7 +312,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 // For a provider that the configuration would set up for SCIM, it also refuses residual group data here, so that the
 // administrator sees what remains. The provider configuration change checks it again under its serialization.
 func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, configured bool, envVars map[string]string) error {
-	params, setup, err := scimsetup.CheckConfiguration(scimLocaleContext(req), req.GatewayClient, authProvider, func() (bool, error) {
+	params, setup, err := scimsetup.CheckConfiguration(req.Context(), req.GatewayClient, authProvider, func() (bool, error) {
 		return configured, nil
 	}, func() (map[string]string, error) {
 		return scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider)
@@ -343,7 +343,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 	}
 
 	if setup == scimsetup.SetupSCIMFirst {
-		residual, err := scimsetup.ResidualGroupData(scimLocaleContext(req), req.Storage, req.GatewayClient, authProvider)
+		residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
 		if err != nil {
 			return err
 		}
@@ -368,7 +368,7 @@ func (ap *AuthProviderHandler) ResidualGroupData(req api.Context) error {
 		return err
 	}
 
-	residual, err := scimsetup.ResidualGroupData(scimLocaleContext(req), req.Storage, req.GatewayClient, authProvider)
+	residual, err := scimsetup.ResidualGroupData(req.Context(), req.Storage, req.GatewayClient, authProvider)
 	if ineligible, ok := errors.AsType[*scimsetup.IneligibleError](err); ok {
 		return types.NewErrBadRequest("%s", ineligible.Error())
 	} else if err != nil {

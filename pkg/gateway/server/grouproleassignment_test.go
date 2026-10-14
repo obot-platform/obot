@@ -114,9 +114,8 @@ func TestCreateGroupRoleAssignmentRefusesAMissingSCIMGroup(t *testing.T) {
 					t.Fatal(err)
 				}
 				req := httptest.NewRequest(http.MethodPost, "/api/group-role-assignments", bytes.NewReader(body))
-				req.Header.Set("Accept-Language", locale)
+				req = req.WithContext(i18n.WithLocale(req.Context(), locale))
 				rec := httptest.NewRecorder()
-				rec.Header().Set("Vary", "Origin")
 				err = (&Server{}).createGroupRoleAssignment(api.Context{
 					Request:        req,
 					ResponseWriter: rec,
@@ -129,10 +128,6 @@ func TestCreateGroupRoleAssignmentRefusesAMissingSCIMGroup(t *testing.T) {
 				})
 				if err == nil || !strings.Contains(err.Error(), i18n.Text(locale, "local_provider_name")) || !strings.Contains(err.Error(), id) {
 					t.Fatalf("createGroupRoleAssignment() = %v, want a localized refusal", err)
-				}
-				vary := rec.Header().Values("Vary")
-				if len(vary) != 2 || vary[0] != "Origin" || vary[1] != "Accept-Language" {
-					t.Fatalf("Vary = %v, want Origin and Accept-Language", vary)
 				}
 			})
 		}

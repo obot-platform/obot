@@ -13,13 +13,10 @@ func providerLocale(header string) string {
 }
 
 func providerResponseLocale(req api.Context) string {
-	if req.ResponseWriter != nil {
-		req.ResponseWriter.Header().Add("Vary", "Accept-Language")
-	}
 	if req.Request == nil {
 		return "en"
 	}
-	return i18n.Locale(req.Request.Header.Get("Accept-Language"))
+	return i18n.FromContext(req.Context())
 }
 
 func apiMessage(req api.Context, key string, values ...string) string {
