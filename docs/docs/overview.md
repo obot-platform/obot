@@ -73,7 +73,7 @@ The [Obot CLI](./reference/cli-api.md) brings approved MCP servers and skills to
 
 - Enroll devices with the Obot Platform.
 - Inventory installed AI clients, MCP servers, skills, and plugins.
-- Install hooks for Claude Code, Codex, Cursor, and VS Code.
+- Install hooks for Claude Code, Codex, Cursor, Kiro, and VS Code.
 - Record local tool calls alongside activity passing through Obot gateways.
 - Support monitoring and enforcement policies for AI activity on managed devices.
 - Install manually or deploy through MDMs such as Microsoft Intune.
