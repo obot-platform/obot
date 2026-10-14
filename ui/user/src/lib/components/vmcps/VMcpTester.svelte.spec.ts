@@ -116,6 +116,7 @@ async function renderVMcpTester(
 		onLaunch?: () => void;
 		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
 		connectFailureStatus?: number;
+		instancesLoading?: boolean;
 		tab?: string;
 	}
 ) {
@@ -131,7 +132,10 @@ async function renderVMcpTester(
 	const instance =
 		options && 'instance' in options ? options.instance : createInstance({ configured: true });
 
-	vmcpInstances.current = { items: instance ? [instance] : [], loading: false };
+	vmcpInstances.current = {
+		items: instance ? [instance] : [],
+		loading: options?.instancesLoading ?? false
+	};
 	if (instance) {
 		if (options?.connectFailureStatus !== undefined) {
 			mockMCPInitializationFailure(instance.id, options.connectFailureStatus);
@@ -269,6 +273,29 @@ describe('VMcpTester', () => {
 		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('No default llm model is configured. Configure one to use Chat.'))
+			.toBeVisible();
+	});
+
+	it('keeps starting session while an unconfigured instance is still loading', async () => {
+		const instance = createInstance({
+			configured: false,
+			configurationCheckHash: 'checked'
+		});
+		await renderVMcpTester({}, { instance, instancesLoading: true });
+
+		await expect.element(page.getByText('Starting session...')).toBeVisible();
+		await expect
+			.element(
+				page.getByText('Before you can continue inspecting this vMCP, an update is required.')
+			)
+			.not.toBeInTheDocument();
+
+		vmcpInstances.current = { items: [instance], loading: false };
+
+		await expect
+			.element(
+				page.getByText('Before you can continue inspecting this vMCP, an update is required.')
+			)
 			.toBeVisible();
 	});
 

@@ -21,7 +21,6 @@
 		vmcpComponentId,
 		vmcpConnectURL,
 		vmcpMissingStaticOAuthComponent,
-		vmcpInstanceNeedsUserConfiguration,
 		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
@@ -32,6 +31,7 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
+	let { reconciliationRetryMs = 1000 }: { reconciliationRetryMs?: number } = $props();
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -276,41 +276,32 @@
 		return { components };
 	}
 
-	function configuredInstance(submitted: VMCPInstance): VMCPInstance {
-		return {
-			...submitted,
-			status: {
-				...submitted.status,
-				configured: true,
-				...(vmcpInstanceNeedsUserConfiguration(submitted)
-					? { missingRequiredConfiguration: [] }
-					: {})
-			}
-		};
+	function instanceConfigurationSettled(candidate: VMCPInstance) {
+		const status = candidate.status;
+		return status?.configured === true && status?.configurationCheckHash;
 	}
 
-	async function refreshConfiguredInstance(submitted: VMCPInstance): Promise<VMCPInstance> {
-		const optimistic = configuredInstance(submitted);
-		vmcpInstances.upsert(optimistic);
-		if (!vmcpInstanceNeedsUserConfiguration(submitted)) {
-			return optimistic;
-		}
+	async function waitForReconciledInstance(submitted: VMCPInstance): Promise<VMCPInstance> {
+		const maxAttempts = 5;
+		let latest = submitted;
 
-		for (let attempt = 0; attempt < 8; attempt++) {
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
 			if (attempt > 0) {
-				await new Promise((resolve) => setTimeout(resolve, 250));
+				await new Promise((resolve) => setTimeout(resolve, reconciliationRetryMs));
 			}
 			try {
-				const latest = await UserService.getVMCPInstance(submitted.id, { dontLogErrors: true });
-				if (!vmcpInstanceNeedsUserConfiguration(latest)) {
+				latest = await UserService.getVMCPInstance(submitted.id, { dontLogErrors: true });
+				if (instanceConfigurationSettled(latest)) {
 					vmcpInstances.upsert(latest);
 					return latest;
 				}
 			} catch {
-				// Status is reconciled asynchronously after configure.
+				// Status is reconciled asynchronously after create or configure.
 			}
 		}
-		return optimistic;
+
+		vmcpInstances.upsert(latest);
+		return latest;
 	}
 
 	function initUpdatingOrLaunchProgress() {
@@ -430,17 +421,13 @@
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
 			const targetInstance = instance ?? (await UserService.createVMCPInstance(target.id));
-			if (configureForm) {
-				instance = await refreshConfiguredInstance(
-					await UserService.configureVMCPInstance(
+			const submitted = configureForm
+				? await UserService.configureVMCPInstance(
 						targetInstance.id,
 						configurationPayload(configureForm)
 					)
-				);
-			} else {
-				instance = targetInstance;
-				vmcpInstances.upsert(instance);
-			}
+				: targetInstance;
+			instance = await waitForReconciledInstance(submitted);
 
 			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(target.id);
 			if (!launchResponse.success) {
@@ -448,6 +435,8 @@
 				return;
 			}
 
+			instance = await UserService.getVMCPInstance(submitted.id);
+			vmcpInstances.upsert(instance);
 			await verifyOauthOrConnect();
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : m.vmcps_failed_to_launch();

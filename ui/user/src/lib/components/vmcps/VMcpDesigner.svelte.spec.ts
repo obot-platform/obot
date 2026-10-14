@@ -2072,6 +2072,7 @@ describe('VMcpDesigner.svelte', () => {
 					created = true;
 					return HttpResponse.json(instance);
 				}),
+				http.get('/api/vmcp-instances/:id', () => HttpResponse.json(instance)),
 				http.get('/api/vmcp-instances', () =>
 					HttpResponse.json({ items: created ? [instance] : [] })
 				),

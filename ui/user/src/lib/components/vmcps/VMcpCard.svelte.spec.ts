@@ -597,7 +597,7 @@ describe('VMcpCard.svelte', () => {
 			http.get('/api/vmcp-instances/vmcpi-1', () =>
 				HttpResponse.json({
 					...stale,
-					status: { configured: true }
+					status: { configured: true, configurationCheckHash: 'checked' }
 				})
 			)
 		);

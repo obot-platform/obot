@@ -661,6 +661,8 @@ export interface VMCPInstanceStatus {
 	configured?: boolean;
 	missingRequiredConfiguration?: string[];
 	userConfigurationHash?: string;
+	/** Present once the controller has written configuration status. */
+	configurationCheckHash?: string;
 }
 
 export interface VMCPInstance extends VMCPInstanceManifest {

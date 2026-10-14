@@ -50,7 +50,7 @@ function configurableVMcp(): VMCP {
 async function renderDialog(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
 	await preparePageData();
 	await vmcpInstances.refresh();
-	const result = await render(ConnectVMcp);
+	const result = await render(ConnectVMcp, { reconciliationRetryMs: 100 });
 	result.component.open(vmcp, instance, options);
 	return result;
 }
@@ -95,6 +95,84 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(introSetupText()).not.toBeVisible();
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
 	});
+
+	function createdInstance(vmcp: VMCP, status?: VMCPInstance['status']): VMCPInstance {
+		return {
+			id: 'vmcpi-created',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status
+		};
+	}
+
+	it('opens the inspector only after the instance reports configured', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1delayed', displayName: 'Plain vMCP' });
+		mockConfigureAndLaunch(vmcp);
+		let reads = 0;
+		let finishReconciliation!: () => void;
+		const reconciliation = new Promise<void>((resolve) => {
+			finishReconciliation = resolve;
+		});
+		worker.use(
+			http.get('/api/vmcp-instances/vmcpi-created', async () => {
+				reads += 1;
+				if (reads >= 3) await reconciliation;
+				return HttpResponse.json(
+					createdInstance(
+						vmcp,
+						reads >= 3 ? { configured: true, configurationCheckHash: 'checked' } : undefined
+					)
+				);
+			})
+		);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Test vMCP' }).click();
+		await continueFromIntro();
+
+		await vi.waitFor(() => expect(reads).toBe(3));
+		expect(vi.mocked(goto)).not.toHaveBeenCalled();
+		finishReconciliation();
+
+		await vi.waitFor(
+			() => {
+				expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
+			},
+			{ timeout: 4000 }
+		);
+		expect(reads).toBe(4);
+		expect(vmcpInstances.current.items[0]?.status?.configured).toBe(true);
+	}, 8000);
+
+	it('retries when the configuration check reports an incomplete instance', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1unconfigured', displayName: 'Plain vMCP' });
+		mockConfigureAndLaunch(vmcp);
+		const getInstance = vi.fn();
+		worker.use(
+			http.get('/api/vmcp-instances/vmcpi-created', () => {
+				getInstance();
+				return HttpResponse.json(
+					createdInstance(vmcp, {
+						configured: false,
+						configurationCheckHash: 'checked'
+					})
+				);
+			})
+		);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Test vMCP' }).click();
+		await continueFromIntro();
+
+		await vi.waitFor(
+			() => {
+				expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
+			},
+			{ timeout: 7000 }
+		);
+		expect(getInstance).toHaveBeenCalledTimes(6);
+	}, 9000);
 
 	it('starts setup from Test and opens the inspector after launch when there is no instance', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1testlaunch', displayName: 'Plain vMCP' });
@@ -245,6 +323,15 @@ describe('ConnectVMcp.svelte', () => {
 					created: '2026-01-01T00:00:00Z'
 				});
 			}),
+			http.get('/api/vmcp-instances/vmcpi-created', () =>
+				HttpResponse.json({
+					id: 'vmcpi-created',
+					vmcpID: vmcp.id,
+					userID: getProfileResponse.id,
+					created: '2026-01-01T00:00:00Z',
+					status: { configured: true, configurationCheckHash: 'checked' }
+				})
+			),
 			http.post(`/api/vmcps/${vmcp.id}/launch`, async () => {
 				launch();
 				if (opts?.launchDelayMs) {
@@ -310,6 +397,43 @@ describe('ConnectVMcp.svelte', () => {
 			.element(page.getByText('This server has already been configured.', { exact: false }))
 			.toBeVisible();
 	});
+
+	it('refreshes the pending instance after launch before reopening the connect dialog', async () => {
+		const vmcp = configurableVMcp();
+		const { launch } = mockConfigureAndLaunch(vmcp);
+		let reconciled = false;
+		let reads = 0;
+		worker.use(
+			http.get('/api/vmcp-instances/vmcpi-created', () => {
+				reads += 1;
+				return HttpResponse.json(
+					createdInstance(
+						vmcp,
+						reconciled ? { configured: true, configurationCheckHash: 'checked' } : undefined
+					)
+				);
+			}),
+			http.post(`/api/vmcps/${vmcp.id}/launch`, () => {
+				launch();
+				reconciled = true;
+				return HttpResponse.json({});
+			})
+		);
+
+		const result = await renderDialog(vmcp);
+		await configureFromPreconfigure();
+
+		await vi.waitFor(() => expect(launch).toHaveBeenCalledOnce(), { timeout: 5000 });
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+		expect(reads).toBeGreaterThan(5);
+		expect(vmcpInstances.current.items[0]?.status?.configured).toBe(true);
+
+		result.component.open(vmcp);
+		await page.getByRole('button', { name: 'Test vMCP' }).click();
+		expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
+		expect(launch).toHaveBeenCalledOnce();
+		await expect.element(introSetupText()).not.toBeVisible();
+	}, 8000);
 
 	it('shows launch progress and an error when launch fails', async () => {
 		const vmcp = configurableVMcp();
@@ -381,7 +505,7 @@ describe('ConnectVMcp.svelte', () => {
 
 		await preparePageData();
 		await vmcpInstances.refresh();
-		const result = await render(ConnectVMcp);
+		const result = await render(ConnectVMcp, { reconciliationRetryMs: 100 });
 		await result.component.openEditConfiguration(vmcp, existing);
 
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
@@ -415,7 +539,7 @@ describe('ConnectVMcp.svelte', () => {
 				getInstance();
 				return HttpResponse.json({
 					...existing,
-					status: { configured: true }
+					status: { configured: true, configurationCheckHash: 'checked' }
 				});
 			}),
 			http.post(`/api/vmcps/${vmcp.id}/launch`, () => HttpResponse.json({})),
@@ -424,7 +548,7 @@ describe('ConnectVMcp.svelte', () => {
 
 		await preparePageData();
 		vmcpInstances.current = { items: [existing], loading: false };
-		const result = await render(ConnectVMcp);
+		const result = await render(ConnectVMcp, { reconciliationRetryMs: 100 });
 		await result.component.openEditConfiguration(vmcp, existing);
 
 		const tokenField = page.getByCSS('input[name="API token"]');
