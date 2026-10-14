@@ -13096,7 +13096,8 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.
 					},
 					"suggestedHeaders": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "SuggestedHeaders contains credential input definitions derived from the schema's security schemes, without credential values. Clients can use these to prefill the catalog entry's header configuration.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -13108,8 +13109,9 @@ func schema_obot_platform_obot_apiclient_types_OpenAPIImportResponse(ref common.
 					},
 					"suggestedMetadata": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata"),
+							Description: "SuggestedMetadata contains editable catalog details derived from the schema's info fields and x-logo extension to prefill the creation form.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OpenAPIMetadata"),
 						},
 					},
 					"destinationValidation": {

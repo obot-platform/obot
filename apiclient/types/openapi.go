@@ -23,8 +23,13 @@ func (OpenAPISchema) OpenAPISchemaFormat() string { return "" }
 // OpenAPIImportResponse describes a validated schema and suggested credential
 // inputs. Importing does not create a catalog entry or store credentials.
 type OpenAPIImportResponse struct {
-	BaseURL               string                       `json:"baseURL"`
-	SuggestedHeaders      []MCPConfig                  `json:"suggestedHeaders"`
+	BaseURL string `json:"baseURL"`
+	// SuggestedHeaders contains credential input definitions derived from the
+	// schema's security schemes, without credential values. Clients can use
+	// these to prefill the catalog entry's header configuration.
+	SuggestedHeaders []MCPConfig `json:"suggestedHeaders"`
+	// SuggestedMetadata contains editable catalog details derived from the
+	// schema's info fields and x-logo extension to prefill the creation form.
 	SuggestedMetadata     OpenAPIMetadata              `json:"suggestedMetadata"`
 	DestinationValidation OpenAPIDestinationValidation `json:"destinationValidation"`
 }
