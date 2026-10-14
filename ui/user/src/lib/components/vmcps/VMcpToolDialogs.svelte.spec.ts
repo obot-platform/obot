@@ -16,7 +16,6 @@ async function renderLiveToolSelection(
 		otherCount?: number;
 		otherPreviewCount?: number;
 		stripPreviews?: boolean;
-		failPreview?: boolean;
 		failEnable?: boolean;
 		failSave?: boolean;
 	} = {}
@@ -79,9 +78,7 @@ async function renderLiveToolSelection(
 		http.get(`/api/vmcps/${current.id}`, () => HttpResponse.json(apiSnapshot())),
 		http.post(`/api/vmcps/${current.id}/components/${other.id}/generate-tool-previews`, () => {
 			preview();
-			return options.failPreview
-				? new HttpResponse(null, { status: 500 })
-				: HttpResponse.json(otherEntry);
+			return HttpResponse.json(otherEntry);
 		}),
 		http.post(`/api/vmcps/${current.id}/components/${component.id}/generate-tool-previews`, () =>
 			HttpResponse.json(liveEntry)
@@ -206,56 +203,41 @@ it('keeps the prompt open and preserves selections if enabling fails', async () 
 });
 
 it.each([
-	{ otherPreviewCount: 30, recommends: false },
-	{ otherPreviewCount: 40, recommends: true }
+	{ count: 20, recommends: false },
+	{ count: 50, recommends: false },
+	{ count: 51, recommends: true }
 ])(
-	'counts previews omitted from API snapshots: $otherPreviewCount other tools',
-	async ({ otherPreviewCount, recommends }) => {
-		const { preview, update, changed } = await renderLiveToolSelection(20, {
-			otherPreviewCount,
+	'saves $count selected tools without generating missing component previews',
+	async ({ count, recommends }) => {
+		const { preview, update, changed } = await renderLiveToolSelection(count, {
+			otherPreviewCount: 40,
 			stripPreviews: true
 		});
 		await page.getByRole('button', { name: 'Confirm', exact: true }).click();
 		await expect
 			.element(page.getByRole('button', { name: 'Confirm', exact: true }))
 			.not.toBeInTheDocument();
-		expect(preview).toHaveBeenCalledOnce();
+		expect(preview).not.toHaveBeenCalled();
 		expect(update).toHaveBeenCalledOnce();
+		expect(changed).toHaveBeenCalledOnce();
+		expect(changed.mock.calls[0][0].components[0].toolOverrides).toHaveLength(count);
 		expect(
-			changed.mock.calls.at(-1)?.[0].components[1].catalogEntry.manifest.toolPreview
+			changed.mock.calls[0][0].components[1].catalogEntry.manifest.toolPreview
 		).toBeUndefined();
 		const prompt = page.getByText('Enable tool search?', { exact: true });
 		if (recommends) {
 			await expect.element(prompt).toBeVisible();
-			await expect.element(page.getByText(/Based on its tool previews/)).toBeVisible();
 			await page.getByRole('button', { name: 'Enable tool search', exact: true }).click();
 			await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
 			expect(update.mock.calls[1][0].toolSearch).toBe(true);
-			expect(update.mock.calls[1][0].components[0].toolOverrides).toHaveLength(20);
+			expect(update.mock.calls[1][0].components[0].toolOverrides).toHaveLength(count);
 			expect(update.mock.calls[1][0].components[1].toolOverrides).toBeUndefined();
+			expect(preview).not.toHaveBeenCalled();
 		} else {
 			await expect.element(prompt).not.toBeVisible();
 		}
 	}
 );
-
-it('keeps a successful tool save when another component preview cannot be fetched', async () => {
-	const { preview, update, changed } = await renderLiveToolSelection(20, {
-		otherPreviewCount: 40,
-		stripPreviews: true,
-		failPreview: true
-	});
-	await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-	await expect
-		.element(page.getByRole('button', { name: 'Confirm', exact: true }))
-		.not.toBeInTheDocument();
-	expect(preview).toHaveBeenCalledOnce();
-	expect(update).toHaveBeenCalledOnce();
-	expect(changed).toHaveBeenCalledOnce();
-	expect(changed.mock.calls[0][0].components[0].toolOverrides).toHaveLength(20);
-	await expect.element(page.getByText('Enable tool search?', { exact: true })).not.toBeVisible();
-	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
-});
 
 it('does not offer search if saving the selected tools failed', async () => {
 	const { update } = await renderLiveToolSelection(51, { failSave: true });

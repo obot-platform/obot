@@ -500,29 +500,10 @@ export function createVMcpToolFlow() {
 		});
 	}
 
-	async function offerToolSearchRecommendation(vmcp: VMCP) {
+	function offerToolSearchRecommendation(vmcp: VMCP) {
 		if (vmcp.toolSearch || recommendedVMcpIDs.has(vmcp.id)) return;
-		const components = resolveVMcpComponents(vmcp);
-		if (getToolCounts(components).enabled <= 50) {
-			// API snapshots omit previews. Fetch only missing counts, using the
-			// deployed component definitions rather than live catalog entries.
-			const missing = components.filter(
-				(component) => !component.toolOverrides && component.toolPreview === undefined
-			);
-			const previews = await Promise.allSettled(
-				missing.map((component) =>
-					UserService.generateVMCPComponentToolPreviews(vmcp.id, component.key, {
-						signal: AbortSignal.timeout(10_000)
-					})
-				)
-			);
-			for (const [index, preview] of previews.entries()) {
-				if (preview.status === 'fulfilled') {
-					missing[index].toolPreview = preview.value.manifest.toolPreview;
-				}
-			}
-		}
-		const counts = getToolCounts(components);
+		// Recommendations use available counts without triggering tool discovery.
+		const counts = getToolCounts(resolveVMcpComponents(vmcp));
 		if (counts.enabled <= 50) return;
 		recommendedVMcpIDs.add(vmcp.id);
 		toolSearchError = undefined;
@@ -609,7 +590,7 @@ export function createVMcpToolFlow() {
 				})
 			);
 			onVMcpChanged?.(updated);
-			await offerToolSearchRecommendation(updated);
+			offerToolSearchRecommendation(updated);
 			return true;
 		} catch {
 			errors.append(m.vmcps_failed_to_update_tools());
