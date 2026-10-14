@@ -223,6 +223,57 @@ func TestGenericToolCallRejectsLegacyBatchBeforeHooks(t *testing.T) {
 	}
 }
 
+// go-sdk servers match field names exactly, but encoding/json matches them
+// without regard to case and keeps the last one, so these bodies would let
+// policies inspect a different method or tool than the server runs.
+func caseVariantMCPRequests() []struct {
+	name string
+	body string
+} {
+	return []struct {
+		name string
+		body string
+	}{
+		{
+			name: "outer arguments",
+			body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}},"Arguments":{"name":"list_files","revision":"revision","arguments":{}}}}`,
+		},
+		{
+			name: "tool name",
+			body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","NAME":"list_files","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`,
+		},
+		{
+			name: "method",
+			body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","METHOD":"ping","params":{"name":"delete_file","arguments":{}}}`,
+		},
+		{
+			name: "params",
+			body: `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"delete_file","arguments":{}},"Params":{"name":"list_files","arguments":{}}}`,
+		},
+	}
+}
+
+func TestGenericToolCallRejectsCaseVariantFieldNames(t *testing.T) {
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
+	for _, tt := range caseVariantMCPRequests() {
+		t.Run(tt.name, func(t *testing.T) {
+			req := mustMCPHookRequest(t, tt.body)
+			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", true)
+			if resolved != nil || !errors.Is(err, errMCPCaseVariantFieldNames) {
+				t.Fatalf("case variant field was not rejected: resolved=%#v error=%v", resolved, err)
+			}
+
+			w := httptest.NewRecorder()
+			if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, nil, err) {
+				t.Fatal("case variant rejection was not written")
+			}
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("case variant response: status=%d body=%q", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 func TestGenericToolCallRejectionReturnsWrittenBody(t *testing.T) {
 	for _, tt := range []struct {
 		name string
@@ -231,6 +282,10 @@ func TestGenericToolCallRejectionReturnsWrittenBody(t *testing.T) {
 		{
 			name: "batch",
 			err:  errMCPBatchUnsupported,
+		},
+		{
+			name: "case variant",
+			err:  errMCPCaseVariantFieldNames,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -248,6 +303,57 @@ func TestGenericToolCallRejectionReturnsWrittenBody(t *testing.T) {
 				t.Fatalf("returned body=%q written body=%q", body, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestGenericToolCallCaseVariantRejectionIsAudited(t *testing.T) {
+	for _, tt := range caseVariantMCPRequests() {
+		t.Run(tt.name, func(t *testing.T) {
+			req := mustMCPHookRequest(t, tt.body)
+			collector := new(recordingProxyAuditCollector)
+			audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			if !handleGenericToolCallError(api.Context{Request: req, ResponseWriter: w}, audit, errMCPCaseVariantFieldNames) {
+				t.Fatal("case variant rejection was not handled")
+			}
+			if len(collector.entries) != 2 || collector.entries[1].ResponseStatus != http.StatusBadRequest {
+				t.Fatalf("unexpected rejection audit: %#v", collector.entries)
+			}
+			var body string
+			if err := json.Unmarshal(collector.entries[1].ResponseBody, &body); err != nil {
+				t.Fatal(err)
+			}
+			if body != w.Body.String() || body != errMCPCaseVariantFieldNames.Error()+"\n" {
+				t.Fatalf("audited body=%q written body=%q", body, w.Body.String())
+			}
+			if collector.proxyExchangeIDs[0] == "" || collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
+				t.Fatalf("uncorrelated rejection audit: %v", collector.proxyExchangeIDs)
+			}
+		})
+	}
+}
+
+func TestHookProcessorRejectsCaseVariantFieldNames(t *testing.T) {
+	runner := &scriptedMCPHookRunner{run: func(input obotmcp.SessionMessageHook, _ string) (obotmcp.SessionMessageHook, bool, error) {
+		return obotmcp.SessionMessageHook{Accept: true, Message: input.Message}, true, nil
+	}}
+	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file"}, Targets: []obotmcp.HookTarget{{Target: "policy/deny"}}}}
+	for _, tt := range caseVariantMCPRequests() {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newHookProcessor(mustMCPHookRequest(t, tt.body), runner, hooks, nil, nil, nil, nil)
+			if !errors.Is(err, errMCPCaseVariantFieldNames) {
+				t.Fatalf("case variant field was not rejected: %v", err)
+			}
+		})
+	}
+
+	// Unrelated keys, including ones inside tool arguments, are still allowed.
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"delete_file","arguments":{"Name":"a","NAME":"b"},"_meta":{}}}`
+	if _, err := newHookProcessor(mustMCPHookRequest(t, body), runner, hooks, nil, nil, nil, nil); err != nil {
+		t.Fatalf("exact field names were rejected: %v", err)
 	}
 }
 

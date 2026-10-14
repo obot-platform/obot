@@ -87,6 +87,9 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, errMCPBatchUnsupported
 	}
 
+	if err := checkMCPMessageFieldNames(body); err != nil {
+		return nil, err
+	}
 	var message mcp.Message
 	if decodeMCPHookMessage(body, &message) != nil || message.Method != "tools/call" {
 		return nil, nil
