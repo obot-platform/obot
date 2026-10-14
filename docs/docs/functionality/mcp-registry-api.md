@@ -5,38 +5,56 @@ title: MCP Registry API
 
 ## Overview
 
-Obot implements the [MCP Registry specification](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md), enabling MCP clients to programmatically discover available servers.
+Obot implements the [MCP Registry specification](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md), enabling MCP clients such as VS Code to discover and connect to vMCPs.
+
+Each vMCP appears once with its display name, description, icon, and canonical connection URL. Catalog templates, individual user connections, and backing component servers are not registry entries.
 
 ## API Endpoint
 
 The registry is exposed at `/v0.1/servers` and supports:
 
-- **List servers**: Get all servers visible to the authenticated user
-- **Get server details**: Retrieve configuration for a specific server
-- **Search**: Filter servers by name, title, or description
-- **Pagination**: Cursor-based pagination for large result sets
+- **List servers**: Get all vMCPs visible to the requester
+- **Get server details**: Retrieve a specific vMCP's metadata and connection URL
+- **Search**: Filter vMCPs by name, title, or description using the `search` query parameter
+- **Pagination**: Use the `limit` and `cursor` query parameters for large result sets
+
+`GET /v0.1/servers/{serverName}/versions` lists the single supported version, `latest`. `GET /v0.1/servers/{serverName}/versions/latest` returns its details. URL-encode the complete registry name, including its slash, when using it as `{serverName}`.
 
 ## Authentication Modes
 
-**No-Auth Mode (Default)**: Returns servers that have been granted access to all users via [MCP Access Policies](../mcp-gateway/access.md). Ideal for public instances.
+**Auth Mode (Default)**: Registry discovery requires authentication (`OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=false`). Requests return vMCPs the user owns or can access through matching profiles, including Obot and identity-provider groups. Administrator management privileges alone do not grant discovery access.
 
-**Auth Mode**: Returns all servers the authenticated user has access to. Enable with `OBOT_SERVER_ENABLE_REGISTRY_AUTH=true`.
+**No-Auth Mode (Opt-In)**: Set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` to allow anonymous discovery. Anonymous requests return only shared vMCPs whose profiles explicitly grant access to **All Obot Users** (`type: selector`, `id: "*"`). Personal vMCPs and vMCPs restricted to specific users or groups are excluded. Catalog access policies do not determine registry visibility; shared vMCP access comes from [vMCP profiles](../mcp-gateway/access.md).
+
+Anyone who can reach the discovery endpoints in no-auth mode can read the names, descriptions, icons, and connection URLs of these vMCPs. Opt in only when you intend to publish this metadata. Connecting still requires authentication and the user's current vMCP permissions. Users can still authenticate registry requests in this mode and receive their personalized view, including accessible private vMCPs.
+
+Clients that cannot authenticate registry discovery, including VS Code, require the no-auth opt-in. Authentication and setup still happen when connecting to an installed vMCP.
+
+Deployments that previously relied on anonymous discovery must set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` when upgrading. This replaces the old `OBOT_SERVER_ENABLE_REGISTRY_AUTH` setting, which is no longer supported. The Helm chart also disables anonymous registry access by default.
+
+## Connecting from a Client
+
+Registry entries provide a `streamable-http` URL in the form `https://obot.example.com/mcp-connect/vmcp1example`. Installing an entry in a supported MCP client starts Obot's existing authentication and consent flow, where the user completes required configuration and component authentication. Users do not need to create a connection before discovering the vMCP.
+
+Discovery does not launch servers or create user connections. vMCPs remain discoverable while configuration or deployment is pending, including empty drafts; their connection flow still enforces its requirements before use.
 
 ## Server Naming
 
 Obot uses a reverse DNS naming scheme for global uniqueness:
 
 ```
-{reverse-dns}/{server-id}
+{reverse-dns}/{vmcp-id}
 ```
 
 Examples:
-- `com.example.obot/github-server` for `https://obot.example.com`
-- `local.localhost/my-server` for `http://localhost:8080`
+- `com.example.obot/vmcp1example` for `https://obot.example.com`
+- `local.localhost/vmcp1example` for `http://localhost:8080`
+
+Names identify vMCP definitions rather than a user's connection. Migrated aliases that identify a vMCP definition remain usable for detail requests and return the canonical vMCP name and URL. Instance IDs and aliases that identify individual user connections are not registry entries. Inaccessible or missing entries return 404.
 
 ## Contributing to the Default Server Set
 
-To add your MCP server to Obot's default server set, submit a PR to the [mcp-catalog](https://github.com/obot-platform/mcp-catalog) repository.
+To add your MCP server to Obot's default server set, submit a PR to the [mcp-catalog](https://github.com/obot-platform/mcp-catalog) repository. This adds a catalog template; expose it through a vMCP with the appropriate profiles to make it discoverable through the MCP Registry API.
 
 ### Submission Requirements
 

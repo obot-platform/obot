@@ -37,6 +37,15 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
+			name:           "auth mode allows MCP OAuth user",
+			registryNoAuth: false,
+			user: &user.DefaultInfo{
+				UID:    "user-uid",
+				Groups: []string{types.GroupMCP},
+			},
+			allowed: true,
+		},
+		{
 			name:           "no-auth mode allows unauthenticated user",
 			registryNoAuth: true,
 			user: &user.DefaultInfo{
@@ -51,10 +60,15 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, tt.registryNoAuth)
-			req := httptest.NewRequest(http.MethodGet, "/v0.1/servers", nil)
-
-			if allowed := authorizer.Authorize(req, tt.user); allowed != tt.allowed {
-				t.Fatalf("Authorize() = %v, want %v", allowed, tt.allowed)
+			for _, path := range []string{
+				"/v0.1/servers",
+				"/v0.1/servers/com.example%2Fvmcp1example/versions",
+				"/v0.1/servers/com.example%2Fvmcp1example/versions/latest",
+			} {
+				req := httptest.NewRequest(http.MethodGet, path, nil)
+				if allowed := authorizer.Authorize(req, tt.user); allowed != tt.allowed {
+					t.Fatalf("Authorize(%s) = %v, want %v", path, allowed, tt.allowed)
+				}
 			}
 		})
 	}

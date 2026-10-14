@@ -10,6 +10,7 @@ The Obot server is configured via environment variables. The following configura
 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
+| `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS` | Allows anonymous MCP Registry API discovery when enabled. Publicly exposes metadata for shared vMCPs whose profiles grant access to all Obot users. Authenticated requests still receive the user's accessible vMCPs. | `false` |
 | `OPENAI_API_KEY` | The foundation of Obot is a large language model that supports function-calling. The default is OpenAI and specifying an OpenAI key here will ensure none of the users need to worry about specifying their own API key. | - |
 | `ANTHROPIC_API_KEY` | You can also provide an Anthropic API key in place of or in addition to an OpenAI API key. | - |
 | `GITHUB_AUTH_TOKEN` | Obot makes heavy use of repositories hosted on GitHub. Care is taken to cache these and only re-check when necessary. However, rate-limiting can happen. Setting a read-only token here can alleviate many of these issues. No grants are required for either a 'classic' or 'fine-grained' token to access public repos (read-only). If you want to give the token access to private repos, you will need to give it `repo` (for a 'classic' token) or `contents (read-only)` and `metadata (read-only)`. |
