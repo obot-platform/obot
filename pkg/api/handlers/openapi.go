@@ -38,7 +38,7 @@ func (h *MCPCatalogHandler) ImportOpenAPI(req api.Context) error {
 	}
 	return req.Write(types.OpenAPIImportResponse{
 		BaseURL:               result.BaseURL,
-		SuggestedHeaders:      append([]types.MCPConfig{}, result.SuggestedHeaders...),
+		SuggestedHeaders:      result.SuggestedHeaders,
 		SuggestedMetadata:     result.SuggestedMetadata,
 		DestinationValidation: result.DestinationValidation,
 	})
