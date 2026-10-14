@@ -23,6 +23,6 @@ it('shows the scoped login command for the client authorization request', async 
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(
-			`obot mcp login '${window.location.origin}/oauth/mcp/login/ui-local-original'`
+			`obot mcp login "${window.location.origin}/oauth/mcp/login/ui-local-original"`
 		);
 });

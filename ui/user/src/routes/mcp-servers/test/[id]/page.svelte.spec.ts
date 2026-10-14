@@ -1178,7 +1178,7 @@ it('shows CLI login and retries a localhost component in the inspector', async (
 	await render(TesterPage, { data });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login "${attemptURL}"`);
 	await expect.element(page.getByRole('timer')).toBeVisible();
 	mockMCPInitialization();
 	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));

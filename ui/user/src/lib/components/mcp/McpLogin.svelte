@@ -37,7 +37,6 @@
 	);
 	$effect(() => onExpiredChange?.(expired && !loading && !checking));
 	const id = $props.id();
-	const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 	let loginURL = $derived(
 		browser && url.startsWith('/') ? new URL(url, window.location.origin).href : url
 	);
@@ -51,12 +50,17 @@
 		}
 	});
 	let command = $derived.by(() => {
-		// The display hint is UI-only; the CLI accepts the bare attempt URL.
+		// Only the attempt endpoint belongs in the CLI command. Query parameters
+		// (including the display name) and fragments are browser-only hints.
 		if (!browser) return '';
 		const endpoint = new URL(loginURL);
-		if (!endpoint.searchParams.has('serverName')) return `obot mcp login ${quote(loginURL)}`;
-		endpoint.searchParams.delete('serverName');
-		return `obot mcp login ${quote(endpoint.href)}`;
+		// Double quotes work in Command Prompt, PowerShell, and POSIX shells.
+		// Encode characters that those shells could expand inside double quotes.
+		const argument = `${endpoint.origin}${endpoint.pathname}`.replace(
+			/[\x21\x24\x60]/g,
+			(char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+		);
+		return `obot mcp login "${argument}"`;
 	});
 
 	// Watching the existing attempt is read-only. Re-running the owning flow while

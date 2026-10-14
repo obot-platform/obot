@@ -13,19 +13,17 @@ it('shows a copyable command for the specific UI attempt', async () => {
 	});
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent("obot mcp login 'https://obot.example/oauth/mcp/login/test'");
+		.toHaveTextContent('obot mcp login "https://obot.example/oauth/mcp/login/test"');
 	await expect.element(page.getByRole('button', { name: /Copy/ })).toBeVisible();
 });
 
-it('quotes shell metacharacters', async () => {
+it('excludes browser hints and shell metacharacters from the command', async () => {
 	await render(McpLogin, {
-		url: "https://obot.example/oauth/mcp/login/test?name=a'b&x=$(echo)"
+		url: "https://obot.example/oauth/mcp/login/test?name=a'b&x=$(echo)&y=%PATH%#`echo`"
 	});
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(
-			`obot mcp login 'https://obot.example/oauth/mcp/login/test?name=a'"'"'b&x=$(echo)'`
-		);
+		.toHaveTextContent('obot mcp login "https://obot.example/oauth/mcp/login/test"');
 });
 
 it('resolves relative attempt URLs and disables regeneration while the attempt is pending', async () => {
@@ -33,7 +31,7 @@ it('resolves relative attempt URLs and disables regeneration while the attempt i
 	await render(McpLogin, { url: '/oauth/mcp/login/attempt', onComplete });
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/attempt'`);
+		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/attempt"`);
 	expect(onComplete).not.toHaveBeenCalled();
 	await expect
 		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
@@ -58,7 +56,7 @@ it.each(locales)(
 			const command = page.getByLabelText(m.mcps_login_command());
 			await expect
 				.element(command)
-				.toHaveTextContent("obot mcp login 'https://obot.example/oauth/mcp/login/test'");
+				.toHaveTextContent('obot mcp login "https://obot.example/oauth/mcp/login/test"');
 			const button = page.getByRole('button', { name: m.mcps_login_refresh(), exact: true });
 			await expect.element(button).toBeVisible();
 			expect(command.element().getBoundingClientRect().right).toBeLessThanOrEqual(390);
@@ -99,7 +97,7 @@ it('waits on the existing attempt and checks the owning flow only after it is co
 	expect(onComplete).not.toHaveBeenCalled();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/stable-attempt'`);
+		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/stable-attempt"`);
 	consumed = true;
 	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
 	document.dispatchEvent(new Event('visibilitychange'));
@@ -115,7 +113,12 @@ it('does not treat a failed status request as successful sign-in and recovers au
 		)
 	);
 	const result = await render(McpLogin, { url: '/oauth/mcp/login/network-error', onComplete });
-	await expect.element(page.getByRole('alert')).toBeVisible();
+	await expect
+		.element(page.getByRole('alert'))
+		.toHaveTextContent('Unable to check sign-in. Retrying automatically.');
+	await expect
+		.element(page.getByRole('button', { name: 'Generate new command', exact: true }))
+		.toBeDisabled();
 	expect(onComplete).not.toHaveBeenCalled();
 	failed = false;
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
@@ -168,7 +171,7 @@ it('explains the named component callback requirement in two steps', async () =>
 	await expect.element(page.getByText('Parent vMCP', { exact: true })).not.toBeInTheDocument();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/attempt'`);
+		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/attempt"`);
 });
 
 it('uses the supplied server name for older login URLs', async () => {
@@ -228,7 +231,7 @@ it('shows an already expired attempt without automatically replacing it and rese
 	await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${window.location.origin}/oauth/mcp/login/fresh'`);
+		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/fresh"`);
 });
 
 it('checks the owning flow when the first status response is already consumed', async () => {

@@ -1131,7 +1131,7 @@
 	"mcps_login_callback_description": "localhost コールバックを必要とするプロバイダー向けです。通常の URL で接続すると、認証時にブラウザーと同じコンピューターで実行する一時的な CLI ログインコマンドが表示されます。プロバイダーの認証情報は Obot が管理します。",
 	"mcps_login_waiting": "サインインを待っています…",
 	"mcps_login_refresh": "新しいコマンドを生成",
-	"mcps_login_check_failed": "サインインを確認できません。自動的に再試行します。新しいコマンドを取得することもできます。",
+	"mcps_login_check_failed": "サインインを確認できません。自動的に再試行します。",
 	"mcps_login_callback_title": "localhost OAuth コールバック",
 	"mcps_login_callback_disable": "localhost OAuth コールバックを無効にする",
 	"mcps_login_callback_enable": "localhost OAuth コールバックを有効にする",

@@ -1131,7 +1131,7 @@
 	"mcps_login_callback_description": "适用于需要 localhost 回调的提供商。使用常规 URL 连接；身份验证时，Obot 会显示临时 CLI 登录命令，请在运行浏览器的同一台计算机上执行。提供商凭据由 Obot 管理。",
 	"mcps_login_waiting": "正在等待登录…",
 	"mcps_login_refresh": "生成新命令",
-	"mcps_login_check_failed": "无法检查登录状态。正在自动重试。您也可以获取新命令。",
+	"mcps_login_check_failed": "无法检查登录状态。正在自动重试。",
 	"mcps_login_callback_title": "localhost OAuth 回调",
 	"mcps_login_callback_disable": "禁用 localhost OAuth 回调",
 	"mcps_login_callback_enable": "启用 localhost OAuth 回调",

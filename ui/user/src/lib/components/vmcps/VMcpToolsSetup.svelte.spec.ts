@@ -342,7 +342,7 @@ describe('VMcpToolsSetup preview credentials', () => {
 		await expect
 			.element(page.getByLabelText('Authentication command'))
 			.toHaveTextContent(
-				`obot mcp login '${window.location.origin}/oauth/mcp/login/temporary-preview-state'`
+				`obot mcp login "${window.location.origin}/oauth/mcp/login/temporary-preview-state"`
 			);
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).not.toBeInTheDocument();
 		const payload = { TOKEN: 'preview-secret', REGION: 'west' };

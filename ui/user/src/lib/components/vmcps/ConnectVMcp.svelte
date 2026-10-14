@@ -775,6 +775,7 @@
 	animate="slide"
 	class={localhostCallback && compositeAuthID ? 'bg-base-200' : ''}
 	classes={{ header: 'mb-0' }}
+	closeButtonLabel={m.common_close_dialog()}
 	onClose={handleOauthDialogClosed}
 >
 	{#snippet titleContent()}
@@ -804,11 +805,7 @@
 					embedded
 					compositeMcpId={compositeAuthID}
 					vmcpId={vmcp.id}
-					onComplete={() => {
-						oauthURL = '';
-						oauthDialog?.close();
-						finishLaunch();
-					}}
+					onComplete={finishOauthPrompt}
 				/>
 			{:else}
 				<p>{m.vmcps_click_link_to_authenticate()}</p>

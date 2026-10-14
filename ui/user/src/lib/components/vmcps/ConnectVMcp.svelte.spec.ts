@@ -673,7 +673,7 @@ it('shows CLI login for vMCP authentication using retained callback paths', asyn
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command').last())
-		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login "${attemptURL}"`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
@@ -704,7 +704,7 @@ it('opens component login commands after Authenticate during vMCP preconfigurati
 	await page.getByRole('button', { name: 'Authenticate', exact: true }).click();
 	await expect
 		.element(page.getByLabelText('Authentication command'))
-		.toHaveTextContent(`obot mcp login '${attemptURL}'`);
+		.toHaveTextContent(`obot mcp login "${attemptURL}"`);
 	await expect
 		.element(page.getByRole('link', { name: 'Authenticate', exact: true }))
 		.not.toBeInTheDocument();
