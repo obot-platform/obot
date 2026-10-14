@@ -30,17 +30,17 @@ type resolvedToolCall struct {
 	arguments json.RawMessage
 }
 
-// completedGenericToolCall carries a terminal tool result from resolution, such
-// as an invalid or stale reference. The response handler returns it with the
-// original JSON-RPC ID instead of forwarding the request or treating the result
-// as a transport failure.
-type completedGenericToolCall struct {
+// failedGenericToolCall carries a tool-level failure from resolution: invalid
+// arguments, an unavailable tool, or a stale reference. The tool has not executed.
+// The response handler returns the result with the original JSON-RPC ID instead
+// of forwarding the request or treating the result as a transport failure.
+type failedGenericToolCall struct {
 	id     any
 	result *gomcp.CallToolResult
 }
 
-func (e *completedGenericToolCall) Error() string {
-	return "generic tool call completed during resolution"
+func (e *failedGenericToolCall) Error() string {
+	return "generic tool call failed during resolution"
 }
 
 // resolveGenericToolCall resolves a call_tool request before the gateway runs
@@ -49,7 +49,7 @@ func (e *completedGenericToolCall) Error() string {
 //
 // A nil call and nil error leave normal request processing in charge. A resolved
 // call supplies the policy-facing name and arguments without executing the tool.
-// An error prevents forwarding; completedGenericToolCall is handled as a tool
+// An error prevents forwarding; failedGenericToolCall is handled as a tool
 // result, while other errors use the gateway's protocol or HTTP error responses.
 func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string, inspect bool) (*resolvedToolCall, error) {
 	if !inspect || !cfg.ToolSearch || req.Method != http.MethodPost || req.Body == nil {
@@ -119,7 +119,7 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 
 	if !ok || call.Route == nil {
 		if call.Result != nil {
-			return nil, &completedGenericToolCall{id: message.ID, result: call.Result}
+			return nil, &failedGenericToolCall{id: message.ID, result: call.Result}
 		}
 
 		// The composite owner may have a newer catalog. Forwarding an unresolved

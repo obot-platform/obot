@@ -150,12 +150,12 @@ func genericToolCallErrorResponse(req api.Context, callErr error) *mcpResponse {
 	if errors.Is(callErr, errMCPBatchUnsupported) || errors.Is(callErr, errMCPCaseVariantFieldNames) {
 		return mcpTextResponse(http.StatusBadRequest, callErr.Error())
 	}
-	if completed, ok := errors.AsType[*completedGenericToolCall](callErr); ok {
-		result, err := json.Marshal(completed.result)
+	if failed, ok := errors.AsType[*failedGenericToolCall](callErr); ok {
+		result, err := json.Marshal(failed.result)
 		if err != nil {
 			return nil
 		}
-		body, err := json.Marshal(mcp.Message{JSONRPC: "2.0", ID: completed.id, Result: result})
+		body, err := json.Marshal(mcp.Message{JSONRPC: "2.0", ID: failed.id, Result: result})
 		if err != nil {
 			return nil
 		}

@@ -142,8 +142,8 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		t.Fatalf("stale generic call was allowed to forward: %#v", resolved)
 	}
 
-	if _, ok := errors.AsType[*completedGenericToolCall](err); !ok {
-		t.Fatalf("stale generic call did not return a completed tool result: %v", err)
+	if _, ok := errors.AsType[*failedGenericToolCall](err); !ok {
+		t.Fatalf("stale generic call did not return a failed tool result: %v", err)
 	}
 
 	w := httptest.NewRecorder()
