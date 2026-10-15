@@ -4,14 +4,20 @@ title: "Editions and licensing"
 
 # Editions and licensing {#obot-editions}
 
-Every self-hosted edition of Obot runs from the same container image. A license key decides which capabilities and
-usage limits apply, and you can add, change, or remove it from the **License** page in the admin UI without reinstalling.
+Obot is fully open source under the [MIT License](https://github.com/obot-platform/obot/blob/main/LICENSE), and that
+includes every edition. There is no separate closed-source enterprise build. Obot Community, registered Community, and
+Obot Enterprise all run the same open source code from the same container image.
+
+The editions differ only in their license key. The key gates the user and device limits, the enterprise auth
+providers, and support. You can add, change, or remove it from the **License** page in the admin UI without
+reinstalling.
 
 ## Editions
 
 | | Obot Community | Obot Community, registered | Obot Enterprise | Obot Cloud |
 |---|---|---|---|---|
 | Hosting | Self-hosted | Self-hosted | Self-hosted | Hosted by Obot |
+| Source code | Open source (MIT) | Open source (MIT) | Open source (MIT) | Open source (MIT) |
 | Cost | Free | Free | [Contact us](https://obot.ai/contact-us/) | [Free trial](https://obot.ai/obot-cloud-trial/), then paid |
 | License key | None | Community license, issued when you register | Enterprise license | Managed by Obot |
 | Users | Up to 100 | Up to 100 | Unlimited, or the number in your contract | No limit |
@@ -23,7 +29,7 @@ usage limits apply, and you can add, change, or remove it from the **License** p
 
 ### Obot Community
 
-Obot Community is the free, open source edition, and it is what you get when no license key is configured. It
+Obot Community is what you get when no license key is configured. It is free and
 includes the full MCP gateway and registry, LLM gateway, skills registry, and Device Management, with Local, GitHub,
 and Google [authentication](../configuration/auth-providers.md). It supports up to 100 users and 100 devices.
 
@@ -39,7 +45,7 @@ to copy or keep the key.
 
 ### Obot Enterprise
 
-Obot Enterprise includes everything in registered Obot Community, removes the user and device limits (unless your
+Obot Enterprise is the same open source code as Obot Community, with an Enterprise license key. It includes everything in registered Obot Community, removes the user and device limits (unless your
 contract sets specific limits), and adds enterprise support. To get an Enterprise license,
 [contact us](https://obot.ai/contact-us/).
 
