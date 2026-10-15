@@ -1,4 +1,4 @@
-import { UserService, type VMCP } from '$lib/services';
+import { UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import { createMockProfile } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
@@ -26,10 +26,7 @@ const runtime = {
 
 it('shows a mapped environment with session statistics and without account editing', async () => {
 	profile.initialize(createMockProfile([]));
-	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([
-		{ id: 'vmcp', displayName: 'Outlook' } as VMCP,
-		{ id: 'hidden', displayName: 'Secret vMCP' } as VMCP
-	]);
+	const listVMCPs = vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 	const sessionsRequest = vi.fn();
 	worker.use(
 		http.get('*/api/claude-sessions', ({ request }) => {
@@ -64,7 +61,6 @@ it('shows a mapped environment with session statistics and without account editi
 						environmentID: 'ccpool_one',
 						organizationID: 'org',
 						profiles: null,
-						mcpServerIDs: ['vmcp', 'unavailable'],
 						runtime: { ...runtime, egressHosts: ['*.github.com'], allowAllEgress: false },
 						egressSecrets: [{ hostname: 'private.example.com', header: 'X-Secret' }]
 					}
@@ -86,9 +82,10 @@ it('shows a mapped environment with session statistics and without account editi
 	await expect.element(page.getByText('Active now', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('3', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('1', { exact: true })).toBeVisible();
-	await expect.element(page.getByText('Outlook', { exact: true })).toBeVisible();
-	expect(page.getByText('Secret vMCP', { exact: true }).all()).toHaveLength(0);
-	expect(page.getByText('unavailable', { exact: true }).all()).toHaveLength(0);
+	await expect
+		.element(page.getByRole('heading', { name: 'Available vMCPs', exact: true }))
+		.not.toBeInTheDocument();
+	expect(listVMCPs).not.toHaveBeenCalled();
 	await expect.element(page.getByText('*.github.com', { exact: true })).toBeVisible();
 	expect(page.getByText('Worker Pool', { exact: true }).all()).toHaveLength(0);
 	expect(page.getByText('Secrets', { exact: true }).all()).toHaveLength(0);
@@ -101,7 +98,6 @@ it('shows a mapped environment with session statistics and without account editi
 
 it('opens an environment for editing when an admin selects its card', async () => {
 	profile.initialize(createMockProfile());
-	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 	const onEdit = vi.fn();
 	worker.use(
 		http.get('*/api/claude-environments', () =>
@@ -134,10 +130,9 @@ it('opens an environment for editing when an admin selects its card', async () =
 });
 
 it.each([false, true])(
-	'shows empty vMCPs and egress policy with allowAllEgress=%s',
+	'shows egress policy without a vMCP section with allowAllEgress=%s',
 	async (allowAllEgress) => {
 		profile.initialize(createMockProfile([]));
-		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 		worker.use(
 			http.get('*/api/claude-environments', () =>
 				HttpResponse.json({
@@ -149,7 +144,6 @@ it.each([false, true])(
 							environmentID: 'pool',
 							organizationID: 'org',
 							profiles: null,
-							mcpServerIDs: [],
 							runtime: { ...runtime, allowAllEgress }
 						}
 					]
@@ -157,7 +151,6 @@ it.each([false, true])(
 			)
 		);
 		render(ClaudeConnections, { onEdit: () => {} });
-		await expect.element(page.getByText('No vMCPs available.', { exact: true })).toBeVisible();
 		await expect
 			.element(
 				page.getByText(
@@ -168,5 +161,11 @@ it.each([false, true])(
 				)
 			)
 			.toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Available vMCPs', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText('No vMCPs available.', { exact: true }))
+			.not.toBeInTheDocument();
 	}
 );

@@ -53,15 +53,10 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	type environmentResponse struct {
-		gt.ClaudeEnvironment
-		MCPServerIDs []string `json:"mcpServerIDs,omitempty"`
-	}
-	visible := []environmentResponse{}
+	visible := []gt.ClaudeEnvironment{}
 	mappings := []gt.ClaudeOrganizationAccount{}
 	seen := map[string]bool{}
 	for _, environment := range environments {
-		var mcpServerIDs []string
 		if !req.UserIsAdmin() {
 			resolved, err := clauderunner.ResolveEnvironment(req.User, &environment)
 			if clauderunner.AccessDenied(err) {
@@ -71,13 +66,9 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 				return err
 			}
 			environment = resolved.ClaudeEnvironment
-			mcpServerIDs = resolved.MCPServerIDs
 		}
 		redactClaudeEgressSecrets(&environment)
-		visible = append(visible, environmentResponse{
-			ClaudeEnvironment: environment,
-			MCPServerIDs:      mcpServerIDs,
-		})
+		visible = append(visible, environment)
 		mapping, err := req.GatewayClient.ClaudeOrganizationAccountForUser(req.Context(), environment.OrganizationID, req.User.GetUID())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			continue

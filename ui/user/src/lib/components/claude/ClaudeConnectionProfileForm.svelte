@@ -403,7 +403,11 @@
 	onsubmit={saveProfile}
 >
 	<header class="flex items-start gap-3">
-		<IconButton tooltip={{ text: m.hosted_agents_profile_back() }} onclick={onClose}>
+		<IconButton
+			disabled={saving}
+			tooltip={{ text: m.hosted_agents_profile_back() }}
+			onclick={onClose}
+		>
 			<ArrowLeft class="size-4" />
 		</IconButton>
 		<div class="min-w-0 grow">

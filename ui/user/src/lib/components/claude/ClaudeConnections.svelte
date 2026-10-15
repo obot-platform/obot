@@ -1,11 +1,8 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
-	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import { m } from '$lib/i18n';
-	import { UserService, type VMCP } from '$lib/services';
 	import { doGet } from '$lib/services/http';
 	import { COMMON_AI_CLIENTS_MAP, AiClient } from '$lib/services/user/constants';
-	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import type { ClaudeConfig, ClaudeEnvironment } from './types';
@@ -16,7 +13,6 @@
 	let { onEdit }: { onEdit: (environment: ClaudeEnvironment) => void } = $props();
 
 	let config = $state<ClaudeConfig>({ enabled: false });
-	let servers = $state<VMCP[]>([]);
 	let sessions = $state<
 		{
 			metadata: { deletionTimestamp?: string };
@@ -73,14 +69,6 @@
 	async function load() {
 		config = (await doGet('/claude-environments')) as ClaudeConfig;
 		void refreshStats();
-		servers = (await UserService.listVMCPs(admin ? { all: true } : {})).filter(
-			(server) => !admin || !server.userID
-		);
-	}
-
-	function accessibleVmcps(environment: ClaudeEnvironment) {
-		const visible = new Set(servers.map((server) => server.id));
-		return (environment.mcpServerIDs ?? []).filter((id) => visible.has(id));
 	}
 
 	onMount(() => {
@@ -135,29 +123,6 @@
 						</p>
 					{:else}
 						<section class="space-y-3" aria-label={m.hosted_agents_configuration()}>
-							<div>
-								<h3 class="text-xs font-normal mb-1">{m.hosted_agents_available_vmcps()}</h3>
-								<ul class="flex flex-wrap items-center gap-2">
-									{#each accessibleVmcps(environment) as id (id)}
-										{@const server = servers.find((item) => item.id === id)}
-										<li
-											data-chip={true}
-											data-name={server?.displayName}
-											class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 group-hover:border-primary/40 flex shrink-0 items-center gap-2 rounded-md border pr-2 transition-colors"
-										>
-											<VMcpIcon
-												classes={{ iconRoot: 'rounded-r-none' }}
-												components={server ? resolveVMcpComponents(server) : []}
-											/>
-											<span class="text-xs whitespace-nowrap">{server?.displayName || id}</span>
-										</li>
-									{:else}
-										<li class="text-xs font-light text-muted-content">
-											{m.hosted_agents_no_vmcps()}
-										</li>
-									{/each}
-								</ul>
-							</div>
 							<div>
 								<h3 class="text-xs font-normal mb-1">{m.hosted_agents_allowed_egress()}</h3>
 								{#if environment.runtime.allowAllEgress}
