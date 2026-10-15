@@ -14,5 +14,5 @@ Start with [Connect to a vMCP](./connect.md) to use an existing endpoint, or [Cr
 | Install Obot | [Deployment options](../installation/overview.md) | An operator provides infrastructure and authentication |
 
 :::note
-Check [editions and feature availability](../enterprise/overview.md).
+Check [editions and licensing](../enterprise/overview.md).
 :::

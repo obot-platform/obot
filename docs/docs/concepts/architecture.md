@@ -90,4 +90,4 @@ Application-level encryption is disabled by default. When configured, an encrypt
 
 ## LLMs
 
-Obot supports multiple model providers, available without Community registration or an Enterprise license. Configure upstream credentials and models for your organization. See [Model Providers](../configuration/model-providers.md).
+Obot supports multiple model providers, available in every edition without registration or a license key. Configure upstream credentials and models for your organization. See [Model Providers](../configuration/model-providers.md).

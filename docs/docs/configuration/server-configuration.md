@@ -88,7 +88,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |
 | `OBOT_SERVER_MCPOAUTH_CLIENT_NATIVE_EXCEPTIONS` | A comma-separated list of additional Client ID Metadata Document URLs that default to the native application type when `application_type` is omitted. | - |
 | `OBOT_SERVER_FORCE_DYNAMIC_CLIENT` | Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. | `false` |
-| `OBOT_SERVER_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |
+| `OBOT_SERVER_LICENSE_KEY` | An Obot license key. It takes precedence over a key stored in the database, and the key can't be changed or removed in the UI while it's set. Obot validates it with `https://api.keygen.sh`; see [Editions and licensing](../enterprise/overview.md#how-obot-validates-a-license). | - |
 | `OBOT_DEFAULT_SKILL_REPO_URL` | The default skill repository URL. Must be a full HTTPS GitHub URL (e.g. `https://github.com/org/repo`). Only used on first-time setup (before the first owner user is created). A SkillRepository resource will be created from this URL and synced automatically. | `https://github.com/obot-platform/skills` |
 | `OBOT_DEFAULT_SKILL_REPO_REF` | The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup. | - |
 

@@ -19,7 +19,7 @@ Obot supports a variety of model providers, including:
 
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
 
-All listed model providers are available in the default Obot edition without Community registration or an Enterprise license. You still need credentials and access to the upstream model service.
+All listed model providers are available in every edition, without registration or a license key. You still need credentials and access to the upstream model service.
 
 #### Configuring and enabling a provider
 

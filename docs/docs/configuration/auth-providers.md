@@ -82,7 +82,7 @@ Start (or restart) your Obot deployment with the new environment variables. Navi
 ### Step 3: Configure Authentication Provider {#enabling-authentication-step-3-configure-authentication-provider}
 
 1. Go to **Identity & Access > Auth Providers**
-2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require Community registration or an Enterprise license.
+2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require free Obot Community registration or an Enterprise license.
 3. Follow the provider-specific configuration steps
 
 For detailed provider configuration, see the [Auth Providers](./auth-providers.md) documentation.
@@ -169,10 +169,10 @@ You can:
 
 | Providers | Availability |
 |-----------|--------------|
-| Local, GitHub, Google | Included in the default Obot edition without registration |
-| Entra, Okta, JumpCloud, Auth0 | Require free Community registration or an Enterprise license |
+| Local, GitHub, Google | Available in every edition, without registration |
+| Entra, Okta, JumpCloud, Auth0 | Require free Obot Community registration or an Enterprise license |
 
-To register for Community or configure an Enterprise license, use the **License** page in the admin UI. See [Obot Editions](../enterprise/overview.md).
+To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [What happens without a license](../enterprise/overview.md#enterprise-auth-providers).
 
 Obot supports the built-in [Local](./auth-providers.md#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
 
@@ -439,7 +439,7 @@ This section describes the steps involved in switching authentication providers 
 - Authentication is already enabled.
 - GitHub is configured as the active authentication provider.
 - You are logged in as an **Owner**.
-- You are running the Obot Community or Enterprise edition, which include Entra. See [Obot Editions](../enterprise/overview.md) to enable one.
+- You have registered Obot Community or added an Enterprise license key, either of which includes Entra. See [Editions and licensing](../enterprise/overview.md).
 
 ### Step 1: Configure Microsoft Entra
 

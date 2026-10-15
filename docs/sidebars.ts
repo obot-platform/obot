@@ -34,7 +34,7 @@ const sidebars = {
 				{
 					"type": "doc",
 					"id": "enterprise/overview",
-					"label": "Editions and feature availability"
+					"label": "Editions and licensing"
 				}
 			]
 		},
@@ -283,6 +283,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "installation/kubernetes-deployment",
 					"label": "Kubernetes (production)"
+				},
+				{
+					"type": "doc",
+					"id": "installation/network-requirements",
+					"label": "Network requirements"
 				},
 				{
 					"type": "doc",
