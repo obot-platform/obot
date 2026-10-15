@@ -11,9 +11,9 @@ access.
 Connections inside your deployment, such as to PostgreSQL, the Kubernetes API, and MCP server pods, aren't listed.
 With some cloud authentication methods, Obot also reaches the cloud instance metadata endpoint (`169.254.169.254`).
 
-## Connections Obot makes by default
+## Connections from the Obot server
 
-These connections happen on a default installation without any configuration.
+The Obot server makes these connections on a default installation, whichever MCP runtime you use.
 
 | Destination | Purpose | When | If it fails | How to change or avoid it |
 |---|---|---|---|---|
@@ -24,15 +24,45 @@ These connections happen on a default installation without any configuration.
 | `https://github.com`, `https://release-assets.githubusercontent.com`, `https://objects.githubusercontent.com` | [Obot Sentry](../device-management/how-sentry-works.md) MDM assets (`obot-platform/obot-sentry` release tarball) | When the source changes, and every hour until it succeeds | Not fatal | Set `OBOT_SERVER_MDM_ASSET_SOURCE` to a local directory, a local tar archive, or an internal URL |
 | `https://models.dev` | Model pricing data for LLM cost reporting | At startup and every hour | Not fatal. Costs use the last synced data. | Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an internal mirror of `api.json` |
 | `https://model-service.obot.ai` | Built-in model for the [MCP server tester](../mcp-gateway/inspector.md), used when no model provider is configured. Requires a valid license. | When a user runs the tester | The tester can't generate | Set `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off |
-| `ghcr.io` | MCP server base images (`ghcr.io/obot-platform/mcp-images/*`) | Each time an MCP server starts. Kubernetes pulls them with `imagePullPolicy: Always`. | The MCP server doesn't start | Mirror the images and set `OBOT_SERVER_MCPBASE_IMAGE`, `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE`, and `OBOT_SERVER_MCPOPEN_APIIMAGE`. See [Server configuration](../configuration/server-configuration.md). |
-| `docker.io` | `alpine:latest`, used for init containers by the Docker MCP runtime | When an MCP server starts on Docker and the image isn't already present | The MCP server doesn't start | Pre-pull `alpine:latest` on the Docker host. It can't be changed. |
-| `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org` | Packages for `npx` and `uvx` MCP servers | Each time one of those MCP servers starts | The MCP server doesn't start | Configure an internal registry through the MCP server's environment, for example `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, or use containerized MCP servers |
 
 Startup doesn't depend on any of these. Obot starts without internet access, and the affected features recover once
 the destination is reachable.
 
-The Obot container image itself, and the images for any [cloud deployment](./kubernetes-deployment.md), come from
-`ghcr.io` and are pulled by your container runtime rather than by Obot.
+## Connections for MCP servers
+
+Where MCP server traffic comes from depends on the MCP runtime: the Docker host when Obot runs MCP servers with
+Docker, or the cluster's nodes and pods when it runs them on Kubernetes. Both runtimes need:
+
+| Destination | Purpose | When | How to change or avoid it |
+|---|---|---|---|
+| `ghcr.io` | MCP server base images (`ghcr.io/obot-platform/mcp-images/*`) | Each time an MCP server starts | Mirror the images and set `OBOT_SERVER_MCPBASE_IMAGE`, `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE`, and `OBOT_SERVER_MCPOPEN_APIIMAGE`. See [Server configuration](../configuration/server-configuration.md). |
+| The registry of each containerized MCP server's image | The MCP server's image | Each time the MCP server starts | Use images from a registry you can reach |
+| `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org` | Packages for `npx` and `uvx` MCP servers, downloaded by the MCP server container | Each time one of those MCP servers starts | Configure an internal registry through the MCP server's environment, for example `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, or use containerized MCP servers |
+| Whatever each MCP server calls | The MCP server's own work, such as a SaaS API | While the MCP server runs | Depends on the MCP server |
+
+If an MCP server's image or packages can't be downloaded, that MCP server doesn't start. Other MCP servers and the rest
+of Obot keep working.
+
+### Docker runtime
+
+- The Docker daemon pulls the images, so it needs registry access and uses its own proxy configuration, not Obot's.
+  Obot asks for a pull each time an MCP server starts, and falls back to a local copy only when the registry refuses
+  the pull, not when it can't be reached.
+- Obot also uses `alpine:latest` from `docker.io` for short-lived setup containers. It's needed for every `npx` and
+  `uvx` server and for any MCP server with file configuration, and is pulled only if the Docker host doesn't already
+  have it. The image can't be changed, so pre-pull it on hosts without access to `docker.io`.
+- MCP server containers reach the internet through the Docker host's network.
+
+### Kubernetes runtime
+
+- The kubelet on each node pulls the images, with `imagePullPolicy: Always`, so nodes need registry access each time
+  an MCP server pod starts. For private registries, use
+  [image pull secrets](../configuration/mcp-deployments-in-kubernetes.md#image-pull-secrets).
+- MCP server pods reach the internet through the cluster's network. Restrict it with the
+  [network policy for MCP servers](./kubernetes-deployment.md#network-policy-for-mcp-servers) or
+  [MCP server egress control](../configuration/mcp-server-egress-control.md).
+- The Obot container image, and the images for any other part of your deployment, are pulled by the cluster from
+  `ghcr.io`, not by Obot.
 
 ## Connections that depend on your configuration
 
@@ -43,14 +73,12 @@ These connections only happen when you configure the feature, and go to the dest
 | [Auth providers](../configuration/auth-providers.md) | Your identity provider: GitHub, Google, Entra, Okta, JumpCloud, or Auth0 |
 | [Model providers](../configuration/model-providers.md) and the LLM gateway | The configured model API, for example `api.openai.com`, `api.anthropic.com`, Azure OpenAI and Azure AI Foundry endpoints, or `bedrock-mantle.<region>.api.aws`. Message policies use the same providers. |
 | Remote MCP servers | The server's URL, plus its OAuth authorization server for discovery, dynamic client registration, and token exchange |
-| Containerized MCP servers | The image's registry |
-| Anything the MCP servers themselves call | Whatever the MCP server is built to reach. Obot doesn't proxy these. See [MCP server egress control](../configuration/mcp-server-egress-control.md). |
 | MCP catalogs and skill repositories added by an admin | The repository host over HTTPS, usually `github.com`, `gitlab.com`, or `bitbucket.org`. For GitHub and GitLab, Obot also calls `api.github.com` or `gitlab.com/api/v4` to check the repository size before cloning. |
 | OAuth clients connecting to Obot | The client's Client ID Metadata Document URL and `jwks_uri`, when the client uses them |
 | [Encryption providers](../configuration/encryption-providers/overview.md) | AWS KMS, Google Cloud KMS, or Azure Key Vault. Obot doesn't start if the provider can't be reached. |
 | Audit log storage and exports | Amazon S3 or an S3-compatible endpoint, Google Cloud Storage, or Azure Blob Storage |
-| Image pull secrets for Amazon ECR | AWS STS and ECR, about an hour before each token expires |
-| MCP server egress control | The Helm repository in `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO`, at startup. Obot doesn't start if it can't fetch the chart. Set `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` to use a local chart instead. |
+| Image pull secrets for Amazon ECR (Kubernetes only) | AWS STS and ECR, about an hour before each token expires |
+| MCP server egress control (Kubernetes only) | The Helm repository in `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO`, at startup. Obot doesn't start if it can't fetch the chart. Set `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` to use a local chart instead. |
 | [Claude Environments](../claude-environments/overview.md) | Anthropic, your container registry, and your snapshot storage. See [Cluster requirements](../claude-environments/cluster-requirements.md). |
 | OpenTelemetry | The endpoint in `OTEL_EXPORTER_OTLP_ENDPOINT` |
 
@@ -92,7 +120,8 @@ To run Obot without internet access:
 2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` and `OBOT_SERVER_MODEL_INFO_SOURCE_URL` at local copies or internal mirrors.
 3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
    `OBOT_SERVER_MODEL_PROXY_URL=""`.
-4. Mirror the MCP base images and set the image variables, and pre-pull `alpine:latest` if you use the Docker runtime.
+4. Mirror the MCP base images and set the image variables. With the Docker runtime, also pre-pull `alpine:latest` on
+   the Docker host.
 5. Use containerized MCP servers with images in your registry, or configure `npx` and `uvx` servers to use internal
    package registries.
 6. Use an auth provider and model provider that you can reach.
