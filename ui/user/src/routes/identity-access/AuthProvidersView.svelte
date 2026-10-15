@@ -295,7 +295,8 @@
 			[CommonAuthProviderIds.OKTA]: 'okta',
 			[CommonAuthProviderIds.ENTRA]: 'entra',
 			[CommonAuthProviderIds.AUTH0]: 'auth0',
-			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud'
+			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud',
+			[CommonAuthProviderIds.ONELOGIN]: 'onelogin'
 		};
 		return idRef[authProviderId as keyof typeof idRef]
 			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`

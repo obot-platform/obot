@@ -507,6 +507,11 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
+	case "onelogin-auth-provider":
+		// OneLogin does not support profile pictures
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
 	case system.LocalAuthProvider:
 		// Local users have no profile beyond their email address, and no picture.
 		if displayName, ok := profile["name"].(string); ok {

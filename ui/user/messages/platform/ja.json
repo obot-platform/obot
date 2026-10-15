@@ -133,7 +133,7 @@
 	"platform_license_notice_required_prefix": "{name} を使用するには有効なライセンスが必要です。詳細や Obot Enterprise へのアップグレードについては、サポート",
 	"platform_license_notice_required_suffix": " までお問い合わせください。",
 	"platform_license_notice_resolve": "解決",
-	"platform_license_notice_signup_message": "1 回の登録で、最大 100 ユーザーまで Entra、Okta、JumpCloud、Auth0 などの追加の認証プロバイダーを永続的に無料で利用できます。",
+	"platform_license_notice_signup_message": "1 回の登録で、最大 100 ユーザーまで Entra、Okta、OneLogin、JumpCloud、Auth0 などの追加の認証プロバイダーを永続的に無料で利用できます。",
 	"platform_license_notice_status_invalid": "無効",
 	"platform_license_notice_status_missing": "未設定",
 	"platform_license_notice_status_prefix": "ライセンスが",

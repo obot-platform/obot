@@ -74,6 +74,7 @@ export const CommonAuthProviderIds = {
 	GOOGLE: 'google-auth-provider',
 	GITHUB: 'github-auth-provider',
 	OKTA: 'okta-auth-provider',
+	ONELOGIN: 'onelogin-auth-provider',
 	ENTRA: 'entra-auth-provider',
 	AUTH0: 'auth0-auth-provider',
 	JUMPCLOUD: 'jumpcloud-auth-provider',
