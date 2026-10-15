@@ -130,4 +130,4 @@ Setting a URL variable to an empty string doesn't turn the feature off, except f
 ignores empty values and uses the default. Point the variable at a local path or internal mirror instead.
 
 A license key can't be validated without access to `https://api.keygen.sh`, so an air-gapped installation runs as
-unregistered Obot Community. See [Editions and licensing](../enterprise/overview.md#when-the-license-service-cant-be-reached).
+unregistered Obot Community for now. Support for offline licensing is coming soon. See [Editions and licensing](../enterprise/overview.md#when-the-license-service-cant-be-reached).

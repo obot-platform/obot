@@ -88,8 +88,8 @@ Each check has one of three outcomes:
 
 A check that times out, fails on the network, or gets an error from the license service that isn't about the license
 itself doesn't change the license. Obot keeps using the entitlements saved from the last successful check, and tries
-again at the next scheduled check. There is no time limit on this fallback: the license keeps working through an
-outage of any length, until the license service answers again.
+again at the next scheduled check. The license keeps working through the outage, but only until its expiration date.
+A license that expires while Obot can't reach the license service is no longer valid.
 
 This is the same whether the check happens at startup or while Obot is running. A failed check at startup doesn't
 prevent Obot from starting.
@@ -98,8 +98,8 @@ The fallback needs a successful check to fall back on. If a key has never been v
 entitlements and treats the installation as unlicensed until a check succeeds. This happens when:
 
 - `OBOT_SERVER_LICENSE_KEY` is set on a new installation, or on one with a new database, that can't reach
-  `https://api.keygen.sh`. Air-gapped installations can't validate a license key. Contact
-  [Obot](https://obot.ai/contact-us/) if you need to run Obot Enterprise without that access.
+  `https://api.keygen.sh`. Air-gapped installations can't validate a license key yet. Support for offline
+  licensing is coming soon.
 - An administrator adds a key in the admin UI while the license service can't be reached. Obot doesn't save the key
   and shows "couldn't reach the license server to check the license key, try again later". The previous key, if any,
   stays in effect.
