@@ -34,7 +34,7 @@
 </script>
 
 <form
-	class="space-y-3 rounded-lg border border-base-300 bg-base-200 p-4"
+	class="paper block space-y-3"
 	onsubmit={save}
 	aria-label={m.hosted_agents_tag_for({ name: environment.displayName })}
 >

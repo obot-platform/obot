@@ -608,7 +608,7 @@
 		openDiff={vmcpActions?.openDiff}
 		openUpdateConfirm={vmcpActions?.openUpdateConfirm}
 		openEditInstanceConfiguration={editInstanceConfiguration}
-		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
+		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary dark:hover:border-primary hover:shadow-md"
 		owner={getVMcpCreator(card.vmcp, usersMap)}
 	>
 		{#snippet icon()}

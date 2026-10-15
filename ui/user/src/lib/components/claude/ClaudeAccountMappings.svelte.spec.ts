@@ -52,7 +52,6 @@ it('reviews email matches, preserves saved choices on reimport, and submits manu
 		],
 		onsaved: vi.fn().mockResolvedValue(undefined)
 	});
-	await page.getByRole('button', { name: 'Manage mappings' }).click();
 	await expect
 		.element(page.getByRole('link', { name: 'https://claude.ai/api/organizations/org/members' }))
 		.toHaveAttribute('href', 'https://claude.ai/api/organizations/org/members');

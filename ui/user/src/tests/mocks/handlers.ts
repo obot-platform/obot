@@ -26,6 +26,7 @@ export const handlers = [
 	),
 	http.get('/api/bootstrap', () => HttpResponse.json(data.getBootstrapStatusResponse)),
 	http.get('/api/claude-environments', () => HttpResponse.json({})),
+	http.get('/api/claude-sessions', () => HttpResponse.json({ items: [] })),
 	http.get('/api/local-auth/users', () => HttpResponse.json({ items: [] })),
 	http.get('/api/default-model-aliases', () =>
 		HttpResponse.json({ items: data.listDefaultModelAliasesResponse })

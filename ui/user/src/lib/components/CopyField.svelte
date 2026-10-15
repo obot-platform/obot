@@ -13,6 +13,7 @@
 		classes?: {
 			inputLabel?: string;
 			input?: string;
+			label?: string;
 		};
 		variant?: 'code' | 'default';
 	}
@@ -37,9 +38,9 @@
 
 {#if label}
 	{#if variant === 'code'}
-		<div class="label" id={labelId}>{label}</div>
+		<div class={twMerge('label', classes?.label)} id={labelId}>{label}</div>
 	{:else}
-		<label class="label" for={id}>
+		<label class={twMerge('label', classes?.label)} for={id}>
 			{label}
 		</label>
 	{/if}

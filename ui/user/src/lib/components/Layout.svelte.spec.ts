@@ -542,8 +542,7 @@ it.each([
 	'shows Claude environments for $engine with enabled=$enabled',
 	async ({ engine, enabled, visible }) => {
 		await renderLayout([], { engine, claudeEnvironmentsEnabled: enabled });
-		const link = page.getByRole('link', { name: 'Claude Environments', exact: true });
-		if (visible) await expect.element(link).toBeVisible();
-		else await expect.element(link).not.toBeInTheDocument();
+		if (visible) await expectLink('/claude-environments');
+		else await expectNoLink('/claude-environments');
 	}
 );

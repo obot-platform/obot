@@ -1,6 +1,8 @@
 import { page as appPage } from '$app/state';
+import { UserService } from '$lib/services';
 import { profile } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import Sessions from './+page.svelte';
 import { http, HttpResponse } from 'msw';
@@ -11,10 +13,12 @@ import { page } from 'vitest/browser';
 afterEach(() => {
 	cleanup();
 	appPage.url.searchParams.delete('view');
+	appPage.url.searchParams.delete('environment');
 });
 
 it('shows session status and confirms workspace deletion', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
+	profile.initialize(createMockProfile([]));
 	appPage.url.searchParams.set('view', 'sessions');
 	const removed = vi.fn();
 	worker.use(
@@ -50,19 +54,24 @@ it('shows session status and confirms workspace deletion', async () => {
 	);
 	await render(Sessions);
 	await expect
-		.element(page.getByRole('button', { name: 'Claude Environments', exact: true }))
+		.element(page.getByRole('button', { name: 'Environments', exact: true }))
 		.toBeVisible();
+	await expect.element(page.getByRole('button', { name: 'Sessions', exact: true })).toBeVisible();
 	await expect
-		.element(page.getByRole('button', { name: 'My Claude Sessions', exact: true }))
+		.element(page.getByRole('button', { name: 'Account Management', exact: true }))
+		.not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('listitem').getByText('Suspended', { exact: true }))
 		.toBeVisible();
-	await expect.element(page.getByText('Suspended', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Donnie Adams', { exact: false })).toBeVisible();
 	await expect.element(page.getByText('@thedadams', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('#craig-test', { exact: true })).toBeVisible();
 	await expect
 		.element(page.getByRole('link', { name: 'Open Slack thread' }))
 		.toHaveAttribute('href', 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23');
-	await expect.element(page.getByText('Last used', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.toBeVisible();
 	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
 	await expect
 		.element(page.getByText('https://github.com/obot-platform/obot', { exact: false }))
@@ -88,7 +97,7 @@ it('shows session status and confirms workspace deletion', async () => {
 
 it('shows all sessions with owner attribution', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('view', 'all-sessions');
+	appPage.url.searchParams.set('view', 'sessions');
 	const requested = vi.fn();
 	worker.use(
 		http.get('*/api/users', () =>
@@ -122,10 +131,13 @@ it('shows all sessions with owner attribution', async () => {
 		})
 	);
 	await render(Sessions);
+	await expect.element(page.getByRole('button', { name: 'Sessions', exact: true })).toBeVisible();
 	await expect
-		.element(page.getByRole('button', { name: 'All Claude Sessions', exact: true }))
+		.element(page.getByRole('button', { name: 'Account Management', exact: true }))
 		.toBeVisible();
-	await expect.element(page.getByText('Suspended', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('listitem').getByText('Suspended', { exact: true }))
+		.toBeVisible();
 	await expect
 		.element(page.getByText('Claude Tag · Slack service slack@example.com', { exact: true }))
 		.toBeVisible();
@@ -137,36 +149,137 @@ it('shows all sessions with owner attribution', async () => {
 		.element(page.getByText('https://github.com/agent-substrate/substrate', { exact: false }))
 		.toBeVisible();
 	await expect.element(page.getByText('v0.3.0', { exact: true })).toBeVisible();
-	await expect.element(page.getByText('Last used', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.toBeVisible();
 	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
 	await expect.element(page.getByText('env-one', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Runner unavailable', { exact: true })).toBeVisible();
 	expect(requested).toHaveBeenCalledWith('true');
 });
 
-it('does not expose the all-sessions view to ordinary users', async () => {
+it('loads only the current user’s sessions and hides the owner filter', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
 	profile.initialize(createMockProfile([]));
-	appPage.url.searchParams.set('view', 'all-sessions');
+	appPage.url.searchParams.set('view', 'sessions');
 	const requested = vi.fn();
 	worker.use(
-		http.get('*/api/claude-environments', () => HttpResponse.json({ enabled: false })),
-		http.get('*/api/claude-sessions', () => {
-			requested();
+		http.get('*/api/claude-sessions', ({ request }) => {
+			requested(new URL(request.url).searchParams.get('all'));
 			return HttpResponse.json({ items: [] });
 		})
 	);
 	await render(Sessions);
-	await expect.element(page.getByText('Claude environments are disabled.')).toBeVisible();
+	await expect.element(page.getByRole('button', { name: 'Sessions', exact: true })).toBeVisible();
 	await expect
 		.element(page.getByRole('button', { name: 'All Claude Sessions', exact: true }))
 		.not.toBeInTheDocument();
-	expect(requested).not.toHaveBeenCalled();
+	await vi.waitFor(() => expect(requested).toHaveBeenCalledWith(null));
+	await page.getByRole('button', { name: 'Filters', exact: true }).click();
+	await expect
+		.element(page.getByRole('checkbox', { name: 'Show my sessions only' }))
+		.not.toBeInTheDocument();
+});
+
+async function renderTwoSessions() {
+	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
+	appPage.url.searchParams.set('view', 'sessions');
+	worker.use(
+		http.get('*/api/users', () =>
+			HttpResponse.json({
+				items: [
+					{ id: getProfileResponse.id, displayName: 'Ada Admin', email: 'ada@example.com' },
+					{ id: '999', displayName: 'Other User', email: 'other@example.com' }
+				]
+			})
+		),
+		http.get('*/api/claude-sessions', () =>
+			HttpResponse.json({
+				items: [
+					{
+						metadata: { name: 'mine' },
+						spec: {
+							displayName: 'Mailbox agent',
+							claudeSession: 'claude-mine',
+							userID: getProfileResponse.id,
+							claudeEnvironment: 'env-mine',
+							claudeDone: true,
+							claudeFinishedAt: '2026-01-01T12:00:00Z'
+						},
+						status: { state: 'SUSPENDED' }
+					},
+					{
+						metadata: { name: 'theirs' },
+						spec: {
+							displayName: 'Shared agent',
+							claudeSession: 'claude-shared',
+							userID: '999',
+							claudeEnvironment: 'env-shared'
+						},
+						status: { state: 'RUNNING' }
+					}
+				]
+			})
+		)
+	);
+	await render(Sessions);
+}
+
+it('searches sessions by name', async () => {
+	await renderTwoSessions();
+	await page.getByRole('textbox').fill('Mailbox');
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Shared agent' }))
+		.not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Mailbox agent' }))
+		.toBeVisible();
+
+	await page.getByRole('textbox').fill('zzzz');
+	await expect.element(page.getByText('No sessions match your search or filters.')).toBeVisible();
+});
+
+it('filters sessions by status and owner, and sorts by name', async () => {
+	await renderTwoSessions();
+	const sessionHeadings = page.getByRole('heading', { level: 2 });
+	await expect.element(sessionHeadings.nth(0)).toHaveTextContent('Shared agent');
+	await expect.element(sessionHeadings.nth(1)).toHaveTextContent('Mailbox agent');
+
+	await page.getByRole('button', { name: 'Filters', exact: true }).click();
+	await expect.element(page.getByRole('heading', { name: 'Sessions Settings' })).toBeVisible();
+	await page.getByRole('combobox', { name: 'Filter By Status' }).click();
+	await page.getByRole('button', { name: 'Running', exact: true }).click();
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Mailbox agent' }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByRole('heading', { level: 2, name: 'Shared agent' })).toBeVisible();
+
+	await page
+		.getByRole('dialog', { name: 'Sessions Settings' })
+		.getByRole('button', { name: 'Remove Running' })
+		.click();
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Mailbox agent' }))
+		.toBeVisible();
+
+	await page.getByRole('checkbox', { name: 'Show my sessions only' }).click();
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Shared agent' }))
+		.not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('heading', { level: 2, name: 'Mailbox agent' }))
+		.toBeVisible();
+
+	await page.getByRole('checkbox', { name: 'Show my sessions only' }).click();
+	await page.getByRole('combobox', { name: 'Sort By' }).click();
+	await page.getByRole('button', { name: 'Name', exact: true }).click();
+	await expect.element(sessionHeadings.nth(0)).toHaveTextContent('Mailbox agent');
+	await expect.element(sessionHeadings.nth(1)).toHaveTextContent('Shared agent');
 });
 
 it('lets admins request suspension and shows the pending state', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('view', 'all-sessions');
+	appPage.url.searchParams.set('view', 'sessions');
 	let suspended = false;
 	worker.use(
 		http.get('*/api/claude-sessions', () =>
@@ -195,7 +308,9 @@ it('lets admins request suspension and shows the pending state', async () => {
 	await page.getByRole('button', { name: 'Suspend', exact: true }).click();
 	expect(suspended).toBe(false);
 	await page.getByRole('button', { name: 'Suspend session', exact: true }).click();
-	await expect.element(page.getByText('Suspending', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('listitem').getByText('Suspending', { exact: true }))
+		.toBeVisible();
 	await expect
 		.element(page.getByRole('button', { name: 'Suspend', exact: true }))
 		.not.toBeInTheDocument();
@@ -211,9 +326,7 @@ it('explains Kubernetes is required on Docker without showing sessions', async (
 			)
 		)
 		.toBeVisible();
-	expect(page.getByRole('button', { name: 'My Claude Sessions', exact: true }).all()).toHaveLength(
-		0
-	);
+	expect(page.getByRole('button', { name: 'Sessions', exact: true }).all()).toHaveLength(0);
 	expect(page.getByRole('button', { name: 'Add environment', exact: true }).all()).toHaveLength(0);
 });
 
@@ -233,7 +346,7 @@ it.each(['sessions', 'all-sessions'])(
 		await render(Sessions);
 		await expect.element(page.getByText('Claude environments are disabled.')).toBeVisible();
 		await expect
-			.element(page.getByRole('button', { name: 'My Claude Sessions', exact: true }))
+			.element(page.getByRole('button', { name: 'Sessions', exact: true }))
 			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'All Claude Sessions', exact: true }))
@@ -241,3 +354,25 @@ it.each(['sessions', 'all-sessions'])(
 		expect(requested).not.toHaveBeenCalled();
 	}
 );
+
+it('opens the environment form when the environment query is set', async () => {
+	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
+	appPage.url.searchParams.set('environment', 'new');
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultRunnerImage: 'example/runner@sha256:' + 'a'.repeat(64),
+				defaultWorkerImage: 'example/worker:v0.3.0'
+			})
+		)
+	);
+	await render(Sessions);
+	await expect.element(page.getByLabelText('Display name', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('button', { name: 'Sessions', exact: true }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByRole('button', { name: 'Profiles', exact: true })).toBeVisible();
+});

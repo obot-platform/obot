@@ -12,9 +12,12 @@
 	interface Props {
 		components: ComponentIcon[];
 		class?: string;
+		classes?: {
+			iconRoot?: string;
+		};
 	}
 
-	let { components, class: clazz }: Props = $props();
+	let { components, class: clazz, classes }: Props = $props();
 
 	let slices = $derived(iconSlices(components));
 	let hidden = $derived(components.length - slices.length);
@@ -66,7 +69,12 @@
 </script>
 
 <div class={twMerge('relative size-10 shrink-0', clazz)}>
-	<div class="bg-primary/10 text-primary absolute inset-0 overflow-hidden rounded-md">
+	<div
+		class={twMerge(
+			'bg-primary/10 text-primary absolute inset-0 overflow-hidden rounded-md',
+			classes?.iconRoot
+		)}
+	>
 		{#if slices.length === 0}
 			<div class="flex size-full items-center justify-center">
 				<Layers class="size-5" />

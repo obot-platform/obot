@@ -3,6 +3,7 @@
 	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
 	import { doGet, doPut } from '$lib/services/http';
+	import Skeleton from '../Skeleton.svelte';
 	import type { ClaudeEnvironment, ClaudeOrganizationAccount } from './types';
 	import { onMount } from 'svelte';
 
@@ -24,7 +25,6 @@
 	let rows = $state<Row[]>([]);
 	let json = $state('');
 	let reviewedJSON = $state('');
-	let editing = $state(false);
 	let ready = $state(false);
 	let busy = $state(false);
 	let error = $state('');
@@ -45,12 +45,16 @@
 		return new Set(selected).size !== selected.length;
 	});
 
+	function directoryUsers(directory: OrgUser[]) {
+		return directory.filter(
+			(user) => !user.deletedAt && !(user.internal && user.username?.startsWith('claude-tag:'))
+		);
+	}
+
 	async function load() {
 		const [accounts, directory] = await Promise.all([doGet(endpoint), UserService.listUsers()]);
 		saved = (accounts as { items: ClaudeOrganizationAccount[] }).items;
-		users = directory.filter(
-			(user) => !user.deletedAt && !(user.internal && user.username?.startsWith('claude-tag:'))
-		);
+		users = directoryUsers(directory);
 		rows = saved.map((account) => ({ ...account, source: m.hosted_agents_map_saved() }));
 		ready = true;
 	}
@@ -146,34 +150,26 @@
 	}
 </script>
 
-<section
-	class="space-y-4 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm"
-	aria-label={m.hosted_agents_map_for({ organization })}
->
-	<div class="flex flex-wrap items-start justify-between gap-3">
-		<div>
-			<h2 class="font-semibold">{m.hosted_agents_map_title()}</h2>
-			<p class="text-sm text-muted-content">
-				{m.hosted_agents_map_organization()} <code>{organization}</code>
-			</p>
-			<p class="text-sm text-muted-content">
-				{m.hosted_agents_map_used_by({
-					names: environments.map((environment) => environment.displayName).join(', ')
-				})}
-			</p>
+{#if error}<p role="alert" class="text-error">{error}</p>{/if}
+{#if ready}
+	<section
+		class="space-y-4 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm"
+		aria-label={m.hosted_agents_map_for({ organization })}
+	>
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="font-semibold">{m.hosted_agents_map_title()}</h2>
+				<p class="text-sm text-muted-content">
+					{m.hosted_agents_map_organization()} <code>{organization}</code>
+				</p>
+				<p class="text-sm text-muted-content">
+					{m.hosted_agents_map_used_by({
+						names: environments.map((environment) => environment.displayName).join(', ')
+					})}
+				</p>
+			</div>
 		</div>
-		<button
-			class="btn btn-ghost btn-sm"
-			disabled={busy || !ready}
-			onclick={() => {
-				editing = !editing;
-				notice = '';
-			}}>{editing ? m.hosted_agents_map_close() : m.hosted_agents_map_manage()}</button
-		>
-	</div>
-	{#if error}<p role="alert" class="text-error">{error}</p>{/if}
-	{#if notice}<p role="status" class="text-success">{notice}</p>{/if}
-	{#if editing}
+		{#if notice}<p role="status" class="text-success">{notice}</p>{/if}
 		<ol class="list-decimal space-y-2 pl-5 text-sm">
 			<li>{m.hosted_agents_map_signin()}</li>
 			<li>
@@ -215,7 +211,7 @@
 					<tbody>
 						{#each rows as row (row.account)}
 							<tr>
-								<td class="max-w-72 break-words"
+								<td class="max-w-72 wrap-break-word"
 									><div class="font-medium">{row.displayName || row.email || row.account}</div>
 									<div class="text-sm text-muted-content">{row.email}</div>
 									<code class="text-xs">{row.account}</code></td
@@ -262,5 +258,7 @@
 				>{busy ? m.hosted_agents_map_saving() : m.hosted_agents_map_submit()}</button
 			>
 		{:else}<p class="text-sm text-muted-content">{m.hosted_agents_map_empty()}</p>{/if}
-	{/if}
-</section>
+	</section>
+{:else}
+	<Skeleton type="card" class="min-h-dvh h-full w-full" />
+{/if}
