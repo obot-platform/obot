@@ -22,7 +22,6 @@ func TestEgressAuditEnvironmentDirectory(t *testing.T) {
 		EnvironmentID:  "ccpool_private",
 		OrganizationID: "private-org",
 		Profiles:       []types.ClaudeEnvironmentProfile{},
-		MCPServerIDs:   []string{"private-vmcp"},
 	}
 	require.NoError(t, client.SaveClaudeEnvironment(t.Context(), environment, map[string]string{"key": "private-key"}))
 	request := httptest.NewRequest(http.MethodGet, "/api/egress-audit-logs/environments", nil)

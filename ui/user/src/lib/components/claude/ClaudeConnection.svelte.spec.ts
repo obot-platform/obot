@@ -62,7 +62,6 @@ it('shows a mapped environment with session statistics and without account editi
 						displayName: 'Development',
 						environmentID: 'ccpool_one',
 						organizationID: 'org',
-						mcpServerIDs: ['vmcp'],
 						profiles: [],
 						runtime: { ...runtime, egressHosts: ['*.github.com'], allowAllEgress: false },
 						egressSecrets: [{ hostname: 'private.example.com', header: 'X-Secret' }]
@@ -83,7 +82,7 @@ it('shows a mapped environment with session statistics and without account editi
 	await expect.element(page.getByText('Active now', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('3', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('1', { exact: true })).toBeVisible();
-	await expect.element(page.getByText('Outlook', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Available vMCPs', { exact: true })).not.toBeInTheDocument();
 	await expect.element(page.getByText('*.github.com', { exact: true })).toBeVisible();
 	expect(page.getByText('Worker pool', { exact: true }).all()).toHaveLength(0);
 	expect(page.getByText('Injected secrets', { exact: true }).all()).toHaveLength(0);
@@ -128,29 +127,19 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 	expect(page.getByLabelText('Claude organization ID').all()).toHaveLength(0);
 	expect(page.getByLabelText('Claude environment ID').all()).toHaveLength(0);
 	await page.getByLabelText('Environment key', { exact: true }).fill('test-key');
+	await expect.element(page.getByText('Available vMCPs', { exact: true })).not.toBeInTheDocument();
+	await expect.element(page.getByLabelText('Allow all environment vMCPs')).not.toBeInTheDocument();
+	expect(page.getByRole('combobox', { name: 'Select vMCPs…' }).all()).toHaveLength(1);
 	await page.getByRole('combobox', { name: 'Select vMCPs…' }).click();
 	await page.getByPlaceholder('Search vMCPs…').fill('Out');
 	await page.getByRole('button', { name: 'Outlook', exact: true }).click();
 	await page.getByRole('combobox', { name: 'Select vMCPs…' }).click();
 	await page.getByPlaceholder('Search vMCPs…').fill('');
-	await expect.element(page.getByRole('button', { name: 'Outlook', exact: true })).toBeVisible();
-	expect(document.querySelector('#environment-vmcps-popover button')?.textContent?.trim()).toBe(
-		'Outlook'
-	);
-	await page.getByRole('button', { name: 'GitHub', exact: true }).click();
-
+	await expect
+		.element(page.getByCSS('#profile-vmcps-0-popover button').first())
+		.toHaveTextContent('Outlook');
+	await expect.element(page.getByRole('button', { name: 'GitHub', exact: true })).toBeVisible();
 	await page.getByRole('combobox', { name: 'Select vMCPs…' }).click();
-	await page.getByLabelText('Allow all environment vMCPs').click();
-	await page.getByRole('combobox', { name: 'Select vMCPs…' }).nth(1).click();
-	await page.getByPlaceholder('Search vMCPs…').nth(1).fill('Out');
-	await page.getByRole('button', { name: 'Outlook', exact: true }).click();
-	await page.getByRole('combobox', { name: 'Select vMCPs…' }).nth(1).click();
-	await page.getByPlaceholder('Search vMCPs…').nth(1).fill('');
-	expect(document.querySelector('#profile-vmcps-0-popover button')?.textContent?.trim()).toBe(
-		'Outlook'
-	);
-
-	await page.getByRole('combobox', { name: 'Select vMCPs…' }).nth(1).click();
 
 	expect(page.getByText('Advanced configuration', { exact: true }).all()).toHaveLength(1);
 	await expect.element(page.getByLabelText('Worker image', { exact: true })).toBeVisible();
@@ -217,7 +206,6 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 	await vi.waitFor(() =>
 		expect(saved).toHaveBeenCalledWith(
 			expect.objectContaining({
-				mcpServerIDs: ['vmcp-two', 'vmcp-one'],
 				egressSecrets: [
 					expect.objectContaining({
 						hostname: 'api.example.com',
@@ -249,6 +237,7 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 			})
 		)
 	);
+	expect(saved.mock.calls[0][0]).not.toHaveProperty('mcpServerIDs');
 	expect(saved.mock.calls[0][0]).not.toHaveProperty('organizationID');
 	expect(saved.mock.calls[0][0]).not.toHaveProperty('environmentID');
 	expect(saved.mock.calls[0][0].runtime).not.toHaveProperty('snapshotLocation');
@@ -259,7 +248,7 @@ it('saves worker settings on the environment and actor overrides on profiles', a
 });
 
 it.each([false, true])(
-	'shows empty vMCPs and egress policy with allowAllEgress=%s',
+	'shows egress policy without environment vMCPs with allowAllEgress=%s',
 	async (allowAllEgress) => {
 		profile.initialize(createMockProfile([]));
 		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
@@ -273,7 +262,6 @@ it.each([false, true])(
 							displayName: 'Development',
 							environmentID: 'pool',
 							organizationID: 'org',
-							mcpServerIDs: [],
 							profiles: [],
 							runtime: { ...runtime, allowAllEgress }
 						}
@@ -282,7 +270,9 @@ it.each([false, true])(
 			)
 		);
 		render(ClaudeConnection);
-		await expect.element(page.getByText('No vMCPs available.', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText('Available vMCPs', { exact: true }))
+			.not.toBeInTheDocument();
 		await expect
 			.element(
 				page.getByText(

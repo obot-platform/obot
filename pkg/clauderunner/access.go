@@ -16,11 +16,14 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
-// ResolveEnvironment combines matching grants without granting any vMCP outside
-// the environment allowlist. Profiles inherit each unspecified numeric value.
-func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*types.ClaudeEnvironment, error) {
-	resolved := *env
-	resolved.MCPServerIDs = []string{}
+type ResolvedEnvironment struct {
+	types.ClaudeEnvironment
+	MCPServerIDs []string
+}
+
+// ResolveEnvironment combines matching profile grants and inherits unspecified resources.
+func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*ResolvedEnvironment, error) {
+	resolved := ResolvedEnvironment{ClaudeEnvironment: *env}
 	resolved.Profiles = nil
 	resolved.EgressSecrets = slices.Clone(env.EgressSecrets)
 	secretIndexes := map[string]int{}
@@ -50,12 +53,8 @@ func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*types.C
 			}
 		}
 
-		ids := profile.MCPServerIDs
-		if ids == nil {
-			ids = env.MCPServerIDs
-		}
-		for _, id := range ids {
-			if slices.Contains(env.MCPServerIDs, id) && !slices.Contains(resolved.MCPServerIDs, id) {
+		for _, id := range profile.MCPServerIDs {
+			if !slices.Contains(resolved.MCPServerIDs, id) {
 				resolved.MCPServerIDs = append(resolved.MCPServerIDs, id)
 			}
 		}
@@ -119,7 +118,7 @@ func maxQuantity(a, b string) string {
 
 // AuthorizedEnvironment rechecks the administrator-approved identity and current
 // profile membership on admission, credential refresh, and reconciliation.
-func AuthorizedEnvironment(ctx context.Context, gateway *client.Client, environment, account, owner string) (*types.ClaudeEnvironment, error) {
+func AuthorizedEnvironment(ctx context.Context, gateway *client.Client, environment, account, owner string) (*ResolvedEnvironment, error) {
 	env, err := gateway.ClaudeEnvironment(ctx, environment)
 	if err != nil {
 		return nil, err

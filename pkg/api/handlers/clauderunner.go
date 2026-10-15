@@ -65,7 +65,7 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 			if err != nil {
 				return err
 			}
-			environment = *resolved
+			environment = resolved.ClaudeEnvironment
 		}
 		redactClaudeEgressSecrets(&environment)
 		visible = append(visible, environment)

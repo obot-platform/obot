@@ -43,7 +43,6 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	env := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
 	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, env))
-	env.MCPServerIDs = []string{"vmcp_one", "vmcp_two"}
 	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}, MCPServerIDs: []string{"vmcp_one"}}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
 	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}

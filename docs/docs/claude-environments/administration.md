@@ -12,8 +12,8 @@ Claude Environments is experimental. Review effective access and test a new envi
 1. A Claude organization Owner enables self-hosted environments and creates an environment in Claude's Cloud environments administration page. Copy its environment key and follow [Anthropic's setup instructions](https://code.claude.com/docs/en/self-hosted-environments).
 2. In Obot, open **AI Resources → Claude Environments** and add an environment.
 3. Enter a display name and the environment key. Obot derives the organization and environment IDs from the key; there are no separate ID fields to fill in.
-4. Select the vMCPs this environment may access. Selection is searchable, with selected vMCPs shown first.
-5. Configure access profiles, worker capacity, and actor defaults, then save.
+4. Configure access profiles and select the shared vMCPs each profile grants. Selection is searchable, with selected vMCPs shown first.
+5. Configure worker capacity and actor defaults, then save.
 
 The key is write-only and stored in Obot's credential store. Configure [credential encryption](../security/credentials.md) before storing sensitive production credentials. If encryption is disabled, Obot still accepts the key and stores it without application-level encryption.
 
@@ -27,14 +27,14 @@ For a user matching several profiles:
 
 | Setting | Effective policy |
 |---|---|
-| vMCPs | Union of matching profiles, restricted to the environment's vMCP allowlist. Each vMCP's own access policy also applies. |
-| Inherited vMCP list | A profile inheriting the environment list grants that list; an explicit empty list grants no vMCPs. |
+| vMCPs | Union of matching profiles. Each vMCP's own access policy also applies. |
+| Empty vMCP list | A profile with no selected vMCPs grants no tools. |
 | Actor CPU, memory, idle timeout, retention | Each empty field inherits its environment default; then take the maximum value across matching profiles. Disabled retention (`-1`) wins over finite values. |
 | Additional egress hosts | Union of environment and matching-profile hosts. Profiles can expand network access. |
 | Allow all web destinations | Enabled if the environment or any matching profile enables it. |
 | Injected headers | A profile overrides the environment for a destination/header collision; the first matching profile in displayed order wins among profiles. |
 
-For example, two matching profiles granting vMCP A and vMCP B provide both tools, if the environment allows both and the user's vMCP policies permit them. Profiles requesting 1 CPU and 2 CPUs resolve to 2 CPUs. A single profile can lower an environment's actor default; the environment is the inheritance default, not an extra profile included in the maximum.
+For example, two matching profiles granting vMCP A and vMCP B provide both tools, if the user's vMCP policies permit them. Profiles requesting 1 CPU and 2 CPUs resolve to 2 CPUs. A single profile can lower an environment's actor default; the environment is the inheritance default, not an extra profile included in the maximum.
 
 Disabled Obot users are denied access. Mapping a Claude account does not grant profile or vMCP access.
 
@@ -99,4 +99,4 @@ claude "Describe your task" --environment YOUR_CLAUDE_ENVIRONMENT_ID
 
 Use the ID shown by Obot, not its internal database ID. Keep using Claude for chat. In Obot, use **My Claude Sessions** to view your sessions; administrators can use **All Claude Sessions** to inspect, suspend, or delete sessions.
 
-Basic users can inspect available vMCPs and allowed egress without seeing infrastructure or secrets. Environment cards show session totals, active sessions, and last usage. See [operations](./operations.md) for suspension, retention, and troubleshooting.
+Basic users can inspect allowed egress without seeing infrastructure or secrets. Environment cards show session totals, active sessions, and last usage. See [operations](./operations.md) for suspension, retention, and troubleshooting.

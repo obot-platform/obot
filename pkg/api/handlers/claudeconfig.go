@@ -57,7 +57,7 @@ func (h *ClaudeRunnerHandler) SaveEnvironment(req api.Context) error {
 		environment.EgressSecrets = input.EgressSecrets
 		environment.DisplayName = input.DisplayName
 
-		environment.MCPServerIDs, environment.Profiles, environment.Runtime = input.MCPServerIDs, input.Profiles, input.Runtime
+		environment.Profiles, environment.Runtime = input.Profiles, input.Runtime
 		if err := h.validateEnvironment(req, environment, req.PathValue("environment") == ""); err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 }
 
 func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *gt.ClaudeEnvironment, creating bool) error {
-	if len(environment.MCPServerIDs) > 32 || len(environment.Profiles) > 100 {
+	if len(environment.Profiles) > 100 {
 		return types.NewErrBadRequest("Environment configuration is too large")
 	}
 	manifest := types.VMCPManifest{DisplayName: environment.DisplayName}
@@ -227,6 +227,7 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 		return types.NewErrBadRequest("%s", err)
 	}
 	egressHosts := slices.Clone(environment.Runtime.EgressHosts)
+	validatedVMCPs := map[string]bool{}
 	for _, profile := range environment.Profiles {
 		if err := clauderunner.ValidateEgressHosts(profile.EgressHosts); err != nil {
 			return types.NewErrBadRequest("Profile %s: %s", profile.Name, err)
@@ -237,9 +238,19 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 			}
 		}
 		for _, id := range profile.MCPServerIDs {
-			if !slices.Contains(environment.MCPServerIDs, id) {
-				return types.NewErrBadRequest("Profile vMCPs must be included in the environment allowlist")
+			if validatedVMCPs[id] {
+				continue
 			}
+
+			var server v1.VMCP
+			if err := req.Get(&server, id); err != nil {
+				return types.NewErrBadRequest("Select existing vMCPs")
+			}
+			if server.Spec.UserID != "" {
+				return types.NewErrBadRequest("Profiles require shared vMCPs")
+			}
+
+			validatedVMCPs[id] = true
 		}
 		if err := clauderunner.ValidateResources(environment.Runtime.Worker, clauderunner.EffectiveResources(environment.Runtime.Resources, profile.Resources)); err != nil {
 			return types.NewErrBadRequest("Profile %s: %s", profile.Name, err)
@@ -249,14 +260,5 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 		return types.NewErrBadRequest("Combined environment and profile egress: %s", err)
 	}
 
-	for _, id := range environment.MCPServerIDs {
-		var server v1.VMCP
-		if err := req.Get(&server, id); err != nil {
-			return types.NewErrBadRequest("Select existing vMCPs")
-		}
-		if server.Spec.UserID != "" {
-			return types.NewErrBadRequest("Environments require shared vMCPs")
-		}
-	}
 	return nil
 }

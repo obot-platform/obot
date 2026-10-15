@@ -13,23 +13,22 @@ import (
 func TestEnvironmentProfiles(t *testing.T) {
 	user := &kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {"engineering"}}}
 	environment := gt.ClaudeEnvironment{
-		MCPServerIDs: []string{"one", "two", "three"},
-		Runtime:      gt.ClaudeRuntime{Resources: gt.ClaudeResources{ActorCPU: "1", ActorMemory: "2Gi", IdleTimeoutMinutes: 5, SessionRetentionDays: 30}},
+		Runtime: gt.ClaudeRuntime{Resources: gt.ClaudeResources{ActorCPU: "1", ActorMemory: "2Gi", IdleTimeoutMinutes: 5, SessionRetentionDays: 30}},
 		Profiles: []gt.ClaudeEnvironmentProfile{
 			{Name: "user", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "2"}}, MCPServerIDs: []string{"one", "outside"}, Resources: gt.ClaudeResources{ActorCPU: "500m", ActorMemory: "3Gi"}},
-			{Name: "team", Subjects: []api.Subject{{Type: api.SubjectTypeGroup, ID: "engineering"}}, MCPServerIDs: []string{"two"}, Resources: gt.ClaudeResources{ActorCPU: "1500m", IdleTimeoutMinutes: 10, SessionRetentionDays: -1}},
-			{Name: "other", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "3"}}, Resources: gt.ClaudeResources{ActorCPU: "10"}},
+			{Name: "team", Subjects: []api.Subject{{Type: api.SubjectTypeGroup, ID: "engineering"}}, MCPServerIDs: []string{"two", "one"}, Resources: gt.ClaudeResources{ActorCPU: "1500m", IdleTimeoutMinutes: 10, SessionRetentionDays: -1}},
+			{Name: "other", Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: "3"}}, MCPServerIDs: []string{"other"}, Resources: gt.ClaudeResources{ActorCPU: "10"}},
 		},
 	}
 	resolved, err := ResolveEnvironment(user, &environment)
 	require.NoError(t, err)
-	require.Equal(t, []string{"one", "two"}, resolved.MCPServerIDs)
+	require.Equal(t, []string{"one", "outside", "two"}, resolved.MCPServerIDs)
 	require.Equal(t, gt.ClaudeResources{ActorCPU: "1500m", ActorMemory: "3Gi", IdleTimeoutMinutes: 10, SessionRetentionDays: -1}, resolved.Runtime.Resources)
 	environment.Profiles = environment.Profiles[:1]
 	environment.Profiles[0].MCPServerIDs = nil
 	resolved, err = ResolveEnvironment(user, &environment)
 	require.NoError(t, err)
-	require.ElementsMatch(t, environment.MCPServerIDs, resolved.MCPServerIDs)
+	require.Empty(t, resolved.MCPServerIDs)
 	require.Equal(t, "500m", resolved.Runtime.Resources.ActorCPU, "profiles may lower the environment default")
 	environment.Profiles[0].MCPServerIDs = []string{}
 	resolved, err = ResolveEnvironment(user, &environment)

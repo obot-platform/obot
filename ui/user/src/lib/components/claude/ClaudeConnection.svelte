@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import { m } from '$lib/i18n';
 	import { Group, UserService, type VMCP } from '$lib/services';
 	import { doGet, doPost, doPut, doDelete } from '$lib/services/http';
@@ -75,9 +74,9 @@
 	async function load() {
 		config = (await doGet('/claude-environments')) as ClaudeConfig;
 		void refreshStats();
-		servers = (await UserService.listVMCPs(admin ? { all: true } : {})).filter(
-			(server) => !admin || !server.userID
-		);
+		if (admin) {
+			servers = (await UserService.listVMCPs({ all: true })).filter((server) => !server.userID);
+		}
 	}
 	onMount(() => {
 		void load().catch((e) => (error = String(e)));
@@ -91,13 +90,12 @@
 			organizationID: '',
 			environmentID: '',
 			environmentKey: '',
-			mcpServerIDs: [],
 			claudeTagEnabled: false,
 			profiles: [
 				{
 					name: 'default',
 					subjects: [{ type: 'obotGroup', id: Group.ADMIN }],
-					mcpServerIDs: null,
+					mcpServerIDs: [],
 					resources: {}
 				}
 			],
@@ -139,10 +137,6 @@
 			accessProfile.egressHosts = accessProfile.egressHosts
 				?.map((host) => host.trim())
 				.filter(Boolean);
-			if (accessProfile.mcpServerIDs !== null)
-				accessProfile.mcpServerIDs = accessProfile.mcpServerIDs.filter((id) =>
-					draft?.mcpServerIDs.includes(id)
-				);
 		}
 		try {
 			const settings = managedSettings.trim() ? JSON.parse(managedSettings) : undefined;
@@ -216,40 +210,6 @@
 							placeholder={draft.id ? m.hosted_agents_env_keep_key() : ''}
 						/></label
 					>
-					<fieldset class="space-y-2">
-						<legend class="font-semibold">{m.hosted_agents_available_vmcps()}</legend>
-						<p class="text-xs text-muted-content">
-							{m.hosted_agents_env_vmcp_help()}
-						</p>
-						<Select
-							id="environment-vmcps"
-							options={servers
-								.toSorted(
-									(a, b) =>
-										Number(draft?.mcpServerIDs?.includes(b.id)) -
-										Number(draft?.mcpServerIDs?.includes(a.id))
-								)
-								.map((server) => ({
-									id: server.id,
-									label: server.displayName || server.id
-								}))}
-							bind:selected={
-								() => draft?.mcpServerIDs.join(',') ?? '',
-								(value) => {
-									if (draft)
-										draft.mcpServerIDs = String(value ?? '')
-											.split(',')
-											.filter(Boolean);
-								}
-							}
-							multiple
-							searchInDropdown
-							buttonReadOnly
-							placeholder={m.hosted_agents_select_vmcps()}
-							searchPlaceholder={m.hosted_agents_search_vmcps()}
-							classes={{ root: 'w-full' }}
-						/>
-					</fieldset>
 					<fieldset class="space-y-3">
 						<legend class="font-semibold">{m.hosted_agents_env_pool()}</legend>
 
@@ -345,11 +305,7 @@
 							}
 						}
 					/>
-					<EnvironmentProfiles
-						bind:profiles={draft.profiles}
-						servers={servers.filter((server) => draft?.mcpServerIDs.includes(server.id))}
-						disabled={busy}
-					/>
+					<EnvironmentProfiles bind:profiles={draft.profiles} {servers} disabled={busy} />
 					<p class="text-xs text-muted-content">
 						{m.hosted_agents_env_changes_help()}
 					</p>
@@ -450,7 +406,6 @@
 				{#if admin}
 					<p class="text-sm">
 						{m.hosted_agents_env_summary({
-							count: environment.mcpServerIDs?.length ?? 0,
 							cpu: environment.runtime.resources.actorCPU ?? '',
 							memory: environment.runtime.resources.actorMemory ?? ''
 						})}
@@ -458,14 +413,6 @@
 				{:else}
 					<section class="space-y-3" aria-label={m.hosted_agents_configuration()}>
 						<p class="text-xs text-muted-content">{m.hosted_agents_configuration_help()}</p>
-						<div>
-							<h3 class="text-sm font-semibold">{m.hosted_agents_available_vmcps()}</h3>
-							<ul class="mt-1 space-y-1 text-sm">
-								{#each environment.mcpServerIDs ?? [] as id (id)}
-									<li>{servers.find((server) => server.id === id)?.displayName || id}</li>
-								{:else}<li class="text-muted-content">{m.hosted_agents_no_vmcps()}</li>{/each}
-							</ul>
-						</div>
 						<div>
 							<h3 class="text-sm font-semibold">{m.hosted_agents_allowed_egress()}</h3>
 							<p class="mt-1 text-xs text-muted-content">

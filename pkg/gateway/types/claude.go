@@ -41,14 +41,13 @@ type ClaudeEgressSecret struct {
 }
 
 type ClaudeEnvironmentProfile struct {
-	EgressSecrets []ClaudeEgressSecret `json:"egressSecrets,omitempty"`
-	Name          string               `json:"name"`
-	Subjects      []api.Subject        `json:"subjects"`
-	// nil inherits the environment allowlist; [] grants no vMCPs.
-	MCPServerIDs   []string        `json:"mcpServerIDs"`
-	EgressHosts    []string        `json:"egressHosts,omitempty"`
-	AllowAllEgress bool            `json:"allowAllEgress,omitempty"`
-	Resources      ClaudeResources `json:"resources"`
+	EgressSecrets  []ClaudeEgressSecret `json:"egressSecrets,omitempty"`
+	Name           string               `json:"name"`
+	Subjects       []api.Subject        `json:"subjects"`
+	MCPServerIDs   []string             `json:"mcpServerIDs"`
+	EgressHosts    []string             `json:"egressHosts,omitempty"`
+	AllowAllEgress bool                 `json:"allowAllEgress,omitempty"`
+	Resources      ClaudeResources      `json:"resources"`
 }
 
 type ClaudeEnvironment struct {
@@ -59,7 +58,6 @@ type ClaudeEnvironment struct {
 	DisplayName            string                     `json:"displayName"`
 	OrganizationID         string                     `json:"organizationID"`
 	EnvironmentID          string                     `gorm:"uniqueIndex" json:"environmentID"`
-	MCPServerIDs           []string                   `gorm:"serializer:json" json:"mcpServerIDs"`
 	Profiles               []ClaudeEnvironmentProfile `gorm:"serializer:json" json:"profiles"`
 	Runtime                ClaudeRuntime              `gorm:"serializer:json" json:"runtime"`
 	Revision               string                     `json:"-"`

@@ -21,7 +21,7 @@ Policy changes also reach running sessions. Reconciliation and gateway caching n
 
 The runner receives vMCP URLs and a placeholder header, not an Obot API key. The egress gateway obtains a short-lived, user-scoped key over mutual TLS and injects it only on canonical `/mcp-connect/…` requests to the internal Obot origin. It refreshes credentials without restarting the runner and rechecks live session access.
 
-An environment allowlist does not bypass vMCP permissions. Obot applies the mapped user's access, or the dedicated Claude Tag user's access. Revocation and disabling a user prevent future credential retrieval. A new execution may be needed to load newly added tools into Claude's tool configuration.
+Environment profile grants do not bypass vMCP permissions. Obot applies the mapped user's access, or the dedicated Claude Tag user's access. Revocation and disabling a user prevent future credential retrieval. A new execution may be needed to load newly added tools into Claude's tool configuration.
 
 ## Injected HTTP secrets
 

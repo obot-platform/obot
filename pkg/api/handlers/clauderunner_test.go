@@ -41,10 +41,10 @@ func TestClaudeTagCredentials(t *testing.T) {
 	}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
 	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, environment))
-	environment.MCPServerIDs = []string{"vmcp_test"}
 	environment.Profiles = []gt.ClaudeEnvironmentProfile{{
-		Name:     "service",
-		Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: environment.ClaudeTagUserID}},
+		Name:         "service",
+		MCPServerIDs: []string{"vmcp_test"},
+		Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: environment.ClaudeTagUserID}},
 	}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
 	instance := &v1.AgentInstance{

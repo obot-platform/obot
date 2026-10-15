@@ -156,43 +156,33 @@
 						{m.hosted_agents_profile_no_subjects()}
 					</li>{/each}
 			</ul>
-			<label class="flex items-center gap-2 text-sm"
-				><input
-					class="checkbox checkbox-sm"
-					type="checkbox"
-					checked={profile.mcpServerIDs === null}
-					onchange={(event) => (profile.mcpServerIDs = event.currentTarget.checked ? null : [])}
-				/>{m.hosted_agents_profile_all_vmcps()}</label
-			>
-			{#if profile.mcpServerIDs !== null}
-				<Select
-					id={`profile-vmcps-${index}`}
-					options={servers
-						.toSorted(
-							(a, b) =>
-								Number(profile.mcpServerIDs?.includes(b.id)) -
-								Number(profile.mcpServerIDs?.includes(a.id))
-						)
-						.map((server) => ({
-							id: server.id,
-							label: server.displayName || server.id
-						}))}
-					bind:selected={
-						() => profile.mcpServerIDs?.join(',') ?? '',
-						(value) =>
-							(profile.mcpServerIDs = String(value ?? '')
-								.split(',')
-								.filter(Boolean))
-					}
-					multiple
-					searchInDropdown
-					buttonReadOnly
-					placeholder={m.hosted_agents_select_vmcps()}
-					searchPlaceholder={m.hosted_agents_search_vmcps()}
-					classes={{ root: 'w-full' }}
-					{disabled}
-				/>
-			{/if}
+			<Select
+				id={`profile-vmcps-${index}`}
+				options={servers
+					.toSorted(
+						(a, b) =>
+							Number(profile.mcpServerIDs?.includes(b.id)) -
+							Number(profile.mcpServerIDs?.includes(a.id))
+					)
+					.map((server) => ({
+						id: server.id,
+						label: server.displayName || server.id
+					}))}
+				bind:selected={
+					() => profile.mcpServerIDs?.join(',') ?? '',
+					(value) =>
+						(profile.mcpServerIDs = String(value ?? '')
+							.split(',')
+							.filter(Boolean))
+				}
+				multiple
+				searchInDropdown
+				buttonReadOnly
+				placeholder={m.hosted_agents_select_vmcps()}
+				searchPlaceholder={m.hosted_agents_search_vmcps()}
+				classes={{ root: 'w-full' }}
+				{disabled}
+			/>
 			<fieldset class="space-y-2">
 				<legend class="text-sm font-semibold">{m.hosted_agents_profile_egress()}</legend>
 				<p class="text-xs text-muted-content">{m.hosted_agents_profile_egress_help()}</p>
@@ -233,7 +223,7 @@
 		type="button"
 		class="btn btn-ghost btn-sm"
 		onclick={() =>
-			(profiles = [...profiles, { name: '', subjects: [], mcpServerIDs: null, resources: {} }])}
+			(profiles = [...profiles, { name: '', subjects: [], mcpServerIDs: [], resources: {} }])}
 		><Plus class="size-4" />{m.hosted_agents_profile_add()}</button
 	>
 </fieldset>

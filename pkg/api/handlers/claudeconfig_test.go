@@ -1,17 +1,25 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/stretchr/testify/require"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestEnvironmentProfileValidation(t *testing.T) {
@@ -29,18 +37,6 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			name:         "explicit deny all",
 			profiles:     []gt.ClaudeEnvironmentProfile{},
 			wantProfiles: 0,
-		},
-		{
-			name: "cannot expand allowlist",
-			profiles: []gt.ClaudeEnvironmentProfile{{
-				Name: "test",
-				Subjects: []types.Subject{{
-					Type: types.SubjectTypeSelector,
-					ID:   "*",
-				}},
-				MCPServerIDs: []string{"outside"},
-			}},
-			errorText: "environment allowlist",
 		},
 		{
 			name: "actor resources must be positive",
@@ -90,6 +86,118 @@ func TestEnvironmentIgnoresWorkerSchedulingOverrides(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "nodeSelector")
 	require.NotContains(t, string(encoded), "tolerations")
+}
+
+func TestProfileVMCPValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		ids       []string
+		owner     string
+		errorText string
+	}{
+		{
+			name: "no vMCPs",
+		},
+		{
+			name: "shared vMCP",
+			ids:  []string{"server"},
+		},
+		{
+			name:      "missing vMCP",
+			ids:       []string{"missing"},
+			errorText: "existing vMCPs",
+		},
+		{
+			name:      "personal vMCP",
+			ids:       []string{"server"},
+			owner:     "user",
+			errorText: "shared vMCPs",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := &v1.VMCP{}
+			server.Name = "server"
+			server.Namespace = "default"
+			server.Spec.UserID = tc.owner
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
+			environment := gt.ClaudeEnvironment{
+				DisplayName: "Test",
+				Profiles: []gt.ClaudeEnvironmentProfile{{
+					Name:         "test",
+					Subjects:     []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					MCPServerIDs: tc.ids,
+				}},
+				Runtime: gt.ClaudeRuntime{Image: "registry/runner@sha256:" + strings.Repeat("a", 64)},
+			}
+			h := ClaudeRunnerHandler{Substrate: &substrate.Client{Config: substrate.Config{WorkerImage: "worker:test"}}}
+			err := h.validateEnvironment(api.Context{
+				Request: httptest.NewRequest(http.MethodPost, "/api/claude-environments", nil),
+				Storage: storage,
+			}, &environment, true)
+			if tc.errorText != "" {
+				require.ErrorContains(t, err, tc.errorText)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestProfileVMCPValidationFetchesEachServerOncePerSave(t *testing.T) {
+	lookups := map[string]int{}
+	builder := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, client kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+				lookups[key.Name]++
+				return client.Get(ctx, key, obj, opts...)
+			},
+		})
+	var ids []string
+	for i := range 32 {
+		server := &v1.VMCP{}
+		server.Name = fmt.Sprintf("server-%d", i)
+		server.Namespace = "default"
+		builder.WithObjects(server)
+		ids = append(ids, server.Name)
+	}
+
+	environment := gt.ClaudeEnvironment{
+		DisplayName: "Test",
+		Runtime:     gt.ClaudeRuntime{Image: "registry/runner@sha256:" + strings.Repeat("a", 64)},
+	}
+	for i := range 100 {
+		environment.Profiles = append(environment.Profiles, gt.ClaudeEnvironmentProfile{
+			Name:         fmt.Sprintf("profile-%d", i),
+			Subjects:     []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			MCPServerIDs: ids,
+		})
+	}
+	request := api.Context{
+		Request: httptest.NewRequest(http.MethodPost, "/api/claude-environments", nil),
+		Storage: builder.Build(),
+	}
+	h := ClaudeRunnerHandler{Substrate: &substrate.Client{Config: substrate.Config{WorkerImage: "worker:test"}}}
+
+	for save := range 2 {
+		require.NoError(t, h.validateEnvironment(request, &environment, true))
+		require.Len(t, lookups, len(ids))
+		for _, id := range ids {
+			require.Equal(t, save+1, lookups[id], "vMCP %s must be fetched once per save", id)
+		}
+	}
+}
+
+func TestEnvironmentIgnoresLegacyVMCPs(t *testing.T) {
+	var environment gt.ClaudeEnvironment
+	require.NoError(t, json.Unmarshal([]byte(`{"mcpServerIDs":["legacy"],"profiles":[{"mcpServerIDs":["profile"]}]}`), &environment))
+	encoded, err := json.Marshal(environment)
+	require.NoError(t, err)
+
+	var result map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(encoded, &result))
+	require.NotContains(t, result, "mcpServerIDs")
+	require.Equal(t, []string{"profile"}, environment.Profiles[0].MCPServerIDs)
 }
 
 func TestEnvironmentKeyIdentity(t *testing.T) {

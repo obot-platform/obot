@@ -40,7 +40,6 @@ export type ClaudeEnvironment = {
 	displayName: string;
 	organizationID: string;
 	environmentID: string;
-	mcpServerIDs: string[];
 	profiles: EnvironmentProfile[];
 	runtime: ClaudeRuntime;
 	claudeTagUserID?: string;
