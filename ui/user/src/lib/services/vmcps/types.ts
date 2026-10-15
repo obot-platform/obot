@@ -28,6 +28,8 @@ export type RowContext = {
 
 export type VMcpSortBy = 'name' | 'created' | 'componentServers';
 
+export type VMcpSortDirection = 'asc' | 'desc';
+
 export type VMcpConnectOptions = {
 	onConnected?: () => void;
 	onDismissed?: () => void;
@@ -42,14 +44,17 @@ export type VMcpFilters = {
 	query?: string;
 	components?: string;
 	status?: string;
+	creators?: string;
 };
 
 export type VMcpListSettings = {
 	showMyVMcpsOnly: boolean;
 	sortBy: VMcpSortBy;
+	sortDirection: VMcpSortDirection;
 	query: string;
 	componentFilterBy: string;
 	statusFilterBy: string;
+	creatorFilterBy: string;
 	variant: 'grid' | 'table';
 };
 

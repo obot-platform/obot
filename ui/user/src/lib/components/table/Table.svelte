@@ -35,12 +35,17 @@
 		headerClasses?: { property: string; class: string }[];
 		fields: string[];
 		data: T[];
+		filterData?: T[];
+		manualSorting?: boolean;
 		onClickRow?: (row: T, isCtrlClick: boolean) => void;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		/** Display text for a raw cell value; filtering, sorting, and URL filters keep the raw value. */
 		displayValue?: (property: string, value: unknown) => string;
+		/** Filter token for a row. Defaults to the cell value. `displayValue` labels that token. */
+		filterValue?: (property: string, row: T) => unknown;
+		sortValue?: (property: string, row: T) => unknown;
 		onRenderSubrowContent?: Snippet<[T]>;
 		onSort?: InitSortFn;
 		setRowClasses?: (row: T) => string;
@@ -70,12 +75,16 @@
 		headers,
 		headerClasses,
 		data,
+		filterData,
+		manualSorting = false,
 		fields,
 		onClickRow,
 		onClearAllFilters,
 		onFilter,
 		onRenderColumn,
 		displayValue,
+		filterValue,
+		sortValue,
 		onRenderSubrowContent,
 		onSort,
 		pageSize,
@@ -120,17 +129,24 @@
 	);
 
 	let filteredBy = $derived<Record<string, (string | number)[]> | undefined>(filters);
+
+	function readFilterValue(property: string, row: T) {
+		const custom = filterValue?.(property, row);
+		if (custom !== undefined) return custom;
+		return row[property as keyof T];
+	}
+
 	let filterValues = $derived.by(() => {
 		if (!filterable) return {};
 
-		return data.reduce(
+		return (filterData ?? data).reduce(
 			(acc, item) => {
 				for (const property of filterable) {
 					if (!acc[property]) {
 						acc[property] = new Set();
 					}
 
-					const value = item[property as keyof T];
+					const value = readFilterValue(property, item);
 					if (Array.isArray(value)) {
 						value.forEach((v) => {
 							if (typeof v === 'string' || typeof v === 'number') {
@@ -177,7 +193,7 @@
 	let tableData = $derived.by(() => {
 		let updatedTableData = data;
 
-		if (sortedBy) {
+		if (sortedBy && (!manualSorting || sortedBy.property === 'selectable')) {
 			updatedTableData = [...data].sort((a, b) => {
 				if (tableSelectActions && validateSelect && sortedBy?.property === 'selectable') {
 					const aSelectable = validateSelect(a);
@@ -190,8 +206,8 @@
 				}
 
 				// Then sort by the specified property
-				let aValue = a[sortedBy!.property as keyof T];
-				let bValue = b[sortedBy!.property as keyof T];
+				let aValue = sortValue?.(sortedBy!.property, a) ?? a[sortedBy!.property as keyof T];
+				let bValue = sortValue?.(sortedBy!.property, b) ?? b[sortedBy!.property as keyof T];
 
 				// Handle undefined/null values - treat as largest value (end for asc, beginning for desc)
 				if (aValue == null && bValue == null) return 0;
@@ -246,7 +262,7 @@
 								return validateSelect ? validateSelect(d) : true;
 							}
 
-							const value = d[property as keyof T];
+							const value = readFilterValue(property, d);
 							if (Array.isArray(value)) {
 								return value.some((v) => filteredBy?.[property]?.includes(v.toString().trim()));
 							} else if (typeof value === 'string' || typeof value === 'number') {

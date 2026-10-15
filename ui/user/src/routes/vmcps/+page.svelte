@@ -18,12 +18,13 @@
 	} from '$lib/services/vmcps/types';
 	import {
 		buildVMcpComponentFilterOptions,
+		buildVMcpCreatorFilterOptions,
 		filterVMcps,
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
-	import { goto, setFilterUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { goto, setFilterUrlParams, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Layers, Pencil, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -53,13 +54,16 @@
 	const sortByValues: VMcpSortBy[] = ['name', 'created', 'componentServers'];
 
 	function getInitialFilters(): VMcpListSettingsType {
-		const urlSortBy = page.url.searchParams.get('sortBy');
+		const urlSortBy = page.url.searchParams.get('sort');
+		const urlDirection = page.url.searchParams.get('sortDirection');
 		return {
 			showMyVMcpsOnly: page.url.searchParams.get('showMyVMcpsOnly') === 'true',
 			sortBy: sortByValues.includes(urlSortBy as VMcpSortBy) ? (urlSortBy as VMcpSortBy) : 'name',
+			sortDirection: urlDirection === 'desc' ? 'desc' : 'asc',
 			query: page.url.searchParams.get('query') || '',
 			componentFilterBy: page.url.searchParams.get('components') || '',
 			statusFilterBy: page.url.searchParams.get('status') || '',
+			creatorFilterBy: page.url.searchParams.get('creator') || '',
 			variant: (page.url.searchParams.get('variant') as 'grid' | 'table') || 'grid'
 		};
 	}
@@ -68,9 +72,11 @@
 	let isLoading = $state(false);
 	let filters = $state(getInitialFilters());
 	let vmcpList = $state<ReturnType<typeof VMcpList>>();
+	let users = $state<OrgUser[]>([]);
 
+	let isAdmin = $derived(Boolean(profile.current.isAdmin?.()));
 	let vmcps = $derived.by(() => {
-		if (filters.showMyVMcpsOnly) {
+		if (!isAdmin && filters.showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
 		}
 		return listedVMcps;
@@ -95,12 +101,13 @@
 		buildVMcpComponentFilterOptions(vmcps, componentFilterLabel)
 	);
 
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let creatorFilterOptions = $derived(buildVMcpCreatorFilterOptions(listedVMcps, usersMap));
+
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
 	let connectAllVMcpsDialog = $state<ReturnType<typeof ConnectAllVMcps>>();
 
-	let users = $state<OrgUser[]>([]);
 	let creating = $derived(page.url.searchParams.has('new'));
-	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 	let sortedVMcps = $derived(
 		sortVMcps(
 			filterVMcps(
@@ -108,7 +115,8 @@
 				{
 					query: filters.query,
 					components: filters.componentFilterBy,
-					status: filters.statusFilterBy
+					status: filters.statusFilterBy,
+					creators: filters.creatorFilterBy
 				},
 				usersMap,
 				{
@@ -118,7 +126,8 @@
 			),
 			filters.sortBy,
 			filters.query,
-			usersMap
+			usersMap,
+			filters.sortDirection
 		)
 	);
 
@@ -150,6 +159,13 @@
 		goto(url, { replaceState: true });
 	}
 
+	function handleTableSort(property: VMcpSortBy, direction: 'asc' | 'desc') {
+		vmcpList?.resetSelection();
+		filters.sortBy = property;
+		filters.sortDirection = direction;
+		setSortUrlParams(property, direction);
+	}
+
 	function handleChange(property: keyof VMcpListSettingsType, values: string[]) {
 		vmcpList?.resetSelection();
 
@@ -162,7 +178,11 @@
 				filters.sortBy = sortByValues.includes(values[0] as VMcpSortBy)
 					? (values[0] as VMcpSortBy)
 					: 'name';
-				setFilterUrlParams(property, values);
+				setFilterUrlParams('sort', [filters.sortBy]);
+				break;
+			case 'sortDirection':
+				filters.sortDirection = values[0] === 'desc' ? 'desc' : 'asc';
+				setFilterUrlParams('sortDirection', [filters.sortDirection]);
 				break;
 			case 'query':
 				filters.query = values[0] || '';
@@ -175,6 +195,10 @@
 			case 'statusFilterBy':
 				filters.statusFilterBy = values.join(',');
 				setFilterUrlParams('status', values);
+				break;
+			case 'creatorFilterBy':
+				filters.creatorFilterBy = values.join(',');
+				setFilterUrlParams('creator', values);
 				break;
 			case 'variant':
 				filters.variant = values[0] as 'grid' | 'table';
@@ -235,7 +259,12 @@
 	{#if isLoading}
 		<Loading class="text-primary" />
 	{:else}
-		<VMcpListSettings {filters} onChange={handleChange} {componentFilterOptions}>
+		<VMcpListSettings
+			{filters}
+			onChange={handleChange}
+			{componentFilterOptions}
+			{creatorFilterOptions}
+		>
 			{#snippet actions()}
 				{#if sortedVMcps.length > 0 && filters.variant === 'grid' && !vmcpList?.isInSelectMode()}
 					<div in:fade>
@@ -255,6 +284,7 @@
 		<VMcpList
 			bind:this={vmcpList}
 			items={sortedVMcps}
+			filterItems={vmcps}
 			components={vmcpComponents}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
 			onDeleted={(deleted) => {
@@ -265,6 +295,13 @@
 			}}
 			{usersMap}
 			variant={filters.variant}
+			{filters}
+			onFilterChange={handleChange}
+			onSort={handleTableSort}
+			initSort={{
+				property: filters.sortBy,
+				order: filters.sortDirection
+			}}
 		>
 			{#snippet noDataContent()}
 				{#if filters.query}

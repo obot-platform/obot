@@ -56,8 +56,18 @@
 	});
 	const hasFilterPills = $derived(Boolean(vmcpIdFilter));
 	const initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
+	const listUrlParams = [
+		'sortBy',
+		'direction',
+		'variant',
+		'showMyVMcpsOnly',
+		'components',
+		'status',
+		'creator'
+	];
 	const urlFilters = $derived.by(() => {
 		const { id, ...filters } = getTableUrlParamsFilters();
+		for (const key of listUrlParams) delete filters[key];
 		const vmcpIDs = id?.filter(Boolean) ?? [];
 		if (vmcpIDs.length) {
 			return { ...filters, vmcpID: vmcpIDs };

@@ -3,15 +3,21 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { m } from '$lib/i18n';
-	import { VMCP_SORT_OPTIONS, VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
+	import {
+		VMCP_SORT_DIRECTION_OPTIONS,
+		VMCP_SORT_FIELD_OPTIONS,
+		VMCP_STATUS_FILTER_OPTIONS
+	} from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption, VMcpListSettings } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { Funnel, LayoutGrid, X, Table } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	const BUTTON_ID = 'vmcp-settings-button';
 	const SORT_LABEL_ID = 'vmcp-sort-by-label';
+	const CREATOR_FILTER_LABEL_ID = 'vmcp-filter-by-creator-label';
 	const STATUS_FILTER_LABEL_ID = 'vmcp-filter-by-status-label';
 	const SERVER_FILTER_LABEL_ID = 'vmcp-filter-by-server-label';
 	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
@@ -20,16 +26,27 @@
 		filters: VMcpListSettings;
 		onChange: (property: keyof VMcpListSettings, values: string[]) => void;
 		componentFilterOptions?: VMcpFilterOption[];
+		creatorFilterOptions?: VMcpFilterOption[];
 		actions?: Snippet;
 	}
 
-	let { filters, onChange, componentFilterOptions = [], actions }: Props = $props();
+	let {
+		filters,
+		onChange,
+		componentFilterOptions = [],
+		creatorFilterOptions = [],
+		actions
+	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let componentDraft = $state<string | number | undefined>('');
 	let statusDraft = $state<string | number | undefined>('');
+	let creatorDraft = $state<string | number | undefined>('');
+	let isAdmin = $derived(Boolean(profile.current.isAdmin?.()));
+
+	type MultiFilter = 'statusFilterBy' | 'componentFilterBy' | 'creatorFilterBy';
 
 	let activeFilterPills = $derived([
-		...(filters.showMyVMcpsOnly
+		...(!isAdmin && filters.showMyVMcpsOnly
 			? [
 					{
 						id: 'showMyVMcpsOnly',
@@ -38,6 +55,10 @@
 					}
 				]
 			: []),
+		...pillsFor(creatorFilterOptions, filters.creatorFilterBy).map((item) => ({
+			...item,
+			property: 'creatorFilterBy' as const
+		})),
 		...pillsFor(VMCP_STATUS_FILTER_OPTIONS, filters.statusFilterBy).map((item) => ({
 			...item,
 			property: 'statusFilterBy' as const
@@ -47,6 +68,12 @@
 			property: 'componentFilterBy' as const
 		}))
 	]);
+
+	function selectedFilter(property: MultiFilter) {
+		if (property === 'statusFilterBy') return filters.statusFilterBy;
+		if (property === 'creatorFilterBy') return filters.creatorFilterBy;
+		return filters.componentFilterBy;
+	}
 
 	function addFilter(selected: string, id: string) {
 		const ids = parseSelectedFilterIds(selected);
@@ -101,14 +128,7 @@
 							}
 							onChange(
 								item.property,
-								parseSelectedFilterIds(
-									removeFilter(
-										item.property === 'statusFilterBy'
-											? filters.statusFilterBy
-											: filters.componentFilterBy,
-										String(item.id)
-									)
-								)
+								parseSelectedFilterIds(removeFilter(selectedFilter(item.property), String(item.id)))
 							);
 						}}
 					>
@@ -146,35 +166,78 @@
 
 <ResponsiveDialog bind:this={dialog} title={m.vmcps_settings()} class="md:w-md">
 	<div class="flex flex-col gap-2">
-		<label class="flex items-center gap-1.5 w-fit text-sm">
-			<input
-				type="checkbox"
-				class="checkbox checkbox-xs rounded-sm"
-				checked={filters.showMyVMcpsOnly}
-				onchange={(event) =>
-					onChange(
-						'showMyVMcpsOnly',
-						(event.currentTarget as HTMLInputElement).checked ? ['true'] : []
-					)}
-			/>
-			{m.vmcps_show_my_vmcps_only()}
-		</label>
+		{#if !isAdmin}
+			<label class="flex items-center gap-1.5 w-fit text-sm">
+				<input
+					type="checkbox"
+					class="checkbox checkbox-xs rounded-sm"
+					checked={filters.showMyVMcpsOnly}
+					onchange={(event) =>
+						onChange(
+							'showMyVMcpsOnly',
+							(event.currentTarget as HTMLInputElement).checked ? ['true'] : []
+						)}
+				/>
+				{m.vmcps_show_my_vmcps_only()}
+			</label>
+		{/if}
 
 		<label id={SORT_LABEL_ID} for="vmcp-sort-by" class="divider my-2 text-xs uppercase">
 			{m.vmcps_sort_by_heading()}
 		</label>
-		<div class="flex gap-4 items-center">
+		<div class="flex gap-2 flex-col">
 			<Select
 				id="vmcp-sort-by"
-				options={VMCP_SORT_OPTIONS}
+				options={VMCP_SORT_FIELD_OPTIONS}
 				selected={filters.sortBy}
 				placeholder={m.vmcps_sort_by()}
 				ariaLabelledby={SORT_LABEL_ID}
 				class={selectClasses}
-				classes={{ root: 'grow', option: 'text-sm' }}
+				classes={{ option: 'text-sm' }}
 				onSelect={(option) => onChange('sortBy', [String(option.id)])}
 			/>
+			<Select
+				id="vmcp-sort-direction"
+				options={VMCP_SORT_DIRECTION_OPTIONS}
+				selected={filters.sortDirection}
+				placeholder={m.vmcps_sort_direction()}
+				class={selectClasses}
+				classes={{ option: 'text-sm' }}
+				onSelect={(option) => onChange('sortDirection', [option.id === 'desc' ? 'desc' : 'asc'])}
+			/>
 		</div>
+
+		{#if isAdmin}
+			<label
+				id={CREATOR_FILTER_LABEL_ID}
+				for="vmcp-filter-by-creator"
+				class="divider my-2 text-xs uppercase"
+			>
+				{m.vmcps_filter_by_creator_heading()}
+			</label>
+			<Select
+				id="vmcp-filter-by-creator"
+				options={unusedOptions(creatorFilterOptions, filters.creatorFilterBy)}
+				bind:selected={creatorDraft}
+				searchInDropdown
+				placeholder={m.vmcps_filter_by_creator()}
+				searchPlaceholder={m.vmcps_search_creators()}
+				ariaLabelledby={CREATOR_FILTER_LABEL_ID}
+				class={selectClasses}
+				classes={{ root: 'grow', option: 'text-sm' }}
+				onSelect={(option) => {
+					onChange(
+						'creatorFilterBy',
+						parseSelectedFilterIds(addFilter(filters.creatorFilterBy, String(option.id)))
+					);
+					creatorDraft = '';
+				}}
+			/>
+			{@render dialogFilterPills(
+				pillsFor(creatorFilterOptions, filters.creatorFilterBy),
+				'creatorFilterBy'
+			)}
+		{/if}
 
 		<label
 			id={STATUS_FILTER_LABEL_ID}
@@ -236,10 +299,7 @@
 	</div>
 </ResponsiveDialog>
 
-{#snippet dialogFilterPills(
-	items: VMcpFilterOption[],
-	property: 'statusFilterBy' | 'componentFilterBy'
-)}
+{#snippet dialogFilterPills(items: VMcpFilterOption[], property: MultiFilter)}
 	{#if items.length > 0}
 		<ul class="mt-2 flex flex-wrap gap-1">
 			{#each items as item (item.id)}
@@ -252,14 +312,7 @@
 						onclick={() =>
 							onChange(
 								property,
-								parseSelectedFilterIds(
-									removeFilter(
-										property === 'statusFilterBy'
-											? filters.statusFilterBy
-											: filters.componentFilterBy,
-										String(item.id)
-									)
-								)
+								parseSelectedFilterIds(removeFilter(selectedFilter(property), String(item.id)))
 							)}
 					>
 						<X class="size-3" />

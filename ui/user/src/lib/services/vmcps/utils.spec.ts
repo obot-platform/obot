@@ -254,22 +254,44 @@ describe('sortVMcps', () => {
 		[createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' })]
 	);
 
-	it('orders by name, ignoring case', () => {
-		expect(sortVMcps([zeta, alpha], 'name').map((vmcp) => vmcp.id)).toEqual(['vmcp-a', 'vmcp-z']);
+	it('orders by name ascending, ignoring case', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'name', undefined, undefined, 'asc').map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-a', 'vmcp-z']);
 	});
 
-	it('orders by created date, newest first', () => {
-		expect(sortVMcps([zeta, alpha], 'created').map((vmcp) => vmcp.id)).toEqual([
-			'vmcp-a',
-			'vmcp-z'
-		]);
+	it('orders by name descending', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'name', undefined, undefined, 'desc').map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-z', 'vmcp-a']);
 	});
 
-	it('orders by component server count, largest first', () => {
-		expect(sortVMcps([zeta, alpha], 'componentServers').map((vmcp) => vmcp.id)).toEqual([
-			'vmcp-a',
-			'vmcp-z'
-		]);
+	it('orders by created date, oldest first when ascending', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'created', undefined, undefined, 'asc').map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-z', 'vmcp-a']);
+	});
+
+	it('orders by created date, newest first when descending', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'created', undefined, undefined, 'desc').map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-a', 'vmcp-z']);
+	});
+
+	it('orders by component server count, fewest first when ascending', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'componentServers', undefined, undefined, 'asc').map(
+				(vmcp) => vmcp.id
+			)
+		).toEqual(['vmcp-z', 'vmcp-a']);
+	});
+
+	it('orders by component server count, largest first when descending', () => {
+		expect(
+			sortVMcps([zeta, alpha], 'componentServers', undefined, undefined, 'desc').map(
+				(vmcp) => vmcp.id
+			)
+		).toEqual(['vmcp-a', 'vmcp-z']);
 	});
 });
 
@@ -300,6 +322,18 @@ describe('filterVMcps', () => {
 			}
 		]
 	]);
+
+	it('filters by creator', () => {
+		const alice = createVMCP({
+			id: 'vmcp-alice',
+			displayName: 'Alice vMCP',
+			creatorUserID: 'user-1'
+		});
+		const bob = createVMCP({ id: 'vmcp-bob', displayName: 'Bob vMCP', creatorUserID: 'user-2' });
+		expect(
+			filterVMcps([alice, bob], { creators: 'user-2' }, owners).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-bob']);
+	});
 
 	it('finds shared vMCPs without a userID by display name', () => {
 		expect(

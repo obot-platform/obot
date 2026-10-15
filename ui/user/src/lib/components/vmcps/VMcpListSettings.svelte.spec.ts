@@ -1,16 +1,18 @@
 import { Group } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import VMcpListSettings from './VMcpListSettings.svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 const defaultFilters = {
 	showMyVMcpsOnly: false,
 	sortBy: 'name' as const,
+	sortDirection: 'asc' as const,
 	query: '',
 	componentFilterBy: '',
 	statusFilterBy: '',
+	creatorFilterBy: '',
 	variant: 'grid' as const
 };
 
@@ -43,6 +45,36 @@ describe('VMcpListSettings.svelte', () => {
 
 		await expect.element(page.getByText(/^Filter By Status$/)).toBeVisible();
 		await expect.element(page.getByRole('combobox', { name: 'Filter By Status' })).toBeVisible();
+	});
+
+	it('hides show only my vMCPs for admins and offers a creator filter', async () => {
+		await renderSettings([Group.ADMIN]);
+		await openFilters();
+
+		await expect
+			.element(page.getByRole('checkbox', { name: 'Show Only My vMCPs' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText(/^Filter By Creator$/)).toBeVisible();
+		await expect.element(page.getByRole('combobox', { name: 'Filter By Creator' })).toBeVisible();
+	});
+
+	it('writes sortBy and direction when a sort option is selected', async () => {
+		const onChange = vi.fn();
+		await preparePageData({
+			profile: createMockProfile([Group.USER])
+		});
+		render(VMcpListSettings, {
+			filters: defaultFilters,
+			onChange
+		});
+		await openFilters();
+		await page.getByRole('combobox', { name: 'Sort By' }).click();
+		await page.getByRole('button', { name: 'Created', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Sort Direction' }).click();
+		await page.getByRole('button', { name: 'Descending', exact: true }).click();
+
+		expect(onChange).toHaveBeenCalledWith('sortBy', ['created']);
+		expect(onChange).toHaveBeenCalledWith('sortDirection', ['desc']);
 	});
 
 	it('shows an active filter pill when show my vMCPs only is enabled', async () => {

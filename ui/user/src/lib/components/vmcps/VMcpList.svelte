@@ -3,17 +3,29 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import Table, { type InitSort } from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPInstance } from '$lib/services';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
-	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { getDisplayListText, getVMcpCreator } from '$lib/services/vmcps/utils';
+	import { VMCP_STATUS_FILTER_OPTIONS } from '$lib/services/vmcps/constants';
+	import type {
+		VMcpComponentView,
+		VMcpConnectOptions,
+		VMcpListSettings,
+		VMcpSortBy
+	} from '$lib/services/vmcps/types';
+	import {
+		getDisplayListText,
+		getVMcpCreator,
+		parseSelectedFilterIds,
+		vmcpMatchesStatusFilter
+	} from '$lib/services/vmcps/utils';
 	import { errors, profile, responsive, version, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { clearUrlParams, goto, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
@@ -27,6 +39,7 @@
 
 	interface Props {
 		items: VMCP[];
+		filterItems?: VMCP[];
 		components: (vmcp: VMCP) => VMcpComponentView[];
 		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
@@ -36,10 +49,15 @@
 		usersMap: Map<string, OrgUser>;
 		variant?: 'grid' | 'table';
 		isSelectMode?: boolean;
+		initSort?: InitSort;
+		filters?: VMcpListSettings;
+		onFilterChange?: (property: keyof VMcpListSettings, values: string[]) => void;
+		onSort?: (property: VMcpSortBy, direction: 'asc' | 'desc') => void;
 	}
 
 	let {
 		items: initialItems,
+		filterItems,
 		components,
 		onConnect,
 		onDelete,
@@ -47,10 +65,15 @@
 		onUpdate,
 		noDataContent,
 		usersMap,
-		variant = 'grid'
+		variant = 'grid',
+		initSort,
+		filters,
+		onFilterChange,
+		onSort
 	}: Props = $props();
 
 	let items = $derived(initialItems.map(translateItem));
+	let filterRows = $derived((filterItems ?? initialItems).map(translateItem));
 	let overflowHiddenById = $state<Record<string, number>>({});
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 	let tableRef = $state<ReturnType<typeof Table>>();
@@ -107,6 +130,22 @@
 
 	type Item = ReturnType<typeof translateItem>;
 
+	/** Catalog entry id first, matching the id stored by the vMCP settings server filter. */
+	function componentFilterId(component: { id?: string; mcpServerCatalogEntryID?: string }) {
+		return component.mcpServerCatalogEntryID || component.id || '';
+	}
+
+	function serverFilterLabel(id: string) {
+		for (const row of filterRows) {
+			const source = row.vmcp.components ?? [];
+			for (let index = 0; index < source.length; index++) {
+				if (componentFilterId(source[index]) !== id) continue;
+				return row.componentServers[index]?.name || id;
+			}
+		}
+		return id;
+	}
+
 	function translateItem(item: VMCP) {
 		const componentServers = components(item);
 		return {
@@ -115,9 +154,15 @@
 			vmcp: item,
 			displayName: item.displayName || m.vmcps_untitled_vmcp(),
 			description: item.description ?? '',
-			owner: getVMcpCreator(item, usersMap, false) ?? '',
+			owner: getVMcpCreator(item, usersMap, false, true) ?? '',
+			ownerId: item.creatorUserID,
 			serverNames: componentServers.map((component) => component.name),
-			status: ''
+			componentIds: (item.components ?? [])
+				.map((component) => componentFilterId(component))
+				.filter(Boolean),
+			status: VMCP_STATUS_FILTER_OPTIONS.filter((option) =>
+				vmcpMatchesStatusFilter(item, option.id, vmcpInstances.current.items, profile.current.id)
+			).map((option) => option.id)
 		};
 	}
 
@@ -334,7 +379,7 @@
 </script>
 
 <div class="@container">
-	{#if items.length === 0}
+	{#if items.length === 0 && (variant !== 'table' || filterRows.length === 0)}
 		<div class="flex h-full items-center justify-center">
 			{#if noDataContent}
 				{@render noDataContent()}
@@ -413,6 +458,8 @@
 		<Table
 			bind:this={tableRef}
 			data={items}
+			filterData={filterRows}
+			manualSorting={Boolean(onSort)}
 			fields={['displayName', 'owner', 'status', 'serverNames']}
 			headers={[
 				{ title: m.core_name(), property: 'displayName' },
@@ -432,6 +479,85 @@
 			onClickRow={(row) => handleSelect(row.vmcp)}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
+			}}
+			filterable={['status', 'serverNames', 'owner']}
+			filterValue={(property, row) => {
+				if (property === 'serverNames') return row.componentIds;
+				if (property === 'owner') return row.ownerId;
+				return undefined;
+			}}
+			displayValue={(property, value) =>
+				property === 'serverNames'
+					? serverFilterLabel(String(value ?? ''))
+					: property === 'owner'
+						? getUserDisplayName(usersMap, String(value ?? ''))
+						: property === 'status'
+							? (VMCP_STATUS_FILTER_OPTIONS.find((option) => option.id === value)?.label ??
+								String(value ?? ''))
+							: String(value ?? '')}
+			sortable={['displayName', 'serverNames']}
+			sortValue={(property, row) =>
+				property === 'serverNames' ? (row.vmcp.components?.length ?? 0) : undefined}
+			initSort={initSort && {
+				...initSort,
+				property:
+					initSort.property === 'name'
+						? 'displayName'
+						: initSort.property === 'componentServers'
+							? 'serverNames'
+							: initSort.property
+			}}
+			filters={filters
+				? Object.fromEntries(
+						[
+							['serverNames', parseSelectedFilterIds(filters.componentFilterBy)],
+							['owner', parseSelectedFilterIds(filters.creatorFilterBy)],
+							['status', parseSelectedFilterIds(filters.statusFilterBy)]
+						].filter(([, values]) => values.length > 0)
+					)
+				: undefined}
+			onSort={(property, direction) => {
+				let urlPropertyParam: VMcpSortBy | undefined;
+				switch (property) {
+					case 'displayName':
+						urlPropertyParam = 'name';
+						break;
+					case 'serverNames':
+						urlPropertyParam = 'componentServers';
+						break;
+					default:
+						urlPropertyParam = undefined;
+						break;
+				}
+
+				if (urlPropertyParam) {
+					if (onSort) onSort(urlPropertyParam, direction);
+					else setSortUrlParams(urlPropertyParam, direction);
+				}
+			}}
+			onFilter={(property, values) => {
+				if (onFilterChange) {
+					if (property === 'serverNames') onFilterChange('componentFilterBy', values);
+					else if (property === 'owner') onFilterChange('creatorFilterBy', values);
+					else if (property === 'status') onFilterChange('statusFilterBy', values);
+					return;
+				}
+				if (property === 'serverNames') {
+					setUrlParamAndUpdateUrl(page.url, 'components', values.join(','));
+				} else if (property === 'owner') {
+					setUrlParamAndUpdateUrl(page.url, 'creator', values.join(','));
+				} else {
+					setUrlParamAndUpdateUrl(page.url, property, values.join(','));
+				}
+			}}
+			onClearAllFilters={() => {
+				if (onFilterChange) {
+					onFilterChange('statusFilterBy', []);
+					onFilterChange('componentFilterBy', []);
+					onFilterChange('creatorFilterBy', []);
+					return;
+				}
+				clearUrlParams(['creator', 'status', 'components']);
 			}}
 		>
 			{#snippet onRenderColumn(property, row)}

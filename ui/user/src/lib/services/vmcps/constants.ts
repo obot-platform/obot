@@ -1,5 +1,5 @@
 import { m } from '$lib/i18n';
-import type { VMcpSortBy, VMcpStatusFilter } from './types';
+import type { VMcpSortBy, VMcpSortDirection, VMcpStatusFilter } from './types';
 
 const SETTINGS_BUTTON_ID = 'mcp-server-settings-button';
 const SETTINGS_PANEL_ID = 'mcp-server-settings-panel';
@@ -105,10 +105,15 @@ export const MCP_SERVER_POPULARITY_ORDER = [
 
 export const VMCP_FILTER_OWNER_NONE = '__none__';
 
-export const VMCP_SORT_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
+export const VMCP_SORT_FIELD_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
 	{ id: 'name', label: m.core_name() },
 	{ id: 'created', label: m.core_col_created() },
 	{ id: 'componentServers', label: m.vmcps_mcp_servers() }
+];
+
+export const VMCP_SORT_DIRECTION_OPTIONS: Array<{ id: VMcpSortDirection; label: string }> = [
+	{ id: 'asc', label: m.vmcps_sort_ascending() },
+	{ id: 'desc', label: m.vmcps_sort_descending() }
 ];
 
 export const VMCP_STATUS_FILTER_OPTIONS: Array<{ id: VMcpStatusFilter; label: string }> = [

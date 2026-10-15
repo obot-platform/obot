@@ -30,6 +30,7 @@ import type {
 	VMcpFilterOption,
 	VMcpFilters,
 	VMcpSortBy,
+	VMcpSortDirection,
 	VMcpStatusFilter
 } from './types';
 
@@ -534,7 +535,10 @@ export function matchesVMcpFilters(
 	const query = (filters.query ?? '').trim();
 	const componentIds = parseSelectedFilterIds(filters.components ?? '');
 	const statusIds = parseSelectedFilterIds(filters.status ?? '');
-	if (!query && componentIds.length === 0 && statusIds.length === 0) return true;
+	const creatorIds = parseSelectedFilterIds(filters.creators ?? '');
+	if (!query && componentIds.length === 0 && statusIds.length === 0 && creatorIds.length === 0) {
+		return true;
+	}
 	const matchesComponents =
 		componentIds.length === 0 || componentIds.some((id) => componentServerIds(vmcp).includes(id));
 	const matchesStatus =
@@ -550,7 +554,12 @@ export function matchesVMcpFilters(
 				)
 			)
 		);
-	return matchesVMcpQuery(vmcp, query, owners) && matchesComponents && matchesStatus;
+	const matchesCreators =
+		creatorIds.length === 0 ||
+		Boolean(vmcp.creatorUserID && creatorIds.includes(vmcp.creatorUserID));
+	return (
+		matchesVMcpQuery(vmcp, query, owners) && matchesComponents && matchesStatus && matchesCreators
+	);
 }
 
 export function filterVMcps(
@@ -562,7 +571,10 @@ export function filterVMcps(
 	const query = (filters.query ?? '').trim();
 	const componentIds = parseSelectedFilterIds(filters.components ?? '');
 	const statusIds = parseSelectedFilterIds(filters.status ?? '');
-	if (!query && componentIds.length === 0 && statusIds.length === 0) return vmcps;
+	const creatorIds = parseSelectedFilterIds(filters.creators ?? '');
+	if (!query && componentIds.length === 0 && statusIds.length === 0 && creatorIds.length === 0) {
+		return vmcps;
+	}
 	return vmcps.filter((vmcp) => matchesVMcpFilters(vmcp, filters, owners, context));
 }
 
@@ -586,6 +598,21 @@ export function buildVMcpComponentFilterOptions(
 	return sortFilterOptions(options);
 }
 
+export function buildVMcpCreatorFilterOptions(
+	vmcps: VMCP[],
+	users: Map<string, OrgUser>
+): VMcpFilterOption[] {
+	const options: VMcpFilterOption[] = [];
+	const seen = new Set<string>();
+	for (const vmcp of vmcps) {
+		const id = vmcp.creatorUserID;
+		if (!id || seen.has(id)) continue;
+		seen.add(id);
+		options.push({ id, label: getUserDisplayName(users, id) });
+	}
+	return sortFilterOptions(options);
+}
+
 function compareNames(a: VMCP, b: VMCP) {
 	return (a.displayName ?? '').localeCompare(b.displayName ?? '', undefined, {
 		sensitivity: 'base'
@@ -596,19 +623,21 @@ export function sortVMcps(
 	vmcps: VMCP[],
 	sortBy: VMcpSortBy,
 	query?: string,
-	owners?: Map<string, OrgUser>
+	owners?: Map<string, OrgUser>,
+	direction: VMcpSortDirection = 'asc'
 ) {
 	const trimmedQuery = (query ?? '').trim();
 	const rankByQuery = Boolean(trimmedQuery);
 	const scoreOf = (vmcp: VMCP) => queryMatchScore(vmcp, trimmedQuery, owners);
+	const directed = direction === 'desc' ? -1 : 1;
 	const compare = (a: VMCP, b: VMCP) => {
 		if (sortBy === 'created') {
-			return (b.created ?? '').localeCompare(a.created ?? '') || compareNames(a, b);
+			return directed * (a.created ?? '').localeCompare(b.created ?? '') || compareNames(a, b);
 		}
 		if (sortBy === 'componentServers') {
-			return componentServerCount(b) - componentServerCount(a) || compareNames(a, b);
+			return directed * (componentServerCount(a) - componentServerCount(b)) || compareNames(a, b);
 		}
-		return compareNames(a, b);
+		return directed * compareNames(a, b);
 	};
 	return [...vmcps].sort((a, b) => compareWithQueryMatch(a, b, scoreOf, compare, rankByQuery));
 }
@@ -906,11 +935,16 @@ export function getDisplayListText(names: string[], maxLength: number = 5) {
 	return m.vmcps_list_and({ rest: rest.join(', '), last });
 }
 
-export function getVMcpCreator(vmcp: VMCP, usersMap: Map<string, OrgUser>, includePrefix = true) {
+export function getVMcpCreator(
+	vmcp: VMCP,
+	usersMap: Map<string, OrgUser>,
+	includePrefix = true,
+	excludeMe = false
+) {
 	let creator = '';
 	if (vmcp.creatorUserID) {
 		creator =
-			vmcp.creatorUserID === profile.current.id
+			vmcp.creatorUserID === profile.current.id && !excludeMe
 				? m.vmcps_creator_me()
 				: getUserDisplayName(usersMap, vmcp.creatorUserID);
 	}
