@@ -19,7 +19,6 @@ reinstalling.
 | Hosting | Self-hosted | Self-hosted | Self-hosted | Hosted by Obot |
 | Source code | Open source (MIT) | Open source (MIT) | Open source (MIT) | Open source (MIT) |
 | Cost | Free | Free | [Contact us](https://obot.ai/contact-us/) | [Free trial](https://obot.ai/obot-cloud-trial/), then paid |
-| License key | None | Community license, issued when you register | Enterprise license | Managed by Obot |
 | Users | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
 | Devices (Obot Sentry) | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
 | [Enterprise auth providers](../configuration/auth-providers.md#available-auth-providers) | — | ✓ | ✓ | ✓ |
