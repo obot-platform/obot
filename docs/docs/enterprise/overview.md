@@ -22,9 +22,7 @@ reinstalling.
 | License key | None | Community license, issued when you register | Enterprise license | Managed by Obot |
 | Users | Up to 100 | Up to 100 | Unlimited, or the number in your contract | No limit |
 | Devices (Obot Sentry) | Up to 100 | Up to 100 | Unlimited, or the number in your contract | — |
-| Local, GitHub, and Google sign-in | ✓ | ✓ | ✓ | ✓ |
-| Entra, Okta, JumpCloud, and Auth0 sign-in | — | ✓ | ✓ | ✓ |
-| All [model providers](../configuration/model-providers.md) | ✓ | ✓ | ✓ | ✓ |
+| [Enterprise auth providers](../configuration/auth-providers.md#available-auth-providers) | — | ✓ | ✓ | ✓ |
 | Enterprise support | — | — | ✓ | ✓ |
 
 ### Obot Community
