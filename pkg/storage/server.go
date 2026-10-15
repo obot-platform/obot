@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -15,9 +17,16 @@ import (
 	"github.com/obot-platform/obot/pkg/version"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	k8sversion "k8s.io/apimachinery/pkg/version"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// schemaLockID is the Postgres advisory lock that serializes the storage tables' schema
+	// setup across Obot replicas.
+	schemaLockID int64 = 0x6f626f74746273 // "obottbs"
 )
 
 type Client kclient.WithWatch
@@ -35,8 +44,36 @@ func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, 
 	return c, cfg, services.DB, services, nil
 }
 
+// buildAPIGroups builds the storage API groups. Building one creates or migrates its
+// table: kinm runs CREATE TABLE IF NOT EXISTS, adds missing columns and recreates the
+// fields index for every type. Postgres does not make those safe to run concurrently, so
+// replicas that start together would fail with a duplicate key error on the catalog (for
+// example pg_type_typname_nsp_index) whenever a table is new. On Postgres, a session
+// advisory lock makes replicas take turns.
+func buildAPIGroups(ctx context.Context, services *sservices.Services) ([]*genericapiserver.APIGroupInfo, error) {
+	if services.DB.DB.Name() == "postgres" {
+		conn, err := services.DB.SQLDB.Conn(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get a connection to lock the storage schema: %w", err)
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", schemaLockID); err != nil {
+			return nil, fmt.Errorf("failed to lock the storage schema: %w", err)
+		}
+		defer func() {
+			// The connection goes back to the pool, and the lock would stay with it. If it
+			// can't be released, drop the connection instead, which releases it.
+			if _, unlockErr := conn.ExecContext(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", schemaLockID); unlockErr != nil {
+				_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+			}
+		}()
+	}
+
+	return mserver.BuildAPIGroups(services, agent.APIGroup, agent.LeasesAPIGroup)
+}
+
 func startMinkServer(ctx context.Context, config sservices.Config, services *sservices.Services) (Client, *rest.Config, error) {
-	apiGroups, err := mserver.BuildAPIGroups(services, agent.APIGroup, agent.LeasesAPIGroup)
+	apiGroups, err := buildAPIGroups(ctx, services)
 	if err != nil {
 		return nil, nil, err
 	}
