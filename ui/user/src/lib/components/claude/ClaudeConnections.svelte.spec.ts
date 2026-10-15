@@ -1,7 +1,6 @@
 import { UserService, type VMCP } from '$lib/services';
 import { profile } from '$lib/stores';
 import { createMockProfile } from '../../../tests/helpers/pageData';
-import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeConnections from './ClaudeConnections.svelte';
 import { http, HttpResponse } from 'msw';
@@ -64,20 +63,8 @@ it('shows a mapped environment with session statistics and without account editi
 						displayName: 'Development',
 						environmentID: 'ccpool_one',
 						organizationID: 'org',
-						profiles: [
-							{
-								name: 'mine',
-								subjects: [{ type: 'user', id: getProfileResponse.id }],
-								mcpServerIDs: ['vmcp'],
-								resources: {}
-							},
-							{
-								name: 'other',
-								subjects: [{ type: 'user', id: 'someone-else' }],
-								mcpServerIDs: ['hidden'],
-								resources: {}
-							}
-						],
+						profiles: null,
+						mcpServerIDs: ['vmcp', 'unavailable'],
 						runtime: { ...runtime, egressHosts: ['*.github.com'], allowAllEgress: false },
 						egressSecrets: [{ hostname: 'private.example.com', header: 'X-Secret' }]
 					}
@@ -101,6 +88,7 @@ it('shows a mapped environment with session statistics and without account editi
 	await expect.element(page.getByText('1', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Outlook', { exact: true })).toBeVisible();
 	expect(page.getByText('Secret vMCP', { exact: true }).all()).toHaveLength(0);
+	expect(page.getByText('unavailable', { exact: true }).all()).toHaveLength(0);
 	await expect.element(page.getByText('*.github.com', { exact: true })).toBeVisible();
 	expect(page.getByText('Worker Pool', { exact: true }).all()).toHaveLength(0);
 	expect(page.getByText('Secrets', { exact: true }).all()).toHaveLength(0);
@@ -160,7 +148,8 @@ it.each([false, true])(
 							displayName: 'Development',
 							environmentID: 'pool',
 							organizationID: 'org',
-							profiles: [],
+							profiles: null,
+							mcpServerIDs: [],
 							runtime: { ...runtime, allowAllEgress }
 						}
 					]

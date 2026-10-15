@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { Group, UserService, type VMCP } from '$lib/services';
@@ -13,7 +14,7 @@
 	import EgressSecrets from './EgressSecrets.svelte';
 	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { Plus, Trash2 } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -39,6 +40,11 @@
 	let viewType = $state<'details' | 'profiles' | 'tag'>('details');
 	let profileDraft = $state<EnvironmentProfile>();
 	let editingProfileName = $state<string>();
+	let profileForm = $state<ReturnType<typeof ClaudeConnectionProfileForm>>();
+	let pendingView = $state<'details' | 'profiles' | 'tag'>();
+	let confirmUnsaved = $state(false);
+	let confirmDelete = $state(false);
+	let applyingProfile = $state(false);
 	const admin = $derived(profile.current.isAdmin?.() ?? false);
 
 	function blankDraft(defaults: ClaudeConfig): Draft {
@@ -187,22 +193,66 @@
 		editingProfileName = undefined;
 	}
 
+	function selectView(next: 'details' | 'profiles' | 'tag') {
+		if (next === viewType) return;
+		if (viewType === 'profiles' && profileDraft && profileForm?.hasUnsavedChanges()) {
+			pendingView = next;
+			confirmUnsaved = true;
+			return;
+		}
+		viewType = next;
+	}
+
+	async function applyUnsavedAndSwitch() {
+		if (applyingProfile) return;
+		const formApi = profileForm;
+		if (!formApi || !pendingView) return;
+		if (!formApi.checkValidity()) {
+			confirmUnsaved = false;
+			pendingView = undefined;
+			await tick();
+			formApi.reportValidity();
+			return;
+		}
+		applyingProfile = true;
+		try {
+			await formApi.applyUnsaved();
+		} finally {
+			applyingProfile = false;
+		}
+		if (pendingView) {
+			confirmUnsaved = false;
+			pendingView = undefined;
+		}
+	}
+
+	function cancelUnsavedSwitch() {
+		if (applyingProfile) return;
+		confirmUnsaved = false;
+		pendingView = undefined;
+	}
+
 	function saveProfiles(next: EnvironmentProfile[]) {
 		if (!draft) return;
 		draft.profiles = next;
+		const nextView = pendingView;
+		pendingView = undefined;
+		confirmUnsaved = false;
 		closeProfileForm();
+		if (nextView) viewType = nextView;
 	}
 
 	async function remove() {
-		if (!draft?.id) return;
-		if (!confirm(m.hosted_agents_env_delete_question({ name: draft.displayName }))) return;
+		if (!draft?.id || busy) return;
 		busy = true;
 		error = '';
 		try {
 			await doDelete(`/claude-environments/${draft.id}`);
+			confirmDelete = false;
 			onSubmit();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
+			confirmDelete = false;
 		} finally {
 			busy = false;
 		}
@@ -222,9 +272,7 @@
 							'tab text-sm min-w-24',
 							viewType === 'details' && 'tab-active bg-base-300 dark:bg-base-100'
 						)}
-						onclick={() => {
-							viewType = 'details';
-						}}
+						onclick={() => selectView('details')}
 					>
 						{m.hosted_agents_details_tab()}
 					</button>
@@ -233,9 +281,7 @@
 							'tab text-sm min-w-24',
 							viewType === 'profiles' && 'tab-active bg-base-300 dark:bg-base-100'
 						)}
-						onclick={() => {
-							viewType = 'profiles';
-						}}
+						onclick={() => selectView('profiles')}
 					>
 						{m.hosted_agents_profiles_tab()}
 					</button>
@@ -246,9 +292,7 @@
 								'tab text-sm min-w-24',
 								viewType === 'tag' && 'tab-active bg-base-300 dark:bg-base-100'
 							)}
-							onclick={() => {
-								viewType = 'tag';
-							}}
+							onclick={() => selectView('tag')}
 						>
 							{m.hosted_agents_tag_heading()}
 						</button>
@@ -264,7 +308,7 @@
 			{:else if viewType !== 'profiles' && draft.id}
 				<IconButton
 					disabled={busy}
-					onclick={remove}
+					onclick={() => (confirmDelete = true)}
 					tooltip={{ text: m.hosted_agents_env_action_delete() }}
 					variant="danger2"
 				>
@@ -274,6 +318,7 @@
 		</div>
 		{#if viewType === 'profiles' && profileDraft}
 			<ClaudeConnectionProfileForm
+				bind:this={profileForm}
 				environment={draft}
 				profiles={draft.profiles}
 				profile={profileDraft}
@@ -441,5 +486,33 @@
 				</div>
 			</div>
 		{/if}
+		<Confirm
+			show={confirmUnsaved}
+			type="info"
+			title={m.hosted_agents_profile_unsaved_title()}
+			msg={m.hosted_agents_profile_unsaved()}
+			note={draft.id
+				? m.hosted_agents_profile_unsaved_save()
+				: m.hosted_agents_profile_unsaved_apply()}
+			submitText={draft.id ? m.core_save() : m.common_apply()}
+			cancelText={m.hosted_agents_profile_keep_editing()}
+			loading={applyingProfile}
+			onsuccess={() => {
+				void applyUnsavedAndSwitch();
+			}}
+			oncancel={cancelUnsavedSwitch}
+		/>
+		<Confirm
+			show={confirmDelete}
+			title={m.hosted_agents_env_action_delete()}
+			msg={m.hosted_agents_env_delete_question({ name: draft.displayName })}
+			loading={busy}
+			onsuccess={() => {
+				void remove();
+			}}
+			oncancel={() => {
+				if (!busy) confirmDelete = false;
+			}}
+		/>
 	</div>
 {/if}

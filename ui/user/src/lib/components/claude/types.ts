@@ -35,6 +35,7 @@ export type ClaudeRuntime = {
 	resources: ClaudeResources;
 };
 export type ClaudeEnvironment = {
+	mcpServerIDs?: string[] | null;
 	egressSecrets?: EgressSecret[];
 	id: string;
 	displayName: string;

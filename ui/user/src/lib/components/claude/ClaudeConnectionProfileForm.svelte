@@ -59,6 +59,9 @@
 	let vmcpQuery = $state('');
 	let vmcpSelection = $state<string | number>();
 	let confirmDelete = $state<string>();
+	let formElement = $state<HTMLFormElement>();
+	const initialProfile = untrack(() => canonical(profile));
+	const profileDirty = $derived(canonical(draft) !== initialProfile);
 
 	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.core_all_obot_users() };
 	const ADMIN_GROUP: OrgGroup = {
@@ -92,7 +95,9 @@
 			.filter((entry) => !assignedSubjectIds.has(entry.id))
 			.map((entry) => ({
 				id: entry.id,
-				label: directoryName(entry),
+				label: isDirectoryGroup(entry)
+					? entry.name
+					: [directoryName(entry), entry.email, entry.username].filter(Boolean).join(' · '),
 				subject: toSubject(entry)
 			}));
 	});
@@ -279,6 +284,34 @@
 		}
 	}
 
+	function optionalNumber(value: number | undefined | null) {
+		if (value === undefined || value === null || Number.isNaN(value)) return null;
+		return value;
+	}
+
+	function canonical(value: EnvironmentProfile) {
+		const copy = structuredClone($state.snapshot(value));
+		return JSON.stringify({
+			name: (copy.name ?? '').trim(),
+			subjects: copy.subjects ?? [],
+			mcpServerIDs: copy.mcpServerIDs,
+			allowAllEgress: Boolean(copy.allowAllEgress),
+			egressHosts: (copy.egressHosts ?? []).map((host) => host.trim()).filter(Boolean),
+			egressSecrets: (copy.egressSecrets ?? []).map((secret) => ({
+				id: secret.id ?? '',
+				hostname: (secret.hostname ?? '').trim(),
+				header: (secret.header ?? '').trim(),
+				value: secret.value ?? ''
+			})),
+			resources: {
+				actorCPU: (copy.resources?.actorCPU ?? '').trim(),
+				actorMemory: (copy.resources?.actorMemory ?? '').trim(),
+				idleTimeoutMinutes: optionalNumber(copy.resources?.idleTimeoutMinutes),
+				sessionRetentionDays: optionalNumber(copy.resources?.sessionRetentionDays)
+			}
+		});
+	}
+
 	function normalize(value: EnvironmentProfile): EnvironmentProfile {
 		const copy = structuredClone($state.snapshot(value));
 		copy.name = copy.name.trim();
@@ -309,26 +342,48 @@
 		}
 	}
 
-	async function saveProfile(event: SubmitEvent) {
-		event.preventDefault();
-		if (saving) return;
+	async function commitProfile() {
+		if (saving) return false;
 		const name = draft.name.trim();
 		if (!name) {
 			error = m.hosted_agents_profile_name_required();
-			return;
+			return false;
 		}
 		if (profiles.some((item) => item.name !== editingName && item.name.trim() === name)) {
 			error = m.hosted_agents_profile_name_exists();
-			return;
+			return false;
 		}
 		const saved = normalize({ ...draft, name });
 		const next = editingName
 			? profiles.map((item) => (item.name === editingName ? saved : item))
 			: [...profiles, saved];
 		const updated = await persist(next);
-		if (!updated) return;
+		if (!updated) return false;
 		if (environment.id) success.add(m.hosted_agents_profile_saved({ name }));
 		onSaved(updated);
+		return true;
+	}
+
+	async function saveProfile(event: SubmitEvent) {
+		event.preventDefault();
+		await commitProfile();
+	}
+
+	export function hasUnsavedChanges() {
+		return profileDirty;
+	}
+
+	export function checkValidity() {
+		return formElement?.checkValidity() ?? false;
+	}
+
+	export function reportValidity() {
+		formElement?.reportValidity();
+	}
+
+	export async function applyUnsaved() {
+		if (!checkValidity()) return false;
+		return commitProfile();
 	}
 
 	async function deleteProfile(name: string) {
@@ -343,6 +398,7 @@
 </script>
 
 <form
+	bind:this={formElement}
 	class="mx-auto flex w-full max-w-4xl flex-col gap-3 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm dark:bg-base-300"
 	onsubmit={saveProfile}
 >

@@ -14,7 +14,7 @@
 
 	const environmentId = $derived(page.url.searchParams.get('environment'));
 	const showingForm = $derived(
-		!!environmentId && version.current.engine !== 'docker' && !!profile.current.hasAdminAccess?.()
+		!!environmentId && version.current.engine !== 'docker' && !!profile.current.isAdmin?.()
 	);
 	const layoutTitle = $derived(
 		!showingForm
@@ -73,7 +73,7 @@
 {/if}
 
 {#snippet navActions(view: string)}
-	{#if view === 'environments' && profile.current.isAdmin?.() && version.current.engine !== 'docker'}
+	{#if view === 'environments' && profile.current.isAdmin?.() && version.current.engine !== 'docker' && version.current.claudeEnvironmentsEnabled}
 		<button
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			id="add-catalog-entry-button"

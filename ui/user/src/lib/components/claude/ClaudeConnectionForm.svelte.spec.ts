@@ -303,3 +303,190 @@ it('saves one profile onto an existing environment', async () => {
 		{ id: 'server-secret-id', hostname: 'new.example.com', header: 'Authorization' }
 	]);
 });
+
+function mockProfileDirectory() {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	vi.spyOn(UserService, 'listUsers').mockResolvedValue([]);
+	vi.spyOn(UserService, 'listGroups').mockResolvedValue({
+		items: [],
+		source: 'cache',
+		degraded: false,
+		reset: false
+	});
+}
+
+it('leaves an unchanged profile form without an unsaved-changes prompt', async () => {
+	mockProfileDirectory();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+	await expect.element(page.getByLabelText('Profile name', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Details', exact: true }).click();
+	await expect.element(page.getByLabelText('Display name', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('dialog').filter({ hasText: 'This profile has unsaved changes.' }))
+		.not.toBeInTheDocument();
+});
+
+it('applies unsaved profile changes when leaving for another tab', async () => {
+	mockProfileDirectory();
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.post('*/api/claude-environments', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+	await page.getByLabelText('Profile name', { exact: true }).fill('developers');
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await expect
+		.element(page.getByRole('dialog').filter({ hasText: 'This profile has unsaved changes.' }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Details', exact: true }).click();
+	const dialog = page.getByRole('dialog').filter({ hasText: 'This profile has unsaved changes.' });
+	await expect
+		.element(dialog.getByText('Would you like to apply them?', { exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByLabelText('Display name', { exact: true }))
+		.not.toBeInTheDocument();
+	await dialog.getByRole('button', { name: 'Keep editing', exact: true }).click();
+	await expect.element(dialog).not.toBeInTheDocument();
+	await expect
+		.element(page.getByLabelText('Profile name', { exact: true }))
+		.toHaveValue('developers');
+	await page.getByRole('button', { name: 'Details', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+	await expect.element(page.getByLabelText('Display name', { exact: true })).toBeVisible();
+	await page.getByLabelText('Display name', { exact: true }).fill('Development');
+	await page.getByLabelText('Environment key', { exact: true }).fill('test-key');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() =>
+		expect(saved).toHaveBeenCalledWith(
+			expect.objectContaining({
+				profiles: expect.arrayContaining([
+					expect.objectContaining({ name: 'developers', mcpServerIDs: null, subjects: [] })
+				])
+			})
+		)
+	);
+});
+
+it('keeps the profile form open when unsaved changes cannot be applied', async () => {
+	mockProfileDirectory();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+	await page.getByRole('button', { name: 'Add hostname', exact: true }).click();
+	await page.getByLabelText('Additional HTTPS hosts for this profile').fill('*.example.com');
+	await page.getByRole('button', { name: 'Details', exact: true }).click();
+	const dialog = page.getByRole('dialog').filter({ hasText: 'This profile has unsaved changes.' });
+	await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+	await expect.element(dialog).not.toBeInTheDocument();
+	await expect.element(page.getByLabelText('Profile name', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByLabelText('Display name', { exact: true }))
+		.not.toBeInTheDocument();
+});
+
+it('saves unsaved profile changes when switching to Claude Tag', async () => {
+	mockProfileDirectory();
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({ enabled: true, environments: [environment] })
+		),
+		http.put('*/api/claude-environments/one', async ({ request }) => {
+			const payload = (await request.json()) as ClaudeEnvironment;
+			saved(payload);
+			return HttpResponse.json(payload);
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+	await page.getByLabelText('Profile name', { exact: true }).fill('developers');
+	await page.getByRole('button', { name: 'Claude Tag', exact: true }).click();
+	const dialog = page.getByRole('dialog').filter({ hasText: 'This profile has unsaved changes.' });
+	await expect
+		.element(dialog.getByText('Would you like to save them?', { exact: true }))
+		.toBeVisible();
+	await dialog.getByRole('button', { name: 'Keep editing', exact: true }).click();
+	expect(saved).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: 'Claude Tag', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() =>
+		expect(saved).toHaveBeenCalledWith(
+			expect.objectContaining({
+				profiles: [expect.objectContaining({ name: 'developers' })]
+			})
+		)
+	);
+	await expect
+		.element(page.getByLabelText('Claude Tag for Development', { exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByLabelText('Profile name', { exact: true }))
+		.not.toBeInTheDocument();
+});
+
+it('asks for confirmation before deleting an environment', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const deleted = vi.fn();
+	const submitted = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({ enabled: true, environments: [environment] })
+		),
+		http.delete('*/api/claude-environments/one', () => {
+			deleted();
+			return new HttpResponse(null, { status: 204 });
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: () => {}, onSubmit: submitted });
+	await page.getByRole('button', { name: 'Delete', exact: true }).click();
+	expect(deleted).not.toHaveBeenCalled();
+	const dialog = page.getByRole('dialog').filter({
+		hasText: 'Delete Development? Its session workspaces and worker pool will be removed.'
+	});
+	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect.element(dialog).not.toBeInTheDocument();
+	expect(deleted).not.toHaveBeenCalled();
+	await page.getByRole('button', { name: 'Delete', exact: true }).click();
+	await dialog.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
+	await vi.waitFor(() => expect(deleted).toHaveBeenCalled());
+	await vi.waitFor(() => expect(submitted).toHaveBeenCalled());
+});
