@@ -172,7 +172,7 @@ You can:
 | Local, GitHub, Google | Available in every edition, without registration |
 | Entra, Okta, JumpCloud, Auth0 | Require free Obot Community registration or an Enterprise license |
 
-To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [What happens without a license](../enterprise/overview.md#enterprise-auth-providers).
+To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
 
 Obot supports the built-in [Local](./auth-providers.md#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
 

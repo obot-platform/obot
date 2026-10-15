@@ -24,7 +24,7 @@ There isn't an open source version separate from an enterprise version. Obot is 
 
 ### What happens if Obot can't validate its license?
 
-If the license service can't be reached, Obot keeps using the entitlements from the last successful check, with no time limit, until the license service answers again. If the license is rejected, for example because it expired, Obot falls back to the limits of unregistered Obot Community at the next check. See [What happens without a license](./enterprise/overview.md#what-happens-without-a-license).
+If the license service can't be reached, Obot keeps using the entitlements from the last successful check, with no time limit, until the license service answers again. If the license is rejected, for example because it expired, Obot falls back to the limits of unregistered Obot Community at the next check. See [License compliance](./enterprise/overview.md#license-compliance).
 
 ## Integration & Troubleshooting
 

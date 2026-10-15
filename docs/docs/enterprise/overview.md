@@ -81,7 +81,7 @@ Each check has one of three outcomes:
 | Outcome | What Obot does |
 |---|---|
 | The license service accepts the license | Obot applies the license's entitlements and saves them in the database |
-| The license service rejects the license | Obot removes the license's entitlements and the installation behaves as [unlicensed](#what-happens-without-a-license) |
+| The license service rejects the license | Obot removes the license's entitlements and the installation falls back to unregistered Obot Community. See [License compliance](#license-compliance). |
 | The license service can't be reached or doesn't give an answer | Obot keeps using the entitlements saved from the last successful check |
 
 ### When the license service can't be reached
@@ -97,7 +97,7 @@ This is the same whether the check happens at startup or while Obot is running. 
 prevent Obot from starting.
 
 The fallback needs a successful check to fall back on. If a key has never been validated, Obot has no saved
-entitlements and treats the installation as unlicensed until a check succeeds. This happens when:
+entitlements and treats the installation as unregistered Obot Community until a check succeeds. This happens when:
 
 - `OBOT_SERVER_LICENSE_KEY` is set on a new installation, or on one with a new database, that can't reach
   `https://api.keygen.sh`. Air-gapped installations can't validate a license key yet. Support for offline
@@ -136,52 +136,64 @@ Nothing else needs to be done: the entitlements apply as soon as a check succeed
 
 To replace a rejected key, add a new key on the **License** page, or update `OBOT_SERVER_LICENSE_KEY` and restart Obot.
 
-## What happens without a license
+## License compliance
 
-An installation is unlicensed when it has no license key, the license service has rejected its license, or its key has
-never been validated. It then behaves as unregistered Obot Community. Obot does not delete data, users, devices, or
-configuration when this happens, and everything comes back once a license is valid again.
+Obot compares what you've configured, and how many users and devices you have, against what your current license
+allows. When you're over, Obot is out of compliance. Being out of compliance never deletes or disables anything you
+already have: no data, users, devices, or configuration. What it blocks depends on what you're over.
 
-### User and device limits
+| Out of compliance when | What happens | How to fix it |
+|---|---|---|
+| An enterprise auth provider (Entra, Okta, JumpCloud, or Auth0) is configured and the license doesn't include it | **Limited functionality.** Obot returns `402 Payment Required` for MCP server connections (including OAuth authorization for MCP servers), the LLM gateway, the skills API, and device scan uploads from Obot Sentry. Users can still sign in. | Register Obot Community, add an Enterprise license key, or deconfigure the provider |
+| There are more users than the user limit | Existing users keep working. Obot refuses to create new users, whether they sign in for the first time or are provisioned through SCIM. | Add an Enterprise license key, or delete users |
+| There are more enrolled devices than the device limit | Enrolled devices keep working. Obot refuses to enroll new devices. | Add an Enterprise license key, or remove devices |
 
-The limits return to 100 users and 100 devices.
+Without an Enterprise license, the user and device limits are 100 each. Deleted users and the bootstrap user don't count
+toward the user limit. Every enrolled device counts toward the device limit.
 
-- Existing users can still sign in, and enrolled devices stay enrolled.
-- When the installation is at or above the limit, Obot refuses to create new users, whether they sign in for the first
-  time or are provisioned through SCIM. A new user sees "Unable to provision your account. Please contact your
-  administrator."
-- When the installation is at or above the device limit, Obot refuses to enroll new devices, and Obot Sentry reports
-  "Unable to enroll your device. Please contact your administrator."
-- Administrators see a banner when 10% or fewer of the user seats remain, and another when the limit is reached.
+Obot also won't let you get into the first case through configuration: you can't configure a new enterprise auth
+provider without a license that includes it.
 
-Deleted users and the bootstrap user don't count toward the user limit. Every enrolled device counts toward the
-device limit.
+### How installations end up out of compliance
 
-### Enterprise auth providers
+- **An Enterprise license expires, or is revoked or suspended.** At the next check, the installation falls back to
+  unregistered Obot Community. An installation with 250 users is then over the 100-user limit, and any configured
+  enterprise auth provider is no longer covered.
+- **An administrator removes the license key.** The effect is the same as a license that's no longer valid.
+- **A license key was never validated**, for example on an air-gapped installation. See
+  [When the license service can't be reached](#when-the-license-service-cant-be-reached).
+- **The installation grows** past the user or device limit of its license.
 
-New Entra, Okta, JumpCloud, or Auth0 providers can't be configured. If one of them is already configured, it stays
-configured and users can still sign in with it, but Obot considers the installation out of compliance and limits
-functionality until an administrator resolves it. While that's the case, Obot returns `402 Payment Required` for:
+:::note
+A license service outage doesn't put an installation out of compliance. Obot keeps the entitlements from the last
+successful check until the license service answers again. See
+[When the license service can't be reached](#when-the-license-service-cant-be-reached).
+:::
 
-- MCP server connections, including OAuth authorization for MCP servers
-- The LLM gateway
-- The skills API
-- Device scan uploads from Obot Sentry
+### What administrators and users see
 
-Users see "We're sorry, this system is currently operating with limited functionality. Please contact your
-administrator." Administrators see a banner that the license is missing or invalid.
+| Situation | Administrators | Users |
+|---|---|---|
+| An enterprise auth provider isn't covered by the license | A banner that the license is missing or invalid, with a **Resolve** button | "We're sorry, this system is currently operating with limited functionality. Please contact your administrator." |
+| 10% or fewer user seats remain, or the user limit is exceeded | A banner about the user limit, with a **Resolve** button | Nothing, until a new user tries to sign in |
+| A new user can't be created | — | "Unable to provision your account. Please contact your administrator." |
+| A new device can't be enrolled | The **License** page shows device usage against the limit | Obot Sentry reports "Unable to enroll your device. Please contact your administrator." |
 
-To restore full functionality, select **Resolve** in the banner and do one of the following:
+### Getting back into compliance
 
-- Register for a Community license, which covers the enterprise auth providers.
-- Add a valid Enterprise license key, or contact [Obot](https://obot.ai/contact-us/) to renew one.
-- Choose **Downgrade** to deconfigure the enterprise auth providers. Users who signed in with those providers must
-  then sign in with a provider that is still configured.
+Select **Resolve** in the banner, or go to the **License** page, and do one of the following:
 
-### Other capabilities
+- **Register Obot Community.** This covers the enterprise auth providers, but not more than 100 users or devices.
+- **Add a valid Enterprise license key**, or contact [Obot](https://obot.ai/contact-us/) to renew one.
+- **Choose Downgrade** to deconfigure the enterprise auth providers. Users who signed in with those providers must
+  then sign in with a provider that's still configured.
+- **Delete users or remove devices** until you're within the limits.
 
-The MCP server tester's built-in model, which Obot hosts, requires a valid license of any kind. Everything else,
-including model providers, MCP hosting, registries, and Device Management, works the same without a license.
+Nothing needs to be reconfigured afterwards. Obot applies a new or renewed license as soon as it validates the key,
+and lifts the restrictions as soon as you're back within what the license allows.
+
+The MCP server tester's built-in model, which Obot hosts, also requires a valid license of any kind. It isn't affected
+by compliance.
 
 ## Feature availability
 
