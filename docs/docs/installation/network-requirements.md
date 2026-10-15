@@ -26,7 +26,6 @@ To allow all of them, allow outbound HTTPS to:
 ### License validation
 
 - **Destination:** `https://api.keygen.sh`
-
 - **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
   configured.
 - **If it fails:** Obot keeps the entitlements from the last successful check. See
