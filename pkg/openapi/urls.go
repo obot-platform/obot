@@ -19,7 +19,6 @@ func ValidateInput(config types.OpenAPIRuntimeConfig) error {
 
 // ValidateSource checks source metadata without fetching the document.
 func ValidateSource(source types.OpenAPISource) error {
-	source.URL = strings.TrimSpace(source.URL)
 	if (source.URL == "") == (source.Content == "") {
 		return fmt.Errorf("exactly one OpenAPI source URL or content is required")
 	}
@@ -35,7 +34,6 @@ func ValidateSource(source types.OpenAPISource) error {
 
 // sourceURL checks the schema location; safehttp enforces its network policy.
 func sourceURL(value string) (*url.URL, error) {
-	value = strings.TrimSpace(value)
 	u, err := url.Parse(value)
 	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || strings.Contains(value, "\\") {
 		return nil, fmt.Errorf("schema source must be an absolute HTTP(S) URL without credentials or fragment")

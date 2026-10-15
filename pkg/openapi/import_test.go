@@ -154,46 +154,6 @@ func TestDestinationHTTPSRequirement(t *testing.T) {
 	require.True(t, result.DestinationValidation.Valid)
 }
 
-func TestImportTrimsURLs(t *testing.T) {
-	data := usersSchema(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/schema", r.URL.Path)
-		_, _ = w.Write(data)
-	}))
-	defer server.Close()
-	for _, source := range []types.OpenAPISource{
-		{
-			URL: " \t" + server.URL + "/schema\n",
-		},
-		{
-			URL:     " \t\n",
-			Content: string(data),
-		},
-	} {
-		config := types.OpenAPIRuntimeConfig{
-			Source:  source,
-			BaseURL: " \thttp://127.0.0.1/api\n",
-		}
-		before := config.DeepCopy()
-		result, err := NewImporter(safehttp.Options{}, true).Import(t.Context(), config)
-		require.NoError(t, err)
-		require.Equal(t, "http://127.0.0.1/api/", result.BaseURL)
-		require.True(t, result.DestinationValidation.Valid)
-		require.Equal(t, before, &config, "import must not mutate its input")
-	}
-	for _, baseURL := range []string{" \thttps://api.example.com/v2\n", " \t\n"} {
-		result, err := Parse(data, types.OpenAPIRuntimeConfig{
-			BaseURL: baseURL,
-		})
-		require.NoError(t, err)
-		if strings.TrimSpace(baseURL) == "" {
-			require.Equal(t, "https://api.example.com/v1/", result.BaseURL)
-		} else {
-			require.Equal(t, "https://api.example.com/v2/", result.BaseURL)
-		}
-	}
-}
-
 func TestTypedParsingPreservesSnapshot(t *testing.T) {
 	data := documentWith(t, func(d map[string]any) {
 		d["x-custom"] = map[string]any{"preserved": true}

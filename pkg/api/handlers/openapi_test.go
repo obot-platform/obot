@@ -391,6 +391,25 @@ func TestOpenAPISaveTrimsURLs(t *testing.T) {
 	require.Equal(t, before, submitted, "normalizing the saved config must not mutate the submitted config")
 }
 
+func TestOpenAPIImportTrimsURLs(t *testing.T) {
+	handler := newOpenAPIHandler()
+	handler.openAPIImporter = openAPIImporterFunc(func(_ context.Context, config types.OpenAPIRuntimeConfig) (*openapi.Result, error) {
+		require.Equal(t, "https://schema.example.com/openapi.yaml", config.Source.URL)
+		require.Equal(t, "https://8.8.4.4", config.BaseURL)
+		return openapi.Parse([]byte(apiOpenAPISchema), config)
+	})
+	ctx, recorder := openAPIRequest(t, newFakeStorage(t), "", http.MethodPost, types.OpenAPIRuntimeConfig{
+		Source: types.OpenAPISource{
+			URL: " \thttps://schema.example.com/openapi.yaml\n",
+		},
+		BaseURL: " \thttps://8.8.4.4\n",
+	})
+	require.NoError(t, handler.ImportOpenAPI(ctx))
+	var response types.OpenAPIImportResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, "https://8.8.4.4/", response.BaseURL)
+}
+
 func TestOpenAPICatalogRejectsInvalidConfiguration(t *testing.T) {
 	for _, test := range []struct {
 		name   string

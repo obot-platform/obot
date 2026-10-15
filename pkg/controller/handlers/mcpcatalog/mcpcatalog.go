@@ -719,6 +719,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				errs = append(errs, fmt.Errorf("catalog entry %s: openAPIConfig is required", entry.Name))
 				continue
 			}
+			entry.OpenAPIConfig.Source.URL = strings.TrimSpace(entry.OpenAPIConfig.Source.URL)
+			entry.OpenAPIConfig.BaseURL = strings.TrimSpace(entry.OpenAPIConfig.BaseURL)
 			if err := openapi.ValidateInput(*entry.OpenAPIConfig); err != nil {
 				errs = append(errs, fmt.Errorf("catalog entry %s: %w", entry.Name, err))
 				continue

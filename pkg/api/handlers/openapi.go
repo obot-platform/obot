@@ -28,6 +28,8 @@ func (h *MCPCatalogHandler) ImportOpenAPI(req api.Context) error {
 		}
 		return err
 	}
+	config.Source.URL = strings.TrimSpace(config.Source.URL)
+	config.BaseURL = strings.TrimSpace(config.BaseURL)
 	if err := openapi.ValidateInput(config); err != nil {
 		return types.NewErrBadRequest("invalid OpenAPI import request: %v", err)
 	}

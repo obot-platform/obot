@@ -108,7 +108,6 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 // optionalBaseURL selects a destination when one is available. Import may
 // precede configuration; deployment requires a destination.
 func optionalBaseURL(configured string, servers openapi3.Servers) (string, error) {
-	configured = strings.TrimSpace(configured)
 	if configured != "" {
 		return destination(configured)
 	}
