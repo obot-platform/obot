@@ -1,6 +1,7 @@
 import { UserService, type VMCP } from '$lib/services';
 import { profile } from '$lib/stores';
 import { createMockProfile } from '../../../tests/helpers/pageData';
+import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeConnections from './ClaudeConnections.svelte';
 import { http, HttpResponse } from 'msw';
@@ -27,7 +28,8 @@ const runtime = {
 it('shows a mapped environment with session statistics and without account editing', async () => {
 	profile.initialize(createMockProfile([]));
 	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([
-		{ id: 'vmcp', displayName: 'Outlook' } as VMCP
+		{ id: 'vmcp', displayName: 'Outlook' } as VMCP,
+		{ id: 'hidden', displayName: 'Secret vMCP' } as VMCP
 	]);
 	const sessionsRequest = vi.fn();
 	worker.use(
@@ -62,8 +64,20 @@ it('shows a mapped environment with session statistics and without account editi
 						displayName: 'Development',
 						environmentID: 'ccpool_one',
 						organizationID: 'org',
-						mcpServerIDs: ['vmcp'],
-						profiles: [],
+						profiles: [
+							{
+								name: 'mine',
+								subjects: [{ type: 'user', id: getProfileResponse.id }],
+								mcpServerIDs: ['vmcp'],
+								resources: {}
+							},
+							{
+								name: 'other',
+								subjects: [{ type: 'user', id: 'someone-else' }],
+								mcpServerIDs: ['hidden'],
+								resources: {}
+							}
+						],
 						runtime: { ...runtime, egressHosts: ['*.github.com'], allowAllEgress: false },
 						egressSecrets: [{ hostname: 'private.example.com', header: 'X-Secret' }]
 					}
@@ -86,6 +100,7 @@ it('shows a mapped environment with session statistics and without account editi
 	await expect.element(page.getByText('3', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('1', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Outlook', { exact: true })).toBeVisible();
+	expect(page.getByText('Secret vMCP', { exact: true }).all()).toHaveLength(0);
 	await expect.element(page.getByText('*.github.com', { exact: true })).toBeVisible();
 	expect(page.getByText('Worker Pool', { exact: true }).all()).toHaveLength(0);
 	expect(page.getByText('Secrets', { exact: true }).all()).toHaveLength(0);
@@ -110,7 +125,6 @@ it('opens an environment for editing when an admin selects its card', async () =
 						displayName: 'Development',
 						environmentID: 'pool',
 						organizationID: 'org',
-						mcpServerIDs: [],
 						profiles: [],
 						runtime
 					}
@@ -119,9 +133,12 @@ it('opens an environment for editing when an admin selects its card', async () =
 		)
 	);
 	render(ClaudeConnections, { onEdit });
-	await page.getByRole('button', { name: 'Edit Development', exact: true }).click({
-		position: { x: 12, y: 12 }
-	});
+	const edit = page.getByRole('button', { name: 'Edit Development', exact: true });
+	await expect.element(edit).toBeVisible();
+	const el = await edit.element();
+	if (!(el instanceof HTMLElement))
+		throw new Error('Expected the edit control to be an HTMLElement');
+	el.click();
 	expect(onEdit).toHaveBeenCalledWith(
 		expect.objectContaining({ id: 'one', displayName: 'Development' })
 	);
@@ -143,7 +160,6 @@ it.each([false, true])(
 							displayName: 'Development',
 							environmentID: 'pool',
 							organizationID: 'org',
-							mcpServerIDs: [],
 							profiles: [],
 							runtime: { ...runtime, allowAllEgress }
 						}

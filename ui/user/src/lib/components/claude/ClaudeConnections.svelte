@@ -2,13 +2,13 @@
 	import CopyField from '$lib/components/CopyField.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import { m } from '$lib/i18n';
-	import { UserService, type VMCP } from '$lib/services';
+	import { UserService, type AccessControlRuleSubject, type VMCP } from '$lib/services';
 	import { doGet } from '$lib/services/http';
 	import { COMMON_AI_CLIENTS_MAP, AiClient } from '$lib/services/user/constants';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import type { ClaudeConfig, ClaudeEnvironment } from './types';
+	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { Pencil } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -78,6 +78,35 @@
 		);
 	}
 
+	function subjectApplies(subject: AccessControlRuleSubject) {
+		const current = profile.current;
+		if (subject.id === '*') return true;
+		if (subject.type === 'user') return subject.id === current.id;
+		if (subject.type === 'group') return current.authProviderGroups?.includes(subject.id) ?? false;
+		if (subject.type === 'obotGroup') return current.groups?.includes(subject.id) ?? false;
+		return false;
+	}
+
+	function canAccessProfile(accessProfile: EnvironmentProfile) {
+		return accessProfile.subjects.some(subjectApplies);
+	}
+
+	function accessibleVmcps(environment: ClaudeEnvironment) {
+		const visible = new Set(servers.map((server) => server.id));
+		const ids: string[] = [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const seen = new Set<string>();
+		for (const accessProfile of environment.profiles ?? []) {
+			if (!canAccessProfile(accessProfile)) continue;
+			for (const id of accessProfile.mcpServerIDs ?? []) {
+				if (!visible.has(id) || seen.has(id)) continue;
+				seen.add(id);
+				ids.push(id);
+			}
+		}
+		return ids;
+	}
+
 	onMount(() => {
 		void load().catch((e) => (error = String(e)));
 		const timer = setInterval(() => void refreshStats(), 5000);
@@ -124,7 +153,6 @@
 					{#if admin}
 						<p class="text-xs text-muted-content">
 							{m.hosted_agents_env_summary({
-								count: environment.mcpServerIDs?.length ?? 0,
 								cpu: environment.runtime.resources.actorCPU ?? '',
 								memory: environment.runtime.resources.actorMemory ?? ''
 							})}
@@ -134,7 +162,7 @@
 							<div>
 								<h3 class="text-xs font-normal mb-1">{m.hosted_agents_available_vmcps()}</h3>
 								<ul class="flex flex-wrap items-center gap-2">
-									{#each environment.mcpServerIDs ?? [] as id (id)}
+									{#each accessibleVmcps(environment) as id (id)}
 										{@const server = servers.find((item) => item.id === id)}
 										<li
 											data-chip={true}

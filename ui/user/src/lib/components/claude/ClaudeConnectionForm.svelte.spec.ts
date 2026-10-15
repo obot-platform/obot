@@ -121,7 +121,6 @@ it('saves a new environment from the details form with a default profile', async
 			expect.objectContaining({
 				displayName: 'Development',
 				environmentKey: 'test-key',
-				mcpServerIDs: [],
 				egressSecrets: [
 					expect.objectContaining({
 						hostname: 'api.example.com',

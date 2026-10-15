@@ -48,7 +48,6 @@
 			organizationID: '',
 			environmentID: '',
 			environmentKey: '',
-			mcpServerIDs: [],
 			claudeTagEnabled: false,
 			profiles: [
 				{
