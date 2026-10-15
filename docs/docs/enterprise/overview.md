@@ -194,18 +194,3 @@ and lifts the restrictions as soon as you're back within what the license allows
 
 The MCP server tester's built-in model, which Obot hosts, also requires a valid license of any kind. It isn't affected
 by compliance.
-
-## Feature availability
-
-Edition limits and runtime availability are separate. A license does not enable a disabled feature or supply its
-infrastructure.
-
-| Capability | Additional requirement or status |
-|---|---|
-| MCP and LLM gateways, registries, and skills | Configure resources, credentials, and access policies for the intended users |
-| Device Management | Beta; install and enroll Obot Sentry on supported devices |
-| Local tool-call enforcement | Experimental; only supported clients and identified tool calls are covered |
-| Managed image pull secrets and Kubernetes secret bindings | Kubernetes MCP runtime required |
-| Domain-based MCP egress control | Kubernetes and a configured supported policy provider required |
-
-See [Device Management](../device-management/how-sentry-works.md) and [Server Configuration](../configuration/server-configuration.md) for the relevant constraints.
