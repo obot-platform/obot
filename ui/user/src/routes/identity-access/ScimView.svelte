@@ -51,6 +51,15 @@
 
 	type SetupStepID = 'token' | 'app' | 'users' | 'groups' | 'enforce';
 
+	// The adapter type of OneLogin's SCIM connections, whose setup steps have help of their own.
+	const ONELOGIN_ADAPTER_TYPE = 'onelogin';
+	// What OneLogin's SCIM JSON Template must add, so that each user's externalId is their OneLogin
+	// user ID, and its userName line, which must stay as it is: SCIM Username sets userName, and
+	// OneLogin's lookup before a create uses SCIM Username, so the two must agree. Both are passed to
+	// the message, whose own braces are placeholders.
+	const ONELOGIN_TEMPLATE_EDIT = '"externalId": "{$user.id}"';
+	const ONELOGIN_TEMPLATE_USERNAME = '"userName": "{$parameters.scimusername}"';
+
 	interface SetupStep {
 		id: SetupStepID;
 		// Names the step in the progress indicator.
@@ -262,6 +271,16 @@
 
 	function formatDate(timestamp?: string) {
 		return timestamp ? new Date(timestamp).toLocaleDateString() : '';
+	}
+
+	// The page that an identity provider's SCIM app can use as its login page, on the server that
+	// serves the connection's base URL. It tells anyone who opens the app to sign in to Obot instead.
+	function provisioningOnlyPageURL(conn: SCIMConnection) {
+		try {
+			return new URL('/scim-provisioning', conn.baseURL).href;
+		} catch {
+			return '';
+		}
 	}
 
 	// Shows a token just issued. The confirmation that issued it closes first, so that the token's
@@ -799,7 +818,7 @@
 				{#if currentStep.id === 'token'}
 					{@render tokenStep(conn)}
 				{:else if currentStep.id === 'app'}
-					{@render appStep(r)}
+					{@render appStep(r, conn)}
 				{:else if currentStep.id === 'users'}
 					{@render usersStep()}
 				{:else if currentStep.id === 'groups'}
@@ -890,10 +909,14 @@
 	{/if}
 {/snippet}
 
-{#snippet appStep(r: SCIMConnectionReview)}
-	<p class="text-muted-content text-sm font-light">
-		{m.identity_access_scim_app_help({ provider: providerName })}
-	</p>
+{#snippet appStep(r: SCIMConnectionReview, conn: SCIMConnection)}
+	{#if conn.adapterType === ONELOGIN_ADAPTER_TYPE}
+		{@render oneLoginAppHelp(conn)}
+	{:else}
+		<p class="text-muted-content text-sm font-light">
+			{m.identity_access_scim_app_help({ provider: providerName })}
+		</p>
+	{/if}
 	{#if r.activity.lastRequestAt}
 		{@render stepStatus(
 			true,
@@ -916,6 +939,38 @@
 			})}
 		</p>
 	{/if}
+{/snippet}
+
+<!-- OneLogin's app must be set up in full before anyone is given access to it, because OneLogin does
+not apply later changes to the users it has provisioned, and a user it provisioned wrongly is refused. -->
+{#snippet oneLoginAppHelp(conn: SCIMConnection)}
+	{@const pageURL = provisioningOnlyPageURL(conn)}
+	<p class="text-muted-content text-sm font-light">
+		{m.identity_access_scim_onelogin_app_intro()}
+	</p>
+	<ul
+		class="text-muted-content flex list-disc flex-col gap-2 pl-4 text-sm font-light wrap-break-word"
+	>
+		{#if pageURL}
+			<li>
+				{m.identity_access_scim_onelogin_app_saml()}
+				<div class="text-base-content mt-1">
+					{@render copyableValue(pageURL, m.identity_access_scim_copy_landing_url())}
+				</div>
+			</li>
+		{/if}
+		<!-- A tile click would send a SAML POST to the landing page, which Obot refuses. -->
+		<li>{m.identity_access_scim_onelogin_app_portal()}</li>
+		<li>{m.identity_access_scim_onelogin_app_connection()}</li>
+		<li>
+			{m.identity_access_scim_onelogin_app_template({
+				template: ONELOGIN_TEMPLATE_EDIT,
+				userName: ONELOGIN_TEMPLATE_USERNAME
+			})}
+		</li>
+		<li>{m.identity_access_scim_onelogin_app_username()}</li>
+		<li>{m.identity_access_scim_onelogin_app_deprovision()}</li>
+	</ul>
 {/snippet}
 
 {#snippet usersStep()}
@@ -950,6 +1005,11 @@
 			{m.identity_access_scim_groups_new({ provider: providerName })}
 		{/if}
 	</p>
+	{#if conn.adapterType === ONELOGIN_ADAPTER_TYPE}
+		<p class="text-muted-content text-sm font-light">
+			{m.identity_access_scim_onelogin_groups_help()}
+		</p>
+	{/if}
 	{@render warnings(r.warnings)}
 	{#if offerGroupDeletion && canDeleteGroups}
 		<div>{@render deleteGroupsButton(false)}</div>

@@ -7,7 +7,7 @@ const providerIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="
 
 export const handlers = [
 	http.get(
-		/\/(?:admin\/assets\/(?:okta|local)_icon_small\.png|okta\.svg)$/,
+		/\/(?:admin\/assets\/(?:(?:okta|local)_icon_small|onelogin_icon)\.png|okta\.svg)$/,
 		() => new HttpResponse(providerIcon, { headers: { 'Content-Type': 'image/svg+xml' } })
 	),
 	http.get('/api/all-mcps/entries', () =>

@@ -10,12 +10,14 @@ var (
 	// byAuthProvider maps the name of each auth provider that supports SCIM to its adapter. Looking an auth provider
 	// up here is the only place where shared code reads a provider name.
 	byAuthProvider = map[string]Adapter{
-		oktaAuthProviderName: okta{},
+		oktaAuthProviderName:     okta{},
+		oneLoginAuthProviderName: oneLogin{},
 	}
 
 	// byType maps each adapter's persisted type to the adapter.
 	byType = map[string]Adapter{
-		oktaAdapterType: okta{},
+		oktaAdapterType:     okta{},
+		oneLoginAdapterType: oneLogin{},
 	}
 )
 
