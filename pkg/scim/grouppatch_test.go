@@ -40,6 +40,30 @@ func TestPlanGroupPatch(t *testing.T) {
 			wantOK: true,
 		},
 		{
+			name: "a member removed by a value list, as OneLogin sends it",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"A"}]}]`,
+			want: gclient.SCIMGroupPatch{
+				RemovedMemberIDs: []string{"a"},
+			},
+			wantOK: true,
+		},
+		{
+			name: "members removed by a value list with display names",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"a","display":"A"},{"value":"b","display":"B"}]}]`,
+			want: gclient.SCIMGroupPatch{
+				RemovedMemberIDs: []string{"a", "b"},
+			},
+			wantOK: true,
+		},
+		{
+			name: "a member removed by a single value",
+			ops:  `[{"op":"remove","path":"members","value":{"value":"a"}}]`,
+			want: gclient.SCIMGroupPatch{
+				RemovedMemberIDs: []string{"a"},
+			},
+			wantOK: true,
+		},
+		{
 			name: "members replaced, as Okta sends them",
 			ops:  `[{"op":"replace","path":"members","value":[{"value":"a","display":"A"}]}]`,
 			want: gclient.SCIMGroupPatch{
@@ -98,6 +122,27 @@ func TestPlanGroupPatch(t *testing.T) {
 			wantOK: true,
 		},
 		{
+			name: "the last operation that names a member decides, with value list removes",
+			ops: `[{"op":"add","path":"members","value":[{"value":"a"},{"value":"b"}]},` +
+				`{"op":"remove","path":"members","value":[{"value":"A"},{"value":"c"}]},` +
+				`{"op":"add","path":"members","value":[{"value":"c"}]}]`,
+			want: gclient.SCIMGroupPatch{
+				MemberIDs:        []string{"b", "c"},
+				RemovedMemberIDs: []string{"a"},
+			},
+			wantOK: true,
+		},
+		{
+			name: "a value list remove after a replacement applies to its member set",
+			ops: `[{"op":"replace","path":"members","value":[{"value":"a"},{"value":"b"}]},` +
+				`{"op":"remove","path":"members","value":[{"value":"B"},{"value":"c"}]}]`,
+			want: gclient.SCIMGroupPatch{
+				ReplaceMembers: true,
+				MemberIDs:      []string{"a"},
+			},
+			wantOK: true,
+		},
+		{
 			name: "operations after a replacement apply to its member set",
 			ops: `[{"op":"add","path":"members","value":[{"value":"x"}]},` +
 				`{"op":"replace","path":"members","value":[{"value":"a"},{"value":"b"}]},` +
@@ -120,6 +165,34 @@ func TestPlanGroupPatch(t *testing.T) {
 		{
 			name: "every member removed without a filter",
 			ops:  `[{"op":"remove","path":"members"}]`,
+		},
+		{
+			name: "every member removed by a null value",
+			ops:  `[{"op":"remove","path":"members","value":null}]`,
+		},
+		{
+			name:   "no member removed by an empty value list",
+			ops:    `[{"op":"remove","path":"members","value":[]}]`,
+			want:   gclient.SCIMGroupPatch{},
+			wantOK: true,
+		},
+		{
+			name:   "no member removed by a value list of null",
+			ops:    `[{"op":"remove","path":"members","value":[null]}]`,
+			want:   gclient.SCIMGroupPatch{},
+			wantOK: true,
+		},
+		{
+			name: "a removed member without a value",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"a"},{"display":"B"}]}]`,
+		},
+		{
+			name: "a removed member of another type",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"a","type":"Group"}]}]`,
+		},
+		{
+			name: "a removed value that is not an object",
+			ops:  `[{"op":"remove","path":"members","value":["a"]}]`,
 		},
 		{
 			name: "a filter on another sub-attribute",
@@ -242,6 +315,44 @@ func TestGroupPatchMatchesTheWholeGroupPatch(t *testing.T) {
 			ops: `[{"op":"replace","path":"members","value":[{"value":"{carol}"},{"value":"{alice}"}]},` +
 				`{"op":"add","path":"members","value":[{"value":"{dave}"},{"value":"{alice}"}]},` +
 				`{"op":"remove","path":"members[value eq \"{carol}\"]"}]`,
+		},
+		{
+			name: "remove a member by a value list, as OneLogin sends it",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"{bob}"}]}]`,
+		},
+		{
+			name: "remove members by their uppercased values in a value list",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"{BOB}"},{"value":"{ALICE}"}]}]`,
+		},
+		{
+			name: "remove members by a value list that names a user that is not a member and one that is not a user",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"{dave}"},{"value":"00000000-0000-0000-0000-000000000000"},{"value":"{alice}"}]}]`,
+		},
+		{
+			name: "remove a member by a value list and add it back",
+			ops: `[{"op":"remove","path":"members","value":[{"value":"{alice}"}]},` +
+				`{"op":"add","path":"members","value":[{"value":"{alice}"}]}]`,
+		},
+		{
+			name: "remove a member by a single value",
+			ops:  `[{"op":"remove","path":"members","value":{"value":"{bob}"}}]`,
+		},
+		{
+			name: "remove members by a value list with display names",
+			ops:  `[{"op":"remove","path":"members","value":[{"value":"{bob}","display":"bob"},{"value":"{alice}","display":"not alice"}]}]`,
+		},
+		{
+			name: "remove no member by an empty value list",
+			ops:  `[{"op":"remove","path":"members","value":[]}]`,
+		},
+		{
+			name: "remove no member by a value list of null",
+			ops:  `[{"op":"remove","path":"members","value":[null]}]`,
+		},
+		{
+			name: "change the replaced members by a value list",
+			ops: `[{"op":"replace","path":"members","value":[{"value":"{carol}"},{"value":"{alice}"}]},` +
+				`{"op":"remove","path":"members","value":[{"value":"{CAROL}"},{"value":"{bob}"}]}]`,
 		},
 		{
 			name:    "add a member that is not a user",

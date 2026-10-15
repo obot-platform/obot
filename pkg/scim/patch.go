@@ -137,7 +137,14 @@ func applyOperation(schema *resourceSchema, resource map[string]any, op patchOpe
 		return err
 	}
 	if op.Op != patchRemove && !op.HasValue {
-		return badRequest(scimTypeInvalidValue, "%s requires a value", op.Op)
+		err := badRequest(scimTypeInvalidValue, "%s requires a value", op.Op)
+		if op.Op == patchAdd && path.Filter != nil && strings.EqualFold(path.Attr.Name, "members") {
+			// Some clients add a member by naming it in the filter alone, as OneLogin's "SCIM2 PATCH for Groups"
+			// connector does, which RFC 7644 does not allow. The adapter's hint can name a client setting that sends
+			// the value instead. Other filtered adds, such as one of a user's emails, are not that client setting.
+			err.hint = hintValuelessFilteredAdd
+		}
+		return err
 	}
 	return applyToTarget(schema, resource, op.Op, op.Path, path, op.Value, rules)
 }

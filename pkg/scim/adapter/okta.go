@@ -135,3 +135,9 @@ func (okta) GroupConsoleURL(issuer, nativeGroupID string) string {
 func (okta) PatchRules() PatchRules {
 	return PatchRules{}
 }
+
+// ErrorHints returns no hints, so that Okta's admins see the shared details. Okta deprovisions a user by setting active
+// to false, as the shared detail of a refused user DELETE asks.
+func (okta) ErrorHints() ErrorHints {
+	return ErrorHints{}
+}

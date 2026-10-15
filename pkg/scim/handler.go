@@ -87,6 +87,9 @@ type statusRecorder struct {
 	status int
 	// err is the SCIM error the response carries, if any.
 	err *Error
+	// hints are the error hints of the connection's adapter, which writeError applies to every error response once
+	// the connection is known.
+	hints adapter.ErrorHints
 }
 
 // NewHandler returns the SCIM handler. serverURL is Obot's public URL, which resource locations are built from.
@@ -146,7 +149,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal us
 	}
 	authenticated = true
 
-	conn, err := h.connection(r.Context(), connectionID)
+	conn, hints, err := h.connection(r.Context(), connectionID)
 	if err != nil {
 		if errors.Is(err, gclient.ErrSCIMConnectionNotFound) {
 			WriteUnauthorized(rec)
@@ -155,6 +158,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal us
 		writeError(rec, toError(err))
 		return
 	}
+	// Every error from here on is the connection's, so it carries the hints of the connection's adapter.
+	rec.hints = hints
 	if conn == nil {
 		unavailable(rec, "the auth provider of this SCIM connection is not configured")
 		return
@@ -167,32 +172,39 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, principal us
 	})
 }
 
-// connection returns the connection a request is for, or nil when its auth provider is not the configured one. Only
-// the authenticated connection learns that the auth provider is not serving sign-ins.
-func (h *Handler) connection(ctx context.Context, id string) (*connection, error) {
+// connection returns the connection a request is for and the error hints of its adapter, or none when the adapter's
+// type is unknown. The connection is nil when its auth provider is not the configured one. Only the authenticated
+// connection learns that the auth provider is not serving sign-ins.
+func (h *Handler) connection(ctx context.Context, id string) (*connection, adapter.ErrorHints, error) {
 	conn, err := h.gateway.SCIMConnection(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, adapter.ErrorHints{}, err
+	}
+	// The adapter is looked up first, so that the response to a connection whose auth provider is not configured has
+	// its hints.
+	a, ok := adapter.Lookup(conn.AdapterType)
+	var hints adapter.ErrorHints
+	if ok {
+		hints = a.ErrorHints()
 	}
 
 	namespace, name, err := h.env.ConfiguredAuthProvider(ctx)
 	if err != nil {
 		slog.Error("Failed to check the configured auth provider for a SCIM request", "error", err)
-		return nil, nil
+		return nil, hints, nil
 	}
 	if namespace != conn.AuthProviderNamespace || name != conn.AuthProviderName {
-		return nil, nil
+		return nil, hints, nil
 	}
 
-	a, ok := adapter.Lookup(conn.AdapterType)
 	if !ok {
-		return nil, fmt.Errorf("SCIM connection %s has unknown adapter type %q", conn.ID, conn.AdapterType)
+		return nil, adapter.ErrorHints{}, fmt.Errorf("SCIM connection %s has unknown adapter type %q", conn.ID, conn.AdapterType)
 	}
 	return &connection{
 		SCIMConnection: conn,
 		baseURL:        BaseURL(h.serverURL),
 		patchRules:     a.PatchRules(),
-	}, nil
+	}, hints, nil
 }
 
 // recordActivity records the outcome of a request that the connection's token authenticated as the connection's
@@ -254,10 +266,12 @@ func (h *Handler) route(w http.ResponseWriter, r *request) {
 		case http.MethodPatch:
 			h.patchUser(w, r, rest[0])
 		case http.MethodDelete:
-			// Okta deprovisions users by setting active to false. Deleting a user is an Obot action.
+			// Identity providers deprovision users by setting active to false. Deleting a user is an Obot action. The
+			// adapter's hint replaces the detail for an identity provider that must be set up not to send a DELETE.
 			writeError(w, &Error{
 				Status: http.StatusNotImplemented,
 				Detail: "deleting users is not supported; deprovision a user by setting active to false",
+				hint:   hintUserDelete,
 			})
 		default:
 			methodNotAllowed(w, http.MethodGet, http.MethodPut, http.MethodPatch)
@@ -651,8 +665,9 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 		return
 	}
 
-	// The operations Okta sends name the members they change, and apply without reading the group's other members.
-	// Any other operation applies to the whole group.
+	// The member changes identity providers send, such as Okta's filtered removes and OneLogin's value-list removes,
+	// name the members they change, and apply without reading the group's other members. Any other operation applies
+	// to the whole group.
 	if patch, ok := planGroupPatch(id, ops); ok {
 		err = h.gateway.PatchSCIMGroup(r.Context(), r.conn.SCIMConnection, id, patch)
 	} else {
@@ -715,7 +730,11 @@ func toError(err error) *Error {
 		return badRequest(scimTypeInvalidValue, "%s", e.Message)
 	}
 	if e, ok := errors.AsType[*gclient.SCIMMutabilityError](err); ok {
-		return badRequest(scimTypeMutability, "%s", e.Message)
+		mutability := badRequest(scimTypeMutability, "%s", e.Message)
+		if e.Attribute == "externalId" {
+			mutability.hint = hintExternalIDChanged
+		}
+		return mutability
 	}
 	if e, ok := errors.AsType[*types2.ErrHTTP](err); ok && e.Code < http.StatusInternalServerError {
 		// Such as the user limit, which refuses a new user with 403.
@@ -728,6 +747,7 @@ func toError(err error) *Error {
 		return &Error{
 			Status: http.StatusServiceUnavailable,
 			Detail: "the request took too long; retry it",
+			hint:   hintRetry,
 		}
 	}
 
@@ -870,11 +890,15 @@ func unavailable(w http.ResponseWriter, detail string) {
 	writeError(w, &Error{
 		Status: http.StatusServiceUnavailable,
 		Detail: detail,
+		hint:   hintRetry,
 	})
 }
 
+// writeError writes a SCIM error response. Every error response of the SCIM handler is written here, so this is where
+// an error gets the hint of the connection's adapter.
 func writeError(w http.ResponseWriter, err *Error) {
 	if rec, ok := w.(*statusRecorder); ok {
+		err = err.withHints(rec.hints)
 		rec.err = err
 	}
 	if err.Status == http.StatusUnauthorized {

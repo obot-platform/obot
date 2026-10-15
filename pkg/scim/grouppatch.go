@@ -13,10 +13,10 @@ type memberChange struct {
 }
 
 // planGroupPatch turns a PATCH of the group with SCIM ID groupID into a gclient.SCIMGroupPatch when every operation is
-// one that Okta sends: a rename, or an add, a filtered remove, or a replacement of members. Applying such a patch reads
-// and writes only the members it names, where applyPatch needs every member of the group. It reports false for any
-// other operation, and for any value that fails validation, so that applyPatch handles the request and reports the
-// failure.
+// a rename, or an add, a remove, or a replacement of members, as identity providers send them: a remove names its
+// members in a filter, as Okta sends it, or in a value list, as OneLogin sends it. Applying such a patch reads and
+// writes only the members it names, where applyPatch needs every member of the group. It reports false for any other
+// operation, and for any value that fails validation, so that applyPatch handles the request and reports the failure.
 func planGroupPatch(groupID string, ops []patchOperation) (gclient.SCIMGroupPatch, bool) {
 	var (
 		patch    gclient.SCIMGroupPatch
@@ -80,6 +80,16 @@ func planGroupPatch(groupID string, ops []patchOperation) (gclient.SCIMGroupPatc
 				return gclient.SCIMGroupPatch{}, false
 			}
 			change(id, false)
+		case strings.EqualFold(path.Attr.Name, "members") && path.Filter == nil && op.Op == patchRemove:
+			// A remove without a value removes every member, and so does a null one; both are left to applyPatch. An
+			// empty list removes none, so it changes nothing here, where applyPatch would rewrite the whole group.
+			ids, ok := patchMemberIDs(op.Value)
+			if !ok {
+				return gclient.SCIMGroupPatch{}, false
+			}
+			for _, id := range ids {
+				change(id, false)
+			}
 		default:
 			return gclient.SCIMGroupPatch{}, false
 		}
