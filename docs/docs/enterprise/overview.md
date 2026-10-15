@@ -126,20 +126,6 @@ The **License** page in the admin UI shows:
 The same information is available from the API at `GET /api/license`, and `POST /api/license` runs a manual check.
 `GET /api/version` also reports `hasValidLicense`, `userLimit`, `deviceLimit`, and any `licenseEntitlementViolations`.
 
-### Logs
-
-Obot logs each license check in the server logs:
-
-| Message | Level | Meaning |
-|---|---|---|
-| `license provider initialized` | Info | Obot started with a license, and lists its entitlements |
-| `initial license refresh failed` | Warn | The check at startup failed. Obot started anyway. |
-| `license update finished` | Info | A scheduled check completed, and lists the entitlements now in effect |
-| `license update failed` | Warn | A scheduled check failed |
-| `license check failed` | Error | The license service couldn't be reached. `usingSavedEntitlements=true` means the last accepted entitlements are still in effect. |
-| `license rejected` | Warn | The license service rejected the license, and gives the reason |
-| `license validation failed` | Warn | The license service found the license not valid, and gives a `code` and `detail` |
-
 ### Recovering
 
 Once the license service is reachable again, or once the license has been renewed, select **Recheck License** on the
