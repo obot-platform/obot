@@ -99,7 +99,7 @@ Docker, or the cluster's nodes and pods when it runs them on Kubernetes. Both ru
 |---|---|---|---|
 | `ghcr.io` | MCP server base images (`ghcr.io/obot-platform/mcp-images/*`) | Each time an MCP server starts | Mirror the images and set `OBOT_SERVER_MCPBASE_IMAGE`, `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE`, and `OBOT_SERVER_MCPOPEN_APIIMAGE`. See [Server configuration](../configuration/server-configuration.md). |
 | The registry of each containerized MCP server's image | The MCP server's image | Each time the MCP server starts | Use images from a registry you can reach |
-| `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org` | Packages for `npx` and `uvx` MCP servers, downloaded by the MCP server container | Each time one of those MCP servers starts | Configure an internal registry through the MCP server's environment, for example `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, or use containerized MCP servers |
+| `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org` | Packages for `npx` and `uvx` MCP servers, downloaded by the MCP server container | Each time one of those MCP servers starts | Set a registry env var on each `npx` or `uvx` server, for example a static `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL` value. Obot has no global setting for this. Or use containerized MCP servers with images in your registry. |
 | Whatever each MCP server calls | The MCP server's own work, such as a SaaS API | While the MCP server runs | Depends on the MCP server |
 
 If an MCP server's image or packages can't be downloaded, that MCP server doesn't start. Other MCP servers and the rest
@@ -184,8 +184,8 @@ To run Obot without internet access:
    `OBOT_SERVER_MODEL_PROXY_URL=""`.
 4. Mirror the MCP base images and set the image variables. With the Docker runtime, also pre-pull `alpine:latest` on
    the Docker host.
-5. Use containerized MCP servers with images in your registry, or configure `npx` and `uvx` servers to use internal
-   package registries.
+5. Use containerized MCP servers with images in your registry, or set a registry env var, such as
+   `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, on each `npx` and `uvx` server.
 6. Use an auth provider and model provider that you can reach.
 
 Setting a URL variable to an empty string doesn't turn the feature off, except for `OBOT_SERVER_MODEL_PROXY_URL`: Obot
