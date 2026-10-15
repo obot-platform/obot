@@ -3,9 +3,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -173,16 +175,20 @@ func migrateEverythingAccessControlRuleAdminGroup(ctx context.Context, client kc
 }
 
 func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client) error {
-	profileNames := []string{"acr1-everything", "Everything"}
-	var rule v1.AccessControlRule
-	if err := client.Get(ctx, kclient.ObjectKey{
-		Namespace: system.DefaultNamespace,
-		Name:      "acr1-everything",
-	}, &rule); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get everything access control rule: %w", err)
+	var rules v1.AccessControlRuleList
+	if err := client.List(ctx, &rules, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return fmt.Errorf("failed to list access control rules: %w", err)
 	}
-	if rule.Spec.MCPCatalogID == system.DefaultCatalog && rule.Spec.PowerUserWorkspaceID == "" && rule.Spec.Manifest.DisplayName != "" {
-		profileNames = append(profileNames, rule.Spec.Manifest.DisplayName)
+
+	var rule *v1.AccessControlRule
+	for i := range rules.Items {
+		if rules.Items[i].Name == "acr1-everything" {
+			rule = &rules.Items[i]
+			break
+		}
+	}
+	if rule == nil || rule.Spec.MCPCatalogID != system.DefaultCatalog || rule.Spec.PowerUserWorkspaceID != "" {
+		return nil
 	}
 
 	var vmcps v1.VMCPList
@@ -195,21 +201,58 @@ func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client
 		if vmcp.Spec.LegacySlug == "" || vmcp.Spec.UserID != "" {
 			continue
 		}
+		// Workspace migrations reserve an owner profile even when components reference the default catalog.
+		if slices.ContainsFunc(vmcp.Spec.Manifest.Profiles, func(p types.VMCPProfile) bool { return p.Name == catalogmigration.OwnerProfileName }) {
+			continue
+		}
 
-		var changed bool
-		for j := range vmcp.Spec.Manifest.Profiles {
-			profile := &vmcp.Spec.Manifest.Profiles[j]
-			// shortcut: profiles retain no rule IDs; add provenance if renamed profiles must be repaired automatically.
-			if !profile.Permissions.AllowAllComponents || !slices.Contains(profileNames, profile.Name) {
+		var source v1.MCPServerCatalogEntry
+		err := client.Get(ctx, kclient.ObjectKey{Namespace: vmcp.Namespace, Name: vmcp.Spec.LegacySlug}, &source)
+		if err == nil {
+			if source.Spec.MCPCatalogName != system.DefaultCatalog || source.Spec.PowerUserWorkspaceID != "" {
 				continue
 			}
+		} else if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get migrated source %s: %w", vmcp.Spec.LegacySlug, err)
+		} else if len(vmcp.Spec.Manifest.Components) == 0 || slices.ContainsFunc(vmcp.Spec.Manifest.Components, func(c types.VMCPComponent) bool { return c.MCPCatalogID != system.DefaultCatalog }) {
+			continue
+		}
 
-			for k := range profile.Subjects {
-				subject := &profile.Subjects[k]
-				if subject.Type == types.SubjectTypeGroup && subject.ID == types.GroupAdmin {
-					subject.Type = types.SubjectTypeObotGroup
-					changed = true
-				}
+		profileIndex := -1
+		for j, profile := range vmcp.Spec.Manifest.Profiles {
+			matches := false
+			// Replay the allocator against preceding profiles, including its numeric collision fallbacks.
+			for _, displayName := range []string{rule.Spec.Manifest.DisplayName, "Everything", ""} {
+				candidate := *rule.DeepCopy()
+				candidate.Spec.Manifest.DisplayName = displayName
+				matches = matches || migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], candidate, vmcp.Spec.LegacySlug)
+			}
+			if !matches {
+				continue
+			}
+			// shortcut: profiles retain no rule IDs; preserve ambiguous grants until migrations persist provenance.
+			if slices.ContainsFunc(rules.Items, func(other v1.AccessControlRule) bool {
+				return other.Name != rule.Name && migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], other, vmcp.Spec.LegacySlug)
+			}) {
+				continue
+			}
+			if profileIndex != -1 {
+				profileIndex = -1
+				break
+			}
+			profileIndex = j
+		}
+		if profileIndex == -1 {
+			continue
+		}
+
+		var changed bool
+		profile := &vmcp.Spec.Manifest.Profiles[profileIndex]
+		for k := range profile.Subjects {
+			subject := &profile.Subjects[k]
+			if subject.Type == types.SubjectTypeGroup && subject.ID == types.GroupAdmin {
+				subject.Type = types.SubjectTypeObotGroup
+				changed = true
 			}
 		}
 		if changed {
@@ -220,6 +263,31 @@ func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client
 	}
 
 	return nil
+}
+
+func migratedRuleProfileMatches(profile types.VMCPProfile, preceding []types.VMCPProfile, rule v1.AccessControlRule, source string) bool {
+	if !slices.ContainsFunc(rule.Spec.Manifest.Resources, func(r types.Resource) bool {
+		return (r.Type == types.ResourceTypeSelector && r.ID == "*") ||
+			((r.Type == types.ResourceTypeMCPServer || r.Type == types.ResourceTypeMCPServerCatalogEntry) && r.ID == source)
+	}) {
+		return false
+	}
+
+	profiles := catalogmigration.AppendRuleProfile(slices.Clone(preceding), rule)
+	if len(profiles) == len(preceding) {
+		return false
+	}
+	expected := profiles[len(preceding)]
+	return profile.Name == expected.Name && reflect.DeepEqual(profile.Permissions, expected.Permissions) &&
+		slices.EqualFunc(profile.Subjects, expected.Subjects, func(a, b types.Subject) bool {
+			if a.Type == types.SubjectTypeGroup && a.ID == types.GroupAdmin {
+				a.Type = types.SubjectTypeObotGroup
+			}
+			if b.Type == types.SubjectTypeGroup && b.ID == types.GroupAdmin {
+				b.Type = types.SubjectTypeObotGroup
+			}
+			return a == b
+		})
 }
 
 func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) error {

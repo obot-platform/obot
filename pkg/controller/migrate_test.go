@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -265,70 +266,114 @@ func TestMigrateVMCPDefaultAdminGroups(t *testing.T) {
 
 func TestMigrateVMCPEverythingAdminGroups(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		missingRule   bool
-		catalog       string
-		workspace     string
-		displayName   string
-		repairRenamed bool
+		name        string
+		profileName string
+		displayName string
+		ruleCatalog string
+		workspace   string
+		missingRule bool
+		ambiguous   bool
+		multiple    bool
+		unchanged   bool
 	}{
 		{
-			name:          "retained rule display name",
-			catalog:       system.DefaultCatalog,
-			displayName:   "Administrators",
-			repairRenamed: true,
+			name:        "retained display name",
+			profileName: "Administrators",
+			displayName: "Administrators",
 		},
 		{
-			name:        "deleted rule keeps historical names",
+			name:        "historical display name",
+			profileName: "Everything",
+			displayName: "Administrators",
+		},
+		{
+			name:        "empty display name",
+			profileName: "acr1-everything",
+		},
+		{
+			name:        "deleted rule",
+			profileName: "Everything",
 			missingRule: true,
+			unchanged:   true,
 		},
 		{
-			name:    "empty display name",
-			catalog: system.DefaultCatalog,
+			name:        "unrelated prefix",
+			profileName: "acr1-everything-custom",
+			unchanged:   true,
 		},
 		{
-			name:        "other catalog rule",
-			catalog:     "other",
-			displayName: "Administrators",
+			name:        "unallocated suffix",
+			profileName: "acr1-everything-2",
+			unchanged:   true,
 		},
 		{
-			name:        "workspace rule",
-			catalog:     system.DefaultCatalog,
-			workspace:   "workspace",
-			displayName: "Administrators",
+			name:        "ambiguous retained rule",
+			profileName: "Everything",
+			ambiguous:   true,
+			unchanged:   true,
+		},
+		{
+			name:        "multiple possible Everything profiles",
+			profileName: "Everything",
+			multiple:    true,
+			unchanged:   true,
+		},
+		{
+			name:        "Everything rule in another catalog",
+			profileName: "Everything",
+			ruleCatalog: "other",
+			unchanged:   true,
+		},
+		{
+			name:        "Everything rule in a workspace",
+			profileName: "Everything",
+			workspace:   "puw1workspace",
+			unchanged:   true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			subjects := []types.Subject{{Type: types.SubjectTypeGroup, ID: types.GroupAdmin}}
+			if !tc.missingRule {
+				subjects = append(subjects,
+					types.Subject{Type: types.SubjectTypeGroup, ID: "engineering"},
+					types.Subject{Type: types.SubjectTypeUser, ID: types.GroupAdmin},
+				)
+			}
 			rule := &v1.AccessControlRule{
 				Name:      "acr1-everything",
 				Namespace: system.DefaultNamespace,
 				Spec: v1.AccessControlRuleSpec{
-					MCPCatalogID:         tc.catalog,
-					PowerUserWorkspaceID: tc.workspace,
+					MCPCatalogID: system.DefaultCatalog,
 					Manifest: types.AccessControlRuleManifest{
 						DisplayName: tc.displayName,
+						Subjects:    subjects,
+						Resources:   []types.Resource{{Type: types.ResourceTypeSelector, ID: "*"}},
 					},
 				},
 			}
+			if tc.ruleCatalog != "" {
+				rule.Spec.MCPCatalogID = tc.ruleCatalog
+			}
+			rule.Spec.PowerUserWorkspaceID = tc.workspace
 			vmcp := &v1.VMCP{
 				Name:      "vmcp1migrated",
 				Namespace: system.DefaultNamespace,
 				Spec: v1.VMCPSpec{
 					LegacySlug: "legacy-entry",
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{{ID: "component", MCPCatalogID: system.DefaultCatalog}},
+						Profiles: []types.VMCPProfile{{
+							Name:        tc.profileName,
+							Subjects:    subjects,
+							Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+						}},
+					},
 				},
 			}
-			for _, name := range []string{"Everything", "acr1-everything", "Administrators", "Other", "Everything-custom", "default", ""} {
-				vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, types.VMCPProfile{
-					Name: name,
-					Subjects: []types.Subject{
-						{Type: types.SubjectTypeGroup, ID: types.GroupAdmin},
-						{Type: types.SubjectTypeGroup, ID: "engineering"},
-						{Type: types.SubjectTypeUser, ID: types.GroupAdmin},
-						{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin},
-						{Type: types.SubjectTypeSelector, ID: "*"},
-					},
-					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-				})
+			if tc.multiple {
+				another := *vmcp.Spec.Manifest.Profiles[0].DeepCopy()
+				another.Name = "acr1-everything"
+				vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, another)
 			}
 			restricted := *vmcp.Spec.Manifest.Profiles[0].DeepCopy()
 			restricted.Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"echo"}}}}
@@ -342,16 +387,54 @@ func TestMigrateVMCPEverythingAdminGroups(t *testing.T) {
 			personal.Spec.UserID = "1"
 			otherNamespace := vmcp.DeepCopy()
 			otherNamespace.Namespace = "other"
-			objects := []kclient.Object{vmcp, created, personal, otherNamespace}
+			otherCatalog := vmcp.DeepCopy()
+			otherCatalog.Name = "vmcp1othercatalog"
+			otherCatalog.Spec.Manifest.Components[0].MCPCatalogID = "other"
+			unknownSource := vmcp.DeepCopy()
+			unknownSource.Name = "vmcp1unknownsource"
+			unknownSource.Spec.Manifest.Components = nil
+			otherSubjects := vmcp.DeepCopy()
+			otherSubjects.Name = "vmcp1othersubjects"
+			for i := range otherSubjects.Spec.Manifest.Profiles {
+				profile := &otherSubjects.Spec.Manifest.Profiles[i]
+				profile.Subjects = append(profile.Subjects, types.Subject{Type: types.SubjectTypeUser, ID: "99"})
+			}
+			foreignSource := vmcp.DeepCopy()
+			foreignSource.Name = "vmcp1foreignsource"
+			foreignSource.Spec.LegacySlug = "foreign-entry"
+			workspaceSource := vmcp.DeepCopy()
+			workspaceSource.Name = "vmcp1workspacesource"
+			workspaceSource.Spec.LegacySlug = "workspace-entry"
+			objects := []kclient.Object{vmcp, created, personal, otherNamespace, otherCatalog, unknownSource, otherSubjects, foreignSource, workspaceSource,
+				&v1.MCPServerCatalogEntry{
+					Name:      foreignSource.Spec.LegacySlug,
+					Namespace: system.DefaultNamespace,
+					Spec: v1.MCPServerCatalogEntrySpec{
+						MCPCatalogName: "other",
+					},
+				},
+				&v1.MCPServerCatalogEntry{
+					Name:      workspaceSource.Spec.LegacySlug,
+					Namespace: system.DefaultNamespace,
+					Spec: v1.MCPServerCatalogEntrySpec{
+						MCPCatalogName:       system.DefaultCatalog,
+						PowerUserWorkspaceID: "puw1workspace",
+					},
+				},
+			}
 			if !tc.missingRule {
 				objects = append(objects, rule)
 			}
+			if tc.ambiguous {
+				other := rule.DeepCopy()
+				other.Name = "acr1-unrelated"
+				other.Spec.Manifest.DisplayName = tc.profileName
+				objects = append(objects, other)
+			}
 			client := newFakeClient(t, objects...)
 			want := vmcp.DeepCopy()
-			want.Spec.Manifest.Profiles[0].Subjects[0].Type = types.SubjectTypeObotGroup
-			want.Spec.Manifest.Profiles[1].Subjects[0].Type = types.SubjectTypeObotGroup
-			if tc.repairRenamed {
-				want.Spec.Manifest.Profiles[2].Subjects[0].Type = types.SubjectTypeObotGroup
+			if !tc.unchanged {
+				want.Spec.Manifest.Profiles[0].Subjects[0].Type = types.SubjectTypeObotGroup
 			}
 
 			require.NoError(t, migrateVMCPEverythingAdminGroups(t.Context(), client))
@@ -363,7 +446,7 @@ func TestMigrateVMCPEverythingAdminGroups(t *testing.T) {
 			require.NoError(t, migrateVMCPEverythingAdminGroups(t.Context(), client))
 			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &got))
 			assert.Equal(t, version, got.ResourceVersion, "rerunning must not write an unchanged vMCP")
-			for _, unchanged := range []*v1.VMCP{created, personal, otherNamespace} {
+			for _, unchanged := range []*v1.VMCP{created, personal, otherNamespace, otherCatalog, unknownSource, otherSubjects, foreignSource, workspaceSource} {
 				require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unchanged), &got))
 				assert.Equal(t, unchanged.Spec, got.Spec)
 			}
@@ -371,13 +454,116 @@ func TestMigrateVMCPEverythingAdminGroups(t *testing.T) {
 	}
 }
 
-func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
-	for _, alreadyMigrated := range []bool{false, true} {
-		name := "new upgrade"
-		if alreadyMigrated {
-			name = "previous migrations completed"
+func TestMigrateVMCPEverythingAdminGroupsWorkspace(t *testing.T) {
+	for _, defaultCatalogComponents := range []bool{false, true} {
+		name := "workspace shared server"
+		if defaultCatalogComponents {
+			name = "workspace owner with default catalog components"
 		}
 		t.Run(name, func(t *testing.T) {
+			workspace := &v1.PowerUserWorkspace{
+				Name:      "puw1workspace",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.PowerUserWorkspaceSpec{
+					UserID: "1",
+				},
+			}
+			server := &v1.MCPServer{
+				Name:      "ms1workspace",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.MCPServerSpec{
+					PowerUserWorkspaceID: workspace.Name,
+					UserID:               "1",
+					Manifest: types.MCPServerManifest{
+						Name:         "Workspace server",
+						Runtime:      types.RuntimeRemote,
+						RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
+					},
+				},
+			}
+			rule := &v1.AccessControlRule{
+				Name:      "acr1workspace",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.AccessControlRuleSpec{
+					PowerUserWorkspaceID: workspace.Name,
+					Manifest: types.AccessControlRuleManifest{
+						DisplayName: "Everything",
+						Subjects:    []types.Subject{{Type: types.SubjectTypeGroup, ID: types.GroupAdmin}},
+						Resources:   []types.Resource{{Type: types.ResourceTypeSelector, ID: "*"}},
+					},
+				},
+			}
+			defaultRule := rule.DeepCopy()
+			defaultRule.Name = "acr1-everything"
+			defaultRule.Spec.PowerUserWorkspaceID = ""
+			defaultRule.Spec.MCPCatalogID = system.DefaultCatalog
+			client := newFakeClient(t, workspace, server, rule, defaultRule)
+			gatewayClient := newTestGatewayClient(t)
+			t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
+			require.NoError(t, catalogmigration.New(gatewayClient, nil).MigrateAll(t.Context(), client))
+			require.NoError(t, catalogmigration.Cleanup(t.Context(), client))
+			var targets v1.VMCPList
+			require.NoError(t, client.List(t.Context(), &targets))
+			require.Len(t, targets.Items, 1)
+			target := &targets.Items[0]
+			require.NotEmpty(t, target.Spec.LegacySlug)
+			require.Empty(t, target.Spec.UserID)
+			require.Equal(t, "1", target.Spec.CreatorUserID)
+			if defaultCatalogComponents {
+				target.Spec.Manifest.Components[0].MCPCatalogID = system.DefaultCatalog
+				require.NoError(t, client.Update(t.Context(), target))
+			}
+			before := target.DeepCopy()
+			providerMember := &kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {types.GroupAdmin}}}
+			obotAdmin := &kuser.DefaultInfo{UID: "3", Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+			require.True(t, authz.UserCanConnectVMCP(providerMember, target))
+			require.False(t, authz.UserCanConnectVMCP(obotAdmin, target))
+
+			require.NoError(t, migrateVMCPEverythingAdminGroups(t.Context(), client))
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(target), target))
+			assert.Equal(t, before.Spec, target.Spec)
+			assert.Equal(t, before.ResourceVersion, target.ResourceVersion)
+			assert.True(t, authz.UserCanConnectVMCP(providerMember, target), "workspace IdP grant must be preserved")
+			assert.False(t, authz.UserCanConnectVMCP(obotAdmin, target), "unrelated Obot admins must not gain access")
+		})
+	}
+}
+
+func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
+	for _, tc := range []struct {
+		alreadyMigrated bool
+		collisions      int
+	}{
+		{
+			alreadyMigrated: false,
+			collisions:      0,
+		},
+		{
+			alreadyMigrated: true,
+			collisions:      0,
+		},
+		{
+			alreadyMigrated: false,
+			collisions:      2,
+		},
+		{
+			alreadyMigrated: true,
+			collisions:      2,
+		},
+		{
+			alreadyMigrated: false,
+			collisions:      3,
+		},
+		{
+			alreadyMigrated: true,
+			collisions:      3,
+		},
+	} {
+		name := "new upgrade"
+		if tc.alreadyMigrated {
+			name = "previous migrations completed"
+		}
+		t.Run(fmt.Sprintf("%s/%d collisions", name, tc.collisions), func(t *testing.T) {
 			ctx := t.Context()
 			rule := &v1.AccessControlRule{
 				Name:      "acr1-everything",
@@ -416,7 +602,21 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 					},
 				},
 			}
-			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(rule, entry, server).
+			objects := []kclient.Object{rule, entry, server}
+			var occupied []types.VMCPProfile
+			for i, displayName := range []string{"Everything", "acr1-everything", "acr1-everything-2"}[:tc.collisions] {
+				other := rule.DeepCopy()
+				other.Name = fmt.Sprintf("acr1-%d", i)
+				other.Spec.Manifest.DisplayName = displayName
+				other.Spec.Manifest.Subjects = []types.Subject{{Type: types.SubjectTypeUser, ID: "99"}}
+				objects = append(objects, other)
+				occupied = catalogmigration.AppendRuleProfile(occupied, *other)
+			}
+			expectedProfiles := catalogmigration.AppendRuleProfile(occupied, *rule)
+			if tc.collisions > 0 {
+				require.Equal(t, fmt.Sprintf("acr1-everything-%d", tc.collisions), expectedProfiles[tc.collisions].Name)
+			}
+			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(objects...).
 				WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string {
 					return []string{obj.(*v1.VMCP).Spec.LegacySlug}
 				}).
@@ -450,7 +650,7 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 				require.NoError(t, gatewayClient.MigrateKinmIfNotRun(ctx, migration.name, migration.run))
 			}
 			require.NoError(t, catalogmigration.Cleanup(ctx, client))
-			if alreadyMigrated {
+			if tc.alreadyMigrated {
 				for _, migration := range migrations {
 					require.NoError(t, gatewayClient.MigrateKinmIfNotRun(ctx, migration.name, func() error {
 						t.Fatal("completed migrations must not run on restart")
@@ -465,6 +665,7 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 			require.NoError(t, client.List(ctx, &instances))
 			require.Len(t, vmcps.Items, 1)
 			require.Len(t, instances.Items, 1)
+			require.Equal(t, expectedProfiles, vmcps.Items[0].Spec.Manifest.Profiles)
 			admin := &kuser.DefaultInfo{
 				UID:    "1",
 				Groups: []string{types.GroupAdmin},
@@ -482,6 +683,10 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 				require.NoError(t, err)
 				assert.True(t, allowed, "admin must retain access through %s", id)
 			}
+			var repaired v1.VMCP
+			require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(&vmcps.Items[0]), &repaired))
+			expectedProfiles[tc.collisions].Subjects[0].Type = types.SubjectTypeObotGroup
+			assert.Equal(t, expectedProfiles, repaired.Spec.Manifest.Profiles)
 			var instance v1.VMCPInstance
 			require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(&instances.Items[0]), &instance))
 			assert.Equal(t, instances.Items[0].Spec, instance.Spec)
