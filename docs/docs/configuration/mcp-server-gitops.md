@@ -177,6 +177,8 @@ components:
     mcpServerCatalogEntryKey: search
 ```
 
+With `toolSearch: true`, clients discover tools through `search_tools` and invoke them through `call_tool`. See [Tool search](../mcp-gateway/server-types.md#tool-search) for client behavior and access controls.
+
 Each component's `mcpServerCatalogEntryKey` names an entry's `entryKey` in the same source. To refer to an entry in another source of the same catalog, use `sourceID::entryKey`, where `sourceID` is the source URL without `http://` or `https://` and trailing slashes. Catalog entries used as vMCP components therefore need an `entryKey`. A vMCP can be in its own file or in a YAML/JSON list alongside entries.
 
 For example, to reference `entryKey: search` from the catalog source `https://github.com/example/shared-catalog/`:
@@ -538,6 +540,8 @@ remoteConfig:
 
 Use the `openapi` runtime to expose an HTTP API as an MCP server. These examples use [Frankfurter](https://frankfurter.dev/), a public exchange-rate API that requires no authentication.
 
+To import a schema through the admin UI, follow [OpenAPI: Import an HTTP API](../concepts/mcp-hosting.md#openapi-import-an-http-api).
+
 #### Basic example
 
 This exposes the API's operations as MCP tools:
@@ -578,7 +582,7 @@ Instead of `source.url`, use `source.content: |` with an inline JSON or YAML sch
 
 If importing or validating a schema fails, the catalog reports a sync error and keeps its last good entry. Schema download URLs and parsed API target URLs use the same localhost, private-IP, and link-local restrictions configured for remote MCP servers. In production, schema URLs and API targets must use HTTPS. Schema URLs cannot include authentication or redirects, and catalog access tokens are never forwarded to them. Schemas are limited to 1 MiB and must be self-contained, without external references.
 
-The operator must configure the hosted OpenAPI wrapper image before deployment. The schema-import UI and source-aware CLI validation are separate from this sync support.
+Obot supplies a default hosted OpenAPI wrapper image, so no custom MCP server image is needed. Running servers use the imported snapshot; synchronizing the catalog source imports the schema again and retains the last good entry if import or validation fails.
 
 ### Runtime Configuration
 

@@ -107,3 +107,18 @@ Configuration determines whether a component can share a deployment:
 Obot makes this decision independently for every component. One vMCP can therefore use shared and per-user component deployments at the same time.
 
 Existing legacy single-user and multi-user connections remain available during the [vMCP transition](./publish.md#virtual-mcps-gitops-and-migration). Use vMCPs for new endpoints. Multiple components replace the former composite-server setup; `runtime: composite` is no longer supported in [catalog GitOps](../configuration/mcp-server-gitops.md).
+
+## Tool search
+
+The **Tool search** setting is off by default, so clients list and call the selected tools directly. Enable it in the vMCP's create or edit dialog to expose two tools instead of the full set:
+
+| Tool | What the client does |
+|---|---|
+| `search_tools` | Searches available tools by name, description, and input parameters. |
+| `call_tool` | Executes a tool discovered by `search_tools`. |
+
+For example, the client can search for “find a customer by email,” then execute the matching tool with an email argument.
+
+Tool search reduces the tool definitions in the model's context, which can help when a vMCP has many tools. Leave it off for a small, precise set of tools so the model can use them directly. Clients using tool search must support the search-then-call workflow.
+
+The same component, profile, and user selections determine which tools can be found and called. Enabling tool search does not grant additional access. For a [Git-managed vMCP](../configuration/mcp-server-gitops.md#vmcp-definitions), set top-level `toolSearch: true` in its definition.

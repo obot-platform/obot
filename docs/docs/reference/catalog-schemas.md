@@ -13,15 +13,8 @@ Use these references when authoring MCP server and vMCP definitions in Git. A ca
 | vMCP components, profiles, and fixed configuration | [vMCP definitions](../configuration/mcp-server-gitops.md#vmcp-definitions) |
 | Registry contribution example | [MCP Registry API](../functionality/mcp-registry-api.md#server-entry-format) |
 | Per-server domain egress settings | [Egress YAML examples](../configuration/mcp-server-egress-control.md#yaml-configuration-examples) |
+| OpenAPI schema sources and credential configuration | [OpenAPI GitOps examples](../configuration/mcp-server-gitops.md#openapi-schemas) and [import requirements](../concepts/mcp-hosting.md#openapi-import-an-http-api) |
 
 Validate changes with `obot mcp validate-catalog` before synchronizing a source. The validator for the installed Obot version is authoritative for supported fields. `runtime: composite` is not accepted; build endpoints from catalog entries using [Create vMCP](../mcp-gateway/server-types.md).
 
 For existing Git-synced composites, use the [migration command](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) to generate matching vMCP definitions while retaining component IDs and connections. See [Git Catalogs](../configuration/mcp-server-gitops.md) for source setup and validation commands.
-
-## OpenAPI webhook declarations
-
-OpenAPI imports accept webhook declarations and retain them in the stored schema. The OpenAPI runtime generates MCP tools from ordinary API operations under `paths`; it does not receive webhook events. API endpoints for creating, listing, or deleting webhook registrations remain available as tools when defined under `paths`.
-
-## OpenAPI credential headers
-
-Every configured OpenAPI credential header must have `required: true`, including static and per-user credential definitions. The wrapper requires these credentials for every tool call, regardless of an operation's OpenAPI security requirements. Credential values can be supplied later when configuring the server or user connection. Ordinary API header parameters are separate from these credential definitions.

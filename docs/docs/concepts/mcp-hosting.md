@@ -11,14 +11,15 @@ Obot deploys and manages hosted MCP server workloads on Kubernetes or Docker. Fo
 - **[Node.js (npx)](./mcp-hosting.md#mcp-servers-npx-nodetypescript-based-mcp-servers)**: Run npm-packaged MCP servers via STDIO
 - **[Python (uvx)](./mcp-hosting.md#mcp-servers-uvx-for-python-based-packages)**: Run PyPI-packaged MCP servers via STDIO
 - **[Containerized](./mcp-hosting.md#mcp-servers-containerized-for-docker-based-deployments)**: Run OCI container images with Streamable HTTP (recommended for production)
+- **[OpenAPI](./mcp-hosting.md#openapi-import-an-http-api)**: Import an API schema and let Obot host an MCP server for its operations
 
 ## Adding a server {#mcp-servers-adding-a-server}
 
 Open **MCP Servers**, then select **Add MCP Server**.
 
-Choose **Hosted Server**, then select its runtime and launch settings. Define the configuration fields, save the catalog entry, then add it to a vMCP to choose how the values are supplied.
+Choose **Hosted Server**, then select its runtime and launch settings. To expose an HTTP API from its schema, administrators can choose **OpenAPI** instead. Define the configuration fields, save the catalog entry, then add it to a vMCP to choose how the values are supplied.
 
-![Catalog entry choices: Hosted Server and Remote Server](/img/add-mcp-hosted-or-remote.png)
+![Hosted Server and Remote Server choices in the catalog entry selector](/img/add-mcp-hosted-or-remote.png)
 
 ## Basic configuration {#mcp-servers-basic-configuration}
 
@@ -106,6 +107,29 @@ Select the container runtime and provide:
 - **Command and arguments**: Any overrides needed to start the server.
 
 Declare environment variables and other required configuration fields, then choose how unresolved values are supplied when adding the entry to a vMCP.
+
+### OpenAPI: Import an HTTP API
+
+Use **OpenAPI** when you have an HTTP API and an OpenAPI schema, without writing a separate MCP server. Obot runs a hosted wrapper on Docker or Kubernetes that generates tools from the schema's API operations under `paths`.
+
+#### Import and configure
+
+1. As an administrator, open **MCP Servers**, select **Add MCP Server**, then **OpenAPI**.
+2. Choose **URL** and enter the schema URL, or choose **Upload file** and select a JSON or YAML file. The schema must be no larger than **1 MiB (1,048,576 bytes)** for either import method. Select **Import schema**.
+3. Review the suggested name, description, and credential headers. Importing suggests configuration fields; it does not obtain API credentials or test API calls.
+4. Review **API request base URL**, which controls where tool calls are sent. Leave it blank to use the first usable absolute HTTP(S) URL in the schema's top-level `servers`. If the schema has no usable destination, or the destination fails validation, enter a valid override before saving.
+5. For an authenticated API, review the credential headers.
+6. Save the entry and [add it to a vMCP](../mcp-gateway/server-types.md).
+
+Supported credentials are header API keys and pre-issued bearer tokens. The runtime does not perform OAuth flows; OAuth declarations can be imported but do not create credential inputs. Query or cookie API keys and HTTP Basic authentication are unsupported.
+
+#### Schema requirements and updates
+
+Schemas must use OpenAPI 3.0.0–3.0.4 or 3.1.0–3.1.2, fit within 1 MiB, and be self-contained: external references are unsupported. Callbacks and referenced path items are also unsupported. Webhook declarations are retained, but the runtime does not receive webhook events.
+
+Schema URLs and API destinations must use HTTPS and pass Obot's configured localhost, private-IP, and link-local restrictions. Schema downloads do not follow redirects or receive API credentials. If a schema requires authentication to download, upload a self-contained copy instead.
+
+Running servers use a stored schema snapshot. Select **Replace schema** when editing an entry to import a replacement, then review and save the configuration. Replacing a schema preserves the entry's existing name, descriptions, and icon. Components in vMCPs managed in Obot need an explicit [catalog update](../mcp-gateway/publish.md#virtual-mcps-snapshots-and-updates) to adopt the changed entry. For Git-managed entries, change the schema source in Git and synchronize it; see [OpenAPI schemas in Git Catalogs](../configuration/mcp-server-gitops.md#openapi-schemas).
 
 ## Kubernetes Secret Bindings {#mcp-servers-kubernetes-secret-bindings}
 
