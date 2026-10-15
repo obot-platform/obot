@@ -26,12 +26,17 @@ To allow all of them, allow outbound HTTPS to:
 ### License validation
 
 - **Destination:** `https://api.keygen.sh`
+
 - **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
   configured.
 - **If it fails:** Obot keeps the entitlements from the last successful check. See
   [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
 - **To change or avoid it:** Required to use a license key. Air-gapped installations can't validate a key yet.
   Support for offline license key validation is coming soon.
+
+:::note
+A future release will validate licenses through a host on the `obot.ai` domain instead of `api.keygen.sh`.
+:::
 
 ### Update checks, registration, and product analytics
 
