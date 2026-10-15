@@ -152,7 +152,6 @@
 				<Select
 					id="openapi-source-type"
 					ariaLabelledby="openapi-source-type-label"
-					class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
 					classes={{ root: 'w-full' }}
 					options={[
 						{ id: 'url', label: m.mcps_openapi_source_url_option() },

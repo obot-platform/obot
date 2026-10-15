@@ -61,10 +61,10 @@
 </button>
 <div use:tooltipRef={{ disablePortal }} class="popover w-xs rounded-xs">
 	<Select
-		class="rounded-xs border border-transparent font-normal shadow-inner"
+		class="rounded-xs border border-transparent font-normal shadow-inner dark:bg-base-200 bg-base-100"
 		classes={{
 			root: 'flex grow',
-			option: 'font-normal dark:bg-base-300 bg-base-100'
+			option: 'font-normal dark:bg-base-200 bg-base-100'
 		}}
 		options={fields.map((f) => ({
 			label: getFieldLabel(f),

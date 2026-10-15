@@ -153,7 +153,6 @@
 											>{m.core_col_value()}</label
 										>
 										<Select
-											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 											classes={{
 												root: 'flex grow'
 											}}
@@ -398,7 +397,6 @@
 					>{m.mcps_catalog_remote_remote_restrict_connections()}</label
 				>
 				<Select
-					class="bg-base-100 dark:border-base-400 dark:bg-base-100 border border-transparent shadow-inner"
 					classes={{
 						root: 'flex grow'
 					}}
@@ -547,7 +545,6 @@
 					>
 					<Select
 						id="remote-tunnel"
-						class="bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 						options={tunnelOptions}
 						selected={remoteConfig.tunnelName}
 						placeholder={tunnelsLoading

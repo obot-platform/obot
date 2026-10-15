@@ -521,7 +521,6 @@
 						</div>
 						<Select
 							id="skill-source-credential-type"
-							class="bg-base-200"
 							options={repositoryCredentialOptions}
 							selected={editingSource.credentialType}
 							ariaLabelledby="skill-source-credential-label"
@@ -556,7 +555,6 @@
 						<div class="flex flex-col gap-1">
 							<Select
 								id="skill-source-git-credential"
-								class="bg-base-200"
 								options={gitCredentialOptions}
 								selected={editingSource.gitCredentialID}
 								searchPlaceholder=""

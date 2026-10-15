@@ -169,7 +169,6 @@
 			<p class="text-sm font-light">{m.platform_branding_example_selector()}</p>
 			<div class="flex grow">
 				<Select
-					class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 					classes={{
 						root: 'flex grow'
 					}}

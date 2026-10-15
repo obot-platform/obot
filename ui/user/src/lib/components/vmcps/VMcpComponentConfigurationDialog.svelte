@@ -349,7 +349,6 @@
 			{:else if draft.field.options?.length}
 				<Select
 					id={`fixed-${draft.field.key}`}
-					class="bg-base-200 border-base-300 dark:border-base-400 border"
 					options={configurationSelectOptions(draft.field.options)}
 					selected={draft.input.value}
 					placeholder={m.vmcps_select_a_value()}

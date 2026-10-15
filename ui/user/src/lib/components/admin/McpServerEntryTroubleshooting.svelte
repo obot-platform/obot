@@ -54,7 +54,6 @@
 					classes={{
 						root: 'w-full'
 					}}
-					class="bg-base-200 dark:bg-base-100"
 					options={deploymentOptions}
 					selected={selectedDebugOauthDeployment?.id}
 					onSelect={(option) => {

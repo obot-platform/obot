@@ -48,7 +48,18 @@ it('keeps import errors in the modal and allows retry', async () => {
 	);
 });
 
-it('ignores a pending response after cancelling', async () => {
+it('cancels when Escape closes the dialog', async () => {
+	const onCancel = vi.fn();
+	await render(OpenAPIImportDialog, {
+		onComplete: vi.fn(),
+		onCancel
+	});
+	await expect.element(page.getByRole('dialog')).toBeVisible();
+	await userEvent.keyboard('{Escape}');
+	await vi.waitFor(() => expect(onCancel).toHaveBeenCalledOnce());
+});
+
+it('ignores a pending response when the X button closes the dialog', async () => {
 	let finish!: () => void;
 	const pending = new Promise<void>((resolve) => {
 		finish = resolve;
@@ -76,15 +87,4 @@ it('ignores a pending response after cancelling', async () => {
 	finish();
 	await vi.waitFor(() => expect(responded).toHaveBeenCalledOnce());
 	expect(onComplete).not.toHaveBeenCalled();
-});
-
-it('cancels when Escape closes the dialog', async () => {
-	const onCancel = vi.fn();
-	await render(OpenAPIImportDialog, {
-		onComplete: vi.fn(),
-		onCancel
-	});
-	await expect.element(page.getByRole('dialog')).toBeVisible();
-	await userEvent.keyboard('{Escape}');
-	await vi.waitFor(() => expect(onCancel).toHaveBeenCalledOnce());
 });

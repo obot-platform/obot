@@ -872,10 +872,7 @@
 							<label class="text-sm font-medium" for={filterKey}>{title}</label>
 							<Select
 								id={filterKey}
-								class={twMerge(
-									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
-									isViewMode && 'text-[currentColor] disabled:opacity-100'
-								)}
+								class={twMerge(isViewMode && 'text-[currentColor] disabled:opacity-100')}
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-base-400 bg-transparent'

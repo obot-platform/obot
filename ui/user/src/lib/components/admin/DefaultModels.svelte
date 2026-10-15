@@ -199,7 +199,6 @@
 				<Select
 					id={modelAlias.alias}
 					classes={{ root: 'w-1/2' }}
-					class="bg-base-200 dark:bg-base-300 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 					options={activeModelOptions
 						.map((model) => ({
 							model,

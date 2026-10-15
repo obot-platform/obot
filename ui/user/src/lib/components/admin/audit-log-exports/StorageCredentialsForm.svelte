@@ -407,7 +407,6 @@
 						>
 						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Select
-								class="text-input-filled bg-base-200 dark:bg-base-100"
 								classes={{ root: 'w-full' }}
 								options={[
 									{ id: 's3', label: m.audit_usage_exports_amazon_s3() },

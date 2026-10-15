@@ -163,7 +163,6 @@
 					<div class="w-full">
 						<Select
 							id="banner-type-selector"
-							class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
 							selected={appNotification.banner.type}
 							onSelect={(selected) => {
 								appNotification.banner.type = selected.id as BannerType;

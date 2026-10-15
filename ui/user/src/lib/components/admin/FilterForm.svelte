@@ -630,7 +630,6 @@
 						<div class="w-full">
 							<Select
 								id={MCP_FILTERS_FIELD_IDS.runtimeSelector}
-								class="bg-base-200 dark:bg-base-200 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 								options={runtimeOptions}
 								bind:selected={runtimeTypeSelect}
 								onSelect={handleRuntimeChange}

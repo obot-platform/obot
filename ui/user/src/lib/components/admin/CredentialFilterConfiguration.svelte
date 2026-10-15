@@ -23,8 +23,6 @@
 		readonly = false
 	}: { config: MCPCatalogEntryFieldManifest[]; readonly?: boolean } = $props();
 	const actionOptions = credentialActions.map((id) => ({ id, label: actionLabels[id] }));
-	const selectClass =
-		'bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent';
 	let policy = $derived(readCredentialPolicy(config));
 	let error = $derived(validateCredentialPolicy(policy));
 	let picker = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -79,7 +77,6 @@
 				ariaLabelledby="credential-default-label"
 				ariaDescribedby="credential-default-help"
 				classes={{ root: 'min-w-0 col-start-1' }}
-				class={selectClass}
 				options={actionOptions}
 				selected={policy.defaultAction}
 				disabled={readonly}
@@ -131,7 +128,6 @@
 						id={`credential-override-${index}`}
 						ariaLabelledby={`credential-override-${index}-label`}
 						classes={{ root: 'min-w-0 flex-1' }}
-						class={selectClass}
 						options={actionOptions}
 						selected={override.action}
 						disabled={readonly || !!error}
@@ -224,7 +220,6 @@
 				id="credential-action"
 				ariaLabelledby="credential-action-label"
 				classes={{ root: 'w-full md:w-96' }}
-				class={selectClass}
 				options={actionOptions}
 				selected={action}
 				disabled={readonly}

@@ -66,7 +66,6 @@
 						>
 						<Select
 							id={`catalog-config-usage-${i}`}
-							class="dark:border-base-400 bg-base-100 border border-transparent"
 							classes={{ root: 'flex grow' }}
 							options={headersOnly
 								? usageOptions.filter((option) => option.id === 'header')

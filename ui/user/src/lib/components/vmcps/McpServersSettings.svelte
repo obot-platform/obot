@@ -21,8 +21,6 @@
 	let open = $state(false);
 	let categoryDraft = $state<string | number | undefined>('');
 
-	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
-
 	function addFilter(selected: string, id: string) {
 		const ids = parseSelectedFilterIds(selected);
 		if (ids.includes(id)) return selected;
@@ -94,7 +92,6 @@
 			placeholder={m.vmcps_filter_by_category()}
 			searchPlaceholder={m.vmcps_search_categories()}
 			ariaLabelledby={VMCP_IDS.FILTER_LABEL_ID}
-			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
 			onSelect={(option) => {
 				settings.filterBy = addFilter(settings.filterBy, String(option.id));

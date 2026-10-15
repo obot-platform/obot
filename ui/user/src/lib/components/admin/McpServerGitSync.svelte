@@ -256,7 +256,6 @@
 				</div>
 				<Select
 					id="catalog-source-credential-type"
-					class="bg-base-200"
 					options={repositoryCredentialOptions}
 					selected={editingSource.credentialType}
 					ariaLabelledby="catalog-source-credential-label"
@@ -292,7 +291,6 @@
 				<div class="mb-4 flex flex-col gap-1">
 					<Select
 						id="catalog-source-git-credential"
-						class="bg-base-200"
 						options={gitCredentialOptions}
 						selected={editingSource.gitCredentialID}
 						searchPlaceholder=""

@@ -32,7 +32,6 @@
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCancel: () => void;
@@ -770,7 +769,6 @@
 		{ id: '21', label: m.audit_usage_export_schedules_hour_9pm() }
 	];
 
-	const selectClasses = 'text-input-filled bg-base-200 dark:bg-base-100';
 	const selectRootClass = 'w-full md:max-w-xs';
 	const commonScheduleFilterKeys = new Set<string>(COMMON_FILTER_KEYS);
 	const mcpScheduleFilterKeys = new Set([
@@ -918,7 +916,6 @@
 			<div class="flex flex-wrap gap-4">
 				<Select
 					id="schedule-interval"
-					class={selectClasses}
 					classes={{ root: selectRootClass }}
 					options={[
 						{ id: 'hourly', label: m.audit_usage_export_schedules_hourly() },
@@ -938,7 +935,6 @@
 				{#if form.schedule.interval === 'hourly'}
 					<Select
 						id="schedule-minute"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_on_the_hour() },
@@ -956,7 +952,6 @@
 				{#if form.schedule.interval === 'daily'}
 					<Select
 						id="schedule-hour"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -975,7 +970,6 @@
 				{#if form.schedule.interval === 'weekly'}
 					<Select
 						id="schedule-weekday"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_sunday() },
@@ -993,7 +987,6 @@
 					/>
 					<Select
 						id="schedule-hour"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -1012,7 +1005,6 @@
 				{#if form.schedule.interval === 'monthly'}
 					<Select
 						id="schedule-day"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_day_1st() },
@@ -1031,7 +1023,6 @@
 					/>
 					<Select
 						id="schedule-hour"
-						class={selectClasses}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -1057,7 +1048,7 @@
 			<div class="flex flex-col gap-1">
 				<Select
 					id="schedule-retention-period"
-					class={twMerge(selectClasses, 'w-full max-w-xs')}
+					class="w-full max-w-xs"
 					options={[
 						{ id: '1', label: m.audit_usage_export_schedules_last_1_day() },
 						{ id: '3', label: m.audit_usage_export_schedules_last_n_days({ days: 3 }) },
@@ -1104,7 +1095,7 @@
 						>
 						<input
 							id="query"
-							class={selectClasses}
+							class="input-text-filled"
 							bind:value={form.filters.query}
 							placeholder={m.audit_usage_exports_search_placeholder()}
 							readonly={isViewMode}
@@ -1120,7 +1111,6 @@
 							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
 							<Select
 								id={row.fieldId}
-								class={selectClasses}
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-base-400 bg-transparent'

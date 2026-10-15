@@ -118,7 +118,6 @@
 
 	<Select
 		id={`filter-${filter.property}`}
-		class="dark:border-base-400 bg-base-200 dark:bg-base-100 border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
 			clear: 'hover:bg-base-400 bg-transparent'

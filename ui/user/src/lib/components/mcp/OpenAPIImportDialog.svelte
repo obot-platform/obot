@@ -38,7 +38,6 @@
 	title={m.mcps_openapi_import_title()}
 	onClose={cancel}
 	disableClickOutside
-	animate="slide"
 >
 	<OpenAPIRuntimeForm
 		bind:this={form}

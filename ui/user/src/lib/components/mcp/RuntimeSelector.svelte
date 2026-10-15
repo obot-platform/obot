@@ -64,7 +64,6 @@
 		<div class="w-full">
 			<Select
 				id="runtime-selector"
-				class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
 				options={runtimeOptions}
 				selected={runtime}
 				ariaLabelledby="runtime-selector-label"

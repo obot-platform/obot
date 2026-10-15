@@ -254,7 +254,7 @@
 		<span id="log-kind-label" class="sr-only">{m.mcps_tester_log_filter_by_kind()}</span>
 		<Select
 			id="log-kind"
-			class="bg-base-200 dark:bg-base-200 dark:border-base-400 h-10 w-40 border border-transparent shadow-inner"
+			class="h-10 w-40"
 			options={KIND_OPTIONS}
 			selected={kindFilter}
 			ariaLabelledby="log-kind-label"
