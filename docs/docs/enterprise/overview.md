@@ -125,8 +125,10 @@ The **License** page in the admin UI shows:
 - **Entitlements**: the capabilities the license grants
 - **User Limits** and **Device Limits**: current usage against the limits that apply
 
-The same information is available from the API at `GET /api/license`, and `POST /api/license` runs a manual check.
-`GET /api/version` also reports `hasValidLicense`, `userLimit`, `deviceLimit`, and any `licenseEntitlementViolations`.
+From the API, `GET /api/license` returns the key, status, and entitlements, and `POST /api/license` runs a manual
+check. Usage and limits come from `GET /api/version`, which reports `userCount`, `deviceCount`, `userLimit`,
+`deviceLimit`, `hasValidLicense`, and any `licenseEntitlementViolations`. `userLimit` and `deviceLimit` are omitted when
+the license has no limit.
 
 ### Recovering
 

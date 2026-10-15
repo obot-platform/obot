@@ -59,8 +59,9 @@ To allow all of them, allow outbound HTTPS to:
 - **Destination:** `https://github.com` (`obot-platform/skills`)
 - **When:** Every hour. The repository is created on first startup.
 - **If it fails:** The repository shows a sync error.
-- **To change or avoid it:** Set `OBOT_DEFAULT_SKILL_REPO_URL` to an internal mirror before first startup, or delete the
-  skill repository in the admin UI.
+- **To change or avoid it:** Set `OBOT_DEFAULT_SKILL_REPO_URL` to the HTTPS URL of an internal Git mirror before first
+  startup, or delete the skill repository in the admin UI. A local path isn't supported, and Obot doesn't start if the
+  value isn't an HTTPS Git URL.
 
 ### Obot Sentry MDM assets
 
@@ -77,7 +78,9 @@ To allow all of them, allow outbound HTTPS to:
 - **Destination:** `https://models.dev`
 - **When:** At startup and every hour.
 - **If it fails:** Not fatal. LLM cost reporting uses the last synced data.
-- **To change or avoid it:** Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an internal mirror of `api.json`.
+- **To change or avoid it:** Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an HTTP(S) URL for an internal mirror of
+  `api.json`. A local path isn't supported. If the mirror resolves to a private IP address, Obot blocks it unless
+  `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP` is `false`, which also allows remote MCP servers on private IP addresses.
 
 ### MCP server tester model
 
@@ -178,9 +181,10 @@ networks blocks connections to remote MCP servers through it unless `OBOT_SERVER
 To run Obot without internet access:
 
 1. Before first startup, point `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH`
-   at local copies or internal mirrors of the catalogs, and `OBOT_DEFAULT_SKILL_REPO_URL` at an internal mirror of the
-   skills repository.
-2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` and `OBOT_SERVER_MODEL_INFO_SOURCE_URL` at local copies or internal mirrors.
+   at local copies or internal Git mirrors of the catalogs, and `OBOT_DEFAULT_SKILL_REPO_URL` at the HTTPS URL of an
+   internal Git mirror of the skills repository.
+2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and `OBOT_SERVER_MODEL_INFO_SOURCE_URL` at
+   an internal HTTP(S) mirror. See [Model pricing](#model-pricing) for mirrors on private IP addresses.
 3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
    `OBOT_SERVER_MODEL_PROXY_URL=""`.
 4. Mirror the MCP base images and set the image variables. With the Docker runtime, also pre-pull `alpine:latest` on
@@ -190,7 +194,8 @@ To run Obot without internet access:
 6. Use an auth provider and model provider that you can reach.
 
 Setting a URL variable to an empty string doesn't turn the feature off, except for `OBOT_SERVER_MODEL_PROXY_URL`: Obot
-ignores empty values and uses the default. Point the variable at a local path or internal mirror instead.
+ignores empty values and uses the default. Point the variable at an internal mirror instead, or at a local path where
+that setting supports one.
 
 A license key can't be validated without access to `https://api.keygen.sh`, so an air-gapped installation runs as
 unregistered Obot Community for now. Support for offline license key validation for air-gapped installations is
