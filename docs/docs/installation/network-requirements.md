@@ -15,15 +15,74 @@ With some cloud authentication methods, Obot also reaches the cloud instance met
 
 The Obot server makes these connections on a default installation, whichever MCP runtime you use.
 
-| Destination | Purpose | When | If it fails | How to change or avoid it |
-|---|---|---|---|---|
-| `https://api.keygen.sh` | [License validation](../enterprise/overview.md#how-obot-validates-a-license) | At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is configured. | Obot keeps the entitlements from the last successful check | Required to use a license key |
-| `https://upgrade-server.obot.ai` | Update checks, [Community registration](../enterprise/overview.md#registering-obot-community), and [product analytics](../configuration/product-analytics.md) | Update checks every 24 hours. Registration when an admin registers. Analytics once a day, only with consent. | Not fatal. Registration fails with an error. | `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` stops update checks. `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off` stops analytics. `OBOT_UPGRADE_SERVER_URL` changes the host for all three. |
-| `https://github.com` | Default MCP catalogs (`obot-platform/mcp-catalog`, `obot-platform/system-mcp-catalog`) | At startup and every hour | The catalog keeps its existing entries and shows a sync error | Set `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` to a local directory or an internal mirror before first startup. They only take effect when the catalogs are first created. |
-| `https://github.com` | Default skill repository (`obot-platform/skills`) | Every hour. Created on first startup. | The repository shows a sync error | Set `OBOT_DEFAULT_SKILL_REPO_URL` to an internal mirror before first startup, or delete the skill repository in the admin UI |
-| `https://github.com`, `https://release-assets.githubusercontent.com`, `https://objects.githubusercontent.com` | [Obot Sentry](../device-management/how-sentry-works.md) MDM assets (`obot-platform/obot-sentry` release tarball) | When the source changes, and every hour until it succeeds | Not fatal | Set `OBOT_SERVER_MDM_ASSET_SOURCE` to a local directory, a local tar archive, or an internal URL |
-| `https://models.dev` | Model pricing data for LLM cost reporting | At startup and every hour | Not fatal. Costs use the last synced data. | Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an internal mirror of `api.json` |
-| `https://model-service.obot.ai` | Built-in model for the [MCP server tester](../mcp-gateway/inspector.md), used when no model provider is configured. Requires a valid license. | When a user runs the tester | The tester can't generate | Set `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off |
+To allow all of them, allow outbound HTTPS to:
+
+- `api.keygen.sh`
+- `upgrade-server.obot.ai`
+- `github.com`, `release-assets.githubusercontent.com`, and `objects.githubusercontent.com`
+- `models.dev`
+- `model-service.obot.ai`
+
+### License validation
+
+- **Destination:** `https://api.keygen.sh`
+- **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
+  configured.
+- **If it fails:** Obot keeps the entitlements from the last successful check. See
+  [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
+- **To change or avoid it:** Required to use a license key.
+
+### Update checks, registration, and product analytics
+
+- **Destination:** `https://upgrade-server.obot.ai`
+- **When:** Update checks every 24 hours. [Community registration](../enterprise/overview.md#registering-obot-community)
+  when an administrator registers. [Product analytics](../configuration/product-analytics.md) once a day, only with
+  consent.
+- **If it fails:** Not fatal. Registration fails with an error.
+- **To change or avoid it:** `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` stops update checks, and
+  `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off` stops analytics. `OBOT_UPGRADE_SERVER_URL` changes the host for all three.
+
+### Default MCP catalogs
+
+- **Destination:** `https://github.com` (`obot-platform/mcp-catalog` and `obot-platform/system-mcp-catalog`)
+- **When:** At startup and every hour.
+- **If it fails:** The catalog keeps its existing entries and shows a sync error.
+- **To change or avoid it:** Set `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH`
+  to a local directory or an internal mirror before first startup. They only take effect when the catalogs are first
+  created.
+
+### Default skill repository
+
+- **Destination:** `https://github.com` (`obot-platform/skills`)
+- **When:** Every hour. The repository is created on first startup.
+- **If it fails:** The repository shows a sync error.
+- **To change or avoid it:** Set `OBOT_DEFAULT_SKILL_REPO_URL` to an internal mirror before first startup, or delete the
+  skill repository in the admin UI.
+
+### Obot Sentry MDM assets
+
+- **Destination:** `https://github.com`, `https://release-assets.githubusercontent.com`, and
+  `https://objects.githubusercontent.com` (the `obot-platform/obot-sentry` release tarball)
+- **When:** When the source changes, and every hour until it succeeds.
+- **If it fails:** Not fatal. [Obot Sentry](../device-management/how-sentry-works.md) MDM assets aren't available until
+  it succeeds.
+- **To change or avoid it:** Set `OBOT_SERVER_MDM_ASSET_SOURCE` to a local directory, a local tar archive, or an
+  internal URL.
+
+### Model pricing
+
+- **Destination:** `https://models.dev`
+- **When:** At startup and every hour.
+- **If it fails:** Not fatal. LLM cost reporting uses the last synced data.
+- **To change or avoid it:** Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an internal mirror of `api.json`.
+
+### MCP server tester model
+
+- **Destination:** `https://model-service.obot.ai`
+- **When:** When a user runs the [MCP server tester](../mcp-gateway/inspector.md) and no model provider is configured.
+  Requires a valid license.
+- **If it fails:** The tester can't generate.
+- **To change or avoid it:** Set `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off.
 
 Startup doesn't depend on any of these. Obot starts without internet access, and the affected features recover once
 the destination is reachable.
