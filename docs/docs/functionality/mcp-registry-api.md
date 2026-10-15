@@ -22,21 +22,15 @@ The registry is exposed at `/v0.1/servers` and supports:
 
 ## Authentication Modes
 
-**Auth Mode (Default)**: Registry discovery requires authentication (`OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=false`). Requests return vMCPs the user owns or can access through matching profiles, including Obot and identity-provider groups. Administrator management privileges alone do not grant discovery access.
+**Authenticated access (Default)**: Registry discovery requires authentication (`OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=false`). Requests return vMCPs the user owns or can access through matching profiles, including Obot and identity-provider groups. Administrator management privileges alone do not grant discovery access.
 
-**No-Auth Mode (Opt-In)**: Set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` to allow anonymous discovery. Anonymous requests return only shared vMCPs whose profiles explicitly grant access to **All Obot Users** (`type: selector`, `id: "*"`). Personal vMCPs and vMCPs restricted to specific users or groups are excluded. Catalog access policies do not determine registry visibility; shared vMCP access comes from [vMCP profiles](../mcp-gateway/access.md).
+**Authenticated and anonymous access (Opt-In)**: Set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` to also allow anonymous discovery. Anonymous requests return only shared vMCPs whose profiles explicitly grant access to **All Obot Users** (`type: selector`, `id: "*"`). Personal vMCPs and vMCPs restricted to specific users or groups are excluded. Catalog access policies do not determine registry visibility; shared vMCP access comes from [vMCP profiles](../mcp-gateway/access.md).
 
-Anyone who can reach the discovery endpoints in no-auth mode can read the names, descriptions, icons, and connection URLs of these vMCPs. Opt in only when you intend to publish this metadata. Connecting still requires authentication and the user's current vMCP permissions. Users can still authenticate registry requests in this mode and receive their personalized view, including accessible private vMCPs.
+Anyone who can reach the discovery endpoints with anonymous access enabled can read the names, descriptions, icons, and connection URLs of these vMCPs. Opt in only when you intend to publish this metadata. Connecting still requires authentication and the user's current vMCP permissions. Authenticated registry requests receive their personalized view, including accessible private vMCPs, in both modes. Registry OAuth discovery metadata remains available in both modes.
 
 Clients that cannot authenticate registry discovery, including VS Code, require the no-auth opt-in. Authentication and setup still happen when connecting to an installed vMCP.
 
 Deployments that previously relied on anonymous discovery must set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` when upgrading. This replaces the old `OBOT_SERVER_ENABLE_REGISTRY_AUTH` setting, which is no longer supported. The Helm chart also disables anonymous registry access by default.
-
-## Connecting from a Client
-
-Registry entries provide a `streamable-http` URL in the form `https://obot.example.com/mcp-connect/vmcp1example`. Installing an entry in a supported MCP client starts Obot's existing authentication and consent flow, where the user completes required configuration and component authentication. Users do not need to create a connection before discovering the vMCP.
-
-Discovery does not launch servers or create user connections. vMCPs remain discoverable while configuration or deployment is pending, including empty drafts; their connection flow still enforces its requirements before use.
 
 ## Server Naming
 

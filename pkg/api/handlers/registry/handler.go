@@ -43,14 +43,19 @@ func (h *Handler) ListServers(req api.Context) error {
 	}
 
 	servers := make([]types.RegistryServerResponse, 0, len(list.Items))
+	search := strings.ToLower(req.URL.Query().Get("search"))
 	for _, item := range list.Items {
-		if registryVMCPVisible(req.User, &item) {
-			servers = append(servers, ConvertVMCPToRegistry(req.Context(), item, h.serverURL, reverseDNS, h.mimeFetcher))
+		if !registryVMCPVisible(req.User, &item) {
+			continue
 		}
-	}
-
-	if search := req.URL.Query().Get("search"); search != "" {
-		servers = filterServersBySearch(servers, search)
+		// Search the full manifest description before conversion truncates it.
+		if search != "" &&
+			!strings.Contains(strings.ToLower(FormatRegistryServerName(reverseDNS, item.Name)), search) &&
+			!strings.Contains(strings.ToLower(item.Spec.Manifest.DisplayName), search) &&
+			!strings.Contains(strings.ToLower(item.Spec.Manifest.Description), search) {
+			continue
+		}
+		servers = append(servers, ConvertVMCPToRegistry(req.Context(), item, h.serverURL, reverseDNS, h.mimeFetcher))
 	}
 	return req.Write(paginateServers(servers, req.URL.Query().Get("cursor"), parseLimit(req.URL.Query().Get("limit"))))
 }
@@ -94,22 +99,6 @@ func parseLimit(limitStr string) int {
 	}
 
 	return limit
-}
-
-func filterServersBySearch(servers []types.RegistryServerResponse, search string) []types.RegistryServerResponse {
-	search = strings.ToLower(search)
-	var result []types.RegistryServerResponse
-
-	for _, server := range servers {
-		// Substring match on name, title, or description
-		if strings.Contains(strings.ToLower(server.Server.Name), search) ||
-			strings.Contains(strings.ToLower(server.Server.Title), search) ||
-			strings.Contains(strings.ToLower(server.Server.Description), search) {
-			result = append(result, server)
-		}
-	}
-
-	return result
 }
 
 func paginateServers(servers []types.RegistryServerResponse, cursor string, limit int) types.RegistryServerList {

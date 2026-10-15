@@ -429,14 +429,13 @@ var (
 )
 
 type Authorizer struct {
-	rules          []rule
-	cache          kclient.Client
-	uncached       kclient.Client
-	gatewayClient  *client.Client
-	apiResources   map[string]*pathMatcher
-	acrHelper      *accesscontrolrule.Helper
-	skillHelper    *skillaccessrule.Helper
-	registryNoAuth bool
+	rules         []rule
+	cache         kclient.Client
+	uncached      kclient.Client
+	gatewayClient *client.Client
+	apiResources  map[string]*pathMatcher
+	acrHelper     *accesscontrolrule.Helper
+	skillHelper   *skillaccessrule.Helper
 }
 
 type rule struct {
@@ -447,21 +446,20 @@ type rule struct {
 // fake is a fake handler that does fake things
 type fake struct{}
 
-func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registryNoAuth bool) *Authorizer {
+func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, enableAnonymousRegistryAccess bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
 	}
 
 	return &Authorizer{
-		rules:          defaultRules(devMode, registryNoAuth),
-		cache:          cache,
-		uncached:       uncached,
-		gatewayClient:  gatewayClient,
-		apiResources:   apiBasedResources,
-		acrHelper:      acrHelper,
-		skillHelper:    skillHelper,
-		registryNoAuth: registryNoAuth,
+		rules:         defaultRules(devMode, enableAnonymousRegistryAccess),
+		cache:         cache,
+		uncached:      uncached,
+		gatewayClient: gatewayClient,
+		apiResources:  apiBasedResources,
+		acrHelper:     acrHelper,
+		skillHelper:   skillHelper,
 	}
 }
 
@@ -523,14 +521,14 @@ func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient
 	return err
 }
 
-func defaultRules(devMode bool, registryNoAuth bool) []rule {
+func defaultRules(devMode bool, enableAnonymousRegistryAccess bool) []rule {
 	var (
 		f     = (*fake)(nil)
 		rules = rulesFromStatic(staticRules)
 	)
 
 	var registryRuleBasic, registryRuleMCPOAuth rule
-	if registryNoAuth {
+	if enableAnonymousRegistryAccess {
 		registryRuleBasic = rule{
 			group: anyGroup,
 			mux:   http.NewServeMux(),

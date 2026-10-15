@@ -693,7 +693,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	services.APIServer.HTTPHandle("GET /tunnel/composite/register/{key}", http.HandlerFunc(services.TunnelManager.ServeCompositeRegistration))
 
 	// Well-known
-	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux)
 	// Obot OAuth
 	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, services.MCPOAuthClientNativeExceptions, mux)
 

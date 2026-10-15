@@ -11,14 +11,14 @@ import (
 
 func TestRegistryRouteAuthorization(t *testing.T) {
 	tests := []struct {
-		name           string
-		registryNoAuth bool
-		user           user.Info
-		allowed        bool
+		name                          string
+		enableAnonymousRegistryAccess bool
+		user                          user.Info
+		allowed                       bool
 	}{
 		{
-			name:           "auth mode rejects unauthenticated user",
-			registryNoAuth: false,
+			name:                          "auth mode rejects unauthenticated user",
+			enableAnonymousRegistryAccess: false,
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				UID:    "anonymous",
@@ -27,8 +27,8 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 			allowed: false,
 		},
 		{
-			name:           "auth mode allows basic user",
-			registryNoAuth: false,
+			name:                          "auth mode allows basic user",
+			enableAnonymousRegistryAccess: false,
 			user: &user.DefaultInfo{
 				Name:   "user",
 				UID:    "user-uid",
@@ -37,8 +37,8 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:           "auth mode allows MCP OAuth user",
-			registryNoAuth: false,
+			name:                          "auth mode allows MCP OAuth user",
+			enableAnonymousRegistryAccess: false,
 			user: &user.DefaultInfo{
 				UID:    "user-uid",
 				Groups: []string{types.GroupMCP},
@@ -46,8 +46,8 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:           "no-auth mode allows unauthenticated user",
-			registryNoAuth: true,
+			name:                          "anonymous access enabled allows unauthenticated user",
+			enableAnonymousRegistryAccess: true,
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				UID:    "anonymous",
@@ -55,11 +55,20 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 			},
 			allowed: true,
 		},
+		{
+			name:                          "anonymous access enabled retains MCP OAuth access",
+			enableAnonymousRegistryAccess: true,
+			user: &user.DefaultInfo{
+				UID:    "user-uid",
+				Groups: []string{types.GroupMCP},
+			},
+			allowed: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, tt.registryNoAuth)
+			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, tt.enableAnonymousRegistryAccess)
 			for _, path := range []string{
 				"/v0.1/servers",
 				"/v0.1/servers/com.example%2Fvmcp1example/versions",

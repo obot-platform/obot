@@ -282,6 +282,38 @@ func TestRegistrySearchAndPagination(t *testing.T) {
 	}
 }
 
+func TestRegistrySearchFullDescription(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		prefix string
+	}{
+		{
+			name:   "ASCII",
+			prefix: strings.Repeat("a", 100),
+		},
+		{
+			name:   "Unicode",
+			prefix: strings.Repeat("界", 100),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prefix := tc.prefix
+			definition := registryDefinition("vmcp1long", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+			definition.Spec.Manifest.Description = prefix + " Forecasts beyond the response limit"
+			storage := newRegistryTestStorage(definition)
+			response := registryRequest(t, storage, nil, "/v0.1/servers?search=FORECASTS")
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			if !slices.Equal(registryIDs(list), []string{definition.Name}) {
+				t.Fatalf("search beyond description limit: IDs = %v, want %s", registryIDs(list), definition.Name)
+			}
+			if got := list.Servers[0].Server.Description; got != prefix {
+				t.Fatalf("response description = %q, want %q", got, prefix)
+			}
+		})
+	}
+}
+
 func registryDefinition(id, owner string, subjects ...types.Subject) *v1.VMCP {
 	return &v1.VMCP{
 		ObjectMeta: registryObjectMeta(id),

@@ -127,7 +127,7 @@ type Config struct {
 	ModelInfoSourceURL            string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`
 	DisableUpdateCheck            bool   `usage:"Disable Obot server update checks"`
 	HideK8sDetails                bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
-	EnableAnonymousRegistryAccess bool   `usage:"Allow anonymous MCP Registry API access, publicly exposing metadata for shared vMCPs with wildcard profile access" default:"false" env:"OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS"`
+	EnableAnonymousRegistryAccess bool   `usage:"Allow anonymous MCP Registry API access, publicly exposing metadata for shared vMCPs with wildcard profile access" default:"false"`
 	EnableMessagePolicies         bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	EgressAuditLogRetentionDays   int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
 	LLMAuditLogRetentionDays      int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
@@ -185,7 +185,6 @@ type Services struct {
 	// Global token storage client for MCP OAuth
 	MCPOAuthTokenStorage         mcp.GlobalTokenStore
 	MCPSecretBindingAllowedLabel string
-	RegistryNoAuth               bool
 
 	PostgresDSN                 string
 	ProviderRegistryPaths       []string
@@ -1093,8 +1092,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 
-	// Anonymous registry discovery is disabled unless explicitly enabled.
-	registryNoAuth := config.EnableAnonymousRegistryAccess
 	secretBindingAllowedLabel := strings.TrimSpace(config.MCPSecretBindingAllowedLabel)
 	if errs := kvalidation.IsQualifiedName(secretBindingAllowedLabel); len(errs) > 0 {
 		return nil, fmt.Errorf("invalid MCP secret binding allowed label %q: %s", secretBindingAllowedLabel, strings.Join(errs, "; "))
@@ -1116,7 +1113,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ClientIDMetadataDocumentSupported: true,
 	}
 
-	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth)
+	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, config.EnableAnonymousRegistryAccess)
 
 	versionChecker, err := upgrade.NewVersionChecker(ctx, upgrade.VersionCheckerOptions{
 		GatewayClient:      gatewayClient,
@@ -1150,7 +1147,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			rateLimiter,
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
-			registryNoAuth,
+			config.EnableAnonymousRegistryAccess,
 			licenseProvider,
 		),
 		GatewayClient:                gatewayClient,
@@ -1165,7 +1162,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		OAuthServerConfig:            oauthServerConfig,
 		MCPOAuthTokenStorage:         mcpOAuthTokenStorage,
 		MCPSecretBindingAllowedLabel: secretBindingAllowedLabel,
-		RegistryNoAuth:               registryNoAuth,
 		DSN:                          config.DSN,
 		PostgresDSN:                  postgresDSN,
 		ObotNamespace:                config.ServiceNamespace,
