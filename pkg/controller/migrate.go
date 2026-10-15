@@ -232,7 +232,10 @@ func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client
 			}
 			// shortcut: profiles retain no rule IDs; preserve ambiguous grants until migrations persist provenance.
 			if slices.ContainsFunc(rules.Items, func(other v1.AccessControlRule) bool {
-				return other.Name != rule.Name && migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], other, vmcp.Spec.LegacySlug)
+				return other.Name != rule.Name &&
+					other.Spec.MCPCatalogID == rule.Spec.MCPCatalogID &&
+					other.Spec.PowerUserWorkspaceID == rule.Spec.PowerUserWorkspaceID &&
+					migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], other, vmcp.Spec.LegacySlug)
 			}) {
 				continue
 			}

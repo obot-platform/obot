@@ -603,6 +603,27 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 				},
 			}
 			objects := []kclient.Object{rule, entry, server}
+			for i, scope := range []struct {
+				catalog   string
+				workspace string
+			}{
+				{
+					catalog: "other",
+				},
+				{
+					catalog:   system.DefaultCatalog,
+					workspace: "puw1workspace",
+				},
+				{
+					workspace: "puw1workspace",
+				},
+			} {
+				other := rule.DeepCopy()
+				other.Name = fmt.Sprintf("acr1-unrelated-%d", i)
+				other.Spec.MCPCatalogID = scope.catalog
+				other.Spec.PowerUserWorkspaceID = scope.workspace
+				objects = append(objects, other)
+			}
 			var occupied []types.VMCPProfile
 			for i, displayName := range []string{"Everything", "acr1-everything", "acr1-everything-2"}[:tc.collisions] {
 				other := rule.DeepCopy()
