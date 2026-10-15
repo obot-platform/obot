@@ -549,6 +549,8 @@
 	"mcps_openapi_file_read_error": "스키마 파일을 읽을 수 없습니다.",
 	"mcps_openapi_file_too_large": "스키마 파일은 1 MiB 이하여야 합니다.",
 	"mcps_openapi_headers_help": "각 요청에서 헤더가 API로 전달됩니다. 가져온 제안은 수정할 수 있습니다. 값 접두사에는 \"Bearer \"와 같은 값을 사용하세요(끝의 공백 포함).",
+	"mcps_openapi_header_required_error": "OpenAPI 자격 증명 헤더는 저장하기 전에 필수로 표시해야 합니다.",
+	"mcps_openapi_import": "가져오기",
 	"mcps_openapi_import_before_save": "이 항목을 저장하기 전에 스키마를 가져오세요.",
 	"mcps_openapi_import_schema": "스키마 가져오기",
 	"mcps_openapi_import_title": "OpenAPI 스키마 가져오기",

@@ -549,6 +549,8 @@
 	"mcps_openapi_file_read_error": "无法读取架构文件。",
 	"mcps_openapi_file_too_large": "架构文件不得超过 1 MiB。",
 	"mcps_openapi_headers_help": "每次请求都会将标头转发给 API。导入的建议可以编辑。对于“值前缀”，可以使用“Bearer ”等值（包括末尾的空格）。",
+	"mcps_openapi_header_required_error": "保存前必须将 OpenAPI 凭据标头标记为必填。",
+	"mcps_openapi_import": "导入",
 	"mcps_openapi_import_before_save": "保存此条目前，请先导入架构。",
 	"mcps_openapi_import_schema": "导入架构",
 	"mcps_openapi_import_title": "导入 OpenAPI 架构",

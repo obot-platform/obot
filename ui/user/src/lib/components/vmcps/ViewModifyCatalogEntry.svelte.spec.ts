@@ -80,7 +80,7 @@ describe('OpenAPI creation', () => {
 		await page
 			.getByLabelText('Schema URL', { exact: true })
 			.fill('https://example.com/openapi.json');
-		await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+		await page.getByRole('button', { name: 'Import', exact: true }).click();
 		await expect
 			.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`))
 			.toHaveValue('Example API');

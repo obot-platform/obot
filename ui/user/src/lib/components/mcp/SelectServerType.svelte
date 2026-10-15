@@ -1,18 +1,21 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import type { LaunchType } from '$lib/services';
+	import type { OpenAPIImportDraft } from '$lib/services/openapi';
 	import { profile } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import OpenAPIImportDialog from './OpenAPIImportDialog.svelte';
 	import { Container, Users, FileCode } from '@lucide/svelte';
 
 	interface Props {
-		onSelectServerType: (type: LaunchType) => void;
+		onSelectServerType: (type: LaunchType, openAPIImport?: OpenAPIImportDraft) => void;
 		entity?: 'catalog' | 'workspace';
 		hideComposite?: boolean;
 	}
 
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let { onSelectServerType }: Props = $props();
+	let importingOpenAPI = $state(false);
 
 	export function open() {
 		selectServerTypeDialog?.open();
@@ -20,6 +23,11 @@
 
 	export function close() {
 		selectServerTypeDialog?.close();
+	}
+
+	function startOpenAPIImport() {
+		selectServerTypeDialog?.close();
+		importingOpenAPI = true;
 	}
 </script>
 
@@ -31,7 +39,7 @@
 	<div class="flex flex-col gap-4 p-4 md:p-0">
 		<button
 			id="add-hosted-server-button"
-			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
+			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300 min-h-30.5"
 			onclick={() => onSelectServerType('hosted')}
 		>
 			<Users
@@ -46,7 +54,7 @@
 		</button>
 		<button
 			id="add-remote-server-button"
-			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
+			class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300 min-h-30.5"
 			onclick={() => onSelectServerType('remote')}
 		>
 			<Container
@@ -62,8 +70,8 @@
 		{#if profile.current.isAdmin?.()}
 			<button
 				id="add-openapi-server-button"
-				class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
-				onclick={() => onSelectServerType('openapi')}
+				class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300 min-h-30.5"
+				onclick={startOpenAPIImport}
 			>
 				<FileCode
 					class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit"
@@ -78,3 +86,16 @@
 		{/if}
 	</div>
 </ResponsiveDialog>
+
+{#if importingOpenAPI}
+	<OpenAPIImportDialog
+		onComplete={(draft) => {
+			importingOpenAPI = false;
+			onSelectServerType('openapi', draft);
+		}}
+		onCancel={() => {
+			importingOpenAPI = false;
+			selectServerTypeDialog?.open();
+		}}
+	/>
+{/if}

@@ -25,14 +25,19 @@ it('keeps import errors in the modal and allows retry', async () => {
 		onComplete,
 		onCancel: vi.fn()
 	});
+	await expect
+		.element(page.getByRole('button', { name: 'Import schema', exact: true }))
+		.not.toBeInTheDocument();
+	await expect.element(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled();
 	await page.getByLabelText('Schema URL', { exact: true }).fill('https://example.com/schema.json');
-	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await expect.element(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
+	await page.getByRole('button', { name: 'Import', exact: true }).click();
 	await expect
 		.element(page.getByRole('alert'))
 		.toHaveTextContent('400 /openapi-import: Schema URL is unavailable');
 	expect(onComplete).not.toHaveBeenCalled();
 	fail = false;
-	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await page.getByRole('button', { name: 'Import', exact: true }).click();
 	await vi.waitFor(() =>
 		expect(onComplete).toHaveBeenCalledWith({
 			config: expect.objectContaining({
@@ -63,7 +68,7 @@ it('ignores a pending response after cancelling', async () => {
 		onCancel
 	});
 	await page.getByLabelText('Schema URL', { exact: true }).fill('https://example.com/schema.json');
-	await page.getByRole('button', { name: 'Import schema', exact: true }).click();
+	await page.getByRole('button', { name: 'Import', exact: true }).click();
 	await expect.element(page.getByLabelText('Schema URL', { exact: true })).toBeDisabled();
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 	expect(onCancel).toHaveBeenCalledOnce();

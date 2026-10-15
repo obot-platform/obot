@@ -51,6 +51,11 @@ async function openForm(entity: 'catalog' | 'workspace' = 'catalog') {
 	return await render(CatalogServerForm, { id: 'test', entity, type: 'openapi' });
 }
 
+async function selectOpenAPISourceFile() {
+	await page.getByRole('combobox', { name: 'Schema source' }).click();
+	await page.getByRole('button', { name: 'Upload file', exact: true }).click();
+}
+
 function mockImport() {
 	const request = vi.fn();
 	worker.use(
@@ -624,7 +629,7 @@ it.each([
 			})
 		);
 		await openForm();
-		await page.getByLabelText('Schema source').selectOptions('file');
+		await selectOpenAPISourceFile();
 		await page.getByLabelText('Schema file', { exact: true }).upload(new File([content], name));
 		await expect.element(page.getByText(name, { exact: true })).toBeVisible();
 		await expect
@@ -673,7 +678,7 @@ it('shows an existing uploaded schema without asking users to select it again', 
 
 it('opens the file picker only from the choose button, not the heading', async () => {
 	await openForm();
-	await page.getByLabelText('Schema source').selectOptions('file');
+	await selectOpenAPISourceFile();
 	const pickerClick = vi.fn();
 	page
 		.getByLabelText('Schema file', { exact: true })
@@ -703,7 +708,7 @@ it('re-reads a file with the same name after Replace file', async () => {
 		})
 	);
 	await openForm();
-	await page.getByLabelText('Schema source').selectOptions('file');
+	await selectOpenAPISourceFile();
 	const input = page.getByLabelText('Schema file', { exact: true }).element() as HTMLInputElement;
 	await page.getByLabelText('Schema file', { exact: true }).upload(new File(['first'], 'api.json'));
 	await expect.element(page.getByRole('button', { name: 'Replace file' })).toBeVisible();
@@ -721,7 +726,7 @@ it('re-reads a file with the same name after Replace file', async () => {
 it('rejects oversized files before import', async () => {
 	const imported = mockImport();
 	await openForm();
-	await page.getByLabelText('Schema source').selectOptions('file');
+	await selectOpenAPISourceFile();
 	await page
 		.getByLabelText('Schema file', { exact: true })
 		.upload(new File([new Uint8Array(1024 * 1024 + 1)], 'large.json'));

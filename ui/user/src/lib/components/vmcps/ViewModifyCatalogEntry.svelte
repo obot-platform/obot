@@ -4,7 +4,6 @@
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import OpenAPIImportDialog from '$lib/components/mcp/OpenAPIImportDialog.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
@@ -38,7 +37,6 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedServerType = $state<LaunchType>();
-	let importingOpenAPI = $state(false);
 	let initialOpenAPIImport = $state<OpenAPIImportDraft>();
 	let creating = $state(false);
 	let closeAfterCreate = $state(false);
@@ -98,14 +96,13 @@
 		if (hydrateController === controller) hydrateController = undefined;
 	}
 
-	function handleSelectServerType(serverType: LaunchType) {
+	function handleSelectServerType(serverType: LaunchType, openAPIImport?: OpenAPIImportDraft) {
 		selectServerTypeDialog?.close();
 		resetView();
 		selectedServerType = serverType;
 		creating = true;
-		initialOpenAPIImport = undefined;
-		importingOpenAPI = serverType === 'openapi';
-		if (!importingOpenAPI) dialog?.open();
+		initialOpenAPIImport = openAPIImport;
+		dialog?.open();
 	}
 
 	function close() {
@@ -128,7 +125,6 @@
 	}
 
 	function resetView() {
-		importingOpenAPI = false;
 		initialOpenAPIImport = undefined;
 		hydrateController?.abort();
 		hydrateController = undefined;
@@ -205,21 +201,6 @@
 	}
 </script>
 
-{#if importingOpenAPI}
-	<OpenAPIImportDialog
-		onComplete={(draft) => {
-			initialOpenAPIImport = draft;
-			importingOpenAPI = false;
-			dialog?.open();
-		}}
-		onCancel={() => {
-			importingOpenAPI = false;
-			selectedServerType = undefined;
-			selectServerTypeDialog?.open();
-		}}
-	/>
-{/if}
-
 <ResponsiveDialog
 	animate="fade"
 	bind:this={dialog}
@@ -245,7 +226,7 @@
 				/>
 			{/if}
 			{#if creating}
-				{#if selectedServerType && !importingOpenAPI}
+				{#if selectedServerType}
 					<McpServerEntryForm
 						hideTitleBarAction
 						{initialOpenAPIImport}

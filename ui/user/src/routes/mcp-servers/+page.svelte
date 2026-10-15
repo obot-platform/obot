@@ -6,7 +6,6 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
-	import OpenAPIImportDialog from '$lib/components/mcp/OpenAPIImportDialog.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import {
 		DEFAULT_MCP_CATALOG_ID,
@@ -57,9 +56,6 @@
 	] as const;
 	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'openapi'];
 	let initialOpenAPIImport = $state<OpenAPIImportDraft>();
-	$effect(() => {
-		if (!creating || newServerType !== 'openapi') initialOpenAPIImport = undefined;
-	});
 
 	const { data } = $props();
 	const { workspaceId } = $derived(data);
@@ -102,7 +98,13 @@
 	let creating = $derived.by(() => {
 		if (!page.url.searchParams.has('new')) return false;
 		const isNewEntry = selectedView === 'entries' && !!newServerType;
-		if (isNewEntry && newServerType === 'openapi' && !profile.current.isAdmin?.()) return false;
+		if (
+			isNewEntry &&
+			newServerType === 'openapi' &&
+			(!profile.current.isAdmin?.() || !initialOpenAPIImport)
+		) {
+			return false;
+		}
 		if (isPowerUser && isNewEntry) return true;
 		if (isPowerUserPlus && (isNewEntry || selectedView === 'access-policies')) return true;
 		if (hasAdminAccess && !isAdminReadonly) {
@@ -254,12 +256,14 @@
 		}
 	}
 
-	function selectServerType(type: LaunchServerType) {
+	function selectServerType(type: LaunchServerType, openAPIImport?: OpenAPIImportDraft) {
 		selectServerTypeDialog?.close();
+		initialOpenAPIImport = type === 'openapi' ? openAPIImport : undefined;
 		openCreate('entries', type);
 	}
 
 	function closeCreateScreen() {
+		initialOpenAPIImport = undefined;
 		goto(`${page.url.pathname}?view=${selectedView}`);
 	}
 
@@ -268,6 +272,7 @@
 	}
 
 	function handleEntryCreated(id: string, _isMultiUserEntry: boolean, message?: string) {
+		initialOpenAPIImport = undefined;
 		goto(getCreatedEntryUrl(id, newServerType, message), { replaceState: true });
 	}
 
@@ -285,27 +290,15 @@
 {#if creating}
 	<Layout title={layoutTitle} showBackButton onBackButtonClick={closeCreateScreen}>
 		{#if selectedView === 'entries'}
-			{#if newServerType === 'openapi' && !initialOpenAPIImport}
-				<OpenAPIImportDialog
-					onComplete={(draft) => {
-						initialOpenAPIImport = draft;
-					}}
-					onCancel={() => {
-						closeCreateScreen();
-						selectServerTypeDialog?.open();
-					}}
-				/>
-			{:else}
-				<McpServerEntryForm
-					{initialOpenAPIImport}
-					entity={hasAdminAccess ? 'catalog' : 'workspace'}
-					id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
-					type={newServerType}
-					onCancel={closeCreateScreen}
-					onSubmit={handleEntryCreated}
-					excludeViews={['overview']}
-				/>
-			{/if}
+			<McpServerEntryForm
+				{initialOpenAPIImport}
+				entity={hasAdminAccess ? 'catalog' : 'workspace'}
+				id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
+				type={newServerType}
+				onCancel={closeCreateScreen}
+				onSubmit={handleEntryCreated}
+				excludeViews={['overview']}
+			/>
 		{:else if selectedView === 'filters'}
 			{@render filters()}
 		{:else if selectedView === 'tunnels'}

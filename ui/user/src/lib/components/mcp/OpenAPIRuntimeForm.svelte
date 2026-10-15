@@ -7,10 +7,12 @@
 		type OpenAPIImportResult,
 		type OpenAPIDestinationValidation
 	} from '$lib/services/openapi';
+	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import { MultiValueInput } from '../ui/multi-value-input';
 	import { FileUp } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: OpenAPIRuntimeConfig;
@@ -23,9 +25,16 @@
 		destinationValidation?: OpenAPIDestinationValidation;
 		overrideValidation?: OpenAPIDestinationValidation;
 		showBaseURLError?: boolean;
+		hideImportButton?: boolean;
+		busy?: boolean;
 		onImported?: (result: OpenAPIImportResult) => void;
 		onReplace?: () => void;
 		onBaseURLChange?: () => void;
+		classes?: {
+			root?: string;
+			input?: string;
+		};
+		showTitle?: boolean;
 	}
 	let {
 		config = $bindable(),
@@ -38,12 +47,15 @@
 		destinationValidation,
 		overrideValidation,
 		showBaseURLError = false,
+		hideImportButton = false,
+		busy = $bindable(false),
 		onImported,
 		onReplace,
-		onBaseURLChange
+		onBaseURLChange,
+		classes,
+		showTitle = true
 	}: Props = $props();
 	let sourceType = $state(untrack(() => (config.source.content !== undefined ? 'file' : 'url')));
-	let busy = $state(false);
 	let error = $state('');
 	let resolvedBaseURL = $state('');
 	let fileName = $state('');
@@ -97,13 +109,14 @@
 			const content = await file.text();
 			if (!disposed) config.source = { content };
 		} catch {
-			error = m.mcps_openapi_file_read_error();
+			if (!disposed) error = m.mcps_openapi_file_read_error();
 		} finally {
-			busy = false;
+			if (!disposed) busy = false;
 		}
 	}
 
-	async function importSchema() {
+	export async function importSchema() {
+		if (busy || disposed) return;
 		config = normalizeOpenAPIConfig(config);
 		busy = true;
 		invalidate();
@@ -113,42 +126,53 @@
 			resolvedBaseURL = result.baseURL;
 			onImported?.(result);
 		} catch (err) {
-			error = err instanceof Error ? err.message : String(err);
+			if (!disposed) error = err instanceof Error ? err.message : String(err);
 		} finally {
-			busy = false;
+			if (!disposed) busy = false;
 		}
 	}
 </script>
 
-<section class="paper flex flex-col gap-4 p-4" aria-label={m.mcps_openapi_configuration()}>
-	<h4 class="text-sm font-semibold">OpenAPI</h4>
+<section
+	class={twMerge('paper flex flex-col gap-4 p-4', classes?.root)}
+	aria-label={m.mcps_openapi_configuration()}
+>
+	{#if showTitle}
+		<h4 class="text-sm font-semibold">OpenAPI</h4>
+	{/if}
 	<p class="text-muted-content text-xs">
 		{m.mcps_openapi_intro()}
 	</p>
 	<fieldset disabled={readonly || busy} class="flex flex-col gap-4">
 		{#if importOnly}
 			<div class="flex flex-col gap-1">
-				<label for="openapi-source-type">{m.mcps_openapi_schema_source()}</label>
-				<select
+				<label id="openapi-source-type-label" for="openapi-source-type"
+					>{m.mcps_openapi_schema_source()}</label
+				>
+				<Select
 					id="openapi-source-type"
-					class="select w-full"
-					bind:value={sourceType}
-					onchange={() => {
+					ariaLabelledby="openapi-source-type-label"
+					class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
+					classes={{ root: 'w-full' }}
+					options={[
+						{ id: 'url', label: m.mcps_openapi_source_url_option() },
+						{ id: 'file', label: m.mcps_openapi_source_file_option() }
+					]}
+					bind:selected={sourceType}
+					disabled={readonly || busy}
+					onSelect={() => {
 						config.source = {};
 						fileName = '';
 						invalidate();
 					}}
-				>
-					<option value="url">{m.mcps_openapi_source_url_option()}</option>
-					<option value="file">{m.mcps_openapi_source_file_option()}</option>
-				</select>
+				/>
 			</div>
 			{#if sourceType === 'url'}
 				<div class="flex flex-col gap-1">
 					<label for="openapi-source-url">{m.mcps_openapi_schema_url()}</label>
 					<input
 						id="openapi-source-url"
-						class="text-input-filled"
+						class="input-text-filled"
 						type="url"
 						placeholder="https://api.example.com/openapi.json"
 						bind:value={config.source.url}
@@ -245,7 +269,7 @@
 				</p>
 				<input
 					id="openapi-base-url"
-					class="text-input-filled"
+					class="input-text-filled"
 					class:error={baseURLInvalid}
 					type="url"
 					bind:value={config.baseURL}
@@ -278,7 +302,7 @@
 				{/if}
 			</div>
 		{/if}
-		{#if importOnly && !readonly}
+		{#if importOnly && !readonly && !hideImportButton}
 			<button
 				type="button"
 				class="btn btn-secondary self-start"
