@@ -415,9 +415,9 @@
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
 			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
-				{#if typeof icon === 'string'}
+				{#if typeof icon === 'string' && icon.length > 0}
 					<img src={icon} alt={name} class="size-8" />
-				{:else if icon}
+				{:else if typeof icon !== 'string' && icon}
 					{@render icon()}
 				{:else}
 					<Server class="size-8" />
