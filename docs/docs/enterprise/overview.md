@@ -22,7 +22,7 @@ reinstalling.
 | Users | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
 | Devices (Obot Sentry) | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
 | [Enterprise auth providers](../configuration/auth-providers.md#available-auth-providers) | — | ✓ | ✓ | ✓ |
-| Enterprise support | — | — | ✓ | ✓ |
+| Support | — | — | ✓ | ✓ |
 
 ### Obot Community
 
