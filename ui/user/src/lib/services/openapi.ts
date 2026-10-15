@@ -26,10 +26,18 @@ export interface OpenAPIImportDraft {
 	result: OpenAPIImportResult;
 }
 
+export function normalizeOpenAPIConfig(config: OpenAPIRuntimeConfig): OpenAPIRuntimeConfig {
+	return {
+		...config,
+		source: { ...config.source, url: config.source.url?.trim() },
+		baseURL: config.baseURL?.trim()
+	};
+}
+
 export async function importOpenAPI(config: OpenAPIRuntimeConfig): Promise<OpenAPIImportResult> {
 	const result = (await doPost(
 		'/openapi-import',
-		{ source: config.source },
+		{ source: normalizeOpenAPIConfig(config).source },
 		{ dontLogErrors: true }
 	)) as OpenAPIImportResponse;
 	return { ...result, suggestedHeaders: result.suggestedHeaders ?? [] };
@@ -39,6 +47,7 @@ export async function validateOpenAPIDestination(
 	config: OpenAPIRuntimeConfig,
 	signal?: AbortSignal
 ): Promise<OpenAPIDestinationValidation> {
+	config = normalizeOpenAPIConfig(config);
 	const result = (await doPost(
 		'/openapi-import',
 		{ source: config.source, baseURL: config.baseURL },

@@ -3,6 +3,7 @@
 	import type { OpenAPIRuntimeConfig } from '$lib/services';
 	import {
 		importOpenAPI,
+		normalizeOpenAPIConfig,
 		type OpenAPIImportResult,
 		type OpenAPIDestinationValidation
 	} from '$lib/services/openapi';
@@ -103,6 +104,7 @@
 	}
 
 	async function importSchema() {
+		config = normalizeOpenAPIConfig(config);
 		busy = true;
 		invalidate();
 		try {

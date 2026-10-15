@@ -211,7 +211,7 @@ func TestSnapshotBaseURLEnvironmentSize(t *testing.T) {
 		},
 		{
 			name:    "URL escaping exceeds limit",
-			url:     prefix + strings.Repeat(" ", limit/3),
+			url:     prefix + strings.Repeat(" ", limit/3) + "x",
 			wantErr: true,
 		},
 		{

@@ -89,8 +89,12 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 			if !methods[method] {
 				return nil, fmt.Errorf("operation uses an unsupported HTTP method")
 			}
-			if len(op.Callbacks) > 0 {
-				return nil, fmt.Errorf("OpenAPI callbacks are unsupported")
+			// Inline callbacks describe incoming events and are ignored by the
+			// wrapper. Its OpenAPI parser cannot load referenced callbacks.
+			for _, callback := range op.Callbacks {
+				if callback != nil && callback.Ref != "" {
+					return nil, fmt.Errorf("referenced callbacks are unsupported")
+				}
 			}
 			if err := checkParameters(op.Parameters); err != nil {
 				return nil, err
@@ -104,6 +108,7 @@ func inspect(raw map[string]any, canonical []byte, config types.OpenAPIRuntimeCo
 // optionalBaseURL selects a destination when one is available. Import may
 // precede configuration; deployment requires a destination.
 func optionalBaseURL(configured string, servers openapi3.Servers) (string, error) {
+	configured = strings.TrimSpace(configured)
 	if configured != "" {
 		return destination(configured)
 	}

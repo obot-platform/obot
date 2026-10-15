@@ -60,6 +60,7 @@ func NewImporter(options safehttp.Options, devMode bool) *Importer {
 // an override is configured. Callers must validate destinations before saving
 // or deploying the returned snapshot.
 func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig) (*Result, error) {
+	config.Source.URL = strings.TrimSpace(config.Source.URL)
 	source := config.Source
 	if err := ValidateSource(source); err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (i *Importer) Import(ctx context.Context, config types.OpenAPIRuntimeConfig
 // It makes no request to the destination.
 func (i *Importer) parse(ctx context.Context, data []byte, config types.OpenAPIRuntimeConfig) (*Result, error) {
 	// A bad destination override must not discard an otherwise supported schema.
-	baseURL := config.BaseURL
+	baseURL := strings.TrimSpace(config.BaseURL)
 	config.BaseURL = ""
 	result, err := Parse(data, config)
 	if err != nil {

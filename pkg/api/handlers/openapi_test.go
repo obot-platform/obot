@@ -296,11 +296,99 @@ func TestOpenAPICatalogCreateAndUpdate(t *testing.T) {
 
 			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(deployed), deployed))
 			require.JSONEq(t, apiOpenAPISchema, string(deployed.Spec.Manifest.OpenAPIConfig.Schema.Raw))
-			require.Empty(t, deployed.Spec.Manifest.OpenAPIConfig.BaseURL, "catalog edits do not upgrade a server")
+			require.Equal(t, "https://8.8.8.8/", deployed.Spec.Manifest.OpenAPIConfig.BaseURL, "catalog edits do not upgrade a server")
 			require.Nil(t, ConvertMCPServer(*deployed, nil).MCPServerManifest.OpenAPIConfig.Schema)
 			require.NotNil(t, deployed.Spec.Manifest.OpenAPIConfig.Schema)
 		})
 	}
+}
+
+func TestOpenAPICatalogPinsSchemaDestination(t *testing.T) {
+	for _, scope := range []string{"catalog_id", "workspace_id"} {
+		t.Run(scope, func(t *testing.T) {
+			storage := newFakeStorage(t,
+				&v1.MCPCatalog{Name: "scope", Namespace: system.DefaultNamespace},
+				&v1.PowerUserWorkspace{Name: "scope", Namespace: system.DefaultNamespace},
+			)
+			handler := newOpenAPIHandler()
+			manifest := types.MCPServerCatalogEntryManifest{
+				Name:    "Example",
+				Runtime: types.RuntimeOpenAPI,
+				OpenAPIConfig: &types.OpenAPIRuntimeConfig{
+					Source: types.OpenAPISource{
+						Content: apiOpenAPISchema,
+					},
+				},
+			}
+			ctx, response := openAPIRequest(t, storage, scope, http.MethodPost, manifest)
+			require.NoError(t, handler.CreateEntry(ctx))
+			var created types.MCPServerCatalogEntry
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
+			require.Equal(t, "https://8.8.8.8/", created.Manifest.OpenAPIConfig.BaseURL)
+			require.Nil(t, created.Manifest.OpenAPIConfig.Schema)
+
+			manifest = created.Manifest
+			manifest.OpenAPIConfig.Source.Content = strings.Replace(apiOpenAPISchema, "https://8.8.8.8", "https://8.8.4.4", 1)
+			for _, test := range []struct {
+				name    string
+				baseURL string
+				want    string
+			}{
+				{
+					name:    "schema replacement preserves the pinned destination",
+					baseURL: created.Manifest.OpenAPIConfig.BaseURL,
+					want:    "https://8.8.8.8/",
+				},
+				{
+					name:    "explicit edits replace the destination",
+					baseURL: "https://1.1.1.1/custom",
+					want:    "https://1.1.1.1/custom",
+				},
+				{
+					name: "clearing adopts the schema destination",
+					want: "https://8.8.4.4/",
+				},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					manifest.OpenAPIConfig.BaseURL = test.baseURL
+					ctx, _ := openAPIRequest(t, storage, scope, http.MethodPut, manifest)
+					ctx.SetPathValue("entry_id", created.ID)
+					require.NoError(t, handler.UpdateEntry(ctx))
+					entry := v1.MCPServerCatalogEntry{
+						Name:      created.ID,
+						Namespace: system.DefaultNamespace,
+					}
+					require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&entry), &entry))
+					require.Equal(t, test.want, entry.Spec.Manifest.OpenAPIConfig.BaseURL)
+					require.Contains(t, string(entry.Spec.Manifest.OpenAPIConfig.Schema.Raw), "https://8.8.4.4")
+				})
+			}
+		})
+	}
+}
+
+func TestOpenAPISaveTrimsURLs(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeOpenAPI,
+		OpenAPIConfig: &types.OpenAPIRuntimeConfig{
+			Source: types.OpenAPISource{
+				URL: " \thttps://schema.example.com/openapi.yaml\n",
+			},
+			BaseURL: " \thttps://8.8.4.4\n",
+		},
+	}
+	submitted := manifest.OpenAPIConfig
+	before := submitted.DeepCopy()
+	handler := newOpenAPIHandler()
+	handler.openAPIImporter = openAPIImporterFunc(func(_ context.Context, config types.OpenAPIRuntimeConfig) (*openapi.Result, error) {
+		require.Equal(t, "https://schema.example.com/openapi.yaml", config.Source.URL)
+		require.Equal(t, "https://8.8.4.4", config.BaseURL)
+		return openapi.Parse([]byte(apiOpenAPISchema), config)
+	})
+	require.NoError(t, handler.prepareOpenAPIEntry(t.Context(), &manifest))
+	require.Equal(t, "https://schema.example.com/openapi.yaml", manifest.OpenAPIConfig.Source.URL)
+	require.Equal(t, "https://8.8.4.4", manifest.OpenAPIConfig.BaseURL)
+	require.Equal(t, before, submitted, "normalizing the saved config must not mutate the submitted config")
 }
 
 func TestOpenAPICatalogRejectsInvalidConfiguration(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -51,6 +52,8 @@ func (h *MCPCatalogHandler) prepareOpenAPIEntry(ctx context.Context, manifest *t
 		return nil // The runtime validator reports missing configuration.
 	}
 	config := *manifest.OpenAPIConfig
+	config.Source.URL = strings.TrimSpace(config.Source.URL)
+	config.BaseURL = strings.TrimSpace(config.BaseURL)
 	// Ignore a client-supplied snapshot; it is always regenerated from Source.
 	config.Schema = nil
 	if err := openapi.ValidateInput(config); err != nil {
@@ -64,6 +67,11 @@ func (h *MCPCatalogHandler) prepareOpenAPIEntry(ctx context.Context, manifest *t
 	// Import reports destination failures for previews. CreateEntry and
 	// UpdateEntry still validate the manifest before persisting this snapshot.
 	config.Schema = &types.OpenAPISchema{Raw: result.Schema}
+	// Pin the selected destination so later schema refreshes cannot change it.
+	// Clearing BaseURL explicitly adopts the schema's current default on save.
+	if config.BaseURL == "" {
+		config.BaseURL = result.BaseURL
+	}
 	manifest.OpenAPIConfig = &config
 	return nil
 }

@@ -25,7 +25,7 @@
 		OpenAPIImportResult,
 		OpenAPIMetadata
 	} from '$lib/services/openapi';
-	import { validateOpenAPIDestination } from '$lib/services/openapi';
+	import { normalizeOpenAPIConfig, validateOpenAPIDestination } from '$lib/services/openapi';
 	import { MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from '$lib/services/user/constants';
 	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
@@ -716,6 +716,9 @@
 
 	async function handleSubmit() {
 		if (!id || disposed || loading || (formData.runtime === 'openapi' && openAPIImporting)) return;
+		if (formData.runtime === 'openapi' && formData.openAPIConfig) {
+			formData.openAPIConfig = normalizeOpenAPIConfig(formData.openAPIConfig);
+		}
 
 		// reset
 		showRequired = {};
