@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestMigrationNamePreservesUUID(t *testing.T) {
@@ -89,6 +90,7 @@ func TestMigrateUsesCatalogVMCPName(t *testing.T) {
 			}
 			require.Empty(t, target.Spec.SourceURL)
 			require.Equal(t, entry.Name, target.Spec.LegacySlug)
+			require.Equal(t, "true", target.Annotations[DefaultCatalogSourceAnnotation])
 		})
 	}
 }
@@ -232,6 +234,44 @@ func TestMigrateAllFailureAndRetry(t *testing.T) {
 	handler.upsert = upsert
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
+}
+
+func TestMigrateRetainsSourceOnScopeFailure(t *testing.T) {
+	entry := migrationEntry(t)
+	client := migrationClient(entry)
+	handler := credentialHandler(t, nil, map[string]map[string]string{})
+	failure := errors.New("source scope write unavailable")
+	failing := interceptor.NewClient(client, interceptor.Funcs{
+		Update: func(ctx context.Context, c kclient.WithWatch, object kclient.Object, opts ...kclient.UpdateOption) error {
+			if _, ok := object.(*v1.VMCP); ok {
+				return failure
+			}
+			return c.Update(ctx, object, opts...)
+		},
+	})
+	require.ErrorIs(t, handler.MigrateAll(t.Context(), failing), failure)
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), entry))
+	require.True(t, entry.DeletionTimestamp.IsZero())
+	var target v1.VMCP
+	key := kclient.ObjectKey{Namespace: entry.Namespace, Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)}
+	require.NoError(t, client.Get(t.Context(), key, &target))
+	require.Empty(t, target.Annotations[DefaultCatalogSourceAnnotation])
+	target.Annotations = map[string]string{"preserved": "value"}
+	target.Spec.Manifest.Description = "Edited after interrupted migration"
+	require.NoError(t, client.Update(t.Context(), &target))
+	before := target.DeepCopy()
+	handler.upsert = func(context.Context, gatewaytypes.Credential) error {
+		t.Fatal("retry must preserve destination credentials")
+		return nil
+	}
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	require.NoError(t, client.Get(t.Context(), key, &target))
+	require.Equal(t, "true", target.Annotations[DefaultCatalogSourceAnnotation])
+	require.Equal(t, "value", target.Annotations["preserved"])
+	require.Equal(t, before.Spec, target.Spec)
+	require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{})))
 }
 
 func TestMigrateAllLeavesDeletingSourceToControllers(t *testing.T) {

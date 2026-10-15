@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -30,6 +31,9 @@ import (
 const (
 	// MigrationName is the durable gateway marker for the composite migration.
 	MigrationName = "composite_mcp_to_vmcp"
+
+	// DefaultCatalogSourceAnnotation preserves the removed parent's default-catalog, non-workspace scope.
+	DefaultCatalogSourceAnnotation = "obot.ai/composite-migration-default-catalog-source"
 )
 
 type Handler struct {
@@ -176,6 +180,17 @@ func (h *Handler) Migrate(ctx context.Context, client kclient.Client, entry *v1.
 			return fmt.Errorf("migrate composite connection %q: %w", parent.Name, err)
 		}
 	}
+	defaultCatalogSource := strconv.FormatBool(entry.Spec.MCPCatalogName == system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "")
+	if target.Annotations[DefaultCatalogSourceAnnotation] != defaultCatalogSource {
+		if target.Annotations == nil {
+			target.Annotations = make(map[string]string)
+		}
+		target.Annotations[DefaultCatalogSourceAnnotation] = defaultCatalogSource
+		if err := client.Update(ctx, &target); err != nil {
+			return fmt.Errorf("record composite source scope: %w", err)
+		}
+	}
+
 	return kclient.IgnoreNotFound(client.Delete(ctx, entry))
 }
 

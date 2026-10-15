@@ -56,6 +56,11 @@ func migrationName(prefix, namespace, source string) string {
 	return fmt.Sprintf("%s%x", prefix, digest[:16])
 }
 
+// VMCPName returns the stable destination name for a legacy standalone source.
+func VMCPName(namespace, source string) string {
+	return migrationName(system.VMCPPrefix, namespace, source)
+}
+
 // MigrateAll retains sources until the caller records successful completion.
 // Stable destination IDs allow a failed startup to retry without duplicating objects.
 func (h *Handler) MigrateAll(ctx context.Context, client kclient.Client) error {
@@ -217,7 +222,7 @@ func catalogsForNewVMCPs(ctx context.Context, client kclient.Client, entries []v
 
 	addIfNew := func(namespace, source, catalog string) error {
 		var existing v1.VMCP
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: migrationName(system.VMCPPrefix, namespace, source)}, &existing); err == nil {
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: VMCPName(namespace, source)}, &existing); err == nil {
 			return nil
 		} else if !apierrors.IsNotFound(err) {
 			return err
@@ -435,7 +440,7 @@ func legacyStandaloneServer(server v1.MCPServer) bool {
 
 func newVMCP(namespace, source string, manifest types.MCPServerCatalogEntryManifest, profiles []types.VMCPProfile) v1.VMCP {
 	return v1.VMCP{
-		Name:       migrationName(system.VMCPPrefix, namespace, source),
+		Name:       VMCPName(namespace, source),
 		Namespace:  namespace,
 		Finalizers: []string{v1.VMCPFinalizer},
 		Spec: v1.VMCPSpec{

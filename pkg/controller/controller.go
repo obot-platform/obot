@@ -127,6 +127,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure auth providers and model providers: %w", err)
 	}
 
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "everything_acr_admin_obot_group", func() error {
+		return migrateEverythingAccessControlRuleAdminGroup(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate everything access control rule admin group: %w", err)
+	}
+
 	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, compositemigration.MigrationName, func() error {
 		return compositemigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient)
 	}); err != nil {
@@ -146,11 +152,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return migrateVMCPDefaultAdminGroups(ctx, c.services.StorageClient)
 	}); err != nil {
 		return fmt.Errorf("failed to migrate vMCP default admin groups: %w", err)
-	}
-	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "everything_acr_admin_obot_group", func() error {
-		return migrateEverythingAccessControlRuleAdminGroup(ctx, c.services.StorageClient)
-	}); err != nil {
-		return fmt.Errorf("failed to migrate everything access control rule admin group: %w", err)
 	}
 	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, vmcpEverythingAdminGroupsMigrationName, func() error {
 		return migrateVMCPEverythingAdminGroups(ctx, c.services.StorageClient)

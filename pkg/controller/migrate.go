@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
+	"github.com/obot-platform/obot/pkg/controller/handlers/compositemigration"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -214,20 +215,20 @@ func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client
 			}
 		} else if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get migrated source %s: %w", vmcp.Spec.LegacySlug, err)
-		} else if len(vmcp.Spec.Manifest.Components) == 0 || slices.ContainsFunc(vmcp.Spec.Manifest.Components, func(c types.VMCPComponent) bool { return c.MCPCatalogID != system.DefaultCatalog }) {
-			continue
+		} else if vmcp.Annotations[compositemigration.DefaultCatalogSourceAnnotation] != "true" {
+			// Only standalone migration components inherit their parent's catalog scope.
+			if vmcp.Name != catalogmigration.VMCPName(vmcp.Namespace, vmcp.Spec.LegacySlug) ||
+				len(vmcp.Spec.Manifest.Components) != 1 ||
+				vmcp.Spec.Manifest.Components[0].ID != vmcp.Spec.LegacySlug ||
+				vmcp.Spec.Manifest.Components[0].MCPCatalogID != system.DefaultCatalog {
+				continue
+			}
 		}
 
 		profileIndex := -1
 		for j, profile := range vmcp.Spec.Manifest.Profiles {
-			matches := false
 			// Replay the allocator against preceding profiles, including its numeric collision fallbacks.
-			for _, displayName := range []string{rule.Spec.Manifest.DisplayName, "Everything", ""} {
-				candidate := *rule.DeepCopy()
-				candidate.Spec.Manifest.DisplayName = displayName
-				matches = matches || migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], candidate, vmcp.Spec.LegacySlug)
-			}
-			if !matches {
+			if !migratedRuleProfileMatches(profile, vmcp.Spec.Manifest.Profiles[:j], *rule, vmcp.Spec.LegacySlug) {
 				continue
 			}
 			// shortcut: profiles retain no rule IDs; preserve ambiguous grants until migrations persist provenance.
