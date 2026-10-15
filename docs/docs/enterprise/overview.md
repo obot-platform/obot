@@ -20,8 +20,8 @@ reinstalling.
 | Source code | Open source (MIT) | Open source (MIT) | Open source (MIT) | Open source (MIT) |
 | Cost | Free | Free | [Contact us](https://obot.ai/contact-us/) | [Free trial](https://obot.ai/obot-cloud-trial/), then paid |
 | License key | None | Community license, issued when you register | Enterprise license | Managed by Obot |
-| Users | Up to 100 | Up to 100 | Unlimited, or the number in your contract | No limit |
-| Devices (Obot Sentry) | Up to 100 | Up to 100 | Unlimited, or the number in your contract | — |
+| Users | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
+| Devices (Obot Sentry) | Up to 100 | Up to 100 | [Contact us](https://obot.ai/contact-us/) | Determined by plan |
 | [Enterprise auth providers](../configuration/auth-providers.md#available-auth-providers) | — | ✓ | ✓ | ✓ |
 | Enterprise support | — | — | ✓ | ✓ |
 
