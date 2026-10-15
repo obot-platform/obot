@@ -88,8 +88,10 @@ Each check has one of three outcomes:
 
 A check that times out, fails on the network, or gets an error from the license service that isn't about the license
 itself doesn't change the license. Obot keeps using the entitlements saved from the last successful check, and tries
-again at the next scheduled check. The license keeps working through the outage, but only until its expiration date.
-A license that expires while Obot can't reach the license service is no longer valid.
+again at the next scheduled check. There is no time limit on this fallback: the license keeps working through an
+outage of any length, until the license service answers again. That includes a license that expires during the
+outage. Obot doesn't track the expiration date itself, so it finds out the license expired at the first check that
+reaches the license service.
 
 This is the same whether the check happens at startup or while Obot is running. A failed check at startup doesn't
 prevent Obot from starting.
