@@ -142,7 +142,6 @@ These connections only happen when you configure the feature, and go to the dest
 | Image pull secrets for Amazon ECR (Kubernetes only) | AWS STS and ECR, about an hour before each token expires |
 | MCP server egress control (Kubernetes only) | The Helm repository in `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO`, at startup. Obot doesn't start if it can't fetch the chart. Set `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` to use a local chart instead. |
 | [Claude Environments](../claude-environments/overview.md) | Anthropic, your container registry, and your snapshot storage. See [Cluster requirements](../claude-environments/cluster-requirements.md). |
-| OpenTelemetry | The endpoint in `OTEL_EXPORTER_OTLP_ENDPOINT` |
 
 ## Connections from users' browsers
 
