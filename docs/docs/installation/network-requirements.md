@@ -167,7 +167,7 @@ Some connections don't go through the proxy:
 - **MCP servers** don't receive the proxy variables. Set them in each MCP server's environment if they need them.
 - **Image pulls** use your container runtime's proxy configuration, not Obot's.
 
-Proxy support for model and auth providers and for MCP servers is coming soon.
+Proxy support for model providers, auth providers, and MCP servers is coming soon.
 
 Obot resolves the destination hostname with its own DNS before sending a request through the proxy, so it needs DNS
 resolution for external hosts. If your proxy has a private IP address, Obot's protection against requests to private
