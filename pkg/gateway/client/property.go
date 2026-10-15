@@ -31,6 +31,26 @@ func (c *Client) GetProperty(ctx context.Context, key string) (types.Property, e
 
 // SetProperty creates or overwrites the property with a single upsert, so writers racing to create it don't conflict.
 // The returned property's CreatedAt is the time of this write, even when the property already existed.
+
+// PropertyVersionMatchesTx locks a property's database row and reports whether
+// its version still matches an earlier read. A nil version expects the row to
+// be absent. It intentionally avoids adding decryption and its potential KMS
+// I/O while callers coordinate changes across multiple properties.
+func (c *Client) PropertyVersionMatchesTx(tx *gorm.DB, key string, expectedVersion *time.Time) (bool, error) {
+	var property types.Property
+	err := tx.Select("key", "updated_at").
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("key = ?", key).
+		First(&property).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return expectedVersion == nil, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return expectedVersion != nil && property.UpdatedAt.Equal(*expectedVersion), nil
+}
+
 func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Property, error) {
 	now := time.Now()
 	p := types.Property{
@@ -48,6 +68,27 @@ func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Prop
 		DoUpdates: clause.AssignmentColumns([]string{"value", "encrypted", "updated_at"}),
 	}).Create(&toStore).Error
 	return p, err
+}
+
+// SetPropertyTx sets a property using an existing transaction. This lets
+// callers update multiple related properties without exposing partial state.
+func (c *Client) SetPropertyTx(ctx context.Context, tx *gorm.DB, key, value string) (types.Property, error) {
+	now := time.Now()
+	property := types.Property{
+		Key:       key,
+		Value:     value,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	toStore := property
+	if err := c.encryptProperty(ctx, &toStore); err != nil {
+		return property, err
+	}
+	err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "encrypted", "updated_at"}),
+	}).Create(&toStore).Error
+	return property, err
 }
 
 func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (types.Property, error) {
@@ -76,7 +117,13 @@ func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (ty
 }
 
 func (c *Client) DeleteProperty(ctx context.Context, key string) error {
-	return c.db.WithContext(ctx).Where("key = ?", key).Delete(&types.Property{}).Error
+	return c.DeletePropertyTx(c.db.WithContext(ctx), key)
+}
+
+// DeletePropertyTx deletes a property using an existing transaction. This lets
+// callers combine the deletion with changes to other related properties.
+func (c *Client) DeletePropertyTx(tx *gorm.DB, key string) error {
+	return tx.Where("key = ?", key).Delete(&types.Property{}).Error
 }
 
 func (c *Client) encryptProperty(ctx context.Context, property *types.Property) error {
