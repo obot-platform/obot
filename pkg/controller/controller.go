@@ -152,6 +152,11 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to migrate everything access control rule admin group: %w", err)
 	}
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, vmcpEverythingAdminGroupsMigrationName, func() error {
+		return migrateVMCPEverythingAdminGroups(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to migrate vMCP everything admin groups: %w", err)
+	}
 
 	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, catalogEntryStaticConfigurationMigrationName, func() error {
 		return migrateCatalogEntryStaticConfiguration(ctx, c.services.StorageClient, c.services.GatewayClient)

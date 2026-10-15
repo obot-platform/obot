@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
@@ -10,6 +11,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	vmcpEverythingAdminGroupsMigrationName = "migrated_vmcp_everything_admin_obot_groups"
 )
 
 func migrateDefaultModelAccessPolicyModels(ctx context.Context, client kclient.Client) error {
@@ -164,6 +169,56 @@ func migrateEverythingAccessControlRuleAdminGroup(ctx context.Context, client kc
 	if err := client.Update(ctx, &rule); err != nil {
 		return fmt.Errorf("failed to migrate everything access control rule: %w", err)
 	}
+	return nil
+}
+
+func migrateVMCPEverythingAdminGroups(ctx context.Context, client kclient.Client) error {
+	profileNames := []string{"acr1-everything", "Everything"}
+	var rule v1.AccessControlRule
+	if err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "acr1-everything",
+	}, &rule); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get everything access control rule: %w", err)
+	}
+	if rule.Spec.MCPCatalogID == system.DefaultCatalog && rule.Spec.PowerUserWorkspaceID == "" && rule.Spec.Manifest.DisplayName != "" {
+		profileNames = append(profileNames, rule.Spec.Manifest.DisplayName)
+	}
+
+	var vmcps v1.VMCPList
+	if err := client.List(ctx, &vmcps, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return err
+	}
+
+	for i := range vmcps.Items {
+		vmcp := &vmcps.Items[i]
+		if vmcp.Spec.LegacySlug == "" || vmcp.Spec.UserID != "" {
+			continue
+		}
+
+		var changed bool
+		for j := range vmcp.Spec.Manifest.Profiles {
+			profile := &vmcp.Spec.Manifest.Profiles[j]
+			// shortcut: profiles retain no rule IDs; add provenance if renamed profiles must be repaired automatically.
+			if !profile.Permissions.AllowAllComponents || !slices.Contains(profileNames, profile.Name) {
+				continue
+			}
+
+			for k := range profile.Subjects {
+				subject := &profile.Subjects[k]
+				if subject.Type == types.SubjectTypeGroup && subject.ID == types.GroupAdmin {
+					subject.Type = types.SubjectTypeObotGroup
+					changed = true
+				}
+			}
+		}
+		if changed {
+			if err := client.Update(ctx, vmcp); err != nil {
+				return fmt.Errorf("failed to migrate vMCP %s/%s: %w", vmcp.Namespace, vmcp.Name, err)
+			}
+		}
+	}
+
 	return nil
 }
 
