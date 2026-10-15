@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -74,6 +75,121 @@ func testRule(id string, resources ...types.Resource) *v1.AccessControlRule {
 			},
 		},
 	}
+}
+
+func testConnectedServer(t *testing.T, entry *v1.MCPServerCatalogEntry) *v1.MCPServer {
+	t.Helper()
+	manifest, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, "", false)
+	require.NoError(t, err)
+
+	return &v1.MCPServer{
+		Name:      "connected-" + entry.Name,
+		Namespace: entry.Namespace,
+		Spec: v1.MCPServerSpec{
+			UserID:                    "1",
+			MCPServerCatalogEntryName: entry.Name,
+			Manifest:                  manifest,
+		},
+	}
+}
+
+func TestMigrationSkipsEntriesWithoutLegacyConnections(t *testing.T) {
+	for _, resourceType := range []types.ResourceType{types.ResourceTypeSelector, types.ResourceTypeMCPServerCatalogEntry} {
+		for _, connection := range []string{"none", "vMCP component", "deleting", "agent", "composite component"} {
+			t.Run(fmt.Sprintf("%s/%s", resourceType, connection), func(t *testing.T) {
+				entry := testEntry("unused")
+				resourceID := entry.Name
+				if resourceType == types.ResourceTypeSelector {
+					resourceID = "*"
+				}
+				rule := testRule("readers", types.Resource{Type: resourceType, ID: resourceID})
+				existing := &v1.VMCP{
+					Name:      "existing",
+					Namespace: entry.Namespace,
+					Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+						DisplayName: "Existing vMCP",
+					}},
+				}
+				objects := []kclient.Object{testCatalog(), entry, rule, existing}
+				server := testConnectedServer(t, entry)
+				switch connection {
+				case "vMCP component":
+					server.Spec.VMCPID = existing.Name
+				case "deleting":
+					now := metav1.Now()
+					server.DeletionTimestamp = &now
+					server.Finalizers = []string{"test"}
+				case "agent":
+					server.Spec.NanobotAgentID = "agent"
+				case "composite component":
+					server.Spec.CompositeName = "composite"
+				}
+				if connection != "none" {
+					objects = append(objects, server)
+				}
+				client := migrationClientBuilder().WithObjects(objects...).Build()
+				handler := testHandler(t, nil, nil)
+				handler.syncCatalog = func(context.Context, kclient.ObjectKey) error {
+					t.Fatal("an entry without a legacy connection must not trigger migration catalog sync")
+					return nil
+				}
+				handler.upsert = func(context.Context, gatewaytypes.Credential) error {
+					t.Fatal("an entry without a legacy connection must not write credentials")
+					return nil
+				}
+
+				require.NoError(t, handler.MigrateAll(t.Context(), client))
+				var targets v1.VMCPList
+				require.NoError(t, client.List(t.Context(), &targets))
+				require.Len(t, targets.Items, 1)
+				require.Equal(t, existing.Spec, targets.Items[0].Spec)
+				var instances v1.VMCPInstanceList
+				require.NoError(t, client.List(t.Context(), &instances))
+				require.Empty(t, instances.Items)
+			})
+		}
+	}
+}
+
+func TestMigrationOnlyConvertsConnectedEntriesAfterCatalogSync(t *testing.T) {
+	entry := testEntry("connected")
+	unused := testEntry("unused")
+	server := testConnectedServer(t, entry)
+	rule := testRule("readers", types.Resource{Type: types.ResourceTypeSelector, ID: "*"})
+	client := migrationClientBuilder().WithObjects(testCatalog(), entry, unused, server, rule).Build()
+	handler := testHandler(t, nil, make(map[string]map[string]string))
+	syncs := 0
+	handler.syncCatalog = func(ctx context.Context, _ kclient.ObjectKey) error {
+		syncs++
+		return client.Create(ctx, testEntry("added-during-sync"))
+	}
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	require.Equal(t, 1, syncs)
+	var targets v1.VMCPList
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Len(t, targets.Items, 1)
+	require.Equal(t, entry.Name, targets.Items[0].Spec.LegacySlug)
+	var instances v1.VMCPInstanceList
+	require.NoError(t, client.List(t.Context(), &instances))
+	require.Len(t, instances.Items, 1)
+	require.Equal(t, server.Name, instances.Items[0].Spec.LegacySlug)
+	require.NoError(t, Cleanup(t.Context(), client))
+	before := targets.Items[0].DeepCopy()
+	handler.syncCatalog = func(context.Context, kclient.ObjectKey) error {
+		t.Fatal("an already migrated installation must not sync catalogs for migration")
+		return nil
+	}
+	handler.upsert = func(context.Context, gatewaytypes.Credential) error {
+		t.Fatal("an already migrated installation must not rewrite credentials")
+		return nil
+	}
+
+	require.NoError(t, handler.MigrateAll(t.Context(), client))
+	require.NoError(t, client.List(t.Context(), &targets))
+	require.Len(t, targets.Items, 1)
+	require.Equal(t, before.Spec, targets.Items[0].Spec)
+	require.Equal(t, before.ResourceVersion, targets.Items[0].ResourceVersion)
 }
 
 func TestMigrateCatalogAndSingleUser(t *testing.T) {
@@ -318,7 +434,7 @@ func TestSharedEntryClassificationIsNamespaced(t *testing.T) {
 		},
 	}
 	rule := testRule("everyone", types.Resource{Type: types.ResourceTypeSelector, ID: "*"})
-	client := migrationClientBuilder().WithObjects(entry, otherEntry, shared, rule).Build()
+	client := migrationClientBuilder().WithObjects(entry, otherEntry, shared, rule, testConnectedServer(t, entry)).Build()
 	handler := testHandler(t, nil, make(map[string]map[string]string))
 
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
@@ -470,7 +586,7 @@ func TestWildcardProfilesRespectScope(t *testing.T) {
 	workspaceRule.Spec.PowerUserWorkspaceID = "workspace"
 	otherNamespace := testRule("other-namespace", types.Resource{Type: types.ResourceTypeSelector, ID: "*"})
 	otherNamespace.Namespace = "other"
-	client := migrationClientBuilder().WithObjects(entry, rule, workspaceRule, otherNamespace).Build()
+	client := migrationClientBuilder().WithObjects(entry, rule, workspaceRule, otherNamespace, testConnectedServer(t, entry)).Build()
 	handler := testHandler(t, nil, make(map[string]map[string]string))
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
 	var targets v1.VMCPList
@@ -614,7 +730,7 @@ func TestExistingTargetOwnershipConflict(t *testing.T) {
 	entry := testEntry("catalog")
 	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
 	conflict := &v1.VMCP{Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name), Namespace: entry.Namespace}
-	client := migrationClientBuilder().WithObjects(entry, rule, conflict).Build()
+	client := migrationClientBuilder().WithObjects(entry, rule, conflict, testConnectedServer(t, entry)).Build()
 	handler := testHandler(t, nil, make(map[string]map[string]string))
 	require.ErrorContains(t, handler.MigrateAll(t.Context(), client), "different ownership")
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{}))
@@ -747,7 +863,7 @@ func TestStaticConfigurationDoesNotCauseSourceDrift(t *testing.T) {
 			entry := testEntry("static")
 			entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "VALUE", Usage: usage, Value: "original"}}
 			rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
-			client := migrationClientBuilder().WithStatusSubresource(&v1.VMCP{}).WithObjects(entry, rule).
+			client := migrationClientBuilder().WithStatusSubresource(&v1.VMCP{}).WithObjects(entry, rule, testConnectedServer(t, entry)).
 				WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
 					return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
 				}).Build()
@@ -834,7 +950,7 @@ func TestMigrationSyncsCatalogBeforeCreatingVMCPs(t *testing.T) {
 	entry := testEntry("catalog")
 	entry.Spec.Manifest.Description = "before sync"
 	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
-	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule).Build()
+	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule, testConnectedServer(t, entry)).Build()
 	handler := testHandler(t, nil, make(map[string]map[string]string))
 	var synced []kclient.ObjectKey
 	handler.syncCatalog = func(ctx context.Context, key kclient.ObjectKey) error {
@@ -867,7 +983,19 @@ func TestMigrationSyncsOnlyWhenCreatingVMCPs(t *testing.T) {
 	existing := &v1.VMCP{
 		Name:      migrationName(system.VMCPPrefix, entry.Namespace, entry.Name),
 		Namespace: entry.Namespace,
-		Spec:      v1.VMCPSpec{LegacySlug: entry.Name},
+		Spec: v1.VMCPSpec{
+			LegacySlug: entry.Name,
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{
+					ID:                      entry.Name,
+					MCPCatalogID:            entry.Spec.MCPCatalogName,
+					MCPServerCatalogEntryID: entry.Name,
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+						Manifest: *entry.Spec.Manifest.DeepCopy(),
+					},
+				}},
+			},
+		},
 	}
 	workspaceServer := &v1.MCPServer{
 		Name:      "workspace-shared",
@@ -900,7 +1028,7 @@ func TestMigrationSyncsOnlyWhenCreatingVMCPs(t *testing.T) {
 		},
 		{
 			name:        "target already exists",
-			objects:     []kclient.Object{testCatalog(), entry, rule, existing},
+			objects:     []kclient.Object{testCatalog(), entry, rule, existing, testConnectedServer(t, entry)},
 			wantTargets: 1,
 		},
 		{
@@ -933,7 +1061,7 @@ func TestMigrationSyncsOnlyWhenCreatingVMCPs(t *testing.T) {
 func TestMigrationContinuesAfterCatalogSyncFailure(t *testing.T) {
 	entry := testEntry("catalog")
 	rule := testRule("readers", types.Resource{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name})
-	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule).Build()
+	client := migrationClientBuilder().WithObjects(testCatalog(), entry, rule, testConnectedServer(t, entry)).Build()
 	handler := testHandler(t, nil, make(map[string]map[string]string))
 	var syncs int
 	handler.syncCatalog = func(context.Context, kclient.ObjectKey) error {

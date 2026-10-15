@@ -105,14 +105,14 @@ func (h *Handler) MigrateAll(ctx context.Context, client kclient.Client) error {
 
 	entryTargets := make(map[kclient.ObjectKey]v1.VMCP)
 	serverTargets := make(map[kclient.ObjectKey]v1.VMCP)
-	sharedEntries := sharedEntryKeys(servers.Items)
+	connectedEntries := connectedEntryKeys(servers.Items)
 	entriesByName := make(map[kclient.ObjectKey]*v1.MCPServerCatalogEntry)
 
 	for _, entry := range entries.Items {
 		key := kclient.ObjectKeyFromObject(&entry)
 		entriesByName[key] = &entry
 
-		if !migratesEntry(entry, sharedEntries) {
+		if !migratesEntry(entry, connectedEntries) {
 			continue
 		}
 
@@ -190,21 +190,32 @@ func (h *Handler) MigrateAll(ctx context.Context, client kclient.Client) error {
 	return nil
 }
 
-// sharedEntryKeys returns the entries that back shared legacy deployments.
-func sharedEntryKeys(servers []v1.MCPServer) map[kclient.ObjectKey]bool {
-	shared := make(map[kclient.ObjectKey]bool)
+// connectedEntryKeys returns entries with legacy personal connections, excluding shared deployment templates.
+func connectedEntryKeys(servers []v1.MCPServer) map[kclient.ObjectKey]bool {
+	connected := make(map[kclient.ObjectKey]bool)
 	for _, server := range servers {
-		if legacyStandaloneServer(server) && !legacySingleUser(server) {
-			shared[kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName}] = true
+		if legacyStandaloneServer(server) && legacySingleUser(server) && server.DeletionTimestamp.IsZero() {
+			connected[kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName}] = true
 		}
 	}
-	return shared
+
+	// The map is keyed by catalog entry, not server. A personal connection can
+	// add an entry that a different shared deployment also references. Remove
+	// those shared templates after collecting all personal connections so server
+	// ordering cannot re-add them; shared deployments migrate separately.
+	for _, server := range servers {
+		if legacyStandaloneServer(server) && !legacySingleUser(server) {
+			delete(connected, kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.MCPServerCatalogEntryName})
+		}
+	}
+
+	return connected
 }
 
 // migratesEntry reports whether an entry is migrated on its own. Shared entries
 // are templates; their configured deployments own the vMCPs.
-func migratesEntry(entry v1.MCPServerCatalogEntry, sharedEntries map[kclient.ObjectKey]bool) bool {
-	return entry.DeletionTimestamp.IsZero() && entry.Spec.Manifest.Runtime != types.RuntimeComposite && !sharedEntries[kclient.ObjectKeyFromObject(&entry)]
+func migratesEntry(entry v1.MCPServerCatalogEntry, connectedEntries map[kclient.ObjectKey]bool) bool {
+	return entry.DeletionTimestamp.IsZero() && entry.Spec.Manifest.Runtime != types.RuntimeComposite && connectedEntries[kclient.ObjectKeyFromObject(&entry)]
 }
 
 func entryProfiles(entry v1.MCPServerCatalogEntry, rules []v1.AccessControlRule) []types.VMCPProfile {
@@ -215,7 +226,7 @@ func entryProfiles(entry v1.MCPServerCatalogEntry, rules []v1.AccessControlRule)
 // MigrateAll would create. It mirrors MigrateAll's target selection; targets
 // that already exist are reused rather than created, so they need no sync.
 func catalogsForNewVMCPs(ctx context.Context, client kclient.Client, entries []v1.MCPServerCatalogEntry, servers []v1.MCPServer, rules []v1.AccessControlRule) ([]kclient.ObjectKey, error) {
-	sharedEntries := sharedEntryKeys(servers)
+	connectedEntries := connectedEntryKeys(servers)
 	entriesByName := make(map[kclient.ObjectKey]*v1.MCPServerCatalogEntry, len(entries))
 	entryTargets := make(map[kclient.ObjectKey]bool)
 	catalogs := make(map[kclient.ObjectKey]struct{})
@@ -237,7 +248,7 @@ func catalogsForNewVMCPs(ctx context.Context, client kclient.Client, entries []v
 		entry := entries[i]
 		key := kclient.ObjectKeyFromObject(&entry)
 		entriesByName[key] = &entries[i]
-		if !migratesEntry(entry, sharedEntries) || len(entryProfiles(entry, rules)) == 0 {
+		if !migratesEntry(entry, connectedEntries) || len(entryProfiles(entry, rules)) == 0 {
 			continue
 		}
 		entryTargets[key] = true
