@@ -31,6 +31,9 @@ describe('Platform loader settings view', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	function mockSettingsApis({ modelProxyEnabled = false }: { modelProxyEnabled?: boolean } = {}) {
+		vi.spyOn(AdminService, 'getRegistrySettings').mockResolvedValue({
+			anonymousAccessEnabled: false
+		});
 		vi.spyOn(UserService, 'getAppNotification').mockResolvedValue(getAppNotificationResponse);
 		vi.spyOn(AdminService, 'getModelProxySettings').mockResolvedValue({
 			enabled: modelProxyEnabled,
@@ -99,5 +102,34 @@ describe('Platform loader settings view', () => {
 
 		expect(AdminService.getModelProxyUsage).not.toHaveBeenCalled();
 		expect(result).toHaveProperty('modelProxyUsage', undefined);
+	});
+});
+
+describe('Platform registry settings loader', () => {
+	afterEach(() => vi.restoreAllMocks());
+	function mockOtherSettingsApis() {
+		vi.spyOn(UserService, 'getAppNotification').mockResolvedValue(getAppNotificationResponse);
+		vi.spyOn(AdminService, 'getModelProxySettings').mockResolvedValue({ enabled: false, url: '' });
+		vi.spyOn(AdminService, 'getModelProxyUsage').mockRejectedValue(new Error('usage unavailable'));
+		vi.spyOn(AdminService, 'listGitCredentials').mockResolvedValue([]);
+	}
+	it.each([Group.ADMIN, Group.OWNER, Group.AUDITOR])(
+		'loads saved registry settings for %s',
+		async (group) => {
+			mockOtherSettingsApis();
+			vi.spyOn(AdminService, 'getRegistrySettings').mockResolvedValue({
+				anonymousAccessEnabled: true
+			});
+			const result = await loadPlatform('settings', { groups: [group], available: false });
+			expect(result).toMatchObject({ registrySettings: { anonymousAccessEnabled: true } });
+		}
+	);
+	it('keeps failed registry settings unavailable rather than defaulting to disabled', async () => {
+		mockOtherSettingsApis();
+		vi.spyOn(AdminService, 'getRegistrySettings').mockRejectedValue(
+			new Error('settings unavailable')
+		);
+		const result = await loadPlatform('settings', { available: false });
+		expect(result).toMatchObject({ registrySettings: undefined });
 	});
 });

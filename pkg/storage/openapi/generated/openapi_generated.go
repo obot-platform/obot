@@ -288,6 +288,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerRemote":                      schema_obot_platform_obot_apiclient_types_RegistryServerRemote(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerRepository":                  schema_obot_platform_obot_apiclient_types_RegistryServerRepository(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerResponse":                    schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistrySettings":                          schema_obot_platform_obot_apiclient_types_RegistrySettings(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistrySettingsUpdate":                    schema_obot_platform_obot_apiclient_types_RegistrySettingsUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                       schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                       schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig":                       schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref),
@@ -14019,6 +14021,46 @@ func schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref common
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.RegistryMeta", "github.com/obot-platform/obot/apiclient/types.RegistryServerDetail"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistrySettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistrySettings controls anonymous discovery; authenticated discovery remains available.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"anonymousAccessEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"anonymousAccessEnabled"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistrySettingsUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"anonymousAccessEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"anonymousAccessEnabled"},
+			},
+		},
 	}
 }
 

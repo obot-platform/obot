@@ -2,6 +2,7 @@ package authz
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -36,6 +37,8 @@ var (
 	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
+		"GET /api/registry-settings",
+		"PUT /api/registry-settings",
 		"/api/claude-organizations/",
 		"/api/claude-environments",
 		"/api/claude-environments/",
@@ -184,6 +187,7 @@ var (
 		types.GroupAdmin: adminAndOwnerRules,
 		types.GroupOwner: append(slices.Clone(adminAndOwnerRules), ownerRules...),
 		types.GroupAuditor: {
+			"GET /api/registry-settings",
 			"GET /api/model-proxy",
 			"GET /api/model-proxy/usage",
 			"GET /api/admin-api-keys",
@@ -428,15 +432,20 @@ var (
 	}
 )
 
+// RegistrySettingsReader supplies shared, request-time anonymous discovery policy.
+type RegistrySettingsReader interface {
+	AnonymousRegistryAccessEnabled(context.Context) (bool, error)
+}
+
 type Authorizer struct {
-	rules          []rule
-	cache          kclient.Client
-	uncached       kclient.Client
-	gatewayClient  *client.Client
-	apiResources   map[string]*pathMatcher
-	acrHelper      *accesscontrolrule.Helper
-	skillHelper    *skillaccessrule.Helper
-	registryNoAuth bool
+	registrySettings RegistrySettingsReader
+	rules            []rule
+	cache            kclient.Client
+	uncached         kclient.Client
+	gatewayClient    *client.Client
+	apiResources     map[string]*pathMatcher
+	acrHelper        *accesscontrolrule.Helper
+	skillHelper      *skillaccessrule.Helper
 }
 
 type rule struct {
@@ -447,21 +456,21 @@ type rule struct {
 // fake is a fake handler that does fake things
 type fake struct{}
 
-func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registryNoAuth bool) *Authorizer {
+func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registrySettings RegistrySettingsReader) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
 	}
 
 	return &Authorizer{
-		rules:          defaultRules(devMode, registryNoAuth),
-		cache:          cache,
-		uncached:       uncached,
-		gatewayClient:  gatewayClient,
-		apiResources:   apiBasedResources,
-		acrHelper:      acrHelper,
-		skillHelper:    skillHelper,
-		registryNoAuth: registryNoAuth,
+		rules:            defaultRules(devMode),
+		registrySettings: registrySettings,
+		cache:            cache,
+		uncached:         uncached,
+		gatewayClient:    gatewayClient,
+		apiResources:     apiBasedResources,
+		acrHelper:        acrHelper,
+		skillHelper:      skillHelper,
 	}
 }
 
@@ -503,6 +512,19 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		return ok
 	}
 
+	// Internal principals have already been restricted above. Anonymous grants
+	// apply only to registry discovery, and never override authenticated visibility.
+	if slices.Contains(userInfo.GetGroups(), UnauthenticatedGroup) &&
+		req.Method == http.MethodGet && (req.URL.Path == "/v0.1" || strings.HasPrefix(req.URL.Path, "/v0.1/")) &&
+		a.registrySettings != nil {
+		enabled, err := a.registrySettings.AnonymousRegistryAccessEnabled(req.Context())
+		if err != nil {
+			slog.Error("Denied anonymous registry discovery because settings could not be read", "error", err)
+			return false
+		}
+		return enabled
+	}
+
 	user := newUser(userInfo)
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(user.GetGroups(), r.group) {
@@ -523,32 +545,15 @@ func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient
 	return err
 }
 
-func defaultRules(devMode bool, registryNoAuth bool) []rule {
+func defaultRules(devMode bool) []rule {
 	var (
 		f     = (*fake)(nil)
 		rules = rulesFromStatic(staticRules)
 	)
 
-	var registryRuleBasic, registryRuleMCPOAuth rule
-	if registryNoAuth {
-		registryRuleBasic = rule{
-			group: anyGroup,
-			mux:   http.NewServeMux(),
-		}
-		registryRuleMCPOAuth = rule{
-			group: anyGroup,
-			mux:   http.NewServeMux(),
-		}
-	} else {
-		registryRuleBasic = rule{
-			group: types.GroupBasic,
-			mux:   http.NewServeMux(),
-		}
-		registryRuleMCPOAuth = rule{
-			group: types.GroupMCP,
-			mux:   http.NewServeMux(),
-		}
-	}
+	registryRuleBasic := rule{group: types.GroupBasic, mux: http.NewServeMux()}
+	registryRuleMCPOAuth := rule{group: types.GroupMCP, mux: http.NewServeMux()}
+
 	registryRuleBasic.mux.Handle("GET /v0.1", f)
 	registryRuleBasic.mux.Handle("GET /v0.1/", f)
 	registryRuleMCPOAuth.mux.Handle("GET /v0.1", f)

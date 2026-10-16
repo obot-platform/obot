@@ -4,11 +4,39 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 )
+
+func TestRegistryOAuthProtectedResource(t *testing.T) {
+	h := &handler{baseURL: "https://obot.example.com"}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource/v0.1/servers", nil)
+	if err := h.registryOAuthProtectedResource(api.Context{
+		ResponseWriter: recorder,
+		Request:        request,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+	var got struct {
+		Resource               string   `json:"resource"`
+		AuthorizationServers   []string `json:"authorization_servers"`
+		BearerMethodsSupported []string `json:"bearer_methods_supported"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Resource != h.baseURL || !slices.Equal(got.AuthorizationServers, []string{h.baseURL}) ||
+		!slices.Equal(got.BearerMethodsSupported, []string{"header"}) {
+		t.Fatalf("unexpected registry OAuth metadata: %+v", got)
+	}
+}
 
 func TestOAuthAuthorizationAppendsMCPIDToOAuthEndpoints(t *testing.T) {
 	h := &handler{

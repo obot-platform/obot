@@ -102,6 +102,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		GatewayClient: services.GatewayClient,
 		Settings:      services.GatewayClient,
 	})
+	registrySettings := handlers.NewRegistrySettingsHandler(services.GatewayClient)
 	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.ProviderDispatcher, services.LicenseProvider)
 
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
@@ -114,7 +115,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper, services.ProviderDispatcher)
-	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth, services.MCPSecretBindingAllowedLabel, services.MCPSessionManager.RemoteMCPURLValidationConfig())
+	registryHandler := registry.NewHandler(services.ServerURL, services.MCPSessionManager.RemoteMCPURLValidationConfig())
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient))
@@ -519,6 +520,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
+	mux.HandleFunc("GET /api/registry-settings", registrySettings.Get)
+	mux.HandleFunc("PUT /api/registry-settings", registrySettings.Update)
 	mux.HandleFunc("GET /api/model-proxy", modelProxy.Get)
 	mux.HandleFunc("PUT /api/model-proxy", modelProxy.Update)
 	mux.HandleFunc("GET /api/model-proxy/usage", modelProxy.Usage)
@@ -693,7 +696,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	services.APIServer.HTTPHandle("GET /tunnel/composite/register/{key}", http.HandlerFunc(services.TunnelManager.ServeCompositeRegistration))
 
 	// Well-known
-	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux)
 	// Obot OAuth
 	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, services.MCPOAuthClientNativeExceptions, mux)
 
