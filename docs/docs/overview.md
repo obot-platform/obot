@@ -11,9 +11,18 @@ Obot does not require an organization to standardize on a single AI client, mode
 
 ## Getting Started
 
-[Create a vMCP](./start-here/govern.md): select an MCP server from the catalog, choose its tools, share the endpoint, and connect your AI client.
+### I need an Obot instance
 
-If someone has already shared an endpoint with you, go straight to [Connect to a vMCP](./start-here/connect.md). If you need to install Obot first, use [Docker for evaluation](./installation/docker-deployment.md) or the [deployment guide](./installation/overview.md).
+Pick the option that matches what you want to do:
+
+- **Try it hosted.** [Start an Obot Cloud trial](https://obot.ai/obot-cloud-trial/) to get a hosted instance without running any infrastructure.
+- **Run it on your desktop.** [Install locally with Docker](./installation/docker-deployment.md) to evaluate Obot on your own machine in a few minutes.
+- **Deploy it for production.** [Install on Kubernetes](./installation/kubernetes-deployment.md) with the Helm chart. See the [deployment overview](./installation/overview.md) for system requirements and cloud reference architectures.
+
+### I have an Obot instance
+
+- **Create a vMCP.** [Create a vMCP](./start-here/govern.md) by selecting an MCP server from the catalog, choosing its tools, sharing the endpoint, and connecting your AI client.
+- **Connect to a vMCP.** If someone has already shared an endpoint with you, go straight to [Connect to a vMCP](./start-here/connect.md).
 
 After your first tool call, [Explore Obot](./start-here/choose.md) to learn about model access, skills, and device management.
 
