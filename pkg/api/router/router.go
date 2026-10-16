@@ -102,6 +102,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		GatewayClient: services.GatewayClient,
 		Settings:      services.GatewayClient,
 	})
+	registrySettings := handlers.NewRegistrySettingsHandler(services.GatewayClient)
 	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.ProviderDispatcher, services.LicenseProvider)
 
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
@@ -519,6 +520,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
+	mux.HandleFunc("GET /api/registry-settings", registrySettings.Get)
+	mux.HandleFunc("PUT /api/registry-settings", registrySettings.Update)
 	mux.HandleFunc("GET /api/model-proxy", modelProxy.Get)
 	mux.HandleFunc("PUT /api/model-proxy", modelProxy.Update)
 	mux.HandleFunc("GET /api/model-proxy/usage", modelProxy.Usage)

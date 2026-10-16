@@ -11,7 +11,7 @@ import (
 )
 
 func TestEgressAuditAuthorization(t *testing.T) {
-	a := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	a := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 	for _, tc := range []struct {
 		group   string
 		allowed bool

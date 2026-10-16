@@ -10,7 +10,7 @@ import (
 )
 
 func TestAuthProviderRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 
 	mutations := []string{
 		"/api/auth-providers/google-auth-provider/configure",

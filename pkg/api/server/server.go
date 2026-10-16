@@ -52,19 +52,18 @@ var (
 )
 
 type Server struct {
-	storageClient                 storage.Client
-	gatewayClient                 *gclient.Client
-	localK8sClient                kclient.Client
-	obotNamespace                 string
-	authenticator                 *authn.Authenticator
-	authorizer                    *authz.Authorizer
-	proxyManager                  *proxy.Manager
-	auditLogger                   audit.Logger
-	rateLimiter                   *ratelimiter.RateLimiter
-	baseURL                       string
-	mcpOAuthScope                 string
-	enableAnonymousRegistryAccess bool
-	providerEntitlementGate       *license.ProviderEntitlementGate
+	storageClient           storage.Client
+	gatewayClient           *gclient.Client
+	localK8sClient          kclient.Client
+	obotNamespace           string
+	authenticator           *authn.Authenticator
+	authorizer              *authz.Authorizer
+	proxyManager            *proxy.Manager
+	auditLogger             audit.Logger
+	rateLimiter             *ratelimiter.RateLimiter
+	baseURL                 string
+	mcpOAuthScope           string
+	providerEntitlementGate *license.ProviderEntitlementGate
 	// devUI is set when the UI is served by the Vite dev server (dev mode).
 	devUI bool
 
@@ -85,26 +84,25 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, enableAnonymousRegistryAccess bool, licenseProvider *license.Provider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
 	}
 	s := &Server{
-		storageClient:                 storageClient,
-		gatewayClient:                 gatewayClient,
-		localK8sClient:                localK8sClient,
-		obotNamespace:                 obotNamespace,
-		authenticator:                 authn,
-		authorizer:                    authz,
-		proxyManager:                  proxyManager,
-		baseURL:                       baseURL + "/api",
-		mcpOAuthScope:                 scope,
-		auditLogger:                   auditLogger,
-		rateLimiter:                   rateLimiter,
-		enableAnonymousRegistryAccess: enableAnonymousRegistryAccess,
-		mux:                           http.NewServeMux(),
-		providerEntitlementGate:       license.NewProviderEntitlementGate(licenseProvider, storageClient),
+		storageClient:           storageClient,
+		gatewayClient:           gatewayClient,
+		localK8sClient:          localK8sClient,
+		obotNamespace:           obotNamespace,
+		authenticator:           authn,
+		authorizer:              authz,
+		proxyManager:            proxyManager,
+		baseURL:                 baseURL + "/api",
+		mcpOAuthScope:           scope,
+		auditLogger:             auditLogger,
+		rateLimiter:             rateLimiter,
+		mux:                     http.NewServeMux(),
+		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
 	}
 	s.otelHandler = traced(s.mux)
 	return s
@@ -341,8 +339,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					})
 				}
 
-				// Challenge registry requests when anonymous access is disabled
-				if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.enableAnonymousRegistryAccess {
+				// Challenge denied anonymous registry requests without reading settings again.
+				if !authenticated && (req.URL.Path == "/v0.1" || strings.HasPrefix(req.URL.Path, "/v0.1/")) {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
 				}
 

@@ -32,7 +32,6 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS` | The maximum number of open connections in the PostgreSQL database pool used by authentication providers. | `5` |
 | `OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the PostgreSQL database pool used by authentication providers, in seconds. | `180` |
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Enables authentication for Obot | `false` |
-| `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS` | Allows anonymous MCP Registry API discovery when enabled. Publicly exposes metadata for shared vMCPs whose profiles grant access to all Obot users. Authenticated requests still receive the user's accessible vMCPs. | `false` |
 | `OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT` | Rate limit for unauthenticated requests (requests per second). Unauthenticated requests are tracked by source IP address. | `100` |
 | `OBOT_SERVER_AUTHENTICATED_RATE_LIMIT` | Rate limit for authenticated non-admin requests (requests per second). Authenticated requests are tracked by user ID. Admin users are exempt from rate limiting. | `200` |
 | `OBOT_SERVER_ENCRYPTION_PROVIDER` | Configures an encryption provider for credentials in Obot. One of aws, gcp, azure, custom, or none | `none` |

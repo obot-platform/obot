@@ -41,6 +41,7 @@ import type {
 	MCPCatalogServerManifest,
 	ModelAccessPolicy,
 	ModelAccessPolicyManifest,
+	RegistrySettings,
 	ModelProxySettings,
 	ModelProxySettingsUpdateManifest,
 	ModelProxyUsage,
@@ -1780,6 +1781,18 @@ export async function validateModelProvider(
 		...opts,
 		dontLogErrors: true
 	});
+}
+
+// Registry discovery
+export async function getRegistrySettings(opts?: RequestOptions): Promise<RegistrySettings> {
+	return (await doGet('/registry-settings', opts)) as RegistrySettings;
+}
+
+export async function updateRegistrySettings(
+	settings: RegistrySettings,
+	opts?: RequestOptions
+): Promise<RegistrySettings> {
+	return (await doPut('/registry-settings', settings, opts)) as RegistrySettings;
 }
 
 // Model proxy

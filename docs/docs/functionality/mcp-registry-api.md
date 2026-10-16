@@ -20,17 +20,59 @@ The registry is exposed at `/v0.1/servers` and supports:
 
 `GET /v0.1/servers/{serverName}/versions` lists the single supported version, `latest`. `GET /v0.1/servers/{serverName}/versions/latest` returns its details. URL-encode the complete registry name, including its slash, when using it as `{serverName}`.
 
-## Authentication Modes
+## Discovery access
 
-**Authenticated access (Default)**: Registry discovery requires authentication (`OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=false`). Requests return vMCPs the user owns or can access through matching profiles, including Obot and identity-provider groups. Administrator management privileges alone do not grant discovery access.
+Admins and owners manage discovery under **Platform → Settings → MCP Registry API**. Auditors can view the setting but cannot change it. This setting applies to Docker and Kubernetes deployments.
 
-**Authenticated and anonymous access (Opt-In)**: Set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` to also allow anonymous discovery. Anonymous requests return only shared vMCPs whose profiles explicitly grant access to **All Obot Users** (`type: selector`, `id: "*"`). Personal vMCPs and vMCPs restricted to specific users or groups are excluded. Catalog access policies do not determine registry visibility; shared vMCP access comes from [vMCP profiles](../mcp-gateway/access.md).
+- **Authenticated access (default):** Users must authenticate to discover vMCPs they own or can access through matching profiles, including Obot and identity-provider groups. Administrator management privileges alone do not grant discovery access.
+- **Authenticated and anonymous access:** Enable **Allow anonymous registry discovery** and click **Save**. Anonymous requests discover only shared vMCPs whose profiles explicitly grant access to **All Obot Users** (`type: selector`, `id: "*"`). Personal vMCPs and vMCPs restricted to specific users or groups remain excluded.
 
-Anyone who can reach the discovery endpoints with anonymous access enabled can read the names, descriptions, icons, and connection URLs of these vMCPs. Opt in only when you intend to publish this metadata. Connecting still requires authentication and the user's current vMCP permissions. Authenticated registry requests receive their personalized view, including accessible private vMCPs, in both modes. Registry OAuth discovery metadata remains available in both modes.
+Authenticated requests receive their personalized view in both modes, including accessible private vMCPs. Registry OAuth discovery metadata remains available in both modes. Connecting to a vMCP still requires authentication and the user's current vMCP permissions. Catalog access policies do not determine registry visibility; shared vMCP access comes from [vMCP profiles](../mcp-gateway/access.md).
 
-Clients that cannot authenticate registry discovery, including VS Code, require the no-auth opt-in. Authentication and setup still happen when connecting to an installed vMCP.
+### Risks of anonymous discovery
 
-Deployments that previously relied on anonymous discovery must set `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS=true` when upgrading. This replaces the old `OBOT_SERVER_ENABLE_REGISTRY_AUTH` setting, which is no longer supported. The Helm chart also disables anonymous registry access by default.
+:::warning Public metadata exposure
+Anyone who can reach the registry endpoints can read eligible vMCPs' names, descriptions, **full README content**, icons, and connection URLs without signing in. The response description is limited to 100 characters, but the full description is included in publisher-provided README metadata.
+
+Review descriptions, READMEs, icons, and URLs for sensitive information before enabling anonymous discovery. This publishes metadata for all eligible shared vMCPs, including new vMCPs that later receive wildcard profile access. Disabling discovery cannot remove copies already collected by clients.
+:::
+
+Clients that cannot authenticate registry discovery, including VS Code, need anonymous discovery enabled. Installation and connection still use Obot's authentication and setup flow.
+
+### Saving and disabling
+
+Changes take effect for subsequent requests across all Obot replicas without a restart. Requests already authorized may complete. To stop anonymous discovery, turn off **Allow anonymous registry discovery** and click **Save**. Authenticated discovery remains available.
+
+The setting is persisted in the shared database and defaults to disabled when unset. If the setting cannot be read, anonymous discovery is denied; authenticated discovery does not depend on this setting lookup.
+
+### Settings API
+
+Admins and owners can read and update the setting through the authenticated API. Auditors have read-only access.
+
+```http
+GET /api/registry-settings
+```
+
+```json
+{ "anonymousAccessEnabled": false }
+```
+
+To enable anonymous discovery:
+
+```http
+PUT /api/registry-settings
+Content-Type: application/json
+```
+
+```json
+{ "anonymousAccessEnabled": true }
+```
+
+PUT requires an explicit boolean and returns the saved setting. Send `false` to disable anonymous discovery. Invalid input returns 400, unauthorized roles cannot update the setting, and settings storage failures return 503.
+
+### Upgrading
+
+Deployments that previously relied on anonymous discovery must enable it in **Platform → Settings → MCP Registry API** after upgrading. Neither `OBOT_SERVER_ENABLE_REGISTRY_AUTH` nor `OBOT_SERVER_ENABLE_ANONYMOUS_REGISTRY_ACCESS` controls discovery anymore, and the corresponding CLI flags and Helm chart settings have been removed. Existing environment values are not imported; anonymous discovery stays disabled until an admin or owner enables it in the app.
 
 ## Server Naming
 

@@ -238,7 +238,7 @@ func TestCheckUIUsesServeMuxRouteSelection(t *testing.T) {
 
 func TestPublicImageAuthorizationDoesNotDependOnUIFallback(t *testing.T) {
 	authorizer := &Authorizer{
-		rules: defaultRules(false, false),
+		rules: defaultRules(false),
 	}
 	userInfo := &user.DefaultInfo{
 		Name:   "anonymous",
