@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	ModelProxyModel        = "gpt-5.6-luna"
+	ModelProxyModel        = "gpt-6-luna"
 	ModelProxyMaxBodyBytes = 2 << 20
 	ModelProxyTimeout      = 10 * time.Minute
 )
